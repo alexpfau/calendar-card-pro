@@ -191,7 +191,7 @@ export default defineConfig({
       {
         text: 'Project',
         link: '/contributing',
-        activeMatch: '^/(contributing|architecture|RELEASE_NOTES)$',
+        activeMatch: '^/(contributing|architecture(-[a-z]+)?|RELEASE_NOTES)$',
       },
       { text: "What's New", link: '/guide/whats-new' },
     ],
@@ -248,7 +248,17 @@ export default defineConfig({
         collapsed: false,
         items: [
           { text: 'Contributing & Roadmap', link: '/contributing' },
-          { text: 'Architecture', link: '/architecture' },
+          {
+            text: 'Architecture',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/architecture' },
+              { text: 'Data Loading & Caching', link: '/architecture-data' },
+              { text: 'Rendering & Views', link: '/architecture-rendering' },
+              { text: 'Interaction & Event Writes', link: '/architecture-interaction' },
+              { text: 'Toolbar & Navigation', link: '/architecture-toolbar' },
+            ],
+          },
           { text: 'Release Notes', link: '/RELEASE_NOTES' },
         ],
       },

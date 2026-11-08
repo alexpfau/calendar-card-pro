@@ -21,5 +21,6 @@
   "noEvents": "Geen afspraken",
   "loading": "Kalender afspraken laden...",
   "error": "Fout: Kalender niet gevonden of verkeerd geconfigureerd",
-  "loadFailed": "Laden mislukt:"
+  "loadFailed": "Laden mislukt:",
+  "newEvent": "Nieuwe afspraak"
 }

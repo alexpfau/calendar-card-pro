@@ -1,22 +1,19 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import '../src/calendar-card-pro';
 import { FROZEN_NOW } from './fixtures';
 import type * as Types from '../src/config/types';
-import {
-  EVENT_DETAIL_DIALOG_TAG,
-  EVENT_EDITOR_DIALOG_TAG,
-} from '../src/interaction/ha-calendar-dialogs';
+import { EVENT_POPOVER_TAG } from '../src/rendering/event-popover';
 
 /**
  * Nothing the card draws for someone editing a dashboard may write to a calendar.
  *
  * Home Assistant sets `preview` on a card in the card editor's live preview and `editMode`
  * on one on a dashboard in edit mode. A press there is someone trying the configuration or
- * arranging the dashboard, and the dialogs the card opens save real events. So while either
- * is set the add button is drawn, keeping the layout the dashboard will have, but opens
- * nothing; events are not tap targets at all; and the functions that open the dialogs
- * refuse, for anything that reaches them anyway.
+ * arranging the dashboard, and the event popover the card opens saves real events. So while
+ * either is set the add button is drawn, keeping the layout the dashboard will have, but opens
+ * nothing; events are not tap targets at all; and the functions that open the popover refuse,
+ * for anything that reaches them anyway.
  *
  * Both flags default off, so every other suite runs with them clear and could not notice
  * either being ignored. Each case here is paired with the same card with the flag cleared,
@@ -61,11 +58,15 @@ async function mount(config: Record<string, unknown>, flag?: Flag) {
     callService: vi.fn(),
   } as unknown as Types.Hass;
 
-  // Everything the card could dispatch to open something or to leave the dashboard,
-  // fallbacks included.
+  // Everything the card could dispatch to open something or to leave the dashboard. A
+  // `show-dialog` is recorded only when it opens the event popover, so a pass cannot come from
+  // some other dialog standing in for it.
   const opened: string[] = [];
   for (const type of ['show-dialog', 'hass-action', 'hass-more-info', 'location-changed']) {
-    card.addEventListener(type, () => opened.push(type));
+    card.addEventListener(type, (ev) => {
+      const tag = (ev as Event & { detail?: { dialogTag?: unknown } }).detail?.dialogTag;
+      if (type !== 'show-dialog' || tag === EVENT_POPOVER_TAG) opened.push(type);
+    });
   }
 
   document.body.appendChild(card);
@@ -110,13 +111,11 @@ function leaf(root: Element): Element {
   return leaves[leaves.length - 1] ?? root;
 }
 
-/** Let the async open finish; it awaits the loader before dispatching. */
+/**
+ * Let anything the press deferred run. The popover opens synchronously, so this only matters to
+ * a refusal: it gives a late open the chance to show up rather than pass by being late.
+ */
 const settle = () => vi.advanceTimersByTimeAsync(0);
-
-beforeAll(() => {
-  customElements.define(EVENT_DETAIL_DIALOG_TAG, class extends HTMLElement {});
-  customElements.define(EVENT_EDITOR_DIALOG_TAG, class extends HTMLElement {});
-});
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -139,11 +138,10 @@ describe.each<Flag>(['preview', 'editMode'])('while %s is set', (flag) => {
     await settle();
     expect(opened).toEqual([]);
 
-    // The control: the same card, no longer being edited, opens the dialog.
+    // The control: the same card, no longer being edited, opens the popover.
     card[flag] = false;
     await card.updateComplete;
     addButton(card)!.click();
-    await settle();
     expect(opened).toEqual(['show-dialog']);
   });
 
@@ -169,31 +167,28 @@ describe.each<Flag>(['preview', 'editMode'])('while %s is set', (flag) => {
       const button = root.querySelector<HTMLElement>('.content-container [role="button"]');
       expect(button?.textContent).toContain('Dentist');
       button!.click();
-      await settle();
       expect(opened).toEqual(['show-dialog']);
     },
   );
 
-  it('refuses to open either dialog when asked directly', async () => {
+  it('refuses to open the popover, on an event or a new one, when asked directly', async () => {
     // The last guard, for anything that reaches the openers past the inert markup: a render
     // made before the flag was set, or a future caller.
     const { card, opened } = await mount({ event_tap_action: { action: 'details' } }, flag);
     const openers = card as unknown as {
       _openEventDetails(event: Types.CalendarEventData, color: string | undefined): void;
-      _openCreateEventDialog(calendarId: string): void;
+      _openCreateEventDialog(selectedDate: Date): void;
     };
     const event = card.events.find((candidate) => candidate.summary === 'Dentist')!;
 
     openers._openEventDetails(event, undefined);
-    openers._openCreateEventDialog('calendar.anna');
+    openers._openCreateEventDialog(new Date(FROZEN_NOW));
     await settle();
     expect(opened).toEqual([]);
 
     card[flag] = false;
     openers._openEventDetails(event, undefined);
-    await settle();
-    openers._openCreateEventDialog('calendar.anna');
-    await settle();
+    openers._openCreateEventDialog(new Date(FROZEN_NOW));
     expect(opened).toEqual(['show-dialog', 'show-dialog']);
   });
 

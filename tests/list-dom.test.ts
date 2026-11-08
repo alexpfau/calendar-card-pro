@@ -390,7 +390,8 @@ describe('list view DOM', () => {
     );
 
     expect(out).toContain('today-indicator-container');
-    expect(out).toContain('left:85%');
+    // From the inline start, so a right-to-left card mirrors it (rtl-mirroring.test.ts).
+    expect(out).toContain('inset-inline-start:85%');
     expect(out).toContain('top:15%');
     expect(out).toMatchSnapshot();
   });
@@ -613,7 +614,7 @@ describe('list view DOM', () => {
     const indicator = requireElement(container, '.today-indicator');
     const style = indicator.getAttribute('style')?.replace(/\s/g, '') ?? '';
 
-    expect(style).toContain('left:85%');
+    expect(style).toContain('inset-inline-start:85%');
     expect(style).toContain('top:50%');
   });
 
@@ -647,10 +648,11 @@ describe('list view DOM', () => {
 
   it('renders a description as text, never as markup', () => {
     // The sink that lets `stripHtmlTags` be safe without being a sanitizer. It decodes
-    // `&lt;img …&gt;` into a real `<img …>` string by design, so the only thing between a
-    // calendar's description and the DOM is that the description is bound as text. Binding
+    // `&lt;img …&gt;` into a real `<img …>` string by design, so what keeps a calendar's
+    // description out of the DOM is that a row binds it as text, and, where `open_links` links
+    // its addresses, that only an `http` or `https` one reaches an `href`. Binding
     // it with `unsafeHTML` turns this red — and would need a real sanitizer, not a stricter
-    // regex in `format.ts`.
+    // scan in `format.ts`.
     const event = timedEvent('2026-06-17', '14:00', '15:00', 'Escaped markup', {
       description:
         'Note &lt;img src=x onerror=alert(1)&gt; and &lt;script&gt;alert(2)&lt;/script&gt;',

@@ -231,7 +231,7 @@ describe('the refresh button', () => {
     expect(root(card).querySelector('.header-container')!.className).toBe('header-container');
   });
 
-  it('sits last in the action row, at its end after reset', async () => {
+  it('sits at the end of the action row, after reset and before search', async () => {
     const card = await mount({
       entities: [{ entity: 'calendar.anna' }],
       toolbar: { show: true, reset: true, refresh: true },
@@ -258,9 +258,10 @@ describe('the refresh button', () => {
     expect(kinds(row.querySelector('.toolbar-end')!)).toEqual([
       'toolbar-button reset-button',
       'toolbar-button refresh-button',
+      'toolbar-button search-button',
     ]);
     const buttons = row.querySelectorAll('button');
-    expect(buttons[buttons.length - 1]).toBe(refreshButton(card));
+    expect(buttons[buttons.length - 2]).toBe(refreshButton(card));
     // The start holds the filter and add, the heading row the month and the arrows.
     expect(kinds(row.querySelector('.toolbar-start')!)).toEqual([
       'toolbar-button legend-button',
@@ -350,6 +351,8 @@ describe('the refresh button', () => {
 
     expect(card.isLoading).toBe(true);
     expect(root(card).querySelector('.loading-indicator')).not.toBeNull();
+    // Nobody asked, so it shows only once the load has lasted a moment, as the button turns.
+    expect(corner(card)!.classList).toContain('unasked');
   });
 
   it('does nothing while the card is being edited', async () => {
@@ -550,6 +553,8 @@ describe('what a refresh someone asked for shows', () => {
     await settle(card);
     expect(card.isLoading).toBe(false);
     expect(corner(card)!.querySelector('.spinner')).not.toBeNull();
+    // Asked for, so it shows at once, however quickly the load ends.
+    expect(corner(card)!.classList).not.toContain('unasked');
 
     await advance(card, TURN);
     expect(corner(card)!.querySelector('.spinner')).toBeNull();

@@ -19,6 +19,7 @@ import { mdiCalendarFilter } from '@mdi/js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import { expectTapControl } from './tap-control';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
 import { buildDetailEntry, detailPermissions } from '../src/interaction/event-details';
@@ -194,6 +195,25 @@ function configFor(overrides: Partial<Types.Config> = {}): Types.Config {
  * Let the load, and the renders after it, finish. Several rounds, because a load commits on
  * one turn and the card renders the commit on the next.
  */
+/**
+ * A whole press by a mouse, down and up, as the card's gesture reads it: a tap runs the card's
+ * `tap_action` only at pointer-up, so a press that stops short of it proves nothing.
+ */
+function tapWithPointer(target: EventTarget): void {
+  for (const type of ['pointerdown', 'pointerup']) {
+    const event = new Event(type, { bubbles: true, composed: true });
+    Object.defineProperties(event, {
+      pointerId: { value: 1 },
+      button: { value: 0 },
+      isPrimary: { value: true },
+      pointerType: { value: 'mouse' },
+      clientX: { value: 0 },
+      clientY: { value: 0 },
+    });
+    target.dispatchEvent(event);
+  }
+}
+
 async function settle(card: CardUnderTest): Promise<void> {
   for (let round = 0; round < 4; round += 1) {
     await new Promise((resolve) => setImmediate(resolve));
@@ -507,6 +527,28 @@ describe('the calendar legend', () => {
     ]);
   });
 
+  it('names a calendar by the name the configuration gives it, from whichever block holds it', async () => {
+    // Anna's name is on her second block only, and Ben's carries spaces: the calendar's name
+    // is read from the whole list and trimmed. Family has no name in Home Assistant at all.
+    const card = await mount({
+      title: 'Family',
+      entities: [
+        { entity: ANNA, accent_color: '#e53935' },
+        { entity: BEN, accent_color: '#1e88e5', name: '  Ben at school  ' },
+        { entity: ANNA, accent_color: '#000000', name: 'Anna at work' },
+        { entity: FAMILY, name: 'Home' },
+      ],
+    });
+
+    expect(describeChips(card).map(({ name }) => name)).toEqual([
+      'Anna at work',
+      'Ben at school',
+      'Home',
+    ]);
+    // Still one chip per calendar, keyed by its id, however it is named.
+    expect(chips(card).map((button) => button.dataset.calendar)).toEqual([ANNA, BEN, FAMILY]);
+  });
+
   it("is a group named by Home Assistant's own words, or in English for assistive technology", async () => {
     const named = await mount();
     const lane = root(named).querySelector('.toolbar-legend')!;
@@ -588,21 +630,25 @@ describe('the calendar legend', () => {
     const fired: Event[] = [];
     card.addEventListener('hass-action', (ev) => fired.push(ev));
 
-    chip(card, BEN).dispatchEvent(new Event('pointerdown', { bubbles: true, composed: true }));
+    tapWithPointer(chip(card, BEN));
     chip(card, BEN).click();
+    tapWithPointer(root(card).querySelector('.toolbar-legend')!);
     root(card)
       .querySelector('.toolbar-legend')!
       .dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
-
     expect(fired).toEqual([]);
+
+    // The control: the same press on the days is the card's.
+    tapWithPointer(root(card).querySelector('.content-container')!);
+    expect(fired).toHaveLength(1);
   });
 
-  it('stops the card presenting itself as a button, and keeps its tab stop', async () => {
+  it('stops the card presenting itself as a button, and hands its tap to a control', async () => {
     const card = await mount({ tap_action: { action: 'more-info' } });
     const haCard = root(card).querySelector('ha-card')!;
 
     expect(haCard.getAttribute('role')).toBeNull();
-    expect(haCard.getAttribute('tabindex')).toBe('0');
+    expectTapControl(haCard);
   });
 });
 
@@ -911,13 +957,14 @@ describe('chips too wide for the heading row', () => {
   });
 
   /**
-   * The width at which the switcher names its views in words beside the fullest action row: four
-   * commands (the folded filter, add, reset and refresh), a gap within each of its two groups.
+   * The width at which the switcher names its views in words beside the fullest action row: five
+   * commands (the folded filter and add, then reset, refresh and search), a gap between each two
+   * in a group.
    */
   const ALL_LABELS =
     Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH +
-    4 * Constants.UI.TOOLBAR_COMMAND_WIDTH +
-    2 * Constants.UI.TOOLBAR_COMMAND_GAP;
+    5 * Constants.UI.TOOLBAR_COMMAND_WIDTH +
+    3 * Constants.UI.TOOLBAR_COMMAND_GAP;
 
   it.each([
     {
@@ -955,7 +1002,7 @@ describe('chips too wide for the heading row', () => {
     expect(headingRow(folded).classList.contains('chips-shown')).toBe(false);
 
     // What the comparison covers: the button leads the action row, before add; the views are
-    // words; reset and refresh end it; the month is in the form this width gives it.
+    // words; reset, refresh and search end it; the month is in the form this width gives it.
     expect(controls(menu, '.toolbar-start')).toEqual([
       'toolbar-button legend-button',
       'legend-menu',
@@ -964,6 +1011,7 @@ describe('chips too wide for the heading row', () => {
     expect(controls(menu, '.toolbar-end')).toEqual([
       'toolbar-button reset-button',
       'toolbar-button refresh-button',
+      'toolbar-button search-button',
     ]);
     expect(legendButton(menu)!.getAttribute('title')).toBe('My calendars');
     expect(
@@ -1215,6 +1263,27 @@ describe("the menu the legend's button opens", () => {
     ]);
   });
 
+  it('lists each calendar by the name the configuration gives it, else by Home Assistant’s', async () => {
+    const card = await mountMenu({
+      entities: [
+        { entity: ANNA, accent_color: '#e53935', name: 'Anna at work' },
+        { entity: BEN, accent_color: '#1e88e5' },
+        { entity: FAMILY, name: 'Home' },
+      ],
+    });
+    await open(card);
+
+    const rows = Array.from(root(card).querySelectorAll('.legend-menu-row')).map((element) => [
+      (element as HTMLElement).dataset.calendar,
+      element.textContent!.trim(),
+    ]);
+    expect(rows).toEqual([
+      [ANNA, 'Anna at work'],
+      [BEN, 'Ben'],
+      [FAMILY, 'Home'],
+    ]);
+  });
+
   it('hides a calendar from its checkbox, and stays open on the same node', async () => {
     const card = await mountMenu();
     await open(card);
@@ -1339,6 +1408,20 @@ describe("the menu the legend's button opens", () => {
     expect(root(card).activeElement).toBe(button(card));
   });
 
+  it('keeps a press on its button, or inside it, from becoming a press on the card', async () => {
+    const card = await mountMenu({ tap_action: { action: 'more-info' } });
+    const fired: Event[] = [];
+    card.addEventListener('hass-action', (ev) => fired.push(ev));
+
+    tapWithPointer(button(card));
+    tapWithPointer(dialog(card));
+    expect(fired).toEqual([]);
+
+    // The control: the same press on the days is the card's.
+    tapWithPointer(root(card).querySelector('.content-container')!);
+    expect(fired).toHaveLength(1);
+  });
+
   it('closes on a second press of its button', async () => {
     const card = await mountMenu();
     await open(card);
@@ -1348,13 +1431,97 @@ describe("the menu the legend's button opens", () => {
     expect(button(card).getAttribute('aria-expanded')).toBe('false');
   });
 
-  it('closes on a scroll of the page, and not on one inside it', async () => {
+  /** Open the menu with a click a pointer made, which counts one press. */
+  async function press(card: CardUnderTest): Promise<void> {
+    button(card).dispatchEvent(
+      new MouseEvent('click', { detail: 1, bubbles: true, composed: true }),
+    );
+    await settle(card);
+  }
+
+  it('takes focus itself when a press opens it, so no calendar is focused by a press', async () => {
+    // WebKit counts the dialog's own choice of its first calendar as keyboard focus, and rang
+    // that calendar after a click. The menu draws no ring of its own, and Tab reaches the first
+    // calendar from it.
+    const card = await mountMenu();
+    const focus = vi.spyOn(dialog(card), 'focus');
+
+    await press(card);
+
+    expect(dialog(card).open).toBe(true);
+    expect(focus).toHaveBeenCalledTimes(1);
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+    expect(root(card).activeElement).toBe(dialog(card));
+    expect(dialog(card).getAttribute('tabindex')).toBe('-1');
+  });
+
+  it('leaves focus where the dialog puts it when a key opens it', async () => {
+    // Enter and Space click a button with no presses counted, and the first calendar is where a
+    // keyboard wants to be.
+    const card = await mountMenu();
+    const focus = vi.spyOn(dialog(card), 'focus');
+
+    button(card).dispatchEvent(
+      new MouseEvent('click', { detail: 0, bubbles: true, composed: true }),
+    );
+    await settle(card);
+
+    expect(dialog(card).open).toBe(true);
+    expect(focus).not.toHaveBeenCalled();
+  });
+
+  it('leaves focus to the browser after a press opened it and a press outside closed it', async () => {
+    // The menu held focus, which WebKit carries over to the button as the keyboard's when a
+    // script focuses it, so the button was rung after nothing but presses.
+    const card = await mountMenu();
+    await press(card);
+    const focus = vi.spyOn(button(card), 'focus');
+    vi.spyOn(dialog(card), 'getBoundingClientRect').mockReturnValue({
+      left: 100,
+      top: 100,
+      right: 300,
+      bottom: 300,
+      width: 200,
+      height: 200,
+    } as DOMRect);
+
+    dialog(card).dispatchEvent(new MouseEvent('click', { clientX: 500, clientY: 150 }));
+    await settle(card);
+
+    expect(dialog(card).open).toBe(false);
+    expect(button(card).getAttribute('aria-expanded')).toBe('false');
+    expect(focus).not.toHaveBeenCalled();
+  });
+
+  it('still hands focus back to its button on Escape after a press opened it', async () => {
+    const card = await mountMenu();
+    await press(card);
+    expect(root(card).activeElement).toBe(dialog(card));
+
+    dialog(card).dispatchEvent(new Event('cancel'));
+    dialog(card).close();
+    await settle(card);
+
+    expect(dialog(card).open).toBe(false);
+    expect(root(card).activeElement).toBe(button(card));
+  });
+
+  it('closes on a scroll of the page that moves its button, and not on one inside it', async () => {
     const card = await mountMenu();
     await open(card);
 
     dialog(card).dispatchEvent(new Event('scroll', { composed: true }));
     expect(dialog(card).open).toBe(true);
 
+    // happy-dom lays nothing out, so the scroll moves the button by hand.
+    vi.spyOn(button(card), 'getBoundingClientRect').mockReturnValue({
+      top: -40,
+      left: 0,
+      right: 36,
+      bottom: -4,
+      width: 36,
+      height: 36,
+    } as DOMRect);
     window.dispatchEvent(new Event('scroll'));
     await settle(card);
     expect(dialog(card).open).toBe(false);
@@ -1417,29 +1584,44 @@ describe("the menu the legend's button opens", () => {
     ink: string;
     page: string;
     image?: string;
+    /** The card background as written, where it is no plain color; the surface otherwise. */
+    value?: string;
   }
 
   /**
-   * Compute the menu's colors from a theme, as a browser would: the dialog's background and
-   * text, and the page color on the probe the menu resolves it on, a `span` it puts inside
-   * itself for a moment. happy-dom resolves no theme variables, so those are stubbed;
-   * everything else computes as it does.
+   * Compute the menu's colors from a theme, as a browser would: the card background and the page
+   * color on the two hidden stand-ins drawn inside the menu, and the menu's text. happy-dom
+   * resolves no theme variables, so those are stubbed; everything else computes as it does, the
+   * dialog's own background included, which is not the theme's here, so a painter reading the
+   * menu's own background rather than its stand-in's reads nothing. The stand-ins are told by
+   * their class, so a probe added for each read gets the color too, and the tests that count
+   * added elements fail on the count rather than on the paint when one comes back.
    */
   function themeTheMenu(card: CardUnderTest, colors: MenuColors): void {
     const realStyle = window.getComputedStyle.bind(window);
     vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
       const style = realStyle(element, pseudo);
-      if (element.parentNode === dialog(card) && element.tagName === 'SPAN') {
+      if (element.parentNode === dialog(card) && element.matches('.legend-menu-page')) {
         return { ...style, backgroundColor: colors.page } as CSSStyleDeclaration;
       }
+      if (element.parentNode === dialog(card) && element.matches('.legend-menu-surface')) {
+        const value = colors.value ?? colors.image ?? colors.surface;
+        return {
+          ...style,
+          backgroundColor: colors.surface,
+          backgroundImage: colors.image ?? 'none',
+          getPropertyValue: (name: string) =>
+            name === '--calendar-card-surface-value' ? value : style.getPropertyValue(name),
+        } as CSSStyleDeclaration;
+      }
       if (element !== dialog(card)) return style;
-      return {
-        ...style,
-        backgroundColor: colors.surface,
-        backgroundImage: colors.image ?? 'none',
-        color: colors.ink,
-      } as CSSStyleDeclaration;
+      return { ...style, color: colors.ink } as CSSStyleDeclaration;
     });
+  }
+
+  /** The opaque color handed to the stylesheet for the menu's background color, or ''. */
+  function surfaceOf(card: CardUnderTest): string {
+    return dialog(card).style.getPropertyValue('--calendar-card-legend-menu-surface');
   }
 
   /**
@@ -1500,22 +1682,27 @@ describe("the menu the legend's button opens", () => {
 
     await open(card);
 
-    expect(dialog(card).style.backgroundColor).toBe('rgb(30, 30, 32)');
+    expect(surfaceOf(card)).toBe('rgb(30, 30, 32)');
   });
 
   it("leaves an opaque theme's menu exactly as the stylesheet paints it", async () => {
+    // Its own color goes back unchanged, rather than nothing: the stylesheet's fallback is the
+    // theme's card background, which a theme may write as a shorthand, `#1c1c1c no-repeat` say,
+    // and a shorthand is no background color, so the fallback would leave the menu transparent.
     const card = await mountMenu();
     stubCanvas();
     themeTheMenu(card, OPAQUE);
 
     await open(card);
 
-    expect(dialog(card).style.backgroundColor).toBe('');
+    expect(surfaceOf(card)).toBe('rgb(28, 28, 28)');
   });
 
   it('leaves a card background that is an opaque gradient as it is', async () => {
     // The computed background color under a gradient is transparent whether the gradient is
-    // or not, so it is the stops that say this one covers the menu.
+    // or not, so it is the stops that say this one covers the menu. Nothing is laid under it:
+    // its own color goes back unchanged, transparent, because the stylesheet's fallback cannot
+    // take a background color out of a value that also draws an image (`surfaceColor`).
     const card = await mountMenu();
     stubCanvas();
     themeTheMenu(card, {
@@ -1526,7 +1713,39 @@ describe("the menu the legend's button opens", () => {
 
     await open(card);
 
+    expect(surfaceOf(card)).toBe('rgba(0, 0, 0, 0)');
+  });
+
+  it('hands back the color of an opaque card background that also draws an image', async () => {
+    // A background value with an image and a color is no background color, so without this the
+    // fallback would drop the color and leave only the image.
+    const card = await mountMenu();
+    stubCanvas();
+    themeTheMenu(card, {
+      ...OPAQUE,
+      image: 'url("https://example.com/card.png")',
+    });
+
+    await open(card);
+
+    expect(surfaceOf(card)).toBe('rgb(28, 28, 28)');
+  });
+
+  it("never writes over the menu's own background", async () => {
+    // The color goes to the stylesheet in a custom property. Written over the background, it
+    // beat a card-mod rule coloring the menu, and taking it off to read the stylesheet's color
+    // again caught a card-mod transition halfway.
+    const card = await mountMenu();
+    stubCanvas();
+    themeTheMenu(card, SEE_THROUGH);
+    await open(card);
+    card.hass = hass();
+    await settle(card);
+
+    expect(surfaceOf(card)).toBe('rgb(30, 30, 32)');
+    expect(dialog(card).style.background).toBe('');
     expect(dialog(card).style.backgroundColor).toBe('');
+    expect(dialog(card).style.backgroundImage).toBe('');
   });
 
   it('lays the page color under a card background that is a see-through gradient', async () => {
@@ -1541,7 +1760,7 @@ describe("the menu the legend's button opens", () => {
     await open(card);
 
     // The gradient stays, painted over the page color.
-    expect(dialog(card).style.backgroundColor).toBe('rgb(17, 17, 17)');
+    expect(surfaceOf(card)).toBe('rgb(17, 17, 17)');
   });
 
   it('follows a theme changed while it is open, at the next update', async () => {
@@ -1550,20 +1769,89 @@ describe("the menu the legend's button opens", () => {
     const colors = { ...SEE_THROUGH };
     themeTheMenu(card, colors);
     await open(card);
-    expect(dialog(card).style.backgroundColor).toBe('rgb(30, 30, 32)');
+    expect(surfaceOf(card)).toBe('rgb(30, 30, 32)');
 
     Object.assign(colors, OPAQUE);
     card.hass = hass();
     await settle(card);
-    expect(dialog(card).style.backgroundColor).toBe('');
+    expect(surfaceOf(card)).toBe('rgb(28, 28, 28)');
 
     Object.assign(colors, { surface: 'rgba(128, 128, 128, 0.3)', page: 'rgb(84, 80, 76)' });
     card.hass = hass();
     await settle(card);
-    expect(dialog(card).style.backgroundColor).toBe('rgb(97, 94, 92)');
+    expect(surfaceOf(card)).toBe('rgb(97, 94, 92)');
   });
 
+  it.each([
+    ['a see-through', SEE_THROUGH, 'rgb(30, 30, 32)'],
+    ['an opaque', OPAQUE, 'rgb(28, 28, 28)'],
+  ] as const)(
+    'adds and removes no element while it paints, under %s theme',
+    async (_theme, colors, painted) => {
+      // The card's mutation observers take an element added or removed anywhere in it for a
+      // change of the grid's structure. The page color is read off a stand-in drawn inside the
+      // menu, so an update while it is open changes no element, whichever way the theme leans.
+      const card = await mountMenu({ view: 'grid' });
+      stubCanvas();
+      themeTheMenu(card, colors);
+      await open(card);
+      expect(surfaceOf(card)).toBe(painted);
+
+      const records: MutationRecord[] = [];
+      const observer = new MutationObserver((batch) => records.push(...batch));
+      observer.observe(root(card), { childList: true, subtree: true });
+      card.hass = hass();
+      await settle(card);
+      records.push(...observer.takeRecords());
+      observer.disconnect();
+
+      const elements = records.flatMap((record) =>
+        [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)].filter(
+          (node) => node instanceof Element,
+        ),
+      );
+      expect(elements).toEqual([]);
+      expect(dialog(card).open).toBe(true);
+      expect(surfaceOf(card)).toBe(painted);
+    },
+  );
+
+  it.each([
+    ['a see-through', SEE_THROUGH],
+    ['an opaque', OPAQUE],
+  ] as const)(
+    "refits none of a grid's blocks for updates while it is open, under %s theme",
+    async (_theme, colors) => {
+      // An element added or removed in the card refits every block of a grid, so a probe added
+      // for each read refitted the grid on every update the open menu was painted again for.
+      const card = await mountMenu({ view: 'grid' });
+      stubCanvas();
+      themeTheMenu(card, colors);
+      await open(card);
+      const grid = card as unknown as {
+        _gridDisclosureObserver: ResizeObserver | null;
+        _reconcileGridStructure(): void;
+      };
+      expect(grid._gridDisclosureObserver).not.toBeNull();
+      const refits = vi.spyOn(grid, '_reconcileGridStructure');
+
+      for (let update = 0; update < 5; update += 1) {
+        card.hass = hass();
+        await settle(card);
+      }
+      expect(dialog(card).open).toBe(true);
+      expect(refits).not.toHaveBeenCalled();
+
+      // The control, so a count of nothing is not a counter that cannot count: an element added
+      // in the card is a change of the grid's structure.
+      root(card).querySelector('.grid-day-body')!.append(document.createElement('div'));
+      await settle(card);
+      expect(refits).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it('paints nothing of its own where there is no canvas to read the colors', async () => {
+    // Its own color, see-through, goes back unchanged: nothing is laid under it.
     const card = await mountMenu();
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
     themeTheMenu(card, SEE_THROUGH);
@@ -1571,6 +1859,6 @@ describe("the menu the legend's button opens", () => {
     await open(card);
 
     expect(dialog(card).open).toBe(true);
-    expect(dialog(card).style.backgroundColor).toBe('');
+    expect(surfaceOf(card)).toBe('rgba(10, 10, 10, 0.4)');
   });
 });

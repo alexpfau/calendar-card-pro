@@ -112,6 +112,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   event_color: 'var(--primary-text-color)',
   empty_day_color: 'var(--primary-text-color)',
   show_time: true,
+  time_position: 'below',
   show_single_allday_time: true,
   show_multiday_allday_time: true,
   allday_badge: 'off',
@@ -169,16 +170,20 @@ export const DEFAULT_CONFIG: Types.Config = {
 
   tap_action: { action: 'none' },
   hold_action: { action: 'none' },
+  day_tap_action: { action: 'none' },
   event_tap_action: { action: 'none' },
+  event_hold_action: { action: 'none' },
+  open_links: false,
   allow_event_edit: true,
   allow_event_delete: true,
 
   // The toolbar ships hidden; shown, it draws what anyone looking at a calendar needs: every
   // control on except `reset`, which is for a screen several people share. Elsewhere a layout
   // picked on the switcher is a preference, which a lit reset button would keep presenting as
-  // something to undo. v5 is the first release with a toolbar, so these are its first defaults. A control
-  // added in a later release defaults off, so a release never adds a control to a toolbar
-  // someone already set up.
+  // something to undo. v5 is the first release with a toolbar, so these are its first defaults.
+  // `search`, the first control added after it, is on as well, by the maintainer's choice: it
+  // comes with date navigation, which it needs to open a match's day, so a toolbar that pages
+  // gains a magnifier on update, and `search: false` takes it off again.
   toolbar: {
     show: false,
     navigation: true,
@@ -186,7 +191,9 @@ export const DEFAULT_CONFIG: Types.Config = {
     view_switcher: true,
     reset: false,
     refresh: true,
+    search: true,
     legend: 'menu',
+    buttons: [],
   },
 
   refresh_interval: Constants.CACHE.DEFAULT_DATA_REFRESH_MINUTES,
@@ -348,8 +355,11 @@ export interface ResolvedToolbar {
   viewSwitcher: boolean;
   reset: boolean;
   refresh: boolean;
+  search: boolean;
   /** How the calendar filter is offered, or false for none. */
   legend: false | Types.ToolbarLegendMode;
+  /** The buttons the configuration adds, in the order written; entries it cannot draw left out. */
+  buttons: ReadonlyArray<Types.ToolbarButtonConfig>;
 }
 
 /** Every value `toolbar.legend` accepts. */
@@ -366,7 +376,8 @@ export const TOOLBAR_LEGEND_VALUES: ReadonlyArray<false | Types.ToolbarLegendMod
  * replaces the default block, or a value of the wrong kind such as `show: "yes"`. Either reads
  * as the default for that member, so a typo never draws a control the user did not ask for and
  * never removes one they did. `legend: true` is one of those: the legend is a choice of mode,
- * and `true` names none, so it reads as the default, `menu`.
+ * and `true` names none, so it reads as the default, `menu`. `buttons` is read entry by entry,
+ * and an entry that cannot be drawn as written is left out (`isToolbarButton`).
  *
  * @param config - Configuration, merged or raw
  * @returns Every member of the toolbar, resolved
@@ -376,7 +387,7 @@ export function resolveToolbar(config: Readonly<Pick<Types.Config, 'toolbar'>>):
   const block: Readonly<Types.ToolbarConfig> = Helpers.isConfigBlock(config.toolbar)
     ? config.toolbar
     : {};
-  const read = (key: Exclude<keyof Types.ToolbarConfig, 'legend'>): boolean =>
+  const read = (key: Exclude<keyof Types.ToolbarConfig, 'legend' | 'buttons'>): boolean =>
     typeof block[key] === 'boolean' ? (block[key] as boolean) : (defaults[key] as boolean);
   const legend = TOOLBAR_LEGEND_VALUES.includes(block.legend as false | Types.ToolbarLegendMode)
     ? (block.legend as false | Types.ToolbarLegendMode)
@@ -389,8 +400,47 @@ export function resolveToolbar(config: Readonly<Pick<Types.Config, 'toolbar'>>):
     viewSwitcher: read('view_switcher'),
     reset: read('reset'),
     refresh: read('refresh'),
+    search: read('search'),
     legend,
+    buttons: Array.isArray(block.buttons) ? block.buttons.filter(isToolbarButton) : [],
   };
+}
+
+/**
+ * Whether a `toolbar.buttons` entry can be drawn as written: an object naming an icon, whose
+ * name and entity, where it has them, are text and whose `tap_action` is an action object. An
+ * empty value, such as YAML's `name:` with nothing after it, counts as no value. Anything else
+ * is left out whole rather than repaired, so a button is drawn exactly as configured or not at
+ * all, never as an empty pill.
+ *
+ * @param entry - One entry as written
+ * @returns True when the entry can be drawn
+ */
+function isToolbarButton(entry: unknown): entry is Types.ToolbarButtonConfig {
+  if (!Helpers.isConfigBlock(entry)) return false;
+  const { icon, name, entity, tap_action: action } = entry;
+  const absent = (value: unknown): boolean => value === undefined || value === null;
+  return (
+    typeof icon === 'string' &&
+    icon.trim() !== '' &&
+    (absent(name) || typeof name === 'string') &&
+    (absent(entity) || typeof entity === 'string') &&
+    (absent(action) || Helpers.isConfigBlock(action))
+  );
+}
+
+/**
+ * The `toolbar.buttons` entries the card leaves out, as written: each one it cannot draw
+ * (`isToolbarButton`).
+ *
+ * @param config - Configuration, merged or raw
+ * @returns The entries left out, in the order written
+ */
+export function undrawableToolbarButtons(
+  config: Readonly<Pick<Types.Config, 'toolbar'>>,
+): unknown[] {
+  const list = Helpers.isConfigBlock(config.toolbar) ? config.toolbar.buttons : undefined;
+  return Array.isArray(list) ? list.filter((entry) => !isToolbarButton(entry)) : [];
 }
 
 /**
@@ -1207,6 +1257,7 @@ export function normalizeEntities(
     | string
     | {
         entity: string;
+        name?: unknown;
         label?: string;
         label_type?: string;
         color?: string;
@@ -1248,6 +1299,10 @@ export function normalizeEntities(
       if (item && typeof item === 'object' && item.entity) {
         return {
           entity: item.entity,
+          // Trimmed, and blank or not a string at all is no name: a name that would draw as
+          // nothing must not stand in for the one Home Assistant holds.
+          name:
+            typeof item.name === 'string' && item.name.trim() !== '' ? item.name.trim() : undefined,
           label: item.label,
           // Unknown label types fall back to the legacy value-label behavior.
           label_type: Helpers.isLabelType(item.label_type) ? item.label_type : undefined,
@@ -1475,6 +1530,42 @@ const SUGGESTION_COLUMN_LABEL = 'Columns';
 const SUGGESTION_TIME_GRID_LABEL = 'Time Grid';
 
 /**
+ * The label of the list suggestion that switches on the toolbar, event details and tap-to-add.
+ *
+ * Named for what the tile cannot show. In the picker the card is a preview, where every tap is
+ * inert, so the tile shows only the toolbar; the popover and the new event a tap opens arrive
+ * once the card is on a dashboard, and the label is the only place that can say so.
+ * Untranslated for the same reason as the column label above.
+ */
+const SUGGESTION_INTERACTIVE_LIST_LABEL = 'Interactive List';
+
+/** The time-grid counterpart of the interactive list label, which explains both. */
+const SUGGESTION_INTERACTIVE_TIME_GRID_LABEL = 'Interactive Time Grid';
+
+/**
+ * What the two interactive suggestions add to the plain recipe.
+ *
+ * The three options that put v5.1's interaction on the card: the toolbar, with paging, swipe,
+ * the layout switcher, search, the calendar menu, add and refresh at their defaults; a tap on
+ * an event opening it in the card's popover, and in grid dragging it; and a tap on a day,
+ * or a hold or drag in the grid, adding an event there. Each degrades on its own where the
+ * calendar cannot write: the add button, day taps and drawing need one that accepts new
+ * events, and the popover offers only what the integration allows.
+ *
+ * Nothing here is fetch-affecting, which is what keeps the two on the shared cache key; see
+ * {@link getEntitySuggestion}. Returned fresh, so no two suggestions share a mutable object.
+ *
+ * @returns The options to spread over the plain recipe
+ */
+function interactiveOptions(): Record<string, unknown> {
+  return {
+    toolbar: { show: true },
+    event_tap_action: { action: Constants.EVENT_DETAILS_ACTION },
+    day_tap_action: { action: Constants.ADD_EVENT_ACTION },
+  };
+}
+
+/**
  * Build the opinionated starting configuration for a set of calendar entities.
  *
  * Shared by the card picker preview (`getStubConfig`) and the entity suggestion so
@@ -1521,22 +1612,30 @@ export function getStubConfig(hass: Record<string, { state: string }>): Record<s
  * `supported_features`, and its state only reports whether an event is currently
  * running, which says nothing about whether this card suits it.
  *
- * The three configs differ only by `view`, which is not fetch-affecting, so they share one
- * event-cache key. The grid preview hides locations through grid's own default
- * (`TIME_GRID_DEFAULT_OVERRIDES`), not through a value of its own. Changing a member of
- * `FETCH_TIME_KEYS` in any of them would make each picker preview issue its own calendar
- * request.
+ * All five configs load the same events: they share the entity and `days_to_show`, and none
+ * sets a member of `FETCH_TIME_KEYS` or a view's own `days_to_show`. So they share one event-cache
+ * key, and the picker's five live previews cost one calendar request. The three plain ones
+ * differ only by `view`; the two interactive ones add the toolbar and two actions
+ * (`interactiveOptions`), and come first, because Home Assistant shows a card's suggestions in
+ * the order returned and these are the ones a new card is best started from. Mind what the
+ * toolbar does to the key: its layout switcher makes every
+ * view reachable, and the card loads the longest `days_to_show` among the views it can reach
+ * (`loadedDaysToShow`), so a per-view count in either interactive recipe would split the fetch
+ * even though its top-level count matched. The grid previews hide locations through grid's own
+ * default (`TIME_GRID_DEFAULT_OVERRIDES`), not through a value of their own.
  *
  * The column and grid previews render as themselves rather than falling back to a list,
  * because `hui-card` sets `preview` on the element it mounts and `effectiveView`
- * returns the requested view whenever that flag is set.
+ * returns the requested view whenever that flag is set. The same flag makes every tap in a
+ * preview inert, which is why the interactive tiles show their toolbar and nothing else of
+ * what they add.
  *
  * Note `grid_options` here is Home Assistant's own sections-layout sizing key and has
- * nothing to do with `view: 'grid'`; all three suggestions carry it.
+ * nothing to do with `view: 'grid'`; all five suggestions carry it.
  *
  * @param hass - Home Assistant instance, treated as possibly absent or malformed
  * @param entityId - Entity ID selected in the card picker
- * @returns A three-entry suggestion list, or `null` when nothing should be offered
+ * @returns A five-entry suggestion list, or `null` when nothing should be offered
  */
 export function getEntitySuggestion(
   hass: Types.Hass | null | undefined,
@@ -1556,6 +1655,23 @@ export function getEntitySuggestion(
   }
 
   return [
+    {
+      label: SUGGESTION_INTERACTIVE_LIST_LABEL,
+      config: {
+        ...buildDefaultCardConfig([entityId]),
+        ...interactiveOptions(),
+        grid_options: { ...SUGGESTION_GRID_OPTIONS },
+      },
+    },
+    {
+      label: SUGGESTION_INTERACTIVE_TIME_GRID_LABEL,
+      config: {
+        ...buildDefaultCardConfig([entityId]),
+        view: 'grid',
+        ...interactiveOptions(),
+        grid_options: { ...SUGGESTION_GRID_OPTIONS },
+      },
+    },
     {
       config: {
         ...buildDefaultCardConfig([entityId]),

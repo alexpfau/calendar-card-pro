@@ -287,16 +287,62 @@ export const cardStyles = css`
     transition-property: background-color, border-color, box-shadow, color;
   }
 
+  /* The narrow 8px side is the start, half of the inset the date column completes, and the
+     16px side faces the events, so a right-to-left card turns the pair around: as written above,
+     its dates sat 28px in from its right edge against 16px from a left-to-right card's left.
+     A mirrored shorthand rather than padding-inline, so the four sides still stand or fall
+     together on additional_card_spacing: a var() that resolves to nothing invalidates the whole
+     declaration, which leaves no padding on any side, and split into two declarations it would
+     have left 8px and 16px on a left-to-right card that has always had none. Column and grid
+     view set their own inline padding over either. */
+  ha-card:dir(rtl) {
+    padding: calc(var(--calendar-card-spacing-additional) + 16px) 8px
+      calc(var(--calendar-card-spacing-additional) + 16px) 16px;
+  }
+
   ha-card.card-interactive {
     cursor: pointer;
+  }
+
+  /* A card a swipe pages hands the browser only vertical panning where a swipe can start, which
+     is anywhere on it but a toolbar control: the body, the title, and the toolbar's rows around
+     their controls. So a sideways finger there reaches the card rather than starting a scroll the
+     browser would claim with a pointercancel. Declared on the card, which the header and its
+     controls take, and again on the body and everything in it, because a scroll container hands
+     its own axis back over a restriction it inherits; declared on each, the restrictions
+     intersect. The controls lose only a sideways pan nothing in the toolbar has. Pinch zoom
+     stays, double-tap zoom goes. The first declaration is the fallback for a browser that does
+     not know pinch-zoom, which drops the second whole. A crammed grid, whose days scroll
+     sideways, never gets the class. */
+  ha-card.swipe-paging,
+  ha-card.swipe-paging .content-container,
+  ha-card.swipe-paging .content-container * {
+    touch-action: pan-y;
+    touch-action: pan-y pinch-zoom;
   }
 
   ha-card:focus {
     outline: none;
   }
 
-  ha-card:focus-visible {
+  ha-card:focus-visible,
+  ha-card:has(> .card-tap-control:focus-visible) {
     outline: 2px solid var(--calendar-card-line-color-vertical);
+  }
+
+  /* The control that runs the card's tap while the card hosts controls of its own (render.ts,
+     TapControl). It covers the card, so a screen reader's highlight and the focus ring above
+     both show the card, and draws nothing itself. It takes no pointer input: a tap on the card
+     lands on whatever is under it, as it always did. */
+  .card-tap-control {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    opacity: 0;
+    pointer-events: none;
   }
 
   .header-container,
@@ -328,10 +374,15 @@ export const cardStyles = css`
 
   /* ===== HEADER STYLES ===== */
 
+  /* At the start of the line, so a right-to-left card puts its title over its dates on the
+     right, as it puts the dates themselves. The left float stays first as the fallback for a
+     browser without inline-start, which then draws the title on the left as it always did. */
   .card-header {
     float: left;
+    float: inline-start;
 
-    margin: 0 0 16px 8px;
+    margin: 0 0 16px;
+    margin-inline-start: 8px;
     padding: 0;
 
     /* Literal fallbacks are load-bearing: undefined Home Assistant font
@@ -768,6 +819,21 @@ export const cardStyles = css`
     fill: currentColor;
   }
 
+  /* A button of the configuration's own, and its row in the start group's menu, draws its icon
+     with Home Assistant's ha-icon: 20px, the size every other command's icon is drawn at, set as
+     the icon's own font size and taken up in em, so the icon follows nothing an option sizes; in
+     the text color as theirs is, whatever icon color a theme gives Home Assistant's own icons;
+     and without the gap the card gives an icon that leads text. Add's row draws the add button's
+     own plus, which keeps its own size. */
+  .custom-button-icon,
+  .custom-menu-icon {
+    --mdc-icon-size: 1em;
+    --icon-primary-color: currentColor;
+    flex: none;
+    margin: 0;
+    font-size: 20px;
+  }
+
   /* The view switcher: segments on one track, the selected one raised out of it. The track
      is the same wash as a button, so the switcher and the add button beside it are the same
      height and the same gray. */
@@ -795,10 +861,35 @@ export const cardStyles = css`
     padding: 0;
   }
 
+  /* Under a see-through card background, paintSelectedView in rendering/toolbar.ts hands the
+     background color an opaque one in its own custom property, beneath any image the selected
+     color draws. Where the selected color is no background color, an image or a shorthand such
+     as #1c1c1c no-repeat, it hands back the color the background drew, which the fallback below
+     could not take from such a value. Everywhere else the property is unset and the color is the
+     selected color again, so nothing changes. */
   .view-switcher-segment.selected {
     background: var(--calendar-card-toolbar-selected);
+    background-color: var(
+      --calendar-card-toolbar-selected-surface,
+      var(--calendar-card-toolbar-selected)
+    );
     color: var(--primary-text-color);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  }
+
+  /* The selected segment's colors and the theme's page color, as paintSelectedView in
+     rendering/toolbar.ts reads them. Never shown. The value the selected color is written in is
+     kept beside it in --calendar-card-surface-value, so the reader can tell a background
+     shorthand, which the segment's background color cannot fall back to, from a color. */
+  .view-switcher-probe {
+    display: none;
+    --calendar-card-surface-value: var(--calendar-card-toolbar-selected);
+    background: var(--calendar-card-toolbar-selected);
+  }
+
+  .view-switcher-probe.view-switcher-page {
+    background: none;
+    background-color: var(--primary-background-color);
   }
 
   /* Too narrow to draw: still there, so the bar keeps its shape, but plainly not on offer. */
@@ -1030,16 +1121,19 @@ export const cardStyles = css`
     text-overflow: ellipsis;
   }
 
-  /* The menu a folded legend opens: a list floating over the events, drawn by the browser on
-     its top layer, which is why the card's clipping does not reach it. Placed beside its
-     button by placeMenu in rendering/legend.ts, and given a height there when it is taller
-     than the room. Its font is set for itself, so nothing it sits inside can change it. Its
+  /* The menu a folded legend opens, and the one the configuration's own buttons fold into: a
+     list floating over the events, drawn by the browser on its top layer, which is why the
+     card's clipping does not reach it. Placed beside its button by placeMenu in
+     rendering/menu.ts, and given a height there when it is taller than the room. Its font is set for itself, so nothing it sits inside can change it. Its
      surface is the theme's card background rather than this card's own, which
      background_color may have made transparent. A menu has to be opaque to be read over the
      events, and a theme made for a wallpaper makes its card background see-through, so where
-     it is, paintMenuSurface in rendering/legend.ts paints the menu over the theme's page color
-     instead. Where it is opaque, this rule is all there is. */
-  .legend-menu {
+     it is, paintMenu in rendering/menu.ts hands the background color an opaque one, that
+     background laid over the theme's page color, in its own custom property, beneath any image
+     the card background draws. Everywhere else it hands the card background's own color back, so
+     nothing changes; the fallback here is only what a closed menu holds before its first paint. */
+  .legend-menu,
+  .custom-menu {
     position: fixed;
     inset: auto;
     box-sizing: border-box;
@@ -1051,6 +1145,10 @@ export const cardStyles = css`
     border: none;
     border-radius: var(--ha-card-border-radius, 12px);
     background: var(--ha-card-background, var(--card-background-color, #fff));
+    background-color: var(
+      --calendar-card-legend-menu-surface,
+      var(--ha-card-background, var(--card-background-color, #fff))
+    );
     color: var(--primary-text-color);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.24);
     font-family: inherit;
@@ -1061,23 +1159,44 @@ export const cardStyles = css`
 
   /* Nothing dims behind it: it is a menu, not a dialog asking for an answer. A press out there
      closes it. */
-  .legend-menu::backdrop {
+  .legend-menu::backdrop,
+  .custom-menu::backdrop {
     background: transparent;
   }
 
-  .legend-menu-list {
+  /* The menu's own background and the theme's page color, as paintMenu in rendering/menu.ts
+     reads them. Never shown. The value is kept beside the background in
+     --calendar-card-surface-value, as the view switcher's is, for the reader they share. */
+  .legend-menu-surface,
+  .custom-menu-surface {
+    display: none;
+    --calendar-card-surface-value: var(--ha-card-background, var(--card-background-color, #fff));
+    background: var(--ha-card-background, var(--card-background-color, #fff));
+  }
+
+  .legend-menu-page,
+  .custom-menu-page {
+    display: none;
+    background-color: var(--primary-background-color);
+  }
+
+  .legend-menu-list,
+  .custom-menu-list {
     display: flex;
     flex-direction: column;
     gap: 4px;
   }
 
+  /* Padded by inline side, so a right-to-left menu mirrors its rows: the check sits as far
+     from the right edge there as from the left one in left-to-right. */
   .legend-menu-row {
     display: flex;
     align-items: center;
     gap: 10px;
     box-sizing: border-box;
     min-height: 40px;
-    padding: 4px 12px 4px 10px;
+    padding-block: 4px;
+    padding-inline: 10px 12px;
     border-radius: 10px;
     background: color-mix(in srgb, var(--calendar-card-legend-color) 24%, transparent);
     font-weight: var(--ha-font-weight-medium, 500);
@@ -1099,9 +1218,37 @@ export const cardStyles = css`
     cursor: pointer;
   }
 
-  .legend-menu-label {
+  .legend-menu-label,
+  .custom-menu-label {
     min-width: 0;
     overflow-wrap: anywhere;
+  }
+
+  /* A row of the start group's menu: a folded control's icon and its name in words, across the
+     menu, on the menu's own surface rather than tinted as a calendar's row is, and washed under the
+     pointer and while pressed as every control is. Padded by inline side, so a right-to-left menu
+     mirrors it. */
+  .custom-menu-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 40px;
+    margin: 0;
+    padding-block: 4px;
+    padding-inline: 10px 12px;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--primary-text-color);
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: var(--ha-font-weight-medium, 500);
+    line-height: inherit;
+    text-align: start;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
   }
 
   /* Hover only where there is a real pointer: on touch a hover state sticks after the
@@ -1110,6 +1257,7 @@ export const cardStyles = css`
     .toolbar-button:hover,
     .view-switcher-segment:not(.selected):not(.unavailable):hover,
     .date-navigation-segment:hover,
+    .custom-menu-row:hover,
     .toolbar-month-button:hover {
       background: var(--calendar-card-toolbar-fill-hover);
     }
@@ -1118,6 +1266,7 @@ export const cardStyles = css`
   .toolbar-button:active,
   .view-switcher-segment:not(.selected):not(.unavailable):active,
   .date-navigation-segment:active,
+  .custom-menu-row:active,
   .toolbar-month-button:active {
     background: var(--calendar-card-toolbar-fill-pressed);
   }
@@ -1146,15 +1295,22 @@ export const cardStyles = css`
     background: var(--calendar-card-toolbar-fill-pressed);
   }
 
-  /* The toolbar answers the pointer for itself, as an event does, so the card's ripple stays
-     still while the pointer is anywhere on either row. The ripple's hover follows the pointer
-     anywhere inside ha-card, and the rows are no part of the card to tap: they keep every press
-     and click from the card, near misses on a track's rim or between controls included, and
-     the chips and the month with them. Left to it, the card washed blue behind a control
-     washing blue. The title above the month is still the card's, and still ripples. A press
-     needs no rule here, because the ripple never sees one. Where :has is not supported the
-     rule is dropped and both hover at once. */
-  ha-card:has(.card-toolbar:hover):not(:has(.toolbar-identity > .card-header:hover)) > ha-ripple {
+  /* A toolbar control answers the pointer for itself, as an event does, so the card's ripple
+     stays still while the pointer is on one: a button, the month's date picker, the switcher's
+     track, the arrows, the chips, the filter's menu or the start group's menu. Each keeps its
+     presses from the card, near misses on a track's rim or between two arrows or chips included
+     (stopCardGesture), and left to it the card washed blue behind a control washing blue. The rest of both rows is the
+     card's, the title and the space between the controls included, and ripples as the card
+     does: when the rows kept that space too, the card's hover flickered on and off in stripes
+     as the pointer crossed them. A press needs no rule here, because the ripple never sees one
+     on a control. Where :has is not supported the rule is dropped and both hover at once. */
+  ha-card:has(.toolbar-button:hover) > ha-ripple,
+  ha-card:has(.toolbar-month-button:hover) > ha-ripple,
+  ha-card:has(.view-switcher:hover) > ha-ripple,
+  ha-card:has(.date-navigation:hover) > ha-ripple,
+  ha-card:has(.toolbar-legend:hover) > ha-ripple,
+  ha-card:has(.legend-menu:hover) > ha-ripple,
+  ha-card:has(.custom-menu:hover) > ha-ripple {
     --ha-ripple-hover-opacity: 0;
   }
 
@@ -1163,7 +1319,9 @@ export const cardStyles = css`
   .date-navigation-segment:focus,
   .toolbar-month-button:focus,
   .legend-chip:focus,
-  .legend-menu:focus {
+  .legend-menu:focus,
+  .custom-menu:focus,
+  .custom-menu-row:focus {
     outline: none;
   }
 
@@ -1177,12 +1335,21 @@ export const cardStyles = css`
   }
 
   /* The row rings, not the box inside it, so the whole calendar reads as the focused one. */
-  .legend-menu-row:has(.legend-menu-check:focus-visible) {
+  .legend-menu-row:has(.legend-menu-check:focus-visible),
+  .custom-menu-row:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: -2px;
   }
 
   /* ===== WEEK NUMBER & SEPARATOR STYLES ===== */
+
+  /* The week row, the separators and the date column below hold their insets by inline side,
+     and the card's own padding turns around with them (ha-card:dir(rtl)), so a right-to-left
+     list is the mirror of a left-to-right one: dates on the right, 8px in from the card's padding, their 12px toward the events, and
+     each separator starting where the dates do. Written left and right, a right-to-left card
+     kept the left-to-right insets: its dates sat further from the card's edge than they do on
+     a left-to-right card, and its separators ran past them toward that edge instead of
+     starting level with them. */
 
   /* No height of its own. It used to declare 1.5x the week-number font size, which is what the
      pill below is tall, but the table's own font is the card's, so that height had to be
@@ -1193,7 +1360,7 @@ export const cardStyles = css`
   .week-row-table {
     width: 100%;
     table-layout: fixed;
-    padding-left: 8px;
+    padding-inline-start: 8px;
     border-spacing: 0;
     border: none !important;
   }
@@ -1208,7 +1375,7 @@ export const cardStyles = css`
     position: relative;
     text-align: center;
     vertical-align: middle;
-    padding-right: 12px; /* Match date column padding */
+    padding-inline-end: 12px; /* Match date column padding */
   }
 
   /* Sized in em because the pill carries the week-number font size itself, so em measures
@@ -1251,18 +1418,18 @@ export const cardStyles = css`
 
   .separator {
     width: 100%;
-    margin-left: 8px;
+    margin-inline-start: 8px;
   }
 
   .week-separator {
     width: 100%;
-    margin-left: 8px;
+    margin-inline-start: 8px;
     border-top-style: solid; /* Ensure line is visible */
   }
 
   .month-separator {
     width: 100%;
-    margin-left: 8px;
+    margin-inline-start: 8px;
     border-top-style: solid; /* Ensure line is visible */
   }
 
@@ -1314,8 +1481,8 @@ export const cardStyles = css`
     text-align: center;
     position: relative;
 
-    padding-left: 8px;
-    padding-right: 12px;
+    padding-inline-start: 8px;
+    padding-inline-end: 12px;
   }
 
   /* List-view today indicators are positioned inside the full date cell.
@@ -1328,6 +1495,10 @@ export const cardStyles = css`
     height: 100%;
     pointer-events: none;
     z-index: 1;
+    /* The indicator's centering, half its width back toward its inline start; see the
+       right-to-left rule with the indicator styles. Set here, not left to the inline style's
+       fallback, so a theme or card-mod setting the name further up cannot move it. */
+    --calendar-card-today-indicator-shift: -50%;
   }
 
   /* line-height 1 rather than the font-size custom property read a second time: a unitless
@@ -1428,15 +1599,15 @@ export const cardStyles = css`
      Mixed into the card's own background and text colors, both theme tokens, so the wash
      darkens on a dark theme and the digits lighten, with no question asked of the OS (see
      the all-day pill's ink for why light-dark() is not used). */
-  @supports (color: color-mix(in oklch, red, blue)) {
+  @supports (color: color-mix(in oklab, red, blue)) {
     .day.today-tile {
       background: color-mix(
-        in oklch,
+        in oklab,
         var(--calendar-card-today-indicator-color) 25%,
         var(--calendar-card-background-color, var(--card-background-color))
       );
       --calendar-card-today-indicator-ink: color-mix(
-        in oklch,
+        in oklab,
         var(--calendar-card-today-indicator-color) 45%,
         var(--primary-text-color)
       );
@@ -1448,13 +1619,14 @@ export const cardStyles = css`
      the color's own, 1.8 times for the wash and 2.2 for the digits (the pill's reasoning for
      the two numbers holds here unchanged). The digits are opaque whatever the color's alpha,
      so a half-transparent indicator color still gives a solid number. Gated as the pill's
-     relative-color tier is (#731). */
-  @supports (color: oklch(from red l c h)) and (content-visibility: auto) {
+     relative-color tier is (#731, #742). */
+  @supports (color: oklch(from red l c h)) and (content-visibility: auto) and
+    (width: round(1px, 1px)) {
     .day.today-tile {
       background: oklch(
         from
           color-mix(
-            in oklch,
+            in oklab,
             var(--calendar-card-today-indicator-color) 25%,
             var(--calendar-card-background-color, var(--card-background-color))
           )
@@ -1463,7 +1635,7 @@ export const cardStyles = css`
       --calendar-card-today-indicator-ink: oklch(
         from
           color-mix(
-            in oklch,
+            in oklab,
             var(--calendar-card-today-indicator-color) 45%,
             var(--primary-text-color)
           )
@@ -1492,6 +1664,23 @@ export const cardStyles = css`
     --mdc-icon-size: var(--calendar-card-today-indicator-size);
   }
 
+  /* The position's first value is measured from the date cell's inline start, the right edge
+     in a right-to-left card, so the indicator mirrors with the dates it marks (leaves.ts,
+     parseIndicatorPosition). It is centered on that point by a translation, and a translation
+     has no inline side: pulling it back by half its width is toward the start only in
+     left-to-right, so a right-to-left card pushes it the other way. A custom property rather
+     than a transform of its own, because the transform is the element's inline style, and a
+     rule here could only beat it with !important, which would also beat the pulse animation
+     and stop it. The pulse's own keyframes replace the transform while they run, so the list's
+     pulse runs keyframes that repeat this translation before their scale (below). ha-icon's
+     4px inline-end gap needs no
+     reset here: placed from its inline start, the indicator has that margin on its far side in
+     either direction, where it moves nothing. Placed by a left offset, it was the left margin
+     in right-to-left and moved the indicator 4px. */
+  .today-indicator-container:not(.inline):dir(rtl) {
+    --calendar-card-today-indicator-shift: 50%;
+  }
+
   img.today-indicator.image {
     width: var(--calendar-card-today-indicator-size);
     height: auto;
@@ -1506,6 +1695,29 @@ export const cardStyles = css`
 
   ha-icon.today-indicator.pulse {
     animation: pulse-animation 2s infinite ease-in-out;
+  }
+
+  /* The list's pulse is placed by its inline style, whose transform centers it on the
+     position (parseIndicatorPosition in leaves.ts), and keyframes that set a transform replace
+     that one while they run. With only a scale in them, the pulse sat half its size down and
+     toward the inline end of where the dot and the glow sit, in either direction, since it was
+     first drawn. These repeat the centering before the scale, reading the same custom property,
+     so the pulse scales about the point the other indicators are centered on and still mirrors
+     in right-to-left. The translation comes first: after the scale, the scale would apply to it
+     too, and the pulse would drift by a twentieth of its size as it breathes. Column view's
+     pulse flows in its header with no transform to keep, and runs the plain keyframes. */
+  .today-indicator-container:not(.inline) ha-icon.today-indicator.pulse {
+    animation-name: pulse-animation-placed;
+  }
+
+  /* Under reduced motion the pulse holds still, at full size and opacity, where the dot sits.
+     The list's placed selector is named again so its animation-name cannot outrank the reset
+     and run a zero-length animation, which still fires its events. */
+  @media (prefers-reduced-motion: reduce) {
+    ha-icon.today-indicator.pulse,
+    .today-indicator-container:not(.inline) ha-icon.today-indicator.pulse {
+      animation: none;
+    }
   }
 
   ha-icon.today-indicator.glow {
@@ -1530,6 +1742,21 @@ export const cardStyles = css`
     }
   }
 
+  @keyframes pulse-animation-placed {
+    0% {
+      transform: translate(var(--calendar-card-today-indicator-shift, -50%), -50%) scale(0.95);
+      opacity: 0.7;
+    }
+    50% {
+      transform: translate(var(--calendar-card-today-indicator-shift, -50%), -50%) scale(1.1);
+      opacity: 1;
+    }
+    100% {
+      transform: translate(var(--calendar-card-today-indicator-shift, -50%), -50%) scale(0.95);
+      opacity: 0.7;
+    }
+  }
+
   .date-column .weather,
   .column-date-content .weather {
     font-size: var(--calendar-card-weather-date-font-size, 12px);
@@ -1543,7 +1770,7 @@ export const cardStyles = css`
   }
 
   .weather ha-icon {
-    margin-right: 1px;
+    margin-inline-end: 1px;
   }
 
   .date-column .weather ha-icon,
@@ -1565,15 +1792,34 @@ export const cardStyles = css`
     opacity: 0.8;
   }
 
+  /* The UV index's gap faces what precedes it. Wherever the badge's parts are flex items, as in
+     the list's date badge, a right-to-left card mirrors them, and where the index is the first
+     text after the icon, the icon is at its start in either direction: in both, that is its
+     inline start. As a left margin the list's index ran into the temperature in right-to-left,
+     and one with no temperature before it kept only the icon's own gap. */
   .weather .weather-uv-index {
     line-height: 1;
     vertical-align: middle;
     font-weight: 500;
+    margin-inline-start: 2px;
+  }
+
+  /* Left, not inline-start, where the index follows the temperature inline: here in the day
+     header of column and grid view, and in the list's title-row badge below. The two are digits
+     and Latin letters, which a right-to-left line lays out left to right like any other such
+     run, so the temperature is on the index's left on either line, and so is the gap. */
+  .column-date-content .weather .weather-temp-high + .weather-uv-index {
+    margin-inline-start: 0;
     margin-left: 2px;
   }
 
   .event-weather .weather-uv-index {
     font-weight: 500;
+    margin-inline-start: 2px;
+  }
+
+  .summary-row .event-weather-text > span + .weather-uv-index {
+    margin-inline-start: 0;
     margin-left: 2px;
   }
 
@@ -1618,7 +1864,7 @@ export const cardStyles = css`
    * including why the progress bar is NOT painted from here.
    *
    * The weights are --badge-ink's, deliberately, and the tiers are the same three: an sRGB
-   * floor, an OKLCH mix that keeps the hue, and a relative-color tier that puts the chroma
+   * floor, an Oklab mix that keeps the hue, and a relative-color tier that puts the chroma
    * back. An event's title and the badge sitting inside it are two inks derived from one
    * accent; deriving them by two different rules is a difference a user can see and cannot
    * explain. */
@@ -1630,22 +1876,23 @@ export const cardStyles = css`
     );
   }
 
-  @supports (color: color-mix(in oklch, red, blue)) {
+  @supports (color: color-mix(in oklab, red, blue)) {
     .event {
       --calendar-card-accent-ink: color-mix(
-        in oklch,
+        in oklab,
         var(--calendar-card-accent-ink-source) 45%,
         var(--primary-text-color)
       );
     }
   }
 
-  /* Gated as the all-day badge's relative-color tier is (#731). */
-  @supports (color: oklch(from red l c h)) and (content-visibility: auto) {
+  /* Gated as the all-day badge's relative-color tier is (#731, #742). */
+  @supports (color: oklch(from red l c h)) and (content-visibility: auto) and
+    (width: round(1px, 1px)) {
     .event {
       --calendar-card-accent-ink: oklch(
         from
-          color-mix(in oklch, var(--calendar-card-accent-ink-source) 45%, var(--primary-text-color))
+          color-mix(in oklab, var(--calendar-card-accent-ink-source) 45%, var(--primary-text-color))
           l calc(c * 2.2) h
       );
     }
@@ -1674,23 +1921,24 @@ export const cardStyles = css`
     );
   }
 
-  @supports (color: color-mix(in oklch, red, blue)) {
+  @supports (color: color-mix(in oklab, red, blue)) {
     .event-now {
       --calendar-card-now-ink: color-mix(
-        in oklch,
+        in oklab,
         var(--calendar-card-now-color, #34d399) 45%,
         var(--primary-text-color)
       );
     }
   }
 
-  /* Gated as the all-day badge's relative-color tier is (#731). */
-  @supports (color: oklch(from red l c h)) and (content-visibility: auto) {
+  /* Gated as the all-day badge's relative-color tier is (#731, #742). */
+  @supports (color: oklch(from red l c h)) and (content-visibility: auto) and
+    (width: round(1px, 1px)) {
     .event-now {
       --calendar-card-now-ink: oklch(
         from
           color-mix(
-            in oklch,
+            in oklab,
             var(--calendar-card-now-color, #34d399) 45%,
             var(--primary-text-color)
           )
@@ -1987,6 +2235,22 @@ export const cardStyles = css`
     margin-inline-end: 12px;
   }
 
+  /* A title cut by title_max_lines that runs against the dashboard lays its line out in its
+     own direction (renderEventTitle in leaves.ts), so the cut ends at its own end. Its box then
+     hugs the dashboard's side as wide as its text, instead of growing to the row's far edge,
+     where a short title would sit apart from the time beneath it. Its gap to the weather badge
+     is at its inline start, which is the badge's side in its own direction. */
+  .summary-row:dir(rtl) > .summary[dir='ltr'],
+  .summary-row:dir(ltr) > .summary[dir='rtl'] {
+    flex: 0 1 auto;
+  }
+
+  .summary-row:dir(rtl) > .summary[dir='ltr']:not(:only-child),
+  .summary-row:dir(ltr) > .summary[dir='rtl']:not(:only-child) {
+    margin-inline-end: 0;
+    margin-inline-start: 12px;
+  }
+
   /* No font-size: the title inherits event_font_size from .summary, which every view draws
      it inside, and font-size-nesting.test.ts fails if one does not. Declaring it here as
      well applied a relative size twice, so 1.5em drew the title at 2.25x while the labels
@@ -2212,9 +2476,35 @@ export const cardStyles = css`
     animation-play-state: paused;
   }
 
+  /* Every label kind keeps its 4px gap to the title at its inline end, which the glyph labels'
+     hanging indent above counts on in either direction. */
   .calendar-label {
     display: inline;
-    margin-right: 4px;
+    margin-inline-end: 4px;
+  }
+
+  /* A label leads its title whatever script either is written in, in either direction.
+     Without isolation, a label and a title written against the card's direction join in one
+     run, which the line draws the other way round: in a right-to-left card an English label
+     before an English title came after it, and in a left-to-right card a Hebrew label before a
+     Hebrew title did, the label's gap, at its inline end, then facing away from it. The
+     zero-width space after the label (below) lost the gap on its own whenever the title ran
+     the other way, an English label before a Hebrew title included: the space took the
+     title's direction and carried the margin to the title's far end. Isolated, the label is
+     one unit at the start of the line, where icons, pictures and emoji already sit, with its
+     space and its gap inside it. plaintext rather than isolate, so the label's own text takes
+     the direction of its first letter: isolated in a right-to-left base, "Work:" drew as
+     ":Work" and "1 Team" as "Team 1", and a Hebrew "Anna:" would carry its colon on the wrong
+     side in a left-to-right one. A label whose text runs with the card is laid out exactly as
+     it was without isolation, which was measured byte for byte on left-to-right cards in all
+     three engines. Grid view's text labels take it too. They were isolated there in both
+     directions, so in a left-to-right grid a Hebrew label ending in a colon drew the colon at
+     the word's start, and Firefox split such a label in two boxes, which grid's title fit
+     cannot lead a title with. A Latin label in a left-to-right grid is laid out exactly as it
+     was, measured byte for byte in all three engines. Grid's icon and picture labels keep
+     their isolation (below). */
+  .calendar-label {
+    unicode-bidi: plaintext;
   }
 
   /* A place to break after a text or emoji label. The title follows a label with nothing
@@ -2239,26 +2529,26 @@ export const cardStyles = css`
   .label-icon {
     --mdc-icon-size: 1em;
     vertical-align: middle;
-    margin-right: 4px;
+    margin-inline-end: 4px;
   }
 
   .label-image {
     height: 1em;
     width: auto;
     vertical-align: middle;
-    margin-right: 4px;
+    margin-inline-end: 4px;
   }
 
   .event-weather {
     display: flex;
     align-items: center;
     font-weight: 500;
-    margin-left: 8px;
-    margin-right: 12px;
+    margin-inline-start: 8px;
+    margin-inline-end: 12px;
   }
 
   .event-weather ha-icon {
-    margin-right: 2px;
+    margin-inline-end: 2px;
     --mdc-icon-size: var(--calendar-card-weather-event-icon-size, 14px);
     color: var(--calendar-card-weather-event-color, var(--secondary-text-color));
   }
@@ -2409,7 +2699,23 @@ export const cardStyles = css`
 
   /* The countdown itself is never the clamp target; time_max_lines limits the
    * time text only. Reset the trailing-placement margins and clamp-related
-   * properties so this inline phrase can wrap normally. */
+   * properties so this inline phrase can wrap normally.
+   *
+   * Isolated, with its separator below, so the dot keeps its 4px either side
+   * whatever direction the countdown and the time run in. Left in the line, a
+   * countdown running against the card joined the time's run: in a right-to-left
+   * card an English countdown after an English 12-hour time carried its start
+   * margin to its far end, and Firefox let it ride an empty box into the time
+   * text. The separator's zero-width space took the direction of the countdown
+   * after it and split the dot from its end margin, as it did for the weather
+   * separators, which a Hebrew countdown on a left-to-right card hit too in
+   * Chromium and WebKit. Isolating the separator alone was not enough, and in
+   * Firefox drew the dot over the countdown's first letter. Isolated, a
+   * countdown that runs with the card is laid out exactly as it was, measured
+   * byte for byte in all three engines; in a right-to-left card an English
+   * countdown now follows its time at the line's end rather than sitting inside
+   * it. Isolation adds no break opportunity, so the word joiner still keeps the
+   * dot off the start of a line. */
   .time .time-actual .time-text > .time-countdown {
     display: inline;
     -webkit-line-clamp: none;
@@ -2417,21 +2723,28 @@ export const cardStyles = css`
     margin-inline-start: 4px;
     margin-inline-end: 0;
     white-space: normal;
+    unicode-bidi: isolate;
   }
 
   /* Text-placement countdown separator. The generated middot avoids adding
    * punctuation to translated strings. WORD JOINER keeps the dot attached to
    * the preceding time text for CJK as well as Latin text, and ZERO WIDTH
    * SPACE gives the line a safe break after the dot. The trailing placement
-   * keeps a plain middot because its separator starts a separate flex item. */
+   * keeps a plain middot because its separator starts a separate flex item.
+   * Isolated, with the countdown above. */
   .time .time-actual .time-text > .time-countdown::before {
     content: '\\2060·\\200B';
     margin-inline-end: 4px;
+    unicode-bidi: isolate;
   }
 
   /* That 4px lead-in exists to separate the countdown from the time text before it. After a
-     badge there is no time text — the label became the badge — and the badge brings its own
-     margin, so keeping this one stacked the two into a visibly lopsided run-up to the dot.
+     single-day event's badge there is no time text — the label became the badge — and the
+     badge brings its own margin, so keeping this one stacked the two into a visibly lopsided
+     run-up to the dot. A multi-day event's time text is its end ("until Friday, Nov 6"), a span
+     of its own ahead of the countdown, and keeps the lead-in: without :first-child its dot sat
+     flush against the end. Where a countdown follows the pill alone, column view and the time
+     beside the title, it is display: contents and takes no margin, so this rule is a guard.
      No margin figures here on purpose: the same commit that first wrote them also changed
      the badge's own margin from 4px to 5px, so they were stale the moment they were
      committed. The badge's rule carries the live number and the reasoning for it; one copy
@@ -2439,12 +2752,12 @@ export const cardStyles = css`
      did when it was losing, which is a fact about a fixed bug rather than a live spacing
      that can drift out from under this comment.
      Adjacent-sibling rather than :has(), because the badge really is the element before.
-     The two-class prefix on the front of this selector is load-bearing: without it the
-     selector carries three classes against the four of the rule it has to beat, loses on
-     specificity and silently changes nothing. Measured at 8.62px before the dot against
-     5.62px after it while that was the case — a fix that typechecked, built, deployed and
-     did nothing. */
-  .time .time-actual .allday-badge + .time-text > .time-countdown {
+     The two-class prefix on the front of this selector keeps it ahead on specificity: without
+     it the selector carried three classes against the four of the rule it has to beat, lost
+     and silently changed nothing. With :first-child it would now tie, and win only on source
+     order. Measured at 8.62px before the dot against 5.62px after it while it lost — a fix
+     that typechecked, built, deployed and did nothing. */
+  .time .time-actual .allday-badge + .time-text > .time-countdown:first-child {
     margin-inline-start: 0;
   }
 
@@ -2454,13 +2767,30 @@ export const cardStyles = css`
    * No font-size: every placement draws the countdown inside .time, which carries
    * time_font_size, and font-size-nesting.test.ts fails if one does not. Declaring it here
    * as well applied a relative size twice, so 1.5em drew the countdown at 2.25x beside a
-   * time at 1.5x. */
+   * time at 1.5x.
+   *
+   * Never hyphenated, in any placement; grid's folded countdown already was not. Column
+   * view split "tomorrow" as "to-" / "morrow" in all three engines rather than move it whole
+   * to the next line. A word too wide for any line breaks without a hyphen instead, through
+   * .column-events .time-countdown, and in list view through the rule below. */
   .time-countdown {
     text-align: right;
     color: var(--calendar-card-color-time);
     margin-inline-start: auto;
     margin-inline-end: 12px;
     white-space: nowrap;
+    hyphens: manual;
+  }
+
+  /* List view's countdown stays one line while it fits the row, end gutter included, and
+     wraps only past that, where the card's edge cut it: "kahden päivän päästä" lost 22px at
+     200px. Not let shrink, so every countdown that fitted stays where it was. */
+  td.event .time-location > .time > .time-countdown {
+    flex-shrink: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: break-word;
+    text-align: end;
   }
 
   .location {
@@ -2471,6 +2801,167 @@ export const cardStyles = css`
   .description {
     font-size: var(--calendar-card-font-size-description);
     color: var(--calendar-card-color-description);
+  }
+
+  /* ===== TIME BESIDE THE TITLE =====
+
+     time_position: title puts the time at the end of the title's line, where it stays at any
+     width. .summary-row holds the title and .title-aside, which holds list view's weather badge,
+     if there is one, and the time, and .event-content is marked time-beside-title. Only a row
+     with a time or a countdown to show takes either, so an empty day keeps every rule above and
+     nothing here reaches it. Off, the option leaves the markup as it was and none of these
+     selectors match.
+
+     The time comes without its clock and with nothing trailing it: the leaf folds a countdown
+     into the time text and draws the progress bar as a row of its own, in list view as in
+     column view. A title that shares its line always scrolls: the leaf gives it the
+     scroll_long_titles markup whatever that option says, so the rules for that mode keep it to
+     one line with its labels beside it, the card moves it only where it overflows, and under
+     reduced motion it ends in an ellipsis instead. The rules here only share the line between
+     the two. tests/stylesheet.test.ts pins every declaration in them; what they draw was
+     measured in browsers. Logical properties throughout, so a right-to-left card puts the time
+     at the left with nothing of its own. */
+
+  /* The time's text on the title's baseline. Centered, a line of the title beside a line at the
+     time's smaller size sets the two a pixel or two apart; on one baseline they read as one
+     line, and a time that wraps hangs below it. */
+  .time-beside-title > .summary-row {
+    align-items: baseline;
+  }
+
+  /* The title gives its summary the baseline the time lines up with. A scrolling summary is a
+     flex row of its labels and its title, and a flex container with no item in baseline
+     alignment takes its baseline from its first item: an icon or picture label's bottom edge,
+     which set the time 2 to 3.5px off the title's text, or the first line of a text label that
+     wraps, which set the time level with that line and above a title centered on the label. The
+     title opts in, so the time is on the title's line beside every label. Beside a wrapping
+     text label that moves the title from the label's middle to its first line. */
+  .time-beside-title > .summary-row > .summary-scroll > .event-title {
+    align-self: baseline;
+  }
+
+  /* The time and its badge take what they need, normally up to the cap, at the end of the line,
+     and the title has the rest: .summary grows from nothing and scrolls where that is too little.
+     The cap is 60% of the line less the title's 12px gutter, so the title's own box keeps 40% of
+     it, and past the cap the time wraps inside this box. The floor is what the box cannot wrap
+     any narrower: the badge, the bullet and the time's longest word. A floor wins over a cap, so
+     the box grows past 60% rather than break a word, and the title keeps less: beside a weather
+     badge on a 240px list card it kept a few pixels. The box's content never overflows the box;
+     the row would overflow the event only where the floor is wider than the whole line, which
+     none of the widths measured reached (list cards from 240px, columns from 145px). The option's
+     docs say plainly that it needs a wide row. */
+  .time-beside-title > .summary-row > .title-aside {
+    display: flex;
+    align-items: baseline;
+    flex: none;
+    max-width: calc(60% - 12px);
+    min-width: min-content;
+  }
+
+  /* List view's badge at the weather font size, as it is beside the title. The rule that sizes
+     it there matches a badge in .summary-row only, and this one keeps its specificity, so a
+     theme rule written against .event-weather .event-weather-text wins over both; the box is
+     drawn only in this mode, so it needs no further scope. The text takes the box's baseline
+     as well, so the temperature lines up with the time: a flex row of an icon and its text
+     would otherwise take its baseline from the icon's bottom edge. The icon stays centered on
+     the badge's line. */
+  :where(.title-aside) > .event-weather > .event-weather-text {
+    font-size: var(--calendar-card-weather-event-font-size, 12px);
+    align-self: baseline;
+  }
+
+  /* The badge leads the box and the time follows it after a bullet, so the badge gives up the
+     12px that kept it off the end of the row: the bullet's own spacing replaces it. */
+  .time-beside-title > .summary-row > .title-aside > .event-weather {
+    margin-inline-end: 0;
+  }
+
+  /* The bullet between the badge and the time: the folded countdown's middot, at the time's size
+     and in its color, with the same 4px either side. A flex item of the time, so it cannot be
+     parted from it, on its first baseline. A plain middot, as column view's trailing countdown
+     has, because a flex item needs no joiner to keep it on its line. */
+  .time-beside-title > .summary-row > .title-aside > .event-weather + .time::before {
+    content: '·';
+    margin-inline: 4px;
+  }
+
+  /* The time as one item of the box: as wide as its text, and on the title's baseline through
+     its first line. Under the title it is a row as wide as the event that spaces off and wraps a
+     trailing countdown or bar, 2px below the title, and in column view indented for its clock;
+     none of that has anything to do here. It keeps its 12px end margin, so it ends where the
+     rows below it do. A time that wraps sets every line against the end, as the time sits on
+     the title's line, and so does an all-day pill wrapped above it. */
+  .time-beside-title > .summary-row > .title-aside > .time {
+    width: auto;
+    margin-top: 0;
+    padding-inline-start: 0;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    align-items: baseline;
+    column-gap: 0;
+    text-align: end;
+  }
+
+  /* Column view's matching negative margin for the clock's indent goes with it. Nothing inside
+     the box is let shrink below its own longest word: the box's floor already keeps it that
+     wide, and a row let shrink further split the joiner from the countdown's dot. */
+  .time-beside-title > .summary-row > .title-aside > .time > .time-actual {
+    margin-inline-start: 0;
+    justify-content: flex-end;
+  }
+
+  /* A running event's "Now" stays one word. It may break anywhere below the title, where only a
+     column narrower than the word itself can make it, but here a word that may break anywhere
+     sets no floor: the box shrank to its first letter and stacked "Now" a letter to a line. */
+  .time-beside-title > .summary-row > .title-aside > .time .now-indicator {
+    overflow-wrap: normal;
+  }
+
+  /* With times off, the countdown alone takes the time's place. It wraps like the time, against
+     the end, and brings neither the end margin the time already has nor column view's
+     leading dot: beside the title nothing comes before it but the badge's bullet. */
+  .time-beside-title > .summary-row > .title-aside > .time > .time-countdown {
+    margin-inline: 0;
+    text-align: end;
+    white-space: normal;
+  }
+
+  .time-beside-title > .summary-row > .title-aside > .time > .time-countdown::before {
+    content: none;
+  }
+
+  /* A web address in an event row's location or description, drawn as a link while open_links
+     is on. It keeps the row's own color and size, so a location in the calendar's accent stays
+     in it, and is set apart by its underline alone. Its focus ring sits close around the words:
+     the row's text is a clamped box that hides what overflows it, and a ring further out
+     would be cut off at its edges. */
+  .event-link {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-thickness: from-font;
+    text-underline-offset: 0.15em;
+  }
+
+  .event-link:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 0;
+    border-radius: 2px;
+  }
+
+  /* A link past location_max_lines or description_max_lines is still a stop for the keyboard,
+     so the field drops its clamp while one of its links has the keyboard's focus, rather than
+     moving focus somewhere nothing shows. */
+  .location span:has(> .event-link:focus-visible),
+  .description span:has(> .event-link:focus-visible) {
+    -webkit-line-clamp: none;
+  }
+
+  /* A press on a link is the link's, so the card's ripple stays still over it, as it does over
+     an event that is a button of its own; the gesture recognizer marks the press itself with
+     data-own-press, as it marks a press on an event or a day. */
+  ha-card:has(.event-link:hover, .event-link:active, .event-link:focus-visible) > ha-ripple {
+    --ha-ripple-hover-opacity: 0;
+    --ha-ripple-pressed-opacity: 0;
   }
 
   /* The all-day badge, drawn instead of the plain "all day" words when allday_badge is on.
@@ -2523,7 +3014,7 @@ export const cardStyles = css`
    * risk.
    *
    * --badge-ink and --badge-wash are declared once and consumed by every mode, so the modes
-   * differ only in how hard they use them -- and so the OKLCH block at the end can improve all
+   * differ only in how hard they use them -- and so the Oklab block at the end can improve all
    * four by redefining two values. */
   .allday-badge,
   .allday-title-pill {
@@ -2829,7 +3320,7 @@ export const cardStyles = css`
 
      In sRGB this is a heuristic rather than a guarantee: it assumes a light theme's accents
      are mid-dark and a dark theme's are bright, which holds for the usual palette and fails
-     for a pale yellow on a light theme. The OKLCH block below replaces the heuristic with an
+     for a pale yellow on a light theme. The relative-color block below replaces the heuristic with an
      actual per-accent decision, so this rule is the floor rather than the intent. */
   .allday-pill-filled {
     color: var(--calendar-card-background-color, var(--card-background-color));
@@ -2848,8 +3339,18 @@ export const cardStyles = css`
    * text color, so a vivid pink arrives as blush rose -- legible, but visibly a different
    * color from the accent it is meant to name, which is what the maintainer reported seeing.
    *
-   * OKLCH interpolation keeps chroma across the mix instead of cutting through the middle of
+   * Oklab interpolation keeps chroma across the mix instead of cutting through the middle of
    * the sRGB cube, so the same 30/70 split arrives recognizably as this calendar's color.
+   *
+   * 🚨 Oklab, not OKLCH (#742). Every mix here goes toward the theme's text or card color,
+   * which is usually a gray, and a gray has no hue. OKLCH interpolates the hue angle anyway:
+   * Chrome 131 and earlier take the gray's arbitrary angle (near 24 degrees) as real, so the
+   * Now green came out beige and the relative-color tier, which reads its hue from this mix,
+   * gold. Where the text or card is tinted, even Chrome 151 and Safari blend that tint's hue
+   * in at the gray's full weight: a yellow wash on a blue-gray card turned teal, an orange
+   * ink on a blue-gray text color magenta. Oklab has no hue to interpolate, so a low-chroma
+   * color barely moves the accent's. Against a true gray the two spaces give the same color
+   * (measured within 1/255 on Chrome 151 and WebKit), so default themes see no change.
    * Because color-mix resolves at paint time this still works when the accent is a theme
    * token JavaScript could never read, and the accent weight is raised now that the mix no
    * longer costs saturation.
@@ -2873,19 +3374,19 @@ export const cardStyles = css`
    * card either, since it is defined relative to the card instead of at an absolute
    * lightness -- which retires the 0.26-to-0.38 tuning that collision previously forced.
    *
-   * Gated on OKLCH interpolation alone, which is Chrome 111+ / Firefox 113+ / Safari 16.2+,
+   * Gated on Oklab interpolation alone, which is Chrome 111+ / Firefox 113+ / Safari 16.2+,
    * essentially the color-mix floor the rest of this stylesheet already assumes. The filled
    * rule below still needs relative color syntax and keeps its own, higher gate. */
-  @supports (color: color-mix(in oklch, red, blue)) {
+  @supports (color: color-mix(in oklab, red, blue)) {
     .allday-badge,
     .allday-title-pill {
       --badge-ink: color-mix(
-        in oklch,
+        in oklab,
         var(--calendar-card-event-accent) 45%,
         var(--primary-text-color)
       );
       --badge-wash: color-mix(
-        in oklch,
+        in oklab,
         var(--calendar-card-event-accent) 14%,
         var(--calendar-card-background-color, var(--card-background-color))
       );
@@ -2920,25 +3421,34 @@ export const cardStyles = css`
    * rather than an absolute target -- which is why the collision the old 0.26-to-0.38 tuning
    * existed to escape cannot recur, for any theme or any hue.
    *
-   * Chrome 122+ / Firefox 133+ / Safari 18+. Below that the mix above stands on its own and
+   * Chrome 125+ / Firefox 133+ / Safari 18+. Below that the mix above stands on its own and
    * is still an improvement on sRGB; below that again the sRGB rule is the floor.
    *
    * Safari 18 is named indirectly (#731). Safari 16.4 to 17.6 pass the first condition, as a
    * plain origin works, but read a color-mix() origin as a keyword, which on Safari 16 can
    * crash the whole page. A condition naming that origin runs the same code, so the second
    * tests content-visibility, first on in Safari 18.0; Chrome and Firefox had it before
-   * relative color, so for them the first still decides. */
-  @supports (color: oklch(from red l c h)) and (content-visibility: auto) {
+   * relative color, so it never holds them back.
+   *
+   * Chrome 125 is named the same way (#742). Chrome 119 passes both conditions and then stops
+   * its renderer on a relative color whose origin is or resolves to a color-mix(), and an
+   * Android 7 WebView ends at 119, so every such wall panel crashed. Chrome 122 to 124 do not
+   * crash but compute that color as invalid, which drops it outright instead of letting the
+   * mix above stand. Chrome 125 is the first to get it right and also the first with round(),
+   * so the third condition tests round(). Safari has had round() since 15.4 and Firefox since
+   * 118, below their relative-color floors, so it never holds them back either. */
+  @supports (color: oklch(from red l c h)) and (content-visibility: auto) and
+    (width: round(1px, 1px)) {
     .allday-badge,
     .allday-title-pill {
       --badge-ink: oklch(
-        from color-mix(in oklch, var(--calendar-card-event-accent) 45%, var(--primary-text-color)) l
+        from color-mix(in oklab, var(--calendar-card-event-accent) 45%, var(--primary-text-color)) l
           calc(c * 2.2) h
       );
       --badge-wash: oklch(
         from
           color-mix(
-            in oklch,
+            in oklab,
             var(--calendar-card-event-accent) 14%,
             var(--calendar-card-background-color, var(--card-background-color))
           )
@@ -2955,9 +3465,11 @@ export const cardStyles = css`
    * It reads only the source, so unlike the block above it never depended on the theme and
    * was never affected by the light-dark() fault.
    *
-   * Relative color is Chrome 122+ / Firefox 133+ / Safari 18+, so this stays a separate,
-   * higher gate; below it the heuristic above is the floor. */
-  @supports (color: oklch(from red l c h)) and (content-visibility: auto) {
+   * Relative color is Chrome 125+ / Firefox 133+ / Safari 18+ as admitted above, and this
+   * takes the same three conditions, since --badge-solid can be a user's color-mix() too. It
+   * stays a separate, higher gate; below it the heuristic above is the floor. */
+  @supports (color: oklch(from red l c h)) and (content-visibility: auto) and
+    (width: round(1px, 1px)) {
     .allday-pill-filled {
       color: oklch(from var(--badge-solid) clamp(0, calc((l - 0.55) * -1000), 1) 0 h);
       background-color: var(--badge-solid);
@@ -3005,12 +3517,12 @@ export const cardStyles = css`
    * paints a patch of near-card-background and reads as a hole punched in the tint. Nothing
    * is given up by not being a mix, because there is no accent here whose chroma a mix could
    * protect -- and an alpha veil keeps a chromatic time_color's own hue exactly, where an
-   * sRGB mix toward the card would drain it. 14% is the accent wash's own OKLCH weight, so
+   * sRGB mix toward the card would drain it. 14% is the accent wash's own Oklab weight, so
    * the two sources carry the same quantity of wash and differ only in whose color it is.
    *
    * The selector is compound rather than a bare class, and both blocks above are the reason.
    * They redefine --badge-ink and --badge-wash at (0,1,0) from inside @supports, and this
-   * must beat them for any browser that has OKLCH -- which is every browser this stylesheet
+   * must beat them for any browser that has Oklab -- which is every browser this stylesheet
    * targets. (0,2,0) wins on specificity, so it does not also depend on staying below them
    * in source order. */
   .allday-badge.allday-source-text,
@@ -3087,6 +3599,31 @@ export const cardStyles = css`
     content: '\\2060·\\200B';
     margin-inline-start: 4px;
     margin-inline-end: 4px;
+  }
+
+  /* Right-to-left, each separator is isolated, so it stays one box with a margin either side.
+     Left in the line, its zero-width space took the direction of the run after it, which in a
+     right-to-left card is often a left-to-right one ("UV3"), so the browser split the box in
+     two: the dot kept its start margin, and its end margin went with the space to the far side
+     of that run. The dot before the temperature then touched the chip beside it, 4px short of
+     the gap every other separator has. Isolated, the separator is a neutral between its chips,
+     which a right-to-left line orders exactly as it did before. Line breaking ignores
+     isolation, so the dot still cannot start a line. Left-to-right is left as it was. */
+  .time-location .event-weather:dir(rtl) .event-weather-text > span + span::before {
+    unicode-bidi: isolate;
+  }
+
+  /* And each chip is isolated too, right-to-left, so the line orders the chips rather than
+     their letters. Left in the line, adjacent left-to-right chips joined one run with the
+     separator between them, which a right-to-left line draws as one piece: "12°", "UV3" and
+     "Partly cloudy" read 12° · Partly cloudy · UV3, and a wrapped row stranded a dot between
+     the wrong two chips. Each chip's separator is its own ::before, inside the isolate, which
+     lays it out at the chip's start, between it and the chip before. Line breaking ignores
+     isolation, so a condition still wraps inside its chip. The badge beside a list title has
+     the same chips without the dots and read UV3 before 12°, so it is isolated as well.
+     Left-to-right is left as it was. */
+  .event-weather:dir(rtl) .event-weather-text > span {
+    unicode-bidi: isolate;
   }
 
   /* Undo title-row badge styling that is declared directly on the UV chip:
@@ -3185,14 +3722,23 @@ export const cardStyles = css`
     font-size: var(--calendar-card-font-size-time);
   }
 
+  /* Rounded at its inline start only, the end that meets the track's own rounded end, and
+     square where it stops partway along. As a left radius, a right-to-left bar, which fills
+     from the right, rounded the end that stops partway instead. */
   .progress-bar-filled {
     height: 100%;
     background-color: var(--calendar-card-progress-bar-color);
-    border-radius: 999px 0 0 999px;
+    border-start-start-radius: 999px;
+    border-end-start-radius: 999px;
   }
 
   /* ===== ICON STYLES ===== */
 
+  /* The 4px gap sits at the icon's inline end, between it and the text it leads: the right in
+     a left-to-right card, the left in a right-to-left one. As a right margin it was the
+     leading edge in right-to-left, so every clock, pin and info icon started 4px in from its
+     row and touched its text. The labels and the weather badge hold their gaps the same way;
+     the UV index after a temperature is the one exception, and says why. */
   ha-icon {
     display: inline-flex;
     flex-shrink: 0;
@@ -3201,7 +3747,7 @@ export const cardStyles = css`
     position: relative;
     vertical-align: top;
     top: 0;
-    margin-right: 4px;
+    margin-inline-end: 4px;
   }
 
   .time ha-icon {
@@ -3333,6 +3879,67 @@ export const cardStyles = css`
     pointer-events: none;
   }
 
+  /* The event a search result paged the card to, rung in the theme's primary color for a moment
+     and faded out over its end; without the fade under reduced motion. Drawn as the focus rings
+     are: after the accent bar in list and column, an outline on a grid block. A class the
+     template binds, so no element comes or goes for it. */
+  td.event.search-ring::after,
+  .column-events > .event.search-ring::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  td.event.search-ring::after,
+  .column-events > .event.search-ring::after,
+  .grid-event.search-ring,
+  .grid-banner.search-ring {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -2px;
+    animation: ccp-search-ring 2s ease-out forwards;
+  }
+
+  /* In column and grid the ring takes the place of the focus ring, which list view draws on the
+     button underneath, so a ringed event with keyboard focus fades into its focus ring instead
+     of away. */
+  .column-events > .event.search-ring:focus-visible::after,
+  .grid-event.search-ring:focus-visible,
+  .grid-banner.search-ring:focus-visible {
+    animation-name: ccp-search-ring-to-focus;
+  }
+
+  @keyframes ccp-search-ring {
+    75% {
+      outline-color: var(--primary-color);
+    }
+    100% {
+      outline-color: transparent;
+    }
+  }
+
+  @keyframes ccp-search-ring-to-focus {
+    75% {
+      outline-color: var(--primary-color);
+    }
+    100% {
+      outline-color: var(--calendar-card-line-color-vertical);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    td.event.search-ring::after,
+    .column-events > .event.search-ring::after,
+    .column-events > .event.search-ring:focus-visible::after,
+    .grid-event.search-ring,
+    .grid-event.search-ring:focus-visible,
+    .grid-banner.search-ring,
+    .grid-banner.search-ring:focus-visible {
+      animation: none;
+    }
+  }
+
   /* A tap on an event is the event's, so the card's ripple must not flash as though the card
    * had been tapped. The ripple listens on ha-card and sees every press inside it, and the
    * recognizer needs those presses to reach ha-card too, so the ripple is muted rather than
@@ -3345,6 +3952,15 @@ export const cardStyles = css`
   ha-card:has(.event-interactive:hover, .event-interactive:active, .event-interactive:focus-visible)
     > ha-ripple {
     --ha-ripple-hover-opacity: 0;
+    --ha-ripple-pressed-opacity: 0;
+  }
+
+  /* Hover and :active alone cannot hold the ripple still to the end of a press. The ripple
+     finishes a press for a while after it is let go, and an event's popover opens at that
+     moment, over the event: :hover and :active leave it, and the ripple's press flashed across
+     the whole card as the popover appeared. So the card marks a press that began on an event or
+     a day, and keeps the ripple's press still until the next press begins anywhere else. */
+  ha-card[data-own-press] > ha-ripple {
     --ha-ripple-pressed-opacity: 0;
   }
 
@@ -3423,6 +4039,108 @@ export const cardStyles = css`
     outline-offset: -2px;
   }
 
+  /* ===== DAYS THAT ADD AN EVENT =====
+   * With day_tap_action set to add-event, a tap on a day where it shows no event opens Home
+   * Assistant's new-event dialog there, and each day's date (list) or header (column, grid) is
+   * a button that does the same from the keyboard. The washes match an untinted event's: the
+   * card's own hover color at 8% under a real pointer, its pressed color at 16% while pressed.
+   *
+   * The pressed wash is set by the recognizer rather than by :active, because most of a day's
+   * empty space is no element of its own: the space under a short column, a grid's all-day
+   * band and its time area. It marks the day's element with data-add-pressed for as long as the
+   * press lasts, and the rules below wash the day's date or header, or in a grid's time area
+   * the hour pressed, from the two custom properties it sets beside the attribute. Attributes
+   * inside the card are invisible to the grid's structure observers, which an element added for
+   * the wash would not be. The hour's wash is the body's ::before, which paints before the day's
+   * plane and so under its events. */
+  .date-column:has(> .day-add-button),
+  .day-add-button {
+    cursor: pointer;
+  }
+
+  @media (hover: hover) {
+    .date-column:has(> .day-add-button):hover,
+    .column-day-header.day-add-button:hover {
+      background-color: color-mix(in srgb, var(--ha-ripple-hover-color) 8%, transparent);
+    }
+  }
+
+  .day-table[data-add-pressed] td.date-column,
+  .day-column[data-add-pressed] > .column-day-header,
+  .grid-day-header[data-add-pressed] > .column-day-header {
+    background-color: color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent);
+  }
+
+  .grid-day-body[data-add-pressed]::before {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    top: var(--calendar-card-add-hour-top, 0);
+    height: var(--calendar-card-add-hour-height, 0);
+    background-color: color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent);
+    pointer-events: none;
+  }
+
+  /* A new event the card is adding, while a press draws it and while the popover adds it, is
+     drawn by the grid's own templates as the block or the banner it will be once saved, so
+     every option that styles an event styles it. Each sits in an element of its own that lays
+     out as though it were not there: the block is placed against the day's plane as any block
+     is, and the banner on the all-day band's grid, where with no row of its own it takes the
+     first row free across its days, beside the banners or in one more row below them. Nothing
+     in it answers a press. */
+  .grid-new-event {
+    display: contents;
+  }
+
+  .grid-new-event > * {
+    pointer-events: none;
+  }
+
+  /* An event a drag moves is drawn the same way, as itself at its new times, and its own block
+     fades where it was, as Calendar on macOS leaves it while it is moved. Once dropped, the block
+     is gone from there until the refresh brings the event in its new place, and so is the
+     backdrop a raised block is drawn over, which would otherwise mask that empty place. */
+  .grid-event[data-move-origin] {
+    opacity: 0.35;
+  }
+
+  .grid-event[data-move-origin='dropped'],
+  .grid-event-backdrop:has(+ .grid-event[data-move-origin='dropped']) {
+    visibility: hidden;
+  }
+
+  /* While a tap on a day adds, a hold on a grid's empty slot or its all-day band draws a new
+     event, so the browser's own long press, selecting a word or a link's callout, is turned
+     off there. */
+  ha-card:has(.day-add-button) .grid-day-body,
+  ha-card:has(.day-add-button) .grid-allday-band {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .day-add-button:focus {
+    outline: none;
+  }
+
+  .day-add-button:focus-visible {
+    outline: 2px solid var(--calendar-card-line-color-vertical);
+    outline-offset: -2px;
+  }
+
+  /* A press on a day is the day's, as one on an event is the event's: the card's ripple is
+     muted while one is down, and while a day's button is under the pointer or focused. */
+  ha-card:has(
+      [data-add-pressed],
+      [data-add-draft],
+      .day-add-button:hover,
+      .day-add-button:focus-visible
+    )
+    > ha-ripple {
+    --ha-ripple-hover-opacity: 0;
+    --ha-ripple-pressed-opacity: 0;
+  }
+
   /* ===== CORNER LOADING INDICATOR ===== */
 
   /* Midway between the card's rounded corner and the header toolbar's last control, which
@@ -3432,11 +4150,13 @@ export const cardStyles = css`
      every extra pixel, keeping the two gaps about equal, some 3px each at 24px. The ring's
      center is this offset plus 8px from the padding edge. The earlier half-the-radius rule
      drifted outward as the radius grew: it touched the last control at the default radius
-     and overlapped it at larger ones. */
+     and overlapped it at larger ones. The corner is the top one at the inline end, the left
+     in a right-to-left card, where the toolbar puts its last control and the title is not:
+     as a right offset the ring sat beside a right-to-left card's first control instead. */
   .loading-indicator {
     position: absolute;
     top: calc(3.5px + max(0px, (var(--ha-card-border-radius, 12px) - 12px) * 0.15));
-    right: calc(3.5px + max(0px, (var(--ha-card-border-radius, 12px) - 12px) * 0.15));
+    inset-inline-end: calc(3.5px + max(0px, (var(--ha-card-border-radius, 12px) - 12px) * 0.15));
     width: 16px;
     height: 16px;
     display: inline-flex;
@@ -3463,6 +4183,23 @@ export const cardStyles = css`
     height: 16px;
   }
 
+  /* A load the card started itself shows the spinner only once it has lasted as long as the
+     dimmed days wait (.page-pending), as the refresh button turns for one: a load that ends
+     within a few frames, as most do, painted it for those frames alone, a flash with nothing to
+     say. A refresh someone asked for shows it at once. */
+  .loading-indicator.unasked {
+    animation: ccp-appear 0s linear 150ms both;
+  }
+
+  @keyframes ccp-appear {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
   @keyframes ccp-spin {
     to {
       transform: rotate(360deg);
@@ -3474,6 +4211,17 @@ export const cardStyles = css`
    * aligned with the first column. */
   .calendar-card-pro.column-view {
     padding-inline: 16px;
+  }
+
+  /* The body's clip, out at the card's inline end. A countdown's dot follows its time word
+     whole, so where "12:30 ·" no longer fits its column (one-day cards under 102px) the pair
+     stands past the column, and the body's overflow-x cut the dot off. Taking the end inset as
+     the body's own padding lets that overhang draw in the inset, up to 16px; nothing inside
+     the body moves. Only the end, the side a dot overhangs on: at the start edge the today
+     tile meets the clip, and moving it redrew the tile's edge in Chromium. */
+  .calendar-card-pro.column-view .content-container {
+    margin-inline-end: -16px;
+    padding-inline-end: 16px;
   }
 
   /* The title's 8px margin exists to add to the list view's 8px card padding.
@@ -3687,10 +4435,15 @@ export const cardStyles = css`
     margin-inline-start: calc(-1 * (var(--calendar-card-icon-size-time, 14px) + 4px));
   }
 
+  /* anywhere, not break-word: a countdown word breaks only where it cannot fit a line of its
+     own, and it stops holding the row at its own width. .time-actual is a flex item at
+     min-width: auto, so an unhyphenated "tomorrow" otherwise stood out of an 80px column. The
+     time and its dot still hold the row, so the dot never has to be broken off it. */
   .column-events .time-countdown {
     margin-inline-start: 0;
     text-align: start;
     white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   /* Generated, not baked into the strings: the countdown is translated into 35 languages
@@ -3700,10 +4453,70 @@ export const cardStyles = css`
      being orphaned at the end of the line.
 
      4px, down from the 8px this and the column-gap above both inherited from .time, and
-     now matching the weather row's separator gutter. */
+     now matching the weather row's separator gutter.
+
+     overflow-wrap reaches the folded separator too, whose content and margin above win on
+     specificity: the countdown's anywhere stops at it, or a narrow line could break between
+     the word joiner and the dot and start with the dot. Firefox hyphenates a run between
+     spaces as one word, and only where all of it allows hyphenation, so the countdown's
+     first word, behind the zero-width space, also stops the word before the dot hyphenating
+     there ("Ganztägig" before "morgen"). */
   .column-events .time-countdown::before {
     content: '·';
     margin-inline-end: 4px;
+    overflow-wrap: normal;
+  }
+
+  /* A badge row wraps, so a time text with no room beside the pill moves under it. Where that
+     text is the countdown alone, as for a single-day all-day event, the countdown also gives up
+     its boxes, so the dot and the words become items of the row: the words move under the pill
+     while the dot ends the pill's line, "[ALL DAY] ·" / "tomorrow". Squeezed beside the pill it
+     broke as "to-mor-row", and moved whole it would have led with the dot. A multi-day event's
+     time text starts with its end ("until Saturday, Jun 20"), which the dot follows, so it keeps
+     its boxes and moves under the pill whole: given up, its words and the dot became items of
+     their own, and the dot could start a line. :first-child tells the two apart, because that
+     end is a span of its own ahead of the countdown. The indent moves to the icon, so the
+     wrapped line starts under the pill.
+
+     Every badge row caps the pill at its line less its own 5px margin, the only part of it
+     outside its border box, so a pill wider than the space beside the clock is cut short there
+     rather than wrapping below the clock and leaving it alone on a line. Where the time text is
+     the countdown alone, the pill also leaves room for 0.5em of dot and the dot's 4px, or a
+     pill clamped to the line would push the dot onto the next line alone.
+
+     time_position: title folds the countdown into the time text in list view as well, so its
+     badge rows take the same rules there. Unwrapped, the pill and the countdown's longest word
+     set the width the time's box could not go below, side by side: on a 240px list card the
+     title kept a few pixels and the pill was cut short anyway. */
+  .column-events .time-actual:has(> .allday-badge + .time-text),
+  .time-beside-title .time-actual:has(> .allday-badge + .time-text) {
+    flex-wrap: wrap;
+    margin-inline-start: 0;
+  }
+
+  .column-events .time-actual:has(> .allday-badge + .time-text) > ha-icon {
+    margin-inline-start: calc(-1 * (var(--calendar-card-icon-size-time, 14px) + 4px));
+  }
+
+  .column-events .time-actual:has(> .allday-badge + .time-text) > .allday-badge,
+  .time-beside-title .time-actual:has(> .allday-badge + .time-text) > .allday-badge {
+    max-width: calc(100% - 5px);
+  }
+
+  .column-events
+    .time-actual:has(> .allday-badge + .time-text > .time-countdown:first-child)
+    > .allday-badge,
+  .time-beside-title
+    .time-actual:has(> .allday-badge + .time-text > .time-countdown:first-child)
+    > .allday-badge {
+    max-width: calc(100% - 9px - 0.5em);
+  }
+
+  .column-events .time-actual .allday-badge + .time-text:has(> .time-countdown:first-child),
+  .column-events .time-actual .allday-badge + .time-text > .time-countdown:first-child,
+  .time-beside-title .time-actual .allday-badge + .time-text:has(> .time-countdown:first-child),
+  .time-beside-title .time-actual .allday-badge + .time-text > .time-countdown:first-child {
+    display: contents;
   }
 
   /* Vertical day, week, or month rule in the gap between columns. Variable
@@ -3966,7 +4779,9 @@ export const cardStyles = css`
 
   /* Its own nested grid so banners can span day columns while the band as a whole
      spans the outer grid's full width. The row template is set inline from the number
-     of rows the packing actually needed, so an empty band costs no height. */
+     of rows the packing actually needed, or one for a new all-day event the card is
+     adding on days without one (renderGridGroupedEvents), so an empty band costs no
+     height. */
   .grid-allday-band {
     display: grid;
     row-gap: 2px;
@@ -4423,6 +5238,31 @@ export const cardStyles = css`
     -webkit-box-orient: vertical;
   }
 
+  /* The 2px an unlabeled title keeps under its text, for a labeled one. Grid's summary has no
+     padding of its own, so the space under a title is the title's 2px of bottom padding, which
+     an unlabeled title keeps because it is its own clamping box. A labeled title is inline in
+     the summary, where bottom padding takes no room, so its text sat a fraction of a pixel above
+     the row below it, and an emoji in it touched a progress bar there. Not for a cut title:
+     the cut drops the padding, through which the next line showed (the cut rule above). Nor in
+     the short-block fallback, whose one-line summary has no padding at all (the compact rules
+     below): there the 2px counted against the few pixels the title is fitted into, and a
+     labeled 15-minute block was left blank. Nor where the block has no room for it: the host
+     sets data-grid-title-gap='yielded' wherever these 2px alone would cost a row or a line,
+     because they are spacing and the row is content. A one-hour block at hour_height: 36px lost its time
+     row to them. See _applyGridDisclosureSafety. */
+  .grid-event:not(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank'],
+      [data-grid-title-gap='yielded']
+    )
+    .grid-event-disclosure
+    .summary:not(.summary-scroll):not([data-grid-title-lines]):has(
+      > .event-title:not(:only-child)
+    ) {
+    padding-bottom: 2px;
+  }
+
   .grid-event-disclosure
     .summary:not(.summary-scroll):has(> .event-title:not(:only-child))
     > .event-title {
@@ -4445,11 +5285,8 @@ export const cardStyles = css`
     text-align: right;
   }
 
-  .grid-event-disclosure .calendar-label,
   .grid-event-disclosure .label-icon,
   .grid-event-disclosure .label-image {
-    margin-right: 0;
-    margin-inline-end: 4px;
     unicode-bidi: isolate;
   }
 
@@ -4459,6 +5296,15 @@ export const cardStyles = css`
   .grid-event-disclosure .description,
   .grid-event-disclosure .event-weather {
     flex: 0 0 auto;
+  }
+
+  /* The detail rows run to the block's own padding, as its title and time already do. The
+     12px end gutter list and column view keep broke words a block fits: "Bring" split as
+     "Brin" / "g" in blocks 58 to 69px wide. */
+  .grid-event-disclosure .location,
+  .grid-event-disclosure .description,
+  .grid-event-disclosure .event-weather {
+    margin-inline-end: 0;
   }
 
   .grid-event-disclosure .time,
@@ -4808,13 +5654,30 @@ export const cardStyles = css`
      measured this exact row rather than assuming a type scale - see grid-time-fit.ts. The
      icon goes first because the block's own position already says this is a time; the end
      time goes onto a second line next, where there is one to spare, and is given up
-     altogether only after that, because the block's bottom edge already draws it. */
+     altogether only after that, because the block's bottom edge already draws it. On a
+     block running past midnight it does not, and the end goes with its day count, leaving
+     the start. */
   .grid-event-disclosure.grid-time-no-icon .time .time-actual > ha-icon {
     display: none;
   }
 
   .grid-event-disclosure.grid-time-no-end .time .time-actual .time-end {
     display: none;
+  }
+
+  /* A folded countdown that fits no line goes before the time does: where its separator cannot
+     follow even the start time, where its words are wider than the lane, or where the block has
+     no line to spare for words that no rung keeps beside the time. See grid-time-fit.ts. */
+  .grid-event-disclosure.grid-time-no-countdown .time .time-actual .time-text > .time-countdown {
+    display: none;
+  }
+
+  /* With its countdown left out, the time is a clock reading alone and must not break, as it
+     cannot without one: .time-text wraps so a countdown can break inside itself, and its
+     overflow-wrap split "10:00" into "10:0" and "0" where the reading fitted its lane to the
+     pixel. Firefox lays out in sixtieths of a pixel, so that is a lane it meets. */
+  .grid-event-disclosure.grid-time-no-countdown .time .time-actual .time-text {
+    white-space: nowrap;
   }
 
   /* The wrapped rung, where the lane is too narrow for the range on one line but the block
@@ -4854,6 +5717,35 @@ export const cardStyles = css`
     text-overflow: ellipsis;
   }
 
+  /* The wrapped rung of a time with a countdown folded into it. The countdown follows the end
+     time and breaks wherever the line runs out, as the weather row's chips do, so the end time
+     has to stay inline for it to follow: as a block, it ended its line, and the countdown
+     started a third one with its dot. A line break before the end time puts it on its own line
+     instead, and the space it leads with falls away at the start of that line, as the block's
+     did. The fit ladder measured this shape, with the separator kept on the end time's line and
+     the countdown's words left to flow (grid-time-fit.ts), so the end time and the separator
+     after it fit their line. A row without a countdown keeps the block above. */
+  .grid-event-disclosure.grid-time-wrap .time .time-actual .time-text .time-end {
+    display: inline;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .grid-event-disclosure.grid-time-wrap .time .time-actual .time-text .time-end::before {
+    content: '\\A';
+    white-space: pre;
+  }
+
+  /* The countdown's words flow in whatever room the time leaves them, as the weather chips do,
+     and like them they break inside a word only when one cannot fit a line on its own (the fit
+     ladder used to hide such a row rather than let a word run past the lane), and are never
+     hyphenated. The card hyphenates its text, and WebKit split "tomorrow" across the end of the
+     time's line rather than move it whole to the next. */
+  .grid-event-disclosure .time .time-actual .time-text > .time-countdown {
+    overflow-wrap: break-word;
+    hyphens: manual;
+  }
+
   /* The progress bar earns its own rung. It is the one row here whose value is highest
      exactly while an event is short — a meeting happening right now — so pairing it with
      location and description at 72px would withhold it from the blocks most likely to want
@@ -4869,12 +5761,13 @@ export const cardStyles = css`
      carried 6px of dead slack, which pushed the bar out of every one-hour event at any
      normal density.
 
-     The rows have shrunk since. Measured in Chromium, the title row is now 15.0px, and the
-     bar and the time beneath it take 25.4px since the first row under a title lost its 2px,
-     so they need 40.4px and the rung opens with about 7.6px to spare. It has not moved with
-     them. So a one-hour event at the default 48px hour height, 44px of content, still draws
-     its title and time and stops, and the bar arrives from about 52px of block. Lowering
-     the rung would bring the bar to those events, which is a decision of its own.
+     The rows have shrunk since, and lowering the rung looked as if it would bring the bar to
+     a one-hour event. It cannot. Measured in Chromium, WebKit and Firefox at the default
+     48px hour height, a one-hour block is 45px on screen and 41px of content, and its title,
+     bar and time together need 41.8px: with the rung at 40px the bar appears and the time
+     runs 0.8px past the block in all three. So the rung stays, a one-hour event draws its
+     title and time and stops, and the bar arrives from about 52px of block. Measure again
+     before moving it; these numbers drift with every row's spacing.
 
      Grid always renders the progress row first and keeps it hidden below this rung, so there
      the row after it is the first one drawn, and it takes the first row's spacing until the
@@ -5344,7 +6237,7 @@ export const cardStyles = css`
      drop the line itself. And .grid-now-line styles only the part between blocks, so the
      line is restyled through now_color, not through that class. */
   @supports (background-position: 0 calc(1cqh - clamp(0px, 1cqh, 100cqh))) {
-    .grid-day-plane-now > .grid-event-now {
+    .grid-day-plane-now .grid-event-now {
       background-image: linear-gradient(
         var(--calendar-card-now-color, #34d399),
         var(--calendar-card-now-color, #34d399)

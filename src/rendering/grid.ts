@@ -461,7 +461,8 @@ function renderAxis(
   );
   const withMinutes = cadence % 60 !== 0;
   const labels = Grid.axisLabelMinutes(band, cadence).map((minute) => ({
-    text: formatAxisLabel(minute, use24h, withMinutes),
+    // A 12-hour label read "AM 9" in a right-to-left card; isolated, it reads "9 AM".
+    text: FormatUtils.isolateClockReadings(formatAxisLabel(minute, use24h, withMinutes)),
     topPct: ((minute - band.startMin) / bandLength) * 100,
   }));
 
@@ -847,6 +848,7 @@ function renderTimedEvent(
           ...horizontal.style,
           '--calendar-card-grid-raised-top': `${placement.topPct}cqh`,
         })}
+        .calendarCardDaySlot=${Activation.COVERED}
       >
         <div class="grid-event-backdrop-ground">
           <div class="grid-event-backdrop-rules"></div>
@@ -869,6 +871,7 @@ function renderTimedEvent(
         'grid-event-content-limited': horizontal.contentLimited,
         'grid-event-now': underWay,
         'event-interactive': tap !== undefined,
+        'search-ring': event._searchRing === true,
       })}
       style=${styleMap({
         ...verticalGeometry(placement, edges),
@@ -885,6 +888,7 @@ function renderTimedEvent(
       tabindex=${tap ? '0' : nothing}
       aria-describedby=${tap && dayLabelId ? dayLabelId : nothing}
       .calendarCardEventTap=${tap}
+      .calendarCardDaySlot=${Activation.COVERED}
     >
       ${Leaves.renderAccentBar()}
       <div
@@ -918,9 +922,36 @@ function renderTimedEvent(
 /**
  * Adapt shared event content to the grid's per-day timed block convention.
  *
- * List and column views need cross-day time phrases because their rows do not themselves
- * show where the event starts and ends. A grid block's position and height already do, so a
- * timed segment either keeps only its true start time for that day or shows title only.
+ * A timed event that runs into a later day is drawn as one block per day, and the block
+ * that starts it says when, all of it: its start, its end, and how many days later the end
+ * falls, "22:05 - 1:35 (+1)", or its start alone under `show_end_time: false`. The others
+ * show title only, including the first one a card shows of an event that began before its
+ * first day. Their top edge is the start of their day rather than of the event.
+ *
+ * That first block's bottom edge is midnight, not the event's end, so the end has to be in
+ * its text. v5.0 left it out on the reasoning that the block's height already showed it,
+ * which holds only where the next day's block is drawn too: on the last day a card shows, or
+ * below the hours it draws, the end appeared nowhere (#768). List and column phrases ("ends
+ * tomorrow at 1:35") would say it, but they count from today rather than from the block's
+ * day, and they are too long to give up part of in a narrow block.
+ *
+ * The count is of local calendar days from the start to the date the end time falls on, so
+ * the end and its count name one moment: "19:00 - 0:00 (+2)" ends as the second day after
+ * its start begins. Counting to the last day the event fills would print "(+1)" there,
+ * which reads as the start of the next day, a whole day early. The one exception is an
+ * event that runs until the midnight after it starts, 22:00 to 0:00: one block, reading
+ * "22:00 - 0:00" as any calendar writes it. The end has to be the first instant of its day
+ * and read 0:00. Not just read it: an Azores autumn day repeats 0:00 to 0:59, and an end at
+ * the second 0:00, or at 0:00:30, is past midnight and keeps its count. Not just be the
+ * first instant: an Azores spring day has no 00:00 and starts at 1:00, so "22:00 - 1:00"
+ * would read as an end before the start, and it reads "(+1)". And the start must not read
+ * 0:00, so a whole day from midnight reads "0:00 - 0:00 (+1)" rather than as no time at all.
+ *
+ * The end and its count are a single droppable end (`eventTimeEnd`). The fit ladder wraps
+ * them onto a second line together and drops them together, so a narrow block falls back
+ * to the start alone, never to an end without its day. The count sits in a left-to-right
+ * isolate, because a right-to-left line would otherwise draw "(+1)" as "(1+)"; the no-break
+ * space before it keeps it on the end's line.
  *
  * @param event - Timed grid event segment
  * @param presented - Shared presentation content
@@ -937,41 +968,62 @@ function gridTimedEventContentParts(
   // Grid marks the present with its now line, which runs straight through the block that
   // is under way; a "Now" label inside that block would say it twice.
   const parts = presented.nowLabel ? { ...presented, nowLabel: null } : presented;
+  const untimed = {
+    ...parts,
+    eventTime: '',
+    eventTimeEnd: undefined,
+    shouldShowTime: false,
+    countdownStr: null,
+  };
 
-  if (!event._isMultiDaySegment) {
-    return parts;
+  if (event._isMultiDaySegment && !event._gridSegmentStartsEvent) {
+    return untimed;
   }
 
-  if (!event._gridSegmentStartsEvent || !event.start.dateTime) {
-    return {
-      ...parts,
-      eventTime: '',
-      eventTimeEnd: undefined,
-      shouldShowTime: false,
-      countdownStr: null,
-    };
-  }
+  // The event's own times. A split segment ends at midnight; `_gridSource` is what it was
+  // split from, and an unsplit block is its own source.
+  const source = event._gridSource ?? (event._isMultiDaySegment ? undefined : event);
+  const start = source?.start.dateTime ? new Date(source.start.dateTime) : undefined;
+  const end = source?.end.dateTime ? new Date(source.end.dateTime) : undefined;
+  const spansDays =
+    start !== undefined &&
+    end !== undefined &&
+    end.getTime() > start.getTime() &&
+    FormatUtils.getCalendarDayDiff(start, end) > 0;
 
-  const startDate = new Date(event.start.dateTime);
-  if (Number.isNaN(startDate.getTime())) {
+  if (!spansDays) {
+    if (!event._isMultiDaySegment) return parts;
+
+    // A segment whose source cannot be read keeps its start, as every first block did
+    // before it could say more.
+    const segmentStart = event.start.dateTime ? new Date(event.start.dateTime) : undefined;
+    if (!segmentStart || Number.isNaN(segmentStart.getTime())) return untimed;
+    const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
     return {
       ...parts,
-      eventTime: '',
+      eventTime: FormatUtils.formatTime(segmentStart, use24h, config.time_two_digit_hours),
       eventTimeEnd: undefined,
-      shouldShowTime: false,
-      countdownStr: null,
     };
   }
 
   const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
+  const startText = FormatUtils.formatTime(start, use24h, config.time_two_digit_hours);
 
-  // No droppable end to carry over: this segment keeps a start time and nothing else, which
-  // is the same answer the fit ladder would reach on its own if it were asked.
-  return {
-    ...parts,
-    eventTime: FormatUtils.formatTime(startDate, use24h, config.time_two_digit_hours),
-    eventTimeEnd: undefined,
-  };
+  if (!config.show_end_time) {
+    return { ...parts, eventTime: startText, eventTimeEnd: undefined };
+  }
+
+  const readsMidnight = (date: Date) => date.getHours() === 0 && date.getMinutes() === 0;
+  const days = FormatUtils.getCalendarDayDiff(start, end);
+  const untilMidnight =
+    days === 1 &&
+    end.getTime() === Grid.startOfDay(end).getTime() &&
+    readsMidnight(end) &&
+    !readsMidnight(start);
+  const count = untilMidnight ? '' : `\u00a0\u2066(+${days})\u2069`;
+  const endText = ` - ${FormatUtils.formatTime(end, use24h, config.time_two_digit_hours)}${count}`;
+
+  return { ...parts, eventTime: `${startText}${endText}`, eventTimeEnd: endText };
 }
 
 /**
@@ -1005,6 +1057,7 @@ function renderOverflow(
         ...verticalGeometry(placement, edges),
         ...horizontal.style,
       })}
+      .calendarCardDaySlot=${Activation.COVERED}
     >
       <div class="grid-event-overflow-label">${label}</div>
     </div>
@@ -1030,7 +1083,8 @@ function renderOverflow(
  *
  * @param event - All-day event to render
  * @param placement - Columns it spans
- * @param row - Band row it occupies, 1-based
+ * @param row - Band row it occupies, 1-based, or undefined to take the first row free across
+ *   its columns
  * @param config - Card configuration
  * @param language - Language code for translations
  * @param hass - Home Assistant instance
@@ -1042,7 +1096,7 @@ function renderOverflow(
 function renderBanner(
   event: Types.CalendarEventData,
   placement: Grid.BannerPlacement,
-  row: number,
+  row: number | undefined,
   config: Types.Config,
   language: string,
   hass?: Types.Hass | null,
@@ -1061,10 +1115,11 @@ function renderBanner(
         'continues-before': placement.continuesBefore,
         'continues-after': placement.continuesAfter,
         'event-interactive': tap !== undefined,
+        'search-ring': event._searchRing === true,
       })}
       style=${styleMap({
         gridColumn: `${placement.columnIndex + 2} / span ${placement.span}`,
-        gridRow: String(row),
+        ...(row === undefined ? {} : { gridRow: String(row) }),
         backgroundColor: presentation.entityAccentBackgroundColor,
         ...presentation.accentTextProperties,
       })}
@@ -1072,10 +1127,87 @@ function renderBanner(
       tabindex=${tap ? '0' : nothing}
       aria-describedby=${tap && dayLabelId ? dayLabelId : nothing}
       .calendarCardEventTap=${tap}
+      .calendarCardDaySlot=${Activation.COVERED}
     >
       <span class="grid-banner-title">${event.summary ?? ''}</span>
     </div>
   `;
+}
+
+/**
+ * The class of the element the card draws a new event into while adding it, in a day's plane
+ * or the all-day band. It holds the block or banner and lays out as though it were not there.
+ */
+export const NEW_EVENT_HOST_CLASS = 'grid-new-event';
+
+/**
+ * A new event the card is adding, on one day, drawn as the block it will be once saved:
+ * `renderTimedEvent`'s own markup, so every option that styles an event's block styles it too.
+ * It spans its whole day, as an event alone there does, and is raised, with the backdrop and
+ * outline of a block drawn over another, where it covers one.
+ *
+ * @param event - The new event as the day shows it, with its minutes on it
+ * @param band - The day's visible band
+ * @param raised - Whether it covers an event the day already draws
+ * @param nowMin - The minute the day draws its now line at, or `null` for none
+ * @param config - Card configuration
+ * @param language - Language code for translations
+ * @param weatherForecasts - Weather forecasts for event badges
+ * @param hass - Home Assistant instance
+ * @returns The block, or nothing where it lies outside the band
+ */
+export function renderNewTimedEvent(
+  event: Types.CalendarEventData & Grid.LaneInput,
+  band: Grid.GridBand,
+  raised: boolean,
+  nowMin: number | null,
+  config: Types.Config,
+  language: string,
+  weatherForecasts?: Types.WeatherForecasts,
+  hass?: Types.Hass | null,
+): TemplateResult | typeof nothing {
+  const placement = Grid.computeEventPlacement(event.startMin, event.endMin, band);
+  if (!placement) return nothing;
+  const [edges] = Grid.resolveBlockEdges(
+    [{ ...event, x0Pct: 0, x1Pct: 100 }],
+    band,
+    ViewConfig.resolveTimeGridOption(config, 'slot_minutes'),
+  );
+  const horizontal = { ...spanHorizontal(0, 100), raised };
+  return renderTimedEvent(
+    event,
+    placement,
+    edges,
+    horizontal,
+    config,
+    language,
+    weatherForecasts,
+    hass,
+    false,
+    undefined,
+    nowMin,
+  );
+}
+
+/**
+ * A new all-day event the card is adding, drawn as the banner it will be once saved, in the
+ * first row free across its days.
+ *
+ * @param event - The new event
+ * @param placement - The days it covers on screen, as `computeBannerPlacement` finds them
+ * @param config - Card configuration
+ * @param language - Language code for translations
+ * @param hass - Home Assistant instance
+ * @returns The banner
+ */
+export function renderNewBanner(
+  event: Types.CalendarEventData,
+  placement: Grid.BannerPlacement,
+  config: Types.Config,
+  language: string,
+  hass?: Types.Hass | null,
+): TemplateResult {
+  return renderBanner(event, placement, undefined, config, language, hass);
 }
 
 /**
@@ -1247,6 +1379,11 @@ export function gridDrawsEvent(gridDays: Types.EventsByDay[], config: Types.Conf
  *   as wide as its bounds allow. See `grid-overflow-strip.ts`
  * @param eventsTappable - Whether each timed block and banner is a tap target of its own; the
  *   `+N` strip stays inert, since it stands for several events rather than one
+ * @param dayAdd - How to draw each day's header as its add button, or undefined while a tap
+ *   on a day adds nothing
+ * @param bandOpenForNew - Whether the card draws a new all-day event it is adding into the
+ *   band (`renderNewBanner`), which opens the band, one row, on days with no all-day event of
+ *   their own
  * @returns Rendered grid
  */
 export function renderGridGroupedEvents(
@@ -1259,6 +1396,8 @@ export function renderGridGroupedEvents(
   cascadeThresholdMin: number = CascadeThreshold.CASCADE_THRESHOLD_FLOOR_MIN,
   overflowStripPct = Infinity,
   eventsTappable = false,
+  dayAdd?: Activation.DayAddButtons,
+  bandOpenForNew = false,
 ): TemplateResult {
   if (gridDays.length === 0) {
     return html`<div class="grid-container"></div>`;
@@ -1283,9 +1422,10 @@ export function renderGridGroupedEvents(
   const bandHours = (band.endMin - band.startMin) / 60;
   const gutter = ViewConfig.sanitizeGutter(config.day_spacing);
   const boundaries = computeDayBoundaries(gridDays);
-  // Each day's header names the day for its tappable events; ids only while there are any.
+  // Each day's header names the day for its tappable events and its add button; ids only
+  // while there are any.
   const dayLabelIds = gridDays.map((day) =>
-    eventsTappable ? Activation.dayLabelId(day.timestamp) : undefined,
+    eventsTappable || dayAdd ? Activation.dayLabelId(day.timestamp) : undefined,
   );
 
   const banners = layoutBanners(gridDays, maxRows);
@@ -1305,7 +1445,13 @@ export function renderGridGroupedEvents(
   // engine that does not know `subgrid` drops the declaration, leaving a grid with no column
   // template at all, and each banner's `grid-column` then invents an implicit track. Keep
   // one source for the columns in anything that replaces it.
-  const bandRows = banners.reduce((max, banner) => Math.max(max, banner.row), 0);
+  const bannerRows = banners.reduce((max, banner) => Math.max(max, banner.row), 0);
+  // The card draws a new all-day event it is adding into the band after this render, in the
+  // same update and so before anything is laid out (`renderNewBanner`). On days with no all-day
+  // event of their own the band opens one row for it, sized by that banner as every row here is
+  // by its banners. A height written for the row instead would restate the banner's padding and
+  // line height, a second copy of both for the band to drift from.
+  const bandRows = Math.max(bannerRows, bandOpenForNew ? 1 : 0);
   const separators = boundaries
     .map((boundary, index) => ({ separator: resolveSeparator(boundary, config), index }))
     .filter(({ separator, index }) => separator !== null && index > 0)
@@ -1326,8 +1472,8 @@ export function renderGridGroupedEvents(
   // rule at the same boundary the frame rule was already drawn at. After this there is one
   // rule there and one key controlling it.
   //
-  // The upper rule is only drawn when there is a band to close: with no all-day events
-  // row 3 collapses to nothing and the two rules would land on the same line, a hairline
+  // The upper rule is only drawn when there is a band to close: with no band, row 3
+  // collapses to nothing and the two rules would land on the same line, a hairline
   // stacked under a heavier one. The lower rule is the boundary either way.
   //
   // Which row the lower rule sits in is the band's presence, not a constant. With a band
@@ -1397,6 +1543,11 @@ export function renderGridGroupedEvents(
   // The container is deliberately left unnamed — naming it needs a new string in all 35
   // card languages, and axe's scrollable-region-focusable is satisfied by the tab stop
   // alone; a name there is APG best practice, not a conformance requirement.
+  //
+  // A band open only for a new event the card is adding holds nothing to reach: that banner
+  // is hidden from assistive technology and answers no press. So it is a group with a name and
+  // a tab stop only while it holds banners of its own.
+  const bandReachable = fixedHeight && bannerRows > 0;
 
   return html`
     <div
@@ -1443,26 +1594,36 @@ export function renderGridGroupedEvents(
       ${paintsSomething(weekendTint) ? renderWeekendStripes(gridDays, hass) : nothing}
       ${renderWeekNumbers(gridDays, config)}
       ${gridDays.map((day, index) =>
-        renderDayHeader(day, config, language, index, weatherForecasts, hass, dayLabelIds[index]),
+        renderDayHeader(
+          day,
+          config,
+          language,
+          index,
+          weatherForecasts,
+          hass,
+          dayLabelIds[index],
+          dayAdd,
+        ),
       )}
       ${
         bandRows > 0
           ? html`
               <div
                 class="grid-allday-band"
-                role=${fixedHeight ? 'group' : nothing}
+                role=${bandReachable ? 'group' : nothing}
                 aria-label=${
-                  fixedHeight
+                  bandReachable
                     ? FormatUtils.capitalizeFirstLetter(Localize.getTranslations(language).allDay)
                     : nothing
                 }
-                tabindex=${fixedHeight ? '0' : nothing}
+                tabindex=${bandReachable ? '0' : nothing}
                 style=${styleMap({
                   gridColumn: `1 / span ${gridDays.length + 1}`,
                   gridRow: '3',
                   gridTemplateColumns: 'subgrid',
                   gridTemplateRows: `repeat(${bandRows}, auto)`,
                 })}
+                .calendarCardDaySlot=${Activation.COLUMNS_AMONG_SIBLINGS}
               >
                 ${banners.map((banner) =>
                   renderBanner(
@@ -1556,7 +1717,9 @@ function renderWeekNumbers(
  * @param weatherForecasts - Fetched forecasts, if any
  * @param hass - Home Assistant instance, whose country decides which days are the weekend,
  *   or its language when no country is set
- * @param dayLabelId - The header's id, given only while the day's events are tap targets
+ * @param dayLabelId - The day's id, given only while the day's events are tap targets or the
+ *   header is the day's add button
+ * @param dayAdd - How to draw the header as the day's add button, or undefined for none
  * @returns Rendered header
  */
 function renderDayHeader(
@@ -1567,6 +1730,7 @@ function renderDayHeader(
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
   dayLabelId?: string,
+  dayAdd?: Activation.DayAddButtons,
 ): TemplateResult {
   const dayDate = new Date(day.timestamp);
   const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
@@ -1582,6 +1746,7 @@ function renderDayHeader(
         weekend: FormatUtils.isWeekendDate(dayDate, hass),
       })}
       style=${styleMap({ gridColumn: String(columnIndex + 2), gridRow: '2' })}
+      .calendarCardDaySlot=${Activation.daySlot(day.timestamp)}
     >
       ${Leaves.renderSharedDayHeader(
         dayDate,
@@ -1592,6 +1757,7 @@ function renderDayHeader(
         null,
         hass,
         dayLabelId,
+        dayAdd && { label: dayAdd.label, timestamp: day.timestamp },
       )}
     </div>
   `;
@@ -1728,6 +1894,7 @@ function renderDayBody(
         weekend: FormatUtils.isWeekendDate(dayDate, hass),
       })}
       style=${styleMap({ gridColumn: String(columnIndex + 2), gridRow: '4' })}
+      .calendarCardDaySlot=${Activation.timeSlot(day.timestamp, band.startMin, band.endMin)}
     >
       ${
         nowPct === null

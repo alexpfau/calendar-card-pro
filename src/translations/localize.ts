@@ -4,6 +4,7 @@
  */
 
 import * as Types from '../config/types';
+import { type CardLanguage, DEFAULT_LANGUAGE } from './language-codes';
 
 import bgTranslations from './languages/bg.json';
 import caTranslations from './languages/ca.json';
@@ -46,6 +47,10 @@ import zhTWTranslations from './languages/zh-TW.json';
 
 /**
  * Available translations keyed by language code.
+ *
+ * `satisfies` holds the keys to `CARD_LANGUAGES`, the list the editor resolves languages
+ * against without importing these tables: a key missing here, or one not in the list, fails
+ * `tsc`.
  */
 export const TRANSLATIONS: Record<string, Types.Translations> = {
   bg: bgTranslations,
@@ -86,67 +91,13 @@ export const TRANSLATIONS: Record<string, Types.Translations> = {
   tr: trTranslations,
   'zh-cn': zhCNTranslations,
   'zh-tw': zhTWTranslations,
-};
+} satisfies Record<CardLanguage, Types.Translations>;
 
-export const DEFAULT_LANGUAGE = 'en';
+export { DEFAULT_LANGUAGE, getEffectiveLanguage } from './language-codes';
 
 //-----------------------------------------------------------------------------
 // HIGH-LEVEL API FUNCTIONS
 //-----------------------------------------------------------------------------
-
-const languageCache = new Map<string, string>();
-
-/**
- * Determine the effective language based on priority order:
- * 1. User config language (if specified and supported)
- * 2. HA system language (if available and supported)
- * 3. Default language fallback
- *
- * @param configLanguage - Language from user configuration
- * @param hassLocale - Home Assistant locale information
- * @returns The effective language code to use
- */
-export function getEffectiveLanguage(
-  configLanguage?: string,
-  hassLocale?: { language: string },
-): string {
-  const cacheKey = `${configLanguage || ''}:${hassLocale?.language || ''}`;
-
-  if (languageCache.has(cacheKey)) {
-    return languageCache.get(cacheKey)!;
-  }
-
-  let effectiveLanguage: string;
-
-  if (configLanguage && configLanguage.trim() !== '') {
-    const configLang = configLanguage.toLowerCase();
-    if (TRANSLATIONS[configLang]) {
-      effectiveLanguage = configLang;
-      languageCache.set(cacheKey, effectiveLanguage);
-      return effectiveLanguage;
-    }
-  }
-
-  if (hassLocale?.language) {
-    const sysLang = hassLocale.language.toLowerCase();
-    if (TRANSLATIONS[sysLang]) {
-      effectiveLanguage = sysLang;
-      languageCache.set(cacheKey, effectiveLanguage);
-      return effectiveLanguage;
-    }
-
-    const langPart = sysLang.split(/[-_]/)[0];
-    if (langPart !== sysLang && TRANSLATIONS[langPart]) {
-      effectiveLanguage = langPart;
-      languageCache.set(cacheKey, effectiveLanguage);
-      return effectiveLanguage;
-    }
-  }
-
-  effectiveLanguage = DEFAULT_LANGUAGE;
-  languageCache.set(cacheKey, effectiveLanguage);
-  return effectiveLanguage;
-}
 
 /**
  * Get translations for the specified language
@@ -158,39 +109,6 @@ export function getEffectiveLanguage(
 export function getTranslations(language: string): Types.Translations {
   const lang = language?.toLowerCase() || DEFAULT_LANGUAGE;
   return TRANSLATIONS[lang] || TRANSLATIONS[DEFAULT_LANGUAGE];
-}
-
-/**
- * Get a specific translation string from the provided language
- *
- * @param language - Language code
- * @param key - Translation key or path (supports 'editor.key' format)
- * @param fallback - Optional fallback value if translation is missing
- * @returns Translated string or array
- */
-export function translate(
-  language: string,
-  key: keyof Types.Translations | string,
-  fallback?: string | string[],
-): string | string[] {
-  const translations = getTranslations(language);
-
-  // Dotted keys belong to the editor chunk; this eager translation table is flat.
-  if (typeof key === 'string' && key.includes('.')) {
-    const [, ...rest] = key.split('.');
-    const subKey = rest.join('.');
-
-    return fallback !== undefined ? fallback : subKey;
-  }
-
-  if (key in translations) {
-    const value = translations[key as keyof Types.Translations];
-    if (typeof value === 'string' || Array.isArray(value)) {
-      return value;
-    }
-  }
-
-  return fallback !== undefined ? fallback : (key as string);
 }
 
 //-----------------------------------------------------------------------------

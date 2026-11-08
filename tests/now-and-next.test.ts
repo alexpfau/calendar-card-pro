@@ -5,7 +5,7 @@
  * next", and its promises are behaviors rather than option names: four events until tapped and
  * the rest on a tap, a free today that still says so, a plan on two people's calendars drawn
  * once, a countdown and a progress bar, two short lines per event, and events left as no tap
- * target of their own so a tap anywhere expands. `tests/example-stories.test.ts` checks the
+ * target of their own so a tap anywhere expands, while a hold on one opens it. `tests/example-stories.test.ts` checks the
  * card's option names; nothing ran the card until this file.
  *
  * Each promise is pinned beside a control arm — the page's card with the option responsible
@@ -21,6 +21,7 @@ import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW } from './fixtures';
+import { spyOnPopovers } from './popover-spy';
 import {
   type StoryEvent,
   type StoryHass,
@@ -35,17 +36,12 @@ import {
   titles,
   withOptions,
 } from './story-card';
+import * as Constants from '../src/config/constants';
 
 vi.mock('../src/utils/logger', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../src/utils/logger')>()),
   debug: vi.fn(),
   info: vi.fn(),
-}));
-
-const openDetails = vi.hoisted(() => vi.fn(async () => undefined));
-vi.mock('../src/interaction/ha-calendar-dialogs', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../src/interaction/ha-calendar-dialogs')>()),
-  openEventDetailDialog: openDetails,
 }));
 
 const PAGE = 'now-and-next';
@@ -105,14 +101,34 @@ const EXPANDED = [...COLLAPSED, 'Groceries', 'Dentist', 'Piano'];
 const haCard = (card: Awaited<ReturnType<typeof mountStory>>) =>
   shadow(card).querySelector('ha-card') as Element;
 
+/** A pointer held past the card's hold threshold and released, then the click a browser fires. */
+function hold(target: Element): void {
+  for (const type of ['pointerdown', 'pointerup']) {
+    const event = new Event(type, { bubbles: true, composed: true });
+    Object.defineProperties(event, {
+      pointerId: { value: 1 },
+      button: { value: 0 },
+      isPrimary: { value: true },
+      clientX: { value: 0 },
+      clientY: { value: 0 },
+    });
+    target.dispatchEvent(event);
+    if (type === 'pointerdown') vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 1);
+  }
+  target.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+}
+
 describe('the Now & Next card behaves as its page describes', () => {
+  let popovers: ReturnType<typeof spyOnPopovers>;
+
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
     vi.setSystemTime(FROZEN_NOW);
-    openDetails.mockClear();
+    popovers = spyOnPopovers();
   });
 
   afterEach(() => {
+    popovers.stop();
     document.body.innerHTML = '';
     vi.useRealTimers();
     vi.unstubAllGlobals();
@@ -138,9 +154,11 @@ describe('the Now & Next card behaves as its page describes', () => {
       show_location: false,
       show_end_time: false,
       tap_action: { action: 'expand' },
+      event_hold_action: { action: 'details' },
       list: { compact_events_to_show: 4 },
     });
-    // "Why Events Do Not Open on Tap": left out on purpose, and pinned as left out.
+    // "Tap to Expand, Hold for an Event": a tap of its own left out on purpose, and pinned as
+    // left out.
     expect(CARD.event_tap_action).toBeUndefined();
   });
 
@@ -181,7 +199,7 @@ describe('the Now & Next card behaves as its page describes', () => {
     const card = await mountStory(CARD, WEEK);
     await tap(card, rowTitled(card, 'Swimming').target);
     expect(titles(card)).toEqual(EXPANDED);
-    expect(openDetails).not.toHaveBeenCalled();
+    expect(popovers.opened).not.toHaveBeenCalled();
 
     // Control: the option the page leaves out. The same tap on the same event now opens the
     // event and the card stays collapsed, which is the trade the page declines.
@@ -191,7 +209,22 @@ describe('the Now & Next card behaves as its page describes', () => {
     );
     await tap(details, rowTitled(details, 'Swimming').target);
     expect(titles(details)).toEqual(COLLAPSED);
-    expect(openDetails).toHaveBeenCalledTimes(1);
+    expect(popovers.opened).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens an event on a hold, and the card stays collapsed', async () => {
+    // "`event_hold_action: details` opens an event on a hold instead, so a tap anywhere still
+    // expands." The tap half is the test above, run on this same card.
+    const card = await mountStory(CARD, WEEK);
+    hold(rowTitled(card, 'Swimming').target);
+    expect(popovers.opened).toHaveBeenCalledTimes(1);
+    expect(popovers.opened.mock.calls[0][0].entry?.summary).toBe('Swimming');
+    expect(titles(card)).toEqual(COLLAPSED);
+
+    // Control: without the option the same hold opens nothing.
+    const inert = await mountStory(dropOption(CARD, 'event_hold_action'), WEEK);
+    hold(rowTitled(inert, 'Swimming').target);
+    expect(popovers.opened).toHaveBeenCalledTimes(1);
   });
 
   it('still shows today when nothing is left on it', async () => {

@@ -9,6 +9,7 @@ import * as EventAge from './event-age';
 import * as FormatUtils from './format';
 import * as Grid from './grid';
 import * as Helpers from './helpers';
+import * as LiveCalendars from './live-calendars';
 import * as Logger from './logger';
 import * as PersonPictures from './person-pictures';
 import { isWeekRelative, parseStartDateExpression } from './start-date';
@@ -33,9 +34,17 @@ import * as Localize from '../translations/localize';
  *   calendar changed, because it may already be carrying the old answer. Meant for the
  *   moment after a write. Named for one write (see `advanceWriteGeneration`), it joins a
  *   request started since that write, so every card refreshing for it shares one request
- *   per signature; named for none, it always starts its own.
+ *   per signature; named for none, it always starts its own. It asks REST for every calendar,
+ *   never a subscription that may still hold the answer from before (`LiveCalendars`).
+ * - `live` — as `network`, for a card a subscription told of a change: calendars without a live
+ *   subscription are asked for only once due, by their own last answer and backoff, and
+ *   otherwise kept as they are. A calendar that changes often must not retry a failing one
+ *   early.
+ *
+ * Every load but `reload` takes a calendar from its live subscription where it has one, in
+ * place of a REST request.
  */
-export type EventLoad = 'cache' | 'network' | 'reload';
+export type EventLoad = 'cache' | 'network' | 'reload' | 'live';
 
 /**
  * Where a window's cache entry lives.
@@ -61,10 +70,79 @@ const PAGE_STORE_LIMIT = 16;
 const pageStore = new Map<string, { entry: Types.CacheEntry; writeGeneration: number }>();
 
 /**
- * Forget every paged window. For tests; a calendar write retires entries on its own.
+ * Forget every window kept in memory: paged windows, and those storage refused
+ * (`heldEntries`). For tests; a calendar write retires entries on its own.
  */
 export function clearPageStore(): void {
   pageStore.clear();
+  heldEntries.clear();
+}
+
+/**
+ * Entries `localStorage` refused that memory holds before it drops the one used longest ago: as
+ * many as the page store, since a dashboard has a handful of windows and a dropped one only costs
+ * a request.
+ */
+const HELD_ENTRY_LIMIT = PAGE_STORE_LIMIT;
+
+/**
+ * Cache entries for the window a card opens with that `localStorage` refused to keep, least
+ * recently used first, each with the write generation its request started at.
+ *
+ * A browser can refuse every write: storage full, blocked in its settings, or a private window
+ * that allows none. Without these, nothing settled was shared at all, between cards or across
+ * time, and only a request still in flight could be joined. Two cards on one key whose loads
+ * landed more than a round trip apart each fetched, at midnight when their timers fired apart
+ * and at every refresh from then on, and a card coming back, its tab coming back or a
+ * per-calendar edit fetched what storage would have answered. Held here, an entry is read as the
+ * stored one would have been, by the same rules (`isEntryDue`, `MAX_STALE_HOURS`).
+ *
+ * One whose request started before the latest calendar write is read as expired, as
+ * `expireStoredCalendars` marks a stored one, but whatever calendars the write touched: the
+ * generation says that a write happened, not where. It is still drawn first while it is fetched
+ * again. The write generation lives on `globalThis`, so this holds for writes made through
+ * another copy of the card as well.
+ *
+ * Module state, like `pageStore`, so every card on the page shares it and a reload forgets it.
+ * Another copy of the card on the page, a development build beside a release, holds its own.
+ */
+const heldEntries = new Map<string, { entry: Types.CacheEntry; writeGeneration: number }>();
+
+/**
+ * Hold an entry `localStorage` refused, dropping the one used longest ago past the limit.
+ *
+ * @param key Cache key
+ * @param entry Entry to hold
+ * @param writeGeneration The write generation its request started at
+ */
+function holdEntry(key: string, entry: Types.CacheEntry, writeGeneration: number): void {
+  heldEntries.delete(key);
+  heldEntries.set(key, { entry, writeGeneration });
+  while (heldEntries.size > HELD_ENTRY_LIMIT) {
+    heldEntries.delete(heldEntries.keys().next().value as string);
+  }
+}
+
+/**
+ * Read an entry held in memory: dropped once it is too old to draw, as `readCacheEntry` drops a
+ * stored one, and expired once a calendar write has been made since its request started.
+ *
+ * @param key Cache key
+ * @returns The entry, or null
+ */
+function readHeldEntry(key: string): Types.CacheEntry | null {
+  const held = heldEntries.get(key);
+  if (!held) return null;
+
+  heldEntries.delete(key);
+  if (Date.now() - held.entry.timestamp >= Constants.CACHE.MAX_STALE_HOURS * 60 * 60 * 1000) {
+    return null;
+  }
+  // Most recently used last, so the oldest is the first to go.
+  heldEntries.set(key, held);
+  return held.writeGeneration === currentWriteGeneration() || held.entry.expired
+    ? held.entry
+    : { ...held.entry, expired: true };
 }
 
 /**
@@ -75,12 +153,20 @@ export function clearPageStore(): void {
  * no card on the page refreshes it. The write generation lives on `globalThis`, so this holds
  * for writes made through another copy of the card as well.
  *
+ * The window a card opens with is read from `localStorage`, or from memory where storage
+ * refused it (`heldEntries`), whichever is newer: a write refused for want of space leaves the
+ * entry before it in storage.
+ *
  * @param store Where the entry lives
  * @param key Cache key
  * @returns The entry, or null
  */
 function readStoredEntry(store: CacheStore, key: string): Types.CacheEntry | null {
-  if (store === 'persistent') return readCacheEntry(key);
+  if (store === 'persistent') {
+    const stored = readCacheEntry(key);
+    const held = readHeldEntry(key);
+    return held && (!stored || held.timestamp > stored.timestamp) ? held : stored;
+  }
 
   const held = pageStore.get(key);
   if (!held) return null;
@@ -115,7 +201,8 @@ function writeStoredEntry(
   writeGeneration: number,
 ): void {
   if (store === 'persistent') {
-    writeCacheEntry(key, entry);
+    if (writeCacheEntry(key, entry)) heldEntries.delete(key);
+    else holdEntry(key, entry, writeGeneration);
     return;
   }
 
@@ -137,6 +224,26 @@ interface InFlightRequest {
   promise: Promise<Types.CacheEntry>;
   /** The write generation when the request started: it carries every write up to that one. */
   writeGeneration: number;
+  /** Where its answer is stored. */
+  store: CacheStore;
+  /** The calendars it asks for. */
+  calendars: ReadonlyArray<string>;
+  /**
+   * Set by a write that may have touched one of its calendars after it started, so its answer
+   * is stored already due; see `expireStoredCalendars`.
+   */
+  expired: boolean;
+  /**
+   * Each calendar's answer as it arrives, before the request settles: its raw events, or null
+   * for a calendar that failed. Kept so a caller joining late sees what came before it.
+   */
+  settled: Map<string, Types.CalendarEventData[] | null>;
+  /** Callers to tell each time a calendar answers (`fetchEventData`'s `onPartial`). */
+  watchers: Set<() => void>;
+  /** The load that started it. */
+  load: EventLoad;
+  /** `LiveCalendars.changeCount()` when it started: it may hold events from before any later. */
+  liveChanges: number;
 }
 
 /**
@@ -156,7 +263,7 @@ const WRITE_GENERATION_KEY = Symbol.for('calendar-card-pro.write-generation');
  *
  * @returns Writes recorded so far, 0 before the first
  */
-function currentWriteGeneration(): number {
+export function currentWriteGeneration(): number {
   return (globalThis as unknown as Record<symbol, number | undefined>)[WRITE_GENERATION_KEY] ?? 0;
 }
 
@@ -299,10 +406,14 @@ export function readEventSnapshot(
  * @param instanceId Component instance ID for caching
  * @param load How to use the cache and requests already in flight
  * @param failureCountHint Consecutive failures the caller has seen for this query, used
- *   when no cache entry records them (storage unavailable)
+ *   when no cache entry records them (nothing stored or held in memory)
  * @param afterWrite For a `reload`, the generation of the write it refreshes for; see
  *   `advanceWriteGeneration`. Ignored by every other load
  * @param store Where the window's cache entry lives
+ * @param onPartial Told, while the request is still out, each time another calendar has
+ *   answered: the events of every calendar that has, processed for this caller. Never told
+ *   about a request that ends at the cache, nor before some calendar has answered with events;
+ *   whether those events put anything on screen is the caller's to judge
  * @returns Promise resolving to calendar event data array
  */
 export async function fetchEventData(
@@ -313,6 +424,7 @@ export async function fetchEventData(
   failureCountHint = 0,
   afterWrite?: number,
   store: CacheStore = 'persistent',
+  onPartial?: (partial: Types.EventFetchResult) => void,
 ): Promise<Types.EventFetchResult> {
   const request = resolveRequest(hass, config, instanceId, store);
 
@@ -326,20 +438,72 @@ export async function fetchEventData(
   }
 
   let rawFetch = inFlightRawFetches.get(request.signature);
-  if (rawFetch && load === 'reload') {
-    // Only a request started since the write carries it. With no write named, none does.
-    const sinceWrite = afterWrite !== undefined && rawFetch.writeGeneration >= afterWrite;
-    if (!sinceWrite) rawFetch = undefined;
-  }
+  if (rawFetch && !isJoinable(rawFetch, load, afterWrite)) rawFetch = undefined;
   if (rawFetch) {
     Logger.info('Joining an in-flight request for the same calendars and window');
   } else {
-    rawFetch = startRawFetch(hass, config, request, failureCountHint);
+    rawFetch = startRawFetch(hass, config, request, failureCountHint, load);
   }
 
-  const entry = await rawFetch.promise;
+  const inFlight = rawFetch;
+  const watcher = onPartial
+    ? () => {
+        const raw = [...inFlight.settled.values()].flatMap((events) => events ?? []);
+        if (raw.length === 0) return;
+        const now = Date.now();
+        onPartial({
+          raw,
+          events: processRawEvents(raw, config, request.firstDayOfWeek),
+          failedEntities: [],
+          lastSuccess: Object.fromEntries(
+            [...inFlight.settled].flatMap(([entityId, events]) =>
+              events ? [[entityId, now]] : [],
+            ),
+          ),
+          fetchedAt: now,
+          loadedAt: now,
+          nextAttemptAt: now + getCacheDuration(config),
+        });
+      }
+    : undefined;
+  if (watcher) {
+    inFlight.watchers.add(watcher);
+    if (inFlight.settled.size > 0) watcher();
+  }
 
-  return resultFromEntry(entry, entry.events, config, request.firstDayOfWeek);
+  try {
+    const entry = await inFlight.promise;
+    return resultFromEntry(entry, entry.events, config, request.firstDayOfWeek);
+  } finally {
+    if (watcher) inFlight.watchers.delete(watcher);
+  }
+}
+
+/**
+ * Whether a load may join a request already in flight rather than start its own.
+ *
+ * Nor, for a `live` load, one started before the latest pushed change.
+ *
+ * Never one a write may have overtaken, whatever the load: a persistent request a write
+ * expired (`expireStoredCalendars`), or a paged one started before the latest write, whose
+ * entry the page store would drop on read anyway. Joining either would hand the caller the
+ * answer from before the write, as fresh. A `reload` joins only a request started since the
+ * write it refreshes for, and none when it names no write.
+ *
+ * @param request - The request in flight
+ * @param load - The load asking
+ * @param afterWrite - For a `reload`, the generation of the write it refreshes for
+ * @returns True when the load may share the request
+ */
+function isJoinable(request: InFlightRequest, load: EventLoad, afterWrite?: number): boolean {
+  if (request.expired) return false;
+  if (request.store === 'page' && request.writeGeneration !== currentWriteGeneration()) {
+    return false;
+  }
+  if (load === 'reload') return afterWrite !== undefined && request.writeGeneration >= afterWrite;
+  // A load for a pushed change must not take an answer that may have read the events before it.
+  if (load === 'live') return request.liveChanges >= LiveCalendars.changeCount();
+  return true;
 }
 
 /**
@@ -361,11 +525,63 @@ function resultFromEntry(
   firstDayOfWeek: number,
 ): Types.EventFetchResult {
   return {
+    raw: rawEvents,
     events: processRawEvents(rawEvents, config, firstDayOfWeek),
     failedEntities: [...(entry.failedEntities ?? [])],
+    // By the cache's own record, so a failing calendar whose last answer held no events is
+    // named, though `rawEvents` holds nothing of it.
+    lastSuccess: Object.fromEntries(
+      uniqueEntityIds(config.entities).flatMap((entityId) => {
+        const loadedAt = lastSuccessOf(entry, entityId);
+        return loadedAt === undefined ? [] : [[entityId, loadedAt]];
+      }),
+    ),
     fetchedAt: entry.timestamp,
     loadedAt: oldestLoad(entry, rawEvents),
     nextAttemptAt: nextAttemptAt(entry, config),
+  };
+}
+
+/**
+ * A result with raw events of calendars it knows nothing of added, processed together with
+ * its own as the events the cache carries forward for a failing calendar are
+ * (`fetchRawEvents`). Processing orders events by calendar as the configuration lists them,
+ * which is the order events starting at the same moment are drawn in, so the added events
+ * fall where they would had the calendar answered. For the events a card drew of a failing
+ * calendar the cache could not carry. Each added calendar is recorded in `lastSuccess` with when
+ * its events loaded, so a calendar added again on a later failure is bounded by its own load.
+ *
+ * @param hass Home Assistant instance
+ * @param config The configuration the result was loaded for
+ * @param result The result to add to
+ * @param added Raw events of calendars the result does not speak for (`lastSuccess`)
+ * @param addedLoadedAt When each calendar of the added events last loaded successfully
+ * @returns The result with the added events and their calendars' load times, its `loadedAt`
+ *   the oldest of all
+ */
+export function withAddedEvents(
+  hass: Types.Hass,
+  config: Types.Config,
+  result: Types.EventFetchResult,
+  added: readonly Types.CalendarEventData[],
+  addedLoadedAt: Readonly<Record<string, number>>,
+): Types.EventFetchResult {
+  const raw = [...(result.raw ?? []), ...added];
+  const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hass.locale);
+  const lastSuccess = { ...result.lastSuccess };
+  let loadedAt = result.loadedAt ?? result.fetchedAt ?? Date.now();
+  for (const event of added) {
+    const addedAt = event._entityId ? addedLoadedAt[event._entityId] : undefined;
+    if (!event._entityId || addedAt === undefined) continue;
+    lastSuccess[event._entityId] = addedAt;
+    loadedAt = Math.min(loadedAt, addedAt);
+  }
+  return {
+    ...result,
+    raw,
+    events: processRawEvents(raw, config, firstDayOfWeek),
+    lastSuccess,
+    loadedAt,
   };
 }
 
@@ -400,6 +616,7 @@ function oldestLoad(entry: Types.CacheEntry, rawEvents: Types.CalendarEventData[
  * @param config Calendar card configuration
  * @param request Resolved request identity
  * @param failureCountHint Consecutive failures the caller has seen for this query
+ * @param load The load that starts it
  * @returns The registered request
  */
 function startRawFetch(
@@ -407,23 +624,28 @@ function startRawFetch(
   config: Types.Config,
   request: ResolvedRequest,
   failureCountHint: number,
+  load: EventLoad,
 ): InFlightRequest {
   const seq = ++requestSeq;
   latestRequestSeq.set(`${request.store}|${request.cacheKey}`, seq);
 
-  const inFlight = { writeGeneration: currentWriteGeneration() } as InFlightRequest;
-  inFlight.promise = fetchRawEvents(
-    hass,
-    config,
-    request,
-    seq,
-    failureCountHint,
-    inFlight.writeGeneration,
-  ).finally(() => {
-    if (inFlightRawFetches.get(request.signature) === inFlight) {
-      inFlightRawFetches.delete(request.signature);
-    }
-  });
+  const inFlight = {
+    writeGeneration: currentWriteGeneration(),
+    store: request.store,
+    calendars: uniqueEntityIds(config.entities) as ReadonlyArray<string>,
+    expired: false,
+    settled: new Map(),
+    watchers: new Set(),
+    load,
+    liveChanges: LiveCalendars.changeCount(),
+  } as unknown as InFlightRequest;
+  inFlight.promise = fetchRawEvents(hass, config, request, seq, failureCountHint, inFlight).finally(
+    () => {
+      if (inFlightRawFetches.get(request.signature) === inFlight) {
+        inFlightRawFetches.delete(request.signature);
+      }
+    },
+  );
   inFlightRawFetches.set(request.signature, inFlight);
 
   return inFlight;
@@ -448,7 +670,8 @@ function startRawFetch(
  * @param seq This request's sequence number
  * @param failureCountHint Consecutive failures the caller has seen for this query, used only
  *   when no cache entry records them
- * @param writeGeneration The write generation the request started at
+ * @param inFlight The registered request: the write generation it started at, and whether a
+ *   write since has expired its answer
  * @returns Promise resolving to the cache entry built from the response
  */
 async function fetchRawEvents(
@@ -457,29 +680,47 @@ async function fetchRawEvents(
   request: ResolvedRequest,
   seq: number,
   failureCountHint: number,
-  writeGeneration: number,
+  inFlight: InFlightRequest,
 ): Promise<Types.CacheEntry> {
   Logger.info('Fetching events from API');
-  const entities = config.entities.map((e) =>
-    typeof e === 'string' ? { entity: e, color: 'var(--primary-text-color)' } : e,
-  );
+  const entityIds = uniqueEntityIds(config.entities);
+  const carried =
+    inFlight.load === 'live'
+      ? notYetDue(hass, config, request, entityIds, Date.now())
+      : new Set<string>();
+  const entities = config.entities
+    .map((e) => (typeof e === 'string' ? { entity: e, color: 'var(--primary-text-color)' } : e))
+    .filter((e) => !carried.has(e.entity));
 
   const { events: fetchedEvents, failedEntities } = await fetchEvents(
     hass,
     entities,
     request.window,
+    (entityId, events) => {
+      inFlight.settled.set(entityId, events);
+      for (const watcher of [...inFlight.watchers]) watcher();
+    },
+    inFlight.load !== 'reload',
   );
 
   const now = Date.now();
   const previous = readStoredEntry(request.store, request.cacheKey);
   const failed = new Set(failedEntities);
-  const entityIds = uniqueEntityIds(config.entities);
+  // Calendars kept as they were, without being asked: still failing counts, as no attempt.
+  const stillFailing = new Set([...carried].filter((id) => previous?.failedEntities?.includes(id)));
   const maxStaleMs = Constants.CACHE.MAX_STALE_HOURS * 60 * 60 * 1000;
 
   const lastSuccess: Record<string, number> = {};
   const events = [...fetchedEvents];
 
   for (const entityId of entityIds) {
+    if (carried.has(entityId)) {
+      const lastLoaded = previous ? lastSuccessOf(previous, entityId) : undefined;
+      if (lastLoaded === undefined || now - lastLoaded >= maxStaleMs) continue;
+      lastSuccess[entityId] = lastLoaded;
+      events.push(...previous!.events.filter((event) => event._entityId === entityId));
+      continue;
+    }
     if (!failed.has(entityId)) {
       lastSuccess[entityId] = now;
       continue;
@@ -499,9 +740,15 @@ async function fetchRawEvents(
     lastSuccess,
   };
 
-  if (failed.size > 0) {
+  if (failed.size === 0 && stillFailing.size > 0) {
+    // Nothing failed that was asked: the failing calendars wait for their own deadline.
+    entry.failedEntities = entityIds.filter((id) => stillFailing.has(id));
+    entry.failureCount = previous?.failureCount ?? 1;
+    entry.retryAt = previous?.retryAt;
+  } else if (failed.size > 0) {
+    for (const id of stillFailing) failed.add(id);
     // The entry is the shared record. The caller's own count is only a stand-in for when
-    // there is no entry at all — storage unavailable — and must never outvote one: a card
+    // there is no entry at all, stored or held, and must never outvote one: a card
     // that saw an outage, then only ever drew another card's healthy entry, still carries
     // the old count, and letting it win would start the next outage at a 30-minute wait.
     const previousCount = previous
@@ -526,13 +773,110 @@ async function fetchRawEvents(
     );
   }
 
+  // Started before a write that may have touched one of its calendars, so it may carry the
+  // answer from before it, and nothing else may refresh this window: see
+  // `expireStoredCalendars`.
+  if (inFlight.expired) entry.expired = true;
+
   if (latestRequestSeq.get(`${request.store}|${request.cacheKey}`) === seq) {
-    writeStoredEntry(request.store, request.cacheKey, entry, writeGeneration);
+    writeStoredEntry(request.store, request.cacheKey, entry, inFlight.writeGeneration);
   } else {
     Logger.info('A newer request for the same calendars has started; not caching this response');
   }
 
   return entry;
+}
+
+/**
+ * The calendars a `live` load keeps as they are: those a live subscription does not answer that
+ * are not due by their own clock, a failing one before its retry, any other within the refresh
+ * interval of its last answer.
+ *
+ * @param hass Home Assistant instance
+ * @param config Calendar card configuration
+ * @param request Resolved request identity
+ * @param entityIds The request's calendars
+ * @param now Current time in epoch milliseconds
+ * @returns Their entity ids
+ */
+function notYetDue(
+  hass: Types.Hass,
+  config: Types.Config,
+  request: ResolvedRequest,
+  entityIds: readonly string[],
+  now: number,
+): Set<string> {
+  const kept = new Set<string>();
+  const previous = readStoredEntry(request.store, request.cacheKey);
+  if (!previous || previous.expired) return kept;
+  for (const entityId of entityIds) {
+    const live = LiveCalendars.peek(hass, entityId, request.window);
+    if (live?.state === 'live' && !live.reconnecting) continue;
+    if (previous.failedEntities?.includes(entityId)) {
+      if (typeof previous.retryAt === 'number' && now < previous.retryAt) kept.add(entityId);
+      continue;
+    }
+    const lastLoaded = lastSuccessOf(previous, entityId);
+    if (lastLoaded !== undefined && now - lastLoaded < getCacheDuration(config)) kept.add(entityId);
+  }
+  return kept;
+}
+
+/**
+ * The window and calendars a configuration asks for now, for the subscriptions that follow
+ * them (`LiveCalendars`).
+ *
+ * @param hass Home Assistant instance
+ * @param config Calendar card configuration
+ * @returns The request's window and its calendars, each once
+ */
+export function liveScope(
+  hass: Types.Hass,
+  config: Types.Config,
+): { window: { start: Date; end: Date }; entityIds: string[] } {
+  return {
+    window: resolveRequest(hass, config, '').window,
+    entityIds: uniqueEntityIds(config.entities),
+  };
+}
+
+/**
+ * The calendars whose live subscription holds other events than a card drew, or that the card
+ * drew as failed while their subscription answers: the card loads again, and the load takes them
+ * from the subscription.
+ *
+ * Judged against what the card drew, not the cache entry: another card can write the entry with
+ * a subscription's events while this card commits a load that read them before they changed, and
+ * the entry can be gone, after 24 hours, a write, or from a full store. A refresh on another card
+ * sharing the calendars closes their subscriptions (`LiveCalendars.invalidate`), and the first
+ * push of the new ones shows this card any difference.
+ *
+ * A subscription waiting for its push after a reconnect is skipped: its events may be older than
+ * those drawn.
+ *
+ * @param hass Home Assistant instance
+ * @param config Calendar card configuration
+ * @param drawn The events the card drew, as loaded (`EventFetchResult.raw`)
+ * @param failed The calendars the card drew as failed
+ * @returns Each such calendar with the page-wide number of its subscription's last change
+ */
+export function liveDrift(
+  hass: Types.Hass,
+  config: Types.Config,
+  drawn: readonly Types.CalendarEventData[],
+  failed: readonly string[],
+): string[] {
+  const { window } = resolveRequest(hass, config, '');
+  const drift: string[] = [];
+  for (const entityId of uniqueEntityIds(config.entities)) {
+    const live = LiveCalendars.peek(hass, entityId, window);
+    if (live?.state !== 'live' || live.reconnecting) continue;
+    const held = drawn.filter((event) => event._entityId === entityId);
+    if (failed.includes(entityId) || LiveCalendars.fingerprintEvents(held) !== live.fingerprint) {
+      drift.push(`${entityId}@${live.version}`);
+    }
+  }
+  return drift;
 }
 
 /**
@@ -618,6 +962,8 @@ function isEntryDue(
   ) {
     return true;
   }
+
+  if (entry.expired) return true;
 
   if (entry.failedEntities?.length) {
     return now >= nextAttemptAt(entry, config);
@@ -973,8 +1319,9 @@ function parseTimeOfDay(
  * absent. It is reported once per distinct value, because this runs per event and a silent
  * typo is a support question nobody can answer.
  *
- * Nothing schedules a render at the returned instant. An event retires on the first
- * render after its moment passes.
+ * Where the configured time retires an event, `nextEventBoundary` schedules a repaint at the
+ * returned instant; midnight is repainted for on every card. Past either, an event retires on
+ * the first render after its moment.
  *
  * @param endDate Last day the event covers, at local midnight
  * @param configured The calendar's `allday_expires_at`, unvalidated
@@ -1755,7 +2102,17 @@ function getEntityIndex(entityId: string | undefined, config: Types.Config): num
 // EVENT PROCESSING & FILTERING
 //-----------------------------------------------------------------------------
 
-function processEvents(
+/**
+ * Matches fetched events to the card's calendars: each calendar's entries in turn, through
+ * their filters, stamped with the entry they matched (`_matchedConfig`) and its label. An
+ * event no entry admits is dropped. The card's new event goes through it too, so it is drawn
+ * with the entry the saved event will match.
+ *
+ * @param events - Events as Home Assistant returned them, tagged with their calendar
+ * @param config - Card configuration
+ * @returns The events the card shows, once per entry that admits each
+ */
+export function processEvents(
   events: ReadonlyArray<Types.CalendarEventData>,
   config: Types.Config,
 ): Types.CalendarEventData[] {
@@ -1823,8 +2180,8 @@ function isMultiDayEvent(event: Types.CalendarEventData): boolean {
   if (!event.start || !event.end) return false;
 
   if (event.start.date && event.end.date) {
-    const startDate = new Date(event.start.date);
-    const endDate = new Date(event.end.date);
+    const startDate = FormatUtils.parseAllDayDate(event.start.date);
+    const endDate = FormatUtils.parseAllDayDate(event.end.date);
     endDate.setDate(endDate.getDate() - 1);
 
     return startDate.toDateString() !== endDate.toDateString();
@@ -1868,8 +2225,16 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
     const startDate = FormatUtils.parseAllDayDate(event.start.date);
     const endDate = FormatUtils.parseAllDayDate(event.end.date);
     endDate.setDate(endDate.getDate() - 1); // Adjust end date (exclusive in iCal)
+    // Compared as dates, not instants. Where the clocks change at midnight, a day whose 00:00
+    // does not exist starts at 01:00, and `setDate` keeps that hour on every later day, so an
+    // instant comparison against the last day's 00:00 stopped one day short.
+    const lastDateStr = formatAllDayDate(endDate);
 
-    for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+    for (
+      let date = new Date(startDate);
+      formatAllDayDate(date) <= lastDateStr;
+      date.setDate(date.getDate() + 1)
+    ) {
       const currentDateStr = formatAllDayDate(date);
 
       const nextDate = new Date(date);
@@ -2440,33 +2805,60 @@ export function isEventCurrentlyRunning(event: Types.CalendarEventData): boolean
  * Those are the instants at which list and column view change with no new data: an event
  * becomes "now", stops being it, or turns past (dimmed, or gone under
  * `show_past_events: false`). So is the next local midnight while a timed event runs through
- * it, where a split event's segments hand over. All-day events are left out — their
- * boundaries are local midnights, when the whole day grouping moves, which is a refresh
- * rather than a repaint.
+ * it, where a split event's segments hand over.
+ *
+ * An all-day event has a boundary of its own only where `allday_expires_at` retires it, with
+ * past events hidden; the card shows nothing else that would draw it gone at that moment. Under
+ * `split_multiday_events` each day's row retires at that time on its own day, so the next such
+ * moment still ahead counts, today's or tomorrow's, not only the last day's. Where the event is
+ * drawn unsplit the earlier ones cost a repaint that changes nothing. Its other boundaries are
+ * local midnights, which the card repaints for anyway.
  *
  * @param events Events the card holds
  * @param now Instant to measure from, in milliseconds
- * @returns The next boundary in milliseconds, or `null` when no timed event has one ahead
+ * @param config The configuration the events are drawn with, for `allday_expires_at`; without
+ *   it all-day events are left out
+ * @returns The next boundary in milliseconds, or `null` when no event has one ahead
  */
 export function nextEventBoundary(
   events: ReadonlyArray<Types.CalendarEventData>,
   now: number,
+  config?: Types.Config,
 ): number | null {
   let next: number | null = null;
   const today = new Date(now);
   const midnight = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime();
+  const consider = (at: number): void => {
+    if (at > now && (next === null || at < next)) next = at;
+  };
 
   for (const event of events) {
-    if (event._isEmptyDay || !event.start?.dateTime || !event.end?.dateTime) continue;
+    if (event._isEmptyDay) continue;
+
+    if (config && !config.show_past_events && event.start?.date && event.end?.date) {
+      const configured = getEntitySetting(event._entityId, 'allday_expires_at', config, event);
+      if (parseTimeOfDay(configured)) {
+        const lastDay = FormatUtils.parseAllDayDate(event.end.date);
+        lastDay.setDate(lastDay.getDate() - 1);
+        const day = FormatUtils.parseAllDayDate(event.start.date);
+        const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        if (day < startOfToday) day.setTime(startOfToday.getTime());
+        // Today's and tomorrow's: one of them is the next ahead, whatever the hour.
+        for (let i = 0; i < 2 && day <= lastDay; i++, day.setDate(day.getDate() + 1)) {
+          consider(allDayExpiryInstant(day, configured).getTime());
+        }
+      }
+      continue;
+    }
+
+    if (!event.start?.dateTime || !event.end?.dateTime) continue;
 
     const start = new Date(event.start.dateTime).getTime();
     const end = new Date(event.end.dateTime).getTime();
     // An event running through midnight changes there too when split_multiday_events splits
     // it: one day's segment ends and the next day's begins, though the event does neither.
     const crossings = start < midnight && end > midnight ? [start, end, midnight] : [start, end];
-    for (const at of crossings) {
-      if (at > now && (next === null || at < next)) next = at;
-    }
+    crossings.forEach(consider);
   }
 
   return next;
@@ -2565,46 +2957,64 @@ export function calculateEventProgress(event: Types.CalendarEventData): number |
  * @param hass Home Assistant instance
  * @param entities Configured calendars; a calendar listed more than once is fetched once
  * @param timeWindow Window to request
+ * @param onSettled Told as each calendar answers, before the others have: its events, or
+ *   null when it failed
+ * @param live Whether a calendar's live subscription may answer in place of a request; the
+ *   subscriptions are held until every calendar has answered (`LiveCalendars.lease`)
  * @returns The events of every calendar that answered, and the ids of those that did not
  */
 export async function fetchEvents(
   hass: Types.Hass,
   entities: Array<Types.EntityConfig>,
   timeWindow: { start: Date; end: Date },
+  onSettled?: (entityId: string, events: Types.CalendarEventData[] | null) => void,
+  live = false,
 ): Promise<Pick<Types.EventFetchResult, 'events' | 'failedEntities'>> {
   const entityIds = uniqueEntityIds(entities);
   const query = `start=${timeWindow.start.toISOString()}&end=${timeWindow.end.toISOString()}`;
+  const release = live ? LiveCalendars.lease(hass, entityIds, timeWindow) : null;
 
   const outcomes = await Promise.all(
-    entityIds.map(async (entityId) => {
-      const path = `calendars/${entityId}?${query}`;
-      Logger.info(`Fetching calendar events with path: ${path}`);
+    entityIds
+      .map(async (entityId) => {
+        const path = `calendars/${entityId}?${query}`;
 
-      try {
-        const events = await withTimeout(
-          hass.callApi('GET', path),
-          Constants.TIMING.CALENDAR_FETCH_TIMEOUT,
-          `${entityId} did not answer within ${Constants.TIMING.CALENDAR_FETCH_TIMEOUT / 1000}s`,
-        );
+        try {
+          const pushed = release ? await LiveCalendars.load(hass, entityId, timeWindow) : undefined;
+          if (pushed) Logger.info(`Using live events for ${entityId}`);
+          else Logger.info(`Fetching calendar events with path: ${path}`);
+          const events =
+            pushed ??
+            (await withTimeout(
+              hass.callApi('GET', path),
+              Constants.TIMING.CALENDAR_FETCH_TIMEOUT,
+              `${entityId} did not answer within ${Constants.TIMING.CALENDAR_FETCH_TIMEOUT / 1000}s`,
+            ));
 
-        if (!events || !Array.isArray(events)) {
-          Logger.warn(`Invalid response for ${entityId}`);
+          if (!events || !Array.isArray(events)) {
+            Logger.warn(`Invalid response for ${entityId}`);
+            return { entityId, events: null };
+          }
+
+          return {
+            entityId,
+            events: (events as Types.CalendarEventData[]).map((event) => ({
+              ...event,
+              _entityId: entityId,
+            })),
+          };
+        } catch (error) {
+          Logger.error(`Failed to fetch events for ${entityId}:`, error);
           return { entityId, events: null };
         }
-
-        return {
-          entityId,
-          events: (events as Types.CalendarEventData[]).map((event) => ({
-            ...event,
-            _entityId: entityId,
-          })),
-        };
-      } catch (error) {
-        Logger.error(`Failed to fetch events for ${entityId}:`, error);
-        return { entityId, events: null };
-      }
-    }),
-  );
+      })
+      .map((pending) =>
+        pending.then((outcome) => {
+          onSettled?.(outcome.entityId, outcome.events);
+          return outcome;
+        }),
+      ),
+  ).finally(() => release?.(LiveCalendars.REQUEST_LINGER));
 
   const allEvents: Types.CalendarEventData[] = [];
   const failedEntities: string[] = [];
@@ -2639,24 +3049,28 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 /**
  * Calculate time window for event fetching
  *
+ * Half-open, like the window `processRawEvents` keeps: from local midnight on the first day
+ * to local midnight after the last, which Home Assistant's calendar API treats as an
+ * exclusive end. The end used to be the close of the day after the last one, so every card
+ * asked for one day more than it could draw.
+ *
  * @param daysToShow - Number of days to show in the calendar
  * @param startDate - Optional start date: a relative expression (`today+7`,
  *   `start_of_week`, `monday+1w`, …), an ISO string, or `YYYY-MM-DD`
  * @param firstDayOfWeek - Resolved first day of week (0 = Sunday, 1 = Monday),
  *   required by week-relative expressions such as `start_of_week`
+ * @param now - The moment a relative start date is resolved against
  * @returns Object containing start and end dates for the calendar window
  */
 export function getTimeWindow(
   daysToShow: number,
   startDate: string | undefined,
   firstDayOfWeek: number,
+  now: Date = new Date(),
 ): { start: Date; end: Date } {
   let start: Date;
 
-  const today = (): Date => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  };
+  const today = (): Date => new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
   const rawStartDate = startDate === undefined || startDate === null ? '' : String(startDate);
 
@@ -2664,7 +3078,7 @@ export function getTimeWindow(
     try {
       const trimmed = rawStartDate.trim();
 
-      const parsed = parseStartDateExpression(trimmed, firstDayOfWeek, new Date());
+      const parsed = parseStartDateExpression(trimmed, firstDayOfWeek, now);
 
       if (parsed.kind === 'ok') {
         start = parsed.date;
@@ -2720,12 +3134,33 @@ export function getTimeWindow(
 
   start.setHours(0, 0, 0, 0);
 
+  // Built from local fields, so a window spanning a DST change still ends at midnight.
   const end = new Date(start);
   const days = parseInt(daysToShow.toString()) || 3;
   end.setDate(start.getDate() + days);
-  end.setHours(23, 59, 59, 999);
 
   return { start, end };
+}
+
+/**
+ * Whether a start date resolves against today, so the window it opens moves as days pass: no
+ * start date, any relative expression, or a value so malformed that it falls back to today.
+ *
+ * Measured rather than parsed, by resolving the date a week apart, so it can never disagree
+ * with `getTimeWindow` about which values are fixed dates. Every relative expression moves by
+ * exactly that week and a fixed date does not move at all. The first weekday decides where a
+ * week-relative date lands, never whether it moves, so any value answers here.
+ *
+ * @param startDate - The configured `start_date`
+ * @returns True when the resolved first day depends on the current date
+ */
+export function startDateFollowsToday(startDate: string | undefined): boolean {
+  const now = new Date();
+  const weekLater = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7, 12);
+  return (
+    getTimeWindow(1, startDate, 1, now).start.getTime() !==
+    getTimeWindow(1, startDate, 1, weekLater).start.getTime()
+  );
 }
 
 //-----------------------------------------------------------------------------
@@ -2733,66 +3168,104 @@ export function getTimeWindow(
 //-----------------------------------------------------------------------------
 
 /**
- * Read cached event data if it is still fresh: within its lifetime and with no calendar
- * failing.
- *
- * @param key Cache key
- * @param config Card configuration
- * @returns Cached events, or null when absent, due for a refetch or unusable
- */
-export function getCachedEvents(
-  key: string,
-  config?: Types.Config,
-): Types.CalendarEventData[] | null {
-  const cacheEntry = getValidCacheEntry(key, config);
-  if (cacheEntry) {
-    return [...cacheEntry.events];
-  }
-  return null;
-}
-
-/**
- * Store event data in localStorage.
- *
- * @param key Cache key
- * @param events Calendar event data to cache
- * @param ttlMs Optional entry-specific TTL in milliseconds
- * @returns True when the entry can be read back
- */
-export function cacheEvents(
-  key: string,
-  events: Types.CalendarEventData[],
-  ttlMs?: number,
-): boolean {
-  const cacheEntry: Types.CacheEntry = {
-    events,
-    timestamp: Date.now(),
-  };
-
-  if (typeof ttlMs === 'number' && ttlMs > 0) {
-    cacheEntry.ttlMs = ttlMs;
-  }
-
-  return writeCacheEntry(key, cacheEntry);
-}
-
-/**
  * Write a complete cache entry to localStorage.
+ *
+ * Confirmed by what is read back, not by whether anything is: storage that drops a write
+ * without throwing leaves the entry before it readable, and taking that for this one lost
+ * the newer entry, so a calendar that had answered empty and then failed was refilled
+ * from the older one.
  *
  * @param key Cache key
  * @param entry Entry to store
- * @returns True when the entry can be read back
+ * @returns True when this entry, and not an older one, can be read back
  */
 function writeCacheEntry(key: string, entry: Types.CacheEntry): boolean {
   try {
     Logger.info(`Caching ${entry.events.length} events`);
-    localStorage.setItem(key, JSON.stringify(entry));
+    const serialized = JSON.stringify(entry);
+    localStorage.setItem(key, serialized);
 
-    return readCacheEntry(key) !== null;
+    return localStorage.getItem(key) === serialized && readCacheEntry(key) !== null;
   } catch (e) {
     Logger.error('Failed to cache calendar events:', e);
     return false;
   }
+}
+
+/**
+ * Mark every stored window holding a calendar a write may have touched as due, so the next
+ * card to draw one fetches it again.
+ *
+ * Every card on the page refreshes the window it draws after a write, but nothing refreshes a
+ * window stored for anything else: home, while the writing card is paged away, or the window
+ * of a card on another view or dashboard. Under `refresh_on_navigate: false` a card trusts a
+ * fresh entry, so it drew the events from before the write until `refresh_interval` passed.
+ * An expired entry is still drawn first, as any stored entry is, while the fetch runs.
+ *
+ * A request for such a window that is still in flight is marked too: it started before the
+ * write, may carry the answer from before it, and would otherwise store that answer as fresh,
+ * or hand it to a load that joined it (`isJoinable`). Requests started afterwards, the
+ * refreshes for this write among them, are not. Only this copy of the card's requests can be
+ * reached: another tab, or a development build beside a release, keeps its own.
+ *
+ * Paged windows need nothing here, because this tab's page store drops every entry older
+ * than a write. Only this version's entries are read, since no other version reads them.
+ *
+ * @param concerns - Whether the write may have touched any of these calendars
+ */
+export function expireStoredCalendars(
+  concerns: (calendarIds: ReadonlyArray<string>) => boolean,
+): void {
+  for (const request of inFlightRawFetches.values()) {
+    if (request.store === 'persistent' && concerns(request.calendars)) request.expired = true;
+  }
+
+  const keys: string[] = [];
+  try {
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      if (
+        key?.startsWith(Constants.CACHE.EVENT_CACHE_KEY_PREFIX) &&
+        key.endsWith(Constants.VERSION.CURRENT)
+      ) {
+        keys.push(key);
+      }
+    }
+  } catch (error) {
+    Logger.warn('Could not list cached events:', error);
+    return;
+  }
+
+  for (const key of keys) {
+    const entry = readCacheEntry(key);
+    if (!entry || entry.expired || !concerns(entryCalendars(entry))) continue;
+    try {
+      localStorage.setItem(key, JSON.stringify({ ...entry, expired: true }));
+    } catch (error) {
+      // An entry that cannot be marked must not stay trusted.
+      Logger.warn('Could not expire cached events, removing them:', error);
+      try {
+        localStorage.removeItem(key);
+      } catch {}
+    }
+  }
+}
+
+/**
+ * The calendars a stored window was fetched for: every one that answered, failed or has
+ * events in it. A request records each calendar it asked for in one of the first two.
+ *
+ * @param entry - Cache entry
+ * @returns Calendar entity ids
+ */
+function entryCalendars(entry: Types.CacheEntry): string[] {
+  return [
+    ...new Set([
+      ...Object.keys(entry.lastSuccess ?? {}),
+      ...(entry.failedEntities ?? []),
+      ...entry.events.flatMap((event) => (event._entityId ? [event._entityId] : [])),
+    ]),
+  ];
 }
 
 /**

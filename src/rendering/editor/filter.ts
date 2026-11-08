@@ -9,11 +9,12 @@ import { type PanelDef, type PanelExtra, type SchemaCtx, walkSchema } from './pa
 import * as Routing from './routing';
 import { entityConfigKeys } from './schemas/entity';
 import { configKeysForField, deriveSyntheticData, isSyntheticKey } from './synthetic';
-import { deepEqual, toStoredConfig } from './value';
+import { deepEqual, storedViewBlocks } from './value';
 import { type EditorWorkspace, viewForWorkspace } from './workspace';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
+import { configuredCalendarName, homeAssistantName } from '../../utils/calendar-names';
 import * as Helpers from '../../utils/helpers';
 
 /**
@@ -74,6 +75,11 @@ export interface FilterCtx extends SchemaCtx {
    * matcher cannot work it out from the node. `filterEntitySchema` sets it; absent means card.
    */
   scope?: 'card' | 'entity';
+  /**
+   * Home Assistant state, for the names it gives calendars: a calendar's panel is headed with
+   * that name, so a search for it has to find the panel. Absent before the editor has one.
+   */
+  hass?: Types.Hass;
 }
 
 /**
@@ -279,7 +285,7 @@ const OVERRIDE_BLOCK_KEYS: ReadonlySet<string> = new Set(
   ),
 );
 
-const storedConfig = Helpers.memoizeLast((config: Types.Config) => toStoredConfig(config));
+const storedBlocks = Helpers.memoizeLast((config: Types.Config) => storedViewBlocks(config));
 
 /**
  * Whether a field is holding something other than what the card would do anyway.
@@ -304,7 +310,7 @@ export function isCustomized(
   }
 
   if (dataPath.length === 1 && OVERRIDE_BLOCK_KEYS.has(dataPath[0])) {
-    const block = storedConfig(raw)[dataPath[0]];
+    const block = storedBlocks(raw)[dataPath[0]];
 
     return typeof block === 'object' && block !== null
       ? (block as Record<string, unknown>)[name] !== undefined
@@ -394,7 +400,7 @@ function filterNodes(
  * @param node - Schema node to test
  * @returns `true` for a `constant` node
  */
-function isHeading(node: HaFormSchema): boolean {
+export function isHeading(node: HaFormSchema): boolean {
   return 'type' in node && node.type === 'constant';
 }
 
@@ -527,12 +533,34 @@ export function filterSchema(
         // A heading is not a setting, so it is never a search hit of its own — it rides
         // along and is pruned above when its section came back empty.
         isHeading(node) ||
-        (matchesQuery(node, nodePath, ctx, nodeDataPath) &&
+        ((matchesQuery(node, nodePath, ctx, nodeDataPath) ||
+          (nodeDataPath.length === 0 && listsCalendars(node) && namesACalendar(ctx))) &&
           (!ctx.criteria.customizedOnly || isCustomized(node, nodeDataPath, ctx))),
       path,
       dataPath,
     ),
   );
+}
+
+/**
+ * Whether a field is the calendar picker: the control writing the card's `entities`.
+ *
+ * @param node - Schema node
+ * @returns `true` for the picker
+ */
+function listsCalendars(node: HaFormSchema): boolean {
+  return configKeysForField(node.name).includes('entities');
+}
+
+/**
+ * Whether the query names a calendar the card lists, as its panel would be found: the picker
+ * lists those calendars, so a search for one keeps it beside the calendar's panel.
+ *
+ * @param ctx - Matching context
+ * @returns `true` when some listed calendar answers the query
+ */
+function namesACalendar(ctx: FilterCtx): boolean {
+  return (ctx.config?.entities ?? []).some((entry) => matchesEntity(entry, ctx));
 }
 
 /**
@@ -582,6 +610,10 @@ export function filterExtras(
 /**
  * Whether a calendar's own identity answers the query.
  *
+ * Its identity is its entity id, its label and its names: the one the configuration gives it,
+ * anywhere in the list, not only in this block, and the one Home Assistant gives it, which
+ * heads its panel and names it in the picker.
+ *
  * @param entry - Entry as stored
  * @param ctx - Matching context
  * @returns `true` when the calendar matches, or when nothing was typed
@@ -592,8 +624,12 @@ function matchesEntity(entry: string | Types.EntityConfig, ctx: FilterCtx): bool
 
   const config = Entities.asEntityConfig(entry);
   const label = typeof config.label === 'string' ? config.label : undefined;
+  const name = configuredCalendarName([...(ctx.config?.entities ?? []), config], config.entity);
 
-  return anyMatches([config.entity, label], query);
+  return anyMatches(
+    [config.entity, label, name, homeAssistantName(config.entity, ctx.hass)],
+    query,
+  );
 }
 
 /**
@@ -641,6 +677,80 @@ export function filterEntitySchema(
         isHeading(node) ||
         ((named || matchesQuery(node, nodePath, entityCtx)) &&
           (!ctx.criteria.customizedOnly || isEntityFieldCustomized(entry, node))),
+      path,
+      [],
+    ),
+  );
+}
+
+/**
+ * Whether a toolbar button's own identity answers the query: its name, its icon, the words its
+ * icon is named by on the card, or its entity.
+ *
+ * @param entry - The button as written
+ * @param ctx - Matching context
+ * @returns `true` when the button matches, or when nothing was typed
+ */
+function matchesButton(entry: unknown, ctx: FilterCtx): boolean {
+  const query = queryOf(ctx);
+  if (query === '') return true;
+
+  const button = Helpers.isConfigBlock(entry) ? entry : {};
+  const text = (value: unknown): string | undefined =>
+    typeof value === 'string' ? value : undefined;
+  const icon = text(button.icon);
+  return anyMatches(
+    [
+      text(button.name),
+      icon,
+      icon === undefined ? undefined : Helpers.iconWords(icon),
+      text(button.entity),
+    ],
+    query,
+  );
+}
+
+/**
+ * Whether one toolbar button holds a value in one of its fields.
+ *
+ * @param entry - The button as written
+ * @param node - Schema node
+ * @returns `true` when this button sets this field
+ */
+function isButtonFieldCustomized(entry: unknown, node: HaFormSchema): boolean {
+  const value = Helpers.isConfigBlock(entry) ? entry[node.name] : undefined;
+  return value !== undefined && value !== null && value !== '';
+}
+
+/**
+ * Filters one toolbar button's fields, as `filterEntitySchema` does a calendar's: a field shows
+ * where it answers the query, or where the button's own name, icon or entity does, and, under
+ * "customized only", only where the button sets it.
+ *
+ * @param schema - A button's fields
+ * @param entry - The button as written
+ * @param path - Label path the fields are rendered under
+ * @param ctx - Matching context
+ * @returns The fields, reduced
+ */
+export function filterButtonSchema(
+  schema: ReadonlyArray<HaFormSchema>,
+  entry: unknown,
+  path: ReadonlyArray<string>,
+  ctx: FilterCtx,
+): HaFormSchema[] {
+  if (!isFiltering(ctx.criteria)) return [...schema];
+
+  const named = queryOf(ctx) !== '' && matchesButton(entry, ctx);
+
+  return pruneLoneHeadings(
+    filterNodes(
+      schema,
+      ctx,
+      (node, nodePath) =>
+        isHeading(node) ||
+        ((named || matchesQuery(node, nodePath, ctx)) &&
+          (!ctx.criteria.customizedOnly || isButtonFieldCustomized(entry, node))),
       path,
       [],
     ),

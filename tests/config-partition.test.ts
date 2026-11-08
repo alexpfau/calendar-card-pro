@@ -28,6 +28,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { DEFAULT_CONFIG } from '../src/config/config';
+import type * as Types from '../src/config/types';
 import {
   COLUMN_OVERRIDE_KEYS,
   FETCH_TIME_KEYS,
@@ -37,6 +39,7 @@ import {
   VIEW_SCOPE,
   routeForKey,
 } from '../src/config/view';
+import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 import { ATOMIC_KEYS } from '../src/rendering/editor/value';
 
 /**
@@ -96,10 +99,17 @@ const CARD_LEVEL_REASONS = {
 
   /**
    * What touching the card does. Stored whole rather than option by option; reconciled
-   * against `ATOMIC_KEYS` below. A tap on an event means the same thing whichever view drew
-   * the event under the finger, as a tap on the card does.
+   * against `ATOMIC_KEYS` below. A tap or hold on an event, or a tap on a day, means the same
+   * thing whichever view drew what is under the finger, as a tap on the card does.
    */
-  action: ['tap_action', 'hold_action', 'event_tap_action'],
+  action: ['tap_action', 'hold_action', 'day_tap_action', 'event_tap_action', 'event_hold_action'],
+
+  /**
+   * What a press on an event's text may follow. It reaches only events without a tap or hold
+   * of their own, which are decided at card level, so it is decided there too: a link that
+   * came and went with the layout would answer the same press differently on one card.
+   */
+  'row-link': ['open_links'],
 
   /**
    * What Home Assistant's event dialog may offer once an event is open. The dialog is the
@@ -286,13 +296,31 @@ describe('card-level reasons', () => {
     // but which cannot be written into `column:` is unreachable from the workspace that
     // configures that view. If a future option needs to be a genuine exception, this fails
     // and the exception gets argued for rather than inherited.
+    //
+    // `open_links` is the one argued exception. It is decided at card level with the event
+    // actions it depends on (the `row-link` reason above), and it is scoped to list and column
+    // only because grid draws no links. It is not unreachable: the Actions panel that holds it
+    // is in every workspace, Column's included, which the assertion after this one proves.
+    const ARGUED_EXCEPTIONS = ['open_links'];
     const listAndColumn = Object.entries(VIEW_SCOPE)
       .filter(([, views]) => views.size === 2 && views.has('list') && views.has('column'))
       .map(([key]) => key)
       .filter((key) => CARD_LEVEL_KEYS.includes(key))
       .sort();
 
-    expect(listAndColumn).toEqual([]);
+    expect(listAndColumn).toEqual(ARGUED_EXCEPTIONS);
+    const actions = PANELS.find((panel) => panel.id === 'actions')!;
+    const columnNames = [
+      ...walkSchema(
+        actions.build({
+          view: 'column',
+          workspace: 'column',
+          config: { ...DEFAULT_CONFIG, view: 'column' } as Types.Config,
+          language: 'en',
+        }),
+      ),
+    ].map(({ node }) => node.name);
+    expect(columnNames).toContain('open_links');
 
     // Reachability is the point, so say where they are reachable from as well as where
     // they are not: both members of the pair carry through into `list:` too.

@@ -112,6 +112,8 @@ export interface Config {
   event_color: string;
   empty_day_color: string;
   show_time: boolean;
+  /** Read through `resolveTimePosition`, which takes anything else as `below`. */
+  time_position: 'below' | 'title';
   show_single_allday_time: boolean;
   show_multiday_allday_time: boolean;
   allday_badge: boolean | string;
@@ -144,14 +146,39 @@ export interface Config {
   weather?: WeatherConfig;
 
   // Actions
+  /**
+   * What a tap on the card does. Besides Home Assistant's actions: `expand`, `refresh`,
+   * `add-event`, `reset`.
+   */
   tap_action: ActionConfig;
+  /** What a hold on the card does, with the same actions as `tap_action`. */
   hold_action: ActionConfig;
   /**
-   * What a tap on an event does. `details` opens Home Assistant's event dialog, instead of
-   * the card's `tap_action`; any other action is read as `none`, which leaves a tap on an
-   * event to `tap_action`. A hold on an event runs `hold_action` either way.
+   * What a tap on a day does where it shows no event. `add-event` opens Home Assistant's
+   * new-event dialog on that day, or in a grid's time area at the hour tapped, instead of the
+   * card's `tap_action`; any other action is read as `none`, which leaves such a tap to
+   * `tap_action`.
+   */
+  day_tap_action: ActionConfig;
+  /**
+   * What a tap on an event does, instead of the card's `tap_action`. `details` opens Home
+   * Assistant's event dialog; any of Home Assistant's own actions runs with the tapped event's
+   * fields filled into it (`event-actions.ts`). `none` and the card's own actions leave a tap
+   * on an event to `tap_action`.
    */
   event_tap_action: ActionConfig;
+  /**
+   * What a hold on an event does, instead of the card's `hold_action`, with the same actions
+   * as `event_tap_action`. `none` and the card's own actions leave a hold on an event to
+   * `hold_action`.
+   */
+  event_hold_action: ActionConfig;
+  /**
+   * Whether web addresses in an event row's location and description are links, which open
+   * in a new tab. Only where an event has no tap or hold of its own, so a press on a link and a
+   * press on its event never compete; list and column view only (`VIEW_SCOPE`).
+   */
+  open_links: boolean;
   /**
    * Whether the event-detail dialog may offer Edit. Narrows only: a calendar that does not
    * support updates never gets Edit, whatever this says.
@@ -332,6 +359,7 @@ export interface SharedViewOverrides {
   progress_bar_width?: string;
   event_icon_vertical_alignment?: string;
   show_time?: boolean;
+  time_position?: 'below' | 'title';
   show_single_allday_time?: boolean;
   show_multiday_allday_time?: boolean;
   allday_badge?: boolean | string;
@@ -584,6 +612,17 @@ export interface TimeGridOverrides extends SharedViewOverrides {
 /** Calendar entity configuration. */
 export interface EntityConfig {
   entity: string;
+  /**
+   * The calendar's name wherever the card itself names it: the legend, the event popover,
+   * the "Couldn't load" notice and the grid's screen-reader names. Unset, it is Home
+   * Assistant's name for the calendar, and the entity id where Home Assistant has none.
+   *
+   * 🚨 It belongs to the calendar, not to this block. A calendar listed twice has one name,
+   * the first non-blank one in the list (`calendarName` in `utils/calendar-names.ts`), and the
+   * editor writes an edit to every block of the calendar. It never draws on an event row,
+   * which is what `label` is for, and Home Assistant's own controls keep Home Assistant's name.
+   */
+  name?: string;
   label?: string;
   label_type?: LabelType;
   color?: string;
@@ -746,11 +785,37 @@ export interface ToolbarConfig {
   /** A button that loads the events again now, last in the action row, after reset. */
   refresh?: boolean;
   /**
+   * A button that searches the card's events a year back and a year ahead, last in the action
+   * row, after refresh. Drawn only with the date navigation, since a picked result pages the card.
+   */
+  search?: boolean;
+  /**
    * The calendar filter, which hides or shows each calendar's events on this device: `menu`, a
    * button opening a checkbox per calendar; `chips`, a chip per calendar in the middle of the
    * heading row, or exactly the `menu` layout where they do not all fit; `false`, none.
    */
   legend?: false | ToolbarLegendMode;
+  /**
+   * Buttons the configuration defines itself, drawn after add in the order written: each an icon
+   * and an action, run as the card's own `tap_action` is. Where the action row runs out of room
+   * they fold into its menu from the last, before add does.
+   */
+  buttons?: ToolbarButtonConfig[];
+}
+
+/** One button the configuration adds to the toolbar. */
+export interface ToolbarButtonConfig {
+  /** An icon name, such as `mdi:arrow-left`; a button without one is not drawn. */
+  icon?: string;
+  /** Its name: the tooltip, the accessible name, and its row's words in a folded menu. */
+  name?: string;
+  /** The entity `toggle` and `more-info` act on; the card's first calendar without one. */
+  entity?: string;
+  /**
+   * What a press does: one of the card's own actions or one of Home Assistant's. Without one,
+   * or with `none`, the button is drawn and does nothing.
+   */
+  tap_action?: ActionConfig;
 }
 
 /** Weather configuration. */
@@ -853,8 +918,9 @@ export interface CalendarEventData {
    * Set on grid-owned timed segments that keep the original event's start time.
    *
    * Grid view splits timed multi-day events into per-day timed blocks instead of using the
-   * list splitter. The block geometry already communicates each day's end, so the renderer
-   * needs only this provenance to decide whether a segment may show its start time.
+   * list splitter. This marks the one block that may show the event's time: its whole span,
+   * read from `_gridSource`, with the days to its end (`gridTimedEventContentParts`). The
+   * other blocks start at midnight rather than at the event's start, and show title only.
    */
   _gridSegmentStartsEvent?: boolean;
   /**
@@ -903,6 +969,12 @@ export interface CalendarEventData {
    * take one icon rather than both. Counting blocks would break that pattern outright.
    */
   _mergedFrom?: ReadonlyArray<MergedCalendar>;
+  /**
+   * Set on the copy of a row the search panel picked, while the card rings it
+   * (`Search.ringIn`): every view's renderer binds its ring class from it, so the ring is drawn
+   * by the template and no element comes or goes for it.
+   */
+  _searchRing?: boolean;
 }
 
 /**
@@ -953,6 +1025,13 @@ export interface EventFetchResult {
   events: CalendarEventData[];
   /** Entity IDs whose calendar could not be retrieved during this fetch. */
   failedEntities: string[];
+  /**
+   * When each calendar the result speaks for last loaded successfully, in epoch milliseconds:
+   * each that answered, empty included, and each failing one the cache holds a last success of
+   * (`CacheEntry.lastSuccess`), empty included. A failing calendar not named here is one the
+   * result knows nothing of, so that `raw` holds none of its events does not mean it has none.
+   */
+  lastSuccess: Record<string, number>;
   /** When this payload was retrieved from Home Assistant, in epoch milliseconds. */
   fetchedAt: number;
   /**
@@ -966,6 +1045,11 @@ export interface EventFetchResult {
    * calendar is failing.
    */
   nextAttemptAt: number;
+  /**
+   * The events as loaded, before any processing: what a card drew is compared with its live
+   * subscriptions through these (`EventUtils.liveDrift`).
+   */
+  raw?: readonly CalendarEventData[];
 }
 
 /**
@@ -1013,6 +1097,11 @@ export interface CacheEntry {
   failureCount?: number;
   /** Earliest time a failing entry is worth another network attempt. */
   retryAt?: number;
+  /**
+   * Set when a calendar write may have changed one of its calendars after it was fetched: it
+   * is still drawn, and refetched by the next load that would otherwise trust it.
+   */
+  expired?: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -1046,7 +1135,7 @@ export interface Hass {
     first_weekday?: string;
   };
   /**
-   * Home Assistant's core configuration. Only the field the card reads is declared.
+   * Home Assistant's core configuration. Only the fields the card reads are declared.
    *
    * Optional, unlike in Home Assistant's own `HassConfig`, because a non-standard `hass`
    * may omit it, and the card then reads the weekend from the language instead.
@@ -1054,9 +1143,15 @@ export interface Hass {
   config?: {
     /**
      * The home's country as an ISO 3166-1 alpha-2 code, or `null` when none is set. It
-     * decides which days are the weekend; see {@link FormatUtils.getWeekendDays}.
+     * decides which days are the weekend; see {@link FormatUtils.getWeekendDays}. The
+     * popover's place lookup reads it too, with the home's position below.
      */
     country?: string | null;
+    /** Home Assistant's time zone, as an IANA name; pushed calendar events are written in it. */
+    time_zone?: string;
+    /** Where the home is, which decides which of two towns of one name the popover maps. */
+    latitude?: number;
+    longitude?: number;
   };
   connection?: {
     subscribeEvents: (callback: (event: unknown) => void, eventType: string) => Promise<() => void>;
@@ -1066,9 +1161,15 @@ export interface Hass {
     ) => Promise<() => void>;
     /** One-shot WebSocket request; not every custom-card `hass` also has `callWS`. */
     sendMessagePromise?: <T = unknown>(message: WebSocketMessage) => Promise<T>;
+    /** Whether the websocket is open now. */
+    connected?: boolean;
+    /** `ready` fires each time the connection comes back, once it has subscribed again. */
+    addEventListener?: (type: 'ready' | 'disconnected', listener: () => void) => void;
   };
   /** Sends a one-shot WebSocket command; optional so callers can degrade gracefully. */
   callWS?: <T = unknown>(message: WebSocketMessage) => Promise<T>;
+  /** Home Assistant's theme state; the event popover is drawn dark while `darkMode` is on. */
+  themes?: { darkMode?: boolean };
   /**
    * Home Assistant's own entity-state formatter.
    *
@@ -1191,8 +1292,8 @@ export interface HassEntity {
  * A single card recipe offered by the Home Assistant card picker after the user
  * selects an entity.
  *
- * The first entry of a suggestion list is the canonical recipe and carries no
- * `label`; any further entry is a labeled variant naming only what differs.
+ * The plain list recipe carries no `label`, so it reads as the card's own name; every
+ * other entry is a labeled variant naming only what differs.
  */
 export interface EntitySuggestion {
   label?: string;
@@ -1227,6 +1328,8 @@ export interface Translations {
   error: string;
   /** Label before the names of calendars that could not be loaded. */
   loadFailed: string;
+  /** The title a new event drawn in a grid shows until it has one of its own. */
+  newEvent: string;
   allDay: string;
   multiDay: string;
   at: string;

@@ -1208,6 +1208,215 @@ describe('grid disclosure wrapped time rung', () => {
 });
 
 /**
+ * A folded countdown's words take a line of their own on the same terms as the wrap: where
+ * the block can pay for it. Reported on a one-hour block: its "6:30 PM · in 2 days" became
+ * "6:30 PM - 7:30 PM ·" with the words on a second line the block had no room for, and the
+ * height pass then withdrew the whole time row.
+ */
+describe('grid disclosure countdown flow', () => {
+  const ICON = 18;
+  const START = 29.86;
+  const END = 39.12;
+  const DOT = 11.34;
+  const WORDS = 52.02;
+  const FULL = ICON + START + END + DOT + WORDS;
+  const LINE = 14.4;
+  const TITLE = 20;
+
+  afterEach(() => vi.restoreAllMocks());
+
+  /**
+   * One block with a countdown folded into its time row, layout stubbed.
+   *
+   * The time row's height follows the classes the pass sets: one line for its time, one more
+   * for the wrap, and one more again where the words do not fit after the time's last line.
+   *
+   * @param lane Content-box width of the time row
+   * @param clientHeight Height the disclosed content has
+   * @returns The card, its nodes, and the pass under test
+   */
+  function block(lane: number, clientHeight: number) {
+    const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
+      _applyGridDisclosureSafety(): void;
+    };
+    const root = card.attachShadow({ mode: 'open' });
+    Object.defineProperty(card, 'renderRoot', { value: root });
+    root.innerHTML = `
+      <div class="grid-event">
+        <div class="grid-event-disclosure">
+          <div class="event-content">
+            <div class="time"><span class="time-actual"><ha-icon></ha-icon><span class="time-text"><span>18:30<span class="time-end"> - 19:30</span></span><span class="time-countdown">in 2 days</span></span></span></div>
+            <div class="location"><span>Office</span></div>
+          </div>
+        </div>
+      </div>
+    `;
+    const disclosure = root.querySelector<HTMLElement>('.grid-event-disclosure')!;
+    const content = root.querySelector<HTMLElement>('.event-content')!;
+    const time = root.querySelector<HTMLElement>('.time')!;
+    const location = root.querySelector<HTMLElement>('.location')!;
+    const has = (name: string) => disclosure.classList.contains(name);
+
+    const rect = (width: number) => ({ left: 0, right: width, width, height: 0 }) as DOMRect;
+    // Sized to its content, the row is one line: wrapped, it is the wider of its two lines.
+    time.getBoundingClientRect = () =>
+      rect(has('grid-time-wrap') ? Math.max(START, END + DOT + WORDS) : FULL);
+    root.querySelector<HTMLElement>('ha-icon')!.getBoundingClientRect = () => rect(ICON);
+    root.querySelector<HTMLElement>('.time-end')!.getBoundingClientRect = () => rect(END);
+    root.querySelector<HTMLElement>('.time-countdown')!.getBoundingClientRect = () =>
+      rect(DOT + WORDS);
+    vi.spyOn(Range.prototype, 'getBoundingClientRect').mockImplementation(function (this: Range) {
+      return rect(this.toString().trim() === 'in 2 days' ? WORDS : START);
+    });
+    Object.defineProperty(time, 'clientWidth', { value: lane });
+
+    const drawn = (row: HTMLElement) =>
+      !row.classList.contains('grid-event-detail-clipped') &&
+      (row !== time || has('grid-time-fits'));
+    const timeLines = () => {
+      if (!drawn(time)) return 0;
+      const wrap = has('grid-time-wrap');
+      const last = wrap
+        ? END + DOT + WORDS
+        : (has('grid-time-no-end') ? START : START + END) +
+          DOT +
+          WORDS +
+          (has('grid-time-no-icon') ? 0 : ICON);
+      return (wrap ? 2 : 1) + (!has('grid-time-no-countdown') && last > lane ? 1 : 0);
+    };
+    for (const row of [time, location]) {
+      row.getClientRects = () =>
+        drawn(row)
+          ? ({ 0: {} as DOMRect, length: 1, item: () => null } as unknown as DOMRectList)
+          : ({ length: 0 } as DOMRectList);
+    }
+    Object.defineProperties(content, {
+      clientHeight: { value: clientHeight },
+      scrollHeight: {
+        get: () => TITLE + timeLines() * LINE + (drawn(location) ? LINE : 0),
+      },
+    });
+
+    return { card, disclosure, content, time, location };
+  }
+
+  const rungOf = (disclosure: HTMLElement) =>
+    [
+      'grid-time-fits',
+      'grid-time-no-icon',
+      'grid-time-no-end',
+      'grid-time-wrap',
+      'grid-time-no-countdown',
+    ].filter((name) => disclosure.classList.contains(name));
+  /** Wide enough for the start time with its words, or the range alone; not the range with them. */
+  const FLOWING = START + DOT + WORDS + 4;
+  /** Wide enough for the start time and its separator, not for the words after them. */
+  const START_ONLY = START + DOT + 4;
+
+  it('lets the words take a line of their own where the block has one to spare', () => {
+    const { card, disclosure, content, location } = block(FLOWING, TITLE + 3 * LINE);
+
+    card._applyGridDisclosureSafety();
+
+    expect(rungOf(disclosure)).toEqual(['grid-time-fits', 'grid-time-no-icon']);
+    expect(location.classList.contains('grid-event-detail-clipped')).toBe(false);
+    expect(gridContentOverflows(content)).toBe(false);
+  });
+
+  it('gives the line back, keeping the start time with its words on one line', () => {
+    const { card, disclosure, content, time, location } = block(FLOWING, TITLE + 2 * LINE);
+
+    card._applyGridDisclosureSafety();
+
+    expect(rungOf(disclosure)).toEqual(['grid-time-fits', 'grid-time-no-icon', 'grid-time-no-end']);
+    expect(time.classList.contains('grid-event-detail-clipped'), 'the time row').toBe(false);
+    expect(location.classList.contains('grid-event-detail-clipped'), 'the location').toBe(false);
+    expect(gridContentOverflows(content)).toBe(false);
+  });
+
+  it.each([
+    ['the range keeps its words without it', START + END + DOT + WORDS + 4, true],
+    ['the start time keeps its words', ICON + START + END + DOT + 2, false],
+  ])(
+    'draws the clock beside a range whose words flow, and gives it up first where %s',
+    (_, lane, rangeFits) => {
+      const tall = block(lane, TITLE + 3 * LINE);
+      tall.card._applyGridDisclosureSafety();
+      expect(rungOf(tall.disclosure)).toEqual(['grid-time-fits']);
+      expect(tall.location.classList.contains('grid-event-detail-clipped')).toBe(false);
+
+      const short = block(lane, TITLE + 2 * LINE);
+      short.card._applyGridDisclosureSafety();
+      expect(rungOf(short.disclosure)).toEqual(
+        rangeFits
+          ? ['grid-time-fits', 'grid-time-no-icon']
+          : ['grid-time-fits', 'grid-time-no-icon', 'grid-time-no-end'],
+      );
+      expect(short.location.classList.contains('grid-event-detail-clipped')).toBe(false);
+      expect(gridContentOverflows(short.content)).toBe(false);
+    },
+  );
+
+  it('keeps the time without its countdown where the separator cannot follow the start time', () => {
+    // "18:30 ·" does not fit, "18:30" does: v5.0.0 drew a wrap with the dot leading a line.
+    const { card, disclosure, content, time, location } = block(START + 2, TITLE + 2 * LINE);
+
+    card._applyGridDisclosureSafety();
+
+    expect(rungOf(disclosure)).toEqual([
+      'grid-time-fits',
+      'grid-time-no-icon',
+      'grid-time-no-end',
+      'grid-time-no-countdown',
+    ]);
+    expect(time.classList.contains('grid-event-detail-clipped')).toBe(false);
+    expect(location.classList.contains('grid-event-detail-clipped')).toBe(false);
+    expect(gridContentOverflows(content)).toBe(false);
+  });
+
+  it('leaves the countdown out rather than let its words cost the location its place', () => {
+    // The words fit a line of their own, not beside any time, and the block has no line for
+    // them: the countdown goes, and the time keeps its one line.
+    const lane = WORDS + 2;
+    const tall = block(lane, TITLE + 4 * LINE);
+    tall.card._applyGridDisclosureSafety();
+    expect(rungOf(tall.disclosure)).toEqual([
+      'grid-time-fits',
+      'grid-time-no-icon',
+      'grid-time-wrap',
+    ]);
+
+    const { card, disclosure, content, location } = block(lane, TITLE + 2 * LINE);
+    card._applyGridDisclosureSafety();
+    expect(rungOf(disclosure)).toEqual([
+      'grid-time-fits',
+      'grid-time-no-icon',
+      'grid-time-no-end',
+      'grid-time-no-countdown',
+    ]);
+    expect(location.classList.contains('grid-event-detail-clipped')).toBe(false);
+    expect(gridContentOverflows(content)).toBe(false);
+  });
+
+  it.each([
+    ['the start time alone', START_ONLY],
+    ['a wrap', Math.max(START, END + DOT) + 1],
+  ])('leaves out words wider than the lane, beside %s, however tall the block', (_, lane) => {
+    for (const lines of [2, 4]) {
+      const { card, disclosure, content, time, location } = block(lane, TITLE + lines * LINE);
+
+      card._applyGridDisclosureSafety();
+
+      expect(rungOf(disclosure)).toContain('grid-time-no-countdown');
+      expect(rungOf(disclosure)).toContain('grid-time-fits');
+      expect(time.classList.contains('grid-event-detail-clipped')).toBe(false);
+      expect(location.classList.contains('grid-event-detail-clipped')).toBe(false);
+      expect(gridContentOverflows(content)).toBe(false);
+    }
+  });
+});
+
+/**
  * Half of the layout fact the wrapped rung's height negotiation is built on.
  *
  * The demotion pass runs before the detail-row withdrawal loop, and the title-fit pass runs
@@ -1240,5 +1449,185 @@ describe('grid disclosure layout order', () => {
     // No `justify-content`, so items pack from the top and the first one never moves.
     expect(content).not.toContain('justify-content');
     expect(rule('.grid-event-disclosure .summary-row')).toContain('flex: 0 0 auto;');
+  });
+});
+
+/**
+ * The 2px a labeled grid title keeps under its text, against the rows beneath it.
+ *
+ * The gap is spacing, so it gives way before any row or line does, and comes back wherever the
+ * rows that stayed leave room for it. A one-hour block at `hour_height: 36px` has a 29px content
+ * box, and a labeled title (15px), its gap and the time row (14.4px) need 31.4px of it: with the
+ * gap the time row went, and the title was centered alone, where v5.0.1 drew both.
+ *
+ * happy-dom has no layout, so the stub below stands in for the stylesheet: a labeled summary is
+ * 2px taller unless its block carries `data-grid-title-gap="yielded"`, which is what the rule
+ * that draws the gap excludes. `grid-inline-labels.test.ts` pins that exclusion in the rule.
+ * Heights are rounded, as `scrollHeight` is.
+ */
+describe('grid disclosure title gap', () => {
+  const TITLE = 15;
+  const GAP = 2;
+  const LINE = 14.4;
+  const WIDTH = 300;
+
+  /** Line rectangles per text node, so the title fitter can read the title and its label. */
+  const RUNS = new WeakMap<Node, DOMRect[]>();
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    document.body.replaceChildren();
+  });
+
+  /**
+   * One block with a title, a time row and an optional weather row, with layout stubbed.
+   *
+   * The title and its label are given rectangles inside the block, as the title fitter reads
+   * them, so a block that keeps its rows stays in the normal title mode rather than falling
+   * back to a compact or blank one the browser would not choose. `.grid-event` is
+   * `padding: 2px 4px` and `box-sizing: border-box`, so its border box is the content box
+   * plus 4px.
+   *
+   * @param clientHeight Height the disclosed content has
+   * @param options Whether the title is labeled and has a weather row, and the title's height
+   * @returns The card, its nodes, and a way to change the content's height
+   */
+  function block(clientHeight: number, { labeled = true, weather = false, title = TITLE } = {}) {
+    const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
+      _applyGridDisclosureSafety(): void;
+    };
+    const root = card.attachShadow({ mode: 'open' });
+    Object.defineProperty(card, 'renderRoot', { value: root });
+    document.body.append(card);
+    const label = labeled ? '<span class="calendar-label label-emoji">🏠</span>' : '';
+    root.innerHTML = `
+      <div class="grid-event" style="padding: 2px 4px; box-sizing: border-box">
+        <div class="grid-event-disclosure">
+          <div class="event-content">
+            <div class="summary-row" style="--calendar-card-grid-title-eligible: 1"><div class="summary">${label}<span class="event-title">Long run</span></div></div>
+            <div class="time-location"><div class="time">10:00 - 11:00</div></div>
+            ${weather ? '<div class="event-weather">Sunny</div>' : ''}
+          </div>
+        </div>
+      </div>
+    `;
+    const grid = root.querySelector<HTMLElement>('.grid-event')!;
+    const content = root.querySelector<HTMLElement>('.event-content')!;
+    let height = clientHeight;
+    grid.style.height = `${height + 4}px`;
+    vi.spyOn(grid, 'getBoundingClientRect').mockImplementation(
+      () => new DOMRect(0, 0, WIDTH, height + 4),
+    );
+    for (const selector of ['.summary-row', '.summary']) {
+      vi.spyOn(root.querySelector<HTMLElement>(selector)!, 'getBoundingClientRect').mockReturnValue(
+        new DOMRect(4, 2, WIDTH - 8, title),
+      );
+    }
+    RUNS.set(root.querySelector('.event-title')!.firstChild!, [new DOMRect(30, 2, 60, TITLE)]);
+    const emoji = root.querySelector('.calendar-label')?.firstChild;
+    if (emoji) RUNS.set(emoji, [new DOMRect(4, 2, 20, TITLE)]);
+    vi.spyOn(Range.prototype, 'getClientRects').mockImplementation(function (this: Range) {
+      return (RUNS.get(this.startContainer) ?? []) as unknown as DOMRectList;
+    });
+
+    const rows = Array.from(content.querySelectorAll<HTMLElement>('.time, .event-weather'));
+    const shown = (row: HTMLElement) => !row.classList.contains('grid-event-detail-clipped');
+    for (const row of rows) {
+      row.getClientRects = () =>
+        shown(row)
+          ? ({ 0: {} as DOMRect, length: 1, item: () => null } as unknown as DOMRectList)
+          : ({} as DOMRectList);
+    }
+    const gap = () => (labeled && grid.dataset.gridTitleGap !== 'yielded' ? GAP : 0);
+    Object.defineProperties(content, {
+      clientHeight: { get: () => height },
+      scrollHeight: {
+        get: () => Math.round(title + gap() + rows.filter(shown).length * LINE),
+      },
+    });
+    const [time, weatherRow] = rows;
+    const resize = (next: number) => {
+      height = next;
+      grid.style.height = `${height + 4}px`;
+    };
+    return { card, grid, time, weather: weatherRow, resize };
+  }
+
+  it('gives the gap up before the time row of a one-hour block at hour_height: 36px', () => {
+    const { card, grid, time } = block(29);
+
+    card._applyGridDisclosureSafety();
+
+    expect(time.classList, 'title and time end at 29.4px without the gap').not.toContain(
+      'grid-event-detail-clipped',
+    );
+    expect(grid.dataset.gridTitleGap).toBe('yielded');
+    expect(grid.dataset.gridTitleFit, 'the title stays in its normal mode').toBeUndefined();
+  });
+
+  it('keeps the gap wherever the block has room for it', () => {
+    // hour_height: 37px, a 30px content box: 31.4px is within the pixel the fit test forgives.
+    const { card, grid, time } = block(30);
+
+    card._applyGridDisclosureSafety();
+
+    expect(time.classList).not.toContain('grid-event-detail-clipped');
+    expect(grid.dataset.gridTitleGap).toBeUndefined();
+    expect(grid.dataset.gridTitleFit).toBeUndefined();
+  });
+
+  it('leaves an unlabeled block as it was, having no gap to give', () => {
+    // An unlabeled title (16.4px with its own padding) and the time need 30.8px, as in v5.0.1.
+    const { card, grid, time } = block(29, { labeled: false, title: 16.4 });
+
+    card._applyGridDisclosureSafety();
+
+    expect(time.classList).toContain('grid-event-detail-clipped');
+    expect(grid.dataset.gridTitleGap, 'no attribute is left where it decides nothing').toBe(
+      undefined,
+    );
+  });
+
+  it('gives the gap up before any other row, not only the time', () => {
+    // Title, time and weather end at 43.8px without the gap, in a 44px box.
+    const { card, grid, time, weather } = block(44, { weather: true });
+
+    card._applyGridDisclosureSafety();
+
+    expect(time.classList).not.toContain('grid-event-detail-clipped');
+    expect(weather.classList).not.toContain('grid-event-detail-clipped');
+    expect(grid.dataset.gridTitleGap).toBe('yielded');
+    expect(grid.dataset.gridTitleFit).toBeUndefined();
+  });
+
+  it('hands the gap back once a withdrawn row leaves room for it', () => {
+    // Weather does not fit either way; once it goes, title, gap and time fit the 30px box.
+    const { card, grid, time, weather } = block(30, { weather: true });
+
+    card._applyGridDisclosureSafety();
+
+    expect(weather.classList).toContain('grid-event-detail-clipped');
+    expect(time.classList).not.toContain('grid-event-detail-clipped');
+    expect(grid.dataset.gridTitleGap).toBeUndefined();
+    expect(grid.dataset.gridTitleFit).toBeUndefined();
+  });
+
+  it('hands the gap back to a title too tall for its block, where it decides nothing', () => {
+    const { card, grid } = block(29, { title: 40 });
+
+    card._applyGridDisclosureSafety();
+
+    expect(grid.dataset.gridTitleGap).toBeUndefined();
+  });
+
+  it('gives the gap back on the next pass once the block grows', () => {
+    const { card, grid, resize } = block(29);
+    card._applyGridDisclosureSafety();
+    expect(grid.dataset.gridTitleGap).toBe('yielded');
+
+    resize(30);
+    card._applyGridDisclosureSafety();
+
+    expect(grid.dataset.gridTitleGap).toBeUndefined();
   });
 });

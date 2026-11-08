@@ -193,6 +193,176 @@ describe('per-calendar secondary line', () => {
   });
 });
 
+/**
+ * The heading stays Home Assistant's name, so a name the card gives a calendar leads the line
+ * under it (backlog item 148), wherever it differs from the heading. Each case reads "heading /
+ * line" for every panel; the ten are the decision's own table, in its order, plus the two
+ * shapes Duplicate leaves behind.
+ */
+describe("the calendar's own name on the secondary line", () => {
+  const FAMILY = FAMILY_STATE.entity_id;
+
+  beforeEach(() => {
+    Entities.clearCopiedSettings();
+    document.body.innerHTML = '';
+  });
+
+  it.each<[string, unknown[], string[]]>([
+    ['1. no settings', [FAMILY], ['Calendar card pro - family / Using the card settings']],
+    [
+      '2. only a color',
+      [{ entity: FAMILY, accent_color: '#e67e22' }],
+      ['Calendar card pro - family / Configured'],
+    ],
+    ['3. a label', [{ entity: FAMILY, label: 'School' }], ['Calendar card pro - family / School']],
+    ['4. a name', [{ entity: FAMILY, name: 'Kids' }], ['Calendar card pro - family / Kids']],
+    [
+      '5. a name and a label',
+      [{ entity: FAMILY, name: 'Kids', label: 'School' }],
+      ['Calendar card pro - family / Kids · School'],
+    ],
+    [
+      '6. listed twice, a name, different labels',
+      [
+        { entity: FAMILY, name: 'Kids', label: 'School', event_type: 'timed' },
+        { entity: FAMILY, name: 'Kids', label: 'Holidays', event_type: 'all_day' },
+      ],
+      [
+        'Calendar card pro - family / Kids · Entry 1 of 2 · School',
+        'Calendar card pro - family / Kids · Entry 2 of 2 · Holidays',
+      ],
+    ],
+    [
+      '6b. the same, the name on the first block only',
+      [
+        { entity: FAMILY, name: 'Kids', label: 'School' },
+        { entity: FAMILY, label: 'Holidays' },
+      ],
+      [
+        'Calendar card pro - family / Kids · Entry 1 of 2 · School',
+        'Calendar card pro - family / Kids · Entry 2 of 2 · Holidays',
+      ],
+    ],
+    [
+      "7. a name equal to Home Assistant's",
+      [{ entity: FAMILY, name: 'Calendar card pro - family' }],
+      ['Calendar card pro - family / Configured'],
+    ],
+    [
+      '8. a name, the calendar gone from Home Assistant',
+      [{ entity: 'calendar.old_school', name: 'Old school' }],
+      ['calendar.old_school / Old school'],
+    ],
+    [
+      '9. a name and an icon label',
+      [{ entity: FAMILY, name: 'Kids', label: 'mdi:school' }],
+      ['Calendar card pro - family / Kids · mdi:school'],
+    ],
+    [
+      'duplicated, the copy holding only the name',
+      [
+        { entity: FAMILY, name: 'Kids', label: 'School' },
+        { entity: FAMILY, name: 'Kids' },
+      ],
+      [
+        'Calendar card pro - family / Kids · Entry 1 of 2 · School',
+        'Calendar card pro - family / Kids · Entry 2 of 2',
+      ],
+    ],
+    [
+      'listed twice, the second block bare',
+      [{ entity: FAMILY, name: 'Kids', label: 'School' }, FAMILY],
+      [
+        'Calendar card pro - family / Kids · Entry 1 of 2 · School',
+        'Calendar card pro - family / Kids · Entry 2 of 2 · Using the card settings',
+      ],
+    ],
+  ])('%s', async (_case, entities, expected) => {
+    const harness = await renderEditor(entities, { [FAMILY]: FAMILY_STATE });
+    const secondaries = harness.secondaries();
+
+    expect(harness.headers().map((header, index) => `${header} / ${secondaries[index]}`)).toEqual(
+      expected,
+    );
+  });
+
+  /**
+   * Names as written by hand, with spaces around them or none at all. The heading is Home
+   * Assistant's name as it holds it, spaces and all, so each case reads `[heading, line]`.
+   */
+  it.each<[string, string, unknown[], Array<[string, string]>]>([
+    [
+      "Home Assistant's name with spaces around it, the same name otherwise",
+      ' Kids ',
+      [{ entity: FAMILY, name: 'Kids' }],
+      [[' Kids ', 'Configured']],
+    ],
+    [
+      'the name with spaces around it, the same name otherwise',
+      'Kids',
+      [{ entity: FAMILY, name: '  Kids  ' }],
+      [['Kids', 'Configured']],
+    ],
+    [
+      'both with spaces around them, on different sides',
+      '  Kids',
+      [{ entity: FAMILY, name: 'Kids  ' }],
+      [['  Kids', 'Configured']],
+    ],
+    [
+      'a different name with spaces around it, led with as it reads',
+      'Calendar card pro - family',
+      [{ entity: FAMILY, name: '  Kids  ', label: 'School' }],
+      [['Calendar card pro - family', 'Kids · School']],
+    ],
+    [
+      'a blank name, which is no name',
+      'Calendar card pro - family',
+      [{ entity: FAMILY, name: '' }],
+      [['Calendar card pro - family', 'Configured']],
+    ],
+    [
+      'a name of spaces only, which is no name',
+      'Calendar card pro - family',
+      [{ entity: FAMILY, name: '   ', label: 'School' }],
+      [['Calendar card pro - family', 'School']],
+    ],
+    [
+      'a name of spaces only on one block, and a name on the other',
+      'Calendar card pro - family',
+      [
+        { entity: FAMILY, name: '   ', label: 'School' },
+        { entity: FAMILY, name: 'Kids', label: 'Holidays' },
+      ],
+      [
+        ['Calendar card pro - family', 'Kids · Entry 1 of 2 · School'],
+        ['Calendar card pro - family', 'Kids · Entry 2 of 2 · Holidays'],
+      ],
+    ],
+    [
+      "Home Assistant's name blank, so the heading is the entity id",
+      '',
+      [{ entity: FAMILY, name: 'Kids' }],
+      [[FAMILY, 'Kids']],
+    ],
+    [
+      "Home Assistant's name of spaces only, so the heading is the entity id",
+      '   ',
+      [{ entity: FAMILY, name: 'Kids' }],
+      [[FAMILY, 'Kids']],
+    ],
+    ['both of spaces only', '   ', [{ entity: FAMILY, name: '   ' }], [[FAMILY, 'Configured']]],
+  ])('%s', async (_case, friendlyName, entities, expected) => {
+    const state = { ...FAMILY_STATE, attributes: { friendly_name: friendlyName } };
+    const harness = await renderEditor(entities, { [FAMILY]: state });
+    const secondaries = harness.secondaries();
+
+    expect(harness.headers().map((header, index) => [header, secondaries[index]])).toEqual(
+      expected,
+    );
+  });
+});
+
 describe('duplicate and remove buttons', () => {
   beforeEach(() => {
     Entities.clearCopiedSettings();

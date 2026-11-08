@@ -61,7 +61,7 @@ export const ACCENT_TEXT_KEYS: ReadonlyArray<string> = ACCENT_TEXT_OPTIONS.map((
  * text is a third, more legible color derived from it.
  *
  * The derivation lives in the stylesheet rather than here, because it is three tiers deep
- * behind `@supports` and only the browser can resolve it: an sRGB floor, an OKLCH mix that
+ * behind `@supports` and only the browser can resolve it: an sRGB floor, an Oklab mix that
  * keeps the hue, and a relative-color tier that puts the chroma back. That is the same
  * ladder `--badge-ink` already climbs for the all-day badge, and reusing it is the point —
  * two inks derived from one accent by two different rules is a difference a user would see

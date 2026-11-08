@@ -9,9 +9,10 @@ import * as FormatUtils from '../src/utils/format';
 /**
  * The cache layer decides how long the card is allowed to show data it already
  * has. Every branch here was free to be broken with the whole suite green: the
- * configured refresh interval could be ignored, the short retry window for an
- * empty calendar could be dropped, an expired entry could be handed back, and
- * the array returned to the caller could alias the cached one.
+ * configured refresh interval could be ignored, an entry's own short lifetime
+ * could be ignored, and an expired entry could be handed back. These tests write
+ * the entries themselves and check the read side; that the fetch path gives an
+ * empty answer its short lifetime is pinned in `event-cache.test.ts`.
  */
 
 // happy-dom's own localStorage is not usable here — its `clear()` is not a
@@ -38,6 +39,13 @@ function anEvent(): Types.CalendarEventData {
     end: { dateTime: '2026-06-17T10:00:00.000Z' },
     _entityId: 'calendar.personal',
   } as unknown as Types.CalendarEventData;
+}
+
+// Writes an entry the way the fetch path stores one, so the read side is exercised alone.
+function store(key: string, events: Types.CalendarEventData[], ttlMs?: number): void {
+  const entry: Types.CacheEntry = { events, timestamp: Date.now() };
+  if (ttlMs !== undefined) entry.ttlMs = ttlMs;
+  localStorage.setItem(key, JSON.stringify(entry));
 }
 
 describe('cache duration resolution', () => {
@@ -69,37 +77,17 @@ describe('entry-specific TTL', () => {
     vi.unstubAllGlobals();
   });
 
-  it('stores a positive TTL alongside the entry', () => {
-    EventUtils.cacheEvents(KEY, [anEvent()], 15_000);
-    const raw = JSON.parse(localStorage.getItem(KEY) as string);
-    expect(raw.ttlMs).toBe(15_000);
-  });
-
-  it('stores no TTL when none is supplied', () => {
-    EventUtils.cacheEvents(KEY, [anEvent()]);
-    const raw = JSON.parse(localStorage.getItem(KEY) as string);
-    expect('ttlMs' in raw).toBe(false);
-  });
-
-  it('ignores a non-positive TTL rather than storing it', () => {
-    // A stored zero would be indistinguishable from "expire immediately" on the
-    // read side, so it must never reach storage in the first place.
-    EventUtils.cacheEvents(KEY, [anEvent()], 0);
-    const raw = JSON.parse(localStorage.getItem(KEY) as string);
-    expect('ttlMs' in raw).toBe(false);
-  });
-
   it('expires an entry once its own short TTL has passed', () => {
     // This is the empty-calendar retry window. Without it, a calendar that
     // returns nothing once keeps the card empty for the full refresh interval
     // even after events appear.
-    EventUtils.cacheEvents(KEY, [anEvent()], 15_000);
+    store(KEY, [anEvent()], 15_000);
     vi.setSystemTime(new Date(FROZEN_NOW.getTime() + 16_000));
     expect(EventUtils.getValidCacheEntry(KEY)).toBeNull();
   });
 
   it('keeps the entry while its own TTL is still running', () => {
-    EventUtils.cacheEvents(KEY, [anEvent()], 15_000);
+    store(KEY, [anEvent()], 15_000);
     vi.setSystemTime(new Date(FROZEN_NOW.getTime() + 14_000));
     expect(EventUtils.getValidCacheEntry(KEY)).not.toBeNull();
   });
@@ -131,7 +119,7 @@ describe('expiry cleanup and cache round-trip', () => {
   it('keeps an expired entry to draw, but no longer serves it as fresh', () => {
     // A card that appears draws cached events up to MAX_STALE_HOURS old while it
     // refetches, so expiring an entry must not delete it.
-    EventUtils.cacheEvents(KEY, [anEvent()]);
+    store(KEY, [anEvent()]);
 
     vi.setSystemTime(
       new Date(
@@ -143,7 +131,7 @@ describe('expiry cleanup and cache round-trip', () => {
   });
 
   it('removes an entry too old to draw instead of leaving it behind', () => {
-    EventUtils.cacheEvents(KEY, [anEvent()]);
+    store(KEY, [anEvent()]);
     const maxStaleMs = Constants.CACHE.MAX_STALE_HOURS * 60 * 60 * 1000;
 
     // Control: one minute short of the bound it is still there.
@@ -156,13 +144,9 @@ describe('expiry cleanup and cache round-trip', () => {
   });
 
   it('reads back the events that were written', () => {
-    // Note on the spread inside getCachedEvents: it cannot be exercised by a
-    // test, because getValidCacheEntry re-parses the JSON out of storage on
-    // every call, so the array handed back is already private to the caller.
-    // Removing the spread is therefore a no-op rather than a defect.
-    EventUtils.cacheEvents(KEY, [anEvent()]);
+    store(KEY, [anEvent()]);
 
-    const read = EventUtils.getCachedEvents(KEY);
+    const read = EventUtils.getValidCacheEntry(KEY)?.events;
     expect(read).toHaveLength(1);
     expect(read![0].summary).toBe('Cached event');
   });

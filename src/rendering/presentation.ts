@@ -7,6 +7,7 @@
 import * as AccentText from './accent-text';
 import type { EventContentParts } from './leaves';
 import * as Types from '../config/types';
+import * as EventActions from '../interaction/event-actions';
 import { getNowString } from '../translations/dayjs';
 import * as EntityColors from '../utils/entity-colors';
 import * as EventUtils from '../utils/events';
@@ -258,24 +259,8 @@ export function buildEventPresentation(
   const eventTime = allDayBadge
     ? eventTimeParts.text
     : FormatUtils.joinEventTimeParts(eventTimeParts);
-  // Unlike `show_single_allday_time`, these two apply to multi-day all-day events as well:
-  // their location and description are no less redundant than a single-day all-day event's,
-  // while the time row may carry a real end date.
-  //
-  // They stop at the middle days of a SPLIT TIMED event, which the badge deliberately does
-  // not. Those days are genuinely all-day -- `splitMultiDayEvent` rewrites them as
-  // `start: { date }` because the event does occupy the whole of them -- so the badge marks
-  // them, and that is right. The trade is not the same here. Dropping a row because the pill
-  // beside it already says "all day" is removing a repetition; dropping the VENUE from day 2
-  // of a 3-day conference is losing information the other two days still show, and the
-  // result reads as a fault: present, absent, present. Nobody turning off all-day locations
-  // is asking for that.
-  const suppressAllDayRows = isAllDayEvent && !event._splitFromTimedEvent;
-
-  const eventLocation =
-    suppressAllDayRows && !config.show_location_allday ? '' : event.location || '';
-  const eventDescription =
-    suppressAllDayRows && !config.show_description_allday ? '' : event.description || '';
+  // `show_location_allday` and `show_description_allday` decide these; see `shownRowText`.
+  const { location: eventLocation, description: eventDescription } = shownRowText(event, config);
 
   // Read from the location the card is about to draw, not the raw event: this runs after
   // `groupEventsByDay` has applied `formatLocation`, and there is no raw copy left here.
@@ -311,4 +296,57 @@ export function buildEventPresentation(
     accentTextProperties: AccentText.accentTextProperties(config, entityAccentColor, isEmptyDay),
     contentParts,
   };
+}
+
+/**
+ * The location and the description an event row shows, before any link is drawn in them.
+ *
+ * `show_location_allday` and `show_description_allday` take them off all-day rows. Unlike
+ * `show_single_allday_time`, these two apply to multi-day all-day events as well: their
+ * location and description are no less redundant than a single-day all-day event's, while the
+ * time row may carry a real end date.
+ *
+ * They stop at the middle days of a SPLIT TIMED event, which the badge deliberately does
+ * not. Those days are genuinely all-day -- `splitMultiDayEvent` rewrites them as
+ * `start: { date }` because the event does occupy the whole of them -- so the badge marks
+ * them, and that is right. The trade is not the same here. Dropping a row because the pill
+ * beside it already says "all day" is removing a repetition; dropping the VENUE from day 2
+ * of a 3-day conference is losing information the other two days still show, and the
+ * result reads as a fault: present, absent, present. Nobody turning off all-day locations
+ * is asking for that.
+ *
+ * @param event - The event as grouping hands it to the views
+ * @param config - Card configuration
+ * @returns The two texts, each empty where the row draws none
+ */
+export function shownRowText(
+  event: Types.CalendarEventData,
+  config: Types.Config,
+): { location: string; description: string } {
+  const suppressAllDayRows = !event.start.dateTime && !event._splitFromTimedEvent;
+  return {
+    location: suppressAllDayRows && !config.show_location_allday ? '' : event.location || '',
+    description:
+      suppressAllDayRows && !config.show_description_allday ? '' : event.description || '',
+  };
+}
+
+/**
+ * Whether event rows draw the web addresses in their location and description as links:
+ * `open_links` is on, and an event has no tap or hold of its own, so a press on a link is never
+ * also a press on its event.
+ *
+ * Read from the configuration alone, not from whether events are targets right now: while the
+ * card is edited its events are no targets whatever their actions, and the preview should draw
+ * what the dashboard will. Views the option does not reach (`VIEW_SCOPE`) never ask.
+ *
+ * @param config - Card configuration
+ * @returns True to draw the links
+ */
+export function rowLinksOn(config: Types.Config): boolean {
+  return (
+    config.open_links === true &&
+    EventActions.eventActionKind(config.event_tap_action) === 'none' &&
+    EventActions.eventActionKind(config.event_hold_action) === 'none'
+  );
 }

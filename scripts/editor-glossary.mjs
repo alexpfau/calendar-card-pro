@@ -442,10 +442,13 @@ export const GLOSSARY_TERMS = [
       lv: 'Šodienas indikators',
       nb: 'I dag-markør',
       pl: 'Wskaźnik dzisiaj',
-      sk: 'Identifikátor dneška',
+      sk: 'Indikátor dneška',
       sv: 'Idag-indikator',
     },
-    rejected: {},
+    // Slovak first decided `Identifikátor dneška`, but `identifikátor` is an identifier, an ID,
+    // which is all Home Assistant's own Slovak uses it for; `indikátor` is the indicator, as the
+    // same file already wrote for the Now indicator.
+    rejected: { sk: ['identifikátor'] },
   },
   {
     name: 'color',

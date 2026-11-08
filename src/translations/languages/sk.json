@@ -13,5 +13,6 @@
   "noEvents": "Žiadne udalosti",
   "loading": "Načítavam udalosti z kalendára...",
   "error": "Chyba: Entita kalendára nebola nájdená alebo je nesprávne nakonfigurovaná",
-  "loadFailed": "Nepodarilo sa načítať:"
+  "loadFailed": "Nepodarilo sa načítať:",
+  "newEvent": "Nová udalosť"
 }

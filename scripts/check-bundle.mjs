@@ -359,6 +359,10 @@ function checkDocumentedSizes() {
  * several hundred compressed bytes since, dropping it just below 41 while all four surfaces
  * still said 42 — overstating the benefit, which is the direction that misleads.
  *
+ * Since v5.1.0 there are three: the README's bullet went when the landing page's retention rule
+ * dropped v4.0 from its What's New, so its site is gone. The archive and the release notes keep
+ * v4.0 for good, and their sites stay.
+ *
  * The baseline is v3.6.0's published asset. It is tagged and released, so its bytes can never
  * change and are frozen here rather than downloaded: 351,905 raw, 98,613 compressed.
  *
@@ -417,7 +421,6 @@ const SIZE_CLAIMS = {
       measure: (file) => gzipSync(readFileSync(join(DIST, file)), { level: 9 }).length,
       against: (b) => b.gzip,
       sites: [
-        ['README.md', /\*\*(\d+)% Smaller to Download\*\*/],
         ['docs/guide/whats-new.md', /\*\*(\d+)% Smaller to Download\*\*/],
         ['docs/RELEASE_NOTES.md', /a card file (\d+)% smaller to download/],
         ['docs/RELEASE_NOTES.md', /The Card File Is (\d+)% Smaller to Download/],

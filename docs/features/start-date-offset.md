@@ -4,7 +4,9 @@ title: Dynamic Start Date
 
 # Dynamic Start Date with Relative Offsets
 
-Calendar Card Pro offers flexible options for controlling which dates are displayed, allowing you to create both fixed and dynamic date ranges:
+`start_date` sets the first day the card shows, today unless you say otherwise. It can name a
+fixed date, move the window a few days ahead or back, start it on the first day of this week,
+or jump to the coming weekend, and a relative start moves on by itself as the days pass.
 
 ## 📅 Start Date Configuration
 
@@ -94,9 +96,7 @@ If an expression is malformed — `start_of_week+xyz`, say — the card logs a w
 
 ### Common Setups
 
-The three setups the grammar was built for, taken from the requests behind it:
-
-**A rolling "this week" view** ([#296](https://github.com/alexpfau/calendar-card-pro/issues/296)) — pinned to the first day of the current week, so the window stays aligned to the calendar instead of sliding forward a day at a time:
+**A rolling "this week" view** — pinned to the first day of the current week, so the window stays aligned to the calendar instead of sliding forward a day at a time:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -109,9 +109,9 @@ show_past_events: true # otherwise the days already gone look empty
 
 Swap the anchor for `start_of_week+7` to get next week, or `start_of_week-7` for last week. Nothing else changes.
 
-In column or grid view, a card that drops days to fit a narrow width starts at today rather than at the start of the week, and moves back only once too few days are left in the week to fill it — see [Fitting Narrow Cards](/features/grid-view#fitting-narrow-cards).
+In column or grid view, a card too narrow for all seven days starts at today rather than at the start of the week, and reaches back only once too few days are left in the week to fill it — see [Fitting Narrow Cards](/features/grid-view#fitting-narrow-cards).
 
-**A weekend view** ([#276](https://github.com/alexpfau/calendar-card-pro/issues/276)) — jumps ahead to the coming Saturday and shows both weekend days:
+**A weekend view** — jumps ahead to the coming Saturday and shows both weekend days:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -123,14 +123,14 @@ days_to_show: 2
 
 `today+sat` rolls forward to the next Saturday once Saturday has passed, so on Sunday the card already points at the following weekend. With `first_day_of_week: monday`, use `start_of_week+sat` instead to keep the current weekend on screen through Sunday night.
 
-**One card per weekday** ([#193](https://github.com/alexpfau/calendar-card-pro/issues/193)) — a row of single-day cards that stays in Monday-to-Friday order all week:
+**One card per weekday** — a row of single-day cards that stays in Monday-to-Friday order all week:
 
 ```yaml
 start_date: 'start_of_week+mon' # then +tue, +wed, +thu, +fri
 days_to_show: 1
 ```
 
-Anchoring each card to `start_of_week` is what keeps the row in calendar order: with bare `monday`…`friday`, each card rolls over to next week the moment its day passes, so on a Wednesday the Monday and Tuesday cards would already show next week while the rest still show this week — the row runs 17, 18, 12, 13, 14 instead of 10, 11, 12, 13, 14.
+Anchor each card to `start_of_week`. With bare `monday`…`friday`, each card rolls over to next week the moment its day passes, so on a Wednesday the Monday and Tuesday cards already show next week: the row runs 17, 18, 12, 13, 14 instead of 10, 11, 12, 13, 14.
 
 ## 🔄 Dynamic vs. Fixed Date Ranges
 

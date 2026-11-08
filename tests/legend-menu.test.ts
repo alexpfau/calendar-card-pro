@@ -12,14 +12,8 @@
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  type Rect,
-  type Rgba,
-  gradientColors,
-  legendCalendarIds,
-  opaqueMenuSurface,
-  placeMenu,
-} from '../src/rendering/legend';
+import { type Rect, legendCalendarIds, placeMenu } from '../src/rendering/legend';
+import { type Rgba, gradientColors, opaqueSurface } from '../src/rendering/surface';
 
 /** A 36px button whose box starts at `left`, `top`. */
 function button(left: number, top: number): Rect {
@@ -106,17 +100,15 @@ describe("the menu's surface", () => {
 
   it("leaves an opaque surface to the stylesheet, so an opaque theme's menu is untouched", () => {
     // Home Assistant's default dark theme, whatever the page and the text.
-    expect(opaqueMenuSurface([28, 28, 28, 255], [17, 17, 17, 255], WHITE_INK)).toBeUndefined();
-    expect(opaqueMenuSurface([255, 255, 255, 255], undefined, undefined)).toBeUndefined();
+    expect(opaqueSurface([28, 28, 28, 255], [17, 17, 17, 255], WHITE_INK)).toBeUndefined();
+    expect(opaqueSurface([255, 255, 255, 255], undefined, undefined)).toBeUndefined();
   });
 
   it("lays a see-through surface over the theme's page color", () => {
     // A dark card at 40% over a dark gray page: 10 × 0.4 + 44 × 0.6, and 46 for blue.
-    expect(opaqueMenuSurface([10, 10, 10, 102], [44, 44, 46, 255], WHITE_INK)).toBe(
-      'rgb(30, 30, 32)',
-    );
+    expect(opaqueSurface([10, 10, 10, 102], [44, 44, 46, 255], WHITE_INK)).toBe('rgb(30, 30, 32)');
     // A light card at 40% over a light gray page.
-    expect(opaqueMenuSurface([245, 245, 245, 102], [229, 229, 234, 255], DARK_INK)).toBe(
+    expect(opaqueSurface([245, 245, 245, 102], [229, 229, 234, 255], DARK_INK)).toBe(
       'rgb(235, 235, 238)',
     );
   });
@@ -124,29 +116,27 @@ describe("the menu's surface", () => {
   it('keeps white text readable on a gray card at 30% in a light mode with a dark page', () => {
     // The case a black-or-white base chosen by the color scheme gets wrong: the scheme says
     // light, the text is white, and the page under it is dark.
-    expect(opaqueMenuSurface([128, 128, 128, 77], [84, 80, 76, 255], WHITE_INK)).toBe(
+    expect(opaqueSurface([128, 128, 128, 77], [84, 80, 76, 255], WHITE_INK)).toBe(
       'rgb(97, 94, 92)',
     );
   });
 
   it('is the page color itself under a card background that is fully transparent', () => {
-    expect(opaqueMenuSurface([0, 0, 0, 0], [250, 250, 250, 255], DARK_INK)).toBe(
-      'rgb(250, 250, 250)',
-    );
+    expect(opaqueSurface([0, 0, 0, 0], [250, 250, 250, 255], DARK_INK)).toBe('rgb(250, 250, 250)');
   });
 
   it('falls back to black under light text and white under dark text, with no page color', () => {
     // The same gray card at 30%, and no page color to lay it over: the text decides.
-    expect(opaqueMenuSurface([128, 128, 128, 77], undefined, WHITE_INK)).toBe('rgb(39, 39, 39)');
-    expect(opaqueMenuSurface([128, 128, 128, 77], undefined, DARK_INK)).toBe('rgb(217, 217, 217)');
+    expect(opaqueSurface([128, 128, 128, 77], undefined, WHITE_INK)).toBe('rgb(39, 39, 39)');
+    expect(opaqueSurface([128, 128, 128, 77], undefined, DARK_INK)).toBe('rgb(217, 217, 217)');
     // No text color read either: white, Home Assistant's default card.
-    expect(opaqueMenuSurface([0, 0, 0, 0], undefined, undefined)).toBe('rgb(255, 255, 255)');
+    expect(opaqueSurface([0, 0, 0, 0], undefined, undefined)).toBe('rgb(255, 255, 255)');
   });
 
   it('lays a see-through page color over that fallback, so the result is always opaque', () => {
     // A page color at 50% over black under light text, and over white under dark text.
-    expect(opaqueMenuSurface([0, 0, 0, 0], [20, 20, 20, 128], WHITE_INK)).toBe('rgb(10, 10, 10)');
-    expect(opaqueMenuSurface([0, 0, 0, 0], [20, 20, 20, 128], DARK_INK)).toBe('rgb(137, 137, 137)');
+    expect(opaqueSurface([0, 0, 0, 0], [20, 20, 20, 128], WHITE_INK)).toBe('rgb(10, 10, 10)');
+    expect(opaqueSurface([0, 0, 0, 0], [20, 20, 20, 128], DARK_INK)).toBe('rgb(137, 137, 137)');
   });
 });
 

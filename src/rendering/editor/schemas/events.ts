@@ -39,6 +39,13 @@ export const ALLDAY_BADGE_STYLE_OPTIONS: ReadonlyArray<string> = [
 ];
 
 /**
+ * Where `time_position` can put the time row, the shipped place first: it is the default, and
+ * the other reads as the change from it. Kept in `TIME_POSITIONS` order, which the editor
+ * tests reconcile against.
+ */
+export const TIME_POSITION_OPTIONS: ReadonlyArray<string> = ['below', 'title'];
+
+/**
  * The colors a treatment can be drawn in.
  *
  * Two sources and an escape hatch, which is the same shape `accent_color_mode` has one
@@ -257,8 +264,9 @@ const eventsSchema = Helpers.memoizeLast(
     badgeColorMode: string,
     view: Types.EffectiveView,
   ): HaFormSchema[] => [
-    // The five switches that decide which lines an event is made of, in one visible run
-    // and ahead of everything that styles them.
+    // The switches that decide which lines an event is made of, in one visible run and ahead
+    // of everything that styles them, with the one choice that decides where the time row
+    // goes directly under the switch for it.
     //
     // They were one per collapsed group, each leading the styling it gates — which reads
     // well once you have opened the group and is invisible until you do. On a fresh card
@@ -269,8 +277,8 @@ const eventsSchema = Helpers.memoizeLast(
     // location *styling*.
     //
     // So the switch and its styling split by what they answer: whether the line exists is
-    // a content decision and belongs with the other four; how it looks is a refinement of
-    // a line that already exists. Each group is now emitted only when its switch is on,
+    // a content decision and belongs with the other switches; how it looks is a refinement
+    // of a line that already exists. Each group is now emitted only when its switch is on,
     // which is why there is no group here holding nothing — a disclosure that opens onto
     // one checkbox is worse than the checkbox.
     //
@@ -283,6 +291,12 @@ const eventsSchema = Helpers.memoizeLast(
     // phrases, and that one collides with the panel about what a card shows.
     heading('heading_details'),
     bool('show_time'),
+    // Where the time row goes is the same question as whether there is one: together they
+    // decide which lines an event is made of. Not gated on `show_time`, and not in the Time
+    // group, which is emitted only while times are on: with times off a countdown still sits
+    // beside the title when this asks for it, and list view's progress bar still takes a row of
+    // its own. Grid hides it through `VIEW_SCOPE`, where it has no title line to join.
+    select(language, 'time_position', TIME_POSITION_OPTIONS),
     bool('show_location'),
     bool('show_description'),
     bool('show_countdown'),

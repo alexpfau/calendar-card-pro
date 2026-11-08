@@ -78,6 +78,9 @@ export const COLUMN_OVERRIDE_KEYS = [
   'progress_bar_width',
   'event_icon_vertical_alignment',
   'show_time',
+  // Each view sets it on its own: a list row is usually wide enough for the time beside the
+  // title, and a column near the default `min_day_width` almost never is.
+  'time_position',
   'show_single_allday_time',
   'show_multiday_allday_time',
   'allday_badge',
@@ -351,6 +354,11 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   allday_badge_style: new Set<Types.EffectiveView>(['list', 'column']),
   allday_badge_color: new Set<Types.EffectiveView>(['list', 'column']),
 
+  // A grid block lays out its own rows and fits its time itself, so it has no title row for
+  // the time to join: `renderTimedEvent` never passes the placement down, and the leaf never
+  // reads the option for itself. tests/view-scope-inert.test.ts pins it.
+  time_position: new Set<Types.EffectiveView>(['list', 'column']),
+
   // 🚨 Not the reason it looks like. `.event` IS emitted in grid — on the timed block, on
   // the banner and on the "+N more" overflow chip — so a grep for the class finds it and
   // says the padding rule applies. It does not. `styles.ts` is one stylesheet, and
@@ -373,6 +381,13 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   // to what an unset option writes. Before that reset a clamp on the folded span hid the
   // whole time row. tests/view-scope-inert.test.ts pins both.
   time_max_lines: new Set<Types.EffectiveView>(['list', 'column']),
+
+  // A grid block draws its words for the eye only, behind an accessible name of its own
+  // (`.grid-event-disclosure` is aria-hidden), and reveals or withdraws its rows as it grows
+  // and shrinks. A link in it would be a tab stop assistive technology cannot see, inside a
+  // box often too small to aim at, so the grid draws its text as text. Its banners draw
+  // titles alone.
+  open_links: new Set<Types.EffectiveView>(['list', 'column']),
 };
 
 /**
@@ -1847,38 +1862,17 @@ const DEFAULT_DAY_GAP_PX = parsePx(DEFAULT_CONFIG.day_spacing, 10);
 const GRID_AXIS_BASE_FONT_PX = parsePixelLength(DEFAULT_CONFIG.time_font_size, 12);
 
 /**
- * Computes the card width, in pixels, at or above which column view can render.
+ * Computes the card width, in pixels, at or above which `days` columns can render.
  *
  * ```
- * column.min_day_width x days_to_show + card padding + (days_to_show - 1) x gutter
+ * column.min_day_width x days + card padding + (days - 1) x gutter
  * ```
  *
  * Grid view additionally reserves its time-axis track and one more gutter, because its
  * template has `axis + days` tracks rather than only day tracks.
  *
- * Both the width floor and the gutter are read out of `column:` by hand, and cannot
- * use `resolveEffectiveConfig` to get there. This function decides *whether* column
- * view renders, so it necessarily runs before the view is known, whereas
- * `resolveEffectiveConfig` needs the view as an input. Resolving the two keys it
- * depends on directly is the way out of that ordering constraint — there is no
- * circularity, because neither `resolveColumnOption` nor `coercePixelLength`
- * consults the view.
- *
- * @param config - Merged configuration, defaults already applied
- * @returns Minimum card width in pixels for the configured number of columns
- */
-export function computeColumnThresholdPx(
-  config: Types.Config,
-  view: Types.EffectiveView = 'column',
-): number {
-  return computeColumnThresholdPxFor(config, configuredDays(config, view), view);
-}
-
-/**
- * Computes the card width, in pixels, at or above which `days` columns can render.
- *
- * Column reduction needs a threshold per candidate column count; `computeColumnThresholdPx`
- * calls this with `days_to_show`.
+ * Column reduction needs a threshold per candidate column count, so the count is an
+ * argument rather than read from `days_to_show`.
  *
  * @param config - Merged configuration, defaults already applied
  * @param days - Number of columns to size for
@@ -2132,100 +2126,6 @@ export function loadConfig(config: Types.Config): Types.Config {
     : { ...config, days_to_show: days };
 }
 
-/**
- * Resolves the view for a width, without resolving a column count.
- *
- * **Not the production path.** The card renders through {@link resolveColumnFit}, which
- * answers view *and* column count in one pass. This function survives as the reference
- * implementation of the view half: `tests/view-config.test.ts` pins `resolveColumnFit`
- * against it, so a future change to the fit logic that silently altered the view
- * decision fails there. It is tree-shaken out of the bundle, so keeping it costs
- * nothing shipped — but do not add callers, and do not delete it without replacing
- * that equivalence check.
- *
- * - **`requestedView`** is what the user configured.
- * - **`effectiveView`** is what is rendered after the width fallback.
- *
- * Everything downstream — option resolution, grouping, compaction, rendering — takes
- * the resolved effective view, and none of it reads `config.view`, because below the
- * threshold that value still says `column` while the card renders a list, and every
- * per-view resolution would then resolve for the wrong view. The three sites that do
- * read it all want the *requested* view by definition: the `requestedView` getter, the
- * `resolveColumnFit` call that consumes it as input, and the editor, which must show
- * the user what they configured rather than what the current width happens to render.
- *
- * The fallback this function models is **wholesale**: below the threshold it answers
- * list view, never column view with fewer columns. That is a property of *this
- * function*, not of the card — do not cite it as product behavior. {@link
- * resolveColumnFit} reduces the column count to what fits and only falls back to list
- * when even `min_days_to_show` will not fit, so the card does render column view with
- * fewer columns than were asked for. `docs/features/column-view.md` describes that
- * behavior; this block describes only the view half it is pinned against.
- *
- * @param requestedView - The configured view
- * @param measuredWidthPx - Measured card width, or `null` before first measurement
- * @param thresholdPx - Result of `computeColumnThresholdPx`
- * @param previousEffectiveView - Last resolved view, for hysteresis; `null` initially
- * @returns The view to render
- */
-export function resolveEffectiveView(
-  requestedView: Types.EffectiveView,
-  measuredWidthPx: number | null,
-  thresholdPx: number,
-  previousEffectiveView: Types.EffectiveView | null = null,
-): Types.EffectiveView {
-  // List view has no width requirement, so there is nothing to fall back to.
-  if (!VIEWS_WITH_WIDTH_FALLBACK.has(requestedView)) {
-    return requestedView;
-  }
-
-  // Before the first measurement, honor the request to avoid flashing the fallback.
-  if (measuredWidthPx === null || measuredWidthPx <= 0) {
-    return requestedView;
-  }
-
-  // Schmitt trigger, centered on the threshold: enter half a band above, leave half a
-  // band below.
-  const halfBand = VIEW_SWITCH_HYSTERESIS_PX / 2;
-  const effectiveThreshold =
-    previousEffectiveView === requestedView ? thresholdPx - halfBand : thresholdPx + halfBand;
-
-  return measuredWidthPx >= effectiveThreshold ? requestedView : 'list';
-}
-
-/**
- * Resolves the view for a freshly measured width, given the previous measurement.
- *
- * **Not the production path**, for the same reason as {@link resolveEffectiveView}: the
- * card measures through {@link resolveColumnFitOnMeasurement}. This is the reference
- * implementation that check is pinned against.
- *
- * `resolveEffectiveView` renders the *requested* view before any measurement exists,
- * so that optimistic answer must not seed hysteresis. A `null`
- * `previousMeasuredWidthPx` means no measurement has confirmed the current view yet.
- *
- * @param requestedView - The configured view
- * @param previousMeasuredWidthPx - Width at the previous measurement, `null` if none
- * @param measuredWidthPx - The width just measured
- * @param thresholdPx - Result of `computeColumnThresholdPx`
- * @param previousEffectiveView - The view currently rendered
- * @returns The view to render
- */
-export function resolveViewOnMeasurement(
-  requestedView: Types.EffectiveView,
-  previousMeasuredWidthPx: number | null,
-  measuredWidthPx: number,
-  thresholdPx: number,
-  previousEffectiveView: Types.EffectiveView,
-): Types.EffectiveView {
-  return resolveEffectiveView(
-    requestedView,
-    measuredWidthPx,
-    thresholdPx,
-    previousMeasuredWidthPx === null ? null : previousEffectiveView,
-  );
-}
-
 //-----------------------------------------------------------------------------
 // COLUMN DENSITY
 //-----------------------------------------------------------------------------
@@ -2244,7 +2144,8 @@ export interface ColumnFit {
 
 // Closed-form inverse of `computeColumnThresholdPxFor`; the epsilon protects exact
 // boundaries from floating-point underflow. Removing it is invisible through
-// `resolveColumnFit`, the only caller: an underflowed count stops matching
+// `fittedColumns`, the only caller, behind both `resolveColumnFit` and `columnFitCrams`: an
+// underflowed count stops matching
 // `previousColumns`, so the hysteresis re-fit recomputes from a shifted width and
 // lands back on the same number — measured at 0 divergent over 481,915 widths derived
 // from exact column boundaries, against a control mutating this same expression that
@@ -2313,19 +2214,7 @@ export function resolveColumnFit(
   }
 
   const floor = Math.min(resolveMinDaysToShow(config, requestedView), days);
-  const previousColumns = previous && previous.view === requestedView ? previous.columns : 0;
-  const halfBand = columnHysteresisHalfBandPx(config, requestedView);
-  const raw = fitColumns(config, measuredWidthPx, requestedView);
-
-  // A `null` previous layout uses the enter threshold; otherwise a card could qualify
-  // for a column it has never been wide enough for.
-  let fitted = raw;
-
-  if (raw > previousColumns) {
-    fitted = fitColumns(config, measuredWidthPx - halfBand, requestedView);
-  } else if (raw < previousColumns) {
-    fitted = fitColumns(config, measuredWidthPx + halfBand, requestedView);
-  }
+  const fitted = fittedColumns(requestedView, config, measuredWidthPx, previous);
 
   if (fitted >= floor) {
     return { view: requestedView, columns: Math.min(fitted, days) };
@@ -2337,16 +2226,76 @@ export function resolveColumnFit(
 }
 
 /**
- * The layout a view gets when it is picked in the view switcher at this width.
+ * The columns a measured width carries at `min_day_width`, with the hysteresis band held
+ * against the layout on screen: growing costs half a band, shrinking is granted half a band.
  *
- * Judged as though the view were already on screen, with the hysteresis band a view on
- * screen keeps. Judging a pick by the entry threshold instead made the switcher refuse a
- * layout the card had been drawing a moment earlier: a card left inside the band by a
- * narrowing window kept its columns, and once switched away could not switch back. A pick
- * is the user asking for the view, so it is granted the same margin as keeping it, and the
- * fit after the next measurement agrees, because that starts from the same layout. Before
- * any measurement there is no layout to start from, so the card fits a pick by this rule
- * again at the first one.
+ * @param view - The day-column view being fitted
+ * @param config - Merged configuration, defaults already applied
+ * @param measuredWidthPx - Card width, measured
+ * @param previous - Layout currently rendered, `null` if none is confirmed
+ * @returns How many columns fit, before the floor and `days_to_show` are applied
+ */
+function fittedColumns(
+  view: Types.EffectiveView,
+  config: Types.Config,
+  measuredWidthPx: number,
+  previous: ColumnFit | null,
+): number {
+  const previousColumns = previous && previous.view === view ? previous.columns : 0;
+  const halfBand = columnHysteresisHalfBandPx(config, view);
+  const raw = fitColumns(config, measuredWidthPx, view);
+
+  // A `null` previous layout uses the enter threshold; otherwise a card could qualify
+  // for a column it has never been wide enough for.
+  if (raw > previousColumns) return fitColumns(config, measuredWidthPx - halfBand, view);
+  if (raw < previousColumns) return fitColumns(config, measuredWidthPx + halfBand, view);
+  return raw;
+}
+
+/**
+ * Whether a day-column view on screen is crammed: holding its `min_days_to_show` floor with
+ * columns narrower than `min_day_width`, which only `min_days_fallback: cramp` does. Asked
+ * with the layout on screen as `resolveColumnFit`'s previous layout, so it answers for the
+ * layout drawn, inside the same hysteresis band. A grid crammed this far scrolls sideways
+ * once its days reach their floor.
+ *
+ * @param view - The day-column view on screen
+ * @param config - Merged configuration, defaults already applied
+ * @param measuredWidthPx - Card width, `null` before the first measurement
+ * @param current - Layout currently rendered
+ * @returns Whether the view is crammed
+ */
+export function columnFitCrams(
+  view: Types.EffectiveView,
+  config: Types.Config,
+  measuredWidthPx: number | null,
+  current: ColumnFit,
+): boolean {
+  if (!VIEWS_WITH_WIDTH_FALLBACK.has(view) || current.view !== view) return false;
+  if (measuredWidthPx === null || measuredWidthPx <= 0) return false;
+  if (resolveMinDaysFallback(config, view) !== 'cramp') return false;
+
+  const floor = Math.min(resolveMinDaysToShow(config, view), configuredDays(config, view));
+  return fittedColumns(view, config, measuredWidthPx, current) < floor;
+}
+
+/**
+ * The layout a view gets when it is picked in the view switcher at this width, or brought
+ * back by a reset.
+ *
+ * The layout a fresh load draws, wherever a fresh load draws the view at all. Where it would
+ * fall back to the list, the view gets the hysteresis band a view on screen keeps, at its
+ * floor. Judging a pick by the entry threshold alone made the switcher refuse a layout the
+ * card had been drawing a moment earlier: a card left inside the band by a narrowing window
+ * kept its columns, and once switched away could not switch back. A pick is the user asking
+ * for the view, so the view is granted the same margin as keeping it. Its days are not:
+ * judging those as though every configured day were on screen too drew a day more than a
+ * fresh load, which a fresh load at that width has no room for: a seven-day grid on a 374px
+ * phone opened on two days and came back from the list, or from a reset, with three. The
+ * band is narrower than a day, so where only it admits the view the floor is all it admits.
+ * Either way the fit after the next measurement at that width agrees, because that starts
+ * from the same layout. Before any measurement there is no layout to start from, so the
+ * card fits a pick by this rule again at the first one.
  *
  * @param view - The view picked
  * @param config - Merged configuration, defaults already applied
@@ -2358,20 +2307,20 @@ export function resolveColumnFitIfPicked(
   config: Types.Config,
   measuredWidthPx: number | null,
 ): ColumnFit {
-  return resolveColumnFit(
+  const fresh = resolveColumnFit(view, config, measuredWidthPx, null);
+  if (fresh.view === view) return fresh;
+
+  return resolveColumnFit(view, config, measuredWidthPx, {
     view,
-    config,
-    measuredWidthPx,
-    measuredWidthPx === null ? null : { view, columns: configuredDays(config, view) },
-  );
+    columns: configuredDays(config, view),
+  });
 }
 
 /**
  * Resolves the layout for a freshly measured width, given the previous measurement.
  *
- * Mirrors `resolveViewOnMeasurement`: the optimistic pre-measurement answer must not
- * seed hysteresis. A `null` `previousMeasuredWidthPx` means no measurement has
- * confirmed the current layout.
+ * The optimistic pre-measurement answer must not seed hysteresis. A `null`
+ * `previousMeasuredWidthPx` means no measurement has confirmed the current layout.
  *
  * @param requestedView - The configured view
  * @param config - Merged configuration, defaults already applied

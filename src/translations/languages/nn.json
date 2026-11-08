@@ -13,5 +13,6 @@
   "noEvents": "Ingen hendingar",
   "loading": "Lastar kalenderhendingar...",
   "error": "Feil: Kalendereininga vart ikkje funnen eller er ikkje konfigurert riktig",
-  "loadFailed": "Kunne ikkje lastast:"
+  "loadFailed": "Kunne ikkje lastast:",
+  "newEvent": "Ny hending"
 }

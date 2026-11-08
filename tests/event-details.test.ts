@@ -1,27 +1,30 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import '../src/calendar-card-pro';
 import { FROZEN_NOW } from './fixtures';
+import type { PopoverRequest } from './popover-spy';
+import { expectTapControl } from './tap-control';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
+import { CALENDARS_CHANGED_EVENT } from '../src/interaction/calendar-changes';
 import {
   type DetailContext,
   buildDetailEntry,
   detailPermissions,
 } from '../src/interaction/event-details';
-import { EVENT_DETAIL_DIALOG_TAG } from '../src/interaction/ha-calendar-dialogs';
 import type * as Activation from '../src/rendering/activation';
+import { EVENT_POPOVER_TAG } from '../src/rendering/event-popover';
 
 /**
- * `event_tap_action`: with `details`, a tap on an event opens Home Assistant's event-detail
- * dialog instead of running the card's tap. Every other value reads as `none`.
+ * `event_tap_action`: with `details`, a tap on an event opens the card's event popover on it
+ * instead of running the card's tap. Home Assistant's own actions run with the tapped event's
+ * fields filled in; `none` and the card's own actions read as nothing.
  *
- * Driven through the real card, from the fetch to the click, because the entry the dialog
+ * Driven through the real card, from the fetch to the click, because the entry the popover
  * receives is assembled across three stages — processing stamps `_source`, grouping copies
  * it into the display row, rendering hands the row to the click handler — and a stage
- * that drops it breaks only this. The dialog is defined up front, which is the state of
- * any session that has opened it once; the paths that load it are in
- * `ha-calendar-dialogs.test.ts`.
+ * that drops it breaks only this. The popover is asked for through Home Assistant's
+ * `show-dialog`, which nothing answers here, so each request is read off that event.
  */
 
 interface Card extends HTMLElement {
@@ -29,18 +32,6 @@ interface Card extends HTMLElement {
   hass: Types.Hass;
   refreshEvents(): Promise<void>;
   readonly updateComplete: Promise<boolean>;
-}
-
-interface DialogDetail {
-  dialogTag: string;
-  dialogParams: {
-    calendarId: string;
-    entry: Record<string, unknown>;
-    color?: string;
-    canEdit: boolean;
-    canDelete: boolean;
-    updated: () => void;
-  };
 }
 
 /** The event tap action this file is mostly about. */
@@ -89,7 +80,14 @@ async function mount(
     states = {},
     events = RAW_EVENTS,
     eventsFor = {},
-  }: { states?: object; events?: object[]; eventsFor?: Record<string, object[]> } = {},
+    shows = 'Dentist',
+  }: {
+    states?: object;
+    events?: object[];
+    eventsFor?: Record<string, object[]>;
+    /** Text the card has drawn once it has loaded. */
+    shows?: string;
+  } = {},
 ) {
   const card = document.createElement('calendar-card-pro-dev') as Card;
   card.setConfig({ entities: ['calendar.anna'], days_to_show: 3, ...config });
@@ -105,11 +103,11 @@ async function mount(
     callService: vi.fn(),
   };
 
-  const dialogs: DialogDetail[] = [];
+  const dialogs: PopoverRequest[] = [];
   const actions: string[] = [];
   const hassActions: HassActionDetail[] = [];
   card.addEventListener('show-dialog', (ev) =>
-    dialogs.push((ev as Event & { detail: DialogDetail }).detail),
+    dialogs.push((ev as Event & { detail: PopoverRequest }).detail),
   );
   card.addEventListener('hass-action', (ev) => {
     const detail = (ev as Event & { detail: HassActionDetail }).detail;
@@ -118,7 +116,7 @@ async function mount(
   });
 
   document.body.appendChild(card);
-  await vi.waitFor(() => expect(eventsShowing(card, 'Dentist').length).toBeGreaterThan(0));
+  await vi.waitFor(() => expect(eventsShowing(card, shows).length).toBeGreaterThan(0));
   return { card, callApi, dialogs, actions, hassActions };
 }
 
@@ -183,12 +181,11 @@ function leafShowing(root: Element, text: string): Element {
   return leaves[leaves.length - 1] ?? root;
 }
 
-/** Let the async open finish; it awaits the loader before dispatching. */
+/**
+ * Let anything a press deferred run. The popover opens synchronously, so this only matters to a
+ * count that must stay where it is: it gives a late or second open the chance to show up.
+ */
 const settle = () => vi.advanceTimersByTimeAsync(0);
-
-beforeAll(() => {
-  customElements.define(EVENT_DETAIL_DIALOG_TAG, class extends HTMLElement {});
-});
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -248,13 +245,14 @@ describe('event_tap_action details', () => {
       click(target);
       await settle();
       expect(dialogs).toHaveLength(1);
-      expect(dialogs[0].dialogTag).toBe(EVENT_DETAIL_DIALOG_TAG);
+      expect(dialogs[0].dialogTag).toBe(EVENT_POPOVER_TAG);
+      expect(dialogs[0].dialogParams.mode).toBe('event');
       expect(dialogs[0].dialogParams.calendarId).toBe('calendar.anna');
-      expect(dialogs[0].dialogParams.entry.summary).toBe(summary);
+      expect(dialogs[0].dialogParams.entry?.summary).toBe(summary);
     },
   );
 
-  it('hands the dialog every field Home Assistant returned', async () => {
+  it('hands the popover every field Home Assistant returned', async () => {
     const { card, dialogs } = await mount({ ...DETAILS });
 
     buttonsShowing(card, 'Dentist')[0].click();
@@ -270,6 +268,41 @@ describe('event_tap_action details', () => {
       rrule: 'FREQ=MONTHLY',
     });
   });
+
+  it.each([
+    ['nothing hidden', {}, { location: false, description: false }],
+    // The card and its views leave a field out of their rows; the popover is where it is read.
+    ['the card hiding both', { show_location: false }, { location: false, description: false }],
+    [
+      'the calendar showing both',
+      { entities: [{ entity: 'calendar.anna', show_location: true, show_description: true }] },
+      { location: false, description: false },
+    ],
+    [
+      'the calendar set to Never show',
+      { entities: [{ entity: 'calendar.anna', show_location: false, show_description: false }] },
+      { location: true, description: true },
+    ],
+    [
+      'the calendar hiding its location alone',
+      { entities: [{ entity: 'calendar.anna', show_location: false }] },
+      { location: true, description: false },
+    ],
+  ])(
+    'keeps a field out of the popover only for its calendar: %s',
+    async (_name, config, hidden) => {
+      const { card, dialogs } = await mount({ ...DETAILS, ...config });
+
+      buttonsShowing(card, 'Dentist')[0].click();
+      await settle();
+      expect(dialogs[0].dialogParams.hidden).toEqual(hidden);
+      // What is hidden still goes to the popover, to be saved as it is stored.
+      expect(dialogs[0].dialogParams.entry).toMatchObject({
+        location: '12 High Street',
+        description: 'Bring the referral',
+      });
+    },
+  );
 
   it('opens a split segment as the whole event, with the text the calendar stores', async () => {
     const { card, dialogs } = await mount({
@@ -307,14 +340,16 @@ describe('event_tap_action details', () => {
     expect(dialogs[0].dialogParams).toMatchObject(expected);
   });
 
-  it('fetches again once the dialog has edited or deleted the event', async () => {
+  it('fetches again once the popover has edited or deleted the event', async () => {
     const { card, callApi, dialogs } = await mount({ ...DETAILS });
 
     buttonsShowing(card, 'Dentist')[0].click();
     await settle();
     const fetchesBefore = callApi.mock.calls.length;
 
-    dialogs[0].dialogParams.updated();
+    // The popover names the calendar it wrote to, as it does after every save.
+    const { calendarId, updated } = dialogs[0].dialogParams;
+    updated(calendarId);
     await vi.waitFor(() => expect(callApi.mock.calls.length).toBeGreaterThan(fetchesBefore));
   });
 
@@ -328,14 +363,13 @@ describe('event_tap_action details', () => {
     async (view, summary) => {
       const { card, dialogs } = await mount({ view, ...DETAILS });
 
-      // On the event's content rather than its root, where a real pointer lands. That the
-      // tap and its click open it once, not twice, is pinned under "the click a pointer
-      // gesture owes", which lets each request finish before the next: here the two share a
-      // tick, and a second request in the same tick supersedes the first, so this count
-      // cannot tell.
+      // On the event's content rather than its root, where a real pointer lands. Every
+      // request opens its own popover at once, so this count would see the tap and its click
+      // opening it twice; the click a tap owes is pinned on its own under "the click a pointer
+      // gesture owes".
       tap(leafShowing(buttonsShowing(card, summary)[0], summary));
       await settle();
-      expect(dialogs.map((dialog) => dialog.dialogParams.entry.summary)).toEqual([summary]);
+      expect(dialogs.map((dialog) => dialog.dialogParams.entry?.summary)).toEqual([summary]);
     },
   );
 
@@ -526,7 +560,7 @@ describe('event_tap_action details', () => {
 
   it('lets the pointer through, and keeps the clicks and keys it acts on', async () => {
     // A wrapping card or dashboard handler does not ignore the card's descendants, and would
-    // act on the same click or key that opened the dialog. Pointer events are different: the
+    // act on the same click or key that opened the popover. Pointer events are different: the
     // card's own recognizer listens for them on `ha-card`, and Home Assistant's edit mode
     // drags a card by them, so they travel on as a press anywhere else on the card does.
     const { card } = await mount({ ...DETAILS });
@@ -654,6 +688,27 @@ describe("the list view's event button", () => {
   });
 });
 
+describe("the card's ripple and a press on an event", () => {
+  it('marks a press on an event as its own, and a press elsewhere on the card clears it', async () => {
+    const { card } = await mount({ ...DETAILS, hold_action: { action: 'refresh' } });
+    const haCard = card.shadowRoot!.querySelector('ha-card')!;
+    expect(haCard.querySelector('ha-ripple')).not.toBeNull();
+
+    const event = leafShowing(eventsShowing(card, 'Dentist')[0], 'Dentist');
+    pointer(event, 'pointerdown', 40, 40);
+    pointer(event, 'pointerup', 40, 40);
+    click(event);
+    await settle();
+    // Still marked after the press ended: the ripple is finishing it while the popover opens.
+    expect(haCard.hasAttribute('data-own-press')).toBe(true);
+
+    const title = card.shadowRoot!.querySelector('.card-header') ?? haCard;
+    pointer(title, 'pointerdown', 5, 5);
+    expect(haCard.hasAttribute('data-own-press')).toBe(false);
+    pointer(title, 'pointerup', 5, 5);
+  });
+});
+
 describe('the card around events that are buttons', () => {
   const haCard = (card: Card) => card.shadowRoot!.querySelector('ha-card')!;
   const TAPPABLE = { tap_action: { action: 'expand' } } as const;
@@ -685,12 +740,12 @@ describe('the card around events that are buttons', () => {
   }
 
   it.each(['list', 'column', 'grid'])(
-    'is not a button in %s view while its events are, and keeps its tab stop',
+    'is not a button in %s view while its events are, and hands its tap to a control',
     async (view) => {
       const { card } = await mount({ view, ...TAPPABLE, ...DETAILS });
 
       expect(haCard(card).hasAttribute('role')).toBe(false);
-      expect(haCard(card).getAttribute('tabindex')).toBe('0');
+      expectTapControl(haCard(card));
       // A pointer tap off the events still runs `tap_action`, so what shows that stays.
       expect(haCard(card).classList.contains('card-interactive')).toBe(true);
       expect(haCard(card).querySelector('ha-ripple')).not.toBeNull();
@@ -767,24 +822,25 @@ describe('the card around events that are buttons', () => {
   });
 });
 
-describe('event_tap_action set to anything but details', () => {
+describe('event_tap_action set to nothing of its own', () => {
   const haCard = (card: Card) => card.shadowRoot!.querySelector('ha-card')!;
   const SWIMMING = { ...RAW_EVENTS[0], summary: 'Swimming', uid: 'uid-swimming' };
   const CARD_TAP = { action: 'navigate', navigation_path: '/lovelace/family' };
 
   /**
-   * Home Assistant's actions, which the editor offered until it was cut down to two choices,
-   * `expand`, which YAML could name, and a bare key. Each reads as `none`.
+   * `none`, the card's own actions, which act on the whole card and so are nothing on an
+   * event, and a bare key. Each reads as `none`.
    */
-  const OTHERS = [
-    ['more-info', { action: 'more-info' }],
-    ['navigate', { action: 'navigate', navigation_path: '/lovelace/0' }],
-    ['toggle', { action: 'toggle' }],
+  const NOTHING = [
+    ['none', { action: 'none' }],
     ['expand', { action: 'expand' }],
+    ['refresh', { action: 'refresh' }],
+    ['add-event', { action: 'add-event' }],
+    ['reset', { action: 'reset' }],
     ['a bare key', null],
   ] as const;
 
-  it.each(['list', 'column', 'grid'].flatMap((view) => OTHERS.map((other) => [view, ...other])))(
+  it.each(['list', 'column', 'grid'].flatMap((view) => NOTHING.map((other) => [view, ...other])))(
     "leaves %s events inert for %s, and runs the card's tap for a tap on one",
     async (view, _name, eventTapAction) => {
       // Swimming is Ben's and Ben is not the card's first calendar, so an action forwarded for
@@ -830,15 +886,292 @@ describe('event_tap_action set to anything but details', () => {
   );
 });
 
+/**
+ * `event_tap_action` and `event_hold_action` set to one of Home Assistant's actions: the event
+ * is a button, and a tap or a hold on it hands the action to Home Assistant with the tapped
+ * event's fields filled in, under the event's own calendar, instead of the card's tap.
+ *
+ * Driven through the real card for the reason the rest of this file is: the fields come from
+ * the display row (the title as replaced) and from `_source` (the whole event's interval),
+ * stamped at different stages, and a stage that drops either breaks only this.
+ */
+describe("event actions with Home Assistant's actions", () => {
+  const SWIMMING = {
+    ...RAW_EVENTS[0],
+    summary: 'Swimming',
+    location: 'Riverside Pool, 12 Mill Road',
+    description: '<b>Bring</b> the <a href="https://swim.example.com">goggles</a> &amp; towel',
+    uid: 'uid-swimming',
+  };
+  const TWO = { entities: ['calendar.anna', 'calendar.ben'] };
+  const BEN = { eventsFor: { 'calendar.ben': [SWIMMING] } };
+  const SEARCH = {
+    action: 'url',
+    url_path: 'https://example.com/search?q={title}&where={location}',
+  };
+  const SEARCH_FILLED = {
+    action: 'url',
+    url_path: 'https://example.com/search?q=Swimming&where=Riverside%20Pool%2C%2012%20Mill%20Road',
+  };
+
+  /** Press and keep still past the hold threshold, then let go. */
+  function hold(target: Element): void {
+    pointer(target, 'pointerdown');
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 1);
+    pointer(target, 'pointerup');
+    click(target);
+  }
+
+  it.each(['list', 'column', 'grid'])(
+    'runs a url action for a tap on a %s event, its fields encoded into the URL',
+    async (view) => {
+      const { card, dialogs, hassActions } = await mount(
+        { view, ...TWO, tap_action: { action: 'more-info' }, event_tap_action: SEARCH },
+        BEN,
+      );
+      expect(buttonsShowing(card, 'Swimming')).toHaveLength(1);
+
+      tap(leafShowing(buttonsShowing(card, 'Swimming')[0], 'Swimming'));
+      await settle();
+      expect(hassActions).toEqual([
+        { action: 'tap', config: { entity: 'calendar.ben', tap_action: SEARCH_FILLED } },
+      ]);
+      expect(dialogs).toEqual([]);
+
+      // The control: a tap off the events is still the card's own.
+      tap(card.shadowRoot!.querySelector('ha-card')!);
+      await settle();
+      expect(hassActions).toHaveLength(2);
+      expect(hassActions[1].config.entity).toBe('calendar.anna');
+    },
+  );
+
+  it('fills every field into perform-action data as plain text, at any depth', async () => {
+    const action = {
+      action: 'perform-action',
+      perform_action: 'script.note_event',
+      data: {
+        title: '{title}',
+        when: '{start} to {end}',
+        all_day: '{all_day}',
+        calendar: '{calendar}',
+        description: '{description}',
+        places: ['{location}', 'fixed'],
+        untouched: '{unknown} {Title}',
+        count: 3,
+      },
+    };
+    const { card, hassActions } = await mount({ ...TWO, event_tap_action: action }, BEN);
+
+    tap(buttonsShowing(card, 'Swimming')[0]);
+    await settle();
+    expect(hassActions).toEqual([
+      {
+        action: 'tap',
+        config: {
+          entity: 'calendar.ben',
+          tap_action: {
+            action: 'perform-action',
+            perform_action: 'script.note_event',
+            data: {
+              title: 'Swimming',
+              when: '2026-06-17T14:00:00Z to 2026-06-17T15:00:00Z',
+              all_day: 'false',
+              calendar: 'calendar.ben',
+              description: 'Bring the goggles & towel',
+              places: ['Riverside Pool, 12 Mill Road', 'fixed'],
+              untouched: '{unknown} {Title}',
+              count: 3,
+            },
+          },
+        },
+      },
+    ]);
+  });
+
+  it('gives a multi-day event its whole interval from any of its days, and an all-day one its dates', async () => {
+    const action = {
+      action: 'navigate',
+      navigation_path: '/lovelace/plan?from={start}&until={end}&day={all_day}',
+    };
+    const { card, hassActions } = await mount({
+      event_tap_action: action,
+      split_multiday_events: true,
+    });
+
+    // Trip runs from the 17th into the 19th, so the card draws it on three days.
+    const trips = buttonsShowing(card, 'Trip');
+    expect(trips.length).toBeGreaterThan(1);
+    tap(trips[trips.length - 1]);
+    tap(buttonsShowing(card, 'Public holiday')[0]);
+    await settle();
+    expect(hassActions.map((detail) => detail.config.tap_action)).toEqual([
+      {
+        action: 'navigate',
+        navigation_path:
+          '/lovelace/plan?from=2026-06-17T20%3A00%3A00Z&until=2026-06-19T09%3A00%3A00Z&day=false',
+      },
+      {
+        action: 'navigate',
+        navigation_path: '/lovelace/plan?from=2026-06-18&until=2026-06-19&day=true',
+      },
+    ]);
+  });
+
+  it('fills the title as the card shows it, a text replacement applied', async () => {
+    const { card, hassActions } = await mount(
+      {
+        entities: [{ entity: 'calendar.anna', replace_field: 'title', replace_with: 'Busy' }],
+        event_tap_action: { action: 'url', url_path: 'https://example.com/?q={title}' },
+      },
+      { shows: 'Busy' },
+    );
+
+    tap(buttonsShowing(card, 'Busy')[0]);
+    await settle();
+    expect(hassActions[0].config.tap_action).toEqual({
+      action: 'url',
+      url_path: 'https://example.com/?q=Busy',
+    });
+  });
+
+  it("opens more-info for the pressed event's calendar, unless the action names an entity", async () => {
+    const { card, hassActions } = await mount(
+      {
+        ...TWO,
+        event_tap_action: { action: 'more-info' },
+        event_hold_action: { action: 'more-info', entity: 'calendar.anna' },
+      },
+      BEN,
+    );
+    const swimming = buttonsShowing(card, 'Swimming')[0];
+
+    tap(swimming);
+    await settle();
+    hold(swimming);
+    await settle();
+    expect(hassActions).toEqual([
+      { action: 'tap', config: { entity: 'calendar.ben', tap_action: { action: 'more-info' } } },
+      {
+        action: 'hold',
+        config: {
+          entity: 'calendar.ben',
+          hold_action: { action: 'more-info', entity: 'calendar.anna' },
+        },
+      },
+    ]);
+  });
+
+  it("runs an event's hold for a hold, and the card's tap for a tap", async () => {
+    const { card, hassActions } = await mount(
+      { ...TWO, tap_action: { action: 'more-info' }, event_hold_action: SEARCH },
+      BEN,
+    );
+    const target = leafShowing(buttonsShowing(card, 'Swimming')[0], 'Swimming');
+
+    hold(target);
+    await settle();
+    expect(hassActions).toEqual([
+      { action: 'hold', config: { entity: 'calendar.ben', hold_action: SEARCH_FILLED } },
+    ]);
+
+    tap(target);
+    await settle();
+    expect(hassActions[1]).toEqual({
+      action: 'tap',
+      config: {
+        entity: 'calendar.anna',
+        tap_action: { action: 'more-info' },
+        hold_action: { action: 'none' },
+      },
+    });
+  });
+
+  it.each([
+    ['its tap', { event_tap_action: SEARCH }, 'tap'],
+    ['its hold, having no tap', { event_hold_action: SEARCH }, 'hold'],
+  ] as const)('runs %s from the keyboard', async (_name, config, gesture) => {
+    const { card, hassActions } = await mount({ ...TWO, ...config }, BEN);
+    const button = buttonsShowing(card, 'Swimming')[0];
+
+    key(button, 'keydown', 'Enter');
+    await settle();
+    expect(hassActions).toEqual([
+      {
+        action: gesture,
+        config: { entity: 'calendar.ben', [`${gesture}_action`]: SEARCH_FILLED },
+      },
+    ]);
+  });
+
+  it('refuses a url action whose own scheme is not http or https once a field is in it', async () => {
+    const { card, hassActions } = await mount({
+      event_tap_action: { action: 'url', url_path: 'javascript:alert("{title}")' },
+    });
+
+    tap(buttonsShowing(card, 'Dentist')[0]);
+    await settle();
+    expect(hassActions).toEqual([]);
+  });
+
+  it('keeps a field to one query value, whatever it holds', async () => {
+    const sneaky = {
+      ...RAW_EVENTS[0],
+      summary: 'javascript:alert(1)//&next=https://evil.example#x',
+      uid: 'uid-sneaky',
+    };
+    const { card, hassActions } = await mount(
+      { event_tap_action: { action: 'url', url_path: 'https://example.com/?q={title}' } },
+      { events: [sneaky], shows: 'javascript:alert(1)' },
+    );
+
+    tap(buttonsShowing(card, 'javascript:alert(1)')[0]);
+    await settle();
+    expect(hassActions[0].config.tap_action).toEqual({
+      action: 'url',
+      url_path:
+        'https://example.com/?q=javascript%3Aalert(1)%2F%2F%26next%3Dhttps%3A%2F%2Fevil.example%23x',
+    });
+  });
+
+  it("runs nothing that would let an event's text choose the site or the service", async () => {
+    const { card, hassActions } = await mount({
+      event_tap_action: { action: 'url', url_path: 'https://{location}/join' },
+      event_hold_action: { action: 'perform-action', perform_action: '{title}' },
+    });
+    const dentist = buttonsShowing(card, 'Dentist')[0];
+
+    tap(dentist);
+    await settle();
+    pointer(dentist, 'pointerdown');
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 1);
+    pointer(dentist, 'pointerup');
+    click(dentist);
+    await settle();
+    expect(hassActions).toEqual([]);
+  });
+
+  it('runs nothing and draws no buttons while the card is edited', async () => {
+    const { card, hassActions } = await mount({ event_tap_action: SEARCH });
+    (card as unknown as { editMode: boolean }).editMode = true;
+    await card.updateComplete;
+
+    expect(buttonsShowing(card, 'Dentist')).toHaveLength(0);
+    tap(eventsShowing(card, 'Dentist')[0]);
+    await settle();
+    expect(hassActions).toEqual([]);
+  });
+});
+
 describe('the click a pointer gesture owes', () => {
   // A browser follows a pointer gesture with a click, which the card's pointer capture
   // retargets to `ha-card`, and which a browser that does not retarget aims at the event the
   // pointer went down on. That click must not act a second time; any other click is an
   // activation in its own right, which is what assistive technology sends.
   //
-  // Counted on the dialogs opened, which name their event: Dentist is Anna's and Swimming is
-  // Ben's. Every step settles before the next, because two requests for the dialog in one
-  // tick open it once, so a click acting in the tick of its own tap would count once too.
+  // Counted on the popovers opened, which name their event: Dentist is Anna's and Swimming is
+  // Ben's. Each request opens its popover at once, so a click acting a second time, even in
+  // the tick of its own tap, counts a second time.
   const SWIMMING = { ...RAW_EVENTS[0], summary: 'Swimming', uid: 'uid-swimming' };
   const TWO_CALENDARS = { entities: ['calendar.anna', 'calendar.ben'], ...DETAILS };
 
@@ -849,7 +1182,7 @@ describe('the click a pointer gesture owes', () => {
     );
     const runs = () =>
       mounted.dialogs.map(
-        (dialog) => `${dialog.dialogParams.entry.summary} ${dialog.dialogParams.calendarId}`,
+        (dialog) => `${dialog.dialogParams.entry?.summary} ${dialog.dialogParams.calendarId}`,
       );
     const dentist = buttonsShowing(mounted.card, 'Dentist')[0];
     const swimming = buttonsShowing(mounted.card, 'Swimming')[0];
@@ -1046,7 +1379,7 @@ describe("a tappable event's day", () => {
   );
 });
 
-describe('what the dialog is handed for events the card had to change', () => {
+describe('what the popover is handed for events the card had to change', () => {
   /** No end at all: kept as the instant at its start. */
   const REMINDER = {
     summary: 'Reminder',
@@ -1102,9 +1435,9 @@ describe('what the dialog is handed for events the card had to change', () => {
 
       buttonsShowing(card, 'Reminder')[0].click();
       await settle();
-      // Home Assistant's dialog formats `dtend` unconditionally, so it is shown the instant
-      // the card draws. Edit would save that instant as the event's end, so it is withheld;
-      // Delete addresses the event by its uid and stays.
+      // The popover reads the event's times from `dtend` as well as `dtstart`, so it is shown
+      // the instant the card draws. Edit would save that instant as the event's end, so it is
+      // withheld; Delete addresses the event by its uid and stays.
       expect(dialogs[0].dialogParams.entry).toMatchObject({
         dtstart: '2026-06-17T16:00:00Z',
         dtend: '2026-06-17T16:00:00Z',
@@ -1129,14 +1462,14 @@ describe('what the dialog is handed for events the card had to change', () => {
     buttonsShowing(card, 'Dentist')[0].click();
     await settle();
 
-    expect(dialogs.map((dialog) => dialog.dialogParams.entry.status)).toEqual([
+    expect(dialogs.map((dialog) => dialog.dialogParams.entry?.status)).toEqual([
       'tentative',
       undefined,
     ]);
   });
 });
 
-describe('what the card lets the dialog offer', () => {
+describe('what the card lets the popover offer', () => {
   const twoCalendars = {
     ...calendarState(7),
     'calendar.ben': {
@@ -1146,7 +1479,7 @@ describe('what the card lets the dialog offer', () => {
     },
   };
 
-  async function permissionsFor(card: Card, dialogs: DialogDetail[], summary: string) {
+  async function permissionsFor(card: Card, dialogs: PopoverRequest[], summary: string) {
     buttonsShowing(card, summary)[0].click();
     await settle();
     const { canEdit, canDelete } = dialogs[dialogs.length - 1].dialogParams;
@@ -1165,6 +1498,141 @@ describe('what the card lets the dialog offer', () => {
     const { card, dialogs } = await mount({ ...DETAILS, ...options }, { states: calendarState(7) });
 
     expect(await permissionsFor(card, dialogs, 'Dentist')).toEqual(expected);
+  });
+
+  it.each([
+    ['may be changed and deleted', {}, 7, ['calendar.anna', 'calendar.ben']],
+    ['may not be deleted here', { allow_event_delete: false }, 7, ['calendar.anna']],
+    ['may not be changed here', { allow_event_edit: false }, 7, ['calendar.anna']],
+    // Ben's calendar can delete and change events, but takes no new ones.
+    ['has nowhere to go', {}, 6, ['calendar.anna']],
+  ])(
+    "offers to move an event that %s to the card's calendars that take new ones",
+    async (_name, options, benFeatures, calendars) => {
+      const states = {
+        ...calendarState(7),
+        'calendar.ben': {
+          entity_id: 'calendar.ben',
+          state: 'off',
+          attributes: { supported_features: benFeatures, friendly_name: 'Ben' },
+        },
+      };
+      const { card, dialogs } = await mount(
+        { ...DETAILS, ...options, entities: ['calendar.anna', 'calendar.ben'] },
+        { states, eventsFor: { 'calendar.ben': [] } },
+      );
+      buttonsShowing(card, 'Dentist')[0].click();
+      await settle();
+      const params = dialogs[dialogs.length - 1].dialogParams;
+      expect(params.calendarId).toBe('calendar.anna');
+      expect(params.calendars.map((calendar) => calendar.id)).toEqual(calendars);
+    },
+  );
+
+  it('names each calendar it offers as the card names it', async () => {
+    // Anna's calendar is named on its second block only, and Home Assistant's name for it is
+    // set aside; Ben's has no name on the card and keeps Home Assistant's.
+    const states = {
+      'calendar.anna': {
+        entity_id: 'calendar.anna',
+        state: 'off',
+        attributes: { supported_features: 7, friendly_name: 'Anna calendar' },
+      },
+      'calendar.ben': {
+        entity_id: 'calendar.ben',
+        state: 'off',
+        attributes: { supported_features: 7, friendly_name: 'Ben' },
+      },
+    };
+    const { card, dialogs } = await mount(
+      {
+        ...DETAILS,
+        entities: [
+          'calendar.anna',
+          'calendar.ben',
+          { entity: 'calendar.anna', event_type: 'all_day', name: 'Anna at work' },
+        ],
+      },
+      { states, eventsFor: { 'calendar.ben': [] } },
+    );
+    buttonsShowing(card, 'Dentist')[0].click();
+    await settle();
+
+    const params = dialogs[dialogs.length - 1].dialogParams;
+    expect(params.calendars.map(({ id, name }) => [id, name])).toEqual([
+      ['calendar.anna', 'Anna at work'],
+      ['calendar.ben', 'Ben'],
+    ]);
+  });
+
+  it('refreshes both calendars an event was moved between, and tells the page', async () => {
+    const { card, dialogs, callApi } = await mount(
+      { ...DETAILS, entities: ['calendar.anna', 'calendar.ben'] },
+      { states: twoCalendars, eventsFor: { 'calendar.ben': [] } },
+    );
+    buttonsShowing(card, 'Dentist')[0].click();
+    await settle();
+    callApi.mockClear();
+    // Other cards on the page refresh by what is announced, so both calendars must be in it.
+    const announced: unknown[] = [];
+    const listen = (ev: Event) => announced.push((ev as CustomEvent).detail.changed);
+    window.addEventListener(CALENDARS_CHANGED_EVENT, listen);
+    onTestFinished(() => window.removeEventListener(CALENDARS_CHANGED_EVENT, listen));
+    dialogs[dialogs.length - 1].dialogParams.updated('calendar.ben', 'calendar.anna');
+    expect(announced).toEqual([{ ids: ['calendar.ben', 'calendar.anna'] }]);
+    await settle();
+    await vi.waitFor(() => {
+      const paths = callApi.mock.calls.map(([, path]) => path.split('?')[0]).sort();
+      expect(paths).toEqual(['calendars/calendar.anna', 'calendars/calendar.ben']);
+    });
+  });
+
+  it('opens the popover beside a pointer-pressed event, with what can be seen of it', async () => {
+    const { card, dialogs } = await mount(DETAILS, { states: calendarState(7) });
+    const target = leafShowing(buttonsShowing(card, 'Dentist')[0], 'Dentist');
+    pointer(target, 'pointerdown', 150, 210);
+    pointer(target, 'pointerup', 150, 210);
+    click(target);
+    await settle();
+    const anchor = dialogs[dialogs.length - 1].dialogParams.anchor;
+    expect(anchor).toMatchObject({ x: 150, y: 210 });
+    expect(anchor?.rect).toBeDefined();
+  });
+
+  it("anchors a keyboard or assistive press at the end of a list row's text, not its far edge", async () => {
+    const { card, dialogs } = await mount(DETAILS, { states: calendarState(7) });
+    const target = buttonsShowing(card, 'Dentist')[0];
+    // happy-dom lays nothing out: the row spans the card, its words end at 180.
+    const box = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 100,
+      top: 200,
+      right: 1100,
+      bottom: 260,
+      width: 1000,
+      height: 60,
+    } as DOMRect);
+    let selected: Node | null = null;
+    const range = vi.spyOn(document, 'createRange').mockImplementation(
+      () =>
+        ({
+          selectNodeContents: (node: Node) => (selected = node),
+          getClientRects: () =>
+            selected?.nodeValue?.includes('Dentist') ? [{ left: 110, right: 180 }] : [],
+        }) as unknown as Range,
+    );
+    try {
+      target.click();
+      await settle();
+    } finally {
+      box.mockRestore();
+      range.mockRestore();
+    }
+    expect(dialogs[dialogs.length - 1].dialogParams.anchor?.rect).toEqual({
+      left: 100,
+      top: 200,
+      right: 180,
+      bottom: 260,
+    });
   });
 
   it('opens a duplicate merged from two calendars with neither Edit nor Delete', async () => {

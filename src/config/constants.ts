@@ -54,6 +54,43 @@ export const LOGGING = {
 // UI BEHAVIOR & INTERACTIONS
 //-----------------------------------------------------------------------------
 
+/**
+ * The card action that opens Home Assistant's new-event dialog: a value of `tap_action`,
+ * `hold_action` and `day_tap_action`. Here rather than beside the action handler, which tests
+ * replace wholesale.
+ */
+export const ADD_EVENT_ACTION = 'add-event';
+
+/**
+ * The card action that brings the card back to its configuration on this device, as the
+ * toolbar's reset button does: a value of `tap_action` and `hold_action`.
+ */
+export const RESET_ACTION = 'reset';
+
+/**
+ * The card action that goes back to the page before this one, as Home Assistant's own back
+ * arrow does (`interaction/back.ts`): a value of `tap_action` and `hold_action`, and of a
+ * toolbar button's.
+ */
+export const BACK_ACTION = 'back';
+
+/**
+ * The actions the card runs itself rather than handing to Home Assistant, in the order the
+ * editor offers them. None is about one event, so on an event they are nothing
+ * (`eventActionKind`). `back` comes last: the four before it act on the card, and it acts on the
+ * page, as the Home Assistant actions after it in the dropdown do.
+ */
+export const CARD_ACTION_VALUES = [
+  'expand',
+  'refresh',
+  ADD_EVENT_ACTION,
+  RESET_ACTION,
+  BACK_ACTION,
+] as const;
+
+/** The event action that opens the tapped event's dialog: a value of `event_tap_action` and `event_hold_action`. */
+export const EVENT_DETAILS_ACTION = 'details';
+
 export const TIMING = {
   HOLD_THRESHOLD: 500,
 
@@ -68,9 +105,21 @@ export const TIMING = {
    */
   DERIVED_CLICK_WINDOW: 1000,
 
+  /**
+   * How long a grid keeps showing a new event the popover saved, at most, while the events that
+   * bring the real one are on their way; they take it away as soon as they arrive.
+   */
+  NEW_EVENT_HOLD: 5000,
+
   HOLD_INDICATOR_TRANSITION: 200,
 
   HOLD_INDICATOR_FADEOUT: 300,
+
+  /** How long the days take to spring back once a swipe's finger lifts or is canceled. */
+  SWIPE_SPRING_BACK: 180,
+
+  /** How long a page a swipe asked for takes to slide in once it is drawn. */
+  SWIPE_ARRIVAL: 220,
 
   VISIBILITY_REFRESH_THRESHOLD: 300000, // 5 minutes
 
@@ -114,6 +163,12 @@ export const TIMING = {
   HOME_CONFIRMATION: 1000,
 
   /**
+   * How long an event a search result paged the card to is ringed in the theme's primary color,
+   * long enough to find it among the others; the stylesheet fades the ring out over its end.
+   */
+  SEARCH_RING: 2000,
+
+  /**
    * How long the reset button takes to fade out after its check, still showing the check. The
    * stylesheet's fade lasts as long; only then does the button take its U-turn back, unseen.
    */
@@ -144,6 +199,13 @@ export const TIMING = {
    * invisible where the arithmetic to align it would not be.
    */
   NOW_LINE_INTERVAL: 60_000,
+  /**
+   * How often a countdown or progress bar on screen is repainted with nothing else changing.
+   *
+   * A minute, the resolution both are read at. They used to move with every unrelated `hass`
+   * update, which the card no longer renders for.
+   */
+  CLOCK_TICK_INTERVAL: 60_000,
   /** Longest wait for the next event boundary before the timer re-arms (24 hours). */
   NOW_BOUNDARY_MAX_DELAY: 86_400_000,
 };
@@ -153,6 +215,43 @@ export const UI = {
    * Pointer travel that still counts as a tap rather than a scroll or drag.
    */
   POINTER_MOVE_TOLERANCE: 8,
+
+  /**
+   * The slot, in minutes, a new event added in a grid's time area starts on and a drawn one
+   * snaps to: a tap opens at the quarter hour under the finger, and a drag draws in quarters.
+   * On the clock, from midnight, whatever the band's own start.
+   */
+  ADD_SLOT_MINUTES: 15,
+
+  /**
+   * Horizontal travel, in CSS pixels, from which a touch or pen gesture that lifts pages the
+   * card. Far past the tap tolerance above and the 16dp Android gives a pager before it
+   * starts to drag, so only a deliberate swipe pages.
+   */
+  SWIPE_MIN_DISTANCE: 48,
+
+  /**
+   * How many times its vertical travel a swipe's horizontal travel must be to page, about 34°
+   * either side of horizontal: tighter than the 45° split a browser decides scrolling by, and
+   * loose enough for the arc a thumb draws.
+   */
+  SWIPE_MIN_SLOPE_RATIO: 1.5,
+
+  /**
+   * Distance from the viewport's left and right edges, in CSS pixels, inside which a press
+   * starts no swipe. Those edges belong to the host: the back and forward swipes of Safari and
+   * of Android, and the edge gestures the Home Assistant app for iOS adds.
+   */
+  SWIPE_EDGE_GUARD: 20,
+
+  /**
+   * Furthest the days follow a swipe's finger, in CSS pixels. They follow with resistance,
+   * a hint at the page to come rather than a drag of the page itself.
+   */
+  SWIPE_NUDGE_MAX: 40,
+
+  /** How far, in CSS pixels, a page a swipe asked for slides in from. */
+  SWIPE_ARRIVAL_OFFSET: 32,
 
   /**
    * Card width, in CSS pixels, from which the view switcher names its views in words rather than
@@ -171,6 +270,26 @@ export const UI = {
    */
   TOOLBAR_COMMAND_WIDTH: 36,
   TOOLBAR_COMMAND_GAP: 8,
+
+  /**
+   * The view switcher drawn as pictograms: each view a segment this wide, on a track padded this
+   * much all round. Both are the stylesheet's, so the room the switcher leaves the rest of the
+   * action row is worked out exactly (`utils/toolbar-fold.ts`).
+   */
+  TOOLBAR_SWITCHER_SEGMENT_WIDTH: 34,
+  TOOLBAR_SWITCHER_TRACK_PADDING: 3,
+
+  /**
+   * How far the action row's content stands in from the card's own edges, both sides together,
+   * in each view: Home Assistant's 1px card border on either side, the card's inline padding, and
+   * the row's own start padding, which stands for the title's margin. List pads the card 8px at
+   * its start and 16px at its end, and the row 8px more; column and grid pad the card 16px on
+   * both sides and drop the row's. The three come to the same width because each lines the
+   * toolbar up with the days, and are kept apart so a view that changes its padding changes one
+   * entry. A theme with another border width moves the row by the difference, which the card
+   * notices once it has drawn the row (`_syncStartFoldFit`).
+   */
+  TOOLBAR_ROW_INSET: { list: 34, column: 34, grid: 34 },
 
   /**
    * How much wider than its chips need the card must be before a folded legend draws them

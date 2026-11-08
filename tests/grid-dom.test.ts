@@ -15,6 +15,18 @@ import * as EventUtils from '../src/utils/events';
 import * as GridUtils from '../src/utils/grid';
 
 /**
+ * An axis label's wording. A 12-hour label is drawn inside invisible bidi isolates, so a
+ * right-to-left card reads "9 AM" and not "AM 9"; that is pinned on its own ("isolates each
+ * 12-hour axis label"), and the tests that read wording leave the marks out.
+ */
+function axisText(element: Element): string | undefined {
+  return element.textContent
+    ?.trim()
+    .replace(/[\u2068\u2069]/g, '')
+    .replace(/\u00a0/g, ' ');
+}
+
+/**
  * The grid view's DOM.
  *
  * Property tests, not a snapshot, for the same reason `column-dom.test.ts` gives: there
@@ -437,7 +449,7 @@ describe('the grid hour axis follows the same clock convention as event times', 
 
   function axisLabels(container: ParentNode): string[] {
     return Array.from(container.querySelectorAll('.grid-axis-label')).map(
-      (label) => label.textContent?.trim() ?? '',
+      (label) => axisText(label) ?? '',
     );
   }
 
@@ -531,10 +543,10 @@ describe('the grid hour axis follows the same clock convention as event times', 
       hassWithLocale('da', 'language'),
     );
 
-    const axisText = axisLabels(container);
+    const drawn = axisLabels(container);
 
-    expect(axisText[0]).not.toContain('PM');
-    expect(axisText[0]).toBe('14');
+    expect(drawn[0]).not.toContain('PM');
+    expect(drawn[0]).toBe('14');
     expect(container.textContent).toContain('14:00');
     expect(container.textContent).not.toContain('14.00');
   });
@@ -852,6 +864,18 @@ describe('timed multi-day events stay in the time grid', () => {
     );
   }
 
+  /** An evening band, so a block starting late is drawn. Its continuation is not. */
+  const EVENING = { start_time: '19:00', end_time: '24:00' };
+
+  /**
+   * A block's wording without its invisible bidi isolates: the day count's left-to-right
+   * one, and the first-strong ones around each 12-hour reading. Both are pinned on their own
+   * ("makes the end and its day count one droppable end, the count isolated").
+   */
+  function wording(text: string): string {
+    return text.replace(/[\u2066\u2068\u2069]/g, '');
+  }
+
   it('renders a three-day timed event in every touched day column', () => {
     const container = renderGrid([timedRange(17, '09:00', 19, '17:00', 'Conference')]);
     const columns = Array.from(container.querySelectorAll('.grid-day-body'));
@@ -895,13 +919,167 @@ describe('timed multi-day events stay in the time grid', () => {
     expect(blockTexts(container)).toEqual(['Workshop 14:00 - 16:00']);
   });
 
-  it('shows only the start time on a multi-day timed event first segment', () => {
+  it('shows the whole span and the days to its end on a multi-day timed event first segment', () => {
     const container = renderGrid(
       [timedRange(17, '14:00', 19, '11:00', 'Conference Trip')],
       buildConfig({ view: 'grid', days_to_show: 3, time_24h: true }),
     );
 
-    expect(blockTexts(container)[0]).toBe('Conference Trip 14:00');
+    expect(wording(blockTexts(container)[0])).toBe('Conference Trip 14:00 - 11:00 (+2)');
+  });
+
+  /**
+   * The block's bottom edge is midnight, not the end, and on the last day a card shows, or
+   * below the hours it draws, no later block draws the end either. Before #768 this read
+   * "22:05" and the end appeared nowhere.
+   */
+  it('names the end of an event that runs past midnight, with the days to it', () => {
+    const container = renderGrid(
+      [timedRange(17, '22:05', 18, '01:35', 'Late match')],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 1,
+        time_24h: true,
+        time_grid: EVENING,
+      }),
+    );
+
+    expect(blockTexts(container).map(wording)).toEqual(['Late match 22:05 - 1:35 (+1)']);
+  });
+
+  it('reads the same span on a 12-hour clock', () => {
+    const container = renderGrid(
+      [timedRange(17, '22:05', 18, '01:35', 'Late match')],
+      buildConfig({ view: 'grid', days_to_show: 2, time_24h: false, time_grid: EVENING }),
+    );
+
+    expect(blockTexts(container).map(wording)).toEqual(['Late match 10:05 PM - 1:35 AM (+1)']);
+  });
+
+  /**
+   * One droppable end, so the fit ladder wraps and drops the end and its count together and
+   * a narrow block falls back to the start alone, never to an end without its day. The count
+   * is in a left-to-right isolate, because a right-to-left line draws a bare "(+1)" as
+   * "(1+)", and a no-break space keeps it on the end's line.
+   */
+  it('makes the end and its day count one droppable end, the count isolated', () => {
+    const container = renderGrid(
+      [timedRange(17, '22:05', 18, '01:35', 'Late match')],
+      buildConfig({ view: 'grid', days_to_show: 2, time_24h: true, time_grid: EVENING }),
+    );
+    const block = container.querySelector('.grid-event:not(.grid-event-overflow)');
+
+    expect(block?.querySelector('.time-end')?.textContent).toBe(' - 1:35\u00a0\u2066(+1)\u2069');
+  });
+
+  it('shows the start alone with show_end_time off, as a single-day block does', () => {
+    const container = renderGrid(
+      [timedRange(17, '22:05', 18, '01:35', 'Late match')],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 2,
+        time_24h: true,
+        show_end_time: false,
+        time_grid: EVENING,
+      }),
+    );
+
+    expect(blockTexts(container)).toEqual(['Late match 22:05']);
+    expect(container.querySelector('.time-end')).toBeNull();
+  });
+
+  it('folds the countdown after the day count', () => {
+    const container = renderGrid(
+      [timedRange(17, '22:05', 18, '01:35', 'Late match')],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 2,
+        time_24h: true,
+        show_countdown: true,
+        time_grid: EVENING,
+      }),
+    );
+    const text = container.querySelector('.grid-event:not(.grid-event-overflow) .time-text');
+    const end = text?.querySelector('.time-end');
+    const countdown = text?.querySelector('.time-countdown');
+
+    expect(end).not.toBeNull();
+    expect(countdown).not.toBeNull();
+    expect(
+      end!.compareDocumentPosition(countdown!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  /**
+   * Until the midnight after it starts, which any calendar writes without a day. This block
+   * is not split at all, so it used to fall through to the list's phrase, "22:00, ends
+   * tomorrow at 0:00": counted from today rather than from the block's day, and too long to
+   * give up part of, so a narrow lane dropped the whole time row.
+   */
+  it('reads an event ending at the next midnight as one day, with no day count', () => {
+    const container = renderGrid(
+      [timedRange(17, '22:00', 18, '00:00', 'Movie night')],
+      buildConfig({ view: 'grid', days_to_show: 2, time_24h: true, time_grid: EVENING }),
+    );
+    const block = container.querySelector('.grid-event:not(.grid-event-overflow)');
+
+    expect(blockTexts(container)).toEqual(['Movie night 22:00 - 0:00']);
+    expect(block?.querySelector('.time-end')?.textContent).toBe(' - 0:00');
+  });
+
+  /**
+   * The end and its count name one moment. Counting to the last day the event fills would
+   * print "(+1)" here, which reads as the start of Thursday, a whole day early.
+   */
+  it('counts a later midnight end to the date it falls on', () => {
+    const container = renderGrid(
+      [timedRange(17, '19:00', 19, '00:00', 'Sleepover')],
+      buildConfig({ view: 'grid', days_to_show: 3, time_24h: true, time_grid: EVENING }),
+    );
+
+    expect(blockTexts(container).map(wording)).toEqual([
+      'Sleepover 19:00 - 0:00 (+2)',
+      'Sleepover',
+    ]);
+  });
+
+  it('counts the day on an end seconds past midnight, which is not the midnight itself', () => {
+    const container = renderGrid(
+      [
+        {
+          start: { dateTime: new Date(2026, 5, 17, 22).toISOString() },
+          end: { dateTime: new Date(2026, 5, 18, 0, 0, 30).toISOString() },
+          summary: 'Movie night',
+          _entityId: 'calendar.personal',
+        },
+      ],
+      buildConfig({ view: 'grid', days_to_show: 1, time_24h: true, time_grid: EVENING }),
+    );
+
+    expect(blockTexts(container).map(wording)).toEqual(['Movie night 22:00 - 0:00 (+1)']);
+  });
+
+  it('counts the day on a whole day from midnight, which would otherwise read as no time', () => {
+    const container = renderGrid(
+      [timedRange(17, '00:00', 18, '00:00', 'On call')],
+      buildConfig({ view: 'grid', days_to_show: 2, time_24h: true }),
+    );
+
+    expect(blockTexts(container).map(wording)).toEqual(['On call 0:00 - 0:00 (+1)']);
+  });
+
+  it('shows title only on a continuation whose first day is before the window', () => {
+    const container = renderGrid(
+      [timedRange(16, '22:00', 17, '02:00', 'Night shift')],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 2,
+        time_24h: true,
+        time_grid: { start_time: '00:00', end_time: '24:00' },
+      }),
+    );
+
+    expect(blockTexts(container)).toEqual(['Night shift']);
   });
 
   it('shows title only on multi-day timed continuation segments', () => {
@@ -928,7 +1106,7 @@ describe('timed multi-day events stay in the time grid', () => {
     expect(blockTexts(container).slice(1)).toEqual(['Conference Trip', 'Conference Trip']);
   });
 
-  it('shows a Tuesday start time and title-only Wednesday and Thursday continuations', () => {
+  it('shows a Tuesday span and title-only Wednesday and Thursday continuations', () => {
     const event = timedRange(23, '22:00', 25, '02:00', 'Overnight Migration');
     const container = renderGridDays(
       [gridDay(23, [event]), gridDay(24), gridDay(25)],
@@ -940,8 +1118,8 @@ describe('timed multi-day events stay in the time grid', () => {
       }),
     );
 
-    expect(blockTexts(container)).toEqual([
-      'Overnight Migration 22:00',
+    expect(blockTexts(container).map(wording)).toEqual([
+      'Overnight Migration 22:00 - 2:00 (+2)',
       'Overnight Migration',
       'Overnight Migration',
     ]);
@@ -1029,9 +1207,10 @@ describe('with overlap_layout: columns, overlapping events share the column', ()
     expect(times.every((element) => element !== null)).toBe(true);
 
     const spans = blocks.map((block) => block.querySelector<HTMLElement>(ellipsized));
+    // Each 12-hour reading is drawn inside invisible bidi isolates (clock-reading-bidi.test.ts).
     expect(spans.map((span) => span?.textContent?.trim() ?? null)).toEqual([
-      '9:00 AM - 11:00 AM',
-      '10:00 AM - 12:00 PM',
+      '\u20689:00\u00a0AM\u2069 - \u206811:00\u00a0AM\u2069',
+      '\u206810:00\u00a0AM\u2069 - \u206812:00\u00a0PM\u2069',
     ]);
 
     // The renderer hands over the whole range and never shortens it, so shortening is
@@ -2439,7 +2618,9 @@ describe('the now line (#325)', () => {
   describe('drawn again inside the block under way', () => {
     const property = (element: Element | null | undefined, name: string) =>
       (element as HTMLElement | null | undefined)?.style.getPropertyValue(name) ?? '';
-    const COPY = '.grid-day-plane-now > .grid-event-now';
+    // Any block under way in the plane: its own, or the new event the card is adding, which
+    // sits in an element of its own there (`.grid-new-event`).
+    const COPY = '.grid-day-plane-now .grid-event-now';
     // The stylesheet without its comments and with its whitespace collapsed, so a rule is
     // found by its whole selector list and a declaration matched whatever Prettier did to it.
     const CSS = cardStyles.cssText
@@ -2743,7 +2924,7 @@ describe('the axis', () => {
     );
 
     const labels = Array.from(container.querySelectorAll('.grid-axis-label')).map((element) =>
-      element.textContent?.trim(),
+      axisText(element),
     );
 
     // 11:00 is labeled because it falls on the cadence, not because it is the end — the
@@ -2768,11 +2949,39 @@ describe('the axis', () => {
     );
 
     const labels = Array.from(container.querySelectorAll('.grid-axis-label')).map((element) =>
-      element.textContent?.trim(),
+      axisText(element),
     );
 
     expect(labels).toEqual(['8', '9', '10']);
     expect(labels).not.toContain('10:30');
+  });
+
+  it('isolates each 12-hour axis label, and leaves a 24-hour one as it is', () => {
+    // A 12-hour label alone in a right-to-left gutter read "AM 9": AM is its only strong
+    // letter, so the digits took the line's direction and went to its far side. Isolated, the
+    // label is one left-to-right unit, as "9" alone already is. The sizer reads the same
+    // text, so the gutter is measured from what is drawn.
+    for (const [use24h, expected] of [
+      [false, ['\u20688\u00a0AM\u2069', '\u20689\u00a0AM\u2069']],
+      [true, ['8', '9']],
+    ] as const) {
+      const container = renderGrid(
+        [timed(17, '08:00', '08:30', 'Standup')],
+        buildConfig({
+          view: 'grid',
+          days_to_show: 3,
+          time_24h: use24h,
+          time_grid: { start_time: '08:00', end_time: '09:00' },
+        }),
+      );
+      const raw = (selector: string) =>
+        Array.from(container.querySelectorAll(selector)).map((element) =>
+          element.textContent?.trim(),
+        );
+
+      expect(raw('.grid-axis-label'), use24h ? '24-hour' : '12-hour').toEqual(expected);
+      expect(raw('.grid-axis-sizer span')).toEqual(expected);
+    }
   });
 
   it('reads a 24:00 band end as midnight rather than as hour 24', () => {
@@ -2795,7 +3004,7 @@ describe('the axis', () => {
       );
 
       const labels = Array.from(container.querySelectorAll('.grid-axis-label')).map((element) =>
-        element.textContent?.trim(),
+        axisText(element),
       );
 
       expect(labels.slice(-1)[0]).toBe(expected);
@@ -2843,14 +3052,14 @@ describe('the axis', () => {
     );
 
     const labels = Array.from(container.querySelectorAll('.grid-axis-label')).map((element) =>
-      element.textContent?.trim(),
+      axisText(element),
     );
 
     expect(labels, 'no labels rendered').toEqual(['10 PM', '11 PM', '12 AM']);
     expect(
       Array.from(
         requireElement<HTMLElement>(container, '.grid-axis-sizer').querySelectorAll('span'),
-      ).map((span) => span.textContent?.trim()),
+      ).map((span) => axisText(span)),
     ).toEqual(labels);
   });
 
@@ -2939,7 +3148,7 @@ describe('the axis', () => {
       }),
     );
     const labels = Array.from(container.querySelectorAll('.grid-axis-label')).map((element) =>
-      element.textContent?.trim(),
+      axisText(element),
     );
 
     expect(container.querySelectorAll('.grid-boundary-body-end')).toHaveLength(1);
@@ -2959,7 +3168,7 @@ describe('the axis', () => {
     );
 
     const nineOClock = Array.from(container.querySelectorAll<HTMLElement>('.grid-axis-label')).find(
-      (element) => element.textContent?.trim() === '9',
+      (element) => axisText(element) === '9',
     );
     const block = container.querySelector<HTMLElement>('.grid-event')!;
 
@@ -3073,9 +3282,7 @@ describe('the axis', () => {
     // hours was as wide as `ganztagig` whenever any all-day event existed -- in German,
     // measurably wider than in English on identical hours.
     const sizerText = (container: HTMLElement) =>
-      Array.from(container.querySelectorAll('.grid-axis-sizer span')).map((span) =>
-        span.textContent?.trim(),
-      );
+      Array.from(container.querySelectorAll('.grid-axis-sizer span')).map((span) => axisText(span));
 
     const withBand = renderGrid(
       [timed(17, '09:00', '10:00', 'Standup'), allDay('2026-06-17', '2026-06-18', 'Feiertag')],
@@ -3125,7 +3332,7 @@ describe('how often the axis is labeled', () => {
     );
 
     return Array.from(container.querySelectorAll('.grid-axis-label')).map(
-      (element) => element.textContent?.trim() ?? '',
+      (element) => axisText(element) ?? '',
     );
   }
 
@@ -3228,7 +3435,7 @@ describe('how often the axis is labeled', () => {
 
     expect(
       Array.from(container.querySelectorAll('.grid-axis-label')).map((element) =>
-        element.textContent?.trim(),
+        axisText(element),
       ),
     ).toEqual(['8:00', '8:30', '9:00', '9:30', '10:00']);
     // The slot gradient is `transparent` at `slot_minutes: 60`, so the body draws one
@@ -3253,14 +3460,14 @@ describe('how often the axis is labeled', () => {
       }),
     );
     const labels = Array.from(container.querySelectorAll('.grid-axis-label')).map((element) =>
-      element.textContent?.trim(),
+      axisText(element),
     );
 
     expect(labels, 'no labels rendered').toEqual(['10:00 AM', '10:30 AM', '11:00 AM']);
     expect(
       Array.from(
         requireElement<HTMLElement>(container, '.grid-axis-sizer').querySelectorAll('span'),
-      ).map((span) => span.textContent?.trim()),
+      ).map((span) => axisText(span)),
     ).toEqual(labels);
   });
 
@@ -3294,7 +3501,7 @@ describe('how often the axis is labeled', () => {
 
     expect(
       Array.from(container.querySelectorAll('.grid-axis-label')).map((element) =>
-        element.textContent?.trim(),
+        axisText(element),
       ),
     ).toEqual(['8', '9', '10']);
   });
@@ -3316,7 +3523,7 @@ describe('how often the axis is labeled', () => {
 
     expect(
       Array.from(container.querySelectorAll('.grid-axis-label')).map((element) =>
-        element.textContent?.trim(),
+        axisText(element),
       ),
     ).toEqual(['8:00', '8:30', '9:00']);
   });

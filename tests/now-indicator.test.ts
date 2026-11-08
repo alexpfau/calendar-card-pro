@@ -138,7 +138,10 @@ describe.each(['list', 'column'] as const)('in %s view', (view) => {
     const run = row.children[1];
     expect(run.className).toBe('now-time');
     expect([...run.children].map((child) => child.className)).toEqual(['now-indicator', '']);
-    expect(run.textContent?.replace(/\s+/g, ' ').trim()).toBe('Now9:30 AM - 11:00 AM');
+    // Each 12-hour reading is drawn inside invisible bidi isolates (clock-reading-bidi.test.ts).
+    expect(run.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Now\u20689:30 AM\u2069 - \u206811:00 AM\u2069',
+    );
 
     const idle = container.querySelector('.event:not(.event-now) .time-actual > ha-icon');
     expect(idle?.getAttribute('icon')).toBe('mdi:clock-outline');
@@ -216,7 +219,7 @@ describe('now_color', () => {
     // and the grid writes no now color of its own over it.
     for (const selector of ['.grid-now-line', '.grid-now-dot']) {
       const body = Styles.cardStyles.cssText.match(
-        new RegExp(`\\n\\s*${selector.replace('.', '\\.')}\\s*\\{([^}]*)\\}`),
+        new RegExp(`\\n\\s*${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{([^}]*)\\}`),
       )?.[1];
       expect(body, selector).toContain('background: var(--calendar-card-now-color, #34d399);');
     }
@@ -309,6 +312,7 @@ describe('the card repaints at each boundary', () => {
     updateEvents(force?: boolean): Promise<void>;
     _nowBoundaryTimerId: number | null;
     _nowBoundaryAt: number | null;
+    requestUpdate(): void;
   }
 
   beforeEach(() => {
@@ -371,15 +375,20 @@ describe('the card repaints at each boundary', () => {
     expect(card._nowBoundaryTimerId).not.toBeNull();
   });
 
-  it('keeps its timer through an unrelated update instead of rescanning', async () => {
+  it('keeps its boundary through an unrelated update instead of rescanning', async () => {
     const card = await mounted('list');
-    const armed = card._nowBoundaryTimerId;
+    const armed = card._nowBoundaryAt;
     const scan = vi.spyOn(EventUtils, 'nextEventBoundary');
 
-    card.hass = { ...card.hass };
+    // A render that changes neither the events nor the config. A new `hass` alone would not
+    // render at all any more (`shouldUpdate`), and would prove nothing here.
+    card.requestUpdate();
     await card.updateComplete;
 
-    expect(card._nowBoundaryTimerId).toBe(armed);
+    // The timer itself is set again with a fresh delay (see the sleep case in
+    // `tests/clock-repaint.test.ts`); the boundary it waits for is reused, not rescanned.
+    expect(card._nowBoundaryAt).toBe(armed);
+    expect(card._nowBoundaryTimerId).not.toBeNull();
     expect(scan).not.toHaveBeenCalled();
     scan.mockRestore();
   });

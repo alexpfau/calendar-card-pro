@@ -132,6 +132,7 @@ describe('ambiguous legacy configurations', () => {
       {
         config_version: Config.CURRENT_CONFIG_VERSION,
         entities: ['calendar.anna'],
+        view: 'list',
         list: {
           show_past_events: false,
           event_font_size: '18px',
@@ -251,7 +252,7 @@ describe('automatic adoption paths', () => {
         {
           config_version: Config.CURRENT_CONFIG_VERSION,
           entities: ['calendar.anna'],
-          ...(view === 'grid' ? { view } : {}),
+          view,
           title: 'Adopted',
           list: { today_indicator_position: 'left' },
         },

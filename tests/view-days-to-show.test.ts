@@ -207,13 +207,8 @@ describe('the layout fits each view by its own count', () => {
   it('measures the room a view needs from its own count', () => {
     const resolved = config();
 
-    expect(ViewConfig.computeColumnThresholdPx(resolved, 'column')).toBe(
-      ViewConfig.computeColumnThresholdPxFor(resolved, 5, 'column'),
-    );
-    expect(ViewConfig.computeColumnThresholdPx(resolved, 'grid')).toBe(
-      ViewConfig.computeColumnThresholdPxFor(resolved, 7, 'grid'),
-    );
     expect(ViewConfig.describeColumnLayoutBands(resolved, 'column').bands[0].columns).toBe(5);
+    expect(ViewConfig.describeColumnLayoutBands(resolved, 'grid').bands[0].columns).toBe(7);
   });
 });
 
