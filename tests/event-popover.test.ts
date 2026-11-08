@@ -1948,3 +1948,40 @@ describe('the page behind', () => {
     }
   });
 });
+
+describe('lists of choices', () => {
+  // A select's open list is drawn by the browser outside the panel, where its glass does not
+  // reach. Chrome on Windows and Linux copies the select's own background into that list and
+  // lays it over white, and every select here is transparent or translucent, so in dark mode
+  // the options came out as light text on white. They draw on the color scheme's canvas
+  // instead, which resolves against the scheme the panel sets.
+  const css = () =>
+    (
+      customElements.get(EVENT_POPOVER_TAG) as unknown as { styles: { cssText: string } }
+    ).styles.cssText.replace(/\/\*[\s\S]*?\*\//g, '');
+  const rules = () =>
+    [...css().matchAll(/(?<=^|[{}])\s*([^{}]+?)\s*\{([^{}]*)\}/g)].map(([, selector, body]) => ({
+      selector,
+      body: body.replace(/\s+/g, ' ').trim(),
+    }));
+
+  it('draws every option on the canvas of the scheme the panel sets', () => {
+    expect(rules().filter((rule) => /\boption\b/.test(rule.selector))).toEqual([
+      { selector: 'option', body: 'background-color: Canvas; color: CanvasText;' },
+    ]);
+    const scheme = (selector: string) =>
+      rules()
+        .find((rule) => rule.selector === selector)
+        ?.body.match(/color-scheme: (\w+);/)?.[1];
+    expect([scheme('.dark'), scheme('.light')]).toEqual(['dark', 'light']);
+  });
+
+  it('has options for that rule to reach, the calendars and the repeat list among them', async () => {
+    const { root, press } = await open({ calendars: [BEN, ANNA] });
+    await press(root.querySelector('button.time')!);
+    const lists = Array.from(root.querySelectorAll('select'), (select) => select.options.length);
+    expect(lists.length).toBeGreaterThanOrEqual(2);
+    expect(lists.every((count) => count > 1)).toBe(true);
+    expect(root.querySelector('.cell.calendar select')).not.toBeNull();
+  });
+});
