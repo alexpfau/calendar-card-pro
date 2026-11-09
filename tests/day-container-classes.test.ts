@@ -437,6 +437,33 @@ describe('theming.md card-mod selectors', () => {
       litRender(Render.renderGroupedEvents(days, config, 'en', undefined, null, true), container);
       collect(container);
     }
+    // Today's tint is off by default, and grid view draws its stripe only while it is set, so
+    // one grid render with it on is what draws `.grid-today`. The clock is frozen inside the
+    // window these events fill, so today is on screen.
+    {
+      const config = buildConfig({
+        ...base,
+        view: 'grid',
+        time_grid: { today_background_color: 'rgb(1, 2, 3)' },
+      });
+      const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', 'grid');
+      const container = document.createElement('div');
+      litRender(
+        Grid.renderGridGroupedEvents(
+          days,
+          ViewConfig.resolveEffectiveConfig(config, 'grid'),
+          'en',
+          undefined,
+          null,
+          FROZEN_NOW,
+          undefined,
+          undefined,
+          true,
+        ),
+        container,
+      );
+      collect(container);
+    }
     // The card around the days: its header with a toolbar holding both controls, and the
     // notice naming a calendar that failed to load. Rendered once per view, because the
     // root carries the view's class.
