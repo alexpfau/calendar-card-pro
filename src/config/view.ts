@@ -1734,7 +1734,14 @@ export interface MisplacedOption {
   readonly key: string;
   /** Where it is written. */
   readonly from: string | null;
-  /** Every place it would work, in registry order; empty when nowhere would. */
+  /**
+   * Where it belongs, in registry order; empty when nowhere would read it.
+   *
+   * A List-only option is pointed at `list:` alone, though List also reads it at the top
+   * level: there it reads as a whole-card setting, the very shape the v5 migration moves into
+   * `list:`, and moving it there from another layout's block would only trade one misreading for
+   * another.
+   */
   readonly to: ReadonlyArray<string | null>;
 }
 

@@ -116,18 +116,6 @@ export class CalendarCardProEditor extends LitElement {
 
   @state() private _quickSetup?: QuickSetupSession;
 
-  /**
-   * What Apply or Cancel chose, with every preview the run sent, until the next ordinary write.
-   *
-   * A preview's echo can reach `setConfig` after the run has ended, and would otherwise be read
-   * as the YAML changing and adopted, undoing the choice. While this is held, such an echo is
-   * answered by sending the choice again instead.
-   */
-  private _quickSetupSettled?: {
-    readonly previews: ReadonlyArray<Record<string, unknown>>;
-    readonly chosen: Record<string, unknown>;
-  };
-
   private _authoredRootKeys = new Set<string>();
 
   /**
@@ -195,22 +183,10 @@ export class CalendarCardProEditor extends LitElement {
   setConfig(config: Types.Config): void {
     const rawConfig = config as unknown as Record<string, unknown>;
 
-    const settled = this._quickSetupSettled;
-    if (settled !== undefined && !Value.equalConfigs(rawConfig, settled.chosen)) {
-      if (settled.previews.some((preview) => Value.equalConfigs(rawConfig, preview))) {
-        // A preview arriving after Apply or Cancel: send the choice again rather than adopt it.
-        // Deferred, so Home Assistant is not handed a new config while it is still setting one.
-        const chosen = structuredClone(settled.chosen);
-        queueMicrotask(() =>
-          this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: chosen } })),
-        );
-        return;
-      }
-      this._quickSetupSettled = undefined;
-    }
-
     const session = this._quickSetup;
-    // Quick Setup may have several previews in flight; an echo of any of them is its own.
+    // Home Assistant answers each write with its editor's current value, read after an await
+    // (`_updateConfigElement` in its `hui-element-editor`), so echoes carry the newest preview.
+    // Recognizing every preview costs nothing and holds for a host that echoes in send order.
     const isPreviewEcho =
       session !== undefined &&
       session.previews.some((preview) => Value.equalConfigs(rawConfig, preview));
@@ -321,7 +297,6 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _chooseMigration(mode: Value.ListMigrationMode): void {
     if (this._migration.kind !== 'choice') return;
-    this._quickSetupSettled = undefined;
     const result = this._migrationResult(mode);
     this._adoptMigration(result);
     this._lastDispatched = result.config;
@@ -458,7 +433,6 @@ export class CalendarCardProEditor extends LitElement {
    * @param config - Merged configuration after the edit
    */
   private _report(config: Types.Config): void {
-    this._quickSetupSettled = undefined;
     const stored = Value.toStoredConfig(config, this._authoredRootKeys, this._rawConfig);
 
     // A pruned override must stop owning its value locally too, before any HA echo.
@@ -1709,7 +1683,6 @@ export class CalendarCardProEditor extends LitElement {
 
   /** Opens Quick Setup on the card as it is now. */
   private _openQuickSetup = (): void => {
-    this._quickSetupSettled = undefined;
     this._quickSetup = {
       opening: structuredClone(this._rawConfig),
       openingAuthoredRootKeys: new Set(this._authoredRootKeys),
@@ -1816,10 +1789,6 @@ export class CalendarCardProEditor extends LitElement {
     this._authoredRootKeys = new Set(session.openingAuthoredRootKeys);
     this._migration = this._migrationState(opening);
     this._lastDispatched = opening;
-    this._quickSetupSettled = {
-      previews: session.previews.filter((preview) => !Value.equalConfigs(preview, opening)),
-      chosen: opening,
-    };
     this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: opening } }));
   };
 
@@ -1848,10 +1817,6 @@ export class CalendarCardProEditor extends LitElement {
 
     // The last preview already is the result, unless an answer changed without one.
     this._lastDispatched = stored;
-    this._quickSetupSettled = {
-      previews: session.previews.filter((preview) => !Value.equalConfigs(preview, stored)),
-      chosen: stored,
-    };
     if (Value.equalConfigs(stored, shown)) return;
     this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: stored } }));
   };
@@ -1932,7 +1897,6 @@ export class CalendarCardProEditor extends LitElement {
   private _moveMisplaced(finding: ViewConfig.MisplacedOption, to: Misplaced.Place): void {
     if (Misplaced.moveOption(this._rawConfig, finding, to) === undefined) return;
     if (!this._prepareForWrite()) return;
-    this._quickSetupSettled = undefined;
 
     // A first write can migrate a pre-v5 card; move within what that produced.
     const next =

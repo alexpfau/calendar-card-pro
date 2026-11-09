@@ -269,48 +269,6 @@ describe('Quick Setup', () => {
     expect(step(editor)).toBe('story');
   });
 
-  it('re-asserts Apply when an earlier preview’s echo arrives after it', async () => {
-    const { editor, reports } = await mount(OPENING, false);
-    await click(editor, '[data-quick-setup-open]');
-    await click(editor, '[data-story="family_hub"]');
-    await click(editor, '[data-story="now_and_next"]');
-    for (let i = 0; i < 4; i++) await click(editor, '[data-quick-setup-next]');
-    await click(editor, '[data-quick-setup-apply]');
-    const chosen = reports[1];
-
-    editor.setConfig(structuredClone(chosen));
-    editor.setConfig(structuredClone(reports[0]));
-    await Promise.resolve();
-    await editor.updateComplete;
-
-    // The late echo is answered with the choice, not adopted.
-    expect(reports).toHaveLength(3);
-    expect(reports[2]).toEqual(chosen);
-    expect(step(editor)).toBeUndefined();
-    // And the editor stayed on it: an edit now builds on Now & Next, not Family Hub.
-    await change(editor, 'title', 'Hall');
-    expect(last(reports)).toMatchObject({ title: 'Hall', days_to_show: 2 });
-    expect(last(reports)).not.toHaveProperty('view');
-  });
-
-  it('re-asserts Cancel when a preview’s echo arrives after it', async () => {
-    const { editor, reports } = await mount(OPENING, false);
-    await click(editor, '[data-quick-setup-open]');
-    await click(editor, '[data-story="family_hub"]');
-    await click(editor, '[data-quick-setup-cancel]');
-    expect(reports).toHaveLength(2);
-    expect(reports[1]).toEqual(OPENING);
-
-    editor.setConfig(structuredClone(reports[0]));
-    await Promise.resolve();
-    await editor.updateComplete;
-
-    expect(reports).toHaveLength(3);
-    expect(reports[2]).toEqual(OPENING);
-    await change(editor, 'title', 'After');
-    expect(last(reports)).toEqual({ ...OPENING, title: 'After' });
-  });
-
   it('closes, restoring nothing, when the YAML changes underneath it', async () => {
     const { editor, reports } = await mount(OPENING, false);
     await click(editor, '[data-quick-setup-open]');
@@ -338,5 +296,72 @@ describe('Quick Setup', () => {
     await click(editor, '[data-quick-setup-back]');
     await click(editor, '[data-story="birthdays_and_holidays"]');
     expect(last(reports).title).toBe('Hall');
+  });
+});
+
+/**
+ * A host that echoes the way Home Assistant's `hui-element-editor` does: it records each write
+ * as its current value and, after an await, hands the editor that current value, not the one the
+ * write carried. So writes sent in one turn are all answered with the newest.
+ */
+async function mountLikeHomeAssistant(config: Record<string, unknown> = OPENING) {
+  const editor = document.createElement('editor-quick-setup-test') as EditorHost;
+  editor.hass = {
+    states: { 'calendar.anna': {}, 'calendar.ben': {}, 'weather.home': {} },
+    locale: { language: 'en' },
+  };
+  let current = structuredClone(config);
+  editor.setConfig(structuredClone(current));
+  document.body.appendChild(editor);
+  await editor.updateComplete;
+  const reports: Record<string, unknown>[] = [];
+  editor.addEventListener('config-changed', (event) => {
+    current = structuredClone(
+      (event as CustomEvent<{ config: Record<string, unknown> }>).detail.config,
+    );
+    reports.push(structuredClone(current));
+    void Promise.resolve().then(() => editor.setConfig(structuredClone(current)));
+  });
+  return { editor, reports, current: () => current };
+}
+
+describe('Quick Setup against Home Assistant’s echo', () => {
+  it('ends on the last story picked when picks outrun their echoes, and applies it', async () => {
+    const { editor, reports, current } = await mountLikeHomeAssistant();
+    await click(editor, '[data-quick-setup-open]');
+    root(editor).querySelector<HTMLButtonElement>('[data-story="family_hub"]')!.click();
+    root(editor).querySelector<HTMLButtonElement>('[data-story="now_and_next"]')!.click();
+    await editor.updateComplete;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await editor.updateComplete;
+
+    expect(reports).toHaveLength(2);
+    expect(step(editor)).toBe('story');
+
+    for (let i = 0; i < 4; i++) await click(editor, '[data-quick-setup-next]');
+    await click(editor, '[data-quick-setup-apply]');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await editor.updateComplete;
+
+    expect(step(editor)).toBeUndefined();
+    expect(current()).toMatchObject({ days_to_show: 2, tap_action: { action: 'expand' } });
+    expect(current()).not.toHaveProperty('view');
+    await change(editor, 'title', 'Hall');
+    expect(last(reports)).toMatchObject({ title: 'Hall', days_to_show: 2 });
+  });
+
+  it('cancels back to the card as it was when Cancel outruns the previews’ echoes', async () => {
+    const { editor, current } = await mountLikeHomeAssistant();
+    await click(editor, '[data-quick-setup-open]');
+    root(editor).querySelector<HTMLButtonElement>('[data-story="family_hub"]')!.click();
+    root(editor).querySelector<HTMLButtonElement>('[data-story="today_and_tomorrow"]')!.click();
+    root(editor).querySelector<HTMLButtonElement>('[data-quick-setup-cancel]')!.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await editor.updateComplete;
+
+    expect(current()).toEqual(OPENING);
+    expect(root(editor).querySelector('ha-form.panel-form')).not.toBeNull();
+    await change(editor, 'title', 'After');
+    expect(current()).toEqual({ ...OPENING, title: 'After' });
   });
 });
