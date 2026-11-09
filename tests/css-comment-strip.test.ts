@@ -279,8 +279,15 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(197_000);
-    // Merging v5.0.1 into v5.1 moved the ceiling last, from 194,000 to 197,000: the iOS 16 fix's
+    expect(saved).toBeLessThan(200_000);
+    // Today's grid tint moved the ceiling last, from 197,000 to 200,000: the notes on why
+    // today's stripe sits on the weekend tint's rung, why a weekend today leaves the weekend
+    // run instead of stacking a second translucent color, and why the raised blocks'
+    // backdrop takes two rules whose unset fallbacks paint exactly what they painted before.
+    // The reading went from 196,610 to 197,491, taken with stripComments after the last
+    // comment was written.
+    //
+    // Merging v5.0.1 into v5.1 moved the ceiling before that, from 194,000 to 197,000: the iOS 16 fix's
     // notes on why every relative color also requires content-visibility, and why the probe
     // must not name a color-mix() origin. The reading went from 193,577 to 194,199, taken with
     // stripComments on the merged stylesheet.

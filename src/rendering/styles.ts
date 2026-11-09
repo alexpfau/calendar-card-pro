@@ -4727,7 +4727,8 @@ export const cardStyles = css`
 
      One painting ladder, and every rung is load-bearing:
 
-       .grid-weekend    plain grid item   the tint, behind everything
+       .grid-weekend    plain grid item   the tints, behind everything
+       .grid-today
        .grid-rules      plain grid item   the hour lines
        .grid-day-body   position relative the now line, then the blocks above all three (in
                                           .grid-day-plane); the block under way
@@ -4923,6 +4924,18 @@ export const cardStyles = css`
      has to do to survive both. */
   .grid-weekend {
     background-color: var(--calendar-card-grid-weekend, transparent);
+    pointer-events: none;
+  }
+
+  /* ----- Today's tint -----
+
+     The weekend stripe's twin for today's column, off unless today_background_color is set:
+     same rows, same rung, so it lies under the rules, the now line and the blocks exactly as
+     the weekend tint does. Where today is a weekend day the renderer leaves today out of the
+     weekend run, so this replaces that tint rather than stacking a second translucent color
+     on it. The fallback is transparent for the same reason as the weekend's. */
+  .grid-today {
+    background-color: var(--calendar-card-grid-today, transparent);
     pointer-events: none;
   }
 
@@ -6069,6 +6082,21 @@ export const cardStyles = css`
 
   .grid-day-body.weekend .grid-event-backdrop-ground {
     background-color: var(--calendar-card-grid-weekend, transparent);
+  }
+
+  /* Today's tint, repainted the same way, and only where it is set. Unset, the first rule
+     resolves to transparent, which a weekday's ground already was, and the second falls back
+     to the weekend tint, which a weekend day's already was; so a card without the option
+     paints what it painted before it. Set, it wins on a weekend day too, as the stripe does. */
+  .grid-day-body.today .grid-event-backdrop-ground {
+    background-color: var(--calendar-card-grid-today, transparent);
+  }
+
+  .grid-day-body.today.weekend .grid-event-backdrop-ground {
+    background-color: var(
+      --calendar-card-grid-today,
+      var(--calendar-card-grid-weekend, transparent)
+    );
   }
 
   .grid-event-backdrop-rules {

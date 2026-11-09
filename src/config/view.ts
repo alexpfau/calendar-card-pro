@@ -165,6 +165,7 @@ export const TIME_GRID_ONLY_KEYS = [
   'end_time',
   'slot_minutes',
   'weekend_background_color',
+  'today_background_color',
   'hour_height',
   'show_now_line',
   'max_simultaneous_events',
@@ -560,6 +561,11 @@ export const COLUMN_DEFAULTS = {
  * set in Home Assistant, or its language when no country is set, so this is Friday and
  * Saturday in an Israeli household whatever language it runs in.
  *
+ * `today_background_color` is the same stripe for today's column, and the one tint here that
+ * ships off: `transparent` paints nothing, so a card that never sets it draws exactly what it
+ * drew before the option existed. Where today is a weekend day it replaces the weekend tint
+ * rather than stacking on it; see `renderWeekendStripes`.
+ *
  * The five text colors start at `accent`, so a grid block's text is its own calendar's
  * color the way macOS Calendar draws it. Grid only, and for the same reason as the weekend
  * tint: the tinted block behind the text is what makes colored text cohere, and a list row
@@ -627,6 +633,7 @@ export const TIME_GRID_DEFAULTS = {
   end_time: '22:00',
   slot_minutes: 60,
   weekend_background_color: 'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
+  today_background_color: 'transparent',
   hour_height: '48px',
   show_now_line: true,
   max_simultaneous_events: 3,
@@ -842,12 +849,12 @@ export function normalizeTimeGridValue(
     return typeof value === 'string' || typeof value === 'number' ? String(value) : '';
   }
 
-  // A color, not a length. The pixel coercion below infers length-ness from the shipped
-  // default, and this one is a `color-mix()` rather than a `px` string, so it would in
-  // fact fall through unchanged — but only by accident of the default's spelling. Stated
-  // here so that changing the default to a plain `#eee` cannot silently turn a bare `0`
-  // into `0px`.
-  if (key === 'weekend_background_color') {
+  // Colors, not lengths. The pixel coercion below infers length-ness from the shipped
+  // default, and these are a `color-mix()` and `transparent` rather than `px` strings, so
+  // they would in fact fall through unchanged — but only by accident of the defaults'
+  // spelling. Stated here so that changing a default to a plain `#eee` cannot silently
+  // turn a bare `0` into `0px`.
+  if (key === 'weekend_background_color' || key === 'today_background_color') {
     return typeof value === 'string' ? value : fallback;
   }
 

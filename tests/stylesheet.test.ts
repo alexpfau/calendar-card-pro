@@ -2160,8 +2160,9 @@ describe('card stylesheet', () => {
       // The blocks sit below the rules by being positioned rather than by a z-index, so
       // the ladder above is only meaningful while this stays a positioned element.
       expect(declared('.grid-day-body', 'position')).toBe('relative');
-      // ...and the tint and the hour lines sit below everything by carrying neither.
+      // ...and the tints and the hour lines sit below everything by carrying neither.
       expect(declared('.grid-weekend', 'z-index')).toBe('');
+      expect(declared('.grid-today', 'z-index')).toBe('');
       expect(declared('.grid-rules', 'z-index')).toBe('');
       // The now line rides on the same rule: no z-index puts it under the blocks, which
       // follow it in the day body, and its dot climbs back above the day rules.
@@ -2298,13 +2299,16 @@ describe('card stylesheet', () => {
         rule.body.includes('var(--calendar-card-grid-weekend'),
       );
 
-      // Two readers, and only the first paints a day. The stripe, not the day body: the
+      // Three readers, and only the first paints a day. The stripe, not the day body: the
       // tint spans the all-day band as well, which a background on the body cannot reach.
       // The second is a stacked block's backdrop inside a weekend body: the block hides the
       // stripe beneath it, so its backdrop repaints the tint. A block, not a day container.
+      // The third is the same backdrop when today is a weekend day, where today's tint wins
+      // and the weekend's is only the fallback for a card that has not set one.
       expect(shading.map((rule) => [...rule.selectors].sort())).toEqual([
         ['.grid-weekend'],
         ['.grid-day-body.weekend .grid-event-backdrop-ground'],
+        ['.grid-day-body.today.weekend .grid-event-backdrop-ground'],
       ]);
       // Transparent, not a color: nothing is painted unless the option resolves to
       // something, and the renderer writes the property only then.
@@ -2313,6 +2317,9 @@ describe('card stylesheet', () => {
       );
       expect(shading[1].body).toContain(
         'background-color: var(--calendar-card-grid-weekend, transparent)',
+      );
+      expect(shading[2].body.replace(/\s+/g, ' ')).toContain(
+        'background-color: var( --calendar-card-grid-today, var(--calendar-card-grid-weekend, transparent) )',
       );
       // No view's day container may carry a weekend rule — not the other two, which have
       // no fixed height for a stripe to run down, and not grid's own body, which would
@@ -2326,6 +2333,35 @@ describe('card stylesheet', () => {
           ),
         ),
       ).toEqual([]);
+    });
+
+    it("tints today's grid column on the weekend tint's rung, and lets it win there", () => {
+      // The weekend tint's twin, reconciled the same way: as the whole set of rules that
+      // read the property, so a reader arriving in a list or column day container fails as
+      // loudly as one leaving.
+      const today = RULES.filter((rule) => rule.body.includes('--calendar-card-grid-today'));
+
+      expect(today.map((rule) => [...rule.selectors].sort())).toEqual([
+        ['.grid-today'],
+        ['.grid-day-body.today .grid-event-backdrop-ground'],
+        ['.grid-day-body.today.weekend .grid-event-backdrop-ground'],
+      ]);
+      expect(declared('.grid-today', 'background-color')).toBe(
+        'var(--calendar-card-grid-today, transparent)',
+      );
+      expect(declared('.grid-today', 'pointer-events')).toBe('none');
+      // Unset, a weekday's backdrop stays transparent, as it was before the option existed.
+      expect(declared('.grid-day-body.today .grid-event-backdrop-ground', 'background-color')).toBe(
+        'var(--calendar-card-grid-today, transparent)',
+      );
+      // Unset on a weekend day, the backdrop falls back to the weekend tint it always had;
+      // set, today's wins. The rule outranks the plain weekend one by one class, so neither
+      // half depends on source order.
+      expect(
+        declared('.grid-day-body.today.weekend .grid-event-backdrop-ground', 'background-color')
+          .replace(/\s+/g, ' ')
+          .trim(),
+      ).toBe('var( --calendar-card-grid-today, var(--calendar-card-grid-weekend, transparent) )');
     });
 
     it('makes room for the accent bar in timed blocks, not in all-day banners', () => {

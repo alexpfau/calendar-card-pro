@@ -2248,6 +2248,141 @@ describe('separators between grid days', () => {
     ).toBe('rgb(1, 2, 3)');
   });
 
+  describe("today's tint", () => {
+    function todayConfig(tint?: string, overrides: Partial<Types.Config> = {}): Types.Config {
+      const config = spanConfig({ start_date: '2026-06-15', ...overrides });
+      if (tint !== undefined) {
+        config.time_grid = { today_background_color: tint };
+      }
+      return config;
+    }
+
+    function columnsOf(container: ParentNode, selector: string): string[] {
+      return Array.from(container.querySelectorAll<HTMLElement>(selector)).map(
+        (stripe) => stripe.style.gridColumn,
+      );
+    }
+
+    function todayBodyColumn(container: ParentNode): string {
+      const bodies = Array.from(container.querySelectorAll<HTMLElement>('.grid-day-body.today'));
+      expect(bodies, 'the window does not show today').toHaveLength(1);
+      return bodies[0].style.gridColumn;
+    }
+
+    it('is off by default, and off renders exactly the markup an unset option does', () => {
+      const unset = renderGrid(EVENTS, todayConfig());
+
+      expect(columnsOf(unset, '.grid-today')).toEqual([]);
+      expect(
+        requireElement<HTMLElement>(unset, '.grid-container').style.getPropertyValue(
+          '--calendar-card-grid-today',
+        ),
+      ).toBe('');
+      // The weekend tint is untouched: Mon 15 to Mon 29, so both weekends whole.
+      expect(columnsOf(unset, '.grid-weekend')).toEqual(['7 / span 2', '14 / span 2']);
+      expect(ViewConfig.TIME_GRID_DEFAULTS.today_background_color).toBe('transparent');
+
+      // Every off spelling renders the very markup the unset default does, so none of them
+      // emits a stripe, a property or a stray binding. That this markup is also what the card
+      // drew before the option existed was measured against the previous build, not here.
+      for (const off of ['transparent', 'none', '  ']) {
+        expect(renderGrid(EVENTS, todayConfig(off)).innerHTML, `"${off}" must paint nothing`).toBe(
+          unset.innerHTML,
+        );
+      }
+    });
+
+    it("runs down today's column from under the date row, beneath the rules", () => {
+      const rendered = renderGrid(EVENTS, todayConfig('rgb(1, 2, 3)'));
+      const container = requireElement<HTMLElement>(rendered, '.grid-container');
+      const stripe = requireElement<HTMLElement>(rendered, '.grid-today');
+
+      expect(container.style.getPropertyValue('--calendar-card-grid-today')).toBe('rgb(1, 2, 3)');
+      // Wed 17 is today, the third day from Mon 15, so column 4 after the hour axis.
+      expect(todayBodyColumn(rendered)).toBe('4');
+      expect(columnsOf(rendered, '.grid-today')).toEqual(['4 / span 1']);
+      // The weekend stripe's rows: the all-day band and the hours, not the date row.
+      expect(stripe.style.gridRow).toBe('3 / span 2');
+      expect(stripe.getAttribute('aria-hidden')).toBe('true');
+      // A weekday today leaves the weekend's runs alone.
+      expect(columnsOf(rendered, '.grid-weekend')).toEqual(['7 / span 2', '14 / span 2']);
+
+      // Plain grid items paint in DOM order, so the stripe has to come before the hour
+      // rules to lie under them, as the weekend stripes do.
+      const order = Array.from(container.children);
+      const rules = requireElement(container, '.grid-rules');
+      expect(order.indexOf(stripe)).toBeLessThan(order.indexOf(rules));
+      for (const weekend of Array.from(container.querySelectorAll('.grid-weekend'))) {
+        expect(order.indexOf(weekend)).toBeLessThan(order.indexOf(stripe));
+      }
+    });
+
+    it('replaces the weekend tint on a weekend today rather than stacking on it', () => {
+      // Saturday 20 and Sunday 21 are columns 7 and 8. Today leaves its weekend run, so the
+      // other half of the weekend keeps a stripe of its own, one column wide, and the gutter
+      // between them stays clear as it does beside a weekday.
+      vi.setSystemTime(new Date('2026-06-20T12:00:00Z'));
+      const saturday = renderGrid(EVENTS, todayConfig('rgb(1, 2, 3)'));
+
+      expect(todayBodyColumn(saturday)).toBe('7');
+      expect(columnsOf(saturday, '.grid-today')).toEqual(['7 / span 1']);
+      expect(columnsOf(saturday, '.grid-weekend')).toEqual(['8 / span 1', '14 / span 2']);
+      // The day keeps its weekend class for card-mod rules; only the paint changes.
+      expect(requireElement(saturday, '.grid-day-body.today').classList.contains('weekend')).toBe(
+        true,
+      );
+
+      vi.setSystemTime(new Date('2026-06-21T12:00:00Z'));
+      const sunday = renderGrid(EVENTS, todayConfig('rgb(1, 2, 3)'));
+
+      expect(columnsOf(sunday, '.grid-today')).toEqual(['8 / span 1']);
+      expect(columnsOf(sunday, '.grid-weekend')).toEqual(['7 / span 1', '14 / span 2']);
+
+      // Off, a weekend today is shaded as the weekend it is, in one run.
+      expect(columnsOf(renderGrid(EVENTS, todayConfig()), '.grid-weekend')).toEqual([
+        '7 / span 2',
+        '14 / span 2',
+      ]);
+
+      // With the weekend tint off, today's still paints, and nothing else does.
+      const alone = todayConfig();
+      alone.time_grid = {
+        weekend_background_color: 'transparent',
+        today_background_color: 'rgb(1, 2, 3)',
+      };
+      const onlyToday = renderGrid(EVENTS, alone);
+
+      expect(columnsOf(onlyToday, '.grid-today')).toEqual(['8 / span 1']);
+      expect(columnsOf(onlyToday, '.grid-weekend')).toEqual([]);
+    });
+
+    it('follows the clock, so the stripe moves to the next column at midnight', () => {
+      const config = todayConfig('rgb(1, 2, 3)');
+
+      expect(columnsOf(renderGrid(EVENTS, config), '.grid-today')).toEqual(['4 / span 1']);
+
+      vi.setSystemTime(new Date('2026-06-18T00:00:01Z'));
+      const next = renderGrid(EVENTS, config);
+
+      expect(columnsOf(next, '.grid-today')).toEqual(['5 / span 1']);
+      expect(todayBodyColumn(next)).toBe('5');
+    });
+
+    it('draws no stripe for a window that does not show today', () => {
+      const later = renderGrid(EVENTS, todayConfig('rgb(1, 2, 3)', { start_date: '2026-06-22' }));
+
+      expect(later.querySelectorAll('.grid-day-body.today')).toHaveLength(0);
+      expect(columnsOf(later, '.grid-today')).toEqual([]);
+      // ...and the weekend runs are built as though the option were off.
+      expect(columnsOf(later, '.grid-weekend')).toEqual(
+        columnsOf(
+          renderGrid(EVENTS, todayConfig(undefined, { start_date: '2026-06-22' })),
+          '.grid-weekend',
+        ),
+      );
+    });
+  });
+
   it('starts from a gutter the day rule exactly fills', () => {
     // 1px of rule in 1px of gutter. Centered on the boundary at -0.5 * (gap + width), so
     // the rule's trailing edge IS the boundary and its leading edge is where the previous

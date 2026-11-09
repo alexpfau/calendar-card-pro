@@ -1654,6 +1654,29 @@ describe('resolveColumnFit — grid reduction', () => {
     ).toBe('color-mix(in srgb, var(--primary-text-color) 4%, transparent)');
   });
 
+  it("owns today's shading as a grid-only option, off by default", () => {
+    // The weekend tint's twin in every way but its default: `transparent`, so no card
+    // changes until a color is set.
+    expect(resolveTimeGridOption(build(), 'today_background_color')).toBe('transparent');
+    expect(
+      resolveTimeGridOption(
+        build({ today_background_color: 'rgb(1, 2, 3)' }),
+        'today_background_color',
+      ),
+    ).toBe('rgb(1, 2, 3)');
+    expect(TIME_GRID_ONLY_KEYS).toContain('today_background_color');
+    expect(Object.keys(DEFAULT_CONFIG)).not.toContain('today_background_color');
+    expect(COLUMN_OVERRIDE_KEYS as ReadonlyArray<string>).not.toContain('today_background_color');
+
+    // A non-string is refused rather than coerced to a length.
+    expect(
+      resolveTimeGridOption(
+        build({ today_background_color: 0 as unknown as string }),
+        'today_background_color',
+      ),
+    ).toBe('transparent');
+  });
+
   it('reserves the grid gutter the grid renderer draws, not the card-level one', () => {
     // The falsifier for the paragraph above, and the one thing a threshold figure alone
     // cannot show: a card-level `day_spacing` is invisible to grid, and a block one is not.
