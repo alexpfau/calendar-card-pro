@@ -40,6 +40,7 @@
   "misplaced.card_wide": "Darbojas tikai visai kartei, augšējā līmenī.",
   "misplaced.wrong_view": "Pieder citam izkārtojumam: {places}.",
   "misplaced.view_only": "Darbojas tikai izkārtojuma paša iestatījumos: {places}.",
+  "misplaced.calendar": "Darbojas tikai vienam kalendāram: iestatiet to sadaļā entities tam kalendāram, kuram tā ir paredzēta.",
   "misplaced.unknown": "Šī nav šīs kartes opcija. Pārbaudiet tās rakstību un atrašanās vietu.",
   "misplaced.move": "Pārvietot: {place}",
   "misplaced.taken": "{place} to jau iestata.",

@@ -14,7 +14,7 @@ vi.mock('../src/utils/logger', () => ({
   error: vi.fn(),
 }));
 
-import { DEFAULT_CONFIG } from '../src/config/config';
+import { DEFAULT_CONFIG, normalizeEntities } from '../src/config/config';
 import * as Types from '../src/config/types';
 import { findMisplacedOptions, validateColumnOverrides } from '../src/config/view';
 import * as Logger from '../src/utils/logger';
@@ -62,6 +62,37 @@ describe('findMisplacedOptions', () => {
     ]);
   });
 
+  it('knows a calendar’s own options, in a block and at the top level', () => {
+    expect(
+      findMisplacedOptions({
+        show_in_legend: false,
+        allowlist: 'Trash',
+        show_location: false,
+        column: { name: 'Anna', show_in_legend: false, label: '🎂' },
+      }),
+    ).toEqual([
+      { kind: 'calendar', key: 'show_in_legend', from: null, to: [] },
+      { kind: 'calendar', key: 'allowlist', from: null, to: [] },
+      { kind: 'calendar', key: 'name', from: 'column', to: [] },
+      { kind: 'calendar', key: 'show_in_legend', from: 'column', to: [] },
+      { kind: 'calendar', key: 'label', from: 'column', to: [] },
+    ]);
+  });
+
+  it('takes the calendar’s options from normalizeEntities, so a new one is known at once', () => {
+    // Every option normalizeEntities projects, less the ones the card also takes at the top
+    // level, is a calendar's own; none of them may read as unknown in a block.
+    const projected = Object.keys(normalizeEntities([{ entity: 'calendar.anna' }])[0]).filter(
+      (key) => key !== 'entity' && !Object.prototype.hasOwnProperty.call(DEFAULT_CONFIG, key),
+    );
+    expect(projected).toContain('show_in_legend');
+    const kinds = findMisplacedOptions({
+      list: Object.fromEntries(projected.map((key) => [key, 1])),
+    }).map((finding) => finding.kind);
+    expect(new Set(kinds)).toEqual(new Set(['calendar']));
+    expect(kinds).toHaveLength(projected.length);
+  });
+
   it('reads a merged configuration the same as the raw one', () => {
     const raw = { column: { title: 'Family' }, start_time: '07:00' };
     expect(findMisplacedOptions({ ...DEFAULT_CONFIG, ...raw })).toEqual(findMisplacedOptions(raw));
@@ -100,6 +131,17 @@ describe('the card warns from the same findings', () => {
       expect.stringContaining('"list.toolbar"'),
       expect.stringContaining('"column.shwo_location": not a recognized option'),
       expect.stringContaining('"time_grid.weather"'),
+    ]);
+  });
+
+  it('warns about a calendar’s option written for the whole card', () => {
+    validateColumnOverrides({
+      ...DEFAULT_CONFIG,
+      show_in_legend: false,
+    } as unknown as Types.Config);
+
+    expect(warnMock.mock.calls.map((call) => call[0])).toEqual([
+      expect.stringContaining('"show_in_legend": it is an option of one calendar'),
     ]);
   });
 });

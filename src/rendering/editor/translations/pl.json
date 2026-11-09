@@ -40,6 +40,7 @@
   "misplaced.card_wide": "Działa tylko dla całej karty, na poziomie głównym.",
   "misplaced.wrong_view": "Należy do innego układu: {places}.",
   "misplaced.view_only": "Działa tylko we własnych ustawieniach układu: {places}.",
+  "misplaced.calendar": "Działa tylko dla jednego kalendarza: ustaw ją w sekcji entities, przy kalendarzu, którego dotyczy.",
   "misplaced.unknown": "To nie jest opcja tej karty. Sprawdź jej pisownię i miejsce, w którym się znajduje.",
   "misplaced.move": "Przenieś do: {place}",
   "misplaced.taken": "{place}: już ustawiona.",

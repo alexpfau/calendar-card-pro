@@ -9,6 +9,7 @@ import {
   FOLDED_OPTIONS,
   coercePixelLength,
   coercePixelLengthAgainst,
+  normalizeEntities,
   normalizeNumericOptions,
   resolveToolbar,
   toValidPercentage,
@@ -1639,6 +1640,9 @@ export function validateView(config: Types.Config): void {
  * @param config - Merged configuration to inspect
  */
 export function validateColumnOverrides(config: Types.Config): void {
+  for (const finding of findMisplacedOptions(config as unknown as Record<string, unknown>)) {
+    if (finding.kind === 'calendar' && finding.from === null) warnAboutMisplacedOption(finding);
+  }
   for (const view of Object.keys(VIEW_BLOCKS) as Types.EffectiveView[]) {
     validateViewOverrides(config, view);
   }
@@ -1720,9 +1724,12 @@ function warnAboutTopLevelOnlyKeys(config: Types.Config, block: ViewBlock): void
  * - `card-wide`: in a view block, but it is a top-level option that view cannot override.
  * - `wrong-view`: in a view block, but it belongs to another view's block.
  * - `view-only`: at the top level, but it exists only inside a view's block.
+ * - `calendar`: in a view block or at the top level, but it is an option of one calendar, set
+ *   under `entities:`.
  * - `unknown`: in a view block, and no view or top level knows it.
  */
-export type MisplacedKind = 'fetch-time' | 'card-wide' | 'wrong-view' | 'view-only' | 'unknown';
+export type MisplacedKind =
+  'fetch-time' | 'card-wide' | 'wrong-view' | 'view-only' | 'calendar' | 'unknown';
 
 /**
  * One option written where the card ignores it.
@@ -1757,6 +1764,31 @@ function blocksOwning(key: string): string[] {
     .map((block) => block.blockKey as string);
 }
 
+let calendarOnlyKeys: ReadonlySet<string> | undefined;
+
+/**
+ * The options a calendar takes under `entities:` that the card does not take anywhere else,
+ * such as `name`, `show_in_legend` or `allowlist`.
+ *
+ * Read off `normalizeEntities`' own projection rather than listed here: that projection is held
+ * to every `EntityConfig` member by `tsc`, so a calendar option added later is known here the day
+ * it lands. An option a calendar and the card both take, such as `show_location`, is not one of
+ * these. Built on first use, after both modules have loaded.
+ *
+ * @returns The calendar-only option names
+ */
+function calendarOnlyKeySet(): ReadonlySet<string> {
+  if (calendarOnlyKeys === undefined) {
+    const projected = normalizeEntities([{ entity: 'calendar.probe' }])[0] ?? {};
+    calendarOnlyKeys = new Set(
+      Object.keys(projected).filter(
+        (key) => key !== 'entity' && !Object.prototype.hasOwnProperty.call(DEFAULT_CONFIG, key),
+      ),
+    );
+  }
+  return calendarOnlyKeys;
+}
+
 /**
  * The misplaced options inside one view's block.
  *
@@ -1785,6 +1817,8 @@ function misplacedInBlock(config: Record<string, unknown>, block: ViewBlock): Mi
       findings.push({ kind: 'wrong-view', key, from, to: owners });
     } else if (Object.prototype.hasOwnProperty.call(DEFAULT_CONFIG, key)) {
       findings.push({ kind: 'card-wide', key, from, to: [null] });
+    } else if (calendarOnlyKeySet().has(key)) {
+      findings.push({ kind: 'calendar', key, from, to: [] });
     } else {
       findings.push({ kind: 'unknown', key, from, to: [] });
     }
@@ -1819,6 +1853,12 @@ export function findMisplacedOptions(config: Readonly<Record<string, unknown>>):
       reported.add(key);
       findings.push({ kind: 'view-only', key, from: null, to: blocksOwning(key) });
     }
+  }
+
+  // A calendar's option written for the whole card, such as `show_in_legend: false`, does nothing
+  // there: no calendar reads the top level for it. It goes on the calendar it is for, so no Move.
+  for (const key of Object.keys(config)) {
+    if (calendarOnlyKeySet().has(key)) findings.push({ kind: 'calendar', key, from: null, to: [] });
   }
 
   for (const block of Object.values(VIEW_BLOCKS)) {
@@ -1864,6 +1904,12 @@ function warnAboutMisplacedOption(finding: MisplacedOption): void {
             `outside the "${block}:" block. Move it to "${block}: { ${key}: ... }".`,
         );
       }
+      return;
+    case 'calendar':
+      Logger.warn(
+        `Ignoring "${from === null ? key : where}": it is an option of one calendar. ` +
+          `Set it on that calendar under "entities:".`,
+      );
       return;
     case 'unknown':
       Logger.warn(`Ignoring "${where}": not a recognized option.`);

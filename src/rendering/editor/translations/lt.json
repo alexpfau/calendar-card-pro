@@ -40,6 +40,7 @@
   "misplaced.card_wide": "Veikia tik visai kortelei, viršutiniame lygyje.",
   "misplaced.wrong_view": "Priklauso kitam išdėstymui: {places}.",
   "misplaced.view_only": "Veikia tik konkretaus išdėstymo nustatymuose: {places}.",
+  "misplaced.calendar": "Veikia tik vienam kalendoriui: nustatykite ją skiltyje entities tam kalendoriui, kuriam ji skirta.",
   "misplaced.unknown": "Tai nėra šios kortelės parinktis. Patikrinkite jos rašybą ir vietą.",
   "misplaced.move": "Perkelti: {place}",
   "misplaced.taken": "{place} jau ją nustato.",

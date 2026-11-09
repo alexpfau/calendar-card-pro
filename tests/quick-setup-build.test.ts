@@ -150,6 +150,23 @@ describe('buildQuickSetupConfig', () => {
     );
   });
 
+  it('keeps what belongs to a calendar on its blocks, show_in_legend and name included', () => {
+    const opening = {
+      entities: [
+        { entity: 'calendar.anna', name: 'Anna', show_in_legend: false },
+        { entity: 'calendar.anna', event_type: 'all_day' },
+        { entity: 'calendar.ben', show_in_legend: true, accent_color: '#123456' },
+      ],
+    };
+    const built = buildQuickSetupConfig(opening, initialAnswers(opening, 'family_hub', {}));
+
+    expect(built.entities).toEqual([
+      { entity: 'calendar.anna', name: 'Anna', show_in_legend: false, accent_color: '#ff6c92' },
+      { entity: 'calendar.anna', event_type: 'all_day', accent_color: '#ff6c92' },
+      { entity: 'calendar.ben', show_in_legend: true, accent_color: '#123456' },
+    ]);
+  });
+
   it('brings a calendar’s blocks back when it is removed and added again', () => {
     const answers = initialAnswers(OPENING, 'now_and_next', {});
     const without = buildQuickSetupConfig(OPENING, {

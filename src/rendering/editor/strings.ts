@@ -73,6 +73,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'misplaced.card_wide': 'Works only for the whole card, at the top level.',
   'misplaced.wrong_view': 'Belongs to another layout: {places}.',
   'misplaced.view_only': 'Works only in a layout’s own settings: {places}.',
+  'misplaced.calendar': 'Works only on a calendar: set it on the one it is for, under entities.',
   'misplaced.unknown': 'Not an option of this card. Check its spelling and where it is.',
   'misplaced.move': 'Move to {place}',
   'misplaced.taken': '{place} already sets it.',

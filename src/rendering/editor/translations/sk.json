@@ -40,6 +40,7 @@
   "misplaced.card_wide": "Funguje len pre celú kartu, na najvyššej úrovni.",
   "misplaced.wrong_view": "Patrí do iného rozloženia: {places}.",
   "misplaced.view_only": "Funguje len vo vlastných nastaveniach rozloženia: {places}.",
+  "misplaced.calendar": "Funguje len pre jeden kalendár: nastavte ju v časti entities pri kalendári, pre ktorý je určená.",
   "misplaced.unknown": "Toto nie je možnosť tejto karty. Skontrolujte, ako je napísaná a kde sa nachádza.",
   "misplaced.move": "Presunúť do: {place}",
   "misplaced.taken": "{place}: už je nastavená.",

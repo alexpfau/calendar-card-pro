@@ -529,7 +529,7 @@ toolbar:
   show: true
 ```
 
-The editor lists four kinds:
+The editor lists five kinds:
 
 - **A whole-card option in a layout's block**, such as `toolbar` or `event_tap_action` under
   `time_grid:`. It works only at the top level; see
@@ -539,6 +539,8 @@ The editor lists four kinds:
   in `list:`.
 - **A layout's own option at the top level**, such as `hour_height`, which works only inside
   `time_grid:`.
+- **A calendar's own option outside `entities:`**, such as `show_in_legend` at the top level
+  or `name` in a layout's block. It has no Move button; set it on the calendar it is for.
 - **A name the card does not know inside a layout's block**, often a typo. It has no Move
   button; fix it in YAML.
 

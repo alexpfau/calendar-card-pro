@@ -40,6 +40,7 @@
   "misplaced.card_wide": "Töötab ainult kogu kaardi jaoks, ülemisel tasemel.",
   "misplaced.wrong_view": "Kuulub teisele paigutusele: {places}.",
   "misplaced.view_only": "Töötab ainult paigutuse enda seadetes: {places}.",
+  "misplaced.calendar": "Töötab ainult ühe kalendri jaoks: määra see jaotises entities sellele kalendrile, mille jaoks see on mõeldud.",
   "misplaced.unknown": "See pole selle kaardi valik. Kontrolli selle õigekirja ja asukohta.",
   "misplaced.move": "Teisalda: {place}",
   "misplaced.taken": "{place} määrab selle juba.",

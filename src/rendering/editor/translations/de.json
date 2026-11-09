@@ -40,6 +40,7 @@
   "misplaced.card_wide": "Wirkt nur für die ganze Karte, auf der obersten Ebene.",
   "misplaced.wrong_view": "Gehört zu einem anderen Layout: {places}.",
   "misplaced.view_only": "Wirkt nur in den eigenen Einstellungen eines Layouts: {places}.",
+  "misplaced.calendar": "Wirkt nur für einen einzelnen Kalender: Lege sie unter entities bei dem Kalender fest, für den sie gedacht ist.",
   "misplaced.unknown": "Keine Option dieser Karte. Prüfe die Schreibweise und die Stelle, an der sie steht.",
   "misplaced.move": "Nach „{place}“ verschieben",
   "misplaced.taken": "„{place}“ legt sie bereits fest.",

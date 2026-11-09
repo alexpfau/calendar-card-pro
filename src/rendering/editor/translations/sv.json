@@ -40,6 +40,7 @@
   "misplaced.card_wide": "Fungerar bara för hela kortet, på översta nivån.",
   "misplaced.wrong_view": "Hör till en annan layout: {places}.",
   "misplaced.view_only": "Fungerar bara i en layouts egna inställningar: {places}.",
+  "misplaced.calendar": "Fungerar bara för en enskild kalender: ange den under entities, på kalendern den är avsedd för.",
   "misplaced.unknown": "Ingen inställning för det här kortet. Kontrollera stavningen och var den står.",
   "misplaced.move": "Flytta till ”{place}”",
   "misplaced.taken": "”{place}” anger den redan.",

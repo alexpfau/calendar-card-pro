@@ -40,6 +40,7 @@
   "misplaced.card_wide": "Funziona solo per l'intera scheda, al livello principale.",
   "misplaced.wrong_view": "Appartiene a un altro layout: {places}.",
   "misplaced.view_only": "Funziona solo nelle impostazioni specifiche di un layout: {places}.",
+  "misplaced.calendar": "Funziona solo per un singolo calendario: impostala sotto entities, nella voce del calendario a cui è destinata.",
   "misplaced.unknown": "Non è un'opzione di questa scheda. Controlla come è scritta e dove si trova.",
   "misplaced.move": "Sposta in: {place}",
   "misplaced.taken": "{place}: già impostata.",
