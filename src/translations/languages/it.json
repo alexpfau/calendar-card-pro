@@ -14,5 +14,7 @@
   "loading": "Caricamento eventi del calendario...",
   "error": "Errore: entità calendario non trovata o configurata in modo errato",
   "loadFailed": "Impossibile caricare:",
-  "newEvent": "Nuovo evento"
+  "newEvent": "Nuovo evento",
+  "showAll": "Mostra tutti",
+  "hideAll": "Nascondi tutti"
 }

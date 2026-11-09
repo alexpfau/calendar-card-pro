@@ -14,5 +14,7 @@
   "loading": "Laster kalenderhendelser...",
   "error": "Feil: Kalenderenheten ble ikke funnet eller er ikke konfigurert riktig",
   "loadFailed": "Kunne ikke lastes:",
-  "newEvent": "Ny hendelse"
+  "newEvent": "Ny hendelse",
+  "showAll": "Vis alle",
+  "hideAll": "Skjul alle"
 }

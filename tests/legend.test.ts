@@ -16,7 +16,7 @@
  */
 
 import { mdiCalendarFilter } from '@mdi/js';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
 import { expectTapControl } from './tap-control';
@@ -1561,10 +1561,10 @@ describe("the menu the legend's button opens", () => {
     await settle(card);
   }
 
-  it('takes focus itself when a press opens it, so no calendar is focused by a press', async () => {
-    // WebKit counts the dialog's own choice of its first calendar as keyboard focus, and rang
-    // that calendar after a click. The menu draws no ring of its own, and Tab reaches the first
-    // calendar from it.
+  it('takes focus itself when a press opens it, so nothing in it is focused by a press', async () => {
+    // WebKit counts the dialog's own choice of its first control as keyboard focus, and rang
+    // that control, then the first calendar, after a click. The menu draws no ring of its own,
+    // and Tab reaches Show all, its first control, from it.
     const card = await mountMenu();
     const focus = vi.spyOn(dialog(card), 'focus');
 
@@ -1578,8 +1578,8 @@ describe("the menu the legend's button opens", () => {
   });
 
   it('leaves focus where the dialog puts it when a key opens it', async () => {
-    // Enter and Space click a button with no presses counted, and the first calendar is where a
-    // keyboard wants to be.
+    // Enter and Space click a button with no presses counted, and the dialog's own choice is
+    // where a keyboard wants to be: whichever of Show all and Hide all is on offer.
     const card = await mountMenu();
     const focus = vi.spyOn(dialog(card), 'focus');
 
@@ -1982,5 +1982,322 @@ describe("the menu the legend's button opens", () => {
 
     expect(dialog(card).open).toBe(true);
     expect(surfaceOf(card)).toBe('rgba(10, 10, 10, 0.4)');
+  });
+});
+
+//-----------------------------------------------------------------------------
+// SHOW ALL & HIDE ALL
+//-----------------------------------------------------------------------------
+
+describe("the menu's Show all and Hide all", () => {
+  const MENU: Types.ToolbarConfig = { ...LEGEND_ONLY, legend: 'menu' };
+
+  /** Ben's events are drawn, and the filter has no place for him. */
+  const BEN_OUT: Partial<Types.Config> = {
+    entities: [
+      { entity: ANNA, accent_color: '#e53935' },
+      { entity: BEN, accent_color: '#1e88e5', show_in_legend: false },
+      FAMILY,
+    ],
+  };
+
+  async function mountMenu(
+    overrides: Partial<Types.Config> = {},
+    options: { flag?: 'preview' | 'editMode' } = {},
+  ): Promise<CardUnderTest> {
+    return mount({ title: 'Family', toolbar: MENU, ...overrides }, options);
+  }
+
+  /** What an emptied card draws: only the empty day's placeholder. */
+  const EMPTIED = ['✓ No events'];
+
+  const dialog = (card: CardUnderTest) =>
+    root(card).querySelector<HTMLDialogElement>('dialog.legend-menu')!;
+  const action = (card: CardUnderTest, which: 'show-all' | 'hide-all') =>
+    root(card).querySelector<HTMLButtonElement>(`.legend-menu-action[data-action="${which}"]`)!;
+  const check = (card: CardUnderTest, id: string) =>
+    root(card).querySelector<HTMLInputElement>(
+      `.legend-menu-row[data-calendar="${id}"] .legend-menu-check`,
+    )!;
+
+  /** Each button as drawn: its words, and whether it is on offer. */
+  function describeActions(card: CardUnderTest) {
+    return Array.from(root(card).querySelectorAll<HTMLButtonElement>('.legend-menu-action')).map(
+      (button) => ({
+        action: button.dataset.action,
+        text: button.textContent!.trim(),
+        unavailable: button.classList.contains('unavailable'),
+        ariaDisabled: button.getAttribute('aria-disabled'),
+      }),
+    );
+  }
+
+  /** Each calendar's row, by id, and whether its box is ticked. */
+  function rows(card: CardUnderTest): Array<[string, boolean]> {
+    return Array.from(root(card).querySelectorAll<HTMLElement>('.legend-menu-row')).map((row) => [
+      row.dataset.calendar!,
+      row.querySelector<HTMLInputElement>('.legend-menu-check')!.checked,
+    ]);
+  }
+
+  async function open(card: CardUnderTest): Promise<void> {
+    legendButton(card)!.click();
+    await settle(card);
+  }
+
+  async function pressAction(card: CardUnderTest, which: 'show-all' | 'hide-all'): Promise<void> {
+    action(card, which).click();
+    await settle(card);
+  }
+
+  /** Every change the card announces to the others on the page, from now on. */
+  function recordAnnouncements(): Array<{ hidden: ReadonlyArray<string> }> {
+    const heard: Array<{ hidden: ReadonlyArray<string> }> = [];
+    const listener = (ev: Event) => heard.push((ev as CustomEvent).detail);
+    window.addEventListener(LEGEND_CHANGED_EVENT, listener);
+    onTestFinished(() => window.removeEventListener(LEGEND_CHANGED_EVENT, listener));
+    return heard;
+  }
+
+  it('sit above the calendars, side by side, Show all first', async () => {
+    const card = await mountMenu();
+    await open(card);
+
+    expect(childClasses(dialog(card))).toEqual([
+      'legend-menu-actions',
+      'legend-menu-list',
+      'legend-menu-surface',
+      'legend-menu-page',
+    ]);
+    // Show all has nothing to show while every calendar is shown, and says so.
+    expect(describeActions(card)).toEqual([
+      { action: 'show-all', text: 'Show all', unavailable: true, ariaDisabled: 'true' },
+      { action: 'hide-all', text: 'Hide all', unavailable: false, ariaDisabled: null },
+    ]);
+    for (const button of root(card).querySelectorAll('.legend-menu-action')) {
+      expect(button.getAttribute('type')).toBe('button');
+      // Unavailable is not disabled: the button stays a tab stop.
+      expect((button as HTMLButtonElement).disabled).toBe(false);
+    }
+  });
+
+  it("are named in the card's language", async () => {
+    const card = await mountMenu({ language: 'de' });
+
+    expect(describeActions(card).map(({ text }) => text)).toEqual([
+      'Alle anzeigen',
+      'Alle ausblenden',
+    ]);
+  });
+
+  it('hide every calendar listed with Hide all, fetching nothing, and keep the menu open', async () => {
+    const card = await mountMenu();
+    await open(card);
+    const node = dialog(card);
+    const requests = callApi.mock.calls.length;
+    const heard = recordAnnouncements();
+
+    await pressAction(card, 'hide-all');
+
+    expect(titles(card)).toEqual(EMPTIED);
+    expect(rows(card)).toEqual([
+      [ANNA, false],
+      [BEN, false],
+      [FAMILY, false],
+    ]);
+    expect(callApi.mock.calls.length).toBe(requests);
+    expect(
+      readHiddenCalendars(configFingerprint(configFor({ title: 'Family', toolbar: MENU }))),
+    ).toEqual([ANNA, BEN, FAMILY]);
+    expect(heard.map(({ hidden }) => hidden)).toEqual([[ANNA, BEN, FAMILY]]);
+    expect(dialog(card)).toBe(node);
+    expect(node.open).toBe(true);
+    expect(legendButton(card)!.classList).toContain('filtered');
+    expect(describeActions(card).map(({ unavailable }) => unavailable)).toEqual([false, true]);
+  });
+
+  it('show every calendar again with Show all, and remember that too', async () => {
+    const fingerprint = configFingerprint(configFor({ title: 'Family', toolbar: MENU }));
+    writeHiddenCalendars(fingerprint, [BEN, FAMILY]);
+    const card = await mountMenu();
+    await open(card);
+    expect(titles(card)).toEqual(['Dentist', 'Team lunch']);
+    const requests = callApi.mock.calls.length;
+    const heard = recordAnnouncements();
+
+    await pressAction(card, 'show-all');
+
+    expect(titles(card)).toEqual(['Recycling', 'Dentist', 'Football', 'Team lunch', 'Team lunch']);
+    expect(rows(card).every(([, checked]) => checked)).toBe(true);
+    expect(callApi.mock.calls.length).toBe(requests);
+    expect(readHiddenCalendars(fingerprint)).toEqual([]);
+    expect(heard.map(({ hidden }) => hidden)).toEqual([[]]);
+    expect(dialog(card).open).toBe(true);
+    expect(legendButton(card)!.classList).not.toContain('filtered');
+    expect(describeActions(card).map(({ unavailable }) => unavailable)).toEqual([true, false]);
+  });
+
+  it('show one calendar alone with Hide all and then its checkbox', async () => {
+    // The use the buttons were asked for: one person's week on a family card, in two presses.
+    const card = await mountMenu();
+    await open(card);
+
+    await pressAction(card, 'hide-all');
+    check(card, BEN).click();
+    await settle(card);
+
+    expect(titles(card)).toEqual(['Football', 'Team lunch']);
+    expect(rows(card)).toEqual([
+      [ANNA, false],
+      [BEN, true],
+      [FAMILY, false],
+    ]);
+    // With one calendar shown, both buttons are on offer again.
+    expect(describeActions(card).map(({ unavailable }) => unavailable)).toEqual([false, false]);
+  });
+
+  it('are taken up at once by another card with the same configuration', async () => {
+    const first = await mountMenu();
+    const second = await mountMenu();
+
+    await pressAction(first, 'hide-all');
+    expect(titles(second)).toEqual(EMPTIED);
+
+    await pressAction(second, 'show-all');
+    expect(titles(first)).toContain('Football');
+  });
+
+  it('leave a calendar left out of the filter shown, and count it for nothing', async () => {
+    const card = await mountMenu(BEN_OUT);
+    await open(card);
+
+    await pressAction(card, 'hide-all');
+
+    // Ben's events stay; Hide all is spent once every calendar the menu lists is hidden.
+    expect(titles(card)).toEqual(['Football', 'Team lunch']);
+    expect(rows(card)).toEqual([
+      [ANNA, false],
+      [FAMILY, false],
+    ]);
+    expect(
+      readHiddenCalendars(
+        configFingerprint(configFor({ title: 'Family', toolbar: MENU, ...BEN_OUT })),
+      ),
+    ).toEqual([ANNA, FAMILY]);
+    expect(describeActions(card).map(({ unavailable }) => unavailable)).toEqual([false, true]);
+
+    await pressAction(card, 'show-all');
+    expect(titles(card)).toEqual(['Recycling', 'Dentist', 'Football', 'Team lunch', 'Team lunch']);
+  });
+
+  it('do nothing while unavailable: nothing is written, announced or redrawn', async () => {
+    const card = await mountMenu();
+    await open(card);
+    const heard = recordAnnouncements();
+    const stored = localStorage.getItem(VIEW_CHOICE_STORAGE_KEY);
+
+    await pressAction(card, 'show-all');
+
+    expect(heard).toEqual([]);
+    expect(localStorage.getItem(VIEW_CHOICE_STORAGE_KEY)).toBe(stored);
+    expect(titles(card)).toEqual(['Recycling', 'Dentist', 'Football', 'Team lunch', 'Team lunch']);
+
+    // The control: the same probe hears Hide all.
+    await pressAction(card, 'hide-all');
+    expect(heard).toHaveLength(1);
+  });
+
+  it('mark the one on offer as where a key that opens the menu leaves focus', async () => {
+    // The dialog's own focusing reads autofocus; happy-dom runs none of it, so this pins the
+    // attribute, and a browser shows where focus lands. Never both: at most one is unavailable.
+    const autofocused = (card: CardUnderTest) =>
+      Array.from(root(card).querySelectorAll<HTMLElement>('.legend-menu-action'))
+        .filter((button) => button.hasAttribute('autofocus'))
+        .map((button) => button.dataset.action);
+    const card = await mountMenu();
+    expect(autofocused(card)).toEqual(['hide-all']);
+
+    await open(card);
+    await pressAction(card, 'hide-all');
+    expect(autofocused(card)).toEqual(['show-all']);
+
+    check(card, BEN).click();
+    await settle(card);
+    expect(autofocused(card)).toEqual(['show-all']);
+  });
+
+  it('keep focus on the button a key pressed, once that press leaves it unavailable', async () => {
+    const card = await mountMenu();
+    await open(card);
+    const hideAll = action(card, 'hide-all');
+    hideAll.focus();
+
+    await pressAction(card, 'hide-all');
+
+    expect(action(card, 'hide-all')).toBe(hideAll);
+    expect(hideAll.classList).toContain('unavailable');
+    expect(root(card).activeElement).toBe(hideAll);
+  });
+
+  it('do nothing while the card is being edited', async () => {
+    const card = await mountMenu({}, { flag: 'preview' });
+    const heard = recordAnnouncements();
+
+    await pressAction(card, 'hide-all');
+
+    expect(titles(card)).toEqual(['Recycling', 'Dentist', 'Football', 'Team lunch', 'Team lunch']);
+    expect(heard).toEqual([]);
+    expect(localStorage.getItem(VIEW_CHOICE_STORAGE_KEY)).toBeNull();
+  });
+
+  it('close the menu before Show all lets hide_when_empty hide the card', async () => {
+    // A modal menu left open over a hidden card would keep the page inert under nothing.
+    answerFromFixture({});
+    writeHiddenCalendars(
+      configFingerprint(configFor({ title: 'Family', toolbar: MENU, hide_when_empty: true })),
+      [BEN],
+    );
+    const card = await mountMenu({ hide_when_empty: true });
+    await open(card);
+
+    await pressAction(card, 'show-all');
+
+    expect(card.hidden).toBe(true);
+    expect(dialog(card).open).toBe(false);
+  });
+
+  describe('where chips are asked for', () => {
+    const CHIPS: Types.ToolbarConfig = {
+      show: true,
+      legend: 'chips',
+      refresh: true,
+      navigation: false,
+      reset: false,
+      view_switcher: false,
+    };
+
+    it('are in the menu the chips fold into, and work there', async () => {
+      stubLayout();
+      Object.assign(layout, { card: 380, chips: 500 });
+      const card = await mount({ title: 'Family', toolbar: CHIPS });
+      expect(chips(card)).toEqual([]);
+      await open(card);
+
+      expect(describeActions(card).map(({ text }) => text)).toEqual(['Show all', 'Hide all']);
+      await pressAction(card, 'hide-all');
+      expect(titles(card)).toEqual(EMPTIED);
+      expect(dialog(card).open).toBe(true);
+    });
+
+    it('are never among the chips themselves', async () => {
+      const card = await mount({ title: 'Family', toolbar: CHIPS });
+
+      expect(chips(card).map((button) => button.dataset.calendar)).toEqual([ANNA, BEN, FAMILY]);
+      expect(root(card).querySelector('.legend-menu-action')).toBeNull();
+      expect(root(card).querySelector('.legend-menu-actions')).toBeNull();
+      expect(root(card).querySelector('.toolbar-legend')!.textContent).not.toMatch(
+        /Show all|Hide all/,
+      );
+    });
   });
 });

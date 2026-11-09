@@ -8122,6 +8122,7 @@ class CalendarCardPro extends LitElement {
 
     const hidden = this._activeHiddenCalendars;
     const registryColors = EntityColors.entityColors();
+    const translations = Localize.getTranslations(this.effectiveLanguage);
     const calendars = ids.map((id) => ({
       id,
       name: this._calendarName(id),
@@ -8140,7 +8141,10 @@ class CalendarCardPro extends LitElement {
       name: this._haString('ui.components.calendar.my_calendars'),
       folded: !this._wantsLegendChips || this._legendFoldedFor(this._legendSignature(calendars)),
       inert: this._isBeingEdited,
+      showAllLabel: translations.showAll,
+      hideAllLabel: translations.hideAll,
       onToggle: (id) => this._toggleCalendar(id),
+      onSetAll: (shown) => this._setAllCalendars(shown),
     };
   }
 
@@ -8198,18 +8202,44 @@ class CalendarCardPro extends LitElement {
    * @param id - The calendar's entity id
    */
   private _toggleCalendar(id: string): void {
-    if (this._isBeingEdited) {
-      Logger.debug('Not hiding calendars while the card is being edited');
-      return;
-    }
-    if (!this._wantsLegend) return;
-
     const next = new Set(this._hiddenCalendars);
     if (next.has(id)) {
       next.delete(id);
     } else {
       next.add(id);
     }
+    this._hideCalendars(next, `${next.has(id) ? 'Hid' : 'Showed'} ${id}`);
+  }
+
+  /**
+   * Shows every calendar the legend lists on this device, or hides every one, and remembers it
+   * there: the menu's Show all and Hide all. A calendar the legend leaves out with
+   * `show_in_legend: false` is not among them, so it stays shown either way. The menu offers
+   * neither while it would change nothing (`renderLegendButton`).
+   *
+   * @param shown - True to show every calendar, false to hide every one
+   */
+  private _setAllCalendars(shown: boolean): void {
+    const next = new Set(shown ? [] : Legend.legendCalendarIds(this.config.entities));
+    this._hideCalendars(next, shown ? 'Showed every calendar' : 'Hid every calendar');
+  }
+
+  /**
+   * Hides exactly these calendars on this device, remembers them there, and tells every other
+   * card with this configuration (`_announceHiddenCalendars`).
+   *
+   * Nothing is fetched: hidden calendars stay loaded, so this only redraws.
+   *
+   * @param next - Entity ids of the calendars to hide, each one the legend lists
+   * @param message - What changed, for the log
+   */
+  private _hideCalendars(next: ReadonlySet<string>, message: string): void {
+    if (this._isBeingEdited) {
+      Logger.debug('Not hiding calendars while the card is being edited');
+      return;
+    }
+    if (!this._wantsLegend) return;
+
     this._hiddenCalendars = next.size > 0 ? next : NO_HIDDEN_CALENDARS;
     if (this._configFingerprint !== null) {
       this._hiddenMatchesStorage = ViewChoice.writeHiddenCalendars(this._configFingerprint, [
@@ -8217,7 +8247,7 @@ class CalendarCardPro extends LitElement {
       ]);
     }
     this._announceHiddenCalendars([...next], this._hiddenMatchesStorage);
-    Logger.debug(`${next.has(id) ? 'Hid' : 'Showed'} ${id}`);
+    Logger.debug(message);
     this.requestUpdate();
   }
 

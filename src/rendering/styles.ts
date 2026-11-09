@@ -1187,6 +1187,45 @@ export const cardStyles = css`
     gap: 4px;
   }
 
+  /* Show all and Hide all, side by side above the calendars and as wide as each other: two of
+     the toolbar's neutral pills, so they read as commands rather than as two more calendars,
+     whose rows are tinted. A name too long for half the menu wraps inside its pill rather than
+     widening the menu past the screen. Set apart from the calendars by the menu's own padding. */
+  .legend-menu-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    margin-block-end: 6px;
+  }
+
+  .legend-menu-action {
+    box-sizing: border-box;
+    min-width: 0;
+    min-height: 36px;
+    margin: 0;
+    padding-block: 4px;
+    padding-inline: 12px;
+    border: none;
+    border-radius: 18px;
+    background: var(--calendar-card-toolbar-fill);
+    color: var(--primary-text-color);
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: var(--ha-font-weight-medium, 500);
+    line-height: 1.2;
+    text-align: center;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* With nothing to change, Show all with every calendar shown or Hide all with every one
+     hidden: dimmed as a view too wide for the card is, with no hover or press wash. */
+  .legend-menu-action.unavailable {
+    opacity: 0.38;
+    cursor: default;
+  }
+
   /* Padded by inline side, so a right-to-left menu mirrors its rows: the check sits as far
      from the right edge there as from the left one in left-to-right. */
   .legend-menu-row {
@@ -1258,6 +1297,7 @@ export const cardStyles = css`
     .view-switcher-segment:not(.selected):not(.unavailable):hover,
     .date-navigation-segment:hover,
     .custom-menu-row:hover,
+    .legend-menu-action:not(.unavailable):hover,
     .toolbar-month-button:hover {
       background: var(--calendar-card-toolbar-fill-hover);
     }
@@ -1267,6 +1307,7 @@ export const cardStyles = css`
   .view-switcher-segment:not(.selected):not(.unavailable):active,
   .date-navigation-segment:active,
   .custom-menu-row:active,
+  .legend-menu-action:not(.unavailable):active,
   .toolbar-month-button:active {
     background: var(--calendar-card-toolbar-fill-pressed);
   }
@@ -1320,6 +1361,7 @@ export const cardStyles = css`
   .toolbar-month-button:focus,
   .legend-chip:focus,
   .legend-menu:focus,
+  .legend-menu-action:focus,
   .custom-menu:focus,
   .custom-menu-row:focus {
     outline: none;
@@ -1334,8 +1376,10 @@ export const cardStyles = css`
     outline-offset: 2px;
   }
 
-  /* The row rings, not the box inside it, so the whole calendar reads as the focused one. */
+  /* The row rings, not the box inside it, so the whole calendar reads as the focused one. A ring
+     inside its own edge, as Show all's and Hide all's are, never crosses into the next control. */
   .legend-menu-row:has(.legend-menu-check:focus-visible),
+  .legend-menu-action:focus-visible,
   .custom-menu-row:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: -2px;

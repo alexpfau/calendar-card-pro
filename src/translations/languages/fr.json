@@ -14,5 +14,7 @@
   "loading": "Chargement des événements...",
   "error": "Erreur: Entité de calendrier introuvable ou mal configurée",
   "loadFailed": "Échec du chargement:",
-  "newEvent": "Nouvel événement"
+  "newEvent": "Nouvel événement",
+  "showAll": "Tout afficher",
+  "hideAll": "Tout masquer"
 }

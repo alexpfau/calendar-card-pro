@@ -14,5 +14,7 @@
   "loading": "Cargando eventos del calendario...",
   "error": "Error: La entidad del calendario no se encontró o está mal configurada",
   "loadFailed": "No se pudo cargar:",
-  "newEvent": "Nuevo evento"
+  "newEvent": "Nuevo evento",
+  "showAll": "Mostrar todos",
+  "hideAll": "Ocultar todos"
 }

@@ -362,8 +362,9 @@ Here `legend: chips` hides Anna's events and then Ben's, and a press on Ben's ch
 By default, `legend: menu`, it is a button at the start of the top row that opens a menu with a
 checkbox for each calendar, tinted in that calendar's color and named by its
 [`name`](/features/core-settings#naming-a-calendar-in-the-card) where it has one, and as Home
-Assistant names it otherwise. `legend: chips` shows a chip for each calendar instead, in the
-month's row under the view switcher, and `legend: false` takes the filter away:
+Assistant names it otherwise, under a **Show all** and a **Hide all** button. `legend: chips`
+shows a chip for each calendar instead, in the month's row under the view switcher, and
+`legend: false` takes the filter away:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -381,6 +382,10 @@ toolbar:
 
 - **Each chip is a switch.** A press hides that calendar's events and turns its chip gray, and
   another press shows them again.
+- **Show all and Hide all** sit above the calendars in the menu, so one calendar can be shown
+  alone in two presses: Hide all, then that calendar's checkbox. They come with every menu, the
+  one chips fold into included, and never sit among the chips. Each is dimmed while it has
+  nothing to change.
 - **The chips show only where all of them fit** between the month and the arrows. Where they do
   not, the card draws exactly what `legend: menu` draws, never some of the chips, and they come
   back once the card is wide enough again, as when a tablet is turned.
@@ -425,7 +430,7 @@ chips and the filter button do nothing.
 
 `show_in_legend: false` leaves one calendar out of the calendar filter, for a calendar that is on
 the card to be seen rather than filtered. It takes no chip and no row in the menu, and its events
-always show, since nothing is left that could hide them.
+always show, Hide all included, since nothing is left that could hide them.
 
 ```yaml
 type: custom:calendar-card-pro

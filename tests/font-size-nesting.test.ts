@@ -738,7 +738,10 @@ function headerToolbar(view: (typeof VIEWS)[number], config: Types.Config): Tool
           name: 'My calendars',
           folded: options.legend === 'menu',
           inert: false,
+          showAllLabel: 'Show all',
+          hideAllLabel: 'Hide all',
           onToggle: () => undefined,
+          onSetAll: () => undefined,
         }
       : undefined,
     addEvent: { label: 'Add event', onActivate: () => undefined },
@@ -1023,6 +1026,8 @@ describe('every piece of text is sized by its own option', () => {
       // Assistant's control size like the rest of the toolbar. The menu sets its own size, so
       // nothing it sits inside can change it.
       'legend-chip-label in legend-chip': ['--ha-font-size-m'],
+      // Show all and Hide all, above the menu's calendars: commands, at the size the menu sets.
+      'legend-menu-action in legend-menu-actions': ['--ha-font-size-m'],
       'legend-menu-label in legend-menu-row': ['--ha-font-size-m'],
       'month in column-date-content': ['month_font_size'],
       'month in date-column': ['month_font_size'],

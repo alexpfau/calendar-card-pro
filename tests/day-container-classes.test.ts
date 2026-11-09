@@ -508,7 +508,10 @@ describe('theming.md card-mod selectors', () => {
               name: 'My calendars',
               folded: !labeled,
               inert: false,
+              showAllLabel: 'Show all',
+              hideAllLabel: 'Hide all',
               onToggle: noop,
+              onSetAll: noop,
             },
             navigation: paging
               ? {

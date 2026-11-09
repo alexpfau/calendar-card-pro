@@ -14,5 +14,7 @@
   "loading": "Naptárbejegyzések betöltése...",
   "error": "Hiba: Naptár entitás nem található vagy nem megfelelően konfigutált",
   "loadFailed": "Nem sikerült betölteni:",
-  "newEvent": "Új esemény"
+  "newEvent": "Új esemény",
+  "showAll": "Összes megjelenítése",
+  "hideAll": "Összes elrejtése"
 }

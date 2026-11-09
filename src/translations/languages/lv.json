@@ -22,5 +22,7 @@
   "loading": "Ielādē kalendāra notikumus...",
   "error": "Kļūda: Kalendāra entitīja nav atrasta vai nav pareizi konfigurēta",
   "loadFailed": "Neizdevās ielādēt:",
-  "newEvent": "Jauns notikums"
+  "newEvent": "Jauns notikums",
+  "showAll": "Rādīt visus",
+  "hideAll": "Paslēpt visus"
 }

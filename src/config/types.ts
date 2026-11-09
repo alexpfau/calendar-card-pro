@@ -1363,6 +1363,9 @@ export interface Translations {
   viewList: string;
   viewColumns: string;
   viewGrid: string;
+  /** The calendar filter's menu: the buttons that show every calendar it lists, or hide them. */
+  showAll: string;
+  hideAll: string;
 }
 
 // -----------------------------------------------------------------------------

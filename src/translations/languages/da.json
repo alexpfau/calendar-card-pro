@@ -14,5 +14,7 @@
   "loading": "Indlæser kalenderbegivenheder...",
   "error": "Fejl: Kalenderenheden blev ikke fundet eller er ikke konfigureret korrekt",
   "loadFailed": "Kunne ikke indlæses:",
-  "newEvent": "Ny begivenhed"
+  "newEvent": "Ny begivenhed",
+  "showAll": "Vis alle",
+  "hideAll": "Skjul alle"
 }

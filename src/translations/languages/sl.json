@@ -14,5 +14,7 @@
   "loading": "Nalagam dogodke...",
   "error": "Napaka: Entiteta ni bila najdena ali pa je nepravilno konfigurirana.",
   "loadFailed": "Nalaganje ni uspelo:",
-  "newEvent": "Nov dogodek"
+  "newEvent": "Nov dogodek",
+  "showAll": "Prikaži vse",
+  "hideAll": "Skrij vse"
 }

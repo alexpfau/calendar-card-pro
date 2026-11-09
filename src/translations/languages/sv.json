@@ -14,5 +14,7 @@
   "loading": "Laddar kalenderhändelser...",
   "error": "Fel: Kalenderentiteten hittades inte eller är felaktigt konfigurerad.",
   "loadFailed": "Kunde inte läsas in:",
-  "newEvent": "Ny händelse"
+  "newEvent": "Ny händelse",
+  "showAll": "Visa alla",
+  "hideAll": "Göm alla"
 }
