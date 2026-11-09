@@ -1314,7 +1314,10 @@ Neither has a workflow file, so neither shows up in `.github/workflows/`.
 - **A bump to anything that reaches `dist/` can fail `check:bundle`**: `lit`, `dayjs`,
   `@mdi/js`, and the bundler chain. The gate reconciles the sizes `docs/guide/installation.md`
   quotes against the build, so correct the figure in the Dependabot PR rather than loosening
-  the gate.
+  the gate. It also fails on a regular expression lookbehind in either file, which Safari before
+  16.4 cannot parse; a pattern built at runtime is read only in its fixed parts, and the success
+  line says how many were. `tests/regex-lookbehind.test.ts` keeps `src/` free of them, so one
+  there came in with the bump.
 - **CodeQL default setup** is enabled in the repository's code-security settings. It scans
   pushes to `main` and same-repository pull requests into it, so the release PR is the first
   scan a change gets. **`dev` is not covered**: its deletion-only ruleset makes the branches
