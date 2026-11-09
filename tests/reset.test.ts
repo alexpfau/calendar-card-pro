@@ -377,6 +377,27 @@ describe('the reset button', () => {
     expect(resetButton(noLegend)).toBeNull();
   });
 
+  it('is not drawn for a legend that lists no calendar', async () => {
+    // Every calendar left out of the filter leaves the legend nothing to hide, so the card has
+    // nothing for a reset to undo, exactly as with `legend: false` above.
+    const allOut = await mount({
+      toolbar: { ...COMMANDS_ONLY, legend: 'chips' },
+      entities: [
+        { entity: ANNA, show_in_legend: false },
+        { entity: BEN, show_in_legend: false },
+      ],
+    });
+    expect(resetButton(allOut)).toBeNull();
+
+    // The control: one calendar still listed is a legend, and a reason to reset.
+    document.body.innerHTML = '';
+    const oneListed = await mount({
+      toolbar: { ...COMMANDS_ONLY, legend: 'chips' },
+      entities: [{ entity: ANNA, show_in_legend: false }, BEN],
+    });
+    expect(resetButton(oneListed)).not.toBeNull();
+  });
+
   it('leads the end of the action row, with refresh after it and search last', async () => {
     const card = await mount({
       toolbar: { ...EVERYTHING, legend: 'menu', refresh: true, add_event: true },

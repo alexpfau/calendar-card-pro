@@ -964,6 +964,7 @@ describe('editor: the order of the two panels', () => {
     expect(sequence(entitySchema())).toEqual([
       '# heading_appearance',
       'name',
+      'show_in_legend',
       'label_type',
       'label_icon_source',
       'label_image_source',

@@ -566,6 +566,8 @@ export class CalendarCardProEditor extends LitElement {
 
     const filterCtx = this._filterCtx;
     const filtering = Filter.isFiltering(this._filter);
+    const toolbar = Config.resolveToolbar(ctx.config);
+    const hasLegend = toolbar.show && toolbar.legend !== false;
 
     const shown = entries
       .map((entry, index) => ({
@@ -579,6 +581,7 @@ export class CalendarCardProEditor extends LitElement {
             labelIconSourceOf(Entities.asEntityConfig(entry).label),
             Entities.showsLocation(entry, ctx.config, this._destinationView(ctx)),
             labelImageSourceOf(Entities.asEntityConfig(entry).label),
+            hasLegend,
           ),
           entry,
           subform.path,

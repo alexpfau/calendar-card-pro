@@ -92,6 +92,8 @@
   "entity.remove": "Usuń",
   "entity.name": "Nazwa",
   "entity.name.helper": "Nazwa tego kalendarza w filtrze kalendarzy, po otwarciu jednego z jego wydarzeń i w powiadomieniach. Wszystkie wpisy tego kalendarza mają ją wspólną. Gdy pole jest puste, karta używa nazwy z Home Assistant, którą wybór kalendarzy i nagłówek tego panelu zachowują w każdym przypadku.",
+  "entity.show_in_legend": "Pokaż w filtrze kalendarzy",
+  "entity.show_in_legend.helper": "Po wyłączeniu ten kalendarz nie pojawia się w filtrze kalendarzy ani jako przycisk, ani w menu, więc jego wydarzenia są zawsze widoczne. Wszystkie wpisy tego kalendarza mają to ustawienie wspólne.",
   "entity.label_type": "Typ etykiety",
   "entity.label_type.helper": "Wyświetlana przed każdym wydarzeniem z tego kalendarza. Etykieta obrazkowa to ścieżka dostępna dla przeglądarki, na przykład /local/praca.png.",
   "entity.label_type.option.none.label": "Brak",

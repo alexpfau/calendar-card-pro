@@ -17,6 +17,7 @@ import { TemplateResult, html, nothing } from 'lit';
 import { styleMap } from 'lit/directives/style-map.js';
 
 import * as Menu from './menu';
+import { configuredShowInLegend } from '../config/config';
 
 export { placeMenu, type MenuPlacement, type Rect } from './menu';
 
@@ -38,7 +39,10 @@ export interface LegendCalendar {
 
 /** What the card hands the wrapper when it should draw the legend. */
 export interface CalendarLegend {
-  /** Every calendar on the card, once each, in the order the configuration first names it. */
+  /**
+   * Every calendar the legend lists (`legendCalendarIds`), in the order the configuration first
+   * names it.
+   */
   calendars: ReadonlyArray<LegendCalendar>;
   /** Home Assistant's name for a list of calendars, or undefined when it offers none. */
   name: string | undefined;
@@ -237,18 +241,24 @@ export function renderLegendButton(legend: CalendarLegend): TemplateResult {
 
 /**
  * The calendars a legend lists: every entity on the card, once, in the order the
- * configuration first names it. A calendar listed twice, split by `event_type`, is one chip.
+ * configuration first names it, except one it leaves out with `show_in_legend: false`. A
+ * calendar listed twice, split by `event_type`, is one chip.
+ *
+ * Every reader of the hidden calendars filters them through this, so a calendar left out can
+ * never be hidden, even where a device remembers it as hidden from before.
  *
  * @param entities - The card's normalized entities
  * @returns Entity ids
  */
-export function legendCalendarIds(entities: ReadonlyArray<string | { entity: string }>): string[] {
+export function legendCalendarIds(
+  entities: ReadonlyArray<string | { entity: string; show_in_legend?: boolean }>,
+): string[] {
   const ids: string[] = [];
   for (const entry of entities) {
     const id = typeof entry === 'string' ? entry : entry?.entity;
     if (typeof id === 'string' && id !== '' && !ids.includes(id)) ids.push(id);
   }
-  return ids;
+  return ids.filter((id) => configuredShowInLegend(entities, id) !== false);
 }
 
 /**

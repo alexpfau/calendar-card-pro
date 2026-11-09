@@ -1286,6 +1286,10 @@ export function normalizeEntities(
           // nothing must not stand in for the one Home Assistant holds.
           name:
             typeof item.name === 'string' && item.name.trim() !== '' ? item.name.trim() : undefined,
+          // Only a boolean decides: anything else is unset, so the first block that does set it
+          // wins (`configuredShowInLegend`).
+          show_in_legend:
+            typeof item.show_in_legend === 'boolean' ? item.show_in_legend : undefined,
           label: item.label,
           // Unknown label types fall back to the legacy value-label behavior.
           label_type: Helpers.isLabelType(item.label_type) ? item.label_type : undefined,
@@ -1312,6 +1316,35 @@ export function normalizeEntities(
       return null;
     })
     .filter(Boolean) as Array<Types.EntityConfig>;
+}
+
+/**
+ * Whether the configuration lists a calendar in the calendar filter, as far as it says.
+ *
+ * `show_in_legend` belongs to the calendar rather than to one block, as `name` does, so this
+ * reads the whole list: the first block of the calendar that sets a boolean decides. The editor
+ * keeps every block of a calendar holding the same value; this settles hand-written YAML that
+ * sets it two ways. Reads a configuration the card normalized or one the editor holds as
+ * written, so bare ids and malformed entries pass.
+ *
+ * @param entities - The card's `entities` list
+ * @param entityId - The calendar
+ * @returns The first boolean any block of that calendar sets, or `undefined` where none does
+ */
+export function configuredShowInLegend(
+  entities: ReadonlyArray<unknown> | undefined,
+  entityId: string,
+): boolean | undefined {
+  if (!Array.isArray(entities)) return undefined;
+
+  for (const entry of entities) {
+    if (entry === null || typeof entry !== 'object') continue;
+
+    const { entity, show_in_legend } = entry as { entity?: unknown; show_in_legend?: unknown };
+    if (entity === entityId && typeof show_in_legend === 'boolean') return show_in_legend;
+  }
+
+  return undefined;
 }
 
 /**

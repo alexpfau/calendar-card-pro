@@ -92,6 +92,8 @@
   "entity.remove": "Rimuovi",
   "entity.name": "Nome",
   "entity.name.helper": "Il nome di questo calendario nel filtro calendari, quando apri uno dei suoi eventi e negli avvisi. Tutte le voci di questo calendario lo condividono. Se lasciato vuoto, la scheda usa il nome dato da Home Assistant, che il selettore dei calendari e l’intestazione di questo pannello mantengono comunque.",
+  "entity.show_in_legend": "Mostra nel filtro calendari",
+  "entity.show_in_legend.helper": "Se disattivato, questo calendario non compare nel filtro calendari, né come chip né nel menu, quindi i suoi eventi sono sempre visibili. Tutte le voci di questo calendario condividono questa impostazione.",
   "entity.label_type": "Tipo di etichetta",
   "entity.label_type.helper": "Mostrata prima di ogni evento di questo calendario. Un'etichetta immagine è un percorso raggiungibile dal browser, ad esempio /local/work.png.",
   "entity.label_type.option.none.label": "Nessuno",

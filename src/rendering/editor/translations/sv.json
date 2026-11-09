@@ -92,6 +92,8 @@
   "entity.remove": "Ta bort",
   "entity.name": "Namn",
   "entity.name.helper": "Namnger den här kalendern i kalenderfiltret, när du öppnar en av dess händelser och i aviseringar. Alla poster för den här kalendern delar det. Lämnas fältet tomt använder kortet namnet från Home Assistant, som kalenderväljaren och rubriken i den här panelen behåller i vilket fall som helst.",
+  "entity.show_in_legend": "Visa i kalenderfiltret",
+  "entity.show_in_legend.helper": "När den är avslagen utelämnas den här kalendern ur kalenderfiltret, både som bricka och i menyn, så dess händelser visas alltid. Alla poster för den här kalendern delar inställningen.",
   "entity.label_type": "Etikettyp",
   "entity.label_type.helper": "Visas före varje händelse från den här kalendern. En bildetikett är en sökväg som webbläsaren kommer åt, till exempel /local/work.png.",
   "entity.label_type.option.none.label": "Ingen",

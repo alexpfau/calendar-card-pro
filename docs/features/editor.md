@@ -344,7 +344,8 @@ Clearing a calendar's row in the **picker** removes that calendar from the card 
   **Kids** rather than **Kids · Configured**, and with a label as well it reads
   **Kids · School**.
 - A calendar with two blocks has one name, so changing it on either block changes it on both,
-  and removing the block that held it leaves it on the block that remains.
+  and removing the block that held it leaves it on the block that remains. **Show in Calendar
+  Filter** works the same way.
 
 :::
 
@@ -353,8 +354,10 @@ Clearing a calendar's row in the **picker** removes that calendar from the card 
 ## 🏷️ Per-Calendar Labels
 
 Each calendar's panel opens with **Name**, the
-calendar's [name on the card](/features/core-settings#naming-a-calendar-in-the-card), and
-the control after it is **Label Type**. A label is the mark shown before every event from
+calendar's [name on the card](/features/core-settings#naming-a-calendar-in-the-card), then
+**Show in Calendar Filter** while the toolbar shows a
+[calendar filter](/features/layout-appearance#leaving-a-calendar-out-of-the-filter), and the
+control after them is **Label Type**. A label is the mark shown before every event from
 that calendar, and it can be four things — nothing, text or an emoji, an icon, or an image.
 
 The editor reads the type from the value: `mdi:home` is an icon, `/local/work.png` is an

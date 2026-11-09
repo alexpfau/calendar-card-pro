@@ -11,6 +11,7 @@ import {
   LABEL_ICON_SOURCE,
   LABEL_IMAGE_SOURCE,
   LABEL_TYPE,
+  SHOW_IN_LEGEND,
   accentColorModeOf,
   labelIconSourceOf,
   labelImageSourceOf,
@@ -36,6 +37,60 @@ const NUMERIC_KEYS: ReadonlySet<string> = new Set(['compact_events_to_show']);
  * it, because a duplicate is the same calendar.
  */
 const NON_TRANSFERABLE_KEYS: ReadonlySet<string> = new Set(['entity', 'name']);
+
+/**
+ * One option that belongs to the calendar rather than to one block of it, in the four terms
+ * the editor reads and writes it in.
+ */
+interface CalendarOption {
+  /** What the blocks hold for the calendar, the first block that sets it deciding. */
+  configured(entities: ReadonlyArray<unknown>, entityId: string): unknown;
+  /** The value every panel of the calendar shows for that; `undefined` leaves the field empty. */
+  shown(configured: unknown): unknown;
+  /** The form's value in the terms of `shown`, given what the panel showed. */
+  answered(value: unknown, shown: unknown): unknown;
+  /** What a block stores to say a shown value; `undefined` stores nothing. */
+  stored(shown: unknown): unknown;
+}
+
+/**
+ * 🚨 **The options a calendar has once, however many blocks it is listed in**, keyed in the
+ * order a block stores them, beside the id. Each panel shows the calendar's value, a change on
+ * any panel is written to every block of the calendar ({@link writeEntity}), and Remove leaves
+ * the value on the block that remains ({@link removeEntity}). The card reads each across the
+ * whole list, the first block that sets it deciding, so two blocks holding two values would
+ * show one on screen and the other in a panel.
+ *
+ * `show_in_legend` travels through Copy and Paste where `name` does not: the name says which
+ * calendar a block is, while leaving a calendar out of the filter is a setting several
+ * calendars shown alike may share.
+ */
+const CALENDAR_OPTIONS: Readonly<Record<string, CalendarOption>> = {
+  name: {
+    configured: configuredCalendarName,
+    shown: (configured) => configured,
+    answered: (value) => nameOf(value),
+    stored: (shown) => shown,
+  },
+  // A switch, so the panel always shows one of its two states, and a value that is not a
+  // boolean leaves it as it was rather than turning it on.
+  [SHOW_IN_LEGEND]: {
+    configured: Config.configuredShowInLegend,
+    shown: (configured) => configured !== false,
+    answered: (value, shown) => (typeof value === 'boolean' ? value : shown),
+    stored: (shown) => (shown === false ? false : undefined),
+  },
+};
+
+/**
+ * Whether a key is one of the {@link CALENDAR_OPTIONS}.
+ *
+ * @param key - Config key
+ * @returns `true` for an option the calendar has once
+ */
+function isCalendarOption(key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(CALENDAR_OPTIONS, key);
+}
 
 /**
  * Settings copied from one calendar, awaiting a paste.
@@ -172,10 +227,11 @@ export function duplicateEntity(
  * the only control that removes a single block, which is what makes it the inverse of
  * Duplicate rather than a shortcut for something the picker already does.
  *
- * A calendar's name outlives the block that held it while another block of that calendar
- * remains. Every panel of the calendar shows the name, even in hand-written YAML that holds
- * it on one block only, so removing that block moves the name onto the first block left
- * rather than silently handing the calendar back to Home Assistant's name.
+ * A calendar's name, and whether the calendar filter lists it, outlive the block that held them
+ * while another block of that calendar remains. Every panel of the calendar shows them, even in
+ * hand-written YAML that holds them on one block only, so removing that block moves them onto
+ * the first block left rather than silently handing the calendar back to Home Assistant's name
+ * or to the filter.
  *
  * @param entities - The list as stored
  * @param index - Position of the block being removed
@@ -190,13 +246,17 @@ export function removeEntity(
   if (index < 0 || index >= entities.length) return next;
 
   const id = entityIdOf(entities[index]);
-  const name = configuredCalendarName(entities, id);
 
   next.splice(index, 1);
 
   const heir = next.findIndex((entry) => entityIdOf(entry) === id);
-  if (name !== undefined && heir >= 0 && configuredCalendarName(next, id) === undefined) {
-    next[heir] = withName(next[heir], name);
+  if (heir < 0) return next;
+
+  for (const [key, option] of Object.entries(CALENDAR_OPTIONS)) {
+    const held = option.configured(entities, id);
+    if (held !== undefined && option.configured(next, id) === undefined) {
+      next[heir] = withOption(next[heir], key, held);
+    }
   }
 
   return next;
@@ -294,13 +354,14 @@ function fitsShape(type: string, value: unknown): boolean {
 /**
  * Projects one calendar's stored settings into the shape its form binds.
  *
- * Given the whole list, the Name field shows the calendar's name rather than this block's
- * own: the name belongs to the calendar, so a second block must not show an empty field
- * while the first one names it. {@link writeEntity} expects data built this way.
+ * Given the whole list, the Name field and the filter switch show the calendar's own values
+ * rather than this block's: both belong to the calendar ({@link CALENDAR_OPTIONS}), so a second
+ * block must not show an empty name, or the switch on, while the first one says otherwise.
+ * {@link writeEntity} expects data built this way.
  *
  * @param entry - Entry as stored
- * @param entities - The list as stored, for the calendar's name; without it the field shows
- *   this block's own
+ * @param entities - The list as stored, for the calendar's own values; without it the fields
+ *   show this block's own
  * @returns Form data for that calendar
  */
 export function toEntityFormData(
@@ -316,10 +377,13 @@ export function toEntityFormData(
     [LABEL_IMAGE_SOURCE]: labelImageSourceOf(config.label),
   };
 
-  if (entities !== undefined) {
-    const name = configuredCalendarName(entities, entityIdOf(entry));
-    if (name === undefined) delete data.name;
-    else data.name = name;
+  for (const [key, option] of Object.entries(CALENDAR_OPTIONS)) {
+    // Without the list, the name stays exactly as this block holds it.
+    if (entities === undefined && key === 'name') continue;
+
+    const shown = option.shown(option.configured(entities ?? [config], entityIdOf(entry)));
+    if (shown === undefined) delete data[key];
+    else data[key] = shown;
   }
 
   for (const [name, values] of Object.entries(ENTITY_TRISTATE_VALUES)) {
@@ -381,14 +445,18 @@ export function fromEntityFormData(
 
   const namesPerson = chosenType === 'image' && imageSource === 'person';
 
-  // Written first, beside the id it names, and trimmed here rather than left to the card:
-  // `isSet` counts "   " as set, so a name of spaces would otherwise reach the YAML and name
-  // the calendar nothing at all.
-  const name = nameOf(data.name);
-  if (name !== undefined) entry.name = name;
+  // Written first, beside the id they belong to. The name is trimmed here rather than left to
+  // the card: `isSet` counts "   " as set, so a name of spaces would otherwise reach the YAML
+  // and name the calendar nothing at all. The filter switch stores only `false`, its one state
+  // that is not the default.
+  for (const [key, option] of Object.entries(CALENDAR_OPTIONS)) {
+    const shown = option.shown(option.configured([asEntityConfig(previous)], entityId));
+    const stored = option.stored(option.answered(data[key], shown));
+    if (stored !== undefined) entry[key] = stored;
+  }
 
   for (const [key, value] of Object.entries(data)) {
-    if (key === 'entity' || key === 'name') continue;
+    if (key === 'entity' || isCalendarOption(key)) continue;
 
     if (key === LABEL_TYPE || key === ACCENT_COLOR_MODE) continue;
 
@@ -539,23 +607,33 @@ function nameOf(value: unknown): string | undefined {
 }
 
 /**
- * One entry holding the given name, or none, and otherwise as it was.
+ * One entry holding the given value for one of the {@link CALENDAR_OPTIONS}, or none, and
+ * otherwise as it was.
  *
- * The name goes beside the id it names, where {@link fromEntityFormData} writes it, and an
- * entry left holding nothing but its id goes back to a bare id, as that function returns it.
+ * The calendar's options go beside the id they belong to, in the table's order, where
+ * {@link fromEntityFormData} writes them, and an entry left holding nothing but its id goes
+ * back to a bare id, as that function returns it.
  *
  * @param entry - Entry as stored
- * @param name - The name to hold, or `undefined` for none
- * @returns The entry, the same one when it already holds that name
+ * @param key - Which of the calendar's options
+ * @param value - The value to hold, or `undefined` for none
+ * @returns The entry, the same one when it already holds that value
  */
-function withName(entry: string | Types.EntityConfig, name: unknown): string | Types.EntityConfig {
+function withOption(
+  entry: string | Types.EntityConfig,
+  key: string,
+  value: unknown,
+): string | Types.EntityConfig {
   const config = asEntityConfig(entry) as unknown as Record<string, unknown>;
-  if (config.name === name) return entry;
+  if (config[key] === value) return entry;
 
   const next: Record<string, unknown> = { entity: config.entity };
-  if (name !== undefined) next.name = name;
-  for (const [key, value] of Object.entries(config)) {
-    if (key !== 'entity' && key !== 'name') next[key] = value;
+  for (const option of Object.keys(CALENDAR_OPTIONS)) {
+    const held = option === key ? value : config[option];
+    if (held !== undefined) next[option] = held;
+  }
+  for (const [other, held] of Object.entries(config)) {
+    if (other !== 'entity' && !isCalendarOption(other)) next[other] = held;
   }
 
   return Object.keys(next).length === 1
@@ -566,18 +644,19 @@ function withName(entry: string | Types.EntityConfig, name: unknown): string | T
 /**
  * Replaces one calendar's settings within the list.
  *
- * 🚨 **The name is the calendar's, not this block's**, so it is the one option written past
- * `index`: a changed name is written to every block of the calendar, and a cleared one is
- * cleared from all of them. That keeps a calendar listed twice from holding two names, one
- * of which would silently lose (`CalendarNames.calendarName` takes the first).
+ * 🚨 **The name is the calendar's, not this block's, and so is whether the calendar filter
+ * lists it** ({@link CALENDAR_OPTIONS}), so they are the options written past `index`: a
+ * change to either is written to every block of the calendar, and a cleared name, or the
+ * switch turned back on, is cleared from all of them. That keeps a calendar listed twice from
+ * holding two values, one of which would silently lose (the card takes the first).
  *
  * "Changed" is measured against what the form showed, which {@link toEntityFormData} makes
- * the calendar's name when handed the list — so `data` must be built that way. An edit to
- * anything else hands that name back unchanged, and then every block keeps exactly the name
- * it holds, this one included. The alternative, writing the shown name into each block a
- * write passes through, would put a key into the YAML of a block the user never named, and
- * would quietly rewrite hand-written YAML that names one calendar two ways; a change to the
- * name itself is the user's own answer, and only that settles the calendar's name everywhere.
+ * the calendar's own value when handed the list — so `data` must be built that way. An edit to
+ * anything else hands that value back unchanged, and then every block keeps exactly the value
+ * it holds, this one included. The alternative, writing the shown value into each block a
+ * write passes through, would put a key into the YAML of a block the user never set it on,
+ * and would quietly rewrite hand-written YAML that sets one calendar two ways; a change to the
+ * option itself is the user's own answer, and only that settles it everywhere.
  *
  * @param entities - The list as stored
  * @param index - Position of the calendar being edited
@@ -601,18 +680,28 @@ export function writeEntity(
 
   const entityId = entityIdOf(entities[index]);
   const next = [...entities];
-  const written = fromEntityFormData(entityId, data, entities[index], inheritedAccent, hass);
-  const name = nameOf(data.name);
+  let written = fromEntityFormData(entityId, data, entities[index], inheritedAccent, hass);
+  const own = asEntityConfig(entities[index]) as unknown as Record<string, unknown>;
+  const changes: Array<[string, unknown]> = [];
 
-  if (name === configuredCalendarName(entities, entityId) || entityId === '') {
-    next[index] = withName(written, asEntityConfig(entities[index]).name);
-    return next;
+  for (const [key, option] of Object.entries(CALENDAR_OPTIONS)) {
+    const shown = option.shown(option.configured(entities, entityId));
+    const answered = option.answered(data[key], shown);
+
+    if (answered === shown || entityId === '') {
+      written = withOption(written, key, own[key]);
+    } else {
+      changes.push([key, option.stored(answered)]);
+    }
   }
 
   next[index] = written;
+  if (changes.length === 0) return next;
 
   return next.map((entry, at) =>
-    at !== index && entityIdOf(entry) === entityId ? withName(entry, name) : entry,
+    at !== index && entityIdOf(entry) === entityId
+      ? changes.reduce((held, [key, value]) => withOption(held, key, value), entry)
+      : entry,
   );
 }
 

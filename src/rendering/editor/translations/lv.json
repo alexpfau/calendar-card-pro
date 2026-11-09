@@ -92,6 +92,8 @@
   "entity.remove": "Noņemt",
   "entity.name": "Nosaukums",
   "entity.name.helper": "Šī kalendāra nosaukums kalendāru filtrā, atverot kādu tā notikumu, un paziņojumos. Visi šī kalendāra ieraksti to izmanto kopīgi. Ja lauks ir tukšs, karte izmanto Home Assistant piešķirto nosaukumu, ko kalendāru atlasītājs un šī paneļa virsraksts saglabā jebkurā gadījumā.",
+  "entity.show_in_legend": "Rādīt kalendāru filtrā",
+  "entity.show_in_legend.helper": "Ja izslēgts, šis kalendārs kalendāru filtrā netiek rādīts ne kā poga, ne izvēlnē, tāpēc tā notikumi vienmēr ir redzami. Visi šī kalendāra ieraksti šo iestatījumu izmanto kopīgi.",
   "entity.label_type": "Etiķetes tips",
   "entity.label_type.helper": "Tiek rādīts pirms katra šī kalendāra notikuma. Attēla etiķete ir pārlūkam pieejams ceļš, piemēram /local/work.png.",
   "entity.label_type.option.none.label": "Nav",

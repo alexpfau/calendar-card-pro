@@ -92,6 +92,8 @@
   "entity.remove": "Šalinti",
   "entity.name": "Kalendoriaus pavadinimas",
   "entity.name.helper": "Šio kalendoriaus pavadinimas kalendorių filtre, atidarius jo įvykį, ir pranešimuose. Jį bendrai naudoja visi šio kalendoriaus įrašai. Palikus tuščią, kortelė naudoja Home Assistant suteiktą pavadinimą, kurį kalendorių parinkiklis ir šio skydelio antraštė išlaiko bet kuriuo atveju.",
+  "entity.show_in_legend": "Rodyti kalendorių filtre",
+  "entity.show_in_legend.helper": "Išjungus šis kalendorius kalendorių filtre nerodomas nei kaip mygtukas, nei meniu, todėl jo įvykiai rodomi visada. Šį nustatymą bendrai naudoja visi šio kalendoriaus įrašai.",
   "entity.label_type": "Etiketės tipas",
   "entity.label_type.helper": "Rodoma prieš kiekvieną šio kalendoriaus įvykį. Paveikslėlio etiketė yra naršyklei pasiekiamas kelias, pavyzdžiui /local/work.png.",
   "entity.label_type.option.none.label": "Nėra",

@@ -1014,7 +1014,7 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Shows the calendars this card's configuration has hidden elsewhere: on another card on the
-   * page, or in another tab. Only calendars the card shows are kept.
+   * page, or in another tab. Only calendars the legend lists are kept.
    *
    * @param hidden - Entity ids of the calendars hidden now
    */
@@ -1355,9 +1355,9 @@ class CalendarCardPro extends LitElement {
   private _viewChoice: Types.EffectiveView | null = null;
 
   /**
-   * The calendars this device hid with the legend, by entity id; only ever calendars the card
-   * shows. Replaced rather than changed in place, so the memo keyed on it (`_shownEvents`)
-   * notices every change.
+   * The calendars this device hid with the legend, by entity id; only ever calendars the legend
+   * lists (`legendCalendarIds`). Replaced rather than changed in place, so the memo keyed on it
+   * (`_shownEvents`) notices every change.
    */
   private _hiddenCalendars: ReadonlySet<string> = NO_HIDDEN_CALENDARS;
 
@@ -8084,16 +8084,23 @@ class CalendarCardPro extends LitElement {
   // LEGEND
   //-----------------------------------------------------------------------------
 
-  /** Whether the configuration asks for the calendar legend, in either form. */
+  /**
+   * Whether the configuration asks for the calendar legend, in either form, and leaves it a
+   * calendar to list. A card whose every calendar is left out with `show_in_legend: false` has
+   * no legend: nothing drawn, no hidden calendars read, and nothing for a reset to undo.
+   */
   private get _wantsLegend(): boolean {
     const toolbar = Config.resolveToolbar(this.config);
-    return toolbar.show && toolbar.legend !== false;
+    return (
+      toolbar.show &&
+      toolbar.legend !== false &&
+      Legend.legendCalendarIds(this.config.entities).length > 0
+    );
   }
 
   /** Whether the configuration asks for the legend as chips, which fold where they do not fit. */
   private get _wantsLegendChips(): boolean {
-    const toolbar = Config.resolveToolbar(this.config);
-    return toolbar.show && toolbar.legend === 'chips';
+    return this._wantsLegend && Config.resolveToolbar(this.config).legend === 'chips';
   }
 
   /**

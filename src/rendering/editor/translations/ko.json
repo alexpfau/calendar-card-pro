@@ -57,6 +57,8 @@
   "entity.remove": "제거",
   "entity.name": "이름",
   "entity.name.helper": "캘린더 필터, 이 캘린더의 이벤트를 열 때, 그리고 알림에서 이 캘린더를 부르는 이름입니다. 이 캘린더의 모든 항목이 이 이름을 공유합니다. 비워 두면 카드는 홈어시스턴트의 이름을 사용하며, 캘린더 선택기와 이 패널의 제목은 어느 경우든 그 이름을 유지합니다.",
+  "entity.show_in_legend": "캘린더 필터에 표시",
+  "entity.show_in_legend.helper": "끄면 이 캘린더는 칩으로도 메뉴에서도 캘린더 필터에 나타나지 않으며, 이 캘린더의 이벤트는 항상 표시됩니다. 이 캘린더의 모든 항목이 이 설정을 공유합니다.",
   "entity.label_type": "라벨 유형",
   "entity.label_type.helper": "이 캘린더의 모든 이벤트 앞에 표시됩니다. 이미지 라벨은 /local/work.png와 같이 브라우저가 접근할 수 있는 경로여야 합니다.",
   "entity.label_type.option.none.label": "없음",

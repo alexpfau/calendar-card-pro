@@ -5,6 +5,7 @@ import {
   DEFAULT_CONFIG,
   DEPRECATED_CONFIG_MAP,
   configVersionState,
+  configuredShowInLegend,
   findDeprecatedKeys,
   hasConfigChanged,
   mergeConfig,
@@ -186,6 +187,21 @@ describe('normalizeEntities', () => {
     expect(normalizeEntities({} as unknown as [])).toEqual([]);
   });
 
+  it('keeps show_in_legend only as a boolean', () => {
+    const result = normalizeEntities([
+      { entity: 'calendar.anna', show_in_legend: false },
+      { entity: 'calendar.ben', show_in_legend: true },
+      { entity: 'calendar.family', show_in_legend: 'false' },
+      { entity: 'calendar.work', show_in_legend: 0 },
+    ] as unknown as Parameters<typeof normalizeEntities>[0]);
+
+    expect(result.map(({ show_in_legend }) => show_in_legend)).toEqual([
+      false,
+      true,
+      undefined,
+      undefined,
+    ]);
+  });
   it('applies the same numeric guard to per-entity compact caps', () => {
     // Per-entity limits go through toValidNumber too — the #327 class is not
     // limited to top-level keys.
@@ -224,6 +240,29 @@ describe('normalizeEntities', () => {
     expect(result[0].show_time).toBe(false);
     expect(result[0].show_location).toBe(false);
     expect(result[0].split_multiday_events).toBe(false);
+  });
+});
+
+describe('configuredShowInLegend', () => {
+  it('is decided by the first block of the calendar that sets a boolean', () => {
+    const entities = [
+      'calendar.anna',
+      { entity: 'calendar.ben', label: 'B' },
+      { entity: 'calendar.anna', show_in_legend: 'no' },
+      { entity: 'calendar.anna', show_in_legend: false },
+      { entity: 'calendar.ben', show_in_legend: true },
+      { entity: 'calendar.ben', show_in_legend: false },
+      { entity: 'calendar.anna', show_in_legend: true },
+    ];
+
+    expect(configuredShowInLegend(entities, 'calendar.anna')).toBe(false);
+    expect(configuredShowInLegend(entities, 'calendar.ben')).toBe(true);
+    expect(configuredShowInLegend(entities, 'calendar.family')).toBeUndefined();
+  });
+
+  it('reads nothing from a list that is not one, or entries that are not blocks', () => {
+    expect(configuredShowInLegend(undefined, 'calendar.anna')).toBeUndefined();
+    expect(configuredShowInLegend([null, 42, 'calendar.anna'], 'calendar.anna')).toBeUndefined();
   });
 });
 

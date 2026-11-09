@@ -172,6 +172,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'notices. Every entry for this calendar shares it. Left empty, the card uses Home ' +
     'Assistant\u2019s name for it, which the calendar picker and this panel\u2019s heading ' +
     'keep either way.',
+  'entity.show_in_legend': 'Show in Calendar Filter',
+  'entity.show_in_legend.helper':
+    'Off leaves this calendar out of the calendar filter, as a chip and in the menu, so its ' +
+    'events always show. Every entry for this calendar shares it.',
   'entity.label_type': 'Label Type',
   'entity.label_type.helper':
     'Shown before every event from this calendar. An image label is a path the browser ' +
