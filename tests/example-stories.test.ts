@@ -82,11 +82,11 @@ function problems(card: Card): string[] {
     }
   }
 
-  // A per-calendar key must survive the hand-written projection in `normalizeEntities`,
-  // unchanged, or it never reaches anything (AGENTS.md, "A new per-calendar option must be
-  // added to a hand-written whitelist").
+  // A per-calendar key must survive `normalizeEntities` unchanged, or it never reaches anything.
+  // `tsc` already fails on a key missing from its projection (AGENTS.md, "A per-calendar option
+  // missing from `normalizeEntities` is a compile error"); this also catches a value it rewrites.
   const entities = (card.entities ?? []) as Array<Record<string, unknown>>;
-  const kept = normalizeEntities(entities as Parameters<typeof normalizeEntities>[0]);
+  const kept = normalizeEntities(entities as unknown as Parameters<typeof normalizeEntities>[0]);
   entities.forEach((entity, i) => {
     for (const [key, value] of Object.entries(entity)) {
       if (key in DEPRECATED_ENTITY_CONFIG_MAP) out.push(`deprecated entities[${i}].${key}`);

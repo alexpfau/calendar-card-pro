@@ -1585,32 +1585,37 @@ ran. Since v5 the `days_to_show` control needs a card with no per-view counts: a
 refetches only when it moves the loaded span, the longest count among the views the card can
 show (`loadedDaysToShow`), so a view's own count that leaves that span alone reads 0.
 
-### A new per-calendar option must be added to a hand-written whitelist
+### A per-calendar option missing from `normalizeEntities` is a compile error
 
 🚨 **`normalizeEntities` in `config.ts` projects each entity through a hand-written field
 list, and an option missing from it is dropped before it reaches anything.** Normalization
 runs in `setConfig`, so the key never lands in `_matchedConfig` and the option is inert no
-matter how carefully the rest of it was wired — types, editor schema, translations,
-transform and docs can all be correct and complete.
+matter how carefully the rest of it was wired. Three per-calendar options were written this
+way in one PR, with types, editor schema, translations, transform and docs all correct,
+because `tsc` could not see it: omitting an optional property from an object literal is legal.
 
-It is silent by construction. Nothing in the editor can see it, because the editor writes
-the key correctly; nothing in the types can see it, because the type declares it; and
-`tsc` cannot see it, because omitting an optional property from an object literal is legal.
-Three per-calendar options were written this way in one PR, with every other layer correct,
-and were caught only by the test below.
+So the literal now ends in `satisfies EveryEntityOption`, a type that makes every member of
+`EntityConfig` required while still allowing `undefined`. A key declared in `EntityConfig` and
+missing from the projection fails `npx tsc --noEmit`, naming the key; so does a key the
+interface does not declare, and a value of the wrong type. Declare the option in `EntityConfig`
+first and the compiler names the line you still owe.
 
-**The file already documents the hazard, one function below the one that has it.**
-`serializeEntities` sits twenty lines further down and its docblock reads: _"Being
-field-agnostic is the point. A hand-written field list would silently stop covering the
-next per-calendar option somebody adds."_ That is exactly true, and it protects only
-itself — the projection above it was written the other way, so the two disagree about
-which fields exist and only one of them says so.
+Two things about that type are easy to get wrong:
 
-What catches it is a test that **reconciles the whitelist against `EntityConfig`** rather
-than walking either one, which is the same _pin the whole table by value_ discipline as the
-`Object.keys(TABLE)` trap above; `tests/entity-config-reprocess.test.ts` does this. Blanking
-one line of the projection fails that test plus every behavioral test for the dropped
-option, which is the falsifier to run when adding one.
+- **It maps over `keyof Required<EntityConfig>`, and the shorter form does not work.**
+  `{ [K in keyof EntityConfig]-?: EntityConfig[K] | undefined }` is a homomorphic mapping, and
+  its `-?` strips the written `| undefined` along with the optional flag, so it rejects every
+  option the YAML leaves unset.
+- **It checks presence and type, not provenance.** `label: item.allowlist` compiles, because
+  both are strings. The bare-string branch (`'calendar.x'`) is deliberately unchecked: an id
+  carries no options.
+
+`tests/entity-config-reprocess.test.ts` is the second line, and a different mechanism rather
+than a second copy: it reconciles its option table against `EntityConfig` read from source and
+asserts that changing each option reprocesses the payload, which a dropped key cannot do.
+The falsifier for the compile check is to add `exclude_from_legend?: boolean` to `EntityConfig`
+and run `npx tsc --noEmit`. It must fail with `Property 'exclude_from_legend' is missing`;
+before the check existed, the same edit compiled clean.
 
 ### There is a second hand-written projection, and it is between grouping and rendering
 
@@ -1642,9 +1647,9 @@ found three times, always in the same shape: a comment describes the trap _compl
 _correctly_, for the neighboring case, and the next member of the family arrived in a
 different pull request weeks later and was never added to it.
 
-- `normalizeEntities`'s hand-written projection against `serializeEntities`'s docblock
-  twenty lines below, which argues for being field-agnostic precisely so this cannot happen
-  — and protects only itself.
+- `normalizeEntities`'s hand-written projection against `serializeEntities`'s docblock just
+  below it, which argues for being field-agnostic precisely so this cannot happen — and
+  protected only itself, until `tsc` was made to check the projection against `EntityConfig`.
 - `entityConfigKeys` handling `label_icon_source` and not `accent_color_mode`, the other
   half of the same feature. Substituting two identifiers in that comment yields the defect
   report verbatim.
@@ -1664,7 +1669,8 @@ control rather than on someone remembering.
 
 Two caveats worth keeping. **Reconcile against the type, not against a second list** — a
 second list is one more thing to forget, and the bug is forgetting. And this only works
-where the family has a runtime enumeration; **prose conventions, term choices and judgment
+where the family has an enumeration, at runtime or in a type the compiler can walk with
+`keyof`, as `normalizeEntities` now does; **prose conventions, term choices and judgment
 calls have none**, which is what `scripts/editor-glossary.mjs` is for. Same lesson,
 different mechanism: enforce the family where the family is enumerable, and where it is not,
 name the members explicitly and gate on them.
