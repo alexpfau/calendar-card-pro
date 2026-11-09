@@ -159,6 +159,10 @@ function calendarFields(editor: CalendarCardProEditor): string[] {
   );
 }
 
+function calendarFieldCount(editor: CalendarCardProEditor): number {
+  return calendarFields(editor).length;
+}
+
 const LIST_ESSENTIALS = [
   'calendars',
   'days_to_show',
@@ -252,6 +256,35 @@ describe('Essentials Only on the editor', () => {
     expect(fields).toContain('title');
     expect(fields).not.toContain('day_separator_width');
     expect(fields).not.toContain('days_to_show');
+    // What is missing is no longer what Essentials hides, so no count.
+    expect(root(editor).querySelector('[data-essentials-note]')).toBeNull();
+  });
+
+  it('says how many settings it hides, counting every form it shortens', async () => {
+    const editor = await mount();
+    const everything = panelFields(editor).length + calendarFieldCount(editor) + 4;
+    expect(root(editor).querySelector('[data-essentials-note]')).toBeNull();
+
+    await filter(editor, { essentials_only: true });
+
+    const kept = panelFields(editor).length + calendarFieldCount(editor);
+    expect(root(editor).querySelector('[data-essentials-note]')!.textContent!.trim()).toBe(
+      `Other settings hidden: ${everything - kept}.`,
+    );
+  });
+
+  it('says what is true when none of the essentials is customized', async () => {
+    const editor = await mount({
+      entities: [],
+      weather: undefined,
+      toolbar: undefined,
+      day_separator_width: '2px',
+    });
+    await filter(editor, { essentials_only: true, customized_only: true });
+
+    expect(root(editor).querySelector('.filter-empty')!.textContent!.trim()).toBe(
+      'None of the essential settings is customized. Switch off Essentials Only to see the rest.',
+    );
   });
 
   it('is remembered in this browser, and forgotten when switched off', async () => {

@@ -91,7 +91,7 @@ describe('buildQuickSetupConfig', () => {
     },
   );
 
-  it('answers no to toolbar, weather and taps by leaving those lines out', () => {
+  it('answers no to weather and taps by leaving those lines out, and hides the toolbar', () => {
     const answers: QuickSetupAnswers = {
       ...initialAnswers(OPENING, 'family_hub', ONE_WEATHER),
       weather: '',
@@ -102,9 +102,16 @@ describe('buildQuickSetupConfig', () => {
     const built = buildQuickSetupConfig(OPENING, answers);
 
     expect(built).not.toHaveProperty('weather');
-    expect(built).not.toHaveProperty('toolbar');
     expect(built).not.toHaveProperty('event_tap_action');
     expect(built).not.toHaveProperty('day_tap_action');
+    // Kept, hidden, so switching the toolbar on later brings back the story's own.
+    expect(built.toolbar).toEqual({ show: false, legend: 'chips', reset: true });
+    expect(
+      buildQuickSetupConfig(OPENING, {
+        ...initialAnswers(OPENING, 'now_and_next', {}),
+        toolbar: false,
+      }),
+    ).not.toHaveProperty('toolbar');
   });
 
   it('overrides a leaf of the story’s weather and toolbar, never the whole block', () => {

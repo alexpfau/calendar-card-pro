@@ -116,6 +116,18 @@ export class CalendarCardProEditor extends LitElement {
 
   @state() private _quickSetup?: QuickSetupSession;
 
+  /**
+   * What Apply or Cancel chose, with every preview the run sent, until the next ordinary write.
+   *
+   * A preview's echo can reach `setConfig` after the run has ended, and would otherwise be read
+   * as the YAML changing and adopted, undoing the choice. While this is held, such an echo is
+   * answered by sending the choice again instead.
+   */
+  private _quickSetupSettled?: {
+    readonly previews: ReadonlyArray<Record<string, unknown>>;
+    readonly chosen: Record<string, unknown>;
+  };
+
   private _authoredRootKeys = new Set<string>();
 
   /**
@@ -130,6 +142,29 @@ export class CalendarCardProEditor extends LitElement {
   private _addedButtons = new Set<number>();
 
   private _rawConfig: Record<string, unknown> = {};
+
+  /**
+   * How many settings Essentials Only is hiding, counted as this render draws the panels and read
+   * by the line under the filter bar in the same render. Reset at the start of every render.
+   */
+  private _essentialsHidden = 0;
+
+  /**
+   * Adds what a filtered form leaves out to the count Essentials Only reports.
+   *
+   * Counted only while Essentials Only alone is narrowing the editor: with Customized Only on as
+   * well, what is missing is no longer what Essentials hides.
+   *
+   * @param offered - The form's fields before filtering, inert ones already withheld
+   * @param shown - The fields left after filtering
+   */
+  private _countHidden(
+    offered: ReadonlyArray<HaFormSchema>,
+    shown: ReadonlyArray<HaFormSchema>,
+  ): void {
+    if (!Filter.appliesEssentials(this._filter) || this._filter.customizedOnly) return;
+    this._essentialsHidden += Filter.countFields(offered) - Filter.countFields(shown);
+  }
 
   /**
    * Resolves the configured view to one the editor understands.
@@ -159,6 +194,21 @@ export class CalendarCardProEditor extends LitElement {
    */
   setConfig(config: Types.Config): void {
     const rawConfig = config as unknown as Record<string, unknown>;
+
+    const settled = this._quickSetupSettled;
+    if (settled !== undefined && !Value.equalConfigs(rawConfig, settled.chosen)) {
+      if (settled.previews.some((preview) => Value.equalConfigs(rawConfig, preview))) {
+        // A preview arriving after Apply or Cancel: send the choice again rather than adopt it.
+        // Deferred, so Home Assistant is not handed a new config while it is still setting one.
+        const chosen = structuredClone(settled.chosen);
+        queueMicrotask(() =>
+          this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: chosen } })),
+        );
+        return;
+      }
+      this._quickSetupSettled = undefined;
+    }
+
     const session = this._quickSetup;
     // Quick Setup may have several previews in flight; an echo of any of them is its own.
     const isPreviewEcho =
@@ -271,6 +321,7 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _chooseMigration(mode: Value.ListMigrationMode): void {
     if (this._migration.kind !== 'choice') return;
+    this._quickSetupSettled = undefined;
     const result = this._migrationResult(mode);
     this._adoptMigration(result);
     this._lastDispatched = result.config;
@@ -407,6 +458,7 @@ export class CalendarCardProEditor extends LitElement {
    * @param config - Merged configuration after the edit
    */
   private _report(config: Types.Config): void {
+    this._quickSetupSettled = undefined;
     const stored = Value.toStoredConfig(config, this._authoredRootKeys, this._rawConfig);
 
     // A pruned override must stop owning its value locally too, before any HA echo.
@@ -505,6 +557,7 @@ export class CalendarCardProEditor extends LitElement {
     };
 
     const resets = this._renderResetControls(schema, ctx);
+    this._countHidden(built, schema);
     const entities = this._renderEntities(panel, ctx);
     const buttons = this._renderToolbarButtons(panel, ctx);
     const extras = Filter.filterExtras(panel.extras?.(ctx) ?? [], panel, filterCtx);
@@ -628,24 +681,23 @@ export class CalendarCardProEditor extends LitElement {
     const hasLegend = toolbar.show && toolbar.legend !== false;
 
     const shown = entries
-      .map((entry, index) => ({
-        entry,
-        index,
-        schema: Filter.filterEntitySchema(
-          entitySchemaFor(
-            subform.schema,
-            Entities.labelTypeOf(entry),
-            accentColorModeOf(Entities.asEntityConfig(entry).accent_color),
-            labelIconSourceOf(Entities.asEntityConfig(entry).label),
-            Entities.showsLocation(entry, ctx.config, this._destinationView(ctx)),
-            labelImageSourceOf(Entities.asEntityConfig(entry).label),
-            hasLegend,
-          ),
-          entry,
-          subform.path,
-          filterCtx,
-        ),
-      }))
+      .map((entry, index) => {
+        const declared = entitySchemaFor(
+          subform.schema,
+          Entities.labelTypeOf(entry),
+          accentColorModeOf(Entities.asEntityConfig(entry).accent_color),
+          labelIconSourceOf(Entities.asEntityConfig(entry).label),
+          Entities.showsLocation(entry, ctx.config, this._destinationView(ctx)),
+          labelImageSourceOf(Entities.asEntityConfig(entry).label),
+          hasLegend,
+        );
+        const schema = Filter.filterEntitySchema(declared, entry, subform.path, filterCtx);
+        this._countHidden(
+          Filter.withholdInertFields(declared, ctx.workspace ?? ctx.view, 'entity'),
+          schema,
+        );
+        return { entry, index, schema };
+      })
       .filter((candidate) => Filter.hasFields(candidate.schema));
 
     if (shown.length === 0) return nothing;
@@ -917,12 +969,11 @@ export class CalendarCardProEditor extends LitElement {
     const fields = subform.schema.filter((node) => !Filter.isHeading(node));
 
     const shown = written
-      .map((entry, index) => ({
-        entry,
-        index,
-        key: keys[index],
-        schema: Filter.filterButtonSchema(fields, entry, subform.path, filterCtx),
-      }))
+      .map((entry, index) => {
+        const schema = Filter.filterButtonSchema(fields, entry, subform.path, filterCtx);
+        this._countHidden(fields, schema);
+        return { entry, index, key: keys[index], schema };
+      })
       .filter((candidate) => Filter.hasFields(candidate.schema));
 
     if (filtering && shown.length === 0) return nothing;
@@ -1294,6 +1345,7 @@ export class CalendarCardProEditor extends LitElement {
     if (this._quickSetup !== undefined) {
       return this._renderQuickSetup(ctx, this._quickSetup);
     }
+    this._essentialsHidden = 0;
     const panels = PANELS.map((panel) => this._renderPanel(panel, ctx)).filter(
       (panel) => panel !== nothing,
     );
@@ -1305,7 +1357,8 @@ export class CalendarCardProEditor extends LitElement {
       <div class="card-config">
         ${this._renderQuickSetupEntry(ctx)} ${this._renderViewControls(ctx, chassis)}
         ${this._renderGridReconciliation(ctx)} ${this._renderMisplaced(ctx)}
-        ${this._renderFilterBar(chassis)} ${panels} ${empty ? this._renderNoMatches(ctx) : nothing}
+        ${this._renderFilterBar(chassis)} ${this._renderEssentialsNote(ctx)} ${panels}
+        ${empty ? this._renderNoMatches(ctx) : nothing}
       </div>
     `;
   }
@@ -1656,6 +1709,7 @@ export class CalendarCardProEditor extends LitElement {
 
   /** Opens Quick Setup on the card as it is now. */
   private _openQuickSetup = (): void => {
+    this._quickSetupSettled = undefined;
     this._quickSetup = {
       opening: structuredClone(this._rawConfig),
       openingAuthoredRootKeys: new Set(this._authoredRootKeys),
@@ -1762,6 +1816,10 @@ export class CalendarCardProEditor extends LitElement {
     this._authoredRootKeys = new Set(session.openingAuthoredRootKeys);
     this._migration = this._migrationState(opening);
     this._lastDispatched = opening;
+    this._quickSetupSettled = {
+      previews: session.previews.filter((preview) => !Value.equalConfigs(preview, opening)),
+      chosen: opening,
+    };
     this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: opening } }));
   };
 
@@ -1790,6 +1848,10 @@ export class CalendarCardProEditor extends LitElement {
 
     // The last preview already is the result, unless an answer changed without one.
     this._lastDispatched = stored;
+    this._quickSetupSettled = {
+      previews: session.previews.filter((preview) => !Value.equalConfigs(preview, stored)),
+      chosen: stored,
+    };
     if (Value.equalConfigs(stored, shown)) return;
     this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: stored } }));
   };
@@ -1870,6 +1932,7 @@ export class CalendarCardProEditor extends LitElement {
   private _moveMisplaced(finding: ViewConfig.MisplacedOption, to: Misplaced.Place): void {
     if (Misplaced.moveOption(this._rawConfig, finding, to) === undefined) return;
     if (!this._prepareForWrite()) return;
+    this._quickSetupSettled = undefined;
 
     // A first write can migrate a pre-v5 card; move within what that produced.
     const next =
@@ -1986,6 +2049,22 @@ export class CalendarCardProEditor extends LitElement {
   };
 
   /**
+   * Says how many settings Essentials Only is hiding, so a shorter editor never reads as the
+   * whole of it.
+   *
+   * @param ctx - Schema context
+   * @returns The line, or nothing while Essentials Only is not what narrows the editor
+   */
+  private _renderEssentialsNote(ctx: SchemaCtx): TemplateResult | typeof nothing {
+    if (!Filter.appliesEssentials(this._filter) || this._filter.customizedOnly) return nothing;
+    return html`<div class="filter-note" data-essentials-note>
+      ${interpolate(this._string(ctx, 'essentials_only.hidden'), {
+        count: String(this._essentialsHidden),
+      })}
+    </div>`;
+  }
+
+  /**
    * Says why the editor is empty.
    *
    * @param ctx - Schema context
@@ -1995,9 +2074,11 @@ export class CalendarCardProEditor extends LitElement {
     const query = this._filter.query.trim();
 
     if (query === '') {
-      return html`
-        <div class="filter-empty">${this._string(ctx, 'filter.nothing_customized')}</div>
-      `;
+      // With Essentials Only on too, the rest may well be customized: say only what is true.
+      const key = Filter.appliesEssentials(this._filter)
+        ? 'filter.nothing_customized_essential'
+        : 'filter.nothing_customized';
+      return html` <div class="filter-empty">${this._string(ctx, key)}</div> `;
     }
 
     return html`

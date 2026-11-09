@@ -636,6 +636,20 @@ export function hasFields(schema: ReadonlyArray<HaFormSchema>): boolean {
 }
 
 /**
+ * How many settings a schema offers: its fields, without the groups and headings around them.
+ *
+ * @param schema - Schema to count
+ * @returns The number of fields
+ */
+export function countFields(schema: ReadonlyArray<HaFormSchema>): number {
+  let count = 0;
+  for (const { node } of walkSchema(schema)) {
+    if (!isGroupSchema(node) && !isHeading(node)) count++;
+  }
+  return count;
+}
+
+/**
  * Filters the content a panel renders below its fields.
  *
  * @param extras - Content the panel built

@@ -277,6 +277,13 @@ export default css`
     padding-bottom: 12px;
   }
 
+  .filter-note {
+    color: var(--secondary-text-color);
+    font-size: 12px;
+    line-height: 1.4;
+    padding: 8px 0 4px;
+  }
+
   .filter-empty {
     color: var(--primary-text-color);
     padding: 24px 8px;

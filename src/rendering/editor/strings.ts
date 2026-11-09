@@ -19,8 +19,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'essentials_only.helper':
     'Shows only the settings most cards need. Search still finds every setting, and the ' +
     'switch is remembered in this browser.',
+  // Worded as a label and a number, so no language has to inflect for the count.
+  'essentials_only.hidden': 'Other settings hidden: {count}.',
   'filter.no_matches': 'Nothing matches “{query}”.',
   'filter.nothing_customized': 'Nothing is customized — every setting is at the card default.',
+  'filter.nothing_customized_essential':
+    'None of the essential settings is customized. Switch off Essentials Only to see the rest.',
   'filter.gated_note':
     'Settings that depend on another one appear only once that one is switched on.',
 

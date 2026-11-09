@@ -1768,17 +1768,18 @@ function misplacedInBlock(config: Record<string, unknown>, block: ViewBlock): Mi
   for (const key of Object.keys(values)) {
     if (ownKeys.has(key)) continue;
 
+    // Ownership before the top level: a List-only option such as `compact_events_to_show` is a
+    // top-level key too, but at the top level it still reaches List alone, so `list:` is where
+    // it works rather than the whole card.
+    const owners = blocksOwning(key);
     if (FETCH_TIME_KEYS.has(key)) {
       findings.push({ kind: 'fetch-time', key, from, to: [null] });
+    } else if (owners.length > 0) {
+      findings.push({ kind: 'wrong-view', key, from, to: owners });
     } else if (Object.prototype.hasOwnProperty.call(DEFAULT_CONFIG, key)) {
       findings.push({ kind: 'card-wide', key, from, to: [null] });
     } else {
-      const owners = blocksOwning(key);
-      findings.push(
-        owners.length > 0
-          ? { kind: 'wrong-view', key, from, to: owners }
-          : { kind: 'unknown', key, from, to: [] },
-      );
+      findings.push({ kind: 'unknown', key, from, to: [] });
     }
   }
 

@@ -383,7 +383,8 @@ It keeps these, and hides the rest:
 
 Typing a search sets Essentials Only aside, so a search still reaches every setting. With
 **Customized Only** also on, it shows the essentials this card has changed. Your toolbar's own
-buttons are hidden while it is on.
+buttons are hidden while it is on, and a line under the switches says how many settings it is
+hiding.
 
 ::: tip Not Everything Is There To Be Found
 The editor only offers the settings your current configuration calls for: a fixed calendar content height appears once the height mode is fixed, the compact-mode modifier appears once there is an event limit for it to modify, Allow Editing Events and Allow Deleting Events appear once Event Tap Action is Show Event Details, and Open Links in Events only while Event Tap Action and Event Hold Action are both Nothing. A search cannot turn up a control that is not on screen, so if nothing matches, check whether the option it depends on is switched on.
@@ -511,8 +512,9 @@ Where one mode control governs several options, its reset clears those options t
 ## ⚠️ Options the Card Ignores
 
 When your YAML puts an option where the card does not read it, the editor lists it at the top,
-says where it works and offers to move it there. The card itself ignores such an option without
-a word, so this is where you find out.
+says where it works and offers to move it there. On your dashboard the card ignores such an
+option without a word, and only a development build warns in the browser console, so this is
+where you find out.
 
 ```yaml
 time_grid:
@@ -533,7 +535,8 @@ The editor lists four kinds:
   `time_grid:`. It works only at the top level; see
   [Options That Cannot Be Overridden](/features/column-view#options-that-cannot-be-overridden).
 - **A layout's own option in another layout's block**, such as `start_time` under `column:`,
-  which belongs in `time_grid:`.
+  which belongs in `time_grid:`, or `compact_events_to_show` under `time_grid:`, which belongs
+  in `list:`.
 - **A layout's own option at the top level**, such as `hour_height`, which works only inside
   `time_grid:`.
 - **A name the card does not know inside a layout's block**, often a typo. It has no Move

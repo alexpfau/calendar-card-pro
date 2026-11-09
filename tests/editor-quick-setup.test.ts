@@ -269,6 +269,48 @@ describe('Quick Setup', () => {
     expect(step(editor)).toBe('story');
   });
 
+  it('re-asserts Apply when an earlier preview’s echo arrives after it', async () => {
+    const { editor, reports } = await mount(OPENING, false);
+    await click(editor, '[data-quick-setup-open]');
+    await click(editor, '[data-story="family_hub"]');
+    await click(editor, '[data-story="now_and_next"]');
+    for (let i = 0; i < 4; i++) await click(editor, '[data-quick-setup-next]');
+    await click(editor, '[data-quick-setup-apply]');
+    const chosen = reports[1];
+
+    editor.setConfig(structuredClone(chosen));
+    editor.setConfig(structuredClone(reports[0]));
+    await Promise.resolve();
+    await editor.updateComplete;
+
+    // The late echo is answered with the choice, not adopted.
+    expect(reports).toHaveLength(3);
+    expect(reports[2]).toEqual(chosen);
+    expect(step(editor)).toBeUndefined();
+    // And the editor stayed on it: an edit now builds on Now & Next, not Family Hub.
+    await change(editor, 'title', 'Hall');
+    expect(last(reports)).toMatchObject({ title: 'Hall', days_to_show: 2 });
+    expect(last(reports)).not.toHaveProperty('view');
+  });
+
+  it('re-asserts Cancel when a preview’s echo arrives after it', async () => {
+    const { editor, reports } = await mount(OPENING, false);
+    await click(editor, '[data-quick-setup-open]');
+    await click(editor, '[data-story="family_hub"]');
+    await click(editor, '[data-quick-setup-cancel]');
+    expect(reports).toHaveLength(2);
+    expect(reports[1]).toEqual(OPENING);
+
+    editor.setConfig(structuredClone(reports[0]));
+    await Promise.resolve();
+    await editor.updateComplete;
+
+    expect(reports).toHaveLength(3);
+    expect(reports[2]).toEqual(OPENING);
+    await change(editor, 'title', 'After');
+    expect(last(reports)).toEqual({ ...OPENING, title: 'After' });
+  });
+
   it('closes, restoring nothing, when the YAML changes underneath it', async () => {
     const { editor, reports } = await mount(OPENING, false);
     await click(editor, '[data-quick-setup-open]');

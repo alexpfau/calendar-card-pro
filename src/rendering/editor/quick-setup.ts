@@ -206,10 +206,12 @@ export function buildQuickSetupConfig(
     };
   }
 
-  if (answers.toolbar) {
+  if (Helpers.isConfigBlock(shell.toolbar) || answers.toolbar) {
+    // The story's other toolbar choices stay with "no", as the editor keeps them while the
+    // toolbar is hidden, so switching it on later brings back the story's toolbar.
     desired.toolbar = {
       ...(Helpers.isConfigBlock(shell.toolbar) ? shell.toolbar : {}),
-      show: true,
+      show: answers.toolbar,
     };
   }
 

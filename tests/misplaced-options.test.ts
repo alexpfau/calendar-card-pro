@@ -52,7 +52,7 @@ describe('findMisplacedOptions', () => {
       { kind: 'unknown', key: 'shwo_location', from: 'list', to: [] },
       { kind: 'fetch-time', key: 'weather', from: 'column', to: [null] },
       { kind: 'card-wide', key: 'event_tap_action', from: 'time_grid', to: [null] },
-      { kind: 'card-wide', key: 'compact_events_to_show', from: 'time_grid', to: [null] },
+      { kind: 'wrong-view', key: 'compact_events_to_show', from: 'time_grid', to: ['list'] },
     ]);
   });
 
