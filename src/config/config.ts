@@ -1251,35 +1251,28 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** Normalizes entity configuration to ensure consistent format. */
+/**
+ * Every member of `EntityConfig`, each one required but allowed to be `undefined`.
+ *
+ * `normalizeEntities` ends its projection with `satisfies` this type, so a per-calendar option
+ * declared in `EntityConfig` and missing from the projection is a `tsc` error, and so is a key
+ * the interface does not declare. `keyof Required<…>` is load-bearing: the shorter
+ * `{ [K in keyof T]-?: T[K] | undefined }` is a homomorphic mapping whose `-?` also strips the
+ * written `| undefined`, so it would reject every option the YAML leaves unset.
+ */
+type EveryEntityOption = {
+  [K in keyof Required<Types.EntityConfig>]: Types.EntityConfig[K] | undefined;
+};
+
+/**
+ * Normalizes entity configuration to ensure consistent format.
+ *
+ * The entries come from YAML, so their types are what the card expects rather than what it is
+ * guaranteed: a `name` may be a number, and the list itself may not be an array. Every runtime
+ * check below stays for that reason, whatever the parameter type says.
+ */
 export function normalizeEntities(
-  entities: Array<
-    | string
-    | {
-        entity: string;
-        name?: unknown;
-        label?: string;
-        label_type?: string;
-        color?: string;
-        accent_color?: string;
-        label_icon_color?: string;
-        show_time?: boolean;
-        show_location?: boolean;
-        location_icon?: string;
-        show_description?: boolean;
-        compact_events_to_show?: number;
-        blocklist?: string;
-        allowlist?: string;
-        filter_field?: Types.FilterField;
-        replace_field?: Types.ReplaceField;
-        replace_pattern?: string;
-        replace_with?: string;
-        split_multiday_events?: boolean;
-        event_type?: Types.EventType;
-        days_of_week?: Types.DaysOfWeekFilter;
-        allday_expires_at?: string;
-      }
-  >,
+  entities: Array<string | Types.EntityConfig>,
 ): Array<Types.EntityConfig> {
   if (!Array.isArray(entities)) {
     return [];
@@ -1297,6 +1290,9 @@ export function normalizeEntities(
       }
       // Let malformed YAML entries reach the `.filter(Boolean)` instead of throwing.
       if (item && typeof item === 'object' && item.entity) {
+        // A key left out of this list never reaches `_matchedConfig`, so its option is inert.
+        // `satisfies` makes that a `tsc` error rather than a silent drop; it cannot see a key
+        // copied from the wrong field of the same type.
         return {
           entity: item.entity,
           // Trimmed, and blank or not a string at all is no name: a name that would draw as
@@ -1317,14 +1313,6 @@ export function normalizeEntities(
           blocklist: item.blocklist,
           allowlist: item.allowlist,
           filter_field: item.filter_field,
-          // 🚨 This projection is a hand-written field list, and a per-calendar option
-          // left out of it is **dropped before it reaches anything** — normalization runs
-          // in `setConfig`, so the key never lands in `_matchedConfig` and the option is
-          // inert however carefully the rest of it was wired. Silent, too: nothing in the
-          // editor, the schema or the types can see it. `serializeEntities` below is
-          // field-agnostic precisely to avoid this shape, and it does not protect this
-          // list. `tests/entity-config-reprocess.test.ts` reconciles the whole set against
-          // `EntityConfig` and is what catches an omission here.
           replace_field: item.replace_field,
           replace_pattern: item.replace_pattern,
           replace_with: item.replace_with,
@@ -1332,7 +1320,7 @@ export function normalizeEntities(
           event_type: item.event_type,
           days_of_week: item.days_of_week,
           allday_expires_at: item.allday_expires_at,
-        };
+        } satisfies EveryEntityOption;
       }
       return null;
     })

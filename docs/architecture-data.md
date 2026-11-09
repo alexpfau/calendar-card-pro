@@ -48,7 +48,8 @@ that filters on event class must run before `processMultiDayEvents`, as `event_t
 ::: warning Two Hand-Written Field Lists
 `normalizeEntities` in `config/config.ts` copies each calendar entry through one field list, and
 `groupEventsByDay` builds its display copy through another. A per-calendar option missing from the
-first, or an event field missing from the second, is dropped silently before anything reads it.
+first fails `tsc`, which checks that list against `EntityConfig`. An event field missing from the
+second is dropped silently before anything reads it.
 :::
 
 ## 🗃️ Load Modes
