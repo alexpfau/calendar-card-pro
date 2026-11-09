@@ -1344,3 +1344,27 @@ export interface Translations {
   viewColumns: string;
   viewGrid: string;
 }
+
+// -----------------------------------------------------------------------------
+// PROJECTION CHECKS
+// -----------------------------------------------------------------------------
+
+/**
+ * Every member of `T` except those named in `Except`, each one required but allowed to be
+ * `undefined`.
+ *
+ * A hand-written projection that ends in `satisfies` this type has to name every member of
+ * `T`: one left out is a `tsc` error naming it, and so is one `T` does not declare, or one
+ * named in `Except`. `normalizeEntities` and `groupEventsByDay`'s display copy end in it. It
+ * checks that each member is named with a value of its type, not where the value came from:
+ * `x: undefined` passes for any optional member.
+ *
+ * Keyed through `keyof Required<T>`, so no member comes out optional however TypeScript reads
+ * the mapping. The tempting `{ [K in keyof T]-?: T[K] | undefined }` does not work: its `-?`
+ * strips the written `| undefined` along with the optional flag, so it rejects every member
+ * left unset. `Except` is held to `keyof T`, so a member a projection leaves out on purpose
+ * has to be a real one, and renaming it in `T` breaks the list rather than going unnoticed.
+ */
+export type EveryMember<T, Except extends keyof T = never> = {
+  [K in Exclude<keyof Required<T>, Except>]: T[K] | undefined;
+};

@@ -49,7 +49,9 @@ that filters on event class must run before `processMultiDayEvents`, as `event_t
 `normalizeEntities` in `config/config.ts` copies each calendar entry through one field list, and
 `groupEventsByDay` builds its display copy through another. A per-calendar option missing from the
 first fails `tsc`, which checks that list against `EntityConfig`. An event field missing from the
-second is dropped silently before anything reads it.
+second fails it too, checked against `CalendarEventData` less the few fields the copy leaves out on
+purpose (`LeftOffDisplayCopy`, each with its reason). Both checks see whether a field is there, not
+whether its value is the right one.
 :::
 
 ## 🗃️ Load Modes
