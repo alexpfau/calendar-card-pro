@@ -3,10 +3,11 @@
  * its events on this device.
  *
  * It takes one of two forms. As a menu, a button at the start of the action row opens a
- * checkbox per calendar, floating over the events. As chips, one per calendar sits in the middle
- * of the heading row, tinted in its color, so the chips are also the key to the colors below;
- * where they do not all fit beside the month and the arrows, the chips give way to exactly the
- * menu's layout. The card decides which; this module draws either, and runs the menu.
+ * checkbox per calendar under Show all and Hide all, floating over the events. As chips, one per
+ * calendar sits in the middle of the heading row, tinted in its color, so the chips are also the
+ * key to the colors below; where they do not all fit beside the month and the arrows, the chips
+ * give way to exactly the menu's layout. The card decides which; this module draws either, and
+ * runs the menu.
  *
  * The menu is a native `<dialog>` opened with `showModal()`, placed, painted opaque and closed
  * by the controller every toolbar menu shares (`menu.ts`).
@@ -53,7 +54,12 @@ export interface CalendarLegend {
   folded: boolean;
   /** True while the card is being edited: everything is drawn, and nothing toggles or opens. */
   inert: boolean;
+  /** The words on the menu's two buttons, in the card's language. */
+  showAllLabel: string;
+  hideAllLabel: string;
   onToggle: (id: string) => void;
+  /** Shows every calendar listed, or hides every one: the menu's Show all and Hide all. */
+  onSetAll: (shown: boolean) => void;
 }
 
 /**
@@ -159,10 +165,52 @@ export function renderLegendChips(legend: CalendarLegend): TemplateResult {
 }
 
 /**
+ * Render one of the menu's two buttons, Show all or Hide all.
+ *
+ * A button that would change nothing, Show all with every calendar shown or Hide all with every
+ * one hidden, is unavailable: dimmed as the switcher's views too wide for the card are, and
+ * doing nothing. It stays a tab stop rather than being disabled, so a press that makes it
+ * unavailable leaves focus where it is.
+ *
+ * The other one, never unavailable at the same time, is where a key that opens the menu leaves
+ * focus: `autofocus` is what the dialog's own focusing reads (`openMenu` in `menu.ts`), so a
+ * keyboard lands on a button that does something rather than on a dimmed one. A press that
+ * opens the menu focuses the menu itself, as before.
+ *
+ * @param legend - Legend description from the card
+ * @param shown - Whether the button shows every calendar, rather than hides them
+ * @param idle - Whether every calendar is already as the button would leave it
+ * @param first - Whether a keyboard that opens the menu lands on it
+ * @returns The button
+ */
+function renderSetAllButton(
+  legend: CalendarLegend,
+  shown: boolean,
+  idle: boolean,
+  first: boolean,
+): TemplateResult {
+  return html`<button
+    type="button"
+    class=${idle ? 'legend-menu-action unavailable' : 'legend-menu-action'}
+    data-action=${shown ? 'show-all' : 'hide-all'}
+    aria-disabled=${idle ? 'true' : nothing}
+    ?autofocus=${first}
+    @click=${() => {
+      if (!legend.inert && !idle) legend.onSetAll(shown);
+    }}
+  >
+    ${shown ? legend.showAllLabel : legend.hideAllLabel}
+  </button>`;
+}
+
+/**
  * Render the folded legend: a button leading the action row, and the menu it opens.
  *
- * The menu lists every calendar as a checkbox, tinted as its chip would be. It closes on a
- * press outside it, on Escape, on a scroll or a resize, and on a second press on the button.
+ * The menu lists every calendar as a checkbox, tinted as its chip would be, under two buttons
+ * that show every calendar it lists or hide every one; a calendar it does not list is not
+ * theirs to hide. It stays open for both, as it does for a checkbox, so Hide all and then one
+ * calendar shows that calendar alone. It closes on a press outside it, on Escape, on a scroll
+ * or a resize, and on a second press on the button.
  * The button carries a dot while any calendar is hidden, so a folded legend still says the
  * card is filtered. An icon, a calendar with a funnel: Home Assistant's name for it names it and
  * shows as its tooltip, and the English fallback names it and nothing else.
@@ -176,6 +224,9 @@ export function renderLegendChips(legend: CalendarLegend): TemplateResult {
 export function renderLegendButton(legend: CalendarLegend): TemplateResult {
   const name = legend.name ?? UNLOCALIZED_LEGEND_NAME;
   const filtered = legend.calendars.some((calendar) => !calendar.shown);
+  const emptied = legend.calendars.every((calendar) => !calendar.shown);
+  const showAll = renderSetAllButton(legend, true, !filtered, filtered);
+  const hideAll = renderSetAllButton(legend, false, emptied, !filtered);
   const className = filtered
     ? 'toolbar-button legend-button filtered'
     : 'toolbar-button legend-button';
@@ -209,6 +260,7 @@ export function renderLegendButton(legend: CalendarLegend): TemplateResult {
       @pointerdown=${stopCardGesture}
       @click=${Menu.closeOnPressOutside}
     >
+      <div class="legend-menu-actions">${showAll}${hideAll}</div>
       <div class="legend-menu-list" role="group" aria-label=${name}>
         ${legend.calendars.map(
           (calendar) =>

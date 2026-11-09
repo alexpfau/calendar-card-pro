@@ -14,5 +14,7 @@
   "loading": "Loading calendar events...",
   "error": "Error: Calendar entity not found or improperly configured",
   "loadFailed": "Couldn't load:",
-  "newEvent": "New event"
+  "newEvent": "New event",
+  "showAll": "Show all",
+  "hideAll": "Hide all"
 }

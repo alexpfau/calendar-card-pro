@@ -14,5 +14,7 @@
   "loading": "Načítání událostí z kalendáře...",
   "error": "Chyba: Entita kalendáře nebyla nalezena nebo je nesprávně nakonfigurována",
   "loadFailed": "Nepodařilo se načíst:",
-  "newEvent": "Nová událost"
+  "newEvent": "Nová událost",
+  "showAll": "Zobrazit všechny",
+  "hideAll": "Skrýt všechny"
 }

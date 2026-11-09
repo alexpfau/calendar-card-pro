@@ -14,5 +14,7 @@
   "loading": "Lastar kalenderhendingar...",
   "error": "Feil: Kalendereininga vart ikkje funnen eller er ikkje konfigurert riktig",
   "loadFailed": "Kunne ikkje lastast:",
-  "newEvent": "Ny hending"
+  "newEvent": "Ny hending",
+  "showAll": "Vis alle",
+  "hideAll": "Skjul alle"
 }

@@ -14,5 +14,7 @@
   "loading": "Încărcare evenimente de calendar...",
   "error": "Eroare: Entitatea de calendar nu a fost găsită sau este configurată incorect",
   "loadFailed": "Nu s-a putut încărca:",
-  "newEvent": "Eveniment nou"
+  "newEvent": "Eveniment nou",
+  "showAll": "Arată toate",
+  "hideAll": "Ascunde toate"
 }

@@ -22,5 +22,7 @@
   "loading": "Carregant esdeveniments...",
   "error": "Error: No s'ha trobat l'entitat del calendari o aquesta està mal configurada",
   "loadFailed": "No s'ha pogut carregar:",
-  "newEvent": "Esdeveniment nou"
+  "newEvent": "Esdeveniment nou",
+  "showAll": "Mostra-ho tot",
+  "hideAll": "Amaga-ho tot"
 }

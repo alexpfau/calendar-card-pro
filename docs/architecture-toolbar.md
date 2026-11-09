@@ -113,7 +113,8 @@ The filter (`legend`) changes what is drawn, never what is loaded.
   view is not synced, and is written as a patch of its own half so a stale tab cannot overwrite it.
 - **Only what it lists can hide.** A stored set and an announced one pass through
   `legendCalendarIds`, which leaves out a calendar with `show_in_legend: false`, and a press comes
-  only from a chip or row it drew. A calendar with no chip therefore can never be hidden, whatever a
+  only from a chip or row it drew, or from the menu's Show all and Hide all, which act on that same
+  list (`_setAllCalendars`). A calendar with no chip therefore can never be hidden, whatever a
   device remembers, and a legend left with no calendar is no legend (`_wantsLegend`).
 - **Chips fold by measurement.** `_syncLegendFit` folds the chips into the `menu` button after a
   render, never inside a resize, since either can change the card's height; unfolding needs

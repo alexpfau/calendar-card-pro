@@ -27,5 +27,7 @@
   "loading": "正在加载日历事件...",
   "error": "错误：找不到日历实体或配置不正确",
   "loadFailed": "无法加载：",
-  "newEvent": "新活动"
+  "newEvent": "新活动",
+  "showAll": "全部显示",
+  "hideAll": "全部隐藏"
 }

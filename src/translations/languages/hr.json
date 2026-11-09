@@ -14,5 +14,7 @@
   "loading": "Učitavanje događaja...",
   "error": "Greška: Kalendar entitet nije pronađen ili je neispravno postavljen",
   "loadFailed": "Učitavanje nije uspjelo:",
-  "newEvent": "Novi događaj"
+  "newEvent": "Novi događaj",
+  "showAll": "Pokaži sve",
+  "hideAll": "Sakrij sve"
 }
