@@ -764,9 +764,6 @@ State**, in any workspace.
   banner dims its title, continuation marks included. Grid's
   [now line](/features/grid-view#the-now-line) is independent of dimming.
 - Grid shows an empty day as an empty column rather than a notice, so it has nothing to dim.
-- A notice changes on the card's next ordinary repaint after its date ends, driven by Home
-  Assistant updates and the card's own refreshes, so a card left open across midnight updates
-  when it next repaints rather than at the stroke of twelve.
 
 :::
 

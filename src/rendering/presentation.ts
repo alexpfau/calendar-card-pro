@@ -84,9 +84,10 @@ export function buildEventPresentation(
     // as UTC, which lands a day early for every user behind UTC. Both halves are
     // pinned in `tests/past-empty-day-opacity.dst.test.ts`.
     //
-    // Derived at render time, like real-event dimming. No midnight timer is added, so a
-    // notice changes state on the next ordinary repaint after its date ends rather than
-    // exactly at midnight.
+    // Derived at render time, like real-event dimming. A visible list or column card is
+    // rendered at local midnight by the clock repaint (`_nextClockRepaint`), so a notice dims
+    // then, with no update from Home Assistant; a hidden tab catches up when it is shown.
+    // `tests/clock-repaint.dst.test.ts` pins it. Grid draws no notice.
     isPastEvent = event.start.date ? FormatUtils.parseAllDayDate(event.start.date) < today : false;
   } else {
     const isAllDayEvent = !event.start.dateTime;
