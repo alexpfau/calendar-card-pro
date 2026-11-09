@@ -137,6 +137,7 @@ describe('Layout panel structure', () => {
       'Axis Labels Every',
       '— On the Grid —',
       'Weekend Shading',
+      'Today Shading',
       'Now Line',
       'Most All-Day Rows',
       // Directly above the cap it decides the meaning of: how many events may sit side by

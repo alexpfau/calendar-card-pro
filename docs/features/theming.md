@@ -370,7 +370,8 @@ them alike and the heading keeps the right room.
 
 Make today's events stand out in every view: larger, bold titles in the theme's accent color,
 and wider accent bars that pulse between two colors. In grid view this reaches today's timed
-events only, not its [all-day banners](#grid-view-classes).
+events only, not its [all-day banners](#grid-view-classes). To tint today's whole grid column
+instead, use [`time_grid.today_background_color`](/features/grid-view#shading-today).
 
 ```yaml
 type: custom:calendar-card-pro
@@ -450,7 +451,8 @@ card_mod:
 
 For Grid, use [`time_grid.weekend_background_color`](/features/grid-view#shading-the-weekend)
 instead. Its tint spans the time axis and all-day band, which a rule on
-`.grid-day-body.weekend` cannot reach.
+`.grid-day-body.weekend` cannot reach. Today's column has an option of its own there,
+[`time_grid.today_background_color`](/features/grid-view#shading-today), off by default.
 
 ### Frameless Calendar Integration
 

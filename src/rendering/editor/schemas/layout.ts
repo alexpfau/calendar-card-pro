@@ -209,7 +209,8 @@ function timeAxisFields(blockKey: string, language: string): HaFormSchema[] {
     // sit with these are in Separators now, with every other rule the grid draws: a user
     // restyling "the grid's lines" was being sent to two panels. The shading stays here
     // because it fills a column rather than ruling one, and nothing in Separators would
-    // caption it.
+    // caption it. Today's tint follows the weekend's: the same kind of fill, narrowed from a
+    // class of days to one day, which is the coarse-to-fine order a section reads in.
     //
     // `overlap_layout` sits directly above `max_simultaneous_events` because it decides
     // what that cap counts: how many events may share the width side by side. Read the
@@ -217,6 +218,7 @@ function timeAxisFields(blockKey: string, language: string): HaFormSchema[] {
     heading('heading_on_the_grid'),
     blockScope(blockKey, [
       color('weekend_background_color'),
+      color('today_background_color'),
       bool('show_now_line'),
       {
         name: 'allday_band_max_rows',
