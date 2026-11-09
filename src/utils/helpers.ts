@@ -653,16 +653,17 @@ export function resolveTimePosition(value: unknown): TimePosition {
 }
 
 /**
- * Whether titles on the card can scroll: in every view with `scroll_long_titles`, and in list and
- * column view with `time_position: title`, which scrolls each title it puts a time beside
- * whatever `scroll_long_titles` says. The card measures and animates titles only when this is
- * true; the leaf decides which titles take part.
+ * Whether titles on the card are kept to one line: in every view with `scroll_long_titles`, and
+ * in list and column view with `time_position: title`, which keeps each title it puts a time
+ * beside on that line. The card measures titles only when this is true, to keep their labels on
+ * the line as well; the leaf decides which titles take part, and which of them can move. Only
+ * `scroll_long_titles` moves a title: without it, a title beside the time ends in "…".
  *
  * @param config - The configuration of the view on screen
  * @param view - The view on screen
- * @returns True when a title on the card can scroll
+ * @returns True when a title on the card is kept to one line
  */
-export function titlesScroll(
+export function titlesOnOneLine(
   config: { scroll_long_titles?: unknown; time_position?: unknown },
   view: string,
 ): boolean {

@@ -28,14 +28,15 @@ import * as Helpers from '../src/utils/helpers';
  *   recognize, render the markup the card always drew. The list and column DOM snapshots are
  *   the strong form of that for the default; this checks the fallbacks against it.
  * - **On, the time is drawn in the title's row**, on every row that has a time or a countdown,
- *   without its clock, after list view's weather badge, and the title gets the scrolling markup
- *   whatever `scroll_long_titles` says. Nothing trails the time: list view folds its countdown into
- *   the time text and draws its bar as a row of its own, as column view always has.
+ *   without its clock, after list view's weather badge, and the title is kept to that line
+ *   whatever `scroll_long_titles` says. It carries text the card can move only with that option
+ *   on; off, it ends in "…" where it is too long. Nothing trails the time: list view folds its
+ *   countdown into the time text and draws its bar as a row of its own, as column view always has.
  * - **Nothing else changes.** Checked by reconciling renders rather than by listing what each
  *   row should hold, because the title-line markup is a second copy of the default's and the
  *   way two copies fail is by drifting: column view's rows against the scrolling default with
- *   the clock taken out, and list view's against column view's, which its leaf now draws the
- *   same way.
+ *   the clock taken out, and the moving text too where the title only keeps to its line, and
+ *   list view's against column view's, which its leaf now draws the same way.
  * - **Each view decides for itself**, through `list:` and `column:`, and grid never moves
  *   anything (tests/view-scope-inert.test.ts).
  */
@@ -175,11 +176,13 @@ describe('time_position', () => {
       );
       expect(helper).toMatch(/the title can shrink to a few characters/);
       expect(helper).toMatch(/Use it where the width allows, with few such extras/);
-      expect(helper).toMatch(/Titles that share the line always scroll, whatever Scroll Long/);
+      expect(helper).toMatch(
+        /Titles that share the line stay on it and end in an ellipsis when too long, or scroll with Scroll Long Titles on\./,
+      );
       expect(helper).toMatch(/Title Line Limit does not apply/);
-      // And the option it overrides says so where a reader looks for why a title scrolls.
+      // And the option that moves them says so where a reader looks for why a title scrolls.
       expect(lookup('en', 'scroll_long_titles.helper')).toMatch(
-        /With the time beside the title, long titles always scroll\.$/,
+        /With the time beside the title, long titles scroll only with this on, and otherwise end in an ellipsis\.$/,
       );
     });
   });
@@ -307,7 +310,28 @@ describe('time_position', () => {
       ['by default', {}],
       ['with scroll_long_titles off', { scroll_long_titles: false }],
       ['under a title line limit', { title_max_lines: 2 }],
-    ])('scrolls every title beside a time %s', (_name, overrides) => {
+    ])('keeps every title beside a time to its line, still, %s', (_name, overrides) => {
+      for (const view of ['list', 'column'] as const) {
+        const rows = moved(render(view, { ...DETAILS, ...overrides }));
+        expect(rows.length, view).toBeGreaterThan(4);
+        for (const body of rows) {
+          // The one-line viewport the stylesheet ends in "…", with no text in it the card can
+          // move: the measurement step and the motion controller key on that inner span.
+          const title = body.querySelector('.summary-row > .summary.summary-scroll > .event-title');
+          expect(title?.classList.contains('title-scrollable'), titleOf(body)).toBe(true);
+          expect(title!.querySelector('.event-title-scroll'), titleOf(body)).toBeNull();
+          expect(title!.textContent!.trim(), titleOf(body)).not.toBe('');
+        }
+        // The same options below the title leave titles wrapping.
+        const below = render(view, { ...DETAILS, ...overrides, time_position: 'below' });
+        expect(below.querySelector('.title-scrollable'), view).toBeNull();
+      }
+    });
+
+    it.each([
+      ['card-wide', { scroll_long_titles: true }],
+      ['under a title line limit', { scroll_long_titles: true, title_max_lines: 2 }],
+    ])('scrolls every title beside a time with scroll_long_titles on, %s', (_name, overrides) => {
       for (const view of ['list', 'column'] as const) {
         const rows = moved(render(view, { ...DETAILS, ...overrides }));
         expect(rows.length, view).toBeGreaterThan(4);
@@ -319,10 +343,19 @@ describe('time_position', () => {
             titleOf(body),
           ).not.toBeNull();
         }
-        // The same options below the title leave titles wrapping.
-        const below = render(view, { ...DETAILS, ...overrides, time_position: 'below' });
-        expect(below.querySelector('.title-scrollable'), view).toBeNull();
       }
+    });
+
+    it('scrolls titles beside a time only in the view whose block turns scrolling on', () => {
+      const config = { ...DETAILS, scroll_long_titles: false, list: { scroll_long_titles: true } };
+      const scrolling = (view: AgendaView) =>
+        moved(render(view, config)).map(
+          (body) => body.querySelector('.summary-row .event-title > .event-title-scroll') !== null,
+        );
+      expect(scrolling('list').length).toBeGreaterThan(4);
+      expect(new Set(scrolling('list'))).toEqual(new Set([true]));
+      expect(scrolling('column').length).toBeGreaterThan(4);
+      expect(new Set(scrolling('column'))).toEqual(new Set([false]));
     });
 
     it('draws no clock beside the title, and keeps the running event\'s "Now"', () => {
@@ -459,10 +492,16 @@ describe('time_position', () => {
         'calendar-label label-emoji',
         'event-title  title-scrollable',
       ]);
+      // The labels and the title as the scrolling title draws them, less only the moving text.
       const scrolling = lunch(
         render('list', { ...config, scroll_long_titles: true }, events),
       ).querySelector('.summary-row > .summary')!;
-      expect(withoutFlexWhitespace(summary)).toBe(withoutFlexWhitespace(scrolling));
+      expect(withoutFlexWhitespace(summary)).toBe(withoutFlexWhitespace(stillTitle(scrolling)));
+      // With scrolling on, the title beside the time is the scrolling title exactly.
+      const both = lunch(
+        render('list', { ...config, time_position: 'title', scroll_long_titles: true }, events),
+      ).querySelector('.summary-row > .summary')!;
+      expect(withoutFlexWhitespace(both)).toBe(withoutFlexWhitespace(scrolling));
     });
   });
 
@@ -533,14 +572,15 @@ describe('time_position', () => {
           expect(withoutFlexWhitespace(time), label).toBe(withoutFlexWhitespace(expected));
 
           // The rest of the row, with the time taken out of both and its box gone, is the
-          // scrolling default's.
+          // scrolling default's, less the moving text unless scrolling is on.
           original.remove();
           const aside = rest.querySelector(':scope > .summary-row > .title-aside')!;
           aside.querySelector(':scope > .time')!.remove();
           expect(aside.children, label).toHaveLength(0);
           aside.remove();
           rest.classList.remove('time-beside-title');
-          expect(withoutFlexWhitespace(rest), label).toBe(withoutFlexWhitespace(before));
+          const expectedRest = overrides.scroll_long_titles ? before : stillTitle(before);
+          expect(withoutFlexWhitespace(rest), label).toBe(withoutFlexWhitespace(expectedRest));
         });
 
         // Every row with a time or a countdown moved, and only those.
@@ -595,6 +635,18 @@ describe('time_position', () => {
     );
   });
 });
+
+/**
+ * A copy of an element with every title's moving text unwrapped: the span's children take its
+ * place, so what is left is a title kept to its line with nothing in it that can move.
+ */
+function stillTitle(element: Element): Element {
+  const clone = element.cloneNode(true) as Element;
+  const moving = [...clone.querySelectorAll('.event-title > .event-title-scroll')];
+  expect(moving.length).toBeGreaterThan(0);
+  for (const span of moving) span.replaceWith(...span.childNodes);
+  return clone;
+}
 
 /**
  * Markup with every whitespace-only text node directly inside a flex container removed, then

@@ -477,7 +477,8 @@ card_mod:
 This needs no card-mod: the built-in
 [`time_position`](/features/event-content#time-beside-the-title) option draws the time at the end
 of the title's line, on every row with a time or a countdown. The title keeps the rest of the
-line and scrolls when it is too long, a countdown follows the time after a dot, and list view's
+line and ends in "…" when it is too long, or scrolls with `scroll_long_titles`, a countdown
+follows the time after a dot, and list view's
 progress bar takes a row of its own. It needs a wide event row, more so with countdowns, event
 weather and similar extras, and `list:` and `column:` can each set it for their own layout:
 

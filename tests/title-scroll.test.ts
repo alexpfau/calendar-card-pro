@@ -365,6 +365,16 @@ describe('scroll_long_titles measurement', () => {
     expect(seconds).toBe(Constants.TITLE_SCROLL.MIN_DURATION_S);
   });
 
+  it('keeps a title with no moving text out of the measurement', () => {
+    const { card, title, content } = cardWithTitle(300, 100);
+    content.replaceWith(...content.childNodes);
+    const measure = vi.fn();
+    Object.defineProperty(card, '_titleMotion', { value: { enhanced: false, measure } });
+    card._measureTitleScroll();
+    expect(title.classList.contains('title-overflowing')).toBe(false);
+    expect(measure).toHaveBeenLastCalledWith([]);
+  });
+
   it('clears the class and properties when a title stops overflowing', () => {
     const { card, title, content } = cardWithTitle(300, 100);
     card._measureTitleScroll();
@@ -378,6 +388,17 @@ describe('scroll_long_titles measurement', () => {
     expect(title.style.getPropertyValue('--calendar-card-title-scroll-direction')).toBe('');
   });
 });
+
+/** A title as `scroll_long_titles` draws it: the one-line viewport and the text that moves. */
+function movingTitle(): HTMLElement {
+  const title = document.createElement('span');
+  title.className = 'event-title title-scrollable';
+  const content = document.createElement('span');
+  content.className = 'event-title-scroll';
+  content.textContent = 'A long event title';
+  title.append(content);
+  return title;
+}
 
 describe('scroll_long_titles lifecycle', () => {
   class RecordingResizeObserver {
@@ -464,8 +485,7 @@ describe('scroll_long_titles lifecycle', () => {
       card.setConfig(buildConfig({ entities: [], scroll_long_titles: true }));
       root.appendChild(card);
       await card.updateComplete;
-      const title = document.createElement('span');
-      title.className = 'event-title title-scrollable';
+      const title = movingTitle();
       card.shadowRoot!.appendChild(title);
       card._syncTitleScroll();
       const schedule = vi.spyOn(card, '_scheduleTitleScrollMeasure').mockImplementation(() => {});
@@ -504,8 +524,7 @@ describe('scroll_long_titles lifecycle', () => {
     document.body.appendChild(card);
     await card.updateComplete;
 
-    const title = document.createElement('span');
-    title.className = 'event-title title-scrollable';
+    const title = movingTitle();
     card.shadowRoot!.appendChild(title);
     card._syncTitleScroll();
     card.classList.add('calendar-card-title-scroll-paused');
@@ -552,8 +571,7 @@ describe('scroll_long_titles lifecycle', () => {
     document.body.appendChild(card);
     await card.updateComplete;
 
-    const title = document.createElement('span');
-    title.className = 'event-title title-scrollable';
+    const title = movingTitle();
     card.shadowRoot?.appendChild(title);
     card._syncTitleScroll();
 
@@ -573,14 +591,169 @@ describe('scroll_long_titles lifecycle', () => {
     expect(reconnectObservers.some((observer) => observer.observed.includes(title))).toBe(true);
     expect(RecordingIntersectionObserver.instances).toHaveLength(intersectionCount + 1);
   });
+
+  /**
+   * A title beside the time without `scroll_long_titles` is kept to its line with nothing in it
+   * that can move. The card still measures it, so a text label beside it keeps its line, but
+   * nothing that moves or pauses a title is started for it, and a card whose titles moved hands
+   * that machinery back once none can.
+   */
+  describe('a title kept to its line beside the time', () => {
+    type Card = HTMLElement & {
+      setConfig(config: Types.Config): void;
+      _syncTitleScroll(): void;
+      _titleMotion: { dispose(): void; sync(titles: Iterable<HTMLElement>): void } | null;
+      readonly updateComplete: Promise<boolean>;
+    };
+
+    async function cardBesideTheTime(scroll: boolean): Promise<Card> {
+      const card = document.createElement('calendar-card-pro-dev') as unknown as Card;
+      card.setConfig(
+        buildConfig({ entities: [], time_position: 'title', scroll_long_titles: scroll }),
+      );
+      document.body.appendChild(card);
+      await card.updateComplete;
+      return card;
+    }
+
+    function stillTitle(): HTMLElement {
+      const title = document.createElement('span');
+      title.className = 'event-title title-scrollable';
+      title.textContent = 'A long event title';
+      return title;
+    }
+
+    it('measures a still title but starts nothing that moves or pauses it', async () => {
+      const card = await cardBesideTheTime(false);
+      const title = stillTitle();
+      card.shadowRoot!.appendChild(title);
+      const intersections = RecordingIntersectionObserver.instances.length;
+
+      card._syncTitleScroll();
+
+      expect(RecordingResizeObserver.instances.slice(-1)[0]?.observed).toContain(title);
+      expect(RecordingIntersectionObserver.instances).toHaveLength(intersections);
+      expect(card._titleMotion).toBeNull();
+    });
+
+    it('starts the pause observer for the same card with scroll_long_titles on', async () => {
+      // The control: the same card and the same sync, with a title that can move.
+      const card = await cardBesideTheTime(true);
+      card.shadowRoot!.appendChild(movingTitle());
+      const intersections = RecordingIntersectionObserver.instances.length;
+
+      card._syncTitleScroll();
+
+      expect(RecordingIntersectionObserver.instances).toHaveLength(intersections + 1);
+    });
+
+    it('hands motion back once no title can move, keeping the labels reserved', async () => {
+      const card = await cardBesideTheTime(false);
+      const title = stillTitle();
+      card.shadowRoot!.appendChild(title);
+      const summary = document.createElement('div');
+      summary.className = 'summary summary-scroll';
+      summary.setAttribute('data-scroll-labels', '');
+      card.shadowRoot!.appendChild(summary);
+      const motion = { dispose: vi.fn(), sync: vi.fn() };
+      card._titleMotion = motion;
+      card.classList.add('calendar-card-title-scroll-paused');
+
+      card._syncTitleScroll();
+
+      expect(motion.dispose).toHaveBeenCalledTimes(1);
+      expect(motion.sync).not.toHaveBeenCalled();
+      expect(card._titleMotion).toBeNull();
+      expect(card.classList).not.toContain('calendar-card-title-scroll-paused');
+      expect(summary.hasAttribute('data-scroll-labels')).toBe(true);
+    });
+
+    it('takes the scroll state off a title before the frame after scrolling is turned off', async () => {
+      // A real render: Lit keeps the viewport when only the text inside it changes, so whatever
+      // the measurement wrote on it survives the switch unless the update itself clears it.
+      const start = new Date();
+      start.setDate(start.getDate() + 1);
+      start.setHours(10, 0, 0, 0);
+      const long = {
+        summary: 'Quarterly planning review with the whole product team and every partner',
+        start: { dateTime: start.toISOString() },
+        end: { dateTime: new Date(start.getTime() + 90 * 60 * 1000).toISOString() },
+      };
+      const hass = {
+        states: { 'calendar.anna': { entity_id: 'calendar.anna', state: 'off', attributes: {} } },
+        locale: { language: 'en', first_weekday: 'monday', time_format: '24' },
+        config: { country: 'DE' },
+        themes: { darkMode: false },
+        entities: {},
+        connection: {
+          subscribeMessage: (_callback: unknown, message: { type: string }) =>
+            message.type === 'calendar/event/subscribe'
+              ? Promise.reject({ code: 'unknown_command' })
+              : Promise.resolve(() => {}),
+          subscribeEvents: () => Promise.resolve(() => {}),
+        },
+        callWS: () => Promise.resolve({}),
+        localize: (key: string) => key,
+        callApi: () => Promise.resolve([{ ...long }]),
+        callService: () => Promise.resolve(),
+      } as unknown as Types.Hass;
+      const config = {
+        entities: ['calendar.anna'],
+        days_to_show: 3,
+        time_position: 'title',
+        scroll_long_titles: true,
+      } as unknown as Types.Config;
+      const card = document.createElement('calendar-card-pro-dev') as unknown as Card & {
+        hass: Types.Hass;
+        updateEvents(force?: boolean): Promise<void>;
+      };
+      card.setConfig(config);
+      card.hass = hass;
+      document.body.appendChild(card);
+      await card.updateEvents(true);
+      await card.updateComplete;
+
+      const title = card.shadowRoot!.querySelector<HTMLElement>(
+        '.time-beside-title .event-title.title-scrollable',
+      )!;
+      expect(title.querySelector('.event-title-scroll')).not.toBeNull();
+      // What a measurement of an overflowing title writes, which happy-dom cannot lay out.
+      title.classList.add('title-overflowing');
+      title.style.setProperty('--calendar-card-title-scroll-distance', '200px');
+      title.style.setProperty('--calendar-card-title-scroll-direction', '-1');
+      title.style.setProperty('--calendar-card-title-scroll-duration', '6.00s');
+
+      const frames = vi.fn(() => 1);
+      vi.stubGlobal('requestAnimationFrame', frames);
+      try {
+        card.setConfig({ ...config, scroll_long_titles: false });
+        await card.updateComplete;
+
+        const still = card.shadowRoot!.querySelector<HTMLElement>(
+          '.time-beside-title .event-title.title-scrollable',
+        );
+        expect(still).toBe(title);
+        expect(title.querySelector('.event-title-scroll')).toBeNull();
+        expect(title.classList.contains('title-overflowing')).toBe(false);
+        expect(title.style.getPropertyValue('--calendar-card-title-scroll-distance')).toBe('');
+        expect(title.style.getPropertyValue('--calendar-card-title-scroll-direction')).toBe('');
+        expect(title.style.getPropertyValue('--calendar-card-title-scroll-duration')).toBe('');
+        // The labels are still measured, on the frame this test holds back.
+        expect(frames).toHaveBeenCalled();
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
+  });
 });
 
 /**
- * Whether the card measures and moves titles at all. `time_position: title` scrolls every title it
- * puts a time beside, whatever `scroll_long_titles` says, so the card has to measure them with
- * the option off; grid ignores the placement, so it measures there only as the option says. Both
- * gates are held, the one that starts the observers and the one each frame passes, by counting
- * the measurements a sync leads to.
+ * Whether the card measures titles at all. `time_position: title` keeps every title it puts a
+ * time beside to one line, whatever `scroll_long_titles` says, so the card measures them with the
+ * option off as well, for the labels beside them; only the option gives them text that moves (see
+ * 'a title kept to its line beside the time'). Grid ignores the placement, so it measures there
+ * only as the option says. Both gates are held, the one that starts the observers and the one
+ * each frame passes, by counting the measurements a sync leads to.
  */
 describe('which cards measure their titles', () => {
   afterEach(() => {
