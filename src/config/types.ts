@@ -24,7 +24,8 @@ export interface Config {
   show_empty_today: boolean;
   hide_when_empty: boolean;
   empty_day_text?: string;
-  filter_duplicates: boolean;
+  /** `true` matches copies on title, start, end and location; `ignore_location` on the first three. */
+  filter_duplicates: boolean | 'ignore_location';
   /**
    * Accent color for a row that `filter_duplicates` collapsed across two or more
    * **distinct** calendars, replacing the first-listed calendar's own accent.
@@ -321,7 +322,7 @@ export interface SharedViewOverrides {
 
   // Render-side filters; they do not refetch on width transitions.
   show_past_events?: boolean;
-  filter_duplicates?: boolean;
+  filter_duplicates?: boolean | 'ignore_location';
   duplicate_accent_color?: string;
 
   // Layout and spacing

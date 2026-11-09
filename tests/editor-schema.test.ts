@@ -803,6 +803,7 @@ describe('editor: change detection', () => {
       'card_height',
       'card_max_height',
       'day_tap_action_mode',
+      'filter_duplicates_mode',
       'height_mode',
       'language_mode',
       'location_country_mode',
@@ -1896,6 +1897,7 @@ describe('editor: the panel set', () => {
       height: 'height_mode',
       max_height: 'height_mode',
       day_tap_action: 'day_tap_action_mode',
+      filter_duplicates: 'filter_duplicates_mode',
     };
 
     // `weather` and every registered view block are containers offered as their members
@@ -5152,6 +5154,7 @@ describe('editor: every enumerated synthetic option is selectable', () => {
       'accent_color_mode',
       'allday_badge_position',
       'day_tap_action_mode',
+      'filter_duplicates_mode',
       'height_mode',
       'language_mode',
       'location_country_mode',

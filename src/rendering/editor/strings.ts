@@ -504,13 +504,17 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   hide_when_empty: 'Hide The Card When Empty',
   'hide_when_empty.helper':
     'Removes the card from the dashboard entirely while it has nothing to show.',
-  filter_duplicates: 'Filter Duplicates',
+  filter_duplicates_mode: 'Filter Duplicates',
+  'filter_duplicates_mode.option.off.label': 'Off',
+  'filter_duplicates_mode.option.exact.label': 'Same title, start, end and location',
+  'filter_duplicates_mode.option.ignore_location.label': 'Same title, start and end',
   // See `calendars.helper`: the entry listed first wins, and that entry may be a second
   // block of the same calendar rather than a different one. Colors only — since v4.2 a row
   // merged across two or more distinct calendars shows every one of their labels.
-  'filter_duplicates.helper':
-    'Hides an event whose title, start, end and location all match another. The copy ' +
-    'from the entry listed first is the one kept, along with its color.',
+  'filter_duplicates_mode.helper':
+    'Hides an event that matches another on the fields chosen here. The copy from the ' +
+    'entry listed first is the one kept, along with its color. Leaving location out suits ' +
+    'a holiday that two regional calendars each carry under their own location.',
   duplicate_accent_color: 'Shared Event Color',
   'duplicate_accent_color.helper':
     'Accent color for an event kept from two or more different calendars, in place of ' +

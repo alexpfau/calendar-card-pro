@@ -1459,13 +1459,14 @@ export function groupEventsByDay(
   // Its splitter keeps timed middle days timed and all-day banner identity intact.
   const sourceSignatures = new Map<Types.CalendarEventData, string>();
   const displayDays = new Map<Types.CalendarEventData, string>();
+  const ignoreLocation = config.filter_duplicates === Constants.DUPLICATES_IGNORE_LOCATION;
   const splitEvents = events.flatMap((event) => {
     const occurrences =
       ViewConfig.multidaySplitPolicy(effectiveView) === 'never'
         ? Grid.splitGridEventByDay(event, referenceStart, windowEnd)
         : processMultiDayEvents([event], config);
     if (config.filter_duplicates) {
-      const signature = generateEventSignature(event);
+      const signature = generateEventSignature(event, ignoreLocation);
       occurrences.forEach((occurrence) => sourceSignatures.set(occurrence, signature));
     }
     return occurrences;
@@ -1596,7 +1597,7 @@ export function groupEventsByDay(
   const visibleEvents = deduplicateEvents(
     upcomingEvents,
     config,
-    config.filter_duplicates,
+    Boolean(config.filter_duplicates),
     (event) => {
       const signature = sourceSignatures.get(event)!;
       const first = firstEligible.get(signature);
@@ -2466,9 +2467,19 @@ function filterEventsForEntity(
   return matchedEvents;
 }
 
-function generateEventSignature(event: Types.CalendarEventData): string {
+/**
+ * The identity `filter_duplicates` compares copies by: the original title, start and end, and
+ * the location too unless the option is `ignore_location`.
+ *
+ * @param event Event to identify
+ * @param ignoreLocation Whether to leave the location out of the comparison
+ * @returns The event's signature
+ */
+function generateEventSignature(event: Types.CalendarEventData, ignoreLocation = false): string {
   const summary = event.summary || '';
-  const location = event.location || '';
+  // Under `ignore_location` every copy reads as having none, so a copy with a location
+  // matches one without as readily as one somewhere else.
+  const location = ignoreLocation ? '' : event.location || '';
 
   let timeSignature = '';
 

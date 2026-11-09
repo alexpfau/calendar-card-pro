@@ -1008,7 +1008,7 @@ describe('editor: the order of the two panels', () => {
       '# heading_filters',
       'event_type',
       'show_past_events',
-      'filter_duplicates',
+      'filter_duplicates_mode',
       '# heading_multiday',
       'split_multiday_events',
       '# heading_nothing',
@@ -1079,7 +1079,7 @@ describe('editor: the order of the two panels', () => {
       'allowlist',
       'compact_events_to_show',
     ]);
-    expect(contentFilters).toEqual(['event_type', 'show_past_events', 'filter_duplicates']);
+    expect(contentFilters).toEqual(['event_type', 'show_past_events', 'filter_duplicates_mode']);
 
     /**
      * The invariant, stated over the options the two panels actually share.

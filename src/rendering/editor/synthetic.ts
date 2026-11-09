@@ -4,7 +4,7 @@
  */
 
 import * as Config from '../../config/config';
-import { EVENT_DETAILS_ACTION } from '../../config/constants';
+import { DUPLICATES_IGNORE_LOCATION, EVENT_DETAILS_ACTION } from '../../config/constants';
 import * as Types from '../../config/types';
 import { eventActionKind } from '../../interaction/event-action-kind';
 import * as EntityColors from '../../utils/entity-colors';
@@ -226,6 +226,23 @@ export function dayTapActionMode(config: Readonly<Types.Config>): 'none' | 'add-
   return dayTapAction?.action === 'add-event' ? 'add-event' : 'none';
 }
 
+/** The duplicate filter's choices, in the order its dropdown lists them: off, then strictest. */
+export const FILTER_DUPLICATES_MODES = ['off', 'exact', DUPLICATES_IGNORE_LOCATION] as const;
+
+/**
+ * Derives which events count as copies, as the editor's three-choice dropdown shows it.
+ * `ignore_location` is the one string the card reads as a mode of its own, and it treats any
+ * other truthy value as `true`. So does this, or the dropdown would say off while the card
+ * filtered.
+ *
+ * @param value - Configured `filter_duplicates`, already resolved for the view
+ * @returns Which of the three choices applies
+ */
+export function filterDuplicatesMode(value: unknown): (typeof FILTER_DUPLICATES_MODES)[number] {
+  if (value === DUPLICATES_IGNORE_LOCATION) return DUPLICATES_IGNORE_LOCATION;
+  return value ? 'exact' : 'off';
+}
+
 /**
  * Reads the entity id out of an entry that may be a bare string or a config object.
  *
@@ -441,6 +458,20 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
       value === 'iso' || value === 'simple'
         ? { changes: { show_week_numbers: value } }
         : { changes: { show_week_numbers: undefined } },
+  },
+
+  /**
+   * `filter_duplicates` as a dropdown, because its third value leaves the location out of the
+   * comparison and a switch has only two positions. Every choice stores itself, `false`
+   * included, the way `time_format` stores `time_24h`.
+   */
+  filter_duplicates_mode: {
+    configKeys: ['filter_duplicates'],
+    derive: (config) => filterDuplicatesMode(config.filter_duplicates),
+    apply: (value) =>
+      value === DUPLICATES_IGNORE_LOCATION
+        ? { changes: { filter_duplicates: DUPLICATES_IGNORE_LOCATION } }
+        : { changes: { filter_duplicates: value === 'exact' } },
   },
 
   location_country_mode: {
