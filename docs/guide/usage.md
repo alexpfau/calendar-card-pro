@@ -39,6 +39,15 @@ day_tap_action:
 
 They turn on the [header toolbar](/features/layout-appearance#header-toolbar), which pages through dates, switches layouts, searches and adds events, and let a tap [open an event](/features/actions#tapping-an-event) in the card's popover or [add one on a day](/features/actions#tapping-a-day-to-add-an-event). In the grid you can also [draw an event](/features/actions#drawing-an-event-in-grid-view) and drag one to another time. What you can add, change or delete depends on the calendar: on one that accepts no new events, such as a holiday calendar, nothing adds an event and the popover only shows it. Taps do nothing while the card is being edited, so the picker's preview shows only the toolbar.
 
+When your Home Assistant has exactly one weather entity, the two interactive ones also show its [forecast](/features/weather) beside each day:
+
+```yaml
+weather:
+  entity: weather.home
+```
+
+With several weather entities they leave weather out, rather than guess which one you mean; choose one under **Weather** in the editor.
+
 The other three differ only in `view`, so you can switch layouts later. The grid hides locations by default; `time_grid: { show_location: true }` brings them back.
 :::
 

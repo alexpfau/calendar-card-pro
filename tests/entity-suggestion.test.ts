@@ -123,8 +123,11 @@ describe('getEntitySuggestion', () => {
 
     it('shares no mutable object between the entries', () => {
       // The picker keeps whichever config the user takes, and the editor then writes into it.
-      const shared = ['grid_options', 'toolbar', 'event_tap_action', 'day_tap_action'];
-      const list = suggestions ?? [];
+      const shared = ['grid_options', 'toolbar', 'event_tap_action', 'day_tap_action', 'weather'];
+      const list = [
+        ...(suggestions ?? []),
+        ...(getEntitySuggestion(hass('calendar.family', 'weather.home'), 'calendar.family') ?? []),
+      ];
       for (const key of shared) {
         const objects = list
           .map((suggestion) => suggestion.config[key])
@@ -157,6 +160,45 @@ describe('getEntitySuggestion', () => {
     });
   });
 
+  describe('with weather in the home', () => {
+    const weatherOf = (...extra: string[]) =>
+      (getEntitySuggestion(hass('calendar.family', ...extra), 'calendar.family') ?? []).map(
+        (suggestion) => suggestion.config.weather,
+      );
+
+    it('adds the only weather entity to the two interactive recipes, and nowhere else', () => {
+      expect(weatherOf('weather.home')).toEqual([
+        { entity: 'weather.home' },
+        { entity: 'weather.home' },
+        undefined,
+        undefined,
+        undefined,
+      ]);
+    });
+
+    it('leaves weather out when there is none, or more than one to choose from', () => {
+      expect(weatherOf()).toEqual([undefined, undefined, undefined, undefined, undefined]);
+      expect(weatherOf('weather.home', 'weather.cabin')).toEqual([
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+      ]);
+    });
+
+    it('writes no position, so the card subscribes to the daily forecast alone', () => {
+      const [first] = getEntitySuggestion(
+        hass('calendar.family', 'weather.home'),
+        'calendar.family',
+      )!;
+      expect(buildConfig(first.config as Partial<Types.Config>).weather?.position).toBe(
+        buildConfig({}).weather?.position,
+      );
+      expect(first.config.weather).toEqual({ entity: 'weather.home' });
+    });
+  });
+
   /**
    * The load-bearing one.
    *
@@ -180,7 +222,11 @@ describe('getEntitySuggestion', () => {
    */
   it('keeps every recipe on one event-cache key', () => {
     const locale = { language: 'en', first_weekday: 'sunday' };
-    const suggestions = getEntitySuggestion(hass('calendar.family'), 'calendar.family');
+    // With a weather entity too: weather is fetch-time, but not part of the key.
+    const suggestions = getEntitySuggestion(
+      hass('calendar.family', 'weather.home'),
+      'calendar.family',
+    );
     const ids = (suggestions ?? []).map((suggestion) => {
       const config = buildConfig(suggestion.config as Partial<Types.Config>);
       return generateDeterministicId(

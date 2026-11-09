@@ -1506,6 +1506,22 @@ export function findCalendarEntity(hass: Record<string, { state: string }>): str
 }
 
 /**
+ * The home's weather entity, when there is exactly one.
+ *
+ * Several mean a choice this code cannot make for the user, such as a second home or a provider
+ * kept for comparison, and the first one listed is an accident of setup order. So with two or
+ * more it answers nothing, and the caller leaves weather out.
+ *
+ * @param states - Home Assistant's `hass.states`, treated as possibly malformed
+ * @returns The only `weather.*` entity id, or `undefined`
+ */
+export function findWeatherEntity(states: unknown): string | undefined {
+  if (!states || typeof states !== 'object') return undefined;
+  const weather = Object.keys(states).filter((entityId) => entityId.startsWith('weather.'));
+  return weather.length === 1 ? weather[0] : undefined;
+}
+
+/**
  * Grid layout hint attached to the card picker suggestion.
  *
  * Full width avoids cramped text wrapping in the picker. `'auto'` leaves height to
@@ -1564,16 +1580,21 @@ const SUGGESTION_INTERACTIVE_TIME_GRID_LABEL = 'Interactive Time Grid';
  * calendar cannot write: the add button, day taps and drawing need one that accepts new
  * events, and the popover offers only what the integration allows.
  *
- * Nothing here is fetch-affecting, which is what keeps the two on the shared cache key; see
+ * Nothing here is part of the event-cache key, which is what keeps the two on it; see
  * {@link getEntitySuggestion}. Returned fresh, so no two suggestions share a mutable object.
  *
+ * With a weather entity, the forecast is drawn beside each day. No position is written, so the
+ * card subscribes to the daily forecast alone (`weather.position` defaults to the date).
+ *
+ * @param weatherEntity - The home's only weather entity, or `undefined` to leave weather out
  * @returns The options to spread over the plain recipe
  */
-function interactiveOptions(): Record<string, unknown> {
+function interactiveOptions(weatherEntity: string | undefined): Record<string, unknown> {
   return {
     toolbar: { show: true },
     event_tap_action: { action: Constants.EVENT_DETAILS_ACTION },
     day_tap_action: { action: Constants.ADD_EVENT_ACTION },
+    ...(weatherEntity === undefined ? {} : { weather: { entity: weatherEntity } }),
   };
 }
 
@@ -1625,11 +1646,15 @@ export function getStubConfig(hass: Record<string, { state: string }>): Record<s
  * running, which says nothing about whether this card suits it.
  *
  * All five configs load the same events: they share the entity and `days_to_show`, and none
- * sets a member of `FETCH_TIME_KEYS` or a view's own `days_to_show`. So they share one event-cache
- * key, and the picker's five live previews cost one calendar request. The three plain ones
- * differ only by `view`; the two interactive ones add the toolbar and two actions
- * (`interactiveOptions`), and come first, because Home Assistant shows a card's suggestions in
- * the order returned and these are the ones a new card is best started from. Mind what the
+ * sets a member of the event-cache key (`entities`, the loaded day count, `start_date`,
+ * `first_day_of_week`) or a view's own `days_to_show`. So they share one event-cache key, and
+ * the picker's five live previews cost one calendar request. The three plain ones differ only by
+ * `view`; the two interactive ones add the toolbar and two actions (`interactiveOptions`), and
+ * come first, because Home Assistant shows a card's suggestions in the order returned and these
+ * are the ones a new card is best started from. When the home has exactly one weather entity
+ * (`findWeatherEntity`), the two interactive ones show its forecast too. `weather` is a fetch-time
+ * option, but not part of the event-cache key: it costs each of those two previews a forecast
+ * subscription of its own, and no extra calendar request. Mind what the
  * toolbar does to the key: its layout switcher makes every
  * view reachable, and the card loads the longest `days_to_show` among the views it can reach
  * (`loadedDaysToShow`), so a per-view count in either interactive recipe would split the fetch
@@ -1666,12 +1691,14 @@ export function getEntitySuggestion(
     return null;
   }
 
+  const weatherEntity = findWeatherEntity(states);
+
   return [
     {
       label: SUGGESTION_INTERACTIVE_LIST_LABEL,
       config: {
         ...buildDefaultCardConfig([entityId]),
-        ...interactiveOptions(),
+        ...interactiveOptions(weatherEntity),
         grid_options: { ...SUGGESTION_GRID_OPTIONS },
       },
     },
@@ -1680,7 +1707,7 @@ export function getEntitySuggestion(
       config: {
         ...buildDefaultCardConfig([entityId]),
         view: 'grid',
-        ...interactiveOptions(),
+        ...interactiveOptions(weatherEntity),
         grid_options: { ...SUGGESTION_GRID_OPTIONS },
       },
     },
