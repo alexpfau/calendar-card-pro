@@ -107,7 +107,7 @@ const contentSchema = Helpers.memoizeLast(
       heading('heading_filters'),
       select(language, 'event_type', ['all', 'timed', 'all_day']),
       bool('show_past_events'),
-      bool('filter_duplicates'),
+      select(language, 'filter_duplicates_mode', Synthetic.FILTER_DUPLICATES_MODES),
       // Dependent on purpose: with duplicates showing there is no merged row to recolor,
       // so an always-visible field would be inert half the time — the silent no-op this
       // editor tries hard not to ship.

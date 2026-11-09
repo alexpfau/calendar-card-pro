@@ -646,6 +646,22 @@ is the one from the eligible entry listed **first** in `entities`, carrying that
 `color` and `accent_color`, so reordering `entities` changes which calendar's styling a shared
 event shows.
 
+`filter_duplicates: ignore_location` leaves the location out, matching on title, start and end
+alone. It suits holiday calendars, where one holiday in two regional calendars often differs
+only in location: Home Assistant's Holiday integration gives each holiday its calendar's name
+as the location, so `true` keeps both copies and `ignore_location` shows the holiday once:
+
+```yaml
+entities:
+  - calendar.holidays_bavaria # Listed first, so its copy, location included, is the one kept
+  - calendar.holidays_ticino
+filter_duplicates: ignore_location
+```
+
+Keep `true` where the location tells events apart, such as one title booked in two rooms at
+once. In the visual editor, **Filter Duplicates** offers the three values as **Off**, **Same
+title, start, end and location** and **Same title, start and end**.
+
 Weekday restrictions and all-day expiry are applied before choosing that winner. A calendar
 that excludes a date cannot remove another calendar's eligible copy:
 
@@ -666,7 +682,8 @@ calendar the event belongs to and take a color that marks it as shared; see
 ::: warning Matching Ignores Which Calendar an Event Came From
 Any two events that share a title, start, end and location are treated as duplicates, even if
 they are genuinely separate events and even if both live in the **same** calendar. Nothing is
-hidden merely for starting at the same time — all four fields must match.
+hidden merely for starting at the same time — all four fields must match, or the first three
+under `ignore_location`.
 
 If events start disappearing unexpectedly, set `filter_duplicates: false` to confirm whether
 this option is the cause.
