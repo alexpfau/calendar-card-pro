@@ -383,9 +383,10 @@ export function renderLabel(
 /**
  * Render an event title with optional label and weather data
  *
- * `aside` is `time_position: title`'s time row. Given one, the title always scrolls, and the
- * row draws it after the title in `.title-aside`, after list view's weather badge. Without one
- * the row is the markup every view drew before the option existed.
+ * `aside` is `time_position: title`'s time row. Given one, the title is kept to its line, where
+ * it scrolls with `scroll_long_titles` and otherwise ends in "…", and the row draws the time
+ * after the title in `.title-aside`, after list view's weather badge. Without one the row is the
+ * markup every view drew before the option existed.
  */
 function renderEventTitle(
   event: Types.CalendarEventData,
@@ -417,9 +418,12 @@ function renderEventTitle(
   const labelType = event._matchedConfig?.label_type;
 
   const titleString = showEmptyDayCheckmark ? `✓ ${event.summary}` : event.summary;
-  // A title with a time beside it always scrolls: the time takes the line's end, and the title
-  // has one line beside it whatever `scroll_long_titles` says.
-  const scrollTitles = aside !== undefined || config.scroll_long_titles;
+  // A title with a time beside it is kept to one line: the time takes the line's end, and the
+  // title has one line beside it whatever `scroll_long_titles` says. Only that option moves it;
+  // without it the title is the same one line, cut with "…" where it is too long, as a scrolling
+  // title is under reduced motion.
+  const oneLineTitle = aside !== undefined || config.scroll_long_titles;
+  const titleMoves = Boolean(config.scroll_long_titles);
   // No whitespace inside the word spans, and the spaces between them stay text: joined, the
   // pieces are the title exactly, so its text content does not change.
   //
@@ -440,7 +444,7 @@ function renderEventTitle(
   // cut hide it: a cut on the word before such a run has to take the run out too, or the
   // run's text keeps the line going after the ellipsis. See cutGridTitleLines.
   const titleText =
-    titleWords && !scrollTitles
+    titleWords && !oneLineTitle
       ? html`<span class="title-words"
           >${splitTitleWords(titleString ?? '').map((segment) =>
             segment.kind === 'word'
@@ -517,15 +521,18 @@ function renderEventTitle(
   // whatever `title_max_lines` is set to is ignored for that event. When the option is off,
   // both branches below are byte-identical to the historical markup so no snapshot moves.
   //
-  // The text is wrapped in `.event-title-scroll` only in the scroll branch: `.event-title`
+  // The text is wrapped in `.event-title-scroll` only when the title can move: `.event-title`
   // is the fixed-width clip viewport and the inner span is the full-width element the
-  // measurement step (in calendar-card-pro.ts) animates once it confirms real overflow.
-  const titleInner = scrollTitles
+  // measurement step (in calendar-card-pro.ts) animates once it confirms real overflow. A title
+  // kept to one line beside the time without `scroll_long_titles` has the viewport and no inner
+  // span, so nothing in it can move and its ellipsis is all it ever shows. The span is inline
+  // while still, so its absence draws the same title.
+  const titleInner = titleMoves
     ? html`<span class="event-title-scroll">${titleContent}</span>`
     : titleContent;
 
   const titleClass = `event-title ${isEmptyDay ? 'empty-day-title' : ''}${
-    scrollTitles ? ' title-scrollable' : ''
+    oneLineTitle ? ' title-scrollable' : ''
   }`;
   const titleStyle = entityColor === undefined ? nothing : `color: ${entityColor}`;
 
@@ -538,7 +545,7 @@ function renderEventTitle(
   // carrying a `dir` of its own: with both set the outer element finds no letters, resolves
   // to left-to-right, and blanks Hebrew on a Hebrew dashboard instead. Alignment stays on
   // the dashboard's side; see the matching rule in styles.ts.
-  const titleDir = titleWords && !scrollTitles ? 'auto' : nothing;
+  const titleDir = titleWords && !oneLineTitle ? 'auto' : nothing;
 
   // A list or column title cut by `title_max_lines` lays out its whole line, labels included,
   // in its own direction. The clamp puts its "…" at the end of the line in the direction of
@@ -552,7 +559,7 @@ function renderEventTitle(
   // they were; so is the dir attribute on a title in the dashboard's direction, which moves
   // nothing.
   const summaryDir =
-    !titleWords && !scrollTitles && !isEmptyDay && config.title_max_lines > 0
+    !titleWords && !oneLineTitle && !isEmptyDay && config.title_max_lines > 0
       ? (titleDirection(event.summary ?? '') ?? nothing)
       : nothing;
 
@@ -581,14 +588,14 @@ function renderEventTitle(
           ${titleInner}
         </span>`;
 
-  // The title line of `time_position: title`: the scrolling title, then the badge and the time
-  // together in `.title-aside`, which the stylesheet caps so the title keeps the rest. No
+  // The title line of `time_position: title`: the title, kept to its line, then the badge and the
+  // time together in `.title-aside`, which the stylesheet caps so the title keeps the rest. No
   // directive here: every element in this template is a flex container, which draws none of the
   // whitespace between its children, so Prettier may lay the template out as it likes.
   if (aside) {
     return html`
       <div class="summary-row">
-        <div class="summary${scrollTitles ? ' summary-scroll' : ''}">${title}</div>
+        <div class="summary${oneLineTitle ? ' summary-scroll' : ''}">${title}</div>
         <div class="title-aside">
           ${renderEventWeather(event, config, weatherForecasts)}${aside}
         </div>
@@ -602,7 +609,7 @@ function renderEventTitle(
   // prettier-ignore
   return html`
     <div class="summary-row">
-      <div class="summary${scrollTitles ? ' summary-scroll' : ''}" dir=${summaryDir}>
+      <div class="summary${oneLineTitle ? ' summary-scroll' : ''}" dir=${summaryDir}>
         ${title}
       </div>
       ${renderEventWeather(event, config, weatherForecasts)}
@@ -1197,8 +1204,9 @@ interface TimeBesideTitlePieces {
  * the time text and the progress bar is the row of its own `renderEventContent` passes here,
  * in list view as in column view. With times off, the countdown alone takes the time's place.
  *
- * The title always scrolls, so every row drawn here lays out the same way: the time takes what
- * it needs, normally up to a cap the stylesheet sets, and the title has the rest of the line. Everything else
+ * The title is always one line, so every row drawn here lays out the same way: the time takes
+ * what it needs, normally up to a cap the stylesheet sets, and the title has the rest of the
+ * line, scrolling there with `scroll_long_titles` and otherwise ending in "…". Everything else
  * stays below in its usual order: the progress row, column view's weather row, the location
  * and the description. tests/time-position.test.ts holds those, and the title, to the markup
  * the card draws without the option.

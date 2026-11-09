@@ -383,18 +383,20 @@ title can shrink to a few characters. Keep `below` where that is not acceptable.
   [progress bar](#progress-bar-display) on a row of its own, column view's weather row, the
   location and the description.
 - **The title keeps the rest of the line and stays on it.** When it is too long for its room it
-  [scrolls](#scrolling-long-titles), whatever `scroll_long_titles` says, or ends in "…" with the
-  operating system's reduce-motion setting on. [`title_max_lines`](#limiting-lines-per-field)
-  does not apply to it.
+  ends in "…", so every row keeps one even line. Turn on
+  [`scroll_long_titles`](#scrolling-long-titles) to have it scroll instead; with the operating
+  system's reduce-motion setting on, it still ends in "…".
+  [`title_max_lines`](#limiting-lines-per-field) does not apply to it.
 - **The time takes the room it needs**, normally up to about 60% of the line, list view's
   weather badge included, and wraps inside it, aligned to the end of the line. It takes more
   rather than break a word of the time or the badge, and the title then keeps less.
 
-Each layout can set it on its own:
+Each layout can set it on its own, and so can `scroll_long_titles`:
 
 ```yaml
 list:
   time_position: title # beside the title in the list layout
+  scroll_long_titles: true # a long title beside the time scrolls instead of ending in "…"
 column:
   time_position: below # the columns stay as they are
 ```
@@ -624,8 +626,8 @@ scroll_long_titles: true
   one moves right, to reveal its ending.
 - With the operating system's **reduce motion** setting on, nothing moves and the title is a
   static, truncated line.
-- With [`time_position: title`](#time-beside-the-title), a title with the time beside it scrolls
-  this way whatever `scroll_long_titles` says.
+- With [`time_position: title`](#time-beside-the-title), a title with the time beside it is one
+  line either way: it scrolls this way with `scroll_long_titles` on, and ends in "…" with it off.
 
 It is set for the whole card rather than per calendar, but it can be set per view. Titles wrap
 the most in the narrow columns of the [grid layout](/features/grid-view), so a common setup is to

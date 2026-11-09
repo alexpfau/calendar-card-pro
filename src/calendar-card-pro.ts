@@ -174,6 +174,14 @@ function isScrollPauseOnlyMutation(record: MutationRecord, host: HTMLElement): b
   return typographyClasses(record.oldValue ?? '') === typographyClasses(host.className);
 }
 
+/** Takes a title's scroll state off it: still, it shows its beginning and its ellipsis. */
+function clearTitleOverflow(title: HTMLElement): void {
+  title.classList.remove('title-overflowing');
+  title.style.removeProperty('--calendar-card-title-scroll-distance');
+  title.style.removeProperty('--calendar-card-title-scroll-direction');
+  title.style.removeProperty('--calendar-card-title-scroll-duration');
+}
+
 /**
  * Whether a mutation outside every timed block added or removed an element.
  *
@@ -3769,8 +3777,11 @@ class CalendarCardPro extends LitElement {
    * Reconciles horizontal title scrolling after every render.
    *
    * Measurement observers rebind as titles change; the visible cohort and native clocks
-   * survive those rebinds. A card on which no title can scroll returns immediately: see
-   * `Helpers.titlesScroll`, which `time_position: title` turns on as well.
+   * survive those rebinds. A card on which no title is kept to one line returns immediately:
+   * see `Helpers.titlesOnOneLine`, which `time_position: title` turns on as well. Such a title
+   * is measured even where it cannot move, so its labels keep their line, but only a title with
+   * moving text (`.event-title-scroll`, which `scroll_long_titles` gives it) is handed to the
+   * motion machinery; a card with none runs no motion controller and no pause observer.
    *
    * Shares the detached-card guard the other reconcilers use, and re-measures after a
    * card/title resize, a late font load, or an inherited style or direction change.
@@ -3779,21 +3790,34 @@ class CalendarCardPro extends LitElement {
    * on 24/7 wall panels.
    */
   private _syncTitleScroll(): void {
-    if (!this.isConnected || !Helpers.titlesScroll(this.effectiveConfig, this.effectiveView)) {
+    if (!this.isConnected || !Helpers.titlesOnOneLine(this.effectiveConfig, this.effectiveView)) {
       this._stopTitleScrollObserver();
       return;
     }
 
     const titles = this.renderRoot.querySelectorAll<HTMLElement>('.event-title.title-scrollable');
+    const moving = Array.from(titles).filter((title) => title.querySelector('.event-title-scroll'));
+    // Kept to its line with no text that can move: a title beside the time without
+    // scroll_long_titles. Lit keeps the class and properties a render in which it could move
+    // left on it, since only the text inside it changed, and `title-overflowing` turns its
+    // ellipsis off, so they go before this update paints rather than on the next measurement.
+    titles.forEach((title) => {
+      if (!moving.includes(title)) clearTitleOverflow(title);
+    });
     this._stopTitleScrollObserver(titles.length === 0);
     if (!titles.length) {
       return;
     }
+    if (!moving.length) {
+      // Titles that only keep to their line, after a card whose titles moved: nothing is left
+      // to animate or pause, and the labels' reservation stays for the measurement below.
+      this._stopTitleMotion();
+    }
 
-    if (!this._titleMotion && supportsTitleMotion()) {
+    if (moving.length && !this._titleMotion && supportsTitleMotion()) {
       this._titleMotion = new TitleMotionController(this, () => this._scheduleTitleScrollMeasure());
     }
-    this._titleMotion?.sync(titles);
+    this._titleMotion?.sync(moving);
 
     if (typeof ResizeObserver !== 'undefined') {
       this._titleScrollObserver = new ResizeObserver(() => this._scheduleTitleScrollMeasure());
@@ -3812,7 +3836,7 @@ class CalendarCardPro extends LitElement {
       });
     }
 
-    if (!this._titleMotion && typeof IntersectionObserver !== 'undefined') {
+    if (moving.length && !this._titleMotion && typeof IntersectionObserver !== 'undefined') {
       this._titleScrollIntersectionObserver = new IntersectionObserver((entries) => {
         const offscreen = entries.every((entry) => !entry.isIntersecting);
         this.classList.toggle('calendar-card-title-scroll-paused', offscreen);
@@ -3867,7 +3891,7 @@ class CalendarCardPro extends LitElement {
     }
     this._titleScrollRaf = requestAnimationFrame(() => {
       this._titleScrollRaf = null;
-      if (!this.isConnected || !Helpers.titlesScroll(this.effectiveConfig, this.effectiveView)) {
+      if (!this.isConnected || !Helpers.titlesOnOneLine(this.effectiveConfig, this.effectiveView)) {
         return;
       }
       this._measureTitleScroll();
@@ -3893,6 +3917,7 @@ class CalendarCardPro extends LitElement {
       const fit = title.closest<HTMLElement>('.grid-event')?.dataset.gridTitleFit;
       if (fit === 'compact' || fit === 'blank' || fit === 'measuring') return [];
       const content = title.querySelector<HTMLElement>('.event-title-scroll');
+      // A title with no moving text is kept still; _syncTitleScroll has cleared its state.
       return content ? [{ title, content }] : [];
     });
     // WebKit rounds an inline fragment's offsetWidth differently from an inline-block.
@@ -3950,13 +3975,20 @@ class CalendarCardPro extends LitElement {
         title.style.setProperty('--calendar-card-title-scroll-duration', `${seconds.toFixed(2)}s`);
         title.classList.add('title-overflowing');
       } else {
-        title.classList.remove('title-overflowing');
-        title.style.removeProperty('--calendar-card-title-scroll-distance');
-        title.style.removeProperty('--calendar-card-title-scroll-direction');
-        title.style.removeProperty('--calendar-card-title-scroll-duration');
+        clearTitleOverflow(title);
       }
     });
     this._titleMotion?.measure(measurements);
+  }
+
+  /**
+   * Ends title motion and clears the pause class, leaving measurement and the labels' reserved
+   * widths in place.
+   */
+  private _stopTitleMotion(): void {
+    this._titleMotion?.dispose();
+    this._titleMotion = null;
+    this.classList.remove('calendar-card-title-scroll-paused');
   }
 
   /**
@@ -3983,12 +4015,10 @@ class CalendarCardPro extends LitElement {
     }
 
     if (clearPause) {
-      this._titleMotion?.dispose();
-      this._titleMotion = null;
+      this._stopTitleMotion();
       this.renderRoot.querySelectorAll('[data-scroll-labels]').forEach((summary) => {
         summary.removeAttribute('data-scroll-labels');
       });
-      this.classList.remove('calendar-card-title-scroll-paused');
     }
   }
 
