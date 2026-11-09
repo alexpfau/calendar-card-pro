@@ -719,7 +719,9 @@ export class CalendarCardProEditor extends LitElement {
         ? configured
         : undefined;
     const holdsOnlyName =
-      name !== undefined && Entities.hasSettings(entry) && !Entities.hasTransferableSettings(entry);
+      name !== undefined &&
+      Entities.hasSettings(entry) &&
+      Object.keys(config).every((key) => key === 'entity' || key === 'name');
 
     const described =
       typeof config.label === 'string' && config.label !== ''

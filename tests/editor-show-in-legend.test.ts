@@ -1,7 +1,7 @@
 /**
  * The per-calendar "Show in Calendar Filter" switch in the visual editor.
  *
- * Three things are pinned here, each failing in a way the others cannot see.
+ * Two things are pinned here, each failing in a way the other cannot see.
  *
  * **Where the switch sits, what it says, and when it is offered.** Directly under Name, the
  * other option that belongs to the calendar rather than to one block; only while the card's
@@ -9,11 +9,9 @@
  *
  * **That the setting belongs to the calendar.** A calendar listed twice is one chip, so each
  * panel shows the calendar's value, a change on any panel is written to every block, Remove
- * leaves it on the block that remains, and an edit to anything else leaves each block's value
- * exactly as written. Only `false` is stored; turning the switch back on removes the key.
- *
- * **That it travels.** Unlike the name, Copy and Paste carry it: several calendars drawn alike
- * and kept out of the filter alike is the case the option was asked for.
+ * leaves it on the block that remains, Copy and Paste leave it where it is, and an edit to
+ * anything else leaves each block's value exactly as written. Only `false` is stored; turning
+ * the switch back on removes the key.
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -219,23 +217,41 @@ describe('writing whether the filter lists a calendar', () => {
   });
 });
 
-describe('copying and pasting the filter switch', () => {
+describe('copying and pasting a calendar’s settings', () => {
   beforeEach(() => {
     Entities.clearCopiedSettings();
   });
 
-  it('copies it with the rest of the settings, and pastes it onto another calendar', () => {
+  it('copies everything but whether the filter lists the calendar', () => {
+    Entities.copySettings({ entity: ANNA, show_in_legend: false, accent_color: '#e53935' });
+
+    expect(Entities.copiedSettings()).toEqual({ accent_color: '#e53935' });
+    // Nothing else to copy offers no Copy at all.
+    expect(Entities.hasTransferableSettings({ entity: ANNA, show_in_legend: false })).toBe(false);
+  });
+
+  it("keeps each target block's own value, so a calendar listed twice keeps one", () => {
+    // Anna is left out on her first block only, which both her panels show. A paste onto her
+    // second block, from a calendar the filter lists, must neither bring her back nor leave the
+    // two blocks disagreeing; one onto Ben must not take him out.
     const entities: Array<string | Types.EntityConfig> = [
-      { entity: ANNA, name: 'Anna', show_in_legend: false, accent_color: '#e53935' },
-      BEN,
+      { entity: ANNA, show_in_legend: false, event_type: 'timed' },
+      { entity: ANNA, event_type: 'all_day' },
+      { entity: BEN, show_in_legend: true, label: 'B' },
     ];
-    expect(Entities.hasTransferableSettings({ entity: ANNA, show_in_legend: false })).toBe(true);
+    Entities.copySettings({ entity: 'calendar.family', show_in_legend: false, color: '#f00' });
 
-    Entities.copySettings(entities[0]);
+    const pasted = Entities.pasteSettings(Entities.pasteSettings(entities, 1), 2);
 
-    expect(Entities.pasteSettings(entities, 1)).toEqual([
+    expect(pasted).toEqual([
       entities[0],
-      { show_in_legend: false, accent_color: '#e53935', entity: BEN },
+      { entity: ANNA, color: '#f00' },
+      { entity: BEN, show_in_legend: true, color: '#f00' },
+    ]);
+    expect(pasted.map((entry) => Entities.toEntityFormData(entry, pasted).show_in_legend)).toEqual([
+      false,
+      false,
+      true,
     ]);
   });
 });
@@ -310,6 +326,24 @@ describe('the filter switch in the rendered editor', () => {
       menu: [true],
       chips: [true],
     });
+  });
+
+  it('summarizes a calendar holding its name and the switch as configured', async () => {
+    // The name alone says nothing more under the heading; the switch is a setting of its own.
+    const editor = await render(
+      [
+        { entity: ANNA, name: 'Anna at work', show_in_legend: false },
+        { entity: BEN, name: 'Ben at school' },
+      ],
+      { show: true, legend: 'chips' },
+    );
+    const secondary = Array.from(
+      editor.element.shadowRoot!.querySelectorAll<HTMLElement & { secondary?: string }>(
+        'ha-expansion-panel.entity-panel',
+      ),
+    ).map((panel) => panel.secondary);
+
+    expect(secondary).toEqual(['Anna at work · Configured', 'Ben at school']);
   });
 
   it('shows the second block the calendar left out, and writes the switch to both', async () => {

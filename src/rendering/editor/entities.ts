@@ -29,16 +29,6 @@ import { firstPersonEntityId, isPersonEntityId } from '../../utils/person-pictur
 const NUMERIC_KEYS: ReadonlySet<string> = new Set(['compact_events_to_show']);
 
 /**
- * Keys that say which calendar an entry is rather than how it is shown, and so never travel
- * through Copy and Paste.
- *
- * `name` is identity as much as `entity` is: it names one calendar, and pasting it onto
- * another would give two calendars one name in the legend. Duplicate is different, and keeps
- * it, because a duplicate is the same calendar.
- */
-const NON_TRANSFERABLE_KEYS: ReadonlySet<string> = new Set(['entity', 'name']);
-
-/**
  * One option that belongs to the calendar rather than to one block of it, in the four terms
  * the editor reads and writes it in.
  */
@@ -61,9 +51,9 @@ interface CalendarOption {
  * whole list, the first block that sets it deciding, so two blocks holding two values would
  * show one on screen and the other in a panel.
  *
- * `show_in_legend` travels through Copy and Paste where `name` does not: the name says which
- * calendar a block is, while leaving a calendar out of the filter is a setting several
- * calendars shown alike may share.
+ * None of them travels through Copy and Paste ({@link NON_TRANSFERABLE_KEYS}), which act on one
+ * block: a paste writing one would leave the calendar's other blocks saying something else,
+ * and the first of them would still decide.
  */
 const CALENDAR_OPTIONS: Readonly<Record<string, CalendarOption>> = {
   name: {
@@ -91,6 +81,20 @@ const CALENDAR_OPTIONS: Readonly<Record<string, CalendarOption>> = {
 function isCalendarOption(key: string): boolean {
   return Object.prototype.hasOwnProperty.call(CALENDAR_OPTIONS, key);
 }
+
+/**
+ * Keys that never travel through Copy and Paste: the id, and every option the calendar has once.
+ *
+ * `name` is identity as much as `entity` is: it names one calendar, and pasting it onto
+ * another would give two calendars one name in the legend. Whether the filter lists a calendar
+ * stays with it for the reason {@link CALENDAR_OPTIONS} gives: Paste writes one block, and the
+ * setting belongs to all of them. Duplicate is different, and keeps both, because a duplicate is
+ * the same calendar.
+ */
+const NON_TRANSFERABLE_KEYS: ReadonlySet<string> = new Set([
+  'entity',
+  ...Object.keys(CALENDAR_OPTIONS),
+]);
 
 /**
  * Settings copied from one calendar, awaiting a paste.
@@ -722,7 +726,8 @@ function transferableSettings(entry: string | Types.EntityConfig): Types.EntityC
 /**
  * Copies one calendar's settings to the clipboard.
  *
- * A calendar with nothing to transfer — none of its own settings, or only its name — leaves
+ * A calendar with nothing to transfer — none of its own settings, or only the options it has once
+ * ({@link CALENDAR_OPTIONS}), such as its name — leaves
  * the clipboard as it was: an empty copy would arm every Paste button with a paste that
  * clears the calendar it lands on.
  *
@@ -753,8 +758,9 @@ export function clearCopiedSettings(): void {
 /**
  * Applies the copied settings to one calendar.
  *
- * The target keeps its own name, which says which calendar it is rather than how it is
- * shown; everything else is replaced by what was copied.
+ * The target keeps the options the calendar has once ({@link CALENDAR_OPTIONS}): its name, which
+ * says which calendar it is rather than how it is shown, and whether the filter lists it, which
+ * every block of the calendar shares. Everything else is replaced by what was copied.
  *
  * @param entities - The list as stored
  * @param index - Position of the calendar being pasted into
@@ -771,8 +777,13 @@ export function pasteSettings(
   }
 
   const entityId = entityIdOf(entities[index]);
-  const name = asEntityConfig(entities[index]).name;
-  const pasted = { ...clipboard, entity: entityId, ...(name === undefined ? {} : { name }) };
+  const target = asEntityConfig(entities[index]) as unknown as Record<string, unknown>;
+  const own = Object.fromEntries(
+    Object.keys(CALENDAR_OPTIONS)
+      .filter((key) => target[key] !== undefined)
+      .map((key) => [key, target[key]]),
+  );
+  const pasted = { ...clipboard, entity: entityId, ...own };
 
   next[index] = Object.keys(pasted).length === 1 ? entityId : pasted;
 
@@ -792,8 +803,9 @@ export function hasSettings(entry: string | Types.EntityConfig): boolean {
 /**
  * Whether a calendar carries any settings Copy would take, which is what offers Copy.
  *
- * Narrower than {@link hasSettings}: a calendar holding only its name has settings of its
- * own and nothing to copy, because the name stays with the calendar it names.
+ * Narrower than {@link hasSettings}: a calendar holding only its name, or only whether the
+ * filter lists it, has settings of its own and nothing to copy, because both stay with the
+ * calendar ({@link NON_TRANSFERABLE_KEYS}).
  *
  * @param entry - Entry as stored
  * @returns `true` when anything other than the calendar's identity is configured
