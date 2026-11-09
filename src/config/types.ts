@@ -634,6 +634,16 @@ export interface EntityConfig {
    * which is what `label` is for, and Home Assistant's own controls keep Home Assistant's name.
    */
   name?: string;
+  /**
+   * Whether the calendar filter lists this calendar, as a chip or as a row in its menu. Unset
+   * is `true`. `false` leaves it out, and with it the only control that could hide its events,
+   * so they always show, even where a device still remembers the calendar as hidden.
+   *
+   * 🚨 It belongs to the calendar, not to this block, as `name` does: a calendar listed twice is
+   * one chip, so the first block that sets it decides (`configuredShowInLegend` in
+   * `config/config.ts`), and the editor writes a change to every block of the calendar.
+   */
+  show_in_legend?: boolean;
   label?: string;
   label_type?: LabelType;
   color?: string;

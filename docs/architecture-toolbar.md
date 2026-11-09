@@ -111,6 +111,10 @@ The filter (`legend`) changes what is drawn, never what is loaded.
 - **Synced.** The set shares the switcher's `view-choice.ts` entry. Cards on one page follow
   `LEGEND_CHANGED_EVENT`, other tabs the `storage` event (`hiddenCalendarsChange`). The switcher's
   view is not synced, and is written as a patch of its own half so a stale tab cannot overwrite it.
+- **Only what it lists can hide.** A stored set and an announced one pass through
+  `legendCalendarIds`, which leaves out a calendar with `show_in_legend: false`, and a press comes
+  only from a chip or row it drew. A calendar with no chip therefore can never be hidden, whatever a
+  device remembers, and a legend left with no calendar is no legend (`_wantsLegend`).
 - **Chips fold by measurement.** `_syncLegendFit` folds the chips into the `menu` button after a
   render, never inside a resize, since either can change the card's height; unfolding needs
   `UI.LEGEND_UNFOLD_MARGIN` of room so the two cannot alternate.

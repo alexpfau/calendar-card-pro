@@ -92,6 +92,8 @@
   "entity.remove": "Entfernen",
   "entity.name": "Name",
   "entity.name.helper": "Benennt diesen Kalender im Kalenderfilter, wenn du einen seiner Termine öffnest, und in Hinweisen. Alle Einträge dieses Kalenders teilen ihn. Bleibt das Feld leer, verwendet die Karte den Namen aus Home Assistant, den die Kalenderauswahl und die Überschrift dieses Bereichs ohnehin behalten.",
+  "entity.show_in_legend": "Im Kalenderfilter anzeigen",
+  "entity.show_in_legend.helper": "Ist die Einstellung ausgeschaltet, erscheint dieser Kalender weder als Kalender-Chip noch im Menü des Kalenderfilters, sodass seine Termine immer angezeigt werden. Alle Einträge dieses Kalenders teilen diese Einstellung.",
   "entity.label_type": "Label-Typ",
   "entity.label_type.helper": "Wird vor jedem Termin aus diesem Kalender angezeigt. Ein Bild-Label ist ein Pfad, den der Browser erreichen kann, etwa /local/work.png.",
   "entity.label_type.option.none.label": "Ohne",

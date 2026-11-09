@@ -119,6 +119,9 @@ export const LABEL_ICON_SOURCE = 'label_icon_source';
 
 export const LABEL_IMAGE_SOURCE = 'label_image_source';
 
+/** The switch that lists a calendar in the calendar filter, or leaves it out. */
+export const SHOW_IN_LEGEND = 'show_in_legend';
+
 /**
  * Where an icon label's value comes from.
  *
@@ -347,6 +350,10 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
   return [
     heading('heading_appearance'),
     text('name'),
+    // Beside `name` because both belong to the calendar rather than to this block, and both
+    // are about the calendar filter's entry for it: what it says, and whether there is one.
+    // Everything after them says how this calendar's events look.
+    { name: SHOW_IN_LEGEND, selector: { boolean: {} } },
     labelType(ctx.language),
     labelIconSource(ctx.language),
     labelImageSource(ctx.language),
@@ -505,6 +512,7 @@ function labelIconSource(language: string): SelectorSchema {
  * @param iconSource - Where this calendar's icon label comes from
  * @param showsLocation - Whether this calendar's events draw a location row at all
  * @param imageSource - Where this calendar's image label comes from
+ * @param hasLegend - Whether the card's toolbar shows a calendar filter at all
  * @returns The schema this calendar renders
  */
 export function entitySchemaFor(
@@ -514,6 +522,7 @@ export function entitySchemaFor(
   iconSource: string = 'custom',
   showsLocation: boolean = true,
   imageSource: string = 'custom',
+  hasLegend: boolean = true,
 ): HaFormSchema[] {
   const replaced = new Set([LABEL_ICON_SOURCE, LABEL_IMAGE_SOURCE, 'label', 'label_icon_color']);
 
@@ -535,6 +544,11 @@ export function entitySchemaFor(
     // against the card *for the view being edited*, so a calendar left on "Follow the card"
     // hides it exactly when the card would draw no location either.
     if (node.name === 'location_icon') return showsLocation ? [node] : [];
+
+    // Nor does the filter switch, on a card whose toolbar shows no calendar filter: there is
+    // nothing to list the calendar in. Whether the filter is a menu or chips does not matter,
+    // since it leaves the calendar out of both.
+    if (node.name === SHOW_IN_LEGEND) return hasLegend ? [node] : [];
 
     if (!replaced.has(node.name)) return [node];
     if (inserted) return [];

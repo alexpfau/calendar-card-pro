@@ -3799,6 +3799,7 @@ describe('editor: per-calendar settings', () => {
         'replace_pattern',
         'replace_with',
         'show_description',
+        'show_in_legend',
         'show_location',
         'show_time',
         'split_multiday_events',

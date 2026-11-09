@@ -317,16 +317,16 @@ Every calendar gets a collapsible panel of its own, headed with the calendar's n
 
 Each panel opens with four actions:
 
-| Action             | What it does                                                                       |
-| ------------------ | ---------------------------------------------------------------------------------- |
-| **Copy Settings**  | Takes this calendar's settings, without taking the calendar itself or its name     |
-| **Paste Settings** | Applies them to this calendar, keeping the calendar it is applied to and its name  |
-| **Duplicate**      | Gives this calendar a second block, carrying the first one's settings and its name |
-| **Remove**         | Drops this block                                                                   |
+| Action             | What it does                                                                                                   |
+| ------------------ | -------------------------------------------------------------------------------------------------------------- |
+| **Copy Settings**  | Takes this calendar's settings, without taking the calendar itself, its name or **Show in Calendar Filter**    |
+| **Paste Settings** | Applies them to this calendar, keeping the calendar it is applied to, its name and **Show in Calendar Filter** |
+| **Duplicate**      | Gives this calendar a second block, carrying the first one's settings and its name                             |
+| **Remove**         | Drops this block                                                                                               |
 
 **Remove** is held apart from the other three: it is the only one that discards anything, and a card editor has no undo.
 
-**Copy Settings** is offered only once a calendar carries something besides its name. The clipboard behind it outlives the dialog, so settings copied while editing one card can be pasted into another — useful when several cards list the same calendars.
+**Copy Settings** is offered only once a calendar carries something besides its name and **Show in Calendar Filter**. The clipboard behind it outlives the dialog, so settings copied while editing one card can be pasted into another — useful when several cards list the same calendars.
 
 **Duplicate** is how you give one calendar two sets of settings. That is what [splitting a calendar by event type](/features/core-settings#separating-all-day-from-timed-events) needs, and it cannot be done from the picker, which will not hold the same calendar twice. Both panels then carry the same heading, and their secondary lines are numbered **Entry 1 of 2** and **Entry 2 of 2**.
 
@@ -344,7 +344,8 @@ Clearing a calendar's row in the **picker** removes that calendar from the card 
   **Kids** rather than **Kids · Configured**, and with a label as well it reads
   **Kids · School**.
 - A calendar with two blocks has one name, so changing it on either block changes it on both,
-  and removing the block that held it leaves it on the block that remains.
+  and removing the block that held it leaves it on the block that remains. **Show in Calendar
+  Filter** works the same way.
 
 :::
 
@@ -353,8 +354,10 @@ Clearing a calendar's row in the **picker** removes that calendar from the card 
 ## 🏷️ Per-Calendar Labels
 
 Each calendar's panel opens with **Name**, the
-calendar's [name on the card](/features/core-settings#naming-a-calendar-in-the-card), and
-the control after it is **Label Type**. A label is the mark shown before every event from
+calendar's [name on the card](/features/core-settings#naming-a-calendar-in-the-card), then
+**Show in Calendar Filter** while the toolbar shows a
+[calendar filter](/features/layout-appearance#leaving-a-calendar-out-of-the-filter), and the
+control after them is **Label Type**. A label is the mark shown before every event from
 that calendar, and it can be four things — nothing, text or an emoji, an icon, or an image.
 
 The editor reads the type from the value: `mdi:home` is an icon, `/local/work.png` is an

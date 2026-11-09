@@ -23,6 +23,7 @@ import { expectTapControl } from './tap-control';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
 import { buildDetailEntry, detailPermissions } from '../src/interaction/event-details';
+import { LEGEND_CHANGED_EVENT } from '../src/rendering/legend';
 import * as EventUtils from '../src/utils/events';
 import {
   VIEW_CHOICE_STORAGE_KEY,
@@ -104,6 +105,9 @@ const LEGEND_ONLY: Types.ToolbarConfig = {
   add_event: false,
   refresh: false,
 };
+
+/** {@link LEGEND_ONLY} with the legend off too: the toolbar's heading row and nothing else. */
+const LEGEND_OFF: Types.ToolbarConfig = { ...LEGEND_ONLY, legend: false };
 
 const BASE: Partial<Types.Config> = {
   entities: [
@@ -904,6 +908,124 @@ describe('the hidden calendars a device remembers', () => {
 
     expect(titles(card)).toContain('Football');
     expect(localStorage.getItem(VIEW_CHOICE_STORAGE_KEY)).toContain(BEN);
+  });
+});
+
+//-----------------------------------------------------------------------------
+// LEFT OUT
+//-----------------------------------------------------------------------------
+
+describe('a calendar left out of the legend', () => {
+  /** Ben's events are drawn, and the filter has no place for him. */
+  const BEN_OUT: Partial<Types.Config> = {
+    entities: [
+      { entity: ANNA, accent_color: '#e53935' },
+      { entity: BEN, accent_color: '#1e88e5', show_in_legend: false },
+      FAMILY,
+    ],
+  };
+
+  /** Every calendar left out. */
+  const ALL_OUT: Partial<Types.Config> = {
+    entities: [ANNA, BEN, FAMILY].map((entity) => ({ entity, show_in_legend: false })),
+  };
+
+  const menuRows = (card: CardUnderTest) =>
+    Array.from(root(card).querySelectorAll<HTMLElement>('.legend-menu-row')).map(
+      (row) => row.dataset.calendar,
+    );
+
+  it('has no chip, and its events show as before', async () => {
+    const card = await mount(BEN_OUT);
+
+    expect(chips(card).map((button) => button.dataset.calendar)).toEqual([ANNA, FAMILY]);
+    expect(titles(card)).toEqual(['Recycling', 'Dentist', 'Football', 'Team lunch', 'Team lunch']);
+
+    // The control: the calendars still listed still hide.
+    await press(card, ANNA);
+    expect(titles(card)).toEqual(['Recycling', 'Football', 'Team lunch']);
+  });
+
+  it('has no row in the menu', async () => {
+    const card = await mount({ ...BEN_OUT, toolbar: { ...LEGEND_ONLY, legend: 'menu' } });
+
+    expect(menuRows(card)).toEqual([ANNA, FAMILY]);
+  });
+
+  it('is left out, or kept, by the first block of the calendar that says which', async () => {
+    // Anna's first block says nothing and her second leaves her out; Family's first block keeps
+    // it and its second would leave it out. One chip per calendar either way.
+    const card = await mount({
+      entities: [
+        { entity: ANNA, event_type: 'timed' },
+        { entity: ANNA, event_type: 'all_day', show_in_legend: false },
+        BEN,
+        { entity: FAMILY, show_in_legend: true },
+        { entity: FAMILY, show_in_legend: false },
+      ],
+    });
+
+    expect(chips(card).map((button) => button.dataset.calendar)).toEqual([BEN, FAMILY]);
+  });
+
+  it('shows its events where a device still remembers it as hidden', async () => {
+    // Remembered from before it was left out, or announced by another card: a calendar with no
+    // chip has no way back, so nothing may hide it. Anna, still listed, stays hidden.
+    const config = configFor({ ...BEN_OUT, toolbar: { ...LEGEND_ONLY, legend: 'menu' } });
+    const fingerprint = configFingerprint(config);
+    writeHiddenCalendars(fingerprint, [BEN, ANNA]);
+    const card = await mount({}, { config });
+
+    expect(titles(card)).toEqual(['Recycling', 'Football', 'Team lunch']);
+    expect(menuRows(card)).toEqual([ANNA, FAMILY]);
+    expect(legendButton(card)!.classList).toContain('filtered');
+
+    window.dispatchEvent(
+      new CustomEvent(LEGEND_CHANGED_EVENT, {
+        detail: { fingerprint, hidden: [BEN], stored: true, source: {} },
+      }),
+    );
+    await settle(card);
+
+    expect(titles(card)).toEqual(['Recycling', 'Dentist', 'Football', 'Team lunch', 'Team lunch']);
+    // Nothing listed is hidden, so the button no longer says the card is filtered.
+    expect(legendButton(card)!.classList).not.toContain('filtered');
+  });
+
+  it('is left out while the card is being edited too', async () => {
+    const card = await mount(BEN_OUT, { flag: 'preview' });
+
+    expect(chips(card).map((button) => button.dataset.calendar)).toEqual([ANNA, FAMILY]);
+  });
+
+  it.each(['chips', 'menu'] as const)(
+    'takes the %s away once every calendar is left out, as legend: false does',
+    async (legend) => {
+      const header = (card: CardUnderTest) =>
+        root(card)
+          .querySelector('.header-container')!
+          .outerHTML.replace(/<!--[\s\S]*?-->/g, '');
+      const control = await mount({ ...ALL_OUT, title: 'Family', toolbar: LEGEND_OFF });
+      const card = await mount({
+        ...ALL_OUT,
+        title: 'Family',
+        toolbar: { ...LEGEND_ONLY, legend },
+      });
+
+      expect(root(card).querySelector('.toolbar-legend')).toBeNull();
+      expect(legendButton(card)).toBeNull();
+      expect(root(card).querySelector('.legend-menu')).toBeNull();
+      expect(header(card)).toBe(header(control));
+      expect(titles(card)).toEqual(titles(control));
+    },
+  );
+
+  it('reads no hidden calendars once every calendar is left out', async () => {
+    const config = configFor({ ...ALL_OUT, toolbar: { ...LEGEND_ONLY, legend: 'menu' } });
+    writeHiddenCalendars(configFingerprint(config), [BEN]);
+    const card = await mount({}, { config });
+
+    expect(titles(card)).toContain('Football');
   });
 });
 

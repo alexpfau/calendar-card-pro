@@ -63,7 +63,11 @@ describe('the Name field', () => {
   it('opens the per-calendar panel, directly under its first heading, as plain text', () => {
     const schema = entitySchema();
 
-    expect(sequence(schema).slice(0, 3)).toEqual(['# heading_appearance', 'name', 'label_type']);
+    expect(sequence(schema).slice(0, 3)).toEqual([
+      '# heading_appearance',
+      'name',
+      'show_in_legend',
+    ]);
     expect(schema[1]).toEqual({ name: 'name', selector: { text: { type: 'text' } } });
   });
 

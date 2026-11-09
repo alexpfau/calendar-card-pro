@@ -310,6 +310,7 @@ describe('view withholding reconciles both directions', () => {
   it('reconciles per-calendar forms, including the newly supported column split control', async () => {
     for (const view of ViewConfig.VIEWS) {
       const config = configFor(view);
+      const toolbar = Config.resolveToolbar(config);
       const raw = entitySchemaFor(
         buildEntitySchema(context(config)),
         'text',
@@ -317,6 +318,7 @@ describe('view withholding reconciles both directions', () => {
         'custom',
         true,
         'custom',
+        toolbar.show && toolbar.legend !== false,
       );
       const expected = expectedFields(raw, view, true);
       expect(fields(raw).length).toBeGreaterThan(10);

@@ -92,6 +92,8 @@
   "entity.remove": "Eemalda",
   "entity.name": "Nimi",
   "entity.name.helper": "Nimetab selle kalendri kalendrite filtris, kui avad mõne selle sündmuse, ja teadetes. Kõik selle kalendri kirjed jagavad seda. Tühjaks jäetuna kasutab kaart Home Assistanti antud nime, mille kalendrivalija ja selle paneeli pealkiri säilitavad igal juhul.",
+  "entity.show_in_legend": "Näita kalendrite filtris",
+  "entity.show_in_legend.helper": "Väljas olles jääb see kalender kalendrite filtrist välja, nii nupuna kui ka menüüs, ja selle sündmused on alati nähtavad. Kõik selle kalendri kirjed jagavad seda seadet.",
   "entity.label_type": "Sildi tüüp",
   "entity.label_type.helper": "Kuvatakse selle kalendri iga sündmuse ees. Pildisilt on brauserile kättesaadav rada, näiteks /local/work.png.",
   "entity.label_type.option.none.label": "Puudub",

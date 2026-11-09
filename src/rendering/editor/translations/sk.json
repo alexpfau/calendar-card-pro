@@ -92,6 +92,8 @@
   "entity.remove": "Odstrániť",
   "entity.name": "Názov kalendára",
   "entity.name.helper": "Názov tohto kalendára vo filtri kalendárov, pri otvorení jeho udalosti a v upozorneniach. Všetky položky tohto kalendára ho zdieľajú. Ak pole ostane prázdne, karta použije názov z Home Assistant, ktorý výber kalendárov a nadpis tohto panela zachovajú v každom prípade.",
+  "entity.show_in_legend": "Zobraziť vo filtri kalendárov",
+  "entity.show_in_legend.helper": "Po vypnutí sa tento kalendár vo filtri kalendárov nezobrazí ani ako tlačidlo, ani v ponuke, takže jeho udalosti sú vždy viditeľné. Všetky položky tohto kalendára toto nastavenie zdieľajú.",
   "entity.label_type": "Typ štítka",
   "entity.label_type.helper": "Zobrazí sa pred každou udalosťou z tohto kalendára. Obrázkový štítok je cesta, ktorú vie prehliadač načítať, napríklad /local/work.png.",
   "entity.label_type.option.none.label": "Žiadny",
