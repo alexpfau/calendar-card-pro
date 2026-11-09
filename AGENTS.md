@@ -1314,7 +1314,10 @@ Neither has a workflow file, so neither shows up in `.github/workflows/`.
 - **A bump to anything that reaches `dist/` can fail `check:bundle`**: `lit`, `dayjs`,
   `@mdi/js`, and the bundler chain. The gate reconciles the sizes `docs/guide/installation.md`
   quotes against the build, so correct the figure in the Dependabot PR rather than loosening
-  the gate.
+  the gate. It also fails on a regular expression lookbehind in either file, which Safari before
+  16.4 cannot parse; a pattern built at runtime is read only in its fixed parts, and the success
+  line says how many were. `tests/regex-lookbehind.test.ts` keeps `src/` free of them, so one
+  there came in with the bump.
 - **CodeQL default setup** is enabled in the repository's code-security settings. It scans
   pushes to `main` and same-repository pull requests into it, so the release PR is the first
   scan a change gets. **`dev` is not covered**: its deletion-only ruleset makes the branches
@@ -1332,18 +1335,26 @@ Neither has a workflow file, so neither shows up in `.github/workflows/`.
   a regression. The regex survives verbatim as the oracle in
   `tests/strip-html-tags.test.ts`, applied through `matchAll` rather than `replace`, and CodeQL
   may flag it there; read that file's docblock on it before acting on an alert that names it.
-- **Two Dependabot alerts are dismissed rather than fixed**: 31 (`deepmerge`, low) and 32
-  (`minimatch`, moderate), both transitive and dev-only. Neither reaches `dist/`, and only
-  this repository's own lint globs and Rollup options reach them. The lockfile refresh above
-  changes nothing for either: `minimatch` is patched only in 11, which ESLint, its config
-  loader and its plugins do not accept yet, and `deepmerge` has no patched release at all,
-  while `@rollup/plugin-node-resolve` still depends on it. An `overrides` entry forcing
-  `minimatch` 11 was tried and stops ESLint loading its config: `@eslint/eslintrc` imports a
-  default export 11 removed, and `eslint-plugin-import-x` imports `makeRe`, which 11 also
-  removed. Several packages hold `minimatch` back, so ask npm rather than any one of them:
-  revisit when the audit below stops saying "No fix available" for `minimatch`, or
-  "`npm audit fix --force`" for `deepmerge`. The lockfile refresh above then clears it, or
-  Dependabot's monthly tooling bump carries it:
+- **Two Dependabot alerts are dismissed rather than fixed**: 31 (`deepmerge`, low) and 33
+  (`minimatch`, moderate, GHSA-g3hv-75wg-m249), both transitive and dev-only. 33 replaced 32,
+  which GitHub withdrew. Neither reaches `dist/`, and only this repository's own lint globs
+  and Rollup options reach them. The lockfile refresh above changes nothing for either.
+  `deepmerge` has no patched release at all, while `@rollup/plugin-node-resolve` still depends
+  on it. `minimatch` is patched only from 11.0.1, and in November 2026 the latest `eslint`
+  (10.14.0), `@eslint/config-array` (0.23.5) and `@typescript-eslint/typescript-estree`
+  (8.72.2) still require `^10`; `eslint-plugin-import-x` accepts 11 from 4.18.1, which also
+  stopped using the `makeRe` 11 removed. `@eslint/eslintrc` keeps a `minimatch` 3 of its own,
+  outside the advisory's range. Two `overrides` entries were tried on a scratch copy. One
+  forcing `minimatch` 11 everywhere stops ESLint loading its config: `@eslint/eslintrc`, which
+  `eslint.config.mjs` imports for `FlatCompat`, imports a default export 11 removed. One scoped
+  to the four packages above, with `eslint-plugin-import-x` at 4.18.1, lints exactly as 4.18.1
+  does without it (whose own `import-x/order` changes add warnings) and clears the advisory, but
+  holds `eslint`, `@eslint/config-array` and `typescript-estree` outside the `minimatch` range
+  they declare, so the alert stays dismissed. Several packages hold `minimatch` back, so ask npm
+  rather than any one of them: today the audit below offers only `npm audit fix --force` for
+  both, which for `minimatch` would install `eslint` 9.39.5. Revisit when it offers a fix for
+  either without `--force`. The lockfile refresh above then clears it, or Dependabot's monthly
+  tooling bump carries it:
 
   ```bash
   npx npm@11 audit --package-lock-only

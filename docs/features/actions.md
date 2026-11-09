@@ -343,7 +343,7 @@ The custom integration [CalDAV Complete](https://github.com/ivenos/ha_caldav) co
 :::
 
 ::: details Checking What a Calendar Declares
-Find the calendar on the **States** tab under **Settings → Tools** (Developer Tools in older versions of Home Assistant) and read its `supported_features` attribute: 1 is adding, 2 deleting and 4 changing, added together, so 7 is all three, 3 adding and deleting, and 1 adding alone. A calendar without the attribute declares none of them.
+Find the calendar in **Settings → Tools → States** (**Developer Tools** before Home Assistant 2026.8, in the sidebar before 2026.2) and read its `supported_features` attribute: 1 is adding, 2 deleting and 4 changing, added together, so 7 is all three, 3 adding and deleting, and 1 adding alone. A calendar without the attribute declares none of them.
 :::
 
 ### Narrowing What the Popover Offers

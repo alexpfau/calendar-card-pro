@@ -4,7 +4,8 @@
  * Unrelated `hass` updates used to repaint every card, and one of them soon after midnight is
  * what moved the mark of today on a card with a fixed `start_date`: no timer of its own asked
  * for a render then, because nothing had to be loaded. The card skips those updates now, so
- * the clock repaint (`_nextClockRepaint`) arms one for the next local midnight on every card.
+ * the clock repaint (`_nextClockRepaint`) arms one for the next local midnight on every
+ * visible card, except a grid whose now line already ticks every minute.
  *
  * Local midnight is a zone question, so this runs under each DST project. The guard below
  * fails loudly if it is ever run under UTC instead.
@@ -21,6 +22,7 @@ interface CardUnderTest extends HTMLElement {
   readonly updateComplete: Promise<boolean>;
   updateEvents(force?: boolean): Promise<void>;
   requestUpdate(): void;
+  readonly effectiveView: string;
   _clockTimerAt: number | null;
 }
 
@@ -34,7 +36,10 @@ const EVENTS: Types.CalendarEventData[] = [
 
 let callApi: ReturnType<typeof vi.fn>;
 
-async function mount(): Promise<CardUnderTest> {
+async function mount(
+  config: Record<string, unknown> = {},
+  events: Types.CalendarEventData[] = EVENTS,
+): Promise<CardUnderTest> {
   const card = document.createElement('calendar-card-pro-dev') as unknown as CardUnderTest;
   card.setConfig({
     view: 'list',
@@ -42,8 +47,9 @@ async function mount(): Promise<CardUnderTest> {
     start_date: '2026-06-17',
     days_to_show: 2,
     show_past_events: true,
+    ...config,
   });
-  callApi = vi.fn().mockResolvedValue(EVENTS);
+  callApi = vi.fn().mockResolvedValue(events);
   card.hass = {
     states: {},
     locale: { language: 'en', first_weekday: 'monday', time_format: '24' },
@@ -115,6 +121,50 @@ describe('midnight on fixed dates', () => {
     expect(today(card)).toBe('Field trip');
     expect(callApi).not.toHaveBeenCalled();
   });
+});
+
+describe("today's empty-day notice at midnight", () => {
+  // Only the 15th has an event, so the 14th draws a notice. A notice dims once its whole local
+  // date has ended (`buildEventPresentation`), and on fixed dates nothing is loaded at midnight,
+  // so the clock repaint is what has to dim it then. In January, where every zone here is off
+  // UTC, so a repaint at UTC midnight rather than local would miss it.
+  const BEFORE_JANUARY_MIDNIGHT = new Date(2026, 0, 14, 23, 58, 0);
+  const TOMORROW_ONLY: Types.CalendarEventData[] = [
+    { summary: 'Field trip', start: { date: '2026-01-15' }, end: { date: '2026-01-16' } },
+  ];
+
+  /** Whether the card's one empty-day notice is drawn as past. */
+  const noticeIsPast = (card: CardUnderTest): boolean => {
+    const notices = [...card.shadowRoot!.querySelectorAll('.empty-day-title')];
+    expect(notices).toHaveLength(1);
+    return notices[0].closest('.event')!.classList.contains('past-event');
+  };
+
+  it('runs where local midnight is not UTC midnight', () => {
+    expect(BEFORE_JANUARY_MIDNIGHT.getTimezoneOffset()).not.toBe(0);
+  });
+
+  it.each(['list', 'column'] as const)(
+    'dims at midnight in %s view, with no hass update and no fetch',
+    async (view) => {
+      vi.setSystemTime(BEFORE_JANUARY_MIDNIGHT);
+      const card = await mount(
+        { view, start_date: '2026-01-14', show_empty_days: true },
+        TOMORROW_ONLY,
+      );
+      expect(card.effectiveView).toBe(view);
+      expect(noticeIsPast(card)).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(90_000);
+      await card.updateComplete;
+      expect(noticeIsPast(card)).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(2 * 60_000);
+      await card.updateComplete;
+      expect(noticeIsPast(card)).toBe(true);
+      expect(callApi).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe('midnight on a window that follows today, after a sleep', () => {

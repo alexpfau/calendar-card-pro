@@ -230,8 +230,8 @@ describe('past empty-day notices', () => {
 
   /**
    * Today stays bright for the whole of today, and becomes eligible only once the local
-   * date has actually ended. No midnight timer is added, so this asserts the classification
-   * a repaint would reach, not that a repaint is scheduled.
+   * date has actually ended. This asserts the classification a repaint reaches; that the
+   * clock repaint comes at midnight is pinned in `tests/clock-repaint.dst.test.ts`.
    */
   describe('the boundary is local midnight, not a rolling 24 hours', () => {
     const placeholder: Types.CalendarEventData = {

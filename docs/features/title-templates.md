@@ -44,7 +44,7 @@ With the [header toolbar](/features/layout-appearance#header-toolbar) shown, the
   A calendar entity's `message` attribute is the title of the event under way, or of the next one if none is. It comes from Home Assistant's calendar entity, not from this card, so it ignores the card's `start_date` and filters and may name an event the card does not show.
 
 ::: tip Test Your Template First
-Test a template in **Developer Tools → Template** first. What renders there is exactly what the card will show.
+Test a template in **Settings → Tools → Template** (**Developer Tools** before Home Assistant 2026.8, in the sidebar before 2026.2) first. What renders there is exactly what the card will show.
 :::
 
 ## 🔁 How Updates Work

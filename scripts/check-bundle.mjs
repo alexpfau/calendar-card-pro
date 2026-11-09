@@ -4,7 +4,8 @@
  *
  * The card ships as two self-contained files, the card and the editor. This script checks
  * the real emitted output for code-splitting, stale editor URLs, lost `import.meta.url`,
- * missing query propagation, sourcemap leaks and unpublished files.
+ * missing query propagation, sourcemap leaks, unpublished files and regular expressions
+ * Safari 15 cannot parse.
  *
  * Usage: `npm run check:bundle` — after `npm run build` or `npx rollup -c`.
  */
@@ -187,6 +188,317 @@ function editorImportShape(ast) {
   });
 
   return { urlLiterals, hasImportMetaUrl, propagatesQuery: readsSearchFromUrl && writesSearch };
+}
+
+/**
+ * Whether a regular expression pattern holds a lookbehind group, `(?<=` or `(?<!`.
+ *
+ * Read token by token rather than searched for as text, so an escaped `\(\?<=` or a `(?<=`
+ * inside a character class is not taken for a group. A named group, `(?<name>`, is not a
+ * lookbehind and Safari has parsed it since 11.1.
+ *
+ * @param pattern - Pattern source, without the slashes or flags
+ * @returns True when the pattern opens a lookbehind
+ */
+function hasLookbehind(pattern) {
+  let inClass = false;
+
+  for (let i = 0; i < pattern.length; i++) {
+    const char = pattern[i];
+
+    if (char === '\\') {
+      i++;
+      continue;
+    }
+
+    if (inClass) {
+      if (char === ']') inClass = false;
+      continue;
+    }
+
+    if (char === '[') {
+      inClass = true;
+      continue;
+    }
+
+    if (char === '(' && pattern.startsWith('?<', i + 1)) {
+      const next = pattern[i + 3];
+      if (next === '=' || next === '!') return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * The globals a bundle can reach a constructor through other than by its bare name.
+ *
+ * Only these, because any other receiver may be an object of a dependency's own with a method
+ * that merely shares the name. An alias of one of these (`const g = globalThis`) is missed.
+ */
+const GLOBAL_RECEIVERS = new Set(['globalThis', 'window', 'self']);
+
+/**
+ * The name a member expression reads, dotted or as a fixed computed string.
+ *
+ * @param node - A MemberExpression
+ * @returns The property name, or undefined when it is computed at runtime
+ */
+function propertyName(node) {
+  if (!node.computed) return node.property?.name;
+  const { property } = node;
+  return property?.type === 'Literal' && typeof property.value === 'string'
+    ? property.value
+    : undefined;
+}
+
+/**
+ * Whether a node names a global: bare, or read off `globalThis`, `window` or `self`.
+ *
+ * @param node - AST node
+ * @param name - The global's name
+ * @returns True for `name`, `globalThis.name` and `globalThis['name']`, and the same on
+ *   `window` and `self`
+ */
+function isGlobal(node, name) {
+  if (node?.type === 'Identifier') return node.name === name;
+  return (
+    node?.type === 'MemberExpression' &&
+    node.object?.type === 'Identifier' &&
+    GLOBAL_RECEIVERS.has(node.object.name) &&
+    propertyName(node) === name
+  );
+}
+
+/**
+ * Whether a template is tagged with the global `String.raw`.
+ *
+ * @param node - AST node
+ * @returns True for String.raw`…`, globalThis.String.raw`…` and their computed forms
+ */
+function isStringRaw(node) {
+  return (
+    node?.type === 'TaggedTemplateExpression' &&
+    node.tag?.type === 'MemberExpression' &&
+    propertyName(node.tag) === 'raw' &&
+    isGlobal(node.tag.object, 'String')
+  );
+}
+
+/**
+ * The fixed text of a pattern argument, split wherever a part is known only at runtime.
+ *
+ * Follows what a minifier leaves behind: a string, a template literal (`String.raw` among
+ * them) with its substitutions read the same way, and `+` joins of those. Anything else is a
+ * gap, so a fragment is read only as far as the source fixes it.
+ *
+ * @param node - The argument passed as the pattern
+ * @returns The fixed fragments, and whether together they are the whole pattern
+ */
+function patternFragments(node) {
+  const segments = [];
+
+  const template = ({ quasis, expressions }, text) => {
+    quasis.forEach((element, index) => {
+      if (index > 0) collect(expressions[index - 1]);
+      segments.push(text(element.value));
+    });
+  };
+
+  const collect = (part) => {
+    if (part?.type === 'Literal' && typeof part.value === 'string') {
+      segments.push(part.value);
+    } else if (part?.type === 'TemplateLiteral') {
+      template(part, (value) => value.cooked ?? null);
+    } else if (isStringRaw(part)) {
+      template(part.quasi, (value) => value.raw);
+    } else if (part?.type === 'BinaryExpression' && part.operator === '+') {
+      collect(part.left);
+      collect(part.right);
+    } else {
+      segments.push(null);
+    }
+  };
+
+  collect(node);
+
+  const fragments = [''];
+  for (const segment of segments) {
+    if (segment === null) fragments.push('');
+    else fragments[fragments.length - 1] += segment;
+  }
+
+  return { fragments: fragments.filter(Boolean), complete: !segments.includes(null) };
+}
+
+/**
+ * Every regular expression in a file: its literals, and every call or construction of the
+ * global `RegExp` with as much of its pattern as the source fixes.
+ *
+ * The two fail differently on a browser that cannot parse the pattern. A literal is compiled
+ * when the file is parsed, so the whole file fails to load; a call throws only when it runs.
+ * What a call assembles at runtime cannot be read here, which is why each call reports
+ * whether its fragments are the whole pattern.
+ *
+ * @param ast - Parsed module
+ * @returns Each expression's kind, fixed fragments and completeness, in source order
+ */
+function regularExpressions(ast) {
+  const found = [];
+
+  walk(ast.body, (node) => {
+    if (node.type === 'Literal' && node.regex) {
+      found.push({ kind: 'literal', fragments: [node.regex.pattern], complete: true });
+      return;
+    }
+
+    if (
+      (node.type === 'NewExpression' || node.type === 'CallExpression') &&
+      isGlobal(node.callee, 'RegExp')
+    ) {
+      const [pattern] = node.arguments;
+      // A literal passed in is read as a literal in its own right.
+      if (pattern?.type === 'Literal' && pattern.regex) return;
+      // No argument at all is the empty pattern, read in full.
+      found.push(
+        node.arguments.length === 0
+          ? { kind: 'call', fragments: [], complete: true }
+          : { kind: 'call', ...patternFragments(pattern) },
+      );
+    }
+  });
+
+  return found;
+}
+
+/**
+ * The fragments of an expression that open a lookbehind.
+ *
+ * @param expression - One entry from `regularExpressions`
+ * @returns The fragments holding one, usually none
+ */
+function lookbehindFragments(expression) {
+  return expression.fragments.filter(hasLookbehind);
+}
+
+/**
+ * One of every case the lookbehind scan has to tell apart: the source, what the scan must
+ * read there (kind, whether in full, and the fixed fragments), and whether that holds a
+ * lookbehind.
+ *
+ * Run before the scan, because a scan that stopped seeing regular expressions — a parser
+ * that changed how it reports a literal, say — would otherwise report every bundle clean. The
+ * reading is compared as well as the verdict, so a case that is caught for the wrong reason,
+ * or counted in the wrong column, fails too.
+ */
+const LOOKBEHIND_SELF_TEST = [
+  ['/(?<=x)y/', ['literal full: (?<=x)y'], true],
+  ['new RegExp("(?<!p)q", "u")', ['call full: (?<!p)q'], true],
+  ['RegExp(`(?<=z)`)', ['call full: (?<=z)'], true],
+  ['RegExp(`\\x28?<=e)`)', ['call full: (?<=e)'], true],
+  ['globalThis.RegExp("(?<=m)")', ['call full: (?<=m)'], true],
+  ['window["RegExp"]("(?<=w)")', ['call full: (?<=w)'], true],
+  ['new RegExp(String.raw`(?<=r)\\d`)', ['call full: (?<=r)\\d'], true],
+  ['RegExp(globalThis.String.raw`(?<=s)\\d`)', ['call full: (?<=s)\\d'], true],
+  ['RegExp("(?<" + "=c)")', ['call full: (?<=c)'], true],
+  ['new RegExp(`(?<=t)${v}`)', ['call part: (?<=t)'], true],
+  ['RegExp(`a${"(?<=n)" + v}b`)', ['call part: a(?<=n) | b'], true],
+  ['new RegExp(/(?<=l)/)', ['literal full: (?<=l)'], true],
+  ['/\\[(?<=k)/', ['literal full: \\[(?<=k)'], true],
+  ['/(?<name>n)/', ['literal full: (?<name>n)'], false],
+  ['/[(?<=]\\(\\?<!/', ['literal full: [(?<=]\\(\\?<!'], false],
+  ['"(?<=a string, never compiled)"', [], false],
+  ['obj.RegExp("(?<=o)")', [], false],
+  ['new RegExp(v + "a")', ['call part: a'], false],
+  ['RegExp(...v)', ['call part: '], false],
+  ['RegExp()', ['call full: '], false],
+];
+
+/**
+ * How the self-test writes down what the scan read.
+ *
+ * @param expression - One entry from `regularExpressions`
+ * @returns For example `call part: a(?<=n) | b`
+ */
+function describeExpression({ kind, fragments, complete }) {
+  return `${kind} ${complete ? 'full' : 'part'}: ${fragments.join(' | ')}`;
+}
+
+/**
+ * Check the lookbehind scan against `LOOKBEHIND_SELF_TEST`.
+ *
+ * @returns True when every case read and judged as it should; a failure is collected in
+ *   `errors`
+ */
+function lookbehindScanWorks() {
+  const failures = [];
+
+  for (const [source, read, holds] of LOOKBEHIND_SELF_TEST) {
+    let ast;
+    try {
+      ast = parseAst(`v(${source});`);
+    } catch {
+      failures.push(`${source} does not parse`);
+      continue;
+    }
+
+    const expressions = regularExpressions(ast);
+    const got = expressions.map(describeExpression);
+    const found = expressions.some((expression) => lookbehindFragments(expression).length > 0);
+
+    if (got.join('\n') !== read.join('\n') || found !== holds) {
+      failures.push(
+        `${source} read as [${got.join(', ')}] ${found ? 'with' : 'without'} a lookbehind, ` +
+          `where it must read [${read.join(', ')}] ${holds ? 'with' : 'without'} one`,
+      );
+    }
+  }
+
+  if (failures.length === 0) return true;
+
+  error(
+    'scripts/check-bundle.mjs',
+    'the lookbehind scan failed its self-test, so its silence about the bundle would prove ' +
+      `nothing: ${failures.join('; ')}`,
+  );
+  return false;
+}
+
+/**
+ * Report every lookbehind in a built file.
+ *
+ * Safari before 16.4 cannot parse one, and iPhones and iPads that stop at iOS 15 still run
+ * such a Safari (#735). `tests/regex-lookbehind.test.ts` keeps `src/` free of them; this
+ * catches one a dependency or the build brings in, which that test cannot see.
+ *
+ * Strict on purpose: a support test that tries a lookbehind inside try/catch is harmless and
+ * still fails here. The check cannot tell such a test from a pattern the code relies on, so
+ * one has to be read and excepted here deliberately.
+ *
+ * @param file - Path for the message, `dist/…`
+ * @param expressions - The file's regular expressions, from `regularExpressions`
+ * @returns Nothing; failures are collected in `errors`
+ */
+function checkLookbehinds(file, expressions) {
+  for (const expression of expressions) {
+    for (const fragment of lookbehindFragments(expression)) {
+      const shown = fragment.length > 80 ? `${fragment.slice(0, 77)}...` : fragment;
+
+      error(
+        file,
+        expression.kind === 'literal'
+          ? `contains the regular expression /${shown}/, which has a lookbehind. Safari before ` +
+              '16.4 cannot parse one, so on an iPhone or iPad that stops at iOS 15 this whole ' +
+              'file fails to load. tests/regex-lookbehind.test.ts keeps src/ free of them, so ' +
+              'look first at a dependency the build bundles'
+          : `builds a RegExp from '${shown}', which has a lookbehind. Safari before 16.4 ` +
+              'throws a SyntaxError wherever that runs, on an iPhone or iPad that stops at ' +
+              'iOS 15. tests/regex-lookbehind.test.ts keeps src/ free of them, so look first ' +
+              'at a dependency the build bundles. Even a support test inside try/catch fails ' +
+              'this check, which cannot tell one apart: read it, and except it here on purpose',
+      );
+    }
+  }
 }
 
 /**
@@ -564,6 +876,10 @@ function main() {
   }
 
   const variant = findVariant(jsFiles);
+  const scanWorks = lookbehindScanWorks();
+  let literalsScanned = 0;
+  let readInFull = 0;
+  let readInPart = 0;
 
   for (const file of jsFiles) {
     const code = readFileSync(join(DIST, file), 'utf-8');
@@ -612,6 +928,15 @@ function main() {
       );
     }
 
+    // Regular expressions Safari 15 cannot parse.
+    if (scanWorks) {
+      const expressions = regularExpressions(ast);
+      literalsScanned += expressions.filter(({ kind }) => kind === 'literal').length;
+      readInFull += expressions.filter(({ complete }) => complete).length;
+      readInPart += expressions.filter(({ complete }) => !complete).length;
+      checkLookbehinds(`dist/${file}`, expressions);
+    }
+
     if (!variant || file !== variant.card) continue;
 
     const { urlLiterals, hasImportMetaUrl, propagatesQuery } = editorImportShape(ast);
@@ -653,6 +978,15 @@ function main() {
     }
   }
 
+  // A scan that found nothing to scan passes exactly like one that found nothing wrong.
+  if (scanWorks && literalsScanned === 0) {
+    error(
+      'dist/',
+      'yielded no regular expression literal at all, so the lookbehind scan proved nothing. ' +
+        'A real build holds dozens; check regularExpressions() in scripts/check-bundle.mjs',
+    );
+  }
+
   checkDocumentedSizes();
   checkSizeClaims();
 
@@ -669,7 +1003,11 @@ function main() {
     .map((f) => `${f} (${statSync(join(DIST, f)).size} B)`)
     .join(', ');
 
-  console.log(`Bundle is intact: ${sizes}`);
+  // Said with the count it rests on: a pattern built at runtime is read only in its fixed parts.
+  console.log(
+    `Bundle is intact: ${sizes}. No lookbehind in ${readInFull} regular expressions read in ` +
+      `full, or in the fixed parts of ${readInPart} built at runtime`,
+  );
 }
 
 main();
