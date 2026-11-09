@@ -399,7 +399,10 @@ describe('fail-closed locale trimming', () => {
       expect(compacted).toContain(`name:"${file.split('/').pop()!.slice(0, -3)}"`);
       if (!file.endsWith('/en.js')) expect(compacted).toContain('relativeTime:');
     }
-  });
+    // Trims every shipped Day.js locale and scans every source file. About half a second
+    // alone, but a full local run in parallel has pushed it past Vitest's 5 s default, so the
+    // limit is set for a loaded machine rather than for a hang.
+  }, 20000);
 
   it('checks newly introduced API use on every build, not only transformed modules', () => {
     const root = fixtures();
