@@ -47,7 +47,7 @@
   "panel.calendars": "캘린더",
   "panel.calendars.helper": "카드가 표시할 캘린더와 각각의 외관을 설정합니다.",
   "calendars": "캘린더",
-  "calendars.helper": "순서가 중요하며 드래그하여 변경할 수 있습니다. 두 엔티티가 동일한 이벤트를 가지고 있고 중복이 필터링되는 경우, 먼저 나열된 엔티티의 복사본이 유지됩니다.",
+  "calendars.helper": "항목의 순서가 중요하며 드래그하여 바꿀 수 있습니다. 두 항목에 같은 이벤트가 있고 중복 필터링이 켜져 있으면, 먼저 나열된 항목의 이벤트만 유지됩니다.",
   "entity.customised": "설정됨",
   "entity.unconfigured": "카드 설정 사용 중",
   "entity.occurrence": "항목 {position} / {total}",

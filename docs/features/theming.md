@@ -248,14 +248,16 @@ event's start padding, which in list and column view is
 ### Grid View Classes
 
 [Grid view](/features/grid-view) splits a day into the two containers above, and draws its
-events as positioned blocks with classes of their own:
+events, its now line and its tints with classes of their own:
 
-| Class                  | Element                                                                  | Also carries                                                                                                                                                   |
-| ---------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `.grid-event`          | a timed event's block                                                    | `.event`; `.past-event`; `.clipped-top` or `.clipped-bottom` where the event runs past the visible hours; `.grid-event-raised` while drawn over an earlier one |
-| `.grid-banner`         | an all-day event, in the band above the time axis                        | `.event`; `.past-event`; `.continues-before` or `.continues-after` where it runs past the visible days                                                         |
-| `.grid-event-overflow` | the `+N` block standing in for events that did not fit                   | `.event`, `.grid-event`                                                                                                                                        |
-| `.grid-now-line`       | the now line in today's `.grid-day-body`, between events, in `now_color` | —                                                                                                                                                              |
+| Class                  | Element                                                                                                                                                  | Also carries                                                                                                                                                   |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.grid-event`          | a timed event's block                                                                                                                                    | `.event`; `.past-event`; `.clipped-top` or `.clipped-bottom` where the event runs past the visible hours; `.grid-event-raised` while drawn over an earlier one |
+| `.grid-banner`         | an all-day event, in the band above the time axis                                                                                                        | `.event`; `.past-event`; `.continues-before` or `.continues-after` where it runs past the visible days                                                         |
+| `.grid-event-overflow` | the `+N` block standing in for events that did not fit                                                                                                   | `.event`, `.grid-event`                                                                                                                                        |
+| `.grid-now-line`       | the now line in today's `.grid-day-body`, between events, in `now_color`                                                                                 | —                                                                                                                                                              |
+| `.grid-weekend`        | the weekend tint behind a run of neighboring weekend days, unless [`weekend_background_color`](/features/grid-view#shading-the-weekend) is `transparent` | —                                                                                                                                                              |
+| `.grid-today`          | today's tint behind today's column, once [`today_background_color`](/features/grid-view#shading-today) is set to a color                                 | —                                                                                                                                                              |
 
 The `+N` block is a `.grid-event` too, so `.grid-event:not(.grid-event-overflow)` selects real
 events only. A banner can span several days, so it sits in the all-day band rather than in any
@@ -265,6 +267,13 @@ day's `.grid-day-body`, and a day selector does not reach it; select it as `.gri
 which carries `.grid-event-now`, the line is drawn as that event's own background, in
 `now_color` at the same height, so it runs over the event's color and under its text. To recolor
 the line, set `now_color` rather than styling `.grid-now-line`, or the two parts will not match.
+
+`.grid-weekend` and `.grid-today` are stripes of their own, hidden from screen readers. They run
+from just under the date row through the all-day band and down the hours, behind the hour lines,
+the now line and the events. A weekend stripe covers every weekend day in a run and the gap
+between them, so it belongs to no single day; select one weekend day as `.grid-day-body.weekend`.
+While today's tint is on, the weekend stripe breaks around today's column, which `.grid-today`
+covers alone.
 
 ### Header Toolbar Classes
 

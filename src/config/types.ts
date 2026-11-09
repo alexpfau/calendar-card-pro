@@ -538,7 +538,7 @@ export interface TimeGridOverrides extends SharedViewOverrides {
    * Background tint for today's column, as a CSS color.
    *
    * Grid-only for the same reason as `weekend_background_color`, and drawn the same way,
-   * from the date row down. Off by default, unlike the weekend tint: its default is
+   * from just under the date row. Off by default, unlike the weekend tint: its default is
    * `transparent`, so no card changes until a color is set. Where today is a weekend day,
    * this tint replaces the weekend one rather than stacking on it.
    */
