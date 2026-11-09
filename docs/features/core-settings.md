@@ -208,9 +208,9 @@ entities:
     label: /api/image/serve/5f2b9c0e7d14a6b38e90c1d2f4a7b6e3/512x512 # a picture, by address
 ```
 
-Find the address in **Developer Tools → States**: pick the entity and read its
-`entity_picture` attribute. A person's picture (`/api/image/serve/…`) loads with no further
-setup.
+Find the address in **Settings → Tools → States** (**Developer Tools** before Home Assistant
+2026.8, in the sidebar before 2026.2): pick the entity and read its `entity_picture` attribute. A
+person's picture (`/api/image/serve/…`) loads with no further setup.
 
 An address that carries a `token=` does not keep working as a label. A camera's frame is
 one: Home Assistant refuses the address without its token and replaces the token regularly.
