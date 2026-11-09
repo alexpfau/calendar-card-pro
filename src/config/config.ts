@@ -1443,7 +1443,11 @@ export function hasConfigChanged(
     // one. One avoidable request is the cheaper failure. Do not narrow this without
     // `getBaseCacheKey` (`src/utils/events.ts`) and `generateDeterministicId`
     // (`src/utils/helpers.ts`) in view — both were made weekday-aware to close real
-    // staleness bugs, so this is the conservative end of a settled trade-off.
+    // staleness bugs, so this is the conservative end of a settled trade-off. Those two
+    // identify the query, and count the resolved weekday only where it moves the window
+    // (`firstDayKeyPart`); this only decides whether to ask again, so an edit between
+    // equivalent settings, `system` and the weekday it resolves to, asks once, into the
+    // entry both already share.
     previous.first_day_of_week !== current.first_day_of_week;
 
   // `show_past_events` and `filter_duplicates` are deliberately absent. Both are

@@ -515,7 +515,13 @@ class CalendarCardPro extends LitElement {
     return { columns: 'full', rows: 'auto' };
   }
 
-  private _instanceId = Helpers.generateInstanceId();
+  /**
+   * Home's query identity (`_instanceIdForPage`), as of now: it follows the configuration and,
+   * under `first_day_of_week: system` with a week-relative `start_date`, the profile.
+   */
+  private get _instanceId(): string {
+    return this._instanceIdForPage(null);
+  }
   /**
    * The `_instanceId` the events currently held in `events` were fetched for.
    */
@@ -568,7 +574,7 @@ class CalendarCardPro extends LitElement {
    * Monotonic ticket for in-flight event requests.
    *
    * `updateEvents()` awaits the API, and two entry points can bump this during that
-   * await: `setConfig()` regenerating `_instanceId` and starting a second request, and
+   * await: `setConfig()` moving `_instanceId` and starting a second request, and
    * `disconnectedCallback` superseding any fetch that is still open so a detached
    * `setConfig` cannot stamp a late response with a new identity. Comparing the ticket
    * a request started with against the current value is what tells a superseded
@@ -607,8 +613,16 @@ class CalendarCardPro extends LitElement {
    * `refresh_on_navigate`; every later load is a refresh.
    */
   private _appearLoadPending = false;
-  /** Consecutive failed attempts this card has seen, for when no cache can record them. */
+  /**
+   * Consecutive failed attempts this card has seen, for when no cache can record them, and the
+   * query they were counted for. A count belongs to the query that produced it: a load for any
+   * other query starts from zero (`updateEvents`), or it would begin a step deeper in the backoff
+   * for every page visited during an outage, every configuration that moved the window, and
+   * every profile that moved the week under `first_day_of_week: system`.
+   */
   private _failureCountHint = 0;
+  /** The query `_failureCountHint` was counted for. */
+  private _failureCountQuery = '';
   private _weatherUnsubscribers: Array<() => void> = [];
   /**
    * Monotonic ticket for weather forecast setup and callbacks.
@@ -1920,17 +1934,21 @@ class CalendarCardPro extends LitElement {
    * page share its request and its entry. Keyed by the days loaded, which span every view the
    * card can show, so switching views never changes it.
    *
+   * The first weekday is resolved here, from the profile as it is now, and counts only where it
+   * moves the window (`Helpers.firstDayKeyPart`). So `system` and the weekday it resolves to
+   * share a query, a page never depends on it, and home's identity moves when a profile change
+   * moves its week. Resolved on every call rather than kept from `setConfig`, which usually runs
+   * before Home Assistant hands over `hass`.
+   *
    * @param page - First day of the page, or null for home
    * @returns The instance id
    */
   private _instanceIdForPage(page: string | null): string {
-    if (page === null) return this._instanceId;
-
     return Helpers.generateDeterministicId(
       this.config.entities,
       ViewConfig.loadedDaysToShow(this.config),
-      page,
-      this.config.first_day_of_week,
+      page ?? this.config.start_date,
+      FormatUtils.getFirstDayOfWeek(this.config.first_day_of_week, this.hass?.locale),
     );
   }
 
@@ -2172,7 +2190,6 @@ class CalendarCardPro extends LitElement {
 
   constructor() {
     super();
-    this._instanceId = Helpers.generateInstanceId();
     Logger.initializeLogger(Constants.VERSION.CURRENT);
   }
 
@@ -2234,7 +2251,7 @@ class CalendarCardPro extends LitElement {
     this._titleSubscription?.destroy();
     this._titleSubscription = undefined;
 
-    // Supersede any in-flight updateEvents. Detached setConfig can rewrite
+    // Supersede any in-flight updateEvents. Detached setConfig can move
     // `_instanceId` while a pre-disconnect fetch is still open; without this
     // bump the late response is not superseded, commits the old calendar's
     // events, and stamps them with the *new* identity so
@@ -3417,10 +3434,10 @@ class CalendarCardPro extends LitElement {
    *
    * `first_day_of_week: system` follows the profile: its first weekday, or its language when that
    * is left at the language's default. Under a week-relative `start_date` a profile change therefore
-   * moves home, which the card draws at once and the cache keys by the resolved weekday, while
-   * nothing asked for the new window: the card drew it with the old window's events, without any
-   * on the day it gained, until its next refresh. A page is not asked for again, since its first
-   * day is a date; home loads when the card goes back to it.
+   * moves home, which the card draws at once, and moves home's query identity and cache key, which
+   * both follow the resolved weekday, while nothing asked for the new window: the card drew it with
+   * the old window's events, without any on the day it gained, until its next refresh. A page is not
+   * asked for again, since its first day is a date; home loads when the card goes back to it.
    *
    * @param changedProps - Properties changed in this update
    * @returns True when home now starts on another day of the week
@@ -6187,18 +6204,10 @@ class CalendarCardPro extends LitElement {
     this._effectiveView = seededFit.view;
     this._columnCount = seededFit.columns;
 
-    this._instanceId = Helpers.generateDeterministicId(
-      this.config.entities,
-      ViewConfig.loadedDaysToShow(this.config),
-      this.config.start_date,
-      this.config.first_day_of_week,
-    );
-
     if (this._instanceId !== previousInstanceId) {
-      // Failures belong to the query that produced them. Carrying them over would name a
-      // calendar this card no longer shows, or start the new query mid-backoff.
+      // Failures belong to the query that produced them. Carrying the notice over would name a
+      // calendar this card no longer shows; the count starts again by itself (`updateEvents`).
       this._setFailures([]);
-      this._failureCountHint = 0;
     }
 
     // Compared as loaded, not as configured: a view's own count that leaves the longest one
@@ -6363,6 +6372,12 @@ class CalendarCardPro extends LitElement {
     const instanceId = this._instanceIdForPage(page);
     const store: EventUtils.CacheStore = page === null ? 'persistent' : 'page';
     const usesCache = load !== 'network' && load !== 'reload' && load !== 'live';
+    // Another query's failures are not this one's (`_failureCountHint`). Asked here rather than
+    // where a query changes, because a profile change reaches no code that could reset it.
+    if (this._failureCountQuery !== instanceId) {
+      this._failureCountHint = 0;
+      this._failureCountQuery = instanceId;
+    }
 
     // A reload asks REST for every calendar; their subscriptions, which may still hold the
     // answer from before a write, are closed and opened again after it.
@@ -7688,10 +7703,7 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Asks for another page without loading it yet. The failure count belongs to the page that
-   * produced it: a page never fetched has no cache entry to record one, and would otherwise
-   * start from the count this card carried, a step deeper in the backoff for every page
-   * visited during an outage.
+   * Asks for another page without loading it yet.
    *
    * @param page - First day of the page, or null for home
    */
@@ -7700,7 +7712,6 @@ class CalendarCardPro extends LitElement {
     // A page asked for any way at all ends the slide a swipe's page was waiting for. A swipe
     // asks through here as well, and records its arrival only once this returns.
     this._swipeArrival = null;
-    this._failureCountHint = 0;
     // Likewise a search ring waiting for another page than this one: it would otherwise ring,
     // and take focus, whenever that page was next shown, however long after.
     if (this._searchRing && this._searchRing.page !== page) this._settleSearchRing();

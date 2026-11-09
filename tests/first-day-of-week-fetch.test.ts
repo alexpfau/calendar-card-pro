@@ -29,6 +29,12 @@
  * `'sunday'` and `'monday'` as strings and could not see that — two different strings
  * trivially produce two different keys. `getBaseCacheKey` now takes `number`, so the
  * compiler rejects the raw value at the call site and the wiring cannot regress silently.
+ *
+ * The query identity kept the raw string longer, and with it every key, since each key begins
+ * with the identity: `system` beside `monday` split one window into two loads, and a profile
+ * change under `system` moved the window without moving the identity. It takes the resolved
+ * weekday now too, by the key's own rule (`Helpers.firstDayKeyPart`), and the last case below
+ * reconciles the two. `first-day-of-week-identity.test.ts` pins what that changes for cards.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -128,6 +134,11 @@ describe('first_day_of_week is treated as the fetch-affecting option it is', () 
     expect(Config.hasConfigChanged(previous, current)).toBe(false);
   });
 
+  /** `generateDeterministicId` with only the resolved weekday varying. */
+  function idFor(firstDayOfWeek: number | undefined, startDate = 'start_of_week'): string {
+    return Helpers.generateDeterministicId(['calendar.personal'], 7, startDate, firstDayOfWeek);
+  }
+
   it('moves the query identity when it changes', () => {
     // `_instanceId` is what the failed-refresh guard compares to decide whether the
     // events already on screen belong to the query now being asked. It was built
@@ -135,27 +146,54 @@ describe('first_day_of_week is treated as the fetch-affecting option it is', () 
     // fetch-affecting, so the two disagreed: a Sunday → Monday change asked for a
     // refetch, the refetch came back empty, and the guard concluded the previous
     // Sunday window was still current and kept it.
-    const sunday = Helpers.generateDeterministicId(
-      ['calendar.personal'],
-      7,
-      'start_of_week',
-      'sunday',
-    );
-    const monday = Helpers.generateDeterministicId(
-      ['calendar.personal'],
-      7,
-      'start_of_week',
-      'monday',
-    );
-
-    expect(sunday).not.toBe(monday);
+    expect(idFor(0)).not.toBe(idFor(1));
   });
 
   it('keeps the query identity stable when the weekday does not', () => {
     // The control, in the same shape as the cache-key pair above.
-    const a = Helpers.generateDeterministicId(['calendar.personal'], 7, 'start_of_week', 'monday');
-    const b = Helpers.generateDeterministicId(['calendar.personal'], 7, 'start_of_week', 'monday');
+    expect(idFor(1)).toBe(idFor(1));
+  });
 
-    expect(a).toBe(b);
+  it('keeps Sunday in the query identity even though it resolves to zero', () => {
+    expect(idFor(0)).not.toBe(idFor(undefined));
+  });
+
+  it('leaves the weekday out of the query identity where it does not move the window', () => {
+    // Every cache key begins with the identity, so a weekday kept in it here split one
+    // window's load in two, as the raw setting once did for `system` beside `monday`.
+    expect(idFor(0, '2026-06-17')).toBe(idFor(1, '2026-06-17'));
+    expect(idFor(0, 'monday')).toBe(idFor(1, 'monday'));
+    expect(idFor(0, '')).toBe(idFor(1, ''));
+  });
+
+  it('agrees with the cache key on where the weekday counts', () => {
+    // The identity and the key are compared and nested, so they must agree on every start
+    // date, not only on the ones the cases above happen to name. Both sides are measured,
+    // so the reconciliation fails if either stops depending on the weekday.
+    const startDates = [
+      'start_of_week',
+      ' start_of_week',
+      'start_of_week+7',
+      'start_of_week-1w',
+      'end_of_week',
+      'today',
+      'today+3',
+      'monday',
+      'sat+3',
+      '2026-06-17',
+      '2026-06-17T08:00:00',
+      '',
+    ];
+    const counted = (keyOf: (firstDayOfWeek: number, startDate: string) => string) =>
+      startDates.filter((startDate) => keyOf(0, startDate) !== keyOf(1, startDate));
+
+    expect(counted(idFor)).toEqual(counted(keyFor));
+    // By value, so neither side can pass by ignoring the weekday everywhere.
+    expect(counted(keyFor)).toEqual([
+      'start_of_week',
+      ' start_of_week',
+      'start_of_week+7',
+      'start_of_week-1w',
+    ]);
   });
 });

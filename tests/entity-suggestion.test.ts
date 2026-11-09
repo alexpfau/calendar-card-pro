@@ -4,6 +4,7 @@ import { buildConfig } from './fixtures';
 import { getEntitySuggestion } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { loadedDaysToShow, resolveEffectiveConfig } from '../src/config/view';
+import { getFirstDayOfWeek } from '../src/utils/format';
 import { generateDeterministicId } from '../src/utils/helpers';
 
 /**
@@ -173,9 +174,12 @@ describe('getEntitySuggestion', () => {
    * the interactive time grid, which loads seven days where the others load three.
    *
    * Pass every input `_instanceId` hashes. `first_day_of_week` joined the key in #461,
-   * and a call that omitted it once let a recipe set it alone with this test green.
+   * and a call that omitted it once let a recipe set it alone with this test green. The
+   * card hashes the weekday it resolves, under the profile it is shown with, so the
+   * profile is named here rather than left to a fallback.
    */
   it('keeps every recipe on one event-cache key', () => {
+    const locale = { language: 'en', first_weekday: 'sunday' };
     const suggestions = getEntitySuggestion(hass('calendar.family'), 'calendar.family');
     const ids = (suggestions ?? []).map((suggestion) => {
       const config = buildConfig(suggestion.config as Partial<Types.Config>);
@@ -183,7 +187,7 @@ describe('getEntitySuggestion', () => {
         config.entities,
         loadedDaysToShow(config),
         config.start_date,
-        config.first_day_of_week,
+        getFirstDayOfWeek(config.first_day_of_week, locale),
       );
     });
 
