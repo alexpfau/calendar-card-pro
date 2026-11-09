@@ -286,7 +286,7 @@
   "filter_duplicates_mode.option.off.label": "Išjungta",
   "filter_duplicates_mode.option.exact.label": "Sutampa pavadinimas, pradžia, pabaiga ir vieta",
   "filter_duplicates_mode.option.ignore_location.label": "Sutampa pavadinimas, pradžia ir pabaiga",
-  "filter_duplicates_mode.helper": "Paslepia įvykį, kurio čia pasirinkti laukai sutampa su kito įvykio. Paliekama kopija iš aukščiau esančio įrašo kartu su jo spalva. Neįtraukus vietos, šventė, kurią du regioniniai kalendoriai pateikia kiekvienas su savo vieta, rodoma vieną kartą.",
+  "filter_duplicates_mode.helper": "Paslepia įvykį, kurio čia pasirinkti laukai sutampa su kito įvykio laukais. Paliekama kopija iš aukščiau esančio įrašo kartu su jo spalva. Neįtraukus vietos, šventė rodoma tik kartą, net jei dviejuose regioniniuose kalendoriuose jai nurodytos skirtingos vietos.",
   "duplicate_accent_color": "Bendro įvykio spalva",
   "duplicate_accent_color.helper": "Akcentinė spalva įvykiui, kuris paliekamas iš dviejų ar daugiau skirtingų kalendorių, vietoje pirmojo kalendoriaus spalvos. Palikus tuščią, išlaikoma to kalendoriaus spalva.",
   "split_multiday_events": "Skaidyti kelių dienų įvykius",

@@ -286,7 +286,7 @@
   "filter_duplicates_mode.option.off.label": "Wyłączone",
   "filter_duplicates_mode.option.exact.label": "Zgadzają się tytuł, początek, koniec i lokalizacja",
   "filter_duplicates_mode.option.ignore_location.label": "Zgadzają się tytuł, początek i koniec",
-  "filter_duplicates_mode.helper": "Ukrywa wydarzenie, które zgadza się z innym w wybranych tu polach. Zostaje kopia z wpisu wymienionego wcześniej, wraz z jego kolorem. Bez lokalizacji święto, które dwa regionalne kalendarze podają każdy z własną lokalizacją, pojawia się raz.",
+  "filter_duplicates_mode.helper": "Ukrywa wydarzenie, którego wartości w wybranych tutaj polach są takie same jak w innym wydarzeniu. Zostaje kopia z wpisu wymienionego wcześniej, wraz z jego kolorem. Pominięcie lokalizacji sprawdza się w przypadku święta, któremu każdy z dwóch regionalnych kalendarzy przypisuje inną lokalizację.",
   "duplicate_accent_color": "Kolor wspólnego wydarzenia",
   "duplicate_accent_color.helper": "Kolor akcentu dla wydarzenia zachowanego z dwóch lub więcej różnych kalendarzy, zamiast koloru pierwszego kalendarza. Pozostawiony pusty zachowuje kolor tego kalendarza.",
   "split_multiday_events": "Podziel wydarzenia wielodniowe",

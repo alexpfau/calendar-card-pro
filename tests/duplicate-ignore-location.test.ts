@@ -176,7 +176,29 @@ describe('filter_duplicates: ignore_location', () => {
     ).toHaveLength(2);
   });
 
-  it('applies per view, through a view block like true does', () => {
+  it.each([
+    ['list', 'list'],
+    ['column', 'column'],
+    // Grid deduplicates without the first-eligible pass list and column make, and splits
+    // through its own function, so it is a separate path rather than a third copy of one.
+    ['grid', 'time_grid'],
+  ] as const)('applies in %s view, from the card and from its %s: block', (view, block) => {
+    const inBlock = (value: unknown) =>
+      ({ [block]: { filter_duplicates: value } }) as Partial<Types.Config>;
+
+    for (const pair of [
+      [holiday(BAVARIA, 'Bavaria'), holiday(TICINO, 'Ticino')],
+      [timed(BAVARIA, 'Room A'), timed(TICINO, 'Room B')],
+    ]) {
+      expect(drawn(pair, DUPLICATES_IGNORE_LOCATION, {}, view)).toHaveLength(1);
+      expect(drawn(pair, true, {}, view)).toHaveLength(2);
+      expect(drawn(pair, true, inBlock(DUPLICATES_IGNORE_LOCATION), view)).toHaveLength(1);
+      expect(drawn(pair, DUPLICATES_IGNORE_LOCATION, inBlock(true), view)).toHaveLength(2);
+      expect(drawn(pair, DUPLICATES_IGNORE_LOCATION, inBlock(false), view)).toHaveLength(2);
+    }
+  });
+
+  it('leaves a view without a block of its own on the card-wide value', () => {
     const pair = [holiday(BAVARIA, 'Bavaria'), holiday(TICINO, 'Ticino')];
     const column = { column: { filter_duplicates: DUPLICATES_IGNORE_LOCATION } };
 
@@ -278,36 +300,47 @@ describe('the editor’s duplicate dropdown', () => {
     expect(off.stored).not.toHaveProperty('filter_duplicates');
   });
 
-  it('writes a column override into column: and leaves the card-wide value alone', () => {
-    const config = buildConfig({ filter_duplicates: true });
-    const frame: Routing.FormFrame = {
-      workspace: 'column',
-      schema: [{ name: 'filter_duplicates_mode', selector: { text: {} } }],
-      data: Routing.workspaceFormData(config, 'column'),
-    };
-    expect(frame.data.filter_duplicates_mode).toBe('exact');
+  it.each([
+    ['list', 'list'],
+    ['column', 'column'],
+    ['grid', 'time_grid'],
+  ] as const)(
+    'writes from the %s workspace into %s: and leaves the card-wide value alone',
+    (workspace, block) => {
+      const config = buildConfig({ filter_duplicates: true });
+      const frame: Routing.FormFrame = {
+        workspace,
+        schema: [{ name: 'filter_duplicates_mode', selector: { text: {} } }],
+        data: Routing.workspaceFormData(config, workspace),
+      };
+      expect(frame.data.filter_duplicates_mode).toBe('exact');
 
-    const ignore = Routing.applyWorkspaceChange(
-      config,
-      frame,
-      { ...frame.data, filter_duplicates_mode: 'ignore_location' },
-      {},
-    ).config;
-    expect(ignore.column).toEqual({ filter_duplicates: DUPLICATES_IGNORE_LOCATION });
-    expect(ignore.filter_duplicates).toBe(true);
-    expect(Routing.workspaceFormData(ignore, 'column').filter_duplicates_mode).toBe(
-      'ignore_location',
-    );
+      const ignore = Routing.applyWorkspaceChange(
+        config,
+        frame,
+        { ...frame.data, filter_duplicates_mode: 'ignore_location' },
+        {},
+      ).config;
+      expect(ignore[block]).toMatchObject({ filter_duplicates: DUPLICATES_IGNORE_LOCATION });
+      expect(ignore.filter_duplicates).toBe(true);
+      expect(toStoredConfig(ignore)[block]).toMatchObject({
+        filter_duplicates: DUPLICATES_IGNORE_LOCATION,
+      });
+      expect(Routing.workspaceFormData(ignore, workspace).filter_duplicates_mode).toBe(
+        'ignore_location',
+      );
 
-    // Off in a view is a stored `false`, not a cleared key, which would inherit the card's on.
-    const off = Routing.applyWorkspaceChange(
-      config,
-      frame,
-      { ...frame.data, filter_duplicates_mode: 'off' },
-      {},
-    ).config;
-    expect(off.column).toEqual({ filter_duplicates: false });
-  });
+      // Off in a view is a stored `false`, not a cleared key, which would inherit the card's on.
+      const off = Routing.applyWorkspaceChange(
+        config,
+        frame,
+        { ...frame.data, filter_duplicates_mode: 'off' },
+        {},
+      ).config;
+      expect(off[block]).toMatchObject({ filter_duplicates: false });
+      expect(Routing.workspaceFormData(off, workspace).filter_duplicates_mode).toBe('off');
+    },
+  );
 
   it('offers the shared-event color under ignore_location, as under true', () => {
     const names = (filterDuplicates: unknown) =>

@@ -286,7 +286,7 @@
   "filter_duplicates_mode.option.off.label": "Aus",
   "filter_duplicates_mode.option.exact.label": "Titel, Beginn, Ende und Ort stimmen überein",
   "filter_duplicates_mode.option.ignore_location.label": "Titel, Beginn und Ende stimmen überein",
-  "filter_duplicates_mode.helper": "Blendet einen Termin aus, der in den hier gewählten Feldern mit einem anderen übereinstimmt. Erhalten bleibt die Kopie aus dem zuerst aufgeführten Eintrag samt ihrer Farbe. Ohne den Ort lässt sich ein Feiertag zusammenfassen, den zwei regionale Kalender jeweils unter ihrem eigenen Ort führen.",
+  "filter_duplicates_mode.helper": "Blendet einen Termin aus, der in den hier gewählten Feldern mit einem anderen übereinstimmt. Erhalten bleibt die Kopie aus dem zuerst aufgeführten Eintrag samt ihrer Farbe. Wird der Ort nicht berücksichtigt, wird ein Feiertag nur einmal angezeigt, auch wenn er in zwei regionalen Kalendern jeweils mit einem eigenen Ort eingetragen ist.",
   "duplicate_accent_color": "Farbe für gemeinsame Termine",
   "duplicate_accent_color.helper": "Akzentfarbe für einen Termin, der aus zwei oder mehr verschiedenen Kalendern erhalten bleibt, anstelle der Farbe des ersten Kalenders. Leer gelassen behält er dessen Farbe.",
   "split_multiday_events": "Mehrtägige Termine aufteilen",
