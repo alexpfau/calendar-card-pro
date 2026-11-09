@@ -8,6 +8,7 @@
 
 import * as EntityIcons from './entity-icons';
 import * as PersonPictures from './person-pictures';
+import { isWeekRelative } from './start-date';
 
 //-----------------------------------------------------------------------------
 // COLOR UTILITIES
@@ -343,12 +344,28 @@ export function resolveLabelType(label: unknown, labelType?: unknown): LabelType
 }
 
 /**
- * Generate a random instance ID
+ * What the first day of the week adds to a query's identity: the resolved weekday, and only
+ * where it moves the window, which is a week-relative `start_date`.
  *
- * @returns {string} Random alphanumeric identifier
+ * Shared by the card's query identity ({@link generateDeterministicId}) and the cache key
+ * (`getBaseCacheKey` in `events.ts`), which are compared and nested and must therefore agree
+ * on when the weekday matters. They once did not: the identity hashed the raw setting
+ * whatever the start date, so `system` and `monday` split one window's load into two while a
+ * profile change under `system` moved the window without moving the identity.
+ *
+ * The weekday is resolved, never the raw setting, because `system` is one string that
+ * resolves per Home Assistant profile. It is asked of the grammar rather than of a regex over
+ * the value: a regex once matched `end_of_week`, which is not an anchor, and missed a padded
+ * `" start_of_week"`, which `getTimeWindow` trims and resolves week-relatively. It is tested
+ * against `undefined` rather than for truthiness, because Sunday is 0 and would otherwise
+ * collide with "no weekday".
+ *
+ * @param startDate Start date as configured, with any time part removed
+ * @param firstDayOfWeek Resolved first day of the week (0 = Sunday)
+ * @returns The suffix to append, empty when the weekday does not move the window
  */
-export function generateInstanceId(): string {
-  return Math.random().toString(36).substring(2, 15);
+export function firstDayKeyPart(startDate: string, firstDayOfWeek: number | undefined): string {
+  return isWeekRelative(startDate) && firstDayOfWeek !== undefined ? `_fdw${firstDayOfWeek}` : '';
 }
 
 /**
@@ -357,17 +374,17 @@ export function generateInstanceId(): string {
  * @param entities Array of calendar entities
  * @param daysToShow Number of days to display
  * @param startDate Optional custom start date
- * @param firstDayOfWeek Raw `first_day_of_week` setting. Included because
- *   `hasConfigChanged` treats it as fetch-affecting — a week-relative `startDate`
- *   resolves to a different window when it changes — and the two must agree, or a
- *   failed refresh keeps the previous window's events under the new identity.
+ * @param firstDayOfWeek Resolved first day of the week (0 = Sunday), counted only where it
+ *   moves the window ({@link firstDayKeyPart}). Included at all because `hasConfigChanged`
+ *   treats it as fetch-affecting, and the two must agree, or a failed refresh keeps the
+ *   previous window's events under the new identity.
  * @returns Deterministic ID string based on input parameters
  */
 export function generateDeterministicId(
   entities: Array<string | { entity: string; color?: string }>,
   daysToShow: number,
   startDate?: string,
-  firstDayOfWeek?: string,
+  firstDayOfWeek?: number,
 ): string {
   const entityIds = entities
     .map((e) => (typeof e === 'string' ? e : e.entity))
@@ -388,7 +405,7 @@ export function generateDeterministicId(
   }
 
   const startDatePart = normalizedStartDate ? `_${normalizedStartDate}` : '';
-  const firstDayPart = firstDayOfWeek ? `_fdw${firstDayOfWeek}` : '';
+  const firstDayPart = firstDayKeyPart(normalizedStartDate, firstDayOfWeek);
 
   const baseString = `calendar_${entityIds}_${daysToShow}${startDatePart}${firstDayPart}`;
 

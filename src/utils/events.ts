@@ -12,7 +12,7 @@ import * as Helpers from './helpers';
 import * as LiveCalendars from './live-calendars';
 import * as Logger from './logger';
 import * as PersonPictures from './person-pictures';
-import { isWeekRelative, parseStartDateExpression } from './start-date';
+import { parseStartDateExpression } from './start-date';
 import * as TextReplace from './text-replace';
 import * as Config from '../config/config';
 import * as Constants from '../config/constants';
@@ -3311,17 +3311,8 @@ export function getBaseCacheKey(
 
   const startDatePart = normalizedStartDate ? `_${normalizedStartDate}` : '';
 
-  // Asked of the grammar rather than restated here. A regex over the raw value drifted
-  // both ways: it matched `end_of_week`, which is not an anchor, and missed anything
-  // carrying whitespace, because `getTimeWindow` trims before parsing and this did not —
-  // so a quoted `" start_of_week"` was keyed as absolute while its window moved.
-  //
-  // Explicitly against `undefined`, not truthiness: Sunday resolves to 0, so a truthy
-  // test would drop it from the key and collide a Sunday-start week with "no weekday".
-  const firstDayPart =
-    isWeekRelative(normalizedStartDate) && firstDayOfWeek !== undefined
-      ? `_fdw${firstDayOfWeek}`
-      : '';
+  // One rule with the card's query identity, which this key begins with: see the helper.
+  const firstDayPart = Helpers.firstDayKeyPart(normalizedStartDate, firstDayOfWeek);
 
   return `${Constants.CACHE.EVENT_CACHE_KEY_PREFIX}${instanceId}_${entityIds}_${daysToShow}${startDatePart}${firstDayPart}${Constants.VERSION.CURRENT}`;
 }
