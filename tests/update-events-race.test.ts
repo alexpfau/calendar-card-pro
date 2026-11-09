@@ -1,21 +1,21 @@
 /**
  * A slow event response must not overwrite a newer configuration.
  *
- * `updateEvents()` reads `this._instanceId` twice: once when it calls `fetchEventData`,
- * and again — after the await — when it commits the result. Between those two reads the
- * user can reconfigure the card. `setConfig()` regenerates `_instanceId` from the entity
- * list and immediately calls `updateEvents(true)`, so two requests can be in flight at
- * once. Each call takes a ticket from `_eventRequestGeneration` before awaiting; a
- * response whose ticket no longer matches is discarded instead of committing.
+ * `updateEvents()` takes the card's query identity, awaits the API, then commits the
+ * result under that identity. During the await the user can reconfigure the card:
+ * `setConfig()` moves `_instanceId` with the entity list and immediately calls
+ * `updateEvents`, so two requests can be in flight at once. Each call takes a ticket
+ * from `_eventRequestGeneration` before awaiting; a response whose ticket no longer
+ * matches is discarded instead of committing.
  *
- * Without that ticket, if the older request settles last it wins twice over: it replaces
- * `events` with the previous calendar's payload, and it stamps `_eventsInstanceId` with
- * the *current* identity. That second half is what makes the state unrecoverable rather
- * than merely stale — `eventsMatchCurrentQuery` now reports true, so the card believes
- * the old calendar's events belong to the new query and no later refresh treats them as
- * suspect. The same shape appears on disconnect: a fetch started while connected can
- * settle after a detached `setConfig` rewrote `_instanceId`, so `disconnectedCallback`
- * bumps the ticket as well.
+ * Without that ticket, if the older request settles last it replaces `events` with the
+ * previous calendar's payload, and the card draws the calendar the user just left until
+ * its next load. The identity each request carries to its commit is its own, so the
+ * payload is at least not taken for the new query's, as it once was when the identity
+ * was read again after the await; the ticket is what keeps it off the screen at all.
+ * The same shape appears on disconnect: a fetch started while connected can settle after
+ * a detached `setConfig` moved `_instanceId`, so `disconnectedCallback` bumps the ticket
+ * as well.
  *
  * The ordering is not exotic. Home Assistant calls `setConfig` on every keystroke in the
  * visual editor, and the two requests go to different calendars, so their latencies are
@@ -146,9 +146,9 @@ describe('a slow response must not overwrite a newer configuration', () => {
 
   it('discards an in-flight response after disconnect even when setConfig rewrote the instance', async () => {
     // Disconnect used to leave `_eventRequestGeneration` alone. A fetch started while
-    // connected could then settle after a detached setConfig had already rotated
-    // `_instanceId`, commit the previous calendar's events, and stamp them as matching
-    // the new query — the same unrecoverable state the header describes, reached through
+    // connected could then settle after a detached setConfig had already moved
+    // `_instanceId`, and draw the previous calendar's events under the configuration that
+    // replaced it — the state the header describes, reached through
     // the lifecycle rather than through a second concurrent updateEvents.
     const { hass, pending } = deferredHass();
     const card = document.createElement('calendar-card-pro-dev') as unknown as CardUnderTest;

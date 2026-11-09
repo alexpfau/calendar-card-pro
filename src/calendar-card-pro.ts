@@ -575,8 +575,8 @@ class CalendarCardPro extends LitElement {
    *
    * `updateEvents()` awaits the API, and two entry points can bump this during that
    * await: `setConfig()` moving `_instanceId` and starting a second request, and
-   * `disconnectedCallback` superseding any fetch that is still open so a detached
-   * `setConfig` cannot stamp a late response with a new identity. Comparing the ticket
+   * `disconnectedCallback` superseding any fetch that is still open, so a response for a
+   * configuration a detached `setConfig` has since replaced is never drawn. Comparing the ticket
    * a request started with against the current value is what tells a superseded
    * response to discard itself instead of committing.
    */
@@ -2253,9 +2253,8 @@ class CalendarCardPro extends LitElement {
 
     // Supersede any in-flight updateEvents. Detached setConfig can move
     // `_instanceId` while a pre-disconnect fetch is still open; without this
-    // bump the late response is not superseded, commits the old calendar's
-    // events, and stamps them with the *new* identity so
-    // `eventsMatchCurrentQuery` treats the mismatch as current.
+    // bump the late response is not superseded, and draws the old calendar's
+    // events under the configuration that replaced it until the next load.
     this._eventRequestGeneration++;
     this.isLoading = false;
     this._settleRefreshPhase();
@@ -6330,10 +6329,10 @@ class CalendarCardPro extends LitElement {
     }
 
     // Take a ticket before anything can await. Any call that starts after this one
-    // supersedes it, and a superseded response must not touch card state — committing
-    // it would both show the previous calendar's events and stamp them with the current
-    // `_instanceId`, which makes `eventsMatchCurrentQuery` report true for a payload the
-    // current query never asked for.
+    // supersedes it, and a superseded response must not touch card state: committing it
+    // would draw the previous query's events under the current configuration until the
+    // next load. The identity is taken once, below, and carried to the commit, so such a
+    // payload is at least never stamped as the current query's.
     const generation = ++this._eventRequestGeneration;
     const isSuperseded = (): boolean => generation !== this._eventRequestGeneration;
 
