@@ -1,6 +1,7 @@
 {
   "customized_only": "Customised Only",
   "filter.nothing_customized": "Nothing is customised — every setting is at the card default.",
+  "quick_setup.review_colors": "Colours from the example for: {calendars}.",
   "entity.color": "Event Colour",
   "entity.color.helper": "Event titles from this calendar. Overrides the card colour.",
   "entity.accent_color": "Accent Colour",

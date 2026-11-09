@@ -6,6 +6,12 @@ import { FILTER_SCHEMA } from './filter';
 import type { HaFormSchema } from './ha-form';
 import { type PanelDef, type SchemaCtx, type SubformDef } from './panels';
 import { buildDisplayViewSchema } from './schemas/layout';
+import {
+  QUICK_SETUP_CALENDARS_SCHEMA,
+  QUICK_SETUP_PATH,
+  QUICK_SETUP_TAPS_SCHEMA,
+  QUICK_SETUP_WEATHER_SCHEMA,
+} from './schemas/quick-setup';
 import { buildWorkspaceSchema } from './workspace';
 
 /** The forms the chassis renders itself, above the panels and belonging to none. */
@@ -43,7 +49,13 @@ export function chassisSchemas(language = 'en'): ChassisSchemas {
  */
 export function chassisSubforms(language = 'en'): SubformDef[] {
   const { displayView, workspace, filter } = chassisSchemas(language);
-  return [displayView, workspace, filter].map((schema) => ({ path: [], schema }));
+  return [
+    ...[displayView, workspace, filter].map((schema) => ({ path: [], schema })),
+    // Quick Setup, which takes the place of the panels while it is open.
+    ...[QUICK_SETUP_CALENDARS_SCHEMA, QUICK_SETUP_WEATHER_SCHEMA, QUICK_SETUP_TAPS_SCHEMA].map(
+      (schema) => ({ path: [...QUICK_SETUP_PATH], schema }),
+    ),
+  ];
 }
 
 export const CHASSIS_STRINGS: ReadonlyArray<string> = [
@@ -53,6 +65,8 @@ export const CHASSIS_STRINGS: ReadonlyArray<string> = [
   'value_source',
   'grid_reconciliation',
   'config_migration',
+  'misplaced',
+  'quick_setup',
 ];
 
 /**

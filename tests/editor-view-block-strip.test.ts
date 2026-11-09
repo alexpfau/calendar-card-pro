@@ -101,3 +101,45 @@ describe('where the two blocks deliberately differ', () => {
     }).toEqual({ grid: { show_empty_days: true }, column: undefined });
   });
 });
+
+// Backlog item 192: a line the card ignores is still a line the user wrote. A save keeps it in
+// every block, so the editor's misplaced-option notice can report it and offer to move it.
+// Falsifiers: restore the `LIST_OVERRIDE_KEYS` filter in `stripListDefaults` and the list rows
+// fail; drop a held synthetic name again in either stripper and its "synthetic" rows fail.
+describe.each(['list', 'column', 'time_grid'] as const)(
+  'a misplaced line in %s survives an unrelated save',
+  (block) => {
+    function save(lines: Record<string, unknown>): unknown {
+      const authored = {
+        type: 'custom:calendar-card-pro',
+        entities: ['calendar.anna'],
+        title: 'Before',
+        [block]: lines,
+      };
+      const config = merged({ ...authored, title: 'After' });
+      return toStoredConfig(config, new Set(Object.keys(authored)), authored)[block];
+    }
+
+    it('keeps a card-wide option and an unknown key', () => {
+      expect(save({ toolbar: { show: true }, shwo_location: true })).toEqual({
+        toolbar: { show: true },
+        shwo_location: true,
+      });
+    });
+
+    it('keeps a synthetic field name the YAML holds', () => {
+      expect(save({ time_format: '24h', start_date_mode: 'offset' })).toEqual({
+        time_format: '24h',
+        start_date_mode: 'offset',
+      });
+    });
+
+    it('still drops a synthetic value a form generated', () => {
+      const authored = { type: 'custom:calendar-card-pro', entities: ['calendar.anna'] };
+      const config = merged({ ...authored, [block]: { time_format: '24h' } });
+      expect(toStoredConfig(config, new Set(Object.keys(authored)), authored)[block]).toBe(
+        undefined,
+      );
+    });
+  },
+);

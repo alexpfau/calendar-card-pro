@@ -348,3 +348,37 @@ export function computeSubformHelper(
 
   return own === undefined ? applicability : `${applicability} ${own}`;
 }
+
+/**
+ * Joins names into one phrase the way the language writes a list: "Columns or Grid".
+ *
+ * `Intl.ListFormat` supplies the conjunction, so no "or" or "and" has to be translated. A
+ * language tag the runtime refuses falls back to commas rather than throwing.
+ *
+ * @param language - Editor language code
+ * @param items - Names to join, already localized
+ * @param type - `disjunction` for "or", `conjunction` for "and"
+ * @returns The joined phrase
+ */
+export function formatList(
+  language: string,
+  items: ReadonlyArray<string>,
+  type: 'disjunction' | 'conjunction' = 'disjunction',
+): string {
+  // Typed here because the project's `lib` stops at ES2017, where `Intl.ListFormat` is absent.
+  const ListFormat = (
+    Intl as unknown as {
+      ListFormat?: new (
+        locale: string,
+        options: { type: string; style: string },
+      ) => { format(items: ReadonlyArray<string>): string };
+    }
+  ).ListFormat;
+
+  try {
+    if (ListFormat) return new ListFormat(language, { type, style: 'long' }).format(items);
+  } catch {
+    // A tag the runtime refuses falls through to commas.
+  }
+  return items.join(', ');
+}

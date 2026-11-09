@@ -15,6 +15,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'customized_only.helper':
     'Hides everything left at the value the card would use anyway, so what is left is ' +
     'what this card changes.',
+  essentials_only: 'Essentials Only',
+  'essentials_only.helper':
+    'Shows only the settings most cards need. Search still finds every setting, and the ' +
+    'switch is remembered in this browser.',
   'filter.no_matches': 'Nothing matches “{query}”.',
   'filter.nothing_customized': 'Nothing is customized — every setting is at the card default.',
   'filter.gated_note':
@@ -51,6 +55,82 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'grid_reconciliation.message':
     'Grid kept your existing values for: {options}. Use Reset in Grid to use its default for an option.',
   'grid_reconciliation.dismiss': 'Dismiss',
+
+  // --- Misplaced options (backlog item 192) -----------------------------------
+  //
+  // Read by YAML authors: the option is shown as its YAML path, so these sentences say what
+  // the card does with it and where it works, never what the path already says.
+  'misplaced.title': 'Options the Card Ignores',
+  'misplaced.message':
+    'These options are written where the card does not read them. Move each one to where it ' +
+    'works, or change it in YAML.',
+  'misplaced.fetch_time':
+    'Decides which events are loaded, so it works only for the whole card, at the top level.',
+  'misplaced.card_wide': 'Works only for the whole card, at the top level.',
+  'misplaced.wrong_view': 'Belongs to another layout: {places}.',
+  'misplaced.view_only': 'Works only in a layout’s own settings: {places}.',
+  'misplaced.unknown': 'Not an option of this card. Check its spelling and where it is.',
+  'misplaced.move': 'Move to {place}',
+  'misplaced.taken': '{place} already sets it.',
+  'misplaced.top_level': 'Top Level',
+
+  // --- Quick Setup (backlog item 188) ----------------------------------------
+  //
+  // A card started from one of the docs' Example Stories. The story names and their two lines
+  // are the docs' own, from the Example Stories table, so the editor and the site describe each
+  // the same way. The field labels repeat the panels' own where the field is the same setting.
+  'quick_setup.open': 'Quick Setup',
+  'quick_setup.open_note':
+    'Start from an example card and answer a few questions. The preview follows each answer.',
+  'quick_setup.title': 'Quick Setup',
+  'quick_setup.step': 'Step {step} of {steps}: {name}',
+  'quick_setup.step.story': 'Starting Point',
+  'quick_setup.step.calendars': 'Title & Calendars',
+  'quick_setup.step.weather': 'Weather',
+  'quick_setup.step.taps': 'Taps & Toolbar',
+  'quick_setup.step.review': 'Review',
+  'quick_setup.story_intro':
+    'Pick the example closest to what this card is for. You can change everything afterward.',
+  'quick_setup.story.family_hub': 'Family Hub',
+  'quick_setup.story.family_hub.best_for':
+    'The whole family’s week, with every control on the card',
+  'quick_setup.story.family_hub.space': 'A wall tablet, and the same card on a phone',
+  'quick_setup.story.now_and_next': 'Now & Next',
+  'quick_setup.story.now_and_next.best_for': 'What is on now and what comes next',
+  'quick_setup.story.now_and_next.space': 'A small tile on a phone',
+  'quick_setup.story.today_and_tomorrow': 'Today & Tomorrow',
+  'quick_setup.story.today_and_tomorrow.best_for': 'Where the day stands, hour by hour',
+  'quick_setup.story.today_and_tomorrow.space': 'A phone, a section or a portrait tablet',
+  'quick_setup.story.birthdays_and_holidays': 'Birthdays & Holidays',
+  'quick_setup.story.birthdays_and_holidays.best_for':
+    'Birthdays with ages, and the next school break',
+  'quick_setup.story.birthdays_and_holidays.space': 'A dashboard section or a pop-up',
+  'quick_setup.read_story': 'Read about this example',
+  'quick_setup.card_title': 'Title',
+  'quick_setup.card_title.helper': 'Leave it empty for a card without a title.',
+  'quick_setup.card_calendars': 'Calendars',
+  'quick_setup.calendars_needed': 'Choose at least one calendar to go on.',
+  'quick_setup.weather_entity': 'Weather Entity',
+  'quick_setup.weather_entity.helper': 'Leave it empty for a card without weather.',
+  'quick_setup.show_toolbar': 'Show Toolbar',
+  'quick_setup.show_toolbar.helper':
+    'Pages through dates, switches layouts, searches and adds events.',
+  'quick_setup.event_details': 'Tapping an Event Opens It',
+  'quick_setup.event_details.helper': 'Shows the event in the card’s own window.',
+  'quick_setup.day_adds': 'Tapping a Day Adds an Event',
+  'quick_setup.day_adds.helper': 'Only on calendars that accept new events.',
+  'quick_setup.review_story':
+    'This card takes the layout, look and actions of {story}. Every setting not listed here is ' +
+    'replaced.',
+  'quick_setup.review_calendars': 'Calendars: {calendars}. Each keeps its own settings.',
+  'quick_setup.review_colors': 'Colors from the example for: {calendars}.',
+  'quick_setup.review_keeps':
+    'Settings Home Assistant keeps for this card, such as its size on the dashboard, stay as ' +
+    'they are.',
+  'quick_setup.back': 'Back',
+  'quick_setup.next': 'Next',
+  'quick_setup.cancel': 'Cancel',
+  'quick_setup.apply': 'Apply',
   'config_migration.title': 'Choose How to Upgrade This Card',
   'config_migration.list_message':
     'Version 5 separates settings for List from settings shared by every layout. Either choice keeps the card looking the same right now.',

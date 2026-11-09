@@ -3,6 +3,7 @@
  */
 
 import * as Entities from './entities';
+import { isEssentialCalendarField, isEssentialCardField } from './essentials';
 import { type HaFormSchema, isGroupSchema } from './ha-form';
 import * as EditorLocalize from './localize';
 import { type PanelDef, type PanelExtra, type SchemaCtx, walkSchema } from './panels';
@@ -23,17 +24,26 @@ import * as Helpers from '../../utils/helpers';
 export interface FilterCriteria {
   query: string;
   customizedOnly: boolean;
+  /** Only the settings most cards need; a typed query sets it aside (see `appliesEssentials`). */
+  essentialsOnly: boolean;
 }
 
-export const NO_FILTER: FilterCriteria = { query: '', customizedOnly: false };
+export const NO_FILTER: FilterCriteria = {
+  query: '',
+  customizedOnly: false,
+  essentialsOnly: false,
+};
 
 export const SEARCH_FIELD = 'search';
 
 export const CUSTOMIZED_ONLY_FIELD = 'customized_only';
 
+export const ESSENTIALS_ONLY_FIELD = 'essentials_only';
+
 export const FILTER_SCHEMA: ReadonlyArray<HaFormSchema> = [
   { name: SEARCH_FIELD, selector: { text: { type: 'search' } } },
   { name: CUSTOMIZED_ONLY_FIELD, selector: { boolean: {} } },
+  { name: ESSENTIALS_ONLY_FIELD, selector: { boolean: {} } },
 ];
 
 /**
@@ -46,6 +56,7 @@ export function filterFormData(criteria: FilterCriteria): Record<string, unknown
   return {
     [SEARCH_FIELD]: criteria.query,
     [CUSTOMIZED_ONLY_FIELD]: criteria.customizedOnly,
+    [ESSENTIALS_ONLY_FIELD]: criteria.essentialsOnly,
   };
 }
 
@@ -61,6 +72,7 @@ export function toFilterCriteria(data: Readonly<Record<string, unknown>>): Filte
   return {
     query: typeof query === 'string' ? query : '',
     customizedOnly: data[CUSTOMIZED_ONLY_FIELD] === true,
+    essentialsOnly: data[ESSENTIALS_ONLY_FIELD] === true,
   };
 }
 
@@ -109,7 +121,47 @@ function queryOf(ctx: FilterCtx): string {
  * @returns `true` when the editor is showing a subset of itself
  */
 export function isFiltering(criteria: FilterCriteria): boolean {
-  return criteria.customizedOnly || normalizeQuery(criteria.query) !== '';
+  return criteria.customizedOnly || criteria.essentialsOnly || hasQuery(criteria);
+}
+
+/**
+ * Whether the user has typed a search.
+ *
+ * 🚨 The test for every shortcut that lets a whole panel or group through because its own name
+ * matched. Asked as "is the editor filtering" instead, those shortcuts fire on an empty query,
+ * where `matchesPanel` answers `true` for every panel, and Essentials Only would show every
+ * field it was switched on to hide.
+ *
+ * @param criteria - What the user has asked to see
+ * @returns `true` when the query holds more than whitespace
+ */
+export function hasQuery(criteria: FilterCriteria): boolean {
+  return normalizeQuery(criteria.query) !== '';
+}
+
+/**
+ * Whether the user is looking for something, so that what matches should open by itself.
+ *
+ * Essentials Only is not looking for anything: it shortens the editor, and its panels stay
+ * closed until opened, as they do without it.
+ *
+ * @param criteria - What the user has asked to see
+ * @returns `true` while a search or Customized Only is narrowing the editor
+ */
+export function isSearching(criteria: FilterCriteria): boolean {
+  return criteria.customizedOnly || hasQuery(criteria);
+}
+
+/**
+ * Whether Essentials Only is cutting the editor down right now.
+ *
+ * A typed query sets it aside, so search reaches every setting whatever the switch says.
+ *
+ * @param criteria - What the user has asked to see
+ * @returns `true` while only the essential fields show
+ */
+export function appliesEssentials(criteria: FilterCriteria): boolean {
+  return criteria.essentialsOnly && !hasQuery(criteria);
 }
 
 /**
@@ -525,6 +577,8 @@ export function filterSchema(
 ): HaFormSchema[] {
   if (!isFiltering(ctx.criteria)) return [...schema];
 
+  const essentials = appliesEssentials(ctx.criteria);
+
   return pruneLoneHeadings(
     filterNodes(
       schema,
@@ -535,7 +589,8 @@ export function filterSchema(
         isHeading(node) ||
         ((matchesQuery(node, nodePath, ctx, nodeDataPath) ||
           (nodeDataPath.length === 0 && listsCalendars(node) && namesACalendar(ctx))) &&
-          (!ctx.criteria.customizedOnly || isCustomized(node, nodeDataPath, ctx))),
+          (!ctx.criteria.customizedOnly || isCustomized(node, nodeDataPath, ctx)) &&
+          (!essentials || isEssentialCardField(node, nodeDataPath))),
       path,
       dataPath,
     ),
@@ -595,6 +650,8 @@ export function filterExtras(
 ): PanelExtra[] {
   if (!isFiltering(ctx.criteria)) return [...extras];
   if (ctx.criteria.customizedOnly) return [];
+  // A layout's width table explains the layout rather than setting it, so it is not essential.
+  if (appliesEssentials(ctx.criteria)) return [];
   if (matchesPanel(panel, ctx)) return [...extras];
 
   const query = queryOf(ctx);
@@ -668,6 +725,7 @@ export function filterEntitySchema(
 
   const entityCtx: FilterCtx = { ...ctx, scope: 'entity' };
   const named = queryOf(entityCtx) !== '' && matchesEntity(entry, entityCtx);
+  const essentials = appliesEssentials(ctx.criteria);
 
   return pruneLoneHeadings(
     filterNodes(
@@ -676,7 +734,8 @@ export function filterEntitySchema(
       (node, nodePath) =>
         isHeading(node) ||
         ((named || matchesQuery(node, nodePath, entityCtx)) &&
-          (!ctx.criteria.customizedOnly || isEntityFieldCustomized(entry, node))),
+          (!ctx.criteria.customizedOnly || isEntityFieldCustomized(entry, node)) &&
+          (!essentials || isEssentialCalendarField(node))),
       path,
       [],
     ),
@@ -740,6 +799,8 @@ export function filterButtonSchema(
   ctx: FilterCtx,
 ): HaFormSchema[] {
   if (!isFiltering(ctx.criteria)) return [...schema];
+  // A button of one's own is an addition to the card, not something most cards need.
+  if (appliesEssentials(ctx.criteria)) return [];
 
   const named = queryOf(ctx) !== '' && matchesButton(entry, ctx);
 

@@ -1681,29 +1681,8 @@ function validateViewOverrides(config: Types.Config, view: Types.EffectiveView):
     }
   }
 
-  for (const key of Object.keys(overrides)) {
-    if (ownKeys.has(key)) {
-      continue;
-    }
-
-    if (FETCH_TIME_KEYS.has(key)) {
-      Logger.warn(
-        `Ignoring "${block.blockKey}.${key}": it determines which events are loaded from Home Assistant, ` +
-          `so it cannot differ between views — switching views would have to refetch. ` +
-          `Set "${key}" at the top level instead.`,
-      );
-      continue;
-    }
-
-    if (Object.prototype.hasOwnProperty.call(DEFAULT_CONFIG, key)) {
-      Logger.warn(
-        `Ignoring "${block.blockKey}.${key}": "${key}" is a valid top-level option but cannot be overridden ` +
-          `per view. Set it at the top level instead.`,
-      );
-      continue;
-    }
-
-    Logger.warn(`Ignoring "${block.blockKey}.${key}": not a recognized option.`);
+  for (const finding of misplacedInBlock(config as unknown as Record<string, unknown>, block)) {
+    warnAboutMisplacedOption(finding);
   }
 }
 
@@ -1719,11 +1698,167 @@ function validateViewOverrides(config: Types.Config, view: Types.EffectiveView):
 function warnAboutTopLevelOnlyKeys(config: Types.Config, block: ViewBlock): void {
   for (const key of block.onlyKeys) {
     if (Object.prototype.hasOwnProperty.call(config, key)) {
-      Logger.warn(
-        `Ignoring top-level "${key}": it is a ${block.blockKey}-view-only option and has no effect ` +
-          `outside the "${block.blockKey}:" block. Move it to "${block.blockKey}: { ${key}: ... }".`,
+      warnAboutMisplacedOption({
+        kind: 'view-only',
+        key,
+        from: null,
+        to: [block.blockKey],
+      });
+    }
+  }
+}
+
+//-----------------------------------------------------------------------------
+// MISPLACED OPTIONS
+//-----------------------------------------------------------------------------
+
+/**
+ * Why an option is ignored where it is written.
+ *
+ * - `fetch-time`: in a view block, but it decides which events are loaded, so every view
+ *   shares it.
+ * - `card-wide`: in a view block, but it is a top-level option that view cannot override.
+ * - `wrong-view`: in a view block, but it belongs to another view's block.
+ * - `view-only`: at the top level, but it exists only inside a view's block.
+ * - `unknown`: in a view block, and no view or top level knows it.
+ */
+export type MisplacedKind = 'fetch-time' | 'card-wide' | 'wrong-view' | 'view-only' | 'unknown';
+
+/**
+ * One option written where the card ignores it.
+ *
+ * Places are view-block keys (`list`, `column`, `time_grid`), or `null` for the top level.
+ */
+export interface MisplacedOption {
+  readonly kind: MisplacedKind;
+  readonly key: string;
+  /** Where it is written. */
+  readonly from: string | null;
+  /** Every place it would work, in registry order; empty when nowhere would. */
+  readonly to: ReadonlyArray<string | null>;
+}
+
+/**
+ * Every view-block key that owns an option, in registry order.
+ *
+ * @param key - Option name
+ * @returns The block keys whose override or view-only keys include it
+ */
+function blocksOwning(key: string): string[] {
+  return Object.values(VIEW_BLOCKS)
+    .filter((block) => block.overrideKeys.includes(key) || block.onlyKeys.includes(key))
+    .map((block) => block.blockKey as string);
+}
+
+/**
+ * The misplaced options inside one view's block.
+ *
+ * @param config - Configuration to inspect, raw or merged; only the block is read
+ * @param block - Registry entry for the view
+ * @returns One finding per ignored key, in the block's own order
+ */
+function misplacedInBlock(config: Record<string, unknown>, block: ViewBlock): MisplacedOption[] {
+  const values = config[block.blockKey as string];
+  if (!values || typeof values !== 'object' || Array.isArray(values)) return [];
+
+  const ownKeys = new Set<string>([...block.overrideKeys, ...block.onlyKeys]);
+  const from = block.blockKey as string;
+  const findings: MisplacedOption[] = [];
+
+  for (const key of Object.keys(values)) {
+    if (ownKeys.has(key)) continue;
+
+    if (FETCH_TIME_KEYS.has(key)) {
+      findings.push({ kind: 'fetch-time', key, from, to: [null] });
+    } else if (Object.prototype.hasOwnProperty.call(DEFAULT_CONFIG, key)) {
+      findings.push({ kind: 'card-wide', key, from, to: [null] });
+    } else {
+      const owners = blocksOwning(key);
+      findings.push(
+        owners.length > 0
+          ? { kind: 'wrong-view', key, from, to: owners }
+          : { kind: 'unknown', key, from, to: [] },
       );
     }
+  }
+
+  return findings;
+}
+
+/**
+ * Every option written where the card ignores it.
+ *
+ * The one rule behind both the card's development warnings and the editor's notice, so the
+ * two cannot disagree. Pass the configuration as the YAML holds it: top-level view-only keys
+ * are found by own-property presence, which a merged configuration preserves only because
+ * `DEFAULT_CONFIG` holds none of them.
+ *
+ * A top-level view-only key is reported once, with every block that owns it: the six column
+ * keys are grid keys too, so `min_day_width` at the top level has two destinations.
+ *
+ * @param config - Configuration to inspect
+ * @returns Top-level findings first, then each view block's, in registry order
+ */
+export function findMisplacedOptions(config: Readonly<Record<string, unknown>>): MisplacedOption[] {
+  if (!config || typeof config !== 'object') return [];
+
+  const findings: MisplacedOption[] = [];
+  const reported = new Set<string>();
+
+  for (const block of Object.values(VIEW_BLOCKS)) {
+    for (const key of block.onlyKeys) {
+      if (reported.has(key) || !Object.prototype.hasOwnProperty.call(config, key)) continue;
+      reported.add(key);
+      findings.push({ kind: 'view-only', key, from: null, to: blocksOwning(key) });
+    }
+  }
+
+  for (const block of Object.values(VIEW_BLOCKS)) {
+    findings.push(...misplacedInBlock(config as Record<string, unknown>, block));
+  }
+
+  return findings;
+}
+
+/**
+ * Logs one misplaced option the way the card always has, in development builds.
+ *
+ * @param finding - The option and where it belongs
+ */
+function warnAboutMisplacedOption(finding: MisplacedOption): void {
+  const { key, from } = finding;
+  const where = `${from}.${key}`;
+
+  switch (finding.kind) {
+    case 'fetch-time':
+      Logger.warn(
+        `Ignoring "${where}": it determines which events are loaded from Home Assistant, ` +
+          `so it cannot differ between views — switching views would have to refetch. ` +
+          `Set "${key}" at the top level instead.`,
+      );
+      return;
+    case 'card-wide':
+      Logger.warn(
+        `Ignoring "${where}": "${key}" is a valid top-level option but cannot be overridden ` +
+          `per view. Set it at the top level instead.`,
+      );
+      return;
+    case 'wrong-view':
+      Logger.warn(
+        `Ignoring "${where}": it belongs in ${finding.to.map((block) => `"${block}:"`).join(' or ')}, ` +
+          `not in "${from}:".`,
+      );
+      return;
+    case 'view-only':
+      for (const block of finding.to) {
+        Logger.warn(
+          `Ignoring top-level "${key}": it is a ${block}-view-only option and has no effect ` +
+            `outside the "${block}:" block. Move it to "${block}: { ${key}: ... }".`,
+        );
+      }
+      return;
+    case 'unknown':
+      Logger.warn(`Ignoring "${where}": not a recognized option.`);
   }
 }
 
