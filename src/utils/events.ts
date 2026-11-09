@@ -1399,6 +1399,18 @@ function dayPassesWeekFilter(
 }
 
 /**
+ * The members of `CalendarEventData` that `groupEventsByDay`'s display copy leaves out, on
+ * purpose. Every other member has to be named in the copy, or `tsc` fails.
+ *
+ * - `uid`, `recurrence_id`, `rrule` and `status` are Home Assistant's own fields. The copy
+ *   carries them inside `_source`, which `processEvents` stamps on every event and which is
+ *   where every reader takes them from.
+ * - `_searchRing` is stamped after grouping, on a copy of the row the search panel picked
+ *   (`Search.ringIn`), so no event reaching the copy carries one.
+ */
+type LeftOffDisplayCopy = 'uid' | 'recurrence_id' | 'rrule' | 'status' | '_searchRing';
+
+/**
  * Group events by display day.
  *
  * @param rawEvents Calendar events to group
@@ -1766,10 +1778,11 @@ export function groupEventsByDay(
         _entityId: event._entityId,
         _entityLabel: getEntityLabel(event._entityId, config, event),
         _matchedConfig: event._matchedConfig,
-        // 🚨 This projection is a hand-written field list, so a stamp omitted here is
-        // dropped between grouping and rendering with nothing to show it went. Split
-        // segments escape that because `splitMultiDayEvent` copies with a spread;
-        // the display copies do not.
+        // 🚨 This projection is a hand-written field list, and every row passes through it,
+        // split segments included, so a stamp omitted here would be dropped between grouping
+        // and rendering with nothing to show it went. `satisfies` below makes an omission a
+        // `tsc` error; a member left out on purpose goes in `LeftOffDisplayCopy`, with its
+        // reason.
         _mergedFrom: event._mergedFrom,
         _source: event._source,
         _isEmptyDay: event._isEmptyDay,
@@ -1780,7 +1793,7 @@ export function groupEventsByDay(
         _splitFromTimedEvent: event._splitFromTimedEvent,
         _gridSegmentStartsEvent: event._gridSegmentStartsEvent,
         _gridSource: event._gridSource,
-      });
+      } satisfies Types.EveryMember<Types.CalendarEventData, LeftOffDisplayCopy>);
     });
   }
 

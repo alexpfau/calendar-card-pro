@@ -1252,19 +1252,6 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Every member of `EntityConfig`, each one required but allowed to be `undefined`.
- *
- * `normalizeEntities` ends its projection with `satisfies` this type, so a per-calendar option
- * declared in `EntityConfig` and missing from the projection is a `tsc` error, and so is a key
- * the interface does not declare. `keyof Required<…>` is load-bearing: the shorter
- * `{ [K in keyof T]-?: T[K] | undefined }` is a homomorphic mapping whose `-?` also strips the
- * written `| undefined`, so it would reject every option the YAML leaves unset.
- */
-type EveryEntityOption = {
-  [K in keyof Required<Types.EntityConfig>]: Types.EntityConfig[K] | undefined;
-};
-
-/**
  * Normalizes entity configuration to ensure consistent format.
  *
  * The entries come from YAML, so their types are what the card expects rather than what it is
@@ -1320,7 +1307,7 @@ export function normalizeEntities(
           event_type: item.event_type,
           days_of_week: item.days_of_week,
           allday_expires_at: item.allday_expires_at,
-        } satisfies EveryEntityOption;
+        } satisfies Types.EveryMember<Types.EntityConfig>;
       }
       return null;
     })

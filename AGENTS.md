@@ -1605,15 +1605,15 @@ matter how carefully the rest of it was wired. Three per-calendar options were w
 way in one PR, with types, editor schema, translations, transform and docs all correct,
 because `tsc` could not see it: omitting an optional property from an object literal is legal.
 
-So the literal now ends in `satisfies EveryEntityOption`, a type that makes every member of
-`EntityConfig` required while still allowing `undefined`. A key declared in `EntityConfig` and
-missing from the projection fails `npx tsc --noEmit`, naming the key; so does a key the
-interface does not declare, and a value of the wrong type. Declare the option in `EntityConfig`
-first and the compiler names the line you still owe.
+So the literal now ends in `satisfies EveryMember<EntityConfig>`, a type in `types.ts` that
+makes every member of `EntityConfig` required while still allowing `undefined`. A key declared
+in `EntityConfig` and missing from the projection fails `npx tsc --noEmit`, naming the key; so
+does a key the interface does not declare, and a value of the wrong type. Declare the option in
+`EntityConfig` first and the compiler names the line you still owe.
 
 Two things about that type are easy to get wrong:
 
-- **It maps over `keyof Required<EntityConfig>`, and the shorter form does not work.**
+- **It is keyed through `keyof Required<T>`, and the shorter form does not work.**
   `{ [K in keyof EntityConfig]-?: EntityConfig[K] | undefined }` is a homomorphic mapping, and
   its `-?` strips the written `| undefined` along with the optional flag, so it rejects every
   option the YAML leaves unset.
@@ -1633,23 +1633,36 @@ before the check existed, the same edit compiled clean.
 `groupEventsByDay` builds a **display copy** of every event through its own hand-written
 field list — `_entityId`, `_matchedConfig`, `_isEmptyDay`, `_isMultiDaySegment`,
 `_splitFromTimedEvent` and the rest. A stamp added to `CalendarEventData` and _not_ added
-there is dropped silently between grouping and rendering, so the value is computed
-correctly, survives every intermediate stage, and simply is not there when a leaf renderer
-looks for it.
+there used to be dropped silently between grouping and rendering: the value was computed
+correctly, survived every intermediate stage, and simply was not there when a leaf renderer
+looked for it.
 
-It is easy to miss precisely because the neighboring path does the opposite:
-`splitMultiDayEvent` copies with a spread, so multi-day segments inherit any new field for
-free. Testing a stamp on a split segment therefore passes while the ordinary row fails, which
-points at multi-day handling rather than at the projection.
+It is easy to miss because the splitter does the opposite: `splitMultiDayEvent` copies with a
+spread, so a test that reads the segments it returns sees a new stamp. Grouping then sends
+those segments through the same display copy as every other row, so a stamp the copy omits is
+gone from split and ordinary rows alike by the time anything draws them, and a test at the
+splitter points at multi-day handling rather than at the projection.
 
-`_mergedFrom` — the record of which calendars a deduplicated row came from — is the first
-field added here since the list was written. What catches an omission is a **behavioral**
-test rather than a field-list reconciliation: rendering a merged duplicate and asserting on
-what is drawn fails immediately if the stamp never arrives, and needs no second list to keep
-in step. Removing the field from the projection fails 5 tests in
-`tests/merged-duplicate-labels.test.ts` — every label and accent case, because the stamp it
-carries is what `presentation.ts` reads to resolve both — which is the falsifier to run when
-adding another.
+So the copy is now checked the way `normalizeEntities` is: the literal ends in
+`satisfies EveryMember<CalendarEventData, LeftOffDisplayCopy>`, and a member of
+`CalendarEventData` missing from it fails `npx tsc --noEmit`, naming the member. The second
+argument lists the members the copy leaves out on purpose, each with its reason beside the
+list: Home Assistant's `uid`, `recurrence_id`, `rrule` and `status`, which every reader takes
+from `_source`, and `_searchRing`, stamped after grouping. A new stamp goes in the copy unless
+the renderer never needs it, in which case it goes in that list with a reason. Writing a
+listed member into the copy fails too, and so does a name in the list that `CalendarEventData`
+no longer declares.
+
+The falsifier is to add `_plantedStamp?: boolean` to `CalendarEventData` and run
+`npx tsc --noEmit`. It must fail with `Property '_plantedStamp' is missing`; before the check
+existed, the same edit compiled clean.
+
+**The compiler checks presence and type, not provenance**, as it does for `normalizeEntities`:
+`_mergedFrom: undefined` compiles. So the behavioral test for `_mergedFrom` — the record of
+which calendars a deduplicated row came from — stays as the second line. Rendering a merged
+duplicate and asserting on what is drawn fails if the stamp never arrives. Removing the field
+from the projection fails 5 tests in `tests/merged-duplicate-labels.test.ts` — every label and
+accent case, because the stamp it carries is what `presentation.ts` reads to resolve both.
 
 ### Proximity is not reach — a note about a family should be a reconciliation
 
@@ -1681,7 +1694,8 @@ control rather than on someone remembering.
 Two caveats worth keeping. **Reconcile against the type, not against a second list** — a
 second list is one more thing to forget, and the bug is forgetting. And this only works
 where the family has an enumeration, at runtime or in a type the compiler can walk with
-`keyof`, as `normalizeEntities` now does; **prose conventions, term choices and judgment
+`keyof`, as `normalizeEntities` and `groupEventsByDay`'s display copy now do; **prose
+conventions, term choices and judgment
 calls have none**, which is what `scripts/editor-glossary.mjs` is for. Same lesson,
 different mechanism: enforce the family where the family is enumerable, and where it is not,
 name the members explicitly and gate on them.
