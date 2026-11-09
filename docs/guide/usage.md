@@ -16,6 +16,7 @@ Once **Calendar Card Pro** is [installed](/guide/installation), this page takes 
 4. **Configure with the Visual Editor**
    - Click the three dots (⋮) in the top-right corner of the card
    - Select **"Configure"** to open the [visual editor](/features/editor)
+   - Choose **Quick Setup** there to start from an [example card](/features/editor#quick-setup) on your own calendars
 
 ::: tip Shortcut (Home Assistant 2026.6+)
 In the card picker, switch to the **By entity** tab and pick any `calendar.*` entity. Calendar Card Pro is offered under **Community**, already pointed at that calendar and previewed with its real events, so you can skip straight to step 4. Nothing needs to be enabled for this. Five starting points are offered:

@@ -8,6 +8,74 @@ The editor, with the card's preview beside it. **Card Displays** is set to List,
 
 To open it, click the three dots (⋮) in the top-right corner of the card and select **Configure**. If you have not added a card yet, start with [Usage](/guide/usage).
 
+## 🪄 Quick Setup
+
+**Quick Setup** starts a card from one of the [Example Stories](/reference/examples) and asks only
+what a story cannot know about your home: the title, your calendars, your weather and how the
+card should answer a tap. Use it on a new card to get a finished-looking one in a few steps, or
+on an existing card to try a different look without retyping anything.
+
+Choose **Quick Setup** at the top of the editor. Starting from Birthdays & Holidays on two
+calendars writes this:
+
+```yaml
+type: custom:calendar-card-pro
+config_version: 5
+title: Coming Up
+days_to_show: 60
+show_countdown: true
+show_single_allday_time: false
+month_separator_width: 1px
+day_spacing: 4px
+event_gap: 4px
+vertical_line_width: 4px
+toolbar:
+  show: true
+  legend: false
+  add_event: false
+  refresh: false
+  view_switcher: false
+event_tap_action:
+  action: details
+entities:
+  - entity: calendar.birthdays
+    accent_color: '#f06292'
+  - entity: calendar.holidays
+    accent_color: '#26a69a'
+```
+
+| Step                  | What it asks                                                                                                                                                                    |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Starting Point**    | [Family Hub](/guide/family-calendar), [Now & Next](/guide/now-and-next), [Today & Tomorrow](/guide/today-and-tomorrow) or [Birthdays & Holidays](/guide/birthdays-and-holidays) |
+| **Title & Calendars** | The card's title, and its calendars; at least one                                                                                                                               |
+| **Weather**           | A weather entity, or none                                                                                                                                                       |
+| **Taps & Toolbar**    | Whether to show the toolbar, open an event on a tap, and add an event on a tap on a day                                                                                         |
+| **Review**            | What Apply will change, then **Apply**                                                                                                                                          |
+
+- **The preview follows every answer.** **Cancel** puts the card back exactly as it was.
+- **The story replaces the card's look**: its layout, spacing, toolbar settings and actions, and
+  every setting the steps do not ask about.
+- **Your calendars keep their own settings.** A calendar without a color of its own takes the
+  story's next color, until the story runs out of colors.
+- **The weather step starts from your card's weather entity.** Without one, a story that shows
+  weather picks your home's weather entity when you have exactly one.
+- **Home Assistant's own settings for the card stay**, such as its size on the dashboard.
+
+::: details When Quick Setup Behaves Differently
+
+- Two of the six stories are not offered. [Bin Day](/guide/bin-day) and
+  [Family Agenda](/guide/one-calendar-many-purposes) sort events by words in their titles and
+  descriptions, which no question can guess for your calendars; copy them from their pages.
+- A story's names and labels for each calendar are not carried over: they belong to the
+  story's family.
+- A calendar listed more than once keeps every one of its blocks, together, in the order the
+  card first lists it.
+- Each answer is a real edit of the card, so pressing Home Assistant's **Save** before
+  **Apply** saves what the preview shows.
+- Changing the card's YAML while Quick Setup is open closes it, keeping your YAML.
+
+:::
+
 ## 🗂️ Editor Organization
 
 The editor groups its options into nine panels, each named for what it configures rather than for where the option lives in YAML. They are listed here in the order the editor shows them:
@@ -260,9 +328,11 @@ Column's two substitutions are listed in
 ## ✨ Key Features
 
 - **Live Preview** — see changes immediately as you configure the card
+- **Quick Setup** — start from an example card and answer a few questions; see [Quick Setup](#quick-setup)
 - **Context-Aware Options** — settings appear only when they are relevant, so a panel shows what applies rather than everything that exists
 - **Search** — find any option by name or by what it does, without knowing which panel holds it
 - **Customized Only** — hide everything left at its default, to see what a card actually changes
+- **Essentials Only** — show only the settings most cards need
 - **Direct Per-View Editing** — choose a workspace and edit its effective values without adding a second control
 
 ::: info Editor Language Support
@@ -294,6 +364,26 @@ Some searches bring back a whole group rather than one control:
 - **Calendars** show only the ones you have given settings of their own, which is a quick way to see which calendars have a color or a label and which simply follow the card.
 - **Per-calendar options** count as customized when they are set at all. Several of them mean "follow the card" when left alone, so `Show Time: Off` on one calendar is a real setting rather than a default.
 - **View values** count as customized when the selected layout stores its own value. Values inherited from the shared base or supplied by the layout's defaults do not count.
+
+### Essentials Only
+
+**Essentials Only** cuts the editor down to about twenty settings most cards need, so a first
+setup is not a walk through nine panels. It is off until you switch it on, and your browser
+remembers it for every card.
+
+It keeps these, and hides the rest:
+
+- **Calendars**: the calendar picker, and each calendar's name, label and accent color
+- **Time Range & Content**: Days to Show, Start Date, Show Past Events and Show Empty Days
+- **Card & Header**: Title, Show Toolbar and Calendar Filter
+- **Events**: Show Time, Show End Time, Show Location, Show Description and Show Countdown
+- **Weather**: the weather entity and its position
+- **Actions & Refresh**: Tap Action, Day Tap Action and Event Tap Action
+- **Layout**, in Grid only: the hours the grid starts and ends
+
+Typing a search sets Essentials Only aside, so a search still reaches every setting. With
+**Customized Only** also on, it shows the essentials this card has changed. Your toolbar's own
+buttons are hidden while it is on.
 
 ::: tip Not Everything Is There To Be Found
 The editor only offers the settings your current configuration calls for: a fixed calendar content height appears once the height mode is fixed, the compact-mode modifier appears once there is an event limit for it to modify, Allow Editing Events and Allow Deleting Events appear once Event Tap Action is Show Event Details, and Open Links in Events only while Event Tap Action and Event Hold Action are both Nothing. A search cannot turn up a control that is not on screen, so if nothing matches, check whether the option it depends on is switched on.
@@ -417,6 +507,42 @@ Where one mode control governs several options, its reset clears those options t
 :::
 
 **→ [Column View](/features/column-view)** — the `column:` block, and what may go in it.
+
+## ⚠️ Options the Card Ignores
+
+When your YAML puts an option where the card does not read it, the editor lists it at the top,
+says where it works and offers to move it there. The card itself ignores such an option without
+a word, so this is where you find out.
+
+```yaml
+time_grid:
+  toolbar: # ignored here: the toolbar belongs to the whole card
+    show: true
+```
+
+**Move to Top Level** turns that into:
+
+```yaml
+toolbar:
+  show: true
+```
+
+The editor lists four kinds:
+
+- **A whole-card option in a layout's block**, such as `toolbar` or `event_tap_action` under
+  `time_grid:`. It works only at the top level; see
+  [Options That Cannot Be Overridden](/features/column-view#options-that-cannot-be-overridden).
+- **A layout's own option in another layout's block**, such as `start_time` under `column:`,
+  which belongs in `time_grid:`.
+- **A layout's own option at the top level**, such as `hour_height`, which works only inside
+  `time_grid:`.
+- **A name the card does not know inside a layout's block**, often a typo. It has no Move
+  button; fix it in YAML.
+
+**Move** appears only where the destination holds no value for the option yet. Where it does,
+moving would replace something you wrote, so the editor names the conflict and leaves it to you.
+An option that belongs to two layouts, such as `min_day_width` at the top level, gets a Move
+button for each. Until you move or remove it, the editor keeps the line as you wrote it.
 
 ## 🔄 Deprecated Options
 
