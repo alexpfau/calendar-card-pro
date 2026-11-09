@@ -219,6 +219,11 @@ describe('midnight on a window that follows today, after a sleep', () => {
   });
 
   it('loads the missed day at once on waking after midnight', async () => {
+    // Pins the missed-day branch of `_syncMidnightTimer`: the render on waking finds the
+    // midnight timer still pending for a day that has already ended, and loads at once. Nothing
+    // else loads in the second this waits, because every pending timer keeps the delay it had
+    // left. Drop that branch's `_onMidnight()`, or have it only repaint, and this test fails in
+    // every zone.
     const { card, windowed } = await mountFollowing();
     await vi.advanceTimersByTimeAsync(60 * 60_000);
     const loadsBefore = windowed.mock.calls.length;
