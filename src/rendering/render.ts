@@ -19,6 +19,7 @@ import * as Localize from '../translations/localize';
 import * as FormatUtils from '../utils/format';
 import * as Helpers from '../utils/helpers';
 import * as Links from '../utils/links';
+import * as TextDirection from '../utils/text-direction';
 
 /**
  * Re-exported so the card can dispatch between views through a single import namespace. Keeping every renderer reachable as `Render.*` means the call sites in the card's view dispatch read as a set rather than pulling from different modules.
@@ -314,19 +315,30 @@ export function renderMainCardStructure(
  *
  * A label followed by the names rather than a sentence with a slot in it, so it reads
  * naturally in every language without the card needing an interpolation mechanism. The
- * label carries its own colon, because the punctuation differs by language.
+ * label carries its own colon, because the punctuation differs by language, and is marked
+ * on its own where the card's language runs against the dashboard, so the colon stays at
+ * its end; the names are the calendars' own.
  *
  * @param names Display names of the calendars that failed
  * @param language Language code for translations
+ * @param hass Home Assistant instance, which says which way the dashboard runs
  * @returns Template result for the notice
  */
-export function renderFetchErrorNotice(names: string[], language: string): TemplateResult {
+export function renderFetchErrorNotice(
+  names: string[],
+  language: string,
+  hass?: Types.Hass | null,
+): TemplateResult {
   const translations = Localize.getTranslations(language);
+  const label = TextDirection.inLanguageDirection(
+    translations.loadFailed,
+    TextDirection.languageMark(language, hass),
+  );
 
   return html`
     <div class="fetch-error" role="status">
       <ha-icon class="fetch-error-icon" icon="mdi:alert-circle-outline"></ha-icon>
-      <span class="fetch-error-text">${translations.loadFailed} ${names.join(', ')}</span>
+      <span class="fetch-error-text">${label} ${names.join(', ')}</span>
     </div>
   `;
 }
@@ -334,24 +346,35 @@ export function renderFetchErrorNotice(names: string[], language: string): Templ
 /**
  * Render card content based on state
  *
+ * Both messages are marked where the card's language runs against the dashboard
+ * (`TextDirection.languageMark`): the loading message ends in punctuation in every card
+ * language, which a line running the other way moves to its start, and two languages end the
+ * error message so.
+ *
  * @param state Card state (loading, error)
  * @param language Language code for translations
+ * @param hass Home Assistant instance, which says which way the dashboard runs
  * @returns Template result for card content
  */
-export function renderCardContent(state: 'loading' | 'error', language: string): TemplateResult {
+export function renderCardContent(
+  state: 'loading' | 'error',
+  language: string,
+  hass?: Types.Hass | null,
+): TemplateResult {
   const translations = Localize.getTranslations(language);
+  const mark = TextDirection.languageMark(language, hass);
 
   if (state === 'loading') {
     return html`
       <div class="calendar-card">
-        <div class="loading">${translations.loading}</div>
+        <div class="loading">${TextDirection.inLanguageDirection(translations.loading, mark)}</div>
       </div>
     `;
   }
 
   return html`
     <div class="calendar-card">
-      <div class="error">${translations.error}</div>
+      <div class="error">${TextDirection.inLanguageDirection(translations.error, mark)}</div>
     </div>
   `;
 }

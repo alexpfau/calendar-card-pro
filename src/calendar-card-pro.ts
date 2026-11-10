@@ -6980,9 +6980,9 @@ class CalendarCardPro extends LitElement {
     };
 
     if (this.isInitialLoad) {
-      content = Render.renderCardContent('loading', this.effectiveLanguage);
+      content = Render.renderCardContent('loading', this.effectiveLanguage, this.hass);
     } else if (!this.safeHass || !this.config.entities.length) {
-      content = Render.renderCardContent('error', this.effectiveLanguage);
+      content = Render.renderCardContent('error', this.effectiveLanguage, this.hass);
     } else if (this.events.length === 0 && this._hasFetchError) {
       // Nothing loaded and nothing kept: the notice below names what failed, and an empty
       // calendar here would claim there was nothing to show.
@@ -7282,7 +7282,7 @@ class CalendarCardPro extends LitElement {
       CalendarNames.failedCalendarName(entityId, this.config, this.hass),
     );
 
-    return Render.renderFetchErrorNotice(names, this.effectiveLanguage);
+    return Render.renderFetchErrorNotice(names, this.effectiveLanguage, this.hass);
   }
 
   /**

@@ -61,6 +61,23 @@ export const DEFAULT_LANGUAGE = 'en';
 
 const SUPPORTED: ReadonlySet<string> = new Set(CARD_LANGUAGES);
 
+/**
+ * The card languages written right to left. A list rather than `Intl.Locale`'s text info,
+ * which not every browser the card runs in has; `tests/clock-reading-bidi.test.ts` reconciles
+ * it with CLDR for every language in `CARD_LANGUAGES`, so a new one cannot be left out.
+ */
+export const RIGHT_TO_LEFT_LANGUAGES: ReadonlySet<CardLanguage> = new Set<CardLanguage>(['he']);
+
+/**
+ * Which way a card language is written.
+ *
+ * @param language - An effective card language, as `getEffectiveLanguage` returns it
+ * @returns Its direction
+ */
+export function languageDirection(language: string): 'ltr' | 'rtl' {
+  return (RIGHT_TO_LEFT_LANGUAGES as ReadonlySet<string>).has(language) ? 'rtl' : 'ltr';
+}
+
 const languageCache = new Map<string, string>();
 
 /**

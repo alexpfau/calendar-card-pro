@@ -1156,6 +1156,18 @@ export interface Hass {
     first_weekday?: string;
   };
   /**
+   * The language Home Assistant's own interface is drawn in. With `translationMetadata`, it
+   * decides which way the dashboard runs: Home Assistant sets the document's `dir` from
+   * `translationMetadata.translations[language].isRTL` (`computeRTLDirection` in its frontend),
+   * and the card reads the same two fields rather than measuring the result. Optional because a
+   * non-standard `hass` may omit either.
+   */
+  language?: string;
+  /** Home Assistant's list of interface languages; only whether each runs right to left is read. */
+  translationMetadata?: {
+    translations?: Record<string, { isRTL?: boolean } | undefined>;
+  };
+  /**
    * Home Assistant's core configuration. Only the fields the card reads are declared.
    *
    * Optional, unlike in Home Assistant's own `HassConfig`, because a non-standard `hass`
