@@ -90,4 +90,8 @@ gray under the pointer, when pressed and after a refresh, an event or a day you 
 gray, and the wash of an all-day pill, the progress bar's track and the loading spinner are gray.
 From Safari 16.2 to 17, a tinted event in column or grid view washes in the card's accent under
 the pointer or a press, rather than in its own text color.
+
+On Safari 16.4 and 16.5, a color set to `currentColor`, or to a mix of it, can crash the page,
+whether in one of the card's color options or in a theme color such as `--primary-color`. Safari
+16.6 fixed that, and every device on those versions can update to it.
 :::
