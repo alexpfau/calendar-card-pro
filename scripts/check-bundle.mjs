@@ -4,8 +4,8 @@
  *
  * The card ships as two self-contained files, the card and the editor. This script checks
  * the real emitted output for code-splitting, stale editor URLs, lost `import.meta.url`,
- * missing query propagation, sourcemap leaks, unpublished files and regular expressions
- * Safari 15 cannot parse.
+ * missing query propagation, sourcemap leaks, unpublished files, and syntax and regular
+ * expressions Safari 15 cannot parse.
  *
  * Usage: `npm run check:bundle` — after `npm run build` or `npx rollup -c`.
  */
@@ -15,6 +15,7 @@ import { basename, join } from 'path';
 import { fileURLToPath } from 'url';
 import { gzipSync } from 'zlib';
 
+import { parse as parseAcorn } from 'acorn';
 import { parseAst } from 'rollup/parseAst';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -502,6 +503,224 @@ function checkLookbehinds(file, expressions) {
 }
 
 /**
+ * The newest ECMAScript edition whose grammar Safari 15 parses, bar two exceptions: a class
+ * static block, which Safari first parsed in 16.4 and `syntaxBeyondSafari15` looks for
+ * separately, and a regular expression lookbehind, which has its scan above.
+ *
+ * A bound by edition rather than a list of constructs, so syntax nobody has written yet is
+ * covered too: whatever a later edition adds fails to parse here.
+ */
+const SYNTAX_FLOOR = 2022;
+
+/**
+ * Whatever in a file Safari 15 cannot parse, as acorn reads it: syntax newer than
+ * `SYNTAX_FLOOR`, regular expression literals included (a `v` flag, inline modifiers,
+ * duplicate group names), and any class static block.
+ *
+ * The build lowers `src/` to ES2021, static blocks among the rest, but bundles its
+ * dependencies as they are written, and esbuild passes a regular expression literal through
+ * as written too. Either can bring such syntax in without anything else noticing.
+ *
+ * @param code - Module source
+ * @returns What was found, each phrased for a message; empty when Safari 15 parses the file
+ */
+function syntaxBeyondSafari15(code) {
+  let ast;
+  try {
+    ast = parseAcorn(code, { ecmaVersion: SYNTAX_FLOOR, sourceType: 'module' });
+  } catch (err) {
+    const at = typeof err.pos === 'number' ? err.pos : 0;
+    const near = code.slice(Math.max(0, at - 30), at + 50).replace(/\s+/g, ' ');
+    return [`syntax newer than ES${SYNTAX_FLOOR} (${err.message}, near '${near}')`];
+  }
+
+  const found = [];
+  walk(ast.body, (node) => {
+    if (node.type === 'StaticBlock') {
+      const near = code.slice(node.start, node.start + 50).replace(/\s+/g, ' ');
+      found.push(`a class static block ('${near}'), which Safari first parsed in 16.4`);
+    }
+  });
+  return found;
+}
+
+/**
+ * Every call or construction of the global `RegExp`, with as much of its pattern and of its
+ * flags as the source fixes. A literal passed as the pattern counts too, since flags passed
+ * beside it replace its own; its pattern is part of the file, which acorn has read already.
+ *
+ * @param ast - Parsed module
+ * @returns Each call's pattern (null for a literal) and flags, as `patternFragments` reads them
+ */
+function regExpCalls(ast) {
+  const found = [];
+
+  walk(ast.body, (node) => {
+    if (
+      (node.type !== 'NewExpression' && node.type !== 'CallExpression') ||
+      !isGlobal(node.callee, 'RegExp')
+    ) {
+      return;
+    }
+    const [pattern, flags] = node.arguments;
+    found.push({
+      pattern:
+        pattern?.type === 'Literal' && pattern.regex
+          ? null
+          : pattern === undefined
+            ? { fragments: [], complete: true }
+            : patternFragments(pattern),
+      flags: flags === undefined ? { fragments: [], complete: true } : patternFragments(flags),
+    });
+  });
+
+  return found;
+}
+
+/**
+ * A pattern and flags written as the literal that compiles to the same expression: a `/` not
+ * already escaped is escaped, and so is a line break, neither of which a literal can hold.
+ *
+ * @param pattern - The pattern, as the call passes it
+ * @param flags - Its flags
+ * @returns The literal's source
+ */
+function asLiteral(pattern, flags) {
+  let body = '';
+  for (let i = 0; i < pattern.length; i++) {
+    const ch = pattern[i];
+    if (ch === '\\') {
+      body += ch + (pattern[i + 1] ?? '');
+      i++;
+    } else if (ch === '/') {
+      body += '\\/';
+    } else if (ch === '\n') {
+      body += '\\n';
+    } else if (ch === '\r') {
+      body += '\\r';
+    } else if (ch === '\u2028' || ch === '\u2029') {
+      body += ch === '\u2028' ? '\\u2028' : '\\u2029';
+    } else {
+      body += ch;
+    }
+  }
+  return `/${body || '(?:)'}/${flags}`;
+}
+
+/**
+ * The `RegExp` calls Safari 15 cannot run: any whose flags hold a fixed `v`, which Safari first
+ * accepted in 17.0, and any whose pattern and flags the source fixes entirely and acorn will
+ * not compile at `SYNTAX_FLOOR`, which is how inline modifiers or a repeated group name built
+ * this way are caught. A lookbehind compiles at that edition, and has its own scan.
+ *
+ * Calls are the form that slips past `syntaxBeyondSafari15`, and the toolchain writes one
+ * itself: esbuild turns a `/…/v` literal in `src/` into `new RegExp("…", "v")`, since the
+ * build targets ES2021, which has no such flag. A pattern assembled at runtime is read only
+ * where the source fixes all of it, and flags only in their fixed parts.
+ *
+ * @param calls - The file's calls, from `regExpCalls`
+ * @returns What was found, each phrased for a message
+ */
+function regExpCallsBeyondSafari15(calls) {
+  const found = [];
+
+  for (const { pattern, flags } of calls) {
+    const text = pattern ? pattern.fragments.join(' … ') : '';
+    const shown = text.length > 80 ? `${text.slice(0, 77)}...` : text;
+    const from = pattern ? `from '${shown}'` : 'from a regular expression literal';
+
+    if (flags.fragments.some((fragment) => fragment.includes('v'))) {
+      found.push(
+        `builds a RegExp ${from} with the v flag. Safari before 17.0 throws a ` +
+          'SyntaxError wherever that runs, on an iPhone or iPad that stops at iOS 15 or 16. ' +
+          'esbuild writes a /…/v literal in src/ this way, since the build targets ES2021: ' +
+          'write the pattern without the flag',
+      );
+      continue;
+    }
+
+    if (!pattern?.complete || !flags.complete) continue;
+    try {
+      parseAcorn(`(${asLiteral(pattern.fragments.join(''), flags.fragments.join(''))});`, {
+        ecmaVersion: SYNTAX_FLOOR,
+      });
+    } catch (err) {
+      found.push(
+        `builds a RegExp ${from} that is newer than ES${SYNTAX_FLOOR} ` +
+          `(${err.message}). Safari 15 throws a SyntaxError wherever that runs, on an iPhone ` +
+          'or iPad that stops at iOS 15',
+      );
+    }
+  }
+
+  return found;
+}
+
+/**
+ * One of every case the syntax checks have to tell apart: the source, and whether Safari 15
+ * parses and runs it. Run first, for the reason `LOOKBEHIND_SELF_TEST` is: a check that
+ * stopped seeing anything would otherwise report every bundle clean. The passing half
+ * matters as much, since it pins ES2022 syntax Safari 15 has, which a lower floor would
+ * reject for nothing, and patterns a careless rewrite into a literal would break.
+ */
+const SYNTAX_SELF_TEST = [
+  ['class A { static { A.x = 1; } }', false],
+  ['const r = /a/v;', false],
+  ['const r = /(?i:a)b/;', false],
+  ['const r = /(?<y>a)|(?<y>b)/;', false],
+  ['import j from "./j.json" with { type: "json" };', false],
+  ['new RegExp("[\\\\p{L}--a]", "v");', false],
+  ['RegExp(`b`, `gv`);', false],
+  ['new RegExp(/a/, "v");', false],
+  ['new RegExp("a", "v" + flags);', false],
+  ['RegExp("a", `g${flags}v`);', false],
+  ['new RegExp("(?i:a)b");', false],
+  ['globalThis.RegExp("(?<y>a)|(?<y>b)", "g");', false],
+  ['class A { x = 1; #p = 2; static s = 3; static #q() {} has(o) { return #p in o; } }', true],
+  ['a ??= b?.c ?? 1n;', true],
+  ['await import("./x.js");', true],
+  ['const r = /(?<n>a)\\k<n>/dgsuy;', true],
+  ['new RegExp("c", "u"); RegExp("d", flags); new RegExp(/e/, "g");', true],
+  ['new RegExp("a/b[/]\\n", "u"); RegExp(""); RegExp(`x${v}y`);', true],
+  ['new RegExp("(?<=a)b");', true],
+];
+
+/**
+ * Check `syntaxBeyondSafari15` and `regExpCallsBeyondSafari15` against `SYNTAX_SELF_TEST`.
+ *
+ * @returns True when every case was judged as it should be; a failure is collected in
+ *   `errors`
+ */
+function syntaxCheckWorks() {
+  const failures = [];
+
+  for (const [source, parses] of SYNTAX_SELF_TEST) {
+    const problems = syntaxBeyondSafari15(source);
+    try {
+      problems.push(...regExpCallsBeyondSafari15(regExpCalls(parseAst(source))));
+    } catch {
+      // Newer than rollup's parser reads; acorn's verdict above stands on its own.
+    }
+    const judged = problems.length === 0;
+    if (judged !== parses) {
+      failures.push(
+        `${source} was judged ${judged ? 'parseable' : 'unparseable'} by Safari 15, where it ` +
+          `is ${parses ? 'parseable' : 'not'}${problems.length ? ` (${problems.join('; ')})` : ''}`,
+      );
+    }
+  }
+
+  if (failures.length === 0) return true;
+
+  error(
+    'scripts/check-bundle.mjs',
+    'the syntax check failed its self-test, so its silence about the bundle would prove ' +
+      `nothing: ${failures.join('; ')}`,
+  );
+  return false;
+}
+
+/**
  * Resolve a relative specifier the way a browser would.
  *
  * Only the file name matters because `dist/` must be flat.
@@ -877,6 +1096,7 @@ function main() {
 
   const variant = findVariant(jsFiles);
   const scanWorks = lookbehindScanWorks();
+  const syntaxWorks = syntaxCheckWorks();
   let literalsScanned = 0;
   let readInFull = 0;
   let readInPart = 0;
@@ -928,6 +1148,19 @@ function main() {
       );
     }
 
+    // Syntax Safari 15 cannot parse.
+    if (syntaxWorks) {
+      for (const problem of syntaxBeyondSafari15(code)) {
+        error(
+          `dist/${file}`,
+          `uses ${problem}. Safari 15 cannot parse it, so on an iPhone or iPad that stops at ` +
+            'iOS 15 this whole file fails to load. The build lowers src/ to ES2021, so look ' +
+            'first at a dependency the build bundles, then at a regular expression literal in ' +
+            'src/, which esbuild passes through as written',
+        );
+      }
+    }
+
     // Regular expressions Safari 15 cannot parse.
     if (scanWorks) {
       const expressions = regularExpressions(ast);
@@ -935,6 +1168,11 @@ function main() {
       readInFull += expressions.filter(({ complete }) => complete).length;
       readInPart += expressions.filter(({ complete }) => !complete).length;
       checkLookbehinds(`dist/${file}`, expressions);
+    }
+    if (syntaxWorks) {
+      for (const problem of regExpCallsBeyondSafari15(regExpCalls(ast))) {
+        error(`dist/${file}`, problem);
+      }
     }
 
     if (!variant || file !== variant.card) continue;
@@ -1005,7 +1243,8 @@ function main() {
 
   // Said with the count it rests on: a pattern built at runtime is read only in its fixed parts.
   console.log(
-    `Bundle is intact: ${sizes}. No lookbehind in ${readInFull} regular expressions read in ` +
+    `Bundle is intact: ${sizes}. Every file parses as ES${SYNTAX_FLOOR} with no class static ` +
+      `block, as Safari 15 does. No lookbehind in ${readInFull} regular expressions read in ` +
       `full, or in the fixed parts of ${readInPart} built at runtime`,
   );
 }
