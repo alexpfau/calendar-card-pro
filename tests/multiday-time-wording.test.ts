@@ -150,7 +150,7 @@ describe('the end time in a sentence', () => {
     expect(events.map((event) => timeOf(event, 'hu'))).toEqual([
       '22:30, holnap 0:30-kor ér véget',
       '9:00 eddig: péntek, Okt 23 17:00-kor',
-      'Ma este 12:00-kor ér véget',
+      'Ma 12:00-kor ér véget',
       'Holnap 8:00-kor ér véget',
       'Eddig: péntek, Okt 23 17:00-kor',
     ]);
@@ -162,7 +162,7 @@ describe('the end time in a sentence', () => {
 
   it('reads a Hungarian all-day end without a time', () => {
     expect(allDays.map((event) => timeOf(event, 'hu'))).toEqual([
-      'Egész napos, ma este ér véget',
+      'Egész napos, ma ér véget',
       'Egész napos, holnap ér véget',
       'Egész napos, eddig: vasárnap, Okt 25',
     ]);
@@ -234,5 +234,15 @@ describe('the end time in a sentence', () => {
         expect(timeOf(event, language), `${language}, all day`).not.toMatch(/[{}]/);
       }
     }
+  });
+});
+
+describe('a Hungarian event ending today', () => {
+  it('says "today", not "this evening", whatever the hour', () => {
+    // "ma este" is "this evening", which an end at noon contradicts ("Ma 12:00-kor ér véget"
+    // above). The card's "holnap ér véget" has no time of day in it either.
+    const t = Localize.getTranslations('hu');
+    expect(t.endsToday).toBe('ma {at} ér véget');
+    expect(t.endsTomorrow).toBe('holnap {at} ér véget');
   });
 });
