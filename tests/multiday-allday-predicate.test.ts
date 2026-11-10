@@ -47,12 +47,15 @@ function timed(startISO: string, endISO: string): Types.CalendarEventData {
  * all-day event renders them. A language that places the end time inside the phrase marks
  * the place with `{at}` (Hungarian's "ma {at} ér véget"), which an all-day event, having no
  * time, reads without, together with anything written onto it (Korean's "오늘 {at}에 종료").
+ * Chinese sets the time off with a space on each side, and reads with neither: "今天 {at}
+ * 结束" is "今天结束".
  */
 function legacyIsMultiDayAllDay(event: Types.CalendarEventData, language: string): boolean {
   const isAllDayEvent = !event.start.dateTime;
   const time = FormatUtils.formatEventTime(event, config, language);
   const t = Localize.getTranslations(language);
-  const rendered = (phrase: string) => phrase.replace(/\s*\S*\{at\}\S*/, '');
+  const rendered = (phrase: string) =>
+    phrase.replace(/\s*\S*\{at\}\S*/, '').replace(/(\p{Script=Han}) (\p{Script=Han})/u, '$1$2');
   return Boolean(
     isAllDayEvent &&
     time &&

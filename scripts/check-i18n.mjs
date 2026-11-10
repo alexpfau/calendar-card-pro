@@ -1796,8 +1796,9 @@ function checkRunningTextWeekdayCase(languages) {
       `fullDaysOfWeek is capitalized (${got}) where CLDR writes a weekday inside a date in ` +
         `lower case (${want}). The array is only ever rendered mid-sentence after multiDay, ` +
         `so it takes the running-text form -- and the form multiDay governs, which is not ` +
-        `always CLDR's: cs/hr/pl/sk "do" and lt "iki" take the genitive ("do pondělí", ` +
-        `"do poniedziałku"), lv "līdz" the dative, and Finnish "päättyy" CLDR's essive. ` +
+        `always CLDR's: cs/hr/pl/sk/sl "do" and lt "iki" take the genitive ("do pondělí", ` +
+        `"do poniedziałku"), lv "līdz" the dative, et "kuni" the terminative, and Finnish ` +
+        `"päättyy" CLDR's essive. ` +
         `tests/translations.test.ts pins each language's forms. The months array is the ` +
         `date column's label, since the browser writes the month in the sentence wherever ` +
         `it has the language, so it is deliberately not checked and must not be "fixed" ` +

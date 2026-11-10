@@ -213,10 +213,13 @@ only where the browser has no data for your language, as Chromium has none for I
 The weekday in that date is yours: `fullDaysOfWeek`, put where your language puts the weekday.
 Write each day the way your language writes it there: in lower case if it writes weekdays that
 way inside a date, and in whatever form `multiDay` asks for. Polish `do` takes the genitive, so
-its days read "do poniedziałku", not "do poniedziałek". If your word for "until" follows the
-date instead of preceding it, use your word for "ends", the word your `endsToday` begins with,
-and the card sets it off with a comma as it does `endsToday`: Finnish writes "päättyy
-maanantaina 5. tammikuuta". A label works the same way: Turkish writes "bitiş: 5 Oca
+its days read "do poniedziałku", not "do poniedziałek", and Estonian `kuni` the terminative,
+"kuni reedeni". A day that takes an article carries it too: Greek writes "έως την Παρασκευή"
+but "έως το Σάββατο", so each of its days has its own. Where every day takes the same article,
+it can end `multiDay` instead, as in Spanish "hasta el viernes". If your word for "until"
+follows the date instead of preceding it, use your word for "ends", the word your `endsToday`
+begins with, and the card sets it off with a comma as it does `endsToday`: Finnish writes
+"päättyy maanantaina 5. tammikuuta". A label works the same way: Turkish writes "bitiş: 5 Oca
 Pazartesi".
 
 `daysOfWeek` is different. Those are the short day names beside each date, and they take a
@@ -235,15 +238,23 @@ tomorrow at 0:30", and after a date, as in "until Friday, Oct 23 at 17:00". The 
 
 - `{time}` in `at` is where the time goes, for a language that marks a time with a suffix
   rather than a word before it. Hungarian's `at` is `{time}-kor`, so a date ends "okt. 23.,
-  péntek 17:00-kor". Korean's is `{time}` alone, since a time after a date takes nothing there.
+  péntek 17:00-kor". Korean's is `{time}` alone, since a time after a date takes nothing there,
+  and so are Lithuanian's and Chinese's, which write a date and its time side by side as CLDR
+  does: "penktadienio 17:00", "10月23日星期五 17:00".
 - `{at}` in `endsToday` and `endsTomorrow` is where the time goes, written with `at`, for a
   language that puts it inside the phrase. Hungarian's `endsTomorrow` is
   `holnap {at} ér véget`, so its card reads "holnap 0:30-kor ér véget". An all-day event has
   no time, and reads the phrase without it: "holnap ér véget". Anything written onto `{at}`
   with no space between goes with it, so Korean's `내일 {at}에 종료` reads "내일 0:30에 종료",
-  and "내일 종료" all day.
+  and "내일 종료" all day. Chinese sets the time off with a space on each side, and both go
+  with it between two Chinese characters: `明天 {at} 结束` reads "明天 0:30 结束", and
+  "明天结束" all day.
 
 No other string takes a placeholder. `npm test` fails if one is left in an event's time.
+
+Where only the word before a time changes with the hour, write the one most hours take, as CLDR
+and Home Assistant do: Ukrainian `at` is "о", though 11:00 reads "об одинадцятій", and Spanish
+is "a las", though 1:00 is "a la una".
 
 Where a time's ending changes with the number, no single string can carry it: Turkish writes
 "0:30'da" but "17:00'de". Write the end as a label instead, as Turkish does with `bitiş: yarın`

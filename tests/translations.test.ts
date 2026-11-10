@@ -338,11 +338,38 @@ describe('the weekday casing split is intentional and stays that way', () => {
 
     // Pinned whole, because each of these was the nominative until it was fixed and a
     // single index would not notice one weekday going back. `do` and `iki` take the
-    // genitive; `līdz` the dative.
+    // genitive; `līdz` the dative; Estonian `kuni` the terminative. Greek `έως` takes the
+    // accusative with its article, whose form follows the day: "την Παρασκευή", "τη
+    // Δευτέρα", and the neuter "το Σάββατο".
     const governed: Record<string, [string, string[]]> = {
       cs: ['do', ['neděle', 'pondělí', 'úterý', 'středy', 'čtvrtka', 'pátku', 'soboty']],
       sk: ['do', ['nedele', 'pondelka', 'utorka', 'stredy', 'štvrtka', 'piatku', 'soboty']],
+      sl: ['do', ['nedelje', 'ponedeljka', 'torka', 'srede', 'četrtka', 'petka', 'sobote']],
       hr: ['do', ['nedjelje', 'ponedjeljka', 'utorka', 'srijede', 'četvrtka', 'petka', 'subote']],
+      et: [
+        'kuni',
+        [
+          'pühapäevani',
+          'esmaspäevani',
+          'teisipäevani',
+          'kolmapäevani',
+          'neljapäevani',
+          'reedeni',
+          'laupäevani',
+        ],
+      ],
+      el: [
+        'έως',
+        [
+          'την Κυριακή',
+          'τη Δευτέρα',
+          'την Τρίτη',
+          'την Τετάρτη',
+          'την Πέμπτη',
+          'την Παρασκευή',
+          'το Σάββατο',
+        ],
+      ],
       lt: [
         'iki',
         [

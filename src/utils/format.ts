@@ -1149,8 +1149,9 @@ function formatSingleDayTime(
  * holds `{time}`, the time inside that template. Hungarian marks a time with a suffix rather
  * than a word before it, so its `at` is "{time}-kor" and the time reads "0:30-kor". Korean's
  * is "{time}" alone, since a time after a date takes no particle there, and its end phrases
- * write their own. A language without the placeholder reads exactly as it did before the
- * template existed.
+ * write their own. Lithuanian and Chinese write a date and its time side by side, as CLDR
+ * does, so theirs is "{time}" alone too. A language without the placeholder reads exactly as
+ * it did before the template existed.
  *
  * @param translations Resolved translations for the language
  * @param time The clock reading, as `formatTime` writes it
@@ -1186,16 +1187,19 @@ export function endsAt(phrase: string, translations: Types.Translations, time: s
  * it: Korean writes its particle onto the time, "내일 {at}에 종료", and an all-day event reads
  * "내일 종료".
  *
+ * Chinese writes no space between words, only around a time set into them, so between two
+ * Chinese characters both spaces go with the time: "明天 {at} 结束" reads "明天结束".
+ *
  * @param phrase `endsToday` or `endsTomorrow`
  * @returns The phrase as it reads with no time in it
  */
 function endsWithoutTime(phrase: string): string {
-  return phrase.includes('{at}')
-    ? phrase
-        .replace(/\S*\{at\}\S*/, '')
-        .replace(/\s{2,}/g, ' ')
-        .trim()
-    : phrase;
+  const word = /\S*\{at\}\S*/.exec(phrase);
+  if (!word) return phrase;
+  const before = phrase.slice(0, word.index).trim();
+  const after = phrase.slice(word.index + word[0].length).trim();
+  const gap = /\p{Script=Han}$/u.test(before) && /^\p{Script=Han}/u.test(after) ? '' : ' ';
+  return `${before}${gap}${after}`.trim();
 }
 
 function formatMultiDayTime(
