@@ -416,6 +416,52 @@ describe('the stylesheet', () => {
       inset: '0',
     });
   });
+
+  it('centers the text on the bar in a row that is a tap target, too', () => {
+    // The rules that move 0.13em of the title's top padding below its rows, so the ink sits
+    // on the bar's center (the note above them in styles.ts). List view puts a tap target's
+    // content in a button inside the cell, and the rules, written as the cell's child, missed
+    // it: every list row with an event action sat 1.82px low, the cell just as tall. Read from
+    // the stylesheet and matched against what each view draws, so a wrapper added later fails
+    // here. Only rows with detail rows are checked: a title alone is centered without the rules,
+    // and happy-dom also matches `:has(> .time-location > *)` on an empty .time-location.
+    const selectorsDeclaring = (property: string, value?: string) =>
+      innermost
+        .filter((rule) =>
+          rule.declarations.some(([p, v]) => p === property && (!value || v.includes(value))),
+        )
+        .flatMap((rule) => rule.selector.split(',').map((selector) => selector.trim()));
+    const shift = selectorsDeclaring('--calendar-card-event-ink-shift');
+    const padding = selectorsDeclaring('padding-top', 'var(--calendar-card-event-ink-shift)');
+    expect(shift.length).toBeGreaterThan(0);
+    expect(padding.length).toBeGreaterThan(0);
+
+    for (const view of ['list', 'column'] as const) {
+      for (const tappable of [false, true]) {
+        const label = `${view}, ${tappable ? 'a tap target' : 'no event action'}`;
+        const container = render(view, {}, tappable);
+        if (view === 'list') {
+          expect(container.querySelectorAll('.event-button').length > 0, label).toBe(tappable);
+        }
+        const contents = [...container.querySelectorAll<HTMLElement>('.event-content')].filter(
+          (content) => content.querySelector(':scope > .time-location > *'),
+        );
+
+        expect(contents.length, `${label}: no row with detail rows`).toBeGreaterThan(2);
+        for (const content of contents) {
+          const summary = content.querySelector(':scope > .summary-row > .summary');
+          expect(
+            shift.some((selector) => content.matches(selector)),
+            label,
+          ).toBe(true);
+          expect(
+            padding.some((selector) => summary?.matches(selector)),
+            label,
+          ).toBe(true);
+        }
+      }
+    }
+  });
 });
 
 describe('the bar width', () => {

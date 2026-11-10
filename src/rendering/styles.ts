@@ -2208,18 +2208,24 @@ export const cardStyles = css`
      where it was 3.6px. A title on its own is centered without this, so it is left alone.
 
      List and column view only. A grid block's text sits at the top of a block as tall as
-     the event, which no padding can center. */
-  td.event > .event-content:has(> .time-location > *),
+     the event, which no padding can center.
+
+     A descendant of the list cell rather than its child: while events are tap targets the
+     content sits in the cell's .event-button (renderEventButton in render.ts). Written as a
+     child, these three rules missed every list row with an event action from the day they
+     were added, and its text sat 0.13em, 1.82px at the default size, below the bar's center,
+     with the cell exactly as tall. A column event is its own button and has no wrapper. */
+  td.event .event-content:has(> .time-location > *),
   .column-events > .event > .event-content:has(> .time-location > *) {
     --calendar-card-event-ink-shift: 0.13em;
   }
 
-  td.event > .event-content:has(> .time-location > *) > .summary-row > .summary,
+  td.event .event-content:has(> .time-location > *) > .summary-row > .summary,
   .column-events > .event > .event-content:has(> .time-location > *) > .summary-row > .summary {
     padding-top: calc(0.2em - var(--calendar-card-event-ink-shift));
   }
 
-  td.event > .event-content:has(> .time-location > *)::after,
+  td.event .event-content:has(> .time-location > *)::after,
   .column-events > .event > .event-content:has(> .time-location > *)::after {
     content: '';
     flex: none;
