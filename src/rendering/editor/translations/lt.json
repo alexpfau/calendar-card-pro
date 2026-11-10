@@ -46,7 +46,7 @@
   "misplaced.taken": "{place} jau ją nustato.",
   "misplaced.top_level": "Viršutinis lygis",
   "quick_setup.open": "Greitoji sąranka",
-  "quick_setup.open_note": "Pradėkite nuo pavyzdinės kortelės ir atsakykite į kelis klausimus. Peržiūra atsinaujina po kiekvieno atsakymo.",
+  "quick_setup.open_note": "Pradėkite nuo pavyzdinės kortelės ir atsakykite į kelis klausimus.",
   "quick_setup.title": "Greitoji sąranka",
   "quick_setup.step": "{step} žingsnis iš {steps}: {name}",
   "quick_setup.step.story": "Atspirties taškas",

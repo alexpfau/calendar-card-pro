@@ -46,7 +46,7 @@
   "misplaced.taken": "{place} määrab selle juba.",
   "misplaced.top_level": "Ülemine tase",
   "quick_setup.open": "Kiirseadistus",
-  "quick_setup.open_note": "Alusta näidiskaardist ja vasta mõnele küsimusele. Eelvaade uueneb iga vastusega.",
+  "quick_setup.open_note": "Alusta näidiskaardist ja vasta mõnele küsimusele.",
   "quick_setup.title": "Kiirseadistus",
   "quick_setup.step": "Samm {step}/{steps}: {name}",
   "quick_setup.step.story": "Lähtepunkt",

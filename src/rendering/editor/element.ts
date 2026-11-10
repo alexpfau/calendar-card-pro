@@ -3,6 +3,7 @@
  * Schemas name Home Assistant selectors rather than concrete input elements, because HA renames its components without notice.
  */
 
+import { mdiChevronRight, mdiCreation } from '@mdi/js';
 import { LitElement, TemplateResult, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { keyed } from 'lit/directives/keyed.js';
@@ -1436,7 +1437,12 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * The button that opens Quick Setup, above everything else in the editor.
+   * The banner that opens Quick Setup, above everything else in the editor.
+   *
+   * One button, so the whole banner is the target: a primary-color badge, the title and one line
+   * saying what it does, and a chevron. Drawn from Home Assistant's theme variables, so it follows
+   * any theme, light or dark (Alex picked this over a filled button and a card with example
+   * chips, Nov 10).
    *
    * @param ctx - Current editor context
    * @returns The entry
@@ -1446,13 +1452,23 @@ export class CalendarCardProEditor extends LitElement {
       <div class="quick-setup-entry">
         <button
           type="button"
-          class="migration-choice"
+          class="quick-setup-banner"
           data-quick-setup-open
           @click=${this._openQuickSetup}
         >
-          ${this._string(ctx, 'quick_setup.open')}
+          <span class="quick-setup-badge" aria-hidden="true">
+            <ha-svg-icon .path=${mdiCreation}></ha-svg-icon>
+          </span>
+          <span class="quick-setup-text">
+            <span class="quick-setup-name">${this._string(ctx, 'quick_setup.open')}</span>
+            <span class="quick-setup-line">${this._string(ctx, 'quick_setup.open_note')}</span>
+          </span>
+          <ha-svg-icon
+            class="quick-setup-chevron"
+            aria-hidden="true"
+            .path=${mdiChevronRight}
+          ></ha-svg-icon>
         </button>
-        <div class="migration-choice-note">${this._string(ctx, 'quick_setup.open_note')}</div>
       </div>
     `;
   }

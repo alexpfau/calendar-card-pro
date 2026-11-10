@@ -113,10 +113,76 @@ export default css`
   }
 
   .quick-setup-entry {
+    padding-bottom: 20px;
+  }
+
+  /* The banner is one button, drawn from Home Assistant's theme variables so it reads as native
+     in any theme; rgb-primary-color is the primary color as an r, g, b triple, which Home
+     Assistant derives for every theme. The fallback triple is its default blue. */
+  .quick-setup-banner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    min-height: 76px;
+    padding: 14px 16px;
+    border: 1px solid rgba(var(--rgb-primary-color, 3, 169, 244), 0.32);
+    border-radius: var(--ha-card-border-radius, 12px);
+    background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
+    color: var(--primary-text-color);
+    cursor: pointer;
+    font: inherit;
+    text-align: start;
+    transition: background-color 0.15s ease-in-out;
+  }
+
+  .quick-setup-banner:hover {
+    background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.14);
+  }
+
+  .quick-setup-banner:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+
+  .quick-setup-badge {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    color: var(--text-primary-color, #fff);
+    --mdc-icon-size: 24px;
+  }
+
+  .quick-setup-text {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding-bottom: 16px;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .quick-setup-name {
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  .quick-setup-line {
+    color: var(--secondary-text-color);
+    font-size: 14px;
+  }
+
+  .quick-setup-chevron {
+    flex: none;
+    color: var(--primary-color);
+  }
+
+  /* The chevron points the way the text runs. */
+  .quick-setup-chevron:dir(rtl) {
+    transform: scaleX(-1);
   }
 
   .quick-setup {

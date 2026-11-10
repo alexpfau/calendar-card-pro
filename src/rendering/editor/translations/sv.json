@@ -46,7 +46,7 @@
   "misplaced.taken": "”{place}” anger den redan.",
   "misplaced.top_level": "Översta nivån",
   "quick_setup.open": "Snabbinställning",
-  "quick_setup.open_note": "Börja från ett exempelkort och svara på några frågor. Förhandsvisningen uppdateras efter varje svar.",
+  "quick_setup.open_note": "Börja från ett exempelkort och svara på några frågor.",
   "quick_setup.title": "Snabbinställning",
   "quick_setup.step": "Steg {step} av {steps}: {name}",
   "quick_setup.step.story": "Utgångspunkt",

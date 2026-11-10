@@ -46,7 +46,7 @@
   "misplaced.taken": "{place}: už je nastavená.",
   "misplaced.top_level": "Najvyššia úroveň",
   "quick_setup.open": "Rýchle nastavenie",
-  "quick_setup.open_note": "Začnite od vzorovej karty a odpovedzte na niekoľko otázok. Náhľad sa mení s každou odpoveďou.",
+  "quick_setup.open_note": "Začnite od vzorovej karty a odpovedzte na niekoľko otázok.",
   "quick_setup.title": "Rýchle nastavenie",
   "quick_setup.step": "Krok {step} z {steps}: {name}",
   "quick_setup.step.story": "Východisko",

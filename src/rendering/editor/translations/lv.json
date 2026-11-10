@@ -46,7 +46,7 @@
   "misplaced.taken": "{place} to jau iestata.",
   "misplaced.top_level": "Augšējais līmenis",
   "quick_setup.open": "Ātrā iestatīšana",
-  "quick_setup.open_note": "Sāciet ar parauga karti un atbildiet uz dažiem jautājumiem. Priekšskatījums mainās līdz ar katru atbildi.",
+  "quick_setup.open_note": "Sāciet ar parauga karti un atbildiet uz dažiem jautājumiem.",
   "quick_setup.title": "Ātrā iestatīšana",
   "quick_setup.step": "{step}. solis no {steps}: {name}",
   "quick_setup.step.story": "Sākumpunkts",

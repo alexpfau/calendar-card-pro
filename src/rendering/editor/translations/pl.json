@@ -46,7 +46,7 @@
   "misplaced.taken": "{place}: już ustawiona.",
   "misplaced.top_level": "Poziom główny",
   "quick_setup.open": "Szybka konfiguracja",
-  "quick_setup.open_note": "Zacznij od przykładowej karty i odpowiedz na kilka pytań. Podgląd zmienia się po każdej odpowiedzi.",
+  "quick_setup.open_note": "Zacznij od przykładowej karty i odpowiedz na kilka pytań.",
   "quick_setup.title": "Szybka konfiguracja",
   "quick_setup.step": "Krok {step} z {steps}: {name}",
   "quick_setup.step.story": "Punkt wyjścia",

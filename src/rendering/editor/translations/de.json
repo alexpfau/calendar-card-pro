@@ -46,7 +46,7 @@
   "misplaced.taken": "„{place}“ legt sie bereits fest.",
   "misplaced.top_level": "Oberste Ebene",
   "quick_setup.open": "Schnelleinrichtung",
-  "quick_setup.open_note": "Starte mit einer Beispielkarte und beantworte ein paar Fragen. Die Vorschau aktualisiert sich nach jeder Antwort.",
+  "quick_setup.open_note": "Starte mit einer Beispielkarte und beantworte ein paar Fragen.",
   "quick_setup.title": "Schnelleinrichtung",
   "quick_setup.step": "Schritt {step} von {steps}: {name}",
   "quick_setup.step.story": "Ausgangspunkt",

@@ -9,6 +9,7 @@
  * card and the authorship it was opened with; Apply makes the result the authored truth, so the
  * next unrelated edit keeps every line the story wrote.
  */
+import { mdiChevronRight, mdiCreation } from '@mdi/js';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import * as Config from '../src/config/config';
@@ -108,6 +109,20 @@ const last = (reports: Record<string, unknown>[]) => reports[reports.length - 1]
 afterEach(() => document.body.replaceChildren());
 
 describe('Quick Setup', () => {
+  it('is offered as one banner: a sparkle, the name, one line and a chevron', async () => {
+    const { editor } = await mount();
+    const entry = root(editor).querySelector<HTMLElement>('.quick-setup-entry')!;
+    const buttons = entry.querySelectorAll('button');
+    const icons = [...entry.querySelectorAll<HTMLElement & { path: string }>('ha-svg-icon')];
+
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0].hasAttribute('data-quick-setup-open')).toBe(true);
+    expect(buttons[0].textContent!.replace(/\s+/g, ' ').trim()).toBe(
+      'Quick Setup Start from an example card and answer a few questions.',
+    );
+    expect(icons.map((icon) => icon.path)).toEqual([mdiCreation, mdiChevronRight]);
+  });
+
   it('opens on the starting point without writing anything', async () => {
     const { editor, reports } = await mount();
     expect(root(editor).querySelector('ha-form.panel-form')).not.toBeNull();

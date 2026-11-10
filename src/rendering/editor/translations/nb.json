@@ -46,7 +46,7 @@
   "misplaced.taken": "«{place}» angir den allerede.",
   "misplaced.top_level": "Øverste nivå",
   "quick_setup.open": "Hurtigoppsett",
-  "quick_setup.open_note": "Start fra et eksempelkort og svar på noen spørsmål. Forhåndsvisningen oppdateres etter hvert svar.",
+  "quick_setup.open_note": "Start fra et eksempelkort og svar på noen spørsmål.",
   "quick_setup.title": "Hurtigoppsett",
   "quick_setup.step": "Trinn {step} av {steps}: {name}",
   "quick_setup.step.story": "Utgangspunkt",

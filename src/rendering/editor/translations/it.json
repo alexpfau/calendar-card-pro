@@ -46,7 +46,7 @@
   "misplaced.taken": "{place}: già impostata.",
   "misplaced.top_level": "Livello principale",
   "quick_setup.open": "Configurazione rapida",
-  "quick_setup.open_note": "Parti da una scheda di esempio e rispondi ad alcune domande. L'anteprima si aggiorna a ogni risposta.",
+  "quick_setup.open_note": "Parti da una scheda di esempio e rispondi ad alcune domande.",
   "quick_setup.title": "Configurazione rapida",
   "quick_setup.step": "Passo {step} di {steps}: {name}",
   "quick_setup.step.story": "Punto di partenza",

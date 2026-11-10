@@ -85,8 +85,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // are the docs' own, from the Example Stories table, so the editor and the site describe each
   // the same way. The field labels repeat the panels' own where the field is the same setting.
   'quick_setup.open': 'Quick Setup',
-  'quick_setup.open_note':
-    'Start from an example card and answer a few questions. The preview follows each answer.',
+  'quick_setup.open_note': 'Start from an example card and answer a few questions.',
   'quick_setup.title': 'Quick Setup',
   'quick_setup.step': 'Step {step} of {steps}: {name}',
   'quick_setup.step.story': 'Starting Point',
