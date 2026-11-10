@@ -167,10 +167,21 @@ function samePlace(a: Placement | undefined, b: Placement | undefined): boolean 
   );
 }
 
-/** The part of the window in sight now (`roomOf`). */
-function visibleRoom(): Room {
-  return roomOf(window.innerHeight, window.visualViewport);
+/**
+ * The part of the window in sight now (`roomOf`). The browser's visual viewport is read only
+ * while a field in the panel is being typed into, the only time an on-screen keyboard can be up
+ * over it: some browsers go on reporting the keyboard's room for a while after it has gone,
+ * which would hold the panel up over nothing.
+ *
+ * @param typing - Whether a field in the panel has the focus
+ * @returns The part in sight
+ */
+function visibleRoom(typing: boolean): Room {
+  return roomOf(window.innerHeight, typing ? window.visualViewport : undefined);
 }
+
+/** The fields that raise an on-screen keyboard, or a picker in its place. */
+const TYPED_FIELDS = 'input:not([type="checkbox"]):not([type="radio"]), textarea, select';
 
 /**
  * The middle of a press from top to bottom, which an arrow beside a panel points at
@@ -858,6 +869,8 @@ export abstract class PopoverShell extends LitElement {
   private _watchedViewport?: VisualViewport | null;
   /** Whether the part of the screen in sight is being watched (`_watchRoom`). */
   private _watchingRoom = false;
+  /** The look at the part of the screen in sight once the focus has settled (`_onFocusMove`). */
+  private _focusSettling?: ReturnType<typeof setTimeout>;
 
   /** What the panel is called in the log. */
   protected abstract readonly _logName: string;
@@ -878,6 +891,13 @@ export abstract class PopoverShell extends LitElement {
   protected updated(changed: PropertyValues): void {
     super.updated(changed);
     const dialog = this._dialog;
+    if (this._wantOpen && dialog?.open) {
+      // Handed something else while still open, as Home Assistant does while a save is under
+      // way: placed afresh for it, where nothing would place it otherwise.
+      this._wantOpen = false;
+      this._position();
+      return;
+    }
     if (this._wantOpen && dialog && this.isConnected && !dialog.open) {
       this._wantOpen = false;
       this._openedAt = Date.now();
@@ -1002,7 +1022,7 @@ export abstract class PopoverShell extends LitElement {
    */
   protected _position(): void {
     const width = window.innerWidth;
-    const room = visibleRoom();
+    const room = visibleRoom(this._typing);
     this._sheet = width < SHEET_BELOW_PX;
     this._watchRoom(true);
     if (this._sheet) {
@@ -1027,23 +1047,25 @@ export abstract class PopoverShell extends LitElement {
    * Keeps the panel in sight while it is open: as it grows or shrinks, as when Cancel and Add
    * appear under a new event, and as an on-screen keyboard comes and goes (`keepInView`). A sheet
    * stands on the keyboard instead, no taller than the part of the screen it leaves. A change of
-   * the screen's width, as turning a phone, places the panel afresh. Where the panel is still too
-   * tall for what is in sight it scrolls, and says so (`_scrolls`).
+   * the screen's width, as turning a phone, places the panel afresh (`_placeAfresh`). Where the
+   * panel is still too tall for what is in sight it scrolls, and says so (`_scrolls`).
    */
   protected _keepInView(): void {
-    if (!this._dialog?.open || this._closing) return;
+    if (!this.isConnected || !this._dialog?.open || this._closing) return;
     const width = window.innerWidth;
     const opened = this._opened;
     if (width < SHEET_BELOW_PX !== this._sheet || (opened && opened.width !== width)) {
-      this._position();
+      this._placeAfresh();
       return;
     }
     const height = window.innerHeight;
-    const room = visibleRoom();
+    const room = visibleRoom(this._typing);
     if (this._sheet) {
+      const reduced = room.top > 0 || room.bottom < height;
       this._lift = height - room.bottom;
-      this._maxHeight =
-        this._lift > 0 ? Math.min(height * 0.85, room.bottom - room.top - MARGIN) : undefined;
+      this._maxHeight = reduced
+        ? Math.min(height * 0.85, room.bottom - room.top - MARGIN)
+        : undefined;
       this._measureScroll();
       return;
     }
@@ -1069,10 +1091,31 @@ export abstract class PopoverShell extends LitElement {
   }
 
   /**
+   * Places the panel afresh for a screen whose width has changed, as when a phone turns: a sheet
+   * or beside its press, as the new width asks, measured once it has been drawn that way rather
+   * than at the size it had the other way.
+   */
+  private _placeAfresh(): void {
+    this._sheet = window.innerWidth < SHEET_BELOW_PX;
+    this._opened = undefined;
+    this._lift = 0;
+    this._maxHeight = undefined;
+    void this.updateComplete.then(() => {
+      if (this._dialog?.open && !this._closing) this._position();
+    });
+  }
+
+  /** Whether a field in the panel has the focus, so an on-screen keyboard may be up over it. */
+  private get _typing(): boolean {
+    const active = (this.renderRoot as ShadowRoot | undefined)?.activeElement;
+    return !!active?.matches?.(TYPED_FIELDS);
+  }
+
+  /**
    * Watches, while the panel is open, what can take it out of sight: its own size, which changes
    * as Cancel and Add appear, the date opens or a map loads, and the part of the screen in sight,
-   * which an on-screen keyboard takes from. Only the placing here starts it; a panel that places
-   * itself keeps to its own.
+   * which an on-screen keyboard takes from while a field in the panel has the focus. Only the
+   * placing here starts it; a panel that places itself keeps to its own.
    *
    * @param on - Whether the panel is open
    */
@@ -1085,6 +1128,9 @@ export abstract class PopoverShell extends LitElement {
       this._watchedViewport?.removeEventListener('scroll', this._onRoomChange);
       this._watchedViewport = undefined;
       window.removeEventListener('resize', this._onRoomChange);
+      this.renderRoot?.removeEventListener('focusin', this._onFocusMove);
+      this.renderRoot?.removeEventListener('focusout', this._onFocusMove);
+      clearTimeout(this._focusSettling);
       return;
     }
     if (typeof ResizeObserver !== 'undefined') {
@@ -1099,9 +1145,21 @@ export abstract class PopoverShell extends LitElement {
     this._watchedViewport?.addEventListener('resize', this._onRoomChange);
     this._watchedViewport?.addEventListener('scroll', this._onRoomChange);
     window.addEventListener('resize', this._onRoomChange);
+    this.renderRoot?.addEventListener('focusin', this._onFocusMove);
+    this.renderRoot?.addEventListener('focusout', this._onFocusMove);
   }
 
   private readonly _onRoomChange = (): void => this._keepInView();
+
+  /**
+   * A field taking or losing the focus changes whether the visual viewport is read
+   * (`visibleRoom`). Read once the focus has settled, so moving from one field to the next
+   * does not count as leaving both.
+   */
+  private readonly _onFocusMove = (): void => {
+    clearTimeout(this._focusSettling);
+    this._focusSettling = setTimeout(this._onRoomChange, 0);
+  };
 
   /** The panel's height cap, where the part of the screen in sight sets one, as inline style. */
   protected get _roomStyle(): string {

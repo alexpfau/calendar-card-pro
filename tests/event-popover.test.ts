@@ -1978,8 +1978,9 @@ describe('keeping in sight on the screen', () => {
       removeEventListener: (type: string, listener: () => void) =>
         listeners.get(type)?.delete(listener),
       listening: () => [...listeners.values()].reduce((count, set) => count + set.size, 0),
-      keyboard(px: number) {
-        viewport.height = window.innerHeight - px;
+      keyboard(px: number, offsetTop = 0) {
+        viewport.offsetTop = offsetTop;
+        viewport.height = window.innerHeight - px - offsetTop;
         listeners.get('resize')?.forEach((listener) => listener());
       },
     };
@@ -2094,6 +2095,7 @@ describe('keeping in sight on the screen', () => {
     const { el, root } = await open({ ...FRESH, anchor: { x: 150, y: window.innerHeight - 40 } });
     const opened = top(root);
 
+    root.querySelector<HTMLInputElement>('input.title')!.focus();
     viewport.keyboard(300);
     await el.updateComplete;
     expect(top(root)).toBe(window.innerHeight - 300 - 12 - 310);
@@ -2117,6 +2119,7 @@ describe('keeping in sight on the screen', () => {
     expect(dialog.classList.contains('sheet')).toBe(true);
     expect(dialog.style.bottom).toBe('');
 
+    root.querySelector<HTMLInputElement>('input.title')!.focus();
     viewport.keyboard(300);
     await el.updateComplete;
     expect(dialog.style.bottom).toBe('300px');
@@ -2163,18 +2166,109 @@ describe('keeping in sight on the screen', () => {
     expect(rule('.scrolls .foot')).toContain('background: var(--pop-bg);');
   });
 
-  it('places it afresh when the screen turns', async () => {
+  it('places it afresh when the screen turns, measured as it is drawn the new way', async () => {
     const width = window.innerWidth;
     onTestFinished(() => {
       Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
     });
+    // A sheet spans the screen, so it is drawn shorter than beside a press.
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return this.parentElement?.classList.contains('sheet') ? 250 : height;
+    });
+    const turn = async (el: Popover, to: number) => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: to });
+      window.dispatchEvent(new Event('resize'));
+      await el.updateComplete;
+      await el.updateComplete;
+    };
     const { el, root } = await open({ ...FRESH, anchor: { x: 150, y: 300 } });
-    expect(dialogOf(root).classList.contains('popover')).toBe(true);
-    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
-    window.dispatchEvent(new Event('resize'));
-    await el.updateComplete;
+    expect(top(root)).toBe(300 - 155);
+
+    await turn(el, 390);
     expect(dialogOf(root).classList.contains('sheet')).toBe(true);
     expect(root.querySelector('.arrow')).toBeNull();
+
+    await turn(el, width);
+    expect(dialogOf(root).classList.contains('popover')).toBe(true);
+    // As it opens beside the press at 310 pixels, not at the sheet's 250.
+    expect(top(root)).toBe(300 - 155);
+    expect(top(root) + arrowTop(root)).toBe(300);
+  });
+
+  it('reads an on-screen keyboard only while a field has the focus', async () => {
+    const width = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+    onTestFinished(() => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+    });
+    const viewport = fakeViewport();
+    const { el, root } = await open({ ...FRESH, anchor: { x: 100, y: 700 } });
+    const dialog = dialogOf(root);
+    const title = root.querySelector<HTMLInputElement>('input.title')!;
+    title.focus();
+    viewport.keyboard(300);
+    await el.updateComplete;
+    expect(dialog.style.bottom).toBe('300px');
+
+    // The keyboard goes with the focus, while the browser still reports its room, as some do.
+    title.blur();
+    await vi.waitFor(() => expect(dialog.style.bottom).toBe(''));
+    expect(dialog.classList.contains('lifted')).toBe(false);
+    expect(panelOf(root).style.maxHeight).toBe('');
+  });
+
+  it('keeps a sheet within what is in sight where nothing covers its foot', async () => {
+    const width = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+    onTestFinished(() => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+    });
+    const viewport = fakeViewport();
+    const { el, root } = await open({ ...FRESH, anchor: { x: 100, y: 700 } });
+    root.querySelector<HTMLInputElement>('input.title')!.focus();
+    // Scrolled down to the foot of the page with the keyboard up: the top is out of sight.
+    viewport.keyboard(0, 300);
+    await el.updateComplete;
+    expect(dialogOf(root).style.bottom).toBe('');
+    const room = window.innerHeight - 300 - 12;
+    expect(panelOf(root).style.maxHeight).toBe(`${Math.min(window.innerHeight * 0.85, room)}px`);
+  });
+
+  it('places what it is handed while still open afresh, for its own press', async () => {
+    const { el, root } = await open({ anchor: { x: 150, y: window.innerHeight - 40 } });
+    expect(top(root)).toBe(window.innerHeight - 12 - 310);
+    // Home Assistant reuses the element for the next event, as while a save is under way.
+    el.showDialog({
+      mode: 'event',
+      calendarId: ANNA.id,
+      entry: { ...SWIM, summary: 'Piano', uid: 'u-piano' },
+      display: { title: 'Piano', location: '', description: '' },
+      canEdit: true,
+      canDelete: true,
+      calendars: [ANNA],
+      language: 'en',
+      hour24: true,
+      dark: false,
+      anchor: { x: 150, y: 300 },
+      updated: () => undefined,
+    });
+    await el.updateComplete;
+    await el.updateComplete;
+    expect(dialogOf(root).style.visibility).toBe('');
+    expect(top(root)).toBe(300 - 155);
+    expect(top(root) + arrowTop(root)).toBe(300);
+  });
+
+  it('moves an event it shows up too, once it grows past the foot of the screen', async () => {
+    const y = window.innerHeight - 40;
+    const { el, root } = await open({ anchor: { x: 150, y } });
+    expect(top(root)).toBe(window.innerHeight - 12 - 310);
+    // Its map has loaded under it.
+    await grow(el, 440);
+    expect(top(root)).toBe(window.innerHeight - 12 - 440);
+    expect(top(root) + arrowTop(root)).toBe(y);
   });
 
   it('stops watching once it has closed', async () => {
