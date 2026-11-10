@@ -2014,12 +2014,12 @@ describe('card stylesheet', () => {
         return prelude;
       });
 
-      // Base, both OKLCH tiers, and the text color source. The last one is why the count is
-      // stated rather than merely bounded: it redefines the same two tokens at (0,2,0) from
-      // outside any @supports, and a source block that named only one position would put the
-      // title pill on the accent while the time badge followed the row -- the same failure
-      // this test was written for, arriving down the other axis.
-      expect(sites).toHaveLength(4);
+      // Base, its fallback where color-mix() is unknown, both OKLCH tiers, and the text color
+      // source. The last one is why the count is stated rather than merely bounded: it redefines
+      // the same two tokens at (0,2,0) from outside any @supports, and a source block that named
+      // only one position would put the title pill on the accent while the time badge followed
+      // the row -- the same failure this test was written for, arriving down the other axis.
+      expect(sites).toHaveLength(5);
       for (const prelude of sites) {
         expect(prelude).toContain('.allday-badge');
         expect(prelude).toContain('.allday-title-pill');

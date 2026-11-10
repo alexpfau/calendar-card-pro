@@ -52,7 +52,7 @@ its place and stop the editor from opening.
 ::: details Compressing the Files Yourself
 Home Assistant serves a pre-compressed `.gz` beside a file when it finds one. HACS writes one
 for every file it installs; a manual install has none, so the card transfers at its full
-572 KB and the editor at 531 KB, once per version before the browser caches both.
+576 KB and the editor at 531 KB, once per version before the browser caches both.
 
 For a smaller transfer, create the `.gz` files beside the originals:
 
@@ -82,8 +82,16 @@ minimum versions are:
 ::: details Colors in Older Browsers
 Older versions draw some colors more simply. Before Chrome 125 and Safari 18 the today tile and
 the green of an event under way use a simpler mix. Before Chrome 111 and Safari 16.2 the tile is
-a solid color and an event under way keeps the usual text color; focus rings and the search's
-selected result are drawn in the solid accent there, and a day you press to add an event washes
-gray. From Safari 16.2 to 17, a tinted event in column or grid view washes in the card's accent
-under the pointer or a press, rather than in its own text color.
+a solid color, and text set to a calendar's color, an all-day pill's label and the time of an
+event under way are in the main text color. Focus rings and the search's selected result are
+drawn in the solid accent there, and a filled all-day pill is the calendar's color itself. A
+calendar's chip or row in the filter is gray, ringed in its color. The toolbar's buttons stay
+gray under the pointer, when pressed and after a refresh, an event or a day you press washes
+gray, and the wash of an all-day pill, the progress bar's track and the loading spinner are gray.
+From Safari 16.2 to 17, a tinted event in column or grid view washes in the card's accent under
+the pointer or a press, rather than in its own text color.
+
+On Safari 16.4 and 16.5, a color set to `currentColor`, or to a mix of it, can crash the page,
+whether in one of the card's color options or in a theme color such as `--primary-color`. Safari
+16.6 fixed that, and every device on those versions can update to it.
 :::

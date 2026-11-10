@@ -23,9 +23,15 @@ import { cardStyles } from '../src/rendering/styles';
  * And every declaration reading one of those properties is a background-color, or sits behind
  * content-visibility, which Safari first enabled by default in 18.0.
  *
- * That covers the colors the card writes, not ones a user or a theme supplies: an
- * `accent_color` of currentColor, say, reaches the untinted wash's box-shadow through the
- * ripple color, ungated, as it always has.
+ * That covers the colors the card writes, not ones a user or a theme supplies, and those cannot
+ * be covered here. The card mixes a user's color into a `color` as well as a shadow or a
+ * gradient: in the same WebKit build an `accent_color` of currentColor crashed a press on a grid
+ * or column event through the ripple color, a `today_indicator_color` of plain currentColor
+ * crashed the page on load through the today tile's ink, and so did a theme's `--primary-color`
+ * of currentColor. Safari 16.6 fixed both bugs and added nothing a `@supports` can test, so any
+ * fence around 16.4 and 16.5 also takes in 16.6 and 16.7, the last update of every device that
+ * stops at iOS 16, and would draw each of those mixes plainly there. That is a larger cost than
+ * a crash on two versions that every device running them can update past.
  */
 
 const CURRENT_MIX = /color-mix\((?:[^()]|\([^()]*\))*?\bcurrentcolor\b(?:[^()]|\([^()]*\))*\)/gi;
