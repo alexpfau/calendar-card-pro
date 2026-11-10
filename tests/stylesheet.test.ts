@@ -2983,15 +2983,30 @@ describe('a tappable event', () => {
 
   it('washes untinted in the card hover color, 8% on hover and 16% pressed', () => {
     expect(flat(declared('.event-interactive:active', 'box-shadow'))).toBe(
-      'inset 0 0 0 100vmax var(--calendar-card-event-wash-pressed, ' +
-        'color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent))',
+      'inset 0 0 0 100vmax color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent)',
     );
     expect(bodyIn(atRuleBlock('@media (hover: hover)'), '.event-interactive:hover')).toBe(
-      'box-shadow: inset 0 0 0 100vmax var(--calendar-card-event-wash-hover, ' +
-        'color-mix(in srgb, var(--ha-ripple-hover-color) 8%, transparent));',
+      'box-shadow: inset 0 0 0 100vmax ' +
+        'color-mix(in srgb, var(--ha-ripple-hover-color) 8%, transparent);',
     );
     expect(washPercent('.event-interactive:hover')).toBe(8);
     expect(washPercent('.event-interactive:active')).toBe(16);
+  });
+
+  // A tinted event's wash is a currentColor mix, which Safari 16.4 and 16.5 crash on in a
+  // box-shadow, so the rules that can draw it sit behind content-visibility; outside it, the
+  // untinted washes above stand for every event. currentcolor-mix.test.ts pins the gate.
+  it('lets a tinted wash replace those only behind content-visibility', () => {
+    const gated = atRuleBlock('@supports (content-visibility: auto)');
+    expect(bodyIn(gated, '.event-interactive:active')).toBe(
+      'box-shadow: inset 0 0 0 100vmax var(--calendar-card-event-wash-pressed, ' +
+        'color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent));',
+    );
+    expect(bodyIn(gated, '.event-interactive:hover')).toBe(
+      'box-shadow: inset 0 0 0 100vmax var(--calendar-card-event-wash-hover, ' +
+        'color-mix(in srgb, var(--ha-ripple-hover-color) 8%, transparent));',
+    );
+    expect(gated).toContain('@media (hover: hover) {');
   });
 
   it("washes the list button's whole cell, not the button itself, in the same colors", () => {

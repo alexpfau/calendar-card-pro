@@ -52,7 +52,7 @@ its place and stop the editor from opening.
 ::: details Compressing the Files Yourself
 Home Assistant serves a pre-compressed `.gz` beside a file when it finds one. HACS writes one
 for every file it installs; a manual install has none, so the card transfers at its full
-561 KB and the editor at 531 KB, once per version before the browser caches both.
+562 KB and the editor at 531 KB, once per version before the browser caches both.
 
 For a smaller transfer, create the `.gz` files beside the originals:
 
