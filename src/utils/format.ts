@@ -1146,8 +1146,10 @@ function formatSingleDayTime(
 /**
  * A time as a language puts it in a sentence: `at` before it ("at 0:30"), or, where `at`
  * holds `{time}`, the time inside that template. Hungarian marks a time with a suffix rather
- * than a word before it, so its `at` is "{time}-kor" and the time reads "0:30-kor". A language
- * without the placeholder reads exactly as it did before the template existed.
+ * than a word before it, so its `at` is "{time}-kor" and the time reads "0:30-kor". Korean's
+ * is "{time}" alone, since a time after a date takes no particle there, and its end phrases
+ * write their own. A language without the placeholder reads exactly as it did before the
+ * template existed.
  *
  * @param translations Resolved translations for the language
  * @param time The clock reading, as `formatTime` writes it
@@ -1162,8 +1164,9 @@ function atTime(translations: Types.Translations, time: string): string {
 /**
  * "Ends today" or "ends tomorrow" with the end time in it. The time follows the phrase unless
  * the phrase marks its place with `{at}`: Hungarian puts a time before its verb, so its
- * `endsTomorrow` is "holnap {at} ér véget" and reads "holnap 0:30-kor ér véget". A phrase
- * without the placeholder reads exactly as it did before the placeholder existed.
+ * `endsTomorrow` is "holnap {at} ér véget" and reads "holnap 0:30-kor ér véget". Korean
+ * writes its particle onto the time there, "내일 {at}에 종료", which reads "내일 0:30에 종료". A
+ * phrase without the placeholder reads exactly as it did before the placeholder existed.
  *
  * @param phrase `endsToday` or `endsTomorrow`
  * @param translations Resolved translations for the language
@@ -1177,7 +1180,10 @@ export function endsAt(phrase: string, translations: Types.Translations, time: s
 
 /**
  * "Ends today" or "ends tomorrow" for an event with no end time to give, an all-day one: the
- * phrase without its `{at}`, and without the space that went with it.
+ * phrase without the word that holds its `{at}`, and without the space that went with it.
+ * Whatever touches the placeholder with no space between belongs to the time and goes with
+ * it: Korean writes its particle onto the time, "내일 {at}에 종료", and an all-day event reads
+ * "내일 종료".
  *
  * @param phrase `endsToday` or `endsTomorrow`
  * @returns The phrase as it reads with no time in it
@@ -1185,7 +1191,7 @@ export function endsAt(phrase: string, translations: Types.Translations, time: s
 function endsWithoutTime(phrase: string): string {
   return phrase.includes('{at}')
     ? phrase
-        .replace('{at}', '')
+        .replace(/\S*\{at\}\S*/, '')
         .replace(/\s{2,}/g, ' ')
         .trim()
     : phrase;

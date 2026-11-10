@@ -1368,7 +1368,7 @@ export interface Translations {
   /**
    * What puts a time in a sentence, "at" in "ends tomorrow at 0:30". A language that marks the
    * time itself writes a template with `{time}` where the reading goes, as Hungarian does with
-   * its suffix: "{time}-kor".
+   * its suffix: "{time}-kor". Korean writes "{time}", the reading with nothing before it.
    */
   at: string;
   months: string[];
@@ -1377,7 +1377,8 @@ export interface Translations {
   /**
    * "Ends today" and "ends tomorrow". A timed event's end time follows the phrase, unless the
    * phrase marks its place with `{at}`, as Hungarian does to put the time before its verb:
-   * "holnap {at} ér véget". An all-day event reads the phrase without it.
+   * "holnap {at} ér véget". An all-day event reads the phrase without the word holding it, so
+   * a particle written onto the time goes with it: Korean "내일 {at}에 종료" reads "내일 종료".
    */
   endsToday: string;
   endsTomorrow: string;

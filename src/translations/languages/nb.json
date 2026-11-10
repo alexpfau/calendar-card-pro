@@ -4,7 +4,7 @@
   "months": ["jan", "feb", "mar", "apr", "mai", "jun", "jul", "aug", "sep", "okt", "nov", "des"],
   "allDay": "hele dagen",
   "multiDay": "til",
-  "at": "kl. ",
+  "at": "kl.",
   "viewList": "Liste",
   "viewColumns": "Kolonner",
   "viewGrid": "Tidsrutenett",

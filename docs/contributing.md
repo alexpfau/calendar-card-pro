@@ -215,13 +215,19 @@ tomorrow at 0:30", and after a date, as in "until Friday, Oct 23 at 17:00". The 
 
 - `{time}` in `at` is where the time goes, for a language that marks a time with a suffix
   rather than a word before it. Hungarian's `at` is `{time}-kor`, so a date ends "Okt 23
-  17:00-kor".
+  17:00-kor". Korean's is `{time}` alone, since a time after a date takes nothing there.
 - `{at}` in `endsToday` and `endsTomorrow` is where the time goes, written with `at`, for a
   language that puts it inside the phrase. Hungarian's `endsTomorrow` is
   `holnap {at} ér véget`, so its card reads "holnap 0:30-kor ér véget". An all-day event has
-  no time, and reads the phrase without it: "holnap ér véget".
+  no time, and reads the phrase without it: "holnap ér véget". Anything written onto `{at}`
+  with no space between goes with it, so Korean's `내일 {at}에 종료` reads "내일 0:30에 종료",
+  and "내일 종료" all day.
 
 No other string takes a placeholder. `npm test` fails if one is left in an event's time.
+
+Where a time's ending changes with the number, no single string can carry it: Turkish writes
+"0:30'da" but "17:00'de". Write the end as a label instead, as Turkish does with `bitiş: yarın`
+and `saat`, which reads "bitiş: yarın saat 0:30".
 
 :::
 
