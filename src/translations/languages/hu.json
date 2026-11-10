@@ -7,6 +7,7 @@
   "endsToday": "ma {at} ér véget",
   "endsTomorrow": "holnap {at} ér véget",
   "at": "{time}-kor",
+  "separator": ", ",
   "viewList": "Lista",
   "viewColumns": "Oszlopok",
   "viewGrid": "Rács",

@@ -5,6 +5,7 @@
   "allDay": "cả ngày",
   "multiDay": "đến",
   "at": "lúc",
+  "separator": ", ",
   "viewList": "Danh sách",
   "viewColumns": "Cột",
   "viewGrid": "Lưới",

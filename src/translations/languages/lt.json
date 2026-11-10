@@ -13,6 +13,7 @@
   "allDay": "visą dieną",
   "multiDay": "iki",
   "at": "{time}",
+  "separator": ", ",
   "viewList": "Sąrašas",
   "viewColumns": "Stulpeliai",
   "viewGrid": "Laiko tinklelis",

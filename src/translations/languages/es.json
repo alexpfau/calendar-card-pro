@@ -5,6 +5,7 @@
   "allDay": "todo el día",
   "multiDay": "hasta el",
   "at": "a las",
+  "separator": ", ",
   "viewList": "Lista",
   "viewColumns": "Columnas",
   "viewGrid": "Rejilla",

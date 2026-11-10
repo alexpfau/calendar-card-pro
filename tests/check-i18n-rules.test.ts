@@ -9,9 +9,13 @@ import { describe, expect, it } from 'vitest';
 import {
   capitalizedAgainst,
   capitalizedRunningTextWeekday,
+  checkSeparators,
+  cldrListSeparator,
   cldrRunningTextWeekdays,
   isOverlongLabel,
   labelLengthBasis,
+  separatorDisagreement,
+  separatorProblem,
 } from '../scripts/check-i18n.mjs';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import deEditor from '../src/rendering/editor/translations/de.json';
@@ -183,6 +187,93 @@ describe('the running-text weekday casing check', () => {
   });
 });
 
+describe('the time-text separator check', () => {
+  // The shape rule, against fixed strings. Its errors fail CI, so a false positive here would
+  // fail a good translation; that is why an unspaced mark only warns.
+  it('accepts punctuation followed by a space, a full-width mark, or a space alone', () => {
+    for (const separator of [', ', '، ', '，', '、', ' ', '\u00a0', ' – ']) {
+      expect(separatorProblem(separator), JSON.stringify(separator)).toBeNull();
+    }
+  });
+
+  it('fails a word, a tab, a line break and two spaces in a row', () => {
+    for (const separator of ['und ', ' 2 ', ',\t', ',\n', ',  ']) {
+      expect(separatorProblem(separator)?.severity, JSON.stringify(separator)).toBe('error');
+    }
+    expect(separatorProblem('und ')?.message).toMatch(/letter or a digit/);
+    expect(separatorProblem(',  ')?.message).toMatch(/two spaces in a row/);
+  });
+
+  it('warns on a mark the next word would touch, which a language could still mean', () => {
+    for (const separator of [',', ' -', '—']) {
+      expect(separatorProblem(separator), JSON.stringify(separator)).toEqual({
+        severity: 'warning',
+        message: expect.stringMatching(/runs into the word after it/),
+      });
+    }
+  });
+
+  it('leaves an empty or missing value to the parity check, which reports it', () => {
+    expect(separatorProblem('')).toBeNull();
+    expect(separatorProblem(undefined)).toBeNull();
+  });
+
+  // The CLDR comparison, against fixed literals. CLDR 48 lists with "、" in Chinese and " " in
+  // Thai, copied rather than looked up, so a CLDR release cannot change what these assert.
+  it('flags a language writing ", " where CLDR does not, and the reverse', () => {
+    expect(separatorDisagreement(', ', '、')).toBe(true);
+    expect(separatorDisagreement(', ', ' ')).toBe(true);
+    expect(separatorDisagreement('; ', ', ')).toBe(true);
+  });
+
+  it('leaves two marks that both differ from ", " alone', () => {
+    // Chinese joins clauses with "，" and lists with "、": different, and both its own.
+    expect(separatorDisagreement('，', '、')).toBe(false);
+    expect(separatorDisagreement(' ', ' ')).toBe(false);
+    expect(separatorDisagreement(', ', ', ')).toBe(false);
+  });
+
+  it('compares no language Intl would answer in another', () => {
+    expect(cldrListSeparator('xx')).toBeNull();
+  });
+
+  it('has CLDR list data for every card language', () => {
+    const skipped = cardLanguages().filter((code) => cldrListSeparator(code) === null);
+    expect(skipped).toEqual([]);
+  });
+
+  it('reports what it finds where the gate reports it', () => {
+    // The rules above, wired into the gate: planted languages, each with one problem, and a
+    // control with none. The real files have no violation, so without this the wiring could
+    // come apart with every test green.
+    const planted = new Map([
+      ['de', { file: 'de.json', data: { separator: 'und ' } }],
+      ['fr', { file: 'fr.json', data: { separator: ',' } }],
+      ['zh-cn', { file: 'zh-CN.json', data: { separator: ', ' } }],
+      ['th', { file: 'th.json', data: { separator: ' ' } }],
+    ]);
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    const notes: string[] = [];
+    checkSeparators(planted, {
+      error: (where: string) => errors.push(where),
+      warn: (where: string) => warnings.push(where),
+      note: (line: string) => notes.push(line),
+    });
+
+    expect(errors).toEqual(['languages/de.json']);
+    // French for its shape and for disagreeing with CLDR's ", "; German for the latter alone;
+    // Chinese for writing ", " where CLDR lists with "、". Thai is the control.
+    expect(warnings.sort()).toEqual([
+      'languages/de.json',
+      'languages/fr.json',
+      'languages/fr.json',
+      'languages/zh-CN.json',
+    ]);
+    expect(notes).toEqual([expect.stringContaining('in 4 of 4 languages; 3 disagree')]);
+  });
+});
+
 describe('the gate itself', () => {
   it('runs when invoked as a script and compares every language', () => {
     // The rules above are exported for these tests, and the gate runs only when it is the
@@ -194,7 +285,9 @@ describe('the gate itself', () => {
     });
     const count = cardLanguages().length;
 
+    expect(run.status, run.stdout).toBe(0);
     expect(run.stdout).toContain(`${count} languages, `);
     expect(run.stdout).toContain(`${count} of ${count} languages compared with CLDR`);
+    expect(run.stdout).toContain(`list punctuation in ${count} of ${count} languages`);
   });
 });

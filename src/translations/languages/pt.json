@@ -13,6 +13,7 @@
   "allDay": "o dia todo",
   "multiDay": "até",
   "at": "às",
+  "separator": ", ",
   "viewList": "Lista",
   "viewColumns": "Colunas",
   "viewGrid": "Grade",

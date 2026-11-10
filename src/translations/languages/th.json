@@ -26,6 +26,7 @@
   "allDay": "ตลอดวัน",
   "multiDay": "ถึง",
   "at": "เวลา",
+  "separator": " ",
   "viewList": "รายการ",
   "viewColumns": "คอลัมน์",
   "viewGrid": "ตาราง",

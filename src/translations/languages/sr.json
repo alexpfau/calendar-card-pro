@@ -5,6 +5,7 @@
   "allDay": "цео дан",
   "multiDay": "до",
   "at": "у",
+  "separator": ", ",
   "viewList": "Листа",
   "viewColumns": "Колоне",
   "viewGrid": "Мрежа",

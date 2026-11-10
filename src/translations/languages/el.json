@@ -13,6 +13,7 @@
   "allDay": "Ολοήμερο",
   "multiDay": "έως",
   "at": "στις",
+  "separator": ", ",
   "viewList": "Λίστα",
   "viewColumns": "Στήλες",
   "viewGrid": "Πλέγμα",

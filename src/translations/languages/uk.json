@@ -5,6 +5,7 @@
   "allDay": "весь день",
   "multiDay": "до",
   "at": "о",
+  "separator": ", ",
   "viewList": "Список",
   "viewColumns": "Стовпці",
   "viewGrid": "Сітка",

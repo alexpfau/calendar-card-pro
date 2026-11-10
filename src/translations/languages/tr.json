@@ -5,6 +5,7 @@
   "allDay": "tüm gün",
   "multiDay": "bitiş:",
   "at": "saat",
+  "separator": ", ",
   "viewList": "Liste",
   "viewColumns": "Sütunlar",
   "viewGrid": "Izgara",

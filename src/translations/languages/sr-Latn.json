@@ -5,6 +5,7 @@
   "allDay": "ceo dan",
   "multiDay": "do",
   "at": "u",
+  "separator": ", ",
   "viewList": "Lista",
   "viewColumns": "Kolone",
   "viewGrid": "Mreža",

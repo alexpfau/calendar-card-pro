@@ -218,7 +218,7 @@ its days read "do poniedziałku", not "do poniedziałek", and Estonian `kuni` th
 but "έως το Σάββατο", so each of its days has its own. Where every day takes the same article,
 it can end `multiDay` instead, as in Spanish "hasta el viernes". If your word for "until"
 follows the date instead of preceding it, use your word for "ends", the word your `endsToday`
-begins with, and the card sets it off with a comma as it does `endsToday`: Finnish writes
+begins with, and the card sets it off with your `separator` as it does `endsToday`: Finnish writes
 "päättyy maanantaina 5. tammikuuta". A label works the same way: Turkish writes "bitiş: 5 Oca
 Pazartesi".
 
@@ -251,6 +251,14 @@ tomorrow at 0:30", and after a date, as in "until Friday, Oct 23 at 17:00". The 
   "明天结束" all day.
 
 No other string takes a placeholder. `npm test` fails if one is left in an event's time.
+
+`separator` joins two parts of an event's time where English writes ", ": the all-day label and
+what follows it, "All day, ends tomorrow", and a start time and the phrase saying when it ends,
+"22:30, ends tomorrow at 0:30". Write what your language puts between two clauses there. Most
+write ", ". Chinese writes "，", with no space, since the mark carries its own: "整天，明天结束".
+Thai writes a space alone: "ตลอดวัน สิ้นสุดพรุ่งนี้". `npm run check:i18n` fails on a separator
+holding a word, a tab or two spaces in a row. It warns on one the next word would touch, and
+where your separator and CLDR disagree about your language writing ", ".
 
 Where only the word before a time changes with the hour, write the one most hours take, as CLDR
 and Home Assistant do: Ukrainian `at` is "о", though 11:00 reads "об одинадцятій", and Spanish

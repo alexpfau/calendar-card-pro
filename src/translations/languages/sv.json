@@ -5,6 +5,7 @@
   "allDay": "heldag",
   "multiDay": "till",
   "at": "vid",
+  "separator": ", ",
   "viewList": "Lista",
   "viewColumns": "Kolumner",
   "viewGrid": "Tidsrutnät",

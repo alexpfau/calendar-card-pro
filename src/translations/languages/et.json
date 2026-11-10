@@ -26,6 +26,7 @@
   "allDay": "kogu päev",
   "multiDay": "kuni",
   "at": "kell",
+  "separator": ", ",
   "viewList": "Loetelu",
   "viewColumns": "Veerud",
   "viewGrid": "Ajaraster",

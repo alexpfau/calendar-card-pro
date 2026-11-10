@@ -119,6 +119,9 @@ describe('getTranslations', () => {
           for (const entry of value) {
             expect(String(entry).trim(), `${language}.${key} has an empty entry`).not.toBe('');
           }
+        } else if (key === 'separator') {
+          // Thai writes a space between two clauses, so a space alone is a value here.
+          expect(value, `${language}.${key} is empty`).not.toBe('');
         } else {
           expect(String(value).trim(), `${language}.${key} is empty`).not.toBe('');
         }

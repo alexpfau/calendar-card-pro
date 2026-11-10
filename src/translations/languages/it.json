@@ -5,6 +5,7 @@
   "allDay": "tutto il giorno",
   "multiDay": "fino a",
   "at": "alle",
+  "separator": ", ",
   "viewList": "Lista",
   "viewColumns": "Colonne",
   "viewGrid": "Griglia oraria",

@@ -13,6 +13,7 @@
   "allDay": "ganztägig",
   "multiDay": "bis",
   "at": "um",
+  "separator": ", ",
   "viewList": "Liste",
   "viewColumns": "Spalten",
   "viewGrid": "Zeitraster",

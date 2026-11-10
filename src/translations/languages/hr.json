@@ -5,6 +5,7 @@
   "allDay": "cijeli dan",
   "multiDay": "do",
   "at": "u",
+  "separator": ", ",
   "viewList": "Popis",
   "viewColumns": "Stupci",
   "viewGrid": "Mreža",

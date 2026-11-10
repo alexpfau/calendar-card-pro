@@ -13,6 +13,7 @@
   "allDay": "visu dienu",
   "multiDay": "līdz",
   "at": "plkst.",
+  "separator": ", ",
   "viewList": "Saraksts",
   "viewColumns": "Kolonnas",
   "viewGrid": "Laika režģis",

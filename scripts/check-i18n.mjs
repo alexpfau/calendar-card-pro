@@ -40,6 +40,7 @@ const warnings = [];
 const notes = [];
 const glossaryNotes = [];
 const weekdayNotes = [];
+const separatorNotes = [];
 const error = (where, msg) => errors.push({ where, msg });
 const warn = (where, msg) => warnings.push({ where, msg });
 
@@ -506,6 +507,9 @@ function probeConfigs(defaults, views) {
  * `editor` is skipped throughout. Those sections are dormant — they belong to the editor
  * that was replaced, and are kept to be mined during the translation pass — so neither
  * their presence, their absence nor their completeness says anything about the card.
+ *
+ * A value of spaces alone is an error except in `separator`, where Thai writes a space between
+ * two clauses rather than a comma. An empty `separator` is still an error there.
  */
 function checkLanguageParity(languages) {
   const reference = languages.get('en');
@@ -549,7 +553,7 @@ function checkLanguageParity(languages) {
           file,
           `\`${key}\` must be a string, got ${Array.isArray(actual) ? 'array' : typeof actual}`,
         );
-      } else if (actual.trim() === '') {
+      } else if (actual === '' || (actual.trim() === '' && key !== 'separator')) {
         error(
           file,
           `\`${key}\` is empty — it will render as a blank string, not fall back to English`,
@@ -1645,6 +1649,11 @@ function report(languageCount, fieldCount, optionCount) {
     weekdayNotes.forEach((n) => console.log(n));
   }
 
+  if (separatorNotes.length > 0) {
+    console.log('\nTime-text separators:');
+    separatorNotes.forEach((n) => console.log(n));
+  }
+
   const summary =
     `\n${languageCount} languages, ${fieldCount} editor fields, ` +
     `${optionCount} dropdown options — ` +
@@ -1808,6 +1817,157 @@ function checkRunningTextWeekdayCase(languages) {
 }
 
 /**
+ * What is wrong with a language's `separator` by its shape alone, or null.
+ *
+ * The separator joins two clauses of an event's time, "All day, ends tomorrow", so it is
+ * punctuation or space. Two shapes are errors, because no language means them: a letter or a
+ * digit, since a word belongs in `multiDay` or `endsToday` where it can be placed, and a tab, a
+ * line break or two spaces in a row. One is a warning: a separator that ends in neither a space
+ * nor a full-width mark carrying its own runs into the word after it, ",ends tomorrow", which is
+ * almost always a missing space, though a language could join with an unspaced dash. Chinese
+ * "，" and Thai " " pass both.
+ *
+ * Kept apart from the language files so its rule can be tested against fixed strings.
+ *
+ * @param separator - A language's `separator`
+ * @returns `{ severity, message }`, or null
+ */
+export function separatorProblem(separator) {
+  if (typeof separator !== 'string' || separator === '') return null;
+  if (/[\p{L}\p{N}]/u.test(separator)) {
+    return {
+      severity: 'error',
+      message: 'holds a letter or a digit -- a word belongs in multiDay or endsToday, not here',
+    };
+  }
+  if (/[\t\n\r\v\f]|\s{2}/.test(separator)) {
+    return {
+      severity: 'error',
+      message: 'holds a tab, a line break or two spaces in a row',
+    };
+  }
+  if (!/[\s\u3000-\u303f\uff01-\uff60]$/u.test(separator)) {
+    return {
+      severity: 'warning',
+      message:
+        'ends in neither a space nor a full-width mark, so it runs into the word after it ' +
+        '(",ends tomorrow")',
+    };
+  }
+  return null;
+}
+
+/**
+ * What CLDR writes between the first two items of a list in a language, through `Intl`:
+ * ", " in English, "、" in Chinese, a space in Thai.
+ *
+ * Not the same thing as `separator`, which joins two clauses: Chinese lists with "、" and joins
+ * clauses with "，". What it does tell apart is a language whose punctuation is English's from
+ * one whose punctuation is its own, which is what `separatorDisagreement` asks of it.
+ *
+ * @param code - A card language code
+ * @returns The literal, or null when `Intl` has no data for the language and would answer in
+ *   another one
+ */
+export function cldrListSeparator(code) {
+  let format;
+  try {
+    format = new Intl.ListFormat(code, { type: 'conjunction', style: 'long' });
+  } catch {
+    return null;
+  }
+  if (
+    new Intl.Locale(format.resolvedOptions().locale).language !== new Intl.Locale(code).language
+  ) {
+    return null;
+  }
+  const parts = format.formatToParts(['A', 'B', 'C']);
+  return parts.find((part) => part.type === 'literal')?.value ?? null;
+}
+
+/**
+ * Whether a language's `separator` and CLDR's list separator disagree about the language
+ * writing English's ", ".
+ *
+ * One of them being ", " and the other not is the signal: Chinese and Thai wrote ", " here
+ * while CLDR lists with "、" and " ", and both read wrongly. Two marks that differ from each
+ * other but both from ", " agree, since a clause and a list may be punctuated differently.
+ *
+ * @param separator - A language's `separator`
+ * @param cldr - What `cldrListSeparator` returned for it
+ * @returns True when exactly one of the two is ", "
+ */
+export function separatorDisagreement(separator, cldr) {
+  return (separator === ', ') !== (cldr === ', ');
+}
+
+/**
+ * `separator` is checked by its shape (`separatorProblem`) and compared with CLDR's list
+ * punctuation for the language (`separatorDisagreement`, a warning).
+ *
+ * The comparison is a warning for the reason the weekday check's is: the oracle is the
+ * runtime's CLDR, and a Node release that changed a list pattern would otherwise fail an
+ * unrelated pull request.
+ *
+ * Exported with its reporting passed in, so a test can hand it languages the repository does
+ * not have and see what it reports.
+ *
+ * @param languages - Language files, keyed by lowercased code, as `readLanguageFiles` reads them
+ * @param report - Where errors, warnings and the summary line go
+ */
+export function checkSeparators(
+  languages,
+  report = { error, warn, note: (line) => separatorNotes.push(line) },
+) {
+  let compared = 0;
+  const disagreeing = [];
+
+  for (const [code, { file, data }] of languages) {
+    const problem = separatorProblem(data.separator);
+    if (problem) {
+      const say = problem.severity === 'error' ? report.error : report.warn;
+      say(`languages/${file}`, `separator ${JSON.stringify(data.separator)} ${problem.message}`);
+    }
+
+    if (typeof data.separator !== 'string') continue;
+    const cldr = cldrListSeparator(code);
+    if (cldr === null) {
+      report.warn(
+        `languages/${file}`,
+        'separator was not compared with CLDR -- Intl has no list data for this language',
+      );
+      continue;
+    }
+    compared += 1;
+    if (separatorDisagreement(data.separator, cldr)) disagreeing.push([file, data.separator, cldr]);
+  }
+
+  report.note(
+    `  separator compared with CLDR ${process.versions.cldr} list punctuation in ${compared} of ` +
+      `${languages.size} languages; ${disagreeing.length} disagree about writing ", ".`,
+  );
+
+  if (compared === 0) {
+    report.error(
+      'languages/',
+      'separator check compared no languages -- Intl has no CLDR list data',
+    );
+    return;
+  }
+
+  for (const [file, separator, cldr] of disagreeing) {
+    report.warn(
+      `languages/${file}`,
+      `separator is ${JSON.stringify(separator)} where CLDR lists with ${JSON.stringify(cldr)}. ` +
+        `One of the two is English's ", " and the other is not, so check what the language ` +
+        `writes between two clauses, as in "All day, ends tomorrow": Chinese writes "，" ` +
+        `(though it lists with "、"), Thai a space. tests/time-separator.test.ts pins each ` +
+        `language's separator`,
+    );
+  }
+}
+
+/**
  * Editor string keys written as literals in code, rather than derived from the schema.
  *
  * `checkEditorStrings` reconciles the keys the *schema* implies — every field label,
@@ -1891,6 +2051,7 @@ async function main() {
   await checkTranslationQuality(languages, glossary);
   reportGlossaryReach(glossary, (await loadEditor()).EDITOR_STRINGS);
   checkRunningTextWeekdayCase(languages);
+  checkSeparators(languages);
 
   process.exit(report(languages.size, fieldCount, optionCount));
 }
