@@ -52,7 +52,7 @@ its place and stop the editor from opening.
 ::: details Compressing the Files Yourself
 Home Assistant serves a pre-compressed `.gz` beside a file when it finds one. HACS writes one
 for every file it installs; a manual install has none, so the card transfers at its full
-562 KB and the editor at 531 KB, once per version before the browser caches both.
+563 KB and the editor at 531 KB, once per version before the browser caches both.
 
 For a smaller transfer, create the `.gz` files beside the originals:
 
@@ -79,8 +79,11 @@ minimum versions are:
   in the headless Chromium 119 of a screenshot add-on.
 - **The visual editor** needs Chrome 98 or later.
 
-::: details Colors Before Chrome 125
-Older versions draw some colors more simply. Before Chrome 125 the today tile and the green of
-an event under way use a simpler mix, and before Chrome 111 the tile is a solid color and an
-event under way keeps the usual text color.
+::: details Colors in Older Browsers
+Older versions draw some colors more simply. Before Chrome 125 and Safari 18 the today tile and
+the green of an event under way use a simpler mix. Before Chrome 111 and Safari 16.2 the tile is
+a solid color and an event under way keeps the usual text color; focus rings and the search's
+selected result are drawn in the solid accent there, and a day you press to add an event washes
+gray. From Safari 16.2 to 17, a tinted event in column or grid view washes in the card's accent
+under the pointer or a press, rather than in its own text color.
 :::

@@ -570,6 +570,19 @@ export const cellStyles = css`
     outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent);
     outline-offset: 0;
   }
+  /* Where color-mix() is unknown (Safari before 16.2) the ring above is invalid once its var()
+     is substituted, and an invalid outline is no outline at all, so the keyboard would lose its
+     place. A thinner ring in the solid accent stands in, about as heavy as the softer one. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .cell:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible,
+    button:focus-visible,
+    a:focus-visible {
+      outline: 2px solid var(--accent);
+    }
+  }
   input.cell,
   textarea.cell {
     outline-offset: -1px;

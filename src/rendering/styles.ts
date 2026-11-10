@@ -4159,6 +4159,31 @@ export const cardStyles = css`
     pointer-events: none;
   }
 
+  /* Without color-mix() (Safari before 16.2) the three washes above are invalid once their
+     var() is substituted, and a day would answer a tap with nothing at all. The accent cannot
+     be made translucent there, so they wash in a neutral gray at the same strengths, which
+     darkens a light card and lightens a dark one alike. The two hover selectors are separate
+     rules here, since a browser without :has() (Chrome before 105) drops a whole list holding
+     one, and would lose the column header's wash with it. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    @media (hover: hover) {
+      .date-column:has(> .day-add-button):hover {
+        background-color: rgba(128, 128, 128, 0.08);
+      }
+
+      .column-day-header.day-add-button:hover {
+        background-color: rgba(128, 128, 128, 0.08);
+      }
+    }
+
+    .day-table[data-add-pressed] td.date-column,
+    .day-column[data-add-pressed] > .column-day-header,
+    .grid-day-header[data-add-pressed] > .column-day-header,
+    .grid-day-body[data-add-pressed]::before {
+      background-color: rgba(128, 128, 128, 0.16);
+    }
+  }
+
   /* A new event the card is adding, while a press draws it and while the popover adds it, is
      drawn by the grid's own templates as the block or the banner it will be once saved, so
      every option that styles an event styles it. Each sits in an element of its own that lays

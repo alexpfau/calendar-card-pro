@@ -672,6 +672,13 @@ export class SearchPanel extends Shell.PopoverShell {
     .field:focus-within {
       box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 55%, transparent);
     }
+    /* Without color-mix() (Safari before 16.2) the ring above is no ring at all, as the
+       popover's focus rings are not; a thinner one in the solid accent stands in, as there. */
+    @supports not (color: color-mix(in srgb, red, blue)) {
+      .field:focus-within {
+        box-shadow: 0 0 0 2px var(--accent);
+      }
+    }
     /* The magnifier, and in its place, once the year has been loading for a second, a spinner.
        A load that ends sooner, as most do, shows the magnifier alone: until then the search
        finds what the card holds, and nobody has waited long enough to need telling. A step at
@@ -797,6 +804,16 @@ export class SearchPanel extends Shell.PopoverShell {
     }
     .result[aria-selected='true'] {
       background: color-mix(in srgb, var(--accent) 18%, var(--cell));
+    }
+    /* Without color-mix() (Safari before 16.2) the tint above is invalid once its var() is
+       substituted, which leaves the selected result with no background at all, and so less
+       marked than its neighbors. It keeps the cell's own background there, ringed inside in
+       the accent, which is what the arrow keys need to see. */
+    @supports not (color: color-mix(in srgb, red, blue)) {
+      .result[aria-selected='true'] {
+        background: var(--cell);
+        box-shadow: inset 0 0 0 2px var(--accent);
+      }
     }
     .past .result > * {
       opacity: var(--past-opacity, 0.6);
