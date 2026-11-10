@@ -207,6 +207,24 @@ cannot check the ending, so check that yourself.
 
 :::
 
+::: details Times in a Sentence
+
+`at` puts an event's end time in a sentence: after `endsToday` or `endsTomorrow`, as in "ends
+tomorrow at 0:30", and after a date, as in "until Friday, Oct 23 at 17:00". The card writes
+`at`, a space and the time. Two placeholders let a language write it its own way:
+
+- `{time}` in `at` is where the time goes, for a language that marks a time with a suffix
+  rather than a word before it. Hungarian's `at` is `{time}-kor`, so a date ends "Okt 23
+  17:00-kor".
+- `{at}` in `endsToday` and `endsTomorrow` is where the time goes, written with `at`, for a
+  language that puts it inside the phrase. Hungarian's `endsTomorrow` is
+  `holnap {at} ér véget`, so its card reads "holnap 0:30-kor ér véget". An all-day event has
+  no time, and reads the phrase without it: "holnap ér véget".
+
+No other string takes a placeholder. `npm test` fails if one is left in an event's time.
+
+:::
+
 ::: details Example: Adding German
 
 1. Create `src/translations/languages/de.json`

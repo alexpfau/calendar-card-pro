@@ -1365,10 +1365,20 @@ export interface Translations {
   newEvent: string;
   allDay: string;
   multiDay: string;
+  /**
+   * What puts a time in a sentence, "at" in "ends tomorrow at 0:30". A language that marks the
+   * time itself writes a template with `{time}` where the reading goes, as Hungarian does with
+   * its suffix: "{time}-kor".
+   */
   at: string;
   months: string[];
   daysOfWeek: string[];
   fullDaysOfWeek: string[];
+  /**
+   * "Ends today" and "ends tomorrow". A timed event's end time follows the phrase, unless the
+   * phrase marks its place with `{at}`, as Hungarian does to put the time before its verb:
+   * "holnap {at} ér véget". An all-day event reads the phrase without it.
+   */
   endsToday: string;
   endsTomorrow: string;
   /** The header toolbar's view switcher, one name per view. */

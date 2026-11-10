@@ -42,15 +42,23 @@ function timed(startISO: string, endISO: string): Types.CalendarEventData {
 /**
  * The old implementation, reproduced exactly as it stood in `presentation.ts` before this
  * change — including its dependence on the formatted string and on `event.time` being set.
+ *
+ * One adjustment keeps it comparable: it looks for "ends today" and "ends tomorrow" as an
+ * all-day event renders them. A language that places the end time inside the phrase marks
+ * the place with `{at}` (Hungarian's "ma {at} ér véget"), which an all-day event, having no
+ * time, reads without.
  */
 function legacyIsMultiDayAllDay(event: Types.CalendarEventData, language: string): boolean {
   const isAllDayEvent = !event.start.dateTime;
   const time = FormatUtils.formatEventTime(event, config, language);
   const t = Localize.getTranslations(language);
+  const rendered = (phrase: string) => phrase.replace(' {at}', '');
   return Boolean(
     isAllDayEvent &&
     time &&
-    (time.includes(t.multiDay) || time.includes(t.endsTomorrow) || time.includes(t.endsToday)),
+    (time.includes(t.multiDay) ||
+      time.includes(rendered(t.endsTomorrow)) ||
+      time.includes(rendered(t.endsToday))),
   );
 }
 
