@@ -216,7 +216,8 @@ way inside a date, and in whatever form `multiDay` asks for. Polish `do` takes t
 its days read "do poniedziałku", not "do poniedziałek". If your word for "until" follows the
 date instead of preceding it, use your word for "ends", the word your `endsToday` begins with,
 and the card sets it off with a comma as it does `endsToday`: Finnish writes "päättyy
-maanantaina 5. tammikuuta".
+maanantaina 5. tammikuuta". A label works the same way: Turkish writes "bitiş: 5 Oca
+Pazartesi".
 
 `daysOfWeek` is different. Those are the short day names beside each date, and they take a
 capital wherever a label would.

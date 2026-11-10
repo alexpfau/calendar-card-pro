@@ -150,11 +150,11 @@ describe('a date in an end phrase', () => {
     ]);
   });
 
-  it('writes a Turkish date day first, with the weekday after it', () => {
+  it('writes a Turkish date after the label "bitiş:", day first', () => {
     expect(ends('tr')).toEqual([
-      '9:00 değin 23 Eki Cuma saat 17:00',
-      'Değin 15 Kas Pazar saat 5:00 PM',
-      'Tüm gün, değin 15 Kas Pazar',
+      '9:00, bitiş: 23 Eki Cuma saat 17:00',
+      'Bitiş: 15 Kas Pazar saat 5:00 PM',
+      'Tüm gün, bitiş: 15 Kas Pazar',
     ]);
   });
 

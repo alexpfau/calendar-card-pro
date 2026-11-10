@@ -202,26 +202,27 @@ describe('the end time in a sentence', () => {
     // A Turkish time before a verb takes a locative suffix whose vowel follows how the number
     // is read ("0:30'da", "17:00'de", "3:05'te"), so "sona eriyor" needs one string per reading.
     // A label needs none: "bitiş: yarın saat 0:30", as Home Assistant's own Turkish writes a
-    // day and time ("{day} saat {time}"). The dated ends also record "değin" before the date,
-    // an older string this test does not vouch for.
+    // day and time ("{day} saat {time}"). A dated end is the same label, so "bitiş:" is
+    // `multiDay` too, and the date follows it as CLDR writes it, "23 Eki Cuma". The word it
+    // replaced, "değin", is a postposition and stood before the day it should have followed.
     expect(events.map((event) => timeOf(event, 'tr'))).toEqual([
       '22:30, bitiş: yarın saat 0:30',
-      '9:00 değin 23 Eki Cuma saat 17:00',
+      '9:00, bitiş: 23 Eki Cuma saat 17:00',
       'Bitiş: bugün saat 12:00',
       'Bitiş: yarın saat 8:00',
-      'Değin 23 Eki Cuma saat 17:00',
+      'Bitiş: 23 Eki Cuma saat 17:00',
     ]);
     expect(events.map((event) => FormatUtils.formatEventTime(event, twelveHour, 'tr'))).toEqual([
       '10:30 PM, bitiş: yarın saat 12:30 AM',
-      '9:00 AM değin 23 Eki Cuma saat 5:00 PM',
+      '9:00 AM, bitiş: 23 Eki Cuma saat 5:00 PM',
       'Bitiş: bugün saat 12:00 PM',
       'Bitiş: yarın saat 8:00 AM',
-      'Değin 23 Eki Cuma saat 5:00 PM',
+      'Bitiş: 23 Eki Cuma saat 5:00 PM',
     ]);
     expect(allDays.map((event) => timeOf(event, 'tr'))).toEqual([
       'Tüm gün, bitiş: bugün',
       'Tüm gün, bitiş: yarın',
-      'Tüm gün, değin 25 Eki Pazar',
+      'Tüm gün, bitiş: 25 Eki Pazar',
     ]);
   });
 
