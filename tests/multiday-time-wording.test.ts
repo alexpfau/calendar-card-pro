@@ -235,6 +235,51 @@ describe('the end time in a sentence', () => {
       }
     }
   });
+
+  it('writes a Norwegian end with one space after "kl."', () => {
+    // The whole phrase is pinned, so the dated ends also record "23 okt", an older string this
+    // test does not vouch for.
+    expect(events.map((event) => timeOf(event, 'nb'))).toEqual([
+      '22:30, slutter i morgen kl. 0:30',
+      '9:00 til fredag, 23 okt kl. 17:00',
+      'Slutter i dag kl. 12:00',
+      'Slutter i morgen kl. 8:00',
+      'Til fredag, 23 okt kl. 17:00',
+    ]);
+    expect(events.map((event) => timeOf(event, 'nn'))).toEqual([
+      '22:30, sluttar i morgon kl. 0:30',
+      '9:00 til fredag, 23 okt kl. 17:00',
+      'Sluttar i dag kl. 12:00',
+      'Sluttar i morgon kl. 8:00',
+      'Til fredag, 23 okt kl. 17:00',
+    ]);
+  });
+
+  it('puts one space between words in every language, on every clock', () => {
+    // A string carrying a space of its own at either end doubles the one the card joins it
+    // with: Norwegian's `at` was "kl. ", so its ends read "slutter i morgen kl.  0:30". The
+    // test above that ends a language with `at`, a space and the time cannot see that, since it
+    // builds its expectation from the same `at`.
+    const twoDigit = buildConfig({
+      split_multiday_events: false,
+      time_24h: true,
+      time_two_digit_hours: true,
+    });
+    const clocks = [config, twelveHour, twoDigit];
+    let compared = 0;
+    for (const language of LANGUAGES) {
+      for (const [index, clock] of clocks.entries()) {
+        for (const event of [...events, ...allDays]) {
+          const text = FormatUtils.formatEventTime(event, clock, language);
+          expect(text, `${language}, clock ${index}: ${JSON.stringify(text)}`).not.toMatch(
+            /\s{2}|^\s|\s$/,
+          );
+          compared++;
+        }
+      }
+    }
+    expect(compared).toBe(LANGUAGES.length * clocks.length * (events.length + allDays.length));
+  });
 });
 
 describe('a Hungarian event ending today', () => {
