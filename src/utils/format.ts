@@ -1143,6 +1143,54 @@ function formatSingleDayTime(
   return { text: `${start}${end}`, end };
 }
 
+/**
+ * A time as a language puts it in a sentence: `at` before it ("at 0:30"), or, where `at`
+ * holds `{time}`, the time inside that template. Hungarian marks a time with a suffix rather
+ * than a word before it, so its `at` is "{time}-kor" and the time reads "0:30-kor". A language
+ * without the placeholder reads exactly as it did before the template existed.
+ *
+ * @param translations Resolved translations for the language
+ * @param time The clock reading, as `formatTime` writes it
+ * @returns The time with the language's word or suffix for "at"
+ */
+function atTime(translations: Types.Translations, time: string): string {
+  return translations.at.includes('{time}')
+    ? translations.at.replace('{time}', () => time)
+    : `${translations.at} ${time}`;
+}
+
+/**
+ * "Ends today" or "ends tomorrow" with the end time in it. The time follows the phrase unless
+ * the phrase marks its place with `{at}`: Hungarian puts a time before its verb, so its
+ * `endsTomorrow` is "holnap {at} ér véget" and reads "holnap 0:30-kor ér véget". A phrase
+ * without the placeholder reads exactly as it did before the placeholder existed.
+ *
+ * @param phrase `endsToday` or `endsTomorrow`
+ * @param translations Resolved translations for the language
+ * @param time The clock reading, as `formatTime` writes it
+ * @returns The phrase with the end time in it
+ */
+export function endsAt(phrase: string, translations: Types.Translations, time: string): string {
+  const at = atTime(translations, time);
+  return phrase.includes('{at}') ? phrase.replace('{at}', () => at) : `${phrase} ${at}`;
+}
+
+/**
+ * "Ends today" or "ends tomorrow" for an event with no end time to give, an all-day one: the
+ * phrase without its `{at}`, and without the space that went with it.
+ *
+ * @param phrase `endsToday` or `endsTomorrow`
+ * @returns The phrase as it reads with no time in it
+ */
+function endsWithoutTime(phrase: string): string {
+  return phrase.includes('{at}')
+    ? phrase
+        .replace('{at}', '')
+        .replace(/\s{2,}/g, ' ')
+        .trim()
+    : phrase;
+}
+
 function formatMultiDayTime(
   startDate: Date,
   endDate: Date,
@@ -1161,26 +1209,26 @@ function formatMultiDayTime(
   let endPart: string;
 
   if (endDate.toDateString() === today.toDateString()) {
-    endPart = `${translations.endsToday} ${translations.at} ${formatTimeStr(endDate)}`;
+    endPart = endsAt(translations.endsToday, translations, formatTimeStr(endDate));
   } else if (endDate.toDateString() === tomorrow.toDateString()) {
-    endPart = `${translations.endsTomorrow} ${translations.at} ${formatTimeStr(endDate)}`;
+    endPart = endsAt(translations.endsTomorrow, translations, formatTimeStr(endDate));
   } else {
     const endDay = endDate.getDate();
     const endMonthName = translations.months[endDate.getMonth()];
     const endWeekday = translations.fullDaysOfWeek[endDate.getDay()];
-    const endTimeStr = formatTimeStr(endDate);
+    const endTime = atTime(translations, formatTimeStr(endDate));
     const formatStyle = Localize.getDateFormatStyle(language);
 
     switch (formatStyle) {
       case 'day-dot-month':
-        endPart = `${endWeekday}, ${endDay}. ${endMonthName} ${translations.at} ${endTimeStr}`;
+        endPart = `${endWeekday}, ${endDay}. ${endMonthName} ${endTime}`;
         break;
       case 'month-day':
-        endPart = `${endWeekday}, ${endMonthName} ${endDay} ${translations.at} ${endTimeStr}`;
+        endPart = `${endWeekday}, ${endMonthName} ${endDay} ${endTime}`;
         break;
       case 'day-month':
       default:
-        endPart = `${endWeekday}, ${endDay} ${endMonthName} ${translations.at} ${endTimeStr}`;
+        endPart = `${endWeekday}, ${endDay} ${endMonthName} ${endTime}`;
         break;
     }
   }
@@ -1237,11 +1285,11 @@ function formatMultiDayAllDayEnd(
   tomorrow.setDate(tomorrow.getDate() + 1);
 
   if (endDate.toDateString() === today.toDateString()) {
-    return translations.endsToday;
+    return endsWithoutTime(translations.endsToday);
   }
 
   if (endDate.toDateString() === tomorrow.toDateString()) {
-    return translations.endsTomorrow;
+    return endsWithoutTime(translations.endsTomorrow);
   }
 
   const endDay = endDate.getDate();

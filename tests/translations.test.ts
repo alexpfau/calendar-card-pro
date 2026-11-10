@@ -224,6 +224,37 @@ describe('relative times are written in the script of their language', () => {
   });
 });
 
+describe('"ends tomorrow" uses CLDR\'s word for tomorrow', () => {
+  // `endsTomorrow` is written by hand in every language, and a typo in its one content word
+  // reads as a real word to every other check: Catalan shipped "acaba damà" for "demà". CLDR
+  // has the word, as the relative day `Intl.RelativeTimeFormat` writes for +1 with
+  // `numeric: 'auto'`, and every language contains it in one of CLDR's three styles once case
+  // and spaces are set aside. Swedish writes "imorgon" where CLDR writes "i morgon".
+  //
+  // `endsToday` cannot be held to CLDR this way: Romanian correctly writes "astăzi", and
+  // CLDR's word in every style is its synonym "azi".
+  const STYLES = ['long', 'short', 'narrow'] as const;
+  const fold = (text: string, language: string) =>
+    text.toLocaleLowerCase(language).replace(/\s+/g, '');
+
+  it.each(LANGUAGES)('%s', (language) => {
+    const words = STYLES.map((style) =>
+      new Intl.RelativeTimeFormat(language, { numeric: 'auto', style }).format(1, 'day'),
+    );
+    // A word rather than "in 1 day", which CLDR writes where it has none.
+    expect(words[0]).not.toMatch(/\d/);
+
+    const phrase = getTranslations(language).endsTomorrow;
+    const found = words.filter((word) => fold(phrase, language).includes(fold(word, language)));
+    expect(found, `"${phrase}" against CLDR ${JSON.stringify(words)}`).not.toEqual([]);
+  });
+
+  it('writes the Catalan phrase whole', () => {
+    // The reconciliation above finds the word anywhere in the phrase, so the phrase is pinned too.
+    expect(getTranslations('ca').endsTomorrow).toBe('acaba demà');
+  });
+});
+
 describe('the weekday casing split is intentional and stays that way', () => {
   // `fullDaysOfWeek` and `daysOfWeek` are two arrays for two grammatical positions, and
   // the difference is deliberate: `daysOfWeek` is a standalone day-header label, while

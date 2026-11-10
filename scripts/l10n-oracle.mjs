@@ -4,8 +4,21 @@
  *
  * One-shot authoring tool, not a CI gate. It compares Home Assistant frontend strings,
  * the card's languages and existing editor translations so glossary decisions can cite
- * reproducible evidence. Point `HA_FRONTEND_TRANSLATIONS` at an unpacked, pinned
- * `home-assistant-frontend` wheel and run `node scripts/l10n-oracle.mjs`.
+ * reproducible evidence. It reads the translations unpacked from a pinned
+ * `home-assistant-frontend` wheel. These commands fetch that wheel from PyPI, check it and
+ * unpack it where the script looks by default, removing any earlier copy first, since the
+ * script reads every fragment it finds there. Point `HA_FRONTEND_TRANSLATIONS` elsewhere to use
+ * another copy.
+ *
+ *   rm -rf /tmp/hafe && curl -sL --create-dirs -o /tmp/hafe/fe.whl \
+ *     https://files.pythonhosted.org/packages/py3/h/home-assistant-frontend/home_assistant_frontend-20261028.5-py3-none-any.whl &&
+ *   echo 'df2af7a45296c6701de41b1d7e8582179c48ccf942ca17df0bea99aab4258730  /tmp/hafe/fe.whl' | shasum -a 256 -c &&
+ *   unzip -q /tmp/hafe/fe.whl 'hass_frontend/static/translations/*' -d /tmp/hafe/x &&
+ *   node scripts/l10n-oracle.mjs
+ *
+ * Keep the version pinned, and name it beside any evidence you cite: releases a year apart
+ * differ by over a thousand keys, so a key one person finds can be missing for another. Fetch
+ * it from PyPI rather than through `pip`, whose configured index can stop at an older release.
  */
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -43,7 +56,7 @@ function fragments() {
   } catch {
     console.error(
       `\n  FATAL: no HA frontend translations at ${BASE}.\n` +
-        '  See the header of this file for the two commands that fetch them.\n',
+        '  See the header of this file for the commands that fetch and unpack them.\n',
     );
     process.exit(2);
   }
