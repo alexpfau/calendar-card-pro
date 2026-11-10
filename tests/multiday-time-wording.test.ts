@@ -254,10 +254,10 @@ describe('the end time in a sentence', () => {
     return [t.at, t.endsToday, t.endsTomorrow].some((text) => /\{\w+\}/.test(text));
   };
 
-  it('is a template in Hungarian and Korean alone', () => {
-    // A language that takes up the template gets a test of its own above, rather than
-    // passing the one below by being skipped.
-    expect(LANGUAGES.filter(templated)).toEqual(['hu', 'ko']);
+  it('is a template in Hungarian, Korean, Lithuanian and Chinese alone', () => {
+    // A language that takes up the template gets a test of its own above or below, rather
+    // than passing the one after this by being skipped.
+    expect(LANGUAGES.filter(templated)).toEqual(['hu', 'ko', 'lt', 'zh-cn', 'zh-tw']);
   });
 
   it('ends every other language with `at`, a space and the time', () => {
@@ -273,7 +273,7 @@ describe('the end time in a sentence', () => {
         compared++;
       }
     }
-    expect(compared).toBe((LANGUAGES.length - 2) * shapes.length);
+    expect(compared).toBe((LANGUAGES.length - 5) * shapes.length);
   });
 
   it('leaves no placeholder behind in any language, on either clock', () => {
@@ -309,6 +309,231 @@ describe('the end time in a sentence', () => {
       'Sluttar i morgon kl. 8:00',
       'Til fredag 23. okt. kl. 17:00',
     ]);
+  });
+
+  // The words around the date and the time, each checked against CLDR's own date-and-time
+  // pattern (`Intl.DateTimeFormat` with a date and time style) and Home Assistant's strings
+  // for the language. Each row is the five shapes above on both clocks, then the three
+  // all-day ends: today, tomorrow, and Sunday, Oct 25.
+  //
+  // - Slovene `do` and Estonian `kuni` govern the weekday, so `fullDaysOfWeek` holds the
+  //   genitive ("do petka") and the terminative ("kuni reedeni").
+  // - Spanish names a day with its article, "hasta el viernes", as Home Assistant writes
+  //   "hasta el {date}". Every weekday is masculine, so the article is part of `multiDay`.
+  // - Greek does too, but its article follows the day's gender, "έως την Παρασκευή", "έως το
+  //   Σάββατο", so it is part of each weekday.
+  // - Slovak writes a clock time with "o" and Ukrainian with "о", as CLDR ("o 17:00",
+  //   "о 17:00") and Home Assistant ("{day} o {time}", "{day} о {time}") do.
+  // - Lithuanian writes a date and its time side by side, as CLDR ("penktadienis 17:00") and
+  //   Home Assistant ("{day} {time}") do, so its `at` is `{time}`.
+  // - Chinese does too, and puts a time before its verb: "明天 0:30 结束". All day there is no
+  //   time, and the phrase reads as it always did, "明天结束", with no space left inside it.
+  //
+  // Czech is the control: it shares Slovak's `do` and its genitive, and its "v 17:00" is right.
+  const PHRASES: Record<string, { h24: string[]; h12: string[]; allDay: string[] }> = {
+    sl: {
+      h24: [
+        '22:30, konča se jutri ob 0:30',
+        '9:00 do petka, 23. okt. ob 17:00',
+        'Konča se danes ob 12:00',
+        'Konča se jutri ob 8:00',
+        'Do petka, 23. okt. ob 17:00',
+      ],
+      h12: [
+        '10:30 PM, konča se jutri ob 12:30 AM',
+        '9:00 AM do petka, 23. okt. ob 5:00 PM',
+        'Konča se danes ob 12:00 PM',
+        'Konča se jutri ob 8:00 AM',
+        'Do petka, 23. okt. ob 5:00 PM',
+      ],
+      allDay: [
+        'Cel dan, konča se danes',
+        'Cel dan, konča se jutri',
+        'Cel dan, do nedelje, 25. okt.',
+      ],
+    },
+    es: {
+      h24: [
+        '22:30, termina mañana a las 0:30',
+        '9:00 hasta el viernes, 23 oct a las 17:00',
+        'Termina hoy a las 12:00',
+        'Termina mañana a las 8:00',
+        'Hasta el viernes, 23 oct a las 17:00',
+      ],
+      h12: [
+        '10:30 PM, termina mañana a las 12:30 AM',
+        '9:00 AM hasta el viernes, 23 oct a las 5:00 PM',
+        'Termina hoy a las 12:00 PM',
+        'Termina mañana a las 8:00 AM',
+        'Hasta el viernes, 23 oct a las 5:00 PM',
+      ],
+      allDay: [
+        'Todo el día, termina hoy',
+        'Todo el día, termina mañana',
+        'Todo el día, hasta el domingo, 25 oct',
+      ],
+    },
+    el: {
+      h24: [
+        '22:30, λήγει αύριο στις 0:30',
+        '9:00 έως την Παρασκευή 23 Οκτ στις 17:00',
+        'Λήγει σήμερα στις 12:00',
+        'Λήγει αύριο στις 8:00',
+        'Έως την Παρασκευή 23 Οκτ στις 17:00',
+      ],
+      h12: [
+        '10:30 PM, λήγει αύριο στις 12:30 AM',
+        '9:00 AM έως την Παρασκευή 23 Οκτ στις 5:00 PM',
+        'Λήγει σήμερα στις 12:00 PM',
+        'Λήγει αύριο στις 8:00 AM',
+        'Έως την Παρασκευή 23 Οκτ στις 5:00 PM',
+      ],
+      allDay: [
+        'Ολοήμερο, λήγει σήμερα',
+        'Ολοήμερο, λήγει αύριο',
+        'Ολοήμερο, έως την Κυριακή 25 Οκτ',
+      ],
+    },
+    et: {
+      h24: [
+        '22:30, lõpeb homme kell 0:30',
+        '9:00 kuni reedeni, 23. okt kell 17:00',
+        'Lõpeb täna kell 12:00',
+        'Lõpeb homme kell 8:00',
+        'Kuni reedeni, 23. okt kell 17:00',
+      ],
+      h12: [
+        '10:30 PM, lõpeb homme kell 12:30 AM',
+        '9:00 AM kuni reedeni, 23. okt kell 5:00 PM',
+        'Lõpeb täna kell 12:00 PM',
+        'Lõpeb homme kell 8:00 AM',
+        'Kuni reedeni, 23. okt kell 5:00 PM',
+      ],
+      allDay: [
+        'Kogu päev, lõpeb täna',
+        'Kogu päev, lõpeb homme',
+        'Kogu päev, kuni pühapäevani, 25. okt',
+      ],
+    },
+    sk: {
+      h24: [
+        '22:30, končí zajtra o 0:30',
+        '9:00 do piatku 23. októbra o 17:00',
+        'Končí dnes o 12:00',
+        'Končí zajtra o 8:00',
+        'Do piatku 23. októbra o 17:00',
+      ],
+      h12: [
+        '10:30 PM, končí zajtra o 12:30 AM',
+        '9:00 AM do piatku 23. októbra o 5:00 PM',
+        'Končí dnes o 12:00 PM',
+        'Končí zajtra o 8:00 AM',
+        'Do piatku 23. októbra o 5:00 PM',
+      ],
+      allDay: ['Celý deň, končí dnes', 'Celý deň, končí zajtra', 'Celý deň, do nedele 25. októbra'],
+    },
+    uk: {
+      h24: [
+        '22:30, закінчується завтра о 0:30',
+        "9:00 до п'ятниці, 23 жовт. о 17:00",
+        'Закінчується сьогодні о 12:00',
+        'Закінчується завтра о 8:00',
+        "До п'ятниці, 23 жовт. о 17:00",
+      ],
+      h12: [
+        '10:30 PM, закінчується завтра о 12:30 AM',
+        "9:00 AM до п'ятниці, 23 жовт. о 5:00 PM",
+        'Закінчується сьогодні о 12:00 PM',
+        'Закінчується завтра о 8:00 AM',
+        "До п'ятниці, 23 жовт. о 5:00 PM",
+      ],
+      allDay: [
+        'Весь день, закінчується сьогодні',
+        'Весь день, закінчується завтра',
+        'Весь день, до неділі, 25 жовт.',
+      ],
+    },
+    lt: {
+      h24: [
+        '22:30, baigiasi rytoj 0:30',
+        '9:00 iki spalio 23 d., penktadienio 17:00',
+        'Baigiasi šiandien 12:00',
+        'Baigiasi rytoj 8:00',
+        'Iki spalio 23 d., penktadienio 17:00',
+      ],
+      h12: [
+        '10:30 PM, baigiasi rytoj 12:30 AM',
+        '9:00 AM iki spalio 23 d., penktadienio 5:00 PM',
+        'Baigiasi šiandien 12:00 PM',
+        'Baigiasi rytoj 8:00 AM',
+        'Iki spalio 23 d., penktadienio 5:00 PM',
+      ],
+      allDay: [
+        'Visą dieną, baigiasi šiandien',
+        'Visą dieną, baigiasi rytoj',
+        'Visą dieną, iki spalio 25 d., sekmadienio',
+      ],
+    },
+    'zh-cn': {
+      h24: [
+        '22:30, 明天 0:30 结束',
+        '9:00 直到 10月23日星期五 17:00',
+        '今天 12:00 结束',
+        '明天 8:00 结束',
+        '直到 10月23日星期五 17:00',
+      ],
+      h12: [
+        '10:30 PM, 明天 12:30 AM 结束',
+        '9:00 AM 直到 10月23日星期五 5:00 PM',
+        '今天 12:00 PM 结束',
+        '明天 8:00 AM 结束',
+        '直到 10月23日星期五 5:00 PM',
+      ],
+      allDay: ['整天, 今天结束', '整天, 明天结束', '整天, 直到 10月25日星期日'],
+    },
+    'zh-tw': {
+      h24: [
+        '22:30, 明天 0:30 結束',
+        '9:00 直到 10月23日星期五 17:00',
+        '今天 12:00 結束',
+        '明天 8:00 結束',
+        '直到 10月23日星期五 17:00',
+      ],
+      h12: [
+        '10:30 PM, 明天 12:30 AM 結束',
+        '9:00 AM 直到 10月23日星期五 5:00 PM',
+        '今天 12:00 PM 結束',
+        '明天 8:00 AM 結束',
+        '直到 10月23日星期五 5:00 PM',
+      ],
+      allDay: ['整天, 今天結束', '整天, 明天結束', '整天, 直到 10月25日星期日'],
+    },
+    cs: {
+      h24: [
+        '22:30, končí zítra v 0:30',
+        '9:00 do pátku 23. října v 17:00',
+        'Končí dnes v 12:00',
+        'Končí zítra v 8:00',
+        'Do pátku 23. října v 17:00',
+      ],
+      h12: [
+        '10:30 PM, končí zítra v 12:30 AM',
+        '9:00 AM do pátku 23. října v 5:00 PM',
+        'Končí dnes v 12:00 PM',
+        'Končí zítra v 8:00 AM',
+        'Do pátku 23. října v 5:00 PM',
+      ],
+      allDay: ['Celý den, končí dnes', 'Celý den, končí zítra', 'Celý den, do neděle 25. října'],
+    },
+  };
+
+  it.each(Object.keys(PHRASES))('writes the words around the date and time in %s', (language) => {
+    const { h24, h12, allDay } = PHRASES[language];
+    expect(events.map((event) => timeOf(event, language))).toEqual(h24);
+    expect(events.map((event) => FormatUtils.formatEventTime(event, twelveHour, language))).toEqual(
+      h12,
+    );
+    expect(allDays.map((event) => timeOf(event, language))).toEqual(allDay);
   });
 
   it('puts one space between words in every language, on every clock', () => {

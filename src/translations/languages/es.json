@@ -3,7 +3,7 @@
   "fullDaysOfWeek": ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"],
   "months": ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"],
   "allDay": "todo el día",
-  "multiDay": "hasta",
+  "multiDay": "hasta el",
   "at": "a las",
   "viewList": "Lista",
   "viewColumns": "Columnas",
