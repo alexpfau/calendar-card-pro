@@ -15,6 +15,7 @@ import * as EntityColors from '../utils/entity-colors';
 import * as FormatUtils from '../utils/format';
 import * as Helpers from '../utils/helpers';
 import * as Links from '../utils/links';
+import * as TextDirection from '../utils/text-direction';
 import { splitTitleWords, titleDirection } from '../utils/title-words';
 import * as Weather from '../utils/weather';
 
@@ -269,9 +270,13 @@ export function renderDateContent(
 
   const translations = Localize.getTranslations(language);
 
-  const weekday = translations.daysOfWeek[date.getDay()];
+  // In the language's own direction where the dashboard runs the other way: an abbreviation
+  // ends in punctuation in several languages ("пон.", "ม.ค.", "ג'"), which a line running the
+  // other way moves to the word's start.
+  const mark = TextDirection.languageMark(language, hass);
+  const weekday = TextDirection.inLanguageDirection(translations.daysOfWeek[date.getDay()], mark);
   const day = date.getDate();
-  const month = translations.months[date.getMonth()];
+  const month = TextDirection.inLanguageDirection(translations.months[date.getMonth()], mark);
 
   // Prettier 3.9 would put the `${…}` below on lines of its own and re-indent the month
   // template inside it, which moves the whitespace beside its text node and with it the
@@ -835,6 +840,13 @@ export interface EventContentParts {
    * `gridTimedEventContentParts`, because its now line already says the same thing.
    */
   nowLabel?: string | null;
+
+  /**
+   * The mark the row's own words are drawn between: its time and its countdown, where the card's
+   * language runs against the dashboard. `''` or absent everywhere else, which draws them as they
+   * always were. See `TextDirection.languageMark`.
+   */
+  languageMark?: TextDirection.LanguageMark;
 }
 
 /**
@@ -961,7 +973,11 @@ export function renderEventContent(
     entityLabelAlt,
     mergedLabels,
     nowLabel,
+    languageMark = '',
   } = parts;
+
+  // The row's own words, in their language's direction where the dashboard runs the other way.
+  const own = (text: string): string => TextDirection.inLanguageDirection(text, languageMark);
 
   // Pieces only where a field holds a link, so every other row binds its plain string as before.
   const linked = links
@@ -993,7 +1009,10 @@ export function renderEventContent(
 
   const foldCountdown = countdownPlacement === 'text' && countdownStr !== null;
 
-  const trailingCountdown = foldCountdown ? null : countdownStr;
+  // Drawn rather than compared from here on, so marked once for every placement below.
+  const countdownText = countdownStr === null ? null : own(countdownStr);
+
+  const trailingCountdown = foldCountdown ? null : countdownText;
 
   // A single-day all-day event has nothing left to say once the badge has the label, so
   // there is no empty span to lay out beside it.
@@ -1024,12 +1043,14 @@ export function renderEventContent(
   //
   // Each piece goes through `isolateClockReadings`, so a 12-hour reading reads as one unit in a
   // right-to-left card. The end is handed the text before it, because how each reading
-  // is laid out depends on the letter that precedes it.
+  // is laid out depends on the letter that precedes it. Then `own`, so a card whose language
+  // runs against the dashboard reads start first; each piece is marked on its own, so the end
+  // the grid hides leaves a whole start behind.
   // prettier-ignore
   const timeValue = eventTime
     ? splitEnd
-      ? html`<span>${FormatUtils.isolateClockReadings(timeHead)}<span class="time-end">${FormatUtils.isolateClockReadings(splitEnd, timeHead)}</span></span>`
-      : html`<span>${FormatUtils.isolateClockReadings(eventTime)}</span>`
+      ? html`<span>${own(FormatUtils.isolateClockReadings(timeHead))}<span class="time-end">${own(FormatUtils.isolateClockReadings(splitEnd, timeHead))}</span></span>`
+      : html`<span>${own(FormatUtils.isolateClockReadings(eventTime))}</span>`
     : nothing;
 
   // The badge is a direct child of `.time-actual`, never of `.time-text`: inside the latter
@@ -1059,7 +1080,7 @@ export function renderEventContent(
   // Keep folded time/countdown spans adjacent; whitespace would render before the separator.
   // prettier-ignore
   const timeText = foldCountdown
-    ? html`<span class="time-text">${timeValue}<span class="time-countdown">${countdownStr}</span></span>`
+    ? html`<span class="time-text">${timeValue}<span class="time-countdown">${countdownText}</span></span>`
     : timeValue;
 
   // A running event's row keeps its clock where every row has it, filled rather than outlined,
@@ -1093,7 +1114,7 @@ export function renderEventContent(
       shouldShowTime,
       allDayBadgeEl,
       timeContent,
-      countdownStr,
+      countdownStr: countdownText,
       progressRow,
       weatherRow,
       eventLocation,
@@ -1140,7 +1161,7 @@ export function renderEventContent(
             ? html`
                 <div class="time">
                   <div class="time-actual"></div>
-                  <div class="time-countdown">${countdownStr}</div>
+                  <div class="time-countdown">${countdownText}</div>
                 </div>
               `
             : showInlineProgress

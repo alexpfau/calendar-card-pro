@@ -13,6 +13,7 @@ import * as EntityColors from '../utils/entity-colors';
 import * as EventUtils from '../utils/events';
 import * as FormatUtils from '../utils/format';
 import * as Helpers from '../utils/helpers';
+import * as TextDirection from '../utils/text-direction';
 
 /**
  * Everything about a single event that is independent of the view rendering it.
@@ -286,6 +287,7 @@ export function buildEventPresentation(
     countdownStr,
     progressPercentage,
     nowLabel,
+    languageMark: TextDirection.languageMark(language, hass),
   };
 
   return {

@@ -28,6 +28,7 @@ import * as Localize from '../translations/localize';
 import * as FormatUtils from '../utils/format';
 import * as Grid from '../utils/grid';
 import * as CascadeThreshold from '../utils/grid-cascade-threshold';
+import * as TextDirection from '../utils/text-direction';
 
 //-----------------------------------------------------------------------------
 // EVENT SORTING
@@ -1108,6 +1109,7 @@ function gridTimedEventContentParts(
  * @param placement - Where it sits in the band
  * @param edges - What lies against its upper and lower edges
  * @param horizontal - Where it sits across the column
+ * @param mark - The card language's mark, from `TextDirection.languageMark`
  * @returns Rendered overflow block
  */
 function renderOverflow(
@@ -1115,11 +1117,14 @@ function renderOverflow(
   placement: Grid.EventPlacement,
   edges: Grid.BlockEdges,
   horizontal: BlockHorizontal,
+  mark: TextDirection.LanguageMark,
 ): TemplateResult {
   // A bare numeral, deliberately. No card translation carries a "+N more" phrase, and
   // adding one would mean a new key in all 35 language files for a label that reads the
-  // same in every one of them. The hidden summaries are on the title attribute.
-  const label = `+${overflow.hidden.length}`;
+  // same in every one of them. The hidden summaries are on the title attribute. Its sign
+  // still sides with the line it is on, so a card whose language runs against the dashboard
+  // marks it, or "+2" reads "2+".
+  const label = TextDirection.inLanguageDirection(`+${overflow.hidden.length}`, mark);
 
   return html`
     <div
@@ -2007,7 +2012,13 @@ function renderDayBody(
           const placement = Grid.computeEventPlacement(overflow.startMin, overflow.endMin, band);
 
           return placement
-            ? renderOverflow(overflow, placement, edges[blocks.length + index], horizontal)
+            ? renderOverflow(
+                overflow,
+                placement,
+                edges[blocks.length + index],
+                horizontal,
+                TextDirection.languageMark(language, hass),
+              )
             : nothing;
         })}
       </div>

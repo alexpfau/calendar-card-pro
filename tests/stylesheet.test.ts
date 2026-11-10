@@ -357,7 +357,7 @@ describe('card stylesheet', () => {
       // Chromium and WebKit: the ink's center now sits within about a quarter pixel of the
       // bar's at the default sizes, where it was 1.7px and 2.1px low.
       const contents = [
-        'td.event > .event-content:has(> .time-location > *)',
+        'td.event .event-content:has(> .time-location > *)',
         '.column-events > .event > .event-content:has(> .time-location > *)',
       ];
       for (const content of contents) {
