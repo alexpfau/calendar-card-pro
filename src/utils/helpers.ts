@@ -654,23 +654,71 @@ export function resolveTimePosition(value: unknown): TimePosition {
 }
 
 /**
+ * How a title beside the time (`time_position: title`) is laid out, in list and column view.
+ *
+ * - `'wrap'`: the default. The title wraps across the whole row and the time ends its last line,
+ *   or takes a line of its own where the last line has no room for it.
+ * - `'cap'`: the same, with `title_max_lines` at 2 or more. A title that needs more lines than
+ *   that is cut on the last of them, and the time ends that line; the card measures which.
+ * - `'line'`: one line, with `title_max_lines: 1` or `scroll_long_titles`. The title keeps the
+ *   room the time leaves it and ends in "…", or scrolls with `scroll_long_titles` on.
+ *
+ * Scrolling wins over the limit, as it does for every other title.
+ *
+ * @param config - The configuration of the view on screen
+ * @returns The layout of a title that has the time beside it
+ */
+export function titleBesideTimeLayout(config: {
+  scroll_long_titles?: unknown;
+  title_max_lines?: unknown;
+}): 'wrap' | 'cap' | 'line' {
+  if (config.scroll_long_titles) return 'line';
+  const lines = Number(config.title_max_lines) || 0;
+  if (lines === 1) return 'line';
+  return lines > 1 ? 'cap' : 'wrap';
+}
+
+/**
  * Whether titles on the card are kept to one line: in every view with `scroll_long_titles`, and
- * in list and column view with `time_position: title`, which keeps each title it puts a time
- * beside on that line. The card measures titles only when this is true, to keep their labels on
- * the line as well; the leaf decides which titles take part, and which of them can move. Only
- * `scroll_long_titles` moves a title: without it, a title beside the time ends in "…".
+ * in list and column view with `time_position: title` and `title_max_lines: 1`, which keeps each
+ * title it puts a time beside on that line. The card measures titles only when this is true, to
+ * keep their labels on the line as well; the leaf decides which titles take part, and which of
+ * them can move. Only `scroll_long_titles` moves a title: without it, a title beside the time
+ * ends in "…". Without the limit a title beside the time wraps; see `titleBesideTimeLayout`.
  *
  * @param config - The configuration of the view on screen
  * @param view - The view on screen
  * @returns True when a title on the card is kept to one line
  */
 export function titlesOnOneLine(
-  config: { scroll_long_titles?: unknown; time_position?: unknown },
+  config: { scroll_long_titles?: unknown; time_position?: unknown; title_max_lines?: unknown },
   view: string,
 ): boolean {
   return (
     Boolean(config.scroll_long_titles) ||
-    (view !== 'grid' && resolveTimePosition(config.time_position) === 'title')
+    (view !== 'grid' &&
+      resolveTimePosition(config.time_position) === 'title' &&
+      titleBesideTimeLayout(config) === 'line')
+  );
+}
+
+/**
+ * Whether the card has titles beside the time to cut at `title_max_lines`: list and column view,
+ * `time_position: title`, and a limit of two lines or more. Only then does the card measure which
+ * of those titles need more lines than the limit, and cut them on the last.
+ *
+ * @param config - The configuration of the view on screen
+ * @param view - The view on screen
+ * @returns True when the card measures titles beside the time against their line limit
+ */
+export function titlesCutBesideTime(
+  config: { scroll_long_titles?: unknown; time_position?: unknown; title_max_lines?: unknown },
+  view: string,
+): boolean {
+  return (
+    view !== 'grid' &&
+    resolveTimePosition(config.time_position) === 'title' &&
+    titleBesideTimeLayout(config) === 'cap'
   );
 }
 

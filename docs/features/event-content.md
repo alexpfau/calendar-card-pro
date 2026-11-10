@@ -357,20 +357,13 @@ after its start has no time to fall back on and is not shown.
 ### Time Beside the Title
 
 `time_position: title` moves an event's time from its own row to the end of the title's line,
-at any width, on every row that has a time or a countdown to show. On a wide card that saves a
-row per event:
+on every row that has a time or a countdown to show. A long title wraps across the whole row,
+and the time ends its last line, or takes a line of its own where that line has no room left.
+On a wide card that saves a row per event:
 
 ```yaml
 time_position: title # below, the default, keeps the time under the title
 ```
-
-::: warning Needs a Wide Event Row
-The time takes its width from the title and never gives it back. With the default fonts, English
-text, 24-hour times and countdowns, allow about 250px of event row, a 360px list card or a 280px
-day column, which still leaves the title about 100px. Event weather, 12-hour or multi-day times,
-all-day badges, larger fonts and long text labels each need more, and on a narrower row the
-title can shrink to a few characters. Keep `below` where that is not acceptable.
-:::
 
 - **The time comes without its clock**: the time or the all-day words, an
   [all-day badge on the time](#where-the-pill-goes), and the green "Now" of an event under way.
@@ -382,44 +375,61 @@ title can shrink to a few characters. Keep `below` where that is not acceptable.
 - **Everything else stays below the title**, in its order: the
   [progress bar](#progress-bar-display) on a row of its own, column view's weather row, the
   location and the description.
-- **The title keeps the rest of the line and stays on it.** When it is too long for its room it
-  ends in "…", so every row keeps one even line. Turn on
-  [`scroll_long_titles`](#scrolling-long-titles) to have it scroll instead; with the operating
-  system's reduce-motion setting on, it still ends in "…".
-  [`title_max_lines`](#limiting-lines-per-field) does not apply to it.
-- **The time takes the room it needs**, normally up to about 60% of the line, list view's
-  weather badge included, and wraps inside it, aligned to the end of the line. It takes more
-  rather than break a word of the time or the badge, and the title then keeps less.
+- **A long title wraps as it does below the time**, its calendar labels before it. The time
+  sits at the end of the title's last line, on the title's baseline, where the line has room
+  for it, and at the end of a line of its own where it has not. The two never overlap.
+- **[`title_max_lines`](#limiting-lines-per-field) caps the title.** One that needs more lines
+  ends in "…" on the last of them, with the time at the end of that line, so
+  `title_max_lines: 1` keeps every title and its time on one even line.
+- **[`scroll_long_titles`](#scrolling-long-titles) keeps the title on one line beside the time
+  and scrolls it.** With the operating system's reduce-motion setting on, it ends in "…".
 
-Each layout can set it on its own, and so can `scroll_long_titles`:
+Each layout can set it on its own, and so can the line limit:
 
 ```yaml
 list:
   time_position: title # beside the title in the list layout
-  scroll_long_titles: true # a long title beside the time scrolls instead of ending in "…"
+  title_max_lines: 2 # a longer title ends in "…" on its second line, the time after it
 column:
   time_position: below # the columns stay as they are
 ```
 
+::: warning One Line Needs a Wide Event Row
+With `title_max_lines: 1` or `scroll_long_titles`, the time takes its width from the title's
+line and never gives it back. With the default fonts, English text, 24-hour times and
+countdowns, allow about 250px of event row, a 360px list card or a 280px day column, which still
+leaves the title about 100px. Event weather, 12-hour or multi-day times, all-day badges, larger
+fonts and long text labels each need more, and on a narrower row the title can shrink to a few
+characters. Let the title wrap where that is not acceptable.
+:::
+
 ::: details More About the Time Beside the Title
 
 - A row with neither a time nor a countdown to show, such as an empty day or a running event
-  with `show_time: false` and no countdown, keeps the layout it has below the title, and its
-  title wraps unless `scroll_long_titles` is on. In list view the progress bar of such a running
-  event still moves to a row of its own, 80% of the event's width unless `progress_bar_width`
-  says otherwise.
+  with `show_time: false` and no countdown, keeps the layout it has below the title. In list
+  view the progress bar of such a running event still moves to a row of its own, 80% of the
+  event's width unless `progress_bar_width` says otherwise.
+- Where the time is too wide to leave a capped title any room beside it, as a time with a
+  countdown can be in a narrow column, a longer title ends in "…" across the whole row and the
+  time takes a line of its own below it. A title within the limit there keeps every line.
+- A time larger than the title, set with [`time_font_size`](#time-location-information), takes
+  a line of its own at the end of every title: beside the title it would push the line's
+  baseline down.
+- A capped title that runs against the dashboard's direction, such as a Hebrew title on an
+  English dashboard, keeps its beginning and ends in "…" at its own end, as it does below the
+  time. The time stays at the dashboard's end of the row.
 - An [all-day badge on the time](#where-the-pill-goes) with a countdown after it wraps as it
   does in column view, the countdown under the pill, and on a narrow row the pill is shortened
   with "…".
-- A text label sits in the title's room, so a long one wraps beside the title and leaves less
-  of it to read, in a narrow column only a letter. An icon, an emoji or a picture takes the
-  least room. Beside a text label that wraps, the title sits on the label's first line, level
-  with the time.
+- On one line, a text label sits in the title's room, so a long one wraps beside the title and
+  leaves less of it to read, in a narrow column only a letter. An icon, an emoji or a picture
+  takes the least room. Beside a text label that wraps, the title sits on the label's first
+  line, level with the time.
 - In a column too narrow for a countdown word, that word breaks, as it does below the title.
-- At the width in the warning, some times still run to two or three lines. On 240 to 300px
-  list cards or in 145 to 200px columns, with those extras, the time can take up to six lines in
-  a 145px column and up to eight on a narrow list card with event weather, where some titles
-  keep less than a character.
+- On one line at the width in the warning, some times still run to two or three lines. On 240
+  to 300px list cards or in 145 to 200px columns, with those extras, the time can take up to six
+  lines in a 145px column and up to eight on a narrow list card with event weather, where some
+  titles keep less than a character.
 
 :::
 
@@ -582,6 +592,9 @@ description_max_lines: 3 # Allow descriptions up to three lines
   lines, and so on.
 - A calendar label stays inline before the title and shares its line limit, merged-calendar
   labels included.
+- With the [time beside the title](#time-beside-the-title), a shortened title's last line ends
+  in "…" with the time after it, so `title_max_lines: 1` keeps a title and its time on one
+  line.
 - All four work in list and column view. Grid follows the title, location and description
   limits too, but fits its time row to each block itself, as
   [What a Block Shows](/features/grid-view#what-a-block-shows) describes, so `time_max_lines`
@@ -626,8 +639,8 @@ scroll_long_titles: true
   one moves right, to reveal its ending.
 - With the operating system's **reduce motion** setting on, nothing moves and the title is a
   static, truncated line.
-- With [`time_position: title`](#time-beside-the-title), a title with the time beside it is one
-  line either way: it scrolls this way with `scroll_long_titles` on, and ends in "…" with it off.
+- With [`time_position: title`](#time-beside-the-title), a title beside the time stays on one
+  line and scrolls this way too; with `scroll_long_titles` off, it wraps.
 
 It is set for the whole card rather than per calendar, but it can be set per view. Titles wrap
 the most in the narrow columns of the [grid layout](/features/grid-view), so a common setup is to

@@ -814,7 +814,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Where supported, visible overflowing titles start together, return quickly one by one, ' +
     'and wait at their beginnings. Forces one line in either text direction and overrides ' +
     'the title line limit. Never animates under reduced motion; older browsers keep independent scrolling. ' +
-    'With the time beside the title, long titles scroll only with this on, and otherwise end in an ellipsis.',
+    'With the time beside the title, this keeps the title on one line beside it, where it otherwise wraps.',
   allday_badge_position: 'All-Day Badge',
   'allday_badge_position.helper':
     'Marks all-day events with a rounded badge in the calendar accent color. On the time ' +
@@ -848,12 +848,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   show_time: 'Show Time',
   time_position: 'Time Position',
   'time_position.helper':
-    "Puts the time on the title's line, without its clock, and never moves it below. Needs a " +
-    'wide event row: in narrow cards or columns, and with extras such as countdowns, event ' +
-    'weather, 12-hour or multi-day times, all-day badges, larger fonts or long text labels, the ' +
-    'title can shrink to a few characters and the time can take several lines. Use it where the ' +
-    'width allows, with few such extras. Titles that share the line stay on it and end in an ' +
-    'ellipsis when too long, or scroll with Scroll Long Titles on. Title Line Limit does not apply.',
+    "Puts the time on the title's line, without its clock. A long title wraps, and the time " +
+    'ends its last line, or takes a line of its own where it does not fit. Title Line Limit cuts ' +
+    'a longer title with the time at the end of its last line, so 1 keeps both on one line. ' +
+    'Scroll Long Titles keeps the title on one line and scrolls it. On one line, the title needs ' +
+    'a wide event row: in narrow cards or columns, and with extras such as countdowns, event ' +
+    'weather or long text labels, it can shrink to a few characters.',
   'time_position.option.below.label': 'Below the title',
   'time_position.option.title.label': 'Beside the title',
   show_end_time: 'Show End Time',

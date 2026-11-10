@@ -1053,6 +1053,9 @@ describe('every piece of text is sized by its own option', () => {
       'time-countdown in time-text': ['time_font_size'],
       'time-end in time-actual': ['time_font_size'],
       'time-end in time-text': ['time_font_size'],
+      // The word joiner opening the time's box beside a wrapping title: invisible, at the title's
+      // size so the box's baseline is the title's.
+      'title-strut in title-aside': ['event_font_size'],
       'title-word in title-words': ['event_font_size'],
       'today-indicator in today-indicator-container': ['today_indicator_size'],
       // A control, not card text: it takes Home Assistant's own control size, so it reads
