@@ -279,8 +279,15 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(200_000);
-    // Today's grid tint moved the ceiling last, from 197,000 to 200,000: the notes on why
+    expect(saved).toBeLessThan(203_000);
+    // Old Safari's colors moved the ceiling last, from 200,000 to 203,000: the notes on why a
+    // tinted event's wash reads its currentColor mix in a box-shadow only behind
+    // content-visibility, since Safari 16.4 and 16.5 crash on one there, and why a day's add
+    // washes fall back to a neutral gray, in two hover rules rather than one, where color-mix()
+    // is unknown. The reading went from 198,943 to 200,189, taken with stripComments after the
+    // last comment was written.
+    //
+    // Today's grid tint moved the ceiling before that, from 197,000 to 200,000: the notes on why
     // today's stripe sits on the weekend tint's rung, why a weekend today leaves the weekend
     // run instead of stacking a second translucent color, and why the raised blocks'
     // backdrop takes two rules whose unset fallbacks paint exactly what they painted before.

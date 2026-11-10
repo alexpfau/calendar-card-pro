@@ -1317,7 +1317,12 @@ Neither has a workflow file, so neither shows up in `.github/workflows/`.
   the gate. It also fails on a regular expression lookbehind in either file, which Safari before
   16.4 cannot parse; a pattern built at runtime is read only in its fixed parts, and the success
   line says how many were. `tests/regex-lookbehind.test.ts` keeps `src/` free of them, so one
-  there came in with the bump.
+  there came in with the bump. The same holds for syntax: each file must parse as ES2022 (acorn)
+  with no class static block, which is what Safari 15 parses, and build no `RegExp` whose fixed
+  flags hold `v`, or whose pattern and flags the source fixes entirely and ES2022 cannot
+  compile. `src/` is lowered to ES2021, so a failure there points at the bumped package too, or
+  at a regular expression literal in `src/`, which esbuild passes through as written, and turns
+  into `new RegExp(…, "v")` when it carries that flag.
 - **CodeQL default setup** is enabled in the repository's code-security settings. It scans
   pushes to `main` and same-repository pull requests into it, so the release PR is the first
   scan a change gets. **`dev` is not covered**: its deletion-only ruleset makes the branches

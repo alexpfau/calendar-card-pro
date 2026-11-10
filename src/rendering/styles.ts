@@ -199,7 +199,9 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
   // The two washes follow the same switch: a tinted event under the pointer or pressed takes
   // its own text color over the tint, where an untinted one takes the card's accent, as the
   // card's ripple does (see TAPPABLE EVENTS in the stylesheet). currentColor is left for the
-  // event to resolve, since a custom property substitutes tokens rather than a color.
+  // event to resolve, since a custom property substitutes tokens rather than a color. A
+  // box-shadow reads them only behind content-visibility, because Safari 16.4 and 16.5 crash
+  // on a currentColor mix there; see the rules themselves.
   if (config.event_background_opacity > 0) {
     props['--calendar-card-event-accent-side-radius'] = 'var(--calendar-card-event-border-radius)';
     props['--calendar-card-event-accent-bar-inset'] = '4px';
@@ -3885,19 +3887,41 @@ export const cardStyles = css`
   @media (hover: hover) {
     .event-interactive:hover {
       box-shadow: inset 0 0 0 100vmax
-        var(
-          --calendar-card-event-wash-hover,
-          color-mix(in srgb, var(--ha-ripple-hover-color) 8%, transparent)
-        );
+        color-mix(in srgb, var(--ha-ripple-hover-color) 8%, transparent);
     }
   }
 
   .event-interactive:active {
     box-shadow: inset 0 0 0 100vmax
-      var(
-        --calendar-card-event-wash-pressed,
-        color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent)
-      );
+      color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent);
+  }
+
+  /* The text-colored wash a tinted event takes is a color-mix() of currentColor, and Safari
+     16.4 and 16.5 crash the page's whole process on one in a box-shadow (WebKit bug 257255,
+     fixed in 16.6). Of the two ways the card draws it, only that one is affected: a
+     background-color resolves currentColor where it is used, so the list view's wash, drawn as
+     a background below, is safe there. The rules reading the two properties in a box-shadow
+     therefore sit behind content-visibility, which Safari first enabled by default in 18.0,
+     the same marker the relative colors use (#731). An engine it leaves out washes a tinted
+     event in the card's accent above, as an untinted one is. */
+  @supports (content-visibility: auto) {
+    @media (hover: hover) {
+      .event-interactive:hover {
+        box-shadow: inset 0 0 0 100vmax
+          var(
+            --calendar-card-event-wash-hover,
+            color-mix(in srgb, var(--ha-ripple-hover-color) 8%, transparent)
+          );
+      }
+    }
+
+    .event-interactive:active {
+      box-shadow: inset 0 0 0 100vmax
+        var(
+          --calendar-card-event-wash-pressed,
+          color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent)
+        );
+    }
   }
 
   .event-interactive:focus {
@@ -4133,6 +4157,31 @@ export const cardStyles = css`
     height: var(--calendar-card-add-hour-height, 0);
     background-color: color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent);
     pointer-events: none;
+  }
+
+  /* Without color-mix() (Safari before 16.2) the three washes above are invalid once their
+     var() is substituted, and a day would answer a tap with nothing at all. The accent cannot
+     be made translucent there, so they wash in a neutral gray at the same strengths, which
+     darkens a light card and lightens a dark one alike. The two hover selectors are separate
+     rules here, since a browser without :has() (Chrome before 105) drops a whole list holding
+     one, and would lose the column header's wash with it. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    @media (hover: hover) {
+      .date-column:has(> .day-add-button):hover {
+        background-color: rgba(128, 128, 128, 0.08);
+      }
+
+      .column-day-header.day-add-button:hover {
+        background-color: rgba(128, 128, 128, 0.08);
+      }
+    }
+
+    .day-table[data-add-pressed] td.date-column,
+    .day-column[data-add-pressed] > .column-day-header,
+    .grid-day-header[data-add-pressed] > .column-day-header,
+    .grid-day-body[data-add-pressed]::before {
+      background-color: rgba(128, 128, 128, 0.16);
+    }
   }
 
   /* A new event the card is adding, while a press draws it and while the popover adds it, is

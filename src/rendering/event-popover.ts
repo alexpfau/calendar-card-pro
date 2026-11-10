@@ -1572,6 +1572,14 @@ export class EventPopover extends Shell.PopoverShell {
       color: var(--danger);
       background: color-mix(in srgb, var(--danger) 12%, transparent);
     }
+    /* Without color-mix() (Safari before 16.2) the wash above is invalid and the message
+       would sit bare on the panel; it takes a cell's neutral background there, so it still
+       reads as a box, and its red text carries the alarm on its own. */
+    @supports not (color: color-mix(in srgb, red, blue)) {
+      .error {
+        background: var(--cell);
+      }
+    }
     .ask {
       display: flex;
       flex-direction: column;
