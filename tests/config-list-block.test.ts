@@ -283,7 +283,9 @@ describe('presence in the list block is authorship', () => {
     expect(stored.list).toHaveProperty('show_past_events', DEFAULT_CONFIG.show_past_events);
   });
 
-  it('still drops a key the block may not carry', () => {
+  it('keeps a key the block may not carry, for the misplaced-option notice to report', () => {
+    // It used to be dropped here, which deleted a line the user wrote on their next unrelated
+    // edit while `column:` and `time_grid:` kept theirs (backlog item 192).
     const stored = Value.toStoredConfig(
       buildConfig({
         view: 'list',
@@ -291,7 +293,7 @@ describe('presence in the list block is authorship', () => {
       } as unknown as Partial<Types.Config>),
     );
 
-    expect(stored.list).toEqual({ event_font_size: '20px' });
+    expect(stored.list).toEqual({ event_font_size: '20px', start_date: 'today+7' });
   });
 
   it('keeps a day count of its own', () => {

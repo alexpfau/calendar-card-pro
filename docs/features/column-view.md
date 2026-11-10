@@ -184,7 +184,7 @@ Which class of event it keeps, and whether it hides when there is nothing to sho
 
 `event_type` · `hide_when_empty`
 
-An entry the card does not recognize is ignored rather than treated as an error, so one stray line cannot break the rest of the card. If an override seems to do nothing, check it is not one of the options above.
+An entry the card does not recognize is ignored rather than treated as an error, so one stray line cannot break the rest of the card. If an override seems to do nothing, check it is not one of the options above. The visual editor lists every such option when it opens and offers to move it; see [Options the Card Ignores](/features/editor#options-the-card-ignores).
 
 Three options sound as though they belong in the first list, and do not:
 

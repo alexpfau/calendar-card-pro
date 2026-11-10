@@ -75,7 +75,10 @@ async function renderEditor(entities: ReadonlyArray<unknown>): Promise<Harness> 
     emitted.push((event as CustomEvent).detail.config as Record<string, unknown>);
   });
 
-  const buttons = () => Array.from(element.shadowRoot!.querySelectorAll('button'));
+  // Every calendar's row, and nothing outside them: the chassis has buttons of its own, such
+  // as Quick Setup's, that are no part of what this file pins.
+  const buttons = () =>
+    Array.from(element.shadowRoot!.querySelectorAll<HTMLButtonElement>('.entity-actions button'));
 
   const rowOf = (calendar: number) =>
     Array.from(

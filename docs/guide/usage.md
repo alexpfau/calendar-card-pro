@@ -16,6 +16,7 @@ Once **Calendar Card Pro** is [installed](/guide/installation), this page takes 
 4. **Configure with the Visual Editor**
    - Click the three dots (⋮) in the top-right corner of the card
    - Select **"Configure"** to open the [visual editor](/features/editor)
+   - Choose **Quick Setup** there to start from an [example card](/features/editor#quick-setup) on your own calendars
 
 ::: tip Shortcut (Home Assistant 2026.6+)
 In the card picker, switch to the **By entity** tab and pick any `calendar.*` entity. Calendar Card Pro is offered under **Community**, already pointed at that calendar and previewed with its real events, so you can skip straight to step 4. Nothing needs to be enabled for this. Five starting points are offered:
@@ -37,7 +38,16 @@ day_tap_action:
   action: add-event
 ```
 
-They turn on the [header toolbar](/features/layout-appearance#header-toolbar), which pages through dates, switches layouts, searches and adds events, and let a tap [open an event](/features/actions#tapping-an-event) in the card's popover or [add one on a day](/features/actions#tapping-a-day-to-add-an-event). In the grid you can also [draw an event](/features/actions#drawing-an-event-in-grid-view) and drag one to another time. What you can add, change or delete depends on the calendar: on one that accepts no new events, such as a holiday calendar, nothing adds an event and the popover only shows it. Taps do nothing while the card is being edited, so the picker's preview shows only the toolbar.
+They turn on the [header toolbar](/features/layout-appearance#header-toolbar), which pages through dates, switches layouts, searches and adds events, and let a tap [open an event](/features/actions#tapping-an-event) in the card's popover or [add one on a day](/features/actions#tapping-a-day-to-add-an-event). In the grid you can also [draw an event](/features/actions#drawing-an-event-in-grid-view) and drag one to another time. What you can add, change or delete depends on the calendar: on one that accepts no new events, such as a holiday calendar, nothing adds an event and the popover only shows it. Taps do nothing while the card is being edited, so the picker's preview shows the toolbar, and the forecast where there is one, but nothing a tap does.
+
+When your Home Assistant has exactly one weather entity, the two interactive ones also show its [forecast](/features/weather) beside each day:
+
+```yaml
+weather:
+  entity: weather.home
+```
+
+With several weather entities they leave weather out, rather than guess which one you mean; choose one under **Weather** in the editor.
 
 The other three differ only in `view`, so you can switch layouts later. The grid hides locations by default; `time_grid: { show_location: true }` brings them back.
 :::

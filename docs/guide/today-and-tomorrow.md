@@ -59,6 +59,10 @@ time_grid:
 
 Grid leaves locations off its blocks by default; the popover a tap opens shows them.
 
+::: tip Build It in the Editor
+[Quick Setup](/features/editor#quick-setup) in the visual editor builds this card on your own calendars: its layout, its look and its colors, in order. The faces above are this family's, so give your calendars their own.
+:::
+
 ## 🧭 What It Adds
 
 | Editor                                        | YAML                                                                                                             | What it adds                                                                                                                                                                                |

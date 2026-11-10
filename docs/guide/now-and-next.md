@@ -44,6 +44,10 @@ list:
 Nothing on the card says that more events are waiting. Tap it to see them all, and tap again to fold it back.
 :::
 
+::: tip Build It in the Editor
+[Quick Setup](/features/editor#quick-setup) in the visual editor builds this card on your own calendars, with its layout and its look. The faces above are this family's, so give your calendars their own.
+:::
+
 ## 🧭 What It Adds
 
 | Editor               | YAML                                                                                                        | What it adds                                                                                                      |

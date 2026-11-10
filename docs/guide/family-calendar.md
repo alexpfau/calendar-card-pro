@@ -81,6 +81,10 @@ time_grid:
   hour_height: 36px
 ```
 
+::: tip Build It in the Editor
+[Quick Setup](/features/editor#quick-setup) in the visual editor builds this card on your own calendars: its layout, its look and its colors, in order. The names and faces above are this family's, so give your calendars their own.
+:::
+
 ## 🧭 Across Different Screens
 
 `view: grid` is only where the card starts. The toolbar's switcher offers List, Columns and Grid, and each device remembers its own choice until the card is edited, so the wall stays on Grid while a phone keeps List. See [Switching Between Layouts](/features/layout-appearance#switching-between-layouts).

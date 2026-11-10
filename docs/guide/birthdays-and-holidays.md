@@ -42,6 +42,10 @@ entities:
 
 The toolbar is there for its magnifier: a search answers _when is Clara's birthday?_ a year back or ahead, beyond the 60 days on screen. Search comes with the date navigation, so the arrows and a swipe page through the days too, and the title becomes a small label over the month. Every other toolbar control is turned off. See [Searching the Card](/features/layout-appearance#searching-the-card).
 
+::: tip Build It in the Editor
+[Quick Setup](/features/editor#quick-setup) in the visual editor builds this card on your own calendars: its layout, its look and its two colors, in order. Add the 🎂 and 🎉 labels yourself.
+:::
+
 ## 🧭 What It Adds
 
 | Editor                           | YAML                                                                           | What it adds                                                                                                                                              |

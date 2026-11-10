@@ -197,9 +197,11 @@ function stripBlockDefaults(
   for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
     if (value === undefined) continue;
     if (key === 'past_event_opacity' && Config.toValidPercentage(value) === undefined) continue;
-    if (isSyntheticKey(key)) continue;
 
     const held = unchangedFromAuthored(authored, key, value);
+    // Forms generate synthetic field names; one the YAML itself holds is a misplaced line the
+    // user wrote, kept for the misplaced-option notice like any other (backlog item 192).
+    if (isSyntheticKey(key) && !held) continue;
 
     const special = layout.special?.(config, key, value, held);
     if (special !== undefined) {
@@ -329,11 +331,19 @@ export function stripTimeGridDefaults(
  * The cost is that a `list:` block can hold a line that changes nothing today. That is the
  * point — it changes something the moment the shared root value beside it moves.
  *
+ * A key the block may not carry is kept too, exactly as `column:` and `time_grid:` keep theirs:
+ * the card ignores it, and the editor's misplaced-option notice reports it and offers to move
+ * it. Dropping it here instead deleted a line the user wrote on their next unrelated edit, so
+ * the notice vanished for List alone (backlog item 192). A synthetic field name is dropped as
+ * before, since forms generate those, unless the YAML holds it with this exact value.
+ *
  * @param config - Merged configuration, defaults already applied
+ * @param authored - The `list:` block as the YAML holds it
  * @returns The authored block, or `undefined` when it holds nothing
  */
 export function stripListDefaults(
   config: Readonly<Types.Config>,
+  authored?: unknown,
 ): Record<string, unknown> | undefined {
   const block = config.list;
 
@@ -341,14 +351,12 @@ export function stripListDefaults(
     return undefined;
   }
 
-  const overrideKeys = new Set<string>(ViewConfig.LIST_OVERRIDE_KEYS);
   const result: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
     if (value === undefined) continue;
     if (key === 'past_event_opacity' && Config.toValidPercentage(value) === undefined) continue;
-    if (isSyntheticKey(key)) continue;
-    if (!overrideKeys.has(key)) continue;
+    if (isSyntheticKey(key) && !unchangedFromAuthored(authored, key, value)) continue;
 
     result[key] = value;
   }
@@ -529,7 +537,7 @@ export function toStoredConfig(
   const atomic = ATOMIC_KEYS.map((key) => [key, draft[key]] as const);
   for (const [key] of atomic) delete draft[key];
 
-  const list = stripListDefaults(config);
+  const list = stripListDefaults(config, authored?.list);
   delete draft.list;
 
   const column = stripColumnDefaults(config, authored?.column);

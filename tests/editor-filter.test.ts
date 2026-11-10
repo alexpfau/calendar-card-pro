@@ -6,6 +6,7 @@ import type * as Types from '../src/config/types';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import {
   CUSTOMIZED_ONLY_FIELD,
+  ESSENTIALS_ONLY_FIELD,
   FILTER_SCHEMA,
   type FilterCriteria,
   type FilterCtx,
@@ -154,7 +155,7 @@ describe('editor filter: what search matches', () => {
     const config = columnConfig();
 
     expect(visibleFields(config, { query: '   ' })).toEqual(visibleFields(config));
-    expect(isFiltering({ query: '  ', customizedOnly: false })).toBe(false);
+    expect(isFiltering({ query: '  ', customizedOnly: false, essentialsOnly: false })).toBe(false);
   });
 
   it('finds nothing for a term that is in no label, helper, option or key', () => {
@@ -585,7 +586,11 @@ describe('editor filter: the per-calendar settings', () => {
 
 describe('editor filter: the bar itself', () => {
   it('is a schema of selectors, so it names no new Home Assistant element', () => {
-    expect(FILTER_SCHEMA.map((node) => node.name)).toEqual([SEARCH_FIELD, CUSTOMIZED_ONLY_FIELD]);
+    expect(FILTER_SCHEMA.map((node) => node.name)).toEqual([
+      SEARCH_FIELD,
+      CUSTOMIZED_ONLY_FIELD,
+      ESSENTIALS_ONLY_FIELD,
+    ]);
 
     for (const node of FILTER_SCHEMA) {
       expect(node).toHaveProperty('selector');
@@ -598,8 +603,10 @@ describe('editor filter: the bar itself', () => {
     );
 
     expect(
-      declared.filter((name) => name === SEARCH_FIELD || name === CUSTOMIZED_ONLY_FIELD),
-    ).toEqual([SEARCH_FIELD, CUSTOMIZED_ONLY_FIELD]);
+      declared.filter((name) =>
+        [SEARCH_FIELD, CUSTOMIZED_ONLY_FIELD, ESSENTIALS_ONLY_FIELD].includes(name),
+      ),
+    ).toEqual([SEARCH_FIELD, CUSTOMIZED_ONLY_FIELD, ESSENTIALS_ONLY_FIELD]);
     expect(CHASSIS_STRINGS).toContain('filter');
   });
 
@@ -607,11 +614,19 @@ describe('editor filter: the bar itself', () => {
     expect(toFilterCriteria({ [SEARCH_FIELD]: 'width', days_to_show: 7 })).toEqual({
       query: 'width',
       customizedOnly: false,
+      essentialsOnly: false,
     });
 
     expect(toFilterCriteria({ [CUSTOMIZED_ONLY_FIELD]: true })).toEqual({
       query: '',
       customizedOnly: true,
+      essentialsOnly: false,
+    });
+
+    expect(toFilterCriteria({ [ESSENTIALS_ONLY_FIELD]: true })).toEqual({
+      query: '',
+      customizedOnly: false,
+      essentialsOnly: true,
     });
   });
 });
