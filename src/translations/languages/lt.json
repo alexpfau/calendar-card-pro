@@ -1,13 +1,13 @@
 {
   "daysOfWeek": ["Sek", "Pir", "Ant", "Tre", "Ket", "Pen", "Šeš"],
   "fullDaysOfWeek": [
-    "Sekmadienis",
-    "Pirmadienis",
-    "Antradienis",
-    "Trečiadienis",
-    "Ketvirtadienis",
-    "Penktadienis",
-    "Šeštadienis"
+    "sekmadienio",
+    "pirmadienio",
+    "antradienio",
+    "trečiadienio",
+    "ketvirtadienio",
+    "penktadienio",
+    "šeštadienio"
   ],
   "months": ["Sau", "Vas", "Kov", "Bal", "Geg", "Bir", "Lie", "Rgp", "Rgs", "Spa", "Lap", "Grd"],
   "allDay": "visą dieną",

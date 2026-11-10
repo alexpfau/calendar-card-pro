@@ -1,9 +1,9 @@
 {
   "daysOfWeek": ["Du", "Lu", "Ma", "Mi", "Jo", "Vi", "Sâ"],
-  "fullDaysOfWeek": ["Duminică", "Luni", "Marți", "Miercuri", "Joi", "Vineri", "Sâmbătă"],
+  "fullDaysOfWeek": ["duminică", "luni", "marți", "miercuri", "joi", "vineri", "sâmbătă"],
   "months": ["Ian", "Feb", "Mart", "Apr", "Mai", "Iun", "Iul", "Aug", "Sept", "Oct", "Nov", "Dec"],
   "allDay": "toată ziua",
-  "multiDay": "până la",
+  "multiDay": "până",
   "at": "la",
   "viewList": "Listă",
   "viewColumns": "Coloane",

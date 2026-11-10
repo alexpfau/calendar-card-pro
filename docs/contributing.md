@@ -189,6 +189,24 @@ To add a new language:
 
 :::
 
+::: details Weekday Names in a Sentence
+
+`fullDaysOfWeek` only ever appears mid-sentence, after `multiDay`, as in "until Monday, 5
+January". Write each day the way your language writes it there: in lower case if it writes
+weekdays that way inside a date, and in whatever form `multiDay` asks for. Polish `do` takes
+the genitive, so its days read "do poniedziałku", not "do poniedziałek". If your word for
+"until" follows the day instead of preceding it, use your word for "ends" instead, the word
+your `endsToday` begins with, and the card sets it off with a comma as it does `endsToday`:
+Finnish writes "päättyy maanantaina".
+
+`daysOfWeek` is different. Those are the short day names beside each date, and they take a
+capital wherever a label would.
+
+`npm run check:i18n` warns about a capitalized day your language writes in lower case. It
+cannot check the ending, so check that yourself.
+
+:::
+
 ::: details Example: Adding German
 
 1. Create `src/translations/languages/de.json`

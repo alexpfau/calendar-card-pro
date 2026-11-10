@@ -1,6 +1,6 @@
 {
   "daysOfWeek": ["Ne", "Po", "Ut", "St", "Št", "Pi", "So"],
-  "fullDaysOfWeek": ["Nedeľa", "Pondelok", "Utorok", "Streda", "Štvrtok", "Piatok", "Sobota"],
+  "fullDaysOfWeek": ["nedele", "pondelka", "utorka", "stredy", "štvrtka", "piatku", "soboty"],
   "months": ["Jan", "Feb", "Mar", "Apr", "Máj", "Jún", "Júl", "Aug", "Sep", "Okt", "Nov", "Dec"],
   "allDay": "celý deň",
   "multiDay": "do",

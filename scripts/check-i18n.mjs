@@ -11,7 +11,7 @@
  * Source-shape checks use regexes and fail loudly when a pattern stops matching.
  */
 
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join, dirname, basename, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -39,6 +39,7 @@ const errors = [];
 const warnings = [];
 const notes = [];
 const glossaryNotes = [];
+const weekdayNotes = [];
 const error = (where, msg) => errors.push({ where, msg });
 const warn = (where, msg) => warnings.push({ where, msg });
 
@@ -1198,6 +1199,75 @@ const structuralGlyphs = (text) =>
 const placeholders = (text) => (text.match(/\{\w+\}/g) ?? []).sort();
 
 /**
+ * Whether a label's length, as `labelLengthBasis` measures it, trips the length advisory.
+ *
+ * Over 24 characters and over 2.2 times the English. The floor is there because a ratio
+ * between two short strings is noise: a one-word English label routinely doubles.
+ *
+ * @param basis - Character counts of the translation and the English
+ * @returns Whether to warn
+ */
+export const isOverlongLabel = ({ value, english }) => value > 24 && value > english * 2.2;
+
+/**
+ * A label's length for the length advisory, net of a term it shares with a shorter label.
+ *
+ * The advisory compares a translation with its English, and the ratio between them is a
+ * fair measure of a wordy translation until a label is built on a term another label
+ * already is. `day_tap_action_mode` is "Day Tap Action", which is `tap_action`'s "Tap
+ * Action" with a word in front; German writes `tap_action` as "Verhalten bei Antippen",
+ * Home Assistant's own term, and the day's label as that term plus "von Tagen". English
+ * compounds where German needs a phrase, so the whole label measured 32 characters against
+ * 14 and warned, while the event's label, the same term plus "von Terminen" at 35, passed
+ * only because "Event" is a longer word than "Day". The length came from the term, which
+ * every label in that panel carries, and the term is not this translation's to shorten.
+ *
+ * So where the English contains a shorter label's English and the translation contains that
+ * label's translation, each as whole words, both lengths are measured without them,
+ * and the advisory judges only what the translation adds. The longest such term is used.
+ * The rule applies only once a label is already over the line, so it can lift a warning
+ * and never add one.
+ *
+ * @param key - The label's key
+ * @param value - Its translation
+ * @param english - Every English string, keyed as the translation is
+ * @param translated - Every string in the same language
+ * @param locale - The language, for case-insensitive matching
+ * @returns The counts to judge, and the term they exclude when there is one
+ */
+export function labelLengthBasis(key, value, english, translated, locale) {
+  const own = english[key];
+  const counts = { value: value.length, english: own.length };
+  if (!isOverlongLabel(counts)) return counts;
+
+  const lower = (text) => text.toLocaleLowerCase(locale);
+  const words = (text) => ` ${lower(text).split(/\s+/).join(' ')} `;
+  let term;
+  for (const [other, otherEnglish] of Object.entries(english)) {
+    const otherValue = translated[other];
+    if (other === key || other.endsWith('.helper')) continue;
+    if (typeof otherEnglish !== 'string' || typeof otherValue !== 'string') continue;
+    if (otherEnglish.length >= own.length || !otherValue.trim()) continue;
+    if (!words(own).includes(words(otherEnglish))) continue;
+    if (!words(value).includes(words(otherValue))) continue;
+    const longer = !term || otherValue.length > term.value.length;
+    // A tie names the shorter key: `tap_action` rather than `toolbar.buttons.tap_action`.
+    const plainer =
+      term && otherValue.length === term.value.length && other.length < term.key.length;
+    if (longer || plainer) {
+      term = { key: other, value: otherValue, english: otherEnglish };
+    }
+  }
+
+  if (!term) return counts;
+  return {
+    value: value.length - term.value.length,
+    english: own.length - term.english.length,
+    term: term.key,
+  };
+}
+
+/**
  * Structural integrity, orthography and terminology, per language.
  *
  * Each axis keeps its own case-sensitive comparison.
@@ -1277,11 +1347,15 @@ async function checkTranslationQuality(languages, glossary) {
       }
 
       // --- length ceiling (advisory) --------------------------------------
-      if (!key.endsWith('.helper') && value.length > 24 && value.length > english.length * 2.2) {
+      const length = key.endsWith('.helper')
+        ? null
+        : labelLengthBasis(key, value, EDITOR_STRINGS, data, code);
+      if (length && isOverlongLabel(length)) {
+        const beyond = length.term ? ` beyond the \`${length.term}\` term it shares,` : '';
         warn(
           where,
-          `\`${key}\` is ${value.length} characters against the English's ` +
-            `${english.length} — long labels break the editor's layout before they ` +
+          `\`${key}\` is ${length.value} characters${beyond} against the English's ` +
+            `${length.english} — long labels break the editor's layout before they ` +
             'break anything else',
         );
       }
@@ -1566,6 +1640,11 @@ function report(languageCount, fieldCount, optionCount) {
     glossaryNotes.forEach((n) => console.log(n));
   }
 
+  if (weekdayNotes.length > 0) {
+    console.log('\nRunning-text weekdays:');
+    weekdayNotes.forEach((n) => console.log(n));
+  }
+
   const summary =
     `\n${languageCount} languages, ${fieldCount} editor fields, ` +
     `${optionCount} dropdown options — ` +
@@ -1584,57 +1663,127 @@ function report(languageCount, fieldCount, optionCount) {
 // ---------------------------------------------------------------------------
 
 /**
- * `fullDaysOfWeek` is always running text after `multiDay`, so dayjs locale casing is a
- * useful oracle. `months` spans both running-text and standalone contexts and is not checked.
+ * A language's weekdays as CLDR writes them inside a date, Sunday first, through `Intl`.
  *
- * A warning rather than an error: these are native-contributed files in the eager path,
- * so the fix wants the contributor, not CI.
+ * That is CLDR's format form, the one running text takes, rather than its stand-alone form,
+ * and the difference is not academic: Latvian capitalizes the stand-alone "Svētdiena" and
+ * writes "svētdiena" inside a date. `fullDaysOfWeek` is only ever rendered mid-sentence, so
+ * the format form is the one to compare it with.
+ *
+ * CLDR replaced Day.js as this oracle because Day.js capitalizes Catalan and Romanian
+ * weekdays, which both languages write in lower case, so a capitalized `fullDaysOfWeek` in
+ * either passed unseen while seven others warned. Day.js remains the card's source for
+ * relative times only.
+ *
+ * @param code - A card language code
+ * @returns Seven weekday names, or null when `Intl` has no data for the language and would
+ *   answer in another one
  */
-async function checkRunningTextWeekdayCase(languages, { specialCased, dayjsNames }) {
-  const require = createRequire(import.meta.url);
-  const upper = (v) =>
-    typeof v === 'string' &&
-    v.length > 0 &&
-    v[0] === v[0].toUpperCase() &&
-    v[0] !== v[0].toLowerCase();
+export function cldrRunningTextWeekdays(code) {
+  let format;
+  try {
+    format = new Intl.DateTimeFormat(code, {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      timeZone: 'UTC',
+    });
+  } catch {
+    return null;
+  }
+  const asked = new Intl.Locale(code).language;
+  if (new Intl.Locale(format.resolvedOptions().locale).language !== asked) return null;
 
+  // 4 January 2026 is a Sunday, which is index 0 in `fullDaysOfWeek` too.
+  const names = [];
+  for (let day = 0; day < 7; day++) {
+    const parts = format.formatToParts(Date.UTC(2026, 0, 4 + day, 12));
+    const weekday = parts.find((part) => part.type === 'weekday')?.value;
+    if (!weekday) return null;
+    names.push(weekday);
+  }
+  return names;
+}
+
+/**
+ * The first weekday a card language capitalizes where CLDR writes it in lower case.
+ *
+ * One direction only: a capitalized card value against a lower-case CLDR one. The reverse,
+ * a lower-case card value where CLDR capitalizes, is the running-text form standing in the
+ * card for whatever CLDR does in its own dates, and says nothing wrong about the card.
+ *
+ * @param code - A card language code
+ * @param fullDaysOfWeek - The language's `fullDaysOfWeek`
+ * @returns `[card value, CLDR value]` for the first mismatch, null when there is none, or
+ *   undefined when the two cannot be compared
+ */
+export function capitalizedRunningTextWeekday(code, fullDaysOfWeek) {
+  const cldr = cldrRunningTextWeekdays(code);
+  if (!cldr || !Array.isArray(fullDaysOfWeek) || fullDaysOfWeek.length !== 7) return undefined;
+  return capitalizedAgainst(fullDaysOfWeek, cldr);
+}
+
+/**
+ * The first weekday capitalized in `days` where `oracle` has it in lower case.
+ *
+ * Kept apart from the CLDR lookup so its rule can be tested against fixed weekdays rather
+ * than whatever CLDR the runtime ships.
+ *
+ * @param days - Seven weekday names, Sunday first
+ * @param oracle - Seven reference names in the same order
+ * @returns `[days value, oracle value]` for the first mismatch, or null
+ */
+export function capitalizedAgainst(days, oracle) {
+  const upper = (text) =>
+    typeof text === 'string' &&
+    text.length > 0 &&
+    text[0] === text[0].toUpperCase() &&
+    text[0] !== text[0].toLowerCase();
+  const index = days.findIndex((value, i) => upper(value) && !upper(oracle[i]));
+  return index === -1 ? null : [days[index], oracle[index]];
+}
+
+/**
+ * `fullDaysOfWeek` is always running text after `multiDay`, so it takes the lower case CLDR
+ * gives a weekday inside a date wherever the language has one. `months` spans both
+ * running-text and stand-alone contexts and is not checked.
+ *
+ * A warning rather than an error, because the oracle is the runtime's CLDR rather than
+ * anything in this repository: a Node release that changed a language's casing would
+ * otherwise fail an unrelated pull request.
+ *
+ * @param languages - Language files on disk, keyed by lowercased code
+ */
+function checkRunningTextWeekdayCase(languages) {
   let compared = 0;
   const mismatched = [];
 
   for (const [code, { file, data }] of languages) {
-    let locale;
-    // The locale the card actually formats with comes first: for `sr` the code itself names
-    // Day.js's Latin locale, which says nothing about the Cyrillic strings in sr.json.
-    const runtime = dayjsName(mapLocale(code, specialCased), dayjsNames);
-    for (const candidate of new Set([runtime, code, code.split('-')[0]])) {
-      try {
-        locale = require(`dayjs/locale/${candidate}`);
-        break;
-      } catch {
-        /* not shipped under that spelling -- try the base code */
-      }
+    const mismatch = capitalizedRunningTextWeekday(code, data.fullDaysOfWeek);
+    if (mismatch === undefined) {
+      warn(
+        `languages/${file}`,
+        'weekday casing was not checked -- Intl has no CLDR data for this language, or ' +
+          'fullDaysOfWeek is not seven names',
+      );
+      continue;
     }
-    if (!locale) continue;
-
-    const oracle = Array.isArray(locale.weekdays) ? locale.weekdays : locale.weekdays?.standalone;
-    if (!Array.isArray(oracle) || oracle.length !== 7) continue;
-    if (!Array.isArray(data.fullDaysOfWeek) || data.fullDaysOfWeek.length !== 7) continue;
-
     compared += 1;
-    // One direction only: a capitalized card value against a lower-case dayjs one. The
-    // reverse is dayjs capitalizing its own weekdays — it does for Serbian — and says
-    // nothing about a lower-case running-text form in the card.
-    const differing = data.fullDaysOfWeek
-      .map((value, i) => [value, oracle[i]])
-      .filter(([value, want]) => upper(value) && !upper(want));
-    if (differing.length) mismatched.push([file, differing[0]]);
+    if (mismatch) mismatched.push([file, mismatch]);
   }
 
-  // A zero must mean "all agree", never "nothing was examined".
+  weekdayNotes.push(
+    `  ${compared} of ${languages.size} languages compared with CLDR ${process.versions.cldr} ` +
+      `through Intl; ${mismatched.length} capitalize a weekday CLDR writes in lower case.`,
+  );
+
+  // A zero must mean "all agree", never "nothing was examined": a Node built without full
+  // ICU answers every language in English.
   if (compared === 0) {
     error(
       'languages/',
-      'weekday-case check compared no languages -- the dayjs oracle never resolved',
+      'weekday-case check compared no languages -- Intl has no CLDR data for any of them',
     );
     return;
   }
@@ -1642,13 +1791,14 @@ async function checkRunningTextWeekdayCase(languages, { specialCased, dayjsNames
   for (const [file, [got, want]] of mismatched) {
     warn(
       `languages/${file}`,
-      `fullDaysOfWeek is capitalized (${got}); dayjs has ${want} -- that array is only ever ` +
-        `rendered mid-sentence after multiDay, so it wants the running-text form. ` +
-        `DO NOT simply copy the dayjs value: it is the NOMINATIVE, and multiDay governs ` +
-        `case in cs/hr/pl/sk (do), lt (iki) and lv (lidz) -- Polish wants "do poniedzialku", ` +
-        `not "do poniedzialek". Lowercasing is half the fix at most; the inflected form is a ` +
-        `native-speaker question. The months array spans multiple casing contexts, so it is deliberately not checked ` +
-        `and must not be "fixed" alongside it`,
+      `fullDaysOfWeek is capitalized (${got}) where CLDR writes a weekday inside a date in ` +
+        `lower case (${want}). The array is only ever rendered mid-sentence after multiDay, ` +
+        `so it takes the running-text form -- and the form multiDay governs, which is not ` +
+        `always CLDR's: cs/hr/pl/sk "do" and lt "iki" take the genitive ("do pondělí", ` +
+        `"do poniedziałku"), lv "līdz" the dative, and Finnish "päättyy" CLDR's essive. ` +
+        `tests/translations.test.ts pins each language's forms. The months array spans ` +
+        `several casing contexts, so it is deliberately not checked and must not be "fixed" ` +
+        `alongside it`,
     );
   }
 }
@@ -1736,9 +1886,14 @@ async function main() {
   const glossary = readGlossary();
   await checkTranslationQuality(languages, glossary);
   reportGlossaryReach(glossary, (await loadEditor()).EDITOR_STRINGS);
-  await checkRunningTextWeekdayCase(languages, dayjsWiring);
+  checkRunningTextWeekdayCase(languages);
 
   process.exit(report(languages.size, fieldCount, optionCount));
 }
 
-main();
+// Run as a script, but not when a test imports the rules above. Real paths on both sides,
+// because a gate that misjudged this through a symlink would exit 0 having checked nothing.
+const invokedDirectly =
+  process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+
+if (invokedDirectly) main();

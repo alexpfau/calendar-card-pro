@@ -1,6 +1,6 @@
 {
   "daysOfWeek": ["Vas", "Hét", "Kedd", "Sze", "Csüt", "Pén", "Szo"],
-  "fullDaysOfWeek": ["Vasárnap", "Hétfő", "Kedd", "Szerda", "Csütörtök", "Péntek", "Szombat"],
+  "fullDaysOfWeek": ["vasárnap", "hétfő", "kedd", "szerda", "csütörtök", "péntek", "szombat"],
   "months": ["Jan", "Feb", "Már", "Ápr", "Máj", "Jún", "Júl", "Aug", "Szep", "Okt", "Nov", "Dec"],
   "allDay": "egész napos",
   "multiDay": "eddig:",

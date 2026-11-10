@@ -1,13 +1,13 @@
 {
   "daysOfWeek": ["Su", "Ma", "Ti", "Ke", "To", "Pe", "La"],
   "fullDaysOfWeek": [
-    "Sunnuntai",
-    "Maanantai",
-    "Tiistai",
-    "Keskiviikko",
-    "Torstai",
-    "Perjantai",
-    "Lauantai"
+    "sunnuntaina",
+    "maanantaina",
+    "tiistaina",
+    "keskiviikkona",
+    "torstaina",
+    "perjantaina",
+    "lauantaina"
   ],
   "months": [
     "Tammi",
@@ -24,7 +24,7 @@
     "Joulu"
   ],
   "allDay": "koko päivä",
-  "multiDay": "asti",
+  "multiDay": "päättyy",
   "at": "klo",
   "viewList": "Lista",
   "viewColumns": "Sarakkeet",

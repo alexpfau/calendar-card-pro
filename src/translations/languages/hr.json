@@ -1,6 +1,6 @@
 {
   "daysOfWeek": ["Ned", "Pon", "Uto", "Sri", "Čet", "Pet", "Sub"],
-  "fullDaysOfWeek": ["Nedjelja", "Ponedjeljak", "Utorak", "Srijeda", "Četvrtak", "Petak", "Subota"],
+  "fullDaysOfWeek": ["nedjelje", "ponedjeljka", "utorka", "srijede", "četvrtka", "petka", "subote"],
   "months": ["Sij", "Velj", "Ožu", "Tra", "Svi", "Lip", "Srp", "Kol", "Ruj", "Lis", "Stu", "Pro"],
   "allDay": "cijeli dan",
   "multiDay": "do",
