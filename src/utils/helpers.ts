@@ -9,6 +9,7 @@
 import * as EntityIcons from './entity-icons';
 import * as PersonPictures from './person-pictures';
 import { isWeekRelative } from './start-date';
+import { intlLocales } from '../translations/intl-locales';
 
 //-----------------------------------------------------------------------------
 // COLOR UTILITIES
@@ -454,7 +455,7 @@ const HOUR_CYCLE_PROBE = new Date(2000, 0, 1, 13, 0, 0);
  */
 function resolveIs24Hour(locale: string): boolean | undefined {
   try {
-    const parts = new Intl.DateTimeFormat(locale, { hour: 'numeric' }).formatToParts(
+    const parts = new Intl.DateTimeFormat(intlLocales(locale), { hour: 'numeric' }).formatToParts(
       HOUR_CYCLE_PROBE,
     );
 

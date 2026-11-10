@@ -13,6 +13,7 @@
  */
 
 import { getCalendarDayDiff, getLocalDateKey, parseAllDayDate } from './format';
+import { intlLocales } from '../translations/intl-locales';
 
 //-----------------------------------------------------------------------------
 // TYPES
@@ -165,19 +166,22 @@ export function rangeContains(range: PageRange, date: Date): boolean {
 //-----------------------------------------------------------------------------
 
 /**
- * A locale `Intl` accepts for a card language.
+ * The locales `Intl` gets for a card language.
  *
- * The card's language codes are BCP 47 already (`de`, `en-GB`, `zh-CN`), so this only
- * guards against a value `Intl` rejects, which would otherwise throw out of a render.
+ * The card's language codes are BCP 47 already (`de`, `en-GB`, `zh-CN`), so they go to `Intl`
+ * as they are, followed by a language their readers read as well ({@link intlLocales}), for a
+ * browser that carries no data for the first. A language `Intl` carries neither of, or rejects
+ * outright, which would otherwise throw out of a render, reads in English.
  *
  * @param language - Card language
- * @returns The language, or `en`
+ * @returns The locales, or `en`
  */
-function intlLocale(language: string): string {
+function intlLocale(language: string): string[] {
+  const locales = intlLocales(language);
   try {
-    return Intl.DateTimeFormat.supportedLocalesOf([language]).length > 0 ? language : 'en';
+    return Intl.DateTimeFormat.supportedLocalesOf(locales).length > 0 ? locales : ['en'];
   } catch {
-    return 'en';
+    return ['en'];
   }
 }
 
@@ -480,7 +484,8 @@ const todayWords = new Map<string, string>();
 
 /**
  * The language's own word for "today", capitalized, from `Intl.RelativeTimeFormat`, which
- * knows it in every card language; a browser without data for one answers in English.
+ * knows it in every card language; a browser without data for one answers in English, or for
+ * Nynorsk in Bokmål ({@link intlLocale}).
  *
  * @param language - Card language
  * @returns "Today", "Heute", "Aujourd’hui", …
@@ -488,9 +493,9 @@ const todayWords = new Map<string, string>();
 export function todayWord(language: string): string {
   let word = todayWords.get(language);
   if (word === undefined) {
-    const locale = intlLocale(language);
-    const raw = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(0, 'day');
-    word = raw.charAt(0).toLocaleUpperCase(locale) + raw.slice(1);
+    const format = new Intl.RelativeTimeFormat(intlLocale(language), { numeric: 'auto' });
+    const raw = format.format(0, 'day');
+    word = raw.charAt(0).toLocaleUpperCase(format.resolvedOptions().locale) + raw.slice(1);
     todayWords.set(language, word);
   }
   return word;

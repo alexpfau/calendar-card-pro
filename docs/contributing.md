@@ -189,6 +189,18 @@ To add a new language:
 
 :::
 
+::: details Words From the Browser
+
+A few words come from the browser's `Intl` rather than from your file: "Now", the countdown's
+"tomorrow" and hours, the month and "Today" in the toolbar, and the "and" or "or" that joins
+names in the editor. Check that Chromium carries your
+language by running `Intl.RelativeTimeFormat.supportedLocalesOf(['xx'])` in Chrome's console,
+with your code in place of `xx`. If it answers `[]` and your readers also read a language
+Chromium does carry, as Nynorsk readers read Bokmål, add that pair to `INTL_FALLBACKS` in
+`src/translations/intl-locales.ts`.
+
+:::
+
 ::: details Weekday Names in a Sentence
 
 `fullDaysOfWeek` only ever appears mid-sentence, after `multiDay`, as in "until Monday, 5

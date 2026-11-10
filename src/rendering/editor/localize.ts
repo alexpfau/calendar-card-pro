@@ -7,6 +7,7 @@ import { EDITOR_STRINGS, interpolate } from './strings';
 import { EDITOR_LANGUAGE_STRINGS } from './translations/index';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
+import { intlLocales } from '../../translations/intl-locales';
 
 /**
  * Turns a config key into readable text, as a last resort.
@@ -352,8 +353,9 @@ export function computeSubformHelper(
 /**
  * Joins names into one phrase the way the language writes a list: "Columns or Grid".
  *
- * `Intl.ListFormat` supplies the conjunction, so no "or" or "and" has to be translated. A
- * language tag the runtime refuses falls back to commas rather than throwing.
+ * `Intl.ListFormat` supplies the conjunction, so no "or" or "and" has to be translated; where
+ * the browser lacks the language it may use a neighbor ({@link intlLocales}). A language tag the
+ * runtime refuses falls back to commas rather than throwing.
  *
  * @param language - Editor language code
  * @param items - Names to join, already localized
@@ -369,14 +371,16 @@ export function formatList(
   const ListFormat = (
     Intl as unknown as {
       ListFormat?: new (
-        locale: string,
+        locales: string[],
         options: { type: string; style: string },
       ) => { format(items: ReadonlyArray<string>): string };
     }
   ).ListFormat;
 
   try {
-    if (ListFormat) return new ListFormat(language, { type, style: 'long' }).format(items);
+    if (ListFormat) {
+      return new ListFormat(intlLocales(language), { type, style: 'long' }).format(items);
+    }
   } catch {
     // A tag the runtime refuses falls through to commas.
   }

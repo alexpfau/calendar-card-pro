@@ -16,6 +16,8 @@
  * names the Home Assistant or `rrule` function it mirrors.
  */
 
+import { intlLocales } from '../translations/intl-locales';
+
 //-----------------------------------------------------------------------------
 // TYPES
 //-----------------------------------------------------------------------------
@@ -566,7 +568,10 @@ function wordRule(
   const plural = (n: number) => n % 100 !== 1;
   const nth = (n: number): string =>
     n === -1 ? word('last') : `${n}${lookup(ORDINAL_SUFFIX.get(n) ?? 'th')}`;
-  const dayNames = new Intl.DateTimeFormat(locale, { weekday: 'long', timeZone: 'UTC' });
+  const dayNames = new Intl.DateTimeFormat(intlLocales(locale), {
+    weekday: 'long',
+    timeZone: 'UTC',
+  });
   const dayName = (day: Weekday) =>
     dayNames.format(Date.UTC(2024, 0, 1 + WEEKDAYS.indexOf(day), 12));
 
@@ -613,7 +618,7 @@ function wordRule(
 
   if (rule.end.kind === 'on') {
     const [year, month, day] = rule.end.until.split('-').map(Number);
-    const date = new Intl.DateTimeFormat(locale, {
+    const date = new Intl.DateTimeFormat(intlLocales(locale), {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
