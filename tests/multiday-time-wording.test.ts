@@ -12,8 +12,9 @@ import * as FormatUtils from '../src/utils/format';
  * `multiDay` ("until"). For an end on a date that reads naturally — "22:30 until Friday,
  * 23 October at 17:00" — but `endsTomorrow` is a phrase with its own verb, so the join read
  * "22:30 until ends tomorrow at 0:30", and "22:30 bis endet morgen um 0:30" in German. It
- * takes a comma now, as the all-day label already does ("All day, ends tomorrow"), with no
- * new string in any language.
+ * takes the language's `separator` now, as the all-day label already does ("All day, ends
+ * tomorrow"): ", " in English and German, "，" in Chinese. `tests/time-separator.test.ts` pins
+ * each language's separator.
  */
 
 /** Wednesday 21 October 2026, 10:30 local. */
@@ -67,7 +68,7 @@ describe('an unsplit multi-day timed event', () => {
       // The phrase up to its time, which Hungarian places inside it.
       const phrase = t.endsTomorrow.split(' {at}')[0];
       expect(out, language).not.toContain(`${t.multiDay} ${phrase}`);
-      expect(out, language).toContain(`, ${phrase} `);
+      expect(out, language).toContain(`${t.separator}${phrase} `);
     }
   });
 
@@ -476,37 +477,37 @@ describe('the end time in a sentence', () => {
     },
     'zh-cn': {
       h24: [
-        '22:30, 明天 0:30 结束',
+        '22:30，明天 0:30 结束',
         '9:00 直到 10月23日星期五 17:00',
         '今天 12:00 结束',
         '明天 8:00 结束',
         '直到 10月23日星期五 17:00',
       ],
       h12: [
-        '10:30 PM, 明天 12:30 AM 结束',
+        '10:30 PM，明天 12:30 AM 结束',
         '9:00 AM 直到 10月23日星期五 5:00 PM',
         '今天 12:00 PM 结束',
         '明天 8:00 AM 结束',
         '直到 10月23日星期五 5:00 PM',
       ],
-      allDay: ['整天, 今天结束', '整天, 明天结束', '整天, 直到 10月25日星期日'],
+      allDay: ['整天，今天结束', '整天，明天结束', '整天，直到 10月25日星期日'],
     },
     'zh-tw': {
       h24: [
-        '22:30, 明天 0:30 結束',
+        '22:30，明天 0:30 結束',
         '9:00 直到 10月23日星期五 17:00',
         '今天 12:00 結束',
         '明天 8:00 結束',
         '直到 10月23日星期五 17:00',
       ],
       h12: [
-        '10:30 PM, 明天 12:30 AM 結束',
+        '10:30 PM，明天 12:30 AM 結束',
         '9:00 AM 直到 10月23日星期五 5:00 PM',
         '今天 12:00 PM 結束',
         '明天 8:00 AM 結束',
         '直到 10月23日星期五 5:00 PM',
       ],
-      allDay: ['整天, 今天結束', '整天, 明天結束', '整天, 直到 10月25日星期日'],
+      allDay: ['整天，今天結束', '整天，明天結束', '整天，直到 10月25日星期日'],
     },
     cs: {
       h24: [

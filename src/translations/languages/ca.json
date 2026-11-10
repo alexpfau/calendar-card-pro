@@ -13,6 +13,7 @@
   "allDay": "tot el dia",
   "multiDay": "fins",
   "at": "a les",
+  "separator": ", ",
   "viewList": "Llista",
   "viewColumns": "Columnes",
   "viewGrid": "Quadrícula",

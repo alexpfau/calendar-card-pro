@@ -5,6 +5,7 @@
   "allDay": "toată ziua",
   "multiDay": "până",
   "at": "la",
+  "separator": ", ",
   "viewList": "Listă",
   "viewColumns": "Coloane",
   "viewGrid": "Grilă",

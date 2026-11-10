@@ -13,6 +13,7 @@
   "allDay": "Allur dagurinn",
   "multiDay": "þar til",
   "at": "kl",
+  "separator": ", ",
   "viewList": "Listi",
   "viewColumns": "Dálkar",
   "viewGrid": "Tímatafla",

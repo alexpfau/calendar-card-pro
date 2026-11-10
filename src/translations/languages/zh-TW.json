@@ -18,6 +18,7 @@
   "allDay": "整天",
   "multiDay": "直到",
   "at": "{time}",
+  "separator": "，",
   "viewList": "列表",
   "viewColumns": "欄",
   "viewGrid": "網格",

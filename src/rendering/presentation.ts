@@ -260,7 +260,7 @@ export function buildEventPresentation(
 
   const eventTime = allDayBadge
     ? eventTimeParts.text
-    : FormatUtils.joinEventTimeParts(eventTimeParts);
+    : FormatUtils.joinEventTimeParts(eventTimeParts, language);
   // `show_location_allday` and `show_description_allday` decide these; see `shownRowText`.
   const { location: eventLocation, description: eventDescription } = shownRowText(event, config);
 

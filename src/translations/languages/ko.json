@@ -5,6 +5,7 @@
   "allDay": "종일",
   "multiDay": "~",
   "at": "{time}",
+  "separator": ", ",
   "viewList": "목록",
   "viewColumns": "열",
   "viewGrid": "그리드",

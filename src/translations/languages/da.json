@@ -5,6 +5,7 @@
   "allDay": "hele dagen",
   "multiDay": "indtil",
   "at": "kl.",
+  "separator": ", ",
   "viewList": "Liste",
   "viewColumns": "Kolonner",
   "viewGrid": "Gitter",

@@ -1372,6 +1372,13 @@ export interface Translations {
    */
   at: string;
   /**
+   * What joins two parts of an event's time where English writes ", ": the all-day label and
+   * what follows it ("All day, ends tomorrow"), and a start time and the sentence saying when it
+   * ends ("22:30, ends tomorrow at 0:30"). Chinese writes "，", which carries its own space, and
+   * Thai a space alone, as both write a pause between two clauses.
+   */
+  separator: string;
+  /**
    * The date column's month names. An end phrase's date is the browser's, in CLDR's form for
    * the language; these stand in for it only where the browser has no data for the language.
    */

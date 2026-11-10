@@ -5,6 +5,7 @@
   "allDay": "celý den",
   "multiDay": "do",
   "at": "v",
+  "separator": ", ",
   "viewList": "Seznam",
   "viewColumns": "Sloupce",
   "viewGrid": "Mřížka",

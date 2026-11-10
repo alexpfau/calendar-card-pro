@@ -94,25 +94,31 @@ export function formatEventTime(
   language: string,
   hass?: Types.Hass | null,
 ): string {
-  return joinEventTimeParts(formatEventTimeParts(event, config, language, hass));
+  return joinEventTimeParts(formatEventTimeParts(event, config, language, hass), language);
 }
 
 /**
  * Rejoin time parts into the single string the card shows when `allday_badge` is off.
  *
- * The comma and the capitalization live here rather than in `formatEventTimeParts`, so the
+ * The separator and the capitalization live here rather than in `formatEventTimeParts`, so the
  * badge path can take the same parts and present them differently without either path
- * reimplementing the other.
+ * reimplementing the other. The separator is the language's own: "All day, ends tomorrow",
+ * "整天，明天结束".
  *
  * @param parts Parts as returned by `formatEventTimeParts`
+ * @param language Language code the parts were written in
  * @returns The joined, capitalized time string
  */
-export function joinEventTimeParts({ allDayLabel, text }: EventTimeParts): string {
+export function joinEventTimeParts(
+  { allDayLabel, text }: EventTimeParts,
+  language: string,
+): string {
   if (allDayLabel === undefined) {
     return capitalizeFirstLetter(text);
   }
 
-  return capitalizeFirstLetter(text ? `${allDayLabel}, ${text}` : allDayLabel);
+  const { separator } = Localize.getTranslations(language);
+  return capitalizeFirstLetter(text ? `${allDayLabel}${separator}${text}` : allDayLabel);
 }
 
 /**
@@ -1231,20 +1237,23 @@ function formatMultiDayTime(
   if (today.getTime() <= startDate.getTime()) {
     const startTimeStr = formatTimeStr(startDate);
     // "Ends tomorrow at 0:30" is a sentence of its own, so joining it after `multiDay`
-    // ("until") read "22:30 until ends tomorrow at 0:30". It takes a comma instead, the way
-    // the all-day label does ("All day, ends tomorrow"), which needs no new string in any
-    // language. A later end keeps `multiDay`, since a date reads naturally after it.
+    // ("until") read "22:30 until ends tomorrow at 0:30". It takes the language's `separator`
+    // instead, as the all-day label does ("All day, ends tomorrow"): "22:30, ends tomorrow at
+    // 0:30", "22:30，明天 0:30 结束". A later end keeps `multiDay`, since a date reads naturally
+    // after it.
     if (
       endDate.toDateString() === today.toDateString() ||
       endDate.toDateString() === tomorrow.toDateString()
     ) {
-      return `${startTimeStr}, ${endPart}`;
+      return `${startTimeStr}${translations.separator}${endPart}`;
     }
     // A `multiDay` that opens the language's own `endsToday` is that verb, "ends", rather than
     // a word for "until", so what follows the start time is a clause like the one above and
-    // takes its comma. Finnish writes the end this way, because its word for "until" follows
-    // the day: "10.00, päättyy maanantaina", not "10.00 päättyy maanantaina".
-    const joiner = translations.endsToday.startsWith(`${translations.multiDay} `) ? ', ' : ' ';
+    // takes its separator. Finnish writes the end this way, because its word for "until"
+    // follows the day: "10:00, päättyy maanantaina", not "10:00 päättyy maanantaina".
+    const joiner = translations.endsToday.startsWith(`${translations.multiDay} `)
+      ? translations.separator
+      : ' ';
     return `${startTimeStr}${joiner}${translations.multiDay} ${endPart}`;
   } else {
     if (
@@ -1262,7 +1271,7 @@ function formatMultiDayTime(
  * The part of a multi-day all-day event's time text that follows the all-day label.
  *
  * Returns the remainder alone rather than the joined phrase, so `allday_badge` can draw
- * the label as a pill and this text after it. `formatEventTime` puts the comma back.
+ * the label as a pill and this text after it. `formatEventTime` puts the separator back.
  *
  * @param endDate Inclusive end date of the event
  * @param language Language code, which selects the date order

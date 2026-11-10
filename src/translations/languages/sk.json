@@ -5,6 +5,7 @@
   "allDay": "celý deň",
   "multiDay": "do",
   "at": "o",
+  "separator": ", ",
   "viewList": "Zoznam",
   "viewColumns": "Stĺpce",
   "viewGrid": "Časová mriežka",
