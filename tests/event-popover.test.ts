@@ -212,6 +212,34 @@ describe('the touch that opened it', () => {
     expect(root.querySelector('button.time')).toBeNull();
   });
 
+  it('guards the touch that hands it the next event while it is still open', async () => {
+    const { el, root } = await open(touched);
+    const opened = Date.now();
+    vi.spyOn(Date, 'now').mockReturnValue(opened + 1000);
+    onTestFinished(() => vi.mocked(Date.now).mockRestore());
+    // Home Assistant reuses the element for the next event, as while a save is under way.
+    el.showDialog({
+      mode: 'event',
+      calendarId: ANNA.id,
+      entry: { ...SWIM, summary: 'Piano', uid: 'u-piano' },
+      display: { title: 'Piano', location: '', description: '' },
+      canEdit: true,
+      canDelete: true,
+      calendars: [ANNA],
+      language: 'en',
+      hour24: true,
+      dark: false,
+      updated: () => undefined,
+      ...touched,
+    });
+    await el.updateComplete;
+    await el.updateComplete;
+    ghost(root.querySelector('button.time')!);
+    await el.updateComplete;
+    expect(root.querySelector('button.time')).not.toBeNull();
+    expect(root.activeElement).toBe(root.querySelector('h2#popover-title'));
+  });
+
   it('keeps the focus off a field the derived events focus anyway', async () => {
     const { el, root } = await open(touched);
     root.querySelector<HTMLInputElement>('input.title')!.focus();
@@ -2219,6 +2247,31 @@ describe('keeping in sight on the screen', () => {
     expect(panelOf(root).style.maxHeight).toBe('');
   });
 
+  it('does not count a list or a date as typing, which open pickers of their own', async () => {
+    const width = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+    onTestFinished(() => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+    });
+    const viewport = fakeViewport();
+    const { el, root } = await open({ ...FRESH, anchor: { x: 100, y: 700 } });
+    const dialog = dialogOf(root);
+    root.querySelector<HTMLInputElement>('input.title')!.focus();
+    viewport.keyboard(300);
+    await el.updateComplete;
+    expect(dialog.style.bottom).toBe('300px');
+
+    // From the title to the calendar list, while the browser still reports the keyboard's room.
+    const list = root.querySelector<HTMLSelectElement>('.cell.calendar select')!;
+    list.focus();
+    try {
+      await vi.waitFor(() => expect(dialog.style.bottom).toBe(''));
+    } finally {
+      // happy-dom goes on pointing at a focused list once it is removed, and trips on it later.
+      list.blur();
+    }
+  });
+
   it('keeps a sheet within what is in sight where nothing covers its foot', async () => {
     const width = window.innerWidth;
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
@@ -2237,8 +2290,10 @@ describe('keeping in sight on the screen', () => {
   });
 
   it('places what it is handed while still open afresh, for its own press', async () => {
-    const { el, root } = await open({ anchor: { x: 150, y: window.innerHeight - 40 } });
+    // A new event, opened by mouse, starts in its title.
+    const { el, root } = await open({ ...FRESH, anchor: { x: 150, y: window.innerHeight - 40 } });
     expect(top(root)).toBe(window.innerHeight - 12 - 310);
+    expect(root.activeElement).toBe(root.querySelector('input.title'));
     // Home Assistant reuses the element for the next event, as while a save is under way.
     el.showDialog({
       mode: 'event',
@@ -2259,6 +2314,9 @@ describe('keeping in sight on the screen', () => {
     expect(dialogOf(root).style.visibility).toBe('');
     expect(top(root)).toBe(300 - 155);
     expect(top(root) + arrowTop(root)).toBe(300);
+    // With focus where an event's popover starts, as it does on opening.
+    await el.updateComplete;
+    expect(root.activeElement).toBe(root.querySelector('h2#popover-title'));
   });
 
   it('moves an event it shows up too, once it grows past the foot of the screen', async () => {
@@ -2269,6 +2327,20 @@ describe('keeping in sight on the screen', () => {
     await grow(el, 440);
     expect(top(root)).toBe(window.innerHeight - 12 - 440);
     expect(top(root) + arrowTop(root)).toBe(y);
+  });
+
+  it('places nothing once it is gone, though the screen turned just before', async () => {
+    const width = window.innerWidth;
+    onTestFinished(() => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+    });
+    const { el } = await open({ ...FRESH, anchor: { x: 150, y: 300 } });
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+    window.dispatchEvent(new Event('resize'));
+    el.remove();
+    await el.updateComplete;
+    await el.updateComplete;
+    expect(FakeResizeObserver.live.size).toBe(0);
   });
 
   it('stops watching once it has closed', async () => {

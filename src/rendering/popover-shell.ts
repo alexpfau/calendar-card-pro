@@ -180,8 +180,12 @@ function visibleRoom(typing: boolean): Room {
   return roomOf(window.innerHeight, typing ? window.visualViewport : undefined);
 }
 
-/** The fields that raise an on-screen keyboard, or a picker in its place. */
-const TYPED_FIELDS = 'input:not([type="checkbox"]):not([type="radio"]), textarea, select';
+/**
+ * The fields that are typed into, and raise an on-screen keyboard to type with. A list, a switch,
+ * a date or a time opens a picker of its own instead, which does not count.
+ */
+const TYPED_FIELDS =
+  'textarea, input:not([type="checkbox"]):not([type="radio"]):not([type="date"]):not([type="time"]):not([type="datetime-local"])';
 
 /**
  * The middle of a press from top to bottom, which an arrow beside a panel points at
@@ -893,9 +897,14 @@ export abstract class PopoverShell extends LitElement {
     const dialog = this._dialog;
     if (this._wantOpen && dialog?.open) {
       // Handed something else while still open, as Home Assistant does while a save is under
-      // way: placed afresh for it, where nothing would place it otherwise.
+      // way: opened afresh for it, as far as an open modal can be. Placed for its press, which
+      // nothing would do otherwise, with focus where it starts, and the press that handed it
+      // over counted from now.
       this._wantOpen = false;
+      this._openedAt = Date.now();
+      this._backdropDown = false;
       this._position();
+      void this.updateComplete.then(() => this._focusStart());
       return;
     }
     if (this._wantOpen && dialog && this.isConnected && !dialog.open) {
@@ -1101,7 +1110,7 @@ export abstract class PopoverShell extends LitElement {
     this._lift = 0;
     this._maxHeight = undefined;
     void this.updateComplete.then(() => {
-      if (this._dialog?.open && !this._closing) this._position();
+      if (this.isConnected && this._dialog?.open && !this._closing) this._position();
     });
   }
 
