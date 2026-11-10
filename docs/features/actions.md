@@ -391,6 +391,8 @@ An event's details and a new event both open in the card's own popover: from an 
 
 On a wide screen it opens beside the event you pressed, with its arrow pointing at it, to the right where there is room and to the left otherwise: beside the edge of an event drawn as a tinted box, such as a grid block or any event under `event_background_opacity`, and beside the end of the text of one drawn without. A tap on a day, or on an empty slot of the grid, opens it right where you tapped, and the add button opens it below the button. On a screen narrower than 600 pixels it rises from the bottom as a sheet.
 
+When it grows while open, as when **Cancel** and **Save** or **Add** appear or the date opens, it stays on screen, moving up only as far as it has to. An on-screen keyboard pushes it up above the keys. Where there is too little room for all of it, its content scrolls and the row of buttons stays in sight at its foot.
+
 While it is open, the page behind it does not scroll. It is light or dark as your Home Assistant theme is, and with reduced motion turned on in your system it appears and disappears without moving.
 
 ### Words & Language
