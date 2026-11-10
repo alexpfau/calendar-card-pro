@@ -279,9 +279,15 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(208_000);
-    // The title that wraps beside the time moved the ceiling last, from 203,000 to 208,000: the
-    // notes on why the time is placed over an empty float rather than floated itself (its font
+    expect(saved).toBeLessThan(212_000);
+    // Old Safari's older colors moved the ceiling last, from 208,000 to 212,000: the notes on
+    // what each of the fourteen color-mix() uses older than v5.1, and the custom properties the
+    // stylesheet mixes, fall back to where color-mix() is unknown, and why a gray there is as
+    // strong as an accent's mix and about twice a text color's. The reading went from 205,833 to
+    // 209,473, taken with stripComments after the last comment was written.
+    //
+    // The title that wraps beside the time moved the ceiling before that, from 203,000 to 208,000:
+    // the notes on why the time is placed over an empty float rather than floated itself (its font
     // sizes would be measured against the title's), why the sides it is placed on are named by
     // the row's direction rather than written as the inline end, why a cut title clamps on its
     // row in WebKit's terms and not on .summary, why the time's box opens with a strut at the

@@ -253,15 +253,19 @@ describe('the ink an accent-colored surface is painted in', () => {
       (match) => match[1].replace(/\s+/g, ' ').trim(),
     );
 
-    // Three tiers: the sRGB floor, the Oklab mix, and the relative-color chroma recovery.
-    expect(declarations).toHaveLength(3);
-    for (const declaration of declarations) {
+    // Three tiers: the sRGB floor, the Oklab mix, and the relative-color chroma recovery. And
+    // below them, for a browser without color-mix(), the theme's text color, which reads no
+    // accent: the raw accent is no text color.
+    expect(declarations).toHaveLength(4);
+    for (const declaration of [declarations[0], declarations[2], declarations[3]]) {
       expect(declaration).toContain(`var(${ACCENT_INK_SOURCE_PROPERTY})`);
       expect(declaration).toContain('var(--primary-text-color)');
     }
     expect(declarations[0]).toContain('in srgb');
-    expect(declarations[1]).toContain('in oklab');
-    expect(declarations[2]).toContain('calc(c * 2.2)');
+    expect(declarations[1]).toBe('var(--primary-text-color)');
+    expect(declarations[2]).toContain('in oklab');
+    expect(declarations[3]).toContain('calc(c * 2.2)');
+    expect(css).toContain('@supports not (color: color-mix(in srgb, red, blue))');
     expect(css).toContain('@supports (color: color-mix(in oklab, red, blue))');
     expect(css).toContain('@supports (color: oklch(from red l c h))');
 
@@ -270,7 +274,7 @@ describe('the ink an accent-colored surface is painted in', () => {
     // matching, and a dead upper tier is silent: the floor below it still paints.
     const flat = css.replace(/\s+/g, '');
 
-    expect(flat.split(`.event{${ACCENT_INK_PROPERTY}:`).length - 1).toBe(3);
+    expect(flat.split(`.event{${ACCENT_INK_PROPERTY}:`).length - 1).toBe(4);
   });
 });
 

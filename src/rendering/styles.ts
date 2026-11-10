@@ -764,6 +764,20 @@ export const cardStyles = css`
     );
   }
 
+  /* Without color-mix() (Safari before 16.2) the three fills above are invalid wherever they are
+     read, and every control in the bar loses its pill. A color cannot be made translucent there,
+     so they are a neutral gray, which darkens a light card and lightens a dark one alike. Gray is
+     about half as far from either default card as the text color is, so the resting fill takes
+     it at about twice the text's 8%, and hover and press step it deeper rather than toward the
+     accent. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .card-toolbar {
+      --calendar-card-toolbar-fill: rgba(128, 128, 128, 0.15);
+      --calendar-card-toolbar-fill-hover: rgba(128, 128, 128, 0.24);
+      --calendar-card-toolbar-fill-pressed: rgba(128, 128, 128, 0.32);
+    }
+  }
+
   /* The selected segment is raised out of the track, so it must be lighter than the track in
      both color schemes. The card's own background is, in a light one. In a dark one it is
      darker than a track washed with light text, which reads as pressed in rather than
@@ -996,6 +1010,17 @@ export const cardStyles = css`
       var(--error-color, #db4437) 20%,
       var(--calendar-card-toolbar-fill)
     );
+  }
+
+  /* Without color-mix() the button keeps its resting gray, and the icon alone carries the
+     color, as it does in full above. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .toolbar-button.refresh-button.refresh-done,
+    .toolbar-button.reset-button.reset-done,
+    .date-navigation .date-navigation-segment.home-done,
+    .toolbar-button.refresh-button.refresh-failed {
+      background: var(--calendar-card-toolbar-fill);
+    }
   }
 
   .refresh-done .toolbar-button-icon,
@@ -1336,6 +1361,35 @@ export const cardStyles = css`
   .legend-chip.hidden-calendar:active,
   .legend-menu-row.hidden-calendar:active {
     background: var(--calendar-card-toolbar-fill-pressed);
+  }
+
+  /* Without color-mix() a shown calendar's tint is invalid and its chip or row would draw no
+     pill at all. Its accent cannot be made translucent there, so the pill is a neutral gray at
+     the tint's strengths and is ringed in the accent, which keeps the legend the key to the
+     colors below. A hidden one keeps the toolbar's gray, without the ring. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .legend-chip,
+    .legend-menu-row {
+      background: rgba(128, 128, 128, 0.24);
+      box-shadow: inset 0 0 0 2px var(--calendar-card-legend-color);
+    }
+
+    .legend-chip.hidden-calendar,
+    .legend-menu-row.hidden-calendar {
+      box-shadow: none;
+    }
+
+    @media (hover: hover) {
+      .legend-chip:hover,
+      .legend-menu-row:hover {
+        background: rgba(128, 128, 128, 0.34);
+      }
+    }
+
+    .legend-chip:active,
+    .legend-menu-row:active {
+      background: rgba(128, 128, 128, 0.44);
+    }
   }
 
   /* A toolbar control answers the pointer for itself, as an event does, so the card's ripple
@@ -1922,6 +1976,15 @@ export const cardStyles = css`
     );
   }
 
+  /* Without color-mix() (Safari before 16.2) the ink above is invalid wherever it is read. The
+     raw accent is no text color, for the reason above, so the floor is the theme's text color:
+     the text stays as legible as the rest of the card and gives up only the hue. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .event {
+      --calendar-card-accent-ink: var(--primary-text-color);
+    }
+  }
+
   @supports (color: color-mix(in oklab, red, blue)) {
     .event {
       --calendar-card-accent-ink: color-mix(
@@ -1965,6 +2028,15 @@ export const cardStyles = css`
       var(--calendar-card-now-color, #34d399) 30%,
       var(--primary-text-color)
     );
+  }
+
+  /* Without color-mix() the green is too pale to read raw, so an event under way writes its time
+     in the theme's text color, a step stronger than the secondary color a time takes by default,
+     and its "Now" label says the rest. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .event-now {
+      --calendar-card-now-ink: var(--primary-text-color);
+    }
   }
 
   @supports (color: color-mix(in oklab, red, blue)) {
@@ -3317,6 +3389,18 @@ export const cardStyles = css`
     border-radius: 999px;
   }
 
+  /* Without color-mix() (Safari before 16.2) the ink and the wash are invalid wherever they are
+     read, and subtle drew no pill at all. The ink falls back to the theme's text color, as the
+     event's does, and the wash to a neutral gray at the mix's strength, since the accent cannot
+     be made translucent there. The ring and the filled pill read the solid accent and keep it. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .allday-badge,
+    .allday-title-pill {
+      --badge-ink: var(--primary-text-color);
+      --badge-wash: rgba(128, 128, 128, 0.1);
+    }
+  }
+
   /* Both halves at once: the wash of subtle inside the ring of outline, each exactly as
      that treatment draws it -- the same color, from the same token, so "matching" is a
      fact rather than a description. So the four are orthogonal: subtle is the wash, outline
@@ -3571,6 +3655,14 @@ export const cardStyles = css`
     box-shadow: none;
   }
 
+  /* Without color-mix() the pill is filled with the solid color itself, as the relative-color
+     tier below fills it. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .allday-pill-filled {
+      background-color: var(--badge-solid);
+    }
+  }
+
   /* ===== Progressive enhancement: keep the accent's chroma =====
    *
    * Everything above mixes in sRGB, and mixing a saturated color toward white or black
@@ -3769,6 +3861,15 @@ export const cardStyles = css`
     --badge-ink: var(--badge-source);
     --badge-wash: color-mix(in srgb, var(--badge-source) 14%, transparent);
     --badge-solid: var(--badge-source);
+  }
+
+  /* Without color-mix() this wash is a neutral gray too. A wash of the text color is gray at
+     about twice its strength, gray being half as far from either default card. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .allday-badge.allday-source-text,
+    .allday-title-pill.allday-source-text {
+      --badge-wash: rgba(128, 128, 128, 0.26);
+    }
   }
 
   /* Own-row event weather placement. The descendant selector keeps these
@@ -3971,6 +4072,15 @@ export const cardStyles = css`
     border-end-start-radius: 999px;
   }
 
+  /* Without color-mix() (Safari before 16.2) the track above is invalid and the bar is only its
+     filled part. The color cannot be made translucent there, so the track is a neutral gray at
+     the mix's strength. After .progress-bar-row, which must stay directly after the bar. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .progress-bar {
+      background-color: rgba(128, 128, 128, 0.2);
+    }
+  }
+
   /* ===== ICON STYLES ===== */
 
   /* The 4px gap sits at the icon's inline end, between it and the text it leads: the right in
@@ -4104,6 +4214,23 @@ export const cardStyles = css`
           --calendar-card-event-wash-pressed,
           color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent)
         );
+    }
+  }
+
+  /* Without color-mix() (Safari before 16.2) every wash above is invalid, and an event under the
+     pointer or pressed would answer with nothing at all. The accent cannot be made translucent
+     there, so an event washes in a neutral gray at the same strengths, as a day does (DAYS THAT
+     ADD AN EVENT). After the content-visibility block, which an engine without color-mix() can
+     still read. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    @media (hover: hover) {
+      .event-interactive:hover {
+        box-shadow: inset 0 0 0 100vmax rgba(128, 128, 128, 0.08);
+      }
+    }
+
+    .event-interactive:active {
+      box-shadow: inset 0 0 0 100vmax rgba(128, 128, 128, 0.16);
     }
   }
 
@@ -4291,6 +4418,19 @@ export const cardStyles = css`
     );
   }
 
+  /* Without color-mix() these washes are invalid too, and take the same gray as the shadow's. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    @media (hover: hover) {
+      .event-button:hover::before {
+        background-color: rgba(128, 128, 128, 0.08);
+      }
+    }
+
+    .event-button:active::before {
+      background-color: rgba(128, 128, 128, 0.16);
+    }
+  }
+
   .event-button.event-interactive:focus-visible {
     outline: none;
   }
@@ -4460,6 +4600,17 @@ export const cardStyles = css`
     border-top-color: var(--primary-text-color);
     border-radius: 50%;
     animation: ccp-spin 0.8s linear infinite;
+  }
+
+  /* Without color-mix() (Safari before 16.2) the shorthand above is invalid, and with it the
+     border's width and style, so the spinner drew nothing, its turning quarter included. The
+     ring is a neutral gray instead, at about twice the text's 25%, gray being half as far from
+     either default card; the shorthand resets the quarter, so it is set again after it. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .loading-indicator .spinner {
+      border: 2px solid rgba(128, 128, 128, 0.45);
+      border-top-color: var(--primary-text-color);
+    }
   }
 
   /* Where the spinner gives way to the check or alert a refresh someone asked for ends in,
@@ -6424,6 +6575,15 @@ export const cardStyles = css`
   .grid-event-raised.clipped-bottom > .grid-event-accessible::before {
     border-end-start-radius: 0;
     border-end-end-radius: 0;
+  }
+
+  /* Without color-mix() (Safari before 16.2) the shorthand above is invalid, and a raised block
+     loses its edge against the one it overlaps. The accent cannot be made translucent there, so
+     the edge is a neutral gray at the mix's strength. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .grid-event-raised > .grid-event-accessible::before {
+      border: 1px solid rgba(128, 128, 128, 0.2);
+    }
   }
 
   .grid-event.grid-event-content-limited {
