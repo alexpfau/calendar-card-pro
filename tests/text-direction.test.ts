@@ -23,7 +23,9 @@ import * as Grid from '../src/rendering/grid';
 import * as Render from '../src/rendering/render';
 import * as Localize from '../src/translations/localize';
 import * as EventUtils from '../src/utils/events';
+import * as Paging from '../src/utils/paging';
 import { dashboardDirection, inLanguageDirection, languageMark } from '../src/utils/text-direction';
+import '../src/calendar-card-pro';
 
 const LRM = '\u200e';
 const RLM = '\u200f';
@@ -127,6 +129,107 @@ describe('the status lines', () => {
     expect(
       textOf(Render.renderFetchErrorNotice(names, 'en', hassOn('en')), '.fetch-error-text'),
     ).toBe(`${t.loadFailed} Anna, בן`);
+  });
+});
+
+describe("the toolbar's dates", () => {
+  // Today is June 17, 2026, so a page in March 2027 names its year: "1.–7. März 2027" in German,
+  // "1–7 במרץ 2027" in Hebrew. Each has digits at an edge, which a line of the other direction
+  // moves to its far end.
+  const NOW = new Date(2026, 5, 17, 10, 0);
+  const plain = (language: string) =>
+    Paging.rangeLabel({ start: new Date(2027, 2, 1), days: 7 }, language, NOW);
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    vi.setSystemTime(NOW);
+    document.body.innerHTML = '';
+  });
+
+  afterEach(async () => {
+    await new Promise((resolve) => setImmediate(resolve));
+    document.body.innerHTML = '';
+    vi.useRealTimers();
+  });
+
+  /**
+   * The header of a card showing March 1 to 7, 2027, with the month as a button over its date
+   * picker, or, without navigation, as plain text with refresh beside it.
+   */
+  async function header(language: string, hass: Types.Hass, navigation: boolean) {
+    const card = document.createElement('calendar-card-pro-dev') as HTMLElement & {
+      setConfig(config: unknown): void;
+      hass: Types.Hass;
+      readonly updateComplete: Promise<boolean>;
+    };
+    card.setConfig(
+      buildConfig({
+        entities: ['calendar.anna'],
+        language,
+        start_date: '2027-03-01',
+        days_to_show: 7,
+        toolbar: {
+          show: true,
+          navigation,
+          view_switcher: false,
+          add_event: false,
+          reset: false,
+          refresh: !navigation,
+          search: false,
+          legend: false,
+        },
+      } as Partial<Types.Config>),
+    );
+    card.hass = { ...hass, callApi: vi.fn(async () => []) };
+    document.body.appendChild(card);
+    for (let round = 0; round < 3; round += 1) {
+      await new Promise((resolve) => setImmediate(resolve));
+      await card.updateComplete;
+    }
+    const root = card.shadowRoot!;
+    const tooltip = root.querySelector(
+      navigation ? 'button.toolbar-month-button' : '.toolbar-month-slot > span.toolbar-month-label',
+    )!;
+    return {
+      html: root.querySelector('.header-container')!.innerHTML,
+      live: root.querySelector('#toolbar-range-text')!.textContent!.trim(),
+      title: tooltip.getAttribute('title')!,
+    };
+  }
+
+  describe.each([true, false])('with navigation %s', (navigation) => {
+    it.each([
+      ['de', 'en'],
+      ['he', 'he'],
+    ])('in %s on a %s dashboard draws exactly what it drew before', async (language, dashboard) => {
+      const before = await header(language, hassOn(dashboard, false), navigation);
+      const drawn = await header(language, hassOn(dashboard), navigation);
+      expect(before.live).toBe(plain(language));
+      expect(drawn.html).toBe(before.html);
+    });
+
+    it.each([
+      ['de', 'he', LRM],
+      ['he', 'en', RLM],
+    ])(
+      'in %s on a %s dashboard marks the dates in the tooltip and the live region, and nothing else',
+      async (language, dashboard, mark) => {
+        const dates = plain(language);
+        expect(dates).toMatch(language === 'he' ? /\d$/ : /^\d/);
+        const before = await header(language, hassOn(dashboard, false), navigation);
+        const drawn = await header(language, hassOn(dashboard), navigation);
+
+        expect(before.live).toBe(dates);
+        expect(before.title).toBe(dates);
+        expect(drawn.live).toBe(`${mark}${dates}${mark}`);
+        expect(drawn.title).toBe(`${mark}${dates}${mark}`);
+        // Four marks more, one at each end of those two, and the header otherwise as it was: the
+        // month's own words are isolated by their `bdi`, and home's name is not touched here.
+        // Unwrapped by the exact text rather than stripped, so a mark `Intl` wrote stays put.
+        expect(drawn.html.split(mark).length - before.html.split(mark).length).toBe(4);
+        expect(drawn.html.split(`${mark}${dates}${mark}`).join(dates)).toBe(before.html);
+      },
+    );
   });
 });
 

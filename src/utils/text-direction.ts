@@ -74,8 +74,10 @@ export function languageMark(language: string, hass?: Types.Hass | null): Langua
 /**
  * A piece of the card's own text, drawn between two of its language's marks.
  *
- * For drawn text only: anything that compares, measures by content or announces a string keeps
- * the plain one, as `isolateClockReadings` does.
+ * For text the card lays out, tooltips among it: a browser draws a tooltip in the direction of
+ * the element carrying it, so on a Hebrew dashboard an unmarked German range, "16.–22. Nov.",
+ * reads ".Nov .22–.16" on hover. Anything that compares or measures by content keeps the plain
+ * one, as `isolateClockReadings` does.
  *
  * @param text - Text written in the card's language
  * @param mark - From `languageMark`

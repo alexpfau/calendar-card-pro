@@ -50,6 +50,7 @@ import { VIEW_PICTOGRAMS, VIEW_PICTOGRAM_VIEWBOX } from './view-pictograms';
 import * as Types from '../config/types';
 import { UNLOCALIZED_ADD_EVENT_NAME } from '../interaction/add-event';
 import type { MonthHeadingText } from '../utils/paging';
+import * as TextDirection from '../utils/text-direction';
 import type { StartControl, StartPlan } from '../utils/toolbar-fold';
 
 //-----------------------------------------------------------------------------
@@ -196,6 +197,13 @@ export interface MonthHeading {
    * technology announces when they change.
    */
   range: string;
+  /**
+   * The mark the dates are drawn between, in the tooltip and the hidden live region, where the
+   * card's language runs against the dashboard. Both are laid out in the dashboard's direction,
+   * so without it "16.–22. Nov." read ".Nov .22–.16" there. `''` or absent everywhere else,
+   * which draws them as they always were. See `TextDirection.languageMark`.
+   */
+  languageMark?: TextDirection.LanguageMark;
 }
 
 /** What the card hands the wrapper when it should draw the date navigation. */
@@ -1050,7 +1058,10 @@ function renderOverlaid(headings: ReadonlyArray<MonthHeadingText>): TemplateResu
  *
  * The month names the page by its first day, so the exact dates live beside it: in its
  * tooltip, and in a polite live region, visually hidden, that describes the button and names
- * the row, so a screen reader hears the dates on reaching it and again after every press.
+ * the row, so a screen reader hears the dates on reaching it and again after every press. Both
+ * are laid out in the dashboard's direction, so where the card's language runs the other way the
+ * dates are written between its marks, as the card's other dates and times are
+ * (`TextDirection`).
  *
  * Behind the month, in the same grid cell, invisible copies of every month in the form drawn
  * keep the room of the widest, so paging changes the words and never moves the controls after
@@ -1064,6 +1075,7 @@ function renderOverlaid(headings: ReadonlyArray<MonthHeadingText>): TemplateResu
  * @returns The heading
  */
 function renderMonth(heading: MonthHeading, nav: DateNavigation | undefined): TemplateResult {
+  const range = TextDirection.inLanguageDirection(heading.range, heading.languageMark ?? '');
   const reserve = html`<span class="toolbar-month-reserve" aria-hidden="true"
     >${renderOverlaid(heading.reserve)}</span
   >`;
@@ -1071,14 +1083,14 @@ function renderMonth(heading: MonthHeading, nav: DateNavigation | undefined): Te
     ><span class="toolbar-month-probe">${renderOverlaid(heading.full)}</span></span
   >`;
   const live = html`<span id="toolbar-range-text" class="toolbar-range-text" aria-live="polite"
-    >${heading.range}</span
+    >${range}</span
   >`;
 
   if (!nav) {
     return html`<div class="toolbar-month">
       ${reserve}
       <span class="toolbar-month-slot">
-        <span class="toolbar-month-label" title=${heading.range}
+        <span class="toolbar-month-label" title=${range}
           ><bdi class="toolbar-month-text"
             ><span class="toolbar-month-cap"></span>${renderHeadingText(heading.text)}</bdi
           ></span
@@ -1133,7 +1145,7 @@ function renderMonth(heading: MonthHeading, nav: DateNavigation | undefined): Te
       <button
         type="button"
         class="toolbar-month-button"
-        title=${heading.range}
+        title=${range}
         aria-describedby="toolbar-range-text"
         @pointerdown=${pressMonth}
         @click=${openPicker}
