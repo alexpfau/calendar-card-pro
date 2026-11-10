@@ -398,15 +398,15 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'time_grid.slot_minutes.option.60.label': '1 hour',
   'time_grid.weekend_background_color': 'Weekend Shading',
   'time_grid.weekend_background_color.helper':
-    'Tints a weekend day column from the date row down, so a week reads at a glance. Any ' +
-    'CSS color — keep it faint, since event text sits on top of it. Which days count as ' +
-    'the weekend follows the country set in Home Assistant, or its language when no ' +
-    'country is set.',
+    'Tints a weekend day column from just under the date row down, so a week reads at a ' +
+    'glance. Any CSS color — keep it faint, since event text sits on top of it. Which days ' +
+    'count as the weekend follows the country set in Home Assistant, or its language when ' +
+    'no country is set.',
   'time_grid.today_background_color': 'Today Shading',
   'time_grid.today_background_color.helper':
-    "Tints today's column from the date row down, so today stands out at a glance. Off " +
-    'until a color is set. Any CSS color — keep it faint, since event text sits on top of ' +
-    'it. When today falls on the weekend, it replaces the weekend shading.',
+    "Tints today's column from just under the date row down, so today stands out at a " +
+    'glance. Off until a color is set. Any CSS color — keep it faint, since event text sits ' +
+    'on top of it. When today falls on the weekend, it replaces the weekend shading.',
   'time_grid.hour_height': 'Height Per Hour',
   'time_grid.hour_height.helper':
     "The calendar content area's natural height, one hour at a time. Ignored when a fixed height is set: " +
