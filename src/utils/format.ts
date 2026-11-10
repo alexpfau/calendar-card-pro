@@ -1250,7 +1250,7 @@ function formatMultiDayTime(
     // A `multiDay` that opens the language's own `endsToday` is that verb, "ends", rather than
     // a word for "until", so what follows the start time is a clause like the one above and
     // takes its separator. Finnish writes the end this way, because its word for "until"
-    // follows the day: "10.00, päättyy maanantaina", not "10.00 päättyy maanantaina".
+    // follows the day: "10:00, päättyy maanantaina", not "10:00 päättyy maanantaina".
     const joiner = translations.endsToday.startsWith(`${translations.multiDay} `)
       ? translations.separator
       : ' ';
