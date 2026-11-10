@@ -192,8 +192,8 @@ To add a new language:
 ::: details Words From the Browser
 
 A few words come from the browser's `Intl` rather than from your file: "Now", the countdown's
-"tomorrow" and hours, the month and "Today" in the toolbar, and the "and" or "or" that joins
-names in the editor. Check that Chromium carries your
+"tomorrow" and hours, the month and "Today" in the toolbar, the date in a multi-day event's
+end, and the "and" or "or" that joins names in the editor. Check that Chromium carries your
 language by running `Intl.RelativeTimeFormat.supportedLocalesOf(['xx'])` in Chrome's console,
 with your code in place of `xx`. If it answers `[]` and your readers also read a language
 Chromium does carry, as Nynorsk readers read Bokmål, add that pair to `INTL_FALLBACKS` in
@@ -201,15 +201,23 @@ Chromium does carry, as Nynorsk readers read Bokmål, add that pair to `INTL_FAL
 
 :::
 
-::: details Weekday Names in a Sentence
+::: details Dates in a Sentence
 
-`fullDaysOfWeek` only ever appears mid-sentence, after `multiDay`, as in "until Monday, 5
-January". Write each day the way your language writes it there: in lower case if it writes
-weekdays that way inside a date, and in whatever form `multiDay` asks for. Polish `do` takes
-the genitive, so its days read "do poniedziałku", not "do poniedziałek". If your word for
-"until" follows the day instead of preceding it, use your word for "ends" instead, the word
-your `endsToday` begins with, and the card sets it off with a comma as it does `endsToday`:
-Finnish writes "päättyy maanantaina".
+A multi-day event's end names its last day, as in "until Monday, Jan 5 at 17:00". Your browser
+writes that date in the card's language, so its order, its punctuation and the form of its
+month are your language's own: "do pondělí 5. ledna", "eddig: jan. 5., hétfő", "~ 1월 5일
+월요일". Where your language shortens a month to a number ("5. 1."), the card names it in full
+instead. `months` names the months in the date column, and stands in for the browser's month
+only where the browser has no data for your language, as Chromium has none for Icelandic.
+
+The weekday in that date is yours: `fullDaysOfWeek`, put where your language puts the weekday.
+Write each day the way your language writes it there: in lower case if it writes weekdays that
+way inside a date, and in whatever form `multiDay` asks for. Polish `do` takes the genitive, so
+its days read "do poniedziałku", not "do poniedziałek". If your word for "until" follows the
+date instead of preceding it, use your word for "ends", the word your `endsToday` begins with,
+and the card sets it off with a comma as it does `endsToday`: Finnish writes "päättyy
+maanantaina 5. tammikuuta". A label works the same way: Turkish writes "bitiş: 5 Oca
+Pazartesi".
 
 `daysOfWeek` is different. Those are the short day names beside each date, and they take a
 capital wherever a label would.
@@ -226,8 +234,8 @@ tomorrow at 0:30", and after a date, as in "until Friday, Oct 23 at 17:00". The 
 `at`, a space and the time. Two placeholders let a language write it its own way:
 
 - `{time}` in `at` is where the time goes, for a language that marks a time with a suffix
-  rather than a word before it. Hungarian's `at` is `{time}-kor`, so a date ends "Okt 23
-  17:00-kor". Korean's is `{time}` alone, since a time after a date takes nothing there.
+  rather than a word before it. Hungarian's `at` is `{time}-kor`, so a date ends "okt. 23.,
+  péntek 17:00-kor". Korean's is `{time}` alone, since a time after a date takes nothing there.
 - `{at}` in `endsToday` and `endsTomorrow` is where the time goes, written with `at`, for a
   language that puts it inside the phrase. Hungarian's `endsTomorrow` is
   `holnap {at} ér véget`, so its card reads "holnap 0:30-kor ér véget". An all-day event has

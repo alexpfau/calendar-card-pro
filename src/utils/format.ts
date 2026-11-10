@@ -8,6 +8,7 @@ import * as Logger from './logger';
 import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import { getRelativeTimeString, getRelativeUnitString } from '../translations/dayjs';
+import { intlLocales } from '../translations/intl-locales';
 import * as Localize from '../translations/localize';
 
 //-----------------------------------------------------------------------------
@@ -1219,24 +1220,8 @@ function formatMultiDayTime(
   } else if (endDate.toDateString() === tomorrow.toDateString()) {
     endPart = endsAt(translations.endsTomorrow, translations, formatTimeStr(endDate));
   } else {
-    const endDay = endDate.getDate();
-    const endMonthName = translations.months[endDate.getMonth()];
-    const endWeekday = translations.fullDaysOfWeek[endDate.getDay()];
     const endTime = atTime(translations, formatTimeStr(endDate));
-    const formatStyle = Localize.getDateFormatStyle(language);
-
-    switch (formatStyle) {
-      case 'day-dot-month':
-        endPart = `${endWeekday}, ${endDay}. ${endMonthName} ${endTime}`;
-        break;
-      case 'month-day':
-        endPart = `${endWeekday}, ${endMonthName} ${endDay} ${endTime}`;
-        break;
-      case 'day-month':
-      default:
-        endPart = `${endWeekday}, ${endDay} ${endMonthName} ${endTime}`;
-        break;
-    }
+    endPart = `${sentenceDate(endDate, language, translations)} ${endTime}`;
   }
 
   if (today.getTime() <= startDate.getTime()) {
@@ -1298,18 +1283,93 @@ function formatMultiDayAllDayEnd(
     return endsWithoutTime(translations.endsTomorrow);
   }
 
-  const endDay = endDate.getDate();
-  const endMonthName = translations.months[endDate.getMonth()];
-  const endWeekday = translations.fullDaysOfWeek[endDate.getDay()];
-  const formatStyle = Localize.getDateFormatStyle(language);
+  return `${translations.multiDay} ${sentenceDate(endDate, language, translations)}`;
+}
 
-  switch (formatStyle) {
+/**
+ * The formats `sentenceDate` writes a day in, one per card language, or `null` for a language
+ * the browser has no data for.
+ */
+const sentenceDateFormats = new Map<string, Intl.DateTimeFormat | null>();
+
+/**
+ * The browser's format for a day inside a sentence, in a card language.
+ *
+ * The weekday in full and the month in the language's short form: "Friday, Oct 23",
+ * "23. Okt.", "okt. 23., péntek". Where CLDR's short form writes the month as a number, as it
+ * does in Czech, Slovak, Finnish, Bulgarian and Lithuanian ("23. 10."), the month is named in
+ * full instead ("23. října"), as those languages name it in running text.
+ *
+ * `null` where the browser has no data for the language, nor for the one its readers read as
+ * well ({@link intlLocales}), and would answer in another one.
+ *
+ * @param language Card language, as the translations were resolved for it
+ * @returns The format, or `null`
+ */
+function sentenceDateFormat(language: string): Intl.DateTimeFormat | null {
+  let format = sentenceDateFormats.get(language);
+  if (format !== undefined) return format;
+
+  format = null;
+  try {
+    if (Intl.DateTimeFormat.supportedLocalesOf(intlLocales(language)).length > 0) {
+      const options = { weekday: 'long', day: 'numeric', timeZone: 'UTC' } as const;
+      const short = new Intl.DateTimeFormat(intlLocales(language), { ...options, month: 'short' });
+      const month = short.formatToParts(Date.UTC(2000, 9, 23, 12)).find((p) => p.type === 'month');
+      format = /^\d+$/.test(month?.value ?? '')
+        ? new Intl.DateTimeFormat(intlLocales(language), { ...options, month: 'long' })
+        : short;
+    }
+  } catch {
+    format = null;
+  }
+  sentenceDateFormats.set(language, format);
+  return format;
+}
+
+/**
+ * The day an event ends, as a sentence names it: "Friday, Oct 23" in "until Friday, Oct 23".
+ *
+ * The browser writes the date in the card's language, so its order, punctuation, and the form
+ * and case of its month are CLDR's: "pátku 23. října", "okt. 23., péntek", "10월 23일 금요일".
+ * The weekday is the language's own `fullDaysOfWeek`, put where CLDR puts the weekday, because
+ * its form depends on the word before it, which CLDR cannot know: Czech `do` takes the
+ * genitive, "do pátku", where CLDR writes "pátek".
+ *
+ * Where the browser has no data for the language, as Chromium has none for Icelandic, the date
+ * is built from the card's own `months` instead, in the order the card gave the language before
+ * the browser wrote it. Everywhere else `months` names the date column's months only.
+ *
+ * @param date The day
+ * @param language Language code
+ * @param translations Resolved translations for that language
+ * @returns The day as it reads after `multiDay`
+ */
+function sentenceDate(date: Date, language: string, translations: Types.Translations): string {
+  const weekday = translations.fullDaysOfWeek[date.getDay()];
+  const lang = language?.toLowerCase() || Localize.DEFAULT_LANGUAGE;
+  const format = sentenceDateFormat(Localize.TRANSLATIONS[lang] ? lang : Localize.DEFAULT_LANGUAGE);
+
+  if (format) {
+    // The local day, written as noon UTC on the same date, for a format that reads it in UTC:
+    // a format keeps the zone it was made in, and this one is kept for as long as the page is
+    // open, so in the local zone it would name the wrong day once the device's zone changed.
+    const day = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12));
+    return format
+      .formatToParts(day)
+      .map((part) => (part.type === 'weekday' ? weekday : part.value))
+      .join('');
+  }
+
+  const day = date.getDate();
+  const month = translations.months[date.getMonth()];
+  switch (Localize.getDateFormatStyle(language)) {
     case 'day-dot-month':
-      return `${translations.multiDay} ${endWeekday}, ${endDay}. ${endMonthName}`;
+      return `${weekday}, ${day}. ${month}`;
     case 'month-day':
-      return `${translations.multiDay} ${endWeekday}, ${endMonthName} ${endDay}`;
+      return `${weekday}, ${month} ${day}`;
     case 'day-month':
     default:
-      return `${translations.multiDay} ${endWeekday}, ${endDay} ${endMonthName}`;
+      return `${weekday}, ${day} ${month}`;
   }
 }
