@@ -773,7 +773,7 @@ exports[`list view DOM > renders in a non-English language 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>Ganztägig, bis Freitag, 19. Jun</span>
+<span>Ganztägig, bis Freitag, 19. Juni</span>
 </div>
 </div>
 </div>

@@ -146,14 +146,14 @@ describe('the end time in a sentence', () => {
   const events = shapes.map(([, event]) => event);
 
   it('writes a Hungarian time with its suffix, -kor, before the verb', () => {
-    // The whole phrase is pinned, so the dated ends also record "eddig:" and the month as
-    // "Okt 23", which are older strings this test does not vouch for.
+    // The dated ends are a label, "eddig:", as Home Assistant's own Hungarian writes one
+    // ("eddig használhatja: {date}"), with the date as CLDR writes it: "okt. 23., péntek".
     expect(events.map((event) => timeOf(event, 'hu'))).toEqual([
       '22:30, holnap 0:30-kor ér véget',
-      '9:00 eddig: péntek, Okt 23 17:00-kor',
+      '9:00 eddig: okt. 23., péntek 17:00-kor',
       'Ma 12:00-kor ér véget',
       'Holnap 8:00-kor ér véget',
-      'Eddig: péntek, Okt 23 17:00-kor',
+      'Eddig: okt. 23., péntek 17:00-kor',
     ]);
     // On a 12-hour clock the suffix follows the meridiem, which ends the reading.
     expect(FormatUtils.formatEventTime(events[0], twelveHour, 'hu')).toBe(
@@ -165,28 +165,27 @@ describe('the end time in a sentence', () => {
     expect(allDays.map((event) => timeOf(event, 'hu'))).toEqual([
       'Egész napos, ma ér véget',
       'Egész napos, holnap ér véget',
-      'Egész napos, eddig: vasárnap, Okt 25',
+      'Egész napos, eddig: okt. 25., vasárnap',
     ]);
   });
 
   it('writes a Korean time with 에 inside the end phrase, and bare after a date', () => {
     // Korean puts a time before its verb with the particle 에, as Home Assistant's own Korean
     // does ("{time}에 완료"), and writes a date and time side by side with nothing between, as
-    // CLDR does ("10월 23일 금요일 오후 5:00"). The dated ends also record "23 10월", an older
-    // date order this test does not vouch for.
+    // CLDR does ("10월 23일 금요일 오후 5:00").
     expect(events.map((event) => timeOf(event, 'ko'))).toEqual([
       '22:30, 내일 0:30에 종료',
-      '9:00 ~ 금요일, 23 10월 17:00',
+      '9:00 ~ 10월 23일 금요일 17:00',
       '오늘 12:00에 종료',
       '내일 8:00에 종료',
-      '~ 금요일, 23 10월 17:00',
+      '~ 10월 23일 금요일 17:00',
     ]);
     expect(events.map((event) => FormatUtils.formatEventTime(event, twelveHour, 'ko'))).toEqual([
       '10:30 PM, 내일 12:30 AM에 종료',
-      '9:00 AM ~ 금요일, 23 10월 5:00 PM',
+      '9:00 AM ~ 10월 23일 금요일 5:00 PM',
       '오늘 12:00 PM에 종료',
       '내일 8:00 AM에 종료',
-      '~ 금요일, 23 10월 5:00 PM',
+      '~ 10월 23일 금요일 5:00 PM',
     ]);
   });
 
@@ -195,7 +194,7 @@ describe('the end time in a sentence', () => {
     expect(allDays.map((event) => timeOf(event, 'ko'))).toEqual([
       '종일, 오늘 종료',
       '종일, 내일 종료',
-      '종일, ~ 일요일, 25 10월',
+      '종일, ~ 10월 25일 일요일',
     ]);
   });
 
@@ -203,26 +202,26 @@ describe('the end time in a sentence', () => {
     // A Turkish time before a verb takes a locative suffix whose vowel follows how the number
     // is read ("0:30'da", "17:00'de", "3:05'te"), so "sona eriyor" needs one string per reading.
     // A label needs none: "bitiş: yarın saat 0:30", as Home Assistant's own Turkish writes a
-    // day and time ("{day} saat {time}"). The dated ends also record "değin" before the day,
+    // day and time ("{day} saat {time}"). The dated ends also record "değin" before the date,
     // an older string this test does not vouch for.
     expect(events.map((event) => timeOf(event, 'tr'))).toEqual([
       '22:30, bitiş: yarın saat 0:30',
-      '9:00 değin Cuma, 23 Eki saat 17:00',
+      '9:00 değin 23 Eki Cuma saat 17:00',
       'Bitiş: bugün saat 12:00',
       'Bitiş: yarın saat 8:00',
-      'Değin Cuma, 23 Eki saat 17:00',
+      'Değin 23 Eki Cuma saat 17:00',
     ]);
     expect(events.map((event) => FormatUtils.formatEventTime(event, twelveHour, 'tr'))).toEqual([
       '10:30 PM, bitiş: yarın saat 12:30 AM',
-      '9:00 AM değin Cuma, 23 Eki saat 5:00 PM',
+      '9:00 AM değin 23 Eki Cuma saat 5:00 PM',
       'Bitiş: bugün saat 12:00 PM',
       'Bitiş: yarın saat 8:00 AM',
-      'Değin Cuma, 23 Eki saat 5:00 PM',
+      'Değin 23 Eki Cuma saat 5:00 PM',
     ]);
     expect(allDays.map((event) => timeOf(event, 'tr'))).toEqual([
       'Tüm gün, bitiş: bugün',
       'Tüm gün, bitiş: yarın',
-      'Tüm gün, değin Pazar, 25 Eki',
+      'Tüm gün, değin 25 Eki Pazar',
     ]);
   });
 
@@ -295,21 +294,19 @@ describe('the end time in a sentence', () => {
   });
 
   it('writes a Norwegian end with one space after "kl."', () => {
-    // The whole phrase is pinned, so the dated ends also record "23 okt", an older string this
-    // test does not vouch for.
     expect(events.map((event) => timeOf(event, 'nb'))).toEqual([
       '22:30, slutter i morgen kl. 0:30',
-      '9:00 til fredag, 23 okt kl. 17:00',
+      '9:00 til fredag 23. okt. kl. 17:00',
       'Slutter i dag kl. 12:00',
       'Slutter i morgen kl. 8:00',
-      'Til fredag, 23 okt kl. 17:00',
+      'Til fredag 23. okt. kl. 17:00',
     ]);
     expect(events.map((event) => timeOf(event, 'nn'))).toEqual([
       '22:30, sluttar i morgon kl. 0:30',
-      '9:00 til fredag, 23 okt kl. 17:00',
+      '9:00 til fredag 23. okt. kl. 17:00',
       'Sluttar i dag kl. 12:00',
       'Sluttar i morgon kl. 8:00',
-      'Til fredag, 23 okt kl. 17:00',
+      'Til fredag 23. okt. kl. 17:00',
     ]);
   });
 

@@ -447,8 +447,9 @@ describe('the weekday casing split is intentional and stays that way', () => {
       ).toBe(true);
       expect(rendered.startsWith(multiDay)).toBe(false);
 
-      // And the weekday, being mid-sentence, survives that pass untouched.
-      expect(rendered).toContain(` ${weekday},`);
+      // And the weekday, being mid-sentence, survives that pass untouched. Swedish puts no
+      // comma after it inside a date ("söndag 15 nov."), so a space follows it.
+      expect(rendered).toContain(` ${weekday} `);
     });
 
     it('leaves a language that genuinely capitalizes weekdays alone', () => {
@@ -502,10 +503,11 @@ describe('the end of a multi-day event reads as a phrase', () => {
   const weekday = (code: string) => getTranslations(code).fullDaysOfWeek[endsLater.getDay()];
 
   it('sets the Finnish end clause off from a start time, as "ends tomorrow" is', () => {
+    // Finnish writes no comma after the weekday inside a date: "perjantaina 23. lokakuuta".
     const day = weekday('fi');
-    expect(render('fi', startsToday)).toContain(`, päättyy ${day}, `);
-    expect(render('fi', startedBefore).startsWith(`Päättyy ${day}, `)).toBe(true);
-    expect(render('fi', 'all-day')).toContain(`, päättyy ${day}, `);
+    expect(render('fi', startsToday)).toContain(`, päättyy ${day} `);
+    expect(render('fi', startedBefore).startsWith(`Päättyy ${day} `)).toBe(true);
+    expect(render('fi', 'all-day')).toContain(`, päättyy ${day} `);
 
     // A word for "until" joins the start time with a space, as it always has.
     const english = render('en', startsToday);

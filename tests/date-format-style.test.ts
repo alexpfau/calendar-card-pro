@@ -1,9 +1,11 @@
 /**
  * Regression tests for `getDateFormatStyle`.
  *
- * This function decides how every date on the card is ordered — `17. Mar`, `Mar 17`, or
- * `17 Mar` — from the language alone. It has three outcomes, two of which are named-language
- * special cases and one of which is the fallback that serves everyone else.
+ * This function orders the date in an event's end phrase — `17. Mar`, `Mar 17`, or `17 Mar`
+ * — from the language alone, where the browser has no data for the language. Everywhere else
+ * the browser writes that date in CLDR's own order (`sentenceDate` in format.ts), so this is
+ * the fallback for a language such as Icelandic in Chromium. It has three outcomes, two of
+ * which are named-language special cases and one of which serves everyone else.
  *
  * It had no test of its own. `de` and `hu` were pinned only *incidentally*, by suites that
  * happen to render a German or English date and would notice the string changing; nothing

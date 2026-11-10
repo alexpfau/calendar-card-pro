@@ -1746,8 +1746,10 @@ export function capitalizedAgainst(days, oracle) {
 
 /**
  * `fullDaysOfWeek` is always running text after `multiDay`, so it takes the lower case CLDR
- * gives a weekday inside a date wherever the language has one. `months` spans both
- * running-text and stand-alone contexts and is not checked.
+ * gives a weekday inside a date wherever the language has one. `months` is not checked: the
+ * month in that sentence is the browser's own, CLDR's by construction, and the array is the
+ * date column's label. It reaches the sentence only where the browser has no data for the
+ * language, and there it does so in the form it always had.
  *
  * A warning rather than an error, because the oracle is the runtime's CLDR rather than
  * anything in this repository: a Node release that changed a language's casing would
@@ -1796,8 +1798,9 @@ function checkRunningTextWeekdayCase(languages) {
         `so it takes the running-text form -- and the form multiDay governs, which is not ` +
         `always CLDR's: cs/hr/pl/sk "do" and lt "iki" take the genitive ("do pondělí", ` +
         `"do poniedziałku"), lv "līdz" the dative, and Finnish "päättyy" CLDR's essive. ` +
-        `tests/translations.test.ts pins each language's forms. The months array spans ` +
-        `several casing contexts, so it is deliberately not checked and must not be "fixed" ` +
+        `tests/translations.test.ts pins each language's forms. The months array is the ` +
+        `date column's label, since the browser writes the month in the sentence wherever ` +
+        `it has the language, so it is deliberately not checked and must not be "fixed" ` +
         `alongside it`,
     );
   }

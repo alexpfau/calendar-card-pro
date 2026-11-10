@@ -1371,8 +1371,17 @@ export interface Translations {
    * its suffix: "{time}-kor". Korean writes "{time}", the reading with nothing before it.
    */
   at: string;
+  /**
+   * The date column's month names. An end phrase's date is the browser's, in CLDR's form for
+   * the language; these stand in for it only where the browser has no data for the language.
+   */
   months: string[];
   daysOfWeek: string[];
+  /**
+   * The weekday as it reads in an end phrase, after `multiDay`: in lower case where the
+   * language writes it so inside a date, and in the case `multiDay` governs ("do pátku"). The
+   * browser writes the rest of that date and puts this where CLDR puts its weekday.
+   */
   fullDaysOfWeek: string[];
   /**
    * "Ends today" and "ends tomorrow". A timed event's end time follows the phrase, unless the

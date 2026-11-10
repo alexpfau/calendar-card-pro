@@ -156,6 +156,17 @@ async function intlStrings(language: string): Promise<Record<string, string | bo
       true,
     ),
     rrule: describeRRule('FREQ=WEEKLY;BYDAY=TU;UNTIL=20260714', localizeRRule, language) ?? null,
+    // Ends on a Friday, which Nynorsk and Bokmål both call "fredag": the weekday in this
+    // phrase is the card's own word, and the rest of the date is the browser's.
+    endDate: Format.formatEventTime(
+      {
+        summary: 'Anna',
+        start: { dateTime: '2026-06-17T09:30:00.000Z' },
+        end: { dateTime: '2026-06-19T15:00:00.000Z' },
+      } as Types.CalendarEventData,
+      buildConfig({ split_multiday_events: false, time_24h: true }),
+      language,
+    ),
     clock24h: getTimeFormat24h({ time_format: 'language', language }),
     editorList: formatList(language, ['Anna', 'Ben'], 'conjunction'),
   };
