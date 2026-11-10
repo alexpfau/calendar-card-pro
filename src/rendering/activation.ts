@@ -118,6 +118,38 @@ export function findEventTap(
   return undefined;
 }
 
+/**
+ * The element under a point in a root's tree: what a hit test there finds, which is what a press
+ * at that point lands on unless the browser moves it. Chromium's touch adjustment does: it hands
+ * a finger's pointer-down to a tap target near the finger while keeping the finger's own
+ * position, so the two can disagree (see `_pressPath` in the card).
+ *
+ * @param root - The card's shadow root
+ * @param point - The point, in viewport coordinates
+ * @returns The element, null where there is none, or undefined where the root cannot tell
+ */
+export function elementUnder(root: Node, point: ViewportPoint): Element | null | undefined {
+  const find = (root as Partial<DocumentOrShadowRoot>).elementFromPoint;
+  if (typeof find !== 'function') return undefined;
+  return find.call(root, point.x, point.y);
+}
+
+/**
+ * The composed path a press on an element would carry, innermost first: the element, its
+ * ancestors, and past each shadow root its host, as far as the document.
+ *
+ * @param element - The element pressed
+ * @returns Its path
+ */
+export function composedPathOf(element: Element): EventTarget[] {
+  const path: EventTarget[] = [];
+  for (let node: Node | null = element; node;) {
+    path.push(node);
+    node = node instanceof ShadowRoot ? node.host : node.parentNode;
+  }
+  return path;
+}
+
 /** The class every link drawn in an event row carries (`open_links`). */
 export const ROW_LINK_CLASS = 'event-link';
 

@@ -131,6 +131,8 @@ anywhere else, on an event included, still runs that action.
   real event a moment later. A tap in the grid shows the hour it adds the same way.
 - On a touch screen, a second finger on the screen also throws a block away, and so does the
   card turning to other days while you draw.
+- A finger held or tapped just beside an event, even a few pixels from its edge, draws or adds
+  where it is. Only a finger on an event moves it.
 - An all-day block is a banner across its days, beside the all-day events or in a row of its own
   below them. Switching on All day for a tapped event opens the band for one row, which closes
   again if you switch All day off or cancel.

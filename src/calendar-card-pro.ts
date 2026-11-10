@@ -762,6 +762,12 @@ class CalendarCardPro extends LitElement {
   /** The day's add button the active press began on, if any; see `_derivedClick`. */
   private _pointerDayAdd: EventTarget | null = null;
   /**
+   * The event a browser handed the active press to while the finger was on something else,
+   * which the press is read from instead (`_pressPath`). A browser that aims the click it
+   * derives at the pointer-down's target aims it here, so the click is owed by this event.
+   */
+  private _pointerHandedTo: EventTarget | null = null;
+  /**
    * Whether the active press began on a link in an event's row (`open_links`). Such a press is
    * armed only to page, by a touch or pen swipe: it captures nothing, and ends in no tap and no
    * hold, so the browser follows the link wherever the finger stayed put.
@@ -1307,11 +1313,69 @@ class CalendarCardPro extends LitElement {
    * tap targets, so a render still showing the previous configuration cannot act on it.
    *
    * @param ev - A pointer or mouse event dispatched to `ha-card` or inside it
+   * @param path - The path to read, where not the event's own (`_pressPath`)
    * @returns The event's element and tap target, or undefined
    */
-  private _eventTapAt(ev: Event): Activation.EventTapHit | undefined {
-    if (!this._eventsActivatable || typeof ev.composedPath !== 'function') return undefined;
-    return Activation.findEventTap(ev.composedPath(), ev.currentTarget);
+  private _eventTapAt(
+    ev: Event,
+    path: ReadonlyArray<EventTarget> | undefined = this._pathOf(ev),
+  ): Activation.EventTapHit | undefined {
+    if (!this._eventsActivatable || !path) return undefined;
+    return Activation.findEventTap(path, ev.currentTarget);
+  }
+
+  /**
+   * An input event's composed path, where it has one: unit stubs may not.
+   *
+   * @param ev - Any input event
+   * @returns Its composed path, or undefined
+   */
+  private _pathOf(ev: Event): ReadonlyArray<EventTarget> | undefined {
+    return typeof ev.composedPath === 'function' ? ev.composedPath() : undefined;
+  }
+
+  /**
+   * The path a pointer-down is read from, whether it may lift the event it is on, and the event
+   * the browser handed it to where that is not the event it is read from.
+   *
+   * Chromium's touch adjustment hands a finger's pointer-down to a tap target near the finger
+   * when it finds none under it, and keeps the finger's own position. It never counts an empty
+   * grid slot as one, since the card hears every press on `ha-card`, so a finger within about
+   * 10 to 16 px of an event's edge reached the card as a press on that event, and a hold there
+   * meant to draw lifted the event and dragged it (backlog item 195). Only a touch in a grid is
+   * checked; a mouse and a pen are read as they come. Where a tap on a slot adds an event and
+   * what lies under the finger (`Activation.elementUnder`) is a slot or another event, the press
+   * is read from there, and draws or adds there. Elsewhere the browser's choice stands, so a tap
+   * just beside an event still opens it, but such a press never lifts the event: a move follows
+   * a finger that is on it.
+   *
+   * @param ev - A pointer-down on `ha-card`
+   * @returns The path, whether it may lift an event, and the event handed to; undefined where
+   *   the pointer-down has no path
+   */
+  private _pressPath(
+    ev: PointerEvent,
+  ): { path: ReadonlyArray<EventTarget>; lifts: boolean; handedTo?: EventTarget } | undefined {
+    const path = this._pathOf(ev);
+    if (!path || ev.pointerType !== 'touch' || this.effectiveView !== 'grid') {
+      return path && { path, lifts: true };
+    }
+    const hit = Activation.findEventTap(path, ev.currentTarget);
+    if (!hit) return { path, lifts: true };
+    const point = { x: ev.clientX, y: ev.clientY };
+    const under = Activation.elementUnder(this.renderRoot, point);
+    if (under === undefined || (under && (hit.element as Node).contains(under))) {
+      return { path, lifts: true };
+    }
+    const own = under ? Activation.composedPathOf(under) : [];
+    const targetUnder =
+      this._dayTapsActive &&
+      (Activation.findEventTap(own, ev.currentTarget) ??
+        Activation.findDayHit(own, ev.currentTarget, point));
+    Logger.debug(
+      `A touch reached an event it is not on; ${targetUnder ? 'reading it from under the finger' : 'it lifts nothing'}`,
+    );
+    return targetUnder ? { path: own, lifts: true, handedTo: hit.element } : { path, lifts: false };
   }
 
   /**
@@ -4430,9 +4494,11 @@ class CalendarCardPro extends LitElement {
     // A press on a link in an event's row is the link's: the browser follows it, so it is no
     // tap or hold on anything of the card's, and arms only for a swipe, which a finger may
     // start anywhere on the days.
-    const onLink = this._startsOnRowLink(ev);
-    const tapTarget = onLink ? undefined : this._eventTapAt(ev);
-    const dayHit = onLink || tapTarget ? undefined : this._dayHitAt(ev);
+    const press = this._pressPath(ev);
+    const path = press?.path;
+    const onLink = this._startsOnRowLink(ev, path);
+    const tapTarget = onLink ? undefined : this._eventTapAt(ev, path);
+    const dayHit = onLink || tapTarget ? undefined : this._dayHitAt(ev, path);
     // A press on an event, a day or a link is theirs, so the card's ripple stays still for it
     // from start to end; the stylesheet reads the mark, and the next press anywhere else clears
     // it.
@@ -4442,7 +4508,7 @@ class CalendarCardPro extends LitElement {
     );
     const swipeable = this._swipeStartsAt(ev);
     const draftFrom = this._draftAnchorFor(dayHit);
-    const moveFrom = this._moveFrom(ev, tapTarget);
+    const moveFrom = press?.lifts ? this._moveFrom(ev, tapTarget, press.path) : undefined;
     // A press where a new event may be drawn has a hold of its own, which draws one, and so does
     // a press on an event a drag may move, which lifts it.
     const holds =
@@ -4465,8 +4531,9 @@ class CalendarCardPro extends LitElement {
     this._holdTriggered = false;
     this._pointerTapTarget = tapTarget ?? null;
     this._pointerDayHit = dayHit ?? null;
-    this._pointerAddContext = onLink ? null : (this._addContextAt(ev) ?? null);
-    this._pointerDayAdd = onLink ? null : (this._dayAddAt(ev)?.element ?? null);
+    this._pointerAddContext = onLink ? null : (this._addContextAt(ev, path) ?? null);
+    this._pointerDayAdd = onLink ? null : (this._dayAddAt(ev, path)?.element ?? null);
+    this._pointerHandedTo = press?.handedTo ?? null;
     this._pointerSwipeable = swipeable;
     this._pointerOnLink = onLink;
     this._pointerDraftFrom = draftFrom ?? null;
@@ -5157,13 +5224,15 @@ class CalendarCardPro extends LitElement {
    *
    * @param ev - A pointer-down on `ha-card`
    * @param hit - The event it landed on, if any
+   * @param path - The path the press is read from (`_pressPath`)
    * @returns The move it arms, not yet started, or undefined
    */
   private _moveFrom(
     ev: PointerEvent,
     hit: Activation.EventTapHit | undefined,
+    path: ReadonlyArray<EventTarget>,
   ): NonNullable<CalendarCardPro['_move']> | undefined {
-    if (!hit || !this._movesEvents || typeof ev.composedPath !== 'function') return undefined;
+    if (!hit || !this._movesEvents) return undefined;
     const element = hit.element;
     if (!(element instanceof Element) || !element.classList.contains('grid-event')) {
       return undefined;
@@ -5175,7 +5244,7 @@ class CalendarCardPro extends LitElement {
     const times = GridMove.movableTimes(entry);
     if (!times || !this._eventPermissions(event, entry).canEdit) return undefined;
 
-    const body = ev.composedPath().find((node) => Activation.daySlotOn(node)?.kind === 'time') as
+    const body = path.find((node) => Activation.daySlotOn(node)?.kind === 'time') as
       Element | undefined;
     const slot = Activation.daySlotOn(body);
     if (!body || slot?.kind !== 'time') return undefined;
@@ -5427,11 +5496,15 @@ class CalendarCardPro extends LitElement {
    * `_pointerOnLink` for what such a press may still do.
    *
    * @param ev - A pointer-down on `ha-card`
+   * @param path - The path the press is read from (`_pressPath`)
    * @returns True when the press is the link's
    */
-  private _startsOnRowLink(ev: PointerEvent): boolean {
-    if (typeof ev.composedPath !== 'function') return false;
-    return Activation.startsOnRowLink(ev.composedPath(), ev.currentTarget);
+  private _startsOnRowLink(
+    ev: PointerEvent,
+    path: ReadonlyArray<EventTarget> | undefined,
+  ): boolean {
+    if (!path) return false;
+    return Activation.startsOnRowLink(path, ev.currentTarget);
   }
 
   /**
@@ -5451,14 +5524,15 @@ class CalendarCardPro extends LitElement {
    * days.
    *
    * @param ev - A pointer-down on `ha-card`
+   * @param path - The path the press is read from (`_pressPath`)
    * @returns Where the press landed, or undefined
    */
-  private _dayHitAt(ev: PointerEvent): Activation.DayHit | undefined {
-    if (!this._dayTapsActive || typeof ev.composedPath !== 'function') return undefined;
-    return Activation.findDayHit(ev.composedPath(), ev.currentTarget, {
-      x: ev.clientX,
-      y: ev.clientY,
-    });
+  private _dayHitAt(
+    ev: PointerEvent,
+    path: ReadonlyArray<EventTarget> | undefined,
+  ): Activation.DayHit | undefined {
+    if (!this._dayTapsActive || !path) return undefined;
+    return Activation.findDayHit(path, ev.currentTarget, { x: ev.clientX, y: ev.clientY });
   }
 
   /**
@@ -5467,30 +5541,33 @@ class CalendarCardPro extends LitElement {
    * on Thursday.
    *
    * @param ev - A pointer-down on `ha-card`
+   * @param path - The path the press is read from (`_pressPath`)
    * @returns Where the press landed, or undefined
    */
-  private _addContextAt(ev: PointerEvent): Activation.DayHit | undefined {
+  private _addContextAt(
+    ev: PointerEvent,
+    path: ReadonlyArray<EventTarget> | undefined,
+  ): Activation.DayHit | undefined {
     const adds = (action: Types.ActionConfig | null | undefined) =>
       action?.action === Constants.ADD_EVENT_ACTION;
     if (!adds(this.config.tap_action) && !adds(this.config.hold_action)) return undefined;
-    if (!this._canAddEvents || typeof ev.composedPath !== 'function') return undefined;
-    return Activation.findDayHit(
-      ev.composedPath(),
-      ev.currentTarget,
-      { x: ev.clientX, y: ev.clientY },
-      true,
-    );
+    if (!this._canAddEvents || !path) return undefined;
+    return Activation.findDayHit(path, ev.currentTarget, { x: ev.clientX, y: ev.clientY }, true);
   }
 
   /**
    * The day's add button an input event started on, while there are any.
    *
    * @param ev - An input event dispatched to `ha-card` or inside it
+   * @param path - The path to read, where not the event's own (`_pressPath`)
    * @returns The button and its day, or undefined
    */
-  private _dayAddAt(ev: Event): { element: EventTarget; timestamp: number } | undefined {
-    if (!this._dayTapsActive || typeof ev.composedPath !== 'function') return undefined;
-    return Activation.findDayAdd(ev.composedPath(), ev.currentTarget);
+  private _dayAddAt(
+    ev: Event,
+    path: ReadonlyArray<EventTarget> | undefined = this._pathOf(ev),
+  ): { element: EventTarget; timestamp: number } | undefined {
+    if (!this._dayTapsActive || !path) return undefined;
+    return Activation.findDayAdd(path, ev.currentTarget);
   }
 
   /**
@@ -5702,10 +5779,12 @@ class CalendarCardPro extends LitElement {
     // The click a browser derives from this gesture is not a second activation. Guarded for
     // the event or the day's add button the gesture began on, whatever it was, or for no
     // element after a tap elsewhere on the card or a day; a gesture that ran nothing and began
-    // off those owes nothing that could act. See `_derivedClick`.
-    const owedBy = tapTarget
-      ? tapTarget.element
-      : (this._pointerDayAdd ?? (ranOffEvents ? null : undefined));
+    // off those owes nothing that could act. A press read from under the finger rather than
+    // from the event a browser handed it to owes its click by that event, which is what a
+    // browser aiming the click at the pointer-down's target names. See `_derivedClick`.
+    const owedBy =
+      this._pointerHandedTo ??
+      (tapTarget ? tapTarget.element : (this._pointerDayAdd ?? (ranOffEvents ? null : undefined)));
     this._derivedClick =
       owedBy === undefined
         ? null
@@ -5764,6 +5843,7 @@ class CalendarCardPro extends LitElement {
     this._pointerDayHit = null;
     this._pointerAddContext = null;
     this._pointerDayAdd = null;
+    this._pointerHandedTo = null;
     this._pointerSwipeable = false;
     this._pointerOnLink = false;
     this._pointerDraftFrom = null;
