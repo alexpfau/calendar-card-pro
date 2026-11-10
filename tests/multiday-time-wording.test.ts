@@ -98,9 +98,10 @@ describe('the end time in a sentence', () => {
   // `at` puts the end time in the sentence. Most languages write a word before the time,
   // "at 0:30", after "ends today" or "ends tomorrow". Hungarian marks the time with a suffix,
   // "0:30-kor", so its `at` is a template, "{time}-kor", and puts the time before its verb, so
-  // its `endsTomorrow` marks the place with `{at}`: "holnap {at} ér véget". Each shape below is
-  // one branch of `formatMultiDayTime` that writes `at`, with the reading the 24-hour and
-  // 12-hour clocks print for its end.
+  // its `endsTomorrow` marks the place with `{at}`: "holnap {at} ér véget". Korean does the
+  // same with a particle written onto the place, "내일 {at}에 종료". Each shape below is one
+  // branch of `formatMultiDayTime` that writes `at`, with the reading the 24-hour and 12-hour
+  // clocks print for its end.
   const shapes: [string, Types.CalendarEventData, string, string][] = [
     [
       'from today to tomorrow',
@@ -168,6 +169,63 @@ describe('the end time in a sentence', () => {
     ]);
   });
 
+  it('writes a Korean time with 에 inside the end phrase, and bare after a date', () => {
+    // Korean puts a time before its verb with the particle 에, as Home Assistant's own Korean
+    // does ("{time}에 완료"), and writes a date and time side by side with nothing between, as
+    // CLDR does ("10월 23일 금요일 오후 5:00"). The dated ends also record "23 10월", an older
+    // date order this test does not vouch for.
+    expect(events.map((event) => timeOf(event, 'ko'))).toEqual([
+      '22:30, 내일 0:30에 종료',
+      '9:00 ~ 금요일, 23 10월 17:00',
+      '오늘 12:00에 종료',
+      '내일 8:00에 종료',
+      '~ 금요일, 23 10월 17:00',
+    ]);
+    expect(events.map((event) => FormatUtils.formatEventTime(event, twelveHour, 'ko'))).toEqual([
+      '10:30 PM, 내일 12:30 AM에 종료',
+      '9:00 AM ~ 금요일, 23 10월 5:00 PM',
+      '오늘 12:00 PM에 종료',
+      '내일 8:00 AM에 종료',
+      '~ 금요일, 23 10월 5:00 PM',
+    ]);
+  });
+
+  it('reads a Korean all-day end without the time or its particle', () => {
+    // The particle is written onto `{at}`, so it goes with it: "내일 에 종료" would strand it.
+    expect(allDays.map((event) => timeOf(event, 'ko'))).toEqual([
+      '종일, 오늘 종료',
+      '종일, 내일 종료',
+      '종일, ~ 일요일, 25 10월',
+    ]);
+  });
+
+  it('writes a Turkish end as a label, with "saat" before the time', () => {
+    // A Turkish time before a verb takes a locative suffix whose vowel follows how the number
+    // is read ("0:30'da", "17:00'de", "3:05'te"), so "sona eriyor" needs one string per reading.
+    // A label needs none: "bitiş: yarın saat 0:30", as Home Assistant's own Turkish writes a
+    // day and time ("{day} saat {time}"). The dated ends also record "değin" before the day,
+    // an older string this test does not vouch for.
+    expect(events.map((event) => timeOf(event, 'tr'))).toEqual([
+      '22:30, bitiş: yarın saat 0:30',
+      '9:00 değin Cuma, 23 Eki saat 17:00',
+      'Bitiş: bugün saat 12:00',
+      'Bitiş: yarın saat 8:00',
+      'Değin Cuma, 23 Eki saat 17:00',
+    ]);
+    expect(events.map((event) => FormatUtils.formatEventTime(event, twelveHour, 'tr'))).toEqual([
+      '10:30 PM, bitiş: yarın saat 12:30 AM',
+      '9:00 AM değin Cuma, 23 Eki saat 5:00 PM',
+      'Bitiş: bugün saat 12:00 PM',
+      'Bitiş: yarın saat 8:00 AM',
+      'Değin Cuma, 23 Eki saat 5:00 PM',
+    ]);
+    expect(allDays.map((event) => timeOf(event, 'tr'))).toEqual([
+      'Tüm gün, bitiş: bugün',
+      'Tüm gün, bitiş: yarın',
+      'Tüm gün, değin Pazar, 25 Eki',
+    ]);
+  });
+
   it('leaves English as it was, on both clocks', () => {
     expect(events.map((event) => timeOf(event))).toEqual([
       '22:30, ends tomorrow at 0:30',
@@ -196,10 +254,10 @@ describe('the end time in a sentence', () => {
     return [t.at, t.endsToday, t.endsTomorrow].some((text) => /\{\w+\}/.test(text));
   };
 
-  it('is a template in Hungarian alone', () => {
+  it('is a template in Hungarian and Korean alone', () => {
     // A language that takes up the template gets a test of its own above, rather than
     // passing the one below by being skipped.
-    expect(LANGUAGES.filter(templated)).toEqual(['hu']);
+    expect(LANGUAGES.filter(templated)).toEqual(['hu', 'ko']);
   });
 
   it('ends every other language with `at`, a space and the time', () => {
@@ -215,7 +273,7 @@ describe('the end time in a sentence', () => {
         compared++;
       }
     }
-    expect(compared).toBe((LANGUAGES.length - 1) * shapes.length);
+    expect(compared).toBe((LANGUAGES.length - 2) * shapes.length);
   });
 
   it('leaves no placeholder behind in any language, on either clock', () => {
