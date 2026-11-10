@@ -279,8 +279,17 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(203_000);
-    // Old Safari's colors moved the ceiling last, from 200,000 to 203,000: the notes on why a
+    expect(saved).toBeLessThan(208_000);
+    // The title that wraps beside the time moved the ceiling last, from 203,000 to 208,000: the
+    // notes on why the time is placed over an empty float rather than floated itself (its font
+    // sizes would be measured against the title's), why the sides it is placed on are named by
+    // the row's direction rather than written as the inline end, why a cut title clamps on its
+    // row in WebKit's terms and not on .summary, why the time's box opens with a strut at the
+    // title's size and is placed by its top, and why the cut moves the title's bottom padding
+    // below the row. The reading went from 200,189 to 205,833, taken with stripComments after the
+    // last comment was written.
+    //
+    // Old Safari's colors moved the ceiling before that, from 200,000 to 203,000: the notes on why a
     // tinted event's wash reads its currentColor mix in a box-shadow only behind
     // content-visibility, since Safari 16.4 and 16.5 crash on one there, and why a day's add
     // washes fall back to a neutral gray, in two hover rules rather than one, where color-mix()

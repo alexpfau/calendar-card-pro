@@ -209,6 +209,8 @@ A few more classes mark something the card draws only some of the time:
 | `event-interactive` | `.event` in column and grid view, `.event-button` in list view | `event_tap_action` is `details`                                                                                                          |
 | `event-tappable`    | `td.event` in list view                                        | `event_tap_action` is `details`                                                                                                          |
 | `time-beside-title` | `.event-content` in list and column view                       | `time_position` is `title` and the event has a time or a countdown, which then sits in `.title-aside` after `.summary` in `.summary-row` |
+| `title-wrap`        | `.summary-row`, with `time-beside-title`                       | the title wraps beside the time: no `title_max_lines: 1` or `scroll_long_titles`. `.summary` ends in `.title-room`, kept for the time    |
+| `title-capped`      | `.summary-row`, with `title-wrap`                              | `title_max_lines` is two or more                                                                                                         |
 | `fetch-error`       | the line below the events naming the calendars that failed     | a calendar [fails to load](/features/performance#when-a-calendar-fails-to-load)                                                          |
 | `page-pending`      | `.content-container`                                           | the days on screen wait for another page's events, dimmed to 50%                                                                         |
 
@@ -224,6 +226,10 @@ A few more classes mark something the card draws only some of the time:
 - When events are [tap targets](/features/actions#tapping-an-event), list view's is a
   `.event-button` inside `td.event`, so `.event-interactive` alone reaches all three views,
   while `.event.event-interactive` misses list view.
+- In a `.title-wrap` row the card measures `.title-aside`, sizes `.title-room` to it and places
+  the time over the room, marking the row `data-title-fit`. `data-title-cut` marks a title it
+  cut at `title_max_lines`. A theme that changes the time's size or spacing is measured with it;
+  one that moves `.title-aside` elsewhere leaves the room empty and can overlap the title.
 - `.fetch-error` holds `.fetch-error-icon` and `.fetch-error-text`, in the theme's
   `--error-color`.
 - `.event-title`, `.time` and `.location` are plain element classes with no state attached.
@@ -487,11 +493,11 @@ card_mod:
 
 This needs no card-mod: the built-in
 [`time_position`](/features/event-content#time-beside-the-title) option draws the time at the end
-of the title's line, on every row with a time or a countdown. The title keeps the rest of the
-line and ends in "…" when it is too long, or scrolls with `scroll_long_titles`, a countdown
-follows the time after a dot, and list view's
-progress bar takes a row of its own. It needs a wide event row, more so with countdowns, event
-weather and similar extras, and `list:` and `column:` can each set it for their own layout:
+of the title's line, on every row with a time or a countdown. A long title wraps and the time
+ends its last line, or takes a line of its own where it does not fit; `title_max_lines` cuts the
+title with the time on its last line, and `scroll_long_titles` keeps it on one line. A countdown
+follows the time after a dot, and list view's progress bar takes a row of its own. `list:` and
+`column:` can each set it for their own layout:
 
 ```yaml
 type: custom:calendar-card-pro

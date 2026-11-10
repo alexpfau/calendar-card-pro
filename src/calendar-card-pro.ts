@@ -78,6 +78,7 @@ import * as Search from './utils/search';
 import * as StartDate from './utils/start-date';
 import * as Templates from './utils/templates';
 import * as TextDirection from './utils/text-direction';
+import * as TitleFit from './utils/title-fit';
 import {
   TitleMotionController,
   type TitleScrollMeasurement,
@@ -1831,6 +1832,15 @@ class CalendarCardPro extends LitElement {
   private _titleScrollFontsCleanup: (() => void) | null = null;
   private _titleMotion: TitleMotionController | null = null;
 
+  /**
+   * Observers and pending work for fitting the time to titles that wrap beside it; see
+   * `_syncTitleFits`.
+   */
+  private _titleFitObserver: ResizeObserver | null = null;
+  private _titleFitMutations: MutationObserver | null = null;
+  private _titleFitRaf: number | null = null;
+  private _titleFitFontsCleanup: (() => void) | null = null;
+
   //-----------------------------------------------------------------------------
   // COMPUTED GETTERS
   //-----------------------------------------------------------------------------
@@ -2295,6 +2305,7 @@ class CalendarCardPro extends LitElement {
     // necessarily schedule a Lit update. Reacquire from the existing shadow DOM
     // immediately; the first connection still gets its normal post-render sync.
     this._syncTitleScroll();
+    this._syncTitleFits();
     this._syncGridDisclosureSafety();
   }
 
@@ -2304,6 +2315,7 @@ class CalendarCardPro extends LitElement {
     this._stopWidthObserver();
     this._stopGridDisclosureObserver();
     this._stopTitleScrollObserver();
+    this._stopTitleFits();
     Menu.closeMenus(this.renderRoot);
     this._search?.close();
     this._settleSearchRing();
@@ -3731,6 +3743,7 @@ class CalendarCardPro extends LitElement {
 
     this._applyVisibility();
     this._syncTitleScroll();
+    this._syncTitleFits();
     this._syncToolbarLabelFit();
     this._syncMonthFit();
     this._syncHeadingMiddle();
@@ -3835,7 +3848,7 @@ class CalendarCardPro extends LitElement {
   }
 
   //-----------------------------------------------------------------------------
-  // TITLE SCROLL (scroll_long_titles, and time_position: title)
+  // TITLE SCROLL (scroll_long_titles, and time_position: title with title_max_lines: 1)
   //-----------------------------------------------------------------------------
 
   /**
@@ -3843,8 +3856,9 @@ class CalendarCardPro extends LitElement {
    *
    * Measurement observers rebind as titles change; the visible cohort and native clocks
    * survive those rebinds. A card on which no title is kept to one line returns immediately:
-   * see `Helpers.titlesOnOneLine`, which `time_position: title` turns on as well. Such a title
-   * is measured even where it cannot move, so its labels keep their line, but only a title with
+   * see `Helpers.titlesOnOneLine`, which `time_position: title` with `title_max_lines: 1` turns
+   * on as well. Such a title is measured even where it cannot move, so its labels keep their
+   * line, but only a title with
    * moving text (`.event-title-scroll`, which `scroll_long_titles` gives it) is handed to the
    * motion machinery; a card with none runs no motion controller and no pause observer.
    *
@@ -4084,6 +4098,107 @@ class CalendarCardPro extends LitElement {
       this.renderRoot.querySelectorAll('[data-scroll-labels]').forEach((summary) => {
         summary.removeAttribute('data-scroll-labels');
       });
+    }
+  }
+
+  //-----------------------------------------------------------------------------
+  // TITLE FIT (time_position: title, wrapping titles)
+  //-----------------------------------------------------------------------------
+
+  /**
+   * Sizes the room each wrapping title beside the time keeps for it, and with `title_max_lines`
+   * of two or more cuts the titles that need more lines than that; see
+   * `TitleFit.fitTitlesBesideTime`, which measures them.
+   *
+   * Runs after every render and on reconnecting, at once rather than on the next frame, so a
+   * row is drawn fitted from its first paint. Then again on the next frame whenever the card, a
+   * title or a time changes size, which a theme or card-mod can do to the time without moving
+   * the card; when an ancestor's direction, language, class or style changes; and once the fonts
+   * have loaded. Measuring rows neither moves the card nor resizes it twice: a row measured again
+   * ends exactly as it was. A card without such titles clears what a render left on an element
+   * Lit kept, and observes nothing.
+   */
+  private _syncTitleFits(): void {
+    this._stopTitleFits();
+    const rows: HTMLElement[] = this.isConnected
+      ? Array.from(this.renderRoot.querySelectorAll<HTMLElement>('.summary-row.title-wrap'))
+      : [];
+    if (!rows.length) {
+      this.renderRoot
+        .querySelectorAll<HTMLElement>(`[${TitleFit.TITLE_FIT}]`)
+        .forEach(TitleFit.clearTitleFit);
+      return;
+    }
+    this._measureTitleFits();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(() => this._scheduleTitleFits());
+      this._titleFitObserver = observer;
+      observer.observe(this);
+      rows.forEach((row) => {
+        row
+          .querySelectorAll<HTMLElement>(':scope > .summary, :scope > .title-aside')
+          .forEach((part) => observer.observe(part));
+      });
+    }
+    if (typeof MutationObserver !== 'undefined') {
+      this._titleFitMutations = new MutationObserver((records) => {
+        if (records.some((record) => !isScrollPauseOnlyMutation(record, this))) {
+          this._scheduleTitleFits();
+        }
+      });
+      observeTypographyAncestors(this._titleFitMutations, this);
+    }
+    const fonts = document.fonts;
+    if (fonts) {
+      let active = true;
+      const onFonts = (): void => {
+        if (active) this._scheduleTitleFits();
+      };
+      void fonts.ready.then(onFonts);
+      if (typeof fonts.addEventListener === 'function') {
+        fonts.addEventListener('loadingdone', onFonts);
+      }
+      this._titleFitFontsCleanup = () => {
+        active = false;
+        if (typeof fonts.removeEventListener === 'function') {
+          fonts.removeEventListener('loadingdone', onFonts);
+        }
+      };
+    }
+  }
+
+  /** Measures every wrapping title beside the time on the card, at once. */
+  private _measureTitleFits(): void {
+    const config = this.effectiveConfig;
+    TitleFit.fitTitlesBesideTime(
+      this.renderRoot.querySelectorAll<HTMLElement>('.summary-row.title-wrap'),
+      Helpers.titlesCutBesideTime(config, this.effectiveView)
+        ? Number(config.title_max_lines) || 0
+        : 0,
+    );
+  }
+
+  /** Measures again on the next frame, once a resize or a font load has settled. */
+  private _scheduleTitleFits(): void {
+    if (this._titleFitRaf !== null) cancelAnimationFrame(this._titleFitRaf);
+    this._titleFitRaf = requestAnimationFrame(() => {
+      this._titleFitRaf = null;
+      if (this.isConnected) this._measureTitleFits();
+    });
+  }
+
+  /** Tears down the title-fit observers and cancels pending work, leaving every fit in place. */
+  private _stopTitleFits(): void {
+    this._titleFitObserver?.disconnect();
+    this._titleFitObserver = null;
+    this._titleFitMutations?.disconnect();
+    this._titleFitMutations = null;
+    this._titleFitFontsCleanup?.();
+    this._titleFitFontsCleanup = null;
+    if (this._titleFitRaf !== null) {
+      cancelAnimationFrame(this._titleFitRaf);
+      this._titleFitRaf = null;
     }
   }
 

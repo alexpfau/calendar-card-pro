@@ -388,10 +388,11 @@ export function renderLabel(
 /**
  * Render an event title with optional label and weather data
  *
- * `aside` is `time_position: title`'s time row. Given one, the title is kept to its line, where
- * it scrolls with `scroll_long_titles` and otherwise ends in "…", and the row draws the time
- * after the title in `.title-aside`, after list view's weather badge. Without one the row is the
- * markup every view drew before the option existed.
+ * `aside` is `time_position: title`'s time row. Given one, the row draws the time after the title
+ * in `.title-aside`, after list view's weather badge: at the end of the title's last line, which
+ * wraps across the row, or, with `title_max_lines: 1` or `scroll_long_titles`, beside a title
+ * kept to its line, where it scrolls with `scroll_long_titles` and otherwise ends in "…". Without
+ * one the row is the markup every view drew before the option existed.
  */
 function renderEventTitle(
   event: Types.CalendarEventData,
@@ -423,11 +424,12 @@ function renderEventTitle(
   const labelType = event._matchedConfig?.label_type;
 
   const titleString = showEmptyDayCheckmark ? `✓ ${event.summary}` : event.summary;
-  // A title with a time beside it is kept to one line: the time takes the line's end, and the
-  // title has one line beside it whatever `scroll_long_titles` says. Only that option moves it;
-  // without it the title is the same one line, cut with "…" where it is too long, as a scrolling
-  // title is under reduced motion.
-  const oneLineTitle = aside !== undefined || config.scroll_long_titles;
+  // A title with a time beside it wraps across the row, and the time ends its last line; see
+  // `Helpers.titleBesideTimeLayout`. With `title_max_lines: 1` it is kept to one line instead:
+  // the time takes the line's end and the title has the rest, cut with "…" where it is too long,
+  // as a scrolling title is under reduced motion. Only `scroll_long_titles` moves it.
+  const besideLayout = aside !== undefined ? Helpers.titleBesideTimeLayout(config) : undefined;
+  const oneLineTitle = Boolean(config.scroll_long_titles) || besideLayout === 'line';
   const titleMoves = Boolean(config.scroll_long_titles);
   // No whitespace inside the word spans, and the spaces between them stay text: joined, the
   // pieces are the title exactly, so its text content does not change.
@@ -562,7 +564,8 @@ function renderEventTitle(
   // order on such a line, and the stylesheet keeps the line on the dashboard's side.
   // Unclamped titles, the empty-day line and grid, which cuts its titles itself, are left as
   // they were; so is the dir attribute on a title in the dashboard's direction, which moves
-  // nothing.
+  // nothing. A title beside the time cut at a limit of two or more takes it as well, and the
+  // stylesheet keeps the time on the dashboard's side of it.
   const summaryDir =
     !titleWords && !oneLineTitle && !isEmptyDay && config.title_max_lines > 0
       ? (titleDirection(event.summary ?? '') ?? nothing)
@@ -593,16 +596,38 @@ function renderEventTitle(
           ${titleInner}
         </span>`;
 
-  // The title line of `time_position: title`: the title, kept to its line, then the badge and the
+  // The title line of `time_position: title` kept to one line: the title, then the badge and the
   // time together in `.title-aside`, which the stylesheet caps so the title keeps the rest. No
   // directive here: every element in this template is a flex container, which draws none of the
   // whitespace between its children, so Prettier may lay the template out as it likes.
-  if (aside) {
+  if (aside && oneLineTitle) {
     return html`
       <div class="summary-row">
-        <div class="summary${oneLineTitle ? ' summary-scroll' : ''}">${title}</div>
+        <div class="summary summary-scroll">${title}</div>
         <div class="title-aside">
           ${renderEventWeather(event, config, weatherForecasts)}${aside}
+        </div>
+      </div>
+    `;
+  }
+
+  // A wrapping title beside the time: the title wraps across the row, and `.title-room`, an empty
+  // float the size of the time, ends its text, on its last line where it fits there and on a line
+  // of its own where it does not. The badge and the time are placed over it, from `.title-aside`
+  // beside `.summary`, so their sizes are measured against the card's text as they are on one
+  // line, rather than against the title's. The card measures the time and sizes the room to it;
+  // see `TitleFit.fitTitlesBesideTime`. `title-capped` marks a `title_max_lines` of two or more,
+  // which the card cuts the same way. Nothing between the title and the room: a space there is
+  // text on the title's last line. `.title-strut` opens the time's box with a word joiner at the
+  // title's size, which puts the box's baseline where the title's is and lets the card measure
+  // whether the time moved it.
+  // prettier-ignore
+  if (aside) {
+    return html`
+      <div class="summary-row title-wrap${besideLayout === 'cap' ? ' title-capped' : ''}">
+        <div class="summary" dir=${summaryDir}>${title}<span class="title-room"></span></div>
+        <div class="title-aside">
+          <span class="title-strut" aria-hidden="true">\u2060</span>${renderEventWeather(event, config, weatherForecasts)}${aside}
         </div>
       </div>
     `;
@@ -1225,7 +1250,10 @@ interface TimeBesideTitlePieces {
  * the time text and the progress bar is the row of its own `renderEventContent` passes here,
  * in list view as in column view. With times off, the countdown alone takes the time's place.
  *
- * The title is always one line, so every row drawn here lays out the same way: the time takes
+ * The title wraps across the row by default, and the time ends its last line where it fits and
+ * takes a line of its own, at the end, where it does not; `title_max_lines` of two or more cuts
+ * a longer title on its last line, with the time at the end of that line. With
+ * `title_max_lines: 1` or `scroll_long_titles` the title is one line instead: the time takes
  * what it needs, normally up to a cap the stylesheet sets, and the title has the rest of the
  * line, scrolling there with `scroll_long_titles` and otherwise ending in "…". Everything else
  * stays below in its usual order: the progress row, column view's weather row, the location

@@ -1085,7 +1085,7 @@ describe('card stylesheet', () => {
       const removes = (rule: (typeof all)[number]) =>
         /(^|;)\s*content:\s*none\s*(;|$)/.test(rule.body);
       expect(all.filter(removes).map((rule) => rule.selectors)).toEqual([
-        ['.time-beside-title > .summary-row > .title-aside > .time > .time-countdown::before'],
+        ['.time-beside-title .summary-row .title-aside > .time > .time-countdown::before'],
       ]);
       const rules = all.filter((rule) => !removes(rule));
       expect(rules).toHaveLength(2);
@@ -3721,7 +3721,9 @@ describe('the today tile', () => {
 
 /**
  * `time_position: title`: the time at the end of the title's line, at any width, in a box of its
- * own that list view's weather badge shares, after the title, which always scrolls.
+ * own that list view's weather badge shares. After a title that wraps, over a room the card sizes
+ * to it at the end of the title's text, and cut at a limit of two lines or more; or after a title
+ * kept to one line, which scrolls or ends in "…".
  *
  * Every declaration is pinned by value, and the set of rules naming the placement is pinned
  * whole, at any depth. That pins what the stylesheet says, not what a browser draws from it:
@@ -3737,7 +3739,12 @@ describe('the today tile', () => {
 describe('the time beside the title', () => {
   const ROW = '.time-beside-title > .summary-row';
   const ASIDE = `${ROW} > .title-aside`;
-  const TIME = `${ASIDE} > .time`;
+  const WRAP = `${ROW}.title-wrap`;
+  const CUT = `${WRAP}[data-title-cut='']`;
+  const BELOW = `${WRAP}[data-title-cut='below']`;
+  /** The box and the time in either layout. */
+  const SHARED = '.time-beside-title .summary-row .title-aside';
+  const TIME = `${SHARED} > .time`;
   const BADGE_ROW = '.time-beside-title .time-actual:has(> .allday-badge + .time-text)';
 
   /** Split a selector list at its top-level commas, so `:is(a, b)` stays one selector. */
@@ -3824,9 +3831,12 @@ describe('the time beside the title', () => {
       'font-size': 'var(--calendar-card-weather-event-font-size, 12px)',
       'align-self': 'baseline',
     }),
-    [`${ASIDE} > .event-weather`]: one({ 'margin-inline-end': '0' }),
+    [`${SHARED} > .event-weather`]: one({ 'margin-inline-end': '0' }),
     // The bullet, only after a badge, with the folded countdown's spacing.
-    [`${ASIDE} > .event-weather + .time::before`]: one({ content: "'·'", 'margin-inline': '4px' }),
+    [`${SHARED} > .event-weather + .time::before`]: one({
+      content: "'·'",
+      'margin-inline': '4px',
+    }),
     // The time as an item of the box, with none of the row it is below the title, and every line
     // of a time that wraps, or a pill wrapped above it, set against the end as the box is.
     [TIME]: one({
@@ -3848,6 +3858,91 @@ describe('the time beside the title', () => {
       'white-space': 'normal',
     }),
     [`${TIME} > .time-countdown::before`]: one({ content: 'none' }),
+    // A wrapping title: a block row, the title in its own formatting context and inline, and
+    // the gap before the time said once, on the row, where the card reads it.
+    [WRAP]: one({
+      display: 'block',
+      position: 'relative',
+      '--calendar-card-title-room-gap': '12px',
+    }),
+    [`${WRAP} > .summary:not(.summary-scroll)`]: one({
+      display: 'flow-root',
+      'margin-inline': '0',
+    }),
+    [`${WRAP} > .summary > .event-title`]: one({ display: 'inline' }),
+    // The room ending the title, drawn only once the card has sized it to the time, then floated
+    // to the row's end, named by the direction the card measured, with the gap before it.
+    [`${WRAP} > .summary > .title-room`]: one({ display: 'none' }),
+    [`${WRAP}[data-title-fit] > .summary > .title-room`]: one({
+      display: 'block',
+      width: 'var(--calendar-card-title-room-width)',
+      height: 'var(--calendar-card-title-room-height)',
+    }),
+    [`${WRAP}[data-title-fit='ltr'] > .summary > .title-room`]: one({
+      float: 'right',
+      'margin-left': 'var(--calendar-card-title-room-gap)',
+    }),
+    [`${WRAP}[data-title-fit='rtl'] > .summary > .title-room`]: one({
+      float: 'left',
+      'margin-right': 'var(--calendar-card-title-room-gap)',
+    }),
+    // The box: a line of its own under the title, at the end, until the room is sized; then over
+    // the room, placed by its top so a time that grows before the next fit grows away from the
+    // title. As wide as it needs, no wider than the row less the gap, at the title's line height,
+    // and opened by the strut, a word joiner at the title's size.
+    [`${WRAP} > .title-aside`]: one({
+      display: 'flex',
+      'align-items': 'baseline',
+      width: 'max-content',
+      'max-width': 'calc(100% - var(--calendar-card-title-room-gap))',
+      'margin-inline-start': 'auto',
+      'line-height': '1.2',
+    }),
+    [`${WRAP} > .title-aside > .title-strut`]: one({
+      'font-size': 'var(--calendar-card-font-size-event)',
+    }),
+    [`${WRAP}[data-title-fit] > .title-aside`]: one({
+      position: 'absolute',
+      top: 'calc(100% - var(--calendar-card-title-pad) - var(--calendar-card-title-room-height))',
+    }),
+    [`${WRAP}[data-title-fit='ltr'] > .title-aside`]: one({ right: '0' }),
+    [`${WRAP}[data-title-fit='rtl'] > .title-aside`]: one({ left: '0' }),
+    // Cut beside the time: the row clamps, .summary is no box of its own, and a float shaped to
+    // the last lines keeps the time's room there.
+    [CUT]: one({
+      display: '-webkit-box',
+      '-webkit-box-orient': 'vertical',
+      '-webkit-line-clamp': 'var(--calendar-card-title-max-lines)',
+      overflow: 'hidden',
+      'margin-bottom': 'var(--calendar-card-title-pad)',
+    }),
+    [`${CUT} > .summary:not(.summary-scroll)`]: one({
+      display: 'block',
+      overflow: 'visible',
+      'padding-bottom': '0',
+    }),
+    [`${CUT} > .summary::before`]: one({
+      content: "''",
+      width: 'calc(var(--calendar-card-title-room-width) + var(--calendar-card-title-room-gap))',
+      height: 'var(--calendar-card-title-cut-end)',
+      'shape-outside': 'inset(var(--calendar-card-title-cut-start) 0 0 0)',
+    }),
+    [`${WRAP}[data-title-fit='ltr'][data-title-cut=''] > .summary::before`]: one({
+      float: 'right',
+    }),
+    [`${WRAP}[data-title-fit='rtl'][data-title-cut=''] > .summary::before`]: one({
+      float: 'left',
+    }),
+    [`${WRAP}[data-title-cut] > .summary > .title-room`]: one({ display: 'none' }),
+    [`${CUT} > .title-aside`]: one({ top: 'calc(100% - var(--calendar-card-title-room-height))' }),
+    // Cut below the title: .summary clamps, and the row keeps room under it for the time.
+    [BELOW]: one({ 'padding-bottom': 'var(--calendar-card-title-cut-below)' }),
+    [`${BELOW} > .summary:not(.summary-scroll)`]: one({
+      display: '-webkit-box',
+      '-webkit-box-orient': 'vertical',
+      '-webkit-line-clamp': 'var(--calendar-card-title-max-lines)',
+      'padding-bottom': '0',
+    }),
     // An all-day badge with a countdown folded after it wraps as column view's does, in list
     // view too, so the pill and the countdown's longest word do not set the box's floor side
     // by side. These share column view's rules, whole.
@@ -3881,13 +3976,15 @@ describe('the time beside the title', () => {
     }
   });
 
-  it('keeps the title line one line: nothing lets it wrap', () => {
-    // The title line is the title row, a flex row that never wraps, so the time cannot leave it.
-    // No rule outside the grid, whatever else it names, may give it another display or let it
-    // wrap.
+  it('keeps the title line one line where the title is: nothing lets it wrap', () => {
+    // The title line of a one-line title is the title row, a flex row that never wraps, so the
+    // time cannot leave it. No rule outside the grid, whatever else it names, may give it another
+    // display or let it wrap, bar the wrapping title's own row, pinned whole above.
     expect(declared('.summary-row', 'display')).toBe('flex');
     const subjectIsTitleRow = (selector: string) =>
-      /\.summary-row(?![\w-])[^\s>+~]*$/.test(selector) && !selector.includes('grid');
+      /\.summary-row(?![\w-])[^\s>+~]*$/.test(selector) &&
+      !selector.includes('grid') &&
+      !selector.includes('.title-wrap');
     const settings = INNERMOST.flatMap((rule) =>
       rule.selectors
         .filter(subjectIsTitleRow)
@@ -3955,10 +4052,33 @@ describe('the time beside the title', () => {
   });
 
   it('mirrors in a right-to-left card: no placement rule names a physical side', () => {
-    for (const declarations of Object.values(placementRules()).flat()) {
-      for (const [property, value] of Object.entries(declarations)) {
-        expect(`${property}: ${value}`).not.toMatch(/\b(left|right)\b/);
+    // Bar the rules keyed to the direction the card measured on the row, which name their sides
+    // because older supported browsers can neither float to the inline end nor ask :dir(). Those
+    // come in mirrored pairs, below.
+    const keyed = (selector: string) => /\[data-title-fit='(ltr|rtl)'\]/.test(selector);
+    const rules = Object.entries(placementRules());
+    for (const [selector, list] of rules) {
+      if (keyed(selector)) continue;
+      for (const declarations of list) {
+        for (const [property, value] of Object.entries(declarations)) {
+          expect(`${property}: ${value}`).not.toMatch(/\b(left|right)\b/);
+        }
       }
+    }
+    const sided = Object.fromEntries(rules.filter(([selector]) => keyed(selector)));
+    expect(Object.keys(sided)).toHaveLength(6);
+    const swap = (text: string) =>
+      text.replace(
+        /ltr|rtl|left|right/g,
+        (word) => ({ ltr: 'rtl', rtl: 'ltr', left: 'right', right: 'left' })[word]!,
+      );
+    for (const [selector, [declarations]] of Object.entries(sided)) {
+      const twin = sided[swap(selector)];
+      expect(twin, selector).toBeDefined();
+      const mirrored = Object.fromEntries(
+        Object.entries(declarations).map(([property, value]) => [swap(property), swap(value)]),
+      );
+      expect(twin[0], selector).toEqual(mirrored);
     }
   });
 });

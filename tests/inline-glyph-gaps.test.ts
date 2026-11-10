@@ -76,6 +76,11 @@ describe('inline glyph gaps in either text direction', () => {
       // see the file's comment. Each rule cancels its inline-start margin before this.
       '.column-date-content .weather .weather-temp-high + .weather-uv-index { margin-left: 2px }',
       '.summary-row .event-weather-text > span + .weather-uv-index { margin-left: 2px }',
+      // The gap before the room a wrapping title keeps for the time beside it, on the side the
+      // room is floated from, which is named by the row's direction for browsers that cannot
+      // float to the inline end: see rtl-mirroring.test.ts. One rule per direction.
+      ".time-beside-title > .summary-row.title-wrap[data-title-fit='ltr'] > .summary > .title-room { margin-left: var(--calendar-card-title-room-gap) }",
+      ".time-beside-title > .summary-row.title-wrap[data-title-fit='rtl'] > .summary > .title-room { margin-right: var(--calendar-card-title-room-gap) }",
     ]);
   });
 

@@ -2861,26 +2861,36 @@ export const cardStyles = css`
   /* ===== TIME BESIDE THE TITLE =====
 
      time_position: title puts the time at the end of the title's line, where it stays at any
-     width. .summary-row holds the title and .title-aside, which holds list view's weather badge,
-     if there is one, and the time, and .event-content is marked time-beside-title. Only a row
-     with a time or a countdown to show takes either, so an empty day keeps every rule above and
-     nothing here reaches it. Off, the option leaves the markup as it was and none of these
-     selectors match.
+     width. .title-aside holds list view's weather badge, if there is one, and the time, and
+     .event-content is marked time-beside-title. Only a row with a time or a countdown to show
+     takes either, so an empty day keeps every rule above and nothing here reaches it. Off, the
+     option leaves the markup as it was and none of these selectors match.
 
      The time comes without its clock and with nothing trailing it: the leaf folds a countdown
      into the time text and draws the progress bar as a row of its own, in list view as in
-     column view. A title that shares its line stays on it: the leaf gives it the
-     scroll_long_titles markup whatever that option says, so the rules for that mode keep it to
-     one line with its labels beside it and end it in an ellipsis where it overflows. Only with
-     the option on does it carry the text the card moves, and then under reduced motion it ends
-     in the ellipsis as well. The rules here only share the line between the two.
-     tests/stylesheet.test.ts pins every declaration in them; what they draw was measured in
-     browsers. Logical properties throughout, so a right-to-left card puts the time at the left
-     with nothing of its own. */
+     column view. The title takes one of two layouts, and the rules for the time inside
+     .title-aside serve both, so they name it at any depth below .summary-row.
 
-  /* The time's text on the title's baseline. Centered, a line of the title beside a line at the
-     time's smaller size sets the two a pixel or two apart; on one baseline they read as one
-     line, and a time that wraps hangs below it. */
+     By default the title wraps across the row (.summary-row.title-wrap), and the time ends its
+     last line where it fits there and takes a line of its own, at the end, where it does not:
+     an empty float the time's size ends the title's text, and the time is placed over it. A float
+     placed after the last word goes on that word's line only where the line still has room for
+     it, so the two cannot overlap. title_max_lines of two or more marks the row title-capped, and
+     the card cuts the title that needs more lines than that (data-title-cut, below).
+
+     With title_max_lines: 1 or scroll_long_titles the title stays on one line: .summary-row holds
+     the title and .title-aside side by side, and the leaf gives the title the scroll_long_titles
+     markup, so the rules for that mode keep it to one line with its labels beside it and end it
+     in an ellipsis where it overflows. Only with that option on does it carry the text the card
+     moves, and then under reduced motion it ends in the ellipsis as well.
+
+     tests/stylesheet.test.ts pins every declaration in these rules; what they draw was measured
+     in browsers. Logical properties throughout, so a right-to-left card puts the time at the
+     left with nothing of its own. */
+
+  /* On one line, the time's text on the title's baseline. Centered, a line of the title beside a
+     line at the time's smaller size sets the two a pixel or two apart; on one baseline they read
+     as one line, and a time that wraps hangs below it. */
   .time-beside-title > .summary-row {
     align-items: baseline;
   }
@@ -2896,8 +2906,9 @@ export const cardStyles = css`
     align-self: baseline;
   }
 
-  /* The time and its badge take what they need, normally up to the cap, at the end of the line,
-     and the title has the rest: .summary grows from nothing and scrolls where that is too little.
+  /* On one line, the time and its badge take what they need, normally up to the cap, at the end
+     of the line, and the title has the rest: .summary grows from nothing and scrolls where that
+     is too little.
      The cap is 60% of the line less the title's 12px gutter, so the title's own box keeps 40% of
      it, and past the cap the time wraps inside this box. The floor is what the box cannot wrap
      any narrower: the badge, the bullet and the time's longest word. A floor wins over a cap, so
@@ -2928,7 +2939,7 @@ export const cardStyles = css`
 
   /* The badge leads the box and the time follows it after a bullet, so the badge gives up the
      12px that kept it off the end of the row: the bullet's own spacing replaces it. */
-  .time-beside-title > .summary-row > .title-aside > .event-weather {
+  .time-beside-title .summary-row .title-aside > .event-weather {
     margin-inline-end: 0;
   }
 
@@ -2936,7 +2947,7 @@ export const cardStyles = css`
      and in its color, with the same 4px either side. A flex item of the time, so it cannot be
      parted from it, on its first baseline. A plain middot, as column view's trailing countdown
      has, because a flex item needs no joiner to keep it on its line. */
-  .time-beside-title > .summary-row > .title-aside > .event-weather + .time::before {
+  .time-beside-title .summary-row .title-aside > .event-weather + .time::before {
     content: '·';
     margin-inline: 4px;
   }
@@ -2947,7 +2958,7 @@ export const cardStyles = css`
      none of that has anything to do here. It keeps its 12px end margin, so it ends where the
      rows below it do. A time that wraps sets every line against the end, as the time sits on
      the title's line, and so does an all-day pill wrapped above it. */
-  .time-beside-title > .summary-row > .title-aside > .time {
+  .time-beside-title .summary-row .title-aside > .time {
     width: auto;
     margin-top: 0;
     padding-inline-start: 0;
@@ -2961,7 +2972,7 @@ export const cardStyles = css`
   /* Column view's matching negative margin for the clock's indent goes with it. Nothing inside
      the box is let shrink below its own longest word: the box's floor already keeps it that
      wide, and a row let shrink further split the joiner from the countdown's dot. */
-  .time-beside-title > .summary-row > .title-aside > .time > .time-actual {
+  .time-beside-title .summary-row .title-aside > .time > .time-actual {
     margin-inline-start: 0;
     justify-content: flex-end;
   }
@@ -2969,21 +2980,193 @@ export const cardStyles = css`
   /* A running event's "Now" stays one word. It may break anywhere below the title, where only a
      column narrower than the word itself can make it, but here a word that may break anywhere
      sets no floor: the box shrank to its first letter and stacked "Now" a letter to a line. */
-  .time-beside-title > .summary-row > .title-aside > .time .now-indicator {
+  .time-beside-title .summary-row .title-aside > .time .now-indicator {
     overflow-wrap: normal;
   }
 
   /* With times off, the countdown alone takes the time's place. It wraps like the time, against
      the end, and brings neither the end margin the time already has nor column view's
      leading dot: beside the title nothing comes before it but the badge's bullet. */
-  .time-beside-title > .summary-row > .title-aside > .time > .time-countdown {
+  .time-beside-title .summary-row .title-aside > .time > .time-countdown {
     margin-inline: 0;
     text-align: end;
     white-space: normal;
   }
 
-  .time-beside-title > .summary-row > .title-aside > .time > .time-countdown::before {
+  .time-beside-title .summary-row .title-aside > .time > .time-countdown::before {
     content: none;
+  }
+
+  /* The wrapping title's row is a block, and the box the title wraps in is .summary: a formatting
+     context of its own, so the room that ends the title stays inside it and adds the line it
+     takes to its height. The title stays inline, so its last line is a line the room can join.
+     With title_max_lines set, the stylesheet makes .summary or the title a clamping box; the
+     limit here is the card's cut below, so neither is. The extra :not() outweighs those rules,
+     which have as many classes as the rest of this selector, and the gutters the title row gives
+     a .summary with a sibling: the title's lines reach the end of the row, as they do below the
+     time, and the room keeps the gap before the time. */
+  .time-beside-title > .summary-row.title-wrap {
+    display: block;
+    position: relative;
+    --calendar-card-title-room-gap: 12px;
+  }
+
+  .time-beside-title > .summary-row.title-wrap > .summary:not(.summary-scroll) {
+    display: flow-root;
+    margin-inline: 0;
+  }
+
+  .time-beside-title > .summary-row.title-wrap > .summary > .event-title {
+    display: inline;
+  }
+
+  /* The room for the time, ending the title's text: floated to the end of the row, where a float
+     placed after the last word goes on that word's line only while the line still has room for
+     it and the gap before it, and otherwise starts a line of its own. The card sizes it to the
+     time and marks the row data-title-fit with the row's direction (fitTitlesBesideTime in
+     src/utils/title-fit.ts). Until then it is not drawn.
+
+     The sides are named, one rule per direction, rather than written as the inline end. Chromium
+     before 118 has no float to the inline end, nor before 120 any :dir(), nor Safari before 16.4,
+     and the card supports browsers older than all three: there a room floated right sat on one
+     side of a right-to-left row and a time placed at its inline end on the other. Named by the
+     row's direction, they also keep the room on the dashboard's side of a capped title that runs
+     against it, whose lines take the title's own direction (renderEventTitle in leaves.ts). */
+  .time-beside-title > .summary-row.title-wrap > .summary > .title-room {
+    display: none;
+  }
+
+  .time-beside-title > .summary-row.title-wrap[data-title-fit] > .summary > .title-room {
+    display: block;
+    width: var(--calendar-card-title-room-width);
+    height: var(--calendar-card-title-room-height);
+  }
+
+  .time-beside-title > .summary-row.title-wrap[data-title-fit='ltr'] > .summary > .title-room {
+    float: right;
+    margin-left: var(--calendar-card-title-room-gap);
+  }
+
+  .time-beside-title > .summary-row.title-wrap[data-title-fit='rtl'] > .summary > .title-room {
+    float: left;
+    margin-right: var(--calendar-card-title-room-gap);
+  }
+
+  /* The time and its badge, a sibling of .summary, so their font sizes are measured against the
+     card's text and not the title's. Until the card has sized the room, the box is a line of its
+     own under the title, at the end, which nothing can overlap; then it is placed over the room,
+     whose bottom is the bottom of the title's text. As wide as it needs, and no wider than the
+     row less the gap, where it wraps against the end, so it is the same size in both places.
+
+     The box opens with .title-strut, a word joiner at the title's size and line height, which is
+     invisible and offers no break: the box is a baseline row, so the badge and the time sit on
+     the strut's baseline, which is where the title's own baseline sits in a line of the same
+     height, and the box's top is placed at that line's top. Its own line height is the title's
+     too, so a time smaller than the title cannot reach above the strut by the leading it would
+     otherwise inherit from the theme. One that does reach above it, at a larger size, would sink
+     the box's baseline below the title's; the card measures that and gives the time a line of its
+     own. The box is placed by its top, so a time that grows before the card measures it again
+     grows away from the title rather than over it. */
+  .time-beside-title > .summary-row.title-wrap > .title-aside {
+    display: flex;
+    align-items: baseline;
+    width: max-content;
+    max-width: calc(100% - var(--calendar-card-title-room-gap));
+    margin-inline-start: auto;
+    line-height: 1.2;
+  }
+
+  .time-beside-title > .summary-row.title-wrap > .title-aside > .title-strut {
+    font-size: var(--calendar-card-font-size-event);
+  }
+
+  .time-beside-title > .summary-row.title-wrap[data-title-fit] > .title-aside {
+    position: absolute;
+    top: calc(100% - var(--calendar-card-title-pad) - var(--calendar-card-title-room-height));
+  }
+
+  .time-beside-title > .summary-row.title-wrap[data-title-fit='ltr'] > .title-aside {
+    right: 0;
+  }
+
+  .time-beside-title > .summary-row.title-wrap[data-title-fit='rtl'] > .title-aside {
+    left: 0;
+  }
+
+  /* A title cut at title_max_lines of two or more. The card sets data-title-cut on a capped row
+     whose title and time need more lines than the limit, and leaves a row that fits as it is, so
+     a title that fits draws exactly as it does with no limit. The time stays where it is placed,
+     at the end of the title's last line (data-title-cut="") or, where it is too wide or too tall
+     to leave the title a line beside it, on a line of its own below (data-title-cut="below").
+
+     Beside the time, the row clamps its lines at the limit and ends the last in "…". The room at
+     the end of the text is past the cut, so a float at the start of .summary keeps the last
+     line's room instead. The float is as tall as the lines, and its shape outside starts halfway
+     down the last of them, so only that line is shortened: a float's own margin box would shorten
+     every line from the top, and a shape starting at the line's own top shortened the line above
+     too wherever layout rounded the two apart by a hair.
+
+     The row clamps rather than .summary because WebKit lays a -webkit-box's floats out as its
+     items, not as floats, and the title lost its lines to them. .summary is not a formatting
+     context of its own here, so the clamp counts its lines in Chromium; WebKit counts them
+     anyway. Its bottom padding moves below the row, as a margin: Chromium counts a nested bottom
+     padding into the clamped box and WebKit does not, and the lines after the cut showed through
+     it. */
+  .time-beside-title > .summary-row.title-wrap[data-title-cut=''] {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--calendar-card-title-max-lines);
+    overflow: hidden;
+    margin-bottom: var(--calendar-card-title-pad);
+  }
+
+  .time-beside-title > .summary-row.title-wrap[data-title-cut=''] > .summary:not(.summary-scroll) {
+    display: block;
+    overflow: visible;
+    padding-bottom: 0;
+  }
+
+  .time-beside-title > .summary-row.title-wrap[data-title-cut=''] > .summary::before {
+    content: '';
+    width: calc(var(--calendar-card-title-room-width) + var(--calendar-card-title-room-gap));
+    height: var(--calendar-card-title-cut-end);
+    shape-outside: inset(var(--calendar-card-title-cut-start) 0 0 0);
+  }
+
+  .time-beside-title
+    > .summary-row.title-wrap[data-title-fit='ltr'][data-title-cut='']
+    > .summary::before {
+    float: right;
+  }
+
+  .time-beside-title
+    > .summary-row.title-wrap[data-title-fit='rtl'][data-title-cut='']
+    > .summary::before {
+    float: left;
+  }
+
+  .time-beside-title > .summary-row.title-wrap[data-title-cut] > .summary > .title-room {
+    display: none;
+  }
+
+  .time-beside-title > .summary-row.title-wrap[data-title-cut=''] > .title-aside {
+    top: calc(100% - var(--calendar-card-title-room-height));
+  }
+
+  /* Below the title, .summary clamps its own lines, as a capped title does under the time, and
+     the row keeps room under it for the time and the padding .summary gives up, with the time in
+     that room above the padding: where the time is when it does not fit without a limit. */
+  .time-beside-title > .summary-row.title-wrap[data-title-cut='below'] {
+    padding-bottom: var(--calendar-card-title-cut-below);
+  }
+
+  .time-beside-title
+    > .summary-row.title-wrap[data-title-cut='below']
+    > .summary:not(.summary-scroll) {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--calendar-card-title-max-lines);
+    padding-bottom: 0;
   }
 
   /* A web address in an event row's location or description, drawn as a link while open_links

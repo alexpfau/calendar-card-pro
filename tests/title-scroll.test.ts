@@ -593,10 +593,10 @@ describe('scroll_long_titles lifecycle', () => {
   });
 
   /**
-   * A title beside the time without `scroll_long_titles` is kept to its line with nothing in it
-   * that can move. The card still measures it, so a text label beside it keeps its line, but
-   * nothing that moves or pauses a title is started for it, and a card whose titles moved hands
-   * that machinery back once none can.
+   * A title beside the time with `title_max_lines: 1` and without `scroll_long_titles` is kept to
+   * its line with nothing in it that can move. The card still measures it, so a text label beside
+   * it keeps its line, but nothing that moves or pauses a title is started for it, and a card
+   * whose titles moved hands that machinery back once none can.
    */
   describe('a title kept to its line beside the time', () => {
     type Card = HTMLElement & {
@@ -609,7 +609,12 @@ describe('scroll_long_titles lifecycle', () => {
     async function cardBesideTheTime(scroll: boolean): Promise<Card> {
       const card = document.createElement('calendar-card-pro-dev') as unknown as Card;
       card.setConfig(
-        buildConfig({ entities: [], time_position: 'title', scroll_long_titles: scroll }),
+        buildConfig({
+          entities: [],
+          time_position: 'title',
+          title_max_lines: 1,
+          scroll_long_titles: scroll,
+        }),
       );
       document.body.appendChild(card);
       await card.updateComplete;
@@ -701,6 +706,7 @@ describe('scroll_long_titles lifecycle', () => {
         entities: ['calendar.anna'],
         days_to_show: 3,
         time_position: 'title',
+        title_max_lines: 1,
         scroll_long_titles: true,
       } as unknown as Types.Config;
       const card = document.createElement('calendar-card-pro-dev') as unknown as Card & {
@@ -748,12 +754,14 @@ describe('scroll_long_titles lifecycle', () => {
 });
 
 /**
- * Whether the card measures titles at all. `time_position: title` keeps every title it puts a
- * time beside to one line, whatever `scroll_long_titles` says, so the card measures them with the
- * option off as well, for the labels beside them; only the option gives them text that moves (see
- * 'a title kept to its line beside the time'). Grid ignores the placement, so it measures there
- * only as the option says. Both gates are held, the one that starts the observers and the one
- * each frame passes, by counting the measurements a sync leads to.
+ * Whether the card measures titles at all. `time_position: title` with `title_max_lines: 1` keeps
+ * every title it puts a time beside to one line, whatever `scroll_long_titles` says, so the card
+ * measures them with the option off as well, for the labels beside them; only the option gives
+ * them text that moves (see 'a title kept to its line beside the time'). Without that limit, or
+ * with a higher one, a title beside the time wraps, and nothing here measures it. Grid ignores the
+ * placement, so it measures there only as the option says. Both gates are held, the one that
+ * starts the observers and the one each frame passes, by counting the measurements a sync leads
+ * to.
  */
 describe('which cards measure their titles', () => {
   afterEach(() => {
@@ -780,8 +788,16 @@ describe('which cards measure their titles', () => {
   }
 
   it.each([
-    ['the time beside the title, list view', { time_position: 'title' }, 'list'],
-    ['the time beside the title, column view', { time_position: 'title' }, 'column'],
+    [
+      'the time beside a one-line title, list view',
+      { time_position: 'title', title_max_lines: 1 },
+      'list',
+    ],
+    [
+      'the time beside a one-line title, column view',
+      { time_position: 'title', title_max_lines: 1 },
+      'column',
+    ],
     ['scroll_long_titles, grid view', { scroll_long_titles: true }, 'grid'],
     ['scroll_long_titles, list view', { scroll_long_titles: true }, 'list'],
   ] as const)('measures with %s', (_name, config, view) => {
@@ -790,7 +806,17 @@ describe('which cards measure their titles', () => {
 
   it.each([
     ['neither option, list view', {}, 'list'],
-    ['the time beside the title, grid view', { time_position: 'title' }, 'grid'],
+    ['the time beside a wrapping title, list view', { time_position: 'title' }, 'list'],
+    [
+      'the time beside a title cut at two lines, column view',
+      { time_position: 'title', title_max_lines: 2 },
+      'column',
+    ],
+    [
+      'the time beside the title, grid view',
+      { time_position: 'title', title_max_lines: 1 },
+      'grid',
+    ],
     ['an unknown time_position', { time_position: 'beside' }, 'list'],
   ] as const)('does not measure with %s', (_name, config, view) => {
     expect(measured(config as Partial<Types.Config>, view)).toBe(0);
