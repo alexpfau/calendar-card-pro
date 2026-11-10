@@ -77,6 +77,7 @@ import * as Paging from './utils/paging';
 import * as Search from './utils/search';
 import * as StartDate from './utils/start-date';
 import * as Templates from './utils/templates';
+import * as TextDirection from './utils/text-direction';
 import {
   TitleMotionController,
   type TitleScrollMeasurement,
@@ -7493,6 +7494,7 @@ class CalendarCardPro extends LitElement {
       full: Paging.monthHeadings(language, 'long'),
       short,
       range: Paging.rangeLabel(page, language, now),
+      languageMark: TextDirection.languageMark(language, this.hass),
     };
   }
 
@@ -7636,6 +7638,7 @@ class CalendarCardPro extends LitElement {
 
     return {
       homeName: Paging.homeButtonName(this._homeRange(now), language, now),
+      languageMark: TextDirection.languageMark(language, this.hass),
       previousName: this._haString('ui.common.previous'),
       nextName: this._haString('ui.common.next'),
       inert: this._isBeingEdited,

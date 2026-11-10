@@ -23,7 +23,9 @@ import * as Grid from '../src/rendering/grid';
 import * as Render from '../src/rendering/render';
 import * as Localize from '../src/translations/localize';
 import * as EventUtils from '../src/utils/events';
+import * as Paging from '../src/utils/paging';
 import { dashboardDirection, inLanguageDirection, languageMark } from '../src/utils/text-direction';
+import '../src/calendar-card-pro';
 
 const LRM = '\u200e';
 const RLM = '\u200f';
@@ -127,6 +129,128 @@ describe('the status lines', () => {
     expect(
       textOf(Render.renderFetchErrorNotice(names, 'en', hassOn('en')), '.fetch-error-text'),
     ).toBe(`${t.loadFailed} Anna, בן`);
+  });
+});
+
+describe("the toolbar's dates", () => {
+  // Today is June 17, 2026, and the card opens on November 16 to 22: "16.–22. Nov." in German,
+  // "16–22 בנוב׳" in Hebrew, each with digits at an edge, which a line of the other direction
+  // moves to its far end. Home holds no today, so it is named for its first day, in German
+  // "Mo., 16. Nov.", whose period moves the same way. A Hebrew home name reads in order on an
+  // English dashboard and is marked all the same: the rule is the language's, not the string's.
+  const NOW = new Date(2026, 5, 17, 10, 0);
+  const HOME = { start: new Date(2026, 10, 16), days: 7 };
+  const plain = (language: string) => Paging.rangeLabel(HOME, language, NOW);
+  const homeName = (language: string) => Paging.homeButtonName(HOME, language, NOW);
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    vi.setSystemTime(NOW);
+    document.body.innerHTML = '';
+  });
+
+  afterEach(async () => {
+    await new Promise((resolve) => setImmediate(resolve));
+    document.body.innerHTML = '';
+    vi.useRealTimers();
+  });
+
+  /**
+   * The header of a card showing November 16 to 22, 2026, with the month as a button over its date
+   * picker and home among the arrows, or, without navigation, as plain text with refresh beside
+   * it.
+   */
+  async function header(language: string, hass: Types.Hass, navigation: boolean) {
+    const card = document.createElement('calendar-card-pro-dev') as HTMLElement & {
+      setConfig(config: unknown): void;
+      hass: Types.Hass;
+      readonly updateComplete: Promise<boolean>;
+    };
+    card.setConfig(
+      buildConfig({
+        entities: ['calendar.anna'],
+        language,
+        start_date: '2026-11-16',
+        days_to_show: 7,
+        toolbar: {
+          show: true,
+          navigation,
+          view_switcher: false,
+          add_event: false,
+          reset: false,
+          refresh: !navigation,
+          search: false,
+          legend: false,
+        },
+      } as Partial<Types.Config>),
+    );
+    card.hass = { ...hass, callApi: vi.fn(async () => []) };
+    document.body.appendChild(card);
+    for (let round = 0; round < 3; round += 1) {
+      await new Promise((resolve) => setImmediate(resolve));
+      await card.updateComplete;
+    }
+    const root = card.shadowRoot!;
+    const tooltip = root.querySelector(
+      navigation ? 'button.toolbar-month-button' : '.toolbar-month-slot > span.toolbar-month-label',
+    )!;
+    const home = root.querySelectorAll('.date-navigation-segment')[1];
+    return {
+      html: root.querySelector('.header-container')!.innerHTML,
+      live: root.querySelector('#toolbar-range-text')!.textContent!.trim(),
+      title: tooltip.getAttribute('title')!,
+      home: home ? [home.getAttribute('title'), home.getAttribute('aria-label')] : [],
+    };
+  }
+
+  describe.each([true, false])('with navigation %s', (navigation) => {
+    it.each([
+      ['de', 'en'],
+      ['he', 'he'],
+    ])('in %s on a %s dashboard draws exactly what it drew before', async (language, dashboard) => {
+      const before = await header(language, hassOn(dashboard, false), navigation);
+      const drawn = await header(language, hassOn(dashboard), navigation);
+      expect(before.live).toBe(plain(language));
+      expect(before.home).toEqual(navigation ? [homeName(language), homeName(language)] : []);
+      expect(drawn.html).toBe(before.html);
+    });
+
+    it.each([
+      ['de', 'he', LRM],
+      ['he', 'en', RLM],
+    ])(
+      'in %s on a %s dashboard marks the dates and home, and nothing else',
+      async (language, dashboard, mark) => {
+        const dates = plain(language);
+        const home = homeName(language);
+        expect(dates).toMatch(/^\d/);
+        if (language === 'de') expect(home).toMatch(/\.$/);
+        const before = await header(language, hassOn(dashboard, false), navigation);
+        const drawn = await header(language, hassOn(dashboard), navigation);
+
+        expect(before.live).toBe(dates);
+        expect(before.title).toBe(dates);
+        expect(drawn.live).toBe(`${mark}${dates}${mark}`);
+        expect(drawn.title).toBe(`${mark}${dates}${mark}`);
+        // Home's tooltip and its accessible name, one string. The arrows are named in Home
+        // Assistant's language, which is the dashboard's, and stay as they were.
+        expect(before.home).toEqual(navigation ? [home, home] : []);
+        expect(drawn.home).toEqual(
+          navigation ? [`${mark}${home}${mark}`, `${mark}${home}${mark}`] : [],
+        );
+        // Two marks more for each of those strings, and the header otherwise as it was: the
+        // month's own words are isolated by their `bdi`. Unwrapped by the exact text rather than
+        // stripped, so a mark `Intl` wrote stays put.
+        expect(drawn.html.split(mark).length - before.html.split(mark).length).toBe(
+          navigation ? 8 : 4,
+        );
+        const unwrapped = [dates, home].reduce(
+          (html, text) => html.split(`${mark}${text}${mark}`).join(text),
+          drawn.html,
+        );
+        expect(unwrapped).toBe(before.html);
+      },
+    );
   });
 });
 
