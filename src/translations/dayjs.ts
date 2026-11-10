@@ -45,6 +45,8 @@ import 'dayjs/locale/vi';
 import 'dayjs/locale/zh-cn';
 import 'dayjs/locale/zh-tw';
 
+import { intlLocales } from './intl-locales';
+
 const relativeUnitFormatters = new Map<string, Intl.RelativeTimeFormat>();
 
 /**
@@ -61,7 +63,7 @@ export function getRelativeUnitString(value: number, unit: 'day' | 'hour', local
   const cacheKey = `${mappedLocale}:${numeric}`;
   let formatter = relativeUnitFormatters.get(cacheKey);
   if (!formatter) {
-    formatter = new Intl.RelativeTimeFormat(mappedLocale, { numeric });
+    formatter = new Intl.RelativeTimeFormat(intlLocales(mappedLocale), { numeric });
     relativeUnitFormatters.set(cacheKey, formatter);
   }
   return formatter.format(value, unit);
@@ -75,8 +77,9 @@ const nowLabels = new Map<string, string>();
  * `Intl.RelativeTimeFormat` with `numeric: 'auto'` formats zero seconds as that word —
  * "now", "jetzt", "maintenant", "現在" — so the label costs no entry in the card's
  * translation files. Where a browser ships no relative-time data for a language it answers
- * in English rather than failing. Measured in Playwright's Chromium, whose reduced ICU
- * answers in English for Icelandic and Nynorsk; Node's full ICU carries both.
+ * in its own language, usually English, rather than failing. Chromium carries none for
+ * Icelandic or Nynorsk; Nynorsk then reads in Bokmål instead ({@link intlLocales}), and
+ * Icelandic in the browser's own language.
  *
  * @param locale Language code
  * @returns The capitalized word for "now"
@@ -85,8 +88,9 @@ export function getNowString(locale: string): string {
   const mappedLocale = mapLocale(locale);
   let label = nowLabels.get(mappedLocale);
   if (label === undefined) {
-    const word = new Intl.RelativeTimeFormat(mappedLocale, { numeric: 'auto' }).format(0, 'second');
-    label = word.charAt(0).toLocaleUpperCase(mappedLocale) + word.slice(1);
+    const format = new Intl.RelativeTimeFormat(intlLocales(mappedLocale), { numeric: 'auto' });
+    const word = format.format(0, 'second');
+    label = word.charAt(0).toLocaleUpperCase(format.resolvedOptions().locale) + word.slice(1);
     nowLabels.set(mappedLocale, label);
   }
   return label;

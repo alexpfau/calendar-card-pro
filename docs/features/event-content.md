@@ -812,8 +812,12 @@ column:
 
 ::: details When "Now" Shows in English
 
-A browser that carries no word for "now" in a language shows "Now" in English instead;
-Chromium, as tested, does that for Icelandic and Norwegian Nynorsk.
+The word comes from your browser. Chromium, as tested, carries no Icelandic or Norwegian
+Nynorsk. With Home Assistant in a language Chromium does carry, a Nynorsk card asks for Bokmål
+instead and shows "Nå", and an Icelandic card shows the browser's own word, such as "Now".
+Home Assistant set to Icelandic or Nynorsk brings its own data for that language, so a card in
+Home Assistant's language is not affected. The countdown's "tomorrow" and hours, and the month
+and "Today" in the toolbar, come from the browser the same way.
 
 :::
 
