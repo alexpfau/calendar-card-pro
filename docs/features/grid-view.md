@@ -652,7 +652,8 @@ event_tap_action:
   the popover.
 - **On a phone or tablet,** hold the event for half a second, until it lifts, then drag. The page
   does not scroll while you do. Held and let go without moving, the hold does what it always did,
-  such as opening the popover under `event_hold_action: details`.
+  such as opening the popover under `event_hold_action: details`. Only a finger on the event
+  lifts it, not one held just beside it.
 
 The event follows the pointer in quarter hours, keeping its length and the minute it starts at
 within its quarter, so one at 10:10 moves to 10:25 or 9:55. Drag sideways to move it to another
