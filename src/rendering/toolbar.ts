@@ -211,6 +211,14 @@ export interface DateNavigation {
   /** The home button's name: "Today", or the day the card's own window starts on. */
   homeName: string;
   /**
+   * The mark the home button's name is drawn between, as its tooltip and accessible name, where
+   * the card's language runs against the dashboard: a tooltip is laid out in the button's
+   * direction, so without it "tors. 12. nov." read ".tors. 12. nov" there. `''` or absent
+   * everywhere else. The arrows' names are Home Assistant's, in the dashboard's own language,
+   * and take none. See `TextDirection.languageMark`.
+   */
+  languageMark?: TextDirection.LanguageMark;
+  /**
    * Home Assistant's names for the arrows, shown as their tooltips, or undefined when it has
    * none; the arrows are then named in English for assistive technology alone.
    */
@@ -970,6 +978,7 @@ export function paintSelectedView(root: ParentNode): void {
  * @returns The group
  */
 function renderDateNavigation(nav: DateNavigation): TemplateResult {
+  const homeName = TextDirection.inLanguageDirection(nav.homeName, nav.languageMark ?? '');
   const press = (handler: () => void) => (ev: Event) => {
     ev.stopPropagation();
     handler();
@@ -1012,8 +1021,8 @@ function renderDateNavigation(nav: DateNavigation): TemplateResult {
     ${segment(nav.previousName, UNLOCALIZED_PREVIOUS_NAME, mdiChevronLeft, nav.onPrevious, true)}
     ${
       nav.homeConfirming
-        ? segment(nav.homeName, nav.homeName, mdiHome, nav.onHome, false, true)
-        : segment(nav.homeName, nav.homeName, mdiHomeOutline, nav.onHome, false)
+        ? segment(homeName, homeName, mdiHome, nav.onHome, false, true)
+        : segment(homeName, homeName, mdiHomeOutline, nav.onHome, false)
     }
     ${segment(nav.nextName, UNLOCALIZED_NEXT_NAME, mdiChevronRight, nav.onNext, true)}
   </div>`;

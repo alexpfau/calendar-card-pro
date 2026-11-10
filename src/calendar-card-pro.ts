@@ -7638,6 +7638,7 @@ class CalendarCardPro extends LitElement {
 
     return {
       homeName: Paging.homeButtonName(this._homeRange(now), language, now),
+      languageMark: TextDirection.languageMark(language, this.hass),
       previousName: this._haString('ui.common.previous'),
       nextName: this._haString('ui.common.next'),
       inert: this._isBeingEdited,
