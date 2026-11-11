@@ -746,7 +746,9 @@ wraps between its words rather than run past the card's edge.
 ## 🕒 Past Events Display
 
 `show_past_events` keeps events that have already ended on the card, dimmed so what is still
-ahead stands out. List and column view hide them by default; grid view shows them.
+ahead stands out. List and column view hide them by default; grid view shows them. The Family
+Hub's [Columns picture](/guide/family-calendar#see-it) shows a morning's finished events
+dimmed this way.
 
 ```yaml
 show_past_events: true # Show events that have already ended
@@ -807,6 +809,8 @@ in front of its time, and its time line turns green. It is on by default, needs 
 configuration, and takes nothing away: the event keeps its color and its accent bar, and its
 title, location and description keep theirs.
 
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_today_indicator.png" alt="A list card with an event under way: its clock filled in, Now and a dot before its time, the time in green and a progress bar beside it, between an all-day event and two events still to come" width="600"><br>
+
 ```yaml
 show_now_indicator: false # Turn it off
 now_color: '#ef4444' # Mark it in red instead
@@ -857,8 +861,13 @@ browser the same way. [Language](/features/core-settings#language) has the whole
 ## 🎨 Event Text in Calendar Colors
 
 Write `accent` into any of the card's event-text color options and that text is drawn in
-**each event's own calendar color** rather than in one color for the whole card. Here only the
-time follows the calendar; the title keeps `event_color`:
+**each event's own calendar color** rather than in one color for the whole card.
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_agenda.png" alt="A three-day family agenda whose titles are drawn in their calendars' colors, pink, blue, green, gray and gold, each a readable shade of the accent bar beside it" width="600"><br>
+
+The [Family Agenda](/guide/one-calendar-many-purposes) sets `event_color: accent`, so every title
+takes its calendar's color. Here only the time follows the calendar; the title keeps
+`event_color`:
 
 ```yaml
 type: custom:calendar-card-pro
