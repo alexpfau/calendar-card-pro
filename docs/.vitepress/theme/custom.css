@@ -81,3 +81,20 @@
     margin: 0 -24px 32px;
   }
 }
+
+/*
+ * Portrait journeys (`video.clip.portrait`).
+ *
+ * The phone and hallway journeys are about twice as tall as they are wide, 860
+ * and 968 CSS px at their authored size, so on a laptop the whole video never
+ * fits on screen and its controls sit below the fold. Cap them at 80% of the
+ * viewport's height. Their width and height attributes fix the size, so both go
+ * back to auto, and the two max values scale the video down evenly from its own
+ * size until it fits both the column and the cap.
+ */
+.vp-doc video.clip.portrait {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 80vh;
+}
