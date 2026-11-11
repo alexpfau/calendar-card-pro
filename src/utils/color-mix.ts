@@ -16,8 +16,9 @@
  * text color takes about twice its strength, gray being about half as far from either default
  * card as the text is.
  *
- * Only the mixes the card ships are floored, matched exactly. A mix a user writes into an option
- * is theirs and is written as they gave it.
+ * Only the mixes the card ships are floored, matched by value. Any other mix a user writes into
+ * an option is written as given; one written exactly as a shipped mix takes its floor, which it
+ * needs there just as much.
  */
 
 /** What the stylesheets ask with `@supports`, asked once of the browser from script. */
