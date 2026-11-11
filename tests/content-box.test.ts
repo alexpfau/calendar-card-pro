@@ -49,36 +49,22 @@ describe('inlineContentBox', () => {
 });
 
 describe('inlineContentWidth', () => {
-  it('is the used content width, not clientWidth less the padding', () => {
-    // clientWidth is a whole number of pixels and the room is not: 100.4px of content and
-    // 1.75px either side report 104, which less the padding is half a pixel too wide.
-    const element = box('width: 100.4px; padding: 0 1.75px', new DOMRect());
+  it('is clientWidth less the inline padding, as the fits were tuned to read it', () => {
+    // Whole pixels on purpose: 100.4px of content with a 2px room either side reports 104, and
+    // 100 is what clientWidth read for the same box with no room. Read to the fraction, a fit
+    // whose threshold lies inside that rounding decides differently.
+    const element = box('width: 100.4px; padding: 0 2px', new DOMRect());
     Object.defineProperty(element, 'clientWidth', { value: 104 });
-    expect(inlineContentWidth(element)).toBe(100.4);
+    expect(inlineContentWidth(element)).toBe(100);
   });
 
-  it('takes the padding and border off a border-box width', () => {
+  it('takes off the padding at each side, whatever the box-sizing, and no border', () => {
+    // clientWidth already leaves the border out.
     const element = box(
-      'box-sizing: border-box; width: 104px; padding: 0 1.5px; border: 0 solid; border-left-width: 1px',
+      'box-sizing: border-box; width: 106px; padding: 0 1px 0 2px; border: 0 solid; border-left-width: 1px',
       new DOMRect(),
     );
-    expect(inlineContentWidth(element)).toBe(100);
-  });
-
-  it.each([
-    ['a width it was given as a percentage', 'width: 100%; padding: 0 1.75px 0 2px', true],
-    ['no box at all, whatever width it was given', 'width: 300px; padding: 0 1.75px 0 2px', false],
-  ])('falls back to clientWidth less the padding for %s', (_, style, laidOut) => {
-    // An element that is not laid out reports its specified width, not one it has.
-    const element = box(style, new DOMRect());
-    if (!laidOut) element.getClientRects = () => [] as unknown as DOMRectList;
-    Object.defineProperty(element, 'clientWidth', { value: 103.75 });
-    expect(inlineContentWidth(element)).toBe(100);
-  });
-
-  it('falls back to clientWidth less the padding for a box with no width in pixels', () => {
-    const element = box('padding: 0 1.75px 0 2px', new DOMRect());
-    Object.defineProperty(element, 'clientWidth', { value: 103.75 });
-    expect(inlineContentWidth(element)).toBe(100);
+    Object.defineProperty(element, 'clientWidth', { value: 105 });
+    expect(inlineContentWidth(element)).toBe(102);
   });
 });

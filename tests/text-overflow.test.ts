@@ -50,14 +50,14 @@ describe('title overflow', () => {
     // margin (marks-beyond-line.test.ts), so the gutter is written less the room and still
     // measures 12px from the text.
     expect(ruleBody('.summary:not(:only-child)')).toContain(
-      'margin-inline-end: calc(12px - var(--calendar-card-summary-inline-room, 0.125em));',
+      'margin-inline-end: calc(12px - var(--calendar-card-summary-inline-room));',
     );
     const summary = ruleBody('.summary');
     expect(
       summary.match(/margin-(right|left|inline)[^;]*;/g),
       'the unconditional rule carries the box model, not the separation',
-    ).toEqual(['margin-inline: calc(-1 * var(--calendar-card-summary-inline-room, 0.125em));']);
-    expect(summary).toContain('padding-inline: var(--calendar-card-summary-inline-room, 0.125em);');
+    ).toEqual(['margin-inline: calc(-1 * var(--calendar-card-summary-inline-room));']);
+    expect(summary).toContain('padding-inline: var(--calendar-card-summary-inline-room);');
   });
 
   it('leaves no horizontal margin on .event-title but the one giving back its room', () => {

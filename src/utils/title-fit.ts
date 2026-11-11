@@ -31,8 +31,6 @@
  * at most three times however many rows it has.
  */
 
-import { inlineContentWidth } from './content-box';
-
 /** The attribute that marks a row whose room has been sized to its time, with its direction. */
 export const TITLE_FIT = 'data-title-fit';
 
@@ -209,9 +207,10 @@ export function fitTitlesBesideTime(rows: Iterable<HTMLElement>, maxLines: numbe
     const time = aside.getBoundingClientRect();
     // On the row, so it is there to read before the room is first drawn.
     const gap = parseFloat(getComputedStyle(row).getPropertyValue(TITLE_ROOM_GAP));
-    // Its content box: .summary keeps room at its inline edges ("Marks above and below the
-    // line" in styles.ts), and clientWidth less that room lands up to half a pixel off.
-    const avail = inlineContentWidth(summary);
+    const avail =
+      summary.clientWidth -
+      px(style.getPropertyValue('padding-inline-start')) -
+      px(style.getPropertyValue('padding-inline-end'));
     // The strut opens the time's box at the title's size, so its top is the box's top unless the
     // time or its badge reaches higher above the baseline, as a larger font does. Then the box's
     // baseline sits below the title's, and the time cannot share the title's line: a room as

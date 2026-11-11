@@ -265,8 +265,8 @@ describe('the custom properties that say which kind each box is', () => {
   it.each([
     ['title_max_lines', '--calendar-card-title-ink-room', '0.375em'],
     ['time_max_lines', '--calendar-card-time-ink-room', '0.375em'],
-    ['title_max_lines', '--calendar-card-title-inline-room', '0.125em'],
-    ['time_max_lines', '--calendar-card-time-inline-room', '0.125em'],
+    ['title_max_lines', '--calendar-card-title-inline-room', 'var(--calendar-card-inline-room)'],
+    ['time_max_lines', '--calendar-card-time-inline-room', 'var(--calendar-card-inline-room)'],
   ] as const)('gives a box clamped by %s its %s only with a limit', (option, property, room) => {
     // Without one the title, and a time folded with its countdown, are inline, where padding
     // takes no room but moved where Chromium put the glyphs on the pixel grid.
@@ -287,16 +287,19 @@ describe('the custom properties that say which kind each box is', () => {
 
 /** Declarations that keep room at a box's inline edges, give it back, or say how much it keeps. */
 const INLINE_PROPERTY =
-  /^(padding|margin)(-inline(-start|-end)?)?$|^--calendar-card-((title|time|summary)-inline|title-row)-room$/;
+  /^(padding|margin)(-inline(-start|-end)?)?$|^--calendar-card-((title|time|summary)-inline|inline|title-row|event-row|grid-block)-room$/;
 
 /** Every rule that keeps, gives back or sets the room at a box's inline edges, by value. */
 function inlineRoomRules(): Record<string, Record<string, string>> {
   const out: Record<string, Record<string, string>> = {};
   for (const { selectors, declarations } of RULES) {
+    // The rounded rooms where round() is known are pinned on their own, below.
     const room = Object.fromEntries(
       Object.entries(declarations).filter(
         ([property, value]) =>
-          INLINE_PROPERTY.test(property) && /0\.125em|inline-room/.test(`${property} ${value}`),
+          !value.startsWith('round(') &&
+          INLINE_PROPERTY.test(property) &&
+          /0\.125em|-inline-room|-row-room|-block-room/.test(`${property} ${value}`),
       ),
     );
     if (!Object.keys(room).length) continue;
@@ -306,10 +309,11 @@ function inlineRoomRules(): Record<string, Record<string, string>> {
   return out;
 }
 
-const ROOM = { 'padding-inline': '0.125em', 'margin-inline': '-0.125em' };
-const SUMMARY_ROOM = 'var(--calendar-card-summary-inline-room, 0.125em)';
-const EVENT_ROOM = 'var(--calendar-card-event-inline-room, 0.125em)';
-const GRID_TEXT_ROOM = 'var(--calendar-card-grid-text-inline-room, 0.125em)';
+const INLINE_ROOM = 'var(--calendar-card-inline-room)';
+const ROOM = { 'padding-inline': INLINE_ROOM, 'margin-inline': `calc(-1 * ${INLINE_ROOM})` };
+const SUMMARY_ROOM = 'var(--calendar-card-summary-inline-room)';
+const EVENT_ROOM = 'var(--calendar-card-event-row-room)';
+const GRID_TEXT_ROOM = 'var(--calendar-card-grid-block-room)';
 const SPANS =
   '.time .time-actual > span:not(.time-text):not(.allday-badge):not(.now-time), .location span, ' +
   '.description span';
@@ -372,8 +376,16 @@ const CUTS_INLINE_AXIS: Record<string, string[] | string> = {
 describe('the room a box keeps at its inline edges (backlog item 263)', () => {
   it('is kept, given back and switched off in these rules, pinned by value', () => {
     expect(inlineRoomRules()).toEqual({
+      // The room itself, a whole pixel or more (pinned below), and the room for text set in a
+      // size other than the box's own, from the share the card writes on ha-card.
+      ':host': { '--calendar-card-inline-room': '1px' },
+      'ha-card': {
+        '--calendar-card-event-row-room': '1px',
+        '--calendar-card-grid-block-room': '1px',
+      },
       // The summary's, through a property the row cut beside the time sets to 0px.
       '.summary': {
+        '--calendar-card-summary-inline-room': INLINE_ROOM,
         'padding-inline': SUMMARY_ROOM,
         'margin-inline': `calc(-1 * ${SUMMARY_ROOM})`,
       },
@@ -415,8 +427,8 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
         'padding-inline': 'var(--calendar-card-time-inline-room, 0px)',
         'margin-inline': 'calc(-1 * var(--calendar-card-time-inline-room, 0px))',
       },
-      [SCROLLING]: { '--calendar-card-title-inline-room': '0.125em' },
-      '.grid-event-disclosure .event-title': { '--calendar-card-title-inline-room': '0.125em' },
+      [SCROLLING]: { '--calendar-card-title-inline-room': INLINE_ROOM },
+      '.grid-event-disclosure .event-title': { '--calendar-card-title-inline-room': INLINE_ROOM },
       '.summary:not(.summary-scroll):has(> .event-title:not(:only-child)) > .event-title': {
         '--calendar-card-title-inline-room': '0px',
       },
@@ -434,13 +446,14 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
         'margin-inline': `calc(-1 * ${EVENT_ROOM})`,
       },
       '.grid-event-disclosure .title-word': ROOM,
+      // The row keeps the 12px end margin every .time has, less the room.
       '.grid-event-disclosure .time': {
-        'padding-inline': '0.125em',
-        'margin-inline': '-0.125em calc(12px - 0.125em)',
+        'padding-inline': INLINE_ROOM,
+        'margin-inline': `calc(-1 * ${INLINE_ROOM}) calc(12px - ${INLINE_ROOM})`,
       },
       '.grid-event-disclosure .time-actual': ROOM,
       [WRAPPED_END]: ROOM,
-      [COMPACT]: { padding: '0 0.125em', 'margin-inline': '-0.125em' },
+      [COMPACT]: { padding: `0 ${INLINE_ROOM}`, 'margin-inline': `calc(-1 * ${INLINE_ROOM})` },
       // Its inline start only, in the largest size its rows are set in: its end is where the
       // block covering this one begins.
       [LIMITED]: {
@@ -448,6 +461,47 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
         'margin-inline-start': `calc(-1 * ${GRID_TEXT_ROOM})`,
       },
     });
+  });
+
+  it('is a whole pixel, at least 0.125em of its text, where round() is known, and 1px elsewhere', () => {
+    // A whole pixel stays out of every sum it joins: a gutter or a hanging indent it is folded
+    // into, which a fraction rounded apart from the margin giving it back, and a width read as
+    // clientWidth less the padding, which a fraction moved by half a pixel.
+    const rounded = [...CSS.matchAll(/@supports \(width: round\(1px, 1px\)\) \{/g)].flatMap(
+      (match) =>
+        [...blockAt(match.index!).matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, selectors, body]) => ({
+          selectors: normal(selectors),
+          declarations: declarationsOf(body),
+        })),
+    );
+    expect(
+      rounded.filter(({ declarations }) =>
+        Object.keys(declarations).some((property) => INLINE_PROPERTY.test(property)),
+      ),
+    ).toEqual([
+      {
+        selectors: ':host',
+        declarations: { '--calendar-card-inline-room': 'round(up, 0.125em, 1px)' },
+      },
+      {
+        selectors: 'ha-card',
+        declarations: {
+          '--calendar-card-event-row-room':
+            'round(up, var(--calendar-card-event-inline-room, 0.125em), 1px)',
+          '--calendar-card-grid-block-room':
+            'round(up, var(--calendar-card-grid-text-inline-room, 0.125em), 1px)',
+        },
+      },
+    ]);
+    // And nothing else keeps a room of its own: every one is one of those three, or 0px.
+    const rooms = new Set(
+      Object.values(inlineRoomRules()).flatMap((room) =>
+        Object.values(room).flatMap((value) =>
+          [...value.matchAll(/(\d*\.?\d+)(em|px)/g)].map((match) => match[0]),
+        ),
+      ),
+    );
+    expect([...rooms].sort()).toEqual(['0px', '12px', '1em', '1px', '1.25em', '4px'].sort());
   });
 
   it("is in the size of the text a box cuts, where that is not the box's own", () => {
@@ -467,6 +521,26 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
       '0.25em',
       'max(0.25em, 1.5px, 1.5px, 3px)',
     ]);
+    // Every size the card accepts, rewritten as a length first as the date column's is: a
+    // percentage inside a function as the em it is, a keyword as its length, no !important.
+    expect(rooms({ event_font_size: 'calc(200%)', time_font_size: 'calc(1em + 2px)' })).toEqual([
+      'calc(0.125 * (calc(2em)))',
+      'max(calc(0.125 * (calc(2em))), calc(0.125 * (calc(1em + 2px))), 1.5px, 1.5px)',
+    ]);
+    expect(rooms({ event_font_size: '10vw', time_font_size: '20px !important' })).toEqual([
+      '1.25vw',
+      'max(1.25vw, 2.5px, 1.5px, 1.5px)',
+    ]);
+    expect(rooms({ event_font_size: 'large' })).toEqual([
+      '2.4px',
+      'max(2.4px, 1.5px, 1.5px, 1.5px)',
+    ]);
+    // A size naming a custom property keeps the room of the box's own font: what it holds is
+    // known only at layout, and a percentage there would make the padding a share of the box's
+    // width, and the time beside a cut title placed by another share.
+    expect(
+      rooms({ event_font_size: 'var(--event-size)', time_font_size: 'var(--x, 14px)' }),
+    ).toEqual(['0.125em', 'max(0.125em, 0.125em, 1.5px, 1.5px)']);
   });
 
   it('is kept by every box that cuts its inline axis around event text, every other one named', () => {
@@ -547,24 +621,6 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
       }
     }
     expect(pairs).toBe(11);
-  });
-
-  it('is a whole number of layout units at any whole-pixel font size', () => {
-    // As the room above a line: Chromium rounds a padding and its margin separately. A hanging
-    // indent's own offset is left out; its text-indent and padding take the same one.
-    const rooms = new Set(
-      Object.values(inlineRoomRules()).flatMap((room) =>
-        Object.values(room).flatMap((value) =>
-          [...value.replace(/\d*\.?\d+em \+ 4px \+ /, '').matchAll(/(\d*\.\d+)em/g)].map(
-            (match) => match[1],
-          ),
-        ),
-      ),
-    );
-    expect([...rooms]).toEqual(['0.125']);
-    for (let size = 8; size <= 48; size += 1) {
-      expect(Number.isInteger(0.125 * size * 64), `0.125em at ${size}px`).toBe(true);
-    }
   });
 });
 

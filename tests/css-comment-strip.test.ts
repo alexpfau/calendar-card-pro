@@ -281,12 +281,12 @@ describe('stripComments', () => {
     expect(saved).toBeGreaterThan(26_000);
     expect(saved).toBeLessThan(222_000);
     // The room at a box's inline edges moved the ceiling last, from 217,000 to 222,000: the notes
-    // on why each box that cuts its text at its inline edges keeps 0.125em there, given back by a
-    // margin, and which boxes take it only while they are not inline; on where a gutter or a
-    // hanging indent folds it in; on the row cut beside the time, which keeps the room in place of
-    // its summary and places the time inside it; and on the labeled summary that ends at its last
-    // line under a limit. The reading went from 215,049 to 217,866, taken with stripComments after
-    // the last comment was written.
+    // on why each box that cuts its text at its inline edges keeps room there, given back by a
+    // margin, why that room is a whole pixel, and which boxes take it only while they are not
+    // inline; on where a gutter or a hanging indent folds it in; on the row cut beside the time,
+    // which keeps the room in place of its summary and places the time inside it; and on the
+    // labeled summary that ends at its last line under a limit. The reading went from 215,049 to
+    // 219,121, taken with stripComments after the last comment was written.
     //
     // Marks above and below the line moved the ceiling before that, from 212,000 to 217,000: the
     // notes on why a box that hid its overflow only for a long word now cuts the inline axis

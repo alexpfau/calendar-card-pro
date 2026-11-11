@@ -109,7 +109,7 @@ describe("an event's text in right-to-left", () => {
     [
       '.summary:not(:only-child)',
       'the title, when a badge shares its row',
-      'calc(12px - var(--calendar-card-summary-inline-room, 0.125em))',
+      'calc(12px - var(--calendar-card-summary-inline-room))',
     ],
     ['.time', 'the time row', '12px'],
     ['.location', 'the location row', '12px'],

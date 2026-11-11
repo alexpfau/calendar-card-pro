@@ -321,21 +321,22 @@ describe('fitTitlesBesideTime', () => {
     expect(written(capped)).toMatchObject({ cut: 'below', width: `${WIDTH}px` });
   });
 
-  it('reads the width a sunk time is given off the content box, not clientWidth less the room', () => {
-    // .summary keeps 0.125em of room at its inline edges ("Marks above and below the line" in
-    // styles.ts). clientWidth is a whole number of pixels and the room is not, so a 299.4px line
-    // with 1.75px of room either side reports 303, which less the room is 299.5.
+  it('reads the width a sunk time is given as clientWidth less the padding, room and all', () => {
+    // .summary keeps a whole pixel or more of room at its inline edges ("Marks above and below
+    // the line" in styles.ts), so clientWidth less the padding is the whole-pixel width it read
+    // without the room: 299.4px of line and 2px of room either side report 303, less 4 is 299.
+    // Read to the fraction, as 299.4, a fit at its threshold decided differently.
     const sunk = row(
       { titleLines: 3, timeLines: 1, alone: false, timeWidth: NARROW, strutDrop: 4 },
       false,
     );
     const summary = sunk.querySelector<HTMLElement>('.summary')!;
     summary.style.width = '299.4px';
-    summary.style.paddingLeft = '1.75px';
-    summary.style.paddingRight = '1.75px';
+    summary.style.setProperty('padding-inline-start', '2px');
+    summary.style.setProperty('padding-inline-end', '2px');
     Object.defineProperty(summary, 'clientWidth', { configurable: true, value: 303 });
     fitTitlesBesideTime([sunk], 0);
-    expect(sunk.style.getPropertyValue(P.width)).toBe('299.4px');
+    expect(sunk.style.getPropertyValue(P.width)).toBe('299px');
   });
 
   it("reads a transformed card in the card's own pixels, and a fractional box as it is", () => {

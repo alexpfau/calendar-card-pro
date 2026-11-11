@@ -568,7 +568,7 @@ describe('card stylesheet', () => {
       // A hanging indent is a negative text-indent canceled by an equal
       // padding: the first line starts back at the label, every wrapped line
       // starts at the padding edge. One without the other is not an indent.
-      // The padding also holds the 0.125em of room the box keeps at its inline
+      // The padding also holds the room the box keeps at its inline
       // edges, which its negative margin gives back (marks-beyond-line.test.ts),
       // so the label starts at the room's inner edge, where it always started.
       //
@@ -579,7 +579,7 @@ describe('card stylesheet', () => {
       // cosmetic edit.
       const indent = expr(declared(selector, 'text-indent'));
       const padding = expr(declared(selector, 'padding-inline-start'));
-      const room = '+var(--calendar-card-summary-inline-room,0.125em))';
+      const room = '+var(--calendar-card-summary-inline-room))';
       expect(padding.endsWith(room)).toBe(true);
       expect(indent).toBe(`(-1*${padding.slice(0, -room.length)}))`);
     });
@@ -2621,7 +2621,7 @@ describe('card stylesheet', () => {
         {
           rung: 'wrap',
           target: '.time .time-actual .time-end',
-          body: 'display: block; overflow: hidden; text-overflow: ellipsis; padding-inline: 0.125em; margin-inline: -0.125em;',
+          body: 'display: block; overflow: hidden; text-overflow: ellipsis; padding-inline: var(--calendar-card-inline-room); margin-inline: calc(-1 * var(--calendar-card-inline-room));',
         },
         // With a countdown folded into the time, the end time stays inline behind a line
         // break, so the countdown can follow it on its line.
@@ -3904,7 +3904,7 @@ describe('the time beside the title', () => {
     [`${WRAP} > .summary:not(.summary-scroll)`]: [
       {
         display: 'flow-root',
-        'margin-inline': 'calc(-1 * var(--calendar-card-summary-inline-room, 0.125em))',
+        'margin-inline': 'calc(-1 * var(--calendar-card-summary-inline-room))',
         '--calendar-card-summary-ink-room': '0px',
       },
       { 'overflow-y': 'visible' },
@@ -3971,9 +3971,9 @@ describe('the time beside the title', () => {
       'margin-bottom': 'var(--calendar-card-title-pad)',
       'padding-top': '0.375em',
       'margin-top': '-0.375em',
-      'padding-inline': 'var(--calendar-card-event-inline-room, 0.125em)',
-      'margin-inline': 'calc(-1 * var(--calendar-card-event-inline-room, 0.125em))',
-      '--calendar-card-title-row-room': 'var(--calendar-card-event-inline-room, 0.125em)',
+      'padding-inline': 'var(--calendar-card-event-row-room)',
+      'margin-inline': 'calc(-1 * var(--calendar-card-event-row-room))',
+      '--calendar-card-title-row-room': 'var(--calendar-card-event-row-room)',
     }),
     // It cuts nothing, so it keeps no room at its inline edges either, and a label's hanging
     // indent stays as it is.

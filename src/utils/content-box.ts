@@ -53,24 +53,17 @@ export function inlineContentBox(
 }
 
 /**
- * The width a box's text has, in the card's own pixels: its used content width.
+ * The width a box's text has, as `clientWidth` reads it: whole pixels, less the inline padding.
  *
- * Read from the computed width rather than as `clientWidth` less the padding. `clientWidth` is
- * rounded to a whole pixel and the room is not, so taking the room off a rounded width can land
- * half a pixel from where the content box ends. A box that is not laid out falls back to that.
+ * Whole pixels on purpose. The fits that read a width were tuned against `clientWidth`, and a
+ * width read to the fraction moves their decisions where one falls within half a pixel of its
+ * threshold: a title the card cut beside its time went below it. The room is a whole number of
+ * pixels, so this is exactly the reading the box had without it.
  *
  * @param element - The box
- * @returns Its content-box width
+ * @returns Its content-box width, as `clientWidth` reads it
  */
 export function inlineContentWidth(element: HTMLElement): number {
   const style = styleOf(element);
-  const left = px(style.borderLeftWidth) + px(style.paddingLeft);
-  const right = px(style.borderRightWidth) + px(style.paddingRight);
-  // A box that is laid out reports its used width in pixels. One that is not reports what was
-  // specified, a percentage or a keyword, or a length it does not have.
-  const width = /px$/.test(style.width) ? Number.parseFloat(style.width) : NaN;
-  if (!Number.isFinite(width) || !element.getClientRects().length) {
-    return element.clientWidth - px(style.paddingLeft) - px(style.paddingRight);
-  }
-  return style.boxSizing === 'border-box' ? width - left - right : width;
+  return element.clientWidth - px(style.paddingLeft) - px(style.paddingRight);
 }

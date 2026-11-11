@@ -712,9 +712,7 @@ describe('the stylesheet half', () => {
     // as this one, so it wins by coming later. What is left is the room every summary keeps at
     // its inline edges, which its margin gives back (marks-beyond-line.test.ts).
     const grid = rule('.grid-event-disclosure .summary');
-    expect(grid.body).toContain(
-      'padding-inline-start: var(--calendar-card-summary-inline-room, 0.125em);',
-    );
+    expect(grid.body).toContain('padding-inline-start: var(--calendar-card-summary-inline-room);');
     expect(grid.body).toMatch(/text-indent: 0;/);
     for (const hanging of [
       '.summary:has(> .label-icon), .summary:has(> .label-image)',
