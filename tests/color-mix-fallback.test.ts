@@ -26,7 +26,8 @@ import { cardStyles } from '../src/rendering/styles';
  * Out of reach here: the mixes the card writes from script rather than a stylesheet, into its
  * inline style. The shipped grid and separator line colors, the week number's and the weekend's
  * washes, the empty day's text color, and an event's tint when its color is a var() are mixes of
- * that kind. Each reads a var(), so without color-mix() each turns invalid the same way.
+ * that kind. No `@supports` block can reach an inline style, so each is given its floor in script
+ * instead, and `tests/script-color-mix.test.ts` pins them.
  */
 
 const SHEETS = {

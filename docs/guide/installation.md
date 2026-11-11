@@ -88,6 +88,8 @@ drawn in the solid accent there, and a filled all-day pill is the calendar's col
 calendar's chip or row in the filter is gray, ringed in its color. The toolbar's buttons stay
 gray under the pointer, when pressed and after a refresh, an event or a day you press washes
 gray, and the wash of an all-day pill, the progress bar's track and the loading spinner are gray.
+A calendar that takes the theme's color tints its events gray there, and the week number's pill,
+a week separator, and the grid's lines and weekend shading are gray too.
 From Safari 16.2 to 17, a tinted event in column or grid view washes in the card's accent under
 the pointer or a press, rather than in its own text color.
 

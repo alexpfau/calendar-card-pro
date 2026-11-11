@@ -12,6 +12,7 @@ import * as ViewConfig from '../config/view';
 // across two lines -- which changes the emitted text from `4px 8px` to `4px\n  8px`
 // and fails the stylesheet assertion that pins it. Do not "tidy" these back.
 import { GRID_AXIS_PADDING_END_PX, GRID_AXIS_PADDING_START_PX } from '../config/view';
+import * as ColorMix from '../utils/color-mix';
 import * as EntityColors from '../utils/entity-colors';
 
 /**
@@ -201,13 +202,17 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
   // card's ripple does (see TAPPABLE EVENTS in the stylesheet). currentColor is left for the
   // event to resolve, since a custom property substitutes tokens rather than a color. A
   // box-shadow reads them only behind content-visibility, because Safari 16.4 and 16.5 crash
-  // on a currentColor mix there; see the rules themselves.
+  // on a currentColor mix there; see the rules themselves. Without color-mix() (Safari before
+  // 16.2) they are not written: the stylesheet replaces every rule reading them with a gray.
   if (config.event_background_opacity > 0) {
     props['--calendar-card-event-accent-side-radius'] = 'var(--calendar-card-event-border-radius)';
     props['--calendar-card-event-accent-bar-inset'] = '4px';
-    props['--calendar-card-event-wash-hover'] = 'color-mix(in srgb, currentColor 6%, transparent)';
-    props['--calendar-card-event-wash-pressed'] =
-      'color-mix(in srgb, currentColor 10%, transparent)';
+    if (ColorMix.supportsColorMix()) {
+      props['--calendar-card-event-wash-hover'] =
+        'color-mix(in srgb, currentColor 6%, transparent)';
+      props['--calendar-card-event-wash-pressed'] =
+        'color-mix(in srgb, currentColor 10%, transparent)';
+    }
   }
 
   // Weather event color has no default. If absent, both placements use their
@@ -225,6 +230,13 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     !EntityColors.isAccentTextSentinel(config.weather.event.color)
   ) {
     props['--calendar-card-weather-event-color'] = config.weather.event.color;
+  }
+
+  // Without color-mix() (Safari before 16.2) a mix the card ships is invalid wherever it is
+  // read: the week number's pill had no fill and an empty day's text took the full text color.
+  // Each is written there as its floor instead; see `ColorMix.floorColor`.
+  for (const [property, value] of Object.entries(props)) {
+    props[property] = ColorMix.floorColor(value);
   }
 
   return props;
