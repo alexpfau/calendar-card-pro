@@ -3891,10 +3891,13 @@ describe('the time beside the title', () => {
     }),
     [`${TIME} > .time-countdown::before`]: one({ content: 'none' }),
     // A wrapping title: a block row, the title in its own formatting context and inline, and
-    // the gap before the time said once, on the row, where the card reads it.
+    // the gap before the time said once, on the row, where the card reads it. The row ends 12px
+    // short of the event, as every time does, so the title's lines stop where the time ends.
     [WRAP]: one({
       display: 'block',
       position: 'relative',
+      width: 'auto',
+      'margin-inline-end': '12px',
       '--calendar-card-title-room-gap': '12px',
     }),
     // Neither keeps room above the title's first line, nor cuts below its last: the summary
@@ -3947,6 +3950,10 @@ describe('the time beside the title', () => {
     [`${WRAP} > .title-aside > .title-strut`]: one({
       'font-size': 'var(--calendar-card-font-size-event)',
     }),
+    // The time ends at the row's end, which already keeps the time's 12px, and an all-day pill
+    // with nothing after it ends where every other time does, beside either kind of title.
+    [`${WRAP} > .title-aside > .time`]: one({ 'margin-inline-end': '0' }),
+    [`${TIME} > .time-actual > .allday-badge:last-child`]: one({ 'margin-inline-end': '0' }),
     [`${WRAP}[data-title-fit] > .title-aside`]: one({
       position: 'absolute',
       top: 'calc(100% - var(--calendar-card-title-pad) - var(--calendar-card-title-room-height))',
@@ -3972,7 +3979,8 @@ describe('the time beside the title', () => {
       'padding-top': '0.375em',
       'margin-top': '-0.375em',
       'padding-inline': 'var(--calendar-card-event-row-room)',
-      'margin-inline': 'calc(-1 * var(--calendar-card-event-row-room))',
+      'margin-inline':
+        'calc(-1 * var(--calendar-card-event-row-room)) calc(12px - var(--calendar-card-event-row-room))',
       '--calendar-card-title-row-room': 'var(--calendar-card-event-row-room)',
     }),
     // It cuts nothing, so it keeps no room at its inline edges either, and a label's hanging
@@ -4085,7 +4093,8 @@ describe('the time beside the title', () => {
     expect(declared('.time', 'justify-content')).toBe('space-between');
     expect(declared('.time', 'align-items')).toBe('center');
     expect(declared('.time', 'column-gap')).toBe('8px');
-    // It keeps its end margin beside the title, so it ends where the rows below it do.
+    // It keeps its end margin beside a title kept to one line, so it ends where the rows below
+    // it do. Beside a wrapping title the row keeps it instead; see the next test.
     expect(declared('.time', 'margin-inline-end')).toBe('12px');
     // Column view's indent for the clock, which the time has no longer.
     expect(declared('.column-events .time', 'padding-inline-start')).toBe(
@@ -4107,6 +4116,115 @@ describe('the time beside the title', () => {
     ).toBe('var(--calendar-card-weather-event-font-size, 12px)');
     // "Now" may break anywhere below the title.
     expect(declared('.time .now-indicator', 'overflow-wrap')).toBe('anywhere');
+  });
+
+  it("ends the time 12px short of the event in every layout, and a wrapping title's lines there too", () => {
+    // Every time, countdown and weather badge set against the end of an event ends 12px short of
+    // it, where the rows below the title end. Beside a title kept to one line the time does so by
+    // its own end margin. A wrapping title's lines used to run on to the event's end, 12px past
+    // the time beside their last line, which looked indented from them; giving the time up to
+    // those lines broke the 12px everywhere else instead, so the row keeps the margin, and the
+    // title's lines and the time both end there. Measured in every wrapping and capped row, list
+    // and column, left to right and right to left, in Chromium and WebKit.
+    const margin = declared('.time', 'margin-inline-end');
+    expect(margin).toBe('12px');
+    expect(declared('.event-weather', 'margin-inline-end')).toBe(margin);
+    expect(declared('.time-countdown', 'margin-inline-end')).toBe(margin);
+    // The wrapping row keeps it, and is as wide as the event less that: the rule every title
+    // row has makes it as wide as the event, which a margin alone would push past the end.
+    expect(declared('.summary-row', 'width')).toBe('100%');
+    expect(declared(WRAP, 'width')).toBe('auto');
+    expect(declared(WRAP, 'margin-inline-end')).toBe(margin);
+    //
+    // The title's lines end at .summary's content edge, which is the row's: the room the summary
+    // keeps at its inline edges as padding, its margin takes back.
+    const padding = declared('.summary', 'padding-inline');
+    expect(padding).toBe('var(--calendar-card-summary-inline-room)');
+    expect(declared(`${WRAP} > .summary:not(.summary-scroll)`, 'margin-inline')).toBe(
+      `calc(-1 * ${padding})`,
+    );
+    // A row cut beside the time keeps that room as padding of its own, which its margin takes
+    // back, keeping the 12px at its end, and the box is placed exactly that far in from the
+    // row's padding edge. Every other row has neither, and the box falls back to the edge itself.
+    const room = declared(CUT, 'padding-inline');
+    expect(declared(CUT, 'margin-inline').replace(/\s+/g, ' ')).toBe(
+      `calc(-1 * ${room}) calc(${margin} - ${room})`,
+    );
+    expect(declared(CUT, '--calendar-card-title-row-room')).toBe(room);
+    expect(declared(WRAP, 'padding-inline')).toBe('');
+    expect(declared(`${WRAP}[data-title-fit='ltr'] > .title-aside`, 'right')).toBe(
+      'var(--calendar-card-title-row-room, 0px)',
+    );
+    expect(declared(`${WRAP}[data-title-fit='rtl'] > .title-aside`, 'left')).toBe(
+      'var(--calendar-card-title-row-room, 0px)',
+    );
+    // Until the card has fitted it, the box is a line of its own, pushed to the end.
+    expect(declared(`${WRAP} > .title-aside`, 'margin-inline-start')).toBe('auto');
+    // Nothing in the box keeps room at its end: no rule naming it declares padding or a margin
+    // on its end side, in any spelling.
+    const endSide =
+      /^(padding|margin)(-inline(-end)?|-left|-right)?$|^(inset-inline-end|right|left)$/;
+    const endSpacing = (selectors: (selector: string) => boolean) =>
+      INNERMOST.flatMap((rule) =>
+        rule.selectors.filter(selectors).flatMap((selector) =>
+          Object.entries(rule.declarations)
+            .filter(([property]) => endSide.test(property))
+            .map(([property, value]) => `${selector} { ${property}: ${value} }`),
+        ),
+      );
+    const boxes = [
+      ASIDE,
+      `${WRAP} > .title-aside`,
+      `${WRAP}[data-title-fit] > .title-aside`,
+      `${CUT} > .title-aside`,
+    ];
+    for (const box of boxes) expect(rulesFor(box), box).not.toHaveLength(0);
+    expect(endSpacing((selector) => boxes.includes(selector))).toEqual([]);
+
+    // Nor does what the box holds, past what spaces one item from the next. Every rule that can
+    // reach the time's content beside the title is listed, whatever it names, so a new one that
+    // keeps room at the end, a .time-actual padding or a countdown margin, fails here rather than
+    // only in a browser. Grid and the rows below the title are out of reach; so are separators
+    // drawn before what they separate.
+    const PATH =
+      /\.(time|time-actual|time-text|time-end|time-countdown|allday-badge|now-time|now-indicator)(?![\w-])/;
+    const subject = (selector: string) => {
+      const compounds = selector.split(/\s*[\s>+~]\s*(?![^(]*\))/);
+      return compounds[compounds.length - 1];
+    };
+    const onPath = (selector: string) =>
+      !/::before|grid|\.time-location/.test(selector) &&
+      (PATH.test(subject(selector)) ||
+        (/^span\b/.test(subject(selector)) && /\.time(?![\w-])/.test(selector)));
+    const wrapTime = `${WRAP} > .title-aside > .time`;
+    const roomSpan = '.time .time-actual > span:not(.time-text):not(.allday-badge):not(.now-time)';
+    expect(endSpacing(onPath)).toEqual([
+      // Between "Now" and the time after it.
+      '.time .now-indicator { margin-inline-end: calc(var(--calendar-card-now-gap) - 0.0675em) }',
+      // Every time's 12px, which the wrapping row keeps in its place, below.
+      '.time { margin-inline-end: 12px }',
+      // Room at a field's inline edges, given back by an equal negative margin.
+      '.time .time-actual .time-text > span { padding-inline: var(--calendar-card-time-inline-room, 0px) }',
+      '.time .time-actual .time-text > span { margin-inline: calc(-1 * var(--calendar-card-time-inline-room, 0px)) }',
+      // A folded countdown keeps none.
+      '.time .time-actual .time-text > .time-countdown { padding-inline: 0 }',
+      '.time .time-actual .time-text > .time-countdown { margin-inline-end: 0 }',
+      // A countdown's 12px, which a countdown alone beside the title gives up, and column
+      // view's too.
+      '.time-countdown { margin-inline-end: 12px }',
+      `${TIME} > .time-countdown { margin-inline: 0 }`,
+      // The wrapping row's time ends at the row's end, which keeps the 12px.
+      `${wrapTime} { margin-inline-end: 0 }`,
+      // A pill with nothing after it ends where every other time does, beside either title.
+      `${TIME} > .time-actual > .allday-badge:last-child { margin-inline-end: 0 }`,
+      // Inside the pill, whose ground runs to its border.
+      '.allday-badge { padding-inline: 0.5em }',
+      // Between the pill and what follows it, taken away above where nothing does.
+      '.allday-badge { margin-inline-end: 5px }',
+      `${roomSpan} { padding-inline: var(--calendar-card-inline-room) }`,
+      `${roomSpan} { margin-inline: calc(-1 * var(--calendar-card-inline-room)) }`,
+      '.column-events .time-countdown { margin-inline-end: 0 }',
+    ]);
   });
 
   it("spaces the bullet as the folded countdown's separator is spaced", () => {

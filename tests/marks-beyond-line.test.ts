@@ -452,10 +452,11 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
       [ROW_BESIDE_TIME]: { 'margin-inline': `calc(-1 * ${SUMMARY_ROOM})` },
       '.grid-event-disclosure .summary': { 'padding-inline-start': SUMMARY_ROOM },
       // The row a title is cut in beside its time cuts in its summary's place, with the title's
-      // room, and places the time inside it.
+      // room, and places the time inside it. Its end margin keeps the 12px every wrapping title's
+      // row keeps, so its lines stop where the time ends.
       [CUT_ROW]: {
         'padding-inline': EVENT_ROOM,
-        'margin-inline': `calc(-1 * ${EVENT_ROOM})`,
+        'margin-inline': `calc(-1 * ${EVENT_ROOM}) calc(12px - ${EVENT_ROOM})`,
         '--calendar-card-title-row-room': EVENT_ROOM,
       },
       [`${CUT_ROW} > .summary:not(.summary-scroll)`]: {
@@ -671,7 +672,7 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
         );
       }
     }
-    expect(pairs).toBe(13);
+    expect(pairs).toBe(12);
   });
 });
 
