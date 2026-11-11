@@ -24,21 +24,27 @@ import * as EventUtils from '../src/utils/events';
  * tint. `ColorMix.floorColor` writes a floor in its place there, measured once from the browser.
  * `tests/color-mix-fallback.test.ts` holds the same line for the stylesheets.
  *
- * Pinned three ways, so a new mix cannot be written from script without a floor:
+ * Pinned four ways, so a mix cannot be written from script without a floor:
  *
- * - Every color-mix() in the source outside a stylesheet is listed by value, and no `mix(` may
- *   stand anywhere else in it, so one assembled from pieces fails too. Each must be a mix with a
- *   floor or one of the three the card resolves itself.
- * - Every option whose default is a mix, nested ones included, is listed, with every place the
- *   views below write it, found by setting it to a marker. A mixed default added without a
- *   floor fails, and so does a view that stops drawing one of those places.
+ * - Every color-mix() in the source outside a stylesheet is listed by value, in any case, and no
+ *   `mix(` may stand anywhere else in it, so one assembled from pieces fails too. Each must be a
+ *   mix with a floor or one of the three the card resolves itself.
+ * - Every option whose default is a mix, nested ones included, is listed. So is every color
+ *   option the views write from script, with every place they write it, found by setting it to
+ *   a marker, and the files that read them. A mixed default without a floor fails, a view that
+ *   stops drawing one of those places fails, and so does a new file reading one of them.
  * - Each view is rendered as a browser with color-mix() and one without would render it. At
  *   every inline declaration holding a mix in the first, the second must hold exactly the floor
  *   below, or nothing where the mix is one the card leaves unwritten there. The floors are
  *   written out here rather than read from the table, so the table cannot vouch for itself.
+ * - A mix the card ships, written into each of those color options, is drawn as its floor at
+ *   every place the option is written, defaults or not.
  */
 
 const ROOT = join(process.cwd(), 'src');
+
+/** Whether a value holds a CSS function ending in `mix`, in any case, as CSS reads it. */
+const hasMix = (value: string): boolean => /mix\(/i.test(value);
 
 /** Every `.ts` file under `dir`. */
 function sourceFiles(dir: string): string[] {
@@ -60,10 +66,11 @@ function script(path: string): string {
     .replace(/\bcss`(?:[^`\\]|\\.)*`/g, 'css``');
 }
 
-/** Each color-mix() in a text, to its balancing parenthesis however deeply its arguments nest. */
+/** Each color-mix() in a text, in any case, to the parenthesis that balances it. */
 function mixesIn(text: string): string[] {
+  const lower = text.toLowerCase();
   const found: string[] = [];
-  for (let start = text.indexOf('color-mix('); start !== -1;) {
+  for (let start = lower.indexOf('color-mix('); start !== -1;) {
     let depth = 0;
     let end = start + 'color-mix'.length;
     for (; end < text.length; end++) {
@@ -71,7 +78,7 @@ function mixesIn(text: string): string[] {
       else if (text[end] === ')' && --depth === 0) break;
     }
     found.push(text.slice(start, end + 1));
-    start = text.indexOf('color-mix(', end);
+    start = lower.indexOf('color-mix(', end);
   }
   return found;
 }
@@ -83,15 +90,14 @@ function scriptMixes(): string[] {
     .sort();
 }
 
-/** Every `mix(` in script that does not open a `color-mix(`, as `file: text around it`. */
+/** Every CSS `mix(` in script that is not a `color-mix(`, as `file: text around it`. */
 function looseMixes(): string[] {
   return sourceFiles(ROOT).flatMap((path) => {
     const text = script(path);
-    return [...text.matchAll(/mix\(/g)]
-      .filter((m) => text.slice(Math.max(0, (m.index ?? 0) - 6), m.index) !== 'color-')
-      .map(
-        (m) => `${relative(ROOT, path)}: ${text.slice((m.index ?? 0) - 20, (m.index ?? 0) + 20)}`,
-      );
+    // A `mix(` that ends a name, as in `supportsColorMix(`, is a call in script, not CSS.
+    return [...text.matchAll(/(?<![\w$])mix\(/gi)]
+      .filter((m) => text.slice(Math.max(0, m.index - 6), m.index).toLowerCase() !== 'color-')
+      .map((m) => `${relative(ROOT, path)}: ${text.slice(m.index - 20, m.index + 20)}`);
   });
 }
 
@@ -107,12 +113,15 @@ const RESOLVED_ELSEWHERE = new Set([
   'color-mix(in srgb, currentColor 10%, transparent)',
 ]);
 
+/** The shipped mix written into each color option below, and the floor it must draw as. */
+const DIVIDER_MIX = 'color-mix(in srgb, var(--divider-color) 50%, transparent)';
+
 /**
  * What each mix the scenarios below write draws as without color-mix(), or `undefined` where the
  * card leaves it unwritten there. The tint is the one at the scenarios' 20%.
  */
 const FLOORS: Readonly<Record<string, string | undefined>> = {
-  'color-mix(in srgb, var(--divider-color) 50%, transparent)': 'rgba(128, 128, 128, 0.12)',
+  [DIVIDER_MIX]: 'rgba(128, 128, 128, 0.12)',
   'color-mix(in srgb, var(--primary-text-color) 4%, transparent)': 'rgba(128, 128, 128, 0.08)',
   'color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)': 'rgba(128, 128, 128, 0.31)',
   'color-mix(in srgb, var(--primary-text-color) 60%, transparent)': 'var(--secondary-text-color)',
@@ -132,7 +141,7 @@ function mixedDefaults(): Map<string, string> {
   ];
   const found = new Map<string, string>();
   const walk = (scope: string, path: string[], value: unknown): void => {
-    if (typeof value === 'string' && value.includes('mix(')) {
+    if (typeof value === 'string' && hasMix(value)) {
       found.set(`${scope}:${path.join('.')}`, value);
     } else if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
       for (const [key, inner] of Object.entries(value)) walk(scope, [...path, key], inner);
@@ -142,10 +151,7 @@ function mixedDefaults(): Map<string, string> {
   return found;
 }
 
-/**
- * The options whose default is a mix, pinned by value. Card-wide ones are written into the card's
- * own style or into separators every view draws; grid ones are the grid's rules and shading.
- */
+/** The options whose default is a mix, pinned by value. */
 const MIXED_OPTIONS = [
   'card:week_number_background_color',
   'card:week_separator_color',
@@ -156,63 +162,89 @@ const MIXED_OPTIONS = [
   'grid:weekend_background_color',
 ];
 
+/**
+ * Every color option the views write from script outside the card's own style, which takes all
+ * of its properties through one floor: the ones whose default is a mix, and the rest a user can
+ * set to one. A view's own block (`column:`, `time_grid:`) is named where only it reads one.
+ */
+const COLOR_OPTIONS = [
+  ...MIXED_OPTIONS,
+  'card:day_separator_color',
+  'card:month_separator_color',
+  'column:day_header_separator_color',
+  'grid:today_background_color',
+].sort();
+
 type Scenario = { view: Types.EffectiveView; overrides: Partial<Types.Config> };
 
 /**
- * One rendering per view, with every option that draws a mixed default turned on: week numbers
- * and week separators, empty days, a tint from the theme's color (the calendar has none of its
- * own), and in the grid the weekend, half-hour slots and the all-day band. Seven days from a
- * Wednesday, with empty days shown, so the week turns on screen and the weekend is on it.
+ * One rendering per view, with every color option above on: week numbers, week, month and day
+ * separators, empty days, a tint from the theme's color (the calendar has none of its own), and
+ * in the grid the weekend, half-hour slots and the all-day band. Sixteen days from June 17, with
+ * empty days shown, so the week and the month turn on screen.
  */
+const SEPARATORS: Partial<Types.Config> = {
+  days_to_show: 16,
+  week_separator_width: '2px',
+  month_separator_width: '3px',
+  day_separator_width: '1px',
+  show_empty_days: true,
+};
+
 const SCENARIOS: Record<string, Scenario> = {
   'list-week-numbers': {
     view: 'list',
-    overrides: {
-      days_to_show: 7,
-      show_week_numbers: 'iso',
-      week_separator_width: '2px',
-      show_empty_days: true,
-      event_background_opacity: 20,
-    },
+    overrides: { ...SEPARATORS, show_week_numbers: 'iso', event_background_opacity: 20 },
   },
-  'list-week-separator': {
+  'list-separators': {
+    view: 'list',
+    overrides: { ...SEPARATORS, event_background_opacity: 20 },
+  },
+  // From a Monday a week before June 1, 2026, also a Monday, so a week row turns the month.
+  'list-month-week': {
     view: 'list',
     overrides: {
-      days_to_show: 7,
-      week_separator_width: '2px',
-      show_empty_days: true,
-      event_background_opacity: 20,
+      ...SEPARATORS,
+      start_date: '2026-05-25',
+      days_to_show: 10,
+      show_week_numbers: 'iso',
     },
   },
   column: {
     view: 'column',
     overrides: {
+      ...SEPARATORS,
       view: 'column',
-      days_to_show: 7,
       show_week_numbers: 'iso',
-      week_separator_width: '2px',
-      show_empty_days: true,
       event_background_opacity: 20,
-    },
+      column: { day_header_separator_width: '1px' },
+    } as Partial<Types.Config>,
   },
   grid: {
     view: 'grid',
     overrides: {
+      ...SEPARATORS,
       view: 'grid',
-      days_to_show: 7,
       show_week_numbers: 'iso',
-      week_separator_width: '2px',
       time_grid: { slot_minutes: 30 },
     } as Partial<Types.Config>,
   },
 };
 
-/** An option set to `value` where its scope reads it: a grid option from the grid's block. */
+/** The YAML block a scope's options are read from, or none for a card-wide one. */
+const BLOCK: Readonly<Record<string, string | undefined>> = {
+  card: undefined,
+  column: 'column',
+  grid: 'time_grid',
+};
+
+/** An option set to `value` where its scope reads it. */
 function withOption(overrides: Partial<Types.Config>, option: string, value: string) {
   const [scope, path] = option.split(':');
   const copy = structuredClone(overrides) as Record<string, unknown>;
+  const block = BLOCK[scope];
+  const keys = block === undefined ? path.split('.') : [block, ...path.split('.')];
   let target = copy;
-  const keys = scope === 'grid' ? ['time_grid', ...path.split('.')] : path.split('.');
   for (const key of keys.slice(0, -1)) {
     target[key] = { ...((target[key] as Record<string, unknown>) ?? {}) };
     target = target[key] as Record<string, unknown>;
@@ -244,12 +276,12 @@ function inlineDeclarations(scenario: Scenario, overrides = scenario.overrides):
     ([property, value]) => ({ at: 'card', property, value }),
   );
   [...container.querySelectorAll('[style]')].forEach((el, index) => {
-    const at = `${index} ${(el.getAttribute('class') ?? el.localName).replace(/\s+/g, ' ').trim()}`;
+    const label = (el.getAttribute('class') ?? el.localName).replace(/\s+/g, ' ').trim();
     for (const part of (el.getAttribute('style') ?? '').split(';')) {
       const colon = part.indexOf(':');
       if (colon === -1) continue;
       found.push({
-        at,
+        at: `${index} ${label}`,
         property: part.slice(0, colon).trim(),
         value: part.slice(colon + 1).trim(),
       });
@@ -261,8 +293,7 @@ function inlineDeclarations(scenario: Scenario, overrides = scenario.overrides):
 /** Answers as a browser without color-mix() does, and forgets any earlier answer. */
 function withoutColorMix(): void {
   vi.stubGlobal('CSS', {
-    supports: (property: string, value?: string) =>
-      !`${property} ${value ?? ''}`.includes('color-mix('),
+    supports: (property: string, value?: string) => !hasMix(`${property} ${value ?? ''}`),
   });
   ColorMix.resetColorMixSupport();
 }
@@ -273,17 +304,27 @@ function withColorMix(): void {
   ColorMix.resetColorMixSupport();
 }
 
-/** A scenario's declarations as a browser with color-mix() writes them, and one without. */
-function bothWays(scenario: Scenario): { modern: Declaration[]; without: Declaration[] } {
+/** A rendering's declarations as a browser with color-mix() writes them, and one without. */
+function bothWays(
+  scenario: Scenario,
+  overrides = scenario.overrides,
+): { modern: Declaration[]; without: Declaration[] } {
   withColorMix();
-  const modern = inlineDeclarations(scenario);
+  const modern = inlineDeclarations(scenario, overrides);
   withoutColorMix();
-  const without = inlineDeclarations(scenario);
+  const without = inlineDeclarations(scenario, overrides);
   withColorMix();
+  // The same elements in the same order, so a declaration's place names it in both.
+  const places = (all: Declaration[]) => [...new Set(all.map((d) => d.at))];
+  expect(places(without)).toEqual(places(modern));
   return { modern, without };
 }
 
 const key = (d: Declaration): string => `${d.at} | ${d.property}`;
+
+/** A declaration's place without its position, as the pins below name it. */
+const place = (name: string, d: Declaration): string =>
+  `${name} | ${d.at.replace(/^\d+ /, '')} | ${d.property}`;
 
 describe('color-mix() the card writes from script, where Safari before 16.2 has none', () => {
   beforeEach(() => {
@@ -335,7 +376,7 @@ describe('color-mix() the card writes from script, where Safari before 16.2 has 
 
   it('keeps every floor free of color-mix(), so it draws where that is unknown', () => {
     const floors = [...ColorMix.COLOR_MIX_FLOORS.values(), ColorMix.translucentGray(20)];
-    expect(floors.filter((f) => f.includes('mix('))).toEqual([]);
+    expect(floors.filter(hasMix)).toEqual([]);
   });
 
   it('has a floor for every option whose default is a mix', () => {
@@ -344,31 +385,77 @@ describe('color-mix() the card writes from script, where Safari before 16.2 has 
     expect([...defaults.values()].filter((v) => !ColorMix.COLOR_MIX_FLOORS.has(v))).toEqual([]);
   });
 
-  it('draws each of those options at these places, so a view that stops drawing one fails', () => {
+  it('reads those color options in these files only, so a new reader is noticed', () => {
+    const names = [...new Set(COLOR_OPTIONS.map((option) => option.split(':')[1]))];
+    const readers = sourceFiles(ROOT)
+      .map((path) => relative(ROOT, path))
+      .filter((path) => !path.startsWith('config/') && !path.startsWith('rendering/editor/'))
+      .flatMap((path) =>
+        names
+          .filter((name) => new RegExp(`\\b${name}\\b`).test(script(join(ROOT, path))))
+          .map((name) => `${path}: ${name}`),
+      )
+      .sort();
+    expect(readers).toEqual([
+      'rendering/column.ts: day_header_separator_color',
+      'rendering/column.ts: day_separator_color',
+      'rendering/column.ts: month_separator_color',
+      'rendering/column.ts: week_separator_color',
+      'rendering/grid.ts: allday_band_line_color',
+      'rendering/grid.ts: day_header_separator_color',
+      'rendering/grid.ts: day_separator_color',
+      'rendering/grid.ts: hour_line_color',
+      'rendering/grid.ts: month_separator_color',
+      'rendering/grid.ts: today_background_color',
+      'rendering/grid.ts: week_separator_color',
+      'rendering/grid.ts: weekend_background_color',
+      'rendering/render.ts: day_separator_color',
+      'rendering/render.ts: month_separator_color',
+      'rendering/render.ts: week_separator_color',
+      'rendering/styles.ts: week_number_background_color',
+    ]);
+  });
+
+  it('draws each of those color options at these places, so a view that stops drawing one fails', () => {
     const places = Object.fromEntries(
-      MIXED_OPTIONS.map((option) => {
+      COLOR_OPTIONS.map((option) => {
         const marker = `var(--s262-${option.replace(/[:.]/g, '-')})`;
         const at = Object.entries(SCENARIOS).flatMap(([name, scenario]) =>
           inlineDeclarations(scenario, withOption(scenario.overrides, option, marker))
             .filter((d) => d.value === marker)
-            .map((d) => `${name} | ${d.at.replace(/^\d+ /, '')} | ${d.property}`),
+            .map((d) => place(name, d)),
         );
         return [option, [...new Set(at)].sort()];
       }),
     );
     expect(places).toEqual({
+      'card:day_separator_color': [
+        'column | column-separator column-separator-day | background-color',
+        'list-month-week | separator | border-top-color',
+        'list-separators | separator | border-top-color',
+        'list-week-numbers | separator | border-top-color',
+      ],
+      'card:month_separator_color': [
+        'column | column-separator column-separator-month | background-color',
+        'grid | grid-separator grid-separator-month | --calendar-card-grid-rule-paint',
+        'list-month-week | separator-cell | --separator-border-color',
+        'list-separators | month-separator | border-top-color',
+        'list-week-numbers | month-separator | border-top-color',
+      ],
       'card:week_number_background_color': [
         'column | card | --calendar-card-week-number-bg-color',
         'grid | card | --calendar-card-week-number-bg-color',
+        'list-month-week | card | --calendar-card-week-number-bg-color',
+        'list-separators | card | --calendar-card-week-number-bg-color',
         'list-week-numbers | card | --calendar-card-week-number-bg-color',
-        'list-week-separator | card | --calendar-card-week-number-bg-color',
       ],
       'card:week_separator_color': [
         'column | column-separator column-separator-week | background-color',
         'grid | grid-separator grid-separator-week | --calendar-card-grid-rule-paint',
+        'list-separators | week-separator | border-top-color',
         'list-week-numbers | separator-cell | --separator-border-color',
-        'list-week-separator | week-separator | border-top-color',
       ],
+      'column:day_header_separator_color': ['column | column-header-separator | border-top-color'],
       'grid:allday_band_line_color': [
         'grid | grid-boundary grid-boundary-band-bottom | --calendar-card-grid-rule-paint',
       ],
@@ -383,6 +470,7 @@ describe('color-mix() the card writes from script, where Safari before 16.2 has 
         'grid | grid-container | --calendar-card-grid-rule-color',
         'grid | grid-container | --calendar-card-grid-slot-color',
       ],
+      'grid:today_background_color': ['grid | grid-container | --calendar-card-grid-today'],
       'grid:weekend_background_color': ['grid | grid-container | --calendar-card-grid-weekend'],
     });
   });
@@ -392,7 +480,7 @@ describe('color-mix() the card writes from script, where Safari before 16.2 has 
       Object.values(SCENARIOS).flatMap((s) =>
         inlineDeclarations(s)
           .map((d) => d.value)
-          .filter((v) => v.includes('mix(')),
+          .filter(hasMix),
       ),
     );
     expect([...written].sort()).toEqual(Object.keys(FLOORS).sort());
@@ -400,32 +488,51 @@ describe('color-mix() the card writes from script, where Safari before 16.2 has 
 
   it('writes the listed floor in place of every one of those mixes where color-mix() is unknown', () => {
     const wrong: string[] = [];
-    let checked = 0;
+    const checked = new Set<string>();
     for (const [name, scenario] of Object.entries(SCENARIOS)) {
       const { modern, without } = bothWays(scenario);
-      // The same elements in the same order, so a declaration's place names it in both.
-      expect(without.map((d) => d.at).filter((at, i, all) => all.indexOf(at) === i)).toEqual(
-        modern.map((d) => d.at).filter((at, i, all) => all.indexOf(at) === i),
-      );
       const drawn = new Map(without.map((d) => [key(d), d.value]));
-      for (const d of modern.filter((m) => m.value.includes('mix('))) {
-        checked++;
+      for (const d of modern.filter((m) => hasMix(m.value))) {
+        checked.add(place(name, d));
         const actual = drawn.get(key(d));
         if (actual !== FLOORS[d.value]) wrong.push(`${name} | ${key(d)}: ${actual}`);
       }
-      const mixed = without.filter((d) => d.value.includes('mix('));
-      wrong.push(...mixed.map((d) => `${name} | ${key(d)}: ${d.value}`));
+      wrong.push(...without.filter((d) => hasMix(d.value)).map((d) => `${name} | ${key(d)}`));
     }
     expect(wrong).toEqual([]);
-    expect(checked).toBeGreaterThan(20);
+    expect(checked.size).toBeGreaterThan(30);
   });
 
-  it('measures the browser once', () => {
-    const supports = vi.fn(() => true);
-    vi.stubGlobal('CSS', { supports });
-    ColorMix.floorColor(String(DEFAULT_CONFIG.week_separator_color));
-    ColorMix.floorColor(String(DEFAULT_CONFIG.week_separator_color));
-    ColorMix.supportsColorMix();
+  it('draws a mix the card ships as its floor wherever a color option above writes one', () => {
+    const wrong: string[] = [];
+    const reached = new Set<string>();
+    for (const option of COLOR_OPTIONS) {
+      for (const [name, scenario] of Object.entries(SCENARIOS)) {
+        const { modern, without } = bothWays(
+          scenario,
+          withOption(scenario.overrides, option, DIVIDER_MIX),
+        );
+        const drawn = new Map(without.map((d) => [key(d), d.value]));
+        for (const d of modern.filter((m) => m.value === DIVIDER_MIX)) {
+          reached.add(option);
+          const actual = drawn.get(key(d));
+          if (actual !== FLOORS[DIVIDER_MIX])
+            wrong.push(`${option} | ${name} | ${key(d)}: ${actual}`);
+        }
+      }
+    }
+    expect(wrong).toEqual([]);
+    expect([...reached].sort()).toEqual(COLOR_OPTIONS);
+  });
+
+  it.each([true, false])('asks the browser once, when it answers %s', (answer) => {
+    const supports = vi.fn(() => answer);
+    vi.stubGlobal('CSS', undefined);
+    // A new object on every read, as the test environment's own `CSS` is.
+    Object.defineProperty(globalThis, 'CSS', { configurable: true, get: () => ({ supports }) });
+    ColorMix.floorColor(DIVIDER_MIX);
+    ColorMix.floorColor(DIVIDER_MIX);
+    expect(ColorMix.supportsColorMix()).toBe(answer);
     expect(supports).toHaveBeenCalledTimes(1);
     expect(supports).toHaveBeenCalledWith('color', 'color-mix(in srgb, red, blue)');
   });

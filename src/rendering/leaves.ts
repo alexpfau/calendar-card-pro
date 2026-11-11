@@ -11,6 +11,7 @@ import { styleMap } from 'lit/directives/style-map.js';
 
 import * as Types from '../config/types';
 import * as Localize from '../translations/localize';
+import * as ColorMix from '../utils/color-mix';
 import * as EntityColors from '../utils/entity-colors';
 import * as FormatUtils from '../utils/format';
 import * as Helpers from '../utils/helpers';
@@ -146,7 +147,7 @@ export function renderSharedDayHeader(
         class="column-header-separator"
         style=${styleMap({
           borderTopWidth: separator.width,
-          borderTopColor: separator.color,
+          borderTopColor: ColorMix.floorColor(separator.color),
           borderTopStyle: 'solid',
         })}
       ></div>`
