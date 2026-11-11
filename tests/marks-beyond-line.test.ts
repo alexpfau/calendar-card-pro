@@ -1,5 +1,5 @@
 /**
- * Marks above and below the line (backlog items 258, 263 and 264).
+ * Marks above and below the line (backlog items 258, 263, 264 and 265).
  *
  * Thai stacks a tone mark on a vowel above its letter, Vietnamese an accent on a circumflex, and
  * Arabic, Burmese and Khmer reach below. At the card's line height of 1.2 those marks run past
@@ -16,7 +16,8 @@
  *   the last letter, the hook of a "j" past a grid word's edge, and the antialiasing Chromium drew
  *   past a field's first letter (backlog item 263);
  * - the summary that clamps a labeled title's line in list and column view ends at its last line,
- *   its 0.2em below the text a margin, so no piece of the next line shows there (backlog item 264).
+ *   its 0.2em below the text a margin, so no piece of the next line shows there (backlog item 264),
+ *   and an unlabeled title there, which clamps itself, does the same with its 2px (backlog item 265).
  *
  * What either draws can only be seen in a browser; the harnesses that measured it (both engines,
  * list, column and grid) are described in the pull requests. Latin was byte-identical with the
@@ -25,10 +26,15 @@
  * from any list, or a room that stops being given back, fails here.
  */
 
-import { describe, expect, it } from 'vitest';
+import { render as litRender } from 'lit';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { buildConfig } from './fixtures';
+import { FROZEN_NOW, buildConfig } from './fixtures';
+import type * as Types from '../src/config/types';
+import { renderColumnGroupedEvents } from '../src/rendering/column';
+import * as Render from '../src/rendering/render';
 import { cardStyles, generateCustomPropertiesObject } from '../src/rendering/styles';
+import * as EventUtils from '../src/utils/events';
 
 const CSS = cardStyles.cssText.replace(/\/\*[\s\S]*?\*\//g, '');
 
@@ -670,6 +676,134 @@ describe("a summary that clamps a labeled title's line (backlog item 264)", () =
           // The subject, the last compound once pseudo-class arguments are taken out, is a summary.
           .map((selector) => selector.replace(/\((?:[^()]|\([^()]*\))*\)/g, ''))
           .some((selector) => /(^|[\s>+~])\.summary(?![-\w])[^\s>+~]*$/.test(selector)) &&
+        Object.entries(declarations).some(
+          ([property, value]) => /^margin(-bottom|-block(-end)?)?$/.test(property) && value !== '0',
+        ),
+    ).map(({ selectors }) => selectors);
+    expect(margins).toEqual([ENDS_AT_LAST_LINE]);
+  });
+});
+
+describe('an unlabeled title that clamps itself (backlog item 265)', () => {
+  const ENDS_AT_LAST_LINE = [
+    'td.event .event-content > .summary-row:not(.title-wrap)',
+    '.column-events > .event > .event-content > .summary-row:not(.title-wrap)',
+  ]
+    .map((row) => `${row} > .summary:not(.summary-scroll) > .event-title:only-child`)
+    .join(', ');
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FROZEN_NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** A computed length in px: a plain length, or a calc() that only adds and subtracts px. */
+  function px(value: string): number {
+    return [...value.matchAll(/([-+]?)\s*(\d*\.?\d+)px/g)].reduce(
+      (sum, [, sign, amount]) => sum + (sign === '-' ? -1 : 1) * Number(amount),
+      0,
+    );
+  }
+
+  /**
+   * Each title the view draws, by its text, as its bottom padding and margin once the stylesheet
+   * and the emitted properties are resolved over it. happy-dom resolves the cascade and var(), so
+   * this sees a rule that stops reaching the title as well as one that overrides it.
+   */
+  function bottoms(view: 'list' | 'column', config: Partial<Types.Config>) {
+    const cfg = buildConfig({
+      entities: ['calendar.anna', { entity: 'calendar.ben', label: 'Ben' }],
+      days_to_show: 1,
+      title_max_lines: 2,
+      ...config,
+    });
+    const events = ['calendar.anna', 'calendar.ben'].map((id, index) => ({
+      summary: id === 'calendar.anna' ? 'Anna' : 'Ben',
+      start: { dateTime: `2026-06-17T1${index}:00:00Z` },
+      end: { dateTime: `2026-06-17T1${index}:30:00Z` },
+      _entityId: id,
+      _matchedConfig: cfg.entities[index] as Types.EntityConfig,
+    }));
+    const days = EventUtils.groupEventsByDay(events, cfg, false, 'en', view);
+    const host = document.createElement('div');
+    document.body.append(host);
+    const root = host.attachShadow({ mode: 'open' });
+    const style = document.createElement('style');
+    style.textContent = cardStyles.cssText;
+    const card = document.createElement('div');
+    for (const [property, value] of Object.entries(generateCustomPropertiesObject(cfg))) {
+      card.style.setProperty(property, value);
+    }
+    root.append(style, card);
+    litRender(
+      view === 'list'
+        ? Render.renderGroupedEvents(days, cfg, 'en')
+        : renderColumnGroupedEvents(days, cfg, 'en'),
+      card,
+    );
+    const out = Object.fromEntries(
+      Array.from(root.querySelectorAll<HTMLElement>('.event-title')).map((title) => {
+        const computed = getComputedStyle(title);
+        return [title.textContent!.trim(), [px(computed.paddingBottom), px(computed.marginBottom)]];
+      }),
+    );
+    host.remove();
+    return out;
+  }
+
+  it('ends at its last line in list and column view, its 2px below a margin outside the cut', () => {
+    // Its own clamping box held them as padding inside its cut, where WebKit and Chromium both
+    // drew the top of the next line. As a margin of the same size, they take the place they took.
+    const base = RULES.filter(
+      (rule) => rule.selectors === '.event-title' && rule.declarations['padding-bottom'],
+    );
+    expect(base.map((rule) => rule.declarations['padding-bottom'])).toEqual(['2px']);
+    expect(RULES.filter((rule) => rule.selectors === ENDS_AT_LAST_LINE)).toEqual([
+      {
+        selectors: ENDS_AT_LAST_LINE,
+        declarations: {
+          'padding-bottom': 'calc(2px - var(--calendar-card-title-end-margin, 0px))',
+          'margin-bottom': 'var(--calendar-card-title-end-margin, 0px)',
+        },
+      },
+    ]);
+  });
+
+  it('does so only under a limit, where a line is hidden', () => {
+    // Without one the title is inline and nothing is hidden, so it keeps its padding as it was.
+    const margin = (title_max_lines: number) =>
+      generateCustomPropertiesObject(buildConfig({ title_max_lines }))[
+        '--calendar-card-title-end-margin'
+      ];
+    expect([margin(0), margin(1), margin(3)]).toEqual(['0px', '2px', '2px']);
+  });
+
+  it.each(['list', 'column'] as const)(
+    'reaches the unlabeled title in %s view under a limit, and nothing else',
+    (view) => {
+      // As [padding, margin] below the title. A labeled title is inline in the summary that
+      // clamps it (backlog item 264); beside the time the card cuts the row, and a scrolling title
+      // keeps to one line, with no padding beside a label. Each keeps what it had, as does a title
+      // without a limit.
+      expect(bottoms(view, {})).toEqual({ Anna: [0, 2], Ben: [2, 0] });
+      expect(bottoms(view, { title_max_lines: 0 })).toEqual({ Anna: [2, 0], Ben: [2, 0] });
+      expect(bottoms(view, { time_position: 'title' })).toEqual({ Anna: [2, 0], Ben: [2, 0] });
+      expect(bottoms(view, { scroll_long_titles: true })).toEqual({ Anna: [2, 0], Ben: [0, 0] });
+    },
+  );
+
+  it('is the only rule giving a title a bottom margin', () => {
+    // Grid's word fit takes the words it hides out of the layout, and its cut drops the 2px.
+    const margins = RULES.filter(
+      ({ selectors, declarations }) =>
+        selectors
+          .split(', ')
+          .map((selector) => selector.replace(/\((?:[^()]|\([^()]*\))*\)/g, ''))
+          .some((selector) => /(^|[\s>+~])\.event-title(?![-\w])[^\s>+~]*$/.test(selector)) &&
         Object.entries(declarations).some(
           ([property, value]) => /^margin(-bottom|-block(-end)?)?$/.test(property) && value !== '0',
         ),

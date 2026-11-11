@@ -158,6 +158,8 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     // padding inside it. All of it with a limit, so no piece of a hidden line shows there; none
     // without one, where nothing is hidden and a mark below the line keeps the room.
     '--calendar-card-summary-end-margin': config.title_max_lines > 0 ? '0.2em' : '0px',
+    // The same for the 2px under an unlabeled title, which clamps itself.
+    '--calendar-card-title-end-margin': config.title_max_lines > 0 ? '2px' : '0px',
     // The date column is sized from the day number it holds. `day_font_size` is a CSS font
     // size, which need not be a length (`150%`, `large`), so it is rewritten as one before it
     // is scaled, in the author's own unit where it has one. Parsing it to a number would size
@@ -2513,7 +2515,7 @@ export const cardStyles = css`
 
      The summary that clamps a labeled title's line in list and column view under a limit ends at
      its last line: its 0.2em under the text is a margin there, outside the cut, so no piece of
-     the next line shows in it. */
+     the next line shows in it. An unlabeled title clamps itself and does the same with its 2px. */
   @supports (overflow: clip) {
     .summary {
       overflow-x: clip;
@@ -2612,6 +2614,24 @@ export const cardStyles = css`
     > .summary:not(.summary-scroll):has(> .event-title:not(:only-child)) {
     padding-bottom: calc(0.2em - var(--calendar-card-summary-end-margin, 0px));
     margin-bottom: var(--calendar-card-summary-end-margin, 0px);
+  }
+
+  /* An unlabeled title is its own clamping box there, and ends at its last line the same way: its
+     2px under the text a margin outside its cut. Grid's word fit takes the words it hides out of
+     the layout, and its cut drops the 2px. */
+  td.event
+    .event-content
+    > .summary-row:not(.title-wrap)
+    > .summary:not(.summary-scroll)
+    > .event-title:only-child,
+  .column-events
+    > .event
+    > .event-content
+    > .summary-row:not(.title-wrap)
+    > .summary:not(.summary-scroll)
+    > .event-title:only-child {
+    padding-bottom: calc(2px - var(--calendar-card-title-end-margin, 0px));
+    margin-bottom: var(--calendar-card-title-end-margin, 0px);
   }
 
   /* A capped title whose last shown line the browser broke inside a word with a hyphen, so its
