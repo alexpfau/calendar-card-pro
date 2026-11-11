@@ -205,6 +205,7 @@ describe('custom property mapping', () => {
       '--calendar-card-weather-event-font-size',
       '--calendar-card-weather-event-max-lines',
       '--calendar-card-weather-event-condition-display',
+      '--calendar-card-weather-condition-inline-room',
       '--calendar-card-weather-event-color',
     ]);
 

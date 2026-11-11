@@ -1,5 +1,5 @@
 /**
- * Marks above and below the line (backlog items 258, 263, 264 and 265).
+ * Marks above and below the line (backlog items 258, 263, 264, 265 and 266).
  *
  * Thai stacks a tone mark on a vowel above its letter, Vietnamese an accent on a circumflex, and
  * Arabic, Burmese and Khmer reach below. At the card's line height of 1.2 those marks run past
@@ -14,7 +14,9 @@
  *   back by a negative margin of the same size, so nothing in the layout moves;
  * - either kind keeps 0.125em of room at its inline edges the same way, for a Thai tone mark past
  *   the last letter, the hook of a "j" past a grid word's edge, and the antialiasing Chromium drew
- *   past a field's first letter (backlog item 263);
+ *   past a field's first letter (backlog item 263), and so does text outside the event fields cut
+ *   the same way: the month, a legend chip's name, a day's weather in column and grid view, and a
+ *   clamped weather condition (backlog item 266);
  * - the summary that clamps a labeled title's line in list and column view ends at its last line,
  *   its 0.2em below the text a margin, so no piece of the next line shows there (backlog item 264),
  *   and an unlabeled title there, which clamps itself, does the same with its 2px (backlog item 265).
@@ -31,7 +33,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW, buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
+import * as ViewConfig from '../src/config/view';
 import { renderColumnGroupedEvents } from '../src/rendering/column';
+import * as Grid from '../src/rendering/grid';
 import * as Render from '../src/rendering/render';
 import { cardStyles, generateCustomPropertiesObject } from '../src/rendering/styles';
 import * as EventUtils from '../src/utils/events';
@@ -289,11 +293,30 @@ describe('the custom properties that say which kind each box is', () => {
       '--calendar-card-time-inline-room': '0px',
     });
   });
+
+  it("gives a weather condition the room only while weather's max_lines makes it a box", () => {
+    // Inline, the condition cuts nothing, and padding there would move where Chromium puts its
+    // glyphs. So the room follows the display the same option chooses, at every limit.
+    const properties = (max_lines: number) =>
+      generateCustomPropertiesObject(
+        buildConfig({ weather: { entity: 'weather.home', event: { max_lines } } } as never),
+      );
+    const room = (max_lines: number) => [
+      properties(max_lines)['--calendar-card-weather-event-condition-display'],
+      properties(max_lines)['--calendar-card-weather-condition-inline-room'],
+    ];
+    expect(room(0)).toEqual(['inline', '0px']);
+    expect(room(1)).toEqual(['-webkit-inline-box', 'var(--calendar-card-inline-room)']);
+    expect(room(3)).toEqual(['-webkit-inline-box', 'var(--calendar-card-inline-room)']);
+    expect(generateCustomPropertiesObject(buildConfig())).toMatchObject({
+      '--calendar-card-weather-condition-inline-room': '0px',
+    });
+  });
 });
 
 /** Declarations that keep room at a box's inline edges, give it back, or say how much it keeps. */
 const INLINE_PROPERTY =
-  /^(padding|margin)(-inline(-start|-end)?)?$|^--calendar-card-((title|time|summary)-inline|inline|title-row|event-row|grid-block)-room$/;
+  /^(padding|margin)(-inline(-start|-end)?)?$|^--calendar-card-((title|time|summary|weather-condition)-inline|inline|title-row|event-row|grid-block)-room$/;
 
 /** Every rule that keeps, gives back or sets the room at a box's inline edges, by value. */
 function inlineRoomRules(): Record<string, Record<string, string>> {
@@ -331,8 +354,11 @@ const WRAPPED_END = '.grid-event-disclosure.grid-time-wrap .time .time-actual .t
 const LIMITED = '.grid-event.grid-event-content-limited .grid-event-disclosure';
 const GRID_TIME = '.grid-event-disclosure .time, .grid-event-disclosure .time-actual';
 const TIME_SPAN = '.time .time-actual > span:not(.time-text):not(.allday-badge):not(.now-time)';
-const OUTSIDE = 'outside the event fields this covers, and given no room';
 const CUT_ROW = ".time-beside-title > .summary-row.title-wrap[data-title-cut='']";
+// Text outside the event fields that is cut at its inline edges (backlog item 266).
+const OUTSIDE_TEXT = '.toolbar-month-text, .legend-chip-label, .column-date-content .weather';
+const CONDITION = '.time-location .event-weather .weather-condition';
+const CONDITION_ROOM = 'var(--calendar-card-weather-condition-inline-room, 0px)';
 
 /**
  * Every rule that cuts a box's inline axis: the rules that keep that box's room, or why it has
@@ -341,17 +367,17 @@ const CUT_ROW = ".time-beside-title > .summary-row.title-wrap[data-title-cut='']
 const CUTS_INLINE_AXIS: Record<string, string[] | string> = {
   'ha-card': 'the card, whose padding keeps its rows off its edges',
   '.content-container': 'the scroller, whose rows keep their own padding',
-  '.toolbar-month-reserve': OUTSIDE,
-  '.toolbar-month-measure': OUTSIDE,
-  '.toolbar-month-text': OUTSIDE,
-  '.toolbar-range-text': OUTSIDE,
-  '.toolbar-legend': OUTSIDE,
-  '.legend-chip-label': OUTSIDE,
-  '.legend-menu, .custom-menu': OUTSIDE,
-  '.column-date-content .weather': OUTSIDE,
-  '.time-location .event-weather .weather-condition': OUTSIDE,
-  '.grid-axis': OUTSIDE,
-  '.grid-axis-sizer': OUTSIDE,
+  '.toolbar-month-reserve': 'invisible copies of the month, which keep its room in the row',
+  '.toolbar-month-measure': 'invisible copies of the month, which the card measures',
+  '.toolbar-month-text': [OUTSIDE_TEXT],
+  '.toolbar-range-text': 'the dates read out, never drawn',
+  '.toolbar-legend': "the chips' box, whose padding and the chips' own keep their names off it",
+  '.legend-chip-label': [OUTSIDE_TEXT],
+  '.legend-menu, .custom-menu': 'a menu, whose own padding is its room',
+  '.column-date-content .weather': [OUTSIDE_TEXT],
+  [CONDITION]: [CONDITION],
+  '.grid-axis': 'its own padding is its room (pinned below)',
+  '.grid-axis-sizer': 'invisible copies of the labels, which size the axis',
   '.progress-bar': 'no text',
   '.allday-badge, .allday-title-pill': 'a pill, whose own padding is its room',
   '.grid-event, .grid-event-backdrop': 'a block, whose own padding is its room',
@@ -465,6 +491,13 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
       [LIMITED]: {
         'padding-inline-start': GRID_TEXT_ROOM,
         'margin-inline-start': `calc(-1 * ${GRID_TEXT_ROOM})`,
+      },
+      // Outside the event fields: the month, a chip's name and a day's weather in column and
+      // grid view, and a weather condition, through a property that is 0px while it is inline.
+      [OUTSIDE_TEXT]: ROOM,
+      [CONDITION]: {
+        'padding-inline': CONDITION_ROOM,
+        'margin-inline': `calc(-1 * ${CONDITION_ROOM})`,
       },
     });
   });
@@ -626,7 +659,79 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
         );
       }
     }
-    expect(pairs).toBe(11);
+    expect(pairs).toBe(13);
+  });
+});
+
+describe('text outside the event fields (backlog item 266)', () => {
+  it("is kept by the grid's time axis in its own padding, for the digits and AM or PM it draws", () => {
+    // The axis cuts its labels at its edges, and keeps them off both: the widest label begins at
+    // its padding's start, 4px in, and every label ends 8px before its end. Its labels are digits,
+    // a colon and AM or PM, which reach past their letters by no more than their antialiasing, so
+    // that holds at any size: at 12px to 160px, in either clock and direction, the axis cut none
+    // of their ink in Chromium or WebKit. A label in a script whose marks lean, which the axis
+    // never draws, would need the room (a Thai one planted at 160px was cut in both engines), so
+    // that premise is pinned below. No room of its own, because the width fitter adds exactly this padding to the labels
+    // it measures.
+    const axis = RULES.find((rule) => rule.selectors === '.grid-axis');
+    expect(axis?.declarations).toMatchObject({
+      'padding-inline': `${ViewConfig.GRID_AXIS_PADDING_START_PX}px ${ViewConfig.GRID_AXIS_PADDING_END_PX}px`,
+      overflow: 'hidden',
+    });
+    const label = RULES.find((rule) => rule.selectors === '.grid-axis-label');
+    expect(label?.declarations).toMatchObject({ position: 'absolute', 'inset-inline-end': '8px' });
+    // And no less than the 4px it is, the room of a 32px label, so shrinking it fails here.
+    expect(Math.min(ViewConfig.GRID_AXIS_PADDING_START_PX, 8)).toBeGreaterThanOrEqual(0.125 * 32);
+  });
+
+  it("draws only digits, a colon and AM or PM on the grid's time axis, in every language", () => {
+    // The premise above. A label localized into a script with leaning marks fails here, and needs
+    // the axis given the room.
+    for (const language of ['en', 'th', 'ar', 'vi', 'ja']) {
+      for (const time_24h of [true, false]) {
+        const config = buildConfig({
+          view: 'grid',
+          days_to_show: 1,
+          language,
+          time_24h,
+          time_grid: { start_time: '00:00', end_time: '24:00', axis_label_minutes: 30 },
+        } as never);
+        const container = document.createElement('div');
+        litRender(
+          Grid.renderGridGroupedEvents(
+            EventUtils.groupEventsByDay([], config, false, language, 'grid'),
+            ViewConfig.resolveEffectiveConfig(config, 'grid'),
+            language,
+            undefined,
+            null,
+            FROZEN_NOW,
+          ),
+          container,
+        );
+        const labels = [...container.querySelectorAll('.grid-axis-label, .grid-axis-sizer span')]
+          .map((element) => element.textContent!.trim())
+          .filter(Boolean);
+        expect(labels.length, `${language} ${time_24h}`).toBeGreaterThanOrEqual(48 * 2);
+        for (const text of labels)
+          expect(text).toMatch(/^\u2068?\d{1,2}(:\d\d)?(\u00a0[AP]M)?\u2069?$/);
+      }
+    }
+  });
+
+  it('needs none for the dates beside the month, which are read out and never drawn', () => {
+    // A 1px box clipped to nothing, pinned whole: without any of it the dates would be drawn, and
+    // cut at an edge with no room.
+    expect(RULES.find((rule) => rule.selectors === '.toolbar-range-text')?.declarations).toEqual({
+      position: 'absolute',
+      width: '1px',
+      height: '1px',
+      margin: '-1px',
+      padding: '0',
+      overflow: 'hidden',
+      'clip-path': 'inset(50%)',
+      'white-space': 'nowrap',
+      border: '0',
+    });
   });
 });
 
