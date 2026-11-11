@@ -13,7 +13,7 @@
  */
 
 import { getCalendarDayDiff, getLocalDateKey, parseAllDayDate } from './format';
-import { intlLocales } from '../translations/intl-locales';
+import { intlCache, intlLocales } from '../translations/intl-locales';
 
 //-----------------------------------------------------------------------------
 // TYPES
@@ -165,27 +165,7 @@ export function rangeContains(range: PageRange, date: Date): boolean {
 // WORDS
 //-----------------------------------------------------------------------------
 
-/**
- * The locales `Intl` gets for a card language.
- *
- * The card's language codes are BCP 47 already (`de`, `en-GB`, `zh-CN`), so they go to `Intl`
- * as they are, followed by a language their readers read as well ({@link intlLocales}), for a
- * browser that carries no data for the first. A language `Intl` carries neither of, or rejects
- * outright, which would otherwise throw out of a render, reads in English.
- *
- * @param language - Card language
- * @returns The locales, or `en`
- */
-function intlLocale(language: string): string[] {
-  const locales = intlLocales(language);
-  try {
-    return Intl.DateTimeFormat.supportedLocalesOf(locales).length > 0 ? locales : ['en'];
-  } catch {
-    return ['en'];
-  }
-}
-
-const dateFormats = new Map<string, Intl.DateTimeFormat>();
+const dateFormats = intlCache<string, Intl.DateTimeFormat>();
 
 /**
  * A cached date format for a language and a set of fields.
@@ -203,7 +183,7 @@ function dateFormat(
   const key = `${language}|${withYear ? 'y' : ''}|${withWeekday ? 'w' : ''}`;
   let format = dateFormats.get(key);
   if (!format) {
-    format = new Intl.DateTimeFormat(intlLocale(language), {
+    format = new Intl.DateTimeFormat(intlLocales(language), {
       ...(withWeekday ? { weekday: 'short' as const } : {}),
       month: 'short',
       day: 'numeric',
@@ -333,7 +313,7 @@ function monthFormat(language: string, form: MonthForm): Intl.DateTimeFormat {
   const key = `${language}|month|${form}`;
   let format = dateFormats.get(key);
   if (!format) {
-    format = new Intl.DateTimeFormat(intlLocale(language), { month: form, year: 'numeric' });
+    format = new Intl.DateTimeFormat(intlLocales(language), { month: form, year: 'numeric' });
     dateFormats.set(key, format);
   }
   return format;
@@ -439,7 +419,7 @@ export function monthHeadingText(heading: MonthHeadingText): string {
   return heading.map((part) => part.text).join('');
 }
 
-const monthHeadingSets = new Map<string, ReadonlyArray<MonthHeadingText>>();
+const monthHeadingSets = intlCache<string, ReadonlyArray<MonthHeadingText>>();
 
 /**
  * Every month's heading in one year, in one form and language, so the toolbar can keep the room
@@ -480,12 +460,12 @@ export function dayName(date: Date, language: string): string {
   return dateFormat(language, false, true).format(date);
 }
 
-const todayWords = new Map<string, string>();
+const todayWords = intlCache<string, string>();
 
 /**
  * The language's own word for "today", capitalized, from `Intl.RelativeTimeFormat`, which
  * knows it in every card language; a browser without data for one answers in English, or for
- * Nynorsk in Bokmål ({@link intlLocale}).
+ * Nynorsk in Bokmål ({@link intlLocales}).
  *
  * @param language - Card language
  * @returns "Today", "Heute", "Aujourd’hui", …
@@ -493,7 +473,7 @@ const todayWords = new Map<string, string>();
 export function todayWord(language: string): string {
   let word = todayWords.get(language);
   if (word === undefined) {
-    const format = new Intl.RelativeTimeFormat(intlLocale(language), { numeric: 'auto' });
+    const format = new Intl.RelativeTimeFormat(intlLocales(language), { numeric: 'auto' });
     const raw = format.format(0, 'day');
     word = raw.charAt(0).toLocaleUpperCase(format.resolvedOptions().locale) + raw.slice(1);
     todayWords.set(language, word);

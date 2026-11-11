@@ -45,9 +45,10 @@ import 'dayjs/locale/vi';
 import 'dayjs/locale/zh-cn';
 import 'dayjs/locale/zh-tw';
 
-import { intlLocales } from './intl-locales';
+import { intlCache, intlLocales } from './intl-locales';
+import { DEFAULT_LANGUAGE } from './language-codes';
 
-const relativeUnitFormatters = new Map<string, Intl.RelativeTimeFormat>();
+const relativeUnitFormatters = intlCache<string, Intl.RelativeTimeFormat>();
 
 /**
  * Format a whole number of days or hours, using the date word for tomorrow.
@@ -69,17 +70,17 @@ export function getRelativeUnitString(value: number, unit: 'day' | 'hour', local
   return formatter.format(value, unit);
 }
 
-const nowLabels = new Map<string, string>();
+const nowLabels = intlCache<string, string>();
 
 /**
  * The language's own word for "now", capitalized to stand at the start of a label.
  *
  * `Intl.RelativeTimeFormat` with `numeric: 'auto'` formats zero seconds as that word —
  * "now", "jetzt", "maintenant", "現在" — so the label costs no entry in the card's
- * translation files. Where a browser ships no relative-time data for a language it answers
- * in its own language, usually English, rather than failing. Chromium carries none for
- * Icelandic or Nynorsk; Nynorsk then reads in Bokmål instead ({@link intlLocales}), and
- * Icelandic in the browser's own language.
+ * translation files. Where a browser ships no relative-time data for a language the word reads
+ * in English, as every `Intl` word the card writes does ({@link intlLocales}). Chromium
+ * carries none for Icelandic or Nynorsk; Nynorsk then reads in Bokmål instead, and Icelandic in
+ * English.
  *
  * @param locale Language code
  * @returns The capitalized word for "now"
@@ -132,7 +133,7 @@ const DAYJS_LOCALE_NAMES: Record<string, string> = {
  * Map a Home Assistant or card language to the language tag relative times are formatted in.
  *
  * @param locale Language code, in any casing
- * @returns A tag in `supportedLocales`, or `'en'`; Day.js may know it by another name
+ * @returns A tag in `supportedLocales`, or English; Day.js may know it by another name
  *   ({@link DAYJS_LOCALE_NAMES})
  */
 function mapLocale(locale: string): string {
@@ -187,5 +188,5 @@ function mapLocale(locale: string): string {
     'zh-tw',
   ];
 
-  return supportedLocales.includes(baseLocale) ? baseLocale : 'en';
+  return supportedLocales.includes(baseLocale) ? baseLocale : DEFAULT_LANGUAGE;
 }

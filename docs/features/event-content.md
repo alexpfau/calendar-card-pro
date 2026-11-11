@@ -843,10 +843,11 @@ column:
 
 The word comes from your browser. Chromium, as tested, carries no Icelandic or Norwegian
 Nynorsk. With Home Assistant in a language Chromium does carry, a Nynorsk card asks for Bokmål
-instead and shows "Nå", and an Icelandic card shows the browser's own word, such as "Now".
-Home Assistant set to Icelandic or Nynorsk brings its own data for that language, so a card in
-Home Assistant's language is not affected. The countdown's "tomorrow" and hours, and the month
-and "Today" in the toolbar, come from the browser the same way.
+instead and shows "Nå", and an Icelandic card shows "Now", in English whatever language the
+browser itself is in. Home Assistant set to Icelandic or Nynorsk brings its own data for that
+language, and the card loads its own language alongside it, so every card keeps its words. The
+countdown's "tomorrow" and hours, and the month and "Today" in the toolbar, come from the
+browser the same way. [Language](/features/core-settings#language) has the whole rule.
 
 :::
 

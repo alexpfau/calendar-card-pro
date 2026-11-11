@@ -195,9 +195,11 @@ A few words come from the browser's `Intl` rather than from your file: "Now", th
 "tomorrow" and hours, the month and "Today" in the toolbar, the date in a multi-day event's
 end, and the "and" or "or" that joins names in the editor. Check that Chromium carries your
 language by running `Intl.RelativeTimeFormat.supportedLocalesOf(['xx'])` in Chrome's console,
-with your code in place of `xx`. If it answers `[]` and your readers also read a language
-Chromium does carry, as Nynorsk readers read Bokmål, add that pair to `INTL_FALLBACKS` in
-`src/translations/intl-locales.ts`.
+with your code in place of `xx`. If it answers `[]`, those words read in English there. Where
+your readers also read a language Chromium does carry, as Nynorsk readers read Bokmål, add that
+pair to `INTL_FALLBACKS` in `src/translations/intl-locales.ts` and they read in that language
+instead. Every `Intl` call takes its locales from `intlLocales` in that file, which is what
+keeps the rule the same everywhere; `tests/intl-fallback.test.ts` fails on one that does not.
 
 :::
 

@@ -45,6 +45,7 @@ import * as Workspace from './workspace';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
+import { loadIntlLocaleData } from '../../translations/intl-locale-data';
 import * as LanguageCodes from '../../translations/language-codes';
 import { configuredCalendarName } from '../../utils/calendar-names';
 import * as Helpers from '../../utils/helpers';
@@ -175,6 +176,22 @@ export class CalendarCardProEditor extends LitElement {
   private _lastDispatched?: Record<string, unknown>;
 
   private _gridResetKeys = new Set<string>();
+
+  /** The language Home Assistant's `Intl` polyfill was last asked for (`willUpdate`). */
+  private _intlLanguage = '';
+
+  /**
+   * Teaches Home Assistant's `Intl` polyfill the editor's language where it has installed one
+   * that lacks it, so the lists the editor joins read in that language, and draws again once it
+   * has (`intl-locale-data.ts`). Without the polyfill it does nothing at all.
+   */
+  protected override willUpdate(): void {
+    if (!this._config) return;
+    const language = this._ctx.language;
+    if (language === this._intlLanguage) return;
+    this._intlLanguage = language;
+    void loadIntlLocaleData(language, ['ListFormat'], () => this.requestUpdate());
+  }
 
   /**
    * Accepts a configuration from Home Assistant.
