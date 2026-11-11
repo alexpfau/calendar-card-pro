@@ -1182,6 +1182,42 @@ layouts never loads anything. The rest of the card follows the layout on screen:
 **→ [Grid View](/features/grid-view)** — the same for the time grid.
 **→ [List-Only Options in the configuration reference](/reference/configuration#list-only-options)** — the five options only list reads.
 
+## 🌐 Language
+
+`language` sets the language the card writes in. Unset, or set to one the card does not speak,
+the card follows your Home Assistant profile, and falls back to English where it does not speak
+that either.
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.family
+language: de
+```
+
+| Option     | Type   | Default                   | Description                                             |
+| ---------- | ------ | ------------------------- | ------------------------------------------------------- |
+| `language` | string | Home Assistant's, or `en` | A language code, such as `de`, `nb`, `zh-cn` or `en-gb` |
+
+- Dates, weekdays, months, times and words such as "Now", "Today", "tomorrow" and "in 3 hours"
+  come from your browser in the card's language, so they need no translation.
+- Where your browser has no data for that language, those words follow one rule: Nynorsk reads
+  in Bokmål, and any other language in English, as the card's own words do. Chrome, as tested,
+  has none for Icelandic or Nynorsk.
+- The date in a multi-day event's end, as in "until Friday, 19 Jun", is the exception: the card
+  writes it from its own month names, so it stays in the card's language.
+
+::: details When Home Assistant Itself Is in Icelandic or Nynorsk
+
+Where the browser has no data for the language Home Assistant starts in, Home Assistant replaces
+the browser's date formatting with its own, holding that language alone, and every card on the
+dashboard writes through it. The card loads its own language into it from Home Assistant, the
+same way Home Assistant loads its own, and redraws once it has: a German card shows "Jetzt",
+not "Núna". Until then, or if Home Assistant cannot serve the file, the card shows what it
+showed before.
+
+:::
+
 ## 🧭 Column View
 
 Column view places the days side by side, one column each, so a week reads across the card

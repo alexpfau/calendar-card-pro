@@ -8,7 +8,7 @@ import * as Logger from './logger';
 import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import { getRelativeTimeString, getRelativeUnitString } from '../translations/dayjs';
-import { intlLocales } from '../translations/intl-locales';
+import { intlCache, intlLocales, intlSpeaks } from '../translations/intl-locales';
 import * as Localize from '../translations/localize';
 
 //-----------------------------------------------------------------------------
@@ -1303,7 +1303,7 @@ function formatMultiDayAllDayEnd(
  * The formats `sentenceDate` writes a day in, one per card language, or `null` for a language
  * the browser has no data for.
  */
-const sentenceDateFormats = new Map<string, Intl.DateTimeFormat | null>();
+const sentenceDateFormats = intlCache<string, Intl.DateTimeFormat | null>();
 
 /**
  * The browser's format for a day inside a sentence, in a card language.
@@ -1314,7 +1314,9 @@ const sentenceDateFormats = new Map<string, Intl.DateTimeFormat | null>();
  * full instead ("23. října"), as those languages name it in running text.
  *
  * `null` where the browser has no data for the language, nor for the one its readers read as
- * well ({@link intlLocales}), and would answer in another one.
+ * well ({@link intlSpeaks}), and would answer in English. `sentenceDate` then writes the date
+ * from the card's own month names, the one place the card has its own words for what `Intl`
+ * would write, so there the date stays in the card's language rather than reading in English.
  *
  * @param language Card language, as the translations were resolved for it
  * @returns The format, or `null`
@@ -1325,7 +1327,7 @@ function sentenceDateFormat(language: string): Intl.DateTimeFormat | null {
 
   format = null;
   try {
-    if (Intl.DateTimeFormat.supportedLocalesOf(intlLocales(language)).length > 0) {
+    if (intlSpeaks(Intl.DateTimeFormat, language)) {
       const options = { weekday: 'long', day: 'numeric', timeZone: 'UTC' } as const;
       const short = new Intl.DateTimeFormat(intlLocales(language), { ...options, month: 'short' });
       const month = short.formatToParts(Date.UTC(2000, 9, 23, 12)).find((p) => p.type === 'month');

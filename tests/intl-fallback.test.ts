@@ -1,23 +1,26 @@
 /**
- * Every string the card takes from `Intl` falls back from Nynorsk to Bokmål where the browser
- * carries no Nynorsk data, and keeps Nynorsk where it does (`src/translations/intl-locales.ts`).
+ * The card's one rule for a language the browser's `Intl` cannot write
+ * (`src/translations/intl-locales.ts`): the language, then the one its readers read as well
+ * (Nynorsk then Bokmål), then English, the card's default language, never the browser's own.
  *
- * Node carries Nynorsk, so the browser that lacks it is emulated: `Intl.DateTimeFormat`,
- * `Intl.RelativeTimeFormat` and `Intl.ListFormat` are replaced by subclasses that drop `nn` from
- * every request and from `supportedLocalesOf`, and resolve a request with nothing left to
- * `en-US`, the default of the browser emulated. That is what Chromium 151 does in English,
- * measured: `new Intl.RelativeTimeFormat('nn').resolvedOptions().locale` is `en-US` there, and
- * `supportedLocalesOf(['nn'])` is empty for all three. A browser in another language resolves to
- * that language instead, which only moves where a lost fallback would land.
+ * Node carries every card language, so a browser that lacks some is emulated:
+ * `Intl.DateTimeFormat`, `Intl.RelativeTimeFormat` and `Intl.ListFormat` are replaced by
+ * subclasses that drop those languages from every request and from `supportedLocalesOf`, and
+ * resolve a request with nothing left to the browser's own language. That is what Chromium 151
+ * does, measured: it carries no Icelandic or Nynorsk for any of the three, and
+ * `new Intl.RelativeTimeFormat('nn').resolvedOptions().locale` is `en-US` in an English Chromium,
+ * while an Icelandic card in a German one read "Jetzt".
  *
  * Each string is held both ways. Under the emulation, Nynorsk must read as Bokmål does and not
- * as English, which fails if the fallback is taken away. Without it, Nynorsk must read as Node's
- * Nynorsk, which differs from Bokmål for the strings that tell the two apart ("No" against "Nå"),
- * so a fallback that always applied fails too. The modules cache their formats, so each case
- * imports them afresh.
+ * as English, which fails if the fallback is taken away; Icelandic, with no neighbor, must read as
+ * English does and not as the German browser does, which fails if the English tier is taken away.
+ * Without the emulation, Nynorsk must read as Node's Nynorsk, which differs from Bokmål for the
+ * strings that tell the two apart ("No" against "Nå"), so a fallback that always applied fails
+ * too. The modules cache their formats, so each case imports them afresh.
  *
- * The last block reconciles every `Intl` call in `src/` against the fallback, since a new one
- * that skips it reads in English on a Nynorsk card in Chromium with every other test green.
+ * The last block reconciles every `Intl` call in `src/` against the rule: each takes its locales
+ * from `intlLocales`, and only `intl-locales.ts` asks whether the browser has a language, so a new
+ * call that falls back its own way fails here with every other test green.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -25,8 +28,8 @@ import { join, relative } from 'node:path';
 import ts from 'typescript';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { FROZEN_NOW, buildConfig } from './fixtures';
-import type * as Types from '../src/config/types';
+import { FROZEN_NOW } from './fixtures';
+import { intlStrings } from './intl-strings';
 
 /** An `Intl` service, as far as the emulation needs one. */
 type Service = (new (locales?: Intl.LocalesArgument, options?: object) => object) & {
@@ -45,22 +48,25 @@ const REAL = Object.fromEntries(SERVICES.map((name) => [name, IntlServices[name]
 /** A Nynorsk tag, with or without a region. */
 const NYNORSK = /^nn(?:-|$)/i;
 
-/** The tags of a locales argument that a browser without Nynorsk data has data for. */
-function withoutNynorsk(locales: Intl.LocalesArgument): string[] {
+/** Icelandic or Nynorsk, with or without a region: the card languages Chromium 151 lacks. */
+const CHROMIUM_LACKS = /^(?:is|nn)(?:-|$)/i;
+
+/** The tags of a locales argument that the browser has data for. */
+function kept(locales: Intl.LocalesArgument, lacking: RegExp): string[] {
   const list = locales === undefined ? [] : Array.isArray(locales) ? locales : [locales];
-  return list.map(String).filter((tag) => !NYNORSK.test(tag));
+  return list.map(String).filter((tag) => !lacking.test(tag));
 }
 
-/** A service as a browser without Nynorsk data has it. */
-function withoutNynorskData(Real: Service): Service {
+/** A service as a browser without some languages' data has it, in its own language otherwise. */
+function withoutData(Real: Service, lacking: RegExp, own: string): Service {
   return class extends Real {
     constructor(locales?: Intl.LocalesArgument, options?: object) {
-      const kept = withoutNynorsk(locales);
-      super(kept.length > 0 ? kept : 'en-US', options);
+      const left = kept(locales, lacking);
+      super(left.length > 0 ? left : own, options);
     }
 
     static supportedLocalesOf(locales: Intl.LocalesArgument, options?: object): string[] {
-      return Real.supportedLocalesOf(withoutNynorsk(locales), options);
+      return Real.supportedLocalesOf(kept(locales, lacking), options);
     }
   };
 }
@@ -71,9 +77,19 @@ function setServices(make: (name: (typeof SERVICES)[number]) => Service): void {
   }
 }
 
-/** Replaces `Intl`'s services with the ones a browser without Nynorsk data has. */
+/**
+ * Replaces `Intl`'s services with the ones a browser has that lacks some languages.
+ *
+ * @param lacking - The languages it has no data for
+ * @param own - The browser's own language, which a request it has nothing for resolves to
+ */
+function emulateBrowser(lacking: RegExp, own: string): void {
+  setServices((name) => withoutData(REAL[name], lacking, own));
+}
+
+/** Replaces `Intl`'s services with the ones an English browser without Nynorsk data has. */
 function emulateBrowserWithoutNynorsk(): void {
-  setServices((name) => withoutNynorskData(REAL[name]));
+  emulateBrowser(NYNORSK, 'en-US');
 }
 
 beforeEach(() => {
@@ -101,76 +117,17 @@ describe('the emulation', () => {
     expect(lists.supportedLocalesOf(['nn'])).toEqual([]);
     expect(lists.supportedLocalesOf(['nn', 'nb'])).toEqual(['nb']);
   });
+
+  it('reads Icelandic in a German browser in German, as the backlog measured', () => {
+    emulateBrowser(CHROMIUM_LACKS, 'de');
+
+    expect(new Intl.RelativeTimeFormat('is', { numeric: 'auto' }).format(0, 'second')).toBe(
+      'jetzt',
+    );
+    expect(new Intl.RelativeTimeFormat(['is', 'en']).resolvedOptions().locale).toBe('en');
+    expect(Intl.DateTimeFormat.supportedLocalesOf(['is'])).toEqual([]);
+  });
 });
-
-/** An event starting at a given UTC time on the fixture's day or after it. */
-function startingAt(iso: string): Types.CalendarEventData {
-  return {
-    summary: 'Anna',
-    start: { dateTime: iso },
-    end: { dateTime: new Date(new Date(iso).getTime() + 3600000).toISOString() },
-  } as Types.CalendarEventData;
-}
-
-const RRULE_PREFIX = 'ui.components.calendar.event.rrule.';
-const RRULE_WORDS: Record<string, string> = {
-  every: 'every',
-  week: 'week',
-  on: 'on',
-  until: 'until',
-};
-const localizeRRule = (key: string) =>
-  key.startsWith(RRULE_PREFIX) ? (RRULE_WORDS[key.slice(RRULE_PREFIX.length)] ?? '') : '';
-
-/**
- * Every string the card takes from `Intl` in a language, each through the function the card
- * calls for it. Imported afresh, so no format cached in an earlier case answers.
- */
-async function intlStrings(language: string): Promise<Record<string, string | boolean | null>> {
-  const { getNowString, getRelativeUnitString } = await import('../src/translations/dayjs');
-  const Paging = await import('../src/utils/paging');
-  const Format = await import('../src/utils/format');
-  const Presentation = await import('../src/rendering/presentation');
-  const { spanText } = await import('../src/interaction/popover-model');
-  const { describeRRule } = await import('../src/interaction/rrule');
-  const { getTimeFormat24h } = await import('../src/utils/helpers');
-  const { formatList } = await import('../src/rendering/editor/localize');
-
-  const running = startingAt('2026-06-17T09:30:00.000Z');
-  const tuesday = new Date(2026, 5, 16);
-  const presentation = Presentation.buildEventPresentation(running, buildConfig(), language);
-
-  return {
-    now: getNowString(language),
-    nowBadge: presentation.contentParts.nowLabel ?? null,
-    hours: getRelativeUnitString(3, 'hour', language),
-    tomorrow: getRelativeUnitString(1, 'day', language),
-    countdownHours: Format.getCountdownString(startingAt('2026-06-17T14:00:00.000Z'), language),
-    countdownTomorrow: Format.getCountdownString(startingAt('2026-06-18T12:00:00.000Z'), language),
-    today: Paging.todayWord(language),
-    dayName: Paging.dayName(tuesday, language),
-    monthHeading: Paging.monthHeadingText(Paging.monthHeadingParts(tuesday, language)),
-    popoverSpan: spanText(
-      { allDay: false, start: new Date(2026, 5, 16, 13, 0), end: new Date(2026, 5, 16, 14, 0) },
-      language,
-      true,
-    ),
-    rrule: describeRRule('FREQ=WEEKLY;BYDAY=TU;UNTIL=20260714', localizeRRule, language) ?? null,
-    // Ends on a Friday, which Nynorsk and Bokmål both call "fredag": the weekday in this
-    // phrase is the card's own word, and the rest of the date is the browser's.
-    endDate: Format.formatEventTime(
-      {
-        summary: 'Anna',
-        start: { dateTime: '2026-06-17T09:30:00.000Z' },
-        end: { dateTime: '2026-06-19T15:00:00.000Z' },
-      } as Types.CalendarEventData,
-      buildConfig({ split_multiday_events: false, time_24h: true }),
-      language,
-    ),
-    clock24h: getTimeFormat24h({ time_format: 'language', language }),
-    editorList: formatList(language, ['Anna', 'Ben'], 'conjunction'),
-  };
-}
 
 /** The strings in which Node's Nynorsk and Bokmål differ, so a test can tell which one it got. */
 const TELLS_NYNORSK_FROM_BOKMAL = [
@@ -217,21 +174,96 @@ describe('a Nynorsk card', () => {
     }
   });
 
-  it('falls back with its region: nn-NO to nb-NO', async () => {
+  it('falls back with its region: nn-NO to nb-NO, then English', async () => {
     const { intlLocales } = await import('../src/translations/intl-locales');
 
-    expect(intlLocales('nn-NO')).toEqual(['nn-NO', 'nb-NO']);
-    expect(intlLocales('NN')).toEqual(['NN', 'nb']);
-    expect(intlLocales('nb')).toEqual(['nb']);
-    expect(intlLocales('de')).toEqual(['de']);
+    expect(intlLocales('nn-NO')).toEqual(['nn-NO', 'nb-NO', 'en']);
+    expect(intlLocales('NN')).toEqual(['NN', 'nb', 'en']);
+    expect(intlLocales('nb')).toEqual(['nb', 'en']);
+    expect(intlLocales('de')).toEqual(['de', 'en']);
+  });
+});
+
+describe('a language the browser cannot write, with no neighbor', () => {
+  // The backlog's case: an Icelandic card in a German Chromium read "Jetzt" in its countdowns
+  // and English in its toolbar.
+  it("reads every Intl string in English, not in the browser's own language", async () => {
+    emulateBrowser(CHROMIUM_LACKS, 'de');
+    const { endDate: icelandicEnd, ...icelandic } = await intlStrings('is');
+    vi.resetModules();
+    const { endDate: englishEnd, ...english } = await intlStrings('en');
+    vi.resetModules();
+    const german = await intlStrings('de');
+
+    expect(icelandic).toEqual(english);
+    for (const [key, value] of Object.entries(icelandic)) {
+      expect(value, key).not.toBe(german[key]);
+    }
+    expect(icelandicEnd).not.toBe(englishEnd);
   });
 
-  it('leaves every other card language as it was', async () => {
+  it("dates an end phrase from the card's own month names, and so stays in its language", async () => {
+    emulateBrowser(CHROMIUM_LACKS, 'de');
+    const { TRANSLATIONS } = await import('../src/translations/localize');
+    const icelandic = TRANSLATIONS.is;
+    const { endDate } = await intlStrings('is');
+
+    // The fixture ends on Friday, June 19.
+    expect(endDate).toContain(`${icelandic.fullDaysOfWeek[5]}, 19 ${icelandic.months[5]}`);
+  });
+
+  it('answers in English for a language the card does not speak at all', async () => {
+    emulateBrowser(/^xx(?:-|$)/i, 'de');
+    const unknown = await intlStrings('xx');
+    vi.resetModules();
+    const english = await intlStrings('en');
+
+    expect(unknown).toEqual(english);
+  });
+});
+
+describe('every language the browser can write', () => {
+  it('resolves exactly as it did without the rule, for every card language', async () => {
     const { CARD_LANGUAGES } = await import('../src/translations/language-codes');
     const { intlLocales } = await import('../src/translations/intl-locales');
 
-    const widened = CARD_LANGUAGES.filter((language) => intlLocales(language).length > 1);
-    expect(widened).toEqual(['nn']);
+    for (const name of SERVICES) {
+      const Real = REAL[name];
+      const resolved = (locales: string | string[]) =>
+        (new Real(locales) as { resolvedOptions(): { locale: string } }).resolvedOptions().locale;
+      for (const language of CARD_LANGUAGES) {
+        expect(resolved(intlLocales(language)), `${name} ${language}`).toBe(resolved(language));
+      }
+    }
+  });
+
+  it("only Nynorsk has a neighbor, and every list ends in the card's default language", async () => {
+    const { CARD_LANGUAGES, DEFAULT_LANGUAGE } = await import('../src/translations/language-codes');
+    const { intlLocales } = await import('../src/translations/intl-locales');
+
+    expect(DEFAULT_LANGUAGE).toBe('en');
+    const unlike = CARD_LANGUAGES.filter(
+      (language) => intlLocales(language).join() !== [language, DEFAULT_LANGUAGE].join(),
+    );
+    expect(unlike).toEqual(['en', 'nn']);
+    expect(intlLocales('en')).toEqual(['en']);
+    expect(intlLocales('nn')).toEqual(['nn', 'nb', 'en']);
+  });
+});
+
+describe("every resolver of the card's language", () => {
+  it("answers a language the card does not speak in English, the card's default", async () => {
+    const LanguageCodes = await import('../src/translations/language-codes');
+    const { getTranslations, TRANSLATIONS } = await import('../src/translations/localize');
+    const { getRelativeTimeString } = await import('../src/translations/dayjs');
+    const { lookup } = await import('../src/rendering/editor/localize');
+    const english = LanguageCodes.DEFAULT_LANGUAGE;
+    const date = new Date(FROZEN_NOW.getTime() + 3 * 86_400_000);
+
+    expect(LanguageCodes.getEffectiveLanguage('xx', { language: 'yy' })).toBe(english);
+    expect(getTranslations('xx')).toBe(TRANSLATIONS[english]);
+    expect(getRelativeTimeString(date, 'xx')).toBe(getRelativeTimeString(date, english));
+    expect(lookup('xx', 'view')).toBe(lookup(english, 'view'));
   });
 });
 
@@ -338,6 +370,11 @@ function intlSites(file: string, source: string): IntlSite[] {
           ((ts.isNewExpression(user) || ts.isCallExpression(user)) &&
             user.expression === reference) ||
           (ts.isPropertyAccessExpression(user) && user.name.text === 'supportedLocalesOf') ||
+          // Handed to the rule's own question, which asks it what it has and formats nothing.
+          (ts.isCallExpression(user) &&
+            ts.isIdentifier(user.expression) &&
+            user.expression.text === 'intlSpeaks' &&
+            user.arguments[0] === reference) ||
           (ts.isVariableDeclaration(user) &&
             user.initializer === reference &&
             ts.isIdentifier(user.name));
@@ -351,18 +388,36 @@ function intlSites(file: string, source: string): IntlSite[] {
 }
 
 /**
- * Whether a site's locales come through the fallback: `intlLocales` imported from the module
- * that holds it, or a file's own `intlLocale` that builds on it.
+ * Whether a site's locales come through the rule: `intlLocales`, imported from the module that
+ * holds it, called right there. A file's own wrapper around it does not count, since a wrapper is
+ * where a second rule would go: `paging.ts` had one, which sent a language the browser lacked to
+ * English while every other call left it to the browser.
  */
 function routed(site: IntlSite, source: string): boolean {
   const imported =
     /import \{[^}]*\bintlLocales\b[^}]*\} from '[./]+(?:translations\/)?intl-locales'/;
-  if (site.locales.startsWith('intlLocales(')) return imported.test(source);
-  return (
-    site.locales.startsWith('intlLocale(') &&
-    imported.test(source) &&
-    /function intlLocale\([^)]*\)[^{]*\{[^}]*\bintlLocales\(/.test(source)
-  );
+  return site.locales.startsWith('intlLocales(') && imported.test(source);
+}
+
+/**
+ * Every place a source asks an `Intl` service which languages it has, read from its syntax tree:
+ * a call of a `supportedLocalesOf` member, on whatever it is called.
+ */
+function supportQuestions(file: string, source: string): string[] {
+  const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+  const found: string[] = [];
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      node.expression.name.text === 'supportedLocalesOf'
+    ) {
+      found.push(`${file}: ${node.getText(tree).replace(/\s+/g, ' ')}`);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(tree);
+  return found;
 }
 
 /**
@@ -372,6 +427,15 @@ function routed(site: IntlSite, source: string): boolean {
 const OUTSIDE_THE_FALLBACK: IntlSite[] = [
   // Maps a country to the language spoken there, to choose how a place name is looked up.
   { file: 'src/interaction/event-map.ts', call: 'Intl.Locale', locales: '`und-${country}`' },
+  // Reaches Home Assistant's polyfill of a service to add a language's data to it; formats
+  // nothing, and asks what the polyfill has through `intlSpeaks`.
+  { file: 'src/translations/intl-locale-data.ts', call: 'Intl', locales: '(escapes)' },
+  // Canonicalizes a tag to compare it with what that polyfill resolves it to; writes nothing.
+  {
+    file: 'src/translations/intl-locale-data.ts',
+    call: 'Intl.getCanonicalLocales',
+    locales: 'locale',
+  },
   // Splits a grid title into graphemes to measure it; it writes nothing.
   { file: 'src/utils/grid-title-fit.ts', call: 'Intl.Segmenter', locales: 'undefined' },
   // Reads a time zone's offset from a format's parts; the text is never shown.
@@ -391,6 +455,31 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe('every Intl call in src/', () => {
+  it("finds a question about a browser's languages, as its own check", () => {
+    const planted = [
+      '// Intl.DateTimeFormat.supportedLocalesOf([language]) in a comment is not one',
+      'const a = Intl.DateTimeFormat.supportedLocalesOf([language]).length > 0;',
+      'const b = service.supportedLocalesOf(locales);',
+      "const c = 'supportedLocalesOf';",
+    ].join('\n');
+
+    expect(supportQuestions('planted.ts', planted)).toEqual([
+      'planted.ts: Intl.DateTimeFormat.supportedLocalesOf([language])',
+      'planted.ts: service.supportedLocalesOf(locales)',
+    ]);
+  });
+
+  it("asks whether the browser has a language in one place, the rule's own", () => {
+    const root = process.cwd();
+    const asked = sourceFiles(join(root, 'src')).flatMap((path) =>
+      supportQuestions(relative(root, path).split('\\').join('/'), readFileSync(path, 'utf8')),
+    );
+
+    expect(asked).toEqual([
+      'src/translations/intl-locales.ts: service.supportedLocalesOf(readerLocales(language))',
+    ]);
+  });
+
   it('finds a call that skips the fallback, as its own check', () => {
     const planted = [
       "import { intlLocales } from '../translations/intl-locales';",
@@ -400,6 +489,8 @@ describe('every Intl call in src/', () => {
       "const c = date.toLocaleDateString('nn');",
       'const d = new Intl.RelativeTimeFormat(intlLocales(language), { numeric });',
       'const e = Intl.DateTimeFormat.supportedLocalesOf([language]);',
+      'const s = intlSpeaks(Intl.DateTimeFormat, language);',
+      'const t = intlSpeaks(language, Intl.DateTimeFormat);',
       'const F = Intl.DateTimeFormat;',
       'const f = new F(language);',
       'const L = (Intl as unknown as { ListFormat: never }).ListFormat;',
@@ -415,6 +506,7 @@ describe('every Intl call in src/', () => {
       ['Intl.NumberFormat', 'locale', false],
       ['toLocaleDateString', "'nn'", false],
       ['Intl.RelativeTimeFormat', 'intlLocales(language)', true],
+      ['Intl', '(escapes)', false],
       ['Intl.DateTimeFormat', 'language', false],
       ['Intl.ListFormat', 'intlLocales(language)', true],
       ['Intl', '(escapes)', false],
