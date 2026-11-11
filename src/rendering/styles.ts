@@ -2425,7 +2425,11 @@ export const cardStyles = css`
      inline, the title and the time folded with its countdown, takes it only while it is a box,
      through the emitted --calendar-card-title-inline-room and --calendar-card-time-inline-room:
      padding on an inline box moved where Chromium put its glyphs. Script that reads one of these
-     boxes' widths or edges reads its content box instead (utils/content-box.ts). */
+     boxes' widths or edges reads its content box instead (utils/content-box.ts).
+
+     The summary that clamps a labeled title's line in list and column view ends at its last
+     line: its 0.2em under the text is a margin there, outside the cut, so no piece of the next
+     line shows in it. */
   @supports (overflow: clip) {
     .summary {
       overflow-x: clip;
@@ -2507,6 +2511,23 @@ export const cardStyles = css`
     display: inline;
     --calendar-card-title-ink-room: 0px;
     --calendar-card-title-inline-room: 0px;
+  }
+
+  /* That summary ends at its last line in list and column view, its 0.2em under the text a
+     margin outside the cut, where padding showed the top of the line after it; see "Marks above
+     and below the line". The margin box stays as it was. Grid's summary has no padding there
+     and the row cut beside the time is cut by the card, so neither is matched. */
+  td.event
+    .event-content
+    > .summary-row:not(.title-wrap)
+    > .summary:not(.summary-scroll):has(> .event-title:not(:only-child)),
+  .column-events
+    > .event
+    > .event-content
+    > .summary-row:not(.title-wrap)
+    > .summary:not(.summary-scroll):has(> .event-title:not(:only-child)) {
+    padding-bottom: 0;
+    margin-bottom: 0.2em;
   }
 
   /* A capped title whose last shown line the browser broke inside a word with a hyphen, so its

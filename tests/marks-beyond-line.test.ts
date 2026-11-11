@@ -1,5 +1,5 @@
 /**
- * Marks above and below the line (backlog items 258 and 263).
+ * Marks above and below the line (backlog items 258, 263 and 264).
  *
  * Thai stacks a tone mark on a vowel above its letter, Vietnamese an accent on a circumflex, and
  * Arabic, Burmese and Khmer reach below. At the card's line height of 1.2 those marks run past
@@ -14,7 +14,9 @@
  *   back by a negative margin of the same size, so nothing in the layout moves;
  * - either kind keeps 0.125em of room at its inline edges the same way, for a Thai tone mark past
  *   the last letter, the hook of a "j" past a grid word's edge, and the antialiasing Chromium drew
- *   past a field's first letter (backlog item 263).
+ *   past a field's first letter (backlog item 263);
+ * - the summary that clamps a labeled title's line in list and column view ends at its last line,
+ *   its 0.2em below the text a margin, so no piece of the next line shows there (backlog item 264).
  *
  * What either draws can only be seen in a browser; the harnesses that measured it (both engines,
  * list, column and grid) are described in the pull requests. Latin was byte-identical with the
@@ -421,5 +423,46 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
     for (let size = 8; size <= 48; size += 1) {
       expect(Number.isInteger(0.125 * size * 64), `0.125em at ${size}px`).toBe(true);
     }
+  });
+});
+
+describe("a summary that clamps a labeled title's line (backlog item 264)", () => {
+  const ENDS_AT_LAST_LINE = [
+    'td.event .event-content > .summary-row:not(.title-wrap)',
+    '.column-events > .event > .event-content > .summary-row:not(.title-wrap)',
+  ]
+    .map((row) => `${row} > .summary:not(.summary-scroll):has(> .event-title:not(:only-child))`)
+    .join(', ');
+
+  it('ends at its last line in list and column view, its space below a margin outside the cut', () => {
+    // WebKit and Chromium both drew the top of the next line through 0.2em of bottom padding
+    // inside the cut. As a margin of the same size, it takes the place it took.
+    const base = RULES.find(
+      (rule) => rule.selectors === '.summary' && rule.declarations['padding-block'],
+    );
+    expect(splitTopLevel(base!.declarations['padding-block'], ' ')[1]).toBe('0.2em');
+    expect(RULES.filter((rule) => rule.selectors === ENDS_AT_LAST_LINE)).toEqual([
+      {
+        selectors: ENDS_AT_LAST_LINE,
+        declarations: { 'padding-bottom': '0', 'margin-bottom': '0.2em' },
+      },
+    ]);
+  });
+
+  it('is the only rule giving a summary a bottom margin', () => {
+    // Grid's summary has no padding below its text, and the row cut beside the time is cut by
+    // the card, which reads the padding it keeps.
+    const margins = RULES.filter(
+      ({ selectors, declarations }) =>
+        selectors
+          .split(', ')
+          // The subject, the last compound once pseudo-class arguments are taken out, is a summary.
+          .map((selector) => selector.replace(/\((?:[^()]|\([^()]*\))*\)/g, ''))
+          .some((selector) => /(^|[\s>+~])\.summary(?![-\w])[^\s>+~]*$/.test(selector)) &&
+        Object.entries(declarations).some(
+          ([property, value]) => /^margin(-bottom|-block(-end)?)?$/.test(property) && value !== '0',
+        ),
+    ).map(({ selectors }) => selectors);
+    expect(margins).toEqual([ENDS_AT_LAST_LINE]);
   });
 });
