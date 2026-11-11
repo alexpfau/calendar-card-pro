@@ -337,8 +337,11 @@ beside a weekday, and a window that shows only one half of a weekend tints only 
 ## 📍 Shading Today
 
 `today_background_color` tints today's column the way the weekend shading tints a weekend's, so
-today stands out before you read a single date. It is off by default, and any CSS color turns
-it on:
+today stands out before you read a single date.
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_today.png" alt="A Monday-to-Sunday week in grid view on a Wednesday: Wednesday's column tinted from under the date row to the foot of the hours, with the now line across it, and Saturday and Sunday in the weekend's own gray"><br>
+
+It is off by default, and any CSS color turns it on:
 
 ```yaml
 time_grid:

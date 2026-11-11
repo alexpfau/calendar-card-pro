@@ -60,6 +60,7 @@ The toolbar is there for its magnifier: a search answers _when is Clara's birthd
 ## 🔀 Adapt It
 
 - **Fixtures & school terms.** A team's fixtures or a school's term dates are the same shape: add the calendar as a third entry with an emoji and a color of its own.
+- **Two holiday calendars.** Two regions' public holidays share many days, and Home Assistant's Holiday integration writes each calendar's own name into every holiday's location, so even `filter_duplicates: true` shows a shared holiday twice. Add the second calendar and `filter_duplicates: ignore_location` to show it once. See [Filtering Duplicate Events](/features/core-settings#filtering-duplicate-events).
 - **Anniversaries.** The same `YEAR=` marker counts the years since a wedding.
 - **Further ahead.** Raise `days_to_show`; the month rules keep a long list readable.
 

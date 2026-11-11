@@ -2,7 +2,7 @@
 
 Configure the card with Home Assistant's visual editor and see a live preview as you edit.
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_editor_v5.png" alt="The visual editor in dark mode: the Card Displays choice, the layout being edited, search, and the collapsible panels, beside a live preview of the card"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_editor_v5.png" alt="The visual editor in dark mode: Quick Setup at the top, the Card Displays choice, the layout being edited, search, the Customized Only and Essentials Only switches, and the collapsible panels, beside a live preview of the card"><br>
 
 The editor, with the card's preview beside it. **Card Displays** is set to List, so **Editing Settings For** starts on List too; [Options for the Selected View](#options-for-the-selected-view) explains the two.
 
@@ -14,6 +14,10 @@ To open it, click the three dots (⋮) in the top-right corner of the card and s
 what a story cannot know about your home: the title, your calendars, your weather and how the
 card should answer a tap. Use it on a new card to get a finished-looking one in a few steps, or
 on an existing card to try a different look without retyping anything.
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_quick_setup.png" alt="Home Assistant's card editor with Quick Setup open on its first step, Starting Point: four stories to start from with Family Hub picked, beside a preview already drawing the Family Hub card"><br>
+
+Pick a story and the preview draws it at once, on your own calendars as soon as you name them.
 
 Choose **Quick Setup** at the top of the editor. Starting from Birthdays & Holidays on two
 calendars writes this:

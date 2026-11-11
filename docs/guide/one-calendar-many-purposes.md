@@ -6,11 +6,11 @@ Anna, Ben and their baby son Leo, the invented family of [the Family Hub](/guide
 
 The hallway tablet in use, then as a still: three days of the Family Hub's week, in the same colors, with most of Ben's working hours reading _Busy_.
 
-<video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_agenda.mp4" poster="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_agenda_poster.jpg" width="524" height="968" loop muted playsinline controls preload="metadata" aria-label="A hallway tablet with three days of the family's agenda as a list: a tap on Thursday's Busy row opens a popover that still calls the meeting Busy, showing its time, that it repeats every 4 weeks and the Work calendar, but not its real title; the arrow pages to October 18 to 20 and a swipe comes back; the filter menu hides and shows both of Ben's work blocks; a search for grandma picks Grandma time on Thursday, October 22, and the house button returns to today; and at 11:00 the trash collection pill leaves the list"></video><br>
+<video class="clip portrait" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_agenda.mp4" poster="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_agenda_poster.jpg" width="524" height="808" loop muted playsinline controls preload="metadata" aria-label="A hallway tablet with three days of the family's agenda as a list: a tap on Thursday's Busy row opens a popover that still calls the meeting Busy, showing its time, that it repeats every 4 weeks and the Work calendar, but not its real title; the arrow pages to October 18 to 20 and a swipe comes back; the filter menu hides and shows both of Ben's work blocks; a search for grandma picks Grandma time on Thursday, October 22, and the house button returns to today; and at 11:00 the trash collection pill leaves the list"></video><br>
 
 Tap a _Busy_ row and the popover still calls the meeting _Busy_, page ahead and swipe back, hide and restore both halves of Ben's work from the filter menu, search for Grandma, pick _Grandma time_ and come back to today, and watch collection day leave the list at 11:00.
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_agenda.png" alt="A three-day family agenda under a toolbar: tinted boxes titled in calendar colors with faces in front, a rule between the days, all-day events as filled pills, a shared plan drawn once in gold, and Ben's working hours reading Busy" width="600"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_agenda.png" alt="A three-day family agenda under a toolbar: tinted boxes titled in calendar colors with faces in front and each time at the end of its title's line, a rule between the days, all-day events as filled pills, a shared plan drawn once in gold, and Ben's working hours reading Busy" width="600"><br>
 
 Each all-day event is a filled pill: Leo's daycare closure in his green, collection day in purple until it retires at 11:00, the grandparents' visit in the Family calendar's gold. Ben's work says _Busy_, except the offsite he marked for the family.
 
@@ -38,6 +38,7 @@ event_gap: 6px
 event_color: accent
 allday_badge: title
 allday_badge_style: filled
+time_position: title
 show_single_allday_time: false
 show_location_allday: false
 weather:
@@ -105,6 +106,7 @@ entities:
   - entity: calendar.trash_pickup
     replace_pattern: '🗑️ '
     allday_expires_at: '11:00'
+    show_in_legend: false # for everyone, so the filter never hides it
     label: 🗑️
     accent_color: '#b388ff'
 ```
@@ -183,9 +185,11 @@ They are one rule read from either end: **the catch-all's `blocklist` should be 
 
 The lines above `entities:` apply to every block at once, so a box, a color or a pill means the same thing on every calendar.
 
-**The toolbar.** [`toolbar: show: true`](/features/layout-appearance#header-toolbar) puts the calendar filter, add and refresh in a row of their own, and under them the month, with arrows that page three days at a time; a swipe pages too. The filter lists six calendars, not eight blocks, so hiding Ben's work hides both halves. The magnifier finds an event a year back or ahead, such as the next birthday, and searches titles as the card draws them, so a _Busy_ event is found as Busy, never by its meeting's name. `view_switcher: false` drops the layout switch, so the card stays a list.
+**The toolbar.** [`toolbar: show: true`](/features/layout-appearance#header-toolbar) puts the calendar filter, add and refresh in a row of their own, and under them the month, with arrows that page three days at a time; a swipe pages too. The filter lists five calendars, not eight blocks: hiding Ben's work hides both halves, and collection day is for everyone, so [`show_in_legend: false`](/features/layout-appearance#leaving-a-calendar-out-of-the-filter) gives it no row and keeps it on screen whatever is hidden. Hide all, then tick Leo, and the hallway shows Leo's three days with collection day still on them. The magnifier finds an event a year back or ahead, such as the next birthday, and searches titles as the card draws them, so a _Busy_ event is found as Busy, never by its meeting's name. `view_switcher: false` drops the layout switch, so the card stays a list.
 
 **Gaps, rules and tint.** [`event_gap: 6px`](/features/layout-appearance#gaps-between-events) gives every event a box and an accent bar of its own, `day_separator_width: 1px` draws a rule between the days, and `date_vertical_alignment: top` puts each date beside its day's first event. [`event_background_opacity: 12`](/features/layout-appearance#visual-styling-colors) tints each box in its calendar's color, [`event_color: accent`](/features/event-content#event-text-in-calendar-colors) draws each title in a readable shade of it, and `weather` puts the forecast under each date.
+
+**The times.** [`time_position: title`](/features/event-content#time-beside-the-title) puts each time at the end of its title's line instead of on a row below it. A hallway list is read in passing, so the three days take less height, and the times line up at the right, where a glance can run down them. A title too long for its line wraps, and a time that no longer fits beside it takes a line of its own.
 
 **The pills.** [`allday_badge: title`](/features/event-content#the-all-day-badge) wraps every all-day title in a pill, and `allday_badge_style: filled` makes it solid. Its color, [`allday_badge_color`](/features/event-content#which-color-it-is-drawn-in), defaults to `accent`, so each pill takes its calendar's color: gold for the whole family, purple for collection day, and pink, blue or green for Anna's, Ben's or Leo's own day. A quieter dashboard can use the default `subtle` style, but keep the color `accent`, or the pills stop telling the calendars apart.
 
