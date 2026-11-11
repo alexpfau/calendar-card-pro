@@ -91,6 +91,113 @@ export interface Viewport {
   height: number;
 }
 
+/** The part of the viewport in sight, from its top to its bottom, in viewport pixels. */
+export interface Room {
+  top: number;
+  bottom: number;
+}
+
+/**
+ * The part of the viewport a person can see: all of it, less what the browser's visual viewport
+ * leaves out, which on a phone or a tablet is the on-screen keyboard. Most mobile browsers shrink
+ * only the visual viewport for the keyboard, so the viewport a panel is placed in runs on behind
+ * the keys. Kept within the viewport, which an offset the browser has not reset can overshoot,
+ * and a part of a pixel either way is none, so a zoomed page measures as the whole viewport.
+ *
+ * @param viewportHeight - The viewport's height
+ * @param visual - The browser's visual viewport, where it has one
+ * @returns The part in sight
+ */
+export function roomOf(
+  viewportHeight: number,
+  visual?: { offsetTop: number; height: number } | null,
+): Room {
+  if (!visual) return { top: 0, bottom: viewportHeight };
+  const top = visual.offsetTop < 1 ? 0 : Math.min(visual.offsetTop, viewportHeight);
+  const end = visual.offsetTop + visual.height;
+  const bottom = viewportHeight - end < 1 ? viewportHeight : Math.max(top, end);
+  return { top, bottom };
+}
+
+/**
+ * Where a panel goes once its height, or the part of the screen in sight, has changed since it
+ * was placed (`opened`): where it opened, moved only as far as it must to stay in sight. It
+ * grows down from where it opened, or up from its button where it opened above one, its arrow
+ * at the bottom. Where that would take it out of sight it moves back in by as much, and back
+ * toward where it opened as it shrinks again, so where it is depends on its height alone. An
+ * arrow beside it keeps pointing at the press, off the panel's corners.
+ *
+ * @param opened - Where it was placed when it opened
+ * @param openedHeight - Its height then
+ * @param height - Its height now
+ * @param room - The part of the viewport in sight now
+ * @param target - Where an arrow beside it points: the middle of the press, top to bottom
+ * @returns Where it goes now
+ */
+export function keepInView(
+  opened: Placement,
+  openedHeight: number,
+  height: number,
+  room: Room,
+  target?: number,
+): Placement {
+  const arrow = opened.arrow;
+  const from = arrow?.side === 'bottom' ? opened.top + openedHeight - height : opened.top;
+  const top = Math.max(room.top + MARGIN, Math.min(from, room.bottom - MARGIN - height));
+  if (!arrow || arrow.side === 'top' || arrow.side === 'bottom' || target === undefined) {
+    return { left: opened.left, top, arrow };
+  }
+  const at = Math.min(Math.max(BEAK_CLEARANCE, target - top), height - BEAK_CLEARANCE);
+  return { left: opened.left, top, arrow: { side: arrow.side, at } };
+}
+
+/**
+ * Whether two placements put a panel and its arrow in the same place.
+ *
+ * @param a - One placement
+ * @param b - The other
+ * @returns True where they agree
+ */
+function samePlace(a: Placement | undefined, b: Placement | undefined): boolean {
+  return (
+    a?.left === b?.left &&
+    a?.top === b?.top &&
+    a?.arrow?.side === b?.arrow?.side &&
+    a?.arrow?.at === b?.arrow?.at
+  );
+}
+
+/**
+ * The part of the window in sight now (`roomOf`). The browser's visual viewport is read only
+ * while a field in the panel is being typed into, the only time an on-screen keyboard can be up
+ * over it: some browsers go on reporting the keyboard's room for a while after it has gone,
+ * which would hold the panel up over nothing.
+ *
+ * @param typing - Whether a field in the panel has the focus
+ * @returns The part in sight
+ */
+function visibleRoom(typing: boolean): Room {
+  return roomOf(window.innerHeight, typing ? window.visualViewport : undefined);
+}
+
+/**
+ * The fields that are typed into, and raise an on-screen keyboard to type with. A list, a switch,
+ * a date or a time opens a picker of its own instead, which does not count.
+ */
+const TYPED_FIELDS =
+  'textarea, input:not([type="checkbox"]):not([type="radio"]):not([type="date"]):not([type="time"]):not([type="datetime-local"])';
+
+/**
+ * The middle of a press from top to bottom, which an arrow beside a panel points at
+ * (`placeBeside`): of the box it came with, or of its point.
+ *
+ * @param anchor - The press
+ * @returns Its middle, in viewport pixels
+ */
+function middleOf(anchor: Model.PopoverAnchor): number {
+  return anchor.rect ? (anchor.rect.top + anchor.rect.bottom) / 2 : anchor.y;
+}
+
 /**
  * Where the arrow points, as a CSS position on the panel: the point the panel grows out of as it
  * opens.
@@ -240,15 +347,18 @@ export function placeAt(
 //-----------------------------------------------------------------------------
 
 /**
- * The dialog's own position: none for a sheet, which the stylesheet places; hidden until it is
- * placed beside its anchor, so it is never seen where the browser first puts it.
+ * The dialog's own position: for a sheet, none, which the stylesheet places at the foot of the
+ * screen, or as high as an on-screen keyboard lifts it; hidden until it is placed beside its
+ * anchor, so it is never seen where the browser first puts it.
  *
  * @param sheet - Whether it is a sheet
  * @param place - Where it was placed, once it has been
+ * @param lift - How far a sheet stands above the foot of the screen, over the keyboard
  * @returns An inline style
  */
-export function placedStyle(sheet: boolean, place: Placement | undefined): string {
-  return sheet ? '' : place ? `left:${place.left}px;top:${place.top}px;` : 'visibility:hidden;';
+export function placedStyle(sheet: boolean, place: Placement | undefined, lift = 0): string {
+  if (sheet) return lift > 0 ? `bottom:${lift}px;` : '';
+  return place ? `left:${place.left}px;top:${place.top}px;` : 'visibility:hidden;';
 }
 
 /**
@@ -392,7 +502,10 @@ export const shellStyles = css`
     width: 340px;
     max-height: calc(100vh - 24px);
     overflow-y: auto;
-    padding: 14px 14px 12px;
+    /* The space under the last row, named so a foot that stays in sight can reach across it
+       (the event popover's .foot). */
+    --panel-end: 12px;
+    padding: 14px 14px var(--panel-end);
     display: flex;
     flex-direction: column;
     gap: 9px;
@@ -413,7 +526,11 @@ export const shellStyles = css`
     width: 100%;
     max-height: 85vh;
     border-radius: 18px 18px 0 0;
-    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    --panel-end: calc(16px + env(safe-area-inset-bottom));
+  }
+  /* Over an on-screen keyboard, which covers the strip a phone keeps clear at its foot. */
+  .sheet.lifted .panel {
+    --panel-end: 16px;
   }
   .grabber {
     align-self: center;
@@ -720,6 +837,12 @@ export abstract class PopoverShell extends LitElement {
   @state() protected _sheet = false;
   /** Where it is placed beside its anchor; undefined until it is, and for a sheet. */
   @state() protected _place?: Placement;
+  /** How far a sheet stands above the foot of the screen, over an on-screen keyboard. */
+  @state() protected _lift = 0;
+  /** The tallest the panel may be in the part of the screen in sight, once it is placed there. */
+  @state() protected _maxHeight?: number;
+  /** Whether the panel's content runs past its height, so it scrolls (`_keepInView`). */
+  @state() protected _scrolls = false;
   /** Closing: Home Assistant has been told, and the panel is playing its way out. */
   @state() protected _closing = false;
 
@@ -738,6 +861,20 @@ export abstract class PopoverShell extends LitElement {
   protected _backdropDown = false;
   /** Who to tell once the panel has closed (`closed`), taken when it opens. */
   protected _onClosed?: () => undefined;
+
+  /**
+   * Where the panel was placed when it opened, its height then, what an arrow beside it points
+   * at, and the screen's width it was placed for, which `_keepInView` holds it to.
+   */
+  private _opened?: { place: Placement; height: number; target?: number; width: number };
+  /** Watches the panel's size while it is open (`_watchRoom`). */
+  private _sizeWatch?: ResizeObserver;
+  /** The visual viewport listened to while the panel is open, if the browser has one. */
+  private _watchedViewport?: VisualViewport | null;
+  /** Whether the part of the screen in sight is being watched (`_watchRoom`). */
+  private _watchingRoom = false;
+  /** The look at the part of the screen in sight once the focus has settled (`_onFocusMove`). */
+  private _focusSettling?: ReturnType<typeof setTimeout>;
 
   /** What the panel is called in the log. */
   protected abstract readonly _logName: string;
@@ -758,6 +895,18 @@ export abstract class PopoverShell extends LitElement {
   protected updated(changed: PropertyValues): void {
     super.updated(changed);
     const dialog = this._dialog;
+    if (this._wantOpen && dialog?.open) {
+      // Handed something else while still open, as Home Assistant does while a save is under
+      // way: opened afresh for it, as far as an open modal can be. Placed for its press, which
+      // nothing would do otherwise, with focus where it starts, and the press that handed it
+      // over counted from now.
+      this._wantOpen = false;
+      this._openedAt = Date.now();
+      this._backdropDown = false;
+      this._position();
+      void this.updateComplete.then(() => this._focusStart());
+      return;
+    }
     if (this._wantOpen && dialog && this.isConnected && !dialog.open) {
       this._wantOpen = false;
       this._openedAt = Date.now();
@@ -777,6 +926,7 @@ export abstract class PopoverShell extends LitElement {
   disconnectedCallback(): void {
     super.disconnectedCallback();
     this._guardScroll(false);
+    this._watchRoom(false);
   }
 
   /** Puts focus where the panel starts: whatever it marks `autofocus`. */
@@ -875,22 +1025,154 @@ export abstract class PopoverShell extends LitElement {
   //---------------------------------------------------------------------------
 
   /**
-   * Places the panel for the press that opened it (`placeAt`), or on a narrow screen makes it a
-   * sheet from the bottom instead.
+   * Places the panel for the press that opened it (`placeAt`), in the part of the screen in
+   * sight (`roomOf`), or on a narrow screen makes it a sheet from the bottom instead. From then
+   * on, while it is open, keeps it in sight (`_keepInView`).
    */
   protected _position(): void {
     const width = window.innerWidth;
-    const height = window.innerHeight;
+    const room = visibleRoom(this._typing);
     this._sheet = width < SHEET_BELOW_PX;
+    this._watchRoom(true);
     if (this._sheet) {
       this._place = undefined;
+      this._opened = undefined;
+      this._keepInView();
       return;
     }
-    const panelHeight = Math.min(
-      this._panel?.offsetHeight ?? UNMEASURED_HEIGHT,
-      height - 2 * MARGIN,
+    const maxHeight = room.bottom - room.top - 2 * MARGIN;
+    const panelHeight = Math.min(this._panel?.offsetHeight ?? UNMEASURED_HEIGHT, maxHeight);
+    const anchor = this._anchor;
+    const placed = placeAt(anchor, panelHeight, { width, height: room.bottom }, this._panelWidth);
+    const target = anchor && !anchor.below ? middleOf(anchor) : undefined;
+    this._opened = { place: placed, height: panelHeight, target, width };
+    this._lift = 0;
+    this._maxHeight = maxHeight;
+    this._place = keepInView(placed, panelHeight, panelHeight, room, target);
+    this._measureScroll();
+  }
+
+  /**
+   * Keeps the panel in sight while it is open: as it grows or shrinks, as when Cancel and Add
+   * appear under a new event, and as an on-screen keyboard comes and goes (`keepInView`). A sheet
+   * stands on the keyboard instead, no taller than the part of the screen it leaves. A change of
+   * the screen's width, as turning a phone, places the panel afresh (`_placeAfresh`). Where the
+   * panel is still too tall for what is in sight it scrolls, and says so (`_scrolls`).
+   */
+  protected _keepInView(): void {
+    if (!this.isConnected || !this._dialog?.open || this._closing) return;
+    const width = window.innerWidth;
+    const opened = this._opened;
+    if (width < SHEET_BELOW_PX !== this._sheet || (opened && opened.width !== width)) {
+      this._placeAfresh();
+      return;
+    }
+    const height = window.innerHeight;
+    const room = visibleRoom(this._typing);
+    if (this._sheet) {
+      const reduced = room.top > 0 || room.bottom < height;
+      this._lift = height - room.bottom;
+      this._maxHeight = reduced
+        ? Math.min(height * 0.85, room.bottom - room.top - MARGIN)
+        : undefined;
+      this._measureScroll();
+      return;
+    }
+    const panel = this._panel;
+    if (!opened || !panel) return;
+    const maxHeight = room.bottom - room.top - 2 * MARGIN;
+    this._maxHeight = maxHeight;
+    const place = keepInView(
+      opened.place,
+      opened.height,
+      Math.min(panel.offsetHeight, maxHeight),
+      room,
+      opened.target,
     );
-    this._place = placeAt(this._anchor, panelHeight, { width, height }, this._panelWidth);
+    if (!samePlace(place, this._place)) this._place = place;
+    this._measureScroll();
+  }
+
+  /** Notes whether the panel's content runs past its height now. */
+  private _measureScroll(): void {
+    const panel = this._panel;
+    this._scrolls = !!panel && panel.scrollHeight > panel.clientHeight + 1;
+  }
+
+  /**
+   * Places the panel afresh for a screen whose width has changed, as when a phone turns: a sheet
+   * or beside its press, as the new width asks, measured once it has been drawn that way rather
+   * than at the size it had the other way.
+   */
+  private _placeAfresh(): void {
+    this._sheet = window.innerWidth < SHEET_BELOW_PX;
+    this._opened = undefined;
+    this._lift = 0;
+    this._maxHeight = undefined;
+    void this.updateComplete.then(() => {
+      if (this.isConnected && this._dialog?.open && !this._closing) this._position();
+    });
+  }
+
+  /** Whether a field in the panel has the focus, so an on-screen keyboard may be up over it. */
+  private get _typing(): boolean {
+    const active = (this.renderRoot as ShadowRoot | undefined)?.activeElement;
+    return !!active?.matches?.(TYPED_FIELDS);
+  }
+
+  /**
+   * Watches, while the panel is open, what can take it out of sight: its own size, which changes
+   * as Cancel and Add appear, the date opens or a map loads, and the part of the screen in sight,
+   * which an on-screen keyboard takes from while a field in the panel has the focus. Only the
+   * placing here starts it; a panel that places itself keeps to its own.
+   *
+   * @param on - Whether the panel is open
+   */
+  private _watchRoom(on: boolean): void {
+    if (!on) {
+      this._sizeWatch?.disconnect();
+      if (!this._watchingRoom) return;
+      this._watchingRoom = false;
+      this._watchedViewport?.removeEventListener('resize', this._onRoomChange);
+      this._watchedViewport?.removeEventListener('scroll', this._onRoomChange);
+      this._watchedViewport = undefined;
+      window.removeEventListener('resize', this._onRoomChange);
+      this.renderRoot?.removeEventListener('focusin', this._onFocusMove);
+      this.renderRoot?.removeEventListener('focusout', this._onFocusMove);
+      clearTimeout(this._focusSettling);
+      return;
+    }
+    if (typeof ResizeObserver !== 'undefined') {
+      this._sizeWatch ??= new ResizeObserver(this._onRoomChange);
+      this._sizeWatch.disconnect();
+      const panel = this._panel;
+      if (panel) this._sizeWatch.observe(panel);
+    }
+    if (this._watchingRoom) return;
+    this._watchingRoom = true;
+    this._watchedViewport = window.visualViewport;
+    this._watchedViewport?.addEventListener('resize', this._onRoomChange);
+    this._watchedViewport?.addEventListener('scroll', this._onRoomChange);
+    window.addEventListener('resize', this._onRoomChange);
+    this.renderRoot?.addEventListener('focusin', this._onFocusMove);
+    this.renderRoot?.addEventListener('focusout', this._onFocusMove);
+  }
+
+  private readonly _onRoomChange = (): void => this._keepInView();
+
+  /**
+   * A field taking or losing the focus changes whether the visual viewport is read
+   * (`visibleRoom`). Read once the focus has settled, so moving from one field to the next
+   * does not count as leaving both.
+   */
+  private readonly _onFocusMove = (): void => {
+    clearTimeout(this._focusSettling);
+    this._focusSettling = setTimeout(this._onRoomChange, 0);
+  };
+
+  /** The panel's height cap, where the part of the screen in sight sets one, as inline style. */
+  protected get _roomStyle(): string {
+    return this._maxHeight === undefined ? '' : `max-height:${this._maxHeight}px;`;
   }
 
   //---------------------------------------------------------------------------
@@ -930,6 +1212,11 @@ export abstract class PopoverShell extends LitElement {
     const dialog = this._dialog;
     if (dialog?.open) dialog.close();
     this._guardScroll(false);
+    this._watchRoom(false);
+    this._opened = undefined;
+    this._lift = 0;
+    this._maxHeight = undefined;
+    this._scrolls = false;
     // Canceled after the close, so the panel never flashes back at full size.
     this._leaving?.forEach((animation) => animation.cancel());
     this._leaving = undefined;

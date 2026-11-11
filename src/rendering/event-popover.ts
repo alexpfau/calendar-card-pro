@@ -738,9 +738,9 @@ export class EventPopover extends Shell.PopoverShell {
 
     return html`
       <dialog
-        class="${params.dark ? 'dark' : 'light'} ${this._sheet ? 'sheet' : 'popover'}"
+        class="${params.dark ? 'dark' : 'light'} ${this._sheet ? 'sheet' : 'popover'}${this._lift > 0 ? ' lifted' : ''}"
         ?data-placed=${this._sheet || !!place}
-        style=${Shell.placedStyle(this._sheet, place)}
+        style=${Shell.placedStyle(this._sheet, place, this._lift)}
         aria-labelledby="popover-title"
         @cancel=${this._onCancel}
         @pointerdown=${this._onPointerDown}
@@ -751,8 +751,8 @@ export class EventPopover extends Shell.PopoverShell {
         @keydown=${this._keepKeys}
       >
         <div
-          class="panel"
-          style="--event-color:${color};${place?.arrow ? `transform-origin:${Shell.arrowPoint(place.arrow)}` : ''}"
+          class=${this._scrolls ? 'panel scrolls' : 'panel'}
+          style="--event-color:${color};${this._roomStyle}${place?.arrow ? `transform-origin:${Shell.arrowPoint(place.arrow)}` : ''}"
           ?inert=${this._busy || this._closing}
         >
           ${Shell.renderGrabber(this._sheet)}
@@ -1591,11 +1591,24 @@ export class EventPopover extends Shell.PopoverShell {
       margin-bottom: 4px;
       font-size: 15px;
     }
+    /* The row under the cells reaches across the panel's sides and the space under it, which
+       its margins give back, so it sits where it would without. While the panel scrolls, on a
+       short screen or over a keyboard, it stays at the panel's foot on a band of the panel's
+       glass, so Cancel and Add stay in sight. */
     .foot {
+      position: sticky;
+      bottom: calc(-1 * var(--panel-end));
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-top: 3px;
+      margin: -3px -14px calc(-1 * var(--panel-end));
+      padding: 6px 14px var(--panel-end);
+    }
+    .scrolls .foot {
+      background: var(--pop-bg);
+      -webkit-backdrop-filter: blur(28px) saturate(170%);
+      backdrop-filter: blur(28px) saturate(170%);
+      box-shadow: inset 0 0.5px 0 var(--pop-edge);
     }
     .foot .end {
       margin-inline-start: auto;
