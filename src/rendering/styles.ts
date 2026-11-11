@@ -214,6 +214,9 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
         : 'none',
     '--calendar-card-weather-event-condition-display':
       (config.weather?.event?.max_lines ?? 0) > 0 ? '-webkit-inline-box' : 'inline',
+    // The room at its inline edges while it is a box; none while it is inline, as the title's.
+    '--calendar-card-weather-condition-inline-room':
+      (config.weather?.event?.max_lines ?? 0) > 0 ? 'var(--calendar-card-inline-room)' : '0px',
   };
 
   // The sentinel is not a color, so writing it here would make every rule that substitutes
@@ -1245,6 +1248,16 @@ export const cardStyles = css`
     max-width: 14em;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  /* The month, a chip's name and a day's weather in column and grid view cut their text at their
+     inline edges too, and keep the room event text keeps there, so a mark or a letter leaning past
+     the first or last letter is drawn whole; see "Marks above and below the line". */
+  .toolbar-month-text,
+  .legend-chip-label,
+  .column-date-content .weather {
+    padding-inline: var(--calendar-card-inline-room);
+    margin-inline: calc(-1 * var(--calendar-card-inline-room));
   }
 
   /* The menu a folded legend opens, and the one the configuration's own buttons fold into: a
@@ -2501,7 +2514,11 @@ export const cardStyles = css`
      card reads as clientWidth, which is whole pixels, a fraction moved a fit's decision by
      half a pixel, and a title the card had cut beside its time went below it. A whole pixel
      leaves every such sum, and every width read less the padding, exactly what it was without
-     the room. Without round() (Chromium before 125, Safari before 15.4) the room is 1px.
+     the room. Without round() (Chromium before 125, Safari before 15.4) the room is 1px. Text
+     outside the event fields cut the same way keeps it too: the month, a legend chip's name, a
+     day's weather in column and grid view, and a clamped weather condition. The grid's time axis
+     needs none: its labels are digits and AM or PM, and its own padding holds them 4px and 8px
+     off its edges.
 
      A box whose display can be inline, the title and the time folded with its countdown,
      takes the room only while it is a box, through the emitted --calendar-card-title-inline-room
@@ -4216,13 +4233,19 @@ export const cardStyles = css`
    * overflow-wrap lives on the wrapper so all weather chips share emergency
    * break behavior; setting it only here leaves combined chip runs able to
    * overflow. overflow-wrap: normal was tried and does not prevent the
-   * separator issue. */
+   * separator issue.
+   *
+   * Clamped, it is a box that cuts its text, and keeps the room event text keeps at its inline
+   * edges, through the emitted --calendar-card-weather-condition-inline-room. Inline it cuts
+   * nothing, and takes none: padding on an inline box moved where Chromium put its glyphs. */
   .time-location .event-weather .weather-condition {
     display: var(--calendar-card-weather-event-condition-display);
     -webkit-box-orient: vertical;
     -webkit-line-clamp: var(--calendar-card-weather-event-max-lines);
     overflow: hidden;
     hyphens: manual;
+    padding-inline: var(--calendar-card-weather-condition-inline-room, 0px);
+    margin-inline: calc(-1 * var(--calendar-card-weather-condition-inline-room, 0px));
   }
 
   /* Weather chip separators. The row is adjacent inline text, so generated
