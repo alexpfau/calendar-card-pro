@@ -148,6 +148,8 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 
 ### Latest Release: v5.2
 
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_quick_setup.png" alt="Home Assistant's card editor with Quick Setup open on its first step: four stories to start from, Family Hub picked, and the preview beside it already drawing the Hub card" width="600">
+
 - 🪄 **Quick Setup**: [Start a card from an Example Story](https://calendar-card-pro.alexpfau.com/features/editor#quick-setup) on your own calendars by answering a few questions, and [Essentials Only](https://calendar-card-pro.alexpfau.com/features/editor#essentials-only) cuts the editor down to the settings most cards need
 - 👁️ **A Calendar Filter That Does More**: [Show all and Hide all](https://calendar-card-pro.alexpfau.com/features/layout-appearance#showing-hiding-calendars) head the filter's menu, and [`show_in_legend: false`](https://calendar-card-pro.alexpfau.com/features/layout-appearance#leaving-a-calendar-out-of-the-filter) leaves a calendar out of it
 - ⚠️ **Titles Beside the Time Wrap**: A long title beside the time ([`time_position: title`](https://calendar-card-pro.alexpfau.com/features/event-content#time-beside-the-title)) now wraps instead of scrolling; `title_max_lines: 1` keeps it on one line

@@ -8,6 +8,8 @@ title: Release Notes
 
 Most of the rest needs no setting and applies wherever it is needed: the end of a multi-day event reads the way each language writes a date, which changes it in 36 of the card's 38 languages, Thai, Vietnamese and other scripts keep the marks above and below their letters, times keep their order where the card's language runs the other way from the dashboard, and older iPhones and iPads draw colors they had lost, with Safari 16.4 and 16.5 no longer crashing on a tinted event. A few things change on cards you already have; they are listed under ⚠️ Changes to Existing Cards.
 
+<a href="https://calendar-card-pro.alexpfau.com/features/editor#quick-setup"><img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_quick_setup.png" alt="Home Assistant's card editor with Quick Setup open on its first step: four stories to start from, Family Hub picked, and the preview beside it already drawing the Hub card. Select it to read about Quick Setup in the docs" width="600"></a><br>
+
 ## 🎉 New Features
 
 ### 🪄 Quick Setup & an Easier Editor
