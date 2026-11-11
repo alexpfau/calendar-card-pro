@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
+import { fakeViewport } from './helpers/visual-viewport';
 import type * as Types from '../src/config/types';
 import { PLACES_STORAGE_KEY, resetMapTilesToken } from '../src/interaction/event-map';
 import type { PopoverParams } from '../src/interaction/popover-model';
@@ -1991,32 +1992,6 @@ describe('keeping in sight on the screen', () => {
     static fire(): void {
       FakeResizeObserver.live.forEach((watch) => watch.report());
     }
-  }
-
-  /** A phone's visual viewport, which its on-screen keyboard shrinks. */
-  function fakeViewport() {
-    const listeners = new Map<string, Set<() => void>>();
-    const viewport = {
-      offsetTop: 0,
-      height: window.innerHeight,
-      addEventListener: (type: string, listener: () => void) => {
-        if (!listeners.has(type)) listeners.set(type, new Set());
-        listeners.get(type)!.add(listener);
-      },
-      removeEventListener: (type: string, listener: () => void) =>
-        listeners.get(type)?.delete(listener),
-      listening: () => [...listeners.values()].reduce((count, set) => count + set.size, 0),
-      keyboard(px: number, offsetTop = 0) {
-        viewport.offsetTop = offsetTop;
-        viewport.height = window.innerHeight - px - offsetTop;
-        listeners.get('resize')?.forEach((listener) => listener());
-      },
-    };
-    Object.defineProperty(window, 'visualViewport', { configurable: true, value: viewport });
-    onTestFinished(() => {
-      delete (window as { visualViewport?: unknown }).visualViewport;
-    });
-    return viewport;
   }
 
   let height = 310;

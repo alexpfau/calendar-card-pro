@@ -681,7 +681,8 @@ next time the panel opens.
 - Page elsewhere before the result's day has loaded, and nothing is ringed when you come back
   to it.
 - Every word the panel shows is Home Assistant's own, in its language. On a phone the panel is a
-  sheet from the bottom of the screen.
+  sheet from the bottom of the screen, and while you type it stands on the on-screen keyboard,
+  the field and the results above the keys. Held sideways, it moves up out of the keyboard's way.
 
 :::
 
