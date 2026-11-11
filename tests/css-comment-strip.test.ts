@@ -279,10 +279,17 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(222_000);
-    // The room at a box's inline edges moved the ceiling last, from 217,000 to 222,000: the notes
-    // on why each box that cuts its text at its inline edges keeps room there, given back by a
-    // margin, why that room is a whole pixel, and which boxes take it only while they are not
+    expect(saved).toBeLessThan(227_000);
+    // The time beside a wrapping title moved the ceiling last, from 222,000 to 227,000: the notes
+    // on why a wrapping title's row keeps the 12px end margin every time keeps, so the title's
+    // lines stop where the time ends and the time ends where it does in every mode, why the time
+    // gives up its own margin there, and why an all-day pill with nothing after it gives up its
+    // own beside either kind of title. The reading went from 221,846 to 222,905, taken with
+    // stripComments after the last comment was written.
+    //
+    // The room at a box's inline edges moved the ceiling before that, from 217,000 to 222,000: the
+    // notes on why each box that cuts its text at its inline edges keeps room there, given back by
+    // a margin, why that room is a whole pixel, and which boxes take it only while they are not
     // inline; on where a gutter or a hanging indent folds it in; on the row cut beside the time,
     // which keeps the room in place of its summary and places the time inside it; and on the
     // labeled summary that ends at its last line under a limit. The reading went from 215,049 to

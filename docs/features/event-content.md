@@ -377,7 +377,8 @@ time_position: title # below, the default, keeps the time under the title
   location and the description.
 - **A long title wraps as it does below the time**, its calendar labels before it. The time
   sits at the end of the title's last line, on the title's baseline, where the line has room
-  for it, and at the end of a line of its own where it has not. The two never overlap.
+  for it, and at the end of a line of its own where it has not. Either way the title's lines stop
+  where the time ends, as far from the card's edge as every other time. The two never overlap.
 - **[`title_max_lines`](#limiting-lines-per-field) caps the title.** One that needs more lines
   ends in "…" on the last of them, with the time at the end of that line, so
   `title_max_lines: 1` keeps every title and its time on one even line.

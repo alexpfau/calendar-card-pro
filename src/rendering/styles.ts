@@ -3346,9 +3346,10 @@ export const cardStyles = css`
   /* The time as one item of the box: as wide as its text, and on the title's baseline through
      its first line. Under the title it is a row as wide as the event that spaces off and wraps a
      trailing countdown or bar, 2px below the title, and in column view indented for its clock;
-     none of that has anything to do here. It keeps its 12px end margin, so it ends where the
-     rows below it do. A time that wraps sets every line against the end, as the time sits on
-     the title's line, and so does an all-day pill wrapped above it. */
+     none of that has anything to do here. It ends 12px short of the event, where the rows below
+     it do: beside a title kept to one line by its own end margin, beside a wrapping title by the
+     row's, below. A time that wraps sets every line against the end, as the time sits on the
+     title's line, and so does an all-day pill wrapped above it. */
   .time-beside-title .summary-row .title-aside > .time {
     width: auto;
     margin-top: 0;
@@ -3394,11 +3395,18 @@ export const cardStyles = css`
      With title_max_lines set, the stylesheet makes .summary or the title a clamping box; the
      limit here is the card's cut below, so neither is. The extra :not() outweighs those rules,
      which have as many classes as the rest of this selector, and the gutters the title row gives
-     a .summary with a sibling: the title's lines reach the end of the row, as they do below the
-     time, and the room keeps the gap before the time. */
+     a .summary with a sibling: the title's lines reach the end of the row, and the room keeps the
+     gap before the time.
+
+     The row ends 12px short of the event: the end margin every time keeps, beside a title kept
+     to one line and below the title, and list view's countdown and weather badge with it. So the
+     title's lines stop where the time ends, and the time ends where it does in every mode. With
+     the time below the title, the title's row is as it always was. */
   .time-beside-title > .summary-row.title-wrap {
     display: block;
     position: relative;
+    width: auto;
+    margin-inline-end: 12px;
     --calendar-card-title-room-gap: 12px;
   }
 
@@ -3482,6 +3490,21 @@ export const cardStyles = css`
     font-size: var(--calendar-card-font-size-event);
   }
 
+  /* The time ends at the end of the row, where the title's lines end. The row keeps the 12px end
+     margin the time keeps everywhere else, so the time gives up its own: with both, it sat 12px
+     in from the lines above it. The room is sized to the box, so the title's last line keeps its
+     12px gap before the time. */
+  .time-beside-title > .summary-row.title-wrap > .title-aside > .time {
+    margin-inline-end: 0;
+  }
+
+  /* So does an all-day pill with nothing after it, beside a title of either kind: its 5px end
+     margin spaces it from a countdown or an end date, and with neither it would end the pill
+     short of every other time. */
+  .time-beside-title .summary-row .title-aside > .time > .time-actual > .allday-badge:last-child {
+    margin-inline-end: 0;
+  }
+
   .time-beside-title > .summary-row.title-wrap[data-title-fit] > .title-aside {
     position: absolute;
     top: calc(100% - var(--calendar-card-title-pad) - var(--calendar-card-title-room-height));
@@ -3523,10 +3546,12 @@ export const cardStyles = css`
     padding-top: 0.375em;
     margin-top: -0.375em;
     /* Room at its inline edges, which it cuts in place of its summary, as much as the title's
-       own; see "Marks above and below the line". The time is placed against its padding edge,
-       so it is placed that far in. */
+       own; see "Marks above and below the line". Its margin gives the room back, and keeps the
+       row's 12px at its end. The time is placed against its padding edge, so it is placed that
+       far in. */
     padding-inline: var(--calendar-card-event-row-room);
-    margin-inline: calc(-1 * var(--calendar-card-event-row-room));
+    margin-inline: calc(-1 * var(--calendar-card-event-row-room))
+      calc(12px - var(--calendar-card-event-row-room));
     --calendar-card-title-row-room: var(--calendar-card-event-row-room);
   }
 
