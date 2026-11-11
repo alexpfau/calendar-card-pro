@@ -25,6 +25,7 @@ import * as Presentation from './presentation';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
 import * as Localize from '../translations/localize';
+import * as ColorMix from '../utils/color-mix';
 import * as FormatUtils from '../utils/format';
 import * as Grid from '../utils/grid';
 import * as CascadeThreshold from '../utils/grid-cascade-threshold';
@@ -186,7 +187,7 @@ function renderGridSeparator(
         gridColumn: String(columnIndex + 2),
         gridRow: '3 / span 2',
         width: separator.width,
-        '--calendar-card-grid-rule-paint': separator.color,
+        '--calendar-card-grid-rule-paint': ColorMix.floorColor(separator.color),
         marginInlineStart: `calc(-0.5 * (${gap} + ${separator.width}))`,
       })}
     ></div>
@@ -266,7 +267,7 @@ function renderGridBoundary(
         gridRow: String(row),
         alignSelf,
         height: width,
-        '--calendar-card-grid-rule-paint': color,
+        '--calendar-card-grid-rule-paint': ColorMix.floorColor(color),
       })}
     ></div>
   `;
@@ -311,7 +312,7 @@ function renderGridEndRule(color: string): TemplateResult {
         gridColumn: '2 / -1',
         gridRow: '4',
         alignSelf: 'end',
-        '--calendar-card-grid-rule-paint': color,
+        '--calendar-card-grid-rule-paint': ColorMix.floorColor(color),
       })}
     ></div>
   `;
@@ -676,10 +677,11 @@ function ruleProperties(
   const slotOffsetPct =
     (((slotMinutes - (band.startMin % slotMinutes)) % slotMinutes) / bandLength) * 100;
   const hourOffsetPct = (((60 - (band.startMin % 60)) % 60) / bandLength) * 100;
+  const rule = ColorMix.floorColor(ruleColor);
 
   return {
-    '--calendar-card-grid-rule-color': ruleColor,
-    '--calendar-card-grid-slot-color': slotMinutes < 60 ? ruleColor : 'transparent',
+    '--calendar-card-grid-rule-color': rule,
+    '--calendar-card-grid-slot-color': slotMinutes < 60 ? rule : 'transparent',
     '--calendar-card-grid-slot-pct': `${slotPct}%`,
     '--calendar-card-grid-hour-pct': `${hourPct}%`,
     '--calendar-card-grid-slot-offset': `${slotOffsetPct}%`,
@@ -1667,8 +1669,12 @@ export function renderGridGroupedEvents(
         // transparent fallback is the off state rather than a placeholder. `transparent` and
         // `none` are how a user turns either off, and both are cheaper to drop here than to
         // paint.
-        ...(paintsSomething(weekendTint) ? { '--calendar-card-grid-weekend': weekendTint } : {}),
-        ...(paintsSomething(todayTint) ? { '--calendar-card-grid-today': todayTint } : {}),
+        ...(paintsSomething(weekendTint)
+          ? { '--calendar-card-grid-weekend': ColorMix.floorColor(weekendTint) }
+          : {}),
+        ...(paintsSomething(todayTint)
+          ? { '--calendar-card-grid-today': ColorMix.floorColor(todayTint) }
+          : {}),
       })}
     >
       ${renderDayTints(gridDays, hass, weekendTint, todayTint)}

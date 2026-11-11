@@ -6,6 +6,7 @@
  * default filtering, and single-entry memoization.
  */
 
+import * as ColorMix from './color-mix';
 import * as EntityIcons from './entity-icons';
 import * as PersonPictures from './person-pictures';
 import { isWeekRelative } from './start-date';
@@ -43,6 +44,10 @@ const rgbaCache = new Map<string, string>();
  * @returns RGBA color string
  */
 export function convertToRGBA(color: string, opacity: number): string {
+  if (color.startsWith('var(')) {
+    return translucentVar(color, opacity);
+  }
+
   const cacheKey = `${color}|${opacity}`;
 
   const cached = rgbaCache.get(cacheKey);
@@ -55,24 +60,40 @@ export function convertToRGBA(color: string, opacity: number): string {
   return result;
 }
 
-function computeRGBA(color: string, opacity: number): string {
-  if (color.startsWith('var(')) {
-    // `color-mix` rather than `rgba(...)`, because a `var()` reference cannot be taken
-    // apart into the three channel values `rgba()` needs. The previous form emitted
-    // `rgba(var(--calendar-color-rgb, 3, 169, 244), …)` against a variable this card
-    // defines nowhere and no theme knows about, so the literal fallback — which is the
-    // default `accent_color` `#03a9f4` — won every time. A themed `var(--primary-color)`
-    // silently rendered as the shipped blue, and the failure was invisible on a default
-    // config precisely because the two agree there.
-    //
-    // Mixing with `transparent` keeps the whole expression live, so it still follows a
-    // theme switch: nothing is resolved at call time, which matters because `rgbaCache`
-    // is module-level and never evicted. The stylesheet already applies transparency this
-    // way (the progress bar's track and the today outline), so this is the idiom the card
-    // uses everywhere else rather than a new dependency.
-    return `color-mix(in srgb, ${color} ${opacity}%, transparent)`;
-  }
+/**
+ * A `var()` color at an opacity, without resolving it.
+ *
+ * `color-mix` rather than `rgba(...)`, because a `var()` reference cannot be taken apart into
+ * the three channel values `rgba()` needs. The previous form emitted
+ * `rgba(var(--calendar-color-rgb, 3, 169, 244), …)` against a variable this card defines
+ * nowhere and no theme knows about, so the literal fallback — which is the default
+ * `accent_color` `#03a9f4` — won every time. A themed `var(--primary-color)` silently rendered
+ * as the shipped blue, and the failure was invisible on a default config precisely because the
+ * two agree there.
+ *
+ * Mixing with `transparent` keeps the whole expression live, so it still follows a theme
+ * switch: nothing is resolved at call time, which matters because `rgbaCache` is module-level
+ * and never evicted. The stylesheet already applies transparency this way (the progress bar's
+ * track and the today outline), so this is the idiom the card uses everywhere else rather than
+ * a new dependency. Being a string and nothing more, it is built on every call rather than
+ * cached.
+ *
+ * Without color-mix() (Safari before 16.2) the mix is invalid once its var() is substituted,
+ * and the event would have no tint at all. Resolving the var() here instead would lose the
+ * theme switch the mix keeps, so the tint is a neutral gray at the same strength there, as the
+ * stylesheet washes an event; the calendar's color stays on its accent bar.
+ *
+ * @param color - A `var()` reference
+ * @param opacity - Opacity value (0-100)
+ * @returns The color at that opacity, or its gray floor
+ */
+function translucentVar(color: string, opacity: number): string {
+  return ColorMix.supportsColorMix()
+    ? `color-mix(in srgb, ${color} ${opacity}%, transparent)`
+    : ColorMix.translucentGray(opacity);
+}
 
+function computeRGBA(color: string, opacity: number): string {
   if (color === 'transparent') {
     return color;
   }

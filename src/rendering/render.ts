@@ -16,6 +16,7 @@ import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
 import * as Localize from '../translations/localize';
+import * as ColorMix from '../utils/color-mix';
 import * as FormatUtils from '../utils/format';
 import * as Helpers from '../utils/helpers';
 import * as Links from '../utils/links';
@@ -406,7 +407,7 @@ function createSeparatorStyle(
   if (separatorType === 'day') {
     return {
       borderTopWidth: lineWidth,
-      borderTopColor: lineColor,
+      borderTopColor: ColorMix.floorColor(lineColor),
       borderTopStyle: 'solid',
       marginTop: '0px', // No additional margin needed on top (table already has margin)
       marginBottom: config.day_spacing, // Equal spacing below
@@ -422,7 +423,7 @@ function createSeparatorStyle(
 
   return {
     borderTopWidth: lineWidth,
-    borderTopColor: lineColor,
+    borderTopColor: ColorMix.floorColor(lineColor),
     borderTopStyle: 'solid',
     marginTop: finalSpacing,
     marginBottom: finalSpacing,
@@ -529,11 +530,11 @@ function renderWeekRow(
   if (!isFirstWeek) {
     if (isMonthBoundary && !ViewConfig.isZeroLength(config.month_separator_width)) {
       lineStyle['--separator-border-width'] = config.month_separator_width;
-      lineStyle['--separator-border-color'] = config.month_separator_color;
+      lineStyle['--separator-border-color'] = ColorMix.floorColor(config.month_separator_color);
       lineStyle['--separator-display'] = 'block';
     } else if (!ViewConfig.isZeroLength(config.week_separator_width)) {
       lineStyle['--separator-border-width'] = config.week_separator_width;
-      lineStyle['--separator-border-color'] = config.week_separator_color;
+      lineStyle['--separator-border-color'] = ColorMix.floorColor(config.week_separator_color);
       lineStyle['--separator-display'] = 'block';
     } else {
       lineStyle['--separator-display'] = 'none';

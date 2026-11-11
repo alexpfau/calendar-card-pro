@@ -558,9 +558,11 @@ export const COLUMN_DEFAULTS = {
  * `types.ts` gives: a grid column is the same height whatever is in it, and a column-view
  * column is not. The value is a mix rather than a fixed gray so that it darkens a light
  * theme and lightens a dark one; `color-mix` is Chrome 111, well under the Chrome 117
- * floor grid view already sets with `subgrid`. Which days are shaded comes from the country
- * set in Home Assistant, or its language when no country is set, so this is Friday and
- * Saturday in an Israeli household whatever language it runs in.
+ * floor grid view already sets with `subgrid`, but Safari 16.0 and 16.1 have `subgrid`
+ * without it, and there the card writes a gray instead (`ColorMix.floorColor`). Which days
+ * are shaded comes from the country set in Home Assistant, or its language when no country
+ * is set, so this is Friday and Saturday in an Israeli household whatever language it runs
+ * in.
  *
  * `today_background_color` is the same stripe for today's column, and the one tint here that
  * ships off: `transparent` paints nothing, so a card that never sets it draws exactly what it
