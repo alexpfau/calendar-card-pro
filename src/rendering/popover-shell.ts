@@ -158,7 +158,7 @@ export function keepInView(
  * @param b - The other
  * @returns True where they agree
  */
-function samePlace(a: Placement | undefined, b: Placement | undefined): boolean {
+export function samePlace(a: Placement | undefined, b: Placement | undefined): boolean {
   return (
     a?.left === b?.left &&
     a?.top === b?.top &&
@@ -863,10 +863,15 @@ export abstract class PopoverShell extends LitElement {
   protected _onClosed?: () => undefined;
 
   /**
-   * Where the panel was placed when it opened, its height then, what an arrow beside it points
-   * at, and the screen's width it was placed for, which `_keepInView` holds it to.
+   * Where the panel was placed beside its press when it opened, its height then, and what an
+   * arrow beside it points at, which `_keepBeside` holds it to.
    */
-  private _opened?: { place: Placement; height: number; target?: number; width: number };
+  private _opened?: { place: Placement; height: number; target?: number };
+  /**
+   * The screen's width the panel was placed beside its press for (`_keepInView`); undefined for
+   * a sheet, and until it is placed.
+   */
+  private _placedWidth?: number;
   /** Watches the panel's size while it is open (`_watchRoom`). */
   private _sizeWatch?: ResizeObserver;
   /** The visual viewport listened to while the panel is open, if the browser has one. */
@@ -1025,7 +1030,7 @@ export abstract class PopoverShell extends LitElement {
   //---------------------------------------------------------------------------
 
   /**
-   * Places the panel for the press that opened it (`placeAt`), in the part of the screen in
+   * Places the panel for the press that opened it (`_placeBeside`), in the part of the screen in
    * sight (`roomOf`), or on a narrow screen makes it a sheet from the bottom instead. From then
    * on, while it is open, keeps it in sight (`_keepInView`).
    */
@@ -1037,33 +1042,50 @@ export abstract class PopoverShell extends LitElement {
     if (this._sheet) {
       this._place = undefined;
       this._opened = undefined;
+      this._placedWidth = undefined;
       this._keepInView();
       return;
     }
+    this._placedWidth = width;
+    this._lift = 0;
+    this._placeBeside(room, width);
+    this._measureScroll();
+  }
+
+  /**
+   * Places the panel beside the press that opened it (`placeAt`), in the part of the screen in
+   * sight, as the event popover is placed. A panel placed its own way, as the search panel hangs
+   * from its magnifier, places itself here, and keeps itself in sight in `_keepBeside`.
+   *
+   * @param room - The part of the screen in sight
+   * @param width - The screen's width
+   */
+  protected _placeBeside(room: Room, width: number): void {
     const maxHeight = room.bottom - room.top - 2 * MARGIN;
     const panelHeight = Math.min(this._panel?.offsetHeight ?? UNMEASURED_HEIGHT, maxHeight);
     const anchor = this._anchor;
     const placed = placeAt(anchor, panelHeight, { width, height: room.bottom }, this._panelWidth);
     const target = anchor && !anchor.below ? middleOf(anchor) : undefined;
-    this._opened = { place: placed, height: panelHeight, target, width };
-    this._lift = 0;
+    this._opened = { place: placed, height: panelHeight, target };
     this._maxHeight = maxHeight;
     this._place = keepInView(placed, panelHeight, panelHeight, room, target);
-    this._measureScroll();
   }
 
   /**
    * Keeps the panel in sight while it is open: as it grows or shrinks, as when Cancel and Add
-   * appear under a new event, and as an on-screen keyboard comes and goes (`keepInView`). A sheet
-   * stands on the keyboard instead, no taller than the part of the screen it leaves. A change of
-   * the screen's width, as turning a phone, places the panel afresh (`_placeAfresh`). Where the
-   * panel is still too tall for what is in sight it scrolls, and says so (`_scrolls`).
+   * appear under a new event, and as an on-screen keyboard comes and goes (`_keepBeside`). A
+   * sheet stands on the keyboard instead, no taller than the part of the screen it leaves. A
+   * change of the screen's width, as turning a phone, places the panel afresh (`_placeAfresh`).
+   * Where the panel is still too tall for what is in sight it scrolls, and says so (`_scrolls`).
    */
   protected _keepInView(): void {
     if (!this.isConnected || !this._dialog?.open || this._closing) return;
     const width = window.innerWidth;
-    const opened = this._opened;
-    if (width < SHEET_BELOW_PX !== this._sheet || (opened && opened.width !== width)) {
+    const placedWidth = this._placedWidth;
+    if (
+      width < SHEET_BELOW_PX !== this._sheet ||
+      (placedWidth !== undefined && placedWidth !== width)
+    ) {
       this._placeAfresh();
       return;
     }
@@ -1078,6 +1100,19 @@ export abstract class PopoverShell extends LitElement {
       this._measureScroll();
       return;
     }
+    if (placedWidth === undefined || !this._panel) return;
+    this._keepBeside(room);
+    this._measureScroll();
+  }
+
+  /**
+   * Keeps a panel placed beside its press in sight (`keepInView`): where it opened, moved only as
+   * far as it must, and no taller than the part of the screen in sight.
+   *
+   * @param room - The part of the screen in sight now
+   */
+  protected _keepBeside(room: Room): void {
+    const opened = this._opened;
     const panel = this._panel;
     if (!opened || !panel) return;
     const maxHeight = room.bottom - room.top - 2 * MARGIN;
@@ -1090,7 +1125,6 @@ export abstract class PopoverShell extends LitElement {
       opened.target,
     );
     if (!samePlace(place, this._place)) this._place = place;
-    this._measureScroll();
   }
 
   /** Notes whether the panel's content runs past its height now. */
@@ -1107,6 +1141,7 @@ export abstract class PopoverShell extends LitElement {
   private _placeAfresh(): void {
     this._sheet = window.innerWidth < SHEET_BELOW_PX;
     this._opened = undefined;
+    this._placedWidth = undefined;
     this._lift = 0;
     this._maxHeight = undefined;
     void this.updateComplete.then(() => {
@@ -1123,8 +1158,8 @@ export abstract class PopoverShell extends LitElement {
   /**
    * Watches, while the panel is open, what can take it out of sight: its own size, which changes
    * as Cancel and Add appear, the date opens or a map loads, and the part of the screen in sight,
-   * which an on-screen keyboard takes from while a field in the panel has the focus. Only the
-   * placing here starts it; a panel that places itself keeps to its own.
+   * which an on-screen keyboard takes from while a field in the panel has the focus. The placing
+   * here starts it, for every panel, however it is placed beside its press.
    *
    * @param on - Whether the panel is open
    */
@@ -1214,6 +1249,7 @@ export abstract class PopoverShell extends LitElement {
     this._guardScroll(false);
     this._watchRoom(false);
     this._opened = undefined;
+    this._placedWidth = undefined;
     this._lift = 0;
     this._maxHeight = undefined;
     this._scrolls = false;
