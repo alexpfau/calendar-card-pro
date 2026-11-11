@@ -6,7 +6,20 @@ Each entry below covers a whole minor release line — the `X.Y.0` release plus 
 patch that followed it — so this page reads as the card's progression from the first
 public release in January 2025 to today.
 
-## Latest Release: v5.1
+## Latest Release: v5.2
+
+- 🪄 **Quick Setup**: start a card from [one of four Example Stories](/features/editor#quick-setup), the Family Hub, Now & Next, Today & Tomorrow or Birthdays & Holidays, and answer only what a story cannot know about your home: the title, your calendars, your weather and what a tap should do. The preview follows each answer, and Cancel puts the card back as it was
+- 🧰 **An Easier Editor**: [Essentials Only](/features/editor#essentials-only) cuts the editor down to about twenty settings most cards need, and an option written [where the card does not read it](/features/editor#options-the-card-ignores) is listed at the top with an offer to move it. On Home Assistant 2026.6 or later, the card picker's interactive cards show your forecast where Home Assistant has one weather entity
+- 👁️ **Show All & Hide All**: two buttons head [the calendar filter's menu](/features/layout-appearance#showing-hiding-calendars), so one person's week is a Hide all and a single tick away
+- 🙈 **A Calendar That Stays Out of the Filter**: [`show_in_legend: false`](/features/layout-appearance#leaving-a-calendar-out-of-the-filter) leaves a calendar that is on the card only to be seen out of the chips and the menu
+- 📍 **Today's Column, Shaded**: [`time_grid → today_background_color`](/features/grid-view#shading-today) tints today's whole column in grid view, as weekend shading tints a weekend
+- 🎉 **A Holiday Two Calendars Share, Drawn Once**: [`filter_duplicates: ignore_location`](/features/core-settings#filtering-duplicate-events) matches copies on their title, start and end alone, for holiday calendars that write their own name into every location
+- ⚠️ **Changes to Existing Cards**: a long title beside the time ([`time_position: title`](/features/event-content#time-beside-the-title)) now wraps instead of scrolling, and `title_max_lines: 1` keeps it on one line. The card file grows from 552 KB to 594 KB, or 164 KB compressed. The [release notes](/RELEASE_NOTES) list every change
+- 🐛 **Dates & Scripts in Every Language**: the end of a multi-day event reads the way each language writes a date, which changes it in 36 of the card's 38 languages; Thai, Vietnamese and other scripts keep the marks above and below their letters; and times keep their order where the card's language runs the other way from the dashboard
+- 🐛 **Older iPhones & iPads**: Safari 16.4 and 16.5 no longer crash on a tinted event, and Safari before 16.2 draws the colors it had lost. [Browser Support](/guide/installation#browser-support) lists the versions the card runs on
+- 🐛 **The Popover Stays in Reach**: Add no longer slips below a short screen, the popover stands on a phone's keyboard, and its lists are readable in dark mode on Windows and Linux
+
+## v5.1
 
 🎬 See v5.1 at work in the Family Hub, [on a kitchen wall](/guide/family-calendar#see-it) and [on a phone](/guide/family-calendar#across-different-screens), and in the [Family Agenda](/guide/one-calendar-many-purposes#see-it), on a hallway tablet.
 

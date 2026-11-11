@@ -146,7 +146,15 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 
 **➡️ View the [Full Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) for a complete list of features.**
 
-### Latest Release: v5.1
+### Latest Release: v5.2
+
+- 🪄 **Quick Setup**: [Start a card from an Example Story](https://calendar-card-pro.alexpfau.com/features/editor#quick-setup) on your own calendars by answering a few questions, and [Essentials Only](https://calendar-card-pro.alexpfau.com/features/editor#essentials-only) cuts the editor down to the settings most cards need
+- 👁️ **A Calendar Filter That Does More**: [Show all and Hide all](https://calendar-card-pro.alexpfau.com/features/layout-appearance#showing-hiding-calendars) head the filter's menu, and [`show_in_legend: false`](https://calendar-card-pro.alexpfau.com/features/layout-appearance#leaving-a-calendar-out-of-the-filter) leaves a calendar out of it
+- ⚠️ **Titles Beside the Time Wrap**: A long title beside the time ([`time_position: title`](https://calendar-card-pro.alexpfau.com/features/event-content#time-beside-the-title)) now wraps instead of scrolling; `title_max_lines: 1` keeps it on one line
+- 🐛 **Dates & Scripts in Every Language**: The end of a multi-day event reads the way each language writes a date, which changes it in 36 of the card's 38 languages, and Thai, Vietnamese and other scripts keep the marks above and below their letters
+- 🐛 **Older iPhones & iPads**: Safari 16.4 and 16.5 no longer crash on a tinted event, and Safari before 16.2 draws the colors it had lost; [Browser Support](https://calendar-card-pro.alexpfau.com/guide/installation#browser-support) says which versions run the card
+
+### v5.1
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_grid_drag.webp" alt="Dragging an event to another day in grid view" width="600">
 
@@ -170,12 +178,6 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 
 - 🧑 **Shared Events, Clearly Marked**: Merged duplicates show [every calendar's label](https://calendar-card-pro.alexpfau.com/features/core-settings#labeling-coloring-shared-events), and `duplicate_accent_color` gives them a color of their own
 - 🐛 **Countdowns Follow Calendar Dates**: [Countdowns](https://calendar-card-pro.alexpfau.com/features/event-content#countdown-display) say "tomorrow" for the next date and no longer skip days
-
-### v4.1
-
-- 🏷️ **All-Day Events, as a Pill**: [`allday_badge`](https://calendar-card-pro.alexpfau.com/features/event-content#the-all-day-badge) draws a rounded pill in each calendar's color, around the title or beside the clock
-- 🎨 **Follow Home Assistant's Calendar Colors and Icons**: `accent_color: home-assistant` takes [the color Home Assistant holds](https://calendar-card-pro.alexpfau.com/features/core-settings) for each calendar, and its `label` can follow [the calendar's icon](https://calendar-card-pro.alexpfau.com/features/core-settings#following-the-icon-from-home-assistant) the same way
-- 🧑 **A Person's Photo in Front of Their Calendar**: Set a calendar's `label` to a person entity and the card shows [their picture](https://calendar-card-pro.alexpfau.com/features/core-settings#showing-a-persons-picture)
 
 _Older releases are covered in the [Full Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES)._
 
