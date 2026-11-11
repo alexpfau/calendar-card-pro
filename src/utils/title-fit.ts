@@ -267,3 +267,139 @@ export function fitTitlesBesideTime(rows: Iterable<HTMLElement>, maxLines: numbe
     row.style.setProperty(TITLE_FIT_PROPERTIES.end, `${end}px`);
   }
 }
+
+/**
+ * The attribute that marks a capped title whose last shown line was broken inside a word. The
+ * stylesheet lays such a title out without automatic hyphens, so its cut ends at a word or inside
+ * one with no hyphen: "Kindergarten registration…" or "appoint…", never "appoint-…".
+ */
+export const TITLE_UNHYPHENATED = 'data-title-unhyphenated';
+
+/** How much wider than its line, in CSS pixels, a measured "-…" may come out and still fit. */
+const HYPHEN_SLACK = 0.2;
+
+/** A letter or a mark on one, or a soft hyphen: what a word breaks between. */
+const WORD_CHARACTER = /[\p{L}\p{M}\u00AD]/u;
+
+/**
+ * The first of a title, its summary and its row that clamps its lines and hides some, if any.
+ * Asked of what the box does rather than of its display: Chromium reports a clamping
+ * `-webkit-box` as `flow-root`, which a summary beside the time is as well without clamping.
+ */
+function clampOf(summary: HTMLElement, title: HTMLElement): HTMLElement | null {
+  for (const box of [title, summary, summary.parentElement]) {
+    if (!(box instanceof HTMLElement)) continue;
+    const style = getComputedStyle(box);
+    if (
+      /^\d+$/.test(style.webkitLineClamp) &&
+      style.overflowY !== 'visible' &&
+      box.scrollHeight > box.clientHeight + 1
+    ) {
+      return box;
+    }
+  }
+  return null;
+}
+
+/**
+ * Whether a capped title's last shown line ends in a hyphen and then the clamp's "…".
+ *
+ * The first character laid out below the clamp's last line begins the lines it hides; with the
+ * one before it a letter, the cut fell inside a word. The hyphen stays only where the "…" fits
+ * after it, which a word too wide for any line never leaves room for: it breaks only where its
+ * line is full, and without a hyphen.
+ */
+function cutInsideWord(summary: HTMLElement, canvas: CanvasRenderingContext2D | null): boolean {
+  const title = summary.querySelector<HTMLElement>('.event-title');
+  if (!title) return false;
+  const box = clampOf(summary, title);
+  if (!box) return false;
+  const style = getComputedStyle(box);
+  const rect = box.getBoundingClientRect();
+  // Boxes and characters come in the page's pixels, lengths and the canvas in the card's own: a
+  // card an ancestor scales draws one at the other's scale. offsetWidth is whole pixels, so a box
+  // within a pixel of it is not scaled, as partsOf above reads a row.
+  const scale =
+    box.offsetWidth > 0 && Math.abs(rect.width - box.offsetWidth) >= 1
+      ? rect.width / box.offsetWidth
+      : 1;
+  const bottom = rect.bottom - px(style.paddingBottom) * scale;
+
+  const characters: { text: string; rect: DOMRect }[] = [];
+  const document = title.ownerDocument;
+  const walker = document.createTreeWalker(title, NodeFilter.SHOW_TEXT);
+  const range = document.createRange();
+  for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
+    for (let index = 0; index < node.length; index += 1) {
+      range.setStart(node, index);
+      range.setEnd(node, index + 1);
+      characters.push({ text: node.data[index], rect: range.getBoundingClientRect() });
+    }
+  }
+  // Parked outside the card, so it holds on to nothing in it.
+  range.setStart(document, 0);
+  range.collapse(true);
+  // A character reaching a quarter line below the cut is on a line it hides. Not its middle:
+  // Chromium gives the first character after a hyphen a box across both lines.
+  const lines = box === summary.parentElement ? summary : box;
+  const flow = getComputedStyle(lines);
+  const lineHeight = (px(flow.lineHeight) || px(style.lineHeight)) * scale;
+  const hidden = characters.findIndex(
+    ({ rect: glyph }) => glyph.height > 0 && glyph.bottom > bottom + lineHeight / 4,
+  );
+  if (hidden <= 0) return false;
+  const before = characters[hidden - 1].text;
+  const after = characters[hidden].text;
+  if (!WORD_CHARACTER.test(before) || !WORD_CHARACTER.test(after)) return false;
+
+  // The hyphen stays only where the clamp's "…" fits after it. Where it does not, the browser
+  // shortens the line and takes the hyphen with it ("association me…"), and the title is left
+  // as it is. The line is measured from its first character, in the title's font: WebKit gives
+  // the characters the "…" replaced no place of their own. It ends at the box's end, less the
+  // room a cut beside the time keeps there.
+  const line = characters.slice(0, hidden).filter(({ rect: glyph }) => {
+    const middle = (glyph.top + glyph.bottom) / 2;
+    return glyph.height > 0 && middle > bottom - lineHeight && middle <= bottom;
+  });
+  if (!line.length || !canvas) return true;
+  const titleStyle = getComputedStyle(title);
+  canvas.font =
+    titleStyle.font || `${titleStyle.fontWeight} ${titleStyle.fontSize} ${titleStyle.fontFamily}`;
+  const length =
+    canvas.measureText(`${line.map(({ text }) => text).join('')}\u2010\u2026`).width * scale;
+  const edges = lines.getBoundingClientRect();
+  const room =
+    box === summary.parentElement
+      ? (px(box.style.getPropertyValue(TITLE_FIT_PROPERTIES.width)) +
+          (px(getComputedStyle(box).getPropertyValue(TITLE_ROOM_GAP)) || 0)) *
+        scale
+      : 0;
+  // A fifth of a pixel to spare: the canvas sets the line a little wider than layout does. Over
+  // capped English and German titles at nine widths, in Chromium and WebKit, every line the
+  // browser ended in "-…" came out no more than 0.16px too long by this measure, and every one it
+  // shortened 0.24px or more.
+  const slack = HYPHEN_SLACK * scale;
+  return flow.direction === 'rtl'
+    ? line[0].rect.right - length >= edges.left + px(flow.paddingLeft) * scale + room - slack
+    : line[0].rect.left + length <= edges.right - px(flow.paddingRight) * scale - room + slack;
+}
+
+/**
+ * Lay out without automatic hyphens each capped title whose cut falls inside a word, so the "…"
+ * never follows a hyphen. Read on the titles as the browser hyphenates them, every mark taken off
+ * first, then written: one layout to read, however many titles.
+ *
+ * Only the titles cut that way change. A title with no limit, one that fits, and one cut between
+ * words keep their hyphens. Without them a cut title needs as many lines as before or more, so a
+ * title cut beside the time stays cut where it was measured.
+ *
+ * @param summaries - The `.summary` of every title the card caps at `title_max_lines`
+ */
+export function unhyphenateTitleCuts(summaries: Iterable<HTMLElement>): void {
+  const all = Array.from(summaries);
+  all.forEach((summary) => summary.removeAttribute(TITLE_UNHYPHENATED));
+  if (!all.length) return;
+  const canvas = document.createElement('canvas').getContext('2d');
+  const cut = all.filter((summary) => cutInsideWord(summary, canvas));
+  cut.forEach((summary) => summary.setAttribute(TITLE_UNHYPHENATED, ''));
+}

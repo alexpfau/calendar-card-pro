@@ -743,6 +743,23 @@ export function titlesCutBesideTime(
   );
 }
 
+/**
+ * Whether the card caps titles at `title_max_lines` on lines that wrap: list and column view,
+ * with a limit, unless the titles keep to one line. Only then can a title's last shown line end
+ * on a hyphen before its "…", which the card measures for; see `TitleFit.unhyphenateTitleCuts`.
+ * Grid titles are never hyphenated.
+ *
+ * @param config - The configuration of the view on screen
+ * @param view - The view on screen
+ * @returns True when the card measures where its titles are cut
+ */
+export function titlesCapped(
+  config: { scroll_long_titles?: unknown; time_position?: unknown; title_max_lines?: unknown },
+  view: string,
+): boolean {
+  return view !== 'grid' && Number(config.title_max_lines) > 0 && !titlesOnOneLine(config, view);
+}
+
 /** Where `allday_badge` can put the pill. */
 export const ALLDAY_BADGE_POSITIONS = ['title', 'time'] as const;
 

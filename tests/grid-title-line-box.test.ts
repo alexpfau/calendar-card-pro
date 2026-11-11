@@ -174,6 +174,28 @@ describe('grid title fitting measures line boxes, not font content areas', () =>
     expect(normalGridTitleFits(gridTitleTarget(element)!)).toBe(false);
   });
 
+  it('keeps a clamped title whose box keeps room above its first line for stacked marks', () => {
+    // A title the card cuts keeps 0.375em of padding inside its clamp for the marks Thai or
+    // Vietnamese stack above a line, given back by a negative margin of the same size, so its
+    // box reaches 4.5px above the line it holds ("Marks above and below the line" in styles.ts).
+    // That room holds no line: measured against it, the first line's overhang stayed inside the
+    // title's box and outside its row's, and the title read as not fitting.
+    const ROOM = 4.5;
+    const element = block({
+      height: 69,
+      group: new DOMRect(4, TOP, 192, LINE),
+      text: [new DOMRect(4, TOP - 0.3, 80, 15)],
+      titleStyle: `display: block; padding-top: ${ROOM}px; margin-top: -${ROOM}px`,
+    });
+    const title = element.querySelector<HTMLElement>('.event-title')!;
+    vi.spyOn(title, 'getBoundingClientRect').mockReturnValue(
+      new DOMRect(4, TOP - ROOM, 192, LINE + ROOM),
+    );
+    measurable();
+
+    expect(normalGridTitleFits(gridTitleTarget(element)!)).toBe(true);
+  });
+
   it('still rejects a first line that the block genuinely cuts off', () => {
     // Content box ends at 15; the line box ends at 16.4. Trimming the content area to the
     // title's own box must not hide that the box itself runs past the block.

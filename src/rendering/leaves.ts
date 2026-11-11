@@ -553,7 +553,20 @@ function renderEventTitle(
   // carrying a `dir` of its own: with both set the outer element finds no letters, resolves
   // to left-to-right, and blanks Hebrew on a Hebrew dashboard instead. Alignment stays on
   // the dashboard's side; see the matching rule in styles.ts.
-  const titleDir = titleWords && !oneLineTitle ? 'auto' : nothing;
+  //
+  // A title kept to one line takes its own direction as well, for the same reason: the crop and
+  // the ellipsis fall at the end of the box's direction, so on a right-to-left dashboard an
+  // English title showed its last words, and a Hebrew title on an English one its end. Named
+  // by the card, as the capped title's line below is, rather than `auto`: `auto` reads a title
+  // with no letter in it, a time or an emoji, as left-to-right, where this leaves it the
+  // dashboard's. The empty-day line is left as it was.
+  const titleDir = oneLineTitle
+    ? isEmptyDay
+      ? nothing
+      : (titleDirection(event.summary ?? '') ?? nothing)
+    : titleWords
+      ? 'auto'
+      : nothing;
 
   // A list or column title cut by `title_max_lines` lays out its whole line, labels included,
   // in its own direction. The clamp puts its "…" at the end of the line in the direction of

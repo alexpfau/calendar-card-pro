@@ -279,8 +279,16 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(212_000);
-    // Old Safari's older colors moved the ceiling last, from 208,000 to 212,000: the notes on
+    expect(saved).toBeLessThan(217_000);
+    // Marks above and below the line moved the ceiling last, from 212,000 to 217,000: the notes on
+    // why a box that hid its overflow only for a long word now cuts the inline axis alone, why a
+    // box that clamps keeps room above its first line as padding given back by a margin, and why
+    // that room is a whole number of layout units; on which boxes are which, in each view; and on
+    // the one-line title against the dashboard and the capped title that loses its hyphen. The
+    // reading went from 209,473 to 215,049, taken with stripComments after the last comment was
+    // written.
+    //
+    // Old Safari's older colors moved the ceiling before that, from 208,000 to 212,000: the notes on
     // what each of the fourteen color-mix() uses older than v5.1, and the custom properties the
     // stylesheet mixes, fall back to where color-mix() is unknown, and why a gray there is as
     // strong as an accent's mix and about twice a text color's. The reading went from 205,833 to

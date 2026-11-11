@@ -208,7 +208,11 @@ describe('timed Grid labels share the title line', () => {
     const padding = /padding-bottom:\s*([^;]+);/.exec(rule![2])?.[1];
     expect(padding).toBe('2px');
     expect(padding).toBe(/padding-bottom:\s*([^;]+);/.exec(declarations('.event-title'))?.[1]);
-    expect(declarations('.grid-event-disclosure .summary')).toMatch(/padding-block:\s*0;/);
+    // No padding of its own: only the room a clamping summary keeps above its first line,
+    // which its top margin gives back.
+    expect(declarations('.grid-event-disclosure .summary')).toMatch(
+      /padding-block:\s*var\(--calendar-card-summary-ink-room, 0px\) 0;/,
+    );
   });
 
   it('leaves scrolling titles in their separate flex-row mode', () => {

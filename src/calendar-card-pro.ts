@@ -4102,31 +4102,37 @@ class CalendarCardPro extends LitElement {
   }
 
   //-----------------------------------------------------------------------------
-  // TITLE FIT (time_position: title, wrapping titles)
+  // TITLE FIT (time_position: title, wrapping titles; title_max_lines cuts)
   //-----------------------------------------------------------------------------
 
   /**
    * Sizes the room each wrapping title beside the time keeps for it, and with `title_max_lines`
    * of two or more cuts the titles that need more lines than that; see
-   * `TitleFit.fitTitlesBesideTime`, which measures them.
+   * `TitleFit.fitTitlesBesideTime`, which measures them. Every title `title_max_lines` caps is
+   * measured as well, beside the time or below it, for a cut inside a word, which then loses its
+   * hyphen; see `TitleFit.unhyphenateTitleCuts`.
    *
    * Runs after every render and on reconnecting, at once rather than on the next frame, so a
    * row is drawn fitted from its first paint. Then again on the next frame whenever the card, a
    * title or a time changes size, which a theme or card-mod can do to the time without moving
-   * the card; when an ancestor's direction, language, class or style changes; and once the fonts
-   * have loaded. Measuring rows neither moves the card nor resizes it twice: a row measured again
-   * ends exactly as it was. A card without such titles clears what a render left on an element
-   * Lit kept, and observes nothing.
+   * the card; when an ancestor's direction, language, class or style changes, which a language
+   * does to hyphenation too; and once the fonts have loaded. Measuring rows neither moves the
+   * card nor resizes it twice: a row measured again ends exactly as it was. A card without such
+   * titles clears what a render left on an element Lit kept, and observes nothing.
    */
   private _syncTitleFits(): void {
     this._stopTitleFits();
     const rows: HTMLElement[] = this.isConnected
       ? Array.from(this.renderRoot.querySelectorAll<HTMLElement>('.summary-row.title-wrap'))
       : [];
-    if (!rows.length) {
+    const capped = this.isConnected ? this._cappedTitles() : [];
+    if (!rows.length && !capped.length) {
       this.renderRoot
         .querySelectorAll<HTMLElement>(`[${TitleFit.TITLE_FIT}]`)
         .forEach(TitleFit.clearTitleFit);
+      this.renderRoot
+        .querySelectorAll<HTMLElement>(`[${TitleFit.TITLE_UNHYPHENATED}]`)
+        .forEach((summary) => summary.removeAttribute(TitleFit.TITLE_UNHYPHENATED));
       return;
     }
     this._measureTitleFits();
@@ -4140,6 +4146,7 @@ class CalendarCardPro extends LitElement {
           .querySelectorAll<HTMLElement>(':scope > .summary, :scope > .title-aside')
           .forEach((part) => observer.observe(part));
       });
+      capped.forEach((summary) => observer.observe(summary));
     }
     if (typeof MutationObserver !== 'undefined') {
       this._titleFitMutations = new MutationObserver((records) => {
@@ -4168,15 +4175,32 @@ class CalendarCardPro extends LitElement {
     }
   }
 
-  /** Measures every wrapping title beside the time on the card, at once. */
+  /**
+   * Measures every wrapping title beside the time on the card, at once, and then where each title
+   * capped at `title_max_lines` is cut, dropping hyphens from a cut that falls inside a word.
+   */
   private _measureTitleFits(): void {
     const config = this.effectiveConfig;
+    // Hyphens back first, so the rows beside the time are fitted to the titles as the browser
+    // hyphenates them, which is what the cut below is measured on. A title losing its hyphens
+    // then needs as many lines as it did or more, so a row cut stays cut where it was measured.
+    this.renderRoot
+      .querySelectorAll<HTMLElement>(`[${TitleFit.TITLE_UNHYPHENATED}]`)
+      .forEach((summary) => summary.removeAttribute(TitleFit.TITLE_UNHYPHENATED));
     TitleFit.fitTitlesBesideTime(
       this.renderRoot.querySelectorAll<HTMLElement>('.summary-row.title-wrap'),
       Helpers.titlesCutBesideTime(config, this.effectiveView)
         ? Number(config.title_max_lines) || 0
         : 0,
     );
+    TitleFit.unhyphenateTitleCuts(this._cappedTitles());
+  }
+
+  /** The summary of every title on the card that `title_max_lines` caps across lines. */
+  private _cappedTitles(): HTMLElement[] {
+    return Helpers.titlesCapped(this.effectiveConfig, this.effectiveView)
+      ? Array.from(this.renderRoot.querySelectorAll<HTMLElement>('.summary:not(.summary-scroll)'))
+      : [];
   }
 
   /** Measures again on the next frame, once a resize or a font load has settled. */

@@ -362,8 +362,15 @@ describe('card stylesheet', () => {
       ];
       for (const content of contents) {
         expect(declared(content, '--calendar-card-event-ink-shift'), content).toBe('0.13em');
-        expect(declared(`${content} > .summary-row > .summary`, 'padding-top'), content).toBe(
-          'calc(0.2em - var(--calendar-card-event-ink-shift))',
+        // Plus the room a clamping summary keeps above its first line, which its top margin
+        // gives back; see "the room above a clamped first line" below.
+        expect(expr(declared(`${content} > .summary-row > .summary`, 'padding-top')), content).toBe(
+          expr(
+            'calc(0.2em - var(--calendar-card-event-ink-shift) + var(--calendar-card-summary-ink-room, 0px))',
+          ),
+        );
+        expect(declared(`${content} > .summary-row > .summary`, 'margin-top'), content).toBe(
+          'calc(-1 * var(--calendar-card-summary-ink-room, 0px))',
         );
         expect(declared(`${content}::after`, 'content'), content).toBe("''");
         expect(declared(`${content}::after`, 'flex'), content).toBe('none');
@@ -375,7 +382,9 @@ describe('card stylesheet', () => {
           'var(--calendar-card-font-size-event)',
         );
       }
-      expect(declared('.summary', 'padding-block')).toBe('0.2em');
+      expect(declared('.summary', 'padding-block')).toBe(
+        'calc(0.2em + var(--calendar-card-summary-ink-room, 0px)) 0.2em',
+      );
 
       // Grid view keeps its own summary padding and gets no spacer: its text sits at the top
       // of a block as tall as the event. Pinned as the whole set of selectors that take part.
@@ -507,7 +516,12 @@ describe('card stylesheet', () => {
        * event_font_size -- so assert that it scales, not merely that it exists.
        */
       const pad = declared('.summary', 'padding-block');
-      expect(pad).toBe('0.2em');
+      expect(pad).toBe('calc(0.2em + var(--calendar-card-summary-ink-room, 0px)) 0.2em');
+      // The room added above it for a summary that clamps is given back by its top margin, so
+      // the 0.2em is all that reaches the layout.
+      expect(declared('.summary', 'margin-top')).toBe(
+        'calc(-1 * var(--calendar-card-summary-ink-room, 0px))',
+      );
     });
 
     it('compensates with padding-block, not the padding shorthand', () => {
@@ -2733,7 +2747,14 @@ describe('card stylesheet', () => {
       expect(declared('.grid-event-disclosure .summary-row', 'flex')).toBe('0 0 auto');
       expect(declared('.grid-event-disclosure .summary-row', 'overflow')).toBe('hidden');
       expect(declared('.grid-event-disclosure .summary', 'min-height')).toBe('0');
-      expect(declared('.grid-event-disclosure .summary', 'padding-block')).toBe('0');
+      // No padding of its own; only the room a clamping summary keeps above its first line,
+      // which its top margin gives back.
+      expect(declared('.grid-event-disclosure .summary', 'padding-block')).toBe(
+        'var(--calendar-card-summary-ink-room, 0px) 0',
+      );
+      expect(declared('.grid-event-disclosure .summary', 'margin-top')).toBe(
+        'calc(-1 * var(--calendar-card-summary-ink-room, 0px))',
+      );
       expect(declared('.grid-event-disclosure .event-title', '-webkit-line-clamp')).toBe(
         'var(--calendar-card-grid-title-lines-compact)',
       );
@@ -2793,7 +2814,12 @@ describe('card stylesheet', () => {
       expect(declared(global, 'display')).toBe('-webkit-box');
       expect(declared(global, 'text-overflow')).toBe('');
       expect(rulesFor(span)).toHaveLength(1);
-      expect(rulesFor(global)).toHaveLength(1);
+      // The room above its first line and its inline-axis clip are rules of their own, shared
+      // with the location and description ("Marks above and below the line"); they set no
+      // display, so the clamp's display is still declared once.
+      expect(rulesFor(global).filter((rule) => /(^|;)\s*display\s*:/.test(rule.body))).toHaveLength(
+        1,
+      );
 
       // `.time-text` keeps its own path and is excluded from the selector above. It wraps
       // by design so a folded countdown breaks inside itself rather than dropping the whole
@@ -3865,11 +3891,21 @@ describe('the time beside the title', () => {
       position: 'relative',
       '--calendar-card-title-room-gap': '12px',
     }),
-    [`${WRAP} > .summary:not(.summary-scroll)`]: one({
-      display: 'flow-root',
-      'margin-inline': '0',
+    // Neither keeps room above the title's first line, nor cuts below its last: the summary
+    // clamps nothing here, so with overflow: clip it cuts only the inline axis, and the inline
+    // title takes no room. See "Marks above and below the line".
+    [`${WRAP} > .summary:not(.summary-scroll)`]: [
+      {
+        display: 'flow-root',
+        'margin-inline': '0',
+        '--calendar-card-summary-ink-room': '0px',
+      },
+      { 'overflow-y': 'visible' },
+    ],
+    [`${WRAP} > .summary > .event-title`]: one({
+      display: 'inline',
+      '--calendar-card-title-ink-room': '0px',
     }),
-    [`${WRAP} > .summary > .event-title`]: one({ display: 'inline' }),
     // The room ending the title, drawn only once the card has sized it to the time, then floated
     // to the row's end, named by the direction the card measured, with the gap before it.
     [`${WRAP} > .summary > .title-room`]: one({ display: 'none' }),
@@ -3909,12 +3945,15 @@ describe('the time beside the title', () => {
     [`${WRAP}[data-title-fit='rtl'] > .title-aside`]: one({ left: '0' }),
     // Cut beside the time: the row clamps, .summary is no box of its own, and a float shaped to
     // the last lines keeps the time's room there.
+    // The row's room above the first line, inside the clamp, is given back by its top margin.
     [CUT]: one({
       display: '-webkit-box',
       '-webkit-box-orient': 'vertical',
       '-webkit-line-clamp': 'var(--calendar-card-title-max-lines)',
       overflow: 'hidden',
       'margin-bottom': 'var(--calendar-card-title-pad)',
+      'padding-top': '0.375em',
+      'margin-top': '-0.375em',
     }),
     [`${CUT} > .summary:not(.summary-scroll)`]: one({
       display: 'block',
@@ -3937,11 +3976,15 @@ describe('the time beside the title', () => {
     [`${CUT} > .title-aside`]: one({ top: 'calc(100% - var(--calendar-card-title-room-height))' }),
     // Cut below the title: .summary clamps, and the row keeps room under it for the time.
     [BELOW]: one({ 'padding-bottom': 'var(--calendar-card-title-cut-below)' }),
+    // It clamps, so it hides what passes its edges, with room above its first line on top of
+    // its own padding.
     [`${BELOW} > .summary:not(.summary-scroll)`]: one({
       display: '-webkit-box',
       '-webkit-box-orient': 'vertical',
       '-webkit-line-clamp': 'var(--calendar-card-title-max-lines)',
       'padding-bottom': '0',
+      'overflow-y': 'hidden',
+      '--calendar-card-summary-ink-room': '0.25em',
     }),
     // An all-day badge with a countdown folded after it wraps as column view's does, in list
     // view too, so the pill and the countdown's longest word do not set the box's floor side
