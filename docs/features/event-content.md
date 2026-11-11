@@ -615,10 +615,15 @@ column:
   it: "Anna: Quarterly planning…" on a right-to-left dashboard. A title that is not clamped
   stays as it is.
 - Marks that Thai, Vietnamese, Arabic and other scripts stack above or below a line are drawn
-  whole: "สิ้นสุดพรุ่งนี้" keeps its tone marks, and "Ể" its hook. A field with a limit ends
-  exactly at the bottom of its last line even where its text fits, so a mark below that line
-  can meet the cut. In grid view the top edge of a block can still trim the tip of the highest
-  marks on its first line.
+  whole: "สิ้นสุดพรุ่งนี้" keeps its tone marks, and "Ể" its hook. So is a mark or letter that
+  leans past the first or last letter of a field, such as a tone mark past a time's last letter
+  or the hook of a "j" at the edge of a word in grid view. Browsers older than Chrome 125 or
+  Safari 15.4 leave room for a pixel of it, and a font size option that names a CSS variable
+  leaves room for the card's own text size where the row holding that text cuts it, as a title
+  cut beside its time is. A field with a limit ends exactly at
+  the bottom of its last line even where its text fits, so a mark below that line can meet the
+  cut. In grid view the top edge of a block can still trim the tip of the highest marks on its
+  first line.
 - Where a title's last line would end in a hyphen and then "…", as "appoint-…", the title is
   laid out without automatic hyphens and ends "appoint…" or on the word before. Every other
   title keeps its hyphens.

@@ -818,11 +818,12 @@ describe('the stylesheet reads a font size only as a font size', () => {
     expect(declared('.summary', 'font-size')).toBe('var(--calendar-card-font-size-event)');
     expect(declared('.label-icon', '--mdc-icon-size')).toBe('1em');
     expect(declared('.label-image', 'height')).toBe('1em');
+    // Plus the 0.125em of room the box keeps at its inline edges, in em as well.
     expect(
       declared('.summary:has(> .label-icon), .summary:has(> .label-image)', 'padding-inline-start'),
-    ).toBe('calc(1em + 4px)');
+    ).toBe('calc(1em + 4px + var(--calendar-card-summary-inline-room))');
     expect(declared('.summary:has(> .label-emoji)', 'padding-inline-start')).toBe(
-      'calc(1.25em + 4px)',
+      'calc(1.25em + 4px + var(--calendar-card-summary-inline-room))',
     );
   });
 

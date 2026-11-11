@@ -196,6 +196,64 @@ describe('grid title fitting measures line boxes, not font content areas', () =>
     expect(normalGridTitleFits(gridTitleTarget(element)!)).toBe(true);
   });
 
+  it('measures a label against the summary without the room it keeps at its inline edges', () => {
+    // Every summary keeps 0.125em of room at its inline edges, padding its negative margin gives
+    // back ("Marks above and below the line" in styles.ts). A label running half a pixel past
+    // the text's edge into that room does not fit, as it did not before the room.
+    const ROOM = 1.5;
+    const fits = (right: number, room: number) => {
+      const element = block({
+        height: 69,
+        group: new DOMRect(4, TOP, 192, LINE),
+        prefix: LABEL,
+        text: [new DOMRect(30, TOP - 0.3, 80, 15)],
+        titleStyle: 'display: inline',
+      });
+      const summary = element.querySelector<HTMLElement>('.summary')!;
+      summary.style.padding = `0 ${room}px`;
+      vi.spyOn(summary, 'getBoundingClientRect').mockReturnValue(
+        new DOMRect(4 - room, TOP, 192 + 2 * room, LINE),
+      );
+      TEXT.set(element.querySelector('.calendar-label')!.firstChild!, [
+        new DOMRect(right - 22, TOP - 0.3, 22, 15),
+      ]);
+      measurable();
+      const result = normalGridTitleFits(gridTitleTarget(element)!);
+      vi.restoreAllMocks();
+      document.body.replaceChildren();
+      return result;
+    };
+
+    expect([fits(196, 0), fits(196, ROOM)]).toEqual([true, true]);
+    expect([fits(196.5, 0), fits(196.5, ROOM)]).toEqual([false, false]);
+  });
+
+  it('measures a compact title by its content box, not the room at its inline edges', () => {
+    // The title's 80px of text needs 80px, or a character and an ellipsis; the box keeps
+    // 1.5px of room either side that the text never uses.
+    const compact = (content: number) => {
+      const element = block({
+        height: 21,
+        group: new DOMRect(4, 3.3, 192, LINE),
+        text: [new DOMRect(4, 3, 80, 16)],
+        titleStyle: 'display: block; padding: 0 1.5px',
+      });
+      vi.spyOn(
+        element.querySelector<HTMLElement>('.event-title')!,
+        'getBoundingClientRect',
+      ).mockReturnValue(new DOMRect(2.5, 3.3, content + 3, LINE));
+      measurable();
+      fitCompactGridTitles([gridTitleTarget(element)!]);
+      const fit = element.dataset.gridTitleFit;
+      vi.restoreAllMocks();
+      document.body.replaceChildren();
+      return fit;
+    };
+
+    expect(compact(80)).toBe('compact');
+    expect(compact(79)).toBe('blank');
+  });
+
   it('still rejects a first line that the block genuinely cuts off', () => {
     // Content box ends at 15; the line box ends at 16.4. Trimming the content area to the
     // title's own box must not hide that the box itself runs past the block.

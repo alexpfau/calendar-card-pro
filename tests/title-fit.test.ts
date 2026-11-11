@@ -321,6 +321,24 @@ describe('fitTitlesBesideTime', () => {
     expect(written(capped)).toMatchObject({ cut: 'below', width: `${WIDTH}px` });
   });
 
+  it('reads the width a sunk time is given as clientWidth less the padding, room and all', () => {
+    // .summary keeps a whole pixel or more of room at its inline edges ("Marks above and below
+    // the line" in styles.ts), so clientWidth less the padding is the whole-pixel width it read
+    // without the room: 299.4px of line and 2px of room either side report 303, less 4 is 299.
+    // Read to the fraction, as 299.4, a fit at its threshold decided differently.
+    const sunk = row(
+      { titleLines: 3, timeLines: 1, alone: false, timeWidth: NARROW, strutDrop: 4 },
+      false,
+    );
+    const summary = sunk.querySelector<HTMLElement>('.summary')!;
+    summary.style.width = '299.4px';
+    summary.style.setProperty('padding-inline-start', '2px');
+    summary.style.setProperty('padding-inline-end', '2px');
+    Object.defineProperty(summary, 'clientWidth', { configurable: true, value: 303 });
+    fitTitlesBesideTime([sunk], 0);
+    expect(sunk.style.getPropertyValue(P.width)).toBe('299px');
+  });
+
   it("reads a transformed card in the card's own pixels, and a fractional box as it is", () => {
     // offsetWidth is whole pixels, so a box a fraction of a pixel wider is not transformed: read
     // as one, its fraction shrank every measure, and the cut's room reached into the line above.

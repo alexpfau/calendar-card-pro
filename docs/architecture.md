@@ -117,6 +117,7 @@ src/
     ├── grid-time-fit.ts          # Picks each grid time row's degradation step
     ├── grid-cascade-threshold.ts # Measured cascade threshold, in minutes, for `utils/grid.ts`
     ├── grid-overflow-strip.ts    # Measured `+N` strip width, as a column share
+    ├── content-box.ts            # A clipping text box's width without its inline room
     ├── format.ts                 # Date and text formatting
     ├── event-age.ts              # The `YEAR=` marker: ages and anniversary counts
     ├── text-replace.ts           # Per-calendar `replace_pattern` / `replace_with`

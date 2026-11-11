@@ -279,14 +279,22 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(217_000);
-    // Marks above and below the line moved the ceiling last, from 212,000 to 217,000: the notes on
-    // why a box that hid its overflow only for a long word now cuts the inline axis alone, why a
-    // box that clamps keeps room above its first line as padding given back by a margin, and why
-    // that room is a whole number of layout units; on which boxes are which, in each view; and on
-    // the one-line title against the dashboard and the capped title that loses its hyphen. The
-    // reading went from 209,473 to 215,049, taken with stripComments after the last comment was
-    // written.
+    expect(saved).toBeLessThan(222_000);
+    // The room at a box's inline edges moved the ceiling last, from 217,000 to 222,000: the notes
+    // on why each box that cuts its text at its inline edges keeps room there, given back by a
+    // margin, why that room is a whole pixel, and which boxes take it only while they are not
+    // inline; on where a gutter or a hanging indent folds it in; on the row cut beside the time,
+    // which keeps the room in place of its summary and places the time inside it; and on the
+    // labeled summary that ends at its last line under a limit. The reading went from 215,049 to
+    // 219,121, taken with stripComments after the last comment was written.
+    //
+    // Marks above and below the line moved the ceiling before that, from 212,000 to 217,000: the
+    // notes on why a box that hid its overflow only for a long word now cuts the inline axis
+    // alone, why a box that clamps keeps room above its first line as padding given back by a
+    // margin, and why that room is a whole number of layout units; on which boxes are which, in
+    // each view; and on the one-line title against the dashboard and the capped title that loses
+    // its hyphen. The reading went from 209,473 to 215,049, taken with stripComments after the
+    // last comment was written.
     //
     // Old Safari's older colors moved the ceiling before that, from 208,000 to 212,000: the notes on
     // what each of the fourteen color-mix() uses older than v5.1, and the custom properties the
