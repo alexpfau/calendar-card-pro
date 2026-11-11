@@ -126,8 +126,8 @@ describe('right-to-left mirroring', () => {
       // :dir(). One rule per direction.
       ".time-beside-title > .summary-row.title-wrap[data-title-fit='ltr'] > .summary > .title-room { float: right }",
       ".time-beside-title > .summary-row.title-wrap[data-title-fit='rtl'] > .summary > .title-room { float: left }",
-      ".time-beside-title > .summary-row.title-wrap[data-title-fit='ltr'] > .title-aside { right: 0 }",
-      ".time-beside-title > .summary-row.title-wrap[data-title-fit='rtl'] > .title-aside { left: 0 }",
+      ".time-beside-title > .summary-row.title-wrap[data-title-fit='ltr'] > .title-aside { right: var(--calendar-card-title-row-room, 0px) }",
+      ".time-beside-title > .summary-row.title-wrap[data-title-fit='rtl'] > .title-aside { left: var(--calendar-card-title-row-room, 0px) }",
       ".time-beside-title > .summary-row.title-wrap[data-title-fit='ltr'][data-title-cut=''] > .summary::before { float: right }",
       ".time-beside-title > .summary-row.title-wrap[data-title-fit='rtl'][data-title-cut=''] > .summary::before { float: left }",
       // Grid keeps a title on the dashboard's side, one rule per direction.

@@ -443,7 +443,7 @@ describe('card stylesheet', () => {
       // again, which the scope above leaves out, put them back on the baseline.
       expect(declared('.grid-event-disclosure .title-word', 'vertical-align')).toBe('top');
       expect(flat).toMatch(
-        /\[data-grid-title-fit='blank'\]\) \.title-word \{ display: inline; max-width: none; overflow: visible; vertical-align: baseline; \}/,
+        /\[data-grid-title-fit='blank'\]\) \.title-word \{ display: inline; max-width: none; overflow: visible; vertical-align: baseline; padding-inline: 0; margin-inline: 0; \}/,
       );
     });
 
@@ -2615,17 +2615,19 @@ describe('card stylesheet', () => {
       expect(degradation).toEqual([
         { rung: 'no-icon', target: '.time .time-actual > ha-icon', body: 'display: none;' },
         { rung: 'no-end', target: '.time .time-actual .time-end', body: 'display: none;' },
+        // A block that clips keeps room at its inline edges, given back by its margin ("Marks
+        // above and below the line"); inline, it keeps none.
         {
           rung: 'wrap',
           target: '.time .time-actual .time-end',
-          body: 'display: block; overflow: hidden; text-overflow: ellipsis;',
+          body: 'display: block; overflow: hidden; text-overflow: ellipsis; padding-inline: 0.125em; margin-inline: -0.125em;',
         },
         // With a countdown folded into the time, the end time stays inline behind a line
         // break, so the countdown can follow it on its line.
         {
           rung: 'wrap',
           target: '.time .time-actual .time-text .time-end',
-          body: 'display: inline; overflow: visible; text-overflow: clip;',
+          body: 'display: inline; overflow: visible; text-overflow: clip; padding-inline: 0; margin-inline: 0;',
         },
         {
           rung: 'wrap',
@@ -3929,13 +3931,15 @@ describe('the time beside the title', () => {
     }),
     // The box: a line of its own under the title, at the end, until the room is sized; then over
     // the room, placed by its top so a time that grows before the next fit grows away from the
-    // title. As wide as it needs, no wider than the row less the gap, at the title's line height,
-    // and opened by the strut, a word joiner at the title's size.
+    // title. As wide as it needs, no wider than the row less the gap and the room a cut row keeps
+    // at its inline edges, at the title's line height, and opened by the strut, a word joiner at
+    // the title's size.
     [`${WRAP} > .title-aside`]: one({
       display: 'flex',
       'align-items': 'baseline',
       width: 'max-content',
-      'max-width': 'calc(100% - var(--calendar-card-title-room-gap))',
+      'max-width':
+        'calc(100% - 2 * var(--calendar-card-title-row-room, 0px) - var(--calendar-card-title-room-gap))',
       'margin-inline-start': 'auto',
       'line-height': '1.2',
     }),
@@ -3946,11 +3950,18 @@ describe('the time beside the title', () => {
       position: 'absolute',
       top: 'calc(100% - var(--calendar-card-title-pad) - var(--calendar-card-title-room-height))',
     }),
-    [`${WRAP}[data-title-fit='ltr'] > .title-aside`]: one({ right: '0' }),
-    [`${WRAP}[data-title-fit='rtl'] > .title-aside`]: one({ left: '0' }),
+    // Against the row's padding edge, inside the room a cut row keeps there.
+    [`${WRAP}[data-title-fit='ltr'] > .title-aside`]: one({
+      right: 'var(--calendar-card-title-row-room, 0px)',
+    }),
+    [`${WRAP}[data-title-fit='rtl'] > .title-aside`]: one({
+      left: 'var(--calendar-card-title-row-room, 0px)',
+    }),
     // Cut beside the time: the row clamps, .summary is no box of its own, and a float shaped to
     // the last lines keeps the time's room there.
-    // The row's room above the first line, inside the clamp, is given back by its top margin.
+    // The row's room above the first line, inside the clamp, is given back by its top margin,
+    // and its room at the inline edges, which it cuts in place of its summary, by its inline
+    // margin ("Marks above and below the line").
     [CUT]: one({
       display: '-webkit-box',
       '-webkit-box-orient': 'vertical',
@@ -3959,11 +3970,17 @@ describe('the time beside the title', () => {
       'margin-bottom': 'var(--calendar-card-title-pad)',
       'padding-top': '0.375em',
       'margin-top': '-0.375em',
+      'padding-inline': '0.125em',
+      'margin-inline': '-0.125em',
+      '--calendar-card-title-row-room': '0.125em',
     }),
+    // It cuts nothing, so it keeps no room at its inline edges either.
     [`${CUT} > .summary:not(.summary-scroll)`]: one({
       display: 'block',
       overflow: 'visible',
       'padding-bottom': '0',
+      'padding-inline': '0',
+      'margin-inline': '0',
     }),
     [`${CUT} > .summary::before`]: one({
       content: "''",

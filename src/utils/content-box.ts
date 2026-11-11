@@ -53,12 +53,22 @@ export function inlineContentBox(
 }
 
 /**
- * `clientWidth` less the box's inline padding: the width its text has, in the card's own pixels.
+ * The width a box's text has, in the card's own pixels: its used content width.
+ *
+ * Read from the computed width rather than as `clientWidth` less the padding. `clientWidth` is
+ * rounded to a whole pixel and the room is not, so taking the room off a rounded width can land
+ * half a pixel from where the content box ends. A box with no width in pixels, one that is not
+ * laid out, falls back to that.
  *
  * @param element - The box
  * @returns Its content-box width
  */
 export function inlineContentWidth(element: HTMLElement): number {
   const style = styleOf(element);
-  return element.clientWidth - px(style.paddingLeft) - px(style.paddingRight);
+  const left = px(style.borderLeftWidth) + px(style.paddingLeft);
+  const right = px(style.borderRightWidth) + px(style.paddingRight);
+  const width = Number.parseFloat(style.width);
+  if (!Number.isFinite(width))
+    return element.clientWidth - px(style.paddingLeft) - px(style.paddingRight);
+  return style.boxSizing === 'border-box' ? width - left - right : width;
 }

@@ -49,7 +49,23 @@ describe('inlineContentBox', () => {
 });
 
 describe('inlineContentWidth', () => {
-  it('is clientWidth less the inline padding', () => {
+  it('is the used content width, not clientWidth less the padding', () => {
+    // clientWidth is a whole number of pixels and the room is not: 100.4px of content and
+    // 1.75px either side report 104, which less the padding is half a pixel too wide.
+    const element = box('width: 100.4px; padding: 0 1.75px', new DOMRect());
+    Object.defineProperty(element, 'clientWidth', { value: 104 });
+    expect(inlineContentWidth(element)).toBe(100.4);
+  });
+
+  it('takes the padding and border off a border-box width', () => {
+    const element = box(
+      'box-sizing: border-box; width: 104px; padding: 0 1.5px; border: 0 solid; border-left-width: 1px',
+      new DOMRect(),
+    );
+    expect(inlineContentWidth(element)).toBe(100);
+  });
+
+  it('falls back to clientWidth less the padding for a box with no width in pixels', () => {
     const element = box('padding: 0 1.75px 0 2px', new DOMRect());
     Object.defineProperty(element, 'clientWidth', { value: 103.75 });
     expect(inlineContentWidth(element)).toBe(100);

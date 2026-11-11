@@ -313,6 +313,58 @@ const SPANS =
 const SCROLLING = '.summary-scroll > .event-title.title-scrollable';
 const ROW_BESIDE_TIME =
   '.time-beside-title > .summary-row.title-wrap > .summary:not(.summary-scroll)';
+const COMPACT_MODES = COMPACT.replace(' .summary > .event-title', '');
+const WRAPPED_END = '.grid-event-disclosure.grid-time-wrap .time .time-actual .time-end';
+const LIMITED = '.grid-event.grid-event-content-limited .grid-event-disclosure';
+const GRID_TIME = '.grid-event-disclosure .time, .grid-event-disclosure .time-actual';
+const TIME_SPAN = '.time .time-actual > span:not(.time-text):not(.allday-badge):not(.now-time)';
+const OUTSIDE = 'outside the event fields this covers, and given no room';
+const CUT_ROW = ".time-beside-title > .summary-row.title-wrap[data-title-cut='']";
+
+/**
+ * Every rule that cuts a box's inline axis: the rules that keep that box's room, or why it has
+ * none. A rule's own padding counts as room where the box has enough of it.
+ */
+const CUTS_INLINE_AXIS: Record<string, string[] | string> = {
+  'ha-card': 'the card, whose padding keeps its rows off its edges',
+  '.content-container': 'the scroller, whose rows keep their own padding',
+  '.toolbar-month-reserve': OUTSIDE,
+  '.toolbar-month-measure': OUTSIDE,
+  '.toolbar-month-text': OUTSIDE,
+  '.toolbar-range-text': OUTSIDE,
+  '.toolbar-legend': OUTSIDE,
+  '.legend-chip-label': OUTSIDE,
+  '.legend-menu, .custom-menu': OUTSIDE,
+  '.column-date-content .weather': OUTSIDE,
+  '.time-location .event-weather .weather-condition': OUTSIDE,
+  '.grid-axis': OUTSIDE,
+  '.grid-axis-sizer': OUTSIDE,
+  '.progress-bar': 'no text',
+  '.allday-badge, .allday-title-pill': 'a pill, whose own padding is its room',
+  '.grid-event, .grid-event-backdrop': 'a block, whose own padding is its room',
+  '.summary': ['.summary'],
+  '.event-title': ['.event-title'],
+  [SCROLLING]: [SCROLLING],
+  '.time .time-actual .time-text > span': ['.time .time-actual .time-text > span'],
+  [TIME_SPAN]: [SPANS],
+  '.location span': [SPANS],
+  '.description span': [SPANS],
+  // The row a title is cut in beside its time, which clamps in place of its summary.
+  [CUT_ROW]: [CUT_ROW],
+  '.grid-banner-title': ['.grid-banner-title'],
+  '.grid-event-disclosure .summary-row': ['.grid-event-disclosure .summary-row'],
+  '.grid-event-disclosure .event-title': ['.grid-event-disclosure .event-title'],
+  '.grid-event-disclosure .title-word': ['.grid-event-disclosure .title-word'],
+  // .time-text is given overflow: visible by a later rule.
+  [`${GRID_TIME}, .grid-event-disclosure .time-text`]: [
+    '.grid-event-disclosure .time',
+    '.grid-event-disclosure .time-actual',
+  ],
+  [GRID_TIME]: ['.grid-event-disclosure .time', '.grid-event-disclosure .time-actual'],
+  [WRAPPED_END]: [WRAPPED_END],
+  [COMPACT]: [COMPACT],
+  [LIMITED]: [LIMITED],
+};
 
 describe('the room a box keeps at its inline edges (backlog item 263)', () => {
   it('is kept, given back and switched off in these rules, pinned by value', () => {
@@ -361,50 +413,71 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
         'margin-inline': '-0.125em calc(12px - 0.125em)',
       },
       '.grid-event-disclosure .time-actual': ROOM,
-      [COMPACT.replace(' .summary > .event-title', '') + ' .summary > .event-title']: {
-        padding: '0 0.125em',
-        'margin-inline': '-0.125em',
-      },
+      [WRAPPED_END]: ROOM,
+      [CUT_ROW]: ROOM,
+      [COMPACT]: { padding: '0 0.125em', 'margin-inline': '-0.125em' },
+      // Its inline start only: its end is where the block covering this one begins.
+      [LIMITED]: { 'padding-inline-start': '0.125em', 'margin-inline-start': '-0.125em' },
     });
   });
 
-  it('is kept by every box cut along its inline axis', () => {
-    // Reconciled against the boxes that cut their inline axis rather than listed, so a box
-    // added to them without room fails here.
-    const keptBy: Record<string, string[]> = {
-      '.summary': ['.summary'],
-      '.summary:not(.summary-scroll):has(> .event-title:not(:only-child))': ['.summary'],
-      [SCROLLING]: [SCROLLING],
-      [ROW_BESIDE_TIME]: [ROW_BESIDE_TIME],
-      '.time .time-actual > span:not(.time-text):not(.allday-badge):not(.now-time)': [SPANS],
-      '.location span': [SPANS],
-      '.description span': [SPANS],
-      '.grid-banner-title': ['.grid-banner-title'],
-      '.grid-event-disclosure .summary-row': ['.grid-event-disclosure .summary-row'],
-      '.grid-event-disclosure .event-title': ['.grid-event-disclosure .event-title'],
-      '.grid-event-disclosure .title-word': ['.grid-event-disclosure .title-word'],
-      [COMPACT]: [COMPACT],
-      '.grid-event-disclosure .time, .grid-event-disclosure .time-actual': [
-        '.grid-event-disclosure .time',
-        '.grid-event-disclosure .time-actual',
-      ],
-    };
-    expect(Object.keys(keptBy).sort()).toEqual(Object.keys(clipRules()).sort());
+  it('is kept by every box that cuts its inline axis around event text, every other one named', () => {
+    // Every rule anywhere in the stylesheet that cuts a box's inline axis, reconciled both ways:
+    // a box added to them fails here until it keeps the room or says why it does not.
     const rules = inlineRoomRules();
-    for (const [box, kept] of Object.entries(keptBy)) {
+    const cutting = new Set(
+      RULES.filter(({ declarations }) =>
+        /hidden|clip|auto|scroll/.test(declarations['overflow-x'] ?? declarations.overflow ?? ''),
+      ).map(({ selectors }) => selectors),
+    );
+    expect(Object.keys(CUTS_INLINE_AXIS).sort()).toEqual([...cutting].sort());
+    for (const [box, kept] of Object.entries(CUTS_INLINE_AXIS)) {
+      if (typeof kept === 'string') continue;
       for (const selectors of kept) expect(rules[selectors], box).toBeDefined();
     }
   });
 
+  it('is taken by none of these boxes where a later rule lays them out inline', () => {
+    // Padding on an inline box takes room on its line, and moved where Chromium put its glyphs.
+    const zero = (selectors: string) =>
+      RULES.filter((rule) => rule.selectors === selectors).map(({ declarations }) => ({
+        display: declarations.display,
+        padding: declarations['padding-inline'],
+        margin: declarations['margin-inline'] ?? declarations['margin-inline-start'],
+      }));
+    // A countdown folded into the time, which the time's rule would give room.
+    expect(zero('.time .time-actual .time-text > .time-countdown')).toEqual([
+      { display: 'inline', padding: '0', margin: '4px' },
+    ]);
+    // Grid's words in the one-line fallback, and an end time a countdown follows.
+    expect(zero(`${COMPACT_MODES} .title-word`)).toEqual([
+      { display: 'inline', padding: '0', margin: '0' },
+    ]);
+    expect(zero(`${WRAPPED_END.replace(' .time-end', ' .time-text .time-end')}`)).toEqual([
+      { display: 'inline', padding: '0', margin: '0' },
+    ]);
+    // Nor the summary of a row cut beside its time: the row cuts in its place, and WebKit placed
+    // the clamp's "…" by the summary's padding box, a letter further along.
+    expect(zero(`${CUT_ROW} > .summary:not(.summary-scroll)`)).toEqual([
+      { display: 'block', padding: '0', margin: '0' },
+    ]);
+  });
+
   it('is given back exactly, wherever one rule keeps it and nothing else', () => {
+    let pairs = 0;
     for (const [selectors, room] of Object.entries(inlineRoomRules())) {
-      const padding = room['padding-inline'];
-      const margin = room['margin-inline'];
-      if (!padding || !margin || margin.includes(' ')) continue;
-      expect(margin, selectors).toBe(
-        padding.startsWith('var(') ? `calc(-1 * ${padding})` : `-${padding}`,
-      );
+      for (const side of ['', '-start']) {
+        const padding = room[`padding-inline${side}`];
+        const margin = room[`margin-inline${side}`];
+        // A two-value margin folds a separation into the room; the pin above holds those.
+        if (!padding || !margin || splitTopLevel(margin, ' ').length > 1) continue;
+        pairs += 1;
+        expect(margin, selectors).toBe(
+          padding.startsWith('var(') ? `calc(-1 * ${padding})` : `-${padding}`,
+        );
+      }
     }
+    expect(pairs).toBe(11);
   });
 
   it('is a whole number of layout units at any whole-pixel font size', () => {
@@ -444,9 +517,22 @@ describe("a summary that clamps a labeled title's line (backlog item 264)", () =
     expect(RULES.filter((rule) => rule.selectors === ENDS_AT_LAST_LINE)).toEqual([
       {
         selectors: ENDS_AT_LAST_LINE,
-        declarations: { 'padding-bottom': '0', 'margin-bottom': '0.2em' },
+        declarations: {
+          'padding-bottom': 'calc(0.2em - var(--calendar-card-summary-end-margin, 0px))',
+          'margin-bottom': 'var(--calendar-card-summary-end-margin, 0px)',
+        },
       },
     ]);
+  });
+
+  it('does so only under a limit, where a line is hidden', () => {
+    // Without one nothing is hidden, and a mark below the last line keeps the room it had, as
+    // in Safari before 16, where the summary hides its overflow whatever the limit.
+    const margin = (title_max_lines: number) =>
+      generateCustomPropertiesObject(buildConfig({ title_max_lines }))[
+        '--calendar-card-summary-end-margin'
+      ];
+    expect([margin(0), margin(1), margin(3)]).toEqual(['0px', '0.2em', '0.2em']);
   });
 
   it('is the only rule giving a summary a bottom margin', () => {

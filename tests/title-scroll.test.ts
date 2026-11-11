@@ -309,7 +309,9 @@ describe('scroll_long_titles measurement', () => {
   it('travels across the content box, not the room the title keeps at its inline edges', () => {
     // The title keeps 0.125em of room at each inline edge, padding its margin gives back ("Marks
     // above and below the line" in styles.ts), which clientWidth counts and the text never uses.
-    const { card, title } = cardWithTitle(300, 103.5);
+    // clientWidth is rounded to 104, so it is not what is read.
+    const { card, title } = cardWithTitle(300, 104);
+    title.style.width = '100px';
     title.style.paddingLeft = '1.75px';
     title.style.paddingRight = '1.75px';
     card._measureTitleScroll();
