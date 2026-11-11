@@ -30,9 +30,10 @@ import * as EventUtils from '../src/utils/events';
  *   `mix(` may stand anywhere else in it, so one assembled from pieces fails too. Each must be a
  *   mix with a floor or one of the three the card resolves itself.
  * - Every option whose default is a mix, nested ones included, is listed. So is every color
- *   option the views write from script, with every place they write it, found by setting it to
- *   a marker, and the files that read them. A mixed default without a floor fails, a view that
- *   stops drawing one of those places fails, and so does a new file reading one of them.
+ *   option the views write into a separator, a rule or the grid's shading, with every place they
+ *   write it, found by setting it to a marker, and the files that read them. A mixed default
+ *   without a floor fails, a view that stops drawing one of those places fails, and so does a new
+ *   file reading one of them.
  * - Each view is rendered as a browser with color-mix() and one without would render it. At
  *   every inline declaration holding a mix in the first, the second must hold exactly the floor
  *   below, or nothing where the mix is one the card leaves unwritten there. The floors are
@@ -163,9 +164,12 @@ const MIXED_OPTIONS = [
 ];
 
 /**
- * Every color option the views write from script outside the card's own style, which takes all
- * of its properties through one floor: the ones whose default is a mix, and the rest a user can
- * set to one. A view's own block (`column:`, `time_grid:`) is named where only it reads one.
+ * The color options the views write from script into a separator, a rule or the grid's shading:
+ * the family the card's own mixes belong to, the ones whose default is a mix and the rest of
+ * that family, which a user can set to one. A view's own block (`column:`, `time_grid:`) is
+ * named where only it reads one. Other color options (an event's or a label's color, the all-day
+ * pill's) ship no mix and write what the user gives; the card's own style takes all of its
+ * properties through one floor.
  */
 const COLOR_OPTIONS = [
   ...MIXED_OPTIONS,
@@ -503,26 +507,33 @@ describe('color-mix() the card writes from script, where Safari before 16.2 has 
     expect(checked.size).toBeGreaterThan(30);
   });
 
-  it('draws a mix the card ships as its floor wherever a color option above writes one', () => {
+  it('draws a mix the card ships as its floor at every place a color option above writes', () => {
     const wrong: string[] = [];
-    const reached = new Set<string>();
+    let checked = 0;
     for (const option of COLOR_OPTIONS) {
+      const marker = `var(--s262-${option.replace(/[:.]/g, '-')})`;
       for (const [name, scenario] of Object.entries(SCENARIOS)) {
+        // The declarations this option writes, and only those: found by its marker.
+        const own = inlineDeclarations(scenario, withOption(scenario.overrides, option, marker))
+          .filter((d) => d.value === marker)
+          .map(key);
+        if (own.length === 0) continue;
         const { modern, without } = bothWays(
           scenario,
           withOption(scenario.overrides, option, DIVIDER_MIX),
         );
+        const written = new Map(modern.map((d) => [key(d), d.value]));
         const drawn = new Map(without.map((d) => [key(d), d.value]));
-        for (const d of modern.filter((m) => m.value === DIVIDER_MIX)) {
-          reached.add(option);
-          const actual = drawn.get(key(d));
-          if (actual !== FLOORS[DIVIDER_MIX])
-            wrong.push(`${option} | ${name} | ${key(d)}: ${actual}`);
+        for (const at of own) {
+          checked++;
+          if (written.get(at) !== DIVIDER_MIX || drawn.get(at) !== FLOORS[DIVIDER_MIX]) {
+            wrong.push(`${option} | ${name} | ${at}: ${written.get(at)} -> ${drawn.get(at)}`);
+          }
         }
       }
     }
     expect(wrong).toEqual([]);
-    expect([...reached].sort()).toEqual(COLOR_OPTIONS);
+    expect(checked).toBeGreaterThan(COLOR_OPTIONS.length);
   });
 
   it.each([true, false])('asks the browser once, when it answers %s', (answer) => {

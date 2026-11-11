@@ -16,9 +16,11 @@
  * text color takes about twice its strength, gray being about half as far from either default
  * card as the text is.
  *
- * Only the mixes the card ships are floored, matched by value. Any other mix a user writes into
- * an option is written as given; one written exactly as a shipped mix takes its floor, which it
- * needs there just as much.
+ * Only the mixes the card ships are floored, matched by value, at the places it writes them: the
+ * separators, the grid's rules and shading, the week number's pill, the empty day's text and an
+ * event's tint. A mix written into one of those options exactly as the card ships it takes the
+ * same floor. Any other mix a user writes, there or into any other color option, is written as
+ * given.
  */
 
 /** What the stylesheets ask with `@supports`, asked once of the browser from script. */
