@@ -113,7 +113,7 @@ With `show: true`, `toolbar` adds two rows of controls:
 - **Refresh** loads the events now.
 - **Search**, the magnifier at the end of the row, finds an event a year back or ahead, and a pick turns the card to that day. See [Searching the Card](/features/layout-appearance#searching-the-card).
 - **The month**, under the title _Family_, opens a date picker. The arrows beside it page by the days on screen, a week on the wall and three on a phone, and the house returns to today. On a touch screen a swipe across the days pages too. See [Paging Through Dates](/features/layout-appearance#paging-through-dates).
-- **The chips** from `legend: chips` are the key to the colors, and each hides its calendar on this device. Each prints its calendar's [`name`](/features/core-settings#naming-a-calendar-in-the-card), so a calendar its integration named after an account still reads _Anna_. Where they do not all fit, as on a phone, they fold into the filter button, a menu with a checkbox per calendar. See [Showing & Hiding Calendars](/features/layout-appearance#showing-hiding-calendars).
+- **The chips** from `legend: chips` are the key to the colors, and each hides its calendar on this device. Each prints its calendar's [`name`](/features/core-settings#naming-a-calendar-in-the-card), so a calendar its integration named after an account still reads _Anna_. Where they do not all fit, as on a phone, they fold into the filter button, a menu with a checkbox per calendar under Show all and Hide all. See [Showing & Hiding Calendars](/features/layout-appearance#showing-hiding-calendars).
 - **Reset** is off by default; `reset: true` turns it on for a shared wall. It appears once someone on this device has paged away, switched layouts or hidden a calendar, and one press puts it all back for whoever walks up next. See [Resetting the Card](/features/layout-appearance#resetting-the-card).
 
 ### Adding & Moving on the Wall
@@ -205,9 +205,10 @@ time_grid:
   past_event_opacity: 100
   hour_height: 40px
   event_font_size: 13px
+  today_background_color: 'color-mix(in srgb, #34d399 12%, transparent)'
 ```
 
-`start_date: start_of_week` holds the current week, and `first_day_of_week: monday` starts that week on Monday rather than wherever Home Assistant does. `past_event_opacity: 100` keeps the week's finished events at full strength, and `min_days_to_show: 7` never shows fewer than seven days, turning the card into a list where they do not fit. Without the toolbar there is room for 40px hours and 13px type, a pixel above grid view's default, and the `today_*` colors paint today's date in the now line's green. See [A Full Week Without Dimming](/features/grid-view#a-full-week-without-dimming) and [Dynamic Start Date](/features/start-date-offset).
+`start_date: start_of_week` holds the current week, and `first_day_of_week: monday` starts that week on Monday rather than wherever Home Assistant does. `past_event_opacity: 100` keeps the week's finished events at full strength, and `min_days_to_show: 7` never shows fewer than seven days, turning the card into a list where they do not fit. Without the toolbar there is room for 40px hours and 13px type, a pixel above grid view's default, and the `today_*` colors paint today's date in the now line's green. On a week that starts on Monday, today moves along the wall, so `today_background_color` tints today's column in the same green, which finds it from across the room. See [A Full Week Without Dimming](/features/grid-view#a-full-week-without-dimming), [Shading Today](/features/grid-view#shading-today) and [Dynamic Start Date](/features/start-date-offset).
 
 ### A Private Work Calendar
 
