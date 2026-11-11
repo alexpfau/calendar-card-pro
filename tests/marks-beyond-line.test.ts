@@ -1,5 +1,5 @@
 /**
- * Marks above and below the line (backlog items 258, 263, 264, 265 and 266).
+ * Marks above and below the line (backlog items 258, 263, 264, 265, 266 and 268).
  *
  * Thai stacks a tone mark on a vowel above its letter, Vietnamese an accent on a circumflex, and
  * Arabic, Burmese and Khmer reach below. At the card's line height of 1.2 those marks run past
@@ -19,13 +19,18 @@
  *   clamped weather condition (backlog item 266);
  * - the summary that clamps a labeled title's line in list and column view ends at its last line,
  *   its 0.2em below the text a margin, so no piece of the next line shows there (backlog item 264),
- *   and an unlabeled title there, which clamps itself, does the same with its 2px (backlog item 265).
+ *   and an unlabeled title there, which clamps itself, does the same with its 2px (backlog item 265);
+ * - text outside the event fields takes the same remedies above and below its line: the month cuts
+ *   the inline axis alone, and a legend chip's name keeps room above and below it, since the card
+ *   reads its scrollWidth. A clamped weather condition keeps none above its first line, which
+ *   moved it in WebKit (backlog item 268).
  *
  * What either draws can only be seen in a browser; the harnesses that measured it (both engines,
  * list, column and grid) are described in the pull requests. Latin was byte-identical with the
- * room above a line, and the inline room changes it only by ink the inline cut used to take, at a
- * glyph's edge. This file pins the contract they were measured against, whole, so a box dropped
- * from any list, or a room that stops being given back, fails here.
+ * room above a line in the event fields; the inline room changes it only by ink the inline cut
+ * used to take, at a glyph's edge, and a chip's room only by the descenders its old cut took. This
+ * file pins the contract they were measured against, whole, so a box dropped from any list, or a
+ * room that stops being given back, fails here.
  */
 
 import { render as litRender } from 'lit';
@@ -151,6 +156,9 @@ describe('a box that hides its overflow only as a backstop for a long word', () 
       '.grid-event-disclosure .title-word': INLINE_AXIS,
       [COMPACT]: INLINE_AXIS,
       '.grid-event-disclosure .time, .grid-event-disclosure .time-actual': INLINE_AXIS,
+      // The month, which hides only a month too long for its row (backlog item 268). Not a chip's
+      // name: the card reads its scrollWidth, which Chromium counts differently in a box that clips.
+      '.toolbar-month-text': { ...INLINE_AXIS, 'min-width': '0' },
     });
   });
 
@@ -233,11 +241,15 @@ describe('the room a clamping box keeps above its first line', () => {
           .filter(([property]) => property.endsWith('-ink-room'))
           .map(([, value]) => value),
       ),
+      // A legend chip's name, above and below its line (backlog item 268).
+      ...RULES.filter((rule) => rule.selectors === '.legend-chip-label').flatMap((rule) =>
+        [rule.declarations['padding-block'], rule.declarations['margin-block']].filter(Boolean),
+      ),
     ];
     const rooms = new Set(
       values.flatMap((value) => [...value.matchAll(/(\d*\.\d+)em/g)].map((m) => m[1])),
     );
-    expect([...rooms].sort()).toEqual(['0.25', '0.375']);
+    expect([...rooms].sort()).toEqual(['0.25', '0.375', '0.5']);
     for (const room of rooms) {
       for (let size = 8; size <= 48; size += 1) {
         expect(Number.isInteger(Number(room) * size * 64), `${room}em at ${size}px`).toBe(true);
@@ -731,6 +743,95 @@ describe('text outside the event fields (backlog item 266)', () => {
       'clip-path': 'inset(50%)',
       'white-space': 'nowrap',
       border: '0',
+    });
+  });
+});
+
+describe('text outside the event fields, above and below its line (backlog item 268)', () => {
+  /**
+   * Every rule whose subject is `subject`, in any selector of its list, as selector list to
+   * declarations: the whole cascade the box takes from this stylesheet, so a later rule that
+   * narrows its overflow or takes its room away fails as surely as an edit to the rules pinned.
+   */
+  function cascadeOf(subject: string): Record<string, Record<string, string>> {
+    const out: Record<string, Record<string, string>> = {};
+    for (const { selectors, declarations } of RULES) {
+      const subjects = splitTopLevel(selectors, ',').map((selector) =>
+        selector.split(/[\s>+~]+/).pop()!,
+      );
+      if (!subjects.some((last) => new RegExp(`\\${subject}(?![-\\w])`).test(last))) continue;
+      out[selectors] = { ...out[selectors], ...declarations };
+    }
+    return out;
+  }
+
+  it('cuts the month along the inline axis alone, its hidden overflow kept where clip is unknown', () => {
+    // The month hides only a month too long for its row, so Thai marks above and below it are
+    // drawn. The first rule keeps the ellipsis, which the clip draws as the hidden overflow did,
+    // and is all a browser without overflow: clip reads; the second, inside the @supports, wins.
+    expect(cascadeOf('.toolbar-month-text')).toEqual({
+      '.toolbar-month-text': {
+        overflow: 'hidden',
+        'text-overflow': 'ellipsis',
+        ...INLINE_AXIS,
+        'min-width': '0',
+      },
+      [OUTSIDE_TEXT]: ROOM,
+    });
+    expect(
+      RULES.filter((rule) => rule.selectors === '.toolbar-month-text').map((r) => r.declarations),
+    ).toEqual([
+      { overflow: 'hidden', 'text-overflow': 'ellipsis' },
+      { ...INLINE_AXIS, 'min-width': '0' },
+    ]);
+  });
+
+  it("keeps a chip's name a box that hides its overflow, with room above and below its line", () => {
+    // markShortenedChips reads the name's scrollWidth against its clientWidth to tell a name cut
+    // short. Chromium leaves the end padding out of the scrollWidth of a box that clips, so a name
+    // too long by less than that padding would read as fitting and lose its tooltip; the name
+    // keeps its hidden overflow, and room given back by a margin of the same size, so the chip and
+    // the name's margin box stay where they were.
+    expect(cascadeOf('.legend-chip-label')).toEqual({
+      '.legend-chip-label': {
+        'min-width': '0',
+        'max-width': '14em',
+        overflow: 'hidden',
+        'text-overflow': 'ellipsis',
+        'padding-block': '0.5em',
+        'margin-block': '-0.5em',
+      },
+      [OUTSIDE_TEXT]: ROOM,
+    });
+  });
+
+  it("keeps as much room as a clamping box, and what the chip's shorter line takes off", () => {
+    // A clamping box's 0.375em clears the marks measured past a line 1.2em tall. A chip's line is
+    // as tall as its line height says, so the same marks reach further past it by half the
+    // difference, on each side.
+    const lineHeights = RULES.filter(
+      (rule) => rule.selectors === '.legend-chip' && rule.declarations['line-height'],
+    ).map((rule) => Number(rule.declarations['line-height']));
+    expect(lineHeights).toHaveLength(1);
+    const room = parseFloat(cascadeOf('.legend-chip-label')['.legend-chip-label']['padding-block']);
+    expect(room).toBeGreaterThanOrEqual(0.375 + (1.2 - lineHeights[0]) / 2);
+  });
+
+  it('keeps no room above or below a clamped weather condition', () => {
+    // It clamps as an inline box, which places itself on its line by its own lines. Room above
+    // them, given back by a margin or not, moved it on its line by a sixty-fourth of a pixel in
+    // WebKit at some sizes and fonts and redrew its Latin; below its last line is where the line
+    // the clamp hides begins. So its marks above stay cut, and only its inline edges keep room.
+    expect(cascadeOf('.weather-condition')).toEqual({
+      [CONDITION]: {
+        display: 'var(--calendar-card-weather-event-condition-display)',
+        '-webkit-box-orient': 'vertical',
+        '-webkit-line-clamp': 'var(--calendar-card-weather-event-max-lines)',
+        overflow: 'hidden',
+        hyphens: 'manual',
+        'padding-inline': CONDITION_ROOM,
+        'margin-inline': `calc(-1 * ${CONDITION_ROOM})`,
+      },
     });
   });
 });

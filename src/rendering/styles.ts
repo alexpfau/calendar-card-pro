@@ -733,6 +733,16 @@ export const cardStyles = css`
     text-overflow: ellipsis;
   }
 
+  /* It hides only a month too long for the row, so it cuts along the inline axis alone, and the
+     marks Thai sets above and below a month are drawn whole; see "Marks above and below the line". */
+  @supports (overflow: clip) {
+    .toolbar-month-text {
+      overflow-x: clip;
+      overflow-y: visible;
+      min-width: 0;
+    }
+  }
+
   /* The month's own name, bold, with the year beside it at the heading's regular weight, so the
      month reads first, as a desktop calendar sets it. Home Assistant's bold, the weight its own
      headings take. Every copy of the heading marks its month so, the reserve and the months the
@@ -1248,6 +1258,10 @@ export const cardStyles = css`
     max-width: 14em;
     overflow: hidden;
     text-overflow: ellipsis;
+    /* Room above and below its line, for descenders and marks; see "Marks above and below the
+       line". */
+    padding-block: 0.5em;
+    margin-block: -0.5em;
   }
 
   /* The month, a chip's name and a day's weather in column and grid view cut their text at their
@@ -2519,6 +2533,19 @@ export const cardStyles = css`
      day's weather in column and grid view, and a clamped weather condition. The grid's time axis
      needs none: its labels are digits and AM or PM, and its own padding holds them 4px and 8px
      off its edges.
+
+     Text outside the event fields was cut above and below its line too, and takes the same
+     remedies. The month hides only a month too long for its row, so it cuts the inline axis
+     alone. A legend chip's name would as well, but the card reads its scrollWidth to tell a name
+     cut short (markShortenedChips), and Chromium leaves the end padding out of the scrollWidth of
+     a box that clips rather than hides, so a name too long by less than that padding lost its
+     tooltip. The name keeps its hidden overflow and room above and below its line instead: a
+     clamping box's 0.375em and the 0.1em its line height of 1 takes off each side of a 1.2 line,
+     rounded up to 0.5em, a whole number of layout units at any whole-pixel font size. Without it
+     the tips of a "g" or a "p" were cut, Latin included. A clamped weather condition still cuts
+     the marks above its first line. It clamps as an inline box, which places itself on its line
+     by its own lines, and room above them, given back or not, moved it on its line by a
+     sixty-fourth of a pixel in WebKit at some sizes and fonts, and redrew Latin with it.
 
      A box whose display can be inline, the title and the time folded with its countdown,
      takes the room only while it is a box, through the emitted --calendar-card-title-inline-room
@@ -4237,7 +4264,8 @@ export const cardStyles = css`
    *
    * Clamped, it is a box that cuts its text, and keeps the room event text keeps at its inline
    * edges, through the emitted --calendar-card-weather-condition-inline-room. Inline it cuts
-   * nothing, and takes none: padding on an inline box moved where Chromium put its glyphs. */
+   * nothing, and takes none: padding on an inline box moved where Chromium put its glyphs. No room
+   * above its first line; see "Marks above and below the line". */
   .time-location .event-weather .weather-condition {
     display: var(--calendar-card-weather-event-condition-display);
     -webkit-box-orient: vertical;
