@@ -191,6 +191,8 @@ describe('custom property mapping', () => {
       '--calendar-card-title-inline-room',
       '--calendar-card-time-inline-room',
       '--calendar-card-summary-end-margin',
+      '--calendar-card-event-inline-room',
+      '--calendar-card-grid-text-inline-room',
       '--calendar-card-date-column-vertical-alignment',
       '--calendar-card-event-icon-vertical-alignment',
       '--calendar-card-event-border-radius',

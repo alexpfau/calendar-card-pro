@@ -65,6 +65,17 @@ describe('inlineContentWidth', () => {
     expect(inlineContentWidth(element)).toBe(100);
   });
 
+  it.each([
+    ['a width it was given as a percentage', 'width: 100%; padding: 0 1.75px 0 2px', true],
+    ['no box at all, whatever width it was given', 'width: 300px; padding: 0 1.75px 0 2px', false],
+  ])('falls back to clientWidth less the padding for %s', (_, style, laidOut) => {
+    // An element that is not laid out reports its specified width, not one it has.
+    const element = box(style, new DOMRect());
+    if (!laidOut) element.getClientRects = () => [] as unknown as DOMRectList;
+    Object.defineProperty(element, 'clientWidth', { value: 103.75 });
+    expect(inlineContentWidth(element)).toBe(100);
+  });
+
   it('falls back to clientWidth less the padding for a box with no width in pixels', () => {
     const element = box('padding: 0 1.75px 0 2px', new DOMRect());
     Object.defineProperty(element, 'clientWidth', { value: 103.75 });

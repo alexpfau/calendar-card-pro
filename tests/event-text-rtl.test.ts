@@ -106,7 +106,11 @@ describe("an event's text in right-to-left", () => {
   it.each([
     // 12px from its text: the title's box keeps 0.125em of room inside each inline edge, which
     // its margin gives back (marks-beyond-line.test.ts).
-    ['.summary:not(:only-child)', 'the title, when a badge shares its row', 'calc(12px - 0.125em)'],
+    [
+      '.summary:not(:only-child)',
+      'the title, when a badge shares its row',
+      'calc(12px - var(--calendar-card-summary-inline-room, 0.125em))',
+    ],
     ['.time', 'the time row', '12px'],
     ['.location', 'the location row', '12px'],
     ['.description', 'the description row', '12px'],

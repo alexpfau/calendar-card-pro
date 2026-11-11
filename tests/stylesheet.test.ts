@@ -579,8 +579,9 @@ describe('card stylesheet', () => {
       // cosmetic edit.
       const indent = expr(declared(selector, 'text-indent'));
       const padding = expr(declared(selector, 'padding-inline-start'));
-      expect(padding).toMatch(/\+0\.125em\)$/);
-      expect(indent).toBe(`(-1*${padding.replace(/\+0\.125em\)$/, ')')})`);
+      const room = '+var(--calendar-card-summary-inline-room,0.125em))';
+      expect(padding.endsWith(room)).toBe(true);
+      expect(indent).toBe(`(-1*${padding.slice(0, -room.length)}))`);
     });
 
     it('does not hang a prose label', () => {
@@ -3903,7 +3904,7 @@ describe('the time beside the title', () => {
     [`${WRAP} > .summary:not(.summary-scroll)`]: [
       {
         display: 'flow-root',
-        'margin-inline': '-0.125em',
+        'margin-inline': 'calc(-1 * var(--calendar-card-summary-inline-room, 0.125em))',
         '--calendar-card-summary-ink-room': '0px',
       },
       { 'overflow-y': 'visible' },
@@ -3970,17 +3971,17 @@ describe('the time beside the title', () => {
       'margin-bottom': 'var(--calendar-card-title-pad)',
       'padding-top': '0.375em',
       'margin-top': '-0.375em',
-      'padding-inline': '0.125em',
-      'margin-inline': '-0.125em',
-      '--calendar-card-title-row-room': '0.125em',
+      'padding-inline': 'var(--calendar-card-event-inline-room, 0.125em)',
+      'margin-inline': 'calc(-1 * var(--calendar-card-event-inline-room, 0.125em))',
+      '--calendar-card-title-row-room': 'var(--calendar-card-event-inline-room, 0.125em)',
     }),
-    // It cuts nothing, so it keeps no room at its inline edges either.
+    // It cuts nothing, so it keeps no room at its inline edges either, and a label's hanging
+    // indent stays as it is.
     [`${CUT} > .summary:not(.summary-scroll)`]: one({
       display: 'block',
       overflow: 'visible',
       'padding-bottom': '0',
-      'padding-inline': '0',
-      'margin-inline': '0',
+      '--calendar-card-summary-inline-room': '0px',
     }),
     [`${CUT} > .summary::before`]: one({
       content: "''",

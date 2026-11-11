@@ -287,7 +287,7 @@ describe('the custom properties that say which kind each box is', () => {
 
 /** Declarations that keep room at a box's inline edges, give it back, or say how much it keeps. */
 const INLINE_PROPERTY =
-  /^(padding|margin)(-inline(-start|-end)?)?$|^--calendar-card-(title|time)-inline-room$/;
+  /^(padding|margin)(-inline(-start|-end)?)?$|^--calendar-card-((title|time|summary)-inline|title-row)-room$/;
 
 /** Every rule that keeps, gives back or sets the room at a box's inline edges, by value. */
 function inlineRoomRules(): Record<string, Record<string, string>> {
@@ -307,6 +307,9 @@ function inlineRoomRules(): Record<string, Record<string, string>> {
 }
 
 const ROOM = { 'padding-inline': '0.125em', 'margin-inline': '-0.125em' };
+const SUMMARY_ROOM = 'var(--calendar-card-summary-inline-room, 0.125em)';
+const EVENT_ROOM = 'var(--calendar-card-event-inline-room, 0.125em)';
+const GRID_TEXT_ROOM = 'var(--calendar-card-grid-text-inline-room, 0.125em)';
 const SPANS =
   '.time .time-actual > span:not(.time-text):not(.allday-badge):not(.now-time), .location span, ' +
   '.description span';
@@ -369,20 +372,39 @@ const CUTS_INLINE_AXIS: Record<string, string[] | string> = {
 describe('the room a box keeps at its inline edges (backlog item 263)', () => {
   it('is kept, given back and switched off in these rules, pinned by value', () => {
     expect(inlineRoomRules()).toEqual({
-      '.summary': ROOM,
+      // The summary's, through a property the row cut beside the time sets to 0px.
+      '.summary': {
+        'padding-inline': SUMMARY_ROOM,
+        'margin-inline': `calc(-1 * ${SUMMARY_ROOM})`,
+      },
       // The separations a summary keeps from a badge beside it measure 12px from its text.
-      '.summary:not(:only-child)': { 'margin-inline-end': 'calc(12px - 0.125em)' },
+      '.summary:not(:only-child)': { 'margin-inline-end': `calc(12px - ${SUMMARY_ROOM})` },
       ".summary-row:dir(rtl) > .summary[dir='ltr']:not(:only-child), .summary-row:dir(ltr) > .summary[dir='rtl']:not(:only-child)":
-        { 'margin-inline-end': '-0.125em', 'margin-inline-start': 'calc(12px - 0.125em)' },
+        {
+          'margin-inline-end': `calc(-1 * ${SUMMARY_ROOM})`,
+          'margin-inline-start': `calc(12px - ${SUMMARY_ROOM})`,
+        },
       // A hanging indent's padding holds the room as well; the text-indent leaves it out.
       '.summary:has(> .label-icon), .summary:has(> .label-image)': {
-        'padding-inline-start': 'calc(1em + 4px + 0.125em)',
+        'padding-inline-start': `calc(1em + 4px + ${SUMMARY_ROOM})`,
       },
-      '.summary:has(> .label-emoji)': { 'padding-inline-start': 'calc(1.25em + 4px + 0.125em)' },
+      '.summary:has(> .label-emoji)': {
+        'padding-inline-start': `calc(1.25em + 4px + ${SUMMARY_ROOM})`,
+      },
       '.summary.summary-scroll:has(> .label-icon), .summary.summary-scroll:has(> .label-image), .summary.summary-scroll:has(> .label-emoji)':
-        { 'padding-inline-start': '0.125em' },
-      [ROW_BESIDE_TIME]: { 'margin-inline': '-0.125em' },
-      '.grid-event-disclosure .summary': { 'padding-inline-start': '0.125em' },
+        { 'padding-inline-start': SUMMARY_ROOM },
+      [ROW_BESIDE_TIME]: { 'margin-inline': `calc(-1 * ${SUMMARY_ROOM})` },
+      '.grid-event-disclosure .summary': { 'padding-inline-start': SUMMARY_ROOM },
+      // The row a title is cut in beside its time cuts in its summary's place, with the title's
+      // room, and places the time inside it.
+      [CUT_ROW]: {
+        'padding-inline': EVENT_ROOM,
+        'margin-inline': `calc(-1 * ${EVENT_ROOM})`,
+        '--calendar-card-title-row-room': EVENT_ROOM,
+      },
+      [`${CUT_ROW} > .summary:not(.summary-scroll)`]: {
+        '--calendar-card-summary-inline-room': '0px',
+      },
       // The title and a time folded with its countdown take it from a property that is 0px
       // wherever either is inline.
       '.event-title': {
@@ -406,7 +428,11 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
       '.grid-event-disclosure': { '--calendar-card-time-inline-room': '0px' },
       [SPANS]: ROOM,
       '.grid-banner-title': ROOM,
-      '.grid-event-disclosure .summary-row': ROOM,
+      // The row around a grid title, in the title's size rather than its own.
+      '.grid-event-disclosure .summary-row': {
+        'padding-inline': EVENT_ROOM,
+        'margin-inline': `calc(-1 * ${EVENT_ROOM})`,
+      },
       '.grid-event-disclosure .title-word': ROOM,
       '.grid-event-disclosure .time': {
         'padding-inline': '0.125em',
@@ -414,11 +440,33 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
       },
       '.grid-event-disclosure .time-actual': ROOM,
       [WRAPPED_END]: ROOM,
-      [CUT_ROW]: ROOM,
       [COMPACT]: { padding: '0 0.125em', 'margin-inline': '-0.125em' },
-      // Its inline start only: its end is where the block covering this one begins.
-      [LIMITED]: { 'padding-inline-start': '0.125em', 'margin-inline-start': '-0.125em' },
+      // Its inline start only, in the largest size its rows are set in: its end is where the
+      // block covering this one begins.
+      [LIMITED]: {
+        'padding-inline-start': GRID_TEXT_ROOM,
+        'margin-inline-start': `calc(-1 * ${GRID_TEXT_ROOM})`,
+      },
     });
+  });
+
+  it("is in the size of the text a box cuts, where that is not the box's own", () => {
+    // Emitted as lengths in the parent's font, as the font size options are written.
+    const rooms = (config: Record<string, string>) => {
+      const properties = generateCustomPropertiesObject(buildConfig(config));
+      return [
+        properties['--calendar-card-event-inline-room'],
+        properties['--calendar-card-grid-text-inline-room'],
+      ];
+    };
+    expect(rooms({ event_font_size: '14px', time_font_size: '12px' })).toEqual([
+      '1.75px',
+      'max(1.75px, 1.5px, 1.5px, 1.5px)',
+    ]);
+    expect(rooms({ event_font_size: '200%', description_font_size: '24px' })).toEqual([
+      '0.25em',
+      'max(0.25em, 1.5px, 1.5px, 3px)',
+    ]);
   });
 
   it('is kept by every box that cuts its inline axis around event text, every other one named', () => {
@@ -457,10 +505,31 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
       { display: 'inline', padding: '0', margin: '0' },
     ]);
     // Nor the summary of a row cut beside its time: the row cuts in its place, and WebKit placed
-    // the clamp's "…" by the summary's padding box, a letter further along.
-    expect(zero(`${CUT_ROW} > .summary:not(.summary-scroll)`)).toEqual([
-      { display: 'block', padding: '0', margin: '0' },
+    // the clamp's "…" by the summary's padding box, a letter further along. Through the summary's
+    // property, so a label's hanging indent stays in its padding.
+    expect(
+      RULES.filter((rule) => rule.selectors === `${CUT_ROW} > .summary:not(.summary-scroll)`),
+    ).toEqual([
+      {
+        selectors: `${CUT_ROW} > .summary:not(.summary-scroll)`,
+        declarations: {
+          display: 'block',
+          overflow: 'visible',
+          'padding-bottom': '0',
+          '--calendar-card-summary-inline-room': '0px',
+        },
+      },
     ]);
+    let starts = 0;
+    for (const { selectors, declarations } of RULES) {
+      const start = declarations['padding-inline-start'];
+      if (!/(^|[\s>])\.summary[:\s.]|\.summary$/.test(selectors.split(', ').pop()!) || !start)
+        continue;
+      if (selectors.includes('grid-event:is(')) continue;
+      starts += 1;
+      expect(start, selectors).toContain(SUMMARY_ROOM);
+    }
+    expect(starts).toBe(4);
   });
 
   it('is given back exactly, wherever one rule keeps it and nothing else', () => {

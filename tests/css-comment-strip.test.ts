@@ -285,7 +285,7 @@ describe('stripComments', () => {
     // margin, and which boxes take it only while they are not inline; on where a gutter or a
     // hanging indent folds it in; on the row cut beside the time, which keeps the room in place of
     // its summary and places the time inside it; and on the labeled summary that ends at its last
-    // line under a limit. The reading went from 215,049 to 217,587, taken with stripComments after
+    // line under a limit. The reading went from 215,049 to 217,866, taken with stripComments after
     // the last comment was written.
     //
     // Marks above and below the line moved the ceiling before that, from 212,000 to 217,000: the

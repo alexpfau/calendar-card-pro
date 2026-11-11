@@ -118,6 +118,18 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     // None while it is inline, for the same reason.
     '--calendar-card-title-inline-room': config.title_max_lines > 0 ? '0.125em' : '0px',
     '--calendar-card-time-inline-room': config.time_max_lines > 0 ? '0.125em' : '0px',
+    // The same room, for a box that cuts text set in a size of its own: the title's, for the row
+    // that holds it, and the largest of the four a grid block's rows are set in, for the part of
+    // the block a block covering it leaves. Each is a length in the parent's font, as the size is.
+    '--calendar-card-event-inline-room': ViewConfig.scaleFontSize(config.event_font_size, 0.125),
+    '--calendar-card-grid-text-inline-room': `max(${[
+      config.event_font_size,
+      config.time_font_size,
+      config.location_font_size,
+      config.description_font_size,
+    ]
+      .map((size) => ViewConfig.scaleFontSize(size, 0.125))
+      .join(', ')})`,
     // How much of the 0.2em under a labeled title is a margin, outside the cut, rather than
     // padding inside it. All of it with a limit, so no piece of a hidden line shows there; none
     // without one, where nothing is hidden and a mark below the line keeps the room.
@@ -2384,8 +2396,8 @@ export const cardStyles = css`
     padding-block: calc(0.2em + var(--calendar-card-summary-ink-room, 0px)) 0.2em;
     margin-top: calc(-1 * var(--calendar-card-summary-ink-room, 0px));
     /* Room at its inline edges; see "Marks above and below the line". */
-    padding-inline: 0.125em;
-    margin-inline: -0.125em;
+    padding-inline: var(--calendar-card-summary-inline-room, 0.125em);
+    margin-inline: calc(-1 * var(--calendar-card-summary-inline-room, 0.125em));
     -webkit-line-clamp: var(--calendar-card-title-max-lines);
   }
 
@@ -2428,8 +2440,11 @@ export const cardStyles = css`
      layout units as above. The marks measured lean less than that. A box whose display can be
      inline, the title and the time folded with its countdown, takes it only while it is a box,
      through the emitted --calendar-card-title-inline-room and --calendar-card-time-inline-room:
-     padding on an inline box moved where Chromium put its glyphs. Script that reads one of these
-     boxes' widths or edges reads its content box instead (utils/content-box.ts).
+     padding on an inline box moved where Chromium put its glyphs. A box that cuts text set in a
+     size of its own, the row around a title or the part of a grid block another covers, keeps
+     the room of that text's size, emitted as --calendar-card-event-inline-room and
+     --calendar-card-grid-text-inline-room. Script that reads one of these boxes' widths or edges
+     reads its content box instead (utils/content-box.ts).
 
      The summary that clamps a labeled title's line in list and column view under a limit ends at
      its last line: its 0.2em under the text is a margin there, outside the cut, so no piece of
@@ -2448,7 +2463,7 @@ export const cardStyles = css`
      from the accent bar and, once only one of the two carried it, out of line with the
      other. */
   .summary:not(:only-child) {
-    margin-inline-end: calc(12px - 0.125em);
+    margin-inline-end: calc(12px - var(--calendar-card-summary-inline-room, 0.125em));
   }
 
   /* A title cut by title_max_lines that runs against the dashboard lays its line out in its
@@ -2463,8 +2478,8 @@ export const cardStyles = css`
 
   .summary-row:dir(rtl) > .summary[dir='ltr']:not(:only-child),
   .summary-row:dir(ltr) > .summary[dir='rtl']:not(:only-child) {
-    margin-inline-end: -0.125em;
-    margin-inline-start: calc(12px - 0.125em);
+    margin-inline-end: calc(-1 * var(--calendar-card-summary-inline-room, 0.125em));
+    margin-inline-start: calc(12px - var(--calendar-card-summary-inline-room, 0.125em));
   }
 
   /* No font-size: the title inherits event_font_size from .summary, which every view draws
@@ -2563,12 +2578,12 @@ export const cardStyles = css`
   .summary:has(> .label-icon),
   .summary:has(> .label-image) {
     text-indent: calc(-1 * (1em + 4px));
-    padding-inline-start: calc(1em + 4px + 0.125em);
+    padding-inline-start: calc(1em + 4px + var(--calendar-card-summary-inline-room, 0.125em));
   }
 
   .summary:has(> .label-emoji) {
     text-indent: calc(-1 * (1.25em + 4px));
-    padding-inline-start: calc(1.25em + 4px + 0.125em);
+    padding-inline-start: calc(1.25em + 4px + var(--calendar-card-summary-inline-room, 0.125em));
   }
 
   /* scroll_long_titles -------------------------------------------------------
@@ -2614,7 +2629,7 @@ export const cardStyles = css`
   .summary.summary-scroll:has(> .label-image),
   .summary.summary-scroll:has(> .label-emoji) {
     text-indent: 0;
-    padding-inline-start: 0.125em;
+    padding-inline-start: var(--calendar-card-summary-inline-room, 0.125em);
   }
 
   .summary-scroll > .event-title.title-scrollable {
@@ -3260,7 +3275,7 @@ export const cardStyles = css`
 
   .time-beside-title > .summary-row.title-wrap > .summary:not(.summary-scroll) {
     display: flow-root;
-    margin-inline: -0.125em;
+    margin-inline: calc(-1 * var(--calendar-card-summary-inline-room, 0.125em));
     --calendar-card-summary-ink-room: 0px;
   }
 
@@ -3378,22 +3393,21 @@ export const cardStyles = css`
     margin-bottom: var(--calendar-card-title-pad);
     padding-top: 0.375em;
     margin-top: -0.375em;
-    /* Room at its inline edges, which it cuts in place of its summary; see "Marks above and
-       below the line". The time is placed against its padding edge, so it is placed that far in,
-       in the row's em, which the time's box inherits. */
-    padding-inline: 0.125em;
-    margin-inline: -0.125em;
-    --calendar-card-title-row-room: 0.125em;
+    /* Room at its inline edges, which it cuts in place of its summary, as much as the title's
+       own; see "Marks above and below the line". The time is placed against its padding edge,
+       so it is placed that far in. */
+    padding-inline: var(--calendar-card-event-inline-room, 0.125em);
+    margin-inline: calc(-1 * var(--calendar-card-event-inline-room, 0.125em));
+    --calendar-card-title-row-room: var(--calendar-card-event-inline-room, 0.125em);
   }
 
   .time-beside-title > .summary-row.title-wrap[data-title-cut=''] > .summary:not(.summary-scroll) {
     display: block;
     overflow: visible;
     padding-bottom: 0;
-    /* It cuts nothing here, so it keeps no room; WebKit placed the clamp's "…" by its padding
-       box, a letter further along. */
-    padding-inline: 0;
-    margin-inline: 0;
+    /* It cuts nothing here, so it keeps no room, and a label's hanging indent stays as it was;
+       WebKit placed the clamp's "…" by its padding box, a letter further along. */
+    --calendar-card-summary-inline-room: 0px;
   }
 
   .time-beside-title > .summary-row.title-wrap[data-title-cut=''] > .summary::before {
@@ -5729,8 +5743,8 @@ export const cardStyles = css`
     flex: 0 0 auto;
     min-height: 0;
     overflow: hidden;
-    padding-inline: 0.125em;
-    margin-inline: -0.125em;
+    padding-inline: var(--calendar-card-event-inline-room, 0.125em);
+    margin-inline: calc(-1 * var(--calendar-card-event-inline-room, 0.125em));
   }
 
   /* Flex: 0 0 auto, so the row is as tall as its title and hides nothing above or below it but
@@ -5756,7 +5770,7 @@ export const cardStyles = css`
     min-height: 0;
     padding-block: var(--calendar-card-summary-ink-room, 0px) 0;
     margin-top: calc(-1 * var(--calendar-card-summary-ink-room, 0px));
-    padding-inline-start: 0.125em;
+    padding-inline-start: var(--calendar-card-summary-inline-room, 0.125em);
     text-indent: 0;
   }
 
@@ -6949,8 +6963,8 @@ export const cardStyles = css`
     /* Room at its inline start, where the block's own padding lies beyond it, for the first
        letter of each row; see "Marks above and below the line". Its end is where the block
        covering this one begins, and stays the edge of the text. */
-    padding-inline-start: 0.125em;
-    margin-inline-start: -0.125em;
+    padding-inline-start: var(--calendar-card-grid-text-inline-room, 0.125em);
+    margin-inline-start: calc(-1 * var(--calendar-card-grid-text-inline-room, 0.125em));
   }
 
   .grid-event.grid-event-content-limited:is(
