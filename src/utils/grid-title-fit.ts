@@ -4,7 +4,13 @@
  * Only compact titles use zoom: scaling the existing group preserves authored CSS units,
  * independently sized labels, fixed leading, and image proportions without compounding em.
  * All preparation and candidate writes are batched; no font-step loop forces layout.
+ *
+ * A title's words, the title, its summary and its row keep room at their inline edges for glyphs
+ * that lean past them ("Marks above and below the line" in styles.ts). Wherever one of those boxes
+ * is compared with text, labels or the room on a line, it is read by its content box.
  */
+
+import { inlineContentBox } from './content-box';
 
 const PRECISION = 1 / 64;
 const FLOOR = 10;
@@ -519,7 +525,8 @@ export function normalGridTitleFits(target: GridTitleTarget): boolean {
   const runs = textRuns(target.title);
   const first = runs[0]?.rects[0];
   if (!first || first.height <= 0) return false;
-  const { visible, summary } = titleWindow(target);
+  const { visible, summary: box } = titleWindow(target);
+  const summary = inlineContentBox(target.summary, box);
   const labels = labelRects(target);
   return (
     inside(first, visible) &&
@@ -648,7 +655,7 @@ function flowItems(target: GridTitleTarget): FlowItem[] {
     if (!word || !target.title.contains(word)) {
       items.push({ kind: 'text', node: run.node, rects: run.rects });
     } else if (items[items.length - 1]?.node !== word) {
-      items.push({ kind: 'word', node: word, rects: [word.getBoundingClientRect()] });
+      items.push({ kind: 'word', node: word, rects: [inlineContentBox(word)] });
     }
   }
   return items;
@@ -910,7 +917,7 @@ function measureCompact(
   const scale = blockScale(target.block);
   const runs = textRuns(target.title);
   const titleStyle = getComputedStyle(runs[0]?.node.parentElement ?? target.title);
-  const title = target.title.getBoundingClientRect();
+  const title = inlineContentBox(target.title);
   const row = target.row.getBoundingClientRect();
   const summary = target.summary.getBoundingClientRect();
   const disclosure = target.disclosure.getBoundingClientRect();

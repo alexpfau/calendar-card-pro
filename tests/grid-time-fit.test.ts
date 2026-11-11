@@ -940,6 +940,71 @@ describe('grid time row fit', () => {
     });
 
     /**
+     * The row keeps room at its inline edges, padding given back by a negative margin ("Marks
+     * above and below the line" in styles.ts), so its border box and clientWidth are wider than
+     * the space its text has. Every width and edge is read off its content box, so the same row
+     * with and without that room measures the same.
+     */
+    it.each([
+      ['with a folded countdown', '<span class="time-countdown">in 4 days</span>', 160],
+      [
+        'whose countdown line is shorter than its first',
+        '<span class="time-countdown">in 4 days</span>',
+        60,
+      ],
+      ['without a countdown', '', 160],
+    ])(
+      'reads the row by its content box, not the room at its inline edges, %s',
+      (_, countdown, end) => {
+        const measure = (room: number) => {
+          const el = document.createElement('div');
+          el.className = 'grid-event';
+          el.innerHTML = `
+        <div class="grid-event-disclosure">
+          <div class="time"><div class="time-actual">
+            <span class="time-text"><span>9:00<span class="time-end"> - 13:00</span></span>${countdown}</span>
+          </div></div>
+        </div>`;
+          const time = el.querySelector<HTMLElement>('.time')!;
+          time.style.paddingLeft = `${room}px`;
+          time.style.paddingRight = `${room}px`;
+          Object.defineProperty(time, 'clientWidth', { get: () => 100 + 2 * room });
+          const ROW = 160;
+          time.getBoundingClientRect = () =>
+            ({ left: -room, right: ROW + room, width: ROW + 2 * room }) as DOMRect;
+          const line = el.querySelector<HTMLElement>('.time-countdown');
+          if (line) {
+            line.getClientRects = () =>
+              [{ left: end - 64, right: end, width: 64 }] as unknown as DOMRectList;
+          }
+          const rangeRect = vi
+            .spyOn(Range.prototype, 'getBoundingClientRect')
+            .mockImplementation(function (this: Range) {
+              const width = this.toString().length * 6;
+              return { left: 0, right: width, width } as DOMRect;
+            });
+          // Attached, so its padding is read from a computed style.
+          document.body.append(el);
+          try {
+            const target = GridTimeFit.gridTimeTarget(el)!;
+            return {
+              available: GridTimeFit.measureGridTimeAvailable(target),
+              full: GridTimeFit.measureGridTimeCosts(target, 100).full,
+              wrapped: GridTimeFit.measureGridTimeWrapped(target),
+            };
+          } finally {
+            rangeRect.mockRestore();
+            el.remove();
+          }
+        };
+
+        expect(measure(1.5)).toEqual(measure(0));
+        expect(measure(0).available).toBe(100);
+        expect(measure(0).full).toBe(160);
+      },
+    );
+
+    /**
      * Firefox sizes a row whose end time follows a generated line break one space wider than any
      * line it draws: the space the end time leads with, which the line itself drops (2.98px in
      * Roboto at 12px). Read off the row, that space priced the wrapped rung out of lanes it fits.

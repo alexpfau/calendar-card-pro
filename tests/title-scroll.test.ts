@@ -306,6 +306,16 @@ describe('scroll_long_titles measurement', () => {
     expect(title.style.getPropertyValue('--calendar-card-title-scroll-distance')).toBe('150px');
   });
 
+  it('travels across the content box, not the room the title keeps at its inline edges', () => {
+    // The title keeps 0.125em of room at each inline edge, padding its margin gives back ("Marks
+    // above and below the line" in styles.ts), which clientWidth counts and the text never uses.
+    const { card, title } = cardWithTitle(300, 103.5);
+    title.style.paddingLeft = '1.75px';
+    title.style.paddingRight = '1.75px';
+    card._measureTitleScroll();
+    expect(title.style.getPropertyValue('--calendar-card-title-scroll-distance')).toBe('200px');
+  });
+
   it('marks a title that overflows and publishes the distance', () => {
     const { card, title } = cardWithTitle(300, 100);
     card._measureTitleScroll();

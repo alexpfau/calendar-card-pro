@@ -45,18 +45,31 @@ describe('title overflow', () => {
     // is on the row, and nothing else is on the row unless weather is in title placement.
     // Unconditional, it read in a narrow grid block as text held 12px off the right edge
     // while sitting hard against the left.
-    expect(ruleBody('.summary:not(:only-child)')).toMatch(/margin-inline-end:\s*12px/);
+    //
+    // The box keeps 0.125em of room inside each inline edge, given back by an equal negative
+    // margin (marks-beyond-line.test.ts), so the gutter is written less the room and still
+    // measures 12px from the text.
+    expect(ruleBody('.summary:not(:only-child)')).toMatch(
+      /margin-inline-end:\s*calc\(12px - 0\.125em\)/,
+    );
+    const summary = ruleBody('.summary');
     expect(
-      ruleBody('.summary'),
+      summary.match(/margin-(right|left|inline)[^;]*;/g),
       'the unconditional rule carries the box model, not the separation',
-    ).not.toMatch(/margin-(right|inline)/);
+    ).toEqual(['margin-inline: -0.125em;']);
+    expect(summary).toMatch(/padding-inline:\s*0\.125em;/);
   });
 
-  it('leaves no horizontal margin on .event-title', () => {
+  it('leaves no horizontal margin on .event-title but the one giving back its room', () => {
     // The invariant, not just the old declaration: any horizontal margin on a descendant
-    // of .summary re-creates the phantom overflow.
+    // of .summary re-creates the phantom overflow. The one margin allowed gives back the
+    // title's own inline padding exactly, so the two add no width, and both are 0px while the
+    // title is inline (marks-beyond-line.test.ts).
     const body = ruleBody('.event-title');
-    expect(body).not.toMatch(/margin-(right|left|inline)/);
+    expect(body.match(/margin-(right|left|inline)[^;]*;/g)).toEqual([
+      'margin-inline: calc(-1 * var(--calendar-card-title-inline-room, 0px));',
+    ]);
+    expect(body).toMatch(/padding-inline: var\(--calendar-card-title-inline-room, 0px\);/);
     expect(body).not.toMatch(/margin:\s/);
   });
 

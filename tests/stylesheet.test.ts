@@ -568,6 +568,9 @@ describe('card stylesheet', () => {
       // A hanging indent is a negative text-indent canceled by an equal
       // padding: the first line starts back at the label, every wrapped line
       // starts at the padding edge. One without the other is not an indent.
+      // The padding also holds the 0.125em of room the box keeps at its inline
+      // edges, which its negative margin gives back (marks-beyond-line.test.ts),
+      // so the label starts at the room's inner edge, where it always started.
       //
       // Compared as normalized expressions rather than raw strings, because
       // `calc(-1 * (A + 4px))` and `calc(-1 * calc(A + 4px))` are the same
@@ -576,8 +579,8 @@ describe('card stylesheet', () => {
       // cosmetic edit.
       const indent = expr(declared(selector, 'text-indent'));
       const padding = expr(declared(selector, 'padding-inline-start'));
-      expect(padding).not.toBe('');
-      expect(indent).toBe(`(-1*${padding})`);
+      expect(padding).toMatch(/\+0\.125em\)$/);
+      expect(indent).toBe(`(-1*${padding.replace(/\+0\.125em\)$/, ')')})`);
     });
 
     it('does not hang a prose label', () => {
@@ -3893,11 +3896,12 @@ describe('the time beside the title', () => {
     }),
     // Neither keeps room above the title's first line, nor cuts below its last: the summary
     // clamps nothing here, so with overflow: clip it cuts only the inline axis, and the inline
-    // title takes no room. See "Marks above and below the line".
+    // title takes no room. See "Marks above and below the line". The summary keeps its room at
+    // the inline edges, which its margin gives back, and no gutter.
     [`${WRAP} > .summary:not(.summary-scroll)`]: [
       {
         display: 'flow-root',
-        'margin-inline': '0',
+        'margin-inline': '-0.125em',
         '--calendar-card-summary-ink-room': '0px',
       },
       { 'overflow-y': 'visible' },
@@ -3905,6 +3909,7 @@ describe('the time beside the title', () => {
     [`${WRAP} > .summary > .event-title`]: one({
       display: 'inline',
       '--calendar-card-title-ink-room': '0px',
+      '--calendar-card-title-inline-room': '0px',
     }),
     // The room ending the title, drawn only once the card has sized it to the time, then floated
     // to the row's end, named by the direction the card measured, with the gap before it.

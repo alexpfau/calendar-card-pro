@@ -60,6 +60,7 @@ import * as Styles from './rendering/styles';
 import * as Toolbar from './rendering/toolbar';
 import * as Localize from './translations/localize';
 import * as CalendarNames from './utils/calendar-names';
+import { inlineContentWidth } from './utils/content-box';
 import { editorModuleUrl } from './utils/editor-url';
 import * as EntityColors from './utils/entity-colors';
 import * as EventUtils from './utils/events';
@@ -4022,7 +4023,9 @@ class CalendarCardPro extends LitElement {
         return {
           title,
           content,
-          distance: content.offsetWidth - title.clientWidth,
+          // The title keeps room at its inline edges ("Marks above and below the line" in
+          // styles.ts), so the text travels across its content box, not its padding.
+          distance: content.offsetWidth - inlineContentWidth(title),
           direction: style.direction === 'rtl' ? 1 : -1,
           signature: JSON.stringify([
             content.textContent,

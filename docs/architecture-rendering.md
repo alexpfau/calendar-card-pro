@@ -90,6 +90,10 @@ layout engine.
   clock reading.
 - **`grid-title-fit.ts`** fits labels and titles after the grid's disclosure pass, in batched,
   bounded reads and writes, and compares text by line boxes rather than the font's content area.
+- **`content-box.ts`** is how both read a box that cuts its text at its inline edges. Each such
+  box keeps 0.125em of room there for marks and letters that lean past it, padding given back by
+  a negative margin, so its border box is wider than its text's space. The title scroll reads it
+  the same way.
 - **`title-words.ts`** splits grid titles so they wrap only at spaces.
 
 ## 🎞️ Scrolling Titles

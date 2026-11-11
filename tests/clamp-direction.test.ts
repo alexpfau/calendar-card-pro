@@ -233,9 +233,11 @@ describe('the stylesheet for a line running against the dashboard', () => {
   });
 
   it("puts the gap to the weather badge on the badge's side", () => {
+    // 12px from the text, less the room the box keeps inside it at each inline edge, which its
+    // margin gives back everywhere (marks-beyond-line.test.ts).
     const body = bodyOf(".summary-row:dir(rtl) > .summary[dir='ltr']:not(:only-child)");
-    expect(body).toMatch(/margin-inline-end:\s*0/);
-    expect(body).toMatch(/margin-inline-start:\s*12px/);
+    expect(body).toMatch(/margin-inline-end:\s*-0\.125em;/);
+    expect(body).toMatch(/margin-inline-start:\s*calc\(12px - 0\.125em\);/);
   });
 });
 

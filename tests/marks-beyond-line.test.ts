@@ -1,5 +1,5 @@
 /**
- * Marks above and below the line (backlog item 258).
+ * Marks above and below the line (backlog items 258 and 263).
  *
  * Thai stacks a tone mark on a vowel above its letter, Vietnamese an accent on a circumflex, and
  * Arabic, Burmese and Khmer reach below. At the card's line height of 1.2 those marks run past
@@ -11,12 +11,16 @@
  * - a box that hid its overflow only as a backstop for a long word cuts the inline axis alone,
  *   behind `@supports (overflow: clip)`;
  * - a box that clamps lines keeps room above its first line, inside its cut, as padding given
- *   back by a negative margin of the same size, so nothing in the layout moves.
+ *   back by a negative margin of the same size, so nothing in the layout moves;
+ * - either kind keeps 0.125em of room at its inline edges the same way, for a Thai tone mark past
+ *   the last letter, the hook of a "j" past a grid word's edge, and the antialiasing Chromium drew
+ *   past a field's first letter (backlog item 263).
  *
- * What either draws can only be seen in a browser; the harness that measured it (both engines,
- * list, column and grid, Latin byte-identical) is described in the pull request. This file pins
- * the contract it was measured against, whole, so a box dropped from either list, or a room that
- * stops being given back, fails here.
+ * What either draws can only be seen in a browser; the harnesses that measured it (both engines,
+ * list, column and grid) are described in the pull requests. Latin was byte-identical with the
+ * room above a line, and the inline room changes it only by ink the inline cut used to take, at a
+ * glyph's edge. This file pins the contract they were measured against, whole, so a box dropped
+ * from any list, or a room that stops being given back, fails here.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -231,13 +235,15 @@ describe('the room a clamping box keeps above its first line', () => {
 
   it('is kept by the title only where it clamps itself', () => {
     // Inline, the title takes no room, and a padding there would move the rectangles the card
-    // measures a title beside the time by.
+    // measures a title beside the time by. Nor at its inline edges, where padding on an inline box
+    // moved where Chromium put its glyphs.
     const inline = RULES.filter(
       (rule) => rule.declarations.display === 'inline' && rule.selectors.endsWith('> .event-title'),
     );
     expect(inline.length).toBeGreaterThanOrEqual(3);
     for (const rule of inline) {
       expect(rule.declarations['--calendar-card-title-ink-room'], rule.selectors).toBe('0px');
+      expect(rule.declarations['--calendar-card-title-inline-room'], rule.selectors).toBe('0px');
     }
   });
 });
@@ -255,13 +261,15 @@ describe('the custom properties that say which kind each box is', () => {
   });
 
   it.each([
-    ['title_max_lines', '--calendar-card-title-ink-room'],
-    ['time_max_lines', '--calendar-card-time-ink-room'],
-  ] as const)('gives a box clamped by %s its room only with a limit', (option, property) => {
+    ['title_max_lines', '--calendar-card-title-ink-room', '0.375em'],
+    ['time_max_lines', '--calendar-card-time-ink-room', '0.375em'],
+    ['title_max_lines', '--calendar-card-title-inline-room', '0.125em'],
+    ['time_max_lines', '--calendar-card-time-inline-room', '0.125em'],
+  ] as const)('gives a box clamped by %s its %s only with a limit', (option, property, room) => {
     // Without one the title, and a time folded with its countdown, are inline, where padding
     // takes no room but moved where Chromium put the glyphs on the pixel grid.
     expect(generateCustomPropertiesObject(buildConfig())[property]).toBe('0px');
-    expect(generateCustomPropertiesObject(buildConfig({ [option]: 2 }))[property]).toBe('0.375em');
+    expect(generateCustomPropertiesObject(buildConfig({ [option]: 2 }))[property]).toBe(room);
   });
 
   it('turns grid time rows to the unlimited kind, as it does their clamp', () => {
@@ -270,6 +278,148 @@ describe('the custom properties that say which kind each box is', () => {
       '--calendar-card-time-max-lines': 'none',
       '--calendar-card-time-overflow': 'visible',
       '--calendar-card-time-ink-room': '0px',
+      '--calendar-card-time-inline-room': '0px',
     });
+  });
+});
+
+/** Declarations that keep room at a box's inline edges, give it back, or say how much it keeps. */
+const INLINE_PROPERTY =
+  /^(padding|margin)(-inline(-start|-end)?)?$|^--calendar-card-(title|time)-inline-room$/;
+
+/** Every rule that keeps, gives back or sets the room at a box's inline edges, by value. */
+function inlineRoomRules(): Record<string, Record<string, string>> {
+  const out: Record<string, Record<string, string>> = {};
+  for (const { selectors, declarations } of RULES) {
+    const room = Object.fromEntries(
+      Object.entries(declarations).filter(
+        ([property, value]) =>
+          INLINE_PROPERTY.test(property) && /0\.125em|inline-room/.test(`${property} ${value}`),
+      ),
+    );
+    if (!Object.keys(room).length) continue;
+    expect(out[selectors], `${selectors} keeps its inline room in one rule`).toBeUndefined();
+    out[selectors] = room;
+  }
+  return out;
+}
+
+const ROOM = { 'padding-inline': '0.125em', 'margin-inline': '-0.125em' };
+const SPANS =
+  '.time .time-actual > span:not(.time-text):not(.allday-badge):not(.now-time), .location span, ' +
+  '.description span';
+const SCROLLING = '.summary-scroll > .event-title.title-scrollable';
+const ROW_BESIDE_TIME =
+  '.time-beside-title > .summary-row.title-wrap > .summary:not(.summary-scroll)';
+
+describe('the room a box keeps at its inline edges (backlog item 263)', () => {
+  it('is kept, given back and switched off in these rules, pinned by value', () => {
+    expect(inlineRoomRules()).toEqual({
+      '.summary': ROOM,
+      // The separations a summary keeps from a badge beside it measure 12px from its text.
+      '.summary:not(:only-child)': { 'margin-inline-end': 'calc(12px - 0.125em)' },
+      ".summary-row:dir(rtl) > .summary[dir='ltr']:not(:only-child), .summary-row:dir(ltr) > .summary[dir='rtl']:not(:only-child)":
+        { 'margin-inline-end': '-0.125em', 'margin-inline-start': 'calc(12px - 0.125em)' },
+      // A hanging indent's padding holds the room as well; the text-indent leaves it out.
+      '.summary:has(> .label-icon), .summary:has(> .label-image)': {
+        'padding-inline-start': 'calc(1em + 4px + 0.125em)',
+      },
+      '.summary:has(> .label-emoji)': { 'padding-inline-start': 'calc(1.25em + 4px + 0.125em)' },
+      '.summary.summary-scroll:has(> .label-icon), .summary.summary-scroll:has(> .label-image), .summary.summary-scroll:has(> .label-emoji)':
+        { 'padding-inline-start': '0.125em' },
+      [ROW_BESIDE_TIME]: { 'margin-inline': '-0.125em' },
+      '.grid-event-disclosure .summary': { 'padding-inline-start': '0.125em' },
+      // The title and a time folded with its countdown take it from a property that is 0px
+      // wherever either is inline.
+      '.event-title': {
+        'padding-inline': 'var(--calendar-card-title-inline-room, 0px)',
+        'margin-inline': 'calc(-1 * var(--calendar-card-title-inline-room, 0px))',
+      },
+      '.time .time-actual .time-text > span': {
+        'padding-inline': 'var(--calendar-card-time-inline-room, 0px)',
+        'margin-inline': 'calc(-1 * var(--calendar-card-time-inline-room, 0px))',
+      },
+      [SCROLLING]: { '--calendar-card-title-inline-room': '0.125em' },
+      '.grid-event-disclosure .event-title': { '--calendar-card-title-inline-room': '0.125em' },
+      '.summary:not(.summary-scroll):has(> .event-title:not(:only-child)) > .event-title': {
+        '--calendar-card-title-inline-room': '0px',
+      },
+      '.time-beside-title > .summary-row.title-wrap > .summary > .event-title': {
+        '--calendar-card-title-inline-room': '0px',
+      },
+      '.grid-event-disclosure .summary:not(.summary-scroll):has(> .event-title:not(:only-child)) > .event-title':
+        { '--calendar-card-title-inline-room': '0px' },
+      '.grid-event-disclosure': { '--calendar-card-time-inline-room': '0px' },
+      [SPANS]: ROOM,
+      '.grid-banner-title': ROOM,
+      '.grid-event-disclosure .summary-row': ROOM,
+      '.grid-event-disclosure .title-word': ROOM,
+      '.grid-event-disclosure .time': {
+        'padding-inline': '0.125em',
+        'margin-inline': '-0.125em calc(12px - 0.125em)',
+      },
+      '.grid-event-disclosure .time-actual': ROOM,
+      [COMPACT.replace(' .summary > .event-title', '') + ' .summary > .event-title']: {
+        padding: '0 0.125em',
+        'margin-inline': '-0.125em',
+      },
+    });
+  });
+
+  it('is kept by every box cut along its inline axis', () => {
+    // Reconciled against the boxes that cut their inline axis rather than listed, so a box
+    // added to them without room fails here.
+    const keptBy: Record<string, string[]> = {
+      '.summary': ['.summary'],
+      '.summary:not(.summary-scroll):has(> .event-title:not(:only-child))': ['.summary'],
+      [SCROLLING]: [SCROLLING],
+      [ROW_BESIDE_TIME]: [ROW_BESIDE_TIME],
+      '.time .time-actual > span:not(.time-text):not(.allday-badge):not(.now-time)': [SPANS],
+      '.location span': [SPANS],
+      '.description span': [SPANS],
+      '.grid-banner-title': ['.grid-banner-title'],
+      '.grid-event-disclosure .summary-row': ['.grid-event-disclosure .summary-row'],
+      '.grid-event-disclosure .event-title': ['.grid-event-disclosure .event-title'],
+      '.grid-event-disclosure .title-word': ['.grid-event-disclosure .title-word'],
+      [COMPACT]: [COMPACT],
+      '.grid-event-disclosure .time, .grid-event-disclosure .time-actual': [
+        '.grid-event-disclosure .time',
+        '.grid-event-disclosure .time-actual',
+      ],
+    };
+    expect(Object.keys(keptBy).sort()).toEqual(Object.keys(clipRules()).sort());
+    const rules = inlineRoomRules();
+    for (const [box, kept] of Object.entries(keptBy)) {
+      for (const selectors of kept) expect(rules[selectors], box).toBeDefined();
+    }
+  });
+
+  it('is given back exactly, wherever one rule keeps it and nothing else', () => {
+    for (const [selectors, room] of Object.entries(inlineRoomRules())) {
+      const padding = room['padding-inline'];
+      const margin = room['margin-inline'];
+      if (!padding || !margin || margin.includes(' ')) continue;
+      expect(margin, selectors).toBe(
+        padding.startsWith('var(') ? `calc(-1 * ${padding})` : `-${padding}`,
+      );
+    }
+  });
+
+  it('is a whole number of layout units at any whole-pixel font size', () => {
+    // As the room above a line: Chromium rounds a padding and its margin separately. A hanging
+    // indent's own offset is left out; its text-indent and padding take the same one.
+    const rooms = new Set(
+      Object.values(inlineRoomRules()).flatMap((room) =>
+        Object.values(room).flatMap((value) =>
+          [...value.replace(/\d*\.?\d+em \+ 4px \+ /, '').matchAll(/(\d*\.\d+)em/g)].map(
+            (match) => match[1],
+          ),
+        ),
+      ),
+    );
+    expect([...rooms]).toEqual(['0.125']);
+    for (let size = 8; size <= 48; size += 1) {
+      expect(Number.isInteger(0.125 * size * 64), `0.125em at ${size}px`).toBe(true);
+    }
   });
 });
