@@ -190,9 +190,7 @@ export class CalendarCardProEditor extends LitElement {
     const language = this._ctx.language;
     if (language === this._intlLanguage) return;
     this._intlLanguage = language;
-    void loadIntlLocaleData(language, ['ListFormat'])?.then((added) => {
-      if (added) this.requestUpdate();
-    });
+    void loadIntlLocaleData(language, ['ListFormat'], () => this.requestUpdate());
   }
 
   /**

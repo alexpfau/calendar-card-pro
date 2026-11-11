@@ -39,7 +39,10 @@ const HOME_ASSISTANT_NAMES: Readonly<Record<string, string>> = {
   'zh-tw': 'zh-Hant',
 };
 
-const loads = new Map<string, Promise<boolean>>();
+/** How one service's load ended: data added, already held, absent, or unreachable. */
+type Outcome = 'added' | 'held' | 'absent' | 'unreachable';
+
+const loads = new Map<string, Promise<Outcome>>();
 
 /**
  * The polyfilled service of a name, or `undefined` where the browser's own is in place.
@@ -76,51 +79,59 @@ function holds(service: PolyfilledService, locale: string): boolean {
 
 /**
  * Load one service's data for a language: the first of `intlLocales` the polyfill does not
- * already hold and Home Assistant serves, so a language it has no file for falls back as
- * `Intl` itself would. Never rejects.
+ * already hold and Home Assistant serves, so a language it has no file for falls back as `Intl`
+ * itself would. Every `intlCache` is emptied the moment the data is in, before anyone draws.
+ * Never rejects.
  *
  * @param name - The service
  * @param service - Its polyfill
  * @param language - Card language
- * @returns True once data was added, false where none was
+ * @returns How it ended; `unreachable` where a request failed and none succeeded
  */
 async function load(
   name: IntlServiceName,
   service: PolyfilledService,
   language: string,
-): Promise<boolean> {
+): Promise<Outcome> {
+  let unreachable = false;
   for (const locale of intlLocales(language)) {
-    if (holds(service, locale)) return false;
+    if (holds(service, locale)) return 'held';
     const file = HOME_ASSISTANT_NAMES[locale.toLowerCase()] ?? locale;
     try {
       const response = await fetch(`${LOCALE_DATA}/intl-${name.toLowerCase()}/${file}.json`);
       if (response.ok) {
         service.__addLocaleData!(await response.json());
-        return true;
+        forgetIntlFormats();
+        return 'added';
       }
     } catch {
       // Unreachable or unreadable: the next locale, and failing that the polyfill as it was.
+      unreachable = true;
     }
   }
-  return false;
+  return unreachable ? 'unreachable' : 'absent';
 }
 
 /**
  * Make sure Home Assistant's `Intl` polyfill, where it has installed one, can write a card
  * language, by loading the language's data from Home Assistant where the polyfill lacks it.
  *
- * Formats made before the data arrived would keep writing another language, so once any is
- * added every `intlCache` is emptied, and the caller re-renders when the promise answers true.
- * A failure leaves the polyfill as it was, writing what it wrote before.
+ * Formats made before the data arrived would keep writing another language, so every
+ * `intlCache` is emptied as each service's data lands, and `added` is called then, for the
+ * caller to draw again; one service is never held up by another. Each service is fetched once
+ * per language for the whole page, except where the request failed outright, which the next
+ * call tries again. A failure leaves the polyfill as it was, writing what it wrote before.
  *
  * @param language - Card language
  * @param services - The services the caller writes with
+ * @param added - Called each time a service has the language's data, after the caches are emptied
  * @returns `undefined` where there is nothing to load, which is everywhere the browser's own
- *   `Intl` is in place; otherwise whether data was added
+ *   `Intl` is in place; otherwise whether any data was added, once every service has settled
  */
 export function loadIntlLocaleData(
   language: string,
   services: ReadonlyArray<IntlServiceName>,
+  added?: () => void,
 ): Promise<boolean> | undefined {
   const pending: Array<Promise<boolean>> = [];
   for (const name of services) {
@@ -131,14 +142,19 @@ export function loadIntlLocaleData(
     if (!loading) {
       loading = load(name, service, language);
       loads.set(key, loading);
+      void loading.then((outcome) => {
+        if (outcome === 'unreachable') loads.delete(key);
+      });
     }
-    pending.push(loading);
+    pending.push(
+      loading.then((outcome) => {
+        if (outcome !== 'added') return false;
+        added?.();
+        return true;
+      }),
+    );
   }
   if (pending.length === 0) return undefined;
 
-  return Promise.all(pending).then((added) => {
-    if (!added.includes(true)) return false;
-    forgetIntlFormats();
-    return true;
-  });
+  return Promise.all(pending).then((results) => results.includes(true));
 }

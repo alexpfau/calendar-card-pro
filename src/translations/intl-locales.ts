@@ -90,6 +90,7 @@ export function intlSpeaks(service: IntlService, language: string): boolean {
 }
 
 const intlCaches: Array<Map<unknown, unknown>> = [];
+let generation = 0;
 
 /**
  * A cache for what `Intl` writes: formats, or words taken from them.
@@ -109,5 +110,16 @@ export function intlCache<K, V>(): Map<K, V> {
 
 /** Empties every `intlCache`, so the next format is made with the data `Intl` has now. */
 export function forgetIntlFormats(): void {
+  generation += 1;
   for (const cache of intlCaches) cache.clear();
+}
+
+/**
+ * How many times `forgetIntlFormats` has run, for a cache that holds words from `Intl` among
+ * much else and is keyed rather than emptied: a change means its words are out of date.
+ *
+ * @returns A count that only grows
+ */
+export function intlGeneration(): number {
+  return generation;
 }

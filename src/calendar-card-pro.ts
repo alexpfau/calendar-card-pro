@@ -3658,15 +3658,16 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Teach Home Assistant's `Intl` polyfill the card's language where it has installed one that
-   * lacks it, and draw again once it has (`intl-locale-data.ts`). Asked once per language;
-   * without the polyfill it does nothing at all.
+   * lacks it, and draw again, an open search panel included, as each service has it
+   * (`intl-locale-data.ts`). Asked once per language; without the polyfill it does nothing.
    */
   private _loadIntlLocaleData(): void {
     const language = this._language;
     if (language === this._intlLanguage) return;
     this._intlLanguage = language;
-    void loadIntlLocaleData(language, ['DateTimeFormat', 'RelativeTimeFormat'])?.then((added) => {
-      if (added) this.requestUpdate();
+    void loadIntlLocaleData(language, ['DateTimeFormat', 'RelativeTimeFormat'], () => {
+      this.requestUpdate();
+      this._search?.wordsChanged();
     });
   }
 

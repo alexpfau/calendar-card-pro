@@ -1199,13 +1199,16 @@ language: de
 | ---------- | ------ | ------------------------- | ------------------------------------------------------- |
 | `language` | string | Home Assistant's, or `en` | A language code, such as `de`, `nb`, `zh-cn` or `en-gb` |
 
-- Dates, weekdays, months, times and words such as "Now", "Today", "tomorrow" and "in 3 hours"
-  come from your browser in the card's language, so they need no translation.
+- Dates, weekdays, months and words such as "Now", "Today", "tomorrow" and "in 3 hours" come
+  from your browser in the card's language, so they need no translation.
 - Where your browser has no data for that language, those words follow one rule: Nynorsk reads
   in Bokmål, and any other language in English, as the card's own words do. Chrome, as tested,
   has none for Icelandic or Nynorsk.
-- The date in a multi-day event's end, as in "until Friday, 19 Jun", is the exception: the card
-  writes it from its own month names, so it stays in the card's language.
+- The date in a multi-day event's end, as in "until Friday, 19 Jun", is the one exception: where
+  the browser has no data for the language, the card writes that date from its own month names,
+  so it stays in the card's language.
+- The event popover follows your Home Assistant profile's language instead, since its words are
+  Home Assistant's own; see [Words & Language](/features/actions#words-language).
 
 ::: details When Home Assistant Itself Is in Icelandic or Nynorsk
 

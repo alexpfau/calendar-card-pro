@@ -20,10 +20,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
 import { withoutComments } from './helpers/without-comments';
+import { homeAssistantFiles, installPolyfill, removePolyfill } from './intl-polyfill';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
 import * as CalendarChanges from '../src/interaction/calendar-changes';
 import { SEARCH_PANEL_TAG, type SearchPanelParams } from '../src/rendering/search-panel';
+import { forgetIntlFormats } from '../src/translations/intl-locales';
 import * as EventUtils from '../src/utils/events';
 import * as LiveCalendars from '../src/utils/live-calendars';
 import type * as Search from '../src/utils/search';
@@ -1410,5 +1412,40 @@ describe('the panel closes', () => {
     }
 
     expect(isOpen()).toBe(false);
+  });
+});
+
+describe("under Home Assistant's Intl polyfill", () => {
+  afterEach(() => {
+    removePolyfill();
+    forgetIntlFormats();
+    vi.unstubAllGlobals();
+  });
+
+  // A German card under an Icelandic Home Assistant, searched before German has arrived: the
+  // results are dated in Icelandic, the polyfill's language, and in German once it is in.
+  it("dates the results again once the polyfill has the card's language, the panel open", async () => {
+    installPolyfill(['is']);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const files = homeAssistantFiles();
+    vi.stubGlobal('fetch', async (url: string) => {
+      await gate;
+      return files.fetch(url);
+    });
+    const card = await mount(configFor({ language: 'de' }), {
+      hass: { ...hass(), locale: { language: 'is' } },
+    });
+    await openSearch(card);
+    await typeTerm('Dentist');
+    const before = drawnResults();
+    expect(rowFor('Dentist', 'Dentist check-up').month).not.toBe('Dezember 2026');
+
+    release();
+    await settle(card);
+    await manager.panel!.updateComplete;
+
+    expect(rowFor('Dentist', 'Dentist check-up').month).toBe('Dezember 2026');
+    expect(drawnResults(), 'the open panel drew again').not.toEqual(before);
   });
 });

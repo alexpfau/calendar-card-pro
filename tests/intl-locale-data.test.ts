@@ -238,4 +238,48 @@ describe('under an Icelandic Home Assistant', () => {
     await (await loader()).loadIntlLocaleData('de', ['DateTimeFormat', 'RelativeTimeFormat']);
     expect(files.asked).toEqual([path('DateTimeFormat', 'de'), path('RelativeTimeFormat', 'de')]);
   });
+
+  it('never holds one service up for another: dates arrive while relative times are still on their way', async () => {
+    installPolyfill(['is']);
+    const files = homeAssistantFiles();
+    vi.stubGlobal('fetch', (url: string) =>
+      url.includes('relativetimeformat') ? new Promise(() => {}) : files.fetch(url),
+    );
+    const before = await intlStrings('de');
+    const added = vi.fn();
+
+    const loading = (await loader()).loadIntlLocaleData('de', ALL, added);
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(loading).toBeInstanceOf(Promise);
+    expect(added).toHaveBeenCalledTimes(2);
+    const now = await intlStrings('de');
+    expect(now.now, 'relative times still wait').toBe(before.now);
+    expect(now.dayName, 'dates are German, the Icelandic format forgotten').toBe(
+      (await nativeStrings('de')).dayName,
+    );
+  });
+
+  it('asks again where a request failed outright, and not where the file is missing', async () => {
+    installPolyfill(['is']);
+    let reachable = false;
+    const files = homeAssistantFiles(['de']);
+    const asked: string[] = [];
+    vi.stubGlobal('fetch', (url: string) => {
+      asked.push(url);
+      return reachable ? files.fetch(url) : Promise.reject(new TypeError('Failed to fetch'));
+    });
+    const { loadIntlLocaleData } = await loader();
+
+    await expect(loadIntlLocaleData('fr', ['DateTimeFormat'])).resolves.toBe(false);
+    reachable = true;
+    await expect(loadIntlLocaleData('fr', ['DateTimeFormat'])).resolves.toBe(true);
+    expect(asked.filter((url) => url.endsWith('/fr.json'))).toHaveLength(2);
+
+    // German is missing, and English then loads: settled, so never asked for again.
+    await expect(loadIntlLocaleData('de', ['RelativeTimeFormat'])).resolves.toBe(true);
+    asked.length = 0;
+    await loadIntlLocaleData('de', ['RelativeTimeFormat']);
+    expect(asked).toEqual([]);
+  });
 });

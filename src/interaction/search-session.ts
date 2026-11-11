@@ -22,6 +22,7 @@
 
 import * as Types from '../config/types';
 import type { SearchPanelHandle, SearchSource } from '../rendering/search-panel';
+import { intlGeneration } from '../translations/intl-locales';
 import * as EventUtils from '../utils/events';
 import * as FormatUtils from '../utils/format';
 import * as LiveCalendars from '../utils/live-calendars';
@@ -155,6 +156,14 @@ export class SearchSession implements SearchSource {
       return;
     }
     this._start(host, hass, now);
+  }
+
+  /**
+   * The words `Intl` writes have changed, as when Home Assistant's polyfill has just learned the
+   * card's language: an open panel reads its results again, dated in the new words.
+   */
+  wordsChanged(): void {
+    this._panel?.changed();
   }
 
   /**
@@ -317,6 +326,9 @@ export class SearchSession implements SearchSource {
       host.today,
       host.hass?.locale,
       today,
+      // The months and days the rows are dated with come from `Intl`, which can learn the card's
+      // language while the page is open (`intl-locale-data.ts`).
+      intlGeneration(),
     ];
     const memo = this._rows;
     if (memo && memo.key.every((part, index) => part === key[index])) return memo.rows;
