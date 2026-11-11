@@ -706,6 +706,12 @@ describe('the stylesheet half', () => {
       rule(
         `${NORMAL} .summary[data-grid-title-lines], ${NORMAL} .summary[data-grid-title-lines] > .event-title`,
       ).body.trim(),
-    ).toBe('-webkit-line-clamp: var(--calendar-card-grid-title-fit-lines); padding-bottom: 0;');
+    ).toBe(
+      '-webkit-line-clamp: var(--calendar-card-grid-title-fit-lines); padding-bottom: 0; ' +
+        // A clamping box hides what passes its edges, with room above its first line for the
+        // marks some scripts stack there; see "Marks above and below the line" in styles.ts.
+        'overflow-y: hidden; --calendar-card-summary-ink-room: 0.375em; ' +
+        '--calendar-card-title-ink-room: 0.375em;',
+    );
   });
 });

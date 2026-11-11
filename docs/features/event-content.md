@@ -415,9 +415,9 @@ characters. Let the title wrap where that is not acceptable.
 - A time larger than the title, set with [`time_font_size`](#time-location-information), takes
   a line of its own at the end of every title: beside the title it would push the line's
   baseline down.
-- A capped title that runs against the dashboard's direction, such as a Hebrew title on an
-  English dashboard, keeps its beginning and ends in "…" at its own end, as it does below the
-  time. The time stays at the dashboard's end of the row.
+- A capped or one-line title that runs against the dashboard's direction, such as a Hebrew
+  title on an English dashboard, keeps its beginning and ends in "…" at its own end, as it does
+  below the time. The time stays at the dashboard's end of the row.
 - An [all-day badge on the time](#where-the-pill-goes) with a countdown after it wraps as it
   does in column view, the countdown under the pill, and on a narrow row the pill is shortened
   with "…".
@@ -614,6 +614,14 @@ column:
   Hebrew dashboard, keeps its beginning and ends in "…" at its own end, with its label leading
   it: "Anna: Quarterly planning…" on a right-to-left dashboard. A title that is not clamped
   stays as it is.
+- Marks that Thai, Vietnamese, Arabic and other scripts stack above or below a line are drawn
+  whole: "สิ้นสุดพรุ่งนี้" keeps its tone marks, and "Ể" its hook. A field with a limit ends
+  exactly at the bottom of its last line even where its text fits, so a mark below that line
+  can meet the cut. In grid view the top edge of a block can still trim the tip of the highest
+  marks on its first line.
+- Where a title's last line would end in a hyphen and then "…", as "appoint-…", the title is
+  laid out without automatic hyphens and ends "appoint…" or on the word before. Every other
+  title keeps its hyphens.
 - In grid view a title also stops at the last line its block shows whole, ending in "…" when
   more follows. A block too short for a complete first label and title line uses the
   [short timed title fallback](/features/grid-view#short-timed-titles) instead: one static line
@@ -636,7 +644,9 @@ scroll_long_titles: true
   would rather a long title wrap to a fixed number of lines and truncate.
 - Calendar labels stay put beside the scrolling title.
 - A title moves in its reading direction: a left-to-right title moves left, and a right-to-left
-  one moves right, to reveal its ending.
+  one moves right, to reveal its ending. One that runs against the dashboard's direction, such
+  as a Hebrew title on an English dashboard, starts from its own beginning and, with reduce
+  motion on, ends in "…" at its own end.
 - With the operating system's **reduce motion** setting on, nothing moves and the title is a
   static, truncated line.
 - With [`time_position: title`](#time-beside-the-title), a title beside the time stays on one

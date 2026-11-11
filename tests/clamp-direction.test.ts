@@ -12,6 +12,9 @@
  *
  * `title_max_lines` defaults to `0`, which draws no `dir` at all, so the default-config DOM
  * gates cannot see any of this: every case here sets it.
+ *
+ * A title kept to one line, scrolling or beside the time, is cut the same way along the line,
+ * and takes its own direction on `.event-title` instead (backlog item 259).
  */
 
 import { render as litRender } from 'lit';
@@ -130,6 +133,75 @@ describe('a clamped list or column title', () => {
   });
 });
 
+/** Each title's own `dir`, keyed by the title, in the view asked for. */
+function titleDirs(view: 'list' | 'column', config: Partial<Types.Config>, titles: string[]) {
+  const cfg = buildConfig({ entities: ['calendar.anna'], days_to_show: 1, ...config });
+  const events = titles.map((summary, index) => ({
+    ...event(summary, 10 + index),
+    _matchedConfig: cfg.entities[0] as Types.EntityConfig,
+  }));
+  const days = EventUtils.groupEventsByDay(events, cfg, false, 'en', view);
+  const container = document.createElement('div');
+  litRender(
+    view === 'list'
+      ? Render.renderGroupedEvents(days, cfg, 'en')
+      : renderColumnGroupedEvents(days, cfg, 'en'),
+    container,
+  );
+  return Object.fromEntries(
+    Array.from(container.querySelectorAll('.event-title')).map((title) => [
+      title.textContent!.trim(),
+      title.getAttribute('dir'),
+    ]),
+  );
+}
+
+describe('a title kept to one line', () => {
+  // The crop, the ellipsis and the scroll all start from the box's start, so a one-line title
+  // running against the dashboard showed its end: on a right-to-left dashboard an English title
+  // read "…le team before the match", and a Hebrew title on an English one its last words. It now
+  // carries its own direction, as a clamped title's line does; measured in Chromium and WebKit
+  // with scroll_long_titles under reduced motion and with the time beside a one-line title.
+  const cases: Array<[string, Partial<Types.Config>]> = [
+    ['scrolling', { scroll_long_titles: true }],
+    ['beside the time', { time_position: 'title', title_max_lines: 1 }],
+  ];
+  for (const view of ['list', 'column'] as const) {
+    for (const [name, config] of cases) {
+      it(`carries its own direction in ${view} view, ${name}`, () => {
+        expect(titleDirs(view, config, [LATIN, HEBREW])).toEqual({
+          [LATIN]: 'ltr',
+          [HEBREW]: 'rtl',
+        });
+      });
+    }
+  }
+
+  it('leaves a title with no letter in it the dashboard direction', () => {
+    expect(titleDirs('list', { scroll_long_titles: true }, ['12:30', '🎉'])).toEqual({
+      '12:30': null,
+      '🎉': null,
+    });
+  });
+
+  it('carries no direction of its own while titles wrap', () => {
+    expect(titleDirs('list', { title_max_lines: 2 }, [LATIN, HEBREW])).toEqual({
+      [LATIN]: null,
+      [HEBREW]: null,
+    });
+  });
+
+  it('leaves the line for a day with no events as it was', () => {
+    const cfg = buildConfig({ scroll_long_titles: true, days_to_show: 1, show_empty_days: true });
+    const days = EventUtils.groupEventsByDay([], cfg, false, 'en', 'column');
+    const container = document.createElement('div');
+    litRender(renderColumnGroupedEvents(days, cfg, 'en'), container);
+    const titles = Array.from(container.querySelectorAll('.event-title'));
+    expect(titles.length).toBeGreaterThan(0);
+    for (const title of titles) expect(title.hasAttribute('dir')).toBe(false);
+  });
+});
+
 /** The stylesheet with comments removed, its rules as selector and body. */
 const CSS = cardStyles.cssText.replace(/\/\*[\s\S]*?\*\//g, '');
 
@@ -144,9 +216,20 @@ describe('the stylesheet for a line running against the dashboard', () => {
     for (const selector of [
       ".summary-row:dir(rtl) > .summary[dir='ltr']",
       ".summary-row:dir(ltr) > .summary[dir='rtl']",
+      ".summary-scroll:dir(rtl) > .event-title.title-scrollable[dir='ltr']",
+      ".summary-scroll:dir(ltr) > .event-title.title-scrollable[dir='rtl']",
     ]) {
-      expect(bodyOf(selector)).toMatch(/flex:\s*0 1 auto/);
+      expect(bodyOf(selector), selector).toMatch(/flex:\s*0 1 auto/);
     }
+  });
+
+  it('keeps the dashboard direction for a one-line title where :dir() is unknown', () => {
+    // Chromium before 120 and Safari before 16.4 lack :dir(), so the rule keeping a short title on
+    // the dashboard side never applies there; without this the title sat at the far end of its
+    // row. With it the title draws there as it did before it carried a direction.
+    const fallback = /@supports not selector\(:dir\(ltr\)\)\s*\{([^{}]*)\{([^{}]*)\}/.exec(CSS);
+    expect(fallback?.[1].trim()).toBe('.summary-scroll > .event-title.title-scrollable[dir]');
+    expect(fallback?.[2]).toMatch(/direction:\s*inherit/);
   });
 
   it("puts the gap to the weather badge on the badge's side", () => {

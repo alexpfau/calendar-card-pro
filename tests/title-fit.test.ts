@@ -3,13 +3,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildConfig } from './fixtures';
 import '../src/calendar-card-pro';
 import type * as Types from '../src/config/types';
+import { cardStyles } from '../src/rendering/styles';
 import * as Helpers from '../src/utils/helpers';
 import {
   TITLE_FIT_PROPERTIES as P,
   TITLE_CUT,
   TITLE_FIT,
+  TITLE_ROOM_GAP,
+  TITLE_UNHYPHENATED,
   clearTitleFit,
   fitTitlesBesideTime,
+  unhyphenateTitleCuts,
 } from '../src/utils/title-fit';
 
 /**
@@ -578,10 +582,253 @@ describe('the card fits the time to wrapping titles', () => {
     expect(element.shadowRoot!.querySelector(`[${TITLE_FIT}]`)).not.toBeNull();
   });
 
+  it('watches every title a limit caps, beside the time or below it, and none without one', async () => {
+    RecordingResizeObserver.instances = [];
+    vi.stubGlobal('ResizeObserver', RecordingResizeObserver);
+    const capped = await card({ title_max_lines: 2 });
+    const summaries = [...capped.shadowRoot!.querySelectorAll('.summary')];
+    expect(summaries.length).toBeGreaterThan(0);
+    const live = RecordingResizeObserver.instances.filter(
+      (observer) =>
+        !observer.disconnected &&
+        observer.observed.some((target) => target.classList?.contains('summary')),
+    );
+    expect(live).toHaveLength(1);
+    expect(live[0]!.observed).toContain(capped);
+    for (const summary of summaries) expect(live[0]!.observed).toContain(summary);
+    capped.remove();
+
+    RecordingResizeObserver.instances = [];
+    const free = await card({});
+    expect(
+      RecordingResizeObserver.instances.some((observer) =>
+        observer.observed.some((target) => target.classList?.contains('summary')),
+      ),
+    ).toBe(false);
+    expect(free.shadowRoot!.querySelector(`[${TITLE_UNHYPHENATED}]`)).toBeNull();
+  });
+
+  it('takes the marks back before it measures the rows beside the time again', async () => {
+    RecordingResizeObserver.instances = [];
+    vi.stubGlobal('ResizeObserver', RecordingResizeObserver);
+    const element = await card({ time_position: 'title', title_max_lines: 2 });
+    const summaries = [...element.shadowRoot!.querySelectorAll<HTMLElement>('.summary')];
+    expect(summaries.length).toBeGreaterThan(0);
+    const marked = (): boolean =>
+      summaries.some((summary) => summary.hasAttribute(TITLE_UNHYPHENATED));
+
+    // A row beside the time is fitted to its title as the browser hyphenates it, so the mark the
+    // last pass left must be off while the row is read. Config changes render new titles; a
+    // resize measures the same ones again, marks and all.
+    const spy = vi.mocked(Element.prototype.getBoundingClientRect);
+    const box = spy.getMockImplementation()!;
+    const seen: boolean[] = [];
+    spy.mockImplementation(function (this: Element) {
+      if (this.closest('.summary-row.title-wrap')) seen.push(marked());
+      return box.call(this);
+    });
+    const observer = fitObserver();
+    const pending = frames();
+    summaries.forEach((summary) => summary.setAttribute(TITLE_UNHYPHENATED, ''));
+    observer.callback([], observer as unknown as ResizeObserver);
+    [...pending.values()].forEach((frame) => frame(0));
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.every((stale) => !stale)).toBe(true);
+  });
+
   it('measures nothing where the titles beside the time keep to one line', async () => {
     const element = await card({ time_position: 'title', title_max_lines: 1 });
     expect(element.shadowRoot!.querySelector('.time-beside-title')).not.toBeNull();
     expect(element.shadowRoot!.querySelector('.title-wrap')).toBeNull();
     expect(element.shadowRoot!.querySelector(`[${TITLE_FIT}]`)).toBeNull();
+  });
+});
+
+/**
+ * A capped title whose last shown line the browser hyphenated, so the clamp's "…" followed the
+ * hyphen: "appoint-…" (backlog item 259). The card lays such a title out without automatic
+ * hyphens. Here each title is given the lines a browser broke it into, ten pixels a character on
+ * twenty-pixel lines, and a canvas that measures text the same way.
+ */
+describe('unhyphenateTitleCuts', () => {
+  const CHARACTER = 10;
+  const LINE_HEIGHT = 20;
+  const BOX = 200;
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    document.body.replaceChildren();
+  });
+
+  interface Capped {
+    /** The title as the browser broke it: the lines it shows, then the lines the clamp hides. */
+    lines: string[];
+    shown?: number;
+    direction?: 'ltr' | 'rtl';
+    /** Cut beside the time: the row clamps, and the room for the time shortens its last line. */
+    beside?: number;
+    /** The box's width, 200px unless a test is after the edge. */
+    width?: number;
+    /** How much an ancestor scales the card: boxes come in the page's pixels, lengths in its own. */
+    scale?: number;
+  }
+
+  /** A capped title on the page, with that geometry. */
+  function capped({
+    lines,
+    shown = 2,
+    direction = 'ltr',
+    beside,
+    width = BOX,
+    scale = 1,
+  }: Capped): HTMLElement {
+    const row = document.createElement('div');
+    row.className = 'summary-row';
+    row.innerHTML = `<div class="summary"><span class="event-title">${lines.join('')}</span></div>`;
+    document.body.appendChild(row);
+    const summary = row.querySelector<HTMLElement>('.summary')!;
+    const title = row.querySelector<HTMLElement>('.event-title')!;
+    const box = beside === undefined ? title : row;
+    if (beside !== undefined) row.style.setProperty(P.width, `${beside}px`);
+
+    const rect = (top: number, height: number, left: number, across: number) =>
+      ({
+        top: top * scale,
+        bottom: (top + height) * scale,
+        left: left * scale,
+        right: (left + across) * scale,
+        width: across * scale,
+        height: height * scale,
+      }) as DOMRect;
+    for (const element of [row, summary, title]) {
+      Object.defineProperty(element, 'getBoundingClientRect', {
+        configurable: true,
+        value: () => rect(0, shown * LINE_HEIGHT, 0, width),
+      });
+      Object.defineProperty(element, 'offsetWidth', {
+        configurable: true,
+        value: Math.round(width),
+      });
+    }
+    Object.defineProperty(box, 'scrollHeight', { value: lines.length * LINE_HEIGHT });
+    Object.defineProperty(box, 'clientHeight', { value: shown * LINE_HEIGHT });
+
+    const original = window.getComputedStyle.bind(window);
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element) => {
+      if (![row, summary, title].includes(element as HTMLElement)) return original(element);
+      const clamps = element === box;
+      return {
+        webkitLineClamp: clamps ? String(shown) : 'none',
+        overflowY: clamps ? 'hidden' : 'visible',
+        paddingBottom: '0px',
+        paddingLeft: '0px',
+        paddingRight: '0px',
+        lineHeight: `${LINE_HEIGHT}px`,
+        direction,
+        font: `${CHARACTER}px test`,
+        getPropertyValue: (name: string) => (name === TITLE_ROOM_GAP ? '12px' : ''),
+      } as unknown as CSSStyleDeclaration;
+    });
+
+    // Each character's box, from where the browser broke the lines.
+    const places: DOMRect[] = [];
+    lines.forEach((line, index) => {
+      [...line].forEach((_, column) => {
+        const left = direction === 'rtl' ? BOX - (column + 1) * CHARACTER : column * CHARACTER;
+        places.push(rect(index * LINE_HEIGHT + 2, LINE_HEIGHT - 4, left, CHARACTER));
+      });
+    });
+    vi.spyOn(Range.prototype, 'getBoundingClientRect').mockImplementation(function (this: Range) {
+      return places[this.startOffset];
+    });
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      font: '',
+      measureText: (text: string) => ({ width: [...text].length * CHARACTER }),
+    } as unknown as RenderingContext);
+    return summary;
+  }
+
+  /** Whether the title is marked, after the card has measured it. */
+  function marked(geometry: Capped): boolean {
+    const summary = capped(geometry);
+    unhyphenateTitleCuts([summary]);
+    return summary.hasAttribute(TITLE_UNHYPHENATED);
+  }
+
+  it('marks a title cut inside a word where the hyphen and the "…" fit after it', () => {
+    expect(marked({ lines: ['Kindergarten ', 'registration ap', 'pointment'] })).toBe(true);
+  });
+
+  it('leaves a title the browser shortens, which takes the hyphen with it', () => {
+    // 19 characters, a hyphen and "…" are 210px on a 200px line: "registration appoi…".
+    expect(marked({ lines: ['Kindergarten ', 'registration appoin', 'tment'] })).toBe(false);
+  });
+
+  it('allows the measure a fifth of a pixel past the line, where browsers still drew "-…"', () => {
+    // "registration appoi-…" measures 200px.
+    const lines = ['Kindergarten ', 'registration appoi', 'ntment'];
+    expect(marked({ lines, width: 199.85 })).toBe(true);
+    expect(marked({ lines, width: 199.75 })).toBe(false);
+  });
+
+  it('leaves a title cut between words', () => {
+    expect(marked({ lines: ['Kindergarten ', 'registration ', 'appointment'] })).toBe(false);
+  });
+
+  it('leaves a word too wide for any line, which breaks there without a hyphen', () => {
+    expect(marked({ lines: ['Weekend ', 'Donaudampfschiffahrt', 'sgesellschaft'] })).toBe(false);
+  });
+
+  it('leaves a title the limit does not cut', () => {
+    expect(marked({ lines: ['Kindergarten ', 'registration ap'], shown: 2 })).toBe(false);
+  });
+
+  it('measures a right-to-left line from its right edge', () => {
+    expect(marked({ lines: ['פגישת הורים ', 'בבית הספר עם המו', 'רה'], direction: 'rtl' })).toBe(
+      true,
+    );
+    expect(marked({ lines: ['פגישת הורים ', 'בבית הספר עם המורה ש', 'ל'], direction: 'rtl' })).toBe(
+      false,
+    );
+  });
+
+  it('keeps the room for the time a title cut beside it ends its last line in', () => {
+    expect(marked({ lines: ['Kindergarten ', 'registration ap', 'pointment'], beside: 0 })).toBe(
+      true,
+    );
+    // 60px of time and its 12px gap leave the line 128px: too short for "registration ap-…".
+    expect(marked({ lines: ['Kindergarten ', 'registration ap', 'pointment'], beside: 60 })).toBe(
+      false,
+    );
+  });
+
+  it('reads a card an ancestor scales in its own pixels', () => {
+    for (const scale of [0.8, 1.5]) {
+      expect(marked({ lines: ['Kindergarten ', 'registration ap', 'pointment'], scale })).toBe(
+        true,
+      );
+      expect(marked({ lines: ['Kindergarten ', 'registration appoin', 'tment'], scale })).toBe(
+        false,
+      );
+      expect(
+        marked({ lines: ['Kindergarten ', 'registration ap', 'pointment'], beside: 60, scale }),
+      ).toBe(false);
+    }
+  });
+
+  it('takes a mark off a title that is no longer cut that way', () => {
+    const summary = capped({ lines: ['Kindergarten ', 'registration ', 'appointment'] });
+    summary.setAttribute(TITLE_UNHYPHENATED, '');
+    unhyphenateTitleCuts([summary]);
+    expect(summary.hasAttribute(TITLE_UNHYPHENATED)).toBe(false);
+  });
+
+  it('is laid out without automatic hyphens once marked, and nothing else is', () => {
+    const css = cardStyles.cssText.replace(/\/\*[\s\S]*?\*\//g, '');
+    // On the title, so a text label beside it keeps hyphenating as it did.
+    expect(css).toMatch(
+      /\.summary\[data-title-unhyphenated\] > \.event-title\s*\{\s*hyphens:\s*none;\s*\}/,
+    );
+    expect(css.match(/hyphens:\s*none/g)).toHaveLength(1);
   });
 });

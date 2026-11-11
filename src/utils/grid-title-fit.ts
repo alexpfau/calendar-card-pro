@@ -219,6 +219,32 @@ function lineContainer(node: Node): Element | null {
 }
 
 /**
+ * A line container's box as it is laid out. A title that clamps keeps room above its first line
+ * for the marks some scripts stack there: padding inside its cut, given back by a negative top
+ * margin of the same size ("Marks above and below the line" in styles.ts). No line sits in that
+ * room, so it is taken off here, and a first line is trimmed to its own top as it was before.
+ */
+function laidOutBox(element: Element): DOMRect {
+  const rect = element.getBoundingClientRect();
+  const style = getComputedStyle(element);
+  const room = -Math.min(0, px(style.marginTop));
+  if (room === 0) return rect;
+  const height = px(style.height);
+  const borderBox =
+    height > 0
+      ? height +
+        (style.boxSizing === 'border-box'
+          ? 0
+          : px(style.paddingTop) +
+            px(style.paddingBottom) +
+            px(style.borderTopWidth) +
+            px(style.borderBottomWidth))
+      : 0;
+  const scale = borderBox > 0 ? rect.height / borderBox : 1;
+  return new DOMRect(rect.left, rect.top + room * scale, rect.width, rect.height - room * scale);
+}
+
+/**
  * A text rectangle is the font's content area, not its line box. Where line-height is below
  * ascent plus descent, the content area pokes out above and below its line: 12px Roboto
  * measures 15px in a 14.4px line in Firefox, so every first line starts 0.3px above its own
@@ -253,12 +279,14 @@ function textRuns(element: Element): TextRun[] {
       if (start < 0) continue;
       range.setStart(node, start);
       range.setEnd(node, text.trimEnd().length);
-      const container = lineContainer(node)?.getBoundingClientRect();
+      const container = lineContainer(node);
       runs.push({
         node,
         start,
         text: text.slice(start).trimEnd(),
-        rects: Array.from(range.getClientRects(), (rect) => lineBox(rect, container)),
+        rects: Array.from(range.getClientRects(), (rect) =>
+          lineBox(rect, container ? laidOutBox(container) : undefined),
+        ),
       });
     }
     return runs;

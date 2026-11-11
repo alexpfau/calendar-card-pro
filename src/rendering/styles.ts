@@ -102,6 +102,18 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     // In countdown text placement, an inline time can share a line with the countdown.
     // Clamping switches it to -webkit-box and accepts that trade-off explicitly.
     '--calendar-card-time-display': config.time_max_lines > 0 ? '-webkit-box' : 'inline',
+    // Whether a field's clamping box cuts at its top and bottom edges. Only a limit has lines to
+    // hide there; without one, the marks Thai, Vietnamese and other scripts stack above and below
+    // a line reach past it and are drawn. See "Marks above and below the line" in the stylesheet.
+    '--calendar-card-title-overflow': config.title_max_lines > 0 ? 'hidden' : 'visible',
+    '--calendar-card-time-overflow': config.time_max_lines > 0 ? 'hidden' : 'visible',
+    '--calendar-card-location-overflow': config.location_max_lines > 0 ? 'hidden' : 'visible',
+    '--calendar-card-description-overflow': config.description_max_lines > 0 ? 'hidden' : 'visible',
+    // The room a clamped title, or a clamped time beside its countdown, keeps above its first line
+    // for those marks, inside its cut. Either is inline without a limit, where padding takes no
+    // room but still moved where Chromium put the glyphs on the pixel grid.
+    '--calendar-card-title-ink-room': config.title_max_lines > 0 ? '0.375em' : '0px',
+    '--calendar-card-time-ink-room': config.time_max_lines > 0 ? '0.375em' : '0px',
     // The date column is sized from the day number it holds. `day_font_size` is a CSS font
     // size, which need not be a length (`150%`, `large`), so it is rewritten as one before it
     // is scaled, in the author's own unit where it has one. Parsing it to a number would size
@@ -2308,7 +2320,10 @@ export const cardStyles = css`
 
   td.event .event-content:has(> .time-location > *) > .summary-row > .summary,
   .column-events > .event > .event-content:has(> .time-location > *) > .summary-row > .summary {
-    padding-top: calc(0.2em - var(--calendar-card-event-ink-shift));
+    padding-top: calc(
+      0.2em - var(--calendar-card-event-ink-shift) + var(--calendar-card-summary-ink-room, 0px)
+    );
+    margin-top: calc(-1 * var(--calendar-card-summary-ink-room, 0px));
   }
 
   td.event .event-content:has(> .time-location > *)::after,
@@ -2358,8 +2373,47 @@ export const cardStyles = css`
      * shorthand -- the :has() rules below set padding-inline-start. */
     font-size: var(--calendar-card-font-size-event);
     line-height: 1.2;
-    padding-block: 0.2em;
+    padding-block: calc(0.2em + var(--calendar-card-summary-ink-room, 0px)) 0.2em;
+    margin-top: calc(-1 * var(--calendar-card-summary-ink-room, 0px));
     -webkit-line-clamp: var(--calendar-card-title-max-lines);
+  }
+
+  /* ===== MARKS ABOVE AND BELOW THE LINE =====
+
+     Thai stacks a tone mark on a vowel above its letter, and Vietnamese an accent on a
+     circumflex; Arabic marks, Burmese and Khmer reach below. At the card's line height of 1.2
+     those marks run past the line: measured up to 0.29em above it and 0.28em below. Every box
+     that hides its overflow cut them at its edge, so "สิ้นสุดพรุ่งนี้" read "สินสุดพรุ่งนี" and
+     "Ể" read "Ế". Even Latin capitals with an accent lost a fraction of a pixel in Chromium.
+
+     Two remedies, chosen by what the box hides its overflow for.
+
+     A box that hides it only as a backstop for a word too long for its line clips the inline
+     axis alone: overflow-x: clip with overflow-y: visible. That is .summary, the trailing time,
+     the location and the description while their field has no limit, a one-line title, and
+     grid's title row, words, time row and all-day banner. overflow: clip is not a scroll
+     container, so a flex item among them is given the min-width: 0 a hidden one had, and
+     nothing in their layout moves. Browsers without overflow: clip (Safari before 16) keep the
+     hidden overflow and cut the marks as before.
+
+     A box that clamps lines has to cut where its last line ends, because the next line is laid
+     out right below it. Its marks above the first line get room instead: padding inside the
+     cut, given back by a negative margin of the same size, so the box takes the place it took
+     before and its lines sit where they sat. 0.375em clears the highest marks measured, or
+     0.25em on top of a summary's own padding. Both are a whole number of layout units at any
+     whole-pixel font size, which is what keeps the two in balance: Chromium rounds a box's
+     padding and margin to a sixty-fourth of a pixel separately, and an amount that rounded
+     differently in each moved every row below it. Below the last line of a clamped box
+     nothing can be added: the next line's marks begin inside the same band, and showing them
+     would put pieces of a hidden line under the cut. That holds for a field with a limit even
+     where its text fits: only measuring each box could tell. The emitted
+     --calendar-card-*-overflow tells each field's box which kind it is. */
+  @supports (overflow: clip) {
+    .summary {
+      overflow-x: clip;
+      overflow-y: visible;
+      min-width: 0;
+    }
   }
 
   /* The gutter itself. Separated from the rule above so the box model stays in one place
@@ -2407,16 +2461,39 @@ export const cardStyles = css`
     -webkit-box-orient: vertical;
     -webkit-line-clamp: var(--calendar-card-title-max-lines);
     overflow: hidden;
+    /* Room inside the clamp for marks above the first line; see "Marks above and below the
+       line". Nothing while the title is inline, which the rules that make it so say. */
+    padding-top: var(--calendar-card-title-ink-room, 0px);
+    margin-top: calc(-1 * var(--calendar-card-title-ink-room, 0px));
   }
 
-  /* Clamp the shared line; blockifying only the title puts it below its labels. */
+  /* Clamp the shared line; blockifying only the title puts it below its labels. The summary
+     then clamps, so it hides what passes its edges where a limit is set, and keeps room above
+     its first line as the title does when it clamps itself: 0.25em on top of its own padding,
+     which gives the rest. */
   .summary:not(.summary-scroll):has(> .event-title:not(:only-child)) {
     display: var(--calendar-card-title-display);
     -webkit-box-orient: vertical;
+    --calendar-card-summary-ink-room: min(var(--calendar-card-title-ink-room), 0.25em);
+  }
+
+  @supports (overflow: clip) {
+    .summary:not(.summary-scroll):has(> .event-title:not(:only-child)) {
+      overflow-y: var(--calendar-card-title-overflow);
+    }
   }
 
   .summary:not(.summary-scroll):has(> .event-title:not(:only-child)) > .event-title {
     display: inline;
+    --calendar-card-title-ink-room: 0px;
+  }
+
+  /* A capped title whose last shown line the browser broke inside a word with a hyphen, so its
+     "…" followed the hyphen: "appoint-…". The card marks it (unhyphenateTitleCuts in
+     title-fit.ts) and it is laid out without automatic hyphens, so it ends "appoint…" or on the
+     word before. Every other title keeps them, and so do the labels beside this one. */
+  .summary[data-title-unhyphenated] > .event-title {
+    hyphens: none;
   }
 
   /* Match the labels' middle alignment, including prose in a merged label run. */
@@ -2501,6 +2578,36 @@ export const cardStyles = css`
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    --calendar-card-title-ink-room: 0px;
+  }
+
+  /* One line has nothing to hide above or below it; the ellipsis and the scroll need only the
+     inline axis cut. See "Marks above and below the line". */
+  @supports (overflow: clip) {
+    .summary-scroll > .event-title.title-scrollable {
+      overflow-x: clip;
+      overflow-y: visible;
+    }
+  }
+
+  /* A one-line title running against the dashboard lays its line out in its own direction
+     (renderEventTitle in leaves.ts), so the crop, the ellipsis and the scroll start from its
+     beginning. Its box then hugs the dashboard's side as wide as its text, instead of filling
+     the row with a short title pushed to the far end; one too long for the row still takes all
+     of it and ends in "…" at its own end. Only such a title: a box as wide as its text cuts the
+     overhang of its last letter, which a title in the dashboard's direction never had cut. */
+  .summary-scroll:dir(rtl) > .event-title.title-scrollable[dir='ltr'],
+  .summary-scroll:dir(ltr) > .event-title.title-scrollable[dir='rtl'] {
+    flex: 0 1 auto;
+  }
+
+  /* Without :dir(), Chromium before 120 and Safari before 16.4, the rule above cannot tell a
+     title running against the dashboard, so a short one would sit at the far end of its row.
+     There the title keeps the dashboard's direction, and draws as it did before it had one. */
+  @supports not selector(:dir(ltr)) {
+    .summary-scroll > .event-title.title-scrollable[dir] {
+      direction: inherit;
+    }
   }
 
   /* Center the text rather than its bottom-padded viewport, beside every label kind.
@@ -2834,6 +2941,10 @@ export const cardStyles = css`
     -webkit-box-orient: vertical;
     -webkit-line-clamp: var(--calendar-card-time-max-lines);
     overflow: hidden;
+    /* Room inside the clamp for marks above the first line, as the trailing time keeps it; none
+       while it is inline. See "Marks above and below the line". */
+    padding-top: var(--calendar-card-time-ink-room, 0px);
+    margin-top: calc(-1 * var(--calendar-card-time-ink-room, 0px));
   }
 
   /* The countdown itself is never the clamp target; time_max_lines limits the
@@ -2859,6 +2970,8 @@ export const cardStyles = css`
     display: inline;
     -webkit-line-clamp: none;
     overflow: visible;
+    padding-top: 0;
+    margin-top: 0;
     margin-inline-start: 4px;
     margin-inline-end: 0;
     white-space: normal;
@@ -3098,10 +3211,18 @@ export const cardStyles = css`
   .time-beside-title > .summary-row.title-wrap > .summary:not(.summary-scroll) {
     display: flow-root;
     margin-inline: 0;
+    --calendar-card-summary-ink-room: 0px;
+  }
+
+  @supports (overflow: clip) {
+    .time-beside-title > .summary-row.title-wrap > .summary:not(.summary-scroll) {
+      overflow-y: visible;
+    }
   }
 
   .time-beside-title > .summary-row.title-wrap > .summary > .event-title {
     display: inline;
+    --calendar-card-title-ink-room: 0px;
   }
 
   /* The room for the time, ending the title's text: floated to the end of the row, where a float
@@ -3202,6 +3323,8 @@ export const cardStyles = css`
     -webkit-line-clamp: var(--calendar-card-title-max-lines);
     overflow: hidden;
     margin-bottom: var(--calendar-card-title-pad);
+    padding-top: 0.375em;
+    margin-top: -0.375em;
   }
 
   .time-beside-title > .summary-row.title-wrap[data-title-cut=''] > .summary:not(.summary-scroll) {
@@ -3251,6 +3374,8 @@ export const cardStyles = css`
     -webkit-box-orient: vertical;
     -webkit-line-clamp: var(--calendar-card-title-max-lines);
     padding-bottom: 0;
+    overflow-y: hidden;
+    --calendar-card-summary-ink-room: 0.25em;
   }
 
   /* A web address in an event row's location or description, drawn as a link while open_links
@@ -4037,6 +4162,37 @@ export const cardStyles = css`
     -webkit-box-orient: vertical;
     -webkit-line-clamp: var(--calendar-card-location-max-lines);
     overflow: hidden;
+  }
+
+  /* The three clamps keep room above their first line and, with no limit, cut only the inline
+     axis; see "Marks above and below the line". Each is a flex item of its row, so it keeps the
+     min-width: 0 a hidden overflow gave it, and a long word still breaks rather than widening
+     the row. */
+  .time .time-actual > span:not(.time-text):not(.allday-badge):not(.now-time),
+  .location span,
+  .description span {
+    padding-top: 0.375em;
+    margin-top: -0.375em;
+  }
+
+  @supports (overflow: clip) {
+    .time .time-actual > span:not(.time-text):not(.allday-badge):not(.now-time) {
+      overflow-x: clip;
+      overflow-y: var(--calendar-card-time-overflow);
+      min-width: 0;
+    }
+
+    .location span {
+      overflow-x: clip;
+      overflow-y: var(--calendar-card-location-overflow);
+      min-width: 0;
+    }
+
+    .description span {
+      overflow-x: clip;
+      overflow-y: var(--calendar-card-description-overflow);
+      min-width: 0;
+    }
   }
 
   /* ===== PROGRESS BAR STYLES ===== */
@@ -5315,6 +5471,16 @@ export const cardStyles = css`
     white-space: nowrap;
   }
 
+  /* One line, cut along the inline axis for its ellipsis; see "Marks above and below the
+     line". A flex item of the banner, so it keeps the min-width: 0 a hidden overflow gave it. */
+  @supports (overflow: clip) {
+    .grid-banner-title {
+      overflow-x: clip;
+      overflow-y: visible;
+      min-width: 0;
+    }
+  }
+
   /* The event runs past the window edge. Drawn as content rather than as a border so
      it travels with the text direction. */
   .grid-banner.continues-before .grid-banner-title::before {
@@ -5497,6 +5663,16 @@ export const cardStyles = css`
     overflow: hidden;
   }
 
+  /* Flex: 0 0 auto, so the row is as tall as its title and hides nothing above or below it but
+     marks; the block's own edge and the title's clamp do the cutting. See "Marks above and
+     below the line". */
+  @supports (overflow: clip) {
+    .grid-event-disclosure .summary-row {
+      overflow-x: clip;
+      overflow-y: visible;
+    }
+  }
+
   /* No hanging indent in a grid block: a wrapped line starts at the block's text edge, as
      an unlabeled title's does. List and column view hang wrapped lines under the first
      glyph, which reads as a column of text beside the label. A grid lane is a few words
@@ -5508,7 +5684,8 @@ export const cardStyles = css`
      one :has() argument, the same weight as this, and come earlier. */
   .grid-event-disclosure .summary {
     min-height: 0;
-    padding-block: 0;
+    padding-block: var(--calendar-card-summary-ink-room, 0px) 0;
+    margin-top: calc(-1 * var(--calendar-card-summary-ink-room, 0px));
     padding-inline-start: 0;
     text-indent: 0;
   }
@@ -5534,6 +5711,15 @@ export const cardStyles = css`
     overflow-wrap: break-word;
     word-break: normal;
     hyphens: manual;
+  }
+
+  /* Hides what passes its top and bottom only where it clamps: under a limit, or once the card
+     cuts it (the cut rule below). See "Marks above and below the line". */
+  @supports (overflow: clip) {
+    .grid-event-disclosure .event-title {
+      overflow-x: clip;
+      overflow-y: var(--calendar-card-title-overflow);
+    }
   }
 
   /* One element per word, from splitTitleWords, and it replaces the break-word above for
@@ -5562,6 +5748,14 @@ export const cardStyles = css`
     text-overflow: ellipsis;
     white-space: nowrap;
     vertical-align: top;
+  }
+
+  /* A word clips for its own ellipsis, which is the inline axis alone. */
+  @supports (overflow: clip) {
+    .grid-event-disclosure .title-word {
+      overflow-x: clip;
+      overflow-y: visible;
+    }
   }
 
   /* A picture or icon label is centered on the title's text, as in list and column view,
@@ -5692,12 +5886,17 @@ export const cardStyles = css`
     > .event-title {
     -webkit-line-clamp: var(--calendar-card-grid-title-fit-lines);
     padding-bottom: 0;
+    overflow-y: hidden;
+    --calendar-card-summary-ink-room: 0.375em;
+    --calendar-card-title-ink-room: 0.375em;
   }
 
-  /* Clamp the whole title line. */
+  /* Clamp the whole title line. A grid summary has no padding of its own, so the room above its
+     first line is the title's whole room. */
   .grid-event-disclosure .summary:not(.summary-scroll):has(> .event-title:not(:only-child)) {
     display: -webkit-box;
     -webkit-box-orient: vertical;
+    --calendar-card-summary-ink-room: var(--calendar-card-title-ink-room);
   }
 
   /* The 2px an unlabeled title keeps under its text, for a labeled one. Grid's summary has no
@@ -5729,6 +5928,7 @@ export const cardStyles = css`
     .summary:not(.summary-scroll):has(> .event-title:not(:only-child))
     > .event-title {
     display: inline;
+    --calendar-card-title-ink-room: 0px;
   }
 
   /* A grid title carries its own direction (dir="auto", see renderEventTitle in leaves.ts),
@@ -5776,6 +5976,16 @@ export const cardStyles = css`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* The time row is one line wide by measurement (grid-time-fit.ts), so only its inline axis is
+     cut; see "Marks above and below the line". */
+  @supports (overflow: clip) {
+    .grid-event-disclosure .time,
+    .grid-event-disclosure .time-actual {
+      overflow-x: clip;
+      overflow-y: visible;
+    }
   }
 
   .grid-event-disclosure .time {
@@ -5845,6 +6055,8 @@ export const cardStyles = css`
   .grid-event-disclosure .time .time-actual > span:not(.time-text):not(.allday-badge) {
     display: block;
     text-overflow: ellipsis;
+    padding-top: 0;
+    margin-top: 0;
   }
 
   /* time_max_lines has a second clamp path the rule above never reaches. With a countdown
@@ -5861,6 +6073,8 @@ export const cardStyles = css`
   .grid-event-disclosure {
     --calendar-card-time-display: inline;
     --calendar-card-time-max-lines: none;
+    --calendar-card-time-overflow: visible;
+    --calendar-card-time-ink-room: 0px;
   }
 
   /* The event starts before or ends after the visible band. */
@@ -6367,6 +6581,22 @@ export const cardStyles = css`
     padding: 0;
     text-overflow: ellipsis;
     -webkit-line-clamp: unset;
+    --calendar-card-title-ink-room: 0px;
+  }
+
+  /* One line, cut along the inline axis for its ellipsis and nowhere else. See "Marks above and
+     below the line". */
+  @supports (overflow: clip) {
+    .grid-event:is(
+        [data-grid-title-fit='measuring'],
+        [data-grid-title-fit='compact'],
+        [data-grid-title-fit='blank']
+      )
+      .summary
+      > .event-title {
+      overflow-x: clip;
+      overflow-y: visible;
+    }
   }
 
   /* The compact title is one line with one ellipsis at its end, as it was before titles
