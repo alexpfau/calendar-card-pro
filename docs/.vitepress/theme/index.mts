@@ -10,11 +10,11 @@ import './custom.css';
  * first frame until the reader presses play, as the card itself holds still under that setting.
  * A clip the reader paused stays paused. Returns a function that undoes it, for the next page.
  *
- * A clip counts as on screen from the moment a quarter of it is visible until none of it is: the
- * observer fires as it crosses 25% on the way in, and `isIntersecting` stays true at any overlap
- * after that. A portrait journey (`video.clip.portrait`) fills most of a phone's screen, so a
+ * A clip counts as on screen by the observer's `isIntersecting`, reported as it crosses a quarter
+ * of its area. A portrait journey (`video.clip.portrait`) fills most of a phone's screen, so a
  * sliver of it at the screen's edge would start it while the reader is still on the text above.
- * It counts as on screen only while at least half of it is, read from `intersectionRatio`.
+ * It has an observer of its own and counts as on screen only while at least half of it is, read
+ * from `intersectionRatio`.
  */
 function wireClips(): () => void {
   const motion = window.matchMedia('(prefers-reduced-motion: no-preference)');

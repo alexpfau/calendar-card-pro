@@ -863,10 +863,11 @@ browser the same way. [Language](/features/core-settings#language) has the whole
 Write `accent` into any of the card's event-text color options and that text is drawn in
 **each event's own calendar color** rather than in one color for the whole card.
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_agenda.png" alt="A three-day family agenda whose titles are drawn in their calendars' colors, pink, green, gray and gold, each a readable shade of the accent bar beside it" width="600"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_agenda.png" alt="A three-day family agenda whose timed events have titles in their calendars' colors, pink, green, gray and gold, each a readable shade of the accent bar beside it, and whose all-day titles sit in filled pills of those colors" width="600"><br>
 
-The [Family Agenda](/guide/one-calendar-many-purposes) sets `event_color: accent`, so every title
-takes its calendar's color. Here only the time follows the calendar; the title keeps
+The [Family Agenda](/guide/one-calendar-many-purposes) sets `event_color: accent`, so each timed
+event's title takes its calendar's color; its all-day titles sit in filled pills of that color,
+drawn in a contrasting one. Here only the time follows the calendar; the title keeps
 `event_color`:
 
 ```yaml

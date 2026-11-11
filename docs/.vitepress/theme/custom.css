@@ -85,12 +85,14 @@
 /*
  * Portrait journeys (`video.clip.portrait`).
  *
- * The phone and hallway journeys are about twice as tall as they are wide, 860
- * and 968 CSS px at their authored size, so on a laptop the whole video never
- * fits on screen and its controls sit below the fold. Cap them at 80% of the
+ * The phone and hallway journeys are much taller than they are wide, 860 and
+ * 808 CSS px at their authored size, so on a laptop the whole video does not
+ * fit on screen and its controls sit below the fold. Cap them at 80% of the
  * viewport's height. Their width and height attributes fix the size, so both go
- * back to auto, and the two max values scale the video down evenly from its own
- * size until it fits both the column and the cap.
+ * back to auto, and the two max values scale the video evenly until it fits both
+ * the column and the cap. Auto starts from the MP4's own size, twice the
+ * authored one, so on a window taller than the authored height over 0.8 a
+ * journey can grow past its authored width, up to the column's.
  */
 .vp-doc video.clip.portrait {
   width: auto;
