@@ -2139,6 +2139,14 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * Whether the view on screen lists its days latest first. The toolbar then names a page by
+   * its top day, the most recent, rather than its first; paging itself stays in time order.
+   */
+  private get _listsLatestFirst(): boolean {
+    return ViewConfig.listsLatestFirst(this.effectiveConfig, this.effectiveView);
+  }
+
+  /**
    * The days a page covers as drawn now: as many as the view on screen shows, so switching
    * views keeps a page's first day and changes how far it runs.
    *
@@ -7712,7 +7720,8 @@ class CalendarCardPro extends LitElement {
    *
    * It names the page asked for, so a press on the arrows answers at once; the days below stay
    * those of the page whose events have arrived, dimmed, until the new page's land. The month is
-   * the one the page's first day falls in, in full while every month in full fits beside the
+   * that of the day the page's list starts from (its first day, or its last for a list read
+   * latest first; `Paging.leadingDay`), in full while every month in full fits beside the
    * arrows and in the language's short form while it does not (`_syncMonthFit`), and always in
    * full while the chips show, since they are drawn only where the full month leaves them room.
    * Everything comes from `Intl` in the card's language, so no card string is needed.
@@ -7730,7 +7739,11 @@ class CalendarCardPro extends LitElement {
     const form: Paging.MonthForm = short ? 'short' : 'long';
 
     return {
-      text: Paging.monthHeadingParts(page.start, language, form),
+      text: Paging.monthHeadingParts(
+        Paging.leadingDay(page, this._listsLatestFirst),
+        language,
+        form,
+      ),
       reserve: Paging.monthHeadings(language, form),
       full: Paging.monthHeadings(language, 'long'),
       short,
@@ -7877,13 +7890,15 @@ class CalendarCardPro extends LitElement {
     const language = this.effectiveLanguage;
     const page = this._pageRange(this._pageRequested, now);
 
+    const latestFirst = this._listsLatestFirst;
+
     return {
-      homeName: Paging.homeButtonName(this._homeRange(now), language, now),
+      homeName: Paging.homeButtonName(this._homeRange(now), language, now, latestFirst),
       languageMark: TextDirection.languageMark(language, this.hass),
       previousName: this._haString('ui.common.previous'),
       nextName: this._haString('ui.common.next'),
       inert: this._isBeingEdited,
-      pickerValue: Paging.pageKey(page.start),
+      pickerValue: Paging.pageKey(Paging.leadingDay(page, latestFirst)),
       // Only while the card is still home: paging away ends it at once.
       homeConfirming: this._homeConfirming && this._pageRequested === null,
       onPrevious: () => this._stepPage(-1),

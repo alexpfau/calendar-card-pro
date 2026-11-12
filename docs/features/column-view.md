@@ -228,6 +228,9 @@ belong to compact mode, which caps the whole card rather than each column. Colum
 controlled by [`min_days_to_show` and `min_days_fallback`](#showing-fewer-columns-instead)
 instead.
 
+**`event_order`** turns a list upside down for a calendar used as a log. Columns keep time
+running forward, left to right and down each day.
+
 ::: tip Hidden When Editing Column View
 The editor omits these controls in the Columns workspace, including the per-calendar compact
 limit. Stored values are preserved and still apply when the card falls back to List. To

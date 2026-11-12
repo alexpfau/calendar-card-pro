@@ -1021,6 +1021,7 @@ describe('editor: the order of the two panels', () => {
       'days_to_show',
       'start_date_mode',
       'first_day_of_week',
+      'event_order',
       '# heading_filters',
       'event_type',
       'show_past_events',

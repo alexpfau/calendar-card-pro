@@ -575,6 +575,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'first_day_of_week.option.system.label': 'Follow Home Assistant',
   'first_day_of_week.option.monday.label': 'Monday',
   'first_day_of_week.option.sunday.label': 'Sunday',
+  event_order: 'Event Order',
+  'event_order.option.earliest_first.label': 'Earliest first',
+  'event_order.option.latest_first.label': 'Latest first',
+  'event_order.helper':
+    'Latest first puts the most recent day and event at the top, and the event limit then ' +
+    'keeps the most recent events. For a calendar used as a log.',
 
   compact_mode: 'Compact Mode',
   'compact_mode.helper':

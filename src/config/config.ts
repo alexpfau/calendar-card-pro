@@ -22,6 +22,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   compact_days_to_show: undefined,
   compact_events_to_show: undefined,
   compact_events_complete_days: false,
+  event_order: 'earliest_first',
   show_empty_days: false,
   show_empty_today: false,
   hide_when_empty: false,

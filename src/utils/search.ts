@@ -174,8 +174,9 @@ export function searchWindow(now: Date): SearchWindow {
  * The configuration the card's own grouping (`groupEventsByDay`) describes a search's events
  * with, in the view on screen, since a pick pages the card in that view: the view's own, so
  * duplicates, splitting and the words drawn are the ones the card draws, opening on the
- * window's first day and spanning all of it, with every past event kept and no empty day made
- * up. A view's block outranks the shared value, and so does a view's own default (the grid's
+ * window's first day and spanning all of it, with every past event kept, no empty day made
+ * up and the days in time order, whatever `event_order` the list reads. A view's block outranks
+ * the shared value, and so does a view's own default (the grid's
  * `show_empty_days`, say), so those values are written into the view's block as well; the rest
  * of the block, the grid's hours among it, stays as configured.
  *
@@ -195,6 +196,7 @@ export function searchGroupingConfig(
     show_past_events: true,
     show_empty_days: false,
     show_empty_today: false,
+    event_order: 'earliest_first',
   };
   const config: Record<string, unknown> = { ...viewConfig, ...forced };
   const blockKey = ViewConfig.VIEW_BLOCKS[view]?.blockKey;

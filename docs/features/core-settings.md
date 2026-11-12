@@ -1080,6 +1080,52 @@ Together, these keep a dashboard card short: a few days, a cap on any calendar t
 crowd out the rest, a card-wide limit that never cuts its last day off part-way, and the full
 range one expand away.
 
+## 🔃 Event Order
+
+`event_order: latest_first` turns a list card upside down, with the most recent day and event
+at the top. It is for a calendar used as a log, such as visitors arriving or a camera's
+detections, where the newest entry is the one that matters.
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.visitors
+start_date: today-29
+days_to_show: 30
+show_past_events: true
+list:
+  event_order: latest_first
+  compact_events_to_show: 5
+```
+
+| Option               | Type   | Default          | Description                                                                 |
+| -------------------- | ------ | ---------------- | --------------------------------------------------------------------------- |
+| `list → event_order` | string | `earliest_first` | `earliest_first`, or `latest_first` for the most recent day and event first |
+
+- **It changes the order, not the dates.** The card covers the days `start_date` and
+  `days_to_show` name, so a log's window starts in the past: `today-29` with 30 days is the
+  last 30 days up to today. [`show_past_events`](/reference/configuration#event-column) keeps
+  the entries that have ended, and `past_event_opacity: 100` stops dimming them.
+- **Every limit keeps from the top.** `compact_events_to_show` keeps the most recent events,
+  `compact_days_to_show` the most recent days with events, and a calendar's own cap its most
+  recent events. Expanded, the card shows every entry, still latest first.
+- **Within a day,** the latest event comes first and all-day events come last, so a limit of
+  one keeps today's latest entry rather than an all-day event.
+- **List view only.** Column and grid view keep time running forward, and the option applies
+  again whenever they fall back to a list on a narrow card. The visual editor offers it under
+  Time Range when List is the layout being edited.
+- **Today and paging stay as they are.** The today indicator still marks today, and the
+  [date navigation](/features/layout-appearance#paging-through-dates) still moves back and
+  forward in time.
+
+::: details Empty Days in a Latest-First List
+With `show_empty_days` the days run from the window's last day back. A card with nothing to
+show puts its notice on the window's last day, at the top, and `show_empty_today` keeps today
+wherever it falls.
+:::
+
+**→ [List-Only Options in the configuration reference](/reference/configuration#list-only-options)** — `event_order` beside the compact limits.
+
 ## 🧱 Per-View Options
 
 Calendar Card Pro renders in three layouts, and each has a block of its own: `list:`,
@@ -1180,7 +1226,7 @@ layouts never loads anything. The rest of the card follows the layout on screen:
 
 **→ [Column View](/features/column-view)** — what column may override, and what it ignores.
 **→ [Grid View](/features/grid-view)** — the same for the time grid.
-**→ [List-Only Options in the configuration reference](/reference/configuration#list-only-options)** — the five options only list reads.
+**→ [List-Only Options in the configuration reference](/reference/configuration#list-only-options)** — the six options only list reads.
 
 ## 🌐 Language
 

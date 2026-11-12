@@ -274,6 +274,9 @@ from it.
   [`min_days_fallback: cramp`](/features/grid-view#fitting-narrow-cards) has crammed narrower
   than `min_day_width` scrolls sideways under the finger instead, and pages with the arrows only.
 - At midnight a paged card stays on its dates while its own days move on.
+- A list in [latest-first order](/features/core-settings#event-order) is named by the day at its
+  top, its last: the month, the house's tooltip away from today and the date picker all read
+  that day. The arrows still move forward and back in time.
 - The pages you have seen are kept in memory while the dashboard is open; see
   [What the Card Keeps](/features/performance#what-the-card-keeps).
 

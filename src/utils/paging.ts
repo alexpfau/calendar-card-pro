@@ -123,6 +123,18 @@ export function homeRange(
 }
 
 /**
+ * The day a page is named by: the one its list starts from, which is its first day, or its
+ * last for a list read latest first.
+ *
+ * @param range - The page
+ * @param latestFirst - Whether the list starts from the most recent day
+ * @returns Midnight that day
+ */
+export function leadingDay(range: PageRange, latestFirst = false): Date {
+  return latestFirst ? addDays(range.start, range.days - 1) : startOfDay(range.start);
+}
+
+/**
  * The page before or after one, as long as it is.
  *
  * @param start - First day of the current page
@@ -483,15 +495,22 @@ export function todayWord(language: string): string {
 
 /**
  * What the home button is called: "Today" while home holds today, which is every card whose
- * window starts today or before it, and otherwise the day home starts on, so the name says
- * where the button goes. Its tooltip and its accessible name; the button itself is an icon.
+ * window covers today, and otherwise the day home's list starts from ({@link leadingDay}), so
+ * the name says where the button goes. Its tooltip and its accessible name; the button itself
+ * is an icon.
  *
  * @param home - The page the card opens with
  * @param language - Card language
  * @param now - The current moment
+ * @param latestFirst - Whether the list starts from the most recent day
  * @returns The button's name
  */
-export function homeButtonName(home: PageRange, language: string, now: Date): string {
+export function homeButtonName(
+  home: PageRange,
+  language: string,
+  now: Date,
+  latestFirst = false,
+): string {
   if (rangeContains(home, now)) return todayWord(language);
-  return rangeLabel({ start: home.start, days: 1 }, language, now);
+  return rangeLabel({ start: leadingDay(home, latestFirst), days: 1 }, language, now);
 }
