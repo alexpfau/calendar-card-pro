@@ -1452,6 +1452,15 @@ export function groupEventsByDay(
   const expandApplies = isExpanded && ViewConfig.viewAppliesCompactLimits(effectiveView);
   const compactLimitsApply = !expandApplies && ViewConfig.viewAppliesCompactLimits(effectiveView);
 
+  // `latest_first` is the earliest-first list read from the bottom up, ties included. Every
+  // step below that keeps a prefix of the days or of a day's events (the day limit, each
+  // calendar's cap, the card's event limit, the empty-day fill and the final cut) then keeps
+  // from the top, so the event limit keeps the most recent events. Gated on the view, because
+  // a top-level value reaches column and grid view's configuration too.
+  const latestFirst = ViewConfig.listsLatestFirst(config, effectiveView);
+  const byDay = (a: Types.EventsByDay, b: Types.EventsByDay): number =>
+    latestFirst ? b.timestamp - a.timestamp : a.timestamp - b.timestamp;
+
   const referenceDate = getStartDateReference(
     config,
     FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hass?.locale),
@@ -1842,6 +1851,7 @@ export function groupEventsByDay(
 
       return aStart - bStart;
     });
+    if (latestFirst) day.events.reverse();
   });
 
   const effectiveDaysToShow = compactLimitsApply
@@ -1849,7 +1859,7 @@ export function groupEventsByDay(
     : config.days_to_show;
 
   let days = Object.values(eventsByDay)
-    .sort((a, b) => a.timestamp - b.timestamp)
+    .sort(byDay)
     .slice(0, effectiveDaysToShow || 3);
 
   if (compactLimitsApply) {
@@ -2043,6 +2053,24 @@ export function groupEventsByDay(
       endDateForEmptyDays.setDate(endDateForEmptyDays.getDate() + effectiveDaysToShow - 1);
     }
 
+    // The same dates from the window's other end. Each range above runs from the window's
+    // first day as far as the list reaches, so a latest-first list, which starts from the
+    // window's last day, fills as many dates back from there; and a lone notice for an empty
+    // card sits on the last day, at the top. Built from local date fields, so a range across
+    // a daylight-saving change is still whole days.
+    if (latestFirst) {
+      const dayOf = (date: Date, offset = 0) =>
+        new Date(date.getFullYear(), date.getMonth(), date.getDate() + offset);
+      const windowLastDay = dayOf(referenceDate, config.days_to_show - 1);
+      if (compactLimitsApply && config.compact_events_to_show && days.length > 0) {
+        startDateForEmptyDays = dayOf(new Date(Math.min(...days.map((d) => d.timestamp))));
+      } else {
+        const spanned = FormatUtils.getCalendarDayDiff(startDateForEmptyDays, endDateForEmptyDays);
+        startDateForEmptyDays = dayOf(windowLastDay, -spanned);
+      }
+      endDateForEmptyDays = windowLastDay;
+    }
+
     // Collapse the range the loop already walks, rather than filling it and then
     // throwing the other days away. A blank card's single start-date row becomes
     // today the same way, when today is the day in range.
@@ -2092,7 +2120,7 @@ export function groupEventsByDay(
       }
     }
 
-    allDays.sort((a, b) => a.timestamp - b.timestamp);
+    allDays.sort(byDay);
     days = allDays;
   }
 

@@ -20,6 +20,8 @@ export interface Config {
   compact_days_to_show?: number;
   compact_events_to_show?: number;
   compact_events_complete_days?: boolean;
+  /** Which end of the list comes first. List view only; see {@link EventOrder}. */
+  event_order: EventOrder;
   show_empty_days: boolean;
   show_empty_today: boolean;
   hide_when_empty: boolean;
@@ -231,6 +233,16 @@ export type TimeGridOverlapLayout = 'cascade' | 'columns';
 export type EventType = 'all' | 'timed' | 'all_day';
 
 /**
+ * Which end of a list card comes first.
+ *
+ * `latest_first` is the `earliest_first` list read from the bottom up, ties included, and
+ * every list limit then keeps from the top: the event limit keeps the most recent events,
+ * for a calendar used as a log. It reverses the order only; the dates the card covers stay
+ * those `start_date` and `days_to_show` name. Column and grid view keep earliest first.
+ */
+export type EventOrder = 'earliest_first' | 'latest_first';
+
+/**
  * Which days of the week a calendar's events are allowed to land on.
  *
  * A **display-date** axis, not an event-property one. `event_type` above asks what an
@@ -407,7 +419,7 @@ export interface SharedViewOverrides {
  *
  * List has no key of its own without a top-level counterpart, so unlike the other two
  * views it declares no view-only members: everything here is an override of a card-level
- * key. The five below are list-only in `VIEW_SCOPE`, which is why no other view can
+ * key. The six below are list-only in `VIEW_SCOPE`, which is why no other view can
  * override them and why they never entered the shared set.
  */
 export interface ListOverrides extends SharedViewOverrides {
@@ -415,6 +427,9 @@ export interface ListOverrides extends SharedViewOverrides {
   compact_days_to_show?: number;
   compact_events_to_show?: number;
   compact_events_complete_days?: boolean;
+
+  // Order. Read at render, after every filter and before every limit.
+  event_order?: EventOrder;
 
   // List-row layout.
   date_vertical_alignment?: string;

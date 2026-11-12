@@ -911,6 +911,9 @@ describe('editor: applicability', () => {
       compact_events_to_show: ['list'],
       compact_days_to_show: ['list'],
       compact_events_complete_days: ['list'],
+      // Column and grid view keep time running forward, left to right and down the hours;
+      // `groupEventsByDay` reads it only where `appliesToView` says list.
+      event_order: ['list'],
       // Grid's card-level value is inert: all-day spans become one banner, and timed
       // events are segmented by the renderer instead of by the upstream list splitter.
       split_multiday_events: ['column', 'list'],
@@ -4998,6 +5001,9 @@ describe('editor: enumerated options offer their whole vocabulary', () => {
     // A shared view override with a card-level control of the same name, whose dropdown is
     // exactly the union: `below` is the shipped layout rather than an absent value.
     time_position: { field: 'time_position' },
+    // A list option whose dropdown is exactly the union: `earliest_first` is the shipped
+    // order rather than an absent value.
+    event_order: { field: 'event_order' },
   };
 
   /**

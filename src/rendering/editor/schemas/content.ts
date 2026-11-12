@@ -90,6 +90,9 @@ const contentSchema = Helpers.memoizeLast(
       number('days_to_show', 1),
       ...startDateFields(language, startMode),
       select(language, 'first_day_of_week', ['system', 'monday', 'sunday']),
+      // Last in the range, because it says which end of the range the list starts from. A
+      // list option: the List workspace offers it, and the others withhold it.
+      select(language, 'event_order', ['earliest_first', 'latest_first']),
 
       // The three runs below were one collapsed group titled "What The Card Shows", which
       // put `show_past_events` — among the most commonly changed options in the card —

@@ -184,7 +184,7 @@ export const TIME_GRID_ONLY_KEYS = [
 /**
  * Every option that may appear inside the `list:` block.
  *
- * The shared set plus the five keys `VIEW_SCOPE` marks list-only. Those five sat at the
+ * The shared set plus the keys `VIEW_SCOPE` marks list-only. All but `event_order` sat at the
  * top level through v4 for a reason that stopped being true when column view arrived:
  * as long as list was the only view, the top level *was* the list block. They are
  * override keys rather than only-keys because each has a `Types.Config` counterpart —
@@ -200,6 +200,7 @@ export const LIST_OVERRIDE_KEYS = [
   'compact_days_to_show',
   'compact_events_to_show',
   'compact_events_complete_days',
+  'event_order',
   'date_vertical_alignment',
   'today_indicator_position',
 ] as const;
@@ -319,6 +320,8 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   compact_events_to_show: new Set<Types.EffectiveView>(['list']),
   compact_days_to_show: new Set<Types.EffectiveView>(['list']),
   compact_events_complete_days: new Set<Types.EffectiveView>(['list']),
+  // A column reads left to right and a grid down its hours; both keep time running forward.
+  event_order: new Set<Types.EffectiveView>(['list']),
 
   // Inert as a card-level grid override: the grid never uses the upstream list splitter.
   // All-day multi-day events become spanning banners. Grid's own daily coverage keeps
@@ -423,6 +426,18 @@ export const ENTITY_VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.Effect
 export function appliesToView(key: string, view: Types.EffectiveView): boolean {
   const scope = Object.prototype.hasOwnProperty.call(VIEW_SCOPE, key) ? VIEW_SCOPE[key] : undefined;
   return scope === undefined || scope.has(view);
+}
+
+/**
+ * Whether a view lists its days latest first: `event_order: latest_first`, in a view that
+ * reads it. The one test, so the grouping and the toolbar's month cannot disagree.
+ *
+ * @param config - Configuration already resolved for the view
+ * @param view - View being drawn
+ * @returns `true` when the most recent day comes first
+ */
+export function listsLatestFirst(config: Types.Config, view: Types.EffectiveView): boolean {
+  return config.event_order === 'latest_first' && appliesToView('event_order', view);
 }
 
 /**
