@@ -32,6 +32,7 @@ cards.
 | `compact_events_to_show`       | number            | -                             | Events shown in compact mode. List view only, so it belongs in `list:`; see [List-Only Options](#list-only-options)                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `compact_events_complete_days` | boolean           | `false`                       | In compact mode, show all of a day's events once one of them is shown. List view only, so it belongs in `list:`; see [List-Only Options](#list-only-options)                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `event_order`                  | string            | `earliest_first`              | Which end of a list comes first: `earliest_first`, or `latest_first` for the most recent day and event at the top, for a calendar used as a log. List view only, so it belongs in `list:`; see [Event Order](/features/core-settings#event-order)                                                                                                                                                                                                                                                                                                                                  |
+| `skip_first_events`            | number            | -                             | Events left off the top of a list, so a second card can continue where a first one stops: counted in the list's order after every filter, duplicates and each calendar's cap, and in force when the card is expanded. List view only, so it belongs in `list:`; see [Continuing a List on a Second Card](/features/core-settings#continuing-a-list-on-a-second-card)                                                                                                                                                                                                               |
 | `show_empty_days`              | boolean           | `false`                       | Show days with no events, with a "No events" notice. Column view defaults this to `true`, and so does grid view, inside their own blocks, and neither takes the top-level value; see [Column View Defaults](/features/column-view#options-that-start-from-a-different-default) and [Grid View Defaults](/features/grid-view#options-that-start-from-a-different-default)                                                                                                                                                                                                           |
 | `show_empty_today`             | boolean           | `false`                       | Keep today on screen when it has no events, while other empty days stay hidden. It needs today within the card's dates and `show_empty_days` off, which column and grid view ship on, so turn that off in `column:` or `time_grid:` as well; see [Showing Today When It Is Empty](/features/event-content#showing-today-when-it-is-empty)                                                                                                                                                                                                                                          |
 | `hide_when_empty`              | boolean           | `false`                       | Hide the whole card when no layout it can show has an upcoming event on the days it opens with; never while the toolbar's filter hides a calendar or the card is paged away from its own days                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -41,7 +42,7 @@ cards.
 | `split_multiday_events`        | boolean           | `false`                       | Show a multi-day event on each day it covers. Column view defaults this to `true` and does not take the top-level value; see [Options That Start From a Different Default](/features/column-view#options-that-start-from-a-different-default). A per-calendar value wins in list and column view, and grid view ignores it                                                                                                                                                                                                                                                         |
 | `event_type`                   | string            | `all`                         | Which kind of event the card keeps, whatever its length: `all`, `timed` (with a clock time) or `all_day`; see [Separating All-Day From Timed Events](/features/core-settings#separating-all-day-from-timed-events)                                                                                                                                                                                                                                                                                                                                                                 |
 | `language`                     | string            | `System`, fallback `en`       | Language of everything the card writes, weather conditions included; it follows Home Assistant unless set. On a dashboard that runs the other way, such as an English card on a Hebrew dashboard, the layout follows the dashboard and the card's times, countdowns and dates read in their own language's order. Dates and relative times come from the browser; where it has no data for the language, Nynorsk reads in Bokmål and any other language in English. See [Language](/features/core-settings#language) and [Weather](/features/weather#weather-in-the-column-layout) |
-| `list`                         | object            | Inherits the top-level values | Values that differ in list view, plus the six options only list view reads. Only options a view can override, and `days_to_show`, belong here; see [Per-View Options](/features/core-settings#per-view-options)                                                                                                                                                                                                                                                                                                                                                                    |
+| `list`                         | object            | Inherits the top-level values | Values that differ in list view, plus the seven options only list view reads. Only options a view can override, and `days_to_show`, belong here; see [Per-View Options](/features/core-settings#per-view-options)                                                                                                                                                                                                                                                                                                                                                                  |
 | `column`                       | object            | Inherits the top-level values | Values that differ in column view, plus column view's own layout options. Only options a view can override, and `days_to_show`, belong here; see [Column View](/features/column-view)                                                                                                                                                                                                                                                                                                                                                                                              |
 | `time_grid`                    | object            | Inherits the top-level values | Values that differ in grid view, plus the time axis's own options. Only options a view can override, and `days_to_show`, belong here; see [Grid View](/features/grid-view)                                                                                                                                                                                                                                                                                                                                                                                                         |
 
@@ -94,7 +95,7 @@ These live only inside the `time_grid:` block and have no top-level counterpart.
 
 ### List-Only Options
 
-These six apply in list view only and belong inside `list:`, which is where the visual editor
+These seven apply in list view only and belong inside `list:`, which is where the visual editor
 writes them.
 
 | Option                                | Type    | Default          | Description                                                                  |
@@ -105,6 +106,7 @@ writes them.
 | `list → compact_days_to_show`         | number  | -                | Most days shown while the card is compact; unset shows every day in range    |
 | `list → compact_events_complete_days` | boolean | `false`          | Never cut a day off part-way: if one of its events is shown, all of them are |
 | `list → event_order`                  | string  | `earliest_first` | `latest_first` puts the most recent day and event at the top                 |
+| `list → skip_first_events`            | number  | -                | Events left off the top of the list, so a second card can continue another   |
 
 ::: tip Older Configurations Keep Working
 Written at the top level they behave exactly as they always did, so nothing needs changing
@@ -114,16 +116,17 @@ into `list:` automatically.
 
 **→ [Compact Mode & Event Limits](/features/core-settings#compact-mode-event-limits)** — the three compact options, worked through.
 **→ [Event Order](/features/core-settings#event-order)** — `event_order`, for a calendar used as a log.
+**→ [Continuing a List on a Second Card](/features/core-settings#continuing-a-list-on-a-second-card)** — `skip_first_events`.
 **→ [Spacing & Alignment](/features/layout-appearance#spacing-alignment)** — `date_vertical_alignment`.
 **→ [Today Indicator](/features/layout-appearance#today-indicator)** — `today_indicator_position`.
 
 ### Options With No Effect in Column View
 
 `date_vertical_alignment` · `today_indicator_position` · `compact_events_to_show` ·
-`compact_days_to_show` · `compact_events_complete_days` · `event_order`
+`compact_days_to_show` · `compact_events_complete_days` · `event_order` · `skip_first_events`
 
-These describe a date cell, a compact budget or a list's order that the column layout does not
-have. They
+These describe a date cell, a compact budget or a list's order and continuation that the column
+layout does not have. They
 keep working in list view, including when a `view: column` card falls back to it on a
 narrow dashboard. The editor hides their controls in the Columns editing workspace without
 deleting stored values; see [Options for the Selected View](/features/editor#options-for-the-selected-view).
@@ -134,7 +137,7 @@ deleting stored values; see [Options for the Selected View](/features/editor#opt
 
 `date_vertical_alignment` · `today_indicator_position` · `compact_events_to_show` ·
 `compact_days_to_show` · `compact_events_complete_days` · `event_order` ·
-`split_multiday_events` (card-wide and per-entity) · `empty_day_text` · `empty_day_color` ·
+`skip_first_events` · `split_multiday_events` (card-wide and per-entity) · `empty_day_text` · `empty_day_color` ·
 `allday_badge` · `allday_badge_style` · `allday_badge_color` · `time_position` ·
 `show_now_indicator` · `show_single_allday_time` · `show_multiday_allday_time` ·
 `show_location_allday` · `show_description_allday` · `show_countdown_allday` ·

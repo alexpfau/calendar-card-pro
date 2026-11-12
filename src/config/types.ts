@@ -22,6 +22,12 @@ export interface Config {
   compact_events_complete_days?: boolean;
   /** Which end of the list comes first. List view only; see {@link EventOrder}. */
   event_order: EventOrder;
+  /**
+   * Rows left out from the top of a list, so a second card can continue where a first one
+   * stopped. Counted in display order after every filter, duplicates and each calendar's cap,
+   * and in force expanded too. List view only.
+   */
+  skip_first_events?: number;
   show_empty_days: boolean;
   show_empty_today: boolean;
   hide_when_empty: boolean;
@@ -419,7 +425,7 @@ export interface SharedViewOverrides {
  *
  * List has no key of its own without a top-level counterpart, so unlike the other two
  * views it declares no view-only members: everything here is an override of a card-level
- * key. The six below are list-only in `VIEW_SCOPE`, which is why no other view can
+ * key. The seven below are list-only in `VIEW_SCOPE`, which is why no other view can
  * override them and why they never entered the shared set.
  */
 export interface ListOverrides extends SharedViewOverrides {
@@ -428,8 +434,9 @@ export interface ListOverrides extends SharedViewOverrides {
   compact_events_to_show?: number;
   compact_events_complete_days?: boolean;
 
-  // Order. Read at render, after every filter and before every limit.
+  // Order and offset. Read at render, after every filter and before the card's limits.
   event_order?: EventOrder;
+  skip_first_events?: number;
 
   // List-row layout.
   date_vertical_alignment?: string;

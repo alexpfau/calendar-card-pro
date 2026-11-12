@@ -1074,6 +1074,57 @@ second would not appear at all. Complete days stretch only the card's own limit:
 still shows no more days than `compact_days_to_show`, and events a calendar's own cap held
 back stay hidden.
 
+### Continuing a List on a Second Card
+
+`skip_first_events` leaves the first events off a list, so a second card can carry on where a
+first one stops: a small card showing what is on now, and a card under it with what comes
+later.
+
+```yaml
+type: vertical-stack
+cards:
+  - type: custom:calendar-card-pro
+    title: Now
+    entities:
+      - calendar.anna
+    list:
+      compact_events_to_show: 1
+  - type: custom:calendar-card-pro
+    title: Later
+    entities:
+      - calendar.anna
+    list:
+      skip_first_events: 1
+```
+
+| Option                     | Type   | Default | Description                                                |
+| -------------------------- | ------ | ------- | ---------------------------------------------------------- |
+| `list → skip_first_events` | number | -       | Events left off the top of the list; unset leaves none off |
+
+- **Same calendars, same count.** The second card continues exactly when it shows the same
+  calendars, dates and filters as the first, including `filter_duplicates` and each
+  calendar's own cap, and skips as many events as the first card's `compact_events_to_show`.
+- **It counts what the card would show,** in the list's order, after every filter. A
+  multi-day event split over several days counts once for each day, as the event limit counts
+  it. In [latest-first order](#event-order) it leaves off the most recent events.
+- **It holds when the card is expanded,** so expanding the second card never brings the first
+  card's events back. The card's own day and event limits count from the first event left.
+- **A day it empties leaves the card.** With `show_empty_days` or `show_empty_today` the days
+  start where the list goes on, so the second card never repeats a day the first one covered.
+
+::: details When the Second Card Does Not Continue Exactly
+
+- `compact_events_complete_days` can make the first card show more events than its limit, and
+  a `compact_days_to_show` it reaches first can make it show fewer. Set `skip_first_events` to
+  the number the first card actually shows.
+- Expanding the second card lifts its calendars' own caps, so with a cap set it can show
+  events the first card already shows.
+- A second card with nothing left shows its notice on the day the list would go on from, held
+  within the card's dates. [`hide_when_empty`](/reference/configuration#core-settings) hides
+  it instead.
+
+:::
+
 ### Benefits of These Controls
 
 Together, these keep a dashboard card short: a few days, a cap on any calendar that would
@@ -1226,7 +1277,7 @@ layouts never loads anything. The rest of the card follows the layout on screen:
 
 **→ [Column View](/features/column-view)** — what column may override, and what it ignores.
 **→ [Grid View](/features/grid-view)** — the same for the time grid.
-**→ [List-Only Options in the configuration reference](/reference/configuration#list-only-options)** — the six options only list reads.
+**→ [List-Only Options in the configuration reference](/reference/configuration#list-only-options)** — the seven options only list reads.
 
 ## 🌐 Language
 

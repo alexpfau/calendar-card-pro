@@ -130,7 +130,8 @@ describe('the configuration a search groups with', () => {
     show_empty_today: true,
     show_location: false,
     event_order: 'latest_first',
-    list: { days_to_show: 3, event_order: 'latest_first' },
+    skip_first_events: 2,
+    list: { days_to_show: 3, event_order: 'latest_first', skip_first_events: 2 },
     column: { days_to_show: 5 },
     time_grid: { days_to_show: 4, start_time: '18:00', end_time: '22:00' },
   } as Partial<Types.Config>);
@@ -142,6 +143,7 @@ describe('the configuration a search groups with', () => {
     show_empty_days: false,
     show_empty_today: false,
     event_order: 'earliest_first',
+    skip_first_events: 0,
   };
 
   it('is the view’s, over the whole window, with every past event and no empty day', () => {

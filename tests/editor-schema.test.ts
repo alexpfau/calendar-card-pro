@@ -914,6 +914,9 @@ describe('editor: applicability', () => {
       // Column and grid view keep time running forward, left to right and down the hours;
       // `groupEventsByDay` reads it only where `appliesToView` says list.
       event_order: ['list'],
+      // Column and grid view draw their days whatever their events, so leaving rows out
+      // would leave holes rather than continue a list.
+      skip_first_events: ['list'],
       // Grid's card-level value is inert: all-day spans become one banner, and timed
       // events are segmented by the renderer instead of by the upstream list splitter.
       split_multiday_events: ['column', 'list'],

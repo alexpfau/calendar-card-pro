@@ -593,6 +593,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Rather than stopping mid-day at the event limit, show the rest of that day too.',
 
   show_past_events: 'Show Past Events',
+  skip_first_events: 'Skip First Events',
+  'skip_first_events.helper':
+    'Leaves this many events off the top of the list, so this card can continue where another ' +
+    'card with the same calendars and that many events stops. Applies expanded too.',
   show_empty_days: 'Show Empty Days',
   show_empty_today: 'Show Today When Empty',
   'show_empty_today.helper':

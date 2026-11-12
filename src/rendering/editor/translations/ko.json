@@ -176,6 +176,8 @@
   "compact_events_complete_days": "마지막 날까지 모두 표시",
   "compact_events_complete_days.helper": "이벤트 제한에서 중간에 끊지 않고 해당 날짜의 남은 부분도 함께 표시합니다.",
   "show_past_events": "지난 이벤트 표시",
+  "skip_first_events": "처음 이벤트 건너뛰기",
+  "skip_first_events.helper": "목록 맨 위에서 이 수만큼 이벤트를 건너뛰어, 같은 캘린더와 같은 이벤트 수를 가진 다른 카드가 끝나는 곳에서 이 카드가 이어지게 합니다. 확장 보기에서도 적용됩니다.",
   "show_empty_days": "빈 날짜 표시",
   "show_empty_today": "일정이 없어도 오늘 표시",
   "show_empty_today.helper": "일정이 없어도 오늘을 카드에 표시하고, 다른 빈 날은 계속 숨깁니다.",

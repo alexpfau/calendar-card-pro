@@ -340,6 +340,8 @@
   "compact_events_complete_days": "Completa l'ultimo giorno",
   "compact_events_complete_days.helper": "Invece di fermarsi a metà giornata al raggiungimento del limite di eventi, mostra anche il resto di quel giorno.",
   "show_past_events": "Mostra gli eventi passati",
+  "skip_first_events": "Salta i primi eventi",
+  "skip_first_events.helper": "Omette questo numero di eventi dall'inizio dell'elenco, così questa scheda continua da dove si ferma un'altra scheda con gli stessi calendari e quel numero di eventi. Vale anche nella vista espansa.",
   "show_empty_days": "Mostra giorni vuoti",
   "show_empty_today": "Mostra oggi anche se vuoto",
   "show_empty_today.helper": "Mantiene oggi sulla scheda anche senza eventi, mentre gli altri giorni vuoti restano nascosti.",

@@ -340,6 +340,8 @@
   "compact_events_complete_days": "Dokončiť posledný deň",
   "compact_events_complete_days.helper": "Namiesto zastavenia uprostred dňa pri dosiahnutí limitu udalostí zobrazí aj zvyšok toho dňa.",
   "show_past_events": "Zobraziť minulé udalosti",
+  "skip_first_events": "Preskočiť prvé udalosti",
+  "skip_first_events.helper": "Vynechá toľko udalostí zo začiatku zoznamu, aby táto karta pokračovala tam, kde končí iná karta s rovnakými kalendármi a týmto počtom udalostí. Platí aj v rozšírenom pohľade.",
   "show_empty_days": "Zobraziť prázdne dni",
   "show_empty_today": "Zobraziť dnešok aj bez udalostí",
   "show_empty_today.helper": "Ponechá dnešný deň na karte aj bez udalostí, ostatné prázdne dni zostanú skryté.",

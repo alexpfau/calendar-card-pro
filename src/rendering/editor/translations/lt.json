@@ -340,6 +340,8 @@
   "compact_events_complete_days": "Užbaigti paskutinę dieną",
   "compact_events_complete_days.helper": "Užuot sustojus ties įvykių riba dienos viduryje, parodyti ir likusią tos dienos dalį.",
   "show_past_events": "Rodyti praėjusius įvykius",
+  "skip_first_events": "Praleisti pirmuosius įvykius",
+  "skip_first_events.helper": "Praleidžia tiek įvykių sąrašo pradžioje, kad ši kortelė tęstų ten, kur baigiasi kita kortelė su tais pačiais kalendoriais ir tiek įvykių. Galioja ir išplėstame vaizde.",
   "show_empty_days": "Rodyti tuščias dienas",
   "show_empty_today": "Rodyti šiandieną, net jei tuščia",
   "show_empty_today.helper": "Palieka šiandieną kortelėje, net jei įvykių nėra, o kitos tuščios dienos lieka paslėptos.",

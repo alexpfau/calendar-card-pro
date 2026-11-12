@@ -340,6 +340,8 @@
   "compact_events_complete_days": "Visa dagen färdig",
   "compact_events_complete_days.helper": "I stället för att sluta mitt i en dag vid händelsegränsen, visa resten av den dagen också.",
   "show_past_events": "Visa passerade händelser",
+  "skip_first_events": "Hoppa över de första händelserna",
+  "skip_first_events.helper": "Utelämnar så många händelser överst i listan att det här kortet fortsätter där ett annat kort med samma kalendrar och så många händelser slutar. Gäller även i utökat läge.",
   "show_empty_days": "Visa tomma dagar",
   "show_empty_today": "Visa idag även när den är tom",
   "show_empty_today.helper": "Behåller dagens datum på kortet även utan händelser, medan andra tomma dagar förblir dolda.",

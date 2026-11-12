@@ -103,8 +103,8 @@ settings that belong to it.
 Most panels look the same whichever [layout you are editing](#options-for-the-selected-view).
 Where they differ:
 
-- **List** adds **Event Order** and **Compact Mode** under Time Range & Content, and
-  **Vertical Alignment** and **Indicator Position** under Day Header.
+- **List** adds **Event Order**, **Skip First Events** and **Compact Mode** under Time Range &
+  Content, and **Vertical Alignment** and **Indicator Position** under Day Header.
 - **Columns** adds a collapsible **Column Density** group under Layout, which decides how narrow a column may get
   before the card gives one up.
 - **Columns** and **Grid** add **Gap & Rule** under Day Header, the space under a day header

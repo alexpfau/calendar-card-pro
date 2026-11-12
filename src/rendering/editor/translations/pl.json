@@ -340,6 +340,8 @@
   "compact_events_complete_days": "Dokończ ostatni dzień",
   "compact_events_complete_days.helper": "Zamiast zatrzymywać się w środku dnia po osiągnięciu limitu wydarzeń, pokazuje też resztę tego dnia.",
   "show_past_events": "Pokaż minione wydarzenia",
+  "skip_first_events": "Pomiń pierwsze wydarzenia",
+  "skip_first_events.helper": "Pomija tyle wydarzeń z początku listy, aby ta karta zaczynała tam, gdzie kończy się inna karta z tymi samymi kalendarzami i taką liczbą wydarzeń. Działa też w widoku rozszerzonym.",
   "show_empty_days": "Pokaż puste dni",
   "show_empty_today": "Pokaż dzisiaj, nawet gdy pusty",
   "show_empty_today.helper": "Zostawia dzisiejszy dzień na karcie nawet bez wydarzeń, a pozostałe puste dni pozostają ukryte.",
