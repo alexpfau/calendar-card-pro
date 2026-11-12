@@ -134,7 +134,7 @@ What decides the outcome is whether the block mentions an option at all, not wha
 
 The block covers the card's dimensions too: the same events laid out side by side are far shorter than they are stacked, so a `height` or `max_height` tuned for one view is usually wrong for the other. See [Height in Column View](/features/layout-appearance#height-in-column-view).
 
-[`time_position: title`](/features/event-content#time-beside-the-title) is another option worth setting per view, because it needs a wide event row and the default column width of about 140px is not a good fit for it. There it leaves the title a word or so per line, and a time with a countdown can take several lines; the warning in [Time Beside the Title](/features/event-content#time-beside-the-title) gives the widths it needs. To leave the columns exactly as they are, set it in `list:` alone.
+[`time_position: title`](/features/event-content#time-beside-the-title) is another option worth setting per view. In the default column width of about 140px, a time with a countdown rarely fits at the end of a title and takes a line of its own, which saves little; with `title_max_lines: 1` the title beside a time keeps room for a word or so, and the warning in [Time Beside the Title](/features/event-content#time-beside-the-title) gives the widths it needs. To leave the columns exactly as they are, set it in `list:` alone.
 
 ## 🔀 Options That Start From a Different Default
 
@@ -184,7 +184,7 @@ Which class of event it keeps, and whether it hides when there is nothing to sho
 
 `event_type` · `hide_when_empty`
 
-An entry the card does not recognize is ignored rather than treated as an error, so one stray line cannot break the rest of the card. If an override seems to do nothing, check it is not one of the options above.
+An entry the card does not recognize is ignored rather than treated as an error, so one stray line cannot break the rest of the card. If an override seems to do nothing, check it is not one of the options above. The visual editor lists every such option when it opens and offers to move it; see [Options the Card Ignores](/features/editor#options-the-card-ignores).
 
 Three options sound as though they belong in the first list, and do not:
 

@@ -13,6 +13,7 @@
   "allDay": "ganztägig",
   "multiDay": "bis",
   "at": "um",
+  "separator": ", ",
   "viewList": "Liste",
   "viewColumns": "Spalten",
   "viewGrid": "Zeitraster",
@@ -22,5 +23,7 @@
   "loading": "Kalendereinträge werden geladen...",
   "error": "Fehler: Kalender-Entität nicht gefunden oder falsch konfiguriert",
   "loadFailed": "Laden fehlgeschlagen:",
-  "newEvent": "Neuer Termin"
+  "newEvent": "Neuer Termin",
+  "showAll": "Alle anzeigen",
+  "hideAll": "Alle ausblenden"
 }

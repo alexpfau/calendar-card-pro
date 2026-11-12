@@ -189,6 +189,89 @@ To add a new language:
 
 :::
 
+::: details Words From the Browser
+
+A few words come from the browser's `Intl` rather than from your file: "Now", the countdown's
+"tomorrow" and hours, the month and "Today" in the toolbar, the date in a multi-day event's
+end, and the "and" or "or" that joins names in the editor. Check that Chromium carries your
+language by running `Intl.RelativeTimeFormat.supportedLocalesOf(['xx'])` in Chrome's console,
+with your code in place of `xx`. If it answers `[]`, those words read in English there. Where
+your readers also read a language Chromium does carry, as Nynorsk readers read Bokmål, add that
+pair to `INTL_FALLBACKS` in `src/translations/intl-locales.ts` and they read in that language
+instead. Every `Intl` call takes its locales from `intlLocales` in that file, which is what
+keeps the rule the same everywhere; `tests/intl-fallback.test.ts` fails on one that does not.
+
+:::
+
+::: details Dates in a Sentence
+
+A multi-day event's end names its last day, as in "until Monday, Jan 5 at 17:00". Your browser
+writes that date in the card's language, so its order, its punctuation and the form of its
+month are your language's own: "do pondělí 5. ledna", "eddig: jan. 5., hétfő", "~ 1월 5일
+월요일". Where your language shortens a month to a number ("5. 1."), the card names it in full
+instead. `months` names the months in the date column, and stands in for the browser's month
+only where the browser has no data for your language, as Chromium has none for Icelandic.
+
+The weekday in that date is yours: `fullDaysOfWeek`, put where your language puts the weekday.
+Write each day the way your language writes it there: in lower case if it writes weekdays that
+way inside a date, and in whatever form `multiDay` asks for. Polish `do` takes the genitive, so
+its days read "do poniedziałku", not "do poniedziałek", and Estonian `kuni` the terminative,
+"kuni reedeni". A day that takes an article carries it too: Greek writes "έως την Παρασκευή"
+but "έως το Σάββατο", so each of its days has its own. Where every day takes the same article,
+it can end `multiDay` instead, as in Spanish "hasta el viernes". If your word for "until"
+follows the date instead of preceding it, use your word for "ends", the word your `endsToday`
+begins with, and the card sets it off with your `separator` as it does `endsToday`: Finnish writes
+"päättyy maanantaina 5. tammikuuta". A label works the same way: Turkish writes "bitiş: 5 Oca
+Pazartesi".
+
+`daysOfWeek` is different. Those are the short day names beside each date, and they take a
+capital wherever a label would.
+
+`npm run check:i18n` warns about a capitalized day your language writes in lower case. It
+cannot check the ending, so check that yourself.
+
+:::
+
+::: details Times in a Sentence
+
+`at` puts an event's end time in a sentence: after `endsToday` or `endsTomorrow`, as in "ends
+tomorrow at 0:30", and after a date, as in "until Friday, Oct 23 at 17:00". The card writes
+`at`, a space and the time. Two placeholders let a language write it its own way:
+
+- `{time}` in `at` is where the time goes, for a language that marks a time with a suffix
+  rather than a word before it. Hungarian's `at` is `{time}-kor`, so a date ends "okt. 23.,
+  péntek 17:00-kor". Korean's is `{time}` alone, since a time after a date takes nothing there,
+  and so are Lithuanian's and Chinese's, which write a date and its time side by side as CLDR
+  does: "penktadienio 17:00", "10月23日星期五 17:00".
+- `{at}` in `endsToday` and `endsTomorrow` is where the time goes, written with `at`, for a
+  language that puts it inside the phrase. Hungarian's `endsTomorrow` is
+  `holnap {at} ér véget`, so its card reads "holnap 0:30-kor ér véget". An all-day event has
+  no time, and reads the phrase without it: "holnap ér véget". Anything written onto `{at}`
+  with no space between goes with it, so Korean's `내일 {at}에 종료` reads "내일 0:30에 종료",
+  and "내일 종료" all day. Chinese sets the time off with a space on each side, and both go
+  with it between two Chinese characters: `明天 {at} 结束` reads "明天 0:30 结束", and
+  "明天结束" all day.
+
+No other string takes a placeholder. `npm test` fails if one is left in an event's time.
+
+`separator` joins two parts of an event's time where English writes ", ": the all-day label and
+what follows it, "All day, ends tomorrow", and a start time and the phrase saying when it ends,
+"22:30, ends tomorrow at 0:30". Write what your language puts between two clauses there. Most
+write ", ". Chinese writes "，", with no space, since the mark carries its own: "整天，明天结束".
+Thai writes a space alone: "ตลอดวัน สิ้นสุดพรุ่งนี้". `npm run check:i18n` fails on a separator
+holding a word, a tab or two spaces in a row. It warns on one the next word would touch, and
+where your separator and CLDR disagree about your language writing ", ".
+
+Where only the word before a time changes with the hour, write the one most hours take, as CLDR
+and Home Assistant do: Ukrainian `at` is "о", though 11:00 reads "об одинадцятій", and Spanish
+is "a las", though 1:00 is "a la una".
+
+Where a time's ending changes with the number, no single string can carry it: Turkish writes
+"0:30'da" but "17:00'de". Write the end as a label instead, as Turkish does with `bitiş: yarın`
+and `saat`, which reads "bitiş: yarın saat 0:30".
+
+:::
+
 ::: details Example: Adding German
 
 1. Create `src/translations/languages/de.json`

@@ -3,8 +3,9 @@
   "fullDaysOfWeek": ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"],
   "months": ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"],
   "allDay": "todo el día",
-  "multiDay": "hasta",
+  "multiDay": "hasta el",
   "at": "a las",
+  "separator": ", ",
   "viewList": "Lista",
   "viewColumns": "Columnas",
   "viewGrid": "Rejilla",
@@ -14,5 +15,7 @@
   "loading": "Cargando eventos del calendario...",
   "error": "Error: La entidad del calendario no se encontró o está mal configurada",
   "loadFailed": "No se pudo cargar:",
-  "newEvent": "Nuevo evento"
+  "newEvent": "Nuevo evento",
+  "showAll": "Mostrar todos",
+  "hideAll": "Ocultar todos"
 }

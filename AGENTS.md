@@ -1314,7 +1314,15 @@ Neither has a workflow file, so neither shows up in `.github/workflows/`.
 - **A bump to anything that reaches `dist/` can fail `check:bundle`**: `lit`, `dayjs`,
   `@mdi/js`, and the bundler chain. The gate reconciles the sizes `docs/guide/installation.md`
   quotes against the build, so correct the figure in the Dependabot PR rather than loosening
-  the gate.
+  the gate. It also fails on a regular expression lookbehind in either file, which Safari before
+  16.4 cannot parse; a pattern built at runtime is read only in its fixed parts, and the success
+  line says how many were. `tests/regex-lookbehind.test.ts` keeps `src/` free of them, so one
+  there came in with the bump. The same holds for syntax: each file must parse as ES2022 (acorn)
+  with no class static block, which is what Safari 15 parses, and build no `RegExp` whose fixed
+  flags hold `v`, or whose pattern and flags the source fixes entirely and ES2022 cannot
+  compile. `src/` is lowered to ES2021, so a failure there points at the bumped package too, or
+  at a regular expression literal in `src/`, which esbuild passes through as written, and turns
+  into `new RegExp(…, "v")` when it carries that flag.
 - **CodeQL default setup** is enabled in the repository's code-security settings. It scans
   pushes to `main` and same-repository pull requests into it, so the release PR is the first
   scan a change gets. **`dev` is not covered**: its deletion-only ruleset makes the branches
@@ -1332,18 +1340,26 @@ Neither has a workflow file, so neither shows up in `.github/workflows/`.
   a regression. The regex survives verbatim as the oracle in
   `tests/strip-html-tags.test.ts`, applied through `matchAll` rather than `replace`, and CodeQL
   may flag it there; read that file's docblock on it before acting on an alert that names it.
-- **Two Dependabot alerts are dismissed rather than fixed**: 31 (`deepmerge`, low) and 32
-  (`minimatch`, moderate), both transitive and dev-only. Neither reaches `dist/`, and only
-  this repository's own lint globs and Rollup options reach them. The lockfile refresh above
-  changes nothing for either: `minimatch` is patched only in 11, which ESLint, its config
-  loader and its plugins do not accept yet, and `deepmerge` has no patched release at all,
-  while `@rollup/plugin-node-resolve` still depends on it. An `overrides` entry forcing
-  `minimatch` 11 was tried and stops ESLint loading its config: `@eslint/eslintrc` imports a
-  default export 11 removed, and `eslint-plugin-import-x` imports `makeRe`, which 11 also
-  removed. Several packages hold `minimatch` back, so ask npm rather than any one of them:
-  revisit when the audit below stops saying "No fix available" for `minimatch`, or
-  "`npm audit fix --force`" for `deepmerge`. The lockfile refresh above then clears it, or
-  Dependabot's monthly tooling bump carries it:
+- **Two Dependabot alerts are dismissed rather than fixed**: 31 (`deepmerge`, low) and 33
+  (`minimatch`, moderate, GHSA-g3hv-75wg-m249), both transitive and dev-only. 33 replaced 32,
+  which GitHub withdrew. Neither reaches `dist/`, and only this repository's own lint globs
+  and Rollup options reach them. The lockfile refresh above changes nothing for either.
+  `deepmerge` has no patched release at all, while `@rollup/plugin-node-resolve` still depends
+  on it. `minimatch` is patched only from 11.0.1, and in November 2026 the latest `eslint`
+  (10.14.0), `@eslint/config-array` (0.23.5) and `@typescript-eslint/typescript-estree`
+  (8.72.2) still require `^10`; `eslint-plugin-import-x` accepts 11 from 4.18.1, which also
+  stopped using the `makeRe` 11 removed. `@eslint/eslintrc` keeps a `minimatch` 3 of its own,
+  outside the advisory's range. Two `overrides` entries were tried on a scratch copy. One
+  forcing `minimatch` 11 everywhere stops ESLint loading its config: `@eslint/eslintrc`, which
+  `eslint.config.mjs` imports for `FlatCompat`, imports a default export 11 removed. One scoped
+  to the four packages above, with `eslint-plugin-import-x` at 4.18.1, lints exactly as 4.18.1
+  does without it (whose own `import-x/order` changes add warnings) and clears the advisory, but
+  holds `eslint`, `@eslint/config-array` and `typescript-estree` outside the `minimatch` range
+  they declare, so the alert stays dismissed. Several packages hold `minimatch` back, so ask npm
+  rather than any one of them: today the audit below offers only `npm audit fix --force` for
+  both, which for `minimatch` would install `eslint` 9.39.5. Revisit when it offers a fix for
+  either without `--force`. The lockfile refresh above then clears it, or Dependabot's monthly
+  tooling bump carries it:
 
   ```bash
   npx npm@11 audit --package-lock-only
@@ -1585,55 +1601,73 @@ ran. Since v5 the `days_to_show` control needs a card with no per-view counts: a
 refetches only when it moves the loaded span, the longest count among the views the card can
 show (`loadedDaysToShow`), so a view's own count that leaves that span alone reads 0.
 
-### A new per-calendar option must be added to a hand-written whitelist
+### A per-calendar option missing from `normalizeEntities` is a compile error
 
 🚨 **`normalizeEntities` in `config.ts` projects each entity through a hand-written field
 list, and an option missing from it is dropped before it reaches anything.** Normalization
 runs in `setConfig`, so the key never lands in `_matchedConfig` and the option is inert no
-matter how carefully the rest of it was wired — types, editor schema, translations,
-transform and docs can all be correct and complete.
+matter how carefully the rest of it was wired. Three per-calendar options were written this
+way in one PR, with types, editor schema, translations, transform and docs all correct,
+because `tsc` could not see it: omitting an optional property from an object literal is legal.
 
-It is silent by construction. Nothing in the editor can see it, because the editor writes
-the key correctly; nothing in the types can see it, because the type declares it; and
-`tsc` cannot see it, because omitting an optional property from an object literal is legal.
-Three per-calendar options were written this way in one PR, with every other layer correct,
-and were caught only by the test below.
+So the literal now ends in `satisfies EveryMember<EntityConfig>`, a type in `types.ts` that
+makes every member of `EntityConfig` required while still allowing `undefined`. A key declared
+in `EntityConfig` and missing from the projection fails `npx tsc --noEmit`, naming the key; so
+does a key the interface does not declare, and a value of the wrong type. Declare the option in
+`EntityConfig` first and the compiler names the line you still owe.
 
-**The file already documents the hazard, one function below the one that has it.**
-`serializeEntities` sits twenty lines further down and its docblock reads: _"Being
-field-agnostic is the point. A hand-written field list would silently stop covering the
-next per-calendar option somebody adds."_ That is exactly true, and it protects only
-itself — the projection above it was written the other way, so the two disagree about
-which fields exist and only one of them says so.
+Two things about that type are easy to get wrong:
 
-What catches it is a test that **reconciles the whitelist against `EntityConfig`** rather
-than walking either one, which is the same _pin the whole table by value_ discipline as the
-`Object.keys(TABLE)` trap above; `tests/entity-config-reprocess.test.ts` does this. Blanking
-one line of the projection fails that test plus every behavioral test for the dropped
-option, which is the falsifier to run when adding one.
+- **It is keyed through `keyof Required<T>`, and the shorter form does not work.**
+  `{ [K in keyof EntityConfig]-?: EntityConfig[K] | undefined }` is a homomorphic mapping, and
+  its `-?` strips the written `| undefined` along with the optional flag, so it rejects every
+  option the YAML leaves unset.
+- **It checks presence and type, not provenance.** `label: item.allowlist` compiles, because
+  both are strings. The bare-string branch (`'calendar.x'`) is deliberately unchecked: an id
+  carries no options.
+
+`tests/entity-config-reprocess.test.ts` is the second line, and a different mechanism rather
+than a second copy: it reconciles its option table against `EntityConfig` read from source and
+asserts that changing each option reprocesses the payload, which a dropped key cannot do.
+The falsifier for the compile check is to add `exclude_from_legend?: boolean` to `EntityConfig`
+and run `npx tsc --noEmit`. It must fail with `Property 'exclude_from_legend' is missing`;
+before the check existed, the same edit compiled clean.
 
 ### There is a second hand-written projection, and it is between grouping and rendering
 
 `groupEventsByDay` builds a **display copy** of every event through its own hand-written
 field list — `_entityId`, `_matchedConfig`, `_isEmptyDay`, `_isMultiDaySegment`,
 `_splitFromTimedEvent` and the rest. A stamp added to `CalendarEventData` and _not_ added
-there is dropped silently between grouping and rendering, so the value is computed
-correctly, survives every intermediate stage, and simply is not there when a leaf renderer
-looks for it.
+there used to be dropped silently between grouping and rendering: the value was computed
+correctly, survived every intermediate stage, and simply was not there when a leaf renderer
+looked for it.
 
-It is easy to miss precisely because the neighboring path does the opposite:
-`splitMultiDayEvent` copies with a spread, so multi-day segments inherit any new field for
-free. Testing a stamp on a split segment therefore passes while the ordinary row fails, which
-points at multi-day handling rather than at the projection.
+It is easy to miss because the splitter does the opposite: `splitMultiDayEvent` copies with a
+spread, so a test that reads the segments it returns sees a new stamp. Grouping then sends
+those segments through the same display copy as every other row, so a stamp the copy omits is
+gone from split and ordinary rows alike by the time anything draws them, and a test at the
+splitter points at multi-day handling rather than at the projection.
 
-`_mergedFrom` — the record of which calendars a deduplicated row came from — is the first
-field added here since the list was written. What catches an omission is a **behavioral**
-test rather than a field-list reconciliation: rendering a merged duplicate and asserting on
-what is drawn fails immediately if the stamp never arrives, and needs no second list to keep
-in step. Removing the field from the projection fails 5 tests in
-`tests/merged-duplicate-labels.test.ts` — every label and accent case, because the stamp it
-carries is what `presentation.ts` reads to resolve both — which is the falsifier to run when
-adding another.
+So the copy is now checked the way `normalizeEntities` is: the literal ends in
+`satisfies EveryMember<CalendarEventData, LeftOffDisplayCopy>`, and a member of
+`CalendarEventData` missing from it fails `npx tsc --noEmit`, naming the member. The second
+argument lists the members the copy leaves out on purpose, each with its reason beside the
+list: Home Assistant's `uid`, `recurrence_id`, `rrule` and `status`, which every reader takes
+from `_source`, and `_searchRing`, stamped after grouping. A new stamp goes in the copy unless
+the renderer never needs it, in which case it goes in that list with a reason. Writing a
+listed member into the copy fails too, and so does a name in the list that `CalendarEventData`
+no longer declares.
+
+The falsifier is to add `_plantedStamp?: boolean` to `CalendarEventData` and run
+`npx tsc --noEmit`. It must fail with `Property '_plantedStamp' is missing`; before the check
+existed, the same edit compiled clean.
+
+**The compiler checks presence and type, not provenance**, as it does for `normalizeEntities`:
+`_mergedFrom: undefined` compiles. So the behavioral test for `_mergedFrom` — the record of
+which calendars a deduplicated row came from — stays as the second line. Rendering a merged
+duplicate and asserting on what is drawn fails if the stamp never arrives. Removing the field
+from the projection fails 5 tests in `tests/merged-duplicate-labels.test.ts` — every label and
+accent case, because the stamp it carries is what `presentation.ts` reads to resolve both.
 
 ### Proximity is not reach — a note about a family should be a reconciliation
 
@@ -1642,9 +1676,9 @@ found three times, always in the same shape: a comment describes the trap _compl
 _correctly_, for the neighboring case, and the next member of the family arrived in a
 different pull request weeks later and was never added to it.
 
-- `normalizeEntities`'s hand-written projection against `serializeEntities`'s docblock
-  twenty lines below, which argues for being field-agnostic precisely so this cannot happen
-  — and protects only itself.
+- `normalizeEntities`'s hand-written projection against `serializeEntities`'s docblock just
+  below it, which argues for being field-agnostic precisely so this cannot happen — and
+  protected only itself, until `tsc` was made to check the projection against `EntityConfig`.
 - `entityConfigKeys` handling `label_icon_source` and not `accent_color_mode`, the other
   half of the same feature. Substituting two identifiers in that comment yields the defect
   report verbatim.
@@ -1664,7 +1698,9 @@ control rather than on someone remembering.
 
 Two caveats worth keeping. **Reconcile against the type, not against a second list** — a
 second list is one more thing to forget, and the bug is forgetting. And this only works
-where the family has a runtime enumeration; **prose conventions, term choices and judgment
+where the family has an enumeration, at runtime or in a type the compiler can walk with
+`keyof`, as `normalizeEntities` and `groupEventsByDay`'s display copy now do; **prose
+conventions, term choices and judgment
 calls have none**, which is what `scripts/editor-glossary.mjs` is for. Same lesson,
 different mechanism: enforce the family where the family is enumerable, and where it is not,
 name the members explicitly and gate on them.

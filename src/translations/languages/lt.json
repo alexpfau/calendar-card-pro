@@ -1,18 +1,19 @@
 {
   "daysOfWeek": ["Sek", "Pir", "Ant", "Tre", "Ket", "Pen", "Šeš"],
   "fullDaysOfWeek": [
-    "Sekmadienis",
-    "Pirmadienis",
-    "Antradienis",
-    "Trečiadienis",
-    "Ketvirtadienis",
-    "Penktadienis",
-    "Šeštadienis"
+    "sekmadienio",
+    "pirmadienio",
+    "antradienio",
+    "trečiadienio",
+    "ketvirtadienio",
+    "penktadienio",
+    "šeštadienio"
   ],
   "months": ["Sau", "Vas", "Kov", "Bal", "Geg", "Bir", "Lie", "Rgp", "Rgs", "Spa", "Lap", "Grd"],
   "allDay": "visą dieną",
   "multiDay": "iki",
-  "at": "į",
+  "at": "{time}",
+  "separator": ", ",
   "viewList": "Sąrašas",
   "viewColumns": "Stulpeliai",
   "viewGrid": "Laiko tinklelis",
@@ -22,5 +23,7 @@
   "loading": "Įkeliami kalendoriaus įvykiai...",
   "error": "Klaida: Kalendoriaus objektas nerastas arba neteisingai sukonfigūruotas",
   "loadFailed": "Nepavyko įkelti:",
-  "newEvent": "Naujas įvykis"
+  "newEvent": "Naujas įvykis",
+  "showAll": "Rodyti visus",
+  "hideAll": "Slėpti visus"
 }

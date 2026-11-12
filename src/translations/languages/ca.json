@@ -1,26 +1,29 @@
 {
   "daysOfWeek": ["Dg", "Dl", "Dm", "Dc", "Dj", "Dv", "Ds"],
   "fullDaysOfWeek": [
-    "Diumenge",
-    "Dilluns",
-    "Dimarts",
-    "Dimecres",
-    "Dijous",
-    "Divendres",
-    "Dissabte"
+    "diumenge",
+    "dilluns",
+    "dimarts",
+    "dimecres",
+    "dijous",
+    "divendres",
+    "dissabte"
   ],
   "months": ["Gen", "Febr", "Març", "Abr", "Maig", "Juny", "Jul", "Ag", "Set", "Oct", "Nov", "Des"],
   "allDay": "tot el dia",
-  "multiDay": "fins a",
+  "multiDay": "fins",
   "at": "a les",
+  "separator": ", ",
   "viewList": "Llista",
   "viewColumns": "Columnes",
   "viewGrid": "Quadrícula",
   "endsToday": "acaba avui",
-  "endsTomorrow": "acaba damà",
+  "endsTomorrow": "acaba demà",
   "noEvents": "Cap esdeveniment",
   "loading": "Carregant esdeveniments...",
   "error": "Error: No s'ha trobat l'entitat del calendari o aquesta està mal configurada",
   "loadFailed": "No s'ha pogut carregar:",
-  "newEvent": "Esdeveniment nou"
+  "newEvent": "Esdeveniment nou",
+  "showAll": "Mostra-ho tot",
+  "hideAll": "Amaga-ho tot"
 }

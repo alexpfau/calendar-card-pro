@@ -1251,35 +1251,15 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** Normalizes entity configuration to ensure consistent format. */
+/**
+ * Normalizes entity configuration to ensure consistent format.
+ *
+ * The entries come from YAML, so their types are what the card expects rather than what it is
+ * guaranteed: a `name` may be a number, and the list itself may not be an array. Every runtime
+ * check below stays for that reason, whatever the parameter type says.
+ */
 export function normalizeEntities(
-  entities: Array<
-    | string
-    | {
-        entity: string;
-        name?: unknown;
-        label?: string;
-        label_type?: string;
-        color?: string;
-        accent_color?: string;
-        label_icon_color?: string;
-        show_time?: boolean;
-        show_location?: boolean;
-        location_icon?: string;
-        show_description?: boolean;
-        compact_events_to_show?: number;
-        blocklist?: string;
-        allowlist?: string;
-        filter_field?: Types.FilterField;
-        replace_field?: Types.ReplaceField;
-        replace_pattern?: string;
-        replace_with?: string;
-        split_multiday_events?: boolean;
-        event_type?: Types.EventType;
-        days_of_week?: Types.DaysOfWeekFilter;
-        allday_expires_at?: string;
-      }
-  >,
+  entities: Array<string | Types.EntityConfig>,
 ): Array<Types.EntityConfig> {
   if (!Array.isArray(entities)) {
     return [];
@@ -1297,12 +1277,19 @@ export function normalizeEntities(
       }
       // Let malformed YAML entries reach the `.filter(Boolean)` instead of throwing.
       if (item && typeof item === 'object' && item.entity) {
+        // A key left out of this list never reaches `_matchedConfig`, so its option is inert.
+        // `satisfies` makes that a `tsc` error rather than a silent drop; it cannot see a key
+        // copied from the wrong field of the same type.
         return {
           entity: item.entity,
           // Trimmed, and blank or not a string at all is no name: a name that would draw as
           // nothing must not stand in for the one Home Assistant holds.
           name:
             typeof item.name === 'string' && item.name.trim() !== '' ? item.name.trim() : undefined,
+          // Only a boolean decides: anything else is unset, so the first block that does set it
+          // wins (`configuredShowInLegend`).
+          show_in_legend:
+            typeof item.show_in_legend === 'boolean' ? item.show_in_legend : undefined,
           label: item.label,
           // Unknown label types fall back to the legacy value-label behavior.
           label_type: Helpers.isLabelType(item.label_type) ? item.label_type : undefined,
@@ -1317,14 +1304,6 @@ export function normalizeEntities(
           blocklist: item.blocklist,
           allowlist: item.allowlist,
           filter_field: item.filter_field,
-          // 🚨 This projection is a hand-written field list, and a per-calendar option
-          // left out of it is **dropped before it reaches anything** — normalization runs
-          // in `setConfig`, so the key never lands in `_matchedConfig` and the option is
-          // inert however carefully the rest of it was wired. Silent, too: nothing in the
-          // editor, the schema or the types can see it. `serializeEntities` below is
-          // field-agnostic precisely to avoid this shape, and it does not protect this
-          // list. `tests/entity-config-reprocess.test.ts` reconciles the whole set against
-          // `EntityConfig` and is what catches an omission here.
           replace_field: item.replace_field,
           replace_pattern: item.replace_pattern,
           replace_with: item.replace_with,
@@ -1332,11 +1311,40 @@ export function normalizeEntities(
           event_type: item.event_type,
           days_of_week: item.days_of_week,
           allday_expires_at: item.allday_expires_at,
-        };
+        } satisfies Types.EveryMember<Types.EntityConfig>;
       }
       return null;
     })
     .filter(Boolean) as Array<Types.EntityConfig>;
+}
+
+/**
+ * Whether the configuration lists a calendar in the calendar filter, as far as it says.
+ *
+ * `show_in_legend` belongs to the calendar rather than to one block, as `name` does, so this
+ * reads the whole list: the first block of the calendar that sets a boolean decides. The editor
+ * keeps every block of a calendar holding the same value; this settles hand-written YAML that
+ * sets it two ways. Reads a configuration the card normalized or one the editor holds as
+ * written, so bare ids and malformed entries pass.
+ *
+ * @param entities - The card's `entities` list
+ * @param entityId - The calendar
+ * @returns The first boolean any block of that calendar sets, or `undefined` where none does
+ */
+export function configuredShowInLegend(
+  entities: ReadonlyArray<unknown> | undefined,
+  entityId: string,
+): boolean | undefined {
+  if (!Array.isArray(entities)) return undefined;
+
+  for (const entry of entities) {
+    if (entry === null || typeof entry !== 'object') continue;
+
+    const { entity, show_in_legend } = entry as { entity?: unknown; show_in_legend?: unknown };
+    if (entity === entityId && typeof show_in_legend === 'boolean') return show_in_legend;
+  }
+
+  return undefined;
 }
 
 /**
@@ -1455,7 +1463,11 @@ export function hasConfigChanged(
     // one. One avoidable request is the cheaper failure. Do not narrow this without
     // `getBaseCacheKey` (`src/utils/events.ts`) and `generateDeterministicId`
     // (`src/utils/helpers.ts`) in view — both were made weekday-aware to close real
-    // staleness bugs, so this is the conservative end of a settled trade-off.
+    // staleness bugs, so this is the conservative end of a settled trade-off. Those two
+    // identify the query, and count the resolved weekday only where it moves the window
+    // (`firstDayKeyPart`); this only decides whether to ask again, so an edit between
+    // equivalent settings, `system` and the weekday it resolves to, asks once, into the
+    // entry both already share.
     previous.first_day_of_week !== current.first_day_of_week;
 
   // `show_past_events` and `filter_duplicates` are deliberately absent. Both are
@@ -1491,6 +1503,22 @@ export function findCalendarEntity(hass: Record<string, { state: string }>): str
   }
 
   return Object.keys(hass).find((entityId) => entityId.startsWith('calendar.')) || null;
+}
+
+/**
+ * The home's weather entity, when there is exactly one.
+ *
+ * Several mean a choice this code cannot make for the user, such as a second home or a provider
+ * kept for comparison, and the first one listed is an accident of setup order. So with two or
+ * more it answers nothing, and the caller leaves weather out.
+ *
+ * @param states - Home Assistant's `hass.states`, treated as possibly malformed
+ * @returns The only `weather.*` entity id, or `undefined`
+ */
+export function findWeatherEntity(states: unknown): string | undefined {
+  if (!states || typeof states !== 'object') return undefined;
+  const weather = Object.keys(states).filter((entityId) => entityId.startsWith('weather.'));
+  return weather.length === 1 ? weather[0] : undefined;
 }
 
 /**
@@ -1552,16 +1580,21 @@ const SUGGESTION_INTERACTIVE_TIME_GRID_LABEL = 'Interactive Time Grid';
  * calendar cannot write: the add button, day taps and drawing need one that accepts new
  * events, and the popover offers only what the integration allows.
  *
- * Nothing here is fetch-affecting, which is what keeps the two on the shared cache key; see
+ * Nothing here is part of the event-cache key, which is what keeps the two on it; see
  * {@link getEntitySuggestion}. Returned fresh, so no two suggestions share a mutable object.
  *
+ * With a weather entity, the forecast is drawn beside each day. No position is written, so the
+ * card subscribes to the daily forecast alone (`weather.position` defaults to the date).
+ *
+ * @param weatherEntity - The home's only weather entity, or `undefined` to leave weather out
  * @returns The options to spread over the plain recipe
  */
-function interactiveOptions(): Record<string, unknown> {
+function interactiveOptions(weatherEntity: string | undefined): Record<string, unknown> {
   return {
     toolbar: { show: true },
     event_tap_action: { action: Constants.EVENT_DETAILS_ACTION },
     day_tap_action: { action: Constants.ADD_EVENT_ACTION },
+    ...(weatherEntity === undefined ? {} : { weather: { entity: weatherEntity } }),
   };
 }
 
@@ -1613,11 +1646,15 @@ export function getStubConfig(hass: Record<string, { state: string }>): Record<s
  * running, which says nothing about whether this card suits it.
  *
  * All five configs load the same events: they share the entity and `days_to_show`, and none
- * sets a member of `FETCH_TIME_KEYS` or a view's own `days_to_show`. So they share one event-cache
- * key, and the picker's five live previews cost one calendar request. The three plain ones
- * differ only by `view`; the two interactive ones add the toolbar and two actions
- * (`interactiveOptions`), and come first, because Home Assistant shows a card's suggestions in
- * the order returned and these are the ones a new card is best started from. Mind what the
+ * sets a member of the event-cache key (`entities`, the loaded day count, `start_date`,
+ * `first_day_of_week`) or a view's own `days_to_show`. So they share one event-cache key, and
+ * the picker's five live previews cost one calendar request. The three plain ones differ only by
+ * `view`; the two interactive ones add the toolbar and two actions (`interactiveOptions`), and
+ * come first, because Home Assistant shows a card's suggestions in the order returned and these
+ * are the ones a new card is best started from. When the home has exactly one weather entity
+ * (`findWeatherEntity`), the two interactive ones show its forecast too. `weather` is a fetch-time
+ * option, but not part of the event-cache key: it costs each of those two previews a forecast
+ * subscription of its own, and no extra calendar request. Mind what the
  * toolbar does to the key: its layout switcher makes every
  * view reachable, and the card loads the longest `days_to_show` among the views it can reach
  * (`loadedDaysToShow`), so a per-view count in either interactive recipe would split the fetch
@@ -1654,12 +1691,14 @@ export function getEntitySuggestion(
     return null;
   }
 
+  const weatherEntity = findWeatherEntity(states);
+
   return [
     {
       label: SUGGESTION_INTERACTIVE_LIST_LABEL,
       config: {
         ...buildDefaultCardConfig([entityId]),
-        ...interactiveOptions(),
+        ...interactiveOptions(weatherEntity),
         grid_options: { ...SUGGESTION_GRID_OPTIONS },
       },
     },
@@ -1668,7 +1707,7 @@ export function getEntitySuggestion(
       config: {
         ...buildDefaultCardConfig([entityId]),
         view: 'grid',
-        ...interactiveOptions(),
+        ...interactiveOptions(weatherEntity),
         grid_options: { ...SUGGESTION_GRID_OPTIONS },
       },
     },

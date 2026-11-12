@@ -265,10 +265,10 @@ function finishClose(dialog: HTMLDialogElement): void {
 /**
  * Opens a menu beside its button. Nothing happens for one already open or not on the page.
  *
- * The dialog gives focus to its first control, which is where a keyboard wants it. A press
- * moves it on to the menu itself, which draws no ring, before anything is painted: WebKit counts
- * the dialog's own choice as keyboard focus, and rang the first control after a press. Tab then
- * reaches the first control.
+ * The dialog gives focus to its first control, or to the one marked `autofocus`, which is where
+ * a keyboard wants it. A press moves it on to the menu itself, which draws no ring, before
+ * anything is painted: WebKit counts the dialog's own choice as keyboard focus, and rang the
+ * first control after a press. Tab then reaches the first control.
  *
  * @param dialog - The menu
  * @param opener - The button that opens it

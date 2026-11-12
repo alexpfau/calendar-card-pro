@@ -120,6 +120,16 @@ describe('right-to-left mirroring', () => {
       '.today-indicator-container:not(.inline) { left: 0 }',
       // One line that cannot wrap, sized to its own text, so its alignment moves nothing.
       '.time-countdown { text-align: right }',
+      // A title wrapping beside the time: the room for the time, the time over it and the room a
+      // cut keeps on the last line, each on the side named by the row's direction, which the card
+      // measures, because older supported browsers can neither float to the inline end nor ask
+      // :dir(). One rule per direction.
+      ".time-beside-title > .summary-row.title-wrap[data-title-fit='ltr'] > .summary > .title-room { float: right }",
+      ".time-beside-title > .summary-row.title-wrap[data-title-fit='rtl'] > .summary > .title-room { float: left }",
+      ".time-beside-title > .summary-row.title-wrap[data-title-fit='ltr'] > .title-aside { right: var(--calendar-card-title-row-room, 0px) }",
+      ".time-beside-title > .summary-row.title-wrap[data-title-fit='rtl'] > .title-aside { left: var(--calendar-card-title-row-room, 0px) }",
+      ".time-beside-title > .summary-row.title-wrap[data-title-fit='ltr'][data-title-cut=''] > .summary::before { float: right }",
+      ".time-beside-title > .summary-row.title-wrap[data-title-fit='rtl'][data-title-cut=''] > .summary::before { float: left }",
       // Grid keeps a title on the dashboard's side, one rule per direction.
       '.grid-event-disclosure .summary:dir(ltr) > .event-title { text-align: left }',
       '.grid-event-disclosure .summary:dir(rtl) > .event-title { text-align: right }',
@@ -163,6 +173,18 @@ describe('right-to-left mirroring', () => {
       // Source order is the fallback: the second declaration replaces the first only where it
       // parses. The other way round, inline-start would always lose.
       expect(declaredAll('.card-header', 'float')).toEqual(['left', 'inline-start']);
+    });
+
+    it('names no logical float or :dir() in the rules that place the time beside a title', () => {
+      // Chromium before 118 has no float to the inline end and before 120 no :dir(), nor Safari
+      // before 16.4, and the card supports browsers older than all three. A room floated by one
+      // and a time placed by the other sat on opposite sides of a right-to-left row.
+      const placing = RULES.filter((rule) => rule.selector.includes('.title-wrap'));
+      expect(placing.length).toBeGreaterThan(10);
+      for (const rule of placing) {
+        expect(rule.selector, rule.selector).not.toContain(':dir(');
+        expect(rule.body, rule.selector).not.toMatch(/float:\s*inline-|inset-inline/);
+      }
     });
 
     it('lets column and grid view drop the title margin in either direction', () => {

@@ -24,6 +24,7 @@ entities:
 | ------------------------ | ------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `entity`                 | string  | —                        | **Required.** The calendar entity ID                                                                                                                                                                                                                                                                                                                                     |
 | `name`                   | string  | Home Assistant's name    | The calendar's name on this card: in the calendar filter, the event popover, the "Couldn't load" line and the names grid view gives labels for screen readers. Never drawn on event rows. One per calendar, shared by every entry for it; see [Naming a Calendar in the Card](#naming-a-calendar-in-the-card)                                                            |
+| `show_in_legend`         | boolean | `true`                   | Whether the [calendar filter](/features/layout-appearance#leaving-a-calendar-out-of-the-filter) lists this calendar. `false` leaves it out, as a chip and in the menu, and its events always show. One per calendar, shared by every entry for it                                                                                                                        |
 | `label`                  | string  | `-`                      | Calendar label displayed before event titles. Supports text/emoji, MDI icons (`mdi:icon-name`), or images — any address, whether a file you saved (`/local/image.jpg`) or one Home Assistant serves (`/api/image/serve/…`). Accepts a person entity ID (`person.anna`) to show that person's picture, and `home-assistant` to follow this calendar's Home Assistant icon |
 | `label_type`             | string  | derived from `label`     | Forces how `label` is read: `none`, `text`, `icon` or `image`. Only needed when the value alone would be read as the wrong kind                                                                                                                                                                                                                                          |
 | `color`                  | string  | `event_color`            | Custom color for event titles from this calendar                                                                                                                                                                                                                                                                                                                         |
@@ -208,9 +209,9 @@ entities:
     label: /api/image/serve/5f2b9c0e7d14a6b38e90c1d2f4a7b6e3/512x512 # a picture, by address
 ```
 
-Find the address in **Developer Tools → States**: pick the entity and read its
-`entity_picture` attribute. A person's picture (`/api/image/serve/…`) loads with no further
-setup.
+Find the address in **Settings → Tools → States** (**Developer Tools** before Home Assistant
+2026.8, in the sidebar before 2026.2): pick the entity and read its `entity_picture` attribute. A
+person's picture (`/api/image/serve/…`) loads with no further setup.
 
 An address that carries a `token=` does not keep working as a label. A camera's frame is
 one: Home Assistant refuses the address without its token and replaces the token regularly.
@@ -646,6 +647,22 @@ is the one from the eligible entry listed **first** in `entities`, carrying that
 `color` and `accent_color`, so reordering `entities` changes which calendar's styling a shared
 event shows.
 
+`filter_duplicates: ignore_location` leaves the location out, matching on title, start and end
+alone. It suits holiday calendars, where one holiday in two regional calendars often differs
+only in location: Home Assistant's Holiday integration gives each holiday its calendar's name
+as the location, so `true` keeps both copies and `ignore_location` shows the holiday once:
+
+```yaml
+entities:
+  - calendar.holidays_bavaria # Listed first, so its copy, location included, is the one kept
+  - calendar.holidays_ticino
+filter_duplicates: ignore_location
+```
+
+Keep `true` where the location tells events apart, such as one title booked in two rooms at
+once. In the visual editor, **Filter Duplicates** offers the three values as **Off**, **Same
+title, start, end and location** and **Same title, start and end**.
+
 Weekday restrictions and all-day expiry are applied before choosing that winner. A calendar
 that excludes a date cannot remove another calendar's eligible copy:
 
@@ -666,7 +683,8 @@ calendar the event belongs to and take a color that marks it as shared; see
 ::: warning Matching Ignores Which Calendar an Event Came From
 Any two events that share a title, start, end and location are treated as duplicates, even if
 they are genuinely separate events and even if both live in the **same** calendar. Nothing is
-hidden merely for starting at the same time — all four fields must match.
+hidden merely for starting at the same time — all four fields must match, or the first three
+under `ignore_location`.
 
 If events start disappearing unexpectedly, set `filter_duplicates: false` to confirm whether
 this option is the cause.
@@ -1163,6 +1181,45 @@ layouts never loads anything. The rest of the card follows the layout on screen:
 **→ [Column View](/features/column-view)** — what column may override, and what it ignores.
 **→ [Grid View](/features/grid-view)** — the same for the time grid.
 **→ [List-Only Options in the configuration reference](/reference/configuration#list-only-options)** — the five options only list reads.
+
+## 🌐 Language
+
+`language` sets the language the card writes in. Unset, or set to one the card does not speak,
+the card follows your Home Assistant profile, and falls back to English where it does not speak
+that either.
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.family
+language: de
+```
+
+| Option     | Type   | Default                   | Description                                             |
+| ---------- | ------ | ------------------------- | ------------------------------------------------------- |
+| `language` | string | Home Assistant's, or `en` | A language code, such as `de`, `nb`, `zh-cn` or `en-gb` |
+
+- Dates, weekdays, months and words such as "Now", "Today", "tomorrow" and "in 3 hours" come
+  from your browser in the card's language, so they need no translation.
+- Where your browser has no data for that language, those words follow one rule: Nynorsk reads
+  in Bokmål, and any other language in English, as the card's own words do. Chrome, as tested,
+  has none for Icelandic or Nynorsk.
+- The date in a multi-day event's end, as in "until Friday, 19 Jun", is the one exception: where
+  the browser has no data for the language, the card writes that date from its own month names,
+  so it stays in the card's language.
+- The event popover follows your Home Assistant profile's language instead, since its words are
+  Home Assistant's own; see [Words & Language](/features/actions#words-language).
+
+::: details When Home Assistant Itself Is in Icelandic or Nynorsk
+
+Where the browser has no data for the language Home Assistant starts in, Home Assistant replaces
+the browser's date formatting with its own, holding that language alone, and every card on the
+dashboard writes through it. The card loads its own language into it from Home Assistant, the
+same way Home Assistant loads its own, and redraws once it has: a German card shows "Jetzt",
+not "Núna". Until then, or if Home Assistant cannot serve the file, the card shows what it
+showed before.
+
+:::
 
 ## 🧭 Column View
 

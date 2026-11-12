@@ -104,15 +104,21 @@ describe("an event's text in right-to-left", () => {
   });
 
   it.each([
-    ['.summary:not(:only-child)', 'the title, when a badge shares its row'],
-    ['.time', 'the time row'],
-    ['.location', 'the location row'],
-    ['.description', 'the description row'],
-  ])('keeps the 12px gutter of %s (%s) at its inline end', (selector) => {
+    // 12px from its text: the title's box keeps 0.125em of room inside each inline edge, which
+    // its margin gives back (marks-beyond-line.test.ts).
+    [
+      '.summary:not(:only-child)',
+      'the title, when a badge shares its row',
+      'calc(12px - var(--calendar-card-summary-inline-room))',
+    ],
+    ['.time', 'the time row', '12px'],
+    ['.location', 'the location row', '12px'],
+    ['.description', 'the description row', '12px'],
+  ])('keeps the 12px gutter of %s (%s) at its inline end', (selector, _name, gutter) => {
     const values = textBlockRules
       .filter((rule) => rule.selector === selector)
       .map(({ body }) => declaredIn(body, 'margin-inline-end'))
       .filter(Boolean);
-    expect(values).toEqual(['12px']);
+    expect(values).toEqual([gutter]);
   });
 });

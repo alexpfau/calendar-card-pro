@@ -196,10 +196,16 @@ describe('the chassis draws exactly the forms subforms.ts declares', () => {
         (form) => !form.closest('ha-expansion-panel'),
       );
 
+      // Quick Setup's forms are drawn only while it is open, one step at a time; the test below
+      // walks them.
       expect(
         outside.map((form) => form.schema),
         view,
-      ).toEqual(chassisSubforms().map((subform) => subform.schema));
+      ).toEqual(
+        chassisSubforms()
+          .filter((subform) => subform.path.length === 0)
+          .map((subform) => subform.schema),
+      );
       editor.remove();
     }
   });
@@ -214,14 +220,21 @@ describe('displayed view and editing workspace are separate controls', () => {
     expect(controls[1].computeLabel(controls[1].schema[0])).toBe('Editing Settings For');
     expect(
       [...editor.shadowRoot!.querySelector('.card-config')!.children]
-        .slice(0, 2)
+        .slice(0, 3)
         .map((el) => el.className),
-    ).toEqual(['view-controls', 'filter-bar']);
+    ).toEqual(['quick-setup-entry', 'view-controls', 'filter-bar']);
     expect(chassisSubforms().flatMap((subform) => names(subform.schema))).toEqual([
       'view',
       WORKSPACE_FIELD,
       'search',
       'customized_only',
+      'essentials_only',
+      'card_title',
+      'card_calendars',
+      'weather_entity',
+      'show_toolbar',
+      'event_details',
+      'day_adds',
     ]);
     expect(forms(editor, 'ha-form.panel-form').flatMap((form) => names(form.schema))).not.toContain(
       'view',

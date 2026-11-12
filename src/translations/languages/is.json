@@ -13,6 +13,7 @@
   "allDay": "Allur dagurinn",
   "multiDay": "þar til",
   "at": "kl",
+  "separator": ", ",
   "viewList": "Listi",
   "viewColumns": "Dálkar",
   "viewGrid": "Tímatafla",
@@ -22,5 +23,7 @@
   "loading": "Hleður inn dagatal...",
   "error": "Villa: Dagatalseining finnst ekki eða er vanstillt",
   "loadFailed": "Tókst ekki að hlaða inn:",
-  "newEvent": "Nýr viðburður"
+  "newEvent": "Nýr viðburður",
+  "showAll": "Sýna öll",
+  "hideAll": "Fela öll"
 }

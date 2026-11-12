@@ -5,6 +5,7 @@
   "allDay": "ceo dan",
   "multiDay": "do",
   "at": "u",
+  "separator": ", ",
   "viewList": "Lista",
   "viewColumns": "Kolone",
   "viewGrid": "Mreža",
@@ -14,5 +15,7 @@
   "loading": "Učitavanje događaja iz kalendara...",
   "error": "Greška: Entitet kalendara nije pronađen ili je neispravno konfigurisan",
   "loadFailed": "Neuspešno učitavanje:",
-  "newEvent": "Novi događaj"
+  "newEvent": "Novi događaj",
+  "showAll": "Prikaži sve",
+  "hideAll": "Sakrij sve"
 }

@@ -362,8 +362,9 @@ Here `legend: chips` hides Anna's events and then Ben's, and a press on Ben's ch
 By default, `legend: menu`, it is a button at the start of the top row that opens a menu with a
 checkbox for each calendar, tinted in that calendar's color and named by its
 [`name`](/features/core-settings#naming-a-calendar-in-the-card) where it has one, and as Home
-Assistant names it otherwise. `legend: chips` shows a chip for each calendar instead, in the
-month's row under the view switcher, and `legend: false` takes the filter away:
+Assistant names it otherwise, under a **Show all** and a **Hide all** button. `legend: chips`
+shows a chip for each calendar instead, in the month's row under the view switcher, and
+`legend: false` takes the filter away:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -381,6 +382,10 @@ toolbar:
 
 - **Each chip is a switch.** A press hides that calendar's events and turns its chip gray, and
   another press shows them again.
+- **Show all and Hide all** sit above the calendars in the menu, so one calendar can be shown
+  alone in two presses: Hide all, then that calendar's checkbox. They come with every menu, the
+  one chips fold into included, and never sit among the chips. Each is dimmed while it has
+  nothing to change.
 - **The chips show only where all of them fit** between the month and the arrows. Where they do
   not, the card draws exactly what `legend: menu` draws, never some of the chips, and they come
   back once the card is wide enough again, as when a tablet is turned.
@@ -408,6 +413,8 @@ layouts keep them.
 
 - A calendar listed twice, such as one split by `event_type`, is listed once, in the color of its
   first entry.
+- A calendar can be left out of the filter altogether; see
+  [Leaving a Calendar Out of the Filter](#leaving-a-calendar-out-of-the-filter).
 - A long name is cut short on its chip with an ellipsis, and shows in full as the chip's tooltip.
 - Two cards with the same configuration share their hidden calendars, and a press on either
   changes both at once, in other tabs and windows of the same browser too.
@@ -417,6 +424,48 @@ layouts keep them.
 ::: tip Nothing Hides While You Edit
 In the card editor's preview, and on a dashboard in edit mode, every calendar is shown, and the
 chips and the filter button do nothing.
+:::
+
+### Leaving a Calendar Out of the Filter
+
+`show_in_legend: false` leaves one calendar out of the calendar filter, for a calendar that is on
+the card to be seen rather than filtered. It takes no chip and no row in the menu, and its events
+always show, Hide all included, since nothing is left that could hide them.
+
+```yaml
+type: custom:calendar-card-pro
+title: Family
+entities:
+  - entity: calendar.anna
+    accent_color: '#e53935'
+  - entity: calendar.ben
+    accent_color: '#1e88e5'
+  - entity: calendar.school_holidays
+    accent_color: '#1e88e5'
+    show_in_legend: false
+toolbar:
+  show: true
+  legend: chips
+```
+
+| Option           | Type    | Default | Description                                                                                                                                   |
+| ---------------- | ------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `show_in_legend` | boolean | `true`  | Set on one calendar in `entities`. `false` leaves that calendar out of the calendar filter, as a chip and in the menu; its events always show |
+
+Here the filter has a chip for Anna and one for Ben, and the school holidays are drawn in Ben's
+blue without a chip of their own.
+
+- **Its events always show,** even on a device that hid the calendar before it was left out.
+- **A card whose every calendar is left out has no filter,** exactly as with `legend: false`.
+- **In the visual editor** it is the **Show in Calendar Filter** switch under each calendar's
+  **Name**, offered while the toolbar shows a filter.
+
+::: details Calendars Listed Twice
+
+The setting belongs to the calendar, not to one entry in `entities`. The
+[visual editor](/features/editor#per-calendar-panels-actions) writes it to every entry for that
+calendar, and in YAML the first entry that sets it wins.
+
 :::
 
 ### Resetting the Card
@@ -632,7 +681,8 @@ next time the panel opens.
 - Page elsewhere before the result's day has loaded, and nothing is ringed when you come back
   to it.
 - Every word the panel shows is Home Assistant's own, in its language. On a phone the panel is a
-  sheet from the bottom of the screen.
+  sheet from the bottom of the screen, and while you type it stands on the on-screen keyboard,
+  the field and the results above the keys. Held sideways, it moves up out of the keyboard's way.
 
 :::
 

@@ -5,10 +5,12 @@
  * dialog manager (`show-dialog` with this element's tag), which gives it Back to close and puts
  * focus back on the magnifier that opened it, and drawn as a native modal `<dialog>` in the top
  * layer, hanging below the magnifier with its beak pointing up at it, or as a sheet from the
- * bottom of a narrow screen, in the popover's glass and palette. The field is its first cell and
- * the results are cells under it, grouped by month: upcoming first, then a thin rule and the
- * past, dimmed. What it finds comes from the card (`SearchSource`), which loads a year back and
- * a year ahead once the panel opens and tells the panel as each calendar answers.
+ * bottom of a narrow screen, in the popover's glass and palette. While its field has the focus it
+ * keeps the field and the results above an on-screen keyboard, read as the shell reads it for the
+ * event popover (`_keepInView`). The field is its first cell and the results are cells under it,
+ * grouped by month: upcoming first, then a thin rule and the past, dimmed. What it finds comes
+ * from the card (`SearchSource`), which loads a year back and a year ahead once the panel opens
+ * and tells the panel as each calendar answers.
  *
  * The field is a combobox and the results its listbox, as the WAI-ARIA Authoring Practices
  * describe one: Down and Up move through the results while focus stays in the field, Enter
@@ -102,6 +104,114 @@ const MIN_ROOM = 240;
 /** How long typing has to pause before the count is announced, as in Home Assistant's search. */
 const ANNOUNCE_AFTER_MS = 500;
 
+//-----------------------------------------------------------------------------
+// PLACING
+//-----------------------------------------------------------------------------
+
+/**
+ * Where the panel hangs from the magnifier, decided as it opens (`hangFrom`): its place then,
+ * and the room it keeps on its side of the magnifier (`hangIn`).
+ */
+export interface Hang {
+  /**
+   * Where it opened: below the magnifier, its beak pointing up at it; above it, its beak
+   * pointing down, with the top a panel `keeps` tall would have, its foot at the magnifier; or at
+   * the top of the screen with no magnifier to hang from.
+   */
+  opened: Shell.Placement;
+  /** The room it opened with on its side of the magnifier, up to `MIN_ROOM`. */
+  keeps: number;
+}
+
+/** Where the panel stands in the part of the screen in sight now (`hangIn`). */
+export interface Hung {
+  /** Its place; for a panel above the magnifier, `top` is its foot, which it grows up from. */
+  place: Shell.Placement;
+  /** The tallest it may grow. */
+  maxHeight: number;
+  /** For a panel above the magnifier, how far its foot stands above the foot of the screen. */
+  bottom?: number;
+}
+
+/**
+ * Hangs the panel below the magnifier, its beak pointing up at it, to grow down to the foot of
+ * the part of the screen in sight, scrolling its results inside. Where there is too little room
+ * below and more above, it opens above the magnifier and grows up from it instead, its foot held
+ * there. Without a press to hang from, it stands centered at the top.
+ *
+ * @param anchor - The magnifier's press
+ * @param hang - Which way it hangs from the magnifier
+ * @param width - The screen's width
+ * @param room - The part of the screen in sight
+ * @returns Where it hangs
+ */
+export function hangFrom(
+  anchor: Model.PopoverAnchor | undefined,
+  hang: 'left' | 'right' | undefined,
+  width: number,
+  room: Shell.Room,
+): Hang {
+  if (!anchor) {
+    const { left } = Shell.placeAt(
+      undefined,
+      MIN_ROOM,
+      { width, height: room.bottom },
+      PANEL_WIDTH,
+    );
+    const below = room.bottom - room.top - 2 * Shell.MARGIN;
+    return { opened: { left, top: room.top + Shell.MARGIN }, keeps: kept(below) };
+  }
+  const rect = anchor.rect ?? { left: anchor.x, right: anchor.x, top: anchor.y, bottom: anchor.y };
+  const { left, at } = Shell.hangBelow(rect, PANEL_WIDTH, width, hang);
+  const below = room.bottom - rect.bottom - Shell.BELOW_GAP - Shell.MARGIN;
+  const above = rect.top - Shell.BELOW_GAP - Shell.MARGIN - room.top;
+  if (below < MIN_ROOM && above > below) {
+    const keeps = kept(above);
+    const foot = rect.top - Shell.BELOW_GAP;
+    return { opened: { left, top: foot - keeps, arrow: { side: 'bottom', at } }, keeps };
+  }
+  return {
+    opened: { left, top: rect.bottom + Shell.BELOW_GAP, arrow: { side: 'top', at } },
+    keeps: kept(below),
+  };
+}
+
+/**
+ * The room a panel keeps on its side of the magnifier: what it opened with, up to `MIN_ROOM`.
+ *
+ * @param room - The room it opened with
+ * @returns The room it keeps
+ */
+function kept(room: number): number {
+  return Math.min(MIN_ROOM, Math.max(0, room));
+}
+
+/**
+ * Where a hanging panel stands in the part of the screen in sight now: where it opened, reaching
+ * to the foot of what is in sight below the magnifier, or to its top above it. Where an on-screen
+ * keyboard leaves it less room there than it keeps, it moves away from the magnifier as far as it
+ * must to keep that room (`keepInView`), and no further, so where it stands depends on what is
+ * in sight alone, not on how many results it lists.
+ *
+ * @param hung - Where it hangs (`hangFrom`)
+ * @param room - The part of the screen in sight now
+ * @param height - The screen's height
+ * @returns Where it stands
+ */
+export function hangIn(hung: Hang, room: Shell.Room, height: number): Hung {
+  const { opened, keeps } = hung;
+  const { left, top, arrow } = Shell.keepInView(opened, keeps, keeps, room);
+  if (arrow?.side === 'bottom') {
+    const foot = Math.min(top + keeps, room.bottom - Shell.MARGIN);
+    return {
+      place: { left, top: foot, arrow },
+      maxHeight: Math.max(0, foot - room.top - Shell.MARGIN),
+      bottom: height - foot,
+    };
+  }
+  return { place: { left, top, arrow }, maxHeight: Math.max(0, room.bottom - Shell.MARGIN - top) };
+}
+
 /** Home Assistant's strings, and the English each falls back to for assistive technology alone. */
 const T = {
   search: ['ui.common.search', 'Search'],
@@ -134,8 +244,10 @@ export class SearchPanel extends Shell.PopoverShell {
   @state() private _active?: string;
   /** What the status region says: the count, once typing pauses. */
   @state() private _status = '';
-  /** The room the panel has, beside its anchor, and where its foot is held when it opens above. */
-  @state() private _room?: { maxHeight: number; bottom?: number };
+  /** Where the panel hangs from the magnifier, decided as it opens (`hangFrom`). */
+  private _hang?: Hang;
+  /** For a panel above the magnifier, how far its foot stands above the foot of the screen. */
+  @state() private _foot?: number;
   /** Bumped when the card says what it finds changed, so the results are read again. */
   @state() private _version = 0;
 
@@ -161,7 +273,8 @@ export class SearchPanel extends Shell.PopoverShell {
     this._term = '';
     this._active = undefined;
     this._status = '';
-    this._room = undefined;
+    this._hang = undefined;
+    this._foot = undefined;
     detach?.();
   }
 
@@ -187,7 +300,9 @@ export class SearchPanel extends Shell.PopoverShell {
     this._active = undefined;
     this._status = '';
     this._place = undefined;
-    this._room = undefined;
+    this._hang = undefined;
+    this._foot = undefined;
+    this._maxHeight = undefined;
     this._detach = params.source.attach({
       changed: () => this._changed(),
       close: () => this._close(),
@@ -217,45 +332,31 @@ export class SearchPanel extends Shell.PopoverShell {
   //---------------------------------------------------------------------------
 
   /**
-   * Hangs the panel below the magnifier, its beak pointing up at it, and lets it grow down to the
-   * foot of the viewport, scrolling its results inside. Where there is too little room below and
-   * more above, it opens above the magnifier and grows up from it instead, its foot held there. On
-   * a narrow screen it is a sheet from the bottom, as the event popover is.
+   * Hangs the panel from the magnifier (`hangFrom`), in the part of the screen in sight; on a
+   * narrow screen the shell makes it a sheet from the bottom instead, as the event popover is,
+   * which stands on an on-screen keyboard while the field has the focus.
+   *
+   * @param room - The part of the screen in sight
+   * @param width - The screen's width
    */
-  protected _position(): void {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    this._sheet = width < Shell.SHEET_BELOW_PX;
-    if (this._sheet) {
-      this._place = undefined;
-      this._room = undefined;
-      return;
-    }
+  protected _placeBeside(room: Shell.Room, width: number): void {
+    this._hang = hangFrom(this._params?.anchor, this._params?.hang, width, room);
+    this._keepBeside(room);
+  }
 
-    const anchor = this._params?.anchor;
-    if (!anchor) {
-      const { left } = Shell.placeAt(undefined, MIN_ROOM, { width, height }, PANEL_WIDTH);
-      this._place = { left, top: Shell.MARGIN };
-      this._room = { maxHeight: height - 2 * Shell.MARGIN };
-      return;
-    }
-
-    const rect = anchor.rect ?? {
-      left: anchor.x,
-      right: anchor.x,
-      top: anchor.y,
-      bottom: anchor.y,
-    };
-    const { left, at } = Shell.hangBelow(rect, PANEL_WIDTH, width, this._params?.hang);
-    const below = height - rect.bottom - Shell.BELOW_GAP - Shell.MARGIN;
-    const above = rect.top - Shell.BELOW_GAP - Shell.MARGIN;
-    if (below < MIN_ROOM && above > below) {
-      this._place = { left, top: rect.top - Shell.BELOW_GAP, arrow: { side: 'bottom', at } };
-      this._room = { maxHeight: above, bottom: height - (rect.top - Shell.BELOW_GAP) };
-    } else {
-      this._place = { left, top: rect.bottom + Shell.BELOW_GAP, arrow: { side: 'top', at } };
-      this._room = { maxHeight: Math.max(0, below) };
-    }
+  /**
+   * Keeps the hanging panel in sight as an on-screen keyboard comes and goes (`hangIn`), so the
+   * field and its results stay above the keys while the field has the focus.
+   *
+   * @param room - The part of the screen in sight now
+   */
+  protected _keepBeside(room: Shell.Room): void {
+    const hang = this._hang;
+    if (!hang) return;
+    const { place, maxHeight, bottom } = hangIn(hang, room, window.innerHeight);
+    if (!Shell.samePlace(place, this._place)) this._place = place;
+    this._maxHeight = maxHeight;
+    this._foot = bottom;
   }
 
   //---------------------------------------------------------------------------
@@ -418,14 +519,14 @@ export class SearchPanel extends Shell.PopoverShell {
     if (!params) return html`<dialog></dialog>`;
 
     const place = this._place;
-    const room = this._room;
+    const foot = this._foot;
     const dialogStyle =
-      place && room?.bottom !== undefined
-        ? `left:${place.left}px;top:auto;bottom:${room.bottom}px;`
-        : Shell.placedStyle(this._sheet, place);
+      place && foot !== undefined
+        ? `left:${place.left}px;top:auto;bottom:${foot}px;`
+        : Shell.placedStyle(this._sheet, place, this._lift);
     const panelStyle = [
       `--past-opacity:${params.pastOpacity}`,
-      room ? `max-height:${room.maxHeight}px` : '',
+      this._maxHeight !== undefined ? `max-height:${this._maxHeight}px` : '',
       place?.arrow ? `transform-origin:${Shell.arrowPoint(place.arrow)}` : '',
     ]
       .filter((part) => part !== '')
@@ -438,7 +539,7 @@ export class SearchPanel extends Shell.PopoverShell {
 
     return html`
       <dialog
-        class="${params.dark ? 'dark' : 'light'} ${this._sheet ? 'sheet' : 'popover'}"
+        class="${params.dark ? 'dark' : 'light'} ${this._sheet ? 'sheet' : 'popover'}${this._lift > 0 ? ' lifted' : ''}"
         ?data-placed=${this._sheet || !!place}
         style=${dialogStyle}
         aria-label=${this._named('search')}
@@ -656,8 +757,10 @@ export class SearchPanel extends Shell.PopoverShell {
       overflow: hidden;
       gap: 8px;
     }
-    /* A sheet opens at its full height, so the field stands high on a phone's screen, above
-       the keyboard that typing into it raises. */
+    /* A sheet opens at its full height, so the field stands high on a phone's screen. Over the
+       on-screen keyboard that typing into it raises, the sheet stands on the keys, no taller
+       than the room they leave (the shell's inline max-height), so the field and the results
+       stay above them. */
     .sheet .panel.search {
       width: 100%;
       height: 85vh;
@@ -671,6 +774,13 @@ export class SearchPanel extends Shell.PopoverShell {
     }
     .field:focus-within {
       box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 55%, transparent);
+    }
+    /* Without color-mix() (Safari before 16.2) the ring above is no ring at all, as the
+       popover's focus rings are not; a thinner one in the solid accent stands in, as there. */
+    @supports not (color: color-mix(in srgb, red, blue)) {
+      .field:focus-within {
+        box-shadow: 0 0 0 2px var(--accent);
+      }
     }
     /* The magnifier, and in its place, once the year has been loading for a second, a spinner.
        A load that ends sooner, as most do, shows the magnifier alone: until then the search
@@ -797,6 +907,16 @@ export class SearchPanel extends Shell.PopoverShell {
     }
     .result[aria-selected='true'] {
       background: color-mix(in srgb, var(--accent) 18%, var(--cell));
+    }
+    /* Without color-mix() (Safari before 16.2) the tint above is invalid once its var() is
+       substituted, which leaves the selected result with no background at all, and so less
+       marked than its neighbors. It keeps the cell's own background there, ringed inside in
+       the accent, which is what the arrow keys need to see. */
+    @supports not (color: color-mix(in srgb, red, blue)) {
+      .result[aria-selected='true'] {
+        background: var(--cell);
+        box-shadow: inset 0 0 0 2px var(--accent);
+      }
     }
     .past .result > * {
       opacity: var(--past-opacity, 0.6);

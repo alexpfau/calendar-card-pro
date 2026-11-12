@@ -13,6 +13,7 @@ import * as EntityColors from '../utils/entity-colors';
 import * as EventUtils from '../utils/events';
 import * as FormatUtils from '../utils/format';
 import * as Helpers from '../utils/helpers';
+import * as TextDirection from '../utils/text-direction';
 
 /**
  * Everything about a single event that is independent of the view rendering it.
@@ -84,9 +85,10 @@ export function buildEventPresentation(
     // as UTC, which lands a day early for every user behind UTC. Both halves are
     // pinned in `tests/past-empty-day-opacity.dst.test.ts`.
     //
-    // Derived at render time, like real-event dimming. No midnight timer is added, so a
-    // notice changes state on the next ordinary repaint after its date ends rather than
-    // exactly at midnight.
+    // Derived at render time, like real-event dimming. A visible list or column card is
+    // rendered at local midnight by the clock repaint (`_nextClockRepaint`), so a notice dims
+    // then, with no update from Home Assistant; a hidden tab catches up when it is shown.
+    // `tests/clock-repaint.dst.test.ts` pins it. Grid draws no notice.
     isPastEvent = event.start.date ? FormatUtils.parseAllDayDate(event.start.date) < today : false;
   } else {
     const isAllDayEvent = !event.start.dateTime;
@@ -258,7 +260,7 @@ export function buildEventPresentation(
 
   const eventTime = allDayBadge
     ? eventTimeParts.text
-    : FormatUtils.joinEventTimeParts(eventTimeParts);
+    : FormatUtils.joinEventTimeParts(eventTimeParts, language);
   // `show_location_allday` and `show_description_allday` decide these; see `shownRowText`.
   const { location: eventLocation, description: eventDescription } = shownRowText(event, config);
 
@@ -285,6 +287,7 @@ export function buildEventPresentation(
     countdownStr,
     progressPercentage,
     nowLabel,
+    languageMark: TextDirection.languageMark(language, hass),
   };
 
   return {

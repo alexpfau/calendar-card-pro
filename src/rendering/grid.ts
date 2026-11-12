@@ -25,9 +25,11 @@ import * as Presentation from './presentation';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
 import * as Localize from '../translations/localize';
+import * as ColorMix from '../utils/color-mix';
 import * as FormatUtils from '../utils/format';
 import * as Grid from '../utils/grid';
 import * as CascadeThreshold from '../utils/grid-cascade-threshold';
+import * as TextDirection from '../utils/text-direction';
 
 //-----------------------------------------------------------------------------
 // EVENT SORTING
@@ -185,7 +187,7 @@ function renderGridSeparator(
         gridColumn: String(columnIndex + 2),
         gridRow: '3 / span 2',
         width: separator.width,
-        '--calendar-card-grid-rule-paint': separator.color,
+        '--calendar-card-grid-rule-paint': ColorMix.floorColor(separator.color),
         marginInlineStart: `calc(-0.5 * (${gap} + ${separator.width}))`,
       })}
     ></div>
@@ -265,7 +267,7 @@ function renderGridBoundary(
         gridRow: String(row),
         alignSelf,
         height: width,
-        '--calendar-card-grid-rule-paint': color,
+        '--calendar-card-grid-rule-paint': ColorMix.floorColor(color),
       })}
     ></div>
   `;
@@ -310,7 +312,7 @@ function renderGridEndRule(color: string): TemplateResult {
         gridColumn: '2 / -1',
         gridRow: '4',
         alignSelf: 'end',
-        '--calendar-card-grid-rule-paint': color,
+        '--calendar-card-grid-rule-paint': ColorMix.floorColor(color),
       })}
     ></div>
   `;
@@ -351,14 +353,20 @@ function renderGridEndRule(color: string): TemplateResult {
  * Painted behind everything by being a plain grid item: banners, blocks and rules are
  * either positioned or carry a `z-index`, so they all paint later whatever the DOM order.
  *
+ * While today's own tint paints, today leaves the run, and a run breaks there: today's tint
+ * replaces the weekend one rather than stacking on it, which two translucent colors would
+ * otherwise do. The gutter beside today then stays clear, as it does beside a weekday.
+ *
  * @param days - Days on screen, in order
  * @param hass - Home Assistant instance, whose country decides which days are the weekend,
  *   or its language when no country is set
+ * @param todayIndex - Today's position in `days` when today carries a tint of its own, or -1
  * @returns One stripe per run of adjacent weekend days
  */
 function renderWeekendStripes(
   days: Types.EventsByDay[],
   hass?: Types.Hass | null,
+  todayIndex = -1,
 ): TemplateResult[] {
   const runs: Array<{ start: number; span: number }> = [];
 
@@ -366,6 +374,10 @@ function renderWeekendStripes(
     const date = new Date(day.timestamp);
 
     if (!FormatUtils.isWeekendDate(date, hass)) {
+      return;
+    }
+
+    if (index === todayIndex) {
       return;
     }
 
@@ -391,6 +403,68 @@ function renderWeekendStripes(
       ></div>
     `,
   );
+}
+
+/**
+ * Render today's tint: one stripe down today's column.
+ *
+ * The weekend stripe's twin, on the same rows and the same rung of the painting ladder, so
+ * it runs from under the date row through the all-day band and down the hours, beneath the
+ * rules, the now line and the blocks. One column wide by definition, so it never reaches
+ * into a gutter.
+ *
+ * @param todayIndex - Today's position among the days on screen
+ * @returns Today's stripe
+ */
+function renderTodayStripe(todayIndex: number): TemplateResult {
+  return html`
+    <div
+      class="grid-today"
+      aria-hidden="true"
+      style=${styleMap({ gridColumn: `${todayIndex + 2} / span 1`, gridRow: '3 / span 2' })}
+    ></div>
+  `;
+}
+
+/**
+ * Render the column tints the grid paints behind everything: the weekend's, then today's.
+ *
+ * One binding for both, so a card with today's tint off renders exactly the markup it
+ * rendered before the option existed.
+ *
+ * Today is found once, here, and handed to both passes, so a render straddling midnight
+ * cannot leave a day in a weekend run and under today's stripe at once. It is read from the
+ * clock rather than from the render's `now`, as the `today` class on the day's header and
+ * body is, because the raised blocks' backdrops repaint today's tint by that class: the
+ * stripe and the class have to name the same day. The card's midnight repaint moves both.
+ *
+ * @param days - Days on screen, in order
+ * @param hass - Home Assistant instance, which decides the weekend
+ * @param weekendTint - Resolved `weekend_background_color`
+ * @param todayTint - Resolved `today_background_color`
+ * @returns The stripes, or `nothing` when neither tint paints
+ */
+function renderDayTints(
+  days: Types.EventsByDay[],
+  hass: Types.Hass | null | undefined,
+  weekendTint: string,
+  todayTint: string,
+): TemplateResult[] | typeof nothing {
+  const weekend = paintsSomething(weekendTint);
+  const today = paintsSomething(todayTint);
+
+  if (!weekend && !today) {
+    return nothing;
+  }
+
+  const todayIndex = today
+    ? days.findIndex((day) => Leaves.classifyDay(day.timestamp).isToday)
+    : -1;
+
+  return [
+    ...(weekend ? renderWeekendStripes(days, hass, todayIndex) : []),
+    ...(todayIndex === -1 ? [] : [renderTodayStripe(todayIndex)]),
+  ];
 }
 
 /**
@@ -603,10 +677,11 @@ function ruleProperties(
   const slotOffsetPct =
     (((slotMinutes - (band.startMin % slotMinutes)) % slotMinutes) / bandLength) * 100;
   const hourOffsetPct = (((60 - (band.startMin % 60)) % 60) / bandLength) * 100;
+  const rule = ColorMix.floorColor(ruleColor);
 
   return {
-    '--calendar-card-grid-rule-color': ruleColor,
-    '--calendar-card-grid-slot-color': slotMinutes < 60 ? ruleColor : 'transparent',
+    '--calendar-card-grid-rule-color': rule,
+    '--calendar-card-grid-slot-color': slotMinutes < 60 ? rule : 'transparent',
     '--calendar-card-grid-slot-pct': `${slotPct}%`,
     '--calendar-card-grid-hour-pct': `${hourPct}%`,
     '--calendar-card-grid-slot-offset': `${slotOffsetPct}%`,
@@ -830,9 +905,9 @@ function renderTimedEvent(
   const underWay = nowMin !== null && event.startMin <= nowMin && nowMin < event.endMin;
 
   // A raised block hides what is beneath it, and it does so with a backdrop of its own,
-  // drawn just before it in the same box: the card, the weekend tint and the hour rules,
-  // rebuilt so the block's ordinary translucent tint lands on what a block standing alone
-  // would have under it. Same color, same lines, and nothing of the block beneath. The
+  // drawn just before it in the same box: the card, the weekend or today tint and the hour
+  // rules, rebuilt so the block's ordinary translucent tint lands on what a block standing
+  // alone would have under it. Same color, same lines, and nothing of the block beneath. The
   // block itself is then filled like any other, and its outline reads the accent bar's
   // color. See `.grid-event-backdrop`.
   const backdrop = horizontal.raised
@@ -1036,6 +1111,7 @@ function gridTimedEventContentParts(
  * @param placement - Where it sits in the band
  * @param edges - What lies against its upper and lower edges
  * @param horizontal - Where it sits across the column
+ * @param mark - The card language's mark, from `TextDirection.languageMark`
  * @returns Rendered overflow block
  */
 function renderOverflow(
@@ -1043,11 +1119,14 @@ function renderOverflow(
   placement: Grid.EventPlacement,
   edges: Grid.BlockEdges,
   horizontal: BlockHorizontal,
+  mark: TextDirection.LanguageMark,
 ): TemplateResult {
   // A bare numeral, deliberately. No card translation carries a "+N more" phrase, and
   // adding one would mean a new key in all 35 language files for a label that reads the
-  // same in every one of them. The hidden summaries are on the title attribute.
-  const label = `+${overflow.hidden.length}`;
+  // same in every one of them. The hidden summaries are on the title attribute. Its sign
+  // still sides with the line it is on, so a card whose language runs against the dashboard
+  // marks it, or "+2" reads "2+".
+  const label = TextDirection.inLanguageDirection(`+${overflow.hidden.length}`, mark);
 
   return html`
     <div
@@ -1416,6 +1495,7 @@ export function renderGridGroupedEvents(
   const maxRows = ViewConfig.resolveTimeGridOption(config, 'allday_band_max_rows');
   const headerGap = ViewConfig.resolveTimeGridOption(config, 'day_header_gap');
   const weekendTint = ViewConfig.resolveTimeGridOption(config, 'weekend_background_color');
+  const todayTint = ViewConfig.resolveTimeGridOption(config, 'today_background_color');
   const hourLineWidth = ViewConfig.resolveTimeGridOption(config, 'hour_line_width');
   const hourLineColor = ViewConfig.resolveTimeGridOption(config, 'hour_line_color');
 
@@ -1585,13 +1665,19 @@ export function renderGridGroupedEvents(
         // reachable at all.
         '--calendar-card-grid-rule-width': hourLineWidth,
         ...ruleProperties(band, slotMinutes, hourLineColor),
-        // Written only when it paints something, so the stylesheet's transparent fallback
-        // is the off state rather than a placeholder. `transparent` and `none` are how a
-        // user turns the shading off, and both are cheaper to drop here than to paint.
-        ...(paintsSomething(weekendTint) ? { '--calendar-card-grid-weekend': weekendTint } : {}),
+        // Both tints are written only when they paint something, so the stylesheet's
+        // transparent fallback is the off state rather than a placeholder. `transparent` and
+        // `none` are how a user turns either off, and both are cheaper to drop here than to
+        // paint.
+        ...(paintsSomething(weekendTint)
+          ? { '--calendar-card-grid-weekend': ColorMix.floorColor(weekendTint) }
+          : {}),
+        ...(paintsSomething(todayTint)
+          ? { '--calendar-card-grid-today': ColorMix.floorColor(todayTint) }
+          : {}),
       })}
     >
-      ${paintsSomething(weekendTint) ? renderWeekendStripes(gridDays, hass) : nothing}
+      ${renderDayTints(gridDays, hass, weekendTint, todayTint)}
       ${renderWeekNumbers(gridDays, config)}
       ${gridDays.map((day, index) =>
         renderDayHeader(
@@ -1932,7 +2018,13 @@ function renderDayBody(
           const placement = Grid.computeEventPlacement(overflow.startMin, overflow.endMin, band);
 
           return placement
-            ? renderOverflow(overflow, placement, edges[blocks.length + index], horizontal)
+            ? renderOverflow(
+                overflow,
+                placement,
+                edges[blocks.length + index],
+                horizontal,
+                TextDirection.languageMark(language, hass),
+              )
             : nothing;
         })}
       </div>

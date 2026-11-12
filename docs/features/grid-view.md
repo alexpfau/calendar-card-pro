@@ -334,6 +334,36 @@ Saturday and Sunday read as one block rather than as two stripes. It never spill
 beside a weekday, and a window that shows only one half of a weekend tints only that column.
 :::
 
+## 📍 Shading Today
+
+`today_background_color` tints today's column the way the weekend shading tints a weekend's, so
+today stands out before you read a single date.
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_today.png" alt="A Monday-to-Sunday week in grid view on a Wednesday: Wednesday's column tinted from under the date row to the foot of the hours, with the now line across it, and Saturday and Sunday in the weekend's own gray"><br>
+
+It is off by default, and any CSS color turns it on:
+
+```yaml
+time_grid:
+  today_background_color: 'color-mix(in srgb, var(--primary-color) 12%, transparent)'
+```
+
+- Keep it faint, since event text sits on top of it. A mix of a theme color, as above, follows
+  your theme; a fixed color such as `'rgba(3, 169, 244, 0.12)'` works too. `transparent`, the
+  default, turns it off.
+- It runs from just under the date row, through the all-day band and down the hours, under the
+  hour lines and the events, exactly as the weekend shading does. At midnight it moves to the
+  next day's column.
+- When today falls on the weekend, today's color replaces the weekend shading on that column
+  rather than mixing with it. The rest of the weekend keeps its own shade.
+- It is a grid-only option, so it lives in `time_grid:`.
+
+::: details Today Beside a Weekend Day
+The weekend shading fills the gap between two weekend days. With today's tint on and today a
+Saturday or a Sunday, the gap between the two stays clear, as it does beside a weekday, so
+today reads as a column of its own.
+:::
+
 ## 📅 All-Day Events
 
 All-day events get a band of their own between the day headers and the hours. A multi-day
@@ -625,7 +655,8 @@ event_tap_action:
   the popover.
 - **On a phone or tablet,** hold the event for half a second, until it lifts, then drag. The page
   does not scroll while you do. Held and let go without moving, the hold does what it always did,
-  such as opening the popover under `event_hold_action: details`.
+  such as opening the popover under `event_hold_action: details`. Only a finger on the event
+  lifts it, not one held just beside it.
 
 The event follows the pointer in quarter hours, keeping its length and the minute it starts at
 within its quarter, so one at 10:10 moves to 10:25 or 9:55. Drag sideways to move it to another

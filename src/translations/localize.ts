@@ -116,7 +116,8 @@ export function getTranslations(language: string): Types.Translations {
 //-----------------------------------------------------------------------------
 
 /**
- * Determine the date format style for a given language
+ * Determine the date format style for a given language, for an end phrase's date where the
+ * browser has no data for the language. Everywhere else the browser orders that date itself.
  *
  * @param language - Language code
  * @returns Date format style identifier ('day-dot-month', 'month-day', or 'day-month')

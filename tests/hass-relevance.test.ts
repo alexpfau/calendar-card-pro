@@ -70,6 +70,17 @@ function baseHass(states = houseStates()): Types.Hass {
   return {
     states,
     locale: { language: 'en', first_weekday: 'monday', time_format: '24' },
+    // As Home Assistant sends them: the interface language and whether each one runs right to
+    // left, from which it sets the dashboard's direction and the card reads it.
+    language: 'en',
+    translationMetadata: {
+      fragments: [],
+      translations: {
+        en: { nativeName: 'English', isRTL: false },
+        de: { nativeName: 'Deutsch', isRTL: false },
+        he: { nativeName: 'עברית', isRTL: true },
+      },
+    },
     config: { country: 'DE' },
     themes: { darkMode: false },
     entities: {},
@@ -267,6 +278,20 @@ describe('a mounted card', () => {
 
     expect(render).toHaveBeenCalledTimes(1);
     expect(card.shadowRoot!.textContent).toContain('Mi');
+  });
+
+  it('renders when the dashboard turns right to left, and marks its own words', async () => {
+    // An English card stays English; Home Assistant switching to Hebrew changes `language` and
+    // `locale` in one new hass, which is what turns the dashboard and the card's marks around.
+    const card = await mount({ ...CONFIG, view: 'list', language: 'en' });
+    const render = vi.spyOn(card, 'render');
+    expect(card.shadowRoot!.textContent).not.toContain('\u200e');
+
+    card.hass = { ...card.hass, language: 'he', locale: { ...card.hass.locale!, language: 'he' } };
+    await card.updateComplete;
+
+    expect(render).toHaveBeenCalledTimes(1);
+    expect(card.shadowRoot!.textContent).toContain('\u200e');
   });
 
   it('keeps a bare request that arrives in the same batch as an unrelated hass', async () => {

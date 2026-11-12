@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
+import { fakeViewport } from './helpers/visual-viewport';
 import type * as Types from '../src/config/types';
 import { PLACES_STORAGE_KEY, resetMapTilesToken } from '../src/interaction/event-map';
 import type { PopoverParams } from '../src/interaction/popover-model';
 import { BEAK_EDGE, EVENT_POPOVER_TAG } from '../src/rendering/event-popover';
+import { keepInView, roomOf } from '../src/rendering/popover-shell';
 
 /**
  * The event popover as Home Assistant's dialog manager drives it: `showDialog` before the
@@ -209,6 +211,34 @@ describe('the touch that opened it', () => {
     ghost(root.querySelector('button.time')!);
     await el.updateComplete;
     expect(root.querySelector('button.time')).toBeNull();
+  });
+
+  it('guards the touch that hands it the next event while it is still open', async () => {
+    const { el, root } = await open(touched);
+    const opened = Date.now();
+    vi.spyOn(Date, 'now').mockReturnValue(opened + 1000);
+    onTestFinished(() => vi.mocked(Date.now).mockRestore());
+    // Home Assistant reuses the element for the next event, as while a save is under way.
+    el.showDialog({
+      mode: 'event',
+      calendarId: ANNA.id,
+      entry: { ...SWIM, summary: 'Piano', uid: 'u-piano' },
+      display: { title: 'Piano', location: '', description: '' },
+      canEdit: true,
+      canDelete: true,
+      calendars: [ANNA],
+      language: 'en',
+      hour24: true,
+      dark: false,
+      updated: () => undefined,
+      ...touched,
+    });
+    await el.updateComplete;
+    await el.updateComplete;
+    ghost(root.querySelector('button.time')!);
+    await el.updateComplete;
+    expect(root.querySelector('button.time')).not.toBeNull();
+    expect(root.activeElement).toBe(root.querySelector('h2#popover-title'));
   });
 
   it('keeps the focus off a field the derived events focus anyway', async () => {
@@ -1884,6 +1914,422 @@ describe('below a toolbar button', () => {
   });
 });
 
+describe('the part of the screen in sight', () => {
+  it('is the whole viewport, less what an on-screen keyboard covers', () => {
+    expect(roomOf(800)).toEqual({ top: 0, bottom: 800 });
+    expect(roomOf(800, { offsetTop: 0, height: 800 })).toEqual({ top: 0, bottom: 800 });
+    expect(roomOf(800, { offsetTop: 0, height: 500 })).toEqual({ top: 0, bottom: 500 });
+    // A browser that scrolls the field into view above the keyboard shifts what is in sight.
+    expect(roomOf(800, { offsetTop: 100, height: 400 })).toEqual({ top: 100, bottom: 500 });
+  });
+
+  it('stays within the viewport, and counts a part of a pixel as nothing', () => {
+    // An offset the browser kept after the keyboard went away.
+    expect(roomOf(800, { offsetTop: 120, height: 800 })).toEqual({ top: 120, bottom: 800 });
+    // A zoomed page measures its viewport in parts of a pixel.
+    expect(roomOf(800, { offsetTop: 0.4, height: 799.5 })).toEqual({ top: 0, bottom: 800 });
+  });
+});
+
+describe('keeping in sight', () => {
+  const ROOM = { top: 0, bottom: 1000 };
+
+  it('stays where it opened while it fits, and moves only as far as it must', () => {
+    const opened = { left: 64, top: 678, arrow: { side: 'left' as const, at: 155 } };
+    // Opened low, at the foot of the screen less the margin; Cancel and Add add 40 pixels.
+    expect(keepInView(opened, 310, 310, ROOM, 833).top).toBe(678);
+    expect(keepInView(opened, 310, 350, ROOM, 833)).toEqual({
+      left: 64,
+      top: 638,
+      arrow: { side: 'left', at: 195 },
+    });
+    // Opened mid-screen, it grows down without moving.
+    const mid = { left: 64, top: 345, arrow: { side: 'left' as const, at: 155 } };
+    expect(keepInView(mid, 310, 350, ROOM, 500)).toEqual(mid);
+  });
+
+  it('goes back toward where it opened as it shrinks, and no further', () => {
+    const opened = { left: 64, top: 678, arrow: { side: 'left' as const, at: 155 } };
+    expect(keepInView(opened, 310, 535, ROOM, 833).top).toBe(453);
+    expect(keepInView(opened, 310, 350, ROOM, 833).top).toBe(638);
+    expect(keepInView(opened, 310, 280, ROOM, 833).top).toBe(678);
+  });
+
+  it('grows up from a button it opened above, its foot held at the button', () => {
+    const opened = { left: 46, top: 500, arrow: { side: 'bottom' as const, at: 32 } };
+    expect(keepInView(opened, 400, 440, ROOM)).toEqual({
+      left: 46,
+      top: 460,
+      arrow: { side: 'bottom', at: 32 },
+    });
+  });
+
+  it('keeps out of what an on-screen keyboard covers, and off the top', () => {
+    const opened = { left: 64, top: 678, arrow: { side: 'left' as const, at: 155 } };
+    expect(keepInView(opened, 310, 310, { top: 0, bottom: 640 }, 833).top).toBe(318);
+    expect(keepInView(opened, 310, 990, ROOM, 833).top).toBe(12);
+    // Its arrow keeps off the corners, even where the press is out of sight below it.
+    expect(keepInView(opened, 310, 310, { top: 0, bottom: 640 }, 833).arrow).toEqual({
+      side: 'left',
+      at: 310 - 24,
+    });
+  });
+});
+
+describe('keeping in sight on the screen', () => {
+  // happy-dom lays nothing out and reports no resize, so the panel is given the height a browser
+  // would measure, and the report a browser sends once that height changes is sent by hand.
+  class FakeResizeObserver {
+    static live = new Set<FakeResizeObserver>();
+    constructor(private readonly report: () => void) {}
+    observe(): void {
+      FakeResizeObserver.live.add(this);
+    }
+    unobserve(): void {}
+    disconnect(): void {
+      FakeResizeObserver.live.delete(this);
+    }
+    static fire(): void {
+      FakeResizeObserver.live.forEach((watch) => watch.report());
+    }
+  }
+
+  let height = 310;
+  const grow = async (el: Popover, px: number) => {
+    height = px;
+    FakeResizeObserver.fire();
+    await el.updateComplete;
+  };
+
+  beforeEach(() => {
+    height = 310;
+    FakeResizeObserver.live.clear();
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(() => height);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const FRESH: Partial<PopoverParams> = {
+    mode: 'new',
+    entry: undefined,
+    display: undefined,
+    times: {
+      allDay: false,
+      start: new Date('2026-11-04T09:00:00Z'),
+      end: new Date('2026-11-04T10:00:00Z'),
+    },
+    canDelete: false,
+    calendars: [BEN, ANNA],
+  };
+  const dialogOf = (root: ShadowRoot) => root.querySelector('dialog')!;
+  const panelOf = (root: ShadowRoot) => root.querySelector<HTMLElement>('.panel')!;
+  const top = (root: ShadowRoot) => Number.parseFloat(dialogOf(root).style.top);
+  const arrowTop = (root: ShadowRoot) =>
+    Number.parseFloat(root.querySelector<HTMLElement>('.arrow')!.style.top);
+
+  it('moves a new event opened low up as far as Cancel and Add need, the arrow on the press', async () => {
+    const y = window.innerHeight - 40;
+    const { el, root, type } = await open({ ...FRESH, anchor: { x: 150, y } });
+    expect(top(root)).toBe(window.innerHeight - 12 - 310);
+
+    await type('input.title', 'Piano');
+    expect(root.querySelector('.foot .btn.primary')?.textContent?.trim()).toBe('Add');
+    await grow(el, 350);
+    // Up by the row's 40 pixels, and no further: its foot at the screen's margin.
+    expect(top(root)).toBe(window.innerHeight - 12 - 350);
+    expect(top(root) + arrowTop(root)).toBe(y);
+  });
+
+  it('grows down without moving where there is room below', async () => {
+    const { el, root, type } = await open({ ...FRESH, anchor: { x: 150, y: 300 } });
+    const opened = dialogOf(root).getAttribute('style');
+    await type('input.title', 'Piano');
+    await grow(el, 350);
+    expect(dialogOf(root).getAttribute('style')).toBe(opened);
+    expect(top(root) + arrowTop(root)).toBe(300);
+  });
+
+  it('goes back to where it opened as it shrinks again', async () => {
+    const { el, root } = await open({ ...FRESH, anchor: { x: 150, y: window.innerHeight - 40 } });
+    const opened = top(root);
+    await grow(el, 535);
+    expect(top(root)).toBe(window.innerHeight - 12 - 535);
+    await grow(el, 310);
+    expect(top(root)).toBe(opened);
+    await grow(el, 280);
+    expect(top(root)).toBe(opened);
+  });
+
+  it('grows up from the button it opened above, its arrow still at the button', async () => {
+    height = 400;
+    const low = {
+      left: 60,
+      top: window.innerHeight - 60,
+      right: 96,
+      bottom: window.innerHeight - 24,
+    };
+    const { el, root } = await open({
+      ...FRESH,
+      anchor: { x: 78, y: low.top + 18, rect: low, below: true },
+    });
+    expect(top(root)).toBe(low.top - 10 - 400);
+    await grow(el, 440);
+    expect(top(root)).toBe(low.top - 10 - 440);
+    expect(root.querySelector('.arrow.bottom')).not.toBeNull();
+  });
+
+  it('leaves a popover on an event where it opened while it fits', async () => {
+    const { el, root, type } = await open({
+      anchor: { x: 150, y: 300, rect: { left: 80, right: 140, top: 285, bottom: 315 } },
+    });
+    const dialogStyle = dialogOf(root).getAttribute('style');
+    const panelStyle = panelOf(root).getAttribute('style');
+    await type('input.title', 'Swim at noon');
+    await grow(el, 310);
+    expect(dialogOf(root).getAttribute('style')).toBe(dialogStyle);
+    expect(panelOf(root).getAttribute('style')).toBe(panelStyle);
+  });
+
+  it('moves above an on-screen keyboard, no taller than the room it leaves, and back', async () => {
+    const viewport = fakeViewport();
+    const { el, root } = await open({ ...FRESH, anchor: { x: 150, y: window.innerHeight - 40 } });
+    const opened = top(root);
+
+    root.querySelector<HTMLInputElement>('input.title')!.focus();
+    viewport.keyboard(300);
+    await el.updateComplete;
+    expect(top(root)).toBe(window.innerHeight - 300 - 12 - 310);
+    expect(panelOf(root).style.maxHeight).toBe(`${window.innerHeight - 300 - 24}px`);
+
+    viewport.keyboard(0);
+    await el.updateComplete;
+    expect(top(root)).toBe(opened);
+    expect(panelOf(root).style.maxHeight).toBe(`${window.innerHeight - 24}px`);
+  });
+
+  it('stands a sheet on an on-screen keyboard, and lowers it again', async () => {
+    const width = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+    onTestFinished(() => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+    });
+    const viewport = fakeViewport();
+    const { el, root } = await open({ ...FRESH, anchor: { x: 100, y: 700 } });
+    const dialog = dialogOf(root);
+    expect(dialog.classList.contains('sheet')).toBe(true);
+    expect(dialog.style.bottom).toBe('');
+
+    root.querySelector<HTMLInputElement>('input.title')!.focus();
+    viewport.keyboard(300);
+    await el.updateComplete;
+    expect(dialog.style.bottom).toBe('300px');
+    // Over the keyboard the strip a phone keeps clear at its foot is covered, so it goes.
+    expect(dialog.classList.contains('lifted')).toBe(true);
+    const room = window.innerHeight - 300 - 12;
+    expect(panelOf(root).style.maxHeight).toBe(`${Math.min(window.innerHeight * 0.85, room)}px`);
+
+    viewport.keyboard(0);
+    await el.updateComplete;
+    expect(dialog.style.bottom).toBe('');
+    expect(dialog.classList.contains('lifted')).toBe(false);
+    expect(panelOf(root).style.maxHeight).toBe('');
+  });
+
+  it('keeps its row in sight while the panel scrolls', async () => {
+    let scrolled = false;
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(() =>
+      scrolled ? 535 : 310,
+    );
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(() => 310);
+    const { el, root, type } = await open({ ...FRESH, anchor: { x: 150, y: 300 } });
+    await type('input.title', 'Piano');
+    expect(panelOf(root).classList.contains('scrolls')).toBe(false);
+    scrolled = true;
+    await grow(el, 310);
+    expect(panelOf(root).classList.contains('scrolls')).toBe(true);
+
+    // The row reaches across the panel's sides and the space under it and gives it back, so it
+    // sits where it did, and stays at the panel's foot while the content scrolls under it.
+    const css = (
+      customElements.get(EVENT_POPOVER_TAG) as unknown as { styles: { cssText: string } }
+    ).styles.cssText.replace(/\/\*[\s\S]*?\*\//g, '');
+    const rule = (selector: string) => {
+      const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const body = new RegExp(`(?:^|\\})\\s*${escaped}\\s*\\{([^}]*)\\}`).exec(css)?.[1];
+      return (body ?? '').replace(/\s+/g, ' ');
+    };
+    const foot = rule('.foot');
+    expect(foot).toContain('position: sticky;');
+    expect(foot).toContain('bottom: calc(-1 * var(--panel-end));');
+    expect(foot).toContain('margin: -3px -14px calc(-1 * var(--panel-end));');
+    expect(foot).toContain('padding: 6px 14px var(--panel-end);');
+    expect(rule('.scrolls .foot')).toContain('background: var(--pop-bg);');
+  });
+
+  it('places it afresh when the screen turns, measured as it is drawn the new way', async () => {
+    const width = window.innerWidth;
+    onTestFinished(() => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+    });
+    // A sheet spans the screen, so it is drawn shorter than beside a press.
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return this.parentElement?.classList.contains('sheet') ? 250 : height;
+    });
+    const turn = async (el: Popover, to: number) => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: to });
+      window.dispatchEvent(new Event('resize'));
+      await el.updateComplete;
+      await el.updateComplete;
+    };
+    const { el, root } = await open({ ...FRESH, anchor: { x: 150, y: 300 } });
+    expect(top(root)).toBe(300 - 155);
+
+    await turn(el, 390);
+    expect(dialogOf(root).classList.contains('sheet')).toBe(true);
+    expect(root.querySelector('.arrow')).toBeNull();
+
+    await turn(el, width);
+    expect(dialogOf(root).classList.contains('popover')).toBe(true);
+    // As it opens beside the press at 310 pixels, not at the sheet's 250.
+    expect(top(root)).toBe(300 - 155);
+    expect(top(root) + arrowTop(root)).toBe(300);
+  });
+
+  it('reads an on-screen keyboard only while a field has the focus', async () => {
+    const width = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+    onTestFinished(() => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+    });
+    const viewport = fakeViewport();
+    const { el, root } = await open({ ...FRESH, anchor: { x: 100, y: 700 } });
+    const dialog = dialogOf(root);
+    const title = root.querySelector<HTMLInputElement>('input.title')!;
+    title.focus();
+    viewport.keyboard(300);
+    await el.updateComplete;
+    expect(dialog.style.bottom).toBe('300px');
+
+    // The keyboard goes with the focus, while the browser still reports its room, as some do.
+    title.blur();
+    await vi.waitFor(() => expect(dialog.style.bottom).toBe(''));
+    expect(dialog.classList.contains('lifted')).toBe(false);
+    expect(panelOf(root).style.maxHeight).toBe('');
+  });
+
+  it('does not count a list or a date as typing, which open pickers of their own', async () => {
+    const width = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+    onTestFinished(() => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+    });
+    const viewport = fakeViewport();
+    const { el, root } = await open({ ...FRESH, anchor: { x: 100, y: 700 } });
+    const dialog = dialogOf(root);
+    root.querySelector<HTMLInputElement>('input.title')!.focus();
+    viewport.keyboard(300);
+    await el.updateComplete;
+    expect(dialog.style.bottom).toBe('300px');
+
+    // From the title to the calendar list, while the browser still reports the keyboard's room.
+    const list = root.querySelector<HTMLSelectElement>('.cell.calendar select')!;
+    list.focus();
+    try {
+      await vi.waitFor(() => expect(dialog.style.bottom).toBe(''));
+    } finally {
+      // happy-dom goes on pointing at a focused list once it is removed, and trips on it later.
+      list.blur();
+    }
+  });
+
+  it('keeps a sheet within what is in sight where nothing covers its foot', async () => {
+    const width = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+    onTestFinished(() => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+    });
+    const viewport = fakeViewport();
+    const { el, root } = await open({ ...FRESH, anchor: { x: 100, y: 700 } });
+    root.querySelector<HTMLInputElement>('input.title')!.focus();
+    // Scrolled down to the foot of the page with the keyboard up: the top is out of sight.
+    viewport.keyboard(0, 300);
+    await el.updateComplete;
+    expect(dialogOf(root).style.bottom).toBe('');
+    const room = window.innerHeight - 300 - 12;
+    expect(panelOf(root).style.maxHeight).toBe(`${Math.min(window.innerHeight * 0.85, room)}px`);
+  });
+
+  it('places what it is handed while still open afresh, for its own press', async () => {
+    // A new event, opened by mouse, starts in its title.
+    const { el, root } = await open({ ...FRESH, anchor: { x: 150, y: window.innerHeight - 40 } });
+    expect(top(root)).toBe(window.innerHeight - 12 - 310);
+    expect(root.activeElement).toBe(root.querySelector('input.title'));
+    // Home Assistant reuses the element for the next event, as while a save is under way.
+    el.showDialog({
+      mode: 'event',
+      calendarId: ANNA.id,
+      entry: { ...SWIM, summary: 'Piano', uid: 'u-piano' },
+      display: { title: 'Piano', location: '', description: '' },
+      canEdit: true,
+      canDelete: true,
+      calendars: [ANNA],
+      language: 'en',
+      hour24: true,
+      dark: false,
+      anchor: { x: 150, y: 300 },
+      updated: () => undefined,
+    });
+    await el.updateComplete;
+    await el.updateComplete;
+    expect(dialogOf(root).style.visibility).toBe('');
+    expect(top(root)).toBe(300 - 155);
+    expect(top(root) + arrowTop(root)).toBe(300);
+    // With focus where an event's popover starts, as it does on opening.
+    await el.updateComplete;
+    expect(root.activeElement).toBe(root.querySelector('h2#popover-title'));
+  });
+
+  it('moves an event it shows up too, once it grows past the foot of the screen', async () => {
+    const y = window.innerHeight - 40;
+    const { el, root } = await open({ anchor: { x: 150, y } });
+    expect(top(root)).toBe(window.innerHeight - 12 - 310);
+    // Its map has loaded under it.
+    await grow(el, 440);
+    expect(top(root)).toBe(window.innerHeight - 12 - 440);
+    expect(top(root) + arrowTop(root)).toBe(y);
+  });
+
+  it('places nothing once it is gone, though the screen turned just before', async () => {
+    const width = window.innerWidth;
+    onTestFinished(() => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+    });
+    const { el } = await open({ ...FRESH, anchor: { x: 150, y: 300 } });
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+    window.dispatchEvent(new Event('resize'));
+    el.remove();
+    await el.updateComplete;
+    await el.updateComplete;
+    expect(FakeResizeObserver.live.size).toBe(0);
+  });
+
+  it('stops watching once it has closed', async () => {
+    const viewport = fakeViewport();
+    const { el } = await open({ ...FRESH, anchor: { x: 150, y: 300 } });
+    expect(FakeResizeObserver.live.size).toBe(1);
+    expect(viewport.listening()).toBe(2);
+    expect(el.closeDialog()).toBe(true);
+    // Once it has played its way out.
+    await vi.waitFor(() => expect(FakeResizeObserver.live.size).toBe(0));
+    expect(viewport.listening()).toBe(0);
+  });
+});
+
 describe('the page behind', () => {
   // The shell holds the page still for every panel on it: the search panel's tests try each
   // gesture, and these only that the popover has it too.
@@ -1946,5 +2392,42 @@ describe('the page behind', () => {
         expect(key(control, name)).toBe(false);
       }
     }
+  });
+});
+
+describe('lists of choices', () => {
+  // A select's open list is drawn by the browser outside the panel, where its glass does not
+  // reach. Chrome on Windows and Linux copies the select's own background into that list and
+  // lays it over white, and every select here is transparent or translucent, so in dark mode
+  // the options came out as light text on white. They draw on the color scheme's canvas
+  // instead, which resolves against the scheme the panel sets.
+  const css = () =>
+    (
+      customElements.get(EVENT_POPOVER_TAG) as unknown as { styles: { cssText: string } }
+    ).styles.cssText.replace(/\/\*[\s\S]*?\*\//g, '');
+  const rules = () =>
+    [...css().matchAll(/(?<=^|[{}])\s*([^{}]+?)\s*\{([^{}]*)\}/g)].map(([, selector, body]) => ({
+      selector,
+      body: body.replace(/\s+/g, ' ').trim(),
+    }));
+
+  it('draws every option on the canvas of the scheme the panel sets', () => {
+    expect(rules().filter((rule) => /\boption\b/.test(rule.selector))).toEqual([
+      { selector: 'option', body: 'background-color: Canvas; color: CanvasText;' },
+    ]);
+    const scheme = (selector: string) =>
+      rules()
+        .find((rule) => rule.selector === selector)
+        ?.body.match(/color-scheme: (\w+);/)?.[1];
+    expect([scheme('.dark'), scheme('.light')]).toEqual(['dark', 'light']);
+  });
+
+  it('has options for that rule to reach, the calendars and the repeat list among them', async () => {
+    const { root, press } = await open({ calendars: [BEN, ANNA] });
+    await press(root.querySelector('button.time')!);
+    const lists = Array.from(root.querySelectorAll('select'), (select) => select.options.length);
+    expect(lists.length).toBeGreaterThanOrEqual(2);
+    expect(lists.every((count) => count > 1)).toBe(true);
+    expect(root.querySelector('.cell.calendar select')).not.toBeNull();
   });
 });

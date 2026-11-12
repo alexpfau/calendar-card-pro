@@ -3,9 +3,9 @@
  * `showDialog` before the element is attached, then the native modal, then `dialog-closed` once
  * it has gone. What it finds comes from a stand-in for the card (`SearchSource`) over rows built
  * by hand, so this file pins the panel alone: its combobox and listbox, the keyboard, the count
- * announced once typing pauses, the notes under the results, where it opens, that it is drawn in
- * the shell the event popover is drawn in, and how it waits for a slow year. The card's half is
- * `toolbar-search.test.ts`.
+ * announced once typing pauses, the notes under the results, where it opens, how it stands above
+ * an on-screen keyboard, that it is drawn in the shell the event popover is drawn in, and how it
+ * waits for a slow year. The card's half is `toolbar-search.test.ts`.
  *
  * happy-dom lays nothing out and cannot animate, so a close is immediate here; how the panel
  * looks and moves is checked in a browser.
@@ -14,9 +14,10 @@
 import { CSSResult } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { fakeViewport } from './helpers/visual-viewport';
 import { withoutComments } from './helpers/without-comments';
 import type * as Types from '../src/config/types';
-import type { PopoverAnchor } from '../src/interaction/popover-model';
+import type { PopoverAnchor, PopoverBox } from '../src/interaction/popover-model';
 import { EventPopover } from '../src/rendering/event-popover';
 import * as Shell from '../src/rendering/popover-shell';
 import {
@@ -25,6 +26,8 @@ import {
   type SearchPanelHandle,
   type SearchPanelParams,
   type SearchSource,
+  hangFrom,
+  hangIn,
 } from '../src/rendering/search-panel';
 import * as Search from '../src/utils/search';
 
@@ -576,19 +579,19 @@ describe('under the results', () => {
 // WHERE IT OPENS
 //-----------------------------------------------------------------------------
 
-describe('where it opens', () => {
-  /** The dialog's placement and the beak's, as plain values. */
-  function placed(root: ShadowRoot) {
-    const arrow = root.querySelector('.arrow');
-    return {
-      dialog: root.querySelector('dialog')!.getAttribute('style'),
-      className: root.querySelector('dialog')!.className,
-      panel: root.querySelector('.panel')!.getAttribute('style'),
-      arrow: arrow ? [arrow.className, arrow.getAttribute('style')] : null,
-      grabber: root.querySelector('.grabber') !== null,
-    };
-  }
+/** The dialog's placement and the beak's, as plain values. */
+function placed(root: ShadowRoot) {
+  const arrow = root.querySelector('.arrow');
+  return {
+    dialog: root.querySelector('dialog')!.getAttribute('style'),
+    className: root.querySelector('dialog')!.className,
+    panel: root.querySelector('.panel')!.getAttribute('style'),
+    arrow: arrow ? [arrow.className, arrow.getAttribute('style')] : null,
+    grabber: root.querySelector('.grabber') !== null,
+  };
+}
 
+describe('where it opens', () => {
   it('hangs below the magnifier, back across the card, its beak pointing up at it', async () => {
     const { root } = await open();
 
@@ -647,6 +650,238 @@ describe('where it opens', () => {
       arrow: null,
       grabber: false,
     });
+  });
+});
+
+//-----------------------------------------------------------------------------
+// OVER AN ON-SCREEN KEYBOARD
+//-----------------------------------------------------------------------------
+
+describe('over an on-screen keyboard', () => {
+  /** Raises the keyboard, or lowers it at 0, and waits for the panel to draw what it read. */
+  async function keyboard(
+    el: Panel,
+    viewport: ReturnType<typeof fakeViewport>,
+    px: number,
+    pan = 0,
+  ): Promise<void> {
+    viewport.keyboard(px, pan);
+    await el.updateComplete;
+  }
+
+  const SHEET = {
+    dialog: '',
+    className: 'light sheet',
+    panel: '--past-opacity:0.6',
+    arrow: null,
+    grabber: true,
+  };
+
+  it('stands its sheet on the keys, the field and the results above them, and lowers it again', async () => {
+    viewport(390, 844);
+    const vv = fakeViewport();
+    const { el, root, field } = await open();
+    expect(root.activeElement).toBe(field());
+    expect(placed(root)).toEqual(SHEET);
+
+    await keyboard(el, vv, 336);
+    // No taller than the room the keys leave, less the margin at the top; the strip a phone keeps
+    // clear at its foot is under the keys, so it goes (`lifted`).
+    expect(placed(root)).toEqual({
+      ...SHEET,
+      dialog: 'bottom:336px;',
+      className: 'light sheet lifted',
+      panel: '--past-opacity:0.6;max-height:496px',
+    });
+
+    await keyboard(el, vv, 0);
+    expect(placed(root)).toEqual(SHEET);
+  });
+
+  it('reads the keyboard only while the field has the focus', async () => {
+    viewport(390, 844);
+    const vv = fakeViewport();
+    const { el, root, field } = await open();
+    await keyboard(el, vv, 336);
+    expect(placed(root).dialog).toBe('bottom:336px;');
+
+    // The keyboard goes with the focus, while the browser still reports its room, as some do.
+    field().blur();
+    await vi.waitFor(() => expect(placed(root)).toEqual(SHEET));
+
+    field().focus();
+    await vi.waitFor(() => expect(placed(root).dialog).toBe('bottom:336px;'));
+  });
+
+  it('moves up from the magnifier only as far as it must to keep its room, and back', async () => {
+    // A phone held sideways, the magnifier at the top: the keys leave 190 pixels.
+    viewport(844, 390);
+    const vv = fakeViewport();
+    const { el, root } = await open();
+    const opened = placed(root);
+    expect(opened).toEqual({
+      dialog: 'left:314px;top:74px;',
+      className: 'light popover',
+      panel: '--past-opacity:0.6;max-height:304px;transform-origin:408px top',
+      arrow: ['arrow top', 'left:408px'],
+      grabber: false,
+    });
+
+    await keyboard(el, vv, 200);
+    expect(placed(root)).toEqual({
+      ...opened,
+      dialog: 'left:314px;top:12px;',
+      panel: '--past-opacity:0.6;max-height:166px;transform-origin:408px top',
+    });
+
+    await keyboard(el, vv, 0);
+    expect(placed(root)).toEqual(opened);
+  });
+
+  it('stays at the magnifier where the keys leave it room enough, its results shorter', async () => {
+    const vv = fakeViewport();
+    const { el, root } = await open();
+    const opened = placed(root);
+
+    await keyboard(el, vv, 300);
+    expect(placed(root)).toEqual({
+      ...opened,
+      panel: '--past-opacity:0.6;max-height:382px;transform-origin:408px top',
+    });
+  });
+
+  it('holds its foot above the keys where it opened above the magnifier', async () => {
+    const vv = fakeViewport();
+    const { el, root } = await open({
+      anchor: { ...MAGNIFIER, rect: { left: 700, right: 744, top: 700, bottom: 744 } },
+    });
+    const opened = placed(root);
+    expect(opened.dialog).toBe('left:314px;top:auto;bottom:78px;');
+
+    // Its foot moves up out of the keys' way, only as far as it must to keep its room.
+    await keyboard(el, vv, 300);
+    expect(placed(root)).toEqual({
+      ...opened,
+      dialog: 'left:314px;top:auto;bottom:312px;',
+      panel: '--past-opacity:0.6;max-height:444px;transform-origin:408px bottom',
+    });
+
+    // With less room than that above the keys, it takes what there is.
+    await keyboard(el, vv, 600);
+    expect(placed(root)).toEqual({
+      ...opened,
+      dialog: 'left:314px;top:auto;bottom:612px;',
+      panel: '--past-opacity:0.6;max-height:144px;transform-origin:408px bottom',
+    });
+
+    await keyboard(el, vv, 0);
+    expect(placed(root)).toEqual(opened);
+  });
+
+  it('keeps within what is in sight where the browser pans the page for the field', async () => {
+    const vv = fakeViewport();
+    const { el, root } = await open();
+    await keyboard(el, vv, 300);
+
+    // The band in sight, 468 pixels tall above the keys, panned 100 pixels down the window.
+    vv.pan(100);
+    await el.updateComplete;
+    expect(placed(root)).toMatchObject({
+      dialog: 'left:314px;top:112px;',
+      panel: '--past-opacity:0.6;max-height:444px;transform-origin:408px top',
+    });
+  });
+
+  it('stays where it opened on a screen nothing covers', async () => {
+    const vv = fakeViewport();
+    const { el, root } = await open();
+    const opened = placed(root);
+
+    await keyboard(el, vv, 0);
+    window.dispatchEvent(new Event('resize'));
+    await el.updateComplete;
+    expect(placed(root)).toEqual(opened);
+  });
+
+  it('becomes a sheet when the phone is turned upright while it is open', async () => {
+    viewport(844, 390);
+    const { el, root } = await open();
+    expect(placed(root).className).toBe('light popover');
+
+    viewport(390, 844);
+    window.dispatchEvent(new Event('resize'));
+    await el.updateComplete;
+    await vi.waitFor(() => expect(placed(root)).toEqual(SHEET));
+  });
+
+  // Placed afresh for the screen's new width, from the magnifier's press as it was: the card
+  // closes the panel itself where its own width changes too (`_startWidthObserver`).
+  it('hangs afresh when a wide screen turns and stays wide', async () => {
+    const { el, root } = await open({
+      anchor: { ...MAGNIFIER, x: 922, rect: { left: 900, right: 944, top: 20, bottom: 64 } },
+    });
+    expect(placed(root).dialog).toBe('left:514px;top:74px;');
+
+    // A tablet turned upright: still wide enough to hang from the magnifier, but narrower.
+    viewport(768, 1024);
+    window.dispatchEvent(new Event('resize'));
+    await el.updateComplete;
+    await vi.waitFor(() => expect(placed(root).dialog).toBe('left:316px;top:74px;'));
+  });
+
+  it('stops watching once it has closed', async () => {
+    const vv = fakeViewport();
+    const { el, gone } = await open();
+    expect(vv.listening()).toBe(2);
+
+    el.closeDialog();
+    await vi.waitFor(() => expect(gone).toHaveBeenCalled());
+    expect(vv.listening()).toBe(0);
+  });
+
+  it('hangs where it hung before it read the keyboard, wherever the magnifier is', () => {
+    // The placement as it was before the keyboard was read, kept here as the specification of a
+    // screen nothing covers: the search panel must stand exactly there on such a screen.
+    function before(rect: PopoverBox, hang: 'left' | 'right', w: number, h: number) {
+      const { left, at } = Shell.hangBelow(rect, 440, w, hang);
+      const below = h - rect.bottom - Shell.BELOW_GAP - Shell.MARGIN;
+      const above = rect.top - Shell.BELOW_GAP - Shell.MARGIN;
+      if (below < 240 && above > below) {
+        const foot = rect.top - Shell.BELOW_GAP;
+        return {
+          place: { left, top: foot, arrow: { side: 'bottom', at } },
+          maxHeight: above,
+          bottom: h - foot,
+        };
+      }
+      return {
+        place: { left, top: rect.bottom + Shell.BELOW_GAP, arrow: { side: 'top', at } },
+        maxHeight: Math.max(0, below),
+      };
+    }
+
+    let compared = 0;
+    for (const h of [300, 390, 600, 768, 1000]) {
+      const room = { top: 0, bottom: h };
+      for (const w of [600, 844, 1024, 1440]) {
+        for (const hang of ['left', 'right'] as const) {
+          for (let top = 10; top <= h - 54; top += 7) {
+            const rect = { left: w - 80, right: w - 36, top, bottom: top + 44 };
+            const anchor = { x: w - 58, y: top + 22, rect, below: true };
+            expect(hangIn(hangFrom(anchor, hang, w, room), room, h)).toEqual(
+              before(rect, hang, w, h),
+            );
+            compared += 1;
+          }
+        }
+      }
+      const { left } = Shell.placeAt(undefined, 240, { width: 1024, height: h }, 440);
+      expect(hangIn(hangFrom(undefined, 'left', 1024, room), room, h)).toEqual({
+        place: { left, top: Shell.MARGIN },
+        maxHeight: h - 2 * Shell.MARGIN,
+      });
+    }
+    expect(compared).toBeGreaterThan(1000);
   });
 });
 

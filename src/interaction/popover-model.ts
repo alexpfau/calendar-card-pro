@@ -11,6 +11,7 @@
 import * as Writes from './calendar-writes';
 import * as Times from './event-times';
 import * as RRule from './rrule';
+import { intlLocales } from '../translations/intl-locales';
 
 //-----------------------------------------------------------------------------
 // TYPES
@@ -362,12 +363,12 @@ export function eventWrite(
  * @returns The line
  */
 export function spanText(times: Times.EventTimes, language: string, hour24: boolean): string {
-  const day = new Intl.DateTimeFormat(language, {
+  const day = new Intl.DateTimeFormat(intlLocales(language), {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
   });
-  const time = new Intl.DateTimeFormat(language, {
+  const time = new Intl.DateTimeFormat(intlLocales(language), {
     hour: 'numeric',
     minute: '2-digit',
     hour12: !hour24,

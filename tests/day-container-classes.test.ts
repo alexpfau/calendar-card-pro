@@ -428,13 +428,40 @@ describe('theming.md card-mod selectors', () => {
       }
     }
     // `time_position: title` marks each event body whose time it puts on the title's line, and
-    // draws the box that holds it, the same way in both agenda views, so one list render is
-    // enough to draw the classes.
-    {
-      const config = buildConfig({ ...base, time_position: 'title' });
+    // draws the box that holds it, the same way in both agenda views, so one list render per
+    // layout is enough to draw the classes: a wrapping title, and one capped at two lines.
+    for (const extra of [{}, { title_max_lines: 2 }]) {
+      const config = buildConfig({ ...base, time_position: 'title', ...extra });
       const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', 'list');
       const container = document.createElement('div');
       litRender(Render.renderGroupedEvents(days, config, 'en', undefined, null, true), container);
+      collect(container);
+    }
+    // Today's tint is off by default, and grid view draws its stripe only while it is set, so
+    // one grid render with it on is what draws `.grid-today`. The clock is frozen inside the
+    // window these events fill, so today is on screen.
+    {
+      const config = buildConfig({
+        ...base,
+        view: 'grid',
+        time_grid: { today_background_color: 'rgb(1, 2, 3)' },
+      });
+      const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', 'grid');
+      const container = document.createElement('div');
+      litRender(
+        Grid.renderGridGroupedEvents(
+          days,
+          ViewConfig.resolveEffectiveConfig(config, 'grid'),
+          'en',
+          undefined,
+          null,
+          FROZEN_NOW,
+          undefined,
+          undefined,
+          true,
+        ),
+        container,
+      );
       collect(container);
     }
     // The card around the days: its header with a toolbar holding both controls, and the
@@ -508,7 +535,10 @@ describe('theming.md card-mod selectors', () => {
               name: 'My calendars',
               folded: !labeled,
               inert: false,
+              showAllLabel: 'Show all',
+              hideAllLabel: 'Hide all',
               onToggle: noop,
+              onSetAll: noop,
             },
             navigation: paging
               ? {

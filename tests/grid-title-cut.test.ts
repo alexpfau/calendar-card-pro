@@ -70,6 +70,11 @@ interface Geometry {
   imageReady?: boolean;
   /** False below the first rung, where the stylesheet hides the title row. */
   eligible?: boolean;
+  /**
+   * Room each word keeps at its inline edges, padding its negative margin gives back: its box
+   * reaches this far past its text on either side ("Marks above and below the line").
+   */
+  wordRoom?: number;
 }
 
 function block(geometry: Geometry): HTMLElement {
@@ -135,8 +140,11 @@ function block(geometry: Geometry): HTMLElement {
   for (const piece of pieces) {
     if (piece[0] === 'word') {
       const word = wordElements.shift()!;
-      rect(word, piece[2]);
-      TEXT.set(word.firstChild!, [piece[2]]);
+      const room = geometry.wordRoom ?? 0;
+      const box = piece[2];
+      if (room) word.style.padding = `0 ${room}px`;
+      rect(word, new DOMRect(box.left - room, box.top, box.width + 2 * room, box.height));
+      TEXT.set(word.firstChild!, [box]);
     } else if (piece[0] === 'run') {
       TEXT.set(runElements.shift()!.firstChild!, piece[2]);
     } else {
@@ -241,6 +249,39 @@ describe('a grid title stops at the last whole line its block shows', () => {
     expect(cutWord(element)).toBe('lesson');
     expect(room(element)).toBe(`${40 + 4 + 7 + (90 - (89 - 4)) - 1 / 64}px`);
   });
+
+  it.each([
+    ['4px', 4, 90, 40 + 4 + 7 + (90 - (89 - 4))],
+    ['3px, less than the room either side of it', 3, 88, 40 + 3 + 7 + (88 - (87 - 4))],
+  ])(
+    'reads each word by its text, not the room its box keeps at its inline edges, %s apart',
+    (_, gap, width, expected) => {
+      // A space is about 3px at these sizes, no wider than the room two words keep beside it, so
+      // read by their boxes the words would touch and the space between them would be lost.
+      const swim = (wordRoom: number) => {
+        const element = cut({
+          height: 20,
+          width,
+          summary: new DOMRect(4, line(0), width, 2 * LINE),
+          wordRoom,
+          words: [
+            ['Swim', new DOMRect(4, line(0), 30, LINE)],
+            ['lesson', new DOMRect(34 + gap, line(0), 40, LINE)],
+            ['at', new DOMRect(74 + 2 * gap, line(0), 7, LINE)],
+            ['the', new DOMRect(4, line(1), 20, LINE)],
+            ['pool', new DOMRect(28, line(1), 25, LINE)],
+          ],
+        });
+        const result = [cutWord(element), room(element)];
+        vi.restoreAllMocks();
+        document.body.replaceChildren();
+        return result;
+      };
+
+      expect(swim(1.625)).toEqual(swim(0));
+      expect(swim(0)).toEqual(['lesson', `${expected - 1 / 64}px`]);
+    },
+  );
 
   it('cuts a three-line title in a two-line block on its second line', () => {
     const element = cut({
@@ -668,9 +709,10 @@ describe('the stylesheet half', () => {
 
   it('starts every wrapped grid line at the text edge, whatever the label', () => {
     // The hanging indent rules are one class and one :has() argument each, the same weight
-    // as this one, so it wins by coming later.
+    // as this one, so it wins by coming later. What is left is the room every summary keeps at
+    // its inline edges, which its margin gives back (marks-beyond-line.test.ts).
     const grid = rule('.grid-event-disclosure .summary');
-    expect(grid.body).toMatch(/padding-inline-start: 0;/);
+    expect(grid.body).toContain('padding-inline-start: var(--calendar-card-summary-inline-room);');
     expect(grid.body).toMatch(/text-indent: 0;/);
     for (const hanging of [
       '.summary:has(> .label-icon), .summary:has(> .label-image)',
@@ -706,6 +748,12 @@ describe('the stylesheet half', () => {
       rule(
         `${NORMAL} .summary[data-grid-title-lines], ${NORMAL} .summary[data-grid-title-lines] > .event-title`,
       ).body.trim(),
-    ).toBe('-webkit-line-clamp: var(--calendar-card-grid-title-fit-lines); padding-bottom: 0;');
+    ).toBe(
+      '-webkit-line-clamp: var(--calendar-card-grid-title-fit-lines); padding-bottom: 0; ' +
+        // A clamping box hides what passes its edges, with room above its first line for the
+        // marks some scripts stack there; see "Marks above and below the line" in styles.ts.
+        'overflow-y: hidden; --calendar-card-summary-ink-room: 0.375em; ' +
+        '--calendar-card-title-ink-room: 0.375em;',
+    );
   });
 });

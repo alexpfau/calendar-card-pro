@@ -357,13 +357,20 @@ describe('card stylesheet', () => {
       // Chromium and WebKit: the ink's center now sits within about a quarter pixel of the
       // bar's at the default sizes, where it was 1.7px and 2.1px low.
       const contents = [
-        'td.event > .event-content:has(> .time-location > *)',
+        'td.event .event-content:has(> .time-location > *)',
         '.column-events > .event > .event-content:has(> .time-location > *)',
       ];
       for (const content of contents) {
         expect(declared(content, '--calendar-card-event-ink-shift'), content).toBe('0.13em');
-        expect(declared(`${content} > .summary-row > .summary`, 'padding-top'), content).toBe(
-          'calc(0.2em - var(--calendar-card-event-ink-shift))',
+        // Plus the room a clamping summary keeps above its first line, which its top margin
+        // gives back; see "the room above a clamped first line" below.
+        expect(expr(declared(`${content} > .summary-row > .summary`, 'padding-top')), content).toBe(
+          expr(
+            'calc(0.2em - var(--calendar-card-event-ink-shift) + var(--calendar-card-summary-ink-room, 0px))',
+          ),
+        );
+        expect(declared(`${content} > .summary-row > .summary`, 'margin-top'), content).toBe(
+          'calc(-1 * var(--calendar-card-summary-ink-room, 0px))',
         );
         expect(declared(`${content}::after`, 'content'), content).toBe("''");
         expect(declared(`${content}::after`, 'flex'), content).toBe('none');
@@ -375,7 +382,9 @@ describe('card stylesheet', () => {
           'var(--calendar-card-font-size-event)',
         );
       }
-      expect(declared('.summary', 'padding-block')).toBe('0.2em');
+      expect(declared('.summary', 'padding-block')).toBe(
+        'calc(0.2em + var(--calendar-card-summary-ink-room, 0px)) 0.2em',
+      );
 
       // Grid view keeps its own summary padding and gets no spacer: its text sits at the top
       // of a block as tall as the event. Pinned as the whole set of selectors that take part.
@@ -434,7 +443,7 @@ describe('card stylesheet', () => {
       // again, which the scope above leaves out, put them back on the baseline.
       expect(declared('.grid-event-disclosure .title-word', 'vertical-align')).toBe('top');
       expect(flat).toMatch(
-        /\[data-grid-title-fit='blank'\]\) \.title-word \{ display: inline; max-width: none; overflow: visible; vertical-align: baseline; \}/,
+        /\[data-grid-title-fit='blank'\]\) \.title-word \{ display: inline; max-width: none; overflow: visible; vertical-align: baseline; padding-inline: 0; margin-inline: 0; \}/,
       );
     });
 
@@ -507,7 +516,12 @@ describe('card stylesheet', () => {
        * event_font_size -- so assert that it scales, not merely that it exists.
        */
       const pad = declared('.summary', 'padding-block');
-      expect(pad).toBe('0.2em');
+      expect(pad).toBe('calc(0.2em + var(--calendar-card-summary-ink-room, 0px)) 0.2em');
+      // The room added above it for a summary that clamps is given back by its top margin, so
+      // the 0.2em is all that reaches the layout.
+      expect(declared('.summary', 'margin-top')).toBe(
+        'calc(-1 * var(--calendar-card-summary-ink-room, 0px))',
+      );
     });
 
     it('compensates with padding-block, not the padding shorthand', () => {
@@ -554,6 +568,9 @@ describe('card stylesheet', () => {
       // A hanging indent is a negative text-indent canceled by an equal
       // padding: the first line starts back at the label, every wrapped line
       // starts at the padding edge. One without the other is not an indent.
+      // The padding also holds the room the box keeps at its inline
+      // edges, which its negative margin gives back (marks-beyond-line.test.ts),
+      // so the label starts at the room's inner edge, where it always started.
       //
       // Compared as normalized expressions rather than raw strings, because
       // `calc(-1 * (A + 4px))` and `calc(-1 * calc(A + 4px))` are the same
@@ -562,8 +579,9 @@ describe('card stylesheet', () => {
       // cosmetic edit.
       const indent = expr(declared(selector, 'text-indent'));
       const padding = expr(declared(selector, 'padding-inline-start'));
-      expect(padding).not.toBe('');
-      expect(indent).toBe(`(-1*${padding})`);
+      const room = '+var(--calendar-card-summary-inline-room))';
+      expect(padding.endsWith(room)).toBe(true);
+      expect(indent).toBe(`(-1*${padding.slice(0, -room.length)}))`);
     });
 
     it('does not hang a prose label', () => {
@@ -1085,7 +1103,7 @@ describe('card stylesheet', () => {
       const removes = (rule: (typeof all)[number]) =>
         /(^|;)\s*content:\s*none\s*(;|$)/.test(rule.body);
       expect(all.filter(removes).map((rule) => rule.selectors)).toEqual([
-        ['.time-beside-title > .summary-row > .title-aside > .time > .time-countdown::before'],
+        ['.time-beside-title .summary-row .title-aside > .time > .time-countdown::before'],
       ]);
       const rules = all.filter((rule) => !removes(rule));
       expect(rules).toHaveLength(2);
@@ -2014,12 +2032,12 @@ describe('card stylesheet', () => {
         return prelude;
       });
 
-      // Base, both OKLCH tiers, and the text color source. The last one is why the count is
-      // stated rather than merely bounded: it redefines the same two tokens at (0,2,0) from
-      // outside any @supports, and a source block that named only one position would put the
-      // title pill on the accent while the time badge followed the row -- the same failure
-      // this test was written for, arriving down the other axis.
-      expect(sites).toHaveLength(4);
+      // Base, its fallback where color-mix() is unknown, both OKLCH tiers, and the text color
+      // source. The last one is why the count is stated rather than merely bounded: it redefines
+      // the same two tokens at (0,2,0) from outside any @supports, and a source block that named
+      // only one position would put the title pill on the accent while the time badge followed
+      // the row -- the same failure this test was written for, arriving down the other axis.
+      expect(sites).toHaveLength(5);
       for (const prelude of sites) {
         expect(prelude).toContain('.allday-badge');
         expect(prelude).toContain('.allday-title-pill');
@@ -2160,8 +2178,9 @@ describe('card stylesheet', () => {
       // The blocks sit below the rules by being positioned rather than by a z-index, so
       // the ladder above is only meaningful while this stays a positioned element.
       expect(declared('.grid-day-body', 'position')).toBe('relative');
-      // ...and the tint and the hour lines sit below everything by carrying neither.
+      // ...and the tints and the hour lines sit below everything by carrying neither.
       expect(declared('.grid-weekend', 'z-index')).toBe('');
+      expect(declared('.grid-today', 'z-index')).toBe('');
       expect(declared('.grid-rules', 'z-index')).toBe('');
       // The now line rides on the same rule: no z-index puts it under the blocks, which
       // follow it in the day body, and its dot climbs back above the day rules.
@@ -2298,13 +2317,16 @@ describe('card stylesheet', () => {
         rule.body.includes('var(--calendar-card-grid-weekend'),
       );
 
-      // Two readers, and only the first paints a day. The stripe, not the day body: the
+      // Three readers, and only the first paints a day. The stripe, not the day body: the
       // tint spans the all-day band as well, which a background on the body cannot reach.
       // The second is a stacked block's backdrop inside a weekend body: the block hides the
       // stripe beneath it, so its backdrop repaints the tint. A block, not a day container.
+      // The third is the same backdrop when today is a weekend day, where today's tint wins
+      // and the weekend's is only the fallback for a card that has not set one.
       expect(shading.map((rule) => [...rule.selectors].sort())).toEqual([
         ['.grid-weekend'],
         ['.grid-day-body.weekend .grid-event-backdrop-ground'],
+        ['.grid-day-body.today.weekend .grid-event-backdrop-ground'],
       ]);
       // Transparent, not a color: nothing is painted unless the option resolves to
       // something, and the renderer writes the property only then.
@@ -2313,6 +2335,9 @@ describe('card stylesheet', () => {
       );
       expect(shading[1].body).toContain(
         'background-color: var(--calendar-card-grid-weekend, transparent)',
+      );
+      expect(shading[2].body.replace(/\s+/g, ' ')).toContain(
+        'background-color: var( --calendar-card-grid-today, var(--calendar-card-grid-weekend, transparent) )',
       );
       // No view's day container may carry a weekend rule — not the other two, which have
       // no fixed height for a stripe to run down, and not grid's own body, which would
@@ -2326,6 +2351,35 @@ describe('card stylesheet', () => {
           ),
         ),
       ).toEqual([]);
+    });
+
+    it("tints today's grid column on the weekend tint's rung, and lets it win there", () => {
+      // The weekend tint's twin, reconciled the same way: as the whole set of rules that
+      // read the property, so a reader arriving in a list or column day container fails as
+      // loudly as one leaving.
+      const today = RULES.filter((rule) => rule.body.includes('--calendar-card-grid-today'));
+
+      expect(today.map((rule) => [...rule.selectors].sort())).toEqual([
+        ['.grid-today'],
+        ['.grid-day-body.today .grid-event-backdrop-ground'],
+        ['.grid-day-body.today.weekend .grid-event-backdrop-ground'],
+      ]);
+      expect(declared('.grid-today', 'background-color')).toBe(
+        'var(--calendar-card-grid-today, transparent)',
+      );
+      expect(declared('.grid-today', 'pointer-events')).toBe('none');
+      // Unset, a weekday's backdrop stays transparent, as it was before the option existed.
+      expect(declared('.grid-day-body.today .grid-event-backdrop-ground', 'background-color')).toBe(
+        'var(--calendar-card-grid-today, transparent)',
+      );
+      // Unset on a weekend day, the backdrop falls back to the weekend tint it always had;
+      // set, today's wins. The rule outranks the plain weekend one by one class, so neither
+      // half depends on source order.
+      expect(
+        declared('.grid-day-body.today.weekend .grid-event-backdrop-ground', 'background-color')
+          .replace(/\s+/g, ' ')
+          .trim(),
+      ).toBe('var( --calendar-card-grid-today, var(--calendar-card-grid-weekend, transparent) )');
     });
 
     it('makes room for the accent bar in timed blocks, not in all-day banners', () => {
@@ -2562,17 +2616,19 @@ describe('card stylesheet', () => {
       expect(degradation).toEqual([
         { rung: 'no-icon', target: '.time .time-actual > ha-icon', body: 'display: none;' },
         { rung: 'no-end', target: '.time .time-actual .time-end', body: 'display: none;' },
+        // A block that clips keeps room at its inline edges, given back by its margin ("Marks
+        // above and below the line"); inline, it keeps none.
         {
           rung: 'wrap',
           target: '.time .time-actual .time-end',
-          body: 'display: block; overflow: hidden; text-overflow: ellipsis;',
+          body: 'display: block; overflow: hidden; text-overflow: ellipsis; padding-inline: var(--calendar-card-inline-room); margin-inline: calc(-1 * var(--calendar-card-inline-room));',
         },
         // With a countdown folded into the time, the end time stays inline behind a line
         // break, so the countdown can follow it on its line.
         {
           rung: 'wrap',
           target: '.time .time-actual .time-text .time-end',
-          body: 'display: inline; overflow: visible; text-overflow: clip;',
+          body: 'display: inline; overflow: visible; text-overflow: clip; padding-inline: 0; margin-inline: 0;',
         },
         {
           rung: 'wrap',
@@ -2697,7 +2753,14 @@ describe('card stylesheet', () => {
       expect(declared('.grid-event-disclosure .summary-row', 'flex')).toBe('0 0 auto');
       expect(declared('.grid-event-disclosure .summary-row', 'overflow')).toBe('hidden');
       expect(declared('.grid-event-disclosure .summary', 'min-height')).toBe('0');
-      expect(declared('.grid-event-disclosure .summary', 'padding-block')).toBe('0');
+      // No padding of its own; only the room a clamping summary keeps above its first line,
+      // which its top margin gives back.
+      expect(declared('.grid-event-disclosure .summary', 'padding-block')).toBe(
+        'var(--calendar-card-summary-ink-room, 0px) 0',
+      );
+      expect(declared('.grid-event-disclosure .summary', 'margin-top')).toBe(
+        'calc(-1 * var(--calendar-card-summary-ink-room, 0px))',
+      );
       expect(declared('.grid-event-disclosure .event-title', '-webkit-line-clamp')).toBe(
         'var(--calendar-card-grid-title-lines-compact)',
       );
@@ -2757,7 +2820,12 @@ describe('card stylesheet', () => {
       expect(declared(global, 'display')).toBe('-webkit-box');
       expect(declared(global, 'text-overflow')).toBe('');
       expect(rulesFor(span)).toHaveLength(1);
-      expect(rulesFor(global)).toHaveLength(1);
+      // The room above its first line and its inline-axis clip are rules of their own, shared
+      // with the location and description ("Marks above and below the line"); they set no
+      // display, so the clamp's display is still declared once.
+      expect(rulesFor(global).filter((rule) => /(^|;)\s*display\s*:/.test(rule.body))).toHaveLength(
+        1,
+      );
 
       // `.time-text` keeps its own path and is excluded from the selector above. It wraps
       // by design so a folded countdown breaks inside itself rather than dropping the whole
@@ -2947,15 +3015,30 @@ describe('a tappable event', () => {
 
   it('washes untinted in the card hover color, 8% on hover and 16% pressed', () => {
     expect(flat(declared('.event-interactive:active', 'box-shadow'))).toBe(
-      'inset 0 0 0 100vmax var(--calendar-card-event-wash-pressed, ' +
-        'color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent))',
+      'inset 0 0 0 100vmax color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent)',
     );
     expect(bodyIn(atRuleBlock('@media (hover: hover)'), '.event-interactive:hover')).toBe(
-      'box-shadow: inset 0 0 0 100vmax var(--calendar-card-event-wash-hover, ' +
-        'color-mix(in srgb, var(--ha-ripple-hover-color) 8%, transparent));',
+      'box-shadow: inset 0 0 0 100vmax ' +
+        'color-mix(in srgb, var(--ha-ripple-hover-color) 8%, transparent);',
     );
     expect(washPercent('.event-interactive:hover')).toBe(8);
     expect(washPercent('.event-interactive:active')).toBe(16);
+  });
+
+  // A tinted event's wash is a currentColor mix, which Safari 16.4 and 16.5 crash on in a
+  // box-shadow, so the rules that can draw it sit behind content-visibility; outside it, the
+  // untinted washes above stand for every event. currentcolor-mix.test.ts pins the gate.
+  it('lets a tinted wash replace those only behind content-visibility', () => {
+    const gated = atRuleBlock('@supports (content-visibility: auto)');
+    expect(bodyIn(gated, '.event-interactive:active')).toBe(
+      'box-shadow: inset 0 0 0 100vmax var(--calendar-card-event-wash-pressed, ' +
+        'color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent));',
+    );
+    expect(bodyIn(gated, '.event-interactive:hover')).toBe(
+      'box-shadow: inset 0 0 0 100vmax var(--calendar-card-event-wash-hover, ' +
+        'color-mix(in srgb, var(--ha-ripple-hover-color) 8%, transparent));',
+    );
+    expect(gated).toContain('@media (hover: hover) {');
   });
 
   it("washes the list button's whole cell, not the button itself, in the same colors", () => {
@@ -3670,7 +3753,9 @@ describe('the today tile', () => {
 
 /**
  * `time_position: title`: the time at the end of the title's line, at any width, in a box of its
- * own that list view's weather badge shares, after the title, which always scrolls.
+ * own that list view's weather badge shares. After a title that wraps, over a room the card sizes
+ * to it at the end of the title's text, and cut at a limit of two lines or more; or after a title
+ * kept to one line, which scrolls or ends in "…".
  *
  * Every declaration is pinned by value, and the set of rules naming the placement is pinned
  * whole, at any depth. That pins what the stylesheet says, not what a browser draws from it:
@@ -3686,7 +3771,12 @@ describe('the today tile', () => {
 describe('the time beside the title', () => {
   const ROW = '.time-beside-title > .summary-row';
   const ASIDE = `${ROW} > .title-aside`;
-  const TIME = `${ASIDE} > .time`;
+  const WRAP = `${ROW}.title-wrap`;
+  const CUT = `${WRAP}[data-title-cut='']`;
+  const BELOW = `${WRAP}[data-title-cut='below']`;
+  /** The box and the time in either layout. */
+  const SHARED = '.time-beside-title .summary-row .title-aside';
+  const TIME = `${SHARED} > .time`;
   const BADGE_ROW = '.time-beside-title .time-actual:has(> .allday-badge + .time-text)';
 
   /** Split a selector list at its top-level commas, so `:is(a, b)` stays one selector. */
@@ -3773,9 +3863,12 @@ describe('the time beside the title', () => {
       'font-size': 'var(--calendar-card-weather-event-font-size, 12px)',
       'align-self': 'baseline',
     }),
-    [`${ASIDE} > .event-weather`]: one({ 'margin-inline-end': '0' }),
+    [`${SHARED} > .event-weather`]: one({ 'margin-inline-end': '0' }),
     // The bullet, only after a badge, with the folded countdown's spacing.
-    [`${ASIDE} > .event-weather + .time::before`]: one({ content: "'·'", 'margin-inline': '4px' }),
+    [`${SHARED} > .event-weather + .time::before`]: one({
+      content: "'·'",
+      'margin-inline': '4px',
+    }),
     // The time as an item of the box, with none of the row it is below the title, and every line
     // of a time that wraps, or a pill wrapped above it, set against the end as the box is.
     [TIME]: one({
@@ -3797,6 +3890,133 @@ describe('the time beside the title', () => {
       'white-space': 'normal',
     }),
     [`${TIME} > .time-countdown::before`]: one({ content: 'none' }),
+    // A wrapping title: a block row, the title in its own formatting context and inline, and
+    // the gap before the time said once, on the row, where the card reads it. The row ends 12px
+    // short of the event, as every time does, so the title's lines stop where the time ends.
+    [WRAP]: one({
+      display: 'block',
+      position: 'relative',
+      width: 'auto',
+      'margin-inline-end': '12px',
+      '--calendar-card-title-room-gap': '12px',
+    }),
+    // Neither keeps room above the title's first line, nor cuts below its last: the summary
+    // clamps nothing here, so with overflow: clip it cuts only the inline axis, and the inline
+    // title takes no room. See "Marks above and below the line". The summary keeps its room at
+    // the inline edges, which its margin gives back, and no gutter.
+    [`${WRAP} > .summary:not(.summary-scroll)`]: [
+      {
+        display: 'flow-root',
+        'margin-inline': 'calc(-1 * var(--calendar-card-summary-inline-room))',
+        '--calendar-card-summary-ink-room': '0px',
+      },
+      { 'overflow-y': 'visible' },
+    ],
+    [`${WRAP} > .summary > .event-title`]: one({
+      display: 'inline',
+      '--calendar-card-title-ink-room': '0px',
+      '--calendar-card-title-inline-room': '0px',
+    }),
+    // The room ending the title, drawn only once the card has sized it to the time, then floated
+    // to the row's end, named by the direction the card measured, with the gap before it.
+    [`${WRAP} > .summary > .title-room`]: one({ display: 'none' }),
+    [`${WRAP}[data-title-fit] > .summary > .title-room`]: one({
+      display: 'block',
+      width: 'var(--calendar-card-title-room-width)',
+      height: 'var(--calendar-card-title-room-height)',
+    }),
+    [`${WRAP}[data-title-fit='ltr'] > .summary > .title-room`]: one({
+      float: 'right',
+      'margin-left': 'var(--calendar-card-title-room-gap)',
+    }),
+    [`${WRAP}[data-title-fit='rtl'] > .summary > .title-room`]: one({
+      float: 'left',
+      'margin-right': 'var(--calendar-card-title-room-gap)',
+    }),
+    // The box: a line of its own under the title, at the end, until the room is sized; then over
+    // the room, placed by its top so a time that grows before the next fit grows away from the
+    // title. As wide as it needs, no wider than the row less the gap and the room a cut row keeps
+    // at its inline edges, at the title's line height, and opened by the strut, a word joiner at
+    // the title's size.
+    [`${WRAP} > .title-aside`]: one({
+      display: 'flex',
+      'align-items': 'baseline',
+      width: 'max-content',
+      'max-width':
+        'calc(100% - 2 * var(--calendar-card-title-row-room, 0px) - var(--calendar-card-title-room-gap))',
+      'margin-inline-start': 'auto',
+      'line-height': '1.2',
+    }),
+    [`${WRAP} > .title-aside > .title-strut`]: one({
+      'font-size': 'var(--calendar-card-font-size-event)',
+    }),
+    // The time ends at the row's end, which already keeps the time's 12px, and an all-day pill
+    // with nothing after it ends where every other time does, beside either kind of title.
+    [`${WRAP} > .title-aside > .time`]: one({ 'margin-inline-end': '0' }),
+    [`${TIME} > .time-actual > .allday-badge:last-child`]: one({ 'margin-inline-end': '0' }),
+    [`${WRAP}[data-title-fit] > .title-aside`]: one({
+      position: 'absolute',
+      top: 'calc(100% - var(--calendar-card-title-pad) - var(--calendar-card-title-room-height))',
+    }),
+    // Against the row's padding edge, inside the room a cut row keeps there.
+    [`${WRAP}[data-title-fit='ltr'] > .title-aside`]: one({
+      right: 'var(--calendar-card-title-row-room, 0px)',
+    }),
+    [`${WRAP}[data-title-fit='rtl'] > .title-aside`]: one({
+      left: 'var(--calendar-card-title-row-room, 0px)',
+    }),
+    // Cut beside the time: the row clamps, .summary is no box of its own, and a float shaped to
+    // the last lines keeps the time's room there.
+    // The row's room above the first line, inside the clamp, is given back by its top margin,
+    // and its room at the inline edges, which it cuts in place of its summary, by its inline
+    // margin ("Marks above and below the line").
+    [CUT]: one({
+      display: '-webkit-box',
+      '-webkit-box-orient': 'vertical',
+      '-webkit-line-clamp': 'var(--calendar-card-title-max-lines)',
+      overflow: 'hidden',
+      'margin-bottom': 'var(--calendar-card-title-pad)',
+      'padding-top': '0.375em',
+      'margin-top': '-0.375em',
+      'padding-inline': 'var(--calendar-card-event-row-room)',
+      'margin-inline':
+        'calc(-1 * var(--calendar-card-event-row-room)) calc(12px - var(--calendar-card-event-row-room))',
+      '--calendar-card-title-row-room': 'var(--calendar-card-event-row-room)',
+    }),
+    // It cuts nothing, so it keeps no room at its inline edges either, and a label's hanging
+    // indent stays as it is.
+    [`${CUT} > .summary:not(.summary-scroll)`]: one({
+      display: 'block',
+      overflow: 'visible',
+      'padding-bottom': '0',
+      '--calendar-card-summary-inline-room': '0px',
+    }),
+    [`${CUT} > .summary::before`]: one({
+      content: "''",
+      width: 'calc(var(--calendar-card-title-room-width) + var(--calendar-card-title-room-gap))',
+      height: 'var(--calendar-card-title-cut-end)',
+      'shape-outside': 'inset(var(--calendar-card-title-cut-start) 0 0 0)',
+    }),
+    [`${WRAP}[data-title-fit='ltr'][data-title-cut=''] > .summary::before`]: one({
+      float: 'right',
+    }),
+    [`${WRAP}[data-title-fit='rtl'][data-title-cut=''] > .summary::before`]: one({
+      float: 'left',
+    }),
+    [`${WRAP}[data-title-cut] > .summary > .title-room`]: one({ display: 'none' }),
+    [`${CUT} > .title-aside`]: one({ top: 'calc(100% - var(--calendar-card-title-room-height))' }),
+    // Cut below the title: .summary clamps, and the row keeps room under it for the time.
+    [BELOW]: one({ 'padding-bottom': 'var(--calendar-card-title-cut-below)' }),
+    // It clamps, so it hides what passes its edges, with room above its first line on top of
+    // its own padding.
+    [`${BELOW} > .summary:not(.summary-scroll)`]: one({
+      display: '-webkit-box',
+      '-webkit-box-orient': 'vertical',
+      '-webkit-line-clamp': 'var(--calendar-card-title-max-lines)',
+      'padding-bottom': '0',
+      'overflow-y': 'hidden',
+      '--calendar-card-summary-ink-room': '0.25em',
+    }),
     // An all-day badge with a countdown folded after it wraps as column view's does, in list
     // view too, so the pill and the countdown's longest word do not set the box's floor side
     // by side. These share column view's rules, whole.
@@ -3830,13 +4050,15 @@ describe('the time beside the title', () => {
     }
   });
 
-  it('keeps the title line one line: nothing lets it wrap', () => {
-    // The title line is the title row, a flex row that never wraps, so the time cannot leave it.
-    // No rule outside the grid, whatever else it names, may give it another display or let it
-    // wrap.
+  it('keeps the title line one line where the title is: nothing lets it wrap', () => {
+    // The title line of a one-line title is the title row, a flex row that never wraps, so the
+    // time cannot leave it. No rule outside the grid, whatever else it names, may give it another
+    // display or let it wrap, bar the wrapping title's own row, pinned whole above.
     expect(declared('.summary-row', 'display')).toBe('flex');
     const subjectIsTitleRow = (selector: string) =>
-      /\.summary-row(?![\w-])[^\s>+~]*$/.test(selector) && !selector.includes('grid');
+      /\.summary-row(?![\w-])[^\s>+~]*$/.test(selector) &&
+      !selector.includes('grid') &&
+      !selector.includes('.title-wrap');
     const settings = INNERMOST.flatMap((rule) =>
       rule.selectors
         .filter(subjectIsTitleRow)
@@ -3871,7 +4093,8 @@ describe('the time beside the title', () => {
     expect(declared('.time', 'justify-content')).toBe('space-between');
     expect(declared('.time', 'align-items')).toBe('center');
     expect(declared('.time', 'column-gap')).toBe('8px');
-    // It keeps its end margin beside the title, so it ends where the rows below it do.
+    // It keeps its end margin beside a title kept to one line, so it ends where the rows below
+    // it do. Beside a wrapping title the row keeps it instead; see the next test.
     expect(declared('.time', 'margin-inline-end')).toBe('12px');
     // Column view's indent for the clock, which the time has no longer.
     expect(declared('.column-events .time', 'padding-inline-start')).toBe(
@@ -3895,6 +4118,115 @@ describe('the time beside the title', () => {
     expect(declared('.time .now-indicator', 'overflow-wrap')).toBe('anywhere');
   });
 
+  it("ends the time 12px short of the event in every layout, and a wrapping title's lines there too", () => {
+    // Every time, countdown and weather badge set against the end of an event ends 12px short of
+    // it, where the rows below the title end. Beside a title kept to one line the time does so by
+    // its own end margin. A wrapping title's lines used to run on to the event's end, 12px past
+    // the time beside their last line, which looked indented from them; giving the time up to
+    // those lines broke the 12px everywhere else instead, so the row keeps the margin, and the
+    // title's lines and the time both end there. Measured in every wrapping and capped row, list
+    // and column, left to right and right to left, in Chromium and WebKit.
+    const margin = declared('.time', 'margin-inline-end');
+    expect(margin).toBe('12px');
+    expect(declared('.event-weather', 'margin-inline-end')).toBe(margin);
+    expect(declared('.time-countdown', 'margin-inline-end')).toBe(margin);
+    // The wrapping row keeps it, and is as wide as the event less that: the rule every title
+    // row has makes it as wide as the event, which a margin alone would push past the end.
+    expect(declared('.summary-row', 'width')).toBe('100%');
+    expect(declared(WRAP, 'width')).toBe('auto');
+    expect(declared(WRAP, 'margin-inline-end')).toBe(margin);
+    //
+    // The title's lines end at .summary's content edge, which is the row's: the room the summary
+    // keeps at its inline edges as padding, its margin takes back.
+    const padding = declared('.summary', 'padding-inline');
+    expect(padding).toBe('var(--calendar-card-summary-inline-room)');
+    expect(declared(`${WRAP} > .summary:not(.summary-scroll)`, 'margin-inline')).toBe(
+      `calc(-1 * ${padding})`,
+    );
+    // A row cut beside the time keeps that room as padding of its own, which its margin takes
+    // back, keeping the 12px at its end, and the box is placed exactly that far in from the
+    // row's padding edge. Every other row has neither, and the box falls back to the edge itself.
+    const room = declared(CUT, 'padding-inline');
+    expect(declared(CUT, 'margin-inline').replace(/\s+/g, ' ')).toBe(
+      `calc(-1 * ${room}) calc(${margin} - ${room})`,
+    );
+    expect(declared(CUT, '--calendar-card-title-row-room')).toBe(room);
+    expect(declared(WRAP, 'padding-inline')).toBe('');
+    expect(declared(`${WRAP}[data-title-fit='ltr'] > .title-aside`, 'right')).toBe(
+      'var(--calendar-card-title-row-room, 0px)',
+    );
+    expect(declared(`${WRAP}[data-title-fit='rtl'] > .title-aside`, 'left')).toBe(
+      'var(--calendar-card-title-row-room, 0px)',
+    );
+    // Until the card has fitted it, the box is a line of its own, pushed to the end.
+    expect(declared(`${WRAP} > .title-aside`, 'margin-inline-start')).toBe('auto');
+    // Nothing in the box keeps room at its end: no rule naming it declares padding or a margin
+    // on its end side, in any spelling.
+    const endSide =
+      /^(padding|margin)(-inline(-end)?|-left|-right)?$|^(inset-inline-end|right|left)$/;
+    const endSpacing = (selectors: (selector: string) => boolean) =>
+      INNERMOST.flatMap((rule) =>
+        rule.selectors.filter(selectors).flatMap((selector) =>
+          Object.entries(rule.declarations)
+            .filter(([property]) => endSide.test(property))
+            .map(([property, value]) => `${selector} { ${property}: ${value} }`),
+        ),
+      );
+    const boxes = [
+      ASIDE,
+      `${WRAP} > .title-aside`,
+      `${WRAP}[data-title-fit] > .title-aside`,
+      `${CUT} > .title-aside`,
+    ];
+    for (const box of boxes) expect(rulesFor(box), box).not.toHaveLength(0);
+    expect(endSpacing((selector) => boxes.includes(selector))).toEqual([]);
+
+    // Nor does what the box holds, past what spaces one item from the next. Every rule that can
+    // reach the time's content beside the title is listed, whatever it names, so a new one that
+    // keeps room at the end, a .time-actual padding or a countdown margin, fails here rather than
+    // only in a browser. Grid and the rows below the title are out of reach; so are separators
+    // drawn before what they separate.
+    const PATH =
+      /\.(time|time-actual|time-text|time-end|time-countdown|allday-badge|now-time|now-indicator)(?![\w-])/;
+    const subject = (selector: string) => {
+      const compounds = selector.split(/\s*[\s>+~]\s*(?![^(]*\))/);
+      return compounds[compounds.length - 1];
+    };
+    const onPath = (selector: string) =>
+      !/::before|grid|\.time-location/.test(selector) &&
+      (PATH.test(subject(selector)) ||
+        (/^span\b/.test(subject(selector)) && /\.time(?![\w-])/.test(selector)));
+    const wrapTime = `${WRAP} > .title-aside > .time`;
+    const roomSpan = '.time .time-actual > span:not(.time-text):not(.allday-badge):not(.now-time)';
+    expect(endSpacing(onPath)).toEqual([
+      // Between "Now" and the time after it.
+      '.time .now-indicator { margin-inline-end: calc(var(--calendar-card-now-gap) - 0.0675em) }',
+      // Every time's 12px, which the wrapping row keeps in its place, below.
+      '.time { margin-inline-end: 12px }',
+      // Room at a field's inline edges, given back by an equal negative margin.
+      '.time .time-actual .time-text > span { padding-inline: var(--calendar-card-time-inline-room, 0px) }',
+      '.time .time-actual .time-text > span { margin-inline: calc(-1 * var(--calendar-card-time-inline-room, 0px)) }',
+      // A folded countdown keeps none.
+      '.time .time-actual .time-text > .time-countdown { padding-inline: 0 }',
+      '.time .time-actual .time-text > .time-countdown { margin-inline-end: 0 }',
+      // A countdown's 12px, which a countdown alone beside the title gives up, and column
+      // view's too.
+      '.time-countdown { margin-inline-end: 12px }',
+      `${TIME} > .time-countdown { margin-inline: 0 }`,
+      // The wrapping row's time ends at the row's end, which keeps the 12px.
+      `${wrapTime} { margin-inline-end: 0 }`,
+      // A pill with nothing after it ends where every other time does, beside either title.
+      `${TIME} > .time-actual > .allday-badge:last-child { margin-inline-end: 0 }`,
+      // Inside the pill, whose ground runs to its border.
+      '.allday-badge { padding-inline: 0.5em }',
+      // Between the pill and what follows it, taken away above where nothing does.
+      '.allday-badge { margin-inline-end: 5px }',
+      `${roomSpan} { padding-inline: var(--calendar-card-inline-room) }`,
+      `${roomSpan} { margin-inline: calc(-1 * var(--calendar-card-inline-room)) }`,
+      '.column-events .time-countdown { margin-inline-end: 0 }',
+    ]);
+  });
+
   it("spaces the bullet as the folded countdown's separator is spaced", () => {
     // The same dot, 4px either side: the countdown's start margin and its separator's end margin.
     const countdown = '.time .time-actual .time-text > .time-countdown';
@@ -3904,10 +4236,33 @@ describe('the time beside the title', () => {
   });
 
   it('mirrors in a right-to-left card: no placement rule names a physical side', () => {
-    for (const declarations of Object.values(placementRules()).flat()) {
-      for (const [property, value] of Object.entries(declarations)) {
-        expect(`${property}: ${value}`).not.toMatch(/\b(left|right)\b/);
+    // Bar the rules keyed to the direction the card measured on the row, which name their sides
+    // because older supported browsers can neither float to the inline end nor ask :dir(). Those
+    // come in mirrored pairs, below.
+    const keyed = (selector: string) => /\[data-title-fit='(ltr|rtl)'\]/.test(selector);
+    const rules = Object.entries(placementRules());
+    for (const [selector, list] of rules) {
+      if (keyed(selector)) continue;
+      for (const declarations of list) {
+        for (const [property, value] of Object.entries(declarations)) {
+          expect(`${property}: ${value}`).not.toMatch(/\b(left|right)\b/);
+        }
       }
+    }
+    const sided = Object.fromEntries(rules.filter(([selector]) => keyed(selector)));
+    expect(Object.keys(sided)).toHaveLength(6);
+    const swap = (text: string) =>
+      text.replace(
+        /ltr|rtl|left|right/g,
+        (word) => ({ ltr: 'rtl', rtl: 'ltr', left: 'right', right: 'left' })[word]!,
+      );
+    for (const [selector, [declarations]] of Object.entries(sided)) {
+      const twin = sided[swap(selector)];
+      expect(twin, selector).toBeDefined();
+      const mirrored = Object.fromEntries(
+        Object.entries(declarations).map(([property, value]) => [swap(property), swap(value)]),
+      );
+      expect(twin[0], selector).toEqual(mirrored);
     }
   });
 });

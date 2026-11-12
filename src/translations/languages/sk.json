@@ -1,10 +1,11 @@
 {
   "daysOfWeek": ["Ne", "Po", "Ut", "St", "Št", "Pi", "So"],
-  "fullDaysOfWeek": ["Nedeľa", "Pondelok", "Utorok", "Streda", "Štvrtok", "Piatok", "Sobota"],
+  "fullDaysOfWeek": ["nedele", "pondelka", "utorka", "stredy", "štvrtka", "piatku", "soboty"],
   "months": ["Jan", "Feb", "Mar", "Apr", "Máj", "Jún", "Júl", "Aug", "Sep", "Okt", "Nov", "Dec"],
   "allDay": "celý deň",
   "multiDay": "do",
-  "at": "v",
+  "at": "o",
+  "separator": ", ",
   "viewList": "Zoznam",
   "viewColumns": "Stĺpce",
   "viewGrid": "Časová mriežka",
@@ -14,5 +15,7 @@
   "loading": "Načítavam udalosti z kalendára...",
   "error": "Chyba: Entita kalendára nebola nájdená alebo je nesprávne nakonfigurovaná",
   "loadFailed": "Nepodarilo sa načítať:",
-  "newEvent": "Nová udalosť"
+  "newEvent": "Nová udalosť",
+  "showAll": "Zobraziť všetky",
+  "hideAll": "Skryť všetky"
 }

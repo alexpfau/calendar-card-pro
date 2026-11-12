@@ -4,7 +4,8 @@
   "months": ["jan", "feb", "mar", "apr", "mai", "jun", "jul", "aug", "sep", "okt", "nov", "des"],
   "allDay": "heile dagen",
   "multiDay": "til",
-  "at": "kl. ",
+  "at": "kl.",
+  "separator": ", ",
   "viewList": "Liste",
   "viewColumns": "Kolonnar",
   "viewGrid": "Rutenett",
@@ -14,5 +15,7 @@
   "loading": "Lastar kalenderhendingar...",
   "error": "Feil: Kalendereininga vart ikkje funnen eller er ikkje konfigurert riktig",
   "loadFailed": "Kunne ikkje lastast:",
-  "newEvent": "Ny hending"
+  "newEvent": "Ny hending",
+  "showAll": "Vis alle",
+  "hideAll": "Skjul alle"
 }

@@ -1,10 +1,11 @@
 {
   "daysOfWeek": ["Ne", "Po", "Út", "St", "Čt", "Pá", "So"],
-  "fullDaysOfWeek": ["Neděle", "Pondělí", "Úterý", "Středa", "Čtvrtek", "Pátek", "Sobota"],
+  "fullDaysOfWeek": ["neděle", "pondělí", "úterý", "středy", "čtvrtka", "pátku", "soboty"],
   "months": ["Led", "Úno", "Bře", "Dub", "Kvě", "Čvn", "Čvc", "Srp", "Zář", "Říj", "Lis", "Pro"],
   "allDay": "celý den",
   "multiDay": "do",
   "at": "v",
+  "separator": ", ",
   "viewList": "Seznam",
   "viewColumns": "Sloupce",
   "viewGrid": "Mřížka",
@@ -14,5 +15,7 @@
   "loading": "Načítání událostí z kalendáře...",
   "error": "Chyba: Entita kalendáře nebyla nalezena nebo je nesprávně nakonfigurována",
   "loadFailed": "Nepodařilo se načíst:",
-  "newEvent": "Nová událost"
+  "newEvent": "Nová událost",
+  "showAll": "Zobrazit všechny",
+  "hideAll": "Skrýt všechny"
 }

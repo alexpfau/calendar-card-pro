@@ -81,11 +81,15 @@ time_grid:
   hour_height: 36px
 ```
 
+::: tip Build It in the Editor
+[Quick Setup](/features/editor#quick-setup) in the visual editor builds this card on your own calendars: its layout, its look and its colors, in order. The names and faces above are this family's, so give your calendars their own.
+:::
+
 ## 🧭 Across Different Screens
 
 `view: grid` is only where the card starts. The toolbar's switcher offers List, Columns and Grid, and each device remembers its own choice until the card is edited, so the wall stays on Grid while a phone keeps List. See [Switching Between Layouts](/features/layout-appearance#switching-between-layouts).
 
-<video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_phone.mp4" poster="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_phone_poster.jpg" width="430" height="860" loop muted playsinline controls preload="metadata" aria-label="The same card on a phone, in grid view for Monday to Wednesday: a finger switches it to List, swipes to Thursday to Saturday, taps Friday's date and adds Swim lesson on Anna's calendar at 11:00, deletes it, swipes back, unchecks Ben in the filter menu so the filter button shows a dot, searches for zoo and picks the zoo trip on Thursday, October 15, and presses Reset, which brings back the grid, today and every calendar"></video><br>
+<video class="clip portrait" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_phone.mp4" poster="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_phone_poster.jpg" width="430" height="860" loop muted playsinline controls preload="metadata" aria-label="The same card on a phone, in grid view for Monday to Wednesday: a finger switches it to List, swipes to Thursday to Saturday, taps Friday's date and adds Swim lesson on Anna's calendar at 11:00, deletes it, swipes back, unchecks Ben in the filter menu so the filter button shows a dot, searches for zoo and picks the zoo trip on Thursday, October 15, and presses Reset, which brings back the grid, today and every calendar"></video><br>
 
 On a phone: switch to List, swipe to the next three days, tap Friday to add a swim lesson and delete it, swipe back, hide Ben's calendar in the filter menu, search for the zoo, pick Thursday, October 15, and reset the card.
 
@@ -109,7 +113,7 @@ With `show: true`, `toolbar` adds two rows of controls:
 - **Refresh** loads the events now.
 - **Search**, the magnifier at the end of the row, finds an event a year back or ahead, and a pick turns the card to that day. See [Searching the Card](/features/layout-appearance#searching-the-card).
 - **The month**, under the title _Family_, opens a date picker. The arrows beside it page by the days on screen, a week on the wall and three on a phone, and the house returns to today. On a touch screen a swipe across the days pages too. See [Paging Through Dates](/features/layout-appearance#paging-through-dates).
-- **The chips** from `legend: chips` are the key to the colors, and each hides its calendar on this device. Each prints its calendar's [`name`](/features/core-settings#naming-a-calendar-in-the-card), so a calendar its integration named after an account still reads _Anna_. Where they do not all fit, as on a phone, they fold into the filter button, a menu with a checkbox per calendar. See [Showing & Hiding Calendars](/features/layout-appearance#showing-hiding-calendars).
+- **The chips** from `legend: chips` are the key to the colors, and each hides its calendar on this device. Each prints its calendar's [`name`](/features/core-settings#naming-a-calendar-in-the-card), so a calendar its integration named after an account still reads _Anna_. Where they do not all fit, as on a phone, they fold into the filter button, a menu with a checkbox per calendar under Show all and Hide all. See [Showing & Hiding Calendars](/features/layout-appearance#showing-hiding-calendars).
 - **Reset** is off by default; `reset: true` turns it on for a shared wall. It appears once someone on this device has paged away, switched layouts or hidden a calendar, and one press puts it all back for whoever walks up next. See [Resetting the Card](/features/layout-appearance#resetting-the-card).
 
 ### Adding & Moving on the Wall
@@ -201,9 +205,10 @@ time_grid:
   past_event_opacity: 100
   hour_height: 40px
   event_font_size: 13px
+  today_background_color: 'color-mix(in srgb, #34d399 12%, transparent)'
 ```
 
-`start_date: start_of_week` holds the current week, and `first_day_of_week: monday` starts that week on Monday rather than wherever Home Assistant does. `past_event_opacity: 100` keeps the week's finished events at full strength, and `min_days_to_show: 7` never shows fewer than seven days, turning the card into a list where they do not fit. Without the toolbar there is room for 40px hours and 13px type, a pixel above grid view's default, and the `today_*` colors paint today's date in the now line's green. See [A Full Week Without Dimming](/features/grid-view#a-full-week-without-dimming) and [Dynamic Start Date](/features/start-date-offset).
+`start_date: start_of_week` holds the current week, and `first_day_of_week: monday` starts that week on Monday rather than wherever Home Assistant does. `past_event_opacity: 100` keeps the week's finished events at full strength, and `min_days_to_show: 7` never shows fewer than seven days, turning the card into a list where they do not fit. Without the toolbar there is room for 40px hours and 13px type, a pixel above grid view's default, and the `today_*` colors paint today's date in the now line's green. On a week that starts on Monday, today moves along the wall, so `today_background_color` tints today's column in the same green, which finds it from across the room. See [A Full Week Without Dimming](/features/grid-view#a-full-week-without-dimming), [Shading Today](/features/grid-view#shading-today) and [Dynamic Start Date](/features/start-date-offset).
 
 ### A Private Work Calendar
 

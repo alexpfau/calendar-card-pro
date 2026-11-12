@@ -5,6 +5,7 @@
   "allDay": "all day",
   "multiDay": "until",
   "at": "at",
+  "separator": ", ",
   "viewList": "List",
   "viewColumns": "Columns",
   "viewGrid": "Grid",
@@ -14,5 +15,7 @@
   "loading": "Loading calendar events...",
   "error": "Error: Calendar entity not found or improperly configured",
   "loadFailed": "Couldn't load:",
-  "newEvent": "New event"
+  "newEvent": "New event",
+  "showAll": "Show all",
+  "hideAll": "Hide all"
 }

@@ -94,7 +94,12 @@
  * last two decide on height rather than width. Leaving it out never brings the clock back:
  * the clock is drawn only where the row with its separator had room for it, so it still goes
  * once as a lane narrows.
+ *
+ * The row and its `.time-actual` keep room at their inline edges for glyphs that lean past them
+ * ("Marks above and below the line" in styles.ts), so the row is read by its content box.
  */
+
+import { inlineContentBox, inlineContentWidth } from './content-box';
 
 /** Sub-pixel rounding tolerance, matching the title fitter's. No design slack beyond it. */
 const PRECISION = 1 / 64;
@@ -225,7 +230,7 @@ function startLineReach(target: GridTimeTarget): number {
   range.setEndBefore(target.end);
   const text = range.getBoundingClientRect();
   if (text.width <= 0) return 0;
-  const row = target.time.getBoundingClientRect();
+  const row = inlineContentBox(target.time);
   const rtl =
     target.time.ownerDocument.defaultView?.getComputedStyle(target.time).direction === 'rtl';
   return rtl ? row.right - text.left : text.right - row.left;
@@ -268,7 +273,7 @@ export function prepareGridTimeMeasurement(target: GridTimeTarget): void {
  * @returns The row's content-box width
  */
 export function measureGridTimeAvailable(target: GridTimeTarget): number {
-  return target.time.clientWidth;
+  return inlineContentWidth(target.time);
 }
 
 /**
@@ -302,7 +307,7 @@ export function measureGridTimeCosts(
   const words = countdownWordsWidth(target);
   return {
     available,
-    full: target.time.getBoundingClientRect().width,
+    full: inlineContentBox(target.time).width,
     icon: target.icon ? outerInlineWidth(target.icon) : 0,
     end: target.end ? outerInlineWidth(target.end) : 0,
     wrapped,
@@ -354,7 +359,7 @@ export function openGridTimeWrapMeasurement(target: GridTimeTarget): void {
 export function measureGridTimeWrapped(target: GridTimeTarget): number {
   if (!target.end) return 0;
   const words = countdownWordsWidth(target);
-  if (words <= 0) return target.time.getBoundingClientRect().width;
+  if (words <= 0) return inlineContentBox(target.time).width;
   return withoutCountdownWords(countdownLineReach(target), words, startLineReach(target));
 }
 
@@ -371,7 +376,7 @@ export function measureGridTimeWrapped(target: GridTimeTarget): number {
  * @returns The countdown line's reach, the row's width where the countdown draws no box
  */
 function countdownLineReach(target: GridTimeTarget): number {
-  const row = target.time.getBoundingClientRect();
+  const row = inlineContentBox(target.time);
   const boxes = target.countdown?.getClientRects();
   const last = boxes?.[boxes.length - 1];
   if (!last) return row.width;

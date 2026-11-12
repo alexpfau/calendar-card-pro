@@ -82,6 +82,203 @@ export default css`
     align-self: flex-start;
   }
 
+  .misplaced-options {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 16px;
+    padding: 12px;
+    border-inline-start: 3px solid var(--warning-color, #ffa600);
+    border-radius: 4px;
+    background: var(--secondary-background-color);
+    line-height: 1.4;
+  }
+
+  .misplaced-options ul {
+    margin: 4px 0 0;
+    padding-inline-start: 20px;
+  }
+
+  .misplaced-options li {
+    padding: 2px 0;
+  }
+
+  .misplaced-options code {
+    font-family: var(--code-font-family, monospace);
+    overflow-wrap: anywhere;
+  }
+
+  .misplaced-taken {
+    color: var(--secondary-text-color);
+  }
+
+  .quick-setup-entry {
+    padding-bottom: 20px;
+  }
+
+  /* The banner is one button, drawn from Home Assistant's theme variables so it reads as native
+     in any theme; rgb-primary-color is the primary color as an r, g, b triple, which Home
+     Assistant derives for every theme. The fallback triple is its default blue. */
+  .quick-setup-banner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    min-height: 76px;
+    padding: 14px 16px;
+    border: 1px solid rgba(var(--rgb-primary-color, 3, 169, 244), 0.32);
+    border-radius: var(--ha-card-border-radius, 12px);
+    background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
+    color: var(--primary-text-color);
+    cursor: pointer;
+    font: inherit;
+    text-align: start;
+    transition: background-color 0.15s ease-in-out;
+  }
+
+  .quick-setup-banner:hover {
+    background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.14);
+  }
+
+  .quick-setup-banner:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+
+  .quick-setup-badge {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    color: var(--text-primary-color, #fff);
+    --mdc-icon-size: 24px;
+  }
+
+  .quick-setup-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .quick-setup-name {
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  .quick-setup-line {
+    color: var(--secondary-text-color);
+    font-size: 14px;
+  }
+
+  .quick-setup-chevron {
+    flex: none;
+    color: var(--primary-color);
+  }
+
+  /* The chevron points the way the text runs. */
+  .quick-setup-chevron:dir(rtl) {
+    transform: scaleX(-1);
+  }
+
+  .quick-setup {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    border-inline-start: 3px solid var(--primary-color);
+    border-radius: 4px;
+    background: var(--secondary-background-color);
+    line-height: 1.4;
+  }
+
+  .quick-setup-step,
+  .quick-setup-note {
+    color: var(--secondary-text-color);
+  }
+
+  .quick-setup-stories {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+  }
+
+  .story-option {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .story-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 44px;
+    padding: 12px;
+    border: 1px solid var(--divider-color);
+    border-radius: 8px;
+    background: var(--card-background-color, transparent);
+    color: var(--primary-text-color);
+    cursor: pointer;
+    font: inherit;
+    text-align: start;
+  }
+
+  .story-tile[aria-pressed='true'] {
+    border-color: var(--primary-color);
+    box-shadow: inset 0 0 0 1px var(--primary-color);
+  }
+
+  .story-tile:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+
+  .story-name {
+    font-weight: 500;
+  }
+
+  .story-detail {
+    color: var(--secondary-text-color);
+    font-size: 13px;
+  }
+
+  .story-link {
+    color: var(--primary-color);
+    font-size: 13px;
+    padding-inline-start: 2px;
+  }
+
+  .quick-setup-review {
+    margin: 0;
+    padding-inline-start: 20px;
+  }
+
+  .quick-setup-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .quick-setup-actions .migration-choice {
+    align-self: auto;
+  }
+
+  .quick-setup-actions [data-quick-setup-cancel] {
+    margin-inline-end: auto;
+  }
+
+  .migration-choice:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
   .view-resets {
     display: flex;
     flex-wrap: wrap;
@@ -144,6 +341,13 @@ export default css`
   .filter-bar {
     border-bottom: 1px solid var(--divider-color);
     padding-bottom: 12px;
+  }
+
+  .filter-note {
+    color: var(--secondary-text-color);
+    font-size: 12px;
+    line-height: 1.4;
+    padding: 8px 0 4px;
   }
 
   .filter-empty {

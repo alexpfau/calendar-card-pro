@@ -12,6 +12,7 @@ import * as ViewConfig from '../config/view';
 // across two lines -- which changes the emitted text from `4px 8px` to `4px\n  8px`
 // and fails the stylesheet assertion that pins it. Do not "tidy" these back.
 import { GRID_AXIS_PADDING_END_PX, GRID_AXIS_PADDING_START_PX } from '../config/view';
+import * as ColorMix from '../utils/color-mix';
 import * as EntityColors from '../utils/entity-colors';
 
 /**
@@ -44,6 +45,28 @@ function cardAccentColor(config: Types.Config): string {
   return config.accent_color && !EntityColors.isEntityColorSentinel(config.accent_color)
     ? config.accent_color
     : String(Config.DEFAULT_CONFIG.accent_color);
+}
+
+/** A value that names something substituted at layout: a custom property, or an attribute. */
+const SUBSTITUTED = /(?:^|[^\w-])(?:var|attr)\(/i;
+
+/**
+ * The share of `size` a box keeps as room at its inline edges for text set in that size, as a
+ * length in the font of the text's parent: 0.125em of the text ("Marks above and below the line"
+ * in the stylesheet), which the stylesheet rounds up to a whole pixel.
+ *
+ * Every size the card accepts is rewritten as a length first, as the date column's is: a
+ * percentage anywhere in it as the em it is, a keyword as the length it stands for, and an
+ * !important dropped. A size that names a custom property is the exception, because what it
+ * holds is not known until layout, and a percentage there would make the padding a share of the
+ * box's width and place the time beside a cut title by another share again. That size keeps
+ * 0.125em of the box's own font, the room the box keeps for text of its own.
+ *
+ * @param size - A font size option, as `toValidFontSize` leaves it
+ * @returns A length for padding and positioning
+ */
+function inlineRoom(size: string): string {
+  return SUBSTITUTED.test(size) ? '0.125em' : ViewConfig.scaleFontSize(size, 0.125);
 }
 
 /**
@@ -101,6 +124,42 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     // In countdown text placement, an inline time can share a line with the countdown.
     // Clamping switches it to -webkit-box and accepts that trade-off explicitly.
     '--calendar-card-time-display': config.time_max_lines > 0 ? '-webkit-box' : 'inline',
+    // Whether a field's clamping box cuts at its top and bottom edges. Only a limit has lines to
+    // hide there; without one, the marks Thai, Vietnamese and other scripts stack above and below
+    // a line reach past it and are drawn. See "Marks above and below the line" in the stylesheet.
+    '--calendar-card-title-overflow': config.title_max_lines > 0 ? 'hidden' : 'visible',
+    '--calendar-card-time-overflow': config.time_max_lines > 0 ? 'hidden' : 'visible',
+    '--calendar-card-location-overflow': config.location_max_lines > 0 ? 'hidden' : 'visible',
+    '--calendar-card-description-overflow': config.description_max_lines > 0 ? 'hidden' : 'visible',
+    // The room a clamped title, or a clamped time beside its countdown, keeps above its first line
+    // for those marks, inside its cut. Either is inline without a limit, where padding takes no
+    // room but still moved where Chromium put the glyphs on the pixel grid.
+    '--calendar-card-title-ink-room': config.title_max_lines > 0 ? '0.375em' : '0px',
+    '--calendar-card-time-ink-room': config.time_max_lines > 0 ? '0.375em' : '0px',
+    // The room either keeps at its inline edges while it clamps, given back by a negative margin.
+    // None while it is inline, for the same reason.
+    '--calendar-card-title-inline-room':
+      config.title_max_lines > 0 ? 'var(--calendar-card-inline-room)' : '0px',
+    '--calendar-card-time-inline-room':
+      config.time_max_lines > 0 ? 'var(--calendar-card-inline-room)' : '0px',
+    // The same room, for a box that cuts text set in a size of its own: the title's, for the row
+    // that holds it, and the largest of the four a grid block's rows are set in, for the part of
+    // the block a block covering it leaves. Each is a length in the parent's font, as the size is.
+    '--calendar-card-event-inline-room': inlineRoom(config.event_font_size),
+    '--calendar-card-grid-text-inline-room': `max(${[
+      config.event_font_size,
+      config.time_font_size,
+      config.location_font_size,
+      config.description_font_size,
+    ]
+      .map(inlineRoom)
+      .join(', ')})`,
+    // How much of the 0.2em under a labeled title is a margin, outside the cut, rather than
+    // padding inside it. All of it with a limit, so no piece of a hidden line shows there; none
+    // without one, where nothing is hidden and a mark below the line keeps the room.
+    '--calendar-card-summary-end-margin': config.title_max_lines > 0 ? '0.2em' : '0px',
+    // The same for the 2px under an unlabeled title, which clamps itself.
+    '--calendar-card-title-end-margin': config.title_max_lines > 0 ? '2px' : '0px',
     // The date column is sized from the day number it holds. `day_font_size` is a CSS font
     // size, which need not be a length (`150%`, `large`), so it is rewritten as one before it
     // is scaled, in the author's own unit where it has one. Parsing it to a number would size
@@ -155,6 +214,9 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
         : 'none',
     '--calendar-card-weather-event-condition-display':
       (config.weather?.event?.max_lines ?? 0) > 0 ? '-webkit-inline-box' : 'inline',
+    // The room at its inline edges while it is a box; none while it is inline, as the title's.
+    '--calendar-card-weather-condition-inline-room':
+      (config.weather?.event?.max_lines ?? 0) > 0 ? 'var(--calendar-card-inline-room)' : '0px',
   };
 
   // The sentinel is not a color, so writing it here would make every rule that substitutes
@@ -199,13 +261,19 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
   // The two washes follow the same switch: a tinted event under the pointer or pressed takes
   // its own text color over the tint, where an untinted one takes the card's accent, as the
   // card's ripple does (see TAPPABLE EVENTS in the stylesheet). currentColor is left for the
-  // event to resolve, since a custom property substitutes tokens rather than a color.
+  // event to resolve, since a custom property substitutes tokens rather than a color. A
+  // box-shadow reads them only behind content-visibility, because Safari 16.4 and 16.5 crash
+  // on a currentColor mix there; see the rules themselves. Without color-mix() (Safari before
+  // 16.2) they are not written: the stylesheet replaces every rule reading them with a gray.
   if (config.event_background_opacity > 0) {
     props['--calendar-card-event-accent-side-radius'] = 'var(--calendar-card-event-border-radius)';
     props['--calendar-card-event-accent-bar-inset'] = '4px';
-    props['--calendar-card-event-wash-hover'] = 'color-mix(in srgb, currentColor 6%, transparent)';
-    props['--calendar-card-event-wash-pressed'] =
-      'color-mix(in srgb, currentColor 10%, transparent)';
+    if (ColorMix.supportsColorMix()) {
+      props['--calendar-card-event-wash-hover'] =
+        'color-mix(in srgb, currentColor 6%, transparent)';
+      props['--calendar-card-event-wash-pressed'] =
+        'color-mix(in srgb, currentColor 10%, transparent)';
+    }
   }
 
   // Weather event color has no default. If absent, both placements use their
@@ -223,6 +291,13 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     !EntityColors.isAccentTextSentinel(config.weather.event.color)
   ) {
     props['--calendar-card-weather-event-color'] = config.weather.event.color;
+  }
+
+  // Without color-mix() (Safari before 16.2) a mix the card ships is invalid wherever it is
+  // read: the week number's pill had no fill and an empty day's text took the full text color.
+  // Each is written there as its floor instead; see `ColorMix.floorColor`.
+  for (const [property, value] of Object.entries(props)) {
+    props[property] = ColorMix.floorColor(value);
   }
 
   return props;
@@ -263,6 +338,15 @@ export const cardStyles = css`
   :host {
     display: block;
     height: 100%;
+    /* The room a box keeps at the inline edges where it cuts its text, resolved in each box's
+       own font; see "Marks above and below the line". */
+    --calendar-card-inline-room: 1px;
+  }
+
+  @supports (width: round(1px, 1px)) {
+    :host {
+      --calendar-card-inline-room: round(up, 0.125em, 1px);
+    }
   }
 
   ha-card {
@@ -285,6 +369,26 @@ export const cardStyles = css`
        column and grid did not. A switch is a change of layout and is drawn at once; the
        card's colors and shadow keep their transition. */
     transition-property: background-color, border-color, box-shadow, color;
+
+    /* The room for a box that cuts text set in a size of its own, from that size's share the
+       card writes on this element; see "Marks above and below the line". */
+    --calendar-card-event-row-room: 1px;
+    --calendar-card-grid-block-room: 1px;
+  }
+
+  @supports (width: round(1px, 1px)) {
+    ha-card {
+      --calendar-card-event-row-room: round(
+        up,
+        var(--calendar-card-event-inline-room, 0.125em),
+        1px
+      );
+      --calendar-card-grid-block-room: round(
+        up,
+        var(--calendar-card-grid-text-inline-room, 0.125em),
+        1px
+      );
+    }
   }
 
   /* The narrow 8px side is the start, half of the inset the date column completes, and the
@@ -629,6 +733,16 @@ export const cardStyles = css`
     text-overflow: ellipsis;
   }
 
+  /* It hides only a month too long for the row, so it cuts along the inline axis alone, and the
+     marks Thai sets above and below a month are drawn whole; see "Marks above and below the line". */
+  @supports (overflow: clip) {
+    .toolbar-month-text {
+      overflow-x: clip;
+      overflow-y: visible;
+      min-width: 0;
+    }
+  }
+
   /* The month's own name, bold, with the year beside it at the heading's regular weight, so the
      month reads first, as a desktop calendar sets it. Home Assistant's bold, the weight its own
      headings take. Every copy of the heading marks its month so, the reserve and the months the
@@ -760,6 +874,20 @@ export const cardStyles = css`
       --calendar-card-background-color,
       var(--card-background-color)
     );
+  }
+
+  /* Without color-mix() (Safari before 16.2) the three fills above are invalid wherever they are
+     read, and every control in the bar loses its pill. A color cannot be made translucent there,
+     so they are a neutral gray, which darkens a light card and lightens a dark one alike. Gray is
+     about half as far from either default card as the text color is, so the resting fill takes
+     it at about twice the text's 8%, and hover and press step it deeper rather than toward the
+     accent. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .card-toolbar {
+      --calendar-card-toolbar-fill: rgba(128, 128, 128, 0.15);
+      --calendar-card-toolbar-fill-hover: rgba(128, 128, 128, 0.24);
+      --calendar-card-toolbar-fill-pressed: rgba(128, 128, 128, 0.32);
+    }
   }
 
   /* The selected segment is raised out of the track, so it must be lighter than the track in
@@ -996,6 +1124,17 @@ export const cardStyles = css`
     );
   }
 
+  /* Without color-mix() the button keeps its resting gray, and the icon alone carries the
+     color, as it does in full above. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .toolbar-button.refresh-button.refresh-done,
+    .toolbar-button.reset-button.reset-done,
+    .date-navigation .date-navigation-segment.home-done,
+    .toolbar-button.refresh-button.refresh-failed {
+      background: var(--calendar-card-toolbar-fill);
+    }
+  }
+
   .refresh-done .toolbar-button-icon,
   .reset-done .toolbar-button-icon,
   .home-done .toolbar-button-icon,
@@ -1119,6 +1258,20 @@ export const cardStyles = css`
     max-width: 14em;
     overflow: hidden;
     text-overflow: ellipsis;
+    /* Room above and below its line, for descenders and marks; see "Marks above and below the
+       line". */
+    padding-block: 0.5em;
+    margin-block: -0.5em;
+  }
+
+  /* The month, a chip's name and a day's weather in column and grid view cut their text at their
+     inline edges too, and keep the room event text keeps there, so a mark or a letter leaning past
+     the first or last letter is drawn whole; see "Marks above and below the line". */
+  .toolbar-month-text,
+  .legend-chip-label,
+  .column-date-content .weather {
+    padding-inline: var(--calendar-card-inline-room);
+    margin-inline: calc(-1 * var(--calendar-card-inline-room));
   }
 
   /* The menu a folded legend opens, and the one the configuration's own buttons fold into: a
@@ -1185,6 +1338,45 @@ export const cardStyles = css`
     display: flex;
     flex-direction: column;
     gap: 4px;
+  }
+
+  /* Show all and Hide all, side by side above the calendars and as wide as each other: two of
+     the toolbar's neutral pills, so they read as commands rather than as two more calendars,
+     whose rows are tinted. A name too long for half the menu wraps inside its pill rather than
+     widening the menu past the screen. Set apart from the calendars by the menu's own padding. */
+  .legend-menu-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    margin-block-end: 6px;
+  }
+
+  .legend-menu-action {
+    box-sizing: border-box;
+    min-width: 0;
+    min-height: 36px;
+    margin: 0;
+    padding-block: 4px;
+    padding-inline: 12px;
+    border: none;
+    border-radius: 18px;
+    background: var(--calendar-card-toolbar-fill);
+    color: var(--primary-text-color);
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: var(--ha-font-weight-medium, 500);
+    line-height: 1.2;
+    text-align: center;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* With nothing to change, Show all with every calendar shown or Hide all with every one
+     hidden: dimmed as a view too wide for the card is, with no hover or press wash. */
+  .legend-menu-action.unavailable {
+    opacity: 0.38;
+    cursor: default;
   }
 
   /* Padded by inline side, so a right-to-left menu mirrors its rows: the check sits as far
@@ -1258,6 +1450,7 @@ export const cardStyles = css`
     .view-switcher-segment:not(.selected):not(.unavailable):hover,
     .date-navigation-segment:hover,
     .custom-menu-row:hover,
+    .legend-menu-action:not(.unavailable):hover,
     .toolbar-month-button:hover {
       background: var(--calendar-card-toolbar-fill-hover);
     }
@@ -1267,6 +1460,7 @@ export const cardStyles = css`
   .view-switcher-segment:not(.selected):not(.unavailable):active,
   .date-navigation-segment:active,
   .custom-menu-row:active,
+  .legend-menu-action:not(.unavailable):active,
   .toolbar-month-button:active {
     background: var(--calendar-card-toolbar-fill-pressed);
   }
@@ -1295,6 +1489,35 @@ export const cardStyles = css`
     background: var(--calendar-card-toolbar-fill-pressed);
   }
 
+  /* Without color-mix() a shown calendar's tint is invalid and its chip or row would draw no
+     pill at all. Its accent cannot be made translucent there, so the pill is a neutral gray at
+     the tint's strengths and is ringed in the accent, which keeps the legend the key to the
+     colors below. A hidden one keeps the toolbar's gray, without the ring. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .legend-chip,
+    .legend-menu-row {
+      background: rgba(128, 128, 128, 0.24);
+      box-shadow: inset 0 0 0 2px var(--calendar-card-legend-color);
+    }
+
+    .legend-chip.hidden-calendar,
+    .legend-menu-row.hidden-calendar {
+      box-shadow: none;
+    }
+
+    @media (hover: hover) {
+      .legend-chip:hover,
+      .legend-menu-row:hover {
+        background: rgba(128, 128, 128, 0.34);
+      }
+    }
+
+    .legend-chip:active,
+    .legend-menu-row:active {
+      background: rgba(128, 128, 128, 0.44);
+    }
+  }
+
   /* A toolbar control answers the pointer for itself, as an event does, so the card's ripple
      stays still while the pointer is on one: a button, the month's date picker, the switcher's
      track, the arrows, the chips, the filter's menu or the start group's menu. Each keeps its
@@ -1320,6 +1543,7 @@ export const cardStyles = css`
   .toolbar-month-button:focus,
   .legend-chip:focus,
   .legend-menu:focus,
+  .legend-menu-action:focus,
   .custom-menu:focus,
   .custom-menu-row:focus {
     outline: none;
@@ -1334,8 +1558,10 @@ export const cardStyles = css`
     outline-offset: 2px;
   }
 
-  /* The row rings, not the box inside it, so the whole calendar reads as the focused one. */
+  /* The row rings, not the box inside it, so the whole calendar reads as the focused one. A ring
+     inside its own edge, as Show all's and Hide all's are, never crosses into the next control. */
   .legend-menu-row:has(.legend-menu-check:focus-visible),
+  .legend-menu-action:focus-visible,
   .custom-menu-row:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: -2px;
@@ -1876,6 +2102,15 @@ export const cardStyles = css`
     );
   }
 
+  /* Without color-mix() (Safari before 16.2) the ink above is invalid wherever it is read. The
+     raw accent is no text color, for the reason above, so the floor is the theme's text color:
+     the text stays as legible as the rest of the card and gives up only the hue. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .event {
+      --calendar-card-accent-ink: var(--primary-text-color);
+    }
+  }
+
   @supports (color: color-mix(in oklab, red, blue)) {
     .event {
       --calendar-card-accent-ink: color-mix(
@@ -1919,6 +2154,15 @@ export const cardStyles = css`
       var(--calendar-card-now-color, #34d399) 30%,
       var(--primary-text-color)
     );
+  }
+
+  /* Without color-mix() the green is too pale to read raw, so an event under way writes its time
+     in the theme's text color, a step stronger than the secondary color a time takes by default,
+     and its "Now" label says the rest. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .event-now {
+      --calendar-card-now-ink: var(--primary-text-color);
+    }
   }
 
   @supports (color: color-mix(in oklab, red, blue)) {
@@ -2164,18 +2408,27 @@ export const cardStyles = css`
      where it was 3.6px. A title on its own is centered without this, so it is left alone.
 
      List and column view only. A grid block's text sits at the top of a block as tall as
-     the event, which no padding can center. */
-  td.event > .event-content:has(> .time-location > *),
+     the event, which no padding can center.
+
+     A descendant of the list cell rather than its child: while events are tap targets the
+     content sits in the cell's .event-button (renderEventButton in render.ts). Written as a
+     child, these three rules missed every list row with an event action from the day they
+     were added, and its text sat 0.13em, 1.82px at the default size, below the bar's center,
+     with the cell exactly as tall. A column event is its own button and has no wrapper. */
+  td.event .event-content:has(> .time-location > *),
   .column-events > .event > .event-content:has(> .time-location > *) {
     --calendar-card-event-ink-shift: 0.13em;
   }
 
-  td.event > .event-content:has(> .time-location > *) > .summary-row > .summary,
+  td.event .event-content:has(> .time-location > *) > .summary-row > .summary,
   .column-events > .event > .event-content:has(> .time-location > *) > .summary-row > .summary {
-    padding-top: calc(0.2em - var(--calendar-card-event-ink-shift));
+    padding-top: calc(
+      0.2em - var(--calendar-card-event-ink-shift) + var(--calendar-card-summary-ink-room, 0px)
+    );
+    margin-top: calc(-1 * var(--calendar-card-summary-ink-room, 0px));
   }
 
-  td.event > .event-content:has(> .time-location > *)::after,
+  td.event .event-content:has(> .time-location > *)::after,
   .column-events > .event > .event-content:has(> .time-location > *)::after {
     content: '';
     flex: none;
@@ -2222,8 +2475,97 @@ export const cardStyles = css`
      * shorthand -- the :has() rules below set padding-inline-start. */
     font-size: var(--calendar-card-font-size-event);
     line-height: 1.2;
-    padding-block: 0.2em;
+    padding-block: calc(0.2em + var(--calendar-card-summary-ink-room, 0px)) 0.2em;
+    margin-top: calc(-1 * var(--calendar-card-summary-ink-room, 0px));
+    /* Room at its inline edges; see "Marks above and below the line". A property of its own, so
+       the row cut beside the time can take it away, and a gutter or an indent can fold it in. */
+    --calendar-card-summary-inline-room: var(--calendar-card-inline-room);
+    padding-inline: var(--calendar-card-summary-inline-room);
+    margin-inline: calc(-1 * var(--calendar-card-summary-inline-room));
     -webkit-line-clamp: var(--calendar-card-title-max-lines);
+  }
+
+  /* ===== MARKS ABOVE AND BELOW THE LINE =====
+
+     Thai stacks a tone mark on a vowel above its letter, and Vietnamese an accent on a
+     circumflex; Arabic marks, Burmese and Khmer reach below. At the card's line height of 1.2
+     those marks run past the line: measured up to 0.29em above it and 0.28em below. Every box
+     that hides its overflow cut them at its edge, so "สิ้นสุดพรุ่งนี้" read "สินสุดพรุ่งนี" and
+     "Ể" read "Ế". Even Latin capitals with an accent lost a fraction of a pixel in Chromium.
+
+     Two remedies, chosen by what the box hides its overflow for.
+
+     A box that hides it only as a backstop for a word too long for its line clips the inline
+     axis alone: overflow-x: clip with overflow-y: visible. That is .summary, the trailing time,
+     the location and the description while their field has no limit, a one-line title, and
+     grid's title row, words, time row and all-day banner. overflow: clip is not a scroll
+     container, so a flex item among them is given the min-width: 0 a hidden one had, and
+     nothing in their layout moves. Browsers without overflow: clip (Safari before 16) keep the
+     hidden overflow and cut the marks as before.
+
+     A box that clamps lines has to cut where its last line ends, because the next line is laid
+     out right below it. Its marks above the first line get room instead: padding inside the
+     cut, given back by a negative margin of the same size, so the box takes the place it took
+     before and its lines sit where they sat. 0.375em clears the highest marks measured, or
+     0.25em on top of a summary's own padding. Both are a whole number of layout units at any
+     whole-pixel font size, which is what keeps the two in balance: Chromium rounds a box's
+     padding and margin to a sixty-fourth of a pixel separately, and an amount that rounded
+     differently in each moved every row below it. Below the last line of a clamped box
+     nothing can be added: the next line's marks begin inside the same band, and showing them
+     would put pieces of a hidden line under the cut. That holds for a field with a limit even
+     where its text fits: only measuring each box could tell. The emitted
+     --calendar-card-*-overflow tells each field's box which kind it is.
+
+     Both kinds also cut at their inline edges, and there a mark or a glyph leans past the
+     box: a Thai tone mark past the last letter, the hook of a "j" or the corner of a "W" past
+     a word's edge, and in Chromium the antialiasing fringe of a field's first letter, Latin
+     included. Each box keeps room at both inline edges, padding given back by a negative margin
+     of the same size, so its text lays out where it did: --calendar-card-inline-room, 0.125em
+     of the box's own font rounded up to a whole pixel, which is more than the marks measured
+     lean. A whole pixel because the room has to stay out of every sum it joins. Folded into a
+     gutter or a label's hanging indent, a fraction of a pixel rounded apart from the margin
+     that gives it back, and a title wrapped a line earlier at 13.3px; taken off a width the
+     card reads as clientWidth, which is whole pixels, a fraction moved a fit's decision by
+     half a pixel, and a title the card had cut beside its time went below it. A whole pixel
+     leaves every such sum, and every width read less the padding, exactly what it was without
+     the room. Without round() (Chromium before 125, Safari before 15.4) the room is 1px. Text
+     outside the event fields cut the same way keeps it too: the month, a legend chip's name, a
+     day's weather in column and grid view, and a clamped weather condition. The grid's time axis
+     needs none: its labels are digits and AM or PM, and its own padding holds them 4px and 8px
+     off its edges.
+
+     Text outside the event fields was cut above and below its line too, and takes the same
+     remedies. The month hides only a month too long for its row, so it cuts the inline axis
+     alone. A legend chip's name would as well, but the card reads its scrollWidth to tell a name
+     cut short (markShortenedChips), and Chromium leaves the end padding out of the scrollWidth of
+     a box that clips rather than hides, so a name too long by less than that padding lost its
+     tooltip. The name keeps its hidden overflow and room above and below its line instead: a
+     clamping box's 0.375em and the 0.1em its line height of 1 takes off each side of a 1.2 line,
+     rounded up to 0.5em, a whole number of layout units at any whole-pixel font size. Without it
+     the tips of a "g" or a "p" were cut, Latin included. A clamped weather condition still cuts
+     the marks above its first line. It clamps as an inline box, which places itself on its line
+     by its own lines, and room above them, given back or not, moved it on its line by a
+     sixty-fourth of a pixel in WebKit at some sizes and fonts, and redrew Latin with it.
+
+     A box whose display can be inline, the title and the time folded with its countdown,
+     takes the room only while it is a box, through the emitted --calendar-card-title-inline-room
+     and --calendar-card-time-inline-room: padding on an inline box moved where Chromium put its
+     glyphs. A box that cuts text set in a size of its own, the row around a title or the part of
+     a grid block another covers, keeps the room of that text's size instead: the card writes
+     its share as --calendar-card-event-inline-room and --calendar-card-grid-text-inline-room, and
+     ha-card rounds each up into --calendar-card-event-row-room and
+     --calendar-card-grid-block-room. Script that reads one of these boxes' edges reads its
+     content box (utils/content-box.ts).
+
+     The summary that clamps a labeled title's line in list and column view under a limit ends at
+     its last line: its 0.2em under the text is a margin there, outside the cut, so no piece of
+     the next line shows in it. An unlabeled title clamps itself and does the same with its 2px. */
+  @supports (overflow: clip) {
+    .summary {
+      overflow-x: clip;
+      overflow-y: visible;
+      min-width: 0;
+    }
   }
 
   /* The gutter itself. Separated from the rule above so the box model stays in one place
@@ -2232,7 +2574,7 @@ export const cardStyles = css`
      from the accent bar and, once only one of the two carried it, out of line with the
      other. */
   .summary:not(:only-child) {
-    margin-inline-end: 12px;
+    margin-inline-end: calc(12px - var(--calendar-card-summary-inline-room));
   }
 
   /* A title cut by title_max_lines that runs against the dashboard lays its line out in its
@@ -2247,8 +2589,8 @@ export const cardStyles = css`
 
   .summary-row:dir(rtl) > .summary[dir='ltr']:not(:only-child),
   .summary-row:dir(ltr) > .summary[dir='rtl']:not(:only-child) {
-    margin-inline-end: 0;
-    margin-inline-start: 12px;
+    margin-inline-end: calc(-1 * var(--calendar-card-summary-inline-room));
+    margin-inline-start: calc(12px - var(--calendar-card-summary-inline-room));
   }
 
   /* No font-size: the title inherits event_font_size from .summary, which every view draws
@@ -2271,16 +2613,77 @@ export const cardStyles = css`
     -webkit-box-orient: vertical;
     -webkit-line-clamp: var(--calendar-card-title-max-lines);
     overflow: hidden;
+    /* Room inside the clamp for marks above the first line; see "Marks above and below the
+       line". Nothing while the title is inline, which the rules that make it so say. */
+    padding-top: var(--calendar-card-title-ink-room, 0px);
+    margin-top: calc(-1 * var(--calendar-card-title-ink-room, 0px));
+    padding-inline: var(--calendar-card-title-inline-room, 0px);
+    margin-inline: calc(-1 * var(--calendar-card-title-inline-room, 0px));
   }
 
-  /* Clamp the shared line; blockifying only the title puts it below its labels. */
+  /* Clamp the shared line; blockifying only the title puts it below its labels. The summary
+     then clamps, so it hides what passes its edges where a limit is set, and keeps room above
+     its first line as the title does when it clamps itself: 0.25em on top of its own padding,
+     which gives the rest. */
   .summary:not(.summary-scroll):has(> .event-title:not(:only-child)) {
     display: var(--calendar-card-title-display);
     -webkit-box-orient: vertical;
+    --calendar-card-summary-ink-room: min(var(--calendar-card-title-ink-room), 0.25em);
+  }
+
+  @supports (overflow: clip) {
+    .summary:not(.summary-scroll):has(> .event-title:not(:only-child)) {
+      overflow-y: var(--calendar-card-title-overflow);
+    }
   }
 
   .summary:not(.summary-scroll):has(> .event-title:not(:only-child)) > .event-title {
     display: inline;
+    --calendar-card-title-ink-room: 0px;
+    --calendar-card-title-inline-room: 0px;
+  }
+
+  /* That summary ends at its last line in list and column view while it clamps, its 0.2em under
+     the text a margin outside the cut, where padding showed the top of the line after it; see
+     "Marks above and below the line". The margin box stays as it was. Grid's summary has no
+     padding there and the row cut beside the time is cut by the card, so neither is matched. */
+  td.event
+    .event-content
+    > .summary-row:not(.title-wrap)
+    > .summary:not(.summary-scroll):has(> .event-title:not(:only-child)),
+  .column-events
+    > .event
+    > .event-content
+    > .summary-row:not(.title-wrap)
+    > .summary:not(.summary-scroll):has(> .event-title:not(:only-child)) {
+    padding-bottom: calc(0.2em - var(--calendar-card-summary-end-margin, 0px));
+    margin-bottom: var(--calendar-card-summary-end-margin, 0px);
+  }
+
+  /* An unlabeled title is its own clamping box there, and ends at its last line the same way: its
+     2px under the text a margin outside its cut. Grid's word fit takes the words it hides out of
+     the layout, and its cut drops the 2px. */
+  td.event
+    .event-content
+    > .summary-row:not(.title-wrap)
+    > .summary:not(.summary-scroll)
+    > .event-title:only-child,
+  .column-events
+    > .event
+    > .event-content
+    > .summary-row:not(.title-wrap)
+    > .summary:not(.summary-scroll)
+    > .event-title:only-child {
+    padding-bottom: calc(2px - var(--calendar-card-title-end-margin, 0px));
+    margin-bottom: var(--calendar-card-title-end-margin, 0px);
+  }
+
+  /* A capped title whose last shown line the browser broke inside a word with a hyphen, so its
+     "…" followed the hyphen: "appoint-…". The card marks it (unhyphenateTitleCuts in
+     title-fit.ts) and it is laid out without automatic hyphens, so it ends "appoint…" or on the
+     word before. Every other title keeps them, and so do the labels beside this one. */
+  .summary[data-title-unhyphenated] > .event-title {
+    hyphens: none;
   }
 
   /* Match the labels' middle alignment, including prose in a merged label run. */
@@ -2304,19 +2707,22 @@ export const cardStyles = css`
   .summary:has(> .label-icon),
   .summary:has(> .label-image) {
     text-indent: calc(-1 * (1em + 4px));
-    padding-inline-start: calc(1em + 4px);
+    padding-inline-start: calc(1em + 4px + var(--calendar-card-summary-inline-room));
   }
 
   .summary:has(> .label-emoji) {
     text-indent: calc(-1 * (1.25em + 4px));
-    padding-inline-start: calc(1.25em + 4px);
+    padding-inline-start: calc(1.25em + 4px + var(--calendar-card-summary-inline-room));
   }
 
   /* scroll_long_titles -------------------------------------------------------
    *
    * Off by default, so none of these selectors match a normal card and the
    * wrapping title above is untouched. When on, the leaf adds summary-scroll and
-   * title-scrollable and wraps the text in event-title-scroll.
+   * title-scrollable and wraps the text in event-title-scroll. A title beside the
+   * time (time_position: title) takes the first two whatever this option says, and
+   * the inner span only with it on: kept to its line, with nothing in it that can
+   * move, it shows the static ellipsis below and nothing else.
    *
    * .summary becomes a flex row so a per-calendar label keeps its place while
    * only the title scrolls. That is the one place .summary is allowed to be flex:
@@ -2352,7 +2758,7 @@ export const cardStyles = css`
   .summary.summary-scroll:has(> .label-image),
   .summary.summary-scroll:has(> .label-emoji) {
     text-indent: 0;
-    padding-inline-start: 0;
+    padding-inline-start: var(--calendar-card-summary-inline-room);
   }
 
   .summary-scroll > .event-title.title-scrollable {
@@ -2362,6 +2768,37 @@ export const cardStyles = css`
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    --calendar-card-title-ink-room: 0px;
+    --calendar-card-title-inline-room: var(--calendar-card-inline-room);
+  }
+
+  /* One line has nothing to hide above or below it; the ellipsis and the scroll need only the
+     inline axis cut. See "Marks above and below the line". */
+  @supports (overflow: clip) {
+    .summary-scroll > .event-title.title-scrollable {
+      overflow-x: clip;
+      overflow-y: visible;
+    }
+  }
+
+  /* A one-line title running against the dashboard lays its line out in its own direction
+     (renderEventTitle in leaves.ts), so the crop, the ellipsis and the scroll start from its
+     beginning. Its box then hugs the dashboard's side as wide as its text, instead of filling
+     the row with a short title pushed to the far end; one too long for the row still takes all
+     of it and ends in "…" at its own end. Only such a title: one in the dashboard's direction
+     fills the row as it always has. */
+  .summary-scroll:dir(rtl) > .event-title.title-scrollable[dir='ltr'],
+  .summary-scroll:dir(ltr) > .event-title.title-scrollable[dir='rtl'] {
+    flex: 0 1 auto;
+  }
+
+  /* Without :dir(), Chromium before 120 and Safari before 16.4, the rule above cannot tell a
+     title running against the dashboard, so a short one would sit at the far end of its row.
+     There the title keeps the dashboard's direction, and draws as it did before it had one. */
+  @supports not selector(:dir(ltr)) {
+    .summary-scroll > .event-title.title-scrollable[dir] {
+      direction: inherit;
+    }
   }
 
   /* Center the text rather than its bottom-padded viewport, beside every label kind.
@@ -2695,6 +3132,12 @@ export const cardStyles = css`
     -webkit-box-orient: vertical;
     -webkit-line-clamp: var(--calendar-card-time-max-lines);
     overflow: hidden;
+    /* Room inside the clamp for marks above the first line, as the trailing time keeps it; none
+       while it is inline. See "Marks above and below the line". */
+    padding-top: var(--calendar-card-time-ink-room, 0px);
+    margin-top: calc(-1 * var(--calendar-card-time-ink-room, 0px));
+    padding-inline: var(--calendar-card-time-inline-room, 0px);
+    margin-inline: calc(-1 * var(--calendar-card-time-inline-room, 0px));
   }
 
   /* The countdown itself is never the clamp target; time_max_lines limits the
@@ -2720,6 +3163,9 @@ export const cardStyles = css`
     display: inline;
     -webkit-line-clamp: none;
     overflow: visible;
+    padding-top: 0;
+    margin-top: 0;
+    padding-inline: 0;
     margin-inline-start: 4px;
     margin-inline-end: 0;
     white-space: normal;
@@ -2806,25 +3252,36 @@ export const cardStyles = css`
   /* ===== TIME BESIDE THE TITLE =====
 
      time_position: title puts the time at the end of the title's line, where it stays at any
-     width. .summary-row holds the title and .title-aside, which holds list view's weather badge,
-     if there is one, and the time, and .event-content is marked time-beside-title. Only a row
-     with a time or a countdown to show takes either, so an empty day keeps every rule above and
-     nothing here reaches it. Off, the option leaves the markup as it was and none of these
-     selectors match.
+     width. .title-aside holds list view's weather badge, if there is one, and the time, and
+     .event-content is marked time-beside-title. Only a row with a time or a countdown to show
+     takes either, so an empty day keeps every rule above and nothing here reaches it. Off, the
+     option leaves the markup as it was and none of these selectors match.
 
      The time comes without its clock and with nothing trailing it: the leaf folds a countdown
      into the time text and draws the progress bar as a row of its own, in list view as in
-     column view. A title that shares its line always scrolls: the leaf gives it the
-     scroll_long_titles markup whatever that option says, so the rules for that mode keep it to
-     one line with its labels beside it, the card moves it only where it overflows, and under
-     reduced motion it ends in an ellipsis instead. The rules here only share the line between
-     the two. tests/stylesheet.test.ts pins every declaration in them; what they draw was
-     measured in browsers. Logical properties throughout, so a right-to-left card puts the time
-     at the left with nothing of its own. */
+     column view. The title takes one of two layouts, and the rules for the time inside
+     .title-aside serve both, so they name it at any depth below .summary-row.
 
-  /* The time's text on the title's baseline. Centered, a line of the title beside a line at the
-     time's smaller size sets the two a pixel or two apart; on one baseline they read as one
-     line, and a time that wraps hangs below it. */
+     By default the title wraps across the row (.summary-row.title-wrap), and the time ends its
+     last line where it fits there and takes a line of its own, at the end, where it does not:
+     an empty float the time's size ends the title's text, and the time is placed over it. A float
+     placed after the last word goes on that word's line only where the line still has room for
+     it, so the two cannot overlap. title_max_lines of two or more marks the row title-capped, and
+     the card cuts the title that needs more lines than that (data-title-cut, below).
+
+     With title_max_lines: 1 or scroll_long_titles the title stays on one line: .summary-row holds
+     the title and .title-aside side by side, and the leaf gives the title the scroll_long_titles
+     markup, so the rules for that mode keep it to one line with its labels beside it and end it
+     in an ellipsis where it overflows. Only with that option on does it carry the text the card
+     moves, and then under reduced motion it ends in the ellipsis as well.
+
+     tests/stylesheet.test.ts pins every declaration in these rules; what they draw was measured
+     in browsers. Logical properties throughout, so a right-to-left card puts the time at the
+     left with nothing of its own. */
+
+  /* On one line, the time's text on the title's baseline. Centered, a line of the title beside a
+     line at the time's smaller size sets the two a pixel or two apart; on one baseline they read
+     as one line, and a time that wraps hangs below it. */
   .time-beside-title > .summary-row {
     align-items: baseline;
   }
@@ -2840,8 +3297,9 @@ export const cardStyles = css`
     align-self: baseline;
   }
 
-  /* The time and its badge take what they need, normally up to the cap, at the end of the line,
-     and the title has the rest: .summary grows from nothing and scrolls where that is too little.
+  /* On one line, the time and its badge take what they need, normally up to the cap, at the end
+     of the line, and the title has the rest: .summary grows from nothing and scrolls where that
+     is too little.
      The cap is 60% of the line less the title's 12px gutter, so the title's own box keeps 40% of
      it, and past the cap the time wraps inside this box. The floor is what the box cannot wrap
      any narrower: the badge, the bullet and the time's longest word. A floor wins over a cap, so
@@ -2872,7 +3330,7 @@ export const cardStyles = css`
 
   /* The badge leads the box and the time follows it after a bullet, so the badge gives up the
      12px that kept it off the end of the row: the bullet's own spacing replaces it. */
-  .time-beside-title > .summary-row > .title-aside > .event-weather {
+  .time-beside-title .summary-row .title-aside > .event-weather {
     margin-inline-end: 0;
   }
 
@@ -2880,7 +3338,7 @@ export const cardStyles = css`
      and in its color, with the same 4px either side. A flex item of the time, so it cannot be
      parted from it, on its first baseline. A plain middot, as column view's trailing countdown
      has, because a flex item needs no joiner to keep it on its line. */
-  .time-beside-title > .summary-row > .title-aside > .event-weather + .time::before {
+  .time-beside-title .summary-row .title-aside > .event-weather + .time::before {
     content: '·';
     margin-inline: 4px;
   }
@@ -2888,10 +3346,11 @@ export const cardStyles = css`
   /* The time as one item of the box: as wide as its text, and on the title's baseline through
      its first line. Under the title it is a row as wide as the event that spaces off and wraps a
      trailing countdown or bar, 2px below the title, and in column view indented for its clock;
-     none of that has anything to do here. It keeps its 12px end margin, so it ends where the
-     rows below it do. A time that wraps sets every line against the end, as the time sits on
-     the title's line, and so does an all-day pill wrapped above it. */
-  .time-beside-title > .summary-row > .title-aside > .time {
+     none of that has anything to do here. It ends 12px short of the event, where the rows below
+     it do: beside a title kept to one line by its own end margin, beside a wrapping title by the
+     row's, below. A time that wraps sets every line against the end, as the time sits on the
+     title's line, and so does an all-day pill wrapped above it. */
+  .time-beside-title .summary-row .title-aside > .time {
     width: auto;
     margin-top: 0;
     padding-inline-start: 0;
@@ -2905,7 +3364,7 @@ export const cardStyles = css`
   /* Column view's matching negative margin for the clock's indent goes with it. Nothing inside
      the box is let shrink below its own longest word: the box's floor already keeps it that
      wide, and a row let shrink further split the joiner from the countdown's dot. */
-  .time-beside-title > .summary-row > .title-aside > .time > .time-actual {
+  .time-beside-title .summary-row .title-aside > .time > .time-actual {
     margin-inline-start: 0;
     justify-content: flex-end;
   }
@@ -2913,21 +3372,241 @@ export const cardStyles = css`
   /* A running event's "Now" stays one word. It may break anywhere below the title, where only a
      column narrower than the word itself can make it, but here a word that may break anywhere
      sets no floor: the box shrank to its first letter and stacked "Now" a letter to a line. */
-  .time-beside-title > .summary-row > .title-aside > .time .now-indicator {
+  .time-beside-title .summary-row .title-aside > .time .now-indicator {
     overflow-wrap: normal;
   }
 
   /* With times off, the countdown alone takes the time's place. It wraps like the time, against
      the end, and brings neither the end margin the time already has nor column view's
      leading dot: beside the title nothing comes before it but the badge's bullet. */
-  .time-beside-title > .summary-row > .title-aside > .time > .time-countdown {
+  .time-beside-title .summary-row .title-aside > .time > .time-countdown {
     margin-inline: 0;
     text-align: end;
     white-space: normal;
   }
 
-  .time-beside-title > .summary-row > .title-aside > .time > .time-countdown::before {
+  .time-beside-title .summary-row .title-aside > .time > .time-countdown::before {
     content: none;
+  }
+
+  /* The wrapping title's row is a block, and the box the title wraps in is .summary: a formatting
+     context of its own, so the room that ends the title stays inside it and adds the line it
+     takes to its height. The title stays inline, so its last line is a line the room can join.
+     With title_max_lines set, the stylesheet makes .summary or the title a clamping box; the
+     limit here is the card's cut below, so neither is. The extra :not() outweighs those rules,
+     which have as many classes as the rest of this selector, and the gutters the title row gives
+     a .summary with a sibling: the title's lines reach the end of the row, and the room keeps the
+     gap before the time.
+
+     The row ends 12px short of the event: the end margin every time keeps, beside a title kept
+     to one line and below the title, and list view's countdown and weather badge with it. So the
+     title's lines stop where the time ends, and the time ends where it does in every mode. With
+     the time below the title, the title's row is as it always was. */
+  .time-beside-title > .summary-row.title-wrap {
+    display: block;
+    position: relative;
+    width: auto;
+    margin-inline-end: 12px;
+    --calendar-card-title-room-gap: 12px;
+  }
+
+  .time-beside-title > .summary-row.title-wrap > .summary:not(.summary-scroll) {
+    display: flow-root;
+    margin-inline: calc(-1 * var(--calendar-card-summary-inline-room));
+    --calendar-card-summary-ink-room: 0px;
+  }
+
+  @supports (overflow: clip) {
+    .time-beside-title > .summary-row.title-wrap > .summary:not(.summary-scroll) {
+      overflow-y: visible;
+    }
+  }
+
+  .time-beside-title > .summary-row.title-wrap > .summary > .event-title {
+    display: inline;
+    --calendar-card-title-ink-room: 0px;
+    --calendar-card-title-inline-room: 0px;
+  }
+
+  /* The room for the time, ending the title's text: floated to the end of the row, where a float
+     placed after the last word goes on that word's line only while the line still has room for
+     it and the gap before it, and otherwise starts a line of its own. The card sizes it to the
+     time and marks the row data-title-fit with the row's direction (fitTitlesBesideTime in
+     src/utils/title-fit.ts). Until then it is not drawn.
+
+     The sides are named, one rule per direction, rather than written as the inline end. Chromium
+     before 118 has no float to the inline end, nor before 120 any :dir(), nor Safari before 16.4,
+     and the card supports browsers older than all three: there a room floated right sat on one
+     side of a right-to-left row and a time placed at its inline end on the other. Named by the
+     row's direction, they also keep the room on the dashboard's side of a capped title that runs
+     against it, whose lines take the title's own direction (renderEventTitle in leaves.ts). */
+  .time-beside-title > .summary-row.title-wrap > .summary > .title-room {
+    display: none;
+  }
+
+  .time-beside-title > .summary-row.title-wrap[data-title-fit] > .summary > .title-room {
+    display: block;
+    width: var(--calendar-card-title-room-width);
+    height: var(--calendar-card-title-room-height);
+  }
+
+  .time-beside-title > .summary-row.title-wrap[data-title-fit='ltr'] > .summary > .title-room {
+    float: right;
+    margin-left: var(--calendar-card-title-room-gap);
+  }
+
+  .time-beside-title > .summary-row.title-wrap[data-title-fit='rtl'] > .summary > .title-room {
+    float: left;
+    margin-right: var(--calendar-card-title-room-gap);
+  }
+
+  /* The time and its badge, a sibling of .summary, so their font sizes are measured against the
+     card's text and not the title's. Until the card has sized the room, the box is a line of its
+     own under the title, at the end, which nothing can overlap; then it is placed over the room,
+     whose bottom is the bottom of the title's text. As wide as it needs, and no wider than the
+     row less the gap, where it wraps against the end, so it is the same size in both places.
+
+     The box opens with .title-strut, a word joiner at the title's size and line height, which is
+     invisible and offers no break: the box is a baseline row, so the badge and the time sit on
+     the strut's baseline, which is where the title's own baseline sits in a line of the same
+     height, and the box's top is placed at that line's top. Its own line height is the title's
+     too, so a time smaller than the title cannot reach above the strut by the leading it would
+     otherwise inherit from the theme. One that does reach above it, at a larger size, would sink
+     the box's baseline below the title's; the card measures that and gives the time a line of its
+     own. The box is placed by its top, so a time that grows before the card measures it again
+     grows away from the title rather than over it. */
+  .time-beside-title > .summary-row.title-wrap > .title-aside {
+    display: flex;
+    align-items: baseline;
+    width: max-content;
+    max-width: calc(
+      100% - 2 * var(--calendar-card-title-row-room, 0px) - var(--calendar-card-title-room-gap)
+    );
+    margin-inline-start: auto;
+    line-height: 1.2;
+  }
+
+  .time-beside-title > .summary-row.title-wrap > .title-aside > .title-strut {
+    font-size: var(--calendar-card-font-size-event);
+  }
+
+  /* The time ends at the end of the row, where the title's lines end. The row keeps the 12px end
+     margin the time keeps everywhere else, so the time gives up its own: with both, it sat 12px
+     in from the lines above it. The room is sized to the box, so the title's last line keeps its
+     12px gap before the time. */
+  .time-beside-title > .summary-row.title-wrap > .title-aside > .time {
+    margin-inline-end: 0;
+  }
+
+  /* So does an all-day pill with nothing after it, beside a title of either kind: its 5px end
+     margin spaces it from a countdown or an end date, and with neither it would end the pill
+     short of every other time. */
+  .time-beside-title .summary-row .title-aside > .time > .time-actual > .allday-badge:last-child {
+    margin-inline-end: 0;
+  }
+
+  .time-beside-title > .summary-row.title-wrap[data-title-fit] > .title-aside {
+    position: absolute;
+    top: calc(100% - var(--calendar-card-title-pad) - var(--calendar-card-title-room-height));
+  }
+
+  .time-beside-title > .summary-row.title-wrap[data-title-fit='ltr'] > .title-aside {
+    right: var(--calendar-card-title-row-room, 0px);
+  }
+
+  .time-beside-title > .summary-row.title-wrap[data-title-fit='rtl'] > .title-aside {
+    left: var(--calendar-card-title-row-room, 0px);
+  }
+
+  /* A title cut at title_max_lines of two or more. The card sets data-title-cut on a capped row
+     whose title and time need more lines than the limit, and leaves a row that fits as it is, so
+     a title that fits draws exactly as it does with no limit. The time stays where it is placed,
+     at the end of the title's last line (data-title-cut="") or, where it is too wide or too tall
+     to leave the title a line beside it, on a line of its own below (data-title-cut="below").
+
+     Beside the time, the row clamps its lines at the limit and ends the last in "…". The room at
+     the end of the text is past the cut, so a float at the start of .summary keeps the last
+     line's room instead. The float is as tall as the lines, and its shape outside starts halfway
+     down the last of them, so only that line is shortened: a float's own margin box would shorten
+     every line from the top, and a shape starting at the line's own top shortened the line above
+     too wherever layout rounded the two apart by a hair.
+
+     The row clamps rather than .summary because WebKit lays a -webkit-box's floats out as its
+     items, not as floats, and the title lost its lines to them. .summary is not a formatting
+     context of its own here, so the clamp counts its lines in Chromium; WebKit counts them
+     anyway. Its bottom padding moves below the row, as a margin: Chromium counts a nested bottom
+     padding into the clamped box and WebKit does not, and the lines after the cut showed through
+     it. */
+  .time-beside-title > .summary-row.title-wrap[data-title-cut=''] {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--calendar-card-title-max-lines);
+    overflow: hidden;
+    margin-bottom: var(--calendar-card-title-pad);
+    padding-top: 0.375em;
+    margin-top: -0.375em;
+    /* Room at its inline edges, which it cuts in place of its summary, as much as the title's
+       own; see "Marks above and below the line". Its margin gives the room back, and keeps the
+       row's 12px at its end. The time is placed against its padding edge, so it is placed that
+       far in. */
+    padding-inline: var(--calendar-card-event-row-room);
+    margin-inline: calc(-1 * var(--calendar-card-event-row-room))
+      calc(12px - var(--calendar-card-event-row-room));
+    --calendar-card-title-row-room: var(--calendar-card-event-row-room);
+  }
+
+  .time-beside-title > .summary-row.title-wrap[data-title-cut=''] > .summary:not(.summary-scroll) {
+    display: block;
+    overflow: visible;
+    padding-bottom: 0;
+    /* It cuts nothing here, so it keeps no room, and a label's hanging indent stays as it was;
+       WebKit placed the clamp's "…" by its padding box, a letter further along. */
+    --calendar-card-summary-inline-room: 0px;
+  }
+
+  .time-beside-title > .summary-row.title-wrap[data-title-cut=''] > .summary::before {
+    content: '';
+    width: calc(var(--calendar-card-title-room-width) + var(--calendar-card-title-room-gap));
+    height: var(--calendar-card-title-cut-end);
+    shape-outside: inset(var(--calendar-card-title-cut-start) 0 0 0);
+  }
+
+  .time-beside-title
+    > .summary-row.title-wrap[data-title-fit='ltr'][data-title-cut='']
+    > .summary::before {
+    float: right;
+  }
+
+  .time-beside-title
+    > .summary-row.title-wrap[data-title-fit='rtl'][data-title-cut='']
+    > .summary::before {
+    float: left;
+  }
+
+  .time-beside-title > .summary-row.title-wrap[data-title-cut] > .summary > .title-room {
+    display: none;
+  }
+
+  .time-beside-title > .summary-row.title-wrap[data-title-cut=''] > .title-aside {
+    top: calc(100% - var(--calendar-card-title-room-height));
+  }
+
+  /* Below the title, .summary clamps its own lines, as a capped title does under the time, and
+     the row keeps room under it for the time and the padding .summary gives up, with the time in
+     that room above the padding: where the time is when it does not fit without a limit. */
+  .time-beside-title > .summary-row.title-wrap[data-title-cut='below'] {
+    padding-bottom: var(--calendar-card-title-cut-below);
+  }
+
+  .time-beside-title
+    > .summary-row.title-wrap[data-title-cut='below']
+    > .summary:not(.summary-scroll) {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--calendar-card-title-max-lines);
+    padding-bottom: 0;
+    overflow-y: hidden;
+    --calendar-card-summary-ink-room: 0.25em;
   }
 
   /* A web address in an event row's location or description, drawn as a link while open_links
@@ -3076,6 +3755,18 @@ export const cardStyles = css`
     overflow: hidden;
     text-overflow: ellipsis;
     border-radius: 999px;
+  }
+
+  /* Without color-mix() (Safari before 16.2) the ink and the wash are invalid wherever they are
+     read, and subtle drew no pill at all. The ink falls back to the theme's text color, as the
+     event's does, and the wash to a neutral gray at the mix's strength, since the accent cannot
+     be made translucent there. The ring and the filled pill read the solid accent and keep it. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .allday-badge,
+    .allday-title-pill {
+      --badge-ink: var(--primary-text-color);
+      --badge-wash: rgba(128, 128, 128, 0.1);
+    }
   }
 
   /* Both halves at once: the wash of subtle inside the ring of outline, each exactly as
@@ -3332,6 +4023,14 @@ export const cardStyles = css`
     box-shadow: none;
   }
 
+  /* Without color-mix() the pill is filled with the solid color itself, as the relative-color
+     tier below fills it. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .allday-pill-filled {
+      background-color: var(--badge-solid);
+    }
+  }
+
   /* ===== Progressive enhancement: keep the accent's chroma =====
    *
    * Everything above mixes in sRGB, and mixing a saturated color toward white or black
@@ -3532,6 +4231,15 @@ export const cardStyles = css`
     --badge-solid: var(--badge-source);
   }
 
+  /* Without color-mix() this wash is a neutral gray too. A wash of the text color is gray at
+     about twice its strength, gray being half as far from either default card. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .allday-badge.allday-source-text,
+    .allday-title-pill.allday-source-text {
+      --badge-wash: rgba(128, 128, 128, 0.26);
+    }
+  }
+
   /* Own-row event weather placement. The descendant selector keeps these
    * rules away from the list-view title-row badge. Resets remove the title
    * badge margins and weight; the wrapper creates a hanging indent so wrapped
@@ -3577,13 +4285,20 @@ export const cardStyles = css`
    * overflow-wrap lives on the wrapper so all weather chips share emergency
    * break behavior; setting it only here leaves combined chip runs able to
    * overflow. overflow-wrap: normal was tried and does not prevent the
-   * separator issue. */
+   * separator issue.
+   *
+   * Clamped, it is a box that cuts its text, and keeps the room event text keeps at its inline
+   * edges, through the emitted --calendar-card-weather-condition-inline-room. Inline it cuts
+   * nothing, and takes none: padding on an inline box moved where Chromium put its glyphs. No room
+   * above its first line; see "Marks above and below the line". */
   .time-location .event-weather .weather-condition {
     display: var(--calendar-card-weather-event-condition-display);
     -webkit-box-orient: vertical;
     -webkit-line-clamp: var(--calendar-card-weather-event-max-lines);
     overflow: hidden;
     hyphens: manual;
+    padding-inline: var(--calendar-card-weather-condition-inline-room, 0px);
+    margin-inline: calc(-1 * var(--calendar-card-weather-condition-inline-room, 0px));
   }
 
   /* Weather chip separators. The row is adjacent inline text, so generated
@@ -3687,6 +4402,39 @@ export const cardStyles = css`
     overflow: hidden;
   }
 
+  /* The three clamps keep room above their first line and at their inline edges and, with no
+     limit, cut only the inline axis; see "Marks above and below the line". Each is a flex item
+     of its row, so it keeps the min-width: 0 a hidden overflow gave it, and a long word still
+     breaks rather than widening the row. */
+  .time .time-actual > span:not(.time-text):not(.allday-badge):not(.now-time),
+  .location span,
+  .description span {
+    padding-top: 0.375em;
+    margin-top: -0.375em;
+    padding-inline: var(--calendar-card-inline-room);
+    margin-inline: calc(-1 * var(--calendar-card-inline-room));
+  }
+
+  @supports (overflow: clip) {
+    .time .time-actual > span:not(.time-text):not(.allday-badge):not(.now-time) {
+      overflow-x: clip;
+      overflow-y: var(--calendar-card-time-overflow);
+      min-width: 0;
+    }
+
+    .location span {
+      overflow-x: clip;
+      overflow-y: var(--calendar-card-location-overflow);
+      min-width: 0;
+    }
+
+    .description span {
+      overflow-x: clip;
+      overflow-y: var(--calendar-card-description-overflow);
+      min-width: 0;
+    }
+  }
+
   /* ===== PROGRESS BAR STYLES ===== */
 
   /* Width falls back here rather than defaulting in DEFAULT_CONFIG, because the two
@@ -3730,6 +4478,15 @@ export const cardStyles = css`
     background-color: var(--calendar-card-progress-bar-color);
     border-start-start-radius: 999px;
     border-end-start-radius: 999px;
+  }
+
+  /* Without color-mix() (Safari before 16.2) the track above is invalid and the bar is only its
+     filled part. The color cannot be made translucent there, so the track is a neutral gray at
+     the mix's strength. After .progress-bar-row, which must stay directly after the bar. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .progress-bar {
+      background-color: rgba(128, 128, 128, 0.2);
+    }
   }
 
   /* ===== ICON STYLES ===== */
@@ -3831,19 +4588,58 @@ export const cardStyles = css`
   @media (hover: hover) {
     .event-interactive:hover {
       box-shadow: inset 0 0 0 100vmax
-        var(
-          --calendar-card-event-wash-hover,
-          color-mix(in srgb, var(--ha-ripple-hover-color) 8%, transparent)
-        );
+        color-mix(in srgb, var(--ha-ripple-hover-color) 8%, transparent);
     }
   }
 
   .event-interactive:active {
     box-shadow: inset 0 0 0 100vmax
-      var(
-        --calendar-card-event-wash-pressed,
-        color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent)
-      );
+      color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent);
+  }
+
+  /* The text-colored wash a tinted event takes is a color-mix() of currentColor, and Safari
+     16.4 and 16.5 crash the page's whole process on one in a box-shadow (WebKit bug 257255,
+     fixed in 16.6). Of the two ways the card draws it, only that one is affected: a
+     background-color resolves currentColor where it is used, so the list view's wash, drawn as
+     a background below, is safe there. The rules reading the two properties in a box-shadow
+     therefore sit behind content-visibility, which Safari first enabled by default in 18.0,
+     the same marker the relative colors use (#731). An engine it leaves out washes a tinted
+     event in the card's accent above, as an untinted one is. */
+  @supports (content-visibility: auto) {
+    @media (hover: hover) {
+      .event-interactive:hover {
+        box-shadow: inset 0 0 0 100vmax
+          var(
+            --calendar-card-event-wash-hover,
+            color-mix(in srgb, var(--ha-ripple-hover-color) 8%, transparent)
+          );
+      }
+    }
+
+    .event-interactive:active {
+      box-shadow: inset 0 0 0 100vmax
+        var(
+          --calendar-card-event-wash-pressed,
+          color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent)
+        );
+    }
+  }
+
+  /* Without color-mix() (Safari before 16.2) every wash above is invalid, and an event under the
+     pointer or pressed would answer with nothing at all. The accent cannot be made translucent
+     there, so an event washes in a neutral gray at the same strengths, as a day does (DAYS THAT
+     ADD AN EVENT). After the content-visibility block, which an engine without color-mix() can
+     still read. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    @media (hover: hover) {
+      .event-interactive:hover {
+        box-shadow: inset 0 0 0 100vmax rgba(128, 128, 128, 0.08);
+      }
+    }
+
+    .event-interactive:active {
+      box-shadow: inset 0 0 0 100vmax rgba(128, 128, 128, 0.16);
+    }
   }
 
   .event-interactive:focus {
@@ -4030,6 +4826,19 @@ export const cardStyles = css`
     );
   }
 
+  /* Without color-mix() these washes are invalid too, and take the same gray as the shadow's. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    @media (hover: hover) {
+      .event-button:hover::before {
+        background-color: rgba(128, 128, 128, 0.08);
+      }
+    }
+
+    .event-button:active::before {
+      background-color: rgba(128, 128, 128, 0.16);
+    }
+  }
+
   .event-button.event-interactive:focus-visible {
     outline: none;
   }
@@ -4079,6 +4888,31 @@ export const cardStyles = css`
     height: var(--calendar-card-add-hour-height, 0);
     background-color: color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent);
     pointer-events: none;
+  }
+
+  /* Without color-mix() (Safari before 16.2) the three washes above are invalid once their
+     var() is substituted, and a day would answer a tap with nothing at all. The accent cannot
+     be made translucent there, so they wash in a neutral gray at the same strengths, which
+     darkens a light card and lightens a dark one alike. The two hover selectors are separate
+     rules here, since a browser without :has() (Chrome before 105) drops a whole list holding
+     one, and would lose the column header's wash with it. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    @media (hover: hover) {
+      .date-column:has(> .day-add-button):hover {
+        background-color: rgba(128, 128, 128, 0.08);
+      }
+
+      .column-day-header.day-add-button:hover {
+        background-color: rgba(128, 128, 128, 0.08);
+      }
+    }
+
+    .day-table[data-add-pressed] td.date-column,
+    .day-column[data-add-pressed] > .column-day-header,
+    .grid-day-header[data-add-pressed] > .column-day-header,
+    .grid-day-body[data-add-pressed]::before {
+      background-color: rgba(128, 128, 128, 0.16);
+    }
   }
 
   /* A new event the card is adding, while a press draws it and while the popover adds it, is
@@ -4174,6 +5008,17 @@ export const cardStyles = css`
     border-top-color: var(--primary-text-color);
     border-radius: 50%;
     animation: ccp-spin 0.8s linear infinite;
+  }
+
+  /* Without color-mix() (Safari before 16.2) the shorthand above is invalid, and with it the
+     border's width and style, so the spinner drew nothing, its turning quarter included. The
+     ring is a neutral gray instead, at about twice the text's 25%, gray being half as far from
+     either default card; the shorthand resets the quarter, so it is set again after it. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .loading-indicator .spinner {
+      border: 2px solid rgba(128, 128, 128, 0.45);
+      border-top-color: var(--primary-text-color);
+    }
   }
 
   /* Where the spinner gives way to the check or alert a refresh someone asked for ends in,
@@ -4723,7 +5568,8 @@ export const cardStyles = css`
 
      One painting ladder, and every rung is load-bearing:
 
-       .grid-weekend    plain grid item   the tint, behind everything
+       .grid-weekend    plain grid item   the tints, behind everything
+       .grid-today
        .grid-rules      plain grid item   the hour lines
        .grid-day-body   position relative the now line, then the blocks above all three (in
                                           .grid-day-plane); the block under way
@@ -4863,6 +5709,19 @@ export const cardStyles = css`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    /* Room at its inline edges; see "Marks above and below the line". */
+    padding-inline: var(--calendar-card-inline-room);
+    margin-inline: calc(-1 * var(--calendar-card-inline-room));
+  }
+
+  /* One line, cut along the inline axis for its ellipsis; see "Marks above and below the
+     line". A flex item of the banner, so it keeps the min-width: 0 a hidden overflow gave it. */
+  @supports (overflow: clip) {
+    .grid-banner-title {
+      overflow-x: clip;
+      overflow-y: visible;
+      min-width: 0;
+    }
   }
 
   /* The event runs past the window edge. Drawn as content rather than as a border so
@@ -4919,6 +5778,18 @@ export const cardStyles = css`
      has to do to survive both. */
   .grid-weekend {
     background-color: var(--calendar-card-grid-weekend, transparent);
+    pointer-events: none;
+  }
+
+  /* ----- Today's tint -----
+
+     The weekend stripe's twin for today's column, off unless today_background_color is set:
+     same rows, same rung, so it lies under the rules, the now line and the blocks exactly as
+     the weekend tint does. Where today is a weekend day the renderer leaves today out of the
+     weekend run, so this replaces that tint rather than stacking a second translucent color
+     on it. The fallback is transparent for the same reason as the weekend's. */
+  .grid-today {
+    background-color: var(--calendar-card-grid-today, transparent);
     pointer-events: none;
   }
 
@@ -5033,6 +5904,18 @@ export const cardStyles = css`
     flex: 0 0 auto;
     min-height: 0;
     overflow: hidden;
+    padding-inline: var(--calendar-card-event-row-room);
+    margin-inline: calc(-1 * var(--calendar-card-event-row-room));
+  }
+
+  /* Flex: 0 0 auto, so the row is as tall as its title and hides nothing above or below it but
+     marks; the block's own edge and the title's clamp do the cutting. See "Marks above and
+     below the line". */
+  @supports (overflow: clip) {
+    .grid-event-disclosure .summary-row {
+      overflow-x: clip;
+      overflow-y: visible;
+    }
   }
 
   /* No hanging indent in a grid block: a wrapped line starts at the block's text edge, as
@@ -5046,8 +5929,9 @@ export const cardStyles = css`
      one :has() argument, the same weight as this, and come earlier. */
   .grid-event-disclosure .summary {
     min-height: 0;
-    padding-block: 0;
-    padding-inline-start: 0;
+    padding-block: var(--calendar-card-summary-ink-room, 0px) 0;
+    margin-top: calc(-1 * var(--calendar-card-summary-ink-room, 0px));
+    padding-inline-start: var(--calendar-card-summary-inline-room);
     text-indent: 0;
   }
 
@@ -5060,6 +5944,7 @@ export const cardStyles = css`
     display: -webkit-box;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    --calendar-card-title-inline-room: var(--calendar-card-inline-room);
     /* Break at spaces, and inside a word only when that word cannot fit a line on its
        own. The default here inserted soft hyphens, so a lane-split block rendered
        Conference as Con-fer-en and read as three words. Plain normal is worse than
@@ -5072,6 +5957,15 @@ export const cardStyles = css`
     overflow-wrap: break-word;
     word-break: normal;
     hyphens: manual;
+  }
+
+  /* Hides what passes its top and bottom only where it clamps: under a limit, or once the card
+     cuts it (the cut rule below). See "Marks above and below the line". */
+  @supports (overflow: clip) {
+    .grid-event-disclosure .event-title {
+      overflow-x: clip;
+      overflow-y: var(--calendar-card-title-overflow);
+    }
   }
 
   /* One element per word, from splitTitleWords, and it replaces the break-word above for
@@ -5100,6 +5994,16 @@ export const cardStyles = css`
     text-overflow: ellipsis;
     white-space: nowrap;
     vertical-align: top;
+    padding-inline: var(--calendar-card-inline-room);
+    margin-inline: calc(-1 * var(--calendar-card-inline-room));
+  }
+
+  /* A word clips for its own ellipsis, which is the inline axis alone. */
+  @supports (overflow: clip) {
+    .grid-event-disclosure .title-word {
+      overflow-x: clip;
+      overflow-y: visible;
+    }
   }
 
   /* A picture or icon label is centered on the title's text, as in list and column view,
@@ -5230,12 +6134,17 @@ export const cardStyles = css`
     > .event-title {
     -webkit-line-clamp: var(--calendar-card-grid-title-fit-lines);
     padding-bottom: 0;
+    overflow-y: hidden;
+    --calendar-card-summary-ink-room: 0.375em;
+    --calendar-card-title-ink-room: 0.375em;
   }
 
-  /* Clamp the whole title line. */
+  /* Clamp the whole title line. A grid summary has no padding of its own, so the room above its
+     first line is the title's whole room. */
   .grid-event-disclosure .summary:not(.summary-scroll):has(> .event-title:not(:only-child)) {
     display: -webkit-box;
     -webkit-box-orient: vertical;
+    --calendar-card-summary-ink-room: var(--calendar-card-title-ink-room);
   }
 
   /* The 2px an unlabeled title keeps under its text, for a labeled one. Grid's summary has no
@@ -5267,6 +6176,8 @@ export const cardStyles = css`
     .summary:not(.summary-scroll):has(> .event-title:not(:only-child))
     > .event-title {
     display: inline;
+    --calendar-card-title-ink-room: 0px;
+    --calendar-card-title-inline-room: 0px;
   }
 
   /* A grid title carries its own direction (dir="auto", see renderEventTitle in leaves.ts),
@@ -5314,6 +6225,29 @@ export const cardStyles = css`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* Room at the inline edges of the two that clip; see "Marks above and below the line". The
+     row keeps the 12px end margin every .time has, less the room. */
+  .grid-event-disclosure .time {
+    padding-inline: var(--calendar-card-inline-room);
+    margin-inline: calc(-1 * var(--calendar-card-inline-room))
+      calc(12px - var(--calendar-card-inline-room));
+  }
+
+  .grid-event-disclosure .time-actual {
+    padding-inline: var(--calendar-card-inline-room);
+    margin-inline: calc(-1 * var(--calendar-card-inline-room));
+  }
+
+  /* The time row is one line wide by measurement (grid-time-fit.ts), so only its inline axis is
+     cut; see "Marks above and below the line". */
+  @supports (overflow: clip) {
+    .grid-event-disclosure .time,
+    .grid-event-disclosure .time-actual {
+      overflow-x: clip;
+      overflow-y: visible;
+    }
   }
 
   .grid-event-disclosure .time {
@@ -5383,6 +6317,8 @@ export const cardStyles = css`
   .grid-event-disclosure .time .time-actual > span:not(.time-text):not(.allday-badge) {
     display: block;
     text-overflow: ellipsis;
+    padding-top: 0;
+    margin-top: 0;
   }
 
   /* time_max_lines has a second clamp path the rule above never reaches. With a countdown
@@ -5399,6 +6335,9 @@ export const cardStyles = css`
   .grid-event-disclosure {
     --calendar-card-time-display: inline;
     --calendar-card-time-max-lines: none;
+    --calendar-card-time-overflow: visible;
+    --calendar-card-time-ink-room: 0px;
+    --calendar-card-time-inline-room: 0px;
   }
 
   /* The event starts before or ends after the visible band. */
@@ -5715,6 +6654,9 @@ export const cardStyles = css`
     display: block;
     overflow: hidden;
     text-overflow: ellipsis;
+    /* Room at its inline edges; see "Marks above and below the line". */
+    padding-inline: var(--calendar-card-inline-room);
+    margin-inline: calc(-1 * var(--calendar-card-inline-room));
   }
 
   /* The wrapped rung of a time with a countdown folded into it. The countdown follows the end
@@ -5729,6 +6671,8 @@ export const cardStyles = css`
     display: inline;
     overflow: visible;
     text-overflow: clip;
+    padding-inline: 0;
+    margin-inline: 0;
   }
 
   .grid-event-disclosure.grid-time-wrap .time .time-actual .time-text .time-end::before {
@@ -5902,9 +6846,26 @@ export const cardStyles = css`
     display: block !important;
     flex: 1 1 auto;
     min-width: 0;
-    padding: 0;
+    padding: 0 var(--calendar-card-inline-room);
+    margin-inline: calc(-1 * var(--calendar-card-inline-room));
     text-overflow: ellipsis;
     -webkit-line-clamp: unset;
+    --calendar-card-title-ink-room: 0px;
+  }
+
+  /* One line, cut along the inline axis for its ellipsis and nowhere else. See "Marks above and
+     below the line". */
+  @supports (overflow: clip) {
+    .grid-event:is(
+        [data-grid-title-fit='measuring'],
+        [data-grid-title-fit='compact'],
+        [data-grid-title-fit='blank']
+      )
+      .summary
+      > .event-title {
+      overflow-x: clip;
+      overflow-y: visible;
+    }
   }
 
   /* The compact title is one line with one ellipsis at its end, as it was before titles
@@ -5921,6 +6882,8 @@ export const cardStyles = css`
     max-width: none;
     overflow: visible;
     vertical-align: baseline;
+    padding-inline: 0;
+    margin-inline: 0;
   }
 
   .grid-event:is(
@@ -6067,6 +7030,21 @@ export const cardStyles = css`
     background-color: var(--calendar-card-grid-weekend, transparent);
   }
 
+  /* Today's tint, repainted the same way, and only where it is set. Unset, the first rule
+     resolves to transparent, which a weekday's ground already was, and the second falls back
+     to the weekend tint, which a weekend day's already was; so a card without the option
+     paints what it painted before it. Set, it wins on a weekend day too, as the stripe does. */
+  .grid-day-body.today .grid-event-backdrop-ground {
+    background-color: var(--calendar-card-grid-today, transparent);
+  }
+
+  .grid-day-body.today.weekend .grid-event-backdrop-ground {
+    background-color: var(
+      --calendar-card-grid-today,
+      var(--calendar-card-grid-weekend, transparent)
+    );
+  }
+
   .grid-event-backdrop-rules {
     background-image: ${GRID_RULE_GRADIENTS};
     background-size: 100% 100cqh;
@@ -6112,6 +7090,15 @@ export const cardStyles = css`
     border-end-end-radius: 0;
   }
 
+  /* Without color-mix() (Safari before 16.2) the shorthand above is invalid, and a raised block
+     loses its edge against the one it overlaps. The accent cannot be made translucent there, so
+     the edge is a neutral gray at the mix's strength. */
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .grid-event-raised > .grid-event-accessible::before {
+      border: 1px solid rgba(128, 128, 128, 0.2);
+    }
+  }
+
   .grid-event.grid-event-content-limited {
     container: none;
   }
@@ -6135,6 +7122,11 @@ export const cardStyles = css`
         (100% + var(--calendar-card-grid-text-chrome)) - var(--calendar-card-grid-text-chrome)
     );
     overflow: hidden;
+    /* Room at its inline start, where the block's own padding lies beyond it, for the first
+       letter of each row; see "Marks above and below the line". Its end is where the block
+       covering this one begins, and stays the edge of the text. */
+    padding-inline-start: var(--calendar-card-grid-block-room);
+    margin-inline-start: calc(-1 * var(--calendar-card-grid-block-room));
   }
 
   .grid-event.grid-event-content-limited:is(

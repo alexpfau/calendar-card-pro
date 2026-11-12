@@ -91,6 +91,13 @@ export const CARD_ACTION_VALUES = [
 /** The event action that opens the tapped event's dialog: a value of `event_tap_action` and `event_hold_action`. */
 export const EVENT_DETAILS_ACTION = 'details';
 
+/**
+ * The `filter_duplicates` value that matches copies on title, start and end alone, leaving the
+ * location out: `true` compares all four. For a holiday that regional calendars each carry
+ * under their own region's location.
+ */
+export const DUPLICATES_IGNORE_LOCATION = 'ignore_location';
+
 export const TIMING = {
   HOLD_THRESHOLD: 500,
 

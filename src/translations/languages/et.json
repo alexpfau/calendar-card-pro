@@ -1,13 +1,13 @@
 {
   "daysOfWeek": ["P", "E", "T", "K", "N", "R", "L"],
   "fullDaysOfWeek": [
-    "pühapäev",
-    "esmaspäev",
-    "teisipäev",
-    "kolmapäev",
-    "neljapäev",
-    "reede",
-    "laupäev"
+    "pühapäevani",
+    "esmaspäevani",
+    "teisipäevani",
+    "kolmapäevani",
+    "neljapäevani",
+    "reedeni",
+    "laupäevani"
   ],
   "months": [
     "Jaan",
@@ -26,6 +26,7 @@
   "allDay": "kogu päev",
   "multiDay": "kuni",
   "at": "kell",
+  "separator": ", ",
   "viewList": "Loetelu",
   "viewColumns": "Veerud",
   "viewGrid": "Ajaraster",
@@ -35,5 +36,7 @@
   "loading": "Kalendrisündmuste laadimine...",
   "error": "Viga: kalendri entiteeti ei leitud või see on valesti seadistatud",
   "loadFailed": "Laadimine ebaõnnestus:",
-  "newEvent": "Uus sündmus"
+  "newEvent": "Uus sündmus",
+  "showAll": "Näita kõiki",
+  "hideAll": "Peida kõik"
 }

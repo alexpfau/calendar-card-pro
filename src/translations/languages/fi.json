@@ -1,13 +1,13 @@
 {
   "daysOfWeek": ["Su", "Ma", "Ti", "Ke", "To", "Pe", "La"],
   "fullDaysOfWeek": [
-    "Sunnuntai",
-    "Maanantai",
-    "Tiistai",
-    "Keskiviikko",
-    "Torstai",
-    "Perjantai",
-    "Lauantai"
+    "sunnuntaina",
+    "maanantaina",
+    "tiistaina",
+    "keskiviikkona",
+    "torstaina",
+    "perjantaina",
+    "lauantaina"
   ],
   "months": [
     "Tammi",
@@ -24,8 +24,9 @@
     "Joulu"
   ],
   "allDay": "koko päivä",
-  "multiDay": "asti",
+  "multiDay": "päättyy",
   "at": "klo",
+  "separator": ", ",
   "viewList": "Lista",
   "viewColumns": "Sarakkeet",
   "viewGrid": "Ruudukko",
@@ -35,5 +36,7 @@
   "loading": "Ladataan kalenteritapahtumia...",
   "error": "Virhe: Kalenteriyksikköä ei löydy tai se on väärin määritetty",
   "loadFailed": "Lataus epäonnistui:",
-  "newEvent": "Uusi tapahtuma"
+  "newEvent": "Uusi tapahtuma",
+  "showAll": "Näytä kaikki",
+  "hideAll": "Piilota kaikki"
 }

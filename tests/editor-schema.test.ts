@@ -673,6 +673,7 @@ describe('editor: the grid block as the form shows it', () => {
       end_time: '22:00',
       slot_minutes: 60,
       weekend_background_color: 'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
+      today_background_color: 'transparent',
       hour_height: '48px',
       show_now_line: true,
       max_simultaneous_events: 3,
@@ -803,6 +804,7 @@ describe('editor: change detection', () => {
       'card_height',
       'card_max_height',
       'day_tap_action_mode',
+      'filter_duplicates_mode',
       'height_mode',
       'language_mode',
       'location_country_mode',
@@ -1896,6 +1898,7 @@ describe('editor: the panel set', () => {
       height: 'height_mode',
       max_height: 'height_mode',
       day_tap_action: 'day_tap_action_mode',
+      filter_duplicates: 'filter_duplicates_mode',
     };
 
     // `weather` and every registered view block are containers offered as their members
@@ -2520,8 +2523,12 @@ describe('editor: what Layout no longer holds', () => {
       expect(names).not.toContain(key);
     }
 
-    // The shading fills a column rather than ruling one, so it stays with the axis.
+    // The shading fills a column rather than ruling one, so it stays with the axis, and
+    // today's tint sits directly after the weekend's.
     expect(names).toContain('weekend_background_color');
+    expect(names.indexOf('today_background_color')).toBe(
+      names.indexOf('weekend_background_color') + 1,
+    );
     expect(names).toContain('slot_minutes');
   });
 
@@ -3792,6 +3799,7 @@ describe('editor: per-calendar settings', () => {
         'replace_pattern',
         'replace_with',
         'show_description',
+        'show_in_legend',
         'show_location',
         'show_time',
         'split_multiday_events',
@@ -5152,6 +5160,7 @@ describe('editor: every enumerated synthetic option is selectable', () => {
       'accent_color_mode',
       'allday_badge_position',
       'day_tap_action_mode',
+      'filter_duplicates_mode',
       'height_mode',
       'language_mode',
       'location_country_mode',

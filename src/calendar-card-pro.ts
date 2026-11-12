@@ -58,8 +58,10 @@ import * as Render from './rendering/render';
 import * as SearchPanel from './rendering/search-panel';
 import * as Styles from './rendering/styles';
 import * as Toolbar from './rendering/toolbar';
+import { loadIntlLocaleData } from './translations/intl-locale-data';
 import * as Localize from './translations/localize';
 import * as CalendarNames from './utils/calendar-names';
+import { inlineContentWidth } from './utils/content-box';
 import { editorModuleUrl } from './utils/editor-url';
 import * as EntityColors from './utils/entity-colors';
 import * as EventUtils from './utils/events';
@@ -77,6 +79,8 @@ import * as Paging from './utils/paging';
 import * as Search from './utils/search';
 import * as StartDate from './utils/start-date';
 import * as Templates from './utils/templates';
+import * as TextDirection from './utils/text-direction';
+import * as TitleFit from './utils/title-fit';
 import {
   TitleMotionController,
   type TitleScrollMeasurement,
@@ -172,6 +176,14 @@ function isScrollPauseOnlyMutation(record: MutationRecord, host: HTMLElement): b
       .sort()
       .join(' ');
   return typographyClasses(record.oldValue ?? '') === typographyClasses(host.className);
+}
+
+/** Takes a title's scroll state off it: still, it shows its beginning and its ellipsis. */
+function clearTitleOverflow(title: HTMLElement): void {
+  title.classList.remove('title-overflowing');
+  title.style.removeProperty('--calendar-card-title-scroll-distance');
+  title.style.removeProperty('--calendar-card-title-scroll-direction');
+  title.style.removeProperty('--calendar-card-title-scroll-duration');
 }
 
 /**
@@ -515,7 +527,13 @@ class CalendarCardPro extends LitElement {
     return { columns: 'full', rows: 'auto' };
   }
 
-  private _instanceId = Helpers.generateInstanceId();
+  /**
+   * Home's query identity (`_instanceIdForPage`), as of now: it follows the configuration and,
+   * under `first_day_of_week: system` with a week-relative `start_date`, the profile.
+   */
+  private get _instanceId(): string {
+    return this._instanceIdForPage(null);
+  }
   /**
    * The `_instanceId` the events currently held in `events` were fetched for.
    */
@@ -568,9 +586,9 @@ class CalendarCardPro extends LitElement {
    * Monotonic ticket for in-flight event requests.
    *
    * `updateEvents()` awaits the API, and two entry points can bump this during that
-   * await: `setConfig()` regenerating `_instanceId` and starting a second request, and
-   * `disconnectedCallback` superseding any fetch that is still open so a detached
-   * `setConfig` cannot stamp a late response with a new identity. Comparing the ticket
+   * await: `setConfig()` moving `_instanceId` and starting a second request, and
+   * `disconnectedCallback` superseding any fetch that is still open, so a response for a
+   * configuration a detached `setConfig` has since replaced is never drawn. Comparing the ticket
    * a request started with against the current value is what tells a superseded
    * response to discard itself instead of committing.
    */
@@ -591,6 +609,8 @@ class CalendarCardPro extends LitElement {
   private _partialTimer: number | null = null;
 
   private _language = '';
+  /** The language Home Assistant's `Intl` polyfill was last asked for (`_loadIntlLocaleData`). */
+  private _intlLanguage = '';
   private _refreshTimerId?: number;
   private _lastUpdateTime = 0;
   private _initialLoadRetryId?: number;
@@ -607,8 +627,16 @@ class CalendarCardPro extends LitElement {
    * `refresh_on_navigate`; every later load is a refresh.
    */
   private _appearLoadPending = false;
-  /** Consecutive failed attempts this card has seen, for when no cache can record them. */
+  /**
+   * Consecutive failed attempts this card has seen, for when no cache can record them, and the
+   * query they were counted for. A count belongs to the query that produced it: a load for any
+   * other query starts from zero (`updateEvents`), or it would begin a step deeper in the backoff
+   * for every page visited during an outage, every configuration that moved the window, and
+   * every profile that moved the week under `first_day_of_week: system`.
+   */
   private _failureCountHint = 0;
+  /** The query `_failureCountHint` was counted for. */
+  private _failureCountQuery = '';
   private _weatherUnsubscribers: Array<() => void> = [];
   /**
    * Monotonic ticket for weather forecast setup and callbacks.
@@ -738,6 +766,12 @@ class CalendarCardPro extends LitElement {
   private _pointerAddContext: Activation.DayHit | null = null;
   /** The day's add button the active press began on, if any; see `_derivedClick`. */
   private _pointerDayAdd: EventTarget | null = null;
+  /**
+   * The event a browser handed the active press to while the finger was on something else,
+   * which the press is read from instead (`_pressPath`). A browser that aims the click it
+   * derives at the pointer-down's target aims it here, so the click is owed by this event.
+   */
+  private _pointerHandedTo: EventTarget | null = null;
   /**
    * Whether the active press began on a link in an event's row (`open_links`). Such a press is
    * armed only to page, by a touch or pen swipe: it captures nothing, and ends in no tap and no
@@ -992,7 +1026,7 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Shows the calendars this card's configuration has hidden elsewhere: on another card on the
-   * page, or in another tab. Only calendars the card shows are kept.
+   * page, or in another tab. Only calendars the legend lists are kept.
    *
    * @param hidden - Entity ids of the calendars hidden now
    */
@@ -1284,11 +1318,69 @@ class CalendarCardPro extends LitElement {
    * tap targets, so a render still showing the previous configuration cannot act on it.
    *
    * @param ev - A pointer or mouse event dispatched to `ha-card` or inside it
+   * @param path - The path to read, where not the event's own (`_pressPath`)
    * @returns The event's element and tap target, or undefined
    */
-  private _eventTapAt(ev: Event): Activation.EventTapHit | undefined {
-    if (!this._eventsActivatable || typeof ev.composedPath !== 'function') return undefined;
-    return Activation.findEventTap(ev.composedPath(), ev.currentTarget);
+  private _eventTapAt(
+    ev: Event,
+    path: ReadonlyArray<EventTarget> | undefined = this._pathOf(ev),
+  ): Activation.EventTapHit | undefined {
+    if (!this._eventsActivatable || !path) return undefined;
+    return Activation.findEventTap(path, ev.currentTarget);
+  }
+
+  /**
+   * An input event's composed path, where it has one: unit stubs may not.
+   *
+   * @param ev - Any input event
+   * @returns Its composed path, or undefined
+   */
+  private _pathOf(ev: Event): ReadonlyArray<EventTarget> | undefined {
+    return typeof ev.composedPath === 'function' ? ev.composedPath() : undefined;
+  }
+
+  /**
+   * The path a pointer-down is read from, whether it may lift the event it is on, and the event
+   * the browser handed it to where that is not the event it is read from.
+   *
+   * Chromium's touch adjustment hands a finger's pointer-down to a tap target near the finger
+   * when it finds none under it, and keeps the finger's own position. It never counts an empty
+   * grid slot as one, since the card hears every press on `ha-card`, so a finger within about
+   * 10 to 16 px of an event's edge reached the card as a press on that event, and a hold there
+   * meant to draw lifted the event and dragged it (backlog item 195). Only a touch in a grid is
+   * checked; a mouse and a pen are read as they come. Where a tap on a slot adds an event and
+   * what lies under the finger (`Activation.elementUnder`) is a slot or another event, the press
+   * is read from there, and draws or adds there. Elsewhere the browser's choice stands, so a tap
+   * just beside an event still opens it, but such a press never lifts the event: a move follows
+   * a finger that is on it.
+   *
+   * @param ev - A pointer-down on `ha-card`
+   * @returns The path, whether it may lift an event, and the event handed to; undefined where
+   *   the pointer-down has no path
+   */
+  private _pressPath(
+    ev: PointerEvent,
+  ): { path: ReadonlyArray<EventTarget>; lifts: boolean; handedTo?: EventTarget } | undefined {
+    const path = this._pathOf(ev);
+    if (!path || ev.pointerType !== 'touch' || this.effectiveView !== 'grid') {
+      return path && { path, lifts: true };
+    }
+    const hit = Activation.findEventTap(path, ev.currentTarget);
+    if (!hit) return { path, lifts: true };
+    const point = { x: ev.clientX, y: ev.clientY };
+    const under = Activation.elementUnder(this.renderRoot, point);
+    if (under === undefined || (under && (hit.element as Node).contains(under))) {
+      return { path, lifts: true };
+    }
+    const own = under ? Activation.composedPathOf(under) : [];
+    const targetUnder =
+      this._dayTapsActive &&
+      (Activation.findEventTap(own, ev.currentTarget) ??
+        Activation.findDayHit(own, ev.currentTarget, point));
+    Logger.debug(
+      `A touch reached an event it is not on; ${targetUnder ? 'reading it from under the finger' : 'it lifts nothing'}`,
+    );
+    return targetUnder ? { path: own, lifts: true, handedTo: hit.element } : { path, lifts: false };
   }
 
   /**
@@ -1333,9 +1425,9 @@ class CalendarCardPro extends LitElement {
   private _viewChoice: Types.EffectiveView | null = null;
 
   /**
-   * The calendars this device hid with the legend, by entity id; only ever calendars the card
-   * shows. Replaced rather than changed in place, so the memo keyed on it (`_shownEvents`)
-   * notices every change.
+   * The calendars this device hid with the legend, by entity id; only ever calendars the legend
+   * lists (`legendCalendarIds`). Replaced rather than changed in place, so the memo keyed on it
+   * (`_shownEvents`) notices every change.
    */
   private _hiddenCalendars: ReadonlySet<string> = NO_HIDDEN_CALENDARS;
 
@@ -1744,6 +1836,15 @@ class CalendarCardPro extends LitElement {
   private _titleScrollFontsCleanup: (() => void) | null = null;
   private _titleMotion: TitleMotionController | null = null;
 
+  /**
+   * Observers and pending work for fitting the time to titles that wrap beside it; see
+   * `_syncTitleFits`.
+   */
+  private _titleFitObserver: ResizeObserver | null = null;
+  private _titleFitMutations: MutationObserver | null = null;
+  private _titleFitRaf: number | null = null;
+  private _titleFitFontsCleanup: (() => void) | null = null;
+
   //-----------------------------------------------------------------------------
   // COMPUTED GETTERS
   //-----------------------------------------------------------------------------
@@ -1920,17 +2021,21 @@ class CalendarCardPro extends LitElement {
    * page share its request and its entry. Keyed by the days loaded, which span every view the
    * card can show, so switching views never changes it.
    *
+   * The first weekday is resolved here, from the profile as it is now, and counts only where it
+   * moves the window (`Helpers.firstDayKeyPart`). So `system` and the weekday it resolves to
+   * share a query, a page never depends on it, and home's identity moves when a profile change
+   * moves its week. Resolved on every call rather than kept from `setConfig`, which usually runs
+   * before Home Assistant hands over `hass`.
+   *
    * @param page - First day of the page, or null for home
    * @returns The instance id
    */
   private _instanceIdForPage(page: string | null): string {
-    if (page === null) return this._instanceId;
-
     return Helpers.generateDeterministicId(
       this.config.entities,
       ViewConfig.loadedDaysToShow(this.config),
-      page,
-      this.config.first_day_of_week,
+      page ?? this.config.start_date,
+      FormatUtils.getFirstDayOfWeek(this.config.first_day_of_week, this.hass?.locale),
     );
   }
 
@@ -2172,7 +2277,6 @@ class CalendarCardPro extends LitElement {
 
   constructor() {
     super();
-    this._instanceId = Helpers.generateInstanceId();
     Logger.initializeLogger(Constants.VERSION.CURRENT);
   }
 
@@ -2205,6 +2309,7 @@ class CalendarCardPro extends LitElement {
     // necessarily schedule a Lit update. Reacquire from the existing shadow DOM
     // immediately; the first connection still gets its normal post-render sync.
     this._syncTitleScroll();
+    this._syncTitleFits();
     this._syncGridDisclosureSafety();
   }
 
@@ -2214,6 +2319,7 @@ class CalendarCardPro extends LitElement {
     this._stopWidthObserver();
     this._stopGridDisclosureObserver();
     this._stopTitleScrollObserver();
+    this._stopTitleFits();
     Menu.closeMenus(this.renderRoot);
     this._search?.close();
     this._settleSearchRing();
@@ -2234,11 +2340,10 @@ class CalendarCardPro extends LitElement {
     this._titleSubscription?.destroy();
     this._titleSubscription = undefined;
 
-    // Supersede any in-flight updateEvents. Detached setConfig can rewrite
+    // Supersede any in-flight updateEvents. Detached setConfig can move
     // `_instanceId` while a pre-disconnect fetch is still open; without this
-    // bump the late response is not superseded, commits the old calendar's
-    // events, and stamps them with the *new* identity so
-    // `eventsMatchCurrentQuery` treats the mismatch as current.
+    // bump the late response is not superseded, and draws the old calendar's
+    // events under the configuration that replaced it until the next load.
     this._eventRequestGeneration++;
     this.isLoading = false;
     this._settleRefreshPhase();
@@ -3417,10 +3522,10 @@ class CalendarCardPro extends LitElement {
    *
    * `first_day_of_week: system` follows the profile: its first weekday, or its language when that
    * is left at the language's default. Under a week-relative `start_date` a profile change therefore
-   * moves home, which the card draws at once and the cache keys by the resolved weekday, while
-   * nothing asked for the new window: the card drew it with the old window's events, without any
-   * on the day it gained, until its next refresh. A page is not asked for again, since its first
-   * day is a date; home loads when the card goes back to it.
+   * moves home, which the card draws at once, and moves home's query identity and cache key, which
+   * both follow the resolved weekday, while nothing asked for the new window: the card drew it with
+   * the old window's events, without any on the day it gained, until its next refresh. A page is not
+   * asked for again, since its first day is a date; home loads when the card goes back to it.
    *
    * @param changedProps - Properties changed in this update
    * @returns True when home now starts on another day of the week
@@ -3547,7 +3652,23 @@ class CalendarCardPro extends LitElement {
       (changedProps.has('config') && changedProps.get('config')?.language !== this.config.language)
     ) {
       this._language = Localize.getEffectiveLanguage(this.config.language, this.hass?.locale);
+      this._loadIntlLocaleData();
     }
+  }
+
+  /**
+   * Teach Home Assistant's `Intl` polyfill the card's language where it has installed one that
+   * lacks it, and draw again, an open search panel included, as each service has it
+   * (`intl-locale-data.ts`). Asked once per language; without the polyfill it does nothing.
+   */
+  private _loadIntlLocaleData(): void {
+    const language = this._language;
+    if (language === this._intlLanguage) return;
+    this._intlLanguage = language;
+    void loadIntlLocaleData(language, ['DateTimeFormat', 'RelativeTimeFormat'], () => {
+      this.requestUpdate();
+      this._search?.wordsChanged();
+    });
   }
 
   updated(changedProps: PropertyValues) {
@@ -3642,6 +3763,7 @@ class CalendarCardPro extends LitElement {
 
     this._applyVisibility();
     this._syncTitleScroll();
+    this._syncTitleFits();
     this._syncToolbarLabelFit();
     this._syncMonthFit();
     this._syncHeadingMiddle();
@@ -3746,15 +3868,19 @@ class CalendarCardPro extends LitElement {
   }
 
   //-----------------------------------------------------------------------------
-  // TITLE SCROLL (scroll_long_titles, and time_position: title)
+  // TITLE SCROLL (scroll_long_titles, and time_position: title with title_max_lines: 1)
   //-----------------------------------------------------------------------------
 
   /**
    * Reconciles horizontal title scrolling after every render.
    *
    * Measurement observers rebind as titles change; the visible cohort and native clocks
-   * survive those rebinds. A card on which no title can scroll returns immediately: see
-   * `Helpers.titlesScroll`, which `time_position: title` turns on as well.
+   * survive those rebinds. A card on which no title is kept to one line returns immediately:
+   * see `Helpers.titlesOnOneLine`, which `time_position: title` with `title_max_lines: 1` turns
+   * on as well. Such a title is measured even where it cannot move, so its labels keep their
+   * line, but only a title with
+   * moving text (`.event-title-scroll`, which `scroll_long_titles` gives it) is handed to the
+   * motion machinery; a card with none runs no motion controller and no pause observer.
    *
    * Shares the detached-card guard the other reconcilers use, and re-measures after a
    * card/title resize, a late font load, or an inherited style or direction change.
@@ -3763,21 +3889,34 @@ class CalendarCardPro extends LitElement {
    * on 24/7 wall panels.
    */
   private _syncTitleScroll(): void {
-    if (!this.isConnected || !Helpers.titlesScroll(this.effectiveConfig, this.effectiveView)) {
+    if (!this.isConnected || !Helpers.titlesOnOneLine(this.effectiveConfig, this.effectiveView)) {
       this._stopTitleScrollObserver();
       return;
     }
 
     const titles = this.renderRoot.querySelectorAll<HTMLElement>('.event-title.title-scrollable');
+    const moving = Array.from(titles).filter((title) => title.querySelector('.event-title-scroll'));
+    // Kept to its line with no text that can move: a title beside the time without
+    // scroll_long_titles. Lit keeps the class and properties a render in which it could move
+    // left on it, since only the text inside it changed, and `title-overflowing` turns its
+    // ellipsis off, so they go before this update paints rather than on the next measurement.
+    titles.forEach((title) => {
+      if (!moving.includes(title)) clearTitleOverflow(title);
+    });
     this._stopTitleScrollObserver(titles.length === 0);
     if (!titles.length) {
       return;
     }
+    if (!moving.length) {
+      // Titles that only keep to their line, after a card whose titles moved: nothing is left
+      // to animate or pause, and the labels' reservation stays for the measurement below.
+      this._stopTitleMotion();
+    }
 
-    if (!this._titleMotion && supportsTitleMotion()) {
+    if (moving.length && !this._titleMotion && supportsTitleMotion()) {
       this._titleMotion = new TitleMotionController(this, () => this._scheduleTitleScrollMeasure());
     }
-    this._titleMotion?.sync(titles);
+    this._titleMotion?.sync(moving);
 
     if (typeof ResizeObserver !== 'undefined') {
       this._titleScrollObserver = new ResizeObserver(() => this._scheduleTitleScrollMeasure());
@@ -3796,7 +3935,7 @@ class CalendarCardPro extends LitElement {
       });
     }
 
-    if (!this._titleMotion && typeof IntersectionObserver !== 'undefined') {
+    if (moving.length && !this._titleMotion && typeof IntersectionObserver !== 'undefined') {
       this._titleScrollIntersectionObserver = new IntersectionObserver((entries) => {
         const offscreen = entries.every((entry) => !entry.isIntersecting);
         this.classList.toggle('calendar-card-title-scroll-paused', offscreen);
@@ -3851,7 +3990,7 @@ class CalendarCardPro extends LitElement {
     }
     this._titleScrollRaf = requestAnimationFrame(() => {
       this._titleScrollRaf = null;
-      if (!this.isConnected || !Helpers.titlesScroll(this.effectiveConfig, this.effectiveView)) {
+      if (!this.isConnected || !Helpers.titlesOnOneLine(this.effectiveConfig, this.effectiveView)) {
         return;
       }
       this._measureTitleScroll();
@@ -3877,6 +4016,7 @@ class CalendarCardPro extends LitElement {
       const fit = title.closest<HTMLElement>('.grid-event')?.dataset.gridTitleFit;
       if (fit === 'compact' || fit === 'blank' || fit === 'measuring') return [];
       const content = title.querySelector<HTMLElement>('.event-title-scroll');
+      // A title with no moving text is kept still; _syncTitleScroll has cleared its state.
       return content ? [{ title, content }] : [];
     });
     // WebKit rounds an inline fragment's offsetWidth differently from an inline-block.
@@ -3902,7 +4042,9 @@ class CalendarCardPro extends LitElement {
         return {
           title,
           content,
-          distance: content.offsetWidth - title.clientWidth,
+          // The title keeps room at its inline edges ("Marks above and below the line" in
+          // styles.ts), so the text travels across its content box, not its padding.
+          distance: content.offsetWidth - inlineContentWidth(title),
           direction: style.direction === 'rtl' ? 1 : -1,
           signature: JSON.stringify([
             content.textContent,
@@ -3934,13 +4076,20 @@ class CalendarCardPro extends LitElement {
         title.style.setProperty('--calendar-card-title-scroll-duration', `${seconds.toFixed(2)}s`);
         title.classList.add('title-overflowing');
       } else {
-        title.classList.remove('title-overflowing');
-        title.style.removeProperty('--calendar-card-title-scroll-distance');
-        title.style.removeProperty('--calendar-card-title-scroll-direction');
-        title.style.removeProperty('--calendar-card-title-scroll-duration');
+        clearTitleOverflow(title);
       }
     });
     this._titleMotion?.measure(measurements);
+  }
+
+  /**
+   * Ends title motion and clears the pause class, leaving measurement and the labels' reserved
+   * widths in place.
+   */
+  private _stopTitleMotion(): void {
+    this._titleMotion?.dispose();
+    this._titleMotion = null;
+    this.classList.remove('calendar-card-title-scroll-paused');
   }
 
   /**
@@ -3967,12 +4116,135 @@ class CalendarCardPro extends LitElement {
     }
 
     if (clearPause) {
-      this._titleMotion?.dispose();
-      this._titleMotion = null;
+      this._stopTitleMotion();
       this.renderRoot.querySelectorAll('[data-scroll-labels]').forEach((summary) => {
         summary.removeAttribute('data-scroll-labels');
       });
-      this.classList.remove('calendar-card-title-scroll-paused');
+    }
+  }
+
+  //-----------------------------------------------------------------------------
+  // TITLE FIT (time_position: title, wrapping titles; title_max_lines cuts)
+  //-----------------------------------------------------------------------------
+
+  /**
+   * Sizes the room each wrapping title beside the time keeps for it, and with `title_max_lines`
+   * of two or more cuts the titles that need more lines than that; see
+   * `TitleFit.fitTitlesBesideTime`, which measures them. Every title `title_max_lines` caps is
+   * measured as well, beside the time or below it, for a cut inside a word, which then loses its
+   * hyphen; see `TitleFit.unhyphenateTitleCuts`.
+   *
+   * Runs after every render and on reconnecting, at once rather than on the next frame, so a
+   * row is drawn fitted from its first paint. Then again on the next frame whenever the card, a
+   * title or a time changes size, which a theme or card-mod can do to the time without moving
+   * the card; when an ancestor's direction, language, class or style changes, which a language
+   * does to hyphenation too; and once the fonts have loaded. Measuring rows neither moves the
+   * card nor resizes it twice: a row measured again ends exactly as it was. A card without such
+   * titles clears what a render left on an element Lit kept, and observes nothing.
+   */
+  private _syncTitleFits(): void {
+    this._stopTitleFits();
+    const rows: HTMLElement[] = this.isConnected
+      ? Array.from(this.renderRoot.querySelectorAll<HTMLElement>('.summary-row.title-wrap'))
+      : [];
+    const capped = this.isConnected ? this._cappedTitles() : [];
+    if (!rows.length && !capped.length) {
+      this.renderRoot
+        .querySelectorAll<HTMLElement>(`[${TitleFit.TITLE_FIT}]`)
+        .forEach(TitleFit.clearTitleFit);
+      this.renderRoot
+        .querySelectorAll<HTMLElement>(`[${TitleFit.TITLE_UNHYPHENATED}]`)
+        .forEach((summary) => summary.removeAttribute(TitleFit.TITLE_UNHYPHENATED));
+      return;
+    }
+    this._measureTitleFits();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(() => this._scheduleTitleFits());
+      this._titleFitObserver = observer;
+      observer.observe(this);
+      rows.forEach((row) => {
+        row
+          .querySelectorAll<HTMLElement>(':scope > .summary, :scope > .title-aside')
+          .forEach((part) => observer.observe(part));
+      });
+      capped.forEach((summary) => observer.observe(summary));
+    }
+    if (typeof MutationObserver !== 'undefined') {
+      this._titleFitMutations = new MutationObserver((records) => {
+        if (records.some((record) => !isScrollPauseOnlyMutation(record, this))) {
+          this._scheduleTitleFits();
+        }
+      });
+      observeTypographyAncestors(this._titleFitMutations, this);
+    }
+    const fonts = document.fonts;
+    if (fonts) {
+      let active = true;
+      const onFonts = (): void => {
+        if (active) this._scheduleTitleFits();
+      };
+      void fonts.ready.then(onFonts);
+      if (typeof fonts.addEventListener === 'function') {
+        fonts.addEventListener('loadingdone', onFonts);
+      }
+      this._titleFitFontsCleanup = () => {
+        active = false;
+        if (typeof fonts.removeEventListener === 'function') {
+          fonts.removeEventListener('loadingdone', onFonts);
+        }
+      };
+    }
+  }
+
+  /**
+   * Measures every wrapping title beside the time on the card, at once, and then where each title
+   * capped at `title_max_lines` is cut, dropping hyphens from a cut that falls inside a word.
+   */
+  private _measureTitleFits(): void {
+    const config = this.effectiveConfig;
+    // Hyphens back first, so the rows beside the time are fitted to the titles as the browser
+    // hyphenates them, which is what the cut below is measured on. A title losing its hyphens
+    // then needs as many lines as it did or more, so a row cut stays cut where it was measured.
+    this.renderRoot
+      .querySelectorAll<HTMLElement>(`[${TitleFit.TITLE_UNHYPHENATED}]`)
+      .forEach((summary) => summary.removeAttribute(TitleFit.TITLE_UNHYPHENATED));
+    TitleFit.fitTitlesBesideTime(
+      this.renderRoot.querySelectorAll<HTMLElement>('.summary-row.title-wrap'),
+      Helpers.titlesCutBesideTime(config, this.effectiveView)
+        ? Number(config.title_max_lines) || 0
+        : 0,
+    );
+    TitleFit.unhyphenateTitleCuts(this._cappedTitles());
+  }
+
+  /** The summary of every title on the card that `title_max_lines` caps across lines. */
+  private _cappedTitles(): HTMLElement[] {
+    return Helpers.titlesCapped(this.effectiveConfig, this.effectiveView)
+      ? Array.from(this.renderRoot.querySelectorAll<HTMLElement>('.summary:not(.summary-scroll)'))
+      : [];
+  }
+
+  /** Measures again on the next frame, once a resize or a font load has settled. */
+  private _scheduleTitleFits(): void {
+    if (this._titleFitRaf !== null) cancelAnimationFrame(this._titleFitRaf);
+    this._titleFitRaf = requestAnimationFrame(() => {
+      this._titleFitRaf = null;
+      if (this.isConnected) this._measureTitleFits();
+    });
+  }
+
+  /** Tears down the title-fit observers and cancels pending work, leaving every fit in place. */
+  private _stopTitleFits(): void {
+    this._titleFitObserver?.disconnect();
+    this._titleFitObserver = null;
+    this._titleFitMutations?.disconnect();
+    this._titleFitMutations = null;
+    this._titleFitFontsCleanup?.();
+    this._titleFitFontsCleanup = null;
+    if (this._titleFitRaf !== null) {
+      cancelAnimationFrame(this._titleFitRaf);
+      this._titleFitRaf = null;
     }
   }
 
@@ -4383,9 +4655,11 @@ class CalendarCardPro extends LitElement {
     // A press on a link in an event's row is the link's: the browser follows it, so it is no
     // tap or hold on anything of the card's, and arms only for a swipe, which a finger may
     // start anywhere on the days.
-    const onLink = this._startsOnRowLink(ev);
-    const tapTarget = onLink ? undefined : this._eventTapAt(ev);
-    const dayHit = onLink || tapTarget ? undefined : this._dayHitAt(ev);
+    const press = this._pressPath(ev);
+    const path = press?.path;
+    const onLink = this._startsOnRowLink(ev, path);
+    const tapTarget = onLink ? undefined : this._eventTapAt(ev, path);
+    const dayHit = onLink || tapTarget ? undefined : this._dayHitAt(ev, path);
     // A press on an event, a day or a link is theirs, so the card's ripple stays still for it
     // from start to end; the stylesheet reads the mark, and the next press anywhere else clears
     // it.
@@ -4395,7 +4669,7 @@ class CalendarCardPro extends LitElement {
     );
     const swipeable = this._swipeStartsAt(ev);
     const draftFrom = this._draftAnchorFor(dayHit);
-    const moveFrom = this._moveFrom(ev, tapTarget);
+    const moveFrom = press?.lifts ? this._moveFrom(ev, tapTarget, press.path) : undefined;
     // A press where a new event may be drawn has a hold of its own, which draws one, and so does
     // a press on an event a drag may move, which lifts it.
     const holds =
@@ -4418,8 +4692,9 @@ class CalendarCardPro extends LitElement {
     this._holdTriggered = false;
     this._pointerTapTarget = tapTarget ?? null;
     this._pointerDayHit = dayHit ?? null;
-    this._pointerAddContext = onLink ? null : (this._addContextAt(ev) ?? null);
-    this._pointerDayAdd = onLink ? null : (this._dayAddAt(ev)?.element ?? null);
+    this._pointerAddContext = onLink ? null : (this._addContextAt(ev, path) ?? null);
+    this._pointerDayAdd = onLink ? null : (this._dayAddAt(ev, path)?.element ?? null);
+    this._pointerHandedTo = press?.handedTo ?? null;
     this._pointerSwipeable = swipeable;
     this._pointerOnLink = onLink;
     this._pointerDraftFrom = draftFrom ?? null;
@@ -5110,13 +5385,15 @@ class CalendarCardPro extends LitElement {
    *
    * @param ev - A pointer-down on `ha-card`
    * @param hit - The event it landed on, if any
+   * @param path - The path the press is read from (`_pressPath`)
    * @returns The move it arms, not yet started, or undefined
    */
   private _moveFrom(
     ev: PointerEvent,
     hit: Activation.EventTapHit | undefined,
+    path: ReadonlyArray<EventTarget>,
   ): NonNullable<CalendarCardPro['_move']> | undefined {
-    if (!hit || !this._movesEvents || typeof ev.composedPath !== 'function') return undefined;
+    if (!hit || !this._movesEvents) return undefined;
     const element = hit.element;
     if (!(element instanceof Element) || !element.classList.contains('grid-event')) {
       return undefined;
@@ -5128,7 +5405,7 @@ class CalendarCardPro extends LitElement {
     const times = GridMove.movableTimes(entry);
     if (!times || !this._eventPermissions(event, entry).canEdit) return undefined;
 
-    const body = ev.composedPath().find((node) => Activation.daySlotOn(node)?.kind === 'time') as
+    const body = path.find((node) => Activation.daySlotOn(node)?.kind === 'time') as
       Element | undefined;
     const slot = Activation.daySlotOn(body);
     if (!body || slot?.kind !== 'time') return undefined;
@@ -5380,11 +5657,15 @@ class CalendarCardPro extends LitElement {
    * `_pointerOnLink` for what such a press may still do.
    *
    * @param ev - A pointer-down on `ha-card`
+   * @param path - The path the press is read from (`_pressPath`)
    * @returns True when the press is the link's
    */
-  private _startsOnRowLink(ev: PointerEvent): boolean {
-    if (typeof ev.composedPath !== 'function') return false;
-    return Activation.startsOnRowLink(ev.composedPath(), ev.currentTarget);
+  private _startsOnRowLink(
+    ev: PointerEvent,
+    path: ReadonlyArray<EventTarget> | undefined,
+  ): boolean {
+    if (!path) return false;
+    return Activation.startsOnRowLink(path, ev.currentTarget);
   }
 
   /**
@@ -5404,14 +5685,15 @@ class CalendarCardPro extends LitElement {
    * days.
    *
    * @param ev - A pointer-down on `ha-card`
+   * @param path - The path the press is read from (`_pressPath`)
    * @returns Where the press landed, or undefined
    */
-  private _dayHitAt(ev: PointerEvent): Activation.DayHit | undefined {
-    if (!this._dayTapsActive || typeof ev.composedPath !== 'function') return undefined;
-    return Activation.findDayHit(ev.composedPath(), ev.currentTarget, {
-      x: ev.clientX,
-      y: ev.clientY,
-    });
+  private _dayHitAt(
+    ev: PointerEvent,
+    path: ReadonlyArray<EventTarget> | undefined,
+  ): Activation.DayHit | undefined {
+    if (!this._dayTapsActive || !path) return undefined;
+    return Activation.findDayHit(path, ev.currentTarget, { x: ev.clientX, y: ev.clientY });
   }
 
   /**
@@ -5420,30 +5702,33 @@ class CalendarCardPro extends LitElement {
    * on Thursday.
    *
    * @param ev - A pointer-down on `ha-card`
+   * @param path - The path the press is read from (`_pressPath`)
    * @returns Where the press landed, or undefined
    */
-  private _addContextAt(ev: PointerEvent): Activation.DayHit | undefined {
+  private _addContextAt(
+    ev: PointerEvent,
+    path: ReadonlyArray<EventTarget> | undefined,
+  ): Activation.DayHit | undefined {
     const adds = (action: Types.ActionConfig | null | undefined) =>
       action?.action === Constants.ADD_EVENT_ACTION;
     if (!adds(this.config.tap_action) && !adds(this.config.hold_action)) return undefined;
-    if (!this._canAddEvents || typeof ev.composedPath !== 'function') return undefined;
-    return Activation.findDayHit(
-      ev.composedPath(),
-      ev.currentTarget,
-      { x: ev.clientX, y: ev.clientY },
-      true,
-    );
+    if (!this._canAddEvents || !path) return undefined;
+    return Activation.findDayHit(path, ev.currentTarget, { x: ev.clientX, y: ev.clientY }, true);
   }
 
   /**
    * The day's add button an input event started on, while there are any.
    *
    * @param ev - An input event dispatched to `ha-card` or inside it
+   * @param path - The path to read, where not the event's own (`_pressPath`)
    * @returns The button and its day, or undefined
    */
-  private _dayAddAt(ev: Event): { element: EventTarget; timestamp: number } | undefined {
-    if (!this._dayTapsActive || typeof ev.composedPath !== 'function') return undefined;
-    return Activation.findDayAdd(ev.composedPath(), ev.currentTarget);
+  private _dayAddAt(
+    ev: Event,
+    path: ReadonlyArray<EventTarget> | undefined = this._pathOf(ev),
+  ): { element: EventTarget; timestamp: number } | undefined {
+    if (!this._dayTapsActive || !path) return undefined;
+    return Activation.findDayAdd(path, ev.currentTarget);
   }
 
   /**
@@ -5655,10 +5940,12 @@ class CalendarCardPro extends LitElement {
     // The click a browser derives from this gesture is not a second activation. Guarded for
     // the event or the day's add button the gesture began on, whatever it was, or for no
     // element after a tap elsewhere on the card or a day; a gesture that ran nothing and began
-    // off those owes nothing that could act. See `_derivedClick`.
-    const owedBy = tapTarget
-      ? tapTarget.element
-      : (this._pointerDayAdd ?? (ranOffEvents ? null : undefined));
+    // off those owes nothing that could act. A press read from under the finger rather than
+    // from the event a browser handed it to owes its click by that event, which is what a
+    // browser aiming the click at the pointer-down's target names. See `_derivedClick`.
+    const owedBy =
+      this._pointerHandedTo ??
+      (tapTarget ? tapTarget.element : (this._pointerDayAdd ?? (ranOffEvents ? null : undefined)));
     this._derivedClick =
       owedBy === undefined
         ? null
@@ -5717,6 +6004,7 @@ class CalendarCardPro extends LitElement {
     this._pointerDayHit = null;
     this._pointerAddContext = null;
     this._pointerDayAdd = null;
+    this._pointerHandedTo = null;
     this._pointerSwipeable = false;
     this._pointerOnLink = false;
     this._pointerDraftFrom = null;
@@ -6187,18 +6475,10 @@ class CalendarCardPro extends LitElement {
     this._effectiveView = seededFit.view;
     this._columnCount = seededFit.columns;
 
-    this._instanceId = Helpers.generateDeterministicId(
-      this.config.entities,
-      ViewConfig.loadedDaysToShow(this.config),
-      this.config.start_date,
-      this.config.first_day_of_week,
-    );
-
     if (this._instanceId !== previousInstanceId) {
-      // Failures belong to the query that produced them. Carrying them over would name a
-      // calendar this card no longer shows, or start the new query mid-backoff.
+      // Failures belong to the query that produced them. Carrying the notice over would name a
+      // calendar this card no longer shows; the count starts again by itself (`updateEvents`).
       this._setFailures([]);
-      this._failureCountHint = 0;
     }
 
     // Compared as loaded, not as configured: a view's own count that leaves the longest one
@@ -6321,10 +6601,10 @@ class CalendarCardPro extends LitElement {
     }
 
     // Take a ticket before anything can await. Any call that starts after this one
-    // supersedes it, and a superseded response must not touch card state — committing
-    // it would both show the previous calendar's events and stamp them with the current
-    // `_instanceId`, which makes `eventsMatchCurrentQuery` report true for a payload the
-    // current query never asked for.
+    // supersedes it, and a superseded response must not touch card state: committing it
+    // would draw the previous query's events under the current configuration until the
+    // next load. The identity is taken once, below, and carried to the commit, so such a
+    // payload is at least never stamped as the current query's.
     const generation = ++this._eventRequestGeneration;
     const isSuperseded = (): boolean => generation !== this._eventRequestGeneration;
 
@@ -6363,6 +6643,12 @@ class CalendarCardPro extends LitElement {
     const instanceId = this._instanceIdForPage(page);
     const store: EventUtils.CacheStore = page === null ? 'persistent' : 'page';
     const usesCache = load !== 'network' && load !== 'reload' && load !== 'live';
+    // Another query's failures are not this one's (`_failureCountHint`). Asked here rather than
+    // where a query changes, because a profile change reaches no code that could reset it.
+    if (this._failureCountQuery !== instanceId) {
+      this._failureCountHint = 0;
+      this._failureCountQuery = instanceId;
+    }
 
     // A reload asks REST for every calendar; their subscriptions, which may still hold the
     // answer from before a write, are closed and opened again after it.
@@ -6936,9 +7222,9 @@ class CalendarCardPro extends LitElement {
     };
 
     if (this.isInitialLoad) {
-      content = Render.renderCardContent('loading', this.effectiveLanguage);
+      content = Render.renderCardContent('loading', this.effectiveLanguage, this.hass);
     } else if (!this.safeHass || !this.config.entities.length) {
-      content = Render.renderCardContent('error', this.effectiveLanguage);
+      content = Render.renderCardContent('error', this.effectiveLanguage, this.hass);
     } else if (this.events.length === 0 && this._hasFetchError) {
       // Nothing loaded and nothing kept: the notice below names what failed, and an empty
       // calendar here would claim there was nothing to show.
@@ -7238,7 +7524,7 @@ class CalendarCardPro extends LitElement {
       CalendarNames.failedCalendarName(entityId, this.config, this.hass),
     );
 
-    return Render.renderFetchErrorNotice(names, this.effectiveLanguage);
+    return Render.renderFetchErrorNotice(names, this.effectiveLanguage, this.hass);
   }
 
   /**
@@ -7449,6 +7735,7 @@ class CalendarCardPro extends LitElement {
       full: Paging.monthHeadings(language, 'long'),
       short,
       range: Paging.rangeLabel(page, language, now),
+      languageMark: TextDirection.languageMark(language, this.hass),
     };
   }
 
@@ -7592,6 +7879,7 @@ class CalendarCardPro extends LitElement {
 
     return {
       homeName: Paging.homeButtonName(this._homeRange(now), language, now),
+      languageMark: TextDirection.languageMark(language, this.hass),
       previousName: this._haString('ui.common.previous'),
       nextName: this._haString('ui.common.next'),
       inert: this._isBeingEdited,
@@ -7688,10 +7976,7 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Asks for another page without loading it yet. The failure count belongs to the page that
-   * produced it: a page never fetched has no cache entry to record one, and would otherwise
-   * start from the count this card carried, a step deeper in the backoff for every page
-   * visited during an outage.
+   * Asks for another page without loading it yet.
    *
    * @param page - First day of the page, or null for home
    */
@@ -7700,7 +7985,6 @@ class CalendarCardPro extends LitElement {
     // A page asked for any way at all ends the slide a swipe's page was waiting for. A swipe
     // asks through here as well, and records its arrival only once this returns.
     this._swipeArrival = null;
-    this._failureCountHint = 0;
     // Likewise a search ring waiting for another page than this one: it would otherwise ring,
     // and take focus, whenever that page was next shown, however long after.
     if (this._searchRing && this._searchRing.page !== page) this._settleSearchRing();
@@ -8044,16 +8328,23 @@ class CalendarCardPro extends LitElement {
   // LEGEND
   //-----------------------------------------------------------------------------
 
-  /** Whether the configuration asks for the calendar legend, in either form. */
+  /**
+   * Whether the configuration asks for the calendar legend, in either form, and leaves it a
+   * calendar to list. A card whose every calendar is left out with `show_in_legend: false` has
+   * no legend: nothing drawn, no hidden calendars read, and nothing for a reset to undo.
+   */
   private get _wantsLegend(): boolean {
     const toolbar = Config.resolveToolbar(this.config);
-    return toolbar.show && toolbar.legend !== false;
+    return (
+      toolbar.show &&
+      toolbar.legend !== false &&
+      Legend.legendCalendarIds(this.config.entities).length > 0
+    );
   }
 
   /** Whether the configuration asks for the legend as chips, which fold where they do not fit. */
   private get _wantsLegendChips(): boolean {
-    const toolbar = Config.resolveToolbar(this.config);
-    return toolbar.show && toolbar.legend === 'chips';
+    return this._wantsLegend && Config.resolveToolbar(this.config).legend === 'chips';
   }
 
   /**
@@ -8075,6 +8366,7 @@ class CalendarCardPro extends LitElement {
 
     const hidden = this._activeHiddenCalendars;
     const registryColors = EntityColors.entityColors();
+    const translations = Localize.getTranslations(this.effectiveLanguage);
     const calendars = ids.map((id) => ({
       id,
       name: this._calendarName(id),
@@ -8093,7 +8385,10 @@ class CalendarCardPro extends LitElement {
       name: this._haString('ui.components.calendar.my_calendars'),
       folded: !this._wantsLegendChips || this._legendFoldedFor(this._legendSignature(calendars)),
       inert: this._isBeingEdited,
+      showAllLabel: translations.showAll,
+      hideAllLabel: translations.hideAll,
       onToggle: (id) => this._toggleCalendar(id),
+      onSetAll: (shown) => this._setAllCalendars(shown),
     };
   }
 
@@ -8151,18 +8446,44 @@ class CalendarCardPro extends LitElement {
    * @param id - The calendar's entity id
    */
   private _toggleCalendar(id: string): void {
-    if (this._isBeingEdited) {
-      Logger.debug('Not hiding calendars while the card is being edited');
-      return;
-    }
-    if (!this._wantsLegend) return;
-
     const next = new Set(this._hiddenCalendars);
     if (next.has(id)) {
       next.delete(id);
     } else {
       next.add(id);
     }
+    this._hideCalendars(next, `${next.has(id) ? 'Hid' : 'Showed'} ${id}`);
+  }
+
+  /**
+   * Shows every calendar the legend lists on this device, or hides every one, and remembers it
+   * there: the menu's Show all and Hide all. A calendar the legend leaves out with
+   * `show_in_legend: false` is not among them, so it stays shown either way. The menu offers
+   * neither while it would change nothing (`renderLegendButton`).
+   *
+   * @param shown - True to show every calendar, false to hide every one
+   */
+  private _setAllCalendars(shown: boolean): void {
+    const next = new Set(shown ? [] : Legend.legendCalendarIds(this.config.entities));
+    this._hideCalendars(next, shown ? 'Showed every calendar' : 'Hid every calendar');
+  }
+
+  /**
+   * Hides exactly these calendars on this device, remembers them there, and tells every other
+   * card with this configuration (`_announceHiddenCalendars`).
+   *
+   * Nothing is fetched: hidden calendars stay loaded, so this only redraws.
+   *
+   * @param next - Entity ids of the calendars to hide, each one the legend lists
+   * @param message - What changed, for the log
+   */
+  private _hideCalendars(next: ReadonlySet<string>, message: string): void {
+    if (this._isBeingEdited) {
+      Logger.debug('Not hiding calendars while the card is being edited');
+      return;
+    }
+    if (!this._wantsLegend) return;
+
     this._hiddenCalendars = next.size > 0 ? next : NO_HIDDEN_CALENDARS;
     if (this._configFingerprint !== null) {
       this._hiddenMatchesStorage = ViewChoice.writeHiddenCalendars(this._configFingerprint, [
@@ -8170,7 +8491,7 @@ class CalendarCardPro extends LitElement {
       ]);
     }
     this._announceHiddenCalendars([...next], this._hiddenMatchesStorage);
-    Logger.debug(`${next.has(id) ? 'Hid' : 'Showed'} ${id}`);
+    Logger.debug(message);
     this.requestUpdate();
   }
 

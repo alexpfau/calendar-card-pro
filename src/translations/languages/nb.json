@@ -4,7 +4,8 @@
   "months": ["jan", "feb", "mar", "apr", "mai", "jun", "jul", "aug", "sep", "okt", "nov", "des"],
   "allDay": "hele dagen",
   "multiDay": "til",
-  "at": "kl. ",
+  "at": "kl.",
+  "separator": ", ",
   "viewList": "Liste",
   "viewColumns": "Kolonner",
   "viewGrid": "Tidsrutenett",
@@ -14,5 +15,7 @@
   "loading": "Laster kalenderhendelser...",
   "error": "Feil: Kalenderenheten ble ikke funnet eller er ikke konfigurert riktig",
   "loadFailed": "Kunne ikke lastes:",
-  "newEvent": "Ny hendelse"
+  "newEvent": "Ny hendelse",
+  "showAll": "Vis alle",
+  "hideAll": "Skjul alle"
 }

@@ -7,8 +7,9 @@ import { describe, expect, it } from 'vitest';
  * Safari before 16.4 cannot parse a regular expression lookbehind, and a literal one is a
  * syntax error when the bundle loads: the whole card fails to define, on every view, not just
  * the code that uses it (#735). iOS 15 devices that cannot update further still run such a
- * Safari, so the source must not contain one. A dependency could still bring one in; this
- * pins the card's own code.
+ * Safari, so the source must not contain one. This pins the card's own code, and names the
+ * file; `npm run check:bundle` scans the built files too, which is what catches one a
+ * dependency brings in.
  */
 
 /** Every `.ts` file under `dir`. */

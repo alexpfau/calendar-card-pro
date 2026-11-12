@@ -8,6 +8,7 @@ import * as Logger from './logger';
 import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import { getRelativeTimeString, getRelativeUnitString } from '../translations/dayjs';
+import { intlCache, intlLocales, intlSpeaks } from '../translations/intl-locales';
 import * as Localize from '../translations/localize';
 
 //-----------------------------------------------------------------------------
@@ -93,25 +94,31 @@ export function formatEventTime(
   language: string,
   hass?: Types.Hass | null,
 ): string {
-  return joinEventTimeParts(formatEventTimeParts(event, config, language, hass));
+  return joinEventTimeParts(formatEventTimeParts(event, config, language, hass), language);
 }
 
 /**
  * Rejoin time parts into the single string the card shows when `allday_badge` is off.
  *
- * The comma and the capitalization live here rather than in `formatEventTimeParts`, so the
+ * The separator and the capitalization live here rather than in `formatEventTimeParts`, so the
  * badge path can take the same parts and present them differently without either path
- * reimplementing the other.
+ * reimplementing the other. The separator is the language's own: "All day, ends tomorrow",
+ * "整天，明天结束".
  *
  * @param parts Parts as returned by `formatEventTimeParts`
+ * @param language Language code the parts were written in
  * @returns The joined, capitalized time string
  */
-export function joinEventTimeParts({ allDayLabel, text }: EventTimeParts): string {
+export function joinEventTimeParts(
+  { allDayLabel, text }: EventTimeParts,
+  language: string,
+): string {
   if (allDayLabel === undefined) {
     return capitalizeFirstLetter(text);
   }
 
-  return capitalizeFirstLetter(text ? `${allDayLabel}, ${text}` : allDayLabel);
+  const { separator } = Localize.getTranslations(language);
+  return capitalizeFirstLetter(text ? `${allDayLabel}${separator}${text}` : allDayLabel);
 }
 
 /**
@@ -1143,6 +1150,64 @@ function formatSingleDayTime(
   return { text: `${start}${end}`, end };
 }
 
+/**
+ * A time as a language puts it in a sentence: `at` before it ("at 0:30"), or, where `at`
+ * holds `{time}`, the time inside that template. Hungarian marks a time with a suffix rather
+ * than a word before it, so its `at` is "{time}-kor" and the time reads "0:30-kor". Korean's
+ * is "{time}" alone, since a time after a date takes no particle there, and its end phrases
+ * write their own. Lithuanian and Chinese write a date and its time side by side, as CLDR
+ * does, so theirs is "{time}" alone too. A language without the placeholder reads exactly as
+ * it did before the template existed.
+ *
+ * @param translations Resolved translations for the language
+ * @param time The clock reading, as `formatTime` writes it
+ * @returns The time with the language's word or suffix for "at"
+ */
+function atTime(translations: Types.Translations, time: string): string {
+  return translations.at.includes('{time}')
+    ? translations.at.replace('{time}', () => time)
+    : `${translations.at} ${time}`;
+}
+
+/**
+ * "Ends today" or "ends tomorrow" with the end time in it. The time follows the phrase unless
+ * the phrase marks its place with `{at}`: Hungarian puts a time before its verb, so its
+ * `endsTomorrow` is "holnap {at} ér véget" and reads "holnap 0:30-kor ér véget". Korean
+ * writes its particle onto the time there, "내일 {at}에 종료", which reads "내일 0:30에 종료". A
+ * phrase without the placeholder reads exactly as it did before the placeholder existed.
+ *
+ * @param phrase `endsToday` or `endsTomorrow`
+ * @param translations Resolved translations for the language
+ * @param time The clock reading, as `formatTime` writes it
+ * @returns The phrase with the end time in it
+ */
+export function endsAt(phrase: string, translations: Types.Translations, time: string): string {
+  const at = atTime(translations, time);
+  return phrase.includes('{at}') ? phrase.replace('{at}', () => at) : `${phrase} ${at}`;
+}
+
+/**
+ * "Ends today" or "ends tomorrow" for an event with no end time to give, an all-day one: the
+ * phrase without the word that holds its `{at}`, and without the space that went with it.
+ * Whatever touches the placeholder with no space between belongs to the time and goes with
+ * it: Korean writes its particle onto the time, "내일 {at}에 종료", and an all-day event reads
+ * "내일 종료".
+ *
+ * Chinese writes no space between words, only around a time set into them, so between two
+ * Chinese characters both spaces go with the time: "明天 {at} 结束" reads "明天结束".
+ *
+ * @param phrase `endsToday` or `endsTomorrow`
+ * @returns The phrase as it reads with no time in it
+ */
+function endsWithoutTime(phrase: string): string {
+  const word = /\S*\{at\}\S*/.exec(phrase);
+  if (!word) return phrase;
+  const before = phrase.slice(0, word.index).trim();
+  const after = phrase.slice(word.index + word[0].length).trim();
+  const gap = /\p{Script=Han}$/u.test(before) && /^\p{Script=Han}/u.test(after) ? '' : ' ';
+  return `${before}${gap}${after}`.trim();
+}
+
 function formatMultiDayTime(
   startDate: Date,
   endDate: Date,
@@ -1161,43 +1226,35 @@ function formatMultiDayTime(
   let endPart: string;
 
   if (endDate.toDateString() === today.toDateString()) {
-    endPart = `${translations.endsToday} ${translations.at} ${formatTimeStr(endDate)}`;
+    endPart = endsAt(translations.endsToday, translations, formatTimeStr(endDate));
   } else if (endDate.toDateString() === tomorrow.toDateString()) {
-    endPart = `${translations.endsTomorrow} ${translations.at} ${formatTimeStr(endDate)}`;
+    endPart = endsAt(translations.endsTomorrow, translations, formatTimeStr(endDate));
   } else {
-    const endDay = endDate.getDate();
-    const endMonthName = translations.months[endDate.getMonth()];
-    const endWeekday = translations.fullDaysOfWeek[endDate.getDay()];
-    const endTimeStr = formatTimeStr(endDate);
-    const formatStyle = Localize.getDateFormatStyle(language);
-
-    switch (formatStyle) {
-      case 'day-dot-month':
-        endPart = `${endWeekday}, ${endDay}. ${endMonthName} ${translations.at} ${endTimeStr}`;
-        break;
-      case 'month-day':
-        endPart = `${endWeekday}, ${endMonthName} ${endDay} ${translations.at} ${endTimeStr}`;
-        break;
-      case 'day-month':
-      default:
-        endPart = `${endWeekday}, ${endDay} ${endMonthName} ${translations.at} ${endTimeStr}`;
-        break;
-    }
+    const endTime = atTime(translations, formatTimeStr(endDate));
+    endPart = `${sentenceDate(endDate, language, translations)} ${endTime}`;
   }
 
   if (today.getTime() <= startDate.getTime()) {
     const startTimeStr = formatTimeStr(startDate);
     // "Ends tomorrow at 0:30" is a sentence of its own, so joining it after `multiDay`
-    // ("until") read "22:30 until ends tomorrow at 0:30". It takes a comma instead, the way
-    // the all-day label does ("All day, ends tomorrow"), which needs no new string in any
-    // language. A later end keeps `multiDay`, since a date reads naturally after it.
+    // ("until") read "22:30 until ends tomorrow at 0:30". It takes the language's `separator`
+    // instead, as the all-day label does ("All day, ends tomorrow"): "22:30, ends tomorrow at
+    // 0:30", "22:30，明天 0:30 结束". A later end keeps `multiDay`, since a date reads naturally
+    // after it.
     if (
       endDate.toDateString() === today.toDateString() ||
       endDate.toDateString() === tomorrow.toDateString()
     ) {
-      return `${startTimeStr}, ${endPart}`;
+      return `${startTimeStr}${translations.separator}${endPart}`;
     }
-    return `${startTimeStr} ${translations.multiDay} ${endPart}`;
+    // A `multiDay` that opens the language's own `endsToday` is that verb, "ends", rather than
+    // a word for "until", so what follows the start time is a clause like the one above and
+    // takes its separator. Finnish writes the end this way, because its word for "until"
+    // follows the day: "10:00, päättyy maanantaina", not "10:00 päättyy maanantaina".
+    const joiner = translations.endsToday.startsWith(`${translations.multiDay} `)
+      ? translations.separator
+      : ' ';
+    return `${startTimeStr}${joiner}${translations.multiDay} ${endPart}`;
   } else {
     if (
       endDate.toDateString() === today.toDateString() ||
@@ -1214,7 +1271,7 @@ function formatMultiDayTime(
  * The part of a multi-day all-day event's time text that follows the all-day label.
  *
  * Returns the remainder alone rather than the joined phrase, so `allday_badge` can draw
- * the label as a pill and this text after it. `formatEventTime` puts the comma back.
+ * the label as a pill and this text after it. `formatEventTime` puts the separator back.
  *
  * @param endDate Inclusive end date of the event
  * @param language Language code, which selects the date order
@@ -1232,25 +1289,102 @@ function formatMultiDayAllDayEnd(
   tomorrow.setDate(tomorrow.getDate() + 1);
 
   if (endDate.toDateString() === today.toDateString()) {
-    return translations.endsToday;
+    return endsWithoutTime(translations.endsToday);
   }
 
   if (endDate.toDateString() === tomorrow.toDateString()) {
-    return translations.endsTomorrow;
+    return endsWithoutTime(translations.endsTomorrow);
   }
 
-  const endDay = endDate.getDate();
-  const endMonthName = translations.months[endDate.getMonth()];
-  const endWeekday = translations.fullDaysOfWeek[endDate.getDay()];
-  const formatStyle = Localize.getDateFormatStyle(language);
+  return `${translations.multiDay} ${sentenceDate(endDate, language, translations)}`;
+}
 
-  switch (formatStyle) {
+/**
+ * The formats `sentenceDate` writes a day in, one per card language, or `null` for a language
+ * the browser has no data for.
+ */
+const sentenceDateFormats = intlCache<string, Intl.DateTimeFormat | null>();
+
+/**
+ * The browser's format for a day inside a sentence, in a card language.
+ *
+ * The weekday in full and the month in the language's short form: "Friday, Oct 23",
+ * "23. Okt.", "okt. 23., péntek". Where CLDR's short form writes the month as a number, as it
+ * does in Czech, Slovak, Finnish, Bulgarian and Lithuanian ("23. 10."), the month is named in
+ * full instead ("23. října"), as those languages name it in running text.
+ *
+ * `null` where the browser has no data for the language, nor for the one its readers read as
+ * well ({@link intlSpeaks}), and would answer in English. `sentenceDate` then writes the date
+ * from the card's own month names, the one place the card has its own words for what `Intl`
+ * would write, so there the date stays in the card's language rather than reading in English.
+ *
+ * @param language Card language, as the translations were resolved for it
+ * @returns The format, or `null`
+ */
+function sentenceDateFormat(language: string): Intl.DateTimeFormat | null {
+  let format = sentenceDateFormats.get(language);
+  if (format !== undefined) return format;
+
+  format = null;
+  try {
+    if (intlSpeaks(Intl.DateTimeFormat, language)) {
+      const options = { weekday: 'long', day: 'numeric', timeZone: 'UTC' } as const;
+      const short = new Intl.DateTimeFormat(intlLocales(language), { ...options, month: 'short' });
+      const month = short.formatToParts(Date.UTC(2000, 9, 23, 12)).find((p) => p.type === 'month');
+      format = /^\d+$/.test(month?.value ?? '')
+        ? new Intl.DateTimeFormat(intlLocales(language), { ...options, month: 'long' })
+        : short;
+    }
+  } catch {
+    format = null;
+  }
+  sentenceDateFormats.set(language, format);
+  return format;
+}
+
+/**
+ * The day an event ends, as a sentence names it: "Friday, Oct 23" in "until Friday, Oct 23".
+ *
+ * The browser writes the date in the card's language, so its order, punctuation, and the form
+ * and case of its month are CLDR's: "pátku 23. října", "okt. 23., péntek", "10월 23일 금요일".
+ * The weekday is the language's own `fullDaysOfWeek`, put where CLDR puts the weekday, because
+ * its form depends on the word before it, which CLDR cannot know: Czech `do` takes the
+ * genitive, "do pátku", where CLDR writes "pátek".
+ *
+ * Where the browser has no data for the language, as Chromium has none for Icelandic, the date
+ * is built from the card's own `months` instead, in the order the card gave the language before
+ * the browser wrote it. Everywhere else `months` names the date column's months only.
+ *
+ * @param date The day
+ * @param language Language code
+ * @param translations Resolved translations for that language
+ * @returns The day as it reads after `multiDay`
+ */
+function sentenceDate(date: Date, language: string, translations: Types.Translations): string {
+  const weekday = translations.fullDaysOfWeek[date.getDay()];
+  const lang = language?.toLowerCase() || Localize.DEFAULT_LANGUAGE;
+  const format = sentenceDateFormat(Localize.TRANSLATIONS[lang] ? lang : Localize.DEFAULT_LANGUAGE);
+
+  if (format) {
+    // The local day, written as noon UTC on the same date, for a format that reads it in UTC:
+    // a format keeps the zone it was made in, and this one is kept for as long as the page is
+    // open, so in the local zone it would name the wrong day once the device's zone changed.
+    const day = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12));
+    return format
+      .formatToParts(day)
+      .map((part) => (part.type === 'weekday' ? weekday : part.value))
+      .join('');
+  }
+
+  const day = date.getDate();
+  const month = translations.months[date.getMonth()];
+  switch (Localize.getDateFormatStyle(language)) {
     case 'day-dot-month':
-      return `${translations.multiDay} ${endWeekday}, ${endDay}. ${endMonthName}`;
+      return `${weekday}, ${day}. ${month}`;
     case 'month-day':
-      return `${translations.multiDay} ${endWeekday}, ${endMonthName} ${endDay}`;
+      return `${weekday}, ${month} ${day}`;
     case 'day-month':
     default:
-      return `${translations.multiDay} ${endWeekday}, ${endDay} ${endMonthName}`;
+      return `${weekday}, ${day} ${month}`;
   }
 }

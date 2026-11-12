@@ -279,8 +279,60 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(197_000);
-    // Merging v5.0.1 into v5.1 moved the ceiling last, from 194,000 to 197,000: the iOS 16 fix's
+    expect(saved).toBeLessThan(227_000);
+    // The time beside a wrapping title moved the ceiling last, from 222,000 to 227,000: the notes
+    // on why a wrapping title's row keeps the 12px end margin every time keeps, so the title's
+    // lines stop where the time ends and the time ends where it does in every mode, why the time
+    // gives up its own margin there, and why an all-day pill with nothing after it gives up its
+    // own beside either kind of title. The reading went from 221,846 to 222,905, taken with
+    // stripComments after the last comment was written.
+    //
+    // The room at a box's inline edges moved the ceiling before that, from 217,000 to 222,000: the
+    // notes on why each box that cuts its text at its inline edges keeps room there, given back by
+    // a margin, why that room is a whole pixel, and which boxes take it only while they are not
+    // inline; on where a gutter or a hanging indent folds it in; on the row cut beside the time,
+    // which keeps the room in place of its summary and places the time inside it; and on the
+    // labeled summary that ends at its last line under a limit. The reading went from 215,049 to
+    // 219,121, taken with stripComments after the last comment was written.
+    //
+    // Marks above and below the line moved the ceiling before that, from 212,000 to 217,000: the
+    // notes on why a box that hid its overflow only for a long word now cuts the inline axis
+    // alone, why a box that clamps keeps room above its first line as padding given back by a
+    // margin, and why that room is a whole number of layout units; on which boxes are which, in
+    // each view; and on the one-line title against the dashboard and the capped title that loses
+    // its hyphen. The reading went from 209,473 to 215,049, taken with stripComments after the
+    // last comment was written.
+    //
+    // Old Safari's older colors moved the ceiling before that, from 208,000 to 212,000: the notes on
+    // what each of the fourteen color-mix() uses older than v5.1, and the custom properties the
+    // stylesheet mixes, fall back to where color-mix() is unknown, and why a gray there is as
+    // strong as an accent's mix and about twice a text color's. The reading went from 205,833 to
+    // 209,473, taken with stripComments after the last comment was written.
+    //
+    // The title that wraps beside the time moved the ceiling before that, from 203,000 to 208,000:
+    // the notes on why the time is placed over an empty float rather than floated itself (its font
+    // sizes would be measured against the title's), why the sides it is placed on are named by
+    // the row's direction rather than written as the inline end, why a cut title clamps on its
+    // row in WebKit's terms and not on .summary, why the time's box opens with a strut at the
+    // title's size and is placed by its top, and why the cut moves the title's bottom padding
+    // below the row. The reading went from 200,189 to 205,833, taken with stripComments after the
+    // last comment was written.
+    //
+    // Old Safari's colors moved the ceiling before that, from 200,000 to 203,000: the notes on why a
+    // tinted event's wash reads its currentColor mix in a box-shadow only behind
+    // content-visibility, since Safari 16.4 and 16.5 crash on one there, and why a day's add
+    // washes fall back to a neutral gray, in two hover rules rather than one, where color-mix()
+    // is unknown. The reading went from 198,943 to 200,189, taken with stripComments after the
+    // last comment was written.
+    //
+    // Today's grid tint moved the ceiling before that, from 197,000 to 200,000: the notes on why
+    // today's stripe sits on the weekend tint's rung, why a weekend today leaves the weekend
+    // run instead of stacking a second translucent color, and why the raised blocks'
+    // backdrop takes two rules whose unset fallbacks paint exactly what they painted before.
+    // The reading went from 196,610 to 197,491, taken with stripComments after the last
+    // comment was written.
+    //
+    // Merging v5.0.1 into v5.1 moved the ceiling before that, from 194,000 to 197,000: the iOS 16 fix's
     // notes on why every relative color also requires content-visibility, and why the probe
     // must not name a color-mix() origin. The reading went from 193,577 to 194,199, taken with
     // stripComments on the merged stylesheet.

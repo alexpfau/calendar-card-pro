@@ -1,18 +1,19 @@
 {
   "daysOfWeek": ["Sv", "Pr", "Ot", "Tr", "Ce", "Pk", "Se"],
   "fullDaysOfWeek": [
-    "Svētdiena",
-    "Pirmdiena",
-    "Otrdiena",
-    "Trešdiena",
-    "Ceturtdiena",
-    "Piektdiena",
-    "Sestdiena"
+    "svētdienai",
+    "pirmdienai",
+    "otrdienai",
+    "trešdienai",
+    "ceturtdienai",
+    "piektdienai",
+    "sestdienai"
   ],
   "months": ["Jan", "Feb", "Mar", "Apr", "Mai", "Jūn", "Jūl", "Aug", "Sep", "Okt", "Nov", "Dec"],
   "allDay": "visu dienu",
   "multiDay": "līdz",
   "at": "plkst.",
+  "separator": ", ",
   "viewList": "Saraksts",
   "viewColumns": "Kolonnas",
   "viewGrid": "Laika režģis",
@@ -22,5 +23,7 @@
   "loading": "Ielādē kalendāra notikumus...",
   "error": "Kļūda: Kalendāra entitīja nav atrasta vai nav pareizi konfigurēta",
   "loadFailed": "Neizdevās ielādēt:",
-  "newEvent": "Jauns notikums"
+  "newEvent": "Jauns notikums",
+  "showAll": "Rādīt visus",
+  "hideAll": "Paslēpt visus"
 }

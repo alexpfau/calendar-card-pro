@@ -13,6 +13,7 @@
   "allDay": "hele dag",
   "multiDay": "tot",
   "at": "om",
+  "separator": ", ",
   "viewList": "Lijst",
   "viewColumns": "Kolommen",
   "viewGrid": "Rooster",
@@ -22,5 +23,7 @@
   "loading": "Kalender afspraken laden...",
   "error": "Fout: Kalender niet gevonden of verkeerd geconfigureerd",
   "loadFailed": "Laden mislukt:",
-  "newEvent": "Nieuwe afspraak"
+  "newEvent": "Nieuwe afspraak",
+  "showAll": "Alles weergeven",
+  "hideAll": "Alles verbergen"
 }

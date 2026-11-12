@@ -12,3 +12,5 @@ Each story is one complete card, built for a real place in a home and the questi
 | [Bin Day](/guide/bin-day)                             | Which bin goes out next                                             | Half a dashboard section                    | List                                   |
 
 Not sure which fits? Start with the [Family Hub](/guide/family-calendar) for a shared screen, or [Now & Next](/guide/now-and-next) for a phone. The [feature pages](/features/core-settings) explain one option at a time, and the [configuration reference](/reference/configuration) lists every option.
+
+Four of these stories can be built on your own calendars from the visual editor: Family Hub, Now & Next, Today & Tomorrow and Birthdays & Holidays. Choose [Quick Setup](/features/editor#quick-setup) at the top of the editor.

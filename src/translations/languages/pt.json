@@ -13,6 +13,7 @@
   "allDay": "o dia todo",
   "multiDay": "até",
   "at": "às",
+  "separator": ", ",
   "viewList": "Lista",
   "viewColumns": "Colunas",
   "viewGrid": "Grade",
@@ -22,5 +23,7 @@
   "loading": "Carregando eventos do calendário...",
   "error": "Erro: A entidade do calendário não foi encontrada ou está configurada incorretamente",
   "loadFailed": "Não foi possível carregar:",
-  "newEvent": "Novo evento"
+  "newEvent": "Novo evento",
+  "showAll": "Mostrar todos",
+  "hideAll": "Ocultar todos"
 }

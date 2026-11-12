@@ -117,6 +117,7 @@ src/
     ├── grid-time-fit.ts          # Picks each grid time row's degradation step
     ├── grid-cascade-threshold.ts # Measured cascade threshold, in minutes, for `utils/grid.ts`
     ├── grid-overflow-strip.ts    # Measured `+N` strip width, as a column share
+    ├── content-box.ts            # A clipping text box's width without its inline room
     ├── format.ts                 # Date and text formatting
     ├── event-age.ts              # The `YEAR=` marker: ages and anniversary counts
     ├── text-replace.ts           # Per-calendar `replace_pattern` / `replace_with`
@@ -349,8 +350,9 @@ run every gate [AGENTS.md](https://github.com/alexpfau/calendar-card-pro/blob/de
 3. Decide when it is read. A fetch-time option must reach the cache key and may not be overridden
    per view (`FETCH_TIME_KEYS`); a processing-time option goes into `PROCESSING_TIME_KEYS`, or a
    card-level change to it renders stale; a render-time option needs nothing.
-4. Add a per-calendar option to `normalizeEntities`'s field list, and a new event field to the
-   display copy `groupEventsByDay` builds; either list drops a missing key silently.
+4. Add a per-calendar option to `normalizeEntities`'s field list, where `tsc` names it if it is
+   missing, and a new event field to the display copy `groupEventsByDay` builds, which drops a
+   missing one silently.
 5. Add the editor field where its scope puts it, not at the end of its section, with its string in
    `strings.ts`; `check:i18n` names every missing key.
 6. Add a test that turns it on, since the suite is built from default config, and for a length, one

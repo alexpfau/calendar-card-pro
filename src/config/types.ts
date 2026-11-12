@@ -24,7 +24,8 @@ export interface Config {
   show_empty_today: boolean;
   hide_when_empty: boolean;
   empty_day_text?: string;
-  filter_duplicates: boolean;
+  /** `true` matches copies on title, start, end and location; `ignore_location` on the first three. */
+  filter_duplicates: boolean | 'ignore_location';
   /**
    * Accent color for a row that `filter_duplicates` collapsed across two or more
    * **distinct** calendars, replacing the first-listed calendar's own accent.
@@ -321,7 +322,7 @@ export interface SharedViewOverrides {
 
   // Render-side filters; they do not refetch on width transitions.
   show_past_events?: boolean;
-  filter_duplicates?: boolean;
+  filter_duplicates?: boolean | 'ignore_location';
   duplicate_accent_color?: string;
 
   // Layout and spacing
@@ -534,6 +535,16 @@ export interface TimeGridOverrides extends SharedViewOverrides {
   weekend_background_color?: string;
 
   /**
+   * Background tint for today's column, as a CSS color.
+   *
+   * Grid-only for the same reason as `weekend_background_color`, and drawn the same way,
+   * from just under the date row. Off by default, unlike the weekend tint: its default is
+   * `transparent`, so no card changes until a color is set. Where today is a weekend day,
+   * this tint replaces the weekend one rather than stacking on it.
+   */
+  today_background_color?: string;
+
+  /**
    * Height of one hour of the axis, as a CSS length.
    *
    * Sets the grid's *intrinsic* height only. Under a fixed `height` the card's own
@@ -623,6 +634,16 @@ export interface EntityConfig {
    * which is what `label` is for, and Home Assistant's own controls keep Home Assistant's name.
    */
   name?: string;
+  /**
+   * Whether the calendar filter lists this calendar, as a chip or as a row in its menu. Unset
+   * is `true`. `false` leaves it out, and with it the only control that could hide its events,
+   * so they always show, even where a device still remembers the calendar as hidden.
+   *
+   * 🚨 It belongs to the calendar, not to this block, as `name` does: a calendar listed twice is
+   * one chip, so the first block that sets it decides (`configuredShowInLegend` in
+   * `config/config.ts`), and the editor writes a change to every block of the calendar.
+   */
+  show_in_legend?: boolean;
   label?: string;
   label_type?: LabelType;
   color?: string;
@@ -1135,6 +1156,18 @@ export interface Hass {
     first_weekday?: string;
   };
   /**
+   * The language Home Assistant's own interface is drawn in. With `translationMetadata`, it
+   * decides which way the dashboard runs: Home Assistant sets the document's `dir` from
+   * `translationMetadata.translations[language].isRTL` (`computeRTLDirection` in its frontend),
+   * and the card reads the same two fields rather than measuring the result. Optional because a
+   * non-standard `hass` may omit either.
+   */
+  language?: string;
+  /** Home Assistant's list of interface languages; only whether each runs right to left is read. */
+  translationMetadata?: {
+    translations?: Record<string, { isRTL?: boolean } | undefined>;
+  };
+  /**
    * Home Assistant's core configuration. Only the fields the card reads are declared.
    *
    * Optional, unlike in Home Assistant's own `HassConfig`, because a non-standard `hass`
@@ -1332,14 +1365,68 @@ export interface Translations {
   newEvent: string;
   allDay: string;
   multiDay: string;
+  /**
+   * What puts a time in a sentence, "at" in "ends tomorrow at 0:30". A language that marks the
+   * time itself writes a template with `{time}` where the reading goes, as Hungarian does with
+   * its suffix: "{time}-kor". Korean writes "{time}", the reading with nothing before it.
+   */
   at: string;
+  /**
+   * What joins two parts of an event's time where English writes ", ": the all-day label and
+   * what follows it ("All day, ends tomorrow"), and a start time and the sentence saying when it
+   * ends ("22:30, ends tomorrow at 0:30"). Chinese writes "，", which carries its own space, and
+   * Thai a space alone, as both write a pause between two clauses.
+   */
+  separator: string;
+  /**
+   * The date column's month names. An end phrase's date is the browser's, in CLDR's form for
+   * the language; these stand in for it only where the browser has no data for the language.
+   */
   months: string[];
   daysOfWeek: string[];
+  /**
+   * The weekday as it reads in an end phrase, after `multiDay`: in lower case where the
+   * language writes it so inside a date, and in the case `multiDay` governs ("do pátku"). The
+   * browser writes the rest of that date and puts this where CLDR puts its weekday.
+   */
   fullDaysOfWeek: string[];
+  /**
+   * "Ends today" and "ends tomorrow". A timed event's end time follows the phrase, unless the
+   * phrase marks its place with `{at}`, as Hungarian does to put the time before its verb:
+   * "holnap {at} ér véget". An all-day event reads the phrase without the word holding it, so
+   * a particle written onto the time goes with it: Korean "내일 {at}에 종료" reads "내일 종료".
+   */
   endsToday: string;
   endsTomorrow: string;
   /** The header toolbar's view switcher, one name per view. */
   viewList: string;
   viewColumns: string;
   viewGrid: string;
+  /** The calendar filter's menu: the buttons that show every calendar it lists, or hide them. */
+  showAll: string;
+  hideAll: string;
 }
+
+// -----------------------------------------------------------------------------
+// PROJECTION CHECKS
+// -----------------------------------------------------------------------------
+
+/**
+ * Every member of `T` except those named in `Except`, each one required but allowed to be
+ * `undefined`.
+ *
+ * A hand-written projection that ends in `satisfies` this type has to name every member of
+ * `T`: one left out is a `tsc` error naming it, and so is one `T` does not declare, or one
+ * named in `Except`. `normalizeEntities` and `groupEventsByDay`'s display copy end in it. It
+ * checks that each member is named with a value of its type, not where the value came from:
+ * `x: undefined` passes for any optional member.
+ *
+ * Keyed through `keyof Required<T>`, so no member comes out optional however TypeScript reads
+ * the mapping. The tempting `{ [K in keyof T]-?: T[K] | undefined }` does not work: its `-?`
+ * strips the written `| undefined` along with the optional flag, so it rejects every member
+ * left unset. `Except` is held to `keyof T`, so a member a projection leaves out on purpose
+ * has to be a real one, and renaming it in `T` breaks the list rather than going unnoticed.
+ */
+export type EveryMember<T, Except extends keyof T = never> = {
+  [K in Exclude<keyof Required<T>, Except>]: T[K] | undefined;
+};

@@ -6,8 +6,11 @@
  * default filtering, and single-entry memoization.
  */
 
+import * as ColorMix from './color-mix';
 import * as EntityIcons from './entity-icons';
 import * as PersonPictures from './person-pictures';
+import { isWeekRelative } from './start-date';
+import { intlLocales } from '../translations/intl-locales';
 
 //-----------------------------------------------------------------------------
 // COLOR UTILITIES
@@ -41,6 +44,10 @@ const rgbaCache = new Map<string, string>();
  * @returns RGBA color string
  */
 export function convertToRGBA(color: string, opacity: number): string {
+  if (color.startsWith('var(')) {
+    return translucentVar(color, opacity);
+  }
+
   const cacheKey = `${color}|${opacity}`;
 
   const cached = rgbaCache.get(cacheKey);
@@ -53,24 +60,40 @@ export function convertToRGBA(color: string, opacity: number): string {
   return result;
 }
 
-function computeRGBA(color: string, opacity: number): string {
-  if (color.startsWith('var(')) {
-    // `color-mix` rather than `rgba(...)`, because a `var()` reference cannot be taken
-    // apart into the three channel values `rgba()` needs. The previous form emitted
-    // `rgba(var(--calendar-color-rgb, 3, 169, 244), …)` against a variable this card
-    // defines nowhere and no theme knows about, so the literal fallback — which is the
-    // default `accent_color` `#03a9f4` — won every time. A themed `var(--primary-color)`
-    // silently rendered as the shipped blue, and the failure was invisible on a default
-    // config precisely because the two agree there.
-    //
-    // Mixing with `transparent` keeps the whole expression live, so it still follows a
-    // theme switch: nothing is resolved at call time, which matters because `rgbaCache`
-    // is module-level and never evicted. The stylesheet already applies transparency this
-    // way (the progress bar's track and the today outline), so this is the idiom the card
-    // uses everywhere else rather than a new dependency.
-    return `color-mix(in srgb, ${color} ${opacity}%, transparent)`;
-  }
+/**
+ * A `var()` color at an opacity, without resolving it.
+ *
+ * `color-mix` rather than `rgba(...)`, because a `var()` reference cannot be taken apart into
+ * the three channel values `rgba()` needs. The previous form emitted
+ * `rgba(var(--calendar-color-rgb, 3, 169, 244), …)` against a variable this card defines
+ * nowhere and no theme knows about, so the literal fallback — which is the default
+ * `accent_color` `#03a9f4` — won every time. A themed `var(--primary-color)` silently rendered
+ * as the shipped blue, and the failure was invisible on a default config precisely because the
+ * two agree there.
+ *
+ * Mixing with `transparent` keeps the whole expression live, so it still follows a theme
+ * switch: nothing is resolved at call time, which matters because `rgbaCache` is module-level
+ * and never evicted. The stylesheet already applies transparency this way (the progress bar's
+ * track and the today outline), so this is the idiom the card uses everywhere else rather than
+ * a new dependency. Being a string and nothing more, it is built on every call rather than
+ * cached.
+ *
+ * Without color-mix() (Safari before 16.2) the mix is invalid once its var() is substituted,
+ * and the event would have no tint at all. Resolving the var() here instead would lose the
+ * theme switch the mix keeps, so the tint is a neutral gray at the same strength there, as the
+ * stylesheet washes an event; the calendar's color stays on its accent bar.
+ *
+ * @param color - A `var()` reference
+ * @param opacity - Opacity value (0-100)
+ * @returns The color at that opacity, or its gray floor
+ */
+function translucentVar(color: string, opacity: number): string {
+  return ColorMix.supportsColorMix()
+    ? `color-mix(in srgb, ${color} ${opacity}%, transparent)`
+    : ColorMix.translucentGray(opacity);
+}
 
+function computeRGBA(color: string, opacity: number): string {
   if (color === 'transparent') {
     return color;
   }
@@ -343,12 +366,28 @@ export function resolveLabelType(label: unknown, labelType?: unknown): LabelType
 }
 
 /**
- * Generate a random instance ID
+ * What the first day of the week adds to a query's identity: the resolved weekday, and only
+ * where it moves the window, which is a week-relative `start_date`.
  *
- * @returns {string} Random alphanumeric identifier
+ * Shared by the card's query identity ({@link generateDeterministicId}) and the cache key
+ * (`getBaseCacheKey` in `events.ts`), which are compared and nested and must therefore agree
+ * on when the weekday matters. They once did not: the identity hashed the raw setting
+ * whatever the start date, so `system` and `monday` split one window's load into two while a
+ * profile change under `system` moved the window without moving the identity.
+ *
+ * The weekday is resolved, never the raw setting, because `system` is one string that
+ * resolves per Home Assistant profile. It is asked of the grammar rather than of a regex over
+ * the value: a regex once matched `end_of_week`, which is not an anchor, and missed a padded
+ * `" start_of_week"`, which `getTimeWindow` trims and resolves week-relatively. It is tested
+ * against `undefined` rather than for truthiness, because Sunday is 0 and would otherwise
+ * collide with "no weekday".
+ *
+ * @param startDate Start date as configured, with any time part removed
+ * @param firstDayOfWeek Resolved first day of the week (0 = Sunday)
+ * @returns The suffix to append, empty when the weekday does not move the window
  */
-export function generateInstanceId(): string {
-  return Math.random().toString(36).substring(2, 15);
+export function firstDayKeyPart(startDate: string, firstDayOfWeek: number | undefined): string {
+  return isWeekRelative(startDate) && firstDayOfWeek !== undefined ? `_fdw${firstDayOfWeek}` : '';
 }
 
 /**
@@ -357,17 +396,17 @@ export function generateInstanceId(): string {
  * @param entities Array of calendar entities
  * @param daysToShow Number of days to display
  * @param startDate Optional custom start date
- * @param firstDayOfWeek Raw `first_day_of_week` setting. Included because
- *   `hasConfigChanged` treats it as fetch-affecting — a week-relative `startDate`
- *   resolves to a different window when it changes — and the two must agree, or a
- *   failed refresh keeps the previous window's events under the new identity.
+ * @param firstDayOfWeek Resolved first day of the week (0 = Sunday), counted only where it
+ *   moves the window ({@link firstDayKeyPart}). Included at all because `hasConfigChanged`
+ *   treats it as fetch-affecting, and the two must agree, or a failed refresh keeps the
+ *   previous window's events under the new identity.
  * @returns Deterministic ID string based on input parameters
  */
 export function generateDeterministicId(
   entities: Array<string | { entity: string; color?: string }>,
   daysToShow: number,
   startDate?: string,
-  firstDayOfWeek?: string,
+  firstDayOfWeek?: number,
 ): string {
   const entityIds = entities
     .map((e) => (typeof e === 'string' ? e : e.entity))
@@ -388,7 +427,7 @@ export function generateDeterministicId(
   }
 
   const startDatePart = normalizedStartDate ? `_${normalizedStartDate}` : '';
-  const firstDayPart = firstDayOfWeek ? `_fdw${firstDayOfWeek}` : '';
+  const firstDayPart = firstDayKeyPart(normalizedStartDate, firstDayOfWeek);
 
   const baseString = `calendar_${entityIds}_${daysToShow}${startDatePart}${firstDayPart}`;
 
@@ -437,7 +476,7 @@ const HOUR_CYCLE_PROBE = new Date(2000, 0, 1, 13, 0, 0);
  */
 function resolveIs24Hour(locale: string): boolean | undefined {
   try {
-    const parts = new Intl.DateTimeFormat(locale, { hour: 'numeric' }).formatToParts(
+    const parts = new Intl.DateTimeFormat(intlLocales(locale), { hour: 'numeric' }).formatToParts(
       HOUR_CYCLE_PROBE,
     );
 
@@ -636,23 +675,89 @@ export function resolveTimePosition(value: unknown): TimePosition {
 }
 
 /**
- * Whether titles on the card can scroll: in every view with `scroll_long_titles`, and in list and
- * column view with `time_position: title`, which scrolls each title it puts a time beside
- * whatever `scroll_long_titles` says. The card measures and animates titles only when this is
- * true; the leaf decides which titles take part.
+ * How a title beside the time (`time_position: title`) is laid out, in list and column view.
+ *
+ * - `'wrap'`: the default. The title wraps across the whole row and the time ends its last line,
+ *   or takes a line of its own where the last line has no room for it.
+ * - `'cap'`: the same, with `title_max_lines` at 2 or more. A title that needs more lines than
+ *   that is cut on the last of them, and the time ends that line; the card measures which.
+ * - `'line'`: one line, with `title_max_lines: 1` or `scroll_long_titles`. The title keeps the
+ *   room the time leaves it and ends in "…", or scrolls with `scroll_long_titles` on.
+ *
+ * Scrolling wins over the limit, as it does for every other title.
+ *
+ * @param config - The configuration of the view on screen
+ * @returns The layout of a title that has the time beside it
+ */
+export function titleBesideTimeLayout(config: {
+  scroll_long_titles?: unknown;
+  title_max_lines?: unknown;
+}): 'wrap' | 'cap' | 'line' {
+  if (config.scroll_long_titles) return 'line';
+  const lines = Number(config.title_max_lines) || 0;
+  if (lines === 1) return 'line';
+  return lines > 1 ? 'cap' : 'wrap';
+}
+
+/**
+ * Whether titles on the card are kept to one line: in every view with `scroll_long_titles`, and
+ * in list and column view with `time_position: title` and `title_max_lines: 1`, which keeps each
+ * title it puts a time beside on that line. The card measures titles only when this is true, to
+ * keep their labels on the line as well; the leaf decides which titles take part, and which of
+ * them can move. Only `scroll_long_titles` moves a title: without it, a title beside the time
+ * ends in "…". Without the limit a title beside the time wraps; see `titleBesideTimeLayout`.
  *
  * @param config - The configuration of the view on screen
  * @param view - The view on screen
- * @returns True when a title on the card can scroll
+ * @returns True when a title on the card is kept to one line
  */
-export function titlesScroll(
-  config: { scroll_long_titles?: unknown; time_position?: unknown },
+export function titlesOnOneLine(
+  config: { scroll_long_titles?: unknown; time_position?: unknown; title_max_lines?: unknown },
   view: string,
 ): boolean {
   return (
     Boolean(config.scroll_long_titles) ||
-    (view !== 'grid' && resolveTimePosition(config.time_position) === 'title')
+    (view !== 'grid' &&
+      resolveTimePosition(config.time_position) === 'title' &&
+      titleBesideTimeLayout(config) === 'line')
   );
+}
+
+/**
+ * Whether the card has titles beside the time to cut at `title_max_lines`: list and column view,
+ * `time_position: title`, and a limit of two lines or more. Only then does the card measure which
+ * of those titles need more lines than the limit, and cut them on the last.
+ *
+ * @param config - The configuration of the view on screen
+ * @param view - The view on screen
+ * @returns True when the card measures titles beside the time against their line limit
+ */
+export function titlesCutBesideTime(
+  config: { scroll_long_titles?: unknown; time_position?: unknown; title_max_lines?: unknown },
+  view: string,
+): boolean {
+  return (
+    view !== 'grid' &&
+    resolveTimePosition(config.time_position) === 'title' &&
+    titleBesideTimeLayout(config) === 'cap'
+  );
+}
+
+/**
+ * Whether the card caps titles at `title_max_lines` on lines that wrap: list and column view,
+ * with a limit, unless the titles keep to one line. Only then can a title's last shown line end
+ * on a hyphen before its "…", which the card measures for; see `TitleFit.unhyphenateTitleCuts`.
+ * Grid titles are never hyphenated.
+ *
+ * @param config - The configuration of the view on screen
+ * @param view - The view on screen
+ * @returns True when the card measures where its titles are cut
+ */
+export function titlesCapped(
+  config: { scroll_long_titles?: unknown; time_position?: unknown; title_max_lines?: unknown },
+  view: string,
+): boolean {
+  return view !== 'grid' && Number(config.title_max_lines) > 0 && !titlesOnOneLine(config, view);
 }
 
 /** Where `allday_badge` can put the pill. */

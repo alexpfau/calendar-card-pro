@@ -4,10 +4,9 @@
  * `first_day_of_week: system`, the default, resolves through the Home Assistant profile: its
  * first weekday, or its language when that is left at the language's default. So with
  * `start_date: start_of_week` the window the card draws moves when the profile changes, though
- * the configuration has not. `_homeWindowStart` follows at once, and the cache key follows too,
- * since `getBaseCacheKey` takes the resolved weekday. The two cache identities differ on purpose
- * and together still tell the two windows apart: `generateDeterministicId` keys the raw setting,
- * which a profile change leaves alone, and `getBaseCacheKey` adds the resolved weekday on top.
+ * the configuration has not. `_homeWindowStart` follows at once, and so do the card's query
+ * identity and the cache key, which both take the resolved weekday where it moves the window.
+ * `first-day-of-week-identity.test.ts` pins what moving the identity changes.
  *
  * What did not follow was the request. Nothing asked for the new window, so the card drew it
  * with the old window's events, missing whatever fell on the day it gained, until its next

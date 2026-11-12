@@ -48,7 +48,10 @@ that filters on event class must run before `processMultiDayEvents`, as `event_t
 ::: warning Two Hand-Written Field Lists
 `normalizeEntities` in `config/config.ts` copies each calendar entry through one field list, and
 `groupEventsByDay` builds its display copy through another. A per-calendar option missing from the
-first, or an event field missing from the second, is dropped silently before anything reads it.
+first fails `tsc`, which checks that list against `EntityConfig`. An event field missing from the
+second fails it too, checked against `CalendarEventData` less the few fields the copy leaves out on
+purpose (`LeftOffDisplayCopy`, each with its reason). Both checks see whether a field is there, not
+whether its value is the right one.
 :::
 
 ## 🗃️ Load Modes
@@ -87,13 +90,17 @@ Each store has one owner and one scope. Only the `localStorage` stores outlive a
 - **Key.** `getBaseCacheKey` covers only what shapes the request: the calendars, the loaded span,
   the raw `start_date`, the card version and, for a week-relative start, the first day of the week.
   Render-side options are applied again on every read, so toggling one re-renders from the cache.
+  The key begins with the card's query identity (`_instanceIdForPage`), which counts the first day
+  of the week by the same rule (`firstDayKeyPart`), resolved from the profile as it is now, so cards
+  asking for one window share one entry and a profile that moves the week starts a new query.
 - **Lifetime.** An entry is due one `refresh_interval` after its fetch, or after 15 seconds when
   every calendar answered empty (`EMPTY_RESULTS_CACHE_DURATION_SECONDS`).
 - **Failures.** Each entry records which calendars failed and when to retry, so every card sharing
   it follows one backoff: 1 minute, doubling up to the refresh interval. A failing calendar keeps
   its last loaded events for up to 24 hours from its own load, while the calendars that answered
   are drawn as they answered; where the cache cannot carry it, `_keepFailedCalendars` does, and
-  keeping it again never makes its events younger.
+  keeping it again never makes its events younger. Where no entry exists yet, the card's own count
+  stands in (`_failureCountHint`), and only for the query it was counted for.
 - **`refresh_on_navigate`.** An appearing card refetches in the background only with it on, no
   calendar failing, and data at least 5 seconds old.
 - **One writer.** Only the newest request for a key writes the cache.

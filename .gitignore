@@ -39,6 +39,9 @@ tmp/
 # Ignore project-specific caches and artifacts
 .eslintcache
 
+# Vitest 5's json reporter writes .vitest/json/output.json here unless --outputFile says otherwise.
+.vitest/
+
 # Ignore documentation build artifacts
 docs/_build/
 docs/.vitepress/dist/

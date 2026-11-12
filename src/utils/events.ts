@@ -12,7 +12,7 @@ import * as Helpers from './helpers';
 import * as LiveCalendars from './live-calendars';
 import * as Logger from './logger';
 import * as PersonPictures from './person-pictures';
-import { isWeekRelative, parseStartDateExpression } from './start-date';
+import { parseStartDateExpression } from './start-date';
 import * as TextReplace from './text-replace';
 import * as Config from '../config/config';
 import * as Constants from '../config/constants';
@@ -1399,6 +1399,18 @@ function dayPassesWeekFilter(
 }
 
 /**
+ * The members of `CalendarEventData` that `groupEventsByDay`'s display copy leaves out, on
+ * purpose. Every other member has to be named in the copy, or `tsc` fails.
+ *
+ * - `uid`, `recurrence_id`, `rrule` and `status` are Home Assistant's own fields. The copy
+ *   carries them inside `_source`, which `processEvents` stamps on every event and which is
+ *   where every reader takes them from.
+ * - `_searchRing` is stamped after grouping, on a copy of the row the search panel picked
+ *   (`Search.ringIn`), so no event reaching the copy carries one.
+ */
+type LeftOffDisplayCopy = 'uid' | 'recurrence_id' | 'rrule' | 'status' | '_searchRing';
+
+/**
  * Group events by display day.
  *
  * @param rawEvents Calendar events to group
@@ -1459,13 +1471,14 @@ export function groupEventsByDay(
   // Its splitter keeps timed middle days timed and all-day banner identity intact.
   const sourceSignatures = new Map<Types.CalendarEventData, string>();
   const displayDays = new Map<Types.CalendarEventData, string>();
+  const ignoreLocation = config.filter_duplicates === Constants.DUPLICATES_IGNORE_LOCATION;
   const splitEvents = events.flatMap((event) => {
     const occurrences =
       ViewConfig.multidaySplitPolicy(effectiveView) === 'never'
         ? Grid.splitGridEventByDay(event, referenceStart, windowEnd)
         : processMultiDayEvents([event], config);
     if (config.filter_duplicates) {
-      const signature = generateEventSignature(event);
+      const signature = generateEventSignature(event, ignoreLocation);
       occurrences.forEach((occurrence) => sourceSignatures.set(occurrence, signature));
     }
     return occurrences;
@@ -1596,7 +1609,7 @@ export function groupEventsByDay(
   const visibleEvents = deduplicateEvents(
     upcomingEvents,
     config,
-    config.filter_duplicates,
+    Boolean(config.filter_duplicates),
     (event) => {
       const signature = sourceSignatures.get(event)!;
       const first = firstEligible.get(signature);
@@ -1765,10 +1778,11 @@ export function groupEventsByDay(
         _entityId: event._entityId,
         _entityLabel: getEntityLabel(event._entityId, config, event),
         _matchedConfig: event._matchedConfig,
-        // 🚨 This projection is a hand-written field list, so a stamp omitted here is
-        // dropped between grouping and rendering with nothing to show it went. Split
-        // segments escape that because `splitMultiDayEvent` copies with a spread;
-        // the display copies do not.
+        // 🚨 This projection is a hand-written field list, and every row passes through it,
+        // split segments included, so a stamp omitted here would be dropped between grouping
+        // and rendering with nothing to show it went. `satisfies` below makes an omission a
+        // `tsc` error; a member left out on purpose goes in `LeftOffDisplayCopy`, with its
+        // reason.
         _mergedFrom: event._mergedFrom,
         _source: event._source,
         _isEmptyDay: event._isEmptyDay,
@@ -1779,7 +1793,7 @@ export function groupEventsByDay(
         _splitFromTimedEvent: event._splitFromTimedEvent,
         _gridSegmentStartsEvent: event._gridSegmentStartsEvent,
         _gridSource: event._gridSource,
-      });
+      } satisfies Types.EveryMember<Types.CalendarEventData, LeftOffDisplayCopy>);
     });
   }
 
@@ -2466,9 +2480,19 @@ function filterEventsForEntity(
   return matchedEvents;
 }
 
-function generateEventSignature(event: Types.CalendarEventData): string {
+/**
+ * The identity `filter_duplicates` compares copies by: the original title, start and end, and
+ * the location too unless the option is `ignore_location`.
+ *
+ * @param event Event to identify
+ * @param ignoreLocation Whether to leave the location out of the comparison
+ * @returns The event's signature
+ */
+function generateEventSignature(event: Types.CalendarEventData, ignoreLocation = false): string {
   const summary = event.summary || '';
-  const location = event.location || '';
+  // Under `ignore_location` every copy reads as having none, so a copy with a location
+  // matches one without as readily as one somewhere else.
+  const location = ignoreLocation ? '' : event.location || '';
 
   let timeSignature = '';
 
@@ -3311,17 +3335,8 @@ export function getBaseCacheKey(
 
   const startDatePart = normalizedStartDate ? `_${normalizedStartDate}` : '';
 
-  // Asked of the grammar rather than restated here. A regex over the raw value drifted
-  // both ways: it matched `end_of_week`, which is not an anchor, and missed anything
-  // carrying whitespace, because `getTimeWindow` trims before parsing and this did not —
-  // so a quoted `" start_of_week"` was keyed as absolute while its window moved.
-  //
-  // Explicitly against `undefined`, not truthiness: Sunday resolves to 0, so a truthy
-  // test would drop it from the key and collide a Sunday-start week with "no weekday".
-  const firstDayPart =
-    isWeekRelative(normalizedStartDate) && firstDayOfWeek !== undefined
-      ? `_fdw${firstDayOfWeek}`
-      : '';
+  // One rule with the card's query identity, which this key begins with: see the helper.
+  const firstDayPart = Helpers.firstDayKeyPart(normalizedStartDate, firstDayOfWeek);
 
   return `${Constants.CACHE.EVENT_CACHE_KEY_PREFIX}${instanceId}_${entityIds}_${daysToShow}${startDatePart}${firstDayPart}${Constants.VERSION.CURRENT}`;
 }

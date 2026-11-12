@@ -1,10 +1,11 @@
 {
   "daysOfWeek": ["ned", "pon", "tor", "sre", "čet", "pet", "sob"],
-  "fullDaysOfWeek": ["nedelja", "ponedeljek", "torek", "sreda", "četrtek", "petek", "sobota"],
+  "fullDaysOfWeek": ["nedelje", "ponedeljka", "torka", "srede", "četrtka", "petka", "sobote"],
   "months": ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "avg", "sep", "okt", "nov", "dec"],
   "allDay": "cel dan",
   "multiDay": "do",
   "at": "ob",
+  "separator": ", ",
   "viewList": "Seznam",
   "viewColumns": "Stolpci",
   "viewGrid": "Mreža",
@@ -14,5 +15,7 @@
   "loading": "Nalagam dogodke...",
   "error": "Napaka: Entiteta ni bila najdena ali pa je nepravilno konfigurirana.",
   "loadFailed": "Nalaganje ni uspelo:",
-  "newEvent": "Nov dogodek"
+  "newEvent": "Nov dogodek",
+  "showAll": "Prikaži vse",
+  "hideAll": "Skrij vse"
 }

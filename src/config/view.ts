@@ -9,6 +9,7 @@ import {
   FOLDED_OPTIONS,
   coercePixelLength,
   coercePixelLengthAgainst,
+  normalizeEntities,
   normalizeNumericOptions,
   resolveToolbar,
   toValidPercentage,
@@ -165,6 +166,7 @@ export const TIME_GRID_ONLY_KEYS = [
   'end_time',
   'slot_minutes',
   'weekend_background_color',
+  'today_background_color',
   'hour_height',
   'show_now_line',
   'max_simultaneous_events',
@@ -556,9 +558,16 @@ export const COLUMN_DEFAULTS = {
  * `types.ts` gives: a grid column is the same height whatever is in it, and a column-view
  * column is not. The value is a mix rather than a fixed gray so that it darkens a light
  * theme and lightens a dark one; `color-mix` is Chrome 111, well under the Chrome 117
- * floor grid view already sets with `subgrid`. Which days are shaded comes from the country
- * set in Home Assistant, or its language when no country is set, so this is Friday and
- * Saturday in an Israeli household whatever language it runs in.
+ * floor grid view already sets with `subgrid`, but Safari 16.0 and 16.1 have `subgrid`
+ * without it, and there the card writes a gray instead (`ColorMix.floorColor`). Which days
+ * are shaded comes from the country set in Home Assistant, or its language when no country
+ * is set, so this is Friday and Saturday in an Israeli household whatever language it runs
+ * in.
+ *
+ * `today_background_color` is the same stripe for today's column, and the one tint here that
+ * ships off: `transparent` paints nothing, so a card that never sets it draws exactly what it
+ * drew before the option existed. Where today is a weekend day it replaces the weekend tint
+ * rather than stacking on it; see `renderWeekendStripes`.
  *
  * The five text colors start at `accent`, so a grid block's text is its own calendar's
  * color the way macOS Calendar draws it. Grid only, and for the same reason as the weekend
@@ -627,6 +636,7 @@ export const TIME_GRID_DEFAULTS = {
   end_time: '22:00',
   slot_minutes: 60,
   weekend_background_color: 'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
+  today_background_color: 'transparent',
   hour_height: '48px',
   show_now_line: true,
   max_simultaneous_events: 3,
@@ -842,12 +852,12 @@ export function normalizeTimeGridValue(
     return typeof value === 'string' || typeof value === 'number' ? String(value) : '';
   }
 
-  // A color, not a length. The pixel coercion below infers length-ness from the shipped
-  // default, and this one is a `color-mix()` rather than a `px` string, so it would in
-  // fact fall through unchanged — but only by accident of the default's spelling. Stated
-  // here so that changing the default to a plain `#eee` cannot silently turn a bare `0`
-  // into `0px`.
-  if (key === 'weekend_background_color') {
+  // Colors, not lengths. The pixel coercion below infers length-ness from the shipped
+  // default, and these are a `color-mix()` and `transparent` rather than `px` strings, so
+  // they would in fact fall through unchanged — but only by accident of the defaults'
+  // spelling. Stated here so that changing a default to a plain `#eee` cannot silently
+  // turn a bare `0` into `0px`.
+  if (key === 'weekend_background_color' || key === 'today_background_color') {
     return typeof value === 'string' ? value : fallback;
   }
 
@@ -1632,6 +1642,9 @@ export function validateView(config: Types.Config): void {
  * @param config - Merged configuration to inspect
  */
 export function validateColumnOverrides(config: Types.Config): void {
+  for (const finding of findMisplacedOptions(config as unknown as Record<string, unknown>)) {
+    if (finding.kind === 'calendar' && finding.from === null) warnAboutMisplacedOption(finding);
+  }
   for (const view of Object.keys(VIEW_BLOCKS) as Types.EffectiveView[]) {
     validateViewOverrides(config, view);
   }
@@ -1674,29 +1687,8 @@ function validateViewOverrides(config: Types.Config, view: Types.EffectiveView):
     }
   }
 
-  for (const key of Object.keys(overrides)) {
-    if (ownKeys.has(key)) {
-      continue;
-    }
-
-    if (FETCH_TIME_KEYS.has(key)) {
-      Logger.warn(
-        `Ignoring "${block.blockKey}.${key}": it determines which events are loaded from Home Assistant, ` +
-          `so it cannot differ between views — switching views would have to refetch. ` +
-          `Set "${key}" at the top level instead.`,
-      );
-      continue;
-    }
-
-    if (Object.prototype.hasOwnProperty.call(DEFAULT_CONFIG, key)) {
-      Logger.warn(
-        `Ignoring "${block.blockKey}.${key}": "${key}" is a valid top-level option but cannot be overridden ` +
-          `per view. Set it at the top level instead.`,
-      );
-      continue;
-    }
-
-    Logger.warn(`Ignoring "${block.blockKey}.${key}": not a recognized option.`);
+  for (const finding of misplacedInBlock(config as unknown as Record<string, unknown>, block)) {
+    warnAboutMisplacedOption(finding);
   }
 }
 
@@ -1712,11 +1704,217 @@ function validateViewOverrides(config: Types.Config, view: Types.EffectiveView):
 function warnAboutTopLevelOnlyKeys(config: Types.Config, block: ViewBlock): void {
   for (const key of block.onlyKeys) {
     if (Object.prototype.hasOwnProperty.call(config, key)) {
-      Logger.warn(
-        `Ignoring top-level "${key}": it is a ${block.blockKey}-view-only option and has no effect ` +
-          `outside the "${block.blockKey}:" block. Move it to "${block.blockKey}: { ${key}: ... }".`,
-      );
+      warnAboutMisplacedOption({
+        kind: 'view-only',
+        key,
+        from: null,
+        to: [block.blockKey],
+      });
     }
+  }
+}
+
+//-----------------------------------------------------------------------------
+// MISPLACED OPTIONS
+//-----------------------------------------------------------------------------
+
+/**
+ * Why an option is ignored where it is written.
+ *
+ * - `fetch-time`: in a view block, but it decides which events are loaded, so every view
+ *   shares it.
+ * - `card-wide`: in a view block, but it is a top-level option that view cannot override.
+ * - `wrong-view`: in a view block, but it belongs to another view's block.
+ * - `view-only`: at the top level, but it exists only inside a view's block.
+ * - `calendar`: in a view block or at the top level, but it is an option of one calendar, set
+ *   under `entities:`.
+ * - `unknown`: in a view block, and no view or top level knows it.
+ */
+export type MisplacedKind =
+  'fetch-time' | 'card-wide' | 'wrong-view' | 'view-only' | 'calendar' | 'unknown';
+
+/**
+ * One option written where the card ignores it.
+ *
+ * Places are view-block keys (`list`, `column`, `time_grid`), or `null` for the top level.
+ */
+export interface MisplacedOption {
+  readonly kind: MisplacedKind;
+  readonly key: string;
+  /** Where it is written. */
+  readonly from: string | null;
+  /**
+   * Where it belongs, in registry order; empty when nowhere would read it.
+   *
+   * A List-only option is pointed at `list:` alone, though List also reads it at the top
+   * level: there it reads as a whole-card setting, the very shape the v5 migration moves into
+   * `list:`, and moving it there from another layout's block would only trade one misreading for
+   * another.
+   */
+  readonly to: ReadonlyArray<string | null>;
+}
+
+/**
+ * Every view-block key that owns an option, in registry order.
+ *
+ * @param key - Option name
+ * @returns The block keys whose override or view-only keys include it
+ */
+function blocksOwning(key: string): string[] {
+  return Object.values(VIEW_BLOCKS)
+    .filter((block) => block.overrideKeys.includes(key) || block.onlyKeys.includes(key))
+    .map((block) => block.blockKey as string);
+}
+
+let calendarOnlyKeys: ReadonlySet<string> | undefined;
+
+/**
+ * The options a calendar takes under `entities:` that the card does not take anywhere else,
+ * such as `name`, `show_in_legend` or `allowlist`.
+ *
+ * Read off `normalizeEntities`' own projection rather than listed here: that projection is held
+ * to every `EntityConfig` member by `tsc`, so a calendar option added later is known here the day
+ * it lands. An option a calendar and the card both take, such as `show_location`, is not one of
+ * these. Built on first use, after both modules have loaded.
+ *
+ * @returns The calendar-only option names
+ */
+function calendarOnlyKeySet(): ReadonlySet<string> {
+  if (calendarOnlyKeys === undefined) {
+    const projected = normalizeEntities([{ entity: 'calendar.probe' }])[0] ?? {};
+    calendarOnlyKeys = new Set(
+      Object.keys(projected).filter(
+        (key) => key !== 'entity' && !Object.prototype.hasOwnProperty.call(DEFAULT_CONFIG, key),
+      ),
+    );
+  }
+  return calendarOnlyKeys;
+}
+
+/**
+ * The misplaced options inside one view's block.
+ *
+ * @param config - Configuration to inspect, raw or merged; only the block is read
+ * @param block - Registry entry for the view
+ * @returns One finding per ignored key, in the block's own order
+ */
+function misplacedInBlock(config: Record<string, unknown>, block: ViewBlock): MisplacedOption[] {
+  const values = config[block.blockKey as string];
+  if (!values || typeof values !== 'object' || Array.isArray(values)) return [];
+
+  const ownKeys = new Set<string>([...block.overrideKeys, ...block.onlyKeys]);
+  const from = block.blockKey as string;
+  const findings: MisplacedOption[] = [];
+
+  for (const key of Object.keys(values)) {
+    if (ownKeys.has(key)) continue;
+
+    // Ownership before the top level: a List-only option such as `compact_events_to_show` is a
+    // top-level key too, but at the top level it still reaches List alone, so `list:` is where
+    // it works rather than the whole card.
+    const owners = blocksOwning(key);
+    if (FETCH_TIME_KEYS.has(key)) {
+      findings.push({ kind: 'fetch-time', key, from, to: [null] });
+    } else if (owners.length > 0) {
+      findings.push({ kind: 'wrong-view', key, from, to: owners });
+    } else if (Object.prototype.hasOwnProperty.call(DEFAULT_CONFIG, key)) {
+      findings.push({ kind: 'card-wide', key, from, to: [null] });
+    } else if (calendarOnlyKeySet().has(key)) {
+      findings.push({ kind: 'calendar', key, from, to: [] });
+    } else {
+      findings.push({ kind: 'unknown', key, from, to: [] });
+    }
+  }
+
+  return findings;
+}
+
+/**
+ * Every option written where the card ignores it.
+ *
+ * The one rule behind both the card's development warnings and the editor's notice, so the
+ * two cannot disagree. Pass the configuration as the YAML holds it: top-level view-only keys
+ * are found by own-property presence, which a merged configuration preserves only because
+ * `DEFAULT_CONFIG` holds none of them.
+ *
+ * A top-level view-only key is reported once, with every block that owns it: the six column
+ * keys are grid keys too, so `min_day_width` at the top level has two destinations.
+ *
+ * @param config - Configuration to inspect
+ * @returns Top-level findings first, then each view block's, in registry order
+ */
+export function findMisplacedOptions(config: Readonly<Record<string, unknown>>): MisplacedOption[] {
+  if (!config || typeof config !== 'object') return [];
+
+  const findings: MisplacedOption[] = [];
+  const reported = new Set<string>();
+
+  for (const block of Object.values(VIEW_BLOCKS)) {
+    for (const key of block.onlyKeys) {
+      if (reported.has(key) || !Object.prototype.hasOwnProperty.call(config, key)) continue;
+      reported.add(key);
+      findings.push({ kind: 'view-only', key, from: null, to: blocksOwning(key) });
+    }
+  }
+
+  // A calendar's option written for the whole card, such as `show_in_legend: false`, does nothing
+  // there: no calendar reads the top level for it. It goes on the calendar it is for, so no Move.
+  for (const key of Object.keys(config)) {
+    if (calendarOnlyKeySet().has(key)) findings.push({ kind: 'calendar', key, from: null, to: [] });
+  }
+
+  for (const block of Object.values(VIEW_BLOCKS)) {
+    findings.push(...misplacedInBlock(config as Record<string, unknown>, block));
+  }
+
+  return findings;
+}
+
+/**
+ * Logs one misplaced option the way the card always has, in development builds.
+ *
+ * @param finding - The option and where it belongs
+ */
+function warnAboutMisplacedOption(finding: MisplacedOption): void {
+  const { key, from } = finding;
+  const where = `${from}.${key}`;
+
+  switch (finding.kind) {
+    case 'fetch-time':
+      Logger.warn(
+        `Ignoring "${where}": it determines which events are loaded from Home Assistant, ` +
+          `so it cannot differ between views — switching views would have to refetch. ` +
+          `Set "${key}" at the top level instead.`,
+      );
+      return;
+    case 'card-wide':
+      Logger.warn(
+        `Ignoring "${where}": "${key}" is a valid top-level option but cannot be overridden ` +
+          `per view. Set it at the top level instead.`,
+      );
+      return;
+    case 'wrong-view':
+      Logger.warn(
+        `Ignoring "${where}": it belongs in ${finding.to.map((block) => `"${block}:"`).join(' or ')}, ` +
+          `not in "${from}:".`,
+      );
+      return;
+    case 'view-only':
+      for (const block of finding.to) {
+        Logger.warn(
+          `Ignoring top-level "${key}": it is a ${block}-view-only option and has no effect ` +
+            `outside the "${block}:" block. Move it to "${block}: { ${key}: ... }".`,
+        );
+      }
+      return;
+    case 'calendar':
+      Logger.warn(
+        `Ignoring "${from === null ? key : where}": it is an option of one calendar. ` +
+          `Set it on that calendar under "entities:".`,
+      );
+      return;
+    case 'unknown':
+      Logger.warn(`Ignoring "${where}": not a recognized option.`);
   }
 }
 

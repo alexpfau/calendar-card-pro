@@ -21,9 +21,10 @@ import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
 import * as Grid from '../src/rendering/grid';
 import * as Render from '../src/rendering/render';
+import { languageDirection } from '../src/translations/language-codes';
 import * as Localize from '../src/translations/localize';
 import * as EventUtils from '../src/utils/events';
-import { formatTime, isolateClockReadings } from '../src/utils/format';
+import { endsAt, formatTime, isolateClockReadings } from '../src/utils/format';
 
 const FSI = '\u2068';
 const PDI = '\u2069';
@@ -143,7 +144,11 @@ describe('isolateClockReadings', () => {
       const direction = info?.direction;
       expect(direction, `${language}: CLDR has no text direction`).toMatch(/^(ltr|rtl)$/);
       if (direction === 'rtl') rtl.push(language);
-      const phrase = `${t.endsTomorrow} ${t.at} 12:30 AM`;
+      // The card's own list of right-to-left languages, which decides where its words are
+      // marked against the dashboard (text-direction.ts), answers as CLDR does for every one.
+      expect(languageDirection(language), language).toBe(direction);
+      const phrase = endsAt(t.endsTomorrow, t, '12:30 AM');
+      expect(phrase, language).toContain('12:30 AM');
       const expected =
         direction === 'rtl'
           ? `${t.endsTomorrow} ${t.at} ${isolated('12:30 AM')}${RLM}`

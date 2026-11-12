@@ -15,8 +15,16 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'customized_only.helper':
     'Hides everything left at the value the card would use anyway, so what is left is ' +
     'what this card changes.',
+  essentials_only: 'Essentials Only',
+  'essentials_only.helper':
+    'Shows only the settings most cards need. Search still finds every setting, and the ' +
+    'switch is remembered in this browser.',
+  // Worded as a label and a number, so no language has to inflect for the count.
+  'essentials_only.hidden': 'Other settings hidden: {count}.',
   'filter.no_matches': 'Nothing matches “{query}”.',
   'filter.nothing_customized': 'Nothing is customized — every setting is at the card default.',
+  'filter.nothing_customized_essential':
+    'None of the essential settings is customized. Switch off Essentials Only to see the rest.',
   'filter.gated_note':
     'Settings that depend on another one appear only once that one is switched on.',
 
@@ -51,6 +59,82 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'grid_reconciliation.message':
     'Grid kept your existing values for: {options}. Use Reset in Grid to use its default for an option.',
   'grid_reconciliation.dismiss': 'Dismiss',
+
+  // --- Misplaced options (backlog item 192) -----------------------------------
+  //
+  // Read by YAML authors: the option is shown as its YAML path, so these sentences say what
+  // the card does with it and where it works, never what the path already says.
+  'misplaced.title': 'Options the Card Ignores',
+  'misplaced.message':
+    'These options are written where the card does not read them. Move each one to where it ' +
+    'works, or change it in YAML.',
+  'misplaced.fetch_time':
+    'Decides which events are loaded, so it works only for the whole card, at the top level.',
+  'misplaced.card_wide': 'Works only for the whole card, at the top level.',
+  'misplaced.wrong_view': 'Belongs to another layout: {places}.',
+  'misplaced.view_only': 'Works only in a layout’s own settings: {places}.',
+  'misplaced.calendar': 'Works only on a calendar: set it on the one it is for, under entities.',
+  'misplaced.unknown': 'Not an option of this card. Check its spelling and where it is.',
+  'misplaced.move': 'Move to {place}',
+  'misplaced.taken': '{place} already sets it.',
+  'misplaced.top_level': 'Top Level',
+
+  // --- Quick Setup (backlog item 188) ----------------------------------------
+  //
+  // A card started from one of the docs' Example Stories. The story names and their two lines
+  // are the docs' own, from the Example Stories table, so the editor and the site describe each
+  // the same way. The field labels repeat the panels' own where the field is the same setting.
+  'quick_setup.open': 'Quick Setup',
+  'quick_setup.open_note': 'Start from an example card and answer a few questions.',
+  'quick_setup.title': 'Quick Setup',
+  'quick_setup.step': 'Step {step} of {steps}: {name}',
+  'quick_setup.step.story': 'Starting Point',
+  'quick_setup.step.calendars': 'Title & Calendars',
+  'quick_setup.step.weather': 'Weather',
+  'quick_setup.step.taps': 'Taps & Toolbar',
+  'quick_setup.step.review': 'Review',
+  'quick_setup.story_intro':
+    'Pick the example closest to what this card is for. You can change everything afterward.',
+  'quick_setup.story.family_hub': 'Family Hub',
+  'quick_setup.story.family_hub.best_for':
+    'The whole family’s week, with every control on the card',
+  'quick_setup.story.family_hub.space': 'A wall tablet, and the same card on a phone',
+  'quick_setup.story.now_and_next': 'Now & Next',
+  'quick_setup.story.now_and_next.best_for': 'What is on now and what comes next',
+  'quick_setup.story.now_and_next.space': 'A small tile on a phone',
+  'quick_setup.story.today_and_tomorrow': 'Today & Tomorrow',
+  'quick_setup.story.today_and_tomorrow.best_for': 'Where the day stands, hour by hour',
+  'quick_setup.story.today_and_tomorrow.space': 'A phone, a section or a portrait tablet',
+  'quick_setup.story.birthdays_and_holidays': 'Birthdays & Holidays',
+  'quick_setup.story.birthdays_and_holidays.best_for':
+    'Birthdays with ages, and the next school break',
+  'quick_setup.story.birthdays_and_holidays.space': 'A dashboard section or a pop-up',
+  'quick_setup.read_story': 'Read about this example',
+  'quick_setup.card_title': 'Title',
+  'quick_setup.card_title.helper': 'Leave it empty for a card without a title.',
+  'quick_setup.card_calendars': 'Calendars',
+  'quick_setup.calendars_needed': 'Choose at least one calendar to go on.',
+  'quick_setup.weather_entity': 'Weather Entity',
+  'quick_setup.weather_entity.helper': 'Leave it empty for a card without weather.',
+  'quick_setup.show_toolbar': 'Show Toolbar',
+  'quick_setup.show_toolbar.helper':
+    'Pages through dates, switches layouts, searches and adds events.',
+  'quick_setup.event_details': 'Tapping an Event Opens It',
+  'quick_setup.event_details.helper': 'Shows the event in the card’s own window.',
+  'quick_setup.day_adds': 'Tapping a Day Adds an Event',
+  'quick_setup.day_adds.helper': 'Only on calendars that accept new events.',
+  'quick_setup.review_story':
+    'This card takes the layout, look and actions of {story}. Every setting not listed here is ' +
+    'replaced.',
+  'quick_setup.review_calendars': 'Calendars: {calendars}. Each keeps its own settings.',
+  'quick_setup.review_colors': 'Colors from the example for: {calendars}.',
+  'quick_setup.review_keeps':
+    'Settings Home Assistant keeps for this card, such as its size on the dashboard, stay as ' +
+    'they are.',
+  'quick_setup.back': 'Back',
+  'quick_setup.next': 'Next',
+  'quick_setup.cancel': 'Cancel',
+  'quick_setup.apply': 'Apply',
   'config_migration.title': 'Choose How to Upgrade This Card',
   'config_migration.list_message':
     'Version 5 separates settings for List from settings shared by every layout. Either choice keeps the card looking the same right now.',
@@ -172,6 +256,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'notices. Every entry for this calendar shares it. Left empty, the card uses Home ' +
     'Assistant\u2019s name for it, which the calendar picker and this panel\u2019s heading ' +
     'keep either way.',
+  'entity.show_in_legend': 'Show in Calendar Filter',
+  'entity.show_in_legend.helper':
+    'Off leaves this calendar out of the calendar filter, as a chip and in the menu, so its ' +
+    'events always show. Every entry for this calendar shares it.',
   'entity.label_type': 'Label Type',
   'entity.label_type.helper':
     'Shown before every event from this calendar. An image label is a path the browser ' +
@@ -394,10 +482,15 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'time_grid.slot_minutes.option.60.label': '1 hour',
   'time_grid.weekend_background_color': 'Weekend Shading',
   'time_grid.weekend_background_color.helper':
-    'Tints a weekend day column from the date row down, so a week reads at a glance. Any ' +
-    'CSS color — keep it faint, since event text sits on top of it. Which days count as ' +
-    'the weekend follows the country set in Home Assistant, or its language when no ' +
-    'country is set.',
+    'Tints a weekend day column from just under the date row down, so a week reads at a ' +
+    'glance. Any CSS color — keep it faint, since event text sits on top of it. Which days ' +
+    'count as the weekend follows the country set in Home Assistant, or its language when ' +
+    'no country is set.',
+  'time_grid.today_background_color': 'Today Shading',
+  'time_grid.today_background_color.helper':
+    "Tints today's column from just under the date row down, so today stands out at a " +
+    'glance. Off until a color is set. Any CSS color — keep it faint, since event text sits ' +
+    'on top of it. When today falls on the weekend, it replaces the weekend shading.',
   'time_grid.hour_height': 'Height Per Hour',
   'time_grid.hour_height.helper':
     "The calendar content area's natural height, one hour at a time. Ignored when a fixed height is set: " +
@@ -504,13 +597,17 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   hide_when_empty: 'Hide The Card When Empty',
   'hide_when_empty.helper':
     'Removes the card from the dashboard entirely while it has nothing to show.',
-  filter_duplicates: 'Filter Duplicates',
+  filter_duplicates_mode: 'Filter Duplicates',
+  'filter_duplicates_mode.option.off.label': 'Off',
+  'filter_duplicates_mode.option.exact.label': 'Same title, start, end and location',
+  'filter_duplicates_mode.option.ignore_location.label': 'Same title, start and end',
   // See `calendars.helper`: the entry listed first wins, and that entry may be a second
   // block of the same calendar rather than a different one. Colors only — since v4.2 a row
   // merged across two or more distinct calendars shows every one of their labels.
-  'filter_duplicates.helper':
-    'Hides an event whose title, start, end and location all match another. The copy ' +
-    'from the entry listed first is the one kept, along with its color.',
+  'filter_duplicates_mode.helper':
+    'Hides an event that matches another on the fields chosen here. The copy from the ' +
+    'entry listed first is the one kept, along with its color. Leaving location out suits ' +
+    'a holiday that two regional calendars each carry under their own location.',
   duplicate_accent_color: 'Shared Event Color',
   'duplicate_accent_color.helper':
     'Accent color for an event kept from two or more different calendars, in place of ' +
@@ -717,7 +814,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Where supported, visible overflowing titles start together, return quickly one by one, ' +
     'and wait at their beginnings. Forces one line in either text direction and overrides ' +
     'the title line limit. Never animates under reduced motion; older browsers keep independent scrolling. ' +
-    'With the time beside the title, long titles always scroll.',
+    'With the time beside the title, this keeps the title on one line beside it, where it otherwise wraps.',
   allday_badge_position: 'All-Day Badge',
   'allday_badge_position.helper':
     'Marks all-day events with a rounded badge in the calendar accent color. On the time ' +
@@ -751,12 +848,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   show_time: 'Show Time',
   time_position: 'Time Position',
   'time_position.helper':
-    "Puts the time on the title's line, without its clock, and never moves it below. Needs a " +
-    'wide event row: in narrow cards or columns, and with extras such as countdowns, event ' +
-    'weather, 12-hour or multi-day times, all-day badges, larger fonts or long text labels, the ' +
-    'title can shrink to a few characters and the time can take several lines. Use it where the ' +
-    'width allows, with few such extras. Titles that share the line always scroll, whatever ' +
-    'Scroll Long Titles says, and Title Line Limit does not apply.',
+    "Puts the time on the title's line, without its clock. A long title wraps, and the time " +
+    'ends its last line, or takes a line of its own where it does not fit. Title Line Limit cuts ' +
+    'a longer title with the time at the end of its last line, so 1 keeps both on one line. ' +
+    'Scroll Long Titles keeps the title on one line and scrolls it. On one line, the title needs ' +
+    'a wide event row: in narrow cards or columns, and with extras such as countdowns, event ' +
+    'weather or long text labels, it can shrink to a few characters.',
   'time_position.option.below.label': 'Below the title',
   'time_position.option.title.label': 'Beside the title',
   show_end_time: 'Show End Time',

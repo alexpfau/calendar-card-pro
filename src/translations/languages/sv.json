@@ -5,6 +5,7 @@
   "allDay": "heldag",
   "multiDay": "till",
   "at": "vid",
+  "separator": ", ",
   "viewList": "Lista",
   "viewColumns": "Kolumner",
   "viewGrid": "Tidsrutnät",
@@ -14,5 +15,7 @@
   "loading": "Laddar kalenderhändelser...",
   "error": "Fel: Kalenderentiteten hittades inte eller är felaktigt konfigurerad.",
   "loadFailed": "Kunde inte läsas in:",
-  "newEvent": "Ny händelse"
+  "newEvent": "Ny händelse",
+  "showAll": "Visa alla",
+  "hideAll": "Göm alla"
 }

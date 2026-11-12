@@ -13,6 +13,7 @@
   "allDay": "cały dzień",
   "multiDay": "do",
   "at": "o",
+  "separator": ", ",
   "viewList": "Lista",
   "viewColumns": "Kolumny",
   "viewGrid": "Siatka czasu",
@@ -22,5 +23,7 @@
   "loading": "Ładowanie wydarzeń z kalendarza...",
   "error": "Błąd: encja kalendarza nie została znaleziona lub jest niepoprawnie skonfigurowana",
   "loadFailed": "Nie udało się wczytać:",
-  "newEvent": "Nowe wydarzenie"
+  "newEvent": "Nowe wydarzenie",
+  "showAll": "Pokaż wszystkie",
+  "hideAll": "Ukryj wszystkie"
 }

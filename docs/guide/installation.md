@@ -52,7 +52,7 @@ its place and stop the editor from opening.
 ::: details Compressing the Files Yourself
 Home Assistant serves a pre-compressed `.gz` beside a file when it finds one. HACS writes one
 for every file it installs; a manual install has none, so the card transfers at its full
-552 KB and the editor at 466 KB, once per version before the browser caches both.
+596 KB and the editor at 532 KB, once per version before the browser caches both.
 
 For a smaller transfer, create the `.gz` files beside the originals:
 
@@ -60,7 +60,7 @@ For a smaller transfer, create the `.gz` files beside the originals:
 gzip -9 -k calendar-card-pro.js editor.js
 ```
 
-That brings the card to 155 KB and the editor to 144 KB. Delete or regenerate the `.gz`
+That brings the card to 165 KB and the editor to 163 KB. Delete or regenerate the `.gz`
 files with every update: Home Assistant serves a stale `.gz` in preference to a newer `.js`.
 :::
 
@@ -79,8 +79,21 @@ minimum versions are:
   in the headless Chromium 119 of a screenshot add-on.
 - **The visual editor** needs Chrome 98 or later.
 
-::: details Colors Before Chrome 125
-Older versions draw some colors more simply. Before Chrome 125 the today tile and the green of
-an event under way use a simpler mix, and before Chrome 111 the tile is a solid color and an
-event under way keeps the usual text color.
+::: details Colors in Older Browsers
+Older versions draw some colors more simply. Before Chrome 125 and Safari 18 the today tile and
+the green of an event under way use a simpler mix. Before Chrome 111 and Safari 16.2 the tile is
+a solid color, and text set to a calendar's color, an all-day pill's label and the time of an
+event under way are in the main text color. Focus rings and the search's selected result are
+drawn in the solid accent there, and a filled all-day pill is the calendar's color itself. A
+calendar's chip or row in the filter is gray, ringed in its color. The toolbar's buttons stay
+gray under the pointer, when pressed and after a refresh, an event or a day you press washes
+gray, and the wash of an all-day pill, the progress bar's track and the loading spinner are gray.
+A calendar that takes the theme's color tints its events gray there, and the week number's pill,
+a week separator, and the grid's lines and weekend shading are gray too.
+From Safari 16.2 to 17, a tinted event in column or grid view washes in the card's accent under
+the pointer or a press, rather than in its own text color.
+
+On Safari 16.4 and 16.5, a color set to `currentColor`, or to a mix of it, can crash the page,
+whether in one of the card's color options or in a theme color such as `--primary-color`. Safari
+16.6 fixed that, and every device on those versions can update to it.
 :::

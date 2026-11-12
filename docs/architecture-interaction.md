@@ -19,6 +19,13 @@ The recognizer lives in the card's pointer handlers (`_handlePointerDown`, `_han
   (`DaySlot` in `rendering/activation.ts`); space that is no day's element takes the day whose
   column holds the pointer (`findDayHit`), and a time slot is the quarter hour under it
   (`minuteAt`).
+- **Touch adjustment.** Chromium hands a finger's pointer-down to a tap target near the finger,
+  at the finger's own position, and an empty grid slot is never one, since the card hears its
+  presses on `ha-card`. So in a grid a touch on an event the finger is not on (`_pressPath`,
+  `elementUnder`) is read from what lies under the finger where a tap on a day adds and that is
+  a slot or another event, and draws or adds there; its derived click is owed by the event it
+  was handed to (`_pointerHandedTo`). Otherwise the browser's event stands for a tap or a hold,
+  but never lifts it. A mouse or a pen is read as it comes.
 - **Arming.** A press arms only when it could end in something: an action that resolves, or a touch
   or pen press on a card that swipes (`_swipeAvailable`), away from the screen's edges. Anything
   else is left to the browser, so turning an action on changes nothing elsewhere. `add-event`

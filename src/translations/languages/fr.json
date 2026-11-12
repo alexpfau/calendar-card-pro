@@ -5,6 +5,7 @@
   "allDay": "toute la journée",
   "multiDay": "jusqu'au",
   "at": "à",
+  "separator": ", ",
   "viewList": "Liste",
   "viewColumns": "Colonnes",
   "viewGrid": "Grille",
@@ -14,5 +15,7 @@
   "loading": "Chargement des événements...",
   "error": "Erreur: Entité de calendrier introuvable ou mal configurée",
   "loadFailed": "Échec du chargement:",
-  "newEvent": "Nouvel événement"
+  "newEvent": "Nouvel événement",
+  "showAll": "Tout afficher",
+  "hideAll": "Tout masquer"
 }

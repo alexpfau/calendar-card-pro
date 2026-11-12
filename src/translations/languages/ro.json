@@ -1,10 +1,11 @@
 {
   "daysOfWeek": ["Du", "Lu", "Ma", "Mi", "Jo", "Vi", "Sâ"],
-  "fullDaysOfWeek": ["Duminică", "Luni", "Marți", "Miercuri", "Joi", "Vineri", "Sâmbătă"],
+  "fullDaysOfWeek": ["duminică", "luni", "marți", "miercuri", "joi", "vineri", "sâmbătă"],
   "months": ["Ian", "Feb", "Mart", "Apr", "Mai", "Iun", "Iul", "Aug", "Sept", "Oct", "Nov", "Dec"],
   "allDay": "toată ziua",
-  "multiDay": "până la",
+  "multiDay": "până",
   "at": "la",
+  "separator": ", ",
   "viewList": "Listă",
   "viewColumns": "Coloane",
   "viewGrid": "Grilă",
@@ -14,5 +15,7 @@
   "loading": "Încărcare evenimente de calendar...",
   "error": "Eroare: Entitatea de calendar nu a fost găsită sau este configurată incorect",
   "loadFailed": "Nu s-a putut încărca:",
-  "newEvent": "Eveniment nou"
+  "newEvent": "Eveniment nou",
+  "showAll": "Arată toate",
+  "hideAll": "Ascunde toate"
 }

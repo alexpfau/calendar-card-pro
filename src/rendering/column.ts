@@ -17,6 +17,7 @@ import * as Leaves from './leaves';
 import * as Presentation from './presentation';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
+import * as ColorMix from '../utils/color-mix';
 import * as FormatUtils from '../utils/format';
 import * as Helpers from '../utils/helpers';
 
@@ -129,7 +130,7 @@ function renderColumnSeparator(
         gridColumn: String(columnIndex + 1),
         gridRow: separator.kind === 'day' ? '2' : '1 / -1',
         width: separator.width,
-        backgroundColor: separator.color,
+        backgroundColor: ColorMix.floorColor(separator.color),
         marginInlineStart: `calc(-0.5 * (${gap} + ${separator.width}))`,
       })}
     ></div>
