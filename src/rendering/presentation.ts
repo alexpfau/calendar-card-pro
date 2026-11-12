@@ -6,6 +6,7 @@
 
 import * as AccentText from './accent-text';
 import type { EventContentParts } from './leaves';
+import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import * as EventActions from '../interaction/event-actions';
 import { getNowString } from '../translations/dayjs';
@@ -46,20 +47,12 @@ interface EventPresentation {
 }
 
 /**
- * Compute the view-independent presentation of a single event.
+ * Whether an event, or an empty-day notice, is over and drawn as past.
  *
- * @param event - Event data to describe
- * @param config - Card configuration
- * @param language - Language code for translations
- * @param hass - Home Assistant instance, used for locale-aware time formatting
- * @returns The event's view-independent presentation
+ * @param event - Event data, or an empty-day placeholder
+ * @returns True once the event has ended, or the notice's date has
  */
-export function buildEventPresentation(
-  event: Types.CalendarEventData,
-  config: Types.Config,
-  language: string,
-  hass?: Types.Hass | null,
-): EventPresentation {
+export function isEventPast(event: Types.CalendarEventData): boolean {
   const isEmptyDay = Boolean(event._isEmptyDay);
 
   const now = new Date();
@@ -108,6 +101,113 @@ export function buildEventPresentation(
       isPastEvent = endDateTime !== null && now > endDateTime;
     }
   }
+
+  return isPastEvent;
+}
+
+/**
+ * The countdown an event carries, or null for none: the one gate every view draws through.
+ *
+ * @param event - Event data
+ * @param config - Card configuration, resolved for the view
+ * @param language - Language code
+ * @param isPastEvent - Whether the event is over, when the caller already knows
+ * @returns The countdown text, or null
+ */
+export function eventCountdown(
+  event: Types.CalendarEventData,
+  config: Types.Config,
+  language: string,
+  isPastEvent: boolean = isEventPast(event),
+): string | null {
+  const isAllDayEvent = !event.start.dateTime;
+  if (
+    !config.show_countdown ||
+    (isAllDayEvent && !config.show_countdown_allday) ||
+    event._isEmptyDay ||
+    isPastEvent
+  ) {
+    return null;
+  }
+
+  return FormatUtils.getCountdownString(event, language, {
+    exactDays: Boolean(config.countdown_exact_days),
+    maxDays: config.countdown_max_days,
+  });
+}
+
+/**
+ * Which of a day's events leave their countdown out under `show_countdown: once_per_day`.
+ *
+ * A countdown is left out when it reads exactly as the nearest countdown above it on the same
+ * day, so a day of bins counts down once. Two kinds are never left out. A countdown to a start
+ * later today names a clock time ("in 5 hours"), and two of them reading alike can still name
+ * different times, which would make one come and go as the minutes round. And a countdown that
+ * differs stays: an event already under way when the window opens is drawn on its first day
+ * but counts to its own start, so that day can read "tomorrow" above "in 7 days".
+ *
+ * Rows without a countdown are passed over, so an all-day row with `show_countdown_allday`
+ * off, or one beyond `countdown_max_days`, never takes the first one's place. Read from the
+ * day's events as drawn, after compact limits and merged duplicates, so the first drawn
+ * countdown is the one kept. List and column view call this; a grid's blocks sit side by side
+ * and are fitted one by one, so the grid draws every countdown.
+ *
+ * @param events - The day's events, in drawn order
+ * @param config - Card configuration, resolved for the view
+ * @param language - Language code
+ * @returns The indexes of the events whose countdown is left out
+ */
+export function repeatedCountdowns(
+  events: ReadonlyArray<Types.CalendarEventData>,
+  config: Types.Config,
+  language: string,
+): ReadonlySet<number> {
+  const repeated = new Set<number>();
+  if (config.show_countdown !== Constants.COUNTDOWN_ONCE_PER_DAY) return repeated;
+
+  const now = new Date();
+  let above: string | null = null;
+  events.forEach((event, index) => {
+    const countdown = eventCountdown(event, config, language);
+    if (countdown === null) return;
+
+    const countsTheClock =
+      event.start.dateTime !== undefined &&
+      FormatUtils.getCalendarDayDiff(now, new Date(event.start.dateTime)) === 0;
+    if (countdown === above && !countsTheClock) repeated.add(index);
+    above = countdown;
+  });
+  return repeated;
+}
+
+/**
+ * A presentation with its countdown left out.
+ *
+ * @param presentation - The event's presentation
+ * @returns The same presentation, drawing no countdown
+ */
+export function withoutCountdown(presentation: EventPresentation): EventPresentation {
+  return { ...presentation, contentParts: { ...presentation.contentParts, countdownStr: null } };
+}
+
+/**
+ * Compute the view-independent presentation of a single event.
+ *
+ * @param event - Event data to describe
+ * @param config - Card configuration
+ * @param language - Language code for translations
+ * @param hass - Home Assistant instance, used for locale-aware time formatting
+ * @returns The event's view-independent presentation
+ */
+export function buildEventPresentation(
+  event: Types.CalendarEventData,
+  config: Types.Config,
+  language: string,
+  hass?: Types.Hass | null,
+): EventPresentation {
+  const isEmptyDay = Boolean(event._isEmptyDay);
+
+  const isPastEvent = isEventPast(event);
 
   const registryColors = EntityColors.entityColors();
 
@@ -176,18 +276,7 @@ export function buildEventPresentation(
     !(isMultiDayAllDayEvent && !config.show_multiday_allday_time) &&
     !isEmptyDay;
 
-  let countdownStr: string | null = null;
-  if (
-    config.show_countdown &&
-    !(isAllDayEvent && !config.show_countdown_allday) &&
-    !isEmptyDay &&
-    !isPastEvent
-  ) {
-    countdownStr = FormatUtils.getCountdownString(event, language, {
-      exactDays: Boolean(config.countdown_exact_days),
-      maxDays: config.countdown_max_days,
-    });
-  }
+  const countdownStr = eventCountdown(event, config, language, isPastEvent);
 
   const isRunning = EventUtils.isEventCurrentlyRunning(event);
   // Not gated on `isRunning`: a middle day of a split timed event reads as all-day, so it is

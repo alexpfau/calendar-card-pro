@@ -627,6 +627,7 @@ export function renderDay(
 
   const dayLabelId = eventsTappable || dayAdd ? Activation.dayLabelId(day.timestamp) : undefined;
   const eventGap = ViewConfig.hasEventGap(config);
+  const repeatedCountdowns = Presentation.repeatedCountdowns(day.events, config, language);
 
   const daySeparatorWidth = config.day_separator_width;
   const daySeparatorColor = config.day_separator_color;
@@ -676,6 +677,7 @@ export function renderDay(
             eventsTappable,
             dayLabelId,
             dayAdd,
+            repeatedCountdowns.has(index),
           );
 
           return eventGap && index > 0 ? html`${renderEventGapRow()}${row}` : row;
@@ -859,6 +861,7 @@ function renderDayAddButton(
  * @param dayLabelId - The id the day's date carries while events are tap targets or the day
  *   is a button, by which each event and the button name the day
  * @param dayAdd - How to draw the day's add button, or undefined for none
+ * @param countdownRepeated - Whether the countdown repeats the one above it and is left out
  * @returns TemplateResult for the event
  */
 function renderEvent(
@@ -873,8 +876,10 @@ function renderEvent(
   eventsTappable = false,
   dayLabelId?: string,
   dayAdd?: Activation.DayAddButtons,
+  countdownRepeated = false,
 ): TemplateResult {
-  const presentation = Presentation.buildEventPresentation(event, config, language, hass);
+  const presented = Presentation.buildEventPresentation(event, config, language, hass);
+  const presentation = countdownRepeated ? Presentation.withoutCountdown(presented) : presented;
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
 
   const dayDate = new Date(day.timestamp);

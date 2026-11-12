@@ -546,6 +546,8 @@
   "countdown_max_days": "Limit dni odliczania",
   "countdown_max_days.helper": "Odliczanie pojawia się tylko przy wydarzeniach, które zaczynają się w ciągu tylu dni: 0 oznacza tylko dzisiaj, 7 – tydzień naprzód. Jeśli pole pozostanie puste, pojawia się przy każdym nadchodzącym wydarzeniu.",
   "show_countdown_allday": "Odliczaj też do wydarzeń całodniowych",
+  "countdown_once_per_day": "Pomijaj powtarzające się odliczania",
+  "countdown_once_per_day.helper": "W dniu z kilkoma wydarzeniami pomijane jest odliczanie identyczne z tym powyżej. Odliczania do wydarzeń, które zaczynają się jeszcze dzisiaj, są zawsze widoczne.",
   "countdown_exact_days": "Odliczaj tylko w dniach",
   "countdown_exact_days.helper": "Od jutra odlicza w dniach: „za 30 dni” zamiast „za miesiąc” i „za 1 dzień” zamiast „jutro”.",
   "show_progress_bar": "Pokaż pasek postępu",

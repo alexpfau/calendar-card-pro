@@ -153,6 +153,7 @@ function renderColumnSeparator(
  * @param hass - Home Assistant instance, for locale-aware formatting
  * @param eventsTappable - Whether the event is a tap target of its own
  * @param dayLabelId - The id of the day's header, which describes a tappable event
+ * @param countdownRepeated - Whether the countdown repeats the one above it and is left out
  * @returns Rendered event
  */
 function renderColumnEvent(
@@ -165,8 +166,10 @@ function renderColumnEvent(
   hass?: Types.Hass | null,
   eventsTappable = false,
   dayLabelId?: string,
+  countdownRepeated = false,
 ): TemplateResult {
-  const presentation = Presentation.buildEventPresentation(event, config, language, hass);
+  const presented = Presentation.buildEventPresentation(event, config, language, hass);
+  const presentation = countdownRepeated ? Presentation.withoutCountdown(presented) : presented;
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
 
   const isFirst = index === 0;
@@ -251,6 +254,7 @@ function renderDayColumn(
   const headerSeparator = ViewConfig.isZeroLength(separatorWidth)
     ? null
     : { width: separatorWidth, color: separatorColor };
+  const repeatedCountdowns = Presentation.repeatedCountdowns(day.events, config, language);
 
   return html`
     <div
@@ -292,6 +296,7 @@ function renderDayColumn(
               hass,
               eventsTappable,
               dayLabelId,
+              repeatedCountdowns.has(index),
             ),
         )}
       </div>

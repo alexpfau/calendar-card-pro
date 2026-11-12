@@ -803,6 +803,7 @@ describe('editor: change detection', () => {
       'calendars',
       'card_height',
       'card_max_height',
+      'countdown_once_per_day',
       'day_tap_action_mode',
       'filter_duplicates_mode',
       'height_mode',
