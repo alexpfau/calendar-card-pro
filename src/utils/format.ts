@@ -195,18 +195,36 @@ export function formatEventTimeParts(
   };
 }
 
+/** How a countdown counts, as the card's options set it. */
+export interface CountdownOptions {
+  /** Count every date after tomorrow in days, never in months or years. */
+  exactDays?: boolean;
+  /** Count down only to starts within this many calendar days; undefined is no limit. */
+  maxDays?: number;
+}
+
 /**
  * Generates a localized countdown string for an event
  * Future dates use natural relative units measured between local calendar dates.
  * Only starts later today use clock units.
  *
+ * With `exactDays`, every date after tomorrow is worded by `Intl` in days. That is the same
+ * formatter as "tomorrow" and as a wait of hours, rather than Day.js's natural units, which
+ * word "in N days" differently from `Intl` in about half the card's languages; switching
+ * formatter at the point Day.js would say "in a month" would change the wording mid-count.
+ *
+ * `maxDays` is measured in calendar dates, as the count is, so it moves at midnight and never
+ * with the time of day: `0` is today's starts alone, `7` a week ahead.
+ *
  * @param event Calendar event to generate countdown for
  * @param language Language to use
- * @returns Countdown string or null if event is past or empty day
+ * @param options How the countdown counts
+ * @returns Countdown string or null if event is past or empty day, or beyond `maxDays`
  */
 export function getCountdownString(
   event: Types.CalendarEventData,
   language: string = 'en',
+  options: CountdownOptions = {},
 ): string | null {
   if (event._isEmptyDay || !event.start) return null;
 
@@ -220,11 +238,15 @@ export function getCountdownString(
   if (!startDate || startDate <= now) return null;
 
   const days = getCalendarDayDiff(now, startDate);
+  if (options.maxDays !== undefined && days > options.maxDays) return null;
+
   if (days === 1) {
     return getRelativeUnitString(1, 'day', language);
   }
 
   if (days > 1) {
+    if (options.exactDays) return getRelativeUnitString(days, 'day', language);
+
     // Anchor both dates so clock time cannot change Day.js's natural unit selection.
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfEventDay = new Date(

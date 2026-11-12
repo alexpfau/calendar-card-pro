@@ -183,7 +183,10 @@ export function buildEventPresentation(
     !isEmptyDay &&
     !isPastEvent
   ) {
-    countdownStr = FormatUtils.getCountdownString(event, language);
+    countdownStr = FormatUtils.getCountdownString(event, language, {
+      exactDays: Boolean(config.countdown_exact_days),
+      maxDays: config.countdown_max_days,
+    });
   }
 
   const isRunning = EventUtils.isEventCurrentlyRunning(event);

@@ -714,7 +714,7 @@ It follows the same local calendar dates as the day headers:
   when, so with event times hidden, "tomorrow" alone does not say how soon after midnight.
 - Today's timed events always count in clock units, never in days, however long the wait.
 - Distant dates read naturally: "in a month" for an event 30 days away, "in a year" for one 365
-  days away.
+  days away. [`countdown_exact_days`](#counting-in-days) counts them in days instead.
 - The wording follows the card's language, and the date comparison stays correct across
   daylight-saving changes.
 - A countdown disappears once its event has started, so today's all-day events have none.
@@ -740,6 +740,72 @@ its original start, and a row already under way has no countdown.
 
 In list view, a phrase wider than the whole row, as a long Finnish one can be on a narrow card,
 wraps between its words rather than run past the card's edge.
+
+:::
+
+### Countdown Range
+
+`countdown_max_days` shows a countdown only for events starting within that many days, so a
+countdown appears as an event draws near rather than months ahead. `0` keeps countdowns to
+today's events, `7` to the week ahead:
+
+```yaml
+show_countdown: true
+countdown_max_days: 7
+```
+
+| Option               | Type   | Default | Description                                                                                          |
+| -------------------- | ------ | ------- | ---------------------------------------------------------------------------------------------------- |
+| `countdown_max_days` | number | -       | Show a countdown only for events starting within this many calendar days; unset, every event has one |
+
+- Days are counted between calendar dates, as the countdown counts them. With `7`, an event
+  reading "in 7 days" keeps its countdown and one a day later has none until the next midnight.
+- Left unset, every upcoming event counts down.
+- Each view can set its own, in `list:`, `column:` or `time_grid:`. A view's limit replaces the
+  card's, and a view left blank uses the card's:
+
+```yaml
+show_countdown: true
+countdown_max_days: 7 # A week ahead in list and grid view
+column:
+  countdown_max_days: 0 # Today's events only in column view
+```
+
+::: details No Limit in One View
+
+A blank `countdown_max_days` in a view uses the card's limit. To lift the limit in one view
+alone, give that view a number larger than any wait it will show, such as `3650`. Its
+`days_to_show` is not enough on its own: a card that starts later than today, or is paged
+ahead, shows dates further off than that.
+
+:::
+
+### Counting in Days
+
+`countdown_exact_days` counts every date after tomorrow in days, so an event 30 days away reads
+"in 30 days" rather than "in a month", and one 400 days away "in 400 days" rather than "in a
+year". It suits a card where the number itself matters, such as the days left until a trip:
+
+```yaml
+show_countdown: true
+countdown_exact_days: true
+```
+
+| Option                 | Type    | Default | Description                                                              |
+| ---------------------- | ------- | ------- | ------------------------------------------------------------------------ |
+| `countdown_exact_days` | boolean | `false` | Count every date after tomorrow in days, rather than in months and years |
+
+- Later today and tomorrow read as they do without it: "in 20 minutes", "in 5 hours",
+  "tomorrow".
+- Each view can set its own, in `list:`, `column:` or `time_grid:`.
+
+::: details Wording in Other Languages
+
+The days are worded by the browser's own date formatting, as "tomorrow" is. In some languages
+that reads a little differently from the default countdown for the same wait: Spanish "dentro
+de 3 días" rather than "en 3 días", Norwegian "om 3 døgn" rather than "om 3 dager". Where the
+browser has no wording for the card's language, the days read in English, as "tomorrow" does
+there: Chromium has none for Icelandic.
 
 :::
 

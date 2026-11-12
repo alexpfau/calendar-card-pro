@@ -12,6 +12,7 @@ import {
   normalizeEntities,
   normalizeNumericOptions,
   resolveToolbar,
+  toValidNumber,
   toValidPercentage,
   validateFoldedLength,
   validatePastEventOpacity,
@@ -71,6 +72,8 @@ export const COLUMN_OVERRIDE_KEYS = [
   'event_font_size',
   'show_countdown',
   'show_countdown_allday',
+  'countdown_exact_days',
+  'countdown_max_days',
   'show_progress_bar',
   'show_now_indicator',
   'now_color',
@@ -1147,10 +1150,29 @@ function keywordAsLength(keyword: string, factor: number): string | undefined {
 function hasOverride(overrides: Types.ColumnOverrides, key: keyof Types.ColumnOverrides): boolean {
   return (
     Object.prototype.hasOwnProperty.call(overrides, key) &&
-    (overrides as Record<string, unknown>)[key] !== undefined &&
-    // This option's null/blank/invalid values mean inherit, not the root's 60 default.
-    (key !== 'past_event_opacity' || toValidPercentage(overrides[key]) !== undefined)
+    !inheritsInView(key, (overrides as Record<string, unknown>)[key])
   );
+}
+
+/**
+ * Whether a view block's value stands for no value at all, so the view takes the card's.
+ *
+ * `undefined` always does. Two numbers go further, because a blank or invalid line in a view
+ * block would otherwise resolve to the shipped default rather than to the card's value: a
+ * view's blank `past_event_opacity` would read 60 under a card-wide 100, and a blank
+ * `countdown_max_days` would lift a card-wide limit for that view alone. The resolver and the
+ * editor's stored blocks both ask this, so a value the card ignores is never shown as the
+ * view's own.
+ *
+ * @param key - Option name inside the view block
+ * @param value - The block's value for it
+ * @returns True when the view inherits the card's value
+ */
+export function inheritsInView(key: string, value: unknown): boolean {
+  if (value === undefined) return true;
+  if (key === 'past_event_opacity') return toValidPercentage(value) === undefined;
+  if (key === 'countdown_max_days') return toValidNumber(value, 0) === undefined;
+  return false;
 }
 
 /**

@@ -110,6 +110,10 @@ export interface Config {
   show_past_events: boolean;
   show_countdown: boolean;
   show_countdown_allday: boolean;
+  /** Count every date after tomorrow in days, rather than in months and years. */
+  countdown_exact_days: boolean;
+  /** Count down only to events starting within this many calendar days; unset is no limit. */
+  countdown_max_days?: number;
   show_progress_bar: boolean;
   show_now_indicator: boolean;
   now_color: string;
@@ -370,6 +374,8 @@ export interface SharedViewOverrides {
   event_font_size?: string;
   show_countdown?: boolean;
   show_countdown_allday?: boolean;
+  countdown_exact_days?: boolean;
+  countdown_max_days?: number;
   show_progress_bar?: boolean;
   show_now_indicator?: boolean;
   now_color?: string;

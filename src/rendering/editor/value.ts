@@ -195,8 +195,7 @@ function stripBlockDefaults(
   const result: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
-    if (value === undefined) continue;
-    if (key === 'past_event_opacity' && Config.toValidPercentage(value) === undefined) continue;
+    if (ViewConfig.inheritsInView(key, value)) continue;
 
     const held = unchangedFromAuthored(authored, key, value);
     // Forms generate synthetic field names; one the YAML itself holds is a misplaced line the
@@ -354,8 +353,7 @@ export function stripListDefaults(
   const result: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
-    if (value === undefined) continue;
-    if (key === 'past_event_opacity' && Config.toValidPercentage(value) === undefined) continue;
+    if (ViewConfig.inheritsInView(key, value)) continue;
     if (isSyntheticKey(key) && !unchangedFromAuthored(authored, key, value)) continue;
 
     result[key] = value;
