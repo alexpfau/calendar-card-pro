@@ -60,6 +60,7 @@ afterEach(() => {
 
 describe('countdown_exact_days', () => {
   it.each([
+    { days: 1, natural: 'tomorrow', exact: 'in 1 day' },
     { days: 2, natural: 'in 2 days', exact: 'in 2 days' },
     { days: 25, natural: 'in 25 days', exact: 'in 25 days' },
     { days: 26, natural: 'in a month', exact: 'in 26 days' },
@@ -73,12 +74,17 @@ describe('countdown_exact_days', () => {
     }
   });
 
-  it('leaves later today and tomorrow as they read without it', () => {
+  it('leaves later today in clock units', () => {
     const on = { countdown_exact_days: true };
     expect(presented(timedIn(0, 10, 20), on)).toBe('in 20 minutes');
     expect(presented(timedIn(0, 15), on)).toBe('in 5 hours');
-    expect(presented(timedIn(1), on)).toBe('tomorrow');
-    expect(presented(allDayIn(1), on)).toBe('tomorrow');
+    expect(presented(timedIn(0, 23, 59), on)).toBe('in 14 hours');
+  });
+
+  it('counts tomorrow by its date, so an early start reads "in 1 day" all evening', () => {
+    vi.setSystemTime(new Date('2026-06-17T23:50:00Z'));
+    expect(presented(timedIn(1, 0, 10), { countdown_exact_days: true })).toBe('in 1 day');
+    expect(presented(timedIn(1, 0, 10), {})).toBe('tomorrow');
   });
 
   it('ignores the time of day on either side, as the default count does', () => {
@@ -90,9 +96,9 @@ describe('countdown_exact_days', () => {
   });
 
   it.each([
-    { lang: 'de', exact: 'in 30 Tagen', natural: 'in einem Monat' },
+    { lang: 'de', exact: 'in 30 Tagen', natural: 'in einem Monat', tomorrow: 'in 1 Tag' },
     { lang: 'de-AT', exact: 'in 30 Tagen', natural: 'in einem Monat' },
-    { lang: 'es', exact: 'dentro de 30 días', natural: 'en un mes' },
+    { lang: 'es', exact: 'dentro de 30 días', natural: 'en un mes', tomorrow: 'dentro de 1 día' },
     { lang: 'fi', exact: '30 päivän päästä', natural: 'kuukauden päästä' },
     { lang: 'zh-cn', exact: '30天后', natural: '1 个月内' },
     // Serbian is where a Day.js locale name and a language tag part: the default count goes
@@ -100,10 +106,13 @@ describe('countdown_exact_days', () => {
     { lang: 'sr', exact: 'за 30 дана', natural: 'за један месец' },
     { lang: 'sr-latn', exact: 'za 30 dana', natural: 'za jedan mesec' },
     // A language the card does not speak reads in English, like every other countdown.
-    { lang: 'xx', exact: 'in 30 days', natural: 'in a month' },
-  ])('words the count in the card language: $lang', ({ lang, exact, natural }) => {
+    { lang: 'xx', exact: 'in 30 days', natural: 'in a month', tomorrow: 'in 1 day' },
+  ])('words the count in the card language: $lang', ({ lang, exact, natural, tomorrow }) => {
     expect(presented(timedIn(30), {}, lang)).toBe(natural);
     expect(presented(timedIn(30), { countdown_exact_days: true }, lang)).toBe(exact);
+    if (tomorrow) {
+      expect(presented(timedIn(1), { countdown_exact_days: true }, lang)).toBe(tomorrow);
+    }
   });
 
   it('is read per view, like show_countdown', () => {

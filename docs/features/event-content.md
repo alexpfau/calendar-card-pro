@@ -782,30 +782,32 @@ ahead, shows dates further off than that.
 
 ### Counting in Days
 
-`countdown_exact_days` counts every date after tomorrow in days, so an event 30 days away reads
-"in 30 days" rather than "in a month", and one 400 days away "in 400 days" rather than "in a
-year". It suits a card where the number itself matters, such as the days left until a trip:
+`countdown_exact_days` counts every date after today in days, so an event 30 days away reads
+"in 30 days" rather than "in a month", one 400 days away "in 400 days" rather than "in a year",
+and one tomorrow "in 1 day". It suits a card where the number itself matters, such as the days
+left until a trip:
 
 ```yaml
 show_countdown: true
 countdown_exact_days: true
 ```
 
-| Option                 | Type    | Default | Description                                                              |
-| ---------------------- | ------- | ------- | ------------------------------------------------------------------------ |
-| `countdown_exact_days` | boolean | `false` | Count every date after tomorrow in days, rather than in months and years |
+| Option                 | Type    | Default | Description                                                                                    |
+| ---------------------- | ------- | ------- | ---------------------------------------------------------------------------------------------- |
+| `countdown_exact_days` | boolean | `false` | Count every date after today in days, "in 1 day" for tomorrow, rather than in months and years |
 
-- Later today and tomorrow read as they do without it: "in 20 minutes", "in 5 hours",
-  "tomorrow".
+- Later today reads as it does without it, such as "in 20 minutes" or "in 5 hours".
+- Tomorrow counts by its date, as "tomorrow" does: an event at 00:10 reads "in 1 day" all
+  evening, and "in 10 minutes" from midnight.
 - Each view can set its own, in `list:`, `column:` or `time_grid:`.
 
 ::: details Wording in Other Languages
 
-The days are worded by the browser's own date formatting, as "tomorrow" is. In some languages
-that reads a little differently from the default countdown for the same wait: Spanish "dentro
-de 3 días" rather than "en 3 días", Norwegian "om 3 døgn" rather than "om 3 dager". Where the
-browser has no wording for the card's language, the days read in English, as "tomorrow" does
-there: Chromium has none for Icelandic.
+The days are worded by the browser's own date formatting, as the default "tomorrow" is. In
+some languages that reads a little differently from the default countdown for the same wait:
+Spanish "dentro de 3 días" rather than "en 3 días", Norwegian "om 3 døgn" rather than "om 3
+dager". Where the browser has no wording for the card's language, the days read in English, as
+"tomorrow" does there: Chromium has none for Icelandic.
 
 :::
 

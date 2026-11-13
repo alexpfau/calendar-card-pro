@@ -376,7 +376,7 @@
   "countdown_max_days.helper": "이 일수 이내에 시작하는 이벤트에만 카운트다운을 표시합니다. 0은 오늘만, 7은 일주일 후까지입니다. 비워두면 다가오는 모든 이벤트에 표시됩니다.",
   "show_countdown_allday": "종일 이벤트도 카운트다운",
   "countdown_exact_days": "일 단위로만 카운트다운",
-  "countdown_exact_days.helper": "모레부터는 ‘한 달 후’처럼 월이나 연 단위가 아니라 ‘30일 후’처럼 일 단위로 셉니다.",
+  "countdown_exact_days.helper": "내일부터는 ‘한 달 후’ 대신 ‘30일 후’, ‘내일’ 대신 ‘1일 후’처럼 일 단위로 셉니다.",
   "show_progress_bar": "진행률 막대 표시",
   "show_now_indicator": "지금 표시기 표시",
   "show_now_indicator.helper": "진행 중인 일정의 시간 앞에 녹색 ‘지금’을 표시합니다.",

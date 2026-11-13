@@ -547,7 +547,7 @@
   "countdown_max_days.helper": "Odpočítavanie sa zobrazí len pri udalostiach, ktoré sa začínajú v priebehu tohto počtu dní: 0 znamená len dnes, 7 týždeň dopredu. Ak zostane prázdne, zobrazí sa pri každej nadchádzajúcej udalosti.",
   "show_countdown_allday": "Odpočítavať aj celodenné udalosti",
   "countdown_exact_days": "Odpočítavať len v dňoch",
-  "countdown_exact_days.helper": "Od pozajtra počíta v dňoch, napríklad „o 30 dní“, a nie v mesiacoch a rokoch, napríklad „za mesiac“.",
+  "countdown_exact_days.helper": "Od zajtra počíta v dňoch: „o 30 dní“ namiesto „za mesiac“ a „o 1 deň“ namiesto „zajtra“.",
   "show_progress_bar": "Zobraziť lištu priebehu",
   "show_now_indicator": "Zobraziť indikátor „Teraz“",
   "show_now_indicator.helper": "Pred čas práve prebiehajúcich udalostí pridá zelené „Teraz“.",

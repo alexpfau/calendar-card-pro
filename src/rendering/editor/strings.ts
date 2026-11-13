@@ -915,8 +915,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   show_countdown_allday: 'Count Down To All-Day Events Too',
   countdown_exact_days: 'Count In Days Only',
   'countdown_exact_days.helper':
-    'Counts every date after tomorrow in days, such as “in 30 days”, rather than in months ' +
-    'and years, such as “in a month”.',
+    'Counts every date after today in days: “in 30 days” rather than “in a month”, and ' +
+    '“in 1 day” rather than “tomorrow”.',
   show_progress_bar: 'Show Progress Bar',
   show_now_indicator: 'Show Now Indicator',
   'show_now_indicator.helper':

@@ -547,7 +547,7 @@
   "countdown_max_days.helper": "Odliczanie pojawia się tylko przy wydarzeniach, które zaczynają się w ciągu tylu dni: 0 oznacza tylko dzisiaj, 7 – tydzień naprzód. Jeśli pole pozostanie puste, pojawia się przy każdym nadchodzącym wydarzeniu.",
   "show_countdown_allday": "Odliczaj też do wydarzeń całodniowych",
   "countdown_exact_days": "Odliczaj tylko w dniach",
-  "countdown_exact_days.helper": "Od pojutrza odlicza w dniach, na przykład „za 30 dni”, a nie w miesiącach i latach, jak „za miesiąc”.",
+  "countdown_exact_days.helper": "Od jutra odlicza w dniach: „za 30 dni” zamiast „za miesiąc” i „za 1 dzień” zamiast „jutro”.",
   "show_progress_bar": "Pokaż pasek postępu",
   "show_now_indicator": "Pokaż wskaźnik „Teraz”",
   "show_now_indicator.helper": "Dodaje zielone „Teraz” przed godziną wydarzeń, które właśnie trwają.",

@@ -57,16 +57,13 @@ describe('countdown options in a real timezone', () => {
 
   it.each(transitionDates)('counts exact days across the %s transition', (date) => {
     // From the day before the transition, so every wait below spans it.
-    for (const days of [2, 30, 400]) {
+    for (const days of [1, 2, 30, 400]) {
       const start = at(date, days - 1, 8);
       for (const hour of [0, 12, 23]) {
         vi.setSystemTime(at(date, -1, hour, 45));
-        expect(getCountdownString(timedEvent(start), 'en', { exactDays: true })).toBe(
-          `in ${days} days`,
-        );
-        expect(getCountdownString(allDayEvent(start), 'en', { exactDays: true })).toBe(
-          `in ${days} days`,
-        );
+        const expected = days === 1 ? 'in 1 day' : `in ${days} days`;
+        expect(getCountdownString(timedEvent(start), 'en', { exactDays: true })).toBe(expected);
+        expect(getCountdownString(allDayEvent(start), 'en', { exactDays: true })).toBe(expected);
       }
     }
   });

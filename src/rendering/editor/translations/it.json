@@ -547,7 +547,7 @@
   "countdown_max_days.helper": "Solo gli eventi che iniziano entro questo numero di giorni mostrano il conto alla rovescia: 0 indica solo oggi, 7 una settimana in anticipo. Se lasciato vuoto, lo mostrano tutti gli eventi futuri.",
   "show_countdown_allday": "Conto alla rovescia anche per gli eventi di tutto il giorno",
   "countdown_exact_days": "Conta solo in giorni",
-  "countdown_exact_days.helper": "Da dopodomani conta in giorni, ad esempio «tra 30 giorni», anziché in mesi e anni come «tra un mese».",
+  "countdown_exact_days.helper": "Da domani conta in giorni: «tra 30 giorni» anziché «tra un mese» e «tra 1 giorno» anziché «domani».",
   "show_progress_bar": "Mostra barra di progresso",
   "show_now_indicator": "Mostra indicatore Ora",
   "show_now_indicator.helper": "Aggiunge un “Ora” verde prima dell’orario degli eventi in corso.",
