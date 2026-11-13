@@ -340,6 +340,8 @@
   "compact_events_complete_days": "Lõpeta viimane päev",
   "compact_events_complete_days.helper": "Selle asemel et peatuda sündmuste piiri juures keset päeva, näita ka ülejäänud päeva.",
   "show_past_events": "Näita möödunud sündmusi",
+  "skip_first_events": "Jäta esimesed sündmused vahele",
+  "skip_first_events.helper": "Jätab loendi algusest nii palju sündmusi välja, et see kaart jätkaks sealt, kus lõpeb teine samade kalendrite ja sama arvu sündmustega kaart. Kehtib ka laiendatud vaates.",
   "show_empty_days": "Näita tühje päevi",
   "show_empty_today": "Näita tänast ka tühjana",
   "show_empty_today.helper": "Hoiab tänase päeva kaardil ka siis, kui sündmusi pole, teised tühjad päevad jäävad peidetuks.",

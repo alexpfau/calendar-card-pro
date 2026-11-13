@@ -63,11 +63,11 @@ describe('the list block is a registered peer', () => {
     expect(listBlock().defaultOverrides).toEqual({});
   });
 
-  it('carries every key column can override, plus the six list-only ones', () => {
+  it('carries every key column can override, plus the seven list-only ones', () => {
     expect(new Set(ViewConfig.LIST_OVERRIDE_KEYS)).toEqual(
       new Set([...ViewConfig.COLUMN_OVERRIDE_KEYS, ...LIST_ONLY]),
     );
-    expect(LIST_ONLY).toHaveLength(6);
+    expect(LIST_ONLY).toHaveLength(7);
   });
 
   it('resolves a list override over the shared base', () => {

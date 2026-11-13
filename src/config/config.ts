@@ -23,6 +23,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   compact_events_to_show: undefined,
   compact_events_complete_days: false,
   event_order: 'earliest_first',
+  skip_first_events: undefined,
   show_empty_days: false,
   show_empty_today: false,
   hide_when_empty: false,
@@ -504,6 +505,7 @@ export function normalizeNumericOptions(config: Types.Config): Types.Config {
   // than collapsing to zero and hiding content.
   config.compact_days_to_show = toValidNumber(config.compact_days_to_show, 1);
   config.compact_events_to_show = toValidNumber(config.compact_events_to_show, 0);
+  config.skip_first_events = toValidNumber(config.skip_first_events, 0);
 
   return config;
 }

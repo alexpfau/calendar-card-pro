@@ -184,9 +184,10 @@ export const TIME_GRID_ONLY_KEYS = [
 /**
  * Every option that may appear inside the `list:` block.
  *
- * The shared set plus the keys `VIEW_SCOPE` marks list-only. All but `event_order` sat at the
- * top level through v4 for a reason that stopped being true when column view arrived:
- * as long as list was the only view, the top level *was* the list block. They are
+ * The shared set plus the keys `VIEW_SCOPE` marks list-only. All but `event_order` and
+ * `skip_first_events` sat at the top level through v4 for a reason that stopped being true
+ * when column view arrived: as long as list was the only view, the top level *was* the list
+ * block. They are
  * override keys rather than only-keys because each has a `Types.Config` counterpart —
  * `OnlyKeysWithCounterpart` rejects the other classification, which is the assertion
  * doing the deciding rather than this comment.
@@ -201,6 +202,7 @@ export const LIST_OVERRIDE_KEYS = [
   'compact_events_to_show',
   'compact_events_complete_days',
   'event_order',
+  'skip_first_events',
   'date_vertical_alignment',
   'today_indicator_position',
 ] as const;
@@ -322,6 +324,9 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   compact_events_complete_days: new Set<Types.EffectiveView>(['list']),
   // A column reads left to right and a grid down its hours; both keep time running forward.
   event_order: new Set<Types.EffectiveView>(['list']),
+  // A column or grid shows its days whatever their events, so a skip would leave holes rather
+  // than continue a list.
+  skip_first_events: new Set<Types.EffectiveView>(['list']),
 
   // Inert as a card-level grid override: the grid never uses the upstream list splitter.
   // All-day multi-day events become spanning banners. Grid's own daily coverage keeps

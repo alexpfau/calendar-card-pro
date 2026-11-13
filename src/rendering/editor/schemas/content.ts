@@ -115,6 +115,10 @@ const contentSchema = Helpers.memoizeLast(
       // so an always-visible field would be inert half the time — the silent no-op this
       // editor tries hard not to ship.
       ...(filterDuplicates ? [color('duplicate_accent_color')] : []),
+      // Last, because it acts on what the filters above leave rather than on one event: it
+      // drops rows from the top of the result, as the compact limit drops them from its end.
+      // Outside Compact Mode, because it stays in force expanded. A list option, like the order.
+      number('skip_first_events', 0),
 
       heading('heading_multiday'),
       bool('split_multiday_events'),

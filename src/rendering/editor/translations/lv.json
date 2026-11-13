@@ -340,6 +340,8 @@
   "compact_events_complete_days": "Pabeigt pēdējo dienu",
   "compact_events_complete_days.helper": "Tā vietā, lai apstātos pie notikumu ierobežojuma dienas vidū, parādīt arī atlikušo tās dienas daļu.",
   "show_past_events": "Rādīt pagājušos notikumus",
+  "skip_first_events": "Izlaist pirmos notikumus",
+  "skip_first_events.helper": "Izlaiž norādīto skaitu notikumu saraksta sākumā, lai šī karte varētu turpināt sarakstu no vietas, kur beidzas cita karte ar tiem pašiem kalendāriem un tādu pašu rādīto notikumu skaitu. Darbojas arī izvērstajā skatā.",
   "show_empty_days": "Rādīt tukšas dienas",
   "show_empty_today": "Rādīt šodienu arī tukšu",
   "show_empty_today.helper": "Atstāj šodienu kartītē arī tad, ja notikumu nav, bet citas tukšās dienas paliek paslēptas.",

@@ -1858,9 +1858,11 @@ export function groupEventsByDay(
     ? Math.min(config.compact_days_to_show || config.days_to_show, config.days_to_show)
     : config.days_to_show;
 
-  let days = Object.values(eventsByDay)
-    .sort(byDay)
-    .slice(0, effectiveDaysToShow || 3);
+  // Every day with events, in the list's order. Each calendar's cap and then the skip run over
+  // all of them, before the day limit, so the skip counts the rows the card would otherwise
+  // draw and the day limit counts from the first day left. A cap counts from the top and the
+  // day limit keeps a prefix, so capping first keeps exactly what capping the kept days did.
+  let days = Object.values(eventsByDay).sort(byDay);
 
   if (compactLimitsApply) {
     const entityConfigEventCounts = new Map<string, number>();
@@ -1897,6 +1899,41 @@ export function groupEventsByDay(
       day.events = filteredEvents;
     }
   }
+
+  // `skip_first_events` leaves out the first rows the card would draw, so a second card
+  // continues where a first one with the matching event limit stopped. It stays in force
+  // expanded: expanding the second card must not bring the first card's events back. A day
+  // the skip empties leaves the card and takes no day slot, and `continueFrom` is the day the
+  // list now starts from, before which no empty day is drawn: the day the skip stopped in, or
+  // the next date when it stopped at the end of a day.
+  let continueFrom: Date | undefined;
+  const skip = ViewConfig.appliesToView('skip_first_events', effectiveView)
+    ? Math.floor(config.skip_first_events ?? 0)
+    : 0;
+  if (skip > 0) {
+    let left = skip;
+    let stoppedIn: Types.EventsByDay | undefined;
+    days = days.filter((day) => {
+      if (left === 0) return true;
+      if (day.events.length > left) {
+        day.events = day.events.slice(left);
+        left = 0;
+        stoppedIn = day;
+        return true;
+      }
+      left -= day.events.length;
+      if (day.events.length > 0) stoppedIn = day;
+      day.events = [];
+      return false;
+    });
+    if (stoppedIn) {
+      const date = new Date(stoppedIn.timestamp);
+      const next = stoppedIn.events.length > 0 ? 0 : latestFirst ? -1 : 1;
+      continueFrom = new Date(date.getFullYear(), date.getMonth(), date.getDate() + next);
+    }
+  }
+
+  days = days.slice(0, effectiveDaysToShow || 3);
 
   if (!expandApplies && !showEmptyDays) {
     days = days.filter(
@@ -2005,12 +2042,19 @@ export function groupEventsByDay(
   // Empty means empty before the compact limits ran. They can drop today's events from a
   // collapsed card whose window starts before today, and the fill must not then report a
   // day as free that expanding the card shows is not.
+  //
+  // Nor is today kept on a day a skip passed over: its events, if it had any, are on the card
+  // the skip continues from.
   let emptyToday: Date | undefined;
   if (config.show_empty_today && !showEmptyDays) {
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const offset = FormatUtils.getCalendarDayDiff(referenceStart, today);
     const hasEvents = Boolean(eventsByDay[FormatUtils.getLocalDateKey(today)]);
-    if (offset >= 0 && offset < config.days_to_show && !hasEvents) emptyToday = today;
+    const skippedOver =
+      continueFrom !== undefined && (latestFirst ? today > continueFrom : today < continueFrom);
+    if (offset >= 0 && offset < config.days_to_show && !hasEvents && !skippedOver) {
+      emptyToday = today;
+    }
   }
 
   const eventDayCount = days.length;
@@ -2022,54 +2066,52 @@ export function groupEventsByDay(
     const hasCustomEmptyText = Boolean(customEmptyText);
     const emptyDayText = customEmptyText || translations.noEvents;
 
-    let startDateForEmptyDays = new Date(referenceDate);
+    // Every range starts where the list starts and runs its way: from the window's first day,
+    // from its last for a list read latest first, or from the day a skip stopped in
+    // (`continueFrom`), held inside the window. Built from local date fields, so a range across
+    // a daylight-saving change is still whole days.
+    const dayOf = (date: Date, offset = 0) =>
+      new Date(date.getFullYear(), date.getMonth(), date.getDate() + offset);
+    const windowFirstDay = dayOf(referenceDate);
+    const windowLastDay = dayOf(referenceDate, config.days_to_show - 1);
+    const listStart = continueFrom
+      ? new Date(
+          Math.min(
+            Math.max(continueFrom.getTime(), windowFirstDay.getTime()),
+            windowLastDay.getTime(),
+          ),
+        )
+      : latestFirst
+        ? windowLastDay
+        : windowFirstDay;
 
-    let endDateForEmptyDays: Date;
+    // How many dates from there the fill covers.
+    let span: number;
 
     if (expandApplies) {
-      endDateForEmptyDays = new Date(referenceDate);
-      endDateForEmptyDays.setDate(endDateForEmptyDays.getDate() + effectiveDaysToShow - 1);
+      span = effectiveDaysToShow;
     } else if (days.length === 0) {
-      if (showEmptyDays) {
-        endDateForEmptyDays = new Date(referenceDate);
-        endDateForEmptyDays.setDate(endDateForEmptyDays.getDate() + effectiveDaysToShow - 1);
-      } else {
-        endDateForEmptyDays = new Date(referenceDate);
-      }
+      // A card with nothing to show gives one notice, on the day its list starts from.
+      span = showEmptyDays ? effectiveDaysToShow : 1;
     } else if (compactLimitsApply && config.compact_events_to_show) {
-      if (days.length > 0) {
-        const lastDayTimestamp = Math.max(...days.map((d) => d.timestamp));
-        endDateForEmptyDays = new Date(lastDayTimestamp);
-      } else {
-        endDateForEmptyDays = new Date(referenceDate);
-      }
+      // As far as the farthest day the event limit reached.
+      const shown = days.map((d) => d.timestamp);
+      const farthest = new Date(latestFirst ? Math.min(...shown) : Math.max(...shown));
+      span = Math.abs(FormatUtils.getCalendarDayDiff(listStart, farthest)) + 1;
     } else {
       // Everything else pads to the full window, including a compact day limit with no
       // event limit: `effectiveDaysToShow` has already been narrowed to that limit above,
       // so that case needs no branch of its own. It used to have one, whose body was a
       // byte-for-byte copy of this block, which read as a special case while doing nothing
       // a reader could distinguish from the default.
-      endDateForEmptyDays = new Date(referenceDate);
-      endDateForEmptyDays.setDate(endDateForEmptyDays.getDate() + effectiveDaysToShow - 1);
+      span = effectiveDaysToShow;
     }
 
-    // The same dates from the window's other end. Each range above runs from the window's
-    // first day as far as the list reaches, so a latest-first list, which starts from the
-    // window's last day, fills as many dates back from there; and a lone notice for an empty
-    // card sits on the last day, at the top. Built from local date fields, so a range across
-    // a daylight-saving change is still whole days.
-    if (latestFirst) {
-      const dayOf = (date: Date, offset = 0) =>
-        new Date(date.getFullYear(), date.getMonth(), date.getDate() + offset);
-      const windowLastDay = dayOf(referenceDate, config.days_to_show - 1);
-      if (compactLimitsApply && config.compact_events_to_show && days.length > 0) {
-        startDateForEmptyDays = dayOf(new Date(Math.min(...days.map((d) => d.timestamp))));
-      } else {
-        const spanned = FormatUtils.getCalendarDayDiff(startDateForEmptyDays, endDateForEmptyDays);
-        startDateForEmptyDays = dayOf(windowLastDay, -spanned);
-      }
-      endDateForEmptyDays = windowLastDay;
-    }
+    const farEnd = dayOf(listStart, (latestFirst ? -1 : 1) * (span - 1));
+    let startDateForEmptyDays = latestFirst ? farEnd : listStart;
+    let endDateForEmptyDays = latestFirst ? listStart : farEnd;
+    if (startDateForEmptyDays < windowFirstDay) startDateForEmptyDays = windowFirstDay;
+    if (endDateForEmptyDays > windowLastDay) endDateForEmptyDays = windowLastDay;
 
     // Collapse the range the loop already walks, rather than filling it and then
     // throwing the other days away. A blank card's single start-date row becomes
