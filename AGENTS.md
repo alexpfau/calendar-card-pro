@@ -245,6 +245,12 @@ a failed calendar. Unless the test is about live updates, answer it as Home Assi
 2026.5 does, with `Promise.reject({ code: 'unknown_command' })`; `tests/live-updates.test.ts`
 has a fake that pushes.
 
+The card also subscribes with `subscribe_condition` for each visibility condition only Home
+Assistant can judge (`src/utils/core-conditions.ts`). A fake that resolves it and never pushes is
+harmless there, as such a calendar stays hidden until an answer comes, which is what a test of
+those conditions expects anyway; to make one show, push an answer, as `withCore` in
+`tests/visibility-card.test.ts` does.
+
 🚨 **A test that walks a table's own keys cannot notice a key leaving it.** The idiom
 `for (const key of Object.keys(TABLE)) expect(somethingAbout(key)).toBeDefined()` reads
 like coverage and is not: delete an entry and the loop runs one fewer time, so the suite
@@ -1735,7 +1741,10 @@ moved (`src/utils/hass-relevance.ts`). Two consequences for new code:
   of an entity the configuration names. Walking every state (`Object.keys(hass.states)`), or
   reading an entity the configuration does not name, silently breaks the rule:
   `tests/hass-relevance.test.ts` records every read across a matrix of views and fails on
-  either. Add a case there when a feature reads `hass` in a new way.
+  either. Add a case there when a feature reads `hass` in a new way. The one reader of states
+  the configuration does not name is a `location` visibility condition: the viewer's person,
+  found through the entity registry rather than by walking states, and the zones.
+  `watchedEntityIds` adds those for a card that has one; a later reader of that kind goes there.
 - **Nothing on screen may rely on `hass` traffic to stay current.** Unrelated updates used to
   repaint every card every few seconds, which kept countdowns, progress bars,
   `allday_expires_at` and midnight moving without anything scheduling it. Text that changes
@@ -1750,10 +1759,24 @@ plain schema objects, and a schema names a **selector** rather than an element. 
 the whole point — Home Assistant renames its input components without notice (`ha-textfield`
 became `ha-input` in 2026.5 and cost us a runtime-detection shim), and a card that names
 selectors is not exposed to it. The element names three Home Assistant components in total:
-`ha-form`, `ha-expansion-panel` and `ha-svg-icon`.
+`ha-form`, `ha-expansion-panel` and `ha-svg-icon`, plus one exception below.
 
 **Never name an HA input element in a schema.** If a panel seems to need one, that is the
 signal to stop, not to reach for `static-html`.
+
+**The one exception: `ha-card-conditions-editor`, and only behind a guard.** A calendar's
+visibility conditions are edited in Home Assistant's own Visibility editor, the element under
+every card's Visibility tab, because no selector reaches it: the `condition` selector edits an
+automation's conditions, which have no `user`, `screen`, `time` or `location`. It is named in
+`element.ts` alone, outside every schema, between two halves of the calendar's form
+(`splitAtVisibility`), and only where `customElements.get()` finds it **and** Lit's
+`elementProperties` on it declare the `hass` and `conditions` the editor sets. Anywhere else,
+including a Home Assistant that renames or removes it, the panel keeps the `object` selector, a
+YAML box, which is how the conditions were edited before. So a rename costs the nicer editor and
+never a dead panel; `tests/editor-visibility.test.ts` pins both sides. Two facts it relies on:
+Home Assistant's card editor imports it statically to draw the Visibility tab, so it is defined
+before this editor opens, and its name and those two properties have held since 2023.11. Do not
+add a second exception without the same guard and fallback.
 
 Everything except `element.ts` and `styles.ts` is free of Lit and of the DOM. That is
 load-bearing, not tidiness: it is what lets both the test suite and `check:i18n` import a

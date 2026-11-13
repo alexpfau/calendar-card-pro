@@ -125,19 +125,17 @@ entities:
 ```
 
 A calendar's events show while every condition in its list holds, and a calendar with no list
-always shows. The card judges these conditions:
+always shows. In the [visual editor](/features/editor#per-calendar-panels-actions), each
+calendar's panel has a **Visibility** section holding Home Assistant's own Visibility editor, the
+one under a card's **Visibility** tab, which picks people by name rather than by ID.
 
-- `user`: the person viewing the dashboard is one of `users`, by user ID;
-- `state`: an entity's state is one of `state`, or none of `state_not`;
-- `numeric_state`: an entity's state is a number above `above` and below `below`;
-- `screen`: the browser matches `media_query`;
-- `time`: it is between `after` and `before`, on one of `weekdays`;
-- `and`, `or` and `not`: all, any, or not all of their `conditions` hold.
+Every condition that editor offers works here:
 
-The easiest way to write them is in this card's **Visibility** tab, which picks people by name
-rather than by ID. Then open the code editor, move the `visibility:` list under the calendar,
-and remove it from the card. In the [visual editor](/features/editor#per-calendar-panels-actions), each
-calendar's panel takes the same YAML under **Visibility**.
+- `user`, `state`, `numeric_state`, `screen`, `time` and `location` (where the person linked to
+  your Home Assistant user is), and `and`, `or` and `not` over any of them;
+- `template`, `sun`, `zone`, `device`, and a `state` that must have held `for` a while, which
+  Home Assistant judges itself. These need Home Assistant 2026.10 or later, and a calendar that
+  depends on one stays hidden until Home Assistant has answered.
 
 A calendar hidden this way is not on the card for that person at that moment. Its events are
 gone from every view and from [search](/features/layout-appearance#searching-the-card), it has
@@ -151,12 +149,17 @@ Assistant login can read every calendar through Home Assistant itself, and anyon
 the dashboard can read its configuration, conditions included.
 :::
 
-::: details Conditions the Card Cannot Judge, Calendars Listed Twice & Editing
+::: details Older Home Assistant, Calendars Listed Twice & Editing
 
-- `template`, `sun`, `zone`, `device`, `location` and a `state` that must have held `for` a
-  while need Home Assistant's core, which the card does not ask. A calendar whose conditions
-  depend on one stays hidden, and the browser console says which. A template binary sensor in
-  Home Assistant does the same job: put the test in the sensor, and use `condition: state` on it.
+- Before Home Assistant 2026.10, a calendar whose conditions depend on `template`, `sun`, `zone`,
+  `device` or a `state` held `for` a while stays hidden, and the browser console says why once.
+  2026.6 to 2026.9 judge them for administrators only. A template binary sensor does the same job
+  on any version: put the test in the sensor, and use `condition: state` on it.
+- Before Home Assistant 2023.11, which has no Visibility editor to lend, the panel takes the
+  conditions as YAML instead.
+- Written by hand, a `state` or `numeric_state` condition naming its entity with `entity` rather
+  than `entity_id` cannot wait (`for`) or use a `value_template`. Its calendar stays hidden, and
+  the browser console says why. Home Assistant's editor writes `entity_id`.
 - Conditions belong to one entry in `entities`. A calendar listed twice, as
   [splitting it by event type](#separating-all-day-from-timed-events) does, needs them on each
   entry, and one entry can show while the other does not. The calendar leaves the filter, adding

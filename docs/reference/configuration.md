@@ -165,7 +165,7 @@ the card-wide options for that one calendar:
 **→ [Naming a calendar in the card](/features/core-settings#naming-a-calendar-in-the-card)** — `name`, where it shows, and what keeps Home Assistant's name.
 **→ [Scaling one calendar's text](/features/core-settings#scaling-one-calendars-text)** — `text_scale`, what it makes larger or smaller, and where.
 **→ [Leaving a calendar out of the filter](/features/layout-appearance#leaving-a-calendar-out-of-the-filter)** — `show_in_legend`, for a calendar shown on the card without a chip of its own.
-**→ [Showing a calendar under conditions](/features/core-settings#showing-a-calendar-under-conditions)** — `visibility`, Home Assistant's conditions for one calendar: by person, state, screen or time.
+**→ [Showing a calendar under conditions](/features/core-settings#showing-a-calendar-under-conditions)** — `visibility`, Home Assistant's conditions for one calendar: by person, place, state, screen, time or template.
 **→ [Rewriting what an event says](/features/core-settings#text-replacement)** — `replace_pattern` and `replace_with`, and what each does when the other is left out.
 **→ [Choosing how a label is read](/features/core-settings#choosing-how-a-label-is-read)** — when `label_type` is needed, and when it is not.
 **→ [Using a picture Home Assistant already serves](/features/core-settings#using-a-picture-home-assistant-already-serves)** — a person's photo as a label by its address, where to find it, and which pictures do not work.
