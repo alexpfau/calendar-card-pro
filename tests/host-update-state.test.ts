@@ -47,7 +47,7 @@ interface CardUnderTest extends HTMLElement {
   events: Types.CalendarEventData[];
   updateEvents(force?: boolean): Promise<void>;
   toggleExpanded(): void;
-  _hasFetchError: boolean;
+  _failedEntities: string[];
   readonly updateComplete: Promise<boolean>;
   readonly shadowRoot: ShadowRoot | null;
 }
@@ -125,7 +125,7 @@ describe('host fetch bookkeeping', () => {
 
     await card.updateEvents();
 
-    expect(card._hasFetchError).toBe(true);
+    expect(card._failedEntities).toEqual(['calendar.broken']);
   });
 
   it('does not mark the card as errored when every calendar succeeds', async () => {
@@ -134,7 +134,7 @@ describe('host fetch bookkeeping', () => {
 
     await card.updateEvents();
 
-    expect(card._hasFetchError).toBe(false);
+    expect(card._failedEntities).toEqual([]);
   });
 
   it('keeps previously loaded events when a refresh of the same query fails', async () => {
