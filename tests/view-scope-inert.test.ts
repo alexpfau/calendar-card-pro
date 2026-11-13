@@ -209,6 +209,50 @@ describe('time_position in grid', () => {
   });
 });
 
+describe('show_day_counter in grid', () => {
+  /**
+   * A timed event under way, from yesterday to the day after tomorrow, beside the fixture's
+   * three-day all-day event: the two shapes grid splits its own way, and the ones the counter
+   * names in list and column. The bar is on, so the grid has one for the counter to take away.
+   */
+  function fieldTrip(): Types.CalendarEventData {
+    const start = new Date();
+    start.setDate(start.getDate() - 1);
+    start.setHours(10, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 3);
+    return {
+      start: { dateTime: start.toISOString() },
+      end: { dateTime: end.toISOString() },
+      summary: 'Ben field trip',
+      _entityId: 'calendar.personal',
+    };
+  }
+
+  const LONG = [...EVENTS, fieldTrip()];
+  const BAR = { show_progress_bar: true };
+
+  it('changes both agenda views', () => {
+    for (const view of ['list', 'column'] as const) {
+      expect(renderView(view, { ...BAR, show_day_counter: true }, LONG), view).not.toBe(
+        renderView(view, BAR, LONG),
+      );
+    }
+  });
+
+  it.each([
+    ['set card-wide', { show_day_counter: true }],
+    ['set in time_grid:', { time_grid: { show_day_counter: true } }],
+  ])('cannot change the grid tree, %s', (_name, overrides) => {
+    const unchanged = renderView('grid', BAR, LONG);
+    expect(unchanged).toContain('Ben field trip');
+    expect(unchanged).toContain('progress-bar');
+    expect(renderView('grid', { ...BAR, ...overrides } as Partial<Types.Config>, LONG)).toBe(
+      unchanged,
+    );
+  });
+});
+
 describe('all-day content options in grid', () => {
   /**
    * Flip the option away from whatever the view actually resolves it to.

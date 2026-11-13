@@ -6,6 +6,7 @@
   "multiDay": "eddig:",
   "endsToday": "ma {at} ér véget",
   "endsTomorrow": "holnap {at} ér véget",
+  "dayOfEvent": "{day}/{days}. nap",
   "at": "{time}-kor",
   "separator": ", ",
   "viewList": "Lista",

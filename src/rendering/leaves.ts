@@ -870,6 +870,13 @@ export interface EventContentParts {
 
   countdownStr: string | null;
 
+  /**
+   * "Day 2 of 3" (`show_day_counter`), drawn in the countdown's place and exactly as the
+   * countdown is, in every placement it has. `buildEventPresentation` sets at most one of the
+   * two; absent everywhere the card draws no counter, grid included.
+   */
+  dayCounter?: string | null;
+
   progressPercentage: number | null;
 
   /**
@@ -1006,7 +1013,8 @@ export function renderEventContent(
     locationIcon,
     eventDescription,
     shouldShowTime,
-    countdownStr,
+    countdownStr: countdownOnly,
+    dayCounter = null,
     progressPercentage,
     entityLabel,
     entityLabelAlt,
@@ -1017,6 +1025,12 @@ export function renderEventContent(
 
   // The row's own words, in their language's direction where the dashboard runs the other way.
   const own = (text: string): string => TextDirection.inLanguageDirection(text, languageMark);
+
+  // The day counter takes the countdown's place, so from here on it is the countdown, and every
+  // placement below draws it as one. Its own class is what tells the two apart, for a theme.
+  const countdownStr = countdownOnly ?? dayCounter;
+  const countdownClass =
+    countdownOnly === null && dayCounter !== null ? 'time-countdown day-counter' : 'time-countdown';
 
   // Pieces only where a field holds a link, so every other row binds its plain string as before.
   const linked = links
@@ -1119,7 +1133,7 @@ export function renderEventContent(
   // Keep folded time/countdown spans adjacent; whitespace would render before the separator.
   // prettier-ignore
   const timeText = foldCountdown
-    ? html`<span class="time-text">${timeValue}<span class="time-countdown">${countdownText}</span></span>`
+    ? html`<span class="time-text">${timeValue}<span class=${countdownClass}>${countdownText}</span></span>`
     : timeValue;
 
   // A running event's row keeps its clock where every row has it, filled rather than outlined,
@@ -1154,6 +1168,7 @@ export function renderEventContent(
       allDayBadgeEl,
       timeContent,
       countdownStr: countdownText,
+      countdownClass,
       progressRow,
       weatherRow,
       eventLocation,
@@ -1181,7 +1196,7 @@ export function renderEventContent(
                   ${allDayBadgeEl}${timeContent}
                 </div>
                 ${trailingCountdown
-                  ? html`<div class="time-countdown">${trailingCountdown}</div>`
+                  ? html`<div class=${countdownClass}>${trailingCountdown}</div>`
                   : showInlineProgress
                     ? html`
                         <div class="progress-bar">
@@ -1200,7 +1215,7 @@ export function renderEventContent(
             ? html`
                 <div class="time">
                   <div class="time-actual"></div>
-                  <div class="time-countdown">${countdownText}</div>
+                  <div class=${countdownClass}>${countdownText}</div>
                 </div>
               `
             : showInlineProgress
@@ -1246,6 +1261,7 @@ interface TimeBesideTitlePieces {
   allDayBadgeEl: TemplateResult | typeof nothing;
   timeContent: TemplateResult | typeof nothing;
   countdownStr: string | null;
+  countdownClass: string;
   progressRow: TemplateResult | typeof nothing;
   weatherRow: TemplateResult | typeof nothing;
   eventLocation: string;
@@ -1281,11 +1297,11 @@ interface TimeBesideTitlePieces {
  * @returns Rendered event body
  */
 function renderTimeBesideTitle(pieces: TimeBesideTitlePieces): TemplateResult {
-  const { shouldShowTime, allDayBadgeEl, timeContent, countdownStr } = pieces;
+  const { shouldShowTime, allDayBadgeEl, timeContent, countdownStr, countdownClass } = pieces;
 
   const timeRow = shouldShowTime
     ? html`<div class="time"><div class="time-actual">${allDayBadgeEl}${timeContent}</div></div>`
-    : html`<div class="time"><div class="time-countdown">${countdownStr}</div></div>`;
+    : html`<div class="time"><div class=${countdownClass}>${countdownStr}</div></div>`;
 
   return html`
     <div class="event-content time-beside-title">

@@ -2784,8 +2784,9 @@ class CalendarCardPro extends LitElement {
    *
    * A minute from now while a countdown that names minutes or hours, or a progress bar, is on
    * screen. Otherwise the next local midnight, which moves the mark of today, "Today" and
-   * "Tomorrow", a countdown that names days, and the dimming of a past all-day event or empty
-   * day, on every card. Null where the now line's own tick repaints every minute anyway.
+   * "Tomorrow", a countdown that names days, the day counter, and the dimming of a past all-day
+   * event or empty day, on every card. Null where the now line's own tick repaints every minute
+   * anyway.
    *
    * @param now - Epoch milliseconds
    * @returns Epoch milliseconds, or null
@@ -2814,7 +2815,8 @@ class CalendarCardPro extends LitElement {
    * Whether a countdown or a progress bar on screen changes within the next minute or so.
    *
    * A countdown to a start later today reads in minutes or hours; one to a later day reads in
-   * days, and moves only at midnight. A progress bar moves while its event runs.
+   * days, and moves only at midnight. A progress bar moves while its event runs. The day
+   * counter, which takes a bar's place, moves only at midnight.
    *
    * @param now - Epoch milliseconds
    * @param midnight - The next local midnight, in epoch milliseconds
@@ -2825,10 +2827,20 @@ class CalendarCardPro extends LitElement {
     const countdown = config.show_countdown;
     const progress = config.show_progress_bar;
     if (!countdown && !progress) return false;
+    // A row the day counter counts draws no bar (`buildEventPresentation`), so it has nothing
+    // that moves by the minute.
+    const counted =
+      config.show_day_counter && ViewConfig.appliesToView('show_day_counter', this.effectiveView);
 
     return this._shownEvents.some((event) => {
       if (event._isEmptyDay) return false;
-      if (progress && EventUtils.calculateEventProgress(event) !== null) return true;
+      if (
+        progress &&
+        !(counted && EventUtils.countsDays(event)) &&
+        EventUtils.calculateEventProgress(event) !== null
+      ) {
+        return true;
+      }
       if (!countdown || !event.start?.dateTime) return false;
       const start = new Date(event.start.dateTime).getTime();
       return start > now && start < midnight;

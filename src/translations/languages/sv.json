@@ -11,6 +11,7 @@
   "viewGrid": "Tidsrutnät",
   "endsToday": "slutar idag",
   "endsTomorrow": "slutar imorgon",
+  "dayOfEvent": "Dag {day} av {days}",
   "noEvents": "Inga händelser",
   "loading": "Laddar kalenderhändelser...",
   "error": "Fel: Kalenderentiteten hittades inte eller är felaktigt konfigurerad.",

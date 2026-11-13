@@ -290,13 +290,30 @@ export function buildEventPresentation(
 
   const countdownStr = eventCountdown(event, config, language, isPastEvent);
 
+  // `show_day_counter`: "Day 2 of 3" on a row of an event a day or more long, in the place the
+  // countdown and the progress bar take. The three hand the place over in the order an event
+  // lives through them: the countdown has it until the event starts, as it has today, and the
+  // counter from then on, where the bar would have been. So a later day of a trip under way
+  // says which day it is rather than "tomorrow", and a row with no countdown to show, because
+  // it is off or out of range, names its day before the event starts too. `groupEventsByDay`
+  // stamps the day only in the views that draw it.
+  const dayOfEvent = config.show_day_counter && !isEmptyDay ? event._dayOfEvent : undefined;
+  let dayCounter: string | null = null;
+  if (dayOfEvent && (countdownStr === null || EventUtils.eventHasStarted(event, now))) {
+    countdownStr = null;
+    dayCounter = FormatUtils.formatDayOfEvent(dayOfEvent, language);
+  }
+
   const isRunning = EventUtils.isEventCurrentlyRunning(event);
   // Not gated on `isRunning`: a middle day of a split timed event reads as all-day, so it is
   // not "running" for the Now label below, but its day is part of an event under way and
   // carries the bar. `calculateEventProgress` answers null for every row that has none.
-  const progressPercentage = config.show_progress_bar
-    ? EventUtils.calculateEventProgress(event)
-    : null;
+  //
+  // A row the day counter counts draws no bar: over a long event a bar barely moves, and the
+  // counter says how far along it is instead. Asked of the stamp rather than of whether the
+  // counter is drawn, so a running row draws one or the other and never both.
+  const progressPercentage =
+    config.show_progress_bar && !dayOfEvent ? EventUtils.calculateEventProgress(event) : null;
 
   // All-day events never run in this sense — `isEventCurrentlyRunning` answers false for
   // them — so a day full of all-day entries does not turn into a column of "Now" labels.
@@ -391,6 +408,7 @@ export function buildEventPresentation(
     mergedLabels: EventUtils.resolveMergedLabels(event, config, hass),
     shouldShowTime,
     countdownStr,
+    dayCounter,
     progressPercentage,
     nowLabel,
     languageMark: TextDirection.languageMark(language, hass),

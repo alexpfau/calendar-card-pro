@@ -553,6 +553,8 @@
   "countdown_exact_days": "Odliczaj tylko w dniach",
   "countdown_exact_days.helper": "Od jutra odlicza w dniach: „za 30 dni” zamiast „za miesiąc” i „za 1 dzień” zamiast „jutro”.",
   "show_progress_bar": "Pokaż pasek postępu",
+  "show_day_counter": "Pokaż licznik dni",
+  "show_day_counter.helper": "Wydarzenia trwające co najmniej dzień pokazują w każdym wierszu, który to ich dzień („Dzień 2 z 3”): zamiast paska postępu, a po rozpoczęciu także zamiast odliczania.",
   "show_now_indicator": "Pokaż wskaźnik „Teraz”",
   "show_now_indicator.helper": "Dodaje zielone „Teraz” przed godziną wydarzeń, które właśnie trwają.",
   "now_color": "Kolor „Teraz”",

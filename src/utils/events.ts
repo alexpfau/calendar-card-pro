@@ -1461,6 +1461,13 @@ export function groupEventsByDay(
   const byDay = (a: Types.EventsByDay, b: Types.EventsByDay): number =>
     latestFirst ? b.timestamp - a.timestamp : a.timestamp - b.timestamp;
 
+  // Which day of its event a row stands for, only where it is drawn, and only while the option
+  // is on, so a card without it keeps its rows as they were. Gated on the view for the same
+  // reason as `latest_first` above. In grid the gate decides nothing today: its splitter hands
+  // this function one-day segments, which never count. It is here so that stays a decision.
+  const stampsDayOfEvent =
+    Boolean(config.show_day_counter) && ViewConfig.appliesToView('show_day_counter', effectiveView);
+
   const referenceDate = getStartDateReference(
     config,
     FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hass?.locale),
@@ -1800,6 +1807,9 @@ export function groupEventsByDay(
         _sourceStart: event._sourceStart,
         _sourceEnd: event._sourceEnd,
         _splitFromTimedEvent: event._splitFromTimedEvent,
+        _dayOfEvent: stampsDayOfEvent
+          ? (resolveDayOfEvent(event, displayDate) ?? undefined)
+          : undefined,
         _gridSegmentStartsEvent: event._gridSegmentStartsEvent,
         _gridSource: event._gridSource,
       } satisfies Types.EveryMember<Types.CalendarEventData, LeftOffDisplayCopy>);
@@ -3031,6 +3041,113 @@ export function calculateEventProgress(event: Types.CalendarEventData): number |
   );
 
   return progressPercentage;
+}
+
+/**
+ * The days an event takes up, when it is long enough for `show_day_counter` to count them: its
+ * first day, and how many days it runs, at least two.
+ *
+ * A day is a local calendar date the event takes up time on. The end instant itself takes up
+ * none, so a timed event ending at 0:00 does not count the date that midnight opens: its last
+ * day is the date of the moment before its end. That holds where a midnight is missing or
+ * repeats as well. Where the clocks go forward at midnight, an end at the new day's first
+ * moment, 01:00, still leaves the day before as the last; where they go back at midnight, an
+ * end at the second 00:00 has taken up an hour of the new date, which counts. These are the
+ * days `splitMultiDayEvent` draws a row for, one for one.
+ *
+ * An all-day event counts from two dates. A timed event counts only once it is a full day long
+ * on the local calendar, ending no earlier than its start's time of day on the next date, so a
+ * night from 22:00 to 06:00 reads as one night rather than "Day 2 of 2", and keeps the progress
+ * bar a short event still has a use for. Measured on the calendar, a day the clocks change is
+ * as long as the calendar says, 23 hours or 25.
+ *
+ * @param start Event start, as Home Assistant sent it
+ * @param end Event end, as Home Assistant sent it
+ * @returns The event's first day and its number of days, or null for an event shorter than that
+ */
+export function multiDaySpan(
+  start: Types.CalendarEventData['start'] | undefined,
+  end: Types.CalendarEventData['end'] | undefined,
+): { first: Date; days: number } | null {
+  let first: Date;
+  let last: Date;
+
+  if (start?.date && end?.date) {
+    first = FormatUtils.parseAllDayDate(start.date);
+    last = FormatUtils.parseAllDayDate(end.date);
+    last.setDate(last.getDate() - 1);
+  } else if (start?.dateTime && end?.dateTime) {
+    first = new Date(start.dateTime);
+    const endInstant = new Date(end.dateTime);
+    const dayLater = new Date(first);
+    dayLater.setDate(dayLater.getDate() + 1);
+    // Written positively: an unparseable date compares false both ways, and must not pass.
+    if (!(endInstant >= dayLater)) return null;
+    last = new Date(endInstant.getTime() - 1);
+  } else {
+    return null;
+  }
+
+  const days = FormatUtils.getCalendarDayDiff(first, last) + 1;
+
+  return days >= 2 ? { first, days } : null;
+}
+
+/**
+ * Whether `show_day_counter` counts this event's days: whether it is a day or more long, as
+ * `multiDaySpan` measures it. A row of such an event draws no progress bar while the counter is
+ * on, which is what the clock repaint asks this for.
+ *
+ * @param event A whole event or one day of one, as list and column split it
+ * @returns True for an event a day or more long
+ */
+export function countsDays(event: Types.CalendarEventData): boolean {
+  return multiDaySpan(event._sourceStart ?? event.start, event._sourceEnd ?? event.end) !== null;
+}
+
+/**
+ * Which of its event's days a list or column row stands for, "Day 2 of 3".
+ *
+ * A row names the date it is drawn under, so a day of an event split across several names its
+ * own, and a row standing for a whole event names the day it is drawn on: its first, or the
+ * window's first day for an event that began earlier. A row under a date the event takes up no
+ * time on names nothing. Grouping draws one there in a single case, an unsplit event ending at
+ * the window's first midnight with past events shown, which would otherwise read "Day 4 of 3".
+ *
+ * @param event A whole event or one day of one, as list and column split it
+ * @param displayDate The date the row is drawn under
+ * @returns The day and the number of days, or null where the row names none
+ */
+export function resolveDayOfEvent(
+  event: Types.CalendarEventData,
+  displayDate: Date,
+): Types.DayOfEvent | null {
+  const span = multiDaySpan(event._sourceStart ?? event.start, event._sourceEnd ?? event.end);
+  if (!span) return null;
+
+  const day = FormatUtils.getCalendarDayDiff(span.first, displayDate) + 1;
+
+  return day >= 1 && day <= span.days ? { day, days: span.days } : null;
+}
+
+/**
+ * Whether the event a row belongs to has begun: a day of a split event asks about the event,
+ * not about its own day, so the third day of a trip under way has begun although its own
+ * midnight is still ahead.
+ *
+ * @param event A whole event or one day of one, as list and column split it
+ * @param now The instant to measure against
+ * @returns True once the event's start has passed
+ */
+export function eventHasStarted(event: Types.CalendarEventData, now: Date): boolean {
+  const start = event._sourceStart ?? event.start;
+  const instant = start?.dateTime
+    ? new Date(start.dateTime)
+    : start?.date
+      ? FormatUtils.parseAllDayDate(start.date)
+      : null;
+
+  return instant !== null && instant <= now;
 }
 
 //-----------------------------------------------------------------------------

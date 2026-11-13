@@ -56,8 +56,9 @@ describe('past-event opacity editor contract', () => {
     const names = schema.map((node) => node.name);
     const start = names.indexOf('show_progress_bar');
     expect(start).toBeGreaterThan(0);
-    expect(names.slice(start, start + 6)).toEqual([
+    expect(names.slice(start, start + 7)).toEqual([
       'show_progress_bar',
+      'show_day_counter',
       'heading_event_state',
       'show_now_indicator',
       'now_color',

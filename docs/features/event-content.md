@@ -735,7 +735,9 @@ show_countdown_allday: false # Timed events only
 When [`split_multiday_events`](/features/multi-day-events) is on, each day's row counts to its
 own start by the rules above: a holiday starting tomorrow reads "tomorrow", "in 2 days", "in 3
 days" and so on down its rows, whether or not it has a start time. An unsplit event counts to
-its original start, and a row already under way has no countdown.
+its original start, and a row already under way has no countdown. With
+[`show_day_counter`](/features/multi-day-events#day-counter), a row of an event a day or longer
+names its day once the event has started, rather than counting down to its own start.
 
 ::: details Long Countdowns on a Narrow Card
 
@@ -1099,6 +1101,8 @@ own. See [Options That Start From a Different Default](/features/grid-view#optio
 An event running over several days fills its bar over the whole event. Split across days by
 [`split_multiday_events`](/features/multi-day-events), it draws the bar on today's row only,
 including a middle day shown as all-day, so the bar keeps growing from one day's row to the
-next instead of starting again at midnight.
+next instead of starting again at midnight. With
+[`show_day_counter`](/features/multi-day-events#day-counter), an event a day or longer says
+which of its days it is on, "Day 3 of 5", instead of drawing a bar.
 
 Most options on this page live under the card's event column settings — see [Event Column in the configuration reference](/reference/configuration#event-column). Two groups sit elsewhere: the empty-day options are card-wide and belong to [Core Settings](/reference/configuration#core-settings), and `location_icon` is per calendar, listed under [Per-Entity Options](/reference/configuration#per-entity-options).

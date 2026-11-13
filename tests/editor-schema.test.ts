@@ -921,6 +921,9 @@ describe('editor: applicability', () => {
       // Grid's card-level value is inert: all-day spans become one banner, and timed
       // events are segmented by the renderer instead of by the upstream list splitter.
       split_multiday_events: ['column', 'list'],
+      // Only list and column stamp the day a row stands for; grid's banners already span
+      // their days, and it draws neither the counter nor a bar less.
+      show_day_counter: ['column', 'list'],
       // Grid marks the present with its now line; `gridTimedEventContentParts` clears the
       // label whatever the option resolves to.
       show_now_indicator: ['column', 'list'],
@@ -2597,6 +2600,7 @@ describe('editor: the Events panel opening run', () => {
       'show_description',
       'show_countdown',
       'show_progress_bar',
+      'show_day_counter',
       'heading_event_state',
       'show_now_indicator',
       'now_color',

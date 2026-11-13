@@ -19,6 +19,7 @@
   "viewGrid": "Tímatafla",
   "endsToday": "lýkur í dag",
   "endsTomorrow": "lýkur á morgun",
+  "dayOfEvent": "Dagur {day} af {days}",
   "noEvents": "Engir viðburðir",
   "loading": "Hleður inn dagatal...",
   "error": "Villa: Dagatalseining finnst ekki eða er vanstillt",

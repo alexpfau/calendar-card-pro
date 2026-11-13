@@ -553,6 +553,8 @@
   "countdown_exact_days": "Odpočítavať len v dňoch",
   "countdown_exact_days.helper": "Od zajtra počíta v dňoch: „o 30 dní“ namiesto „za mesiac“ a „o 1 deň“ namiesto „zajtra“.",
   "show_progress_bar": "Zobraziť lištu priebehu",
+  "show_day_counter": "Zobraziť počítadlo dní",
+  "show_day_counter.helper": "Udalosti trvajúce deň alebo dlhšie ukazujú v každom riadku, ktorý z ich dní to je („Deň 2 z 3“): namiesto lišty priebehu a po začatí aj namiesto odpočítavania.",
   "show_now_indicator": "Zobraziť indikátor „Teraz“",
   "show_now_indicator.helper": "Pred čas práve prebiehajúcich udalostí pridá zelené „Teraz“.",
   "now_color": "Farba „Teraz“",

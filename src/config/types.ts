@@ -116,6 +116,11 @@ export interface Config {
   /** Count down only to events starting within this many calendar days; unset is no limit. */
   countdown_max_days?: number;
   show_progress_bar: boolean;
+  /**
+   * "Day 2 of 3" on each row of an event a day or more long, in the countdown's place, and no
+   * progress bar on those rows. List and column view only.
+   */
+  show_day_counter: boolean;
   show_now_indicator: boolean;
   now_color: string;
   progress_bar_color: string;
@@ -378,6 +383,7 @@ export interface SharedViewOverrides {
   countdown_exact_days?: boolean;
   countdown_max_days?: number;
   show_progress_bar?: boolean;
+  show_day_counter?: boolean;
   show_now_indicator?: boolean;
   now_color?: string;
   progress_bar_color?: string;
@@ -1013,6 +1019,13 @@ export interface CalendarEventData {
    * only the expiry filter reads it today — that filter runs before the copies are built.
    */
   _splitFromTimedEvent?: boolean;
+  /**
+   * Which of its event's days a list or column row stands for, "Day 2 of 3", set by
+   * `groupEventsByDay` while `show_day_counter` is on. Absent on a row of an event shorter
+   * than a day, and on a row drawn under a day the event takes up no time on. See
+   * `resolveDayOfEvent`.
+   */
+  _dayOfEvent?: DayOfEvent;
   _matchedConfig?: EntityConfig;
   /**
    * Every calendar that contributed a copy of this event, in `entities` order, set only
@@ -1036,6 +1049,12 @@ export interface CalendarEventData {
    * by the template and no element comes or goes for it.
    */
   _searchRing?: boolean;
+}
+
+/** One day of a multi-day event: the `day`th of its `days` calendar days, counted from 1. */
+export interface DayOfEvent {
+  day: number;
+  days: number;
 }
 
 /**
@@ -1438,6 +1457,13 @@ export interface Translations {
    */
   endsToday: string;
   endsTomorrow: string;
+  /**
+   * Which day of a multi-day event a row stands for (`show_day_counter`), with `{day}` and
+   * `{days}` where the two numbers go: "Day {day} of {days}", "Day 2 of 3". A language whose
+   * words would have to agree with the sound of a number writes a form that leaves both bare,
+   * as Finnish does with "Päivä {day}/{days}".
+   */
+  dayOfEvent: string;
   /** The header toolbar's view switcher, one name per view. */
   viewList: string;
   viewColumns: string;

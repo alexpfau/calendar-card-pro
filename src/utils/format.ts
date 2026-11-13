@@ -269,6 +269,23 @@ export function getCountdownString(
 }
 
 /**
+ * "Day 2 of 3": which day of a multi-day event a row stands for, in the card's language.
+ *
+ * The numbers are written as digits, as the date column writes its day: no card language
+ * writes its own. `Intl` has nothing to offer for the words, since it names the field "day"
+ * alone and no "of", so they are the card's `dayOfEvent` string.
+ *
+ * @param dayOfEvent The day and the number of days, as `resolveDayOfEvent` found them
+ * @param language Language code
+ * @returns The counter's text
+ */
+export function formatDayOfEvent(dayOfEvent: Types.DayOfEvent, language: string): string {
+  return Localize.getTranslations(language)
+    .dayOfEvent.replace('{day}', () => String(dayOfEvent.day))
+    .replace('{days}', () => String(dayOfEvent.days));
+}
+
+/**
  * Compiled `remove_location_country` patterns, including the ones that failed to compile.
  *
  * The option is free text in the editor and unvalidated in YAML, so the expression it

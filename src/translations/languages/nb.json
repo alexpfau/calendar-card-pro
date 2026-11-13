@@ -11,6 +11,7 @@
   "viewGrid": "Tidsrutenett",
   "endsToday": "slutter i dag",
   "endsTomorrow": "slutter i morgen",
+  "dayOfEvent": "Dag {day} av {days}",
   "noEvents": "Ingen hendelser",
   "loading": "Laster kalenderhendelser...",
   "error": "Feil: Kalenderenheten ble ikke funnet eller er ikke konfigurert riktig",

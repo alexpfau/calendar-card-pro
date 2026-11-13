@@ -382,6 +382,8 @@
   "countdown_exact_days": "일 단위로만 카운트다운",
   "countdown_exact_days.helper": "내일부터는 ‘한 달 후’ 대신 ‘30일 후’, ‘내일’ 대신 ‘1일 후’처럼 일 단위로 셉니다.",
   "show_progress_bar": "진행률 막대 표시",
+  "show_day_counter": "일차 표시",
+  "show_day_counter.helper": "하루 이상인 이벤트는 각 행이 며칠째인지 ‘3일 중 2일째’처럼 표시합니다. 진행률 막대 대신 표시되며, 이벤트가 시작된 뒤에는 카운트다운 대신 표시됩니다.",
   "show_now_indicator": "지금 표시기 표시",
   "show_now_indicator.helper": "진행 중인 일정의 시간 앞에 녹색 ‘지금’을 표시합니다.",
   "now_color": "지금 색상",

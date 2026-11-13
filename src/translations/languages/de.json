@@ -19,6 +19,7 @@
   "viewGrid": "Zeitraster",
   "endsToday": "endet heute",
   "endsTomorrow": "endet morgen",
+  "dayOfEvent": "Tag {day} von {days}",
   "noEvents": "Keine Termine",
   "loading": "Kalendereinträge werden geladen...",
   "error": "Fehler: Kalender-Entität nicht gefunden oder falsch konfiguriert",
