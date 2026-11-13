@@ -31,6 +31,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   filter_duplicates: false,
   duplicate_accent_color: undefined,
   split_multiday_events: false,
+  multiday_banners: true,
   event_type: 'all',
   language: undefined,
 
@@ -1318,6 +1319,7 @@ export function normalizeEntities(
           replace_pattern: item.replace_pattern,
           replace_with: item.replace_with,
           split_multiday_events: item.split_multiday_events,
+          multiday_banners: item.multiday_banners,
           event_type: item.event_type,
           days_of_week: item.days_of_week,
           allday_expires_at: item.allday_expires_at,

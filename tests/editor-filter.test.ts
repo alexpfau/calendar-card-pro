@@ -567,7 +567,10 @@ describe('editor filter: the per-calendar settings', () => {
       ctxFor(config, { query: 'birthdays' }),
     );
 
-    expect(fieldNames(byId)).toEqual(fieldNames(schema));
+    // Whole as a list card's editor draws it, which withholds the time grid's own control.
+    expect(fieldNames(byId)).toEqual(
+      fieldNames(schema).filter((name) => name !== 'multiday_banners'),
+    );
   });
 
   it('filters a calendar down to the fields that match', () => {
@@ -1003,6 +1006,7 @@ describe('editor: the order of the two panels', () => {
       'replace_with',
       '# heading_multiday',
       'split_multiday_events',
+      'multiday_banners',
       '# heading_details',
       'show_time',
       'show_location',
@@ -1030,6 +1034,7 @@ describe('editor: the order of the two panels', () => {
       'skip_first_events',
       '# heading_multiday',
       'split_multiday_events',
+      'multiday_banners',
       '# heading_nothing',
       'show_empty_days',
       // No `show_empty_today`: with every empty day already showing it has nothing to add,

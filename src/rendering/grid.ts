@@ -19,7 +19,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
 import * as Activation from './activation';
-import { gridEventAccessibleName } from './grid-accessibility';
+import { gridBannerAccessibleName, gridEventAccessibleName } from './grid-accessibility';
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
 import * as TextScale from './text-scale';
@@ -70,6 +70,9 @@ interface GridSeparator {
  * A placeholder for an empty day is dropped outright: the grid already shows an empty
  * day as an empty column of axis, which says the same thing without occupying a row.
  *
+ * `allDay` holds everything drawn in the band: all-day events, and a timed event's days
+ * where `multiday_banners` draws it as a banner (`_gridBanner`).
+ *
  * @param day - Grouped day whose events to sort
  * @returns The day's events, separated
  */
@@ -82,7 +85,7 @@ function sortDayEvents(day: Types.EventsByDay): DayParts {
       continue;
     }
 
-    if (!event.start.dateTime) {
+    if (!event.start.dateTime || event._gridBanner) {
       allDay.push(event);
       continue;
     }
@@ -1187,12 +1190,17 @@ function renderBanner(
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
+  const timed = event.start.dateTime !== undefined;
+  const times = timed
+    ? bannerTimes(event, placement, presentation.contentParts, config, hass)
+    : null;
 
   return html`
     <div
       class=${classMap({
         event: true,
         'grid-banner': true,
+        'grid-banner-timed': timed,
         'past-event': presentation.isPastEvent,
         'continues-before': placement.continuesBefore,
         'continues-after': placement.continuesAfter,
@@ -1213,9 +1221,115 @@ function renderBanner(
       .calendarCardEventTap=${tap}
       .calendarCardDaySlot=${Activation.COVERED}
     >
-      <span class="grid-banner-title">${event.summary ?? ''}</span>
+      ${
+        times
+          ? renderTimedBannerContent(
+              event,
+              times,
+              presentation.contentParts,
+              config,
+              language,
+              hass,
+            )
+          : html`<span class="grid-banner-title">${event.summary ?? ''}</span>`
+      }
     </div>
   `;
+}
+
+/** The times a timed banner draws at its ends, and whether they are 12-hour readings. */
+interface BannerTimes {
+  start: string | null;
+  end: string | null;
+  long: boolean;
+}
+
+/**
+ * The times a timed banner draws at its ends, each `null` where it draws none.
+ *
+ * A time sits at an end only where that end is on screen; past the window's edge, or past a
+ * day the banner skips, the continuation mark takes its place. An end at a day's first moment
+ * draws no time, because the banner's edge already says it: that is 0:00 in most zones and 1:00
+ * on a day the clocks go forward at midnight, while the second 0:00 of a day they go back at
+ * midnight is an hour into that day and keeps its time. `show_time` off draws neither, and
+ * `show_end_time` off draws the start alone.
+ *
+ * @param event - The banner's event, with its own start and end
+ * @param placement - The days it spans on screen
+ * @param parts - Its shared content, for whether it shows a time at all
+ * @param config - Card configuration
+ * @param hass - Home Assistant instance
+ * @returns The start and end texts, and whether they are 12-hour readings
+ */
+function bannerTimes(
+  event: Types.CalendarEventData,
+  placement: Grid.BannerPlacement,
+  parts: Leaves.EventContentParts,
+  config: Types.Config,
+  hass?: Types.Hass | null,
+): BannerTimes {
+  const none = { start: null, end: null, long: false };
+  if (!parts.shouldShowTime || !event.start.dateTime || !event.end.dateTime) return none;
+  const start = new Date(event.start.dateTime);
+  const end = new Date(event.end.dateTime);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return none;
+
+  const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
+  const reading = (date: Date) =>
+    date.getTime() === Grid.startOfDay(date).getTime()
+      ? null
+      : FormatUtils.isolateClockReadings(
+          FormatUtils.formatTime(date, use24h, config.time_two_digit_hours),
+        );
+  return {
+    start: placement.continuesBefore ? null : reading(start),
+    end: placement.continuesAfter || !config.show_end_time ? null : reading(end),
+    long: !use24h,
+  };
+}
+
+/**
+ * A timed banner's content: its start time, its title and its end time, drawn for the eye,
+ * and a name of its own for assistive technology, as a timed block has (`grid-accessibility.ts`).
+ *
+ * @param event - The banner's event
+ * @param times - The times at its ends
+ * @param parts - Its shared content
+ * @param config - Card configuration
+ * @param language - Language code for translations
+ * @param hass - Home Assistant instance
+ * @returns The content
+ */
+function renderTimedBannerContent(
+  event: Types.CalendarEventData,
+  times: BannerTimes,
+  parts: Leaves.EventContentParts,
+  config: Types.Config,
+  language: string,
+  hass?: Types.Hass | null,
+): TemplateResult {
+  return html`<div
+      class="grid-event-accessible"
+      role="group"
+      lang=${language}
+      aria-label=${gridBannerAccessibleName(event, parts, config, hass)}
+    ></div>
+    <div
+      class=${classMap({
+        'grid-banner-content': true,
+        'grid-banner-two-times': times.start !== null && times.end !== null,
+        'grid-banner-long-times': times.long,
+      })}
+      aria-hidden="true"
+    >
+      ${times.start === null ? nothing : html`<span class="grid-banner-time">${times.start}</span>`}
+      <span class="grid-banner-title">${event.summary ?? ''}</span>
+      ${
+        times.end === null
+          ? nothing
+          : html`<span class="grid-banner-time grid-banner-time-end">${times.end}</span>`
+      }
+    </div>`;
 }
 
 /**

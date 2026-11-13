@@ -1448,7 +1448,8 @@ describe('what the popover is handed for events the card had to change', () => {
 
   it.each([
     ['list', { split_multiday_events: true }],
-    ['grid', {}],
+    // Its days drawn as blocks: by default a timed event a full day or longer is one banner.
+    ['grid', { time_grid: { multiday_banners: false } }],
   ])("hands a split %s segment the event's status", async (view, extra) => {
     const { card, dialogs } = await mount(
       { view, ...DETAILS, ...extra },
@@ -1466,6 +1467,33 @@ describe('what the popover is handed for events the card had to change', () => {
       'tentative',
       undefined,
     ]);
+  });
+});
+
+describe('a timed event drawn as a banner in grid view (multiday_banners)', () => {
+  it('opens as the whole event, its own times and status, which may be changed', async () => {
+    const { card, dialogs } = await mount(
+      { view: 'grid', ...DETAILS },
+      {
+        states: calendarState(7),
+        events: [RAW_EVENTS[0], { ...RAW_EVENTS[1], status: 'tentative' }],
+      },
+    );
+
+    // One banner for the trip, from 20:00 on the 17th to 09:00 on the 19th, and no blocks.
+    const trip = buttonsShowing(card, 'Trip');
+    expect(trip).toHaveLength(1);
+    expect(trip[0].classList.contains('grid-banner-timed')).toBe(true);
+    expect(card.shadowRoot!.querySelectorAll('.grid-event').length).toBe(1);
+
+    trip[0].click();
+    await settle();
+    expect(dialogs[0].dialogParams.entry).toMatchObject({
+      dtstart: '2026-06-17T20:00:00Z',
+      dtend: '2026-06-19T09:00:00Z',
+      status: 'tentative',
+    });
+    expect(dialogs[0].dialogParams).toMatchObject({ canEdit: true });
   });
 });
 

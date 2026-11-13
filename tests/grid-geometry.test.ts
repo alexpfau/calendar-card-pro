@@ -1171,8 +1171,55 @@ describe('computeBannerPlacement', () => {
     ).toMatchObject({ columnIndex: 2, span: 1 });
   });
 
-  it('returns null for a timed event', () => {
-    expect(computeBannerPlacement(timedEvent(9, 17), visibleDayRange(windowStart, 7))).toBeNull();
+  // A timed event drawn as a banner (`multiday_banners`) covers the dates it takes up time on.
+  const timedSpan = (start: Date, end: Date): Types.CalendarEventData => ({
+    start: { dateTime: start.toISOString() },
+    end: { dateTime: end.toISOString() },
+  });
+
+  it('places a timed event over the dates it takes up time on', () => {
+    // Tuesday 10:00 to Saturday 16:00.
+    expect(
+      computeBannerPlacement(
+        timedSpan(new Date(2026, 4, 12, 10), new Date(2026, 4, 16, 16)),
+        visibleDayRange(windowStart, 7),
+      ),
+    ).toEqual({ columnIndex: 1, span: 5, continuesBefore: false, continuesAfter: false });
+  });
+
+  it('leaves out the date a timed event ends on at its first moment', () => {
+    // Tuesday 10:00 to Thursday 0:00 takes up no time on Thursday.
+    expect(
+      computeBannerPlacement(
+        timedSpan(new Date(2026, 4, 12, 10), new Date(2026, 4, 14)),
+        visibleDayRange(windowStart, 7),
+      ),
+    ).toMatchObject({ columnIndex: 1, span: 2, continuesAfter: false });
+    // A millisecond later it takes up Thursday too.
+    expect(
+      computeBannerPlacement(
+        timedSpan(new Date(2026, 4, 12, 10), new Date(2026, 4, 14, 0, 0, 0, 1)),
+        visibleDayRange(windowStart, 7),
+      ),
+    ).toMatchObject({ columnIndex: 1, span: 3 });
+  });
+
+  it('marks a timed event running past either edge of the window', () => {
+    expect(
+      computeBannerPlacement(
+        timedSpan(new Date(2026, 4, 8, 10), new Date(2026, 4, 20, 16)),
+        visibleDayRange(windowStart, 7),
+      ),
+    ).toEqual({ columnIndex: 0, span: 7, continuesBefore: true, continuesAfter: true });
+  });
+
+  it('places a timed event of one day in its one column, should a caller ask', () => {
+    expect(computeBannerPlacement(timedEvent(9, 17), visibleDayRange(windowStart, 7))).toEqual({
+      columnIndex: 1,
+      span: 1,
+      continuesBefore: false,
+      continuesAfter: false,
+    });
   });
 
   it('returns null when there are no columns to place into', () => {

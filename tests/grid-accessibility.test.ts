@@ -238,10 +238,35 @@ describe('timed Grid accessible information', () => {
     expect(name).toBe(`\u2068${source.summary}\u2069, \u2068Now\u2069`);
   });
 
+  it('names a timed banner by its title and its whole span, whatever room it had to draw', () => {
+    const event = { ...source, end: { dateTime: '2026-06-19T12:00:00Z' } };
+    const { container, effective } = fixture({ time_24h: false }, [event]);
+    expect(container.querySelectorAll('.grid-event')).toHaveLength(0);
+    const banner = container.querySelector('.grid-banner-timed')!;
+    const name = accessibleGroup(banner).getAttribute('aria-label');
+    // Its calendar's label first, as a timed block's name starts.
+    expect(name).toBe(
+      ['Anna', source.summary, formatEventTime(event, effective, 'en', hass)]
+        .map((word) => `\u2068${word}\u2069`)
+        .join(', '),
+    );
+    // What it draws is for the eye only, so the name is not read twice.
+    expect(banner.querySelector('.grid-banner-content')!.getAttribute('aria-hidden')).toBe('true');
+    // An all-day banner draws its title alone and is named by it, as before.
+    const { container: allDay } = fixture({}, [
+      { ...source, start: { date: '2026-06-17' }, end: { date: '2026-06-19' } },
+    ]);
+    expect(allDay.querySelector('.grid-banner .grid-event-accessible')).toBeNull();
+  });
+
   it('uses the complete original interval on every timed continuation, honoring formatting', () => {
     const event = { ...source, end: { dateTime: '2026-06-19T12:00:00Z' } };
+    // Its days as blocks: a timed event a full day or longer is one banner by default.
     const { container, effective } = fixture(
-      { time_24h: false, time_grid: { start_time: '08:00', end_time: '18:00' } },
+      {
+        time_24h: false,
+        time_grid: { start_time: '08:00', end_time: '18:00', multiday_banners: false },
+      },
       [event],
     );
     const blocks = container.querySelectorAll('.grid-event');
@@ -280,6 +305,7 @@ describe('timed Grid accessible information', () => {
           position: 'event',
           event: { show_temp: true, show_conditions: true, show_uv_index: true },
         },
+        time_grid: { multiday_banners: false },
       },
       [event],
       forecasts,

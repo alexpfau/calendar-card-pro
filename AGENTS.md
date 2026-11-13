@@ -1705,7 +1705,7 @@ calls have none**, which is what `scripts/editor-glossary.mjs` is for. Same less
 different mechanism: enforce the family where the family is enumerable, and where it is not,
 name the members explicitly and gate on them.
 
-### The card holds three disagreeing answers to "is this multi-day?"
+### The card holds four disagreeing answers to "is this multi-day?"
 
 For a **timed** event running 23:30 to 00:30:
 
@@ -1714,6 +1714,7 @@ For a **timed** event running 23:30 to 00:30:
 | `isMultiDayEvent` (`events.ts`, drives splitting)     | **yes** — it renders as two rows                                                   |
 | `isMultiDayAllDayEvent` (`format.ts`, drives display) | **no** — `false` for any timed event, deliberately, pinned by a test               |
 | `!event.start.dateTime` on a split **middle segment** | reads **all-day** — `splitMultiDayEvent` rewrites middle days as `start: { date }` |
+| `fullDaySpan` (`format.ts`, drives grid's banners)    | **no** — a full day or longer on the wall clock, over two or more dates            |
 
 None is wrong for its own caller. The third bites silently: anything filtering on event
 class must run **before** `processMultiDayEvents`, or it sees the middle of a three-day
@@ -1724,7 +1725,9 @@ The design consequence is larger than the bug. All-day-ness and multi-day-ness a
 _timed / all-day / multi-day_ is not a partition, and no selection over it can express
 "every all-day event one color, every timed event another" — which is why `event_type`
 names the all-day axis only, and why a span axis needs the card to **pick** one multi-day
-definition before it can offer one.
+definition before it can offer one. The fourth answer is that pick for what a user sees: a full
+day or longer, read on the wall clock. Grid draws a timed event as a banner
+(`multiday_banners`) only where it says yes; reuse it rather than writing a fifth.
 
 ### The card renders only for `hass` changes it draws
 
