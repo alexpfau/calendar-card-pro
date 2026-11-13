@@ -381,6 +381,22 @@ describe('departures from the browser side of Home Assistant', () => {
     );
   });
 
+  it('leaves a state held for a while to core in the dashboard shape too', () => {
+    // Home Assistant drops `for` here and shows the entry at once; the card hides it and warns.
+    const held = {
+      condition: 'state',
+      entity: 'input_boolean.vacation',
+      state: 'off',
+      for: '01:00:00',
+    };
+    expect(judge([held])).toBeUndefined();
+    expect(judge([{ condition: 'not', conditions: [held] }])).toBeUndefined();
+    expect(judge([{ entity: 'input_boolean.guest', state: 'on', for: 5 }])).toBeUndefined();
+    expect(
+      unjudgedConditions([held, { entity: 'input_boolean.guest', state: 'on', for: 5 }]),
+    ).toEqual(['state with for']);
+  });
+
   it('leaves to core what only core can judge', () => {
     for (const extra of [{ for: '00:05:00' }, { attribute: 'x' }, { match: 'some' }]) {
       expect(
