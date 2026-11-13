@@ -3213,15 +3213,7 @@ class CalendarCardPro extends LitElement {
       }
       GridTitleFit.centerGridTitles(centered);
       GridTitleFit.fitCompactGridTitles(compact);
-      const resumed = titles
-        .filter(
-          (target) =>
-            (target.previousMode === 'compact' || target.previousMode === 'blank') &&
-            target.block.dataset.gridTitleFit !== 'compact' &&
-            target.block.dataset.gridTitleFit !== 'blank' &&
-            target.title.classList.contains('title-scrollable'),
-        )
-        .map((target) => target.title);
+      const resumed = GridTitleFit.gridTitlesToRemeasure(titles);
       if (resumed.length) this._measureTitleScroll(resumed);
       this._titleMotion?.refresh();
     } finally {
@@ -4021,8 +4013,10 @@ class CalendarCardPro extends LitElement {
     const current = Array.from(titles);
     GridTitleFit.reserveScrollingLabelWidths(current);
     const candidates = current.flatMap((title) => {
+      // A fitted (compact) title is one readable line and scrolls like any other. A blank
+      // block shows no title, and one being measured is about to be laid out again.
       const fit = title.closest<HTMLElement>('.grid-event')?.dataset.gridTitleFit;
-      if (fit === 'compact' || fit === 'blank' || fit === 'measuring') return [];
+      if (fit === 'blank' || fit === 'measuring') return [];
       const content = title.querySelector<HTMLElement>('.event-title-scroll');
       // A title with no moving text is kept still; _syncTitleScroll has cleared its state.
       return content ? [{ title, content }] : [];

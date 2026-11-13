@@ -630,8 +630,8 @@ column:
   title keeps its hyphens.
 - In grid view a title also stops at the last line its block shows whole, ending in "…" when
   more follows. A block too short for a complete first label and title line uses the
-  [short timed title fallback](/features/grid-view#short-timed-titles) instead: one static line
-  that keeps every label. A later line that does not fit never triggers it.
+  [short timed title fallback](/features/grid-view#short-timed-titles) instead: one line that
+  keeps every label. A later line that does not fit never triggers it.
 
 :::
 
@@ -683,8 +683,9 @@ time_grid:
   When the whole card is scrolled off screen its titles pause in place, and they resume when it
   comes back.
 - A grid block too short for its normal title uses the
-  [short timed title fallback](/features/grid-view#short-timed-titles), which stays static and
-  keeps every label. Scrolling resumes once the block has room for its normal title.
+  [short timed title fallback](/features/grid-view#short-timed-titles): one line, smaller if it
+  has to be, that scrolls like any other title and keeps every label still beside it. A block
+  too short even for that line shows no text.
 
 :::
 

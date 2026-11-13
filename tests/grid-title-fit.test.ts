@@ -7,6 +7,7 @@ import {
   gridTitleHasUsefulWidth,
   gridTitlePrefix,
   gridTitleTarget,
+  gridTitlesToRemeasure,
   minimumGridTitleFont,
   selectGridTitleFont,
 } from '../src/utils/grid-title-fit';
@@ -161,10 +162,29 @@ describe('Grid-only fitting CSS', () => {
     expect(css).toContain('inset-block-start: 2px');
     expect(css).toContain('inset-block-end: 2px');
     expect(css).toMatch(/> :not\(\.event-title\)\s*\{[^}]*flex:\s*0 0 auto/);
-    expect(css).toMatch(/\.event-title-scroll\s*\{[^}]*animation:\s*none !important/);
     expect(css).toMatch(/\[data-grid-title-fit='blank'\][^}]*visibility:\s*hidden/);
   });
 
+  it('holds the text still while it is measured or blank, and lets a fitted title scroll', () => {
+    // Bug #820: the fitted (compact) line was frozen with the other two, so a short block's
+    // title never moved. It is one readable line, so it scrolls like any other.
+    const frozen = [...css.matchAll(/([^{}]+)\{([^}]*animation:\s*none !important[^}]*)\}/g)]
+      .map((match) => match[1].replace(/\s+/g, ' ').trim())
+      .filter((selector) => selector.includes('.event-title-scroll'));
+    expect(frozen).toHaveLength(1);
+    expect(frozen[0]).toContain("[data-grid-title-fit='measuring']");
+    expect(frozen[0]).toContain("[data-grid-title-fit='blank']");
+    expect(frozen[0]).not.toContain("[data-grid-title-fit='compact']");
+
+    // The fitted title's ellipsis outranks the scrolling title's clip, and an inline-block
+    // wider than its line can be hidden whole behind an ellipsis, leaving "…" alone. So a
+    // fitted title that moves gives the ellipsis up, as every other moving title does, and
+    // keeps it while pending or with reduce motion on.
+    const motion = css.slice(css.indexOf('@media (prefers-reduced-motion: no-preference)'));
+    expect(motion).toMatch(
+      /\.grid-event\[data-grid-title-fit='compact'\]\s+\.summary\s*>\s*\.event-title\.title-scrollable\.title-overflowing:not\(\[data-title-motion='pending'\]\)\s*\{\s*text-overflow:\s*clip;\s*\}/,
+    );
+  });
   it('gives each title word its own clip and ellipsis, and none in the compact line', () => {
     // The word rule is what turns "Sprin / t / plann" into "Sprint / plann…": an
     // inline-block with its own overflow clip is the only box that can end in its own
@@ -185,5 +205,35 @@ describe('Grid-only fitting CSS', () => {
     expect(css).toMatch(
       /\[data-grid-title-fit='blank'\]\s*\)\s*\.title-word\s*\{[^}]*display:\s*inline;[^}]*max-width:\s*none;[^}]*overflow:\s*visible/,
     );
+  });
+});
+
+describe('which Grid titles a fitting pass measures again', () => {
+  function target(previousMode: string | undefined, mode: string | undefined, scrollable = true) {
+    const block = document.createElement('div');
+    if (mode) block.dataset.gridTitleFit = mode;
+    const title = document.createElement('span');
+    title.className = scrollable ? 'event-title title-scrollable' : 'event-title';
+    return { block, title, previousMode } as unknown as Parameters<
+      typeof gridTitlesToRemeasure
+    >[0][number];
+  }
+
+  it.each([
+    { from: undefined, to: 'compact', measured: true, why: 'a title just fitted' },
+    { from: 'compact', to: 'compact', measured: true, why: 'a fitted title fitted again' },
+    { from: 'blank', to: 'compact', measured: true, why: 'a blank block now fitted' },
+    { from: 'compact', to: undefined, measured: true, why: 'a fitted title back to normal' },
+    { from: 'blank', to: 'centered', measured: true, why: 'a blank block now centered' },
+    { from: undefined, to: undefined, measured: false, why: 'a normal title left normal' },
+    { from: undefined, to: 'centered', measured: false, why: 'a normal title centered' },
+    { from: 'compact', to: 'blank', measured: false, why: 'a fitted title gone blank' },
+  ])('$why: $from -> $to is measured: $measured', ({ from, to, measured }) => {
+    const candidate = target(from, to);
+    expect(gridTitlesToRemeasure([candidate])).toEqual(measured ? [candidate.title] : []);
+  });
+
+  it('leaves out a title that cannot scroll', () => {
+    expect(gridTitlesToRemeasure([target(undefined, 'compact', false)])).toEqual([]);
   });
 });
