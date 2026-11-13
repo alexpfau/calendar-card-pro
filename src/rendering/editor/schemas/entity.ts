@@ -122,6 +122,9 @@ export const LABEL_IMAGE_SOURCE = 'label_image_source';
 /** The switch that lists a calendar in the calendar filter, or leaves it out. */
 export const SHOW_IN_LEGEND = 'show_in_legend';
 
+/** A calendar's visibility conditions, written as YAML in Home Assistant's own shapes. */
+export const VISIBILITY = 'visibility';
+
 /**
  * Where an icon label's value comes from.
  *
@@ -386,6 +389,13 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     // The card-level group leads with `event_type` rather than diverging: it has no
     // `days_of_week` or `allday_expires_at` to precede it, so it too opens with the
     // coarsest option it actually carries.
+    //
+    // Visibility comes before all of them, coarser still: whether this entry shows at all,
+    // for this viewer and at this moment, before which of its events do. A section of its own
+    // rather than the first filter, because it judges Home Assistant rather than the events,
+    // and written as YAML, Home Assistant's own conditions nesting where no form can follow.
+    heading('heading_visibility'),
+    { name: VISIBILITY, selector: { object: {} } },
     heading('heading_filters'),
     choice(ctx.language, 'days_of_week'),
     choice(ctx.language, 'event_type'),

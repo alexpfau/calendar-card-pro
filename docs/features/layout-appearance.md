@@ -418,6 +418,8 @@ layouts keep them.
   first entry.
 - A calendar can be left out of the filter altogether; see
   [Leaving a Calendar Out of the Filter](#leaving-a-calendar-out-of-the-filter).
+- A calendar its [visibility conditions](/features/core-settings#showing-a-calendar-under-conditions)
+  hide has no chip or row while they hide it, and the filter cannot bring it back.
 - A long name is cut short on its chip with an ellipsis, and shows in full as the chip's tooltip.
 - Two cards with the same configuration share their hidden calendars, and a press on either
   changes both at once, in other tabs and windows of the same browser too.

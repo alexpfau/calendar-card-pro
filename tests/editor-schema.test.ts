@@ -3811,6 +3811,7 @@ describe('editor: per-calendar settings', () => {
         'show_time',
         'split_multiday_events',
         'text_scale',
+        'visibility',
       ].sort(),
     );
   });

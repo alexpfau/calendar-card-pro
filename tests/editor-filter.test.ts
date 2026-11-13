@@ -845,6 +845,7 @@ describe('editor filter: section headings', () => {
     // headings at all.
     expect(headingNames(entitySchema())).toEqual([
       'heading_appearance',
+      'heading_visibility',
       'heading_filters',
       'heading_replace',
       'heading_multiday',
@@ -989,6 +990,8 @@ describe('editor: the order of the two panels', () => {
       'accent_color_mode',
       'accent_color',
       'text_scale',
+      '# heading_visibility',
+      'visibility',
       '# heading_filters',
       'days_of_week',
       'event_type',

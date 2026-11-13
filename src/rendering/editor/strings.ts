@@ -360,6 +360,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   heading_icons: 'Icons',
   heading_between_days: 'Between Days',
   heading_across_the_grid: 'Across the Grid',
+  heading_visibility: 'Visibility',
   heading_filters: 'Event Filtering',
   heading_replace: 'Text Replacement',
   heading_multiday: 'Multi-Day Events',
@@ -368,6 +369,14 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   heading_details: 'Event Details',
   heading_event_state: 'Event State',
   heading_toolbar: 'Toolbar',
+
+  // Home Assistant's own word for a card's conditions, under its own Visibility heading, so the
+  // YAML its Visibility tab writes is recognizably the same thing here.
+  'entity.visibility': 'Conditions',
+  'entity.visibility.helper':
+    'Shows this calendar\u2019s events only while all of these hold, written as YAML in the ' +
+    'shapes a card\u2019s Visibility tab writes: user, state, numeric state, screen and time ' +
+    'conditions. Left empty, they always show. Not applied while you edit the card.',
 
   'entity.event_type': 'Event Type',
   'entity.event_type.option.inherit.label': 'Follow the card',

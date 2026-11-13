@@ -12,6 +12,7 @@ import {
   LABEL_IMAGE_SOURCE,
   LABEL_TYPE,
   SHOW_IN_LEGEND,
+  VISIBILITY,
   accentColorModeOf,
   labelIconSourceOf,
   labelImageSourceOf,
@@ -507,6 +508,10 @@ export function fromEntityFormData(
 
     if (!isSet(value)) continue;
 
+    // A cleared code editor hands back an empty list or an empty object, and an empty object
+    // would be read as one condition the card cannot judge, hiding the calendar.
+    if (key === VISIBILITY && isEmptyVisibility(value)) continue;
+
     if (NUMERIC_KEYS.has(key)) {
       const numeric = Number(value);
       if (Number.isFinite(numeric)) entry[key] = numeric;
@@ -581,6 +586,17 @@ export function fromEntityFormData(
  * @param inherited - The card-wide color this calendar is currently showing
  * @returns The value to store, or `undefined` to store nothing
  */
+/**
+ * Whether a `visibility` value says nothing: an empty list, or an empty object.
+ *
+ * @param value - The value as the code editor handed it back
+ * @returns True to store nothing
+ */
+function isEmptyVisibility(value: unknown): boolean {
+  if (Array.isArray(value)) return value.length === 0;
+  return typeof value === 'object' && value !== null && Object.keys(value).length === 0;
+}
+
 function accentColorFor(mode: string, value: unknown, inherited: unknown): string | undefined {
   if (mode === 'home_assistant') return ENTITY_COLOR_SENTINEL;
   if (mode !== 'custom') return undefined;
