@@ -34,6 +34,7 @@ import {
   COLUMN_OVERRIDE_KEYS,
   FETCH_TIME_KEYS,
   LIST_OVERRIDE_KEYS,
+  TIME_GRID_OVERRIDE_KEYS,
   VIEWS,
   VIEW_BLOCKS,
   VIEW_SCOPE,
@@ -229,12 +230,15 @@ describe('config partition', () => {
     ).toBe(declared.length);
   });
 
-  // The registry walk above and the declared constant have to agree, and neither is
-  // derived from the other — the constant is written as `COLUMN_OVERRIDE_KEYS` plus the
-  // list-only keys, the walk reads what every block actually carries. A block registered
-  // with the wrong key set fails here rather than shifting the partition unnoticed.
-  it('agrees with the widest declared override set', () => {
-    expect(routable).toEqual([...LIST_OVERRIDE_KEYS].sort());
+  // The registry walk above and the declared constants have to agree, and neither is
+  // derived from the other — the constants are written as `COLUMN_OVERRIDE_KEYS` plus the
+  // list-only keys, and plus the grid-only `multiday_banners`; the walk reads what every block
+  // actually carries. A block registered with the wrong key set fails here rather than
+  // shifting the partition unnoticed.
+  it('agrees with the widest declared override sets, list and grid together', () => {
+    expect(routable).toEqual(
+      [...new Set([...LIST_OVERRIDE_KEYS, ...TIME_GRID_OVERRIDE_KEYS])].sort(),
+    );
   });
 
   // Every view widens the same base, so `COLUMN_OVERRIDE_KEYS` must remain a subset. It is

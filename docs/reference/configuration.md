@@ -40,6 +40,7 @@ cards.
 | `filter_duplicates`            | boolean or string | `false`                       | Show an event once when several calendars carry it: `true` matches its original title, start, end and location, and `ignore_location` its title, start and end alone, for a holiday that regional calendars each give their own location. The copy kept comes from the first entry in `entities` whose filters let it through, with that entry's colors. See [Filtering Duplicate Events](/features/core-settings#filtering-duplicate-events)                                                                                                                                      |
 | `duplicate_accent_color`       | string            | -                             | Accent color for an event kept from two or more different calendars, in place of the first-listed calendar's own; unset keeps that calendar's color. Needs `filter_duplicates` set to `true` or `ignore_location`; see [Labeling & Coloring Shared Events](/features/core-settings#labeling-coloring-shared-events)                                                                                                                                                                                                                                                                |
 | `split_multiday_events`        | boolean           | `false`                       | Show a multi-day event on each day it covers. Column view defaults this to `true` and does not take the top-level value; see [Options That Start From a Different Default](/features/column-view#options-that-start-from-a-different-default). A per-calendar value wins in list and column view, and grid view ignores it                                                                                                                                                                                                                                                         |
+| `multiday_banners`             | boolean           | `true`                        | In grid view, draw a timed event a full day or longer as one banner above the hours, its times at its ends, instead of a block on every day. Grid view only, so it belongs in `time_grid:`; a per-calendar value wins. See [Long Timed Events as Banners](/features/grid-view#long-timed-events-as-banners)                                                                                                                                                                                                                                                                        |
 | `event_type`                   | string            | `all`                         | Which kind of event the card keeps, whatever its length: `all`, `timed` (with a clock time) or `all_day`; see [Separating All-Day From Timed Events](/features/core-settings#separating-all-day-from-timed-events)                                                                                                                                                                                                                                                                                                                                                                 |
 | `language`                     | string            | `System`, fallback `en`       | Language of everything the card writes, weather conditions included; it follows Home Assistant unless set. On a dashboard that runs the other way, such as an English card on a Hebrew dashboard, the layout follows the dashboard and the card's times, countdowns and dates read in their own language's order. Dates and relative times come from the browser; where it has no data for the language, Nynorsk reads in Bokmål and any other language in English. See [Language](/features/core-settings#language) and [Weather](/features/weather#weather-in-the-column-layout) |
 | `list`                         | object            | Inherits the top-level values | Values that differ in list view, plus the seven options only list view reads. Only options a view can override, and `days_to_show`, belong here; see [Per-View Options](/features/core-settings#per-view-options)                                                                                                                                                                                                                                                                                                                                                                  |
@@ -123,12 +124,13 @@ into `list:` automatically.
 ### Options With No Effect in Column View
 
 `date_vertical_alignment` · `today_indicator_position` · `compact_events_to_show` ·
-`compact_days_to_show` · `compact_events_complete_days` · `event_order` · `skip_first_events`
+`compact_days_to_show` · `compact_events_complete_days` · `event_order` · `skip_first_events` ·
+`multiday_banners` (card-wide and per-entity)
 
-These describe a date cell, a compact budget or a list's order and continuation that the column
-layout does not have. They
+These describe a date cell, a compact budget, a list's order and continuation, or a grid's
+all-day band, which the column layout does not have. The first seven
 keep working in list view, including when a `view: column` card falls back to it on a
-narrow dashboard. The editor hides their controls in the Columns editing workspace without
+narrow dashboard, and `multiday_banners` in grid view. The editor hides their controls in the Columns editing workspace without
 deleting stored values; see [Options for the Selected View](/features/editor#options-for-the-selected-view).
 
 **→ [Options That Do Nothing in Column View](/features/column-view#options-that-do-nothing-in-column-view)** — why each one, and what to use instead.
@@ -159,7 +161,7 @@ the card-wide options for that one calendar:
 `show_time` · `show_location` · `location_icon` · `show_description` ·
 `compact_events_to_show` · `blocklist` · `allowlist` · `filter_field` ·
 `replace_field` · `replace_pattern` · `replace_with` ·
-`split_multiday_events` · `event_type` · `allday_expires_at` · `days_of_week`
+`split_multiday_events` · `multiday_banners` · `event_type` · `allday_expires_at` · `days_of_week`
 
 **→ [Entity configuration options](/features/core-settings#available-options-for-entity-configuration-objects)** — full table, with filtering examples.
 **→ [Naming a calendar in the card](/features/core-settings#naming-a-calendar-in-the-card)** — `name`, where it shows, and what keeps Home Assistant's name.

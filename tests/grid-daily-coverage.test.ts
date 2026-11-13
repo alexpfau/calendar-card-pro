@@ -34,17 +34,24 @@ function spanning(
   };
 }
 
+/**
+ * Draws a grid of the events. A timed event a full day or longer is a banner by default
+ * (`multiday_banners`); this file covers the days of its blocks, so it draws them as blocks.
+ * `tests/grid-multiday-banner.test.ts` covers the banner.
+ */
 function draw(
   input: Types.CalendarEventData[],
   entity: Partial<Types.EntityConfig> = {},
   options: Partial<Types.Config> = {},
 ) {
   const card = document.createElement('calendar-card-pro-dev') as Card;
+  const { time_grid: timeGrid, ...rest } = options;
   card.setConfig({
     view: 'grid',
     days_to_show: 5,
     entities: [{ entity: 'calendar.anna', ...entity }, { entity: 'calendar.ben' }],
-    ...options,
+    ...rest,
+    time_grid: { multiday_banners: false, ...timeGrid },
   });
   card.hass = { states: {}, locale: { language: 'en', time_format: '24' } };
   card.events = input.map((event) => ({

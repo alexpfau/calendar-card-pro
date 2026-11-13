@@ -1546,7 +1546,12 @@ export interface BannerPlacement {
  * An event whose start and end are equal covers no days at all; that is malformed
  * rather than empty, and returning `null` keeps a `span: 0` out of the CSS.
  *
- * @param event - An all-day event, i.e. one carrying `start.date`
+ * A timed event drawn as a banner (`multiday_banners`) covers the dates it takes up time on:
+ * from its start's to that of the moment before its end, so an end at a day's first moment
+ * leaves that day out, where a midnight is missing or repeats as well.
+ *
+ * @param event - An all-day event, i.e. one carrying `start.date`, or a timed one drawn as a
+ *   banner
  * @param visibleDayStarts - Local midnights for the day columns on screen, in render order
  * @returns The banner's placement, or `null` when it does not intersect the window
  */
@@ -1554,15 +1559,27 @@ export function computeBannerPlacement(
   event: Types.CalendarEventData,
   visibleDayStarts: readonly Date[],
 ): BannerPlacement | null {
-  if (!event.start.date || visibleDayStarts.length < 1) {
+  if (visibleDayStarts.length < 1) {
     return null;
   }
 
-  const start = FormatUtils.parseAllDayDate(event.start.date);
-
-  // A missing end is a one-day event. Otherwise the iCal end is exclusive, so step back
-  // one day to reach the last day the event actually covers.
-  const lastDay = event.end.date ? addDays(FormatUtils.parseAllDayDate(event.end.date), -1) : start;
+  let start: Date;
+  let lastDay: Date;
+  if (event.start.date) {
+    start = FormatUtils.parseAllDayDate(event.start.date);
+    // A missing end is a one-day event. Otherwise the iCal end is exclusive, so step back
+    // one day to reach the last day the event actually covers.
+    lastDay = event.end.date ? addDays(FormatUtils.parseAllDayDate(event.end.date), -1) : start;
+  } else if (event.start.dateTime && event.end.dateTime) {
+    const startInstant = new Date(event.start.dateTime);
+    const endInstant = new Date(event.end.dateTime);
+    start = startOfDay(startInstant);
+    lastDay = startOfDay(
+      endInstant > startInstant ? new Date(endInstant.getTime() - 1) : startInstant,
+    );
+  } else {
+    return null;
+  }
 
   if (Number.isNaN(start.getTime()) || Number.isNaN(lastDay.getTime()) || lastDay < start) {
     return null;
