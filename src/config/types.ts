@@ -115,6 +115,10 @@ export interface Config {
   countdown_exact_days: boolean;
   /** Count down only to events starting within this many calendar days; unset is no limit. */
   countdown_max_days?: number;
+  /**
+   * A bar filled as an event runs. In list and column view an event a day or more long draws
+   * "Day 2 of 3" on each row instead, in the countdown's place.
+   */
   show_progress_bar: boolean;
   show_now_indicator: boolean;
   now_color: string;
@@ -1013,6 +1017,14 @@ export interface CalendarEventData {
    * only the expiry filter reads it today — that filter runs before the copies are built.
    */
   _splitFromTimedEvent?: boolean;
+  /**
+   * Which of its event's days a list or column row stands for, "Day 2 of 3", set by
+   * `groupEventsByDay` while `show_progress_bar` is on, on every row of an event a day or more
+   * long. Its presence is what takes the row's progress bar away, so it is there on a row
+   * drawn under a date the event takes up no time on as well, naming no day. See
+   * `resolveDayOfEvent`.
+   */
+  _dayOfEvent?: DayOfEvent;
   _matchedConfig?: EntityConfig;
   /**
    * Every calendar that contributed a copy of this event, in `entities` order, set only
@@ -1036,6 +1048,15 @@ export interface CalendarEventData {
    * by the template and no element comes or goes for it.
    */
   _searchRing?: boolean;
+}
+
+/**
+ * Where a row falls in a multi-day event: the `day`th of its `days` calendar days, counted from
+ * 1, or `null` on a row drawn under a date the event takes up no time on.
+ */
+export interface DayOfEvent {
+  day: number | null;
+  days: number;
 }
 
 /**
@@ -1438,6 +1459,13 @@ export interface Translations {
    */
   endsToday: string;
   endsTomorrow: string;
+  /**
+   * Which day of a multi-day event a row stands for (`show_progress_bar`), with `{day}` and
+   * `{days}` where the two numbers go: "Day {day} of {days}", "Day 2 of 3". A language whose
+   * words would have to agree with the sound of a number writes a form that leaves both bare,
+   * as Finnish does with "Päivä {day}/{days}".
+   */
+  dayOfEvent: string;
   /** The header toolbar's view switcher, one name per view. */
   viewList: string;
   viewColumns: string;

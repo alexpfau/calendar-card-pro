@@ -735,7 +735,10 @@ show_countdown_allday: false # Timed events only
 When [`split_multiday_events`](/features/multi-day-events) is on, each day's row counts to its
 own start by the rules above: a holiday starting tomorrow reads "tomorrow", "in 2 days", "in 3
 days" and so on down its rows, whether or not it has a start time. An unsplit event counts to
-its original start, and a row already under way has no countdown.
+its original start, and a row already under way has no countdown. With the
+[progress bar](#progress-bar-display) on, a row of an event a day or longer names its
+[day](/features/multi-day-events#day-counter) once the event has started, rather than counting
+down to its own start.
 
 ::: details Long Countdowns on a Narrow Card
 
@@ -800,7 +803,8 @@ show_countdown: once_per_day
 - Countdowns later today always show, since two that read "in 5 hours" can name different
   times.
 - A countdown that differs still shows, and an event without one, such as an all-day event with
-  `show_countdown_allday: false`, is passed over.
+  `show_countdown_allday: false` or one showing the
+  [day counter](/features/multi-day-events#day-counter) in its place, is passed over.
 - It applies in list and column view. In grid view every timed block keeps its countdown, as
   with `true`.
 - In the visual editor it is **Leave Out Repeated Countdowns**, under Countdown & Progress.
@@ -909,9 +913,11 @@ show_now_indicator: false # Turn it off
 now_color: '#ef4444' # Mark it in red instead
 ```
 
-- Only timed events are marked. A multi-day timed event is marked while it runs; split across
-  days, as column view does by default, it is marked on its first and last day, and the days in
-  between show it as an all-day event, which is not marked.
+- Only timed events shorter than a [full day](/features/multi-day-events#day-counter) are
+  marked, so a night shift is and a three-day trip is not: on a long event "Now" would be true,
+  in green, on every one of its days. With the [progress bar](#progress-bar-display) on, a long
+  event says which of its days it is on instead. Split across days, as column view does by
+  default, a shorter event is marked on whichever of its rows is under way.
 - The mark lives on the time line, so nothing is marked while that line is hidden: with
   `show_time: false`, card-wide or on that calendar, a running event looks like any other. With
   [`time_position: title`](#time-beside-the-title) the time has no clock, so "Now ·" and the
@@ -1048,7 +1054,8 @@ weekend_month_color: '#E67C73'
 ## 📊 Progress Bar Display
 
 `show_progress_bar` draws a bar on an event that is running now, filled to show how much of the
-event has already passed:
+event has already passed. An event a day or longer says which of its days it is on instead, such
+as "Day 3 of 5": see [Day Counter](/features/multi-day-events#day-counter).
 
 ```yaml
 show_progress_bar: true
@@ -1096,9 +1103,11 @@ Grid view draws the bar at `100%` of the block, in the block's accent color, wha
 top-level `progress_bar_width` and `progress_bar_color` say, until a `time_grid:` block sets its
 own. See [Options That Start From a Different Default](/features/grid-view#options-that-start-from-a-different-default).
 
-An event running over several days fills its bar over the whole event. Split across days by
-[`split_multiday_events`](/features/multi-day-events), it draws the bar on today's row only,
-including a middle day shown as all-day, so the bar keeps growing from one day's row to the
-next instead of starting again at midnight.
+An event running past midnight fills its bar over the whole event. Split across days by
+[`split_multiday_events`](/features/multi-day-events), it draws the bar on today's row only, so
+the bar keeps growing from one day's row to the next instead of starting again at midnight. In
+list and column view that is an event shorter than a day, such as a night shift, since one a day
+or longer draws its [day counter](/features/multi-day-events#day-counter) instead. Grid view
+keeps the bar on each day's block.
 
 Most options on this page live under the card's event column settings — see [Event Column in the configuration reference](/reference/configuration#event-column). Two groups sit elsewhere: the empty-day options are card-wide and belong to [Core Settings](/reference/configuration#core-settings), and `location_icon` is per calendar, listed under [Per-Entity Options](/reference/configuration#per-entity-options).

@@ -407,24 +407,29 @@ describe('the card repaints at each boundary', () => {
   });
 
   it("hands a split event's label over at midnight, with nothing else changing", async () => {
-    // Column view splits by default: 23:00-23:59 today, then all-day tomorrow, which is not
-    // marked. Without the midnight boundary the timer waited for the event's own end, two
-    // days out, and today's segment kept "Now" after midnight had passed it.
+    // Column view splits by default: 23:00-23:59 today, then 0:00-10:00 tomorrow. Without the
+    // midnight boundary the timer waited for the event's own end, and today's segment kept
+    // "Now" after midnight had passed it. Shorter than a full day, so it is marked at all: an
+    // event a full day or longer never is (tests/day-counter.test.ts).
     vi.setSystemTime(new Date('2026-06-17T23:30:00Z'));
     const card = await mounted('column', [
       {
         summary: 'Overnight shift',
         start: { dateTime: '2026-06-17T23:00:00Z' },
-        end: { dateTime: '2026-06-19T10:00:00Z' },
+        end: { dateTime: '2026-06-18T10:00:00Z' },
       },
     ]);
-    expect(labels(card)).toBe(1);
+    const marked = () =>
+      [...card.shadowRoot!.querySelectorAll('.now-time')].map((el) =>
+        (el.textContent ?? '').replace(/\s+/g, ' ').trim(),
+      );
+    expect(marked()).toEqual([expect.stringContaining('23:59')]);
     expect(card._nowBoundaryAt).toBe(new Date('2026-06-18T00:00:00Z').getTime());
 
     await vi.advanceTimersByTimeAsync(30 * 60 * 1000 + 1000);
     await card.updateComplete;
 
-    expect(labels(card)).toBe(0);
+    expect(marked()).toEqual([expect.stringContaining('10:00')]);
   });
 
   it('releases the timer when the card is disconnected', async () => {

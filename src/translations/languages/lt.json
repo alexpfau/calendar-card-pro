@@ -19,6 +19,7 @@
   "viewGrid": "Laiko tinklelis",
   "endsToday": "baigiasi šiandien",
   "endsTomorrow": "baigiasi rytoj",
+  "dayOfEvent": "Diena {day} iš {days}",
   "noEvents": "Nėra įvykių",
   "loading": "Įkeliami kalendoriaus įvykiai...",
   "error": "Klaida: Kalendoriaus objektas nerastas arba neteisingai sukonfigūruotas",

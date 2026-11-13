@@ -1461,6 +1461,14 @@ export function groupEventsByDay(
   const byDay = (a: Types.EventsByDay, b: Types.EventsByDay): number =>
     latestFirst ? b.timestamp - a.timestamp : a.timestamp - b.timestamp;
 
+  // Which day of its event a row stands for, only where it is drawn, and only while the progress
+  // bar is on, whose form the counter is on an event a day or more long, so a card without it
+  // keeps its rows as they were. Not in grid, whose all-day banners already span their days and
+  // whose later blocks of a timed event draw a title alone; the gate decides nothing there today,
+  // since its splitter hands this function one-day segments, which never count. It is here so
+  // that stays a decision.
+  const stampsDayOfEvent = Boolean(config.show_progress_bar) && effectiveView !== 'grid';
+
   const referenceDate = getStartDateReference(
     config,
     FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hass?.locale),
@@ -1800,6 +1808,9 @@ export function groupEventsByDay(
         _sourceStart: event._sourceStart,
         _sourceEnd: event._sourceEnd,
         _splitFromTimedEvent: event._splitFromTimedEvent,
+        _dayOfEvent: stampsDayOfEvent
+          ? (resolveDayOfEvent(event, displayDate) ?? undefined)
+          : undefined,
         _gridSegmentStartsEvent: event._gridSegmentStartsEvent,
         _gridSource: event._gridSource,
       } satisfies Types.EveryMember<Types.CalendarEventData, LeftOffDisplayCopy>);
@@ -3031,6 +3042,73 @@ export function calculateEventProgress(event: Types.CalendarEventData): number |
   );
 
   return progressPercentage;
+}
+
+/**
+ * Whether the day counter counts this event's days: whether it is a day or more long, as
+ * `FormatUtils.fullDaySpan` measures it. Under `show_progress_bar`, a row of such an event
+ * draws the counter rather than a bar, which is what the clock repaint asks this for, and no
+ * row of one is marked "Now" (`buildEventPresentation`).
+ *
+ * @param event A whole event or one day of one, as list and column split it
+ * @returns True for an event a day or more long
+ */
+export function countsDays(event: Types.CalendarEventData): boolean {
+  return (
+    FormatUtils.fullDaySpan(event._sourceStart ?? event.start, event._sourceEnd ?? event.end) !==
+    null
+  );
+}
+
+/**
+ * Which of its event's days a list or column row stands for, "Day 2 of 3".
+ *
+ * A row names the date it is drawn under, so a day of an event split across several names its
+ * own, and a row standing for a whole event names the day it is drawn on: its first, or the
+ * window's first day for an event that began earlier. A row under a date the event takes up no
+ * time on names no day, but is still a row of a counted event, so it draws no progress bar
+ * either: the bar's rule, and the clock repaint's, is the event's, not the row's. Grouping draws
+ * such a row in one case, an unsplit event ending at the first midnight of a window that starts
+ * later, which counted from the event's start would read "Day 4 of 3".
+ *
+ * @param event A whole event or one day of one, as list and column split it
+ * @param displayDate The date the row is drawn under
+ * @returns The day, null where the row names none, and the number of days; or null for an
+ *   event shorter than a day
+ */
+export function resolveDayOfEvent(
+  event: Types.CalendarEventData,
+  displayDate: Date,
+): Types.DayOfEvent | null {
+  const span = FormatUtils.fullDaySpan(
+    event._sourceStart ?? event.start,
+    event._sourceEnd ?? event.end,
+  );
+  if (!span) return null;
+
+  const day = FormatUtils.getCalendarDayDiff(span.first, displayDate) + 1;
+
+  return { day: day >= 1 && day <= span.days ? day : null, days: span.days };
+}
+
+/**
+ * Whether the event a row belongs to has begun: a day of a split event asks about the event,
+ * not about its own day, so the third day of a trip under way has begun although its own
+ * midnight is still ahead.
+ *
+ * @param event A whole event or one day of one, as list and column split it
+ * @param now The instant to measure against
+ * @returns True once the event's start has passed
+ */
+export function eventHasStarted(event: Types.CalendarEventData, now: Date): boolean {
+  const start = event._sourceStart ?? event.start;
+  const instant = start?.dateTime
+    ? new Date(start.dateTime)
+    : start?.date
+      ? FormatUtils.parseAllDayDate(start.date)
+      : null;
+
+  return instant !== null && instant <= now;
 }
 
 //-----------------------------------------------------------------------------

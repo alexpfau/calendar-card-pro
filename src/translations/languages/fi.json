@@ -32,6 +32,7 @@
   "viewGrid": "Ruudukko",
   "endsToday": "päättyy tänään",
   "endsTomorrow": "päättyy huomenna",
+  "dayOfEvent": "Päivä {day}/{days}",
   "noEvents": "Ei tapahtumia",
   "loading": "Ladataan kalenteritapahtumia...",
   "error": "Virhe: Kalenteriyksikköä ei löydy tai se on väärin määritetty",

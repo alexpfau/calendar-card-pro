@@ -11,6 +11,7 @@
   "viewGrid": "Lưới",
   "endsToday": "kết thúc hôm nay",
   "endsTomorrow": "kết thúc ngày mai",
+  "dayOfEvent": "Ngày thứ {day}/{days}",
   "noEvents": "Không có sự kiện",
   "loading": "Đang tải sự kiện...",
   "error": "Lỗi: Không tìm thấy lịch hoặc cấu hình không đúng",

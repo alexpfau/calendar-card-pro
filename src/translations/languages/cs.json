@@ -11,6 +11,7 @@
   "viewGrid": "Mřížka",
   "endsToday": "končí dnes",
   "endsTomorrow": "končí zítra",
+  "dayOfEvent": "Den {day} z {days}",
   "noEvents": "Žádné události",
   "loading": "Načítání událostí z kalendáře...",
   "error": "Chyba: Entita kalendáře nebyla nalezena nebo je nesprávně nakonfigurována",
