@@ -221,7 +221,7 @@
   "heading_event_state": "Terminstatus",
   "heading_toolbar": "Symbolleiste",
   "entity.visibility": "Bedingungen",
-  "entity.visibility.helper": "Zeigt die Termine dieses Kalenders nur, solange alle diese Bedingungen erfüllt sind. Sie werden als YAML in derselben Form geschrieben wie im Tab „Sichtbarkeit“ einer Karte: Bedingungen für Benutzer, Entitätszustand, numerischen Entitätszustand, Bildschirm und Uhrzeit. Bleibt das Feld leer, werden die Termine immer angezeigt. Gilt nicht, während du die Karte bearbeitest.",
+  "entity.visibility.helper": "Zeigt die Termine dieses Kalenders nur, solange alle diese Bedingungen erfüllt sind — dieselben wie im Tab „Sichtbarkeit“ einer Karte. Ohne Bedingungen werden die Termine immer angezeigt. Gilt nicht, während du die Karte bearbeitest.",
   "entity.event_type": "Terminart",
   "entity.event_type.option.inherit.label": "Der Karte folgen",
   "entity.event_type.option.all.label": "Alle Termine",

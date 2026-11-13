@@ -221,7 +221,7 @@
   "heading_event_state": "Hendelsesstatus",
   "heading_toolbar": "Verktøylinje",
   "entity.visibility": "Betingelser",
-  "entity.visibility.helper": "Viser hendelsene til denne kalenderen bare mens alle disse betingelsene er oppfylt. De skrives i YAML i samme form som på fanen «Synlighet» for et kort: betingelser for bruker, entitetstilstand, numerisk entitetstilstand, skjerm og tid. Står feltet tomt, vises hendelsene alltid. Gjelder ikke mens du redigerer kortet.",
+  "entity.visibility.helper": "Viser hendelsene til denne kalenderen bare mens alle disse betingelsene er oppfylt — de samme som på fanen «Synlighet» for et kort. Uten betingelser vises hendelsene alltid. Gjelder ikke mens du redigerer kortet.",
   "entity.event_type": "Hendelsestype",
   "entity.event_type.option.inherit.label": "Følg kortet",
   "entity.event_type.option.all.label": "Alle hendelser",

@@ -221,7 +221,7 @@
   "heading_event_state": "Įvykio būsena",
   "heading_toolbar": "Įrankių juosta",
   "entity.visibility": "Sąlygos",
-  "entity.visibility.helper": "Rodo šio kalendoriaus įvykius tik tol, kol įvykdytos visos šios sąlygos. Jos rašomos YAML formatu tokiu pačiu pavidalu kaip kortelės skirtuke „Matomumas“: naudotojo, subjekto būsenos, subjekto skaitinės būsenos, ekrano ir laiko sąlygos. Palikus tuščią, įvykiai rodomi visada. Kol redaguojate kortelę, jos netaikomos.",
+  "entity.visibility.helper": "Rodo šio kalendoriaus įvykius tik tol, kol įvykdytos visos šios sąlygos — tos pačios kaip kortelės skirtuke „Matomumas“. Jei sąlygų nėra, įvykiai rodomi visada. Kol redaguojate kortelę, jos netaikomos.",
   "entity.event_type": "Įvykio tipas",
   "entity.event_type.option.inherit.label": "Kaip kortelėje",
   "entity.event_type.option.all.label": "Visi įvykiai",

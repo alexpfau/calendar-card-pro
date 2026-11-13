@@ -221,7 +221,7 @@
   "heading_event_state": "Sündmuse olek",
   "heading_toolbar": "Tööriistariba",
   "entity.visibility": "Tingimused",
-  "entity.visibility.helper": "Näitab selle kalendri sündmusi ainult seni, kuni kõik need tingimused on täidetud. Need kirjutatakse YAML-is samal kujul nagu kaardi vahekaardil „Nähtavus“: kasutaja, olemi oleku, olemi numbrilise oleku, ekraani ja aja tingimused. Tühjaks jättes näidatakse sündmusi alati. Kaardi muutmise ajal need ei kehti.",
+  "entity.visibility.helper": "Näitab selle kalendri sündmusi ainult seni, kuni kõik need tingimused on täidetud — samad mis kaardi vahekaardil „Nähtavus“. Kui tingimusi pole, näidatakse sündmusi alati. Kaardi muutmise ajal tingimused ei kehti.",
   "entity.event_type": "Sündmuse tüüp",
   "entity.event_type.option.inherit.label": "Järgi kaarti",
   "entity.event_type.option.all.label": "Kõik sündmused",

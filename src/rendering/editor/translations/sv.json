@@ -221,7 +221,7 @@
   "heading_event_state": "Händelsestatus",
   "heading_toolbar": "Verktygsfält",
   "entity.visibility": "Villkor",
-  "entity.visibility.helper": "Visar den här kalenderns händelser bara medan alla dessa villkor är uppfyllda. De skrivs i YAML i samma form som på fliken ”Synlighet” för ett kort: villkor för användare, entitetstillstånd, numeriskt entitetstillstånd, skärm och tid. Lämnas fältet tomt visas händelserna alltid. Gäller inte medan du redigerar kortet.",
+  "entity.visibility.helper": "Visar den här kalenderns händelser bara medan alla dessa villkor är uppfyllda — samma som på fliken ”Synlighet” för ett kort. Utan villkor visas händelserna alltid. Gäller inte medan du redigerar kortet.",
   "entity.event_type": "Händelsetyp",
   "entity.event_type.option.inherit.label": "Följ kortet",
   "entity.event_type.option.all.label": "Alla händelser",

@@ -221,7 +221,7 @@
   "heading_event_state": "Notikuma stāvoklis",
   "heading_toolbar": "Rīkjosla",
   "entity.visibility": "Nosacījumi",
-  "entity.visibility.helper": "Rāda šī kalendāra notikumus tikai tik ilgi, kamēr ir izpildīti visi šie nosacījumi. Tos raksta YAML formātā tādā pašā veidā kā kartes cilnē „Redzamība“: lietotāja, vienības stāvokļa, vienības skaitliskā stāvokļa, ekrāna un laika nosacījumi. Atstājot tukšu, notikumi tiek rādīti vienmēr. Kartes rediģēšanas laikā nosacījumi netiek piemēroti.",
+  "entity.visibility.helper": "Rāda šī kalendāra notikumus tikai tik ilgi, kamēr ir izpildīti visi šie nosacījumi — tie paši, ko iestata kartes cilnē „Redzamība“. Ja nosacījumu nav, notikumi tiek rādīti vienmēr. Kartes rediģēšanas laikā nosacījumi netiek piemēroti.",
   "entity.event_type": "Notikuma veids",
   "entity.event_type.option.inherit.label": "Kā kartē",
   "entity.event_type.option.all.label": "Visi notikumi",

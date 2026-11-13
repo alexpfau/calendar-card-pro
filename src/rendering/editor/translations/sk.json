@@ -221,7 +221,7 @@
   "heading_event_state": "Stav udalosti",
   "heading_toolbar": "Panel nástrojov",
   "entity.visibility": "Podmienky",
-  "entity.visibility.helper": "Zobrazuje udalosti z tohto kalendára len dovtedy, kým sú splnené všetky tieto podmienky. Zapisujú sa v YAML v rovnakom tvare, v akom ich vytvára „Viditeľnosť“ v editore karty: podmienky pre používateľa, stav entity, číselný stav entity, obrazovku a čas. Ak zostane prázdne, udalosti sa zobrazia vždy. Počas úpravy karty sa neuplatňujú.",
+  "entity.visibility.helper": "Zobrazuje udalosti z tohto kalendára len dovtedy, kým sú splnené všetky tieto podmienky — tie isté, ktoré nastavuje „Viditeľnosť“ v editore karty. Bez podmienok sa udalosti zobrazia vždy. Počas úpravy karty sa podmienky neuplatňujú.",
   "entity.event_type": "Typ udalosti",
   "entity.event_type.option.inherit.label": "Podľa karty",
   "entity.event_type.option.all.label": "Všetky udalosti",
