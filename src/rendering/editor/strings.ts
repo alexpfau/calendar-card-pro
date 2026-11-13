@@ -930,8 +930,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   show_progress_bar: 'Show Progress Bar',
   show_day_counter: 'Show Day Counter',
   'show_day_counter.helper':
-    'Events a day or longer show which of their days a row is, “Day 2 of 3”, in place of ' +
-    'the progress bar, and of the countdown once they have started.',
+    'For events lasting a day or longer, each row shows a day counter, such as “Day 2 of 3”, ' +
+    'instead of the progress bar. Once an event starts, the counter also replaces its countdown.',
   show_now_indicator: 'Show Now Indicator',
   'show_now_indicator.helper':
     'Puts a green “Now” before the time of events that are happening right now.',

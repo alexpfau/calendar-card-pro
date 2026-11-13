@@ -1021,8 +1021,9 @@ export interface CalendarEventData {
   _splitFromTimedEvent?: boolean;
   /**
    * Which of its event's days a list or column row stands for, "Day 2 of 3", set by
-   * `groupEventsByDay` while `show_day_counter` is on. Absent on a row of an event shorter
-   * than a day, and on a row drawn under a day the event takes up no time on. See
+   * `groupEventsByDay` while `show_day_counter` is on, on every row of an event a day or more
+   * long. Its presence is what takes the row's progress bar away, so it is there on a row
+   * drawn under a date the event takes up no time on as well, naming no day. See
    * `resolveDayOfEvent`.
    */
   _dayOfEvent?: DayOfEvent;
@@ -1051,9 +1052,12 @@ export interface CalendarEventData {
   _searchRing?: boolean;
 }
 
-/** One day of a multi-day event: the `day`th of its `days` calendar days, counted from 1. */
+/**
+ * Where a row falls in a multi-day event: the `day`th of its `days` calendar days, counted from
+ * 1, or `null` on a row drawn under a date the event takes up no time on.
+ */
 export interface DayOfEvent {
-  day: number;
+  day: number | null;
   days: number;
 }
 

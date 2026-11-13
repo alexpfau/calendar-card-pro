@@ -3,10 +3,11 @@
  * hours is one day like any other, and the threshold of "a day or more long" is measured on the
  * calendar rather than in hours.
  *
- * Two independent oracles. The day numbers are checked against plain arithmetic on the calendar
- * numbers in UTC, never against the local `Date` getters the code is built from. And the number of
- * days is checked against the rows `splitMultiDayEvent` draws for the same event, which reaches
- * its answer by another route: it walks local midnights rather than subtracting dates.
+ * Two independent oracles. Each row's date is read through `Intl` in the test zone and compared
+ * with dates stepped in UTC, where every day has 24 hours, and its day number with its place among
+ * them; the code under test reads the local `Date` getters instead. And the number of days is
+ * checked against the rows `splitMultiDayEvent` draws for the same event, which reaches its
+ * answer by another route: it walks local midnights rather than subtracting dates.
  *
  * The spring and fall days are found from the zone rather than listed, so the cases run in every
  * DST project. Azores adds what only it can show: a spring day with no 00:00, and a fall night
@@ -49,21 +50,34 @@ const timed = (start: Date | string, end: Date | string): Types.CalendarEventDat
   _entityId: 'calendar.personal',
 });
 
-/** Calendar-day number of `y-m-d` from `from`, in plain UTC arithmetic. */
-const calendarDay = (from: [number, number, number], y: number, m: number, d: number): number =>
-  Math.round((Date.UTC(y, m, d) - Date.UTC(from[0], from[1], from[2])) / 86_400_000) + 1;
+/** A day's date in the test zone, as `Intl` writes it rather than as the `Date` getters do. */
+const zoneDate = new Intl.DateTimeFormat('en-CA', { timeZone: ZONE });
 
-/** The rows column view's splitter draws for an event, with the day each one names. */
-function splitRows(event: Types.CalendarEventData, firstDate: string): Types.CalendarEventData[] {
+/** The `index`th calendar date after `iso`, stepped in UTC, where every day has 24 hours. */
+const dateAfter = (iso: string, index: number): string => {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + index)).toISOString().slice(0, 10);
+};
+
+/**
+ * The rows column view's splitter draws for an event: the date each is drawn under, read from
+ * its day's timestamp through `Intl`, and the day each one names.
+ */
+function splitRows(
+  event: Types.CalendarEventData,
+  firstDate: string,
+): { date: string; dayOfEvent: Types.DayOfEvent | undefined }[] {
   const config = buildConfig({
     start_date: firstDate,
     days_to_show: 60,
     show_past_events: true,
     show_day_counter: true,
   });
-  return EventUtils.groupEventsByDay([event], config, false, 'en', 'column')
-    .flatMap((day) => day.events)
-    .filter((row) => row.summary === event.summary);
+  return EventUtils.groupEventsByDay([event], config, false, 'en', 'column').flatMap((day) =>
+    day.events
+      .filter((row) => row.summary === event.summary)
+      .map((row) => ({ date: zoneDate.format(day.timestamp), dayOfEvent: row._dayOfEvent })),
+  );
 }
 
 const isoDate = (date: Date): string =>
@@ -105,35 +119,18 @@ describe('counting across a change of clocks', () => {
       end: { date: isoDate(lastExclusive) },
       _entityId: 'calendar.personal',
     };
-    const days = calendarDay(
-      [firstDate.getFullYear(), firstDate.getMonth(), firstDate.getDate()],
-      lastExclusive.getFullYear(),
-      lastExclusive.getMonth(),
-      lastExclusive.getDate() - 1,
-    );
-    expect(days).toBe(29);
+    // Fourteen days, the change, fourteen more: 29 dates, each named by its place among them.
+    const days = 29;
+    const expected = Array.from({ length: days }, (_, index) => ({
+      date: dateAfter(isoDate(firstDate), index),
+      dayOfEvent: { day: index + 1, days },
+    }));
+    expect(expected.map((row) => row.date)).toContain(isoDate(new Date(...change)));
 
-    const allDayRows = splitRows(allDay, isoDate(firstDate));
     const timedEvent = timed(at(first, 0, 9), at(change, 14, 17));
-    const timedRows = splitRows(timedEvent, isoDate(firstDate));
-
-    for (const [event, rows] of [
-      [allDay, allDayRows],
-      [timedEvent, timedRows],
-    ] as const) {
+    for (const event of [allDay, timedEvent]) {
       expect(EventUtils.multiDaySpan(event.start, event.end)?.days).toBe(days);
-      expect(rows).toHaveLength(days);
-      rows.forEach((row, index) => {
-        const date = new Date(firstDate);
-        date.setDate(date.getDate() + index);
-        const expected = calendarDay(
-          [firstDate.getFullYear(), firstDate.getMonth(), firstDate.getDate()],
-          date.getFullYear(),
-          date.getMonth(),
-          date.getDate(),
-        );
-        expect(row._dayOfEvent, isoDate(date)).toEqual({ day: expected, days });
-      });
+      expect(splitRows(event, isoDate(firstDate))).toEqual(expected);
     }
   });
 
@@ -180,10 +177,10 @@ describe.runIf(ZONE === 'Atlantic/Azores')('midnights that are missing or repeat
 
     expect(EventUtils.multiDaySpan(atSecond.start, atSecond.end)?.days).toBe(3);
     expect(splitRows(atSecond, '2026-10-23')).toHaveLength(3);
-    expect(splitRows(atSecond, '2026-10-23').map((row) => row._dayOfEvent)).toEqual([
-      { day: 1, days: 3 },
-      { day: 2, days: 3 },
-      { day: 3, days: 3 },
+    expect(splitRows(atSecond, '2026-10-23')).toEqual([
+      { date: '2026-10-23', dayOfEvent: { day: 1, days: 3 } },
+      { date: '2026-10-24', dayOfEvent: { day: 2, days: 3 } },
+      { date: '2026-10-25', dayOfEvent: { day: 3, days: 3 } },
     ]);
   });
 });

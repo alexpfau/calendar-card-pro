@@ -49,6 +49,8 @@ const CONFERENCE = allDay('Design conference', '2026-11-13', '2026-11-16');
 const VACATION = allDay('Vacation', '2026-11-10', '2026-11-25');
 /** An hour under way now. */
 const DENTIST = timed('Dentist', '2026-11-12T09:30', '2026-11-12T10:30');
+/** Under way now, ending at tomorrow's first moment: it takes up Wednesday and today only. */
+const TRIP_TO_MIDNIGHT = timed('Hackathon', '2026-11-11T18:00', '2026-11-13T00:00');
 /** Through midnight, but less than a day. */
 const NIGHT = timed('Night shift', '2026-11-11T22:00', '2026-11-12T11:00');
 
@@ -171,9 +173,26 @@ describe('the day a row stands for', () => {
     // Grouping draws an event ending at the window's first midnight under that day while past
     // events are shown. Counted from its start that row would read "Day 4 of 3".
     const ended = timed('Hackathon', '2026-11-09T18:00', '2026-11-12T00:00');
-    const found = rows([ended], { show_past_events: true });
-    expect(row(found, 'Hackathon').dayOfEvent).toBeUndefined();
+    const found = rows([ended], { show_past_events: true, show_progress_bar: true });
+    expect(row(found, 'Hackathon').dayOfEvent).toEqual({ day: null, days: 3 });
+    expect(row(found, 'Hackathon').parts.dayCounter).toBeNull();
     expect(EventUtils.multiDaySpan(ended.start, ended.end)?.days).toBe(3);
+  });
+
+  it('draws no bar on such a row while its event still runs, as the clock repaint expects', () => {
+    // Under way now and ending at the first midnight of a window that starts tomorrow, so it is
+    // drawn under a date it takes up no time on. The bar's rule is the event's: no row of a
+    // counted event draws one, or this row would draw a bar the clock repaint never moves.
+    const found = rows([TRIP_TO_MIDNIGHT], { start_date: '2026-11-13', show_progress_bar: true });
+    expect(row(found, 'Hackathon', '2026-11-13').dayOfEvent).toEqual({ day: null, days: 2 });
+    expect(row(found, 'Hackathon', '2026-11-13').parts.progressPercentage).toBeNull();
+
+    const control = rows([TRIP_TO_MIDNIGHT], {
+      start_date: '2026-11-13',
+      show_progress_bar: true,
+      show_day_counter: false,
+    });
+    expect(row(control, 'Hackathon', '2026-11-13').parts.progressPercentage).toBeGreaterThan(0);
   });
 
   it('stamps nothing while the option is off, nor in grid view', () => {
@@ -427,6 +446,27 @@ describe('the drawn card', () => {
       { view: 'list', show_progress_bar: true, show_day_counter: false },
       [COURSE],
     );
+    expect(control._clockTimerAt).toBe(NOW.getTime() + 60_000);
+  });
+
+  it('leaves no bar unrepainted on a row that names no day', async () => {
+    // The row and the repaint must agree: the repaint asks the event, so the row has to as well.
+    const midnight = new Date('2026-11-13T00:00:01Z').getTime();
+    const bars = (card: CardUnderTest) => card.shadowRoot!.querySelectorAll('.progress-bar').length;
+    const counted = await mount(
+      { view: 'list', start_date: '2026-11-13', show_progress_bar: true },
+      [TRIP_TO_MIDNIGHT],
+    );
+    expect(counted.shadowRoot!.textContent).toContain('Hackathon');
+    expect(bars(counted)).toBe(0);
+    expect(counted._clockTimerAt).toBe(midnight);
+    document.body.replaceChildren();
+
+    const control = await mount(
+      { view: 'list', start_date: '2026-11-13', show_progress_bar: true, show_day_counter: false },
+      [TRIP_TO_MIDNIGHT],
+    );
+    expect(bars(control)).toBe(1);
     expect(control._clockTimerAt).toBe(NOW.getTime() + 60_000);
   });
 });

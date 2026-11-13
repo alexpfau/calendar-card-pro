@@ -299,9 +299,12 @@ export function buildEventPresentation(
   // stamps the day only in the views that draw it.
   const dayOfEvent = config.show_day_counter && !isEmptyDay ? event._dayOfEvent : undefined;
   let dayCounter: string | null = null;
-  if (dayOfEvent && (countdownStr === null || EventUtils.eventHasStarted(event, now))) {
+  if (
+    dayOfEvent?.day != null &&
+    (countdownStr === null || EventUtils.eventHasStarted(event, now))
+  ) {
     countdownStr = null;
-    dayCounter = FormatUtils.formatDayOfEvent(dayOfEvent, language);
+    dayCounter = FormatUtils.formatDayOfEvent(dayOfEvent.day, dayOfEvent.days, language);
   }
 
   const isRunning = EventUtils.isEventCurrentlyRunning(event);
@@ -309,9 +312,11 @@ export function buildEventPresentation(
   // not "running" for the Now label below, but its day is part of an event under way and
   // carries the bar. `calculateEventProgress` answers null for every row that has none.
   //
-  // A row the day counter counts draws no bar: over a long event a bar barely moves, and the
-  // counter says how far along it is instead. Asked of the stamp rather than of whether the
-  // counter is drawn, so a running row draws one or the other and never both.
+  // No row of an event the day counter counts draws a bar: over a long event a bar barely moves,
+  // and the counter says how far along it is instead. Asked of the event, through the stamp,
+  // rather than of whether this row draws the counter, because the clock repaint asks the same
+  // question of the event (`_drawsMovingClockText`): a row naming no day that still drew a bar
+  // would have a bar nothing repaints.
   const progressPercentage =
     config.show_progress_bar && !dayOfEvent ? EventUtils.calculateEventProgress(event) : null;
 

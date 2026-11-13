@@ -554,7 +554,7 @@
   "countdown_exact_days.helper": "Teller alt fra og med i morgen i dager: «om 30 døgn» i stedet for «om en måned» og «om 1 døgn» i stedet for «i morgen».",
   "show_progress_bar": "Vis fremdriftslinje",
   "show_day_counter": "Vis dagteller",
-  "show_day_counter.helper": "Hendelser som varer en dag eller mer, viser hvilken av dagene sine hver rad er («Dag 2 av 3»): i stedet for fremdriftslinjen og, når de har begynt, nedtellingen.",
+  "show_day_counter.helper": "For hendelser som varer en dag eller mer, vises en dagteller på hver rad («Dag 2 av 3») i stedet for fremdriftslinjen. Når en hendelse har begynt, erstatter dagtelleren også nedtellingen.",
   "show_now_indicator": "Vis nå-markør",
   "show_now_indicator.helper": "Setter en grønn «Nå» foran tidspunktet for hendelser som pågår akkurat nå.",
   "now_color": "Nå-farge",

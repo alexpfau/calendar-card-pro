@@ -3111,12 +3111,15 @@ export function countsDays(event: Types.CalendarEventData): boolean {
  * A row names the date it is drawn under, so a day of an event split across several names its
  * own, and a row standing for a whole event names the day it is drawn on: its first, or the
  * window's first day for an event that began earlier. A row under a date the event takes up no
- * time on names nothing. Grouping draws one there in a single case, an unsplit event ending at
- * the window's first midnight with past events shown, which would otherwise read "Day 4 of 3".
+ * time on names no day, but is still a row of a counted event, so it draws no progress bar
+ * either: the bar's rule, and the clock repaint's, is the event's, not the row's. Grouping draws
+ * such a row in one case, an unsplit event ending at the first midnight of a window that starts
+ * later, which counted from the event's start would read "Day 4 of 3".
  *
  * @param event A whole event or one day of one, as list and column split it
  * @param displayDate The date the row is drawn under
- * @returns The day and the number of days, or null where the row names none
+ * @returns The day, null where the row names none, and the number of days; or null for an
+ *   event shorter than a day
  */
 export function resolveDayOfEvent(
   event: Types.CalendarEventData,
@@ -3127,7 +3130,7 @@ export function resolveDayOfEvent(
 
   const day = FormatUtils.getCalendarDayDiff(span.first, displayDate) + 1;
 
-  return day >= 1 && day <= span.days ? { day, days: span.days } : null;
+  return { day: day >= 1 && day <= span.days ? day : null, days: span.days };
 }
 
 /**

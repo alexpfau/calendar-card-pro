@@ -275,14 +275,15 @@ export function getCountdownString(
  * writes its own. `Intl` has nothing to offer for the words, since it names the field "day"
  * alone and no "of", so they are the card's `dayOfEvent` string.
  *
- * @param dayOfEvent The day and the number of days, as `resolveDayOfEvent` found them
+ * @param day Which day, counted from 1
+ * @param days How many days the event runs
  * @param language Language code
  * @returns The counter's text
  */
-export function formatDayOfEvent(dayOfEvent: Types.DayOfEvent, language: string): string {
+export function formatDayOfEvent(day: number, days: number, language: string): string {
   return Localize.getTranslations(language)
-    .dayOfEvent.replace('{day}', () => String(dayOfEvent.day))
-    .replace('{days}', () => String(dayOfEvent.days));
+    .dayOfEvent.replace('{day}', () => String(day))
+    .replace('{days}', () => String(days));
 }
 
 /**
