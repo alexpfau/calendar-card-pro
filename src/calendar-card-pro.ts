@@ -63,6 +63,7 @@ import { loadIntlLocaleData } from './translations/intl-locale-data';
 import * as Localize from './translations/localize';
 import * as CalendarNames from './utils/calendar-names';
 import { inlineContentWidth } from './utils/content-box';
+import { CoreConditions } from './utils/core-conditions';
 import { editorModuleUrl } from './utils/editor-url';
 import * as EntityColors from './utils/entity-colors';
 import * as EventUtils from './utils/events';
@@ -1516,6 +1517,12 @@ class CalendarCardPro extends LitElement {
   /** The moment `_visibilityTimerId` is set for. */
   private _visibilityTimerAt: number | null = null;
 
+  /** Core's answers to the conditions only it can judge; an answer asks for an update. */
+  private readonly _coreConditions = new CoreConditions(() => {
+    Logger.debug('Visibility: Home Assistant answered a condition');
+    this.requestUpdate();
+  });
+
   /**
    * Set once the legend's chips did not all fit in the heading row: what they were drawn with,
    * and the card width from which they fit again. See `_syncLegendFit`.
@@ -1986,6 +1993,7 @@ class CalendarCardPro extends LitElement {
           hass: this.hass,
           now: Date.now(),
           matches: mediaMatches,
+          core: (key) => this._coreConditions.answer(key),
         });
     this._visibilityChanged = !Visibility.sameVerdicts(next, this._visibility);
     if (this._visibilityChanged) {
@@ -3023,16 +3031,19 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Listens for what can change a visibility condition's answer with nothing else changing: each
-   * `screen` condition's media query, and the next moment a `time` condition turns. Every other
-   * condition reads a `hass` the card already renders for (`HassRelevance`).
+   * `screen` condition's media query, the next moment a `time` condition turns, and core's answer
+   * to each condition only it can judge. Every other condition reads a `hass` the card already
+   * renders for (`HassRelevance`).
    *
    * Reconciled from `updated()` like the other timers, kept while the card hides itself for
    * `hide_when_empty`, which leaves it connected, and dropped while it is detached or edited.
-   * Both only request an update; the update judges the conditions again
+   * Each only requests an update; the update judges the conditions again
    * (`_refreshVisibility`).
    */
   private _syncVisibilityWatch(): void {
     const entities = this.isConnected && !this._isBeingEdited ? (this.config?.entities ?? []) : [];
+
+    this._coreConditions.sync(this.hass, Visibility.entriesCoreConditions(entities));
 
     const queries = new Set(Visibility.entriesMediaQueries(entities));
     for (const [query, stop] of this._visibilityQueries) {
@@ -3099,11 +3110,15 @@ class CalendarCardPro extends LitElement {
     this._visibilityTimerAt = null;
   }
 
-  /** Stops every listener and timer the visibility conditions hold, as the card detaches. */
+  /**
+   * Stops every listener, timer and subscription the visibility conditions hold, as the card
+   * detaches.
+   */
   private _stopVisibilityWatch(): void {
     for (const stop of this._visibilityQueries.values()) stop();
     this._visibilityQueries.clear();
     this._stopVisibilityTimer();
+    this._coreConditions.stop();
   }
 
   /**
@@ -3156,7 +3171,7 @@ class CalendarCardPro extends LitElement {
     return HassRelevance.hassChangeIsVisible(
       changedProps.get('hass') as Types.Hass | undefined,
       this.hass,
-      HassRelevance.configEntityIds(this.config),
+      HassRelevance.watchedEntityIds(this.config, this.hass),
     );
   }
 
@@ -6711,9 +6726,10 @@ class CalendarCardPro extends LitElement {
           : Visibility.unjudgedConditions(entry.visibility);
       if (typeof entry === 'string' || unjudged.length === 0) continue;
       Logger.warn(
-        `${entry.entity}: the card cannot judge some of its visibility conditions ` +
-          `(${unjudged.join(', ')}) and hides it wherever they would decide. It judges user, ` +
-          'state, numeric_state, screen and time, under and, or and not.',
+        `${entry.entity}: some of its visibility conditions cannot be judged ` +
+          `(${unjudged.join(', ')}) and hide it wherever they would decide. A state or ` +
+          'numeric_state condition that waits (for) or templates (value_template) needs ' +
+          "entity_id, as Home Assistant's own Visibility editor writes it.",
       );
     }
     if (this.config.time_grid) {

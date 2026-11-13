@@ -1214,6 +1214,20 @@ export interface Hass {
   /** The person viewing the dashboard; `user` visibility conditions compare its id. */
   user?: { id: string; name?: string; is_admin?: boolean };
   /**
+   * Home Assistant's entity, device and area registries, as its frontend holds them. Read by
+   * `location` visibility conditions alone: to find the viewer's person, and the zones a target
+   * names through a device, area, floor or label (`utils/visibility.ts`).
+   */
+  entities?: Record<
+    string,
+    { entity_id: string; device_id?: string | null; area_id?: string | null; labels?: string[] }
+  >;
+  devices?: Record<
+    string,
+    { id: string; area_id?: string | null; parent_device_id?: string | null; labels?: string[] }
+  >;
+  areas?: Record<string, { area_id: string; floor_id?: string | null; labels?: string[] }>;
+  /**
    * The language Home Assistant's own interface is drawn in. With `translationMetadata`, it
    * decides which way the dashboard runs: Home Assistant sets the document's `dir` from
    * `translationMetadata.translations[language].isRTL` (`computeRTLDirection` in its frontend),

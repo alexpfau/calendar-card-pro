@@ -20,6 +20,7 @@ import { buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
 import { SearchSession } from '../src/interaction/search-session';
 import * as EventUtils from '../src/utils/events';
+import * as Logger from '../src/utils/logger';
 import { configFingerprint, writeHiddenCalendars } from '../src/utils/view-choice';
 import '../src/calendar-card-pro';
 
@@ -139,6 +140,40 @@ function makeHass(
     callApi,
     localize: (key: string) => key,
   } as unknown as Types.Hass;
+}
+
+/**
+ * Home Assistant's connection, answering `subscribe_condition` as a test tells it to. It refuses
+ * live calendar updates as Home Assistant before 2026.5 does, so the card loads by fetching.
+ *
+ * @param hass - The rest of Home Assistant
+ * @param refusal - The code to refuse `subscribe_condition` with, as an older Home Assistant does
+ */
+function withCore(hass: Types.Hass, refusal?: string) {
+  const subscriptions: Array<{
+    condition: unknown;
+    push: (payload: unknown) => void;
+    unsubscribed: number;
+  }> = [];
+  const connection = {
+    connected: true,
+    subscribeEvents: vi.fn().mockResolvedValue(() => undefined),
+    subscribeMessage: vi.fn(
+      (push: (payload: unknown) => void, message: { type: string; condition?: unknown }) => {
+        if (message.type !== 'subscribe_condition') {
+          return Promise.reject({ code: 'unknown_command' });
+        }
+        const subscription = { condition: message.condition, push, unsubscribed: 0 };
+        subscriptions.push(subscription);
+        if (refusal) return Promise.reject({ code: refusal });
+        return Promise.resolve(() => {
+          subscription.unsubscribed += 1;
+        });
+      },
+    ),
+    addEventListener: vi.fn(),
+  };
+  return { hass: { ...hass, connection } as unknown as Types.Hass, subscriptions };
 }
 
 async function settle(card: CardUnderTest): Promise<void> {
@@ -471,5 +506,133 @@ describe('judging again', () => {
 
     expect(card._visibilityQueries.size).toBe(0);
     expect(card._visibilityTimerId).toBeNull();
+  });
+});
+
+describe('conditions only core can judge', () => {
+  const SUN = { condition: 'sun', after: 'sunset' };
+
+  it('hide their entry until core answers, then follow each answer, without fetching', async () => {
+    const core = withCore(makeHass());
+    const card = await mount(
+      { entities: [{ entity: ANNA, visibility: [SUN] } as never, BEN] },
+      { hass: core.hass },
+    );
+    const fetched = callApi.mock.calls.length;
+    expect(titles(card)).toEqual(['Football']);
+    expect(core.subscriptions.map(({ condition }) => condition)).toEqual([SUN]);
+
+    core.subscriptions[0].push({ result: true });
+    await settle(card);
+    expect(titles(card)).toEqual(['Dentist', 'Football', 'Holiday']);
+
+    core.subscriptions[0].push({ result: false });
+    await settle(card);
+    expect(titles(card)).toEqual(['Football']);
+    expect(callApi.mock.calls.length).toBe(fetched);
+  });
+
+  it("ask core about a dashboard state too, whose answer wins over the browser's", async () => {
+    const core = withCore(makeHass());
+    const card = await mount(
+      { entities: [{ entity: ANNA, visibility: AT_WORK } as never, BEN] },
+      { hass: core.hass },
+    );
+    expect(titles(card)).toContain('Dentist');
+    expect(core.subscriptions.map(({ condition }) => condition)).toEqual([
+      { condition: 'state', entity_id: VACATION, state: 'off' },
+    ]);
+
+    core.subscriptions[0].push({ result: false });
+    await settle(card);
+    expect(titles(card)).toEqual(['Football']);
+  });
+
+  it('hide their entry on an error from core, even under a not', async () => {
+    // Not (after sunset, and Ben is viewing): it holds for Anna whatever the sun does.
+    const core = withCore(makeHass());
+    const card = await mount(
+      {
+        entities: [
+          {
+            entity: ANNA,
+            visibility: [{ condition: 'not', conditions: [SUN, ...BEN_ONLY] }],
+          } as never,
+          BEN,
+        ],
+      },
+      { hass: core.hass },
+    );
+    expect(core.subscriptions.map(({ condition }) => condition)).toEqual([SUN]);
+    core.subscriptions[0].push({ result: true });
+    await settle(card);
+    expect(titles(card)).toContain('Dentist');
+
+    core.subscriptions[0].push({ error: 'sun.sun has no state' });
+    await settle(card);
+    expect(titles(card)).toEqual(['Football']);
+  });
+
+  it.each(['unknown_command', 'unauthorized'])(
+    'leave the browser to judge what it can where Home Assistant answers %s',
+    async (code) => {
+      const warn = vi.mocked(Logger.warn);
+      warn.mockClear();
+      const core = withCore(makeHass(), code);
+      const card = await mount(
+        {
+          entities: [
+            { entity: ANNA, visibility: AT_WORK } as never,
+            { entity: BEN, visibility: [SUN] } as never,
+            FAMILY,
+          ],
+        },
+        { hass: core.hass },
+      );
+
+      expect(titles(card)).toEqual(['Recycling', 'Dentist', 'Holiday']);
+      expect(warn.mock.calls.filter(([message]) => String(message).includes(code))).toHaveLength(1);
+    },
+  );
+
+  it('ask once for a question two entries share', async () => {
+    const core = withCore(makeHass());
+    await mount(
+      {
+        entities: [
+          { entity: ANNA, visibility: [SUN] } as never,
+          { entity: BEN, visibility: [{ ...SUN }] } as never,
+        ],
+      },
+      { hass: core.hass },
+    );
+
+    expect(core.subscriptions).toHaveLength(1);
+  });
+
+  it('ask nothing while the card is being edited, which shows every calendar', async () => {
+    const core = withCore(makeHass());
+    const card = await mount(
+      { entities: [{ entity: ANNA, visibility: [SUN] } as never, BEN] },
+      { hass: core.hass, preview: true },
+    );
+
+    expect(core.subscriptions).toEqual([]);
+    expect(titles(card)).toContain('Dentist');
+  });
+
+  it('are unsubscribed once the card is detached', async () => {
+    const core = withCore(makeHass());
+    const card = await mount(
+      { entities: [{ entity: ANNA, visibility: [SUN] } as never, BEN] },
+      { hass: core.hass },
+    );
+    core.subscriptions[0].push({ result: true });
+    await settle(card);
+
+    card.remove();
+    await settle(card);
+
+    expect(core.subscriptions.map(({ unsubscribed }) => unsubscribed)).toEqual([1]);
   });
 });
