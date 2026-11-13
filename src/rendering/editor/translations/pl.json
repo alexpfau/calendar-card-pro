@@ -221,7 +221,7 @@
   "heading_event_state": "Stan wydarzenia",
   "heading_toolbar": "Pasek narzędzi",
   "entity.visibility": "Warunki",
-  "entity.visibility.helper": "Pokazuje wydarzenia z tego kalendarza tylko dopóty, dopóki spełnione są wszystkie te warunki — te same, które ustawia „Widoczność” w edytorze karty. Bez warunków wydarzenia są pokazywane zawsze. Podczas edycji karty warunki nie są stosowane.",
+  "entity.visibility.helper": "Pokazuje wydarzenia z tego kalendarza tylko wtedy, gdy spełnione są wszystkie te warunki — te same, które można ustawić w zakładce „Widoczność” w edytorze karty. Bez warunków wydarzenia są pokazywane zawsze. Podczas edycji karty warunki nie są stosowane.",
   "entity.event_type": "Typ wydarzenia",
   "entity.event_type.option.inherit.label": "Zgodnie z kartą",
   "entity.event_type.option.all.label": "Wszystkie wydarzenia",

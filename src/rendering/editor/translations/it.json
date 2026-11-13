@@ -221,7 +221,7 @@
   "heading_event_state": "Stato evento",
   "heading_toolbar": "Barra strumenti",
   "entity.visibility": "Condizioni",
-  "entity.visibility.helper": "Mostra gli eventi di questo calendario solo finché sono soddisfatte tutte queste condizioni, le stesse che si impostano in «Visibilità» nell’editor di una scheda. Senza condizioni, gli eventi vengono mostrati sempre. Non si applicano mentre modifichi la scheda.",
+  "entity.visibility.helper": "Mostra gli eventi di questo calendario solo finché sono soddisfatte tutte queste condizioni, le stesse che si impostano nel tab «Visibilità» dell’editor di una scheda. Senza condizioni, gli eventi vengono mostrati sempre. Non si applicano mentre modifichi la scheda.",
   "entity.event_type": "Tipo di evento",
   "entity.event_type.option.inherit.label": "Segui la scheda",
   "entity.event_type.option.all.label": "Tutti gli eventi",
