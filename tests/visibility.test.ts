@@ -453,6 +453,9 @@ describe('location', () => {
         'zone.gym': zone('Gym'),
         'zone.mall': zone('Mall', { passive: true }),
         'zone.school': zone('School'),
+        'zone.depot': zone('Depot'),
+        'zone.stop': zone('Stop'),
+        'zone.cafe': zone('Work', { passive: true }),
         'zone.yaml': zone('Not Home'),
         'light.desk': state('on'),
       },
@@ -464,6 +467,11 @@ describe('location', () => {
         'zone.gym': { entity_id: 'zone.gym', labels: ['weekday'] },
         'zone.mall': { entity_id: 'zone.mall', area_id: 'town', labels: [] },
         'zone.school': { entity_id: 'zone.school', device_id: 'bus', labels: [] },
+        // On the bus, but placed in the office: reached through the town, it stays out.
+        'zone.depot': { entity_id: 'zone.depot', device_id: 'bus', area_id: 'office', labels: [] },
+        // On the seat, a part of the bus with no area of its own.
+        'zone.stop': { entity_id: 'zone.stop', device_id: 'seat', labels: [] },
+        'zone.cafe': { entity_id: 'zone.cafe', labels: [] },
         'zone.gone': { entity_id: 'zone.gone', area_id: 'office', labels: [] },
         'light.desk': { entity_id: 'light.desk', area_id: 'office', labels: ['weekday'] },
       },
@@ -519,11 +527,17 @@ describe('location', () => {
     expect(at(hass, { target: { entity_id: ['zone.home'] }, match_mode: 'active_zone' })).toBe(
       true,
     );
+    // A passive cafe named like the office never sets the state, though listed first.
+    const cafe = house({ state: 'Work', in_zones: ['zone.cafe', 'zone.work'] });
+    expect(at(cafe, { target: { entity_id: 'zone.cafe' }, match_mode: 'active_zone' })).toBe(false);
+    expect(at(cafe, { target: { entity_id: 'zone.work' }, match_mode: 'active_zone' })).toBe(true);
   });
 
   it('matches by the state alone where the tracker does not report its zones, never as away', () => {
     expect(at(house({ state: 'Work' }), { target: { entity_id: 'zone.work' } })).toBe(true);
     expect(at(house({ state: 'Gym' }), { target: { entity_id: 'zone.work' } })).toBe(false);
+    // A passive zone never becomes the state, whatever its name.
+    expect(at(house({ state: 'Work' }), { target: { entity_id: 'zone.cafe' } })).toBe(false);
     // A zone named like the away state does not make away a place.
     const named = house({ state: 'not_home' });
     named.states['zone.yaml'] = zone('not_home');
@@ -540,6 +554,16 @@ describe('location', () => {
     expect(at(where('zone.school'), { target: { device_id: 'bus' } })).toBe(true);
     expect(at(where('zone.school'), { target: { label_id: 'out' } })).toBe(true);
     expect(at(where('zone.school'), { target: { area_id: 'office' } })).toBe(false);
+    // A zone with an area of its own counts for its device named directly, not through the
+    // device's area.
+    expect(at(where('zone.depot'), { target: { device_id: 'bus' } })).toBe(true);
+    expect(at(where('zone.depot'), { target: { area_id: 'town' } })).toBe(false);
+    expect(at(where('zone.depot'), { target: { area_id: 'office' } })).toBe(true);
+    // Naming the bus names its seat; the seat takes the bus's area.
+    expect(at(where('zone.stop'), { target: { device_id: 'bus' } })).toBe(true);
+    expect(at(where('zone.stop'), { target: { area_id: 'town' } })).toBe(true);
+    expect(at(where('zone.stop'), { target: { device_id: 'seat' } })).toBe(true);
+    expect(at(where('zone.school'), { target: { device_id: 'seat' } })).toBe(false);
     // The light shares the office and the label but is no zone.
     expect(at(where('light.desk'), { target: { area_id: 'office', label_id: 'weekday' } })).toBe(
       false,
@@ -579,11 +603,18 @@ describe('location', () => {
         'zone.gym',
         'zone.mall',
         'zone.school',
+        'zone.depot',
+        'zone.stop',
+        'zone.cafe',
         'zone.gone',
         'zone.home',
         'zone.yaml',
       ]),
     );
+    // A person found once is watched while its state lasts, though the registry has let go of it.
+    expect(at(house({ state: 'home' }), { locations: ['home'] })).toBe(true);
+    const unregistered = { ...hass, entities: {} } as Types.Hass;
+    expect(locationEntityIds(unregistered)).toContain('person.anna');
     expect(
       entriesUseLocation([
         'calendar.a',
@@ -714,7 +745,7 @@ describe('what core is asked', () => {
     ]);
   });
 
-  it('asks each condition core judges under one the browser judges, once, and none switched off', () => {
+  it('asks the children core judges under one parent together, like their parent, and none switched off', () => {
     const sun = { condition: 'sun', after: 'sunset' };
     expect(
       ask([
@@ -729,7 +760,10 @@ describe('what core is asked', () => {
           conditions: [{ condition: 'user' }, { condition: 'device' }],
         },
       ]),
-    ).toEqual([TEMPLATE, sun, { condition: 'zone' }]);
+    ).toEqual([TEMPLATE, { condition: 'or', conditions: [sun, TEMPLATE] }, { condition: 'zone' }]);
+    expect(ask([TEMPLATE, { condition: 'screen' }, sun])).toEqual([
+      { condition: 'and', conditions: [TEMPLATE, sun] },
+    ]);
   });
 
   it('asks each question once across the entries, and keys it by what it says', () => {
@@ -740,7 +774,10 @@ describe('what core is asked', () => {
     ]);
     expect([...questions.values()]).toEqual([
       TEMPLATE,
-      { condition: 'state', entity_id: 'calendar.c', state: 'on' },
+      {
+        condition: 'and',
+        conditions: [TEMPLATE, { condition: 'state', entity_id: 'calendar.c', state: 'on' }],
+      },
     ]);
     expect(coreKey({ ...TEMPLATE }, 'calendar.x')).toBe([...questions.keys()][0]);
     // JSON writes an infinity as null; the key still tells them apart.
@@ -775,9 +812,10 @@ describe("core's answers", () => {
   it('decide what the card could not', () => {
     expect(answered([TEMPLATE], { template: true })).toBe(true);
     expect(answered([TEMPLATE], { template: false })).toBe(false);
-    expect(answered([{ condition: 'not', conditions: [TEMPLATE] }], { template: false })).toBe(
-      true,
-    );
+    // A not over what only core judges is one question, about the not.
+    const notTemplate = { condition: 'not', conditions: [TEMPLATE] };
+    expect(answered([notTemplate], { [JSON.stringify(notTemplate)]: true })).toBe(true);
+    expect(answered([notTemplate], { template: false })).toBeUndefined();
     expect(answered([TEMPLATE, sun], { template: true })).toBeUndefined();
   });
 
@@ -813,5 +851,60 @@ describe("core's answers", () => {
         },
       ),
     ).toBeUndefined();
+  });
+});
+
+describe("core's answers, as Home Assistant combines them", () => {
+  const sun = { condition: 'sun', after: 'sunset' };
+  const missing = { condition: 'state', entity_id: 'sensor.missing', state: 'on' };
+
+  /** Judges a list with core's answers, given in the order its questions are asked. */
+  function withAnswers(conditions: unknown[], answers: Array<boolean | null | 'error'>) {
+    const questions = coreConditions(conditions, 'calendar.work');
+    const byKey = new Map(questions.map(({ key }, index) => [key, answers[index]]));
+    return evaluateVisibility(conditions, {
+      hass: HASS,
+      entityId: 'calendar.work',
+      now: NOON,
+      matches: (query) => query === WIDE,
+      core: (key) => byKey.get(key),
+    });
+  }
+
+  it('lets an or that holds through one child hide nothing, though another errs', () => {
+    const list = [
+      { condition: 'or', conditions: [{ condition: 'user', users: ['u-ben'] }, TEMPLATE, missing] },
+    ];
+    expect(coreConditions(list, 'calendar.work').map(({ condition }) => condition)).toEqual([
+      { condition: 'or', conditions: [TEMPLATE, missing] },
+    ]);
+    // Core judges the or as a whole, and answers true despite the missing entity.
+    expect(withAnswers(list, [true])).toBe(true);
+    expect(withAnswers(list, ['error'])).toBeUndefined();
+  });
+
+  it("reads core's null, a node switched off, as passing an and and failing an or", () => {
+    expect(withAnswers([TEMPLATE], [null])).toBe(true);
+    expect(
+      withAnswers(
+        [{ condition: 'or', conditions: [{ condition: 'user', users: ['u-ben'] }, sun] }],
+        [null],
+      ),
+    ).toBe(false);
+    expect(
+      withAnswers(
+        [{ condition: 'not', conditions: [{ condition: 'screen', media_query: WIDE }, sun] }],
+        [null],
+      ),
+    ).toBe(false);
+  });
+
+  it("falls back to the card's own judgment while an answer it needs is missing", () => {
+    const guest = { condition: 'state', entity: 'input_boolean.guest', state: 'on' };
+    // The guest switch is asked of core with the template; without an answer the card judges the
+    // switch itself and cannot judge the template.
+    expect(withAnswers([guest, TEMPLATE], [])).toBeUndefined();
+    expect(withAnswers([guest], [])).toBe(true);
+    expect(withAnswers([guest], [false])).toBe(false);
   });
 });

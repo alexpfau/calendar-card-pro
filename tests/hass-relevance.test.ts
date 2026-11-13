@@ -470,13 +470,20 @@ describe('reconciliation: the rule watches everything the card reads', () => {
             entity: 'calendar.anna',
             visibility: [
               { condition: 'user', users: ['u-anna'] },
-              { condition: 'state', entity: 'sensor.noise', state: 'on' },
               { condition: 'numeric_state', entity: 'weather.home', above: 'zone.home' },
               { condition: 'or', conditions: [{ condition: 'time', after: '08:00' }] },
               { condition: 'screen', media_query: '(min-width: 0px)' },
             ],
           },
-          { entity: 'calendar.ben', visibility: [{ condition: 'state', state: 'on' }] },
+          // Asked of core, which this Home Assistant never answers, so the card judges both
+          // itself; in the list above, the false numeric_state would settle it unread.
+          {
+            entity: 'calendar.ben',
+            visibility: [
+              { condition: 'state', entity: 'sensor.noise', state: 'on' },
+              { condition: 'state', state: 'on' },
+            ],
+          },
         ],
         toolbar: { show: true, legend: true, add_event: true },
       },

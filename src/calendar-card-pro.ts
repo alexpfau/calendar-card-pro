@@ -1993,7 +1993,7 @@ class CalendarCardPro extends LitElement {
           hass: this.hass,
           now: Date.now(),
           matches: mediaMatches,
-          core: (key) => this._coreConditions.answer(key),
+          core: (key) => this._coreConditions.answer(key, this.hass),
         });
     this._visibilityChanged = !Visibility.sameVerdicts(next, this._visibility);
     if (this._visibilityChanged) {

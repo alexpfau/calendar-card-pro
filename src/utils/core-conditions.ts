@@ -115,12 +115,16 @@ export class CoreConditions {
   constructor(private readonly changed: () => void) {}
 
   /**
-   * What core answered a question.
+   * What core answered a question, on the connection `hass` holds. An answer from a connection
+   * Home Assistant has since replaced is no answer: the update judging with it runs before the
+   * next sync can ask the new connection, and must not show what the old one said.
    *
-   * @param key - Its key (`coreKey`)
+   * @param key - Its key (`coreConditions`)
+   * @param hass - The `hass` the card judges with
    * @returns The answer, or undefined while there is none
    */
-  answer(key: string): CoreAnswer | undefined {
+  answer(key: string, hass: Types.Hass | null | undefined): CoreAnswer | undefined {
+    if (connectionOf(hass) !== this.connection) return undefined;
     return this.questions.get(key)?.answer;
   }
 
@@ -225,7 +229,8 @@ export class CoreConditions {
       return;
     }
     let answer: CoreAnswer | undefined;
-    if (typeof push?.result === 'boolean') {
+    // `null` is core's answer for a condition a templated `enabled` switched off.
+    if (typeof push?.result === 'boolean' || push?.result === null) {
       answer = push.result;
     } else if (push?.error !== undefined) {
       answer = 'error';
