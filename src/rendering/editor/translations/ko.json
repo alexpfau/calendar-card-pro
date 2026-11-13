@@ -115,7 +115,7 @@
   "heading_appearance": "이름 및 모양",
   "heading_details": "이벤트 상세 정보",
   "entity.visibility": "조건 목록",
-  "entity.visibility.helper": "목록의 모든 조건이 충족되는 동안에만 이 캘린더의 이벤트를 표시합니다. 카드의 ‘표시 조건’ 탭과 같은 조건입니다. 조건이 없으면 이벤트가 항상 표시됩니다. 카드를 편집하는 동안에는 적용되지 않습니다.",
+  "entity.visibility.helper": "목록의 모든 조건이 충족되는 동안에만 이 캘린더의 이벤트를 표시합니다. 카드의 ‘표시 조건’ 탭에서 설정하는 것과 같은 조건입니다. 조건이 없으면 이벤트가 항상 표시됩니다. 카드를 편집하는 동안에는 적용되지 않습니다.",
   "entity.event_type": "이벤트 유형",
   "entity.event_type.option.inherit.label": "카드 설정 따르기",
   "entity.event_type.option.all.label": "모든 이벤트",
