@@ -316,10 +316,6 @@ const eventsSchema = Helpers.memoizeLast(
     bool('show_description'),
     bool('show_countdown'),
     bool('show_progress_bar'),
-    // Last of the switches deciding which lines an event is made of: it concerns only events a
-    // day or longer, the narrowest class here, and it changes what the two above it draw on
-    // them, taking the place of the bar and, once an event has started, of the countdown.
-    bool('show_day_counter'),
 
     // State affects the whole content layer, before the individual accent and ink choices.
     // The present before the past: the switch that marks a running event, then how far a

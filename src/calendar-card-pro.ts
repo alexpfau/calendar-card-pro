@@ -2828,9 +2828,8 @@ class CalendarCardPro extends LitElement {
     const progress = config.show_progress_bar;
     if (!countdown && !progress) return false;
     // A row the day counter counts draws no bar (`buildEventPresentation`), so it has nothing
-    // that moves by the minute.
-    const counted =
-      config.show_day_counter && ViewConfig.appliesToView('show_day_counter', this.effectiveView);
+    // that moves by the minute. Grid draws no counter and keeps its bars (`groupEventsByDay`).
+    const counted = this.effectiveView !== 'grid';
 
     return this._shownEvents.some((event) => {
       if (event._isEmptyDay) return false;

@@ -1,5 +1,5 @@
 /**
- * `show_day_counter` where clocks change: the days are local calendar dates, so a day of 23 or 25
+ * The day counter where clocks change: the days are local calendar dates, so a day of 23 or 25
  * hours is one day like any other, and the threshold of "a day or more long" is measured on the
  * calendar rather than in hours.
  *
@@ -72,7 +72,7 @@ function splitRows(
     start_date: firstDate,
     days_to_show: 60,
     show_past_events: true,
-    show_day_counter: true,
+    show_progress_bar: true,
   });
   return EventUtils.groupEventsByDay([event], config, false, 'en', 'column').flatMap((day) =>
     day.events

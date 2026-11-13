@@ -50,17 +50,18 @@ Each row stands for its day, which changes what other features show on it:
 
 ## 🔢 Day Counter
 
-`show_day_counter` says which of its days an event a day or longer is on, such as "Day 12 of
-45", so a course, a trip or a vacation shows how far along it is at a glance. It goes where the
-countdown and the progress bar go, and on these events it takes the bar's place:
+With the [progress bar](/features/event-content#progress-bar-display) on, an event a day or
+longer says which of its days it is on, such as "Day 12 of 45", in place of its bar, so a course,
+a trip or a vacation shows how far along it is at a glance. It goes where the countdown and the
+bar go:
 
 ```yaml
-show_day_counter: true
+show_progress_bar: true
 ```
 
-| Option             | Type    | Default | Description                                                                                                   |
-| ------------------ | ------- | ------- | ------------------------------------------------------------------------------------------------------------- |
-| `show_day_counter` | boolean | `false` | Show "Day 2 of 3" on each row of an event a day or longer, in place of its progress bar. List and column view |
+| Option              | Type    | Default | Description                                                                                                                       |
+| ------------------- | ------- | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `show_progress_bar` | boolean | `false` | Show a progress bar on events under way. In list and column view, an event a day or longer shows "Day 2 of 3" on each row instead |
 
 - **Which events count.** An all-day event over two or more dates, and a timed event at least a
   full day long, ending no earlier than its start time on the next date. Days are calendar
@@ -74,9 +75,8 @@ show_day_counter: true
   once the event is under way. A row with no countdown to show, because it is off, the event
   is beyond [`countdown_max_days`](/features/event-content#countdown-range), or `once_per_day`
   left a repeat out, names its day from the start.
-- **No progress bar on these events.** Their rows draw the counter instead of the
-  [progress bar](/features/event-content#progress-bar-display), which barely moves over a long
-  event. Shorter events keep theirs, and the counter works with the bar on or off.
+- **In place of the bar.** A bar barely moves over a long event, so these events draw the
+  counter instead, all-day ones included, which never had a bar. Shorter events keep theirs.
 
 ::: details Midnight, Later Windows & Grid View
 
@@ -120,4 +120,4 @@ day's part of an event still shows when the event's first day is left off the ca
 weekday or weekend filter or because empty days are hidden. See
 [Options That Do Nothing in Grid View](/features/grid-view#options-that-do-nothing-in-grid-view).
 
-This page covers `split_multiday_events`, in [Core Settings in the configuration reference](/reference/configuration#core-settings), and `show_day_counter`, in [Event Column](/reference/configuration#event-column).
+This page covers `split_multiday_events`, in [Core Settings in the configuration reference](/reference/configuration#core-settings), and the day counter, which `show_progress_bar` turns on, in [Event Column](/reference/configuration#event-column).

@@ -1,11 +1,13 @@
 /**
- * `show_day_counter`: "Day 2 of 3" on each row of an event a day or more long, in the place the
- * countdown and the progress bar take, and no bar on those rows (#281).
+ * The day counter: under `show_progress_bar`, a row of an event a day or more long says which of
+ * its days it stands for, "Day 2 of 3", in the place the countdown and the bar take, and draws no
+ * bar (#281). The counter is the bar's form on such an event, so it has no option of its own.
  *
- * The option is off by default, so every case turns it on and most are paired with a control
- * showing what the same row draws with it off: a "draws no bar" assertion is satisfied by a
- * harness that never draws one. Pinned to UTC like the rest of the unit project; how the days
- * fall where clocks change is `day-counter.dst.test.ts`.
+ * The bar is off by default, so every case turns it on. A "draws no bar" assertion is satisfied
+ * by a harness that never draws one, so each is paired with a control the same harness draws a
+ * bar for: an event shorter than a day. A counter assertion is paired with the bar turned off.
+ * Pinned to UTC like the rest of the unit project; how the days fall where clocks change is
+ * `day-counter.dst.test.ts`.
  */
 import { render } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -53,6 +55,8 @@ const DENTIST = timed('Dentist', '2026-11-12T09:30', '2026-11-12T10:30');
 const TRIP_TO_MIDNIGHT = timed('Hackathon', '2026-11-11T18:00', '2026-11-13T00:00');
 /** Through midnight, but less than a day. */
 const NIGHT = timed('Night shift', '2026-11-11T22:00', '2026-11-12T11:00');
+/** Under way now and ending at tomorrow's first moment like the hackathon, but under a day. */
+const SHIFT_TO_MIDNIGHT = timed('Long shift', '2026-11-12T06:00', '2026-11-13T00:00');
 
 interface Row {
   date: string;
@@ -72,7 +76,7 @@ function rows(
     entities: ['calendar.anna'],
     start_date: '2026-11-12',
     days_to_show: 3,
-    show_day_counter: true,
+    show_progress_bar: true,
     ...overrides,
   });
   const effective = resolveEffectiveConfig(config, view);
@@ -183,29 +187,27 @@ describe('the day a row stands for', () => {
     // Under way now and ending at the first midnight of a window that starts tomorrow, so it is
     // drawn under a date it takes up no time on. The bar's rule is the event's: no row of a
     // counted event draws one, or this row would draw a bar the clock repaint never moves.
-    const found = rows([TRIP_TO_MIDNIGHT], { start_date: '2026-11-13', show_progress_bar: true });
+    const found = rows([TRIP_TO_MIDNIGHT], { start_date: '2026-11-13' });
     expect(row(found, 'Hackathon', '2026-11-13').dayOfEvent).toEqual({ day: null, days: 2 });
     expect(row(found, 'Hackathon', '2026-11-13').parts.progressPercentage).toBeNull();
 
-    const control = rows([TRIP_TO_MIDNIGHT], {
-      start_date: '2026-11-13',
-      show_progress_bar: true,
-      show_day_counter: false,
-    });
-    expect(row(control, 'Hackathon', '2026-11-13').parts.progressPercentage).toBeGreaterThan(0);
+    // The control: the same row of an event under a day keeps its bar.
+    const control = rows([SHIFT_TO_MIDNIGHT], { start_date: '2026-11-13' });
+    expect(row(control, 'Long shift', '2026-11-13').dayOfEvent).toBeUndefined();
+    expect(row(control, 'Long shift', '2026-11-13').parts.progressPercentage).toBeGreaterThan(0);
   });
 
-  it('stamps nothing while the option is off, nor in grid view', () => {
+  it('stamps nothing while the progress bar is off, nor in grid view', () => {
     expect(
-      row(rows([COURSE], { show_day_counter: false }), 'Spanish course').dayOfEvent,
+      row(rows([COURSE], { show_progress_bar: false }), 'Spanish course').dayOfEvent,
     ).toBeUndefined();
     const grid = rows([COURSE, VACATION], {}, 'grid');
     expect(grid.length).toBeGreaterThan(0);
     expect(grid.every((r) => r.dayOfEvent === undefined)).toBe(true);
   });
 
-  it('is read per view, like show_progress_bar', () => {
-    const viewOnly = { show_day_counter: false, column: { show_day_counter: true } };
+  it('follows the progress bar per view', () => {
+    const viewOnly = { show_progress_bar: false, column: { show_progress_bar: true } };
     expect(row(rows([COURSE], viewOnly, 'list'), 'Spanish course').dayOfEvent).toBeUndefined();
     expect(row(rows([COURSE], viewOnly, 'column'), 'Spanish course').dayOfEvent).toEqual({
       day: 12,
@@ -223,8 +225,9 @@ describe('the place the countdown and the bar take', () => {
     expect(counted.parts.dayCounter).toBe('Day 12 of 45');
     expect(counted.parts.countdownStr).toBeNull();
 
-    const control = row(rows([COURSE], { ...on, show_day_counter: false }), 'Spanish course');
-    expect(control.parts.progressPercentage).toBeGreaterThan(0);
+    // The control: with the bar off there is no counter either.
+    const control = row(rows([COURSE], { ...on, show_progress_bar: false }), 'Spanish course');
+    expect(control.parts.progressPercentage).toBeNull();
     expect(control.parts.dayCounter).toBeNull();
   });
 
@@ -240,7 +243,7 @@ describe('the place the countdown and the bar take', () => {
     const counted = row(rows([VACATION], on), 'Vacation');
     expect(counted.parts.dayCounter).toBe('Day 3 of 15');
     expect(
-      row(rows([VACATION], { ...on, show_day_counter: false }), 'Vacation').parts,
+      row(rows([VACATION], { ...on, show_progress_bar: false }), 'Vacation').parts,
     ).toMatchObject({
       dayCounter: null,
       progressPercentage: null,
@@ -276,7 +279,7 @@ describe('the place the countdown and the bar take', () => {
     expect(later.parts.countdownStr).toBeNull();
 
     const control = row(
-      rows([COURSE], { ...on, show_day_counter: false }, 'column'),
+      rows([COURSE], { ...on, show_progress_bar: false }, 'column'),
       'Spanish course',
       '2026-11-13',
     );
@@ -312,7 +315,6 @@ describe('the drawn row', () => {
     const target = found.find((r) => r.summary === event.summary)!;
     const config = resolveEffectiveConfig(
       buildConfig({
-        show_day_counter: true,
         show_progress_bar: true,
         show_countdown: true,
         ...overrides,
@@ -334,7 +336,7 @@ describe('the drawn row', () => {
     expect(place).toEqual([['time-countdown day-counter', 'Day 12 of 45']]);
     expect(container.querySelector('.time > .day-counter')).not.toBeNull();
     expect(bars).toBe(0);
-    expect(drawn(COURSE, { show_day_counter: false }).bars).toBe(1);
+    expect(drawn(DENTIST, {}).bars).toBe(1);
   });
 
   it('folds it into the time text where the countdown folds, as in column view', () => {
@@ -348,12 +350,7 @@ describe('the drawn row', () => {
     expect(container.querySelector('.time-text > .day-counter')).not.toBeNull();
     expect(bars).toBe(0);
     expect(
-      drawn(
-        COURSE,
-        { show_day_counter: false },
-        { countdownPlacement: 'text', progressPlacement: 'row' },
-        'column',
-      ).bars,
+      drawn(DENTIST, {}, { countdownPlacement: 'text', progressPlacement: 'row' }, 'column').bars,
     ).toBe(1);
   });
 
@@ -391,7 +388,7 @@ describe('the drawn card', () => {
     card.setConfig({
       entities: ['calendar.anna'],
       days_to_show: 3,
-      show_day_counter: true,
+      show_progress_bar: true,
       ...config,
     });
     card.hass = {
@@ -433,18 +430,17 @@ describe('the drawn card', () => {
     expect(countdowns(counted)).toEqual(['tomorrow', 'in 2 days']);
     document.body.replaceChildren();
 
-    // The control: without the counter the course's own countdowns are drawn, and the
+    // The control: with the bar off the course's own countdowns are drawn, and the
     // conference's, reading the same, are the repeats left out.
-    const control = await mount({ ...base, show_day_counter: false }, [ART, CONFERENCE]);
+    const control = await mount({ ...base, show_progress_bar: false }, [ART, CONFERENCE]);
     expect(countdowns(control)).toEqual(['tomorrow', 'in 2 days']);
     expect(control.shadowRoot!.querySelectorAll('.time-countdown').length).toBe(2);
   });
 
   it('draws none in grid view, which keeps its bars', async () => {
-    const card = await mount({ view: 'grid', start_date: '2026-11-12', show_progress_bar: true }, [
-      COURSE,
-    ]);
+    const card = await mount({ view: 'grid', start_date: '2026-11-12' }, [TRIP]);
     expect(card.shadowRoot!.querySelectorAll('.grid-event').length).toBeGreaterThan(0);
+    expect(card.shadowRoot!.querySelectorAll('.progress-bar').length).toBeGreaterThan(0);
     expect(counters(card)).toEqual([]);
   });
 
@@ -461,15 +457,12 @@ describe('the drawn card', () => {
 
   it('asks for no minute repaint for a bar it replaced', async () => {
     const midnight = new Date('2026-11-13T00:00:01Z').getTime();
-    const counted = await mount({ view: 'list', show_progress_bar: true }, [COURSE]);
+    const counted = await mount({ view: 'list' }, [COURSE]);
     expect(counted._clockTimerAt).toBe(midnight);
     document.body.replaceChildren();
 
-    // The control: the same bar, not replaced, moves by the minute.
-    const control = await mount(
-      { view: 'list', show_progress_bar: true, show_day_counter: false },
-      [COURSE],
-    );
+    // The control: the bar of an event under a day, not replaced, moves by the minute.
+    const control = await mount({ view: 'list' }, [DENTIST]);
     expect(control._clockTimerAt).toBe(NOW.getTime() + 60_000);
   });
 
@@ -477,19 +470,15 @@ describe('the drawn card', () => {
     // The row and the repaint must agree: the repaint asks the event, so the row has to as well.
     const midnight = new Date('2026-11-13T00:00:01Z').getTime();
     const bars = (card: CardUnderTest) => card.shadowRoot!.querySelectorAll('.progress-bar').length;
-    const counted = await mount(
-      { view: 'list', start_date: '2026-11-13', show_progress_bar: true },
-      [TRIP_TO_MIDNIGHT],
-    );
+    const counted = await mount({ view: 'list', start_date: '2026-11-13' }, [TRIP_TO_MIDNIGHT]);
     expect(counted.shadowRoot!.textContent).toContain('Hackathon');
     expect(bars(counted)).toBe(0);
     expect(counted._clockTimerAt).toBe(midnight);
     document.body.replaceChildren();
 
-    const control = await mount(
-      { view: 'list', start_date: '2026-11-13', show_progress_bar: true, show_day_counter: false },
-      [TRIP_TO_MIDNIGHT],
-    );
+    // The control: the same row of an event under a day draws its bar, and repaints it.
+    const control = await mount({ view: 'list', start_date: '2026-11-13' }, [SHIFT_TO_MIDNIGHT]);
+    expect(control.shadowRoot!.textContent).toContain('Long shift');
     expect(bars(control)).toBe(1);
     expect(control._clockTimerAt).toBe(NOW.getTime() + 60_000);
   });

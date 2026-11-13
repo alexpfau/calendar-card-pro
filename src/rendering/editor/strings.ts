@@ -928,10 +928,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Counts every date after today in days: “in 30 days” rather than “in a month”, and ' +
     '“in 1 day” rather than “tomorrow”.',
   show_progress_bar: 'Show Progress Bar',
-  show_day_counter: 'Show Day Counter',
-  'show_day_counter.helper':
-    'For events lasting a day or longer, each row shows a day counter, such as “Day 2 of 3”, ' +
-    'instead of the progress bar. Once an event starts, the counter also replaces its countdown.',
+  'show_progress_bar.helper':
+    'In list and column view, each row of an event lasting a day or longer shows a day counter, ' +
+    'such as “Day 2 of 3”, instead of the progress bar. Once the event starts, the counter also ' +
+    'replaces its countdown.',
   show_now_indicator: 'Show Now Indicator',
   'show_now_indicator.helper':
     'Puts a green “Now” before the time of events that are happening right now.',

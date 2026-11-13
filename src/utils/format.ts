@@ -824,7 +824,7 @@ export function getCalendarDayDiff(start: Date, end: Date): number {
 
 /**
  * The days an event takes up, when it is a full day or longer: its first day, and how many days
- * it runs, at least two. Null for anything shorter. `show_day_counter` counts these days.
+ * it runs, at least two. Null for anything shorter. The day counter counts these days.
  *
  * A day is a local calendar date the event takes up time on. The end instant itself takes up
  * none, so a timed event ending at 0:00 does not count the date that midnight opens: its last

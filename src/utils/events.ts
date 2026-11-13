@@ -1461,12 +1461,13 @@ export function groupEventsByDay(
   const byDay = (a: Types.EventsByDay, b: Types.EventsByDay): number =>
     latestFirst ? b.timestamp - a.timestamp : a.timestamp - b.timestamp;
 
-  // Which day of its event a row stands for, only where it is drawn, and only while the option
-  // is on, so a card without it keeps its rows as they were. Gated on the view for the same
-  // reason as `latest_first` above. In grid the gate decides nothing today: its splitter hands
-  // this function one-day segments, which never count. It is here so that stays a decision.
-  const stampsDayOfEvent =
-    Boolean(config.show_day_counter) && ViewConfig.appliesToView('show_day_counter', effectiveView);
+  // Which day of its event a row stands for, only where it is drawn, and only while the progress
+  // bar is on, whose form the counter is on an event a day or more long, so a card without it
+  // keeps its rows as they were. Not in grid, whose all-day banners already span their days and
+  // whose later blocks of a timed event draw a title alone; the gate decides nothing there today,
+  // since its splitter hands this function one-day segments, which never count. It is here so
+  // that stays a decision.
+  const stampsDayOfEvent = Boolean(config.show_progress_bar) && effectiveView !== 'grid';
 
   const referenceDate = getStartDateReference(
     config,
@@ -3044,9 +3045,9 @@ export function calculateEventProgress(event: Types.CalendarEventData): number |
 }
 
 /**
- * Whether `show_day_counter` counts this event's days: whether it is a day or more long, as
- * `FormatUtils.fullDaySpan` measures it. A row of such an event draws no progress bar while the counter is
- * on, which is what the clock repaint asks this for.
+ * Whether the day counter counts this event's days: whether it is a day or more long, as
+ * `FormatUtils.fullDaySpan` measures it. Under `show_progress_bar`, a row of such an event
+ * draws the counter rather than a bar, which is what the clock repaint asks this for.
  *
  * @param event A whole event or one day of one, as list and column split it
  * @returns True for an event a day or more long

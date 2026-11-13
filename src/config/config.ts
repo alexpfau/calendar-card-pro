@@ -98,7 +98,6 @@ export const DEFAULT_CONFIG: Types.Config = {
   // No limit: every upcoming event counts down, as before the option existed.
   countdown_max_days: undefined,
   show_progress_bar: false,
-  show_day_counter: false,
   show_now_indicator: true,
   // The card's color for "now": a running event's time in list and column view, and the
   // grid's now line, so the two always agree; a view block's own now_color sets it for that

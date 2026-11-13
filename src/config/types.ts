@@ -115,12 +115,11 @@ export interface Config {
   countdown_exact_days: boolean;
   /** Count down only to events starting within this many calendar days; unset is no limit. */
   countdown_max_days?: number;
-  show_progress_bar: boolean;
   /**
-   * "Day 2 of 3" on each row of an event a day or more long, in the countdown's place, and no
-   * progress bar on those rows. List and column view only.
+   * A bar filled as an event runs. In list and column view an event a day or more long draws
+   * "Day 2 of 3" on each row instead, in the countdown's place.
    */
-  show_day_counter: boolean;
+  show_progress_bar: boolean;
   show_now_indicator: boolean;
   now_color: string;
   progress_bar_color: string;
@@ -383,7 +382,6 @@ export interface SharedViewOverrides {
   countdown_exact_days?: boolean;
   countdown_max_days?: number;
   show_progress_bar?: boolean;
-  show_day_counter?: boolean;
   show_now_indicator?: boolean;
   now_color?: string;
   progress_bar_color?: string;
@@ -1021,7 +1019,7 @@ export interface CalendarEventData {
   _splitFromTimedEvent?: boolean;
   /**
    * Which of its event's days a list or column row stands for, "Day 2 of 3", set by
-   * `groupEventsByDay` while `show_day_counter` is on, on every row of an event a day or more
+   * `groupEventsByDay` while `show_progress_bar` is on, on every row of an event a day or more
    * long. Its presence is what takes the row's progress bar away, so it is there on a row
    * drawn under a date the event takes up no time on as well, naming no day. See
    * `resolveDayOfEvent`.
@@ -1462,7 +1460,7 @@ export interface Translations {
   endsToday: string;
   endsTomorrow: string;
   /**
-   * Which day of a multi-day event a row stands for (`show_day_counter`), with `{day}` and
+   * Which day of a multi-day event a row stands for (`show_progress_bar`), with `{day}` and
    * `{days}` where the two numbers go: "Day {day} of {days}", "Day 2 of 3". A language whose
    * words would have to agree with the sound of a number writes a form that leaves both bare,
    * as Finnish does with "Päivä {day}/{days}".

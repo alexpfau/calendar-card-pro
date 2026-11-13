@@ -871,9 +871,9 @@ export interface EventContentParts {
   countdownStr: string | null;
 
   /**
-   * "Day 2 of 3" (`show_day_counter`), drawn in the countdown's place wherever the row has no
-   * countdown, and exactly as the countdown is, in every placement it has. Absent everywhere
-   * the card draws no counter, grid included.
+   * "Day 2 of 3", the progress bar's form on an event a day or more long, drawn in the
+   * countdown's place wherever the row has no countdown, and exactly as the countdown is, in
+   * every placement it has. Absent everywhere the card draws no counter, grid included.
    */
   dayCounter?: string | null;
 

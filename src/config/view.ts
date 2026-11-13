@@ -75,7 +75,6 @@ export const COLUMN_OVERRIDE_KEYS = [
   'countdown_exact_days',
   'countdown_max_days',
   'show_progress_bar',
-  'show_day_counter',
   'show_now_indicator',
   'now_color',
   'progress_bar_color',
@@ -336,12 +335,6 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   // All-day multi-day events become spanning banners. Grid's own daily coverage keeps
   // every timed segment timed before filters and empty-day omission run.
   split_multiday_events: new Set<Types.EffectiveView>(['list', 'column']),
-
-  // Grid's all-day banners already span their days, and its later blocks of a timed event
-  // draw a title and nothing else. Only list and column stamp the day a row stands for
-  // (`groupEventsByDay`), so grid draws neither the counter nor a bar less; its one-day
-  // segments would not count in any case. tests/day-counter.test.ts compares grid's markup.
-  show_day_counter: new Set<Types.EffectiveView>(['list', 'column']),
 
   // Grid discards _isEmptyDay rows in sortDayEvents. show_empty_days controls which columns exist;
   // only the placeholder's text and color are irrelevant there.
