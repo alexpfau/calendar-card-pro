@@ -120,8 +120,10 @@ Where they differ:
 ::: details Inside Each Panel
 
 - **Calendars** and **Time Range & Content** share an order: **Event Filtering**, then
-  **Multi-Day Events**. A calendar adds **Name & Appearance** above them,
-  **Text Replacement** between them and **Event Details** below. Time Range & Content opens with
+  **Multi-Day Events**. A calendar adds **Name & Appearance** and **Visibility** above them,
+  **Text Replacement** between them and **Event Details** below. **Visibility** takes the
+  calendar's [visibility conditions](/features/core-settings#showing-a-calendar-under-conditions)
+  as YAML, in Home Assistant's own code editor. Time Range & Content opens with
   **Time Range**, the days the card covers, and ends with **Empty Days**, then the collapsible
   groups **Compact Mode** and **Language & Time Format**.
 - **Layout** orders its spacing from the outside in: between days (**Day Spacing**), between a
