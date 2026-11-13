@@ -4,6 +4,7 @@
 
 // Type-only, so this module keeps zero runtime dependencies.
 import type { LabelType } from '../utils/helpers';
+import type { VisibilityCondition } from '../utils/visibility';
 
 // -----------------------------------------------------------------------------
 // CORE CONFIGURATION
@@ -788,6 +789,16 @@ export interface EntityConfig {
    * event becomes past, not whether past events show.
    */
   allday_expires_at?: string;
+  /**
+   * Home Assistant's visibility conditions for this entry, in the shapes its card-level
+   * `visibility:` takes (`utils/visibility.ts`). The entry's events show only while every one
+   * holds; a calendar every entry of which is hidden is treated as though it were not on the
+   * card. Unset, the entry always shows. Not applied while the card is edited.
+   *
+   * Per entry rather than per calendar, as the filters are: a calendar listed twice can show one
+   * entry and hide the other.
+   */
+  visibility?: VisibilityCondition[];
 }
 
 /** Weather position-specific styling configuration. */
@@ -1194,7 +1205,28 @@ export interface Hass {
     time_format?: string;
     /** Home Assistant's first-weekday profile setting: a weekday name, or 'language'. */
     first_weekday?: string;
+    /**
+     * The profile's time zone setting: `server` for Home Assistant's own zone, `local` for the
+     * browser's. Read by `time` visibility conditions alone (`conditionTimeZone`).
+     */
+    time_zone?: string;
   };
+  /** The person viewing the dashboard; `user` visibility conditions compare its id. */
+  user?: { id: string; name?: string; is_admin?: boolean };
+  /**
+   * Home Assistant's entity, device and area registries, as its frontend holds them. Read by
+   * `location` visibility conditions alone: to find the viewer's person, and the zones a target
+   * names through a device, area, floor or label (`utils/visibility.ts`).
+   */
+  entities?: Record<
+    string,
+    { entity_id: string; device_id?: string | null; area_id?: string | null; labels?: string[] }
+  >;
+  devices?: Record<
+    string,
+    { id: string; area_id?: string | null; parent_device_id?: string | null; labels?: string[] }
+  >;
+  areas?: Record<string, { area_id: string; floor_id?: string | null; labels?: string[] }>;
   /**
    * The language Home Assistant's own interface is drawn in. With `translationMetadata`, it
    * decides which way the dashboard runs: Home Assistant sets the document's `dir` from

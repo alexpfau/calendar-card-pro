@@ -6,6 +6,7 @@ import * as Constants from './constants';
 import * as Types from './types';
 import * as Helpers from '../utils/helpers';
 import * as Logger from '../utils/logger';
+import { normalizeVisibility } from '../utils/visibility';
 
 //-----------------------------------------------------------------------------
 // CORE CONFIGURATION
@@ -1321,6 +1322,7 @@ export function normalizeEntities(
           event_type: item.event_type,
           days_of_week: item.days_of_week,
           allday_expires_at: item.allday_expires_at,
+          visibility: normalizeVisibility(item.visibility),
         } satisfies Types.EveryMember<Types.EntityConfig>;
       }
       return null;

@@ -51,6 +51,11 @@ export type Selector =
       } | null;
     }
   | { icon: Record<string, never> | null }
+  /**
+   * A code editor for a value written as YAML, as Home Assistant's own editors take one they
+   * have no form for. Used for a calendar's `visibility`, whose conditions nest.
+   */
+  | { object: Record<string, never> | null }
   | {
       entity: {
         filter?: { domain?: string | ReadonlyArray<string> };

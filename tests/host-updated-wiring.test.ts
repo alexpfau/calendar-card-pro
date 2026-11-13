@@ -65,7 +65,7 @@ interface CardUnderTest extends HTMLElement {
   updateEvents(mode?: string | boolean): Promise<void>;
   updateComplete: Promise<boolean>;
   _language: string;
-  _hasFetchError: boolean;
+  _failedEntities: string[];
   _titleSubscription?: RecordingSubscriptionShape;
   _scheduleWeatherSetup(): void;
   _applyVisibility(): void;
@@ -313,7 +313,7 @@ describe('_applyVisibility(): gate conditions', () => {
 
   it('stays visible when the last fetch failed', () => {
     const card = visibilityCard();
-    card._hasFetchError = true;
+    card._failedEntities = ['calendar.test'];
     card._applyVisibility();
     expect(card.hidden).toBe(false);
   });
@@ -379,7 +379,7 @@ describe('_applyVisibility(): card-visibility-changed event', () => {
     // Connecting starts a fetch that fails against the empty `states` map, and a
     // fetch error legitimately suppresses hiding. Pin both inputs so this test
     // measures event propagation rather than fetch timing.
-    card._hasFetchError = false;
+    card._failedEntities = [];
     card.hidden = false;
 
     const seen: CustomEvent<{ value: boolean }>[] = [];

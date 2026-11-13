@@ -444,6 +444,10 @@ const OUTSIDE_THE_FALLBACK: IntlSite[] = [
   { file: 'src/utils/search.ts', call: 'Intl.getCanonicalLocales', locales: 'language' },
   // Splits a title into words where it wraps; it writes nothing.
   { file: 'src/utils/title-words.ts', call: 'Intl.Segmenter', locales: 'undefined' },
+  // Asks the browser its own time zone, for a `time` visibility condition; writes nothing.
+  { file: 'src/utils/visibility.ts', call: 'Intl.DateTimeFormat', locales: '' },
+  // Reads a time zone's wall clock from a format's parts, for the same; the text is never shown.
+  { file: 'src/utils/visibility.ts', call: 'Intl.DateTimeFormat', locales: "'en-US'" },
 ];
 
 function sourceFiles(directory: string): string[] {

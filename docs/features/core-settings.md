@@ -46,6 +46,7 @@ entities:
 | `event_type`             | string  | `event_type`             | Which class of this calendar's events to keep — `all`, `timed` for events with a clock time, or `all_day` for all-day ones (overrides global `event_type`)                                                                                                                                                                                                               |
 | `allday_expires_at`      | string  | midnight                 | Time of day, as `HH:MM`, at which this calendar's all-day events start counting as past, read against the last day each one covers. Unset, they last until midnight. Only applies while `show_past_events` is `false`                                                                                                                                                    |
 | `days_of_week`           | string  | `-`                      | Restricts this calendar to `weekdays` (every day except the weekend) or `weekends` (the weekend days alone), judged on the day each row lands on. Which days are the weekend follows the country set in Home Assistant, or its language when no country is set. Unset, every day qualifies                                                                               |
+| `visibility`             | list    | `-`                      | Home Assistant visibility conditions, as a card's own Visibility tab takes them. This entry's events show only while all of them hold; unset, they always show. See [Showing a Calendar Under Conditions](#showing-a-calendar-under-conditions)                                                                                                                          |
 
 These options are per calendar. For the card-wide options they override, see [Core Settings in the configuration reference](/reference/configuration#core-settings).
 
@@ -95,6 +96,83 @@ for, and a calendar can have either, both or neither.
   (calendar.ana_personal)", so the entry to fix is easy to find.
 - Like any change to the configuration, renaming a calendar shows every hidden calendar again on
   every device; see [Showing & Hiding Calendars](/features/layout-appearance#showing-hiding-calendars).
+
+:::
+
+### Showing a Calendar Under Conditions
+
+`visibility` shows a calendar only while Home Assistant conditions hold, so one card can show
+each person their own calendars, drop a work calendar during a holiday, or keep the birthdays
+off the kitchen tablet. It takes the conditions a card's own **Visibility** tab in Home
+Assistant takes, for one calendar at a time:
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.family
+  - entity: calendar.anna_work
+    visibility:
+      - condition: user
+        users:
+          - 8a1c3f2e9b0d4c6a
+      - condition: state
+        entity: input_boolean.vacation
+        state: 'off'
+  - entity: calendar.birthdays
+    visibility:
+      - condition: screen
+        media_query: '(min-width: 1024px)'
+```
+
+A calendar's events show while every condition in its list holds, and a calendar with no list
+always shows. In the [visual editor](/features/editor#per-calendar-panels-actions), each
+calendar's panel has a **Visibility** section holding Home Assistant's own Visibility editor, the
+one under a card's **Visibility** tab, which picks people by name rather than by ID.
+
+Every condition that editor offers works here:
+
+- `user`, `state`, `numeric_state`, `screen`, `time` and `location` (where the person linked to
+  your Home Assistant user is), and `and`, `or` and `not` over any of them;
+- `template`, `sun`, `zone`, `device`, and a `state` that must have held `for` a while, which
+  Home Assistant judges itself. These need Home Assistant 2026.10 or later, and a calendar that
+  depends on one stays hidden until Home Assistant has answered.
+
+A calendar hidden this way is not on the card for that person at that moment. Its events are
+gone from every view and from [search](/features/layout-appearance#searching-the-card), it has
+no chip or row in the [calendar filter](/features/layout-appearance#showing-hiding-calendars),
+new events cannot be added or moved to it, and the event limits fill from the calendars shown.
+The card still loads it, so it reappears the moment a condition changes.
+
+::: warning Not a Privacy Control
+Conditions tidy a shared card; they do not keep a calendar private. Everyone with a Home
+Assistant login can read every calendar through Home Assistant itself, and anyone who can open
+the dashboard can read its configuration, conditions included.
+:::
+
+::: details Older Home Assistant, Calendars Listed Twice & Editing
+
+- Before Home Assistant 2026.10, a calendar whose conditions depend on `template`, `sun`, `zone`,
+  `device` or a `state` held `for` a while stays hidden, and the browser console says why once.
+  2026.6 to 2026.9 judge them for administrators only. A template binary sensor does the same job
+  on any version: put the test in the sensor, and use `condition: state` on it.
+- Before Home Assistant 2023.11, which has no Visibility editor to lend, the panel takes the
+  conditions as YAML instead.
+- Written by hand, a `state` or `numeric_state` condition naming its entity with `entity` rather
+  than `entity_id` cannot wait (`for`) or use a `value_template`. Its calendar stays hidden, and
+  the browser console says why. Home Assistant's editor writes `entity_id`.
+- Conditions belong to one entry in `entities`. A calendar listed twice, as
+  [splitting it by event type](#separating-all-day-from-timed-events) does, needs them on each
+  entry, and one entry can show while the other does not. The calendar leaves the filter, adding
+  events and the "Couldn't load" line only while all its entries are hidden.
+- A `state` or `numeric_state` condition with no `entity` reads the calendar itself, which is
+  `on` while one of its events is under way.
+- `time` reads the time zone your Home Assistant profile sets: the server's or this device's.
+- While the card is being edited every calendar shows, so you can still style one hidden from
+  you.
+- A calendar the filter hid stays hidden there while its conditions hide it, and when it comes
+  back.
+- An event's popover or a new event's form that is already open when a condition changes keeps
+  the calendars it opened with until it closes.
 
 :::
 

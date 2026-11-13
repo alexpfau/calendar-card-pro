@@ -16,7 +16,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from './memory-storage';
 import '../src/calendar-card-pro';
 import type * as Types from '../src/config/types';
-import { configEntityIds, hassChangeIsVisible } from '../src/utils/hass-relevance';
+import {
+  configEntityIds,
+  hassChangeIsVisible,
+  watchedEntityIds,
+} from '../src/utils/hass-relevance';
 
 const NOW = new Date('2026-06-17T10:00:00Z');
 
@@ -58,7 +62,11 @@ function houseStates(): Record<string, Types.HassEntity> {
   return {
     'calendar.anna': state('calendar.anna', { friendly_name: 'Anna', supported_features: 7 }),
     'calendar.ben': state('calendar.ben', { friendly_name: 'Ben', icon: 'mdi:soccer' }),
-    'person.anna': state('person.anna', { entity_picture: '/api/image/serve/anna/512x512' }),
+    'person.anna': state('person.anna', {
+      entity_picture: '/api/image/serve/anna/512x512',
+      user_id: 'u-anna',
+      in_zones: ['zone.home'],
+    }),
     'weather.home': state('weather.home', { friendly_name: 'Home' }),
     'sensor.noise': state('sensor.noise'),
     'zone.home': state('zone.home', { friendly_name: 'Home', latitude: 1, longitude: 2 }),
@@ -82,8 +90,15 @@ function baseHass(states = houseStates()): Types.Hass {
       },
     },
     config: { country: 'DE' },
+    user: { id: 'u-anna' },
     themes: { darkMode: false },
-    entities: {},
+    // The entity registry, through which a location condition finds the viewer's person.
+    entities: {
+      'person.anna': { entity_id: 'person.anna' },
+      'person.someone_else': { entity_id: 'person.someone_else' },
+    },
+    devices: {},
+    areas: {},
     connection: {
       // Answers calendar subscriptions as Home Assistant before 2026.5 does, so the card polls.
       subscribeMessage: vi.fn((_callback: unknown, message: { type: string }) =>
@@ -261,6 +276,51 @@ describe('a mounted card', () => {
     },
   );
 
+  it('renders for a state a visibility condition reads, and only then', async () => {
+    const card = await mount({
+      entities: [
+        {
+          entity: 'calendar.anna',
+          visibility: [{ condition: 'state', entity: 'sensor.noise', state: 'on' }],
+        },
+      ],
+      days_to_show: 3,
+    });
+    const render = vi.spyOn(card, 'render');
+
+    tick(card, 'sensor.noise');
+    await card.updateComplete;
+    tick(card, 'zone.home');
+    await card.updateComplete;
+
+    expect(render).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders for the persons and zones a location condition reads, and only for such a card', async () => {
+    const location = await mount({
+      entities: [
+        {
+          entity: 'calendar.anna',
+          visibility: [{ condition: 'location', locations: ['home'] }],
+        },
+      ],
+      days_to_show: 3,
+    });
+    const plain = await mount({ entities: ['calendar.anna'], days_to_show: 3 });
+    const renders = [vi.spyOn(location, 'render'), vi.spyOn(plain, 'render')];
+
+    for (const card of [location, plain]) {
+      tick(card, 'person.someone_else');
+      await card.updateComplete;
+      tick(card, 'zone.home');
+      await card.updateComplete;
+      tick(card, 'sensor.noise');
+      await card.updateComplete;
+    }
+
+    expect(renders.map((render) => render.mock.calls.length)).toEqual([2, 0]);
+  });
+
   it("renders for a label's person, whose picture it draws", async () => {
     const { card, render } = await counted('list');
 
@@ -401,6 +461,51 @@ describe('reconciliation: the rule watches everything the card reads', () => {
     ],
     ['a plain card', { entities: ['calendar.anna'] }, []],
     [
+      // Every kind of condition the card judges reads a state the configuration names, or a
+      // top-level key: the viewer, the profile's and Home Assistant's time zones.
+      'calendars with visibility conditions',
+      {
+        entities: [
+          {
+            entity: 'calendar.anna',
+            visibility: [
+              { condition: 'user', users: ['u-anna'] },
+              { condition: 'numeric_state', entity: 'weather.home', above: 'zone.home' },
+              { condition: 'or', conditions: [{ condition: 'time', after: '08:00' }] },
+              { condition: 'screen', media_query: '(min-width: 0px)' },
+            ],
+          },
+          // Asked of core, which this Home Assistant never answers, so the card judges both
+          // itself; in the list above, the false numeric_state would settle it unread.
+          {
+            entity: 'calendar.ben',
+            visibility: [
+              { condition: 'state', entity: 'sensor.noise', state: 'on' },
+              { condition: 'state', state: 'on' },
+            ],
+          },
+        ],
+        toolbar: { show: true, legend: true, add_event: true },
+      },
+      ['sensor.noise', 'weather.home', 'calendar.ben'],
+    ],
+    [
+      // A location condition reads the viewer's person, found through the registry, and the
+      // zone that set its state, though the configuration names neither.
+      'a calendar with a location condition',
+      {
+        entities: [
+          {
+            entity: 'calendar.anna',
+            visibility: [
+              { condition: 'location', target: { area_id: 'garden' }, match_mode: 'active_zone' },
+            ],
+          },
+        ],
+      },
+      ['person.anna', 'zone.home'],
+    ],
+    [
       // The magnifier is named by Home Assistant's own word, a top-level read; the search reads
       // Home Assistant only once pressed.
       'a toolbar with search',
@@ -428,7 +533,7 @@ describe('reconciliation: the rule watches everything the card reads', () => {
 
   it.each(MATRIX)('%s', async (_name, config, mustRead) => {
     const { card, keys, ids, hass } = await recordReads(config, true);
-    const watched = configEntityIds((card as unknown as { config: Types.Config }).config);
+    const watched = watchedEntityIds((card as unknown as { config: Types.Config }).config, hass);
 
     // Denominators: the recorder saw the card read hass, and the states this case draws from.
     expect(keys.has('locale')).toBe(true);
