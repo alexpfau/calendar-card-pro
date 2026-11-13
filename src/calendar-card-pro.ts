@@ -5570,10 +5570,7 @@ class CalendarCardPro extends LitElement {
     const config = this.effectiveConfig;
     const source = this._newEventSource(shown);
     const byDay = new Map<number, Types.CalendarEventData>();
-    // An entry its visibility conditions hide is one the saved event would not show under.
-    const [matched] = EventUtils.processEvents([source], config).filter(
-      (event) => !Visibility.entryHidden(event, this._visibility),
-    );
+    const [matched] = EventUtils.processEvents([source], config);
     if (matched) {
       const days = EventUtils.groupEventsByDay(
         [matched],
@@ -7411,9 +7408,13 @@ class CalendarCardPro extends LitElement {
       return true;
     }
 
+    // An entry its visibility conditions hide limits nothing on screen.
     return (config.entities ?? []).some(
       (entity) =>
-        typeof entity === 'object' && entity !== null && isLimit(entity.compact_events_to_show),
+        typeof entity === 'object' &&
+        entity !== null &&
+        isLimit(entity.compact_events_to_show) &&
+        !Visibility.configEntryHidden(entity, this._visibility),
     );
   }
 

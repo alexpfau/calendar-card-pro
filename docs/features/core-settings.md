@@ -168,6 +168,8 @@ the dashboard can read its configuration, conditions included.
   you.
 - A calendar the filter hid stays hidden there while its conditions hide it, and when it comes
   back.
+- An event's popover or a new event's form that is already open when a condition changes keeps
+  the calendars it opened with until it closes.
 
 :::
 

@@ -352,6 +352,27 @@ describe('a calendar every entry of which is hidden', () => {
     expect(hidden._differsFromConfiguration).toBe(false);
   });
 
+  it('limits nothing with its own compact limit, so expanding changes nothing', async () => {
+    const entities = [
+      { entity: ANNA, visibility: BEN_ONLY, compact_events_to_show: 1 } as never,
+      BEN,
+    ];
+    const card = await mount({ entities, tap_action: { action: 'expand' } });
+
+    card.handleAction({ action: 'expand' });
+    await settle(card);
+    expect(card._differsFromConfiguration).toBe(false);
+
+    // The control: shown to Ben, the limit is real, and expanding it is something to reset.
+    const shown = await mount(
+      { entities, tap_action: { action: 'expand' } },
+      { hass: makeHass({ user: 'u-ben' }) },
+    );
+    shown.handleAction({ action: 'expand' });
+    await settle(shown);
+    expect(shown._differsFromConfiguration).toBe(true);
+  });
+
   it('is not what a tap on no entity of its own applies to', async () => {
     const card = await mount({ tap_action: { action: 'more-info' } });
     const fired: Array<{ config: { entity?: string } }> = [];
@@ -371,13 +392,14 @@ describe('a calendar every entry of which is hidden', () => {
     });
     const changed = vi.fn();
     session.attach({ changed, close: () => undefined });
+    // As the card holds the search it opened, so it tells the panel itself.
+    (card as unknown as { _search: SearchSession })._search = session;
 
     expect(session.find('Dentist').total).toBe(0);
     expect(session.find('Football').total).toBe(1);
 
     card.hass = { ...hass, user: { id: 'u-ben' } } as Types.Hass;
     await settle(card);
-    session.visibilityChanged();
 
     expect(changed).toHaveBeenCalled();
     expect(session.find('Dentist').total).toBe(1);
@@ -422,18 +444,26 @@ describe('judging again', () => {
   });
 
   it('turns at a time condition, from a timer it sets for that moment', async () => {
+    // A day between refreshes, so nothing but the condition's own timer draws the card again.
     const card = await mount({
       entities: [
         { entity: ANNA, visibility: [{ condition: 'time', after: '12:00' }] } as never,
         BEN,
       ],
+      refresh_interval: 1440,
     });
+    const fetched = callApi.mock.calls.length;
     expect(titles(card)).toEqual(['Football']);
 
-    await vi.advanceTimersByTimeAsync(2 * 60 * 60 * 1000 + 1000);
+    await vi.advanceTimersByTimeAsync(2 * 60 * 60 * 1000 - 1000);
+    await settle(card);
+    expect(titles(card)).toEqual(['Football']);
+
+    await vi.advanceTimersByTimeAsync(2000);
     await settle(card);
 
     expect(titles(card)).toEqual(['Dentist', 'Football', 'Holiday']);
+    expect(callApi.mock.calls.length).toBe(fetched);
   });
 
   it('holds no listener or timer for a card with no conditions (control)', async () => {

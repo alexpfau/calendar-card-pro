@@ -149,6 +149,16 @@ function isRecord(value: unknown): value is VisibilityCondition {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/**
+ * Whether a condition asks for what only core can judge: a state held `for` a while, or a
+ * template. Unknown in either shape. Home Assistant drops `for` from a dashboard-shaped `state`
+ * condition and so ignores it there; the card hides the entry instead and says so, rather than
+ * show it at once against what was written.
+ */
+function needsCore(condition: VisibilityCondition): boolean {
+  return condition.for !== undefined || condition.value_template !== undefined;
+}
+
 /** `enabled: false`, which Home Assistant skips wherever it appears. */
 function isDisabled(condition: unknown): boolean {
   return isRecord(condition) && condition.enabled === false;
@@ -172,7 +182,9 @@ function judge(condition: unknown, context: VisibilityContext): boolean | undefi
   // A templated `enabled` only core can render.
   if ('enabled' in condition && typeof condition.enabled !== 'boolean') return undefined;
 
-  if (!('condition' in condition)) return judgeState(condition, context);
+  if (!('condition' in condition)) {
+    return needsCore(condition) ? undefined : judgeState(condition, context);
+  }
 
   const type = condition.condition;
   if (typeof type !== 'string') return undefined;
@@ -190,6 +202,7 @@ function judge(condition: unknown, context: VisibilityContext): boolean | undefi
   }
 
   if (!JUDGED.has(type)) return undefined;
+  if (needsCore(condition)) return undefined;
 
   switch (type) {
     case 'user':
@@ -297,7 +310,6 @@ function judgeEach(
   context: VisibilityContext,
   test: (stateObj: Types.HassEntity) => boolean | undefined,
 ): boolean | undefined {
-  if (condition.for !== undefined || condition.value_template !== undefined) return undefined;
   if (condition.attribute !== undefined) return undefined;
   const match = condition.match ?? 'all';
   if (match !== 'all' && match !== 'any') return undefined;
@@ -672,8 +684,7 @@ export function unjudgedConditions(conditions: ReadonlyArray<unknown>): string[]
       kinds.add('malformed');
       continue;
     }
-    if (!('condition' in condition)) continue;
-    const type = condition.condition;
+    const type = 'condition' in condition ? condition.condition : 'state';
     if (typeof type !== 'string') {
       kinds.add('malformed');
     } else if (LOGICAL.has(type)) {
@@ -681,6 +692,10 @@ export function unjudgedConditions(conditions: ReadonlyArray<unknown>): string[]
       if (children) unjudgedConditions(children).forEach((kind) => kinds.add(kind));
     } else if (!JUDGED.has(type)) {
       kinds.add(type);
+    } else if (condition.for !== undefined) {
+      kinds.add(`${type} with for`);
+    } else if (condition.value_template !== undefined) {
+      kinds.add(`${type} with value_template`);
     }
   }
   return [...kinds];
@@ -788,6 +803,18 @@ export function entryHidden(
   return (
     conditions !== undefined && verdicts.hidden.has(entryKey(event._entityId ?? '', conditions))
   );
+}
+
+/**
+ * Whether an entry of the configuration is hidden now.
+ *
+ * @param entry - An entry under `entities`
+ * @param verdicts - The current judgment
+ * @returns True when its conditions hide it
+ */
+export function configEntryHidden(entry: Entry, verdicts: EntryVerdicts): boolean {
+  if (verdicts.hidden.size === 0 || typeof entry === 'string' || !entry.visibility) return false;
+  return verdicts.hidden.has(entryKey(entry.entity, entry.visibility));
 }
 
 /**
