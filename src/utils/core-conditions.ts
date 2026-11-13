@@ -235,7 +235,11 @@ export class CoreConditions {
     } else if (push?.error !== undefined) {
       answer = 'error';
       if (question.answer !== 'error') {
-        Logger.warn(`Visibility: Home Assistant reports ${String(push.error)} judging a condition`);
+        // Core's message can run over several lines and repeat its own prefix; one line reads.
+        const reason = String(push.error).replace(/\s+/g, ' ').trim();
+        Logger.warn(
+          `Visibility: Home Assistant cannot judge a condition, so its calendar stays hidden: ${reason}`,
+        );
       }
     }
     if (answer === undefined || answer === question.answer) return;
