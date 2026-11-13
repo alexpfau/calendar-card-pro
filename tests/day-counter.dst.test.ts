@@ -18,6 +18,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
 import * as EventUtils from '../src/utils/events';
+import * as FormatUtils from '../src/utils/format';
 
 const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -129,7 +130,7 @@ describe('counting across a change of clocks', () => {
 
     const timedEvent = timed(at(first, 0, 9), at(change, 14, 17));
     for (const event of [allDay, timedEvent]) {
-      expect(EventUtils.multiDaySpan(event.start, event.end)?.days).toBe(days);
+      expect(FormatUtils.fullDaySpan(event.start, event.end)?.days).toBe(days);
       expect(splitRows(event, isoDate(firstDate))).toEqual(expected);
     }
   });
@@ -140,7 +141,7 @@ describe('counting across a change of clocks', () => {
     expect(
       event.end.dateTime && Date.parse(event.end.dateTime) - Date.parse(event.start.dateTime!),
     ).toBe(23 * 3_600_000);
-    expect(EventUtils.multiDaySpan(event.start, event.end)?.days).toBe(2);
+    expect(FormatUtils.fullDaySpan(event.start, event.end)?.days).toBe(2);
     expect(splitRows(event, isoDate(at(SPRING, -1, 12)))).toHaveLength(2);
   });
 
@@ -150,7 +151,47 @@ describe('counting across a change of clocks', () => {
     expect(Date.parse(event.end.dateTime!) - Date.parse(event.start.dateTime!)).toBe(
       24 * 3_600_000,
     );
-    expect(EventUtils.multiDaySpan(event.start, event.end)).toBeNull();
+    expect(FormatUtils.fullDaySpan(event.start, event.end)).toBeNull();
+  });
+});
+
+describe('a full day, read off the wall clock', () => {
+  /** The hour the spring change skips, found from the zone: 00:00 in Azores, 02:00 elsewhere. */
+  const gapHour = Array.from({ length: 24 }, (_, h) => h).find(
+    (h) => new Date(SPRING[0], SPRING[1], SPRING[2], h, 30).getHours() !== h,
+  )!;
+
+  /** The hour the fall change repeats: its second reading comes an hour after the first. */
+  const repeatedHour = Array.from({ length: 24 }, (_, h) => h).find((h) => {
+    const second = new Date(new Date(FALL[0], FALL[1], FALL[2], h, 30).getTime() + 3_600_000);
+    return second.getHours() === h && second.getMinutes() === 30;
+  })!;
+
+  it('finds the hours it needs in the test zone', () => {
+    expect(gapHour).toBeGreaterThanOrEqual(0);
+    expect(repeatedHour).toBeGreaterThanOrEqual(0);
+  });
+
+  it('counts a day that reaches past a reading the spring change skips', () => {
+    // From the gap hour's half past, the day before, to quarter past the hour after it: a full
+    // day on the clock, 23 hours and 45 minutes in time. Stepping the start on by a day lands on
+    // a reading that does not exist, which the browser moves an hour later, past the end.
+    const start = new Date(SPRING[0], SPRING[1], SPRING[2] - 1, gapHour, 30);
+    const end = new Date(SPRING[0], SPRING[1], SPRING[2], gapHour + 1, 15);
+    expect(end.getTime() - start.getTime()).toBe((23 * 60 + 45) * 60_000);
+    expect(FormatUtils.fullDaySpan(timed(start, end).start, timed(start, end).end)?.days).toBe(2);
+  });
+
+  it('does not count a day that ends at the second reading of a repeated hour, short on the clock', () => {
+    // From :45 the day before to the second :30 of the repeated hour: 15 minutes short of a day
+    // on the clock, though 24 hours and 45 minutes pass.
+    const start = new Date(FALL[0], FALL[1], FALL[2] - 1, repeatedHour, 45);
+    const secondReading = new Date(
+      new Date(FALL[0], FALL[1], FALL[2], repeatedHour, 30).getTime() + 3_600_000,
+    );
+    const event = timed(start, secondReading);
+    expect(secondReading.getTime() - start.getTime()).toBe((24 * 60 + 45) * 60_000);
+    expect(FormatUtils.fullDaySpan(event.start, event.end)).toBeNull();
   });
 });
 
@@ -161,8 +202,17 @@ describe.runIf(ZONE === 'Atlantic/Azores')('midnights that are missing or repeat
     expect(firstMoment.getHours()).toBe(1);
     const event = timed(at(SPRING, -2, 12), firstMoment);
 
-    expect(EventUtils.multiDaySpan(event.start, event.end)?.days).toBe(2);
+    expect(FormatUtils.fullDaySpan(event.start, event.end)?.days).toBe(2);
     expect(splitRows(event, isoDate(at(SPRING, -2, 12)))).toHaveLength(2);
+  });
+
+  it('does not count 00:45 to the second 00:30 of the fall day, short of a day on the clock', () => {
+    const event = timed('2026-10-24T00:45:00+00:00', '2026-10-25T00:30:00-01:00');
+    expect(FormatUtils.fullDaySpan(event.start, event.end)).toBeNull();
+    // The control: to 00:45, the same reading as the start, it is a full day.
+    expect(
+      FormatUtils.fullDaySpan(event.start, { dateTime: '2026-10-25T00:45:00-01:00' })?.days,
+    ).toBe(2);
   });
 
   it('counts the fall day only when the event ends at its second 00:00', () => {
@@ -172,10 +222,10 @@ describe.runIf(ZONE === 'Atlantic/Azores')('midnights that are missing or repeat
     const atFirst = timed(start, '2026-10-25T00:00:00+00:00');
     const atSecond = timed(start, '2026-10-25T00:00:00-01:00');
 
-    expect(EventUtils.multiDaySpan(atFirst.start, atFirst.end)?.days).toBe(2);
+    expect(FormatUtils.fullDaySpan(atFirst.start, atFirst.end)?.days).toBe(2);
     expect(splitRows(atFirst, '2026-10-23')).toHaveLength(2);
 
-    expect(EventUtils.multiDaySpan(atSecond.start, atSecond.end)?.days).toBe(3);
+    expect(FormatUtils.fullDaySpan(atSecond.start, atSecond.end)?.days).toBe(3);
     expect(splitRows(atSecond, '2026-10-23')).toHaveLength(3);
     expect(splitRows(atSecond, '2026-10-23')).toEqual([
       { date: '2026-10-23', dayOfEvent: { day: 1, days: 3 } },

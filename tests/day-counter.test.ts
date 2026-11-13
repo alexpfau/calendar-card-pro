@@ -107,7 +107,7 @@ afterEach(() => {
 
 describe('which events count their days', () => {
   const span = (event: Types.CalendarEventData) =>
-    EventUtils.multiDaySpan(event.start, event.end)?.days ?? null;
+    FormatUtils.fullDaySpan(event.start, event.end)?.days ?? null;
 
   it.each([
     ['an all-day event over three dates', allDay('x', '2026-11-13', '2026-11-16'), 3],
@@ -132,9 +132,9 @@ describe('which events count their days', () => {
 
   it('counts nothing for an end it cannot read', () => {
     expect(
-      EventUtils.multiDaySpan({ dateTime: '2026-11-09T12:00:00Z' }, { dateTime: 'soon' }),
+      FormatUtils.fullDaySpan({ dateTime: '2026-11-09T12:00:00Z' }, { dateTime: 'soon' }),
     ).toBeNull();
-    expect(EventUtils.multiDaySpan({ date: '2026-11-09' }, { date: 'later' })).toBeNull();
+    expect(FormatUtils.fullDaySpan({ date: '2026-11-09' }, { date: 'later' })).toBeNull();
   });
 });
 
@@ -176,7 +176,7 @@ describe('the day a row stands for', () => {
     const found = rows([ended], { show_past_events: true, show_progress_bar: true });
     expect(row(found, 'Hackathon').dayOfEvent).toEqual({ day: null, days: 3 });
     expect(row(found, 'Hackathon').parts.dayCounter).toBeNull();
-    expect(EventUtils.multiDaySpan(ended.start, ended.end)?.days).toBe(3);
+    expect(FormatUtils.fullDaySpan(ended.start, ended.end)?.days).toBe(3);
   });
 
   it('draws no bar on such a row while its event still runs, as the clock repaint expects', () => {
