@@ -396,6 +396,22 @@ export default css`
     margin-inline-start: auto;
   }
 
+  /* Home Assistant's own Visibility editor sits between the two halves of a calendar's form,
+     under the Visibility heading that ends the first half. Its helper reads as a form field's
+     helper does, above the editor rather than below it, since the editor grows downward as
+     conditions are added. */
+  .entity-visibility {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .entity-visibility-helper {
+    color: var(--secondary-text-color);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
   /* The panel body spaces its children 16px apart, and a form spaces its fields 24px apart;
      the buttons' sub-heading takes the form's spacing from the toolbar's last switch above it. */
   .buttons-heading {

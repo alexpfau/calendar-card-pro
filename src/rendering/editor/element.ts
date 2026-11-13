@@ -28,6 +28,7 @@ import {
   entitySchemaFor,
   labelIconSourceOf,
   labelImageSourceOf,
+  splitAtVisibility,
 } from './schemas/entity';
 import {
   QUICK_SETUP_CALENDARS_SCHEMA,
@@ -53,6 +54,45 @@ import * as Logger from '../../utils/logger';
 
 const ENTITY_ICON =
   'M19 19H5V8h14m-3-7v2H8V1H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-1V1h-2Z';
+
+/** Home Assistant's own Visibility editor: the element under a card's Visibility tab. */
+const CONDITIONS_EDITOR = 'ha-card-conditions-editor';
+
+/**
+ * Whether Home Assistant's own Visibility editor can edit a calendar's conditions here.
+ *
+ * The one Home Assistant element this editor names besides its three components, because no
+ * selector reaches it: the `condition` selector edits an automation's conditions, which have no
+ * user, screen, time or location. It is defined wherever Home Assistant's card editor is open,
+ * which imports it to draw every card's Visibility tab, and has kept its name and these two
+ * properties since 2023.11. Checked rather than assumed, through Lit's own record of an element's
+ * properties: a Home Assistant that renames it, or drops either property, gets the YAML box
+ * instead (AGENTS.md, _Editor_).
+ *
+ * @returns True to show it
+ */
+function conditionsEditorDefined(): boolean {
+  const element = customElements.get(CONDITIONS_EDITOR) as
+    { elementProperties?: ReadonlyMap<PropertyKey, unknown> } | undefined;
+  const properties = element?.elementProperties;
+  return !!properties?.has('hass') && properties.has('conditions');
+}
+
+/**
+ * A calendar's conditions as Home Assistant's Visibility editor takes them: a list of
+ * conditions, empty for none.
+ *
+ * @param value - `visibility` as stored
+ * @returns The list, or undefined where something in it is not a condition, which only the YAML
+ *   box can show as written
+ */
+function editableConditions(value: unknown): ReadonlyArray<object> | undefined {
+  if (value === undefined || value === null) return [];
+  const list: unknown[] = Array.isArray(value) ? value : [value];
+  return list.every((item) => typeof item === 'object' && item !== null && !Array.isArray(item))
+    ? (list as object[])
+    : undefined;
+}
 
 type MigrationState =
   | { readonly kind: 'current' }
@@ -117,6 +157,9 @@ export class CalendarCardProEditor extends LitElement {
   @state() private _migration: MigrationState = { kind: 'current' };
 
   @state() private _quickSetup?: QuickSetupSession;
+
+  /** Set once this editor waits for Home Assistant's Visibility editor to be defined. */
+  private _awaitingConditionsEditor = false;
 
   private _authoredRootKeys = new Set<string>();
 
@@ -671,6 +714,13 @@ export class CalendarCardProEditor extends LitElement {
     const searching = Filter.isSearching(this._filter);
     const toolbar = Config.resolveToolbar(ctx.config);
     const hasLegend = toolbar.show && toolbar.legend !== false;
+    const conditionsEditor = conditionsEditorDefined();
+    if (!conditionsEditor && !this._awaitingConditionsEditor) {
+      // Defined before this editor opens wherever Home Assistant's card editor is; should it
+      // arrive later, it takes over the YAML box then. Never resolving costs nothing.
+      this._awaitingConditionsEditor = true;
+      void customElements.whenDefined(CONDITIONS_EDITOR).then(() => this.requestUpdate());
+    }
 
     const shown = entries
       .map((entry, index) => {
@@ -709,6 +759,23 @@ export class CalendarCardProEditor extends LitElement {
     return html`
       ${shown.map(({ entry, index, schema }) => {
         const entityId = Synthetic.entityIdOf(entry);
+        const data = Entities.toEntityFormData(entry, entries);
+        const conditions = conditionsEditor
+          ? editableConditions(Entities.asEntityConfig(entry).visibility)
+          : undefined;
+        const split = conditions ? splitAtVisibility(schema) : undefined;
+        const form = (part: ReadonlyArray<HaFormSchema>) => html`
+          <ha-form
+            class="entity-form"
+            .hass=${this._formHass}
+            .data=${data}
+            .schema=${part}
+            .computeLabel=${computeLabel}
+            .computeHelper=${computeHelper}
+            .localizeValue=${this._localizeValue}
+            @value-changed=${(event: CustomEvent) => this._entityChanged(index, event)}
+          ></ha-form>
+        `;
 
         return html`
           <ha-expansion-panel
@@ -755,16 +822,25 @@ export class CalendarCardProEditor extends LitElement {
                   ${this._string(ctx, 'entity.remove')}
                 </button>
               </div>
-              <ha-form
-                class="entity-form"
-                .hass=${this._formHass}
-                .data=${Entities.toEntityFormData(entry, entries)}
-                .schema=${schema}
-                .computeLabel=${computeLabel}
-                .computeHelper=${computeHelper}
-                .localizeValue=${this._localizeValue}
-                @value-changed=${(event: CustomEvent) => this._entityChanged(index, event)}
-              ></ha-form>
+              ${
+                split
+                  ? html`
+                      ${split.before.length > 0 ? form(split.before) : nothing}
+                      <div class="entity-visibility">
+                        <div class="entity-visibility-helper">
+                          ${this._string(ctx, 'entity.visibility.helper')}
+                        </div>
+                        <ha-card-conditions-editor
+                          .hass=${this.hass}
+                          .conditions=${conditions}
+                          @value-changed=${(event: CustomEvent) =>
+                            this._visibilityChanged(index, event)}
+                        ></ha-card-conditions-editor>
+                      </div>
+                      ${split.after.length > 0 ? form(split.after) : nothing}
+                    `
+                  : form(schema)
+              }
             </div>
           </ha-expansion-panel>
         `;
@@ -853,7 +929,38 @@ export class CalendarCardProEditor extends LitElement {
     event.stopPropagation();
 
     const next = event.detail?.value as Record<string, unknown> | undefined;
-    if (!next || !this._config) return;
+    if (next) this._writeEntity(index, next);
+  }
+
+  /**
+   * Folds a change from Home Assistant's Visibility editor into one calendar's conditions. It
+   * sends the whole list, empty once the last condition is removed, which stores nothing.
+   *
+   * @param index - Position of the calendar in the list
+   * @param event - The editor's `value-changed`
+   */
+  private _visibilityChanged(index: number, event: CustomEvent): void {
+    event.stopPropagation();
+
+    const conditions: unknown = event.detail?.value;
+    const entries = this._config?.entities ?? [];
+    const entry = entries[index];
+    if (!Array.isArray(conditions) || entry === undefined) return;
+
+    this._writeEntity(index, {
+      ...Entities.toEntityFormData(entry, entries),
+      visibility: conditions,
+    });
+  }
+
+  /**
+   * Writes one calendar's form data into the configuration, as every per-calendar control does.
+   *
+   * @param index - Position of the calendar in the list
+   * @param next - The calendar's whole form data
+   */
+  private _writeEntity(index: number, next: Record<string, unknown>): void {
+    if (!this._config) return;
 
     const entities = Entities.writeEntity(
       this._config.entities ?? [],

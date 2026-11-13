@@ -370,13 +370,14 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   heading_event_state: 'Event State',
   heading_toolbar: 'Toolbar',
 
-  // Home Assistant's own word for a card's conditions, under its own Visibility heading, so the
-  // YAML its Visibility tab writes is recognizably the same thing here.
+  // Home Assistant's own word for a card's conditions, under its own Visibility heading. The
+  // helper serves both editors: above Home Assistant's own Visibility editor, which carries no
+  // label, and under the YAML box where that editor is missing.
   'entity.visibility': 'Conditions',
   'entity.visibility.helper':
-    'Shows this calendar\u2019s events only while all of these hold, written as YAML in the ' +
-    'shapes a card\u2019s Visibility tab writes: user, state, numeric state, screen and time ' +
-    'conditions. Left empty, they always show. Not applied while you edit the card.',
+    'Shows this calendar\u2019s events only while all of these conditions hold, the same ' +
+    'conditions a card\u2019s Visibility tab sets. With none, they always show. Not applied ' +
+    'while you edit the card.',
 
   'entity.event_type': 'Event Type',
   'entity.event_type.option.inherit.label': 'Follow the card',

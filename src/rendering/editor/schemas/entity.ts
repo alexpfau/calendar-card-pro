@@ -122,7 +122,7 @@ export const LABEL_IMAGE_SOURCE = 'label_image_source';
 /** The switch that lists a calendar in the calendar filter, or leaves it out. */
 export const SHOW_IN_LEGEND = 'show_in_legend';
 
-/** A calendar's visibility conditions, written as YAML in Home Assistant's own shapes. */
+/** A calendar's visibility conditions, in Home Assistant's own shapes. */
 export const VISIBILITY = 'visibility';
 
 /**
@@ -392,8 +392,10 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     //
     // Visibility comes before all of them, coarser still: whether this entry shows at all,
     // for this viewer and at this moment, before which of its events do. A section of its own
-    // rather than the first filter, because it judges Home Assistant rather than the events,
-    // and written as YAML, Home Assistant's own conditions nesting where no form can follow.
+    // rather than the first filter, because it judges Home Assistant rather than the events.
+    // Edited in Home Assistant's own Visibility editor where it is available (`element.ts`,
+    // `splitAtVisibility`), and as YAML where it is not: its conditions nest where no form here
+    // can follow.
     heading('heading_visibility'),
     { name: VISIBILITY, selector: { object: {} } },
     heading('heading_filters'),
@@ -570,4 +572,20 @@ export function entitySchemaFor(
     inserted = true;
     return labelFields(type, iconSourceField, iconSource, imageSourceField, imageSource);
   });
+}
+
+/**
+ * A calendar's schema split around its visibility conditions, which `element.ts` hands to Home
+ * Assistant's own Visibility editor rather than to the YAML box, where that editor is available.
+ *
+ * @param schema - The schema the calendar renders, after filtering
+ * @returns The nodes before the conditions, the Visibility heading among them, and the nodes
+ *   after; undefined where filtering left the conditions out
+ */
+export function splitAtVisibility(
+  schema: ReadonlyArray<HaFormSchema>,
+): { before: HaFormSchema[]; after: HaFormSchema[] } | undefined {
+  const index = schema.findIndex((node) => node.name === VISIBILITY);
+  if (index < 0) return undefined;
+  return { before: schema.slice(0, index), after: schema.slice(index + 1) };
 }
