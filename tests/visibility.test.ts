@@ -424,11 +424,28 @@ describe('departures from the browser side of Home Assistant', () => {
   it('hides a time that is not a time, which Home Assistant would read as always', () => {
     expect(judge([{ condition: 'time', after: 'noon' }])).toBe(false);
   });
+});
 
-  it('cannot judge an attribute of an entity with no state, which Home Assistant reads as unknown', () => {
+describe('an entity with no state', () => {
+  it('reads as unknown where Home Assistant judges the condition in the browser too', () => {
+    const missing = { condition: 'state', entity: 'sensor.missing', attribute: 'x' };
+    expect(judge([{ ...missing, state: 'unknown' }])).toBe(true);
+    expect(judge([{ ...missing, state_not: 'unknown' }])).toBe(false);
+    expect(judge([{ condition: 'state', entity: 'sensor.missing', state_not: 'sensor.ref' }])).toBe(
+      true,
+    );
     expect(
-      judge([{ condition: 'state', entity: 'sensor.missing', attribute: 'x', state: 'unknown' }]),
-    ).toBeUndefined();
+      judge([{ condition: 'numeric_state', entity: 'sensor.missing', above: 'sensor.limit' }]),
+    ).toBe(false);
+  });
+
+  it('is unknown where Home Assistant asks core, which reports an error for it', () => {
+    expect(judge([{ condition: 'state', entity: 'sensor.missing', state: 'unknown' }])).toBe(
+      undefined,
+    );
+    expect(judge([{ condition: 'numeric_state', entity: 'sensor.missing', above: 1 }])).toBe(
+      undefined,
+    );
   });
 });
 
@@ -581,6 +598,19 @@ describe('location', () => {
     ).toBe(false);
   });
 
+  it('reads an id as Home Assistant does, a zone only with a dot, and an in_zones entry as written', () => {
+    expect(at(house({ state: 'x', in_zones: ['zonex'] }), { target: { entity_id: 'zonex' } })).toBe(
+      false,
+    );
+    // A list in in_zones finds the zone it names, and so matches no zone the target names.
+    expect(
+      at(house({ state: 'Work', in_zones: [['zone.work'], 'zone.work'] }), {
+        target: { entity_id: 'zone.work' },
+        match_mode: 'active_zone',
+      }),
+    ).toBe(false);
+  });
+
   it('is false for a target Home Assistant could not resolve', () => {
     const hass = house({ state: 'Work', in_zones: ['zone.work'] });
     for (const target of [
@@ -685,6 +715,13 @@ describe('what core is asked', () => {
       notACondition: false,
       noType: false,
     });
+  });
+
+  it("asks core about core's shape written without condition:, wait and all", () => {
+    const held = { entity_id: 'sun.sun', state: 'above_horizon', for: '00:00:05' };
+    expect(isServerCondition(held)).toBe(true);
+    expect(ask([held])).toEqual([{ condition: 'state', ...held }]);
+    expect(unjudgedConditions([held])).toEqual([]);
   });
 
   it("translates the dashboard's shapes to core's, as Home Assistant does", () => {

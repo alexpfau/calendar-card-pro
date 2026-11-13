@@ -293,8 +293,9 @@ function stateOfReference(context: VisibilityContext, value: unknown): string | 
  * A `state` condition, in Home Assistant's dashboard shape (`entity`, `state`, `state_not`) or
  * in core's (`entity_id`, `state`), as Home Assistant's own editor writes it since 2026.10.
  *
- * An entity with no state is unknown rather than `unknown`: current Home Assistant asks core,
- * which reports an error for it, and hides the card.
+ * An entity with no state reads as `unknown` where Home Assistant judges the condition in the
+ * browser (`readsAsDashboard`), as it does there. Anywhere else Home Assistant asks core, which
+ * reports an error for it and hides the card, so it is unknown here until core answers.
  *
  * @param condition - The condition
  * @param context - What it is judged against
@@ -311,10 +312,12 @@ function judgeState(
       ? condition.entity
       : context.entityId;
   const stateObj = stateOf(context, entityId);
-  if (!stateObj) return undefined;
+  if (!stateObj && !readsAsDashboard(condition)) return undefined;
 
   let state: string;
-  if (typeof condition.attribute === 'string' && condition.attribute !== '') {
+  if (!stateObj) {
+    state = 'unknown';
+  } else if (typeof condition.attribute === 'string' && condition.attribute !== '') {
     const value = stateObj.attributes?.[condition.attribute];
     state = value === null || value === undefined ? 'unknown' : String(value);
   } else {
@@ -406,7 +409,8 @@ function judgeNumericState(
       ? condition.entity
       : context.entityId;
   const stateObj = stateOf(context, entityId);
-  if (!stateObj) return undefined;
+  // As for `state`: no number to compare where Home Assistant judges it in the browser.
+  if (!stateObj) return readsAsDashboard(condition) ? false : undefined;
 
   const attribute = condition.attribute;
   const raw =
@@ -666,7 +670,8 @@ const personOfUser = new Map<string, string>();
 
 /** An entity id's domain: what comes before the first dot (`computeDomain`). */
 function domainOf(entityId: string): string {
-  return entityId.slice(0, entityId.indexOf('.'));
+  const dot = entityId.indexOf('.');
+  return dot < 0 ? '' : entityId.slice(0, dot);
 }
 
 /**
@@ -889,9 +894,7 @@ function judgeLocation(condition: VisibilityCondition, context: VisibilityContex
   }
   if (condition.match_mode === 'active_zone') {
     // Zone names need not be unique, so find the zone that set the state, not one of its name.
-    const active = inZones.find(
-      (zoneId) => typeof zoneId === 'string' && activeZoneState(hass, zoneId) === person.state,
-    );
+    const active = inZones.find((zoneId) => activeZoneState(hass, zoneId) === person.state);
     return active !== undefined && zones.includes(active);
   }
   return inZones.some((zoneId) => zones.includes(zoneId));
@@ -963,7 +966,10 @@ export function isServerCondition(condition: unknown): boolean {
   if (isLogical(condition)) {
     return (asList(condition.conditions) ?? []).every((child) => isServerCondition(child));
   }
-  if (!('condition' in condition)) return !needsCore(condition) && !readsAsDashboard(condition);
+  // Without `condition:`, one naming `entity_id` is core's shape, `for` and all.
+  if (!('condition' in condition)) {
+    return !readsAsDashboard(condition) && ('entity_id' in condition || !needsCore(condition));
+  }
   const type = condition.condition;
   if (typeof type !== 'string' || CLIENT.has(type)) return false;
   if ((type === 'state' || type === 'numeric_state') && !('entity_id' in condition)) {
