@@ -453,7 +453,29 @@ describe('native title cohort adapter', () => {
     expect(writes).toHaveLength(1);
   });
 
-  it.each(['compact', 'blank', 'measuring'])(
+  // A fitted (compact) title is still one readable line, so it keeps its place in the cohort
+  // like any other overflowing title; only a blank block, or one being measured, holds still.
+  // Bug #820: a one-hour block at a compressed hour_height was fitted, and never moved.
+  it('keeps a fitted Grid title in the cohort, beside the blank mode as a control', () => {
+    const { targets, controller, root } = setup();
+    const fitted = document.createElement('div');
+    fitted.className = 'grid-event';
+    fitted.dataset.gridTitleFit = 'compact';
+    const blank = document.createElement('div');
+    blank.className = 'grid-event';
+    blank.dataset.gridTitleFit = 'blank';
+    root.append(fitted, blank);
+    fitted.append(targets[3].title);
+    blank.append(targets[4].title);
+    controller.refresh();
+    const running = targets[0].title.getAttribute('data-title-motion');
+    expect(running).toMatch(/^[ab]$/);
+    expect(targets[3].title.getAttribute('data-title-motion')).toBe(running);
+    expect(effect(targets[3])).toBeDefined();
+    expect(targets[4].title.getAttribute('data-title-motion')).toBe('pending');
+  });
+
+  it.each(['blank', 'measuring'])(
     'withdraws %s Grid content and readmits a partial recovery',
     (mode) => {
       const { targets, controller, root } = setup();

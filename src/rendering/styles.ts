@@ -6886,11 +6886,20 @@ export const cardStyles = css`
     margin-inline: 0;
   }
 
-  .grid-event:is(
-      [data-grid-title-fit='measuring'],
-      [data-grid-title-fit='compact'],
-      [data-grid-title-fit='blank']
-    )
+  /* A fitted (compact) title scrolls with scroll_long_titles like any other one-line title,
+     but its ellipsis above outranks the clip a moving title takes, and an ellipsis can hide an
+     inline-block wider than its line whole, leaving "…" alone. So a fitted title that moves
+     gives the ellipsis up, and keeps it while pending or with reduce motion on. Measuring and
+     blank blocks hold the text still: one is being laid out, the other shows nothing. */
+  @media (prefers-reduced-motion: no-preference) {
+    .grid-event[data-grid-title-fit='compact']
+      .summary
+      > .event-title.title-scrollable.title-overflowing:not([data-title-motion='pending']) {
+      text-overflow: clip;
+    }
+  }
+
+  .grid-event:is([data-grid-title-fit='measuring'], [data-grid-title-fit='blank'])
     .event-title-scroll {
     display: inline !important;
     animation: none !important;

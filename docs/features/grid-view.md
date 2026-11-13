@@ -586,8 +586,9 @@ time_grid:
   to the largest size that fits, never below `10px` for the title or any text or emoji label.
   Every calendar label stays, merged labels included, and text, emoji, icons and pictures keep
   their relative sizes, colors, order and proportions.
-- The fitted title does not scroll, and ends in "…" when needed, even with
-  `scroll_long_titles: true`. Normal text and scrolling return when more room becomes available.
+- A fitted title that is too long scrolls with `scroll_long_titles: true`, like any other
+  title, and ends in "…" without it. It is the block's only line, so the time and other
+  details are left out. Normal text returns when more room becomes available.
 - Some blocks still cannot show a useful line: large labels, unusually tall line spacing or a
   very narrow lane can leave no room for the labels plus meaningful title text. Grid then leaves
   the block visually empty rather than showing a label or "…" alone, so a quarter-hour event is
@@ -607,9 +608,9 @@ time_grid:
 - When the block's height leaves out every detail row but the usual title fits, grid centers that
   title without shrinking it or forcing two fitting lines onto one. A tall title-only event whose
   details were turned off or absent keeps its usual alignment.
-- Only usual, overflowing timed titles join the card's
-  [shared forward starts](/features/event-content#scrolling-long-titles). Fitted or blank titles,
-  all-day banners and `+N` strips never join, and labels and pictures stay still.
+- Overflowing timed titles, fitted ones included, join the card's
+  [shared forward starts](/features/event-content#scrolling-long-titles). Blank blocks, all-day
+  banners and `+N` strips never join, and labels and pictures stay still.
 - The screen-reader text follows the card's language, describes continuations by the event's
   original times, and leaves out details you turned off. It adds no event action or keyboard
   tab stop; [`event_tap_action`](/features/actions#tapping-an-event) adds both. All-day banners
