@@ -3047,7 +3047,8 @@ export function calculateEventProgress(event: Types.CalendarEventData): number |
 /**
  * Whether the day counter counts this event's days: whether it is a day or more long, as
  * `FormatUtils.fullDaySpan` measures it. Under `show_progress_bar`, a row of such an event
- * draws the counter rather than a bar, which is what the clock repaint asks this for.
+ * draws the counter rather than a bar, which is what the clock repaint asks this for, and no
+ * row of one is marked "Now" (`buildEventPresentation`).
  *
  * @param event A whole event or one day of one, as list and column split it
  * @returns True for an event a day or more long

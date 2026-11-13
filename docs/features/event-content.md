@@ -913,9 +913,11 @@ show_now_indicator: false # Turn it off
 now_color: '#ef4444' # Mark it in red instead
 ```
 
-- Only timed events are marked. A multi-day timed event is marked while it runs; split across
-  days, as column view does by default, it is marked on its first and last day, and the days in
-  between show it as an all-day event, which is not marked.
+- Only timed events shorter than a [full day](/features/multi-day-events#day-counter) are
+  marked, so a night shift is and a three-day trip is not: on a long event "Now" would be true,
+  in green, on every one of its days. With the [progress bar](#progress-bar-display) on, a long
+  event says which of its days it is on instead. Split across days, as column view does by
+  default, a shorter event is marked on whichever of its rows is under way.
 - The mark lives on the time line, so nothing is marked while that line is hidden: with
   `show_time: false`, card-wide or on that calendar, a running event looks like any other. With
   [`time_position: title`](#time-beside-the-title) the time has no clock, so "Now ·" and the

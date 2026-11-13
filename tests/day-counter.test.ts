@@ -2,6 +2,7 @@
  * The day counter: under `show_progress_bar`, a row of an event a day or more long says which of
  * its days it stands for, "Day 2 of 3", in the place the countdown and the bar take, and draws no
  * bar (#281). The counter is the bar's form on such an event, so it has no option of its own.
+ * Such an event is never marked "Now" either, bar or no bar.
  *
  * The bar is off by default, so every case turns it on. A "draws no bar" assertion is satisfied
  * by a harness that never draws one, so each is paired with a control the same harness draws a
@@ -55,6 +56,8 @@ const DENTIST = timed('Dentist', '2026-11-12T09:30', '2026-11-12T10:30');
 const TRIP_TO_MIDNIGHT = timed('Hackathon', '2026-11-11T18:00', '2026-11-13T00:00');
 /** Through midnight, but less than a day. */
 const NIGHT = timed('Night shift', '2026-11-11T22:00', '2026-11-12T11:00');
+/** Started this morning, three dates long: today's row is timed and under way, split or not. */
+const RETREAT = timed('Retreat', '2026-11-12T08:00', '2026-11-14T12:00');
 /** Under way now and ending at tomorrow's first moment like the hackathon, but under a day. */
 const SHIFT_TO_MIDNIGHT = timed('Long shift', '2026-11-12T06:00', '2026-11-13T00:00');
 
@@ -63,6 +66,8 @@ interface Row {
   summary: string;
   dayOfEvent: Types.DayOfEvent | undefined;
   parts: ReturnType<typeof buildEventPresentation>['contentParts'];
+  /** The `event-now` class: the green time a "Now" row draws. */
+  isNow: boolean;
 }
 
 /** Every row a card draws, with what each presents, through the real grouping and gates. */
@@ -81,12 +86,16 @@ function rows(
   });
   const effective = resolveEffectiveConfig(config, view);
   return EventUtils.groupEventsByDay(events, config, false, language, view).flatMap((day) =>
-    day.events.map((row) => ({
-      date: FormatUtils.getLocalDateKey(new Date(day.timestamp)),
-      summary: row.summary ?? '',
-      dayOfEvent: row._dayOfEvent,
-      parts: buildEventPresentation(row, effective, language).contentParts,
-    })),
+    day.events.map((row) => {
+      const presented = buildEventPresentation(row, effective, language);
+      return {
+        date: FormatUtils.getLocalDateKey(new Date(day.timestamp)),
+        summary: row.summary ?? '',
+        dayOfEvent: row._dayOfEvent,
+        parts: presented.contentParts,
+        isNow: presented.isNow,
+      };
+    }),
   );
 }
 
@@ -299,6 +308,41 @@ describe('the place the countdown and the bar take', () => {
   });
 });
 
+describe('the Now mark', () => {
+  /** Whether a row is marked as under way: its "Now", and the green time that comes with it. */
+  const marked = (r: Row) => [r.parts.nowLabel !== null, r.isNow];
+
+  /** Noon to noon, exactly a full day, under way now. */
+  const EXACTLY_A_DAY = timed('Day shift', '2026-11-11T12:00', '2026-11-12T12:00');
+  /** 23 hours, under way now. */
+  const JUST_UNDER = timed('Double shift', '2026-11-11T11:30', '2026-11-12T10:30');
+
+  it.each([true, false])(
+    'is left off an event a full day or longer, with show_progress_bar %s',
+    (bar) => {
+      const found = rows([COURSE, TRIP, EXACTLY_A_DAY, DENTIST, NIGHT, JUST_UNDER], {
+        show_progress_bar: bar,
+      });
+      for (const summary of ['Spanish course', 'Ski trip', 'Day shift']) {
+        expect(marked(row(found, summary)), summary).toEqual([false, false]);
+      }
+      // The control: events under a full day, under way in the same harness, keep both.
+      for (const summary of ['Dentist', 'Night shift', 'Double shift']) {
+        expect(marked(row(found, summary)), summary).toEqual([true, true]);
+      }
+    },
+  );
+
+  it('is left off every split row of one, and kept on a split row of a shorter one', () => {
+    // The retreat's first row is timed, 08:00 to the end of today, and under way: only the
+    // rule leaves it unmarked. The night's row today, 0:00 to 11:00, is the control.
+    const found = rows([RETREAT, NIGHT], { split_multiday_events: true }, 'column');
+    expect(row(found, 'Retreat').parts.dayCounter).toBe('Day 1 of 3');
+    expect(marked(row(found, 'Retreat'))).toEqual([false, false]);
+    expect(marked(row(found, 'Night shift'))).toEqual([true, true]);
+  });
+});
+
 describe('the drawn row', () => {
   /** One row drawn the way a view draws it, and its countdown place. */
   function drawn(
@@ -413,6 +457,18 @@ describe('the drawn card', () => {
     const card = await mount({ view, start_date: '2026-11-12' }, [COURSE]);
     expect(counters(card)[0]).toBe('Day 12 of 45');
   });
+
+  it.each(['list', 'column'] as const)(
+    'marks only the event under a full day as under way in %s view',
+    async (view) => {
+      const card = await mount({ view, start_date: '2026-11-12' }, [RETREAT, DENTIST]);
+      const root = card.shadowRoot!;
+      const green = [...root.querySelectorAll('.event-now')].map((el) => el.textContent ?? '');
+      expect(green).toHaveLength(1);
+      expect(green[0]).toContain('Dentist');
+      expect(root.querySelectorAll('.now-indicator')).toHaveLength(1);
+    },
+  );
 
   it('keeps a countdown that only a counted row above would have repeated, under once_per_day', async () => {
     // Each later day of the running course would count down to its own start, and read as the

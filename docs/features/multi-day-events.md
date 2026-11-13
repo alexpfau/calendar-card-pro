@@ -42,8 +42,7 @@ Each row stands for its day, which changes what other features show on it:
 - A [progress bar](/features/event-content#progress-bar-display) measures the whole event and
   is drawn on today's row, so it keeps growing from one day to the next.
 - The middle days of a timed event are whole days, so they get an
-  [all-day badge](/features/event-content#which-events-get-one) and no
-  [Now mark](/features/event-content#the-now-indicator).
+  [all-day badge](/features/event-content#which-events-get-one).
 - Every row occupies a single day, so
   [`show_single_allday_time`](/features/event-content#hiding-the-time-row) governs all of them.
 - The [day counter](#day-counter) names the row's own day.
@@ -77,6 +76,10 @@ show_progress_bar: true
   left a repeat out, names its day from the start.
 - **In place of the bar.** A bar barely moves over a long event, so these events draw the
   counter instead, all-day ones included, which never had a bar. Shorter events keep theirs.
+- **No Now mark.** These events are never marked
+  [Now](/features/event-content#the-now-indicator), on any row and with the bar on or off, and
+  their time is not drawn green: on a 45-day course "Now" would be true every day. A night shift
+  shorter than a day keeps its mark.
 
 ::: details Midnight, Later Windows & Grid View
 

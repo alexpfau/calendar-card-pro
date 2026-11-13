@@ -26,9 +26,9 @@ interface EventPresentation {
   isPastEvent: boolean;
 
   /**
-   * Whether the event is under way and the card marks it as "now": a timed event between its
-   * start and its end, with `show_now_indicator` on. Drives the `event-now` class, which
-   * colors the time row; the label itself travels in `contentParts.nowLabel`.
+   * Whether the event is under way and the card marks it as "now": a timed event shorter than a
+   * full day, between its start and its end, with `show_now_indicator` on. Drives the `event-now`
+   * class, which colors the time row; the label itself travels in `contentParts.nowLabel`.
    */
   isNow: boolean;
 
@@ -333,8 +333,16 @@ export function buildEventPresentation(
 
   // All-day events never run in this sense — `isEventCurrentlyRunning` answers false for
   // them — so a day full of all-day entries does not turn into a column of "Now" labels.
+  //
+  // Nor does an event a full day or longer, on any of its rows, whatever `show_progress_bar`
+  // says: over a 45-day course "Now" is true on every day and says nothing, and its time would
+  // stay green for weeks. Asked of the whole event (`countsDays` reads the source span), so a
+  // split row of one is never marked either. Grid never draws the label, and its now line marks
+  // the clock rather than the event.
   const nowLabel =
-    isRunning && config.show_now_indicator && !isEmptyDay ? getNowString(language) : null;
+    isRunning && config.show_now_indicator && !isEmptyDay && !EventUtils.countsDays(event)
+      ? getNowString(language)
+      : null;
 
   const eventTimeParts = FormatUtils.formatEventTimeParts(event, config, language, hass);
 
