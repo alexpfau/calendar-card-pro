@@ -419,10 +419,11 @@ time_grid:
 | ------------------ | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `multiday_banners` | boolean | `true`  | Draw a timed event a full day or longer as one banner above the hours, its times at its ends. Grid view only, so it belongs in `time_grid:`; a calendar's own value wins |
 
-- **A full day or longer** means the event ends on a later date, at or after the clock time it
-  started at: Monday 10:00 to Tuesday 10:00 is a banner, Monday 10:00 to Tuesday 9:59 is not. A
-  night shift from 22:00 to 06:00 stays in the hours, and so does an event from midnight to
-  midnight, which takes up a single date.
+- **A full day or longer** means the event ends at least two dates after it starts, or on the
+  next date at or after the clock time it started at: Monday 10:00 to Tuesday 10:00 is a banner,
+  Monday 10:00 to Tuesday 9:59 is not, and Monday 10:00 to Wednesday 9:00 is. A night shift
+  from 22:00 to 06:00 stays in the hours, and so does an event from midnight to midnight, which
+  takes up a single date.
 - **The banner covers every day the event takes up time on**, the first and the last included.
   An end at midnight does not count the day that midnight opens, and like a start at midnight it
   draws no time.
