@@ -621,6 +621,28 @@ describe('conditions only core can judge', () => {
     expect(titles(card)).toContain('Dentist');
   });
 
+  it('stop showing what a connection Home Assistant has replaced answered', async () => {
+    const first = withCore(makeHass());
+    const card = await mount(
+      { entities: [{ entity: ANNA, visibility: [SUN] } as never, BEN] },
+      { hass: first.hass },
+    );
+    first.subscriptions[0].push({ result: true });
+    await settle(card);
+    expect(titles(card)).toContain('Dentist');
+
+    // A new connection that has not answered yet: the old answer counts for nothing.
+    const second = withCore(makeHass());
+    card.hass = second.hass;
+    await settle(card);
+    expect(titles(card)).toEqual(['Football']);
+    expect(second.subscriptions).toHaveLength(1);
+
+    second.subscriptions[0].push({ result: true });
+    await settle(card);
+    expect(titles(card)).toContain('Dentist');
+  });
+
   it('are unsubscribed once the card is detached', async () => {
     const core = withCore(makeHass());
     const card = await mount(

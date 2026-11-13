@@ -143,7 +143,8 @@ describe('which editor a calendar panel shows', () => {
     conditions: unknown;
   }
 
-  const HASS = { states: {}, locale: { language: 'en' } };
+  // With its own localize, which the forms get wrapped and Home Assistant's editor must not.
+  const HASS = { states: {}, locale: { language: 'en' }, localize: (key: string) => key };
 
   async function render(entities: ReadonlyArray<unknown>) {
     const element = document.createElement('editor-visibility-probe') as EditorHost;
@@ -204,6 +205,11 @@ describe('which editor a calendar panel shows', () => {
   });
 
   it('takes over from the YAML box once Home Assistant defines it, with the stored conditions', async () => {
+    // An editor closed before then is let go of, never redrawn.
+    const closed = await render([ANNA]);
+    closed.element.remove();
+    const redrawn = vi.spyOn(closed.element as unknown as LitElement, 'requestUpdate');
+
     const editor = await render([{ entity: ANNA, visibility: CONDITIONS }, BEN]);
     expect(editor.editors()).toEqual([]);
 
@@ -223,6 +229,7 @@ describe('which editor a calendar panel shows', () => {
     // The editor's own Home Assistant, not the wrapped one its forms get.
     expect(anna.hass).toBe(HASS);
     expect(editor.forms().some(offersYaml)).toBe(false);
+    expect(redrawn).not.toHaveBeenCalled();
   });
 
   it('sits between the Visibility heading and Event Filtering, under the helper', async () => {
@@ -244,12 +251,50 @@ describe('which editor a calendar panel shows', () => {
     expect(editor.editors()[0].conditions).toEqual([CONDITIONS[0]]);
   });
 
-  it('keeps the YAML box for a list holding something that is not a condition', async () => {
-    const editor = await render([{ entity: ANNA, visibility: [CONDITIONS[0], null] }, BEN]);
+  it('keeps the YAML box for a list holding something that is not a condition, at any depth', async () => {
+    const editor = await render([
+      { entity: ANNA, visibility: [CONDITIONS[0], null] },
+      { entity: ANNA, visibility: [{ condition: 'and', conditions: [CONDITIONS[0], null] }] },
+      { entity: ANNA, visibility: [{ condition: 'not', conditions: 'user' }] },
+      { entity: BEN, visibility: [{ condition: 'or', conditions: CONDITIONS[0] }] },
+    ]);
 
-    // Ben's panel has Home Assistant's editor; Anna's keeps the box that shows what is written.
+    // Ben's panel has Home Assistant's editor; Anna's keep the box that shows what is written.
     expect(editor.editors()).toHaveLength(1);
-    expect(editor.forms().map(offersYaml)).toEqual([true, false, false]);
+    expect(editor.forms().map(offersYaml)).toEqual([true, true, true, false, false]);
+  });
+
+  it('tells it the calendar it edits against, as the current entity', async () => {
+    const editor = await render([ANNA, BEN]);
+    const ask = (context: string) => {
+      const callback = vi.fn();
+      const request = Object.assign(
+        new Event('context-request', { bubbles: true, composed: true }),
+        { context, callback, subscribe: true },
+      );
+      editor.editors()[1].dispatchEvent(request);
+      return callback;
+    };
+
+    expect(ask('conditions-entity-context').mock.calls[0][0]).toEqual({
+      mode: 'current',
+      entityId: BEN,
+    });
+    // Any other context goes on up, unanswered.
+    const outside = vi.fn();
+    editor.element.shadowRoot!.addEventListener('context-request', outside);
+    expect(ask('something-else')).not.toHaveBeenCalled();
+    expect(outside).toHaveBeenCalledTimes(1);
+  });
+
+  it('draws a fresh editor where another calendar takes the panel, so it asks again', async () => {
+    const editor = await render([ANNA]);
+    const before = editor.editors()[0];
+
+    editor.element.setConfig({ config_version: Config.CURRENT_CONFIG_VERSION, entities: [BEN] });
+    await editor.element.updateComplete;
+
+    expect(editor.editors()[0]).not.toBe(before);
   });
 
   it('writes what it sends to that calendar alone, and nothing more', async () => {

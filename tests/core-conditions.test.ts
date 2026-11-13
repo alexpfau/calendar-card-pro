@@ -93,22 +93,26 @@ describe('asking', () => {
 
     watch.sync(fake.hass, wanted(['t', TEMPLATE]));
     await settle();
-    expect(watch.answer('t')).toBeUndefined();
+    expect(watch.answer('t', fake.hass)).toBeUndefined();
 
     const [template] = fake.subscriptions;
     template.push({ result: true });
     template.push({ result: true });
-    expect([watch.answer('t'), changed.mock.calls.length]).toEqual([true, 1]);
+    expect([watch.answer('t', fake.hass), changed.mock.calls.length]).toEqual([true, 1]);
 
     template.push({ result: false, template_errors: ['x is undefined'] });
-    expect([watch.answer('t'), changed.mock.calls.length]).toEqual([false, 2]);
+    expect([watch.answer('t', fake.hass), changed.mock.calls.length]).toEqual([false, 2]);
 
     template.push({ error: 'In state: unknown entity' });
-    expect([watch.answer('t'), changed.mock.calls.length]).toEqual(['error', 3]);
+    expect([watch.answer('t', fake.hass), changed.mock.calls.length]).toEqual(['error', 3]);
 
-    // A result that is no answer, as core sends for a condition its template switched off.
+    // Core's answer for a condition a templated enabled switched off, which passes an and.
     template.push({ result: null });
-    expect([watch.answer('t'), changed.mock.calls.length]).toEqual(['error', 3]);
+    expect([watch.answer('t', fake.hass), changed.mock.calls.length]).toEqual([null, 4]);
+
+    // Anything else is no answer.
+    template.push({ result: 'yes' });
+    expect([watch.answer('t', fake.hass), changed.mock.calls.length]).toEqual([null, 4]);
   });
 
   it('reads a condition core cannot parse as an error, and says so', async () => {
@@ -151,7 +155,10 @@ describe('an older Home Assistant', () => {
 
       // Refused once; the second question is not even sent.
       expect(fake.subscriptions).toHaveLength(1);
-      expect([watch.answer('t'), watch.answer('s')]).toEqual([undefined, undefined]);
+      expect([watch.answer('t', fake.hass), watch.answer('s', fake.hass)]).toEqual([
+        undefined,
+        undefined,
+      ]);
       expect(changed).not.toHaveBeenCalled();
       expect(warn).toHaveBeenCalledTimes(1);
       expect(String(warn.mock.calls[0][0])).toContain(code);
@@ -179,7 +186,7 @@ describe('unsubscribing', () => {
     await settle();
 
     expect(fake.subscriptions.map(({ unsubscribed }) => unsubscribed)).toEqual([1, 0]);
-    expect(watch.answer('t')).toBeUndefined();
+    expect(watch.answer('t', fake.hass)).toBeUndefined();
   });
 
   it('waits for the first push before unsubscribing, and forgets its answer at once', async () => {
@@ -276,6 +283,19 @@ describe('the connection', () => {
 
     expect(first.subscriptions[0].unsubscribed).toBe(1);
     expect(second.subscriptions).toHaveLength(1);
-    expect(watch.answer('t')).toBeUndefined();
+    expect(watch.answer('t', second.hass)).toBeUndefined();
+  });
+
+  it('gives no answer for a connection Home Assistant has replaced, before any sync', async () => {
+    const first = fakeConnection();
+    const second = fakeConnection();
+    const watch = new CoreConditions(() => undefined);
+
+    watch.sync(first.hass, wanted(['t', TEMPLATE]));
+    await settle();
+    first.subscriptions[0].push({ result: true });
+
+    expect(watch.answer('t', first.hass)).toBe(true);
+    expect(watch.answer('t', second.hass)).toBeUndefined();
   });
 });

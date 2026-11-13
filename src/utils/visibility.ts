@@ -42,12 +42,15 @@ export interface VisibilityContext {
   now: number;
   /** Whether a media query matches now. */
   matches(query: string): boolean;
-  /** What core answered for a condition, by `coreKey`; undefined until it has. */
+  /** What core answered for a question, by its key (`coreConditions`); undefined until it has. */
   core?(key: string): CoreAnswer | undefined;
 }
 
-/** What core answered for a condition: whether it holds, or that core could not judge it. */
-export type CoreAnswer = boolean | 'error';
+/**
+ * What core answered for a question: whether it holds, `null` where a templated `enabled` switched
+ * it off, or that core could not judge it.
+ */
+export type CoreAnswer = boolean | null | 'error';
 
 /** The condition types the card judges; anything else is unknown until core answers. */
 const JUDGED = new Set([
@@ -121,6 +124,10 @@ export function visibilitySignature(conditions: ReadonlyArray<unknown>): string 
 /**
  * Whether a list of conditions holds: every condition must, as for a card's `visibility`.
  *
+ * Where core can answer, as Home Assistant's `_conditionsVisible` decides: an error from core
+ * hides, whatever the rest says; else the list judged with core's answers (`splitOf`), where they
+ * settle it; else the card's own judgment alone, which leaves unknown what only core can judge.
+ *
  * @param conditions - A normalized list
  * @param context - What the conditions are judged against
  * @returns True, false, or undefined where the card cannot tell
@@ -129,11 +136,19 @@ export function evaluateVisibility(
   conditions: ReadonlyArray<unknown>,
   context: VisibilityContext,
 ): boolean | undefined {
-  // An error from core hides, whatever the rest says: a `not` around it must not show it.
-  if (context.core) {
-    for (const { key } of coreConditions(conditions, context.entityId ?? '')) {
-      if (context.core(key) === 'error') return undefined;
-    }
+  const core = context.core;
+  if (core) {
+    const split = splitOf(conditions, context.entityId ?? '');
+    // A `not` around an error must not show it.
+    if (split.questions.some(({ key }) => core(key) === 'error')) return undefined;
+    const settled = split.evaluate(
+      (leaf) => judge(leaf, context),
+      (key) => {
+        const answer = core(key);
+        return answer === 'error' ? undefined : answer;
+      },
+    );
+    if (settled !== undefined) return settled === true;
   }
   return allOf(
     conditions.filter((condition) => !isDisabled(condition)).map((c) => judge(c, context)),
@@ -210,11 +225,6 @@ function asList(value: unknown): unknown[] | undefined {
  */
 function judge(condition: unknown, context: VisibilityContext): boolean | undefined {
   if (!isRecord(condition)) return undefined;
-  // Core's answer wins once it has one, for exactly the conditions the card asked it about.
-  if (context.core && isServerCondition(condition)) {
-    const answer = context.core(coreKey(condition, context.entityId ?? ''));
-    if (typeof answer === 'boolean') return answer;
-  }
   // A templated `enabled` only core can render.
   if ('enabled' in condition && typeof condition.enabled !== 'boolean') return undefined;
 
@@ -901,6 +911,10 @@ export function locationEntityIds(hass: Types.Hass | null | undefined): string[]
     return domain === 'person' || domain === 'zone';
   });
   ids.push('zone.home');
+  // The person found before, which `viewerPerson` reads first, registered or not by now.
+  const userId = hass?.user?.id;
+  const cached = userId ? personOfUser.get(userId) : undefined;
+  if (cached) ids.push(cached);
   const inZones = viewerPerson(hass)?.attributes?.in_zones;
   if (Array.isArray(inZones)) {
     for (const zoneId of inZones) if (typeof zoneId === 'string') ids.push(zoneId);
@@ -1104,42 +1118,143 @@ export interface CoreCondition {
   readonly condition: VisibilityCondition;
 }
 
-/** Translations per condition object and calendar. */
-const coreByCondition = new WeakMap<object, Map<string, CoreCondition>>();
-
-function coreConditionOf(condition: VisibilityCondition, entityId: string): CoreCondition {
-  let byEntity = coreByCondition.get(condition);
-  if (!byEntity) {
-    byEntity = new Map();
-    coreByCondition.set(condition, byEntity);
-  }
-  let core = byEntity.get(entityId);
-  if (!core) {
-    const translated = toCore(withEntity(condition, entityId));
-    core = { key: signatureOf(translated), condition: translated };
-    byEntity.set(entityId, core);
-  }
-  return core;
-}
-
 /**
- * The key core answers a condition under.
+ * The key core answers one condition under, asked alone.
  *
  * @param condition - A condition `isServerCondition` accepts
  * @param entityId - The calendar its entry draws
  * @returns The key
  */
 export function coreKey(condition: VisibilityCondition, entityId: string): string {
-  return coreConditionOf(condition, entityId).key;
+  return signatureOf(toCore(withEntity(condition, entityId)));
 }
 
-/** The questions per list and calendar. */
-const coreByList = new WeakMap<object, Map<string, ReadonlyArray<CoreCondition>>>();
+/** A list split as Home Assistant splits it: what core is asked, and how the answers combine. */
+interface Split {
+  readonly questions: ReadonlyArray<CoreCondition>;
+  /**
+   * The list's answer from the card's judgment of what the browser judges and core's answers to
+   * the rest: undefined while one it depends on is missing.
+   */
+  evaluate(
+    leaf: (condition: VisibilityCondition) => boolean | undefined,
+    answer: (key: string) => boolean | null | undefined,
+  ): boolean | null | undefined;
+}
+
+type SplitNode = Split['evaluate'];
 
 /**
- * What one entry's conditions ask core: each condition core judges whose parent the browser
- * judges, skipping any that are switched off, as Home Assistant's `splitConditionTree` asks it.
- * Home Assistant asks once for all such siblings together; asking for each gives the same answers.
+ * False wins, unknown wins over the rest, and `null` (a node core switched off) passes, as in
+ * Home Assistant's `split.ts`.
+ */
+function andNode(nodes: ReadonlyArray<SplitNode>): SplitNode {
+  return (leaf, answer) => {
+    let unknown = false;
+    for (const node of nodes) {
+      const value = node(leaf, answer);
+      if (value === false) return false;
+      if (value === undefined) unknown = true;
+    }
+    return unknown ? undefined : true;
+  };
+}
+
+/** True wins, unknown wins over the rest, and `null` does not count, as in `split.ts`. */
+function orNode(nodes: ReadonlyArray<SplitNode>): SplitNode {
+  return (leaf, answer) => {
+    let unknown = false;
+    for (const node of nodes) {
+      const value = node(leaf, answer);
+      if (value === true) return true;
+      if (value === undefined) unknown = true;
+    }
+    return unknown ? undefined : false;
+  };
+}
+
+function notNode(node: SplitNode): SplitNode {
+  return (leaf, answer) => {
+    const value = node(leaf, answer);
+    return value === undefined ? undefined : !value;
+  };
+}
+
+/** Splits per list and calendar. */
+const splits = new WeakMap<object, Map<string, Split>>();
+
+/**
+ * A list split as Home Assistant's `splitConditionTree` splits it: under each parent, the
+ * children core judges are asked together, as an `and` or an `or` like their parent, one question
+ * for one child; the children the browser judges stay with the card. Switched-off children are
+ * skipped, and a node the browser judges with a templated `enabled` is unknown, nothing under it
+ * asked. Asking together matters: core judges an `or` that holds through one child even where
+ * another reports an error, which would hide the entry if each were asked alone.
+ *
+ * Conditions naming no entity are first pointed at the calendar (`withEntity`), as Home Assistant
+ * points them at a card's own entity.
+ *
+ * @param conditions - A normalized list
+ * @param entityId - The calendar the entry draws
+ * @returns The questions and how their answers combine
+ */
+function splitOf(conditions: ReadonlyArray<unknown>, entityId: string): Split {
+  let byEntity = splits.get(conditions);
+  if (!byEntity) {
+    byEntity = new Map();
+    splits.set(conditions, byEntity);
+  }
+  const cached = byEntity.get(entityId);
+  if (cached) return cached;
+
+  const questions = new Map<string, CoreCondition>();
+  const ask = (condition: VisibilityCondition): SplitNode => {
+    const key = signatureOf(condition);
+    if (!questions.has(key)) questions.set(key, { key, condition });
+    return (_leaf, answer) => answer(key);
+  };
+  const siblings = (children: ReadonlyArray<unknown>, operator: 'and' | 'or'): SplitNode[] => {
+    const server: VisibilityCondition[] = [];
+    const client: unknown[] = [];
+    for (const child of children) {
+      if (isDisabled(child)) continue;
+      if (isServerCondition(child)) server.push(child as VisibilityCondition);
+      else client.push(child);
+    }
+    const nodes: SplitNode[] = [];
+    if (server.length === 1) nodes.push(ask(toCore(server[0])));
+    if (server.length > 1) nodes.push(ask({ condition: operator, conditions: server.map(toCore) }));
+    for (const child of client) nodes.push(build(child));
+    return nodes;
+  };
+  const build = (condition: unknown): SplitNode => {
+    if (!isRecord(condition)) return () => undefined;
+    if ('enabled' in condition && typeof condition.enabled !== 'boolean') return () => undefined;
+    if (isLogical(condition)) {
+      const children = asList(condition.conditions) ?? [];
+      if (condition.condition === 'or') return orNode(siblings(children, 'or'));
+      // The dashboard's `not` is not(all of them).
+      if (condition.condition === 'not') return notNode(andNode(siblings(children, 'and')));
+      return andNode(siblings(children, 'and'));
+    }
+    return (leaf) => leaf(condition);
+  };
+
+  const root = andNode(
+    siblings(
+      conditions.map((condition) =>
+        isRecord(condition) ? withEntity(condition, entityId) : condition,
+      ),
+      'and',
+    ),
+  );
+  const split: Split = { questions: [...questions.values()], evaluate: root };
+  byEntity.set(entityId, split);
+  return split;
+}
+
+/**
+ * What one entry's conditions ask core (`splitOf`).
  *
  * @param conditions - A normalized list
  * @param entityId - The calendar the entry draws
@@ -1149,34 +1264,7 @@ export function coreConditions(
   conditions: ReadonlyArray<unknown>,
   entityId: string,
 ): ReadonlyArray<CoreCondition> {
-  let byEntity = coreByList.get(conditions);
-  if (!byEntity) {
-    byEntity = new Map();
-    coreByList.set(conditions, byEntity);
-  }
-  const cached = byEntity.get(entityId);
-  if (cached) return cached;
-
-  const found = new Map<string, CoreCondition>();
-  const visit = (list: ReadonlyArray<unknown>): void => {
-    for (const condition of list) {
-      if (!isRecord(condition) || isDisabled(condition)) continue;
-      if (isServerCondition(condition)) {
-        const core = coreConditionOf(condition, entityId);
-        found.set(core.key, core);
-        continue;
-      }
-      // A templated `enabled` on a node the browser judges leaves it unknown, and nothing under
-      // it is asked.
-      if ('enabled' in condition && typeof condition.enabled !== 'boolean') continue;
-      if (isLogical(condition)) visit(asList(condition.conditions) ?? []);
-    }
-  };
-  visit(conditions);
-
-  const result = [...found.values()];
-  byEntity.set(entityId, result);
-  return result;
+  return splitOf(conditions, entityId).questions;
 }
 
 //-----------------------------------------------------------------------------

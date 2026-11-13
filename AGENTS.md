@@ -1773,7 +1773,11 @@ automation's conditions, which have no `user`, `screen`, `time` or `location`. I
 `elementProperties` on it declare the `hass` and `conditions` the editor sets. Anywhere else,
 including a Home Assistant that renames or removes it, the panel keeps the `object` selector, a
 YAML box, which is how the conditions were edited before. So a rename costs the nicer editor and
-never a dead panel; `tests/editor-visibility.test.ts` pins both sides. Two facts it relies on:
+never a dead panel; `tests/editor-visibility.test.ts` pins both sides. The panel also tells the
+element which calendar it edits against, answering Lit's `context-request` for Home Assistant's
+key `conditions-entity-context` as Home Assistant's own card dialog does for a card with one
+entity; should that key be renamed, nothing answers and the element works without an entity, as
+on a card that has none. Two facts it relies on:
 Home Assistant's card editor imports it statically to draw the Visibility tab, so it is defined
 before this editor opens, and its name and those two properties have held since 2023.11. Do not
 add a second exception without the same guard and fallback.
