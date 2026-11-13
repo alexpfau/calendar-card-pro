@@ -248,9 +248,10 @@ describe('the place the countdown and the bar take', () => {
   });
 
   it('keeps the countdown until the event starts', () => {
+    // The row carries both, and the countdown has the place: see the drawn row below.
     const ahead = row(rows([CONFERENCE], on), 'Design conference', '2026-11-13');
     expect(ahead.parts.countdownStr).toBe('tomorrow');
-    expect(ahead.parts.dayCounter).toBeNull();
+    expect(ahead.parts.dayCounter).toBe('Day 1 of 3');
   });
 
   it('names the day before the start where no countdown is shown', () => {
@@ -414,6 +415,29 @@ describe('the drawn card', () => {
   it.each(['list', 'column'] as const)('draws the counter in %s view', async (view) => {
     const card = await mount({ view, start_date: '2026-11-12' }, [COURSE]);
     expect(counters(card)[0]).toBe('Day 12 of 45');
+  });
+
+  it('keeps a countdown that only a counted row above would have repeated, under once_per_day', async () => {
+    // Each later day of the running course would count down to its own start, and read as the
+    // conference below it does. Shown, those would be repeats; replaced by the counter, they
+    // are not there to repeat, so the conference keeps "tomorrow" and "in 2 days".
+    const ART = { ...COURSE, summary: 'Art course' };
+    const countdowns = (card: CardUnderTest) =>
+      [...card.shadowRoot!.querySelectorAll('.time-countdown:not(.day-counter)')].map(
+        (el) => el.textContent?.trim() ?? '',
+      );
+    const base = { view: 'column', start_date: '2026-11-12', show_countdown: 'once_per_day' };
+
+    const counted = await mount(base, [ART, CONFERENCE]);
+    expect(counters(counted)).toEqual(['Day 12 of 45', 'Day 13 of 45', 'Day 14 of 45']);
+    expect(countdowns(counted)).toEqual(['tomorrow', 'in 2 days']);
+    document.body.replaceChildren();
+
+    // The control: without the counter the course's own countdowns are drawn, and the
+    // conference's, reading the same, are the repeats left out.
+    const control = await mount({ ...base, show_day_counter: false }, [ART, CONFERENCE]);
+    expect(countdowns(control)).toEqual(['tomorrow', 'in 2 days']);
+    expect(control.shadowRoot!.querySelectorAll('.time-countdown').length).toBe(2);
   });
 
   it('draws none in grid view, which keeps its bars', async () => {

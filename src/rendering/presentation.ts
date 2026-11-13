@@ -142,6 +142,19 @@ export function eventCountdown(
     return null;
   }
 
+  // `show_day_counter` takes the place from an event a day or more long once it has started, as
+  // the bar would have, so a later day of a trip under way names its day rather than counting
+  // down to its own start. Decided here rather than where the counter is drawn, so
+  // `repeatedCountdowns` passes such a row over instead of taking a countdown nobody sees for
+  // the one above.
+  if (
+    config.show_day_counter &&
+    event._dayOfEvent &&
+    EventUtils.eventHasStarted(event, new Date())
+  ) {
+    return null;
+  }
+
   return FormatUtils.getCountdownString(event, language, {
     exactDays: Boolean(config.countdown_exact_days),
     maxDays: config.countdown_max_days,
@@ -291,21 +304,17 @@ export function buildEventPresentation(
   const countdownStr = eventCountdown(event, config, language, isPastEvent);
 
   // `show_day_counter`: "Day 2 of 3" on a row of an event a day or more long, in the place the
-  // countdown and the progress bar take. The three hand the place over in the order an event
-  // lives through them: the countdown has it until the event starts, as it has today, and the
-  // counter from then on, where the bar would have been. So a later day of a trip under way
-  // says which day it is rather than "tomorrow", and a row with no countdown to show, because
-  // it is off or out of range, names its day before the event starts too. `groupEventsByDay`
-  // stamps the day only in the views that draw it.
+  // countdown and the progress bar take, drawn wherever the row has no countdown. The three hand
+  // the place over in the order an event lives through them: the countdown has it until the
+  // event starts, as it has today, and the counter from then on (`eventCountdown` gives way),
+  // where the bar would have been. A row with no countdown to show before then, because it is
+  // off, out of range or left out as a repeat, names its day too. `groupEventsByDay` stamps the
+  // day only in the views that draw it.
   const dayOfEvent = config.show_day_counter && !isEmptyDay ? event._dayOfEvent : undefined;
-  let dayCounter: string | null = null;
-  if (
-    dayOfEvent?.day != null &&
-    (countdownStr === null || EventUtils.eventHasStarted(event, now))
-  ) {
-    countdownStr = null;
-    dayCounter = FormatUtils.formatDayOfEvent(dayOfEvent.day, dayOfEvent.days, language);
-  }
+  const dayCounter =
+    dayOfEvent?.day != null
+      ? FormatUtils.formatDayOfEvent(dayOfEvent.day, dayOfEvent.days, language)
+      : null;
 
   const isRunning = EventUtils.isEventCurrentlyRunning(event);
   // Not gated on `isRunning`: a middle day of a split timed event reads as all-day, so it is

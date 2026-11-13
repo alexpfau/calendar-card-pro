@@ -871,9 +871,9 @@ export interface EventContentParts {
   countdownStr: string | null;
 
   /**
-   * "Day 2 of 3" (`show_day_counter`), drawn in the countdown's place and exactly as the
-   * countdown is, in every placement it has. `buildEventPresentation` sets at most one of the
-   * two; absent everywhere the card draws no counter, grid included.
+   * "Day 2 of 3" (`show_day_counter`), drawn in the countdown's place wherever the row has no
+   * countdown, and exactly as the countdown is, in every placement it has. Absent everywhere
+   * the card draws no counter, grid included.
    */
   dayCounter?: string | null;
 
@@ -1026,8 +1026,9 @@ export function renderEventContent(
   // The row's own words, in their language's direction where the dashboard runs the other way.
   const own = (text: string): string => TextDirection.inLanguageDirection(text, languageMark);
 
-  // The day counter takes the countdown's place, so from here on it is the countdown, and every
-  // placement below draws it as one. Its own class is what tells the two apart, for a theme.
+  // The day counter takes the countdown's place where the row has none, so from here on it is
+  // the countdown, and every placement below draws it as one. Its own class is what tells the
+  // two apart, for a theme.
   const countdownStr = countdownOnly ?? dayCounter;
   const countdownClass =
     countdownOnly === null && dayCounter !== null ? 'time-countdown day-counter' : 'time-countdown';

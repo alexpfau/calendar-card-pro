@@ -71,9 +71,9 @@ show_day_counter: true
   day reads "Day 12 of 45" there.
 - **The countdown comes first.** Before an event starts, a row with a
   [countdown](/features/event-content#countdown-display) keeps it, and the counter takes over
-  once the event is under way. A row with no countdown to show, because it is off or the event
-  is beyond [`countdown_max_days`](/features/event-content#countdown-range), names its day from
-  the start.
+  once the event is under way. A row with no countdown to show, because it is off, the event
+  is beyond [`countdown_max_days`](/features/event-content#countdown-range), or `once_per_day`
+  left a repeat out, names its day from the start.
 - **No progress bar on these events.** Their rows draw the counter instead of the
   [progress bar](/features/event-content#progress-bar-display), which barely moves over a long
   event. Shorter events keep theirs, and the counter works with the bar on or off.

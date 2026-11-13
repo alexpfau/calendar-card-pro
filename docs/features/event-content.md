@@ -802,7 +802,8 @@ show_countdown: once_per_day
 - Countdowns later today always show, since two that read "in 5 hours" can name different
   times.
 - A countdown that differs still shows, and an event without one, such as an all-day event with
-  `show_countdown_allday: false`, is passed over.
+  `show_countdown_allday: false` or one showing the
+  [day counter](/features/multi-day-events#day-counter) in its place, is passed over.
 - It applies in list and column view. In grid view every timed block keeps its countdown, as
   with `true`.
 - In the visual editor it is **Leave Out Repeated Countdowns**, under Countdown & Progress.
