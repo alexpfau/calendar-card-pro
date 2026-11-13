@@ -209,6 +209,9 @@ function descriptionGroup(language: string, showDescription: boolean): HaFormSch
 /**
  * The countdown and progress group — the two things the card says about *when*.
  *
+ * The countdown's options run coarse to fine: which dates count down at all, then which kind
+ * of event, then how the count reads.
+ *
  * @param language - Effective language code
  * @param showCountdown - Whether the countdown is shown
  * @param showProgressBar - Whether the progress bar is shown
@@ -223,7 +226,13 @@ function progressGroup(
 
   return [
     group(language, 'progress', PROGRESS_ICON, [
-      ...(showCountdown ? [bool('show_countdown_allday')] : []),
+      ...(showCountdown
+        ? [
+            number('countdown_max_days', 0),
+            bool('show_countdown_allday'),
+            bool('countdown_exact_days'),
+          ]
+        : []),
       ...(showProgressBar
         ? [
             color('progress_bar_color'),

@@ -216,6 +216,9 @@ describe('resolveEffectiveConfig', () => {
   it('agrees with resolveViewOption on every declared override key', () => {
     expect(COLUMN_OVERRIDE_KEYS.length).toBeGreaterThan(30);
 
+    // A number whose shipped default is "no limit" has no default to read its type from.
+    const numbersWithoutDefault: ReadonlySet<string> = new Set(['countdown_max_days']);
+
     for (const key of COLUMN_OVERRIDE_KEYS) {
       // Numeric overrides use the root's normalization, so their distinguishing value
       // must be a number rather than a rejected text sentinel. A folded length or font size
@@ -225,9 +228,11 @@ describe('resolveEffectiveConfig', () => {
       const sentinel =
         typeof reference === 'number'
           ? reference + 17
-          : FOLDED_OPTIONS.includes(key)
-            ? '17em'
-            : `__${key}__`;
+          : numbersWithoutDefault.has(key)
+            ? 17
+            : FOLDED_OPTIONS.includes(key)
+              ? '17em'
+              : `__${key}__`;
       const config = buildConfig({
         column: { [key]: sentinel } as Partial<Types.Config>['column'],
       });

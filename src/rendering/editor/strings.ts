@@ -908,7 +908,15 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   progress: 'Countdown & Progress',
   'progress.helper': 'How long until an event starts, and how far through it we are.',
   show_countdown: 'Show Countdown',
+  countdown_max_days: 'Count Down Only Within Days',
+  'countdown_max_days.helper':
+    'Only events starting within this many days get a countdown: 0 is today alone, 7 a ' +
+    'week ahead. Left empty, every upcoming event gets one.',
   show_countdown_allday: 'Count Down To All-Day Events Too',
+  countdown_exact_days: 'Count In Days Only',
+  'countdown_exact_days.helper':
+    'Counts every date after today in days: “in 30 days” rather than “in a month”, and ' +
+    '“in 1 day” rather than “tomorrow”.',
   show_progress_bar: 'Show Progress Bar',
   show_now_indicator: 'Show Now Indicator',
   'show_now_indicator.helper':

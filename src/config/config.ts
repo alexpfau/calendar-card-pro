@@ -94,6 +94,9 @@ export const DEFAULT_CONFIG: Types.Config = {
   show_past_events: false,
   show_countdown: false,
   show_countdown_allday: true,
+  countdown_exact_days: false,
+  // No limit: every upcoming event counts down, as before the option existed.
+  countdown_max_days: undefined,
   show_progress_bar: false,
   show_now_indicator: true,
   // The card's color for "now": a running event's time in list and column view, and the
@@ -505,6 +508,7 @@ export function normalizeNumericOptions(config: Types.Config): Types.Config {
   // than collapsing to zero and hiding content.
   config.compact_days_to_show = toValidNumber(config.compact_days_to_show, 1);
   config.compact_events_to_show = toValidNumber(config.compact_events_to_show, 0);
+  config.countdown_max_days = toValidNumber(config.countdown_max_days, 0);
   config.skip_first_events = toValidNumber(config.skip_first_events, 0);
 
   return config;

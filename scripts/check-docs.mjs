@@ -250,6 +250,9 @@ const VERIFIED_RUNTIME_FALLBACKS = new Map([
   // means no limit, which is why an invalid value clears rather than collapses to zero.
   ['compact_days_to_show', '-'],
   ['compact_events_to_show', '-'],
+  // Same floor-not-default rule, `toValidNumber(…, 0)`: absent means every upcoming event
+  // counts down, which is what `getCountdownString` does with no `maxDays`.
+  ['countdown_max_days', '-'],
   // utils/events.ts `groupEventsByDay` — `config.skip_first_events ?? 0`, after
   // `toValidNumber(…, 0)` clears a negative or unreadable value. Absent skips nothing.
   ['skip_first_events', '-'],
