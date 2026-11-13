@@ -48,14 +48,14 @@ The toolbar is there for its magnifier: a search answers _when is Clara's birthd
 
 ## 🧭 What It Adds
 
-| Editor                           | YAML                                                                           | What it adds                                                                                                                                              |
-| -------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Time Range & Content             | `days_to_show: 60`                                                             | 60 days, about two months ahead; days with nothing on them stay hidden                                                                                    |
-| Events                           | `show_countdown`, `show_single_allday_time: false`, `vertical_line_width: 4px` | How far away each event still to come is; no "All day" line under a one-day event, while a holiday of several days still shows when it ends; a bolder bar |
-| Separators · Layout              | `month_separator_width: 1px`, `day_spacing: 4px`, `event_gap: 4px`             | A rule between months; days close together, each event with a bar of its own                                                                              |
-| Calendars › Name, Label & Colors | `label`, `accent_color`                                                        | A 🎂 or 🎉 before each title, in its calendar's color                                                                                                     |
-| Card & Header › Toolbar          | `toolbar` with `legend`, `add_event`, `refresh` and `view_switcher` off        | A search for any birthday or holiday a year back or ahead, and the arrows it comes with                                                                   |
-| Actions & Refresh                | `event_tap_action: details`                                                    | The calendar's entry on tap                                                                                                                               |
+| Editor                        | YAML                                                                           | What it adds                                                                                                                                              |
+| ----------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Time Range & Content          | `days_to_show: 60`                                                             | 60 days, about two months ahead; days with nothing on them stay hidden                                                                                    |
+| Events                        | `show_countdown`, `show_single_allday_time: false`, `vertical_line_width: 4px` | How far away each event still to come is; no "All day" line under a one-day event, while a holiday of several days still shows when it ends; a bolder bar |
+| Separators · Layout           | `month_separator_width: 1px`, `day_spacing: 4px`, `event_gap: 4px`             | A rule between months; days close together, each event with a bar of its own                                                                              |
+| Calendars › Name & Appearance | `label`, `accent_color`                                                        | A 🎂 or 🎉 before each title, in its calendar's color                                                                                                     |
+| Card & Header › Toolbar       | `toolbar` with `legend`, `add_event`, `refresh` and `view_switcher` off        | A search for any birthday or holiday a year back or ahead, and the arrows it comes with                                                                   |
+| Actions & Refresh             | `event_tap_action: details`                                                    | The calendar's entry on tap                                                                                                                               |
 
 ## 🔀 Adapt It
 

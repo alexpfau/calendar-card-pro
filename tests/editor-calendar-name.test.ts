@@ -88,7 +88,7 @@ describe('the Name field', () => {
       helper: EDITOR_STRINGS['entity.name.helper'],
     }).toEqual({
       label: 'Name',
-      heading: 'Name, Label & Colors',
+      heading: 'Name & Appearance',
       helper:
         'Names this calendar in the calendar filter, when you open one of its events, and in ' +
         'notices. Every entry for this calendar shares it. Left empty, the card uses Home ' +
@@ -97,9 +97,10 @@ describe('the Name field', () => {
     });
   });
 
-  it('names the heading as a name, a label and colors in every translated editor', () => {
+  it('names the heading as a name and an appearance in every translated editor', () => {
     // Pinned by value for every language with an editor file, so a translation left on the
-    // old heading — which would go on calling the section a label's — fails here.
+    // old heading — which named only the label and the colors, and not the text scale the
+    // section also holds — fails here.
     const translated = Object.fromEntries(
       Object.entries(EDITOR_LANGUAGE_STRINGS).map(([language, strings]) => [
         language,
@@ -108,17 +109,18 @@ describe('the Name field', () => {
     );
 
     expect(translated).toEqual({
-      de: ['Name, Label & Farben', 'Name'],
-      'en-gb': ['Name, Label & Colours', undefined],
-      et: ['Nimi, silt ja värvid', 'Nimi'],
-      it: ['Nome, etichetta e colori', 'Nome'],
-      ko: ['이름, 라벨 및 색상', '이름'],
-      lt: ['Pavadinimas, etiketė ir spalvos', 'Kalendoriaus pavadinimas'],
-      lv: ['Nosaukums, etiķete un krāsas', 'Nosaukums'],
-      nb: ['Navn, etikett og farger', 'Navn'],
-      pl: ['Nazwa, etykieta i kolory', 'Nazwa'],
-      sk: ['Názov, štítok a farby', 'Názov kalendára'],
-      sv: ['Namn, etikett och färger', 'Namn'],
+      de: ['Name & Darstellung', 'Name'],
+      // No spelling of its own to override any longer, so British English reads the English.
+      'en-gb': [undefined, undefined],
+      et: ['Nimi ja välimus', 'Nimi'],
+      it: ['Nome e aspetto', 'Nome'],
+      ko: ['이름 및 모양', '이름'],
+      lt: ['Pavadinimas ir išvaizda', 'Kalendoriaus pavadinimas'],
+      lv: ['Nosaukums un izskats', 'Nosaukums'],
+      nb: ['Navn og utseende', 'Navn'],
+      pl: ['Nazwa i wygląd', 'Nazwa'],
+      sk: ['Názov a vzhľad', 'Názov kalendára'],
+      sv: ['Namn och utseende', 'Namn'],
     });
   });
 });

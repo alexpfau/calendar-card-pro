@@ -376,8 +376,14 @@ export const cardStyles = css`
     --calendar-card-grid-block-room: 1px;
   }
 
+  /* Declared again on an event drawn at its calendar's text_scale, which writes its own sizes
+     and with them its own share (text-scale.ts). A custom property substitutes the variables it
+     names where it is declared, so inherited from ha-card these two kept the card's share: a
+     title at twice the card's size cut its marks with the room of one. Only on a scaled event:
+     every other inherits them from ha-card, a theme's own value for them included. */
   @supports (width: round(1px, 1px)) {
-    ha-card {
+    ha-card,
+    .event-text-scaled {
       --calendar-card-event-row-room: round(
         up,
         var(--calendar-card-event-inline-room, 0.125em),
@@ -2988,6 +2994,17 @@ export const cardStyles = css`
     margin-inline-end: 2px;
     --mdc-icon-size: var(--calendar-card-weather-event-icon-size, 14px);
     color: var(--calendar-card-weather-event-color, var(--secondary-text-color));
+  }
+
+  /* Beside the title, where list view draws the badge, its icon is sized in the font of the row,
+     which the calendar's text_scale does not set; in a row of its own it sits in the weather
+     font, which it does. So an icon sized in em takes a scaled event's scale in full here, from
+     a property the event writes only where that differs (text-scale.ts). */
+  .event-text-scaled :where(.summary-row, .title-aside) > .event-weather ha-icon {
+    --mdc-icon-size: var(
+      --calendar-card-weather-event-title-icon-size,
+      var(--calendar-card-weather-event-icon-size, 14px)
+    );
   }
 
   /* Summary-row weather placement. These rules are the list-view

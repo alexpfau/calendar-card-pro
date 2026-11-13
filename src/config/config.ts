@@ -1303,6 +1303,9 @@ export function normalizeEntities(
           color: item.color || undefined,
           accent_color: item.accent_color || undefined,
           label_icon_color: item.label_icon_color || undefined,
+          // A number above 0, or a string that reads as one; anything else draws at the card's
+          // size, as an unset scale does.
+          text_scale: toValidNumber(item.text_scale, Number.MIN_VALUE),
           show_time: item.show_time,
           show_location: item.show_location,
           location_icon: item.location_icon || undefined,

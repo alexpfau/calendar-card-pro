@@ -15,6 +15,7 @@ import { styleMap } from 'lit/directives/style-map.js';
 import * as Activation from './activation';
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
+import * as TextScale from './text-scale';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
 import * as ColorMix from '../utils/color-mix';
@@ -184,6 +185,7 @@ function renderColumnEvent(
     'event-interactive': tap !== undefined,
     'event-now': presentation.isNow,
     'search-ring': event._searchRing === true,
+    [TextScale.TEXT_SCALED_CLASS]: presentation.textScaled,
   };
 
   // Column view places two of these differently from list view: the countdown rides the
@@ -193,7 +195,7 @@ function renderColumnEvent(
     <div
       class=${classMap(eventClasses)}
       style="--calendar-card-event-accent-bar-color: ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};${Helpers.styleDeclarations(
-        presentation.accentTextProperties,
+        { ...presentation.accentTextProperties, ...presentation.textScaleProperties },
       )}"
       role=${tap ? 'button' : nothing}
       tabindex=${tap ? '0' : nothing}

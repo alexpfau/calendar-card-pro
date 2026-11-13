@@ -6,6 +6,7 @@
 
 import * as AccentText from './accent-text';
 import type { EventContentParts } from './leaves';
+import * as TextScale from './text-scale';
 import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import * as EventActions from '../interaction/event-actions';
@@ -42,6 +43,17 @@ interface EventPresentation {
    * empty-day row whatever the config says.
    */
   accentTextProperties: Readonly<Record<string, string>>;
+
+  /**
+   * Custom properties the event element sets so its text draws at its calendar's `text_scale`.
+   *
+   * Empty unless its block carries a scale other than 1, and always empty for an empty-day row,
+   * which belongs to no calendar. See `text-scale.ts`.
+   */
+  textScaleProperties: Readonly<Record<string, string>>;
+
+  /** Whether the event carries `TextScale.TEXT_SCALED_CLASS`: its scale is not 1. */
+  textScaled: boolean;
 
   contentParts: EventContentParts;
 }
@@ -364,6 +376,8 @@ export function buildEventPresentation(
     EventUtils.getEntitySetting(event._entityId, 'location_icon', config, event),
   );
 
+  const textScale = TextScale.textScaleOf(event, config);
+
   const contentParts: EventContentParts = {
     eventTime,
     eventTimeEnd: eventTimeParts.end,
@@ -389,6 +403,8 @@ export function buildEventPresentation(
     entityAccentColor,
     entityAccentBackgroundColor,
     accentTextProperties: AccentText.accentTextProperties(config, entityAccentColor, isEmptyDay),
+    textScaleProperties: TextScale.textScaleProperties(config, textScale),
+    textScaled: textScale !== 1,
     contentParts,
   };
 }

@@ -1143,6 +1143,190 @@ function keywordAsLength(keyword: string, factor: number): string | undefined {
 }
 
 //-----------------------------------------------------------------------------
+// TEXT SCALE
+//
+// A calendar's `text_scale` multiplies the sizes its events are drawn in; see
+// `rendering/text-scale.ts`. Here because it is unit-preserving length arithmetic, as
+// `scaleFontSize` and `scaleLength` are, and the rendering layer parses no lengths.
+//-----------------------------------------------------------------------------
+
+/** A trailing `!important`, which belongs to the declaration rather than to the size. */
+const IMPORTANT = /\s*!\s*important\s*$/i;
+
+/**
+ * The absolute font-size keywords at the sizes browsers draw them, at the 16px default:
+ * measured in Chromium and WebKit, which agree on every one. `initial` is `medium`, which is
+ * what it means inside a `var()` fallback; standing as the whole value it means something else
+ * (see {@link scaleTextSize}).
+ *
+ * Not {@link ABSOLUTE_FONT_SIZE_PX}, which takes them at the sizes CSS Fonts suggests because
+ * it sizes a box around text and must never come out short. Four of those are larger than
+ * what is drawn (`large` is 19.2px there and 18px on screen), so `large` at 0.95 came out at
+ * 18.24px: asked for smaller text, the calendar drew larger. Here the number is the text
+ * itself, so it is taken at the size the reader sees.
+ */
+const RENDERED_KEYWORD_PX: ReadonlyMap<string, number> = new Map([
+  ['xx-small', 9],
+  ['x-small', 10],
+  ['small', 13],
+  ['medium', 16],
+  ['initial', 16],
+  ['large', 18],
+  ['x-large', 24],
+  ['xx-large', 32],
+  ['xxx-large', 48],
+]);
+
+/**
+ * One of those keywords standing as a token inside a larger value, such as the fallback of
+ * `var(--size, large)`, with the character before it captured; not part of a longer name, so
+ * `--large-text` is left alone. A captured prefix rather than a lookbehind, as for
+ * {@link KEYWORD_IN_VALUE}.
+ */
+const RENDERED_KEYWORD_IN_VALUE = new RegExp(
+  `(^|[^\\w-])(${[...RENDERED_KEYWORD_PX.keys()].join('|')})(?![\\w-])`,
+  'gi',
+);
+
+/**
+ * The keywords every property takes. Written as a whole option, each reaches the custom
+ * property rather than the font: the property is left unset there, and the rule reading it
+ * takes its own fallback or, having none, the size its text inherits.
+ */
+const CSS_WIDE_KEYWORDS: ReadonlySet<string> = new Set([
+  'inherit',
+  'initial',
+  'unset',
+  'revert',
+  'revert-layer',
+]);
+
+/**
+ * Length units that measure the font of the element they are used on. An icon sized in one of
+ * them inside scaled text already follows that text, so multiplying it as well would scale it
+ * twice: a `1em` clock at 0.5 came out at a quarter of its text.
+ */
+const FONT_RELATIVE_UNITS: ReadonlySet<string> = new Set(['em', 'ex', 'ch', 'cap', 'ic', 'lh']);
+
+/**
+ * Length units that measure nothing the scale changes: absolute lengths, the root's font, the
+ * viewport and the container. Every other unit in a size is left alone, the font-relative ones
+ * above aside: an angle inside `sin()` or a time is no length, and multiplying it changes the
+ * arithmetic rather than the size.
+ */
+const SCALED_UNITS: ReadonlySet<string> = new Set([
+  'px',
+  'cm',
+  'mm',
+  'q',
+  'in',
+  'pt',
+  'pc',
+  'rem',
+  'rex',
+  'rch',
+  'rcap',
+  'ric',
+  'rlh',
+  ...['vw', 'vh', 'vi', 'vb', 'vmin', 'vmax'].flatMap((unit) => [
+    unit,
+    `s${unit}`,
+    `l${unit}`,
+    `d${unit}`,
+  ]),
+  'cqw',
+  'cqh',
+  'cqi',
+  'cqb',
+  'cqmin',
+  'cqmax',
+]);
+
+/**
+ * A signed number with a unit, with the character before it captured so a digit inside a
+ * longer word is left alone. `calc(20px + -4px)` holds two lengths, and the second one's sign
+ * is part of it. A captured prefix rather than a lookbehind, which older Safari cannot parse
+ * (`check:bundle` refuses one).
+ */
+const LENGTH_TOKEN = /(^|[^\w.-])([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)([a-z]+)(?![\w-])/gi;
+
+/**
+ * Applies `scale` to a size without its `!important`, and puts the flag back after the result,
+ * where it still belongs to the declaration rather than inside a `calc()`.
+ *
+ * @param value - A size as the configuration holds it
+ * @param scale - Rewrites the bare size
+ * @returns The rewritten size, flagged as the original was
+ */
+function keepingPriority(value: string, scale: (bare: string) => string): string {
+  const bare = value.trim().replace(IMPORTANT, '').trim();
+  return IMPORTANT.test(value) ? `${scale(bare)} !important` : scale(bare);
+}
+
+/**
+ * A font size multiplied by a calendar's scale.
+ *
+ * Lengths, percentages, `em`, the relative keywords, `calc()` and `var()` go through
+ * `scaleFontSize`, which multiplies each exactly in its own terms. The absolute keywords are
+ * taken at the size browsers draw them ({@link RENDERED_KEYWORD_PX}), assuming the default
+ * 16px, alone or in a `var()` fallback. A CSS-wide keyword leaves the property unset, so what
+ * is scaled is what the rule reading it falls back to (`unsetAs`). A `var()` naming a variable
+ * that holds a keyword cannot be multiplied, and draws at the size the text inherits.
+ *
+ * @param value - A font size, as `toValidFontSize` leaves it
+ * @param factor - The calendar's scale
+ * @param unsetAs - What the size stands for where the property is left unset: the fallback of
+ *   the rule reading it, or `1em` where it has none and the text inherits
+ * @returns The scaled size
+ */
+export function scaleTextSize(value: string, factor: number, unsetAs = '1em'): string {
+  return keepingPriority(value, (bare) => {
+    const word = bare.toLowerCase();
+    if (CSS_WIDE_KEYWORDS.has(word)) return scaleTextSize(unsetAs, factor);
+
+    const px = RENDERED_KEYWORD_PX.get(word);
+    if (px !== undefined) return `${px * factor}px`;
+
+    return scaleFontSize(
+      bare.replace(
+        RENDERED_KEYWORD_IN_VALUE,
+        (_match, before: string, keyword: string) =>
+          `${before}${RENDERED_KEYWORD_PX.get(keyword.toLowerCase())}px`,
+      ),
+      factor,
+    );
+  });
+}
+
+/**
+ * An icon size multiplied by a calendar's scale.
+ *
+ * Every length in it is multiplied in its own unit, sign included ({@link SCALED_UNITS}), and
+ * nothing that is not a length. Where the icon is drawn inside the scaled text (`followsText`),
+ * a length in a unit that measures the font ({@link FONT_RELATIVE_UNITS}) follows that text
+ * already and is left as it is: `calc(1em + 2px)` at 0.5 is `calc(1em + 1px)`. Where it is
+ * not, every length is multiplied. A `var()` is multiplied whole, since what it holds is not
+ * known until layout; inside scaled text, one that holds an `em` length is scaled twice, which
+ * is the price of not knowing.
+ *
+ * @param value - An icon size, as `toValidSize` leaves it
+ * @param factor - The calendar's scale
+ * @param followsText - Whether the icon is drawn inside the text the scale sizes
+ * @returns The scaled size
+ */
+export function scaleIconSize(value: string, factor: number, followsText = true): string {
+  return keepingPriority(value, (bare) => {
+    if (/var\(/i.test(bare)) return `calc(${factor} * (${bare}))`;
+
+    return bare.replace(LENGTH_TOKEN, (match, before: string, number: string, unit: string) => {
+      const name = unit.toLowerCase();
+      const scales = SCALED_UNITS.has(name) || (!followsText && FONT_RELATIVE_UNITS.has(name));
+      return scales ? `${before}${Number.parseFloat(number) * factor}${unit}` : match;
+    });
+  });
+}
+
+//-----------------------------------------------------------------------------
 // RESOLUTION
 //-----------------------------------------------------------------------------
 

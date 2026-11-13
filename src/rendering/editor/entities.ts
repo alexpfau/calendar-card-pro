@@ -26,7 +26,7 @@ import { ENTITY_ICON_SENTINEL, entityIcon, isEntityIconSentinel } from '../../ut
 import * as Helpers from '../../utils/helpers';
 import { firstPersonEntityId, isPersonEntityId } from '../../utils/person-pictures';
 
-const NUMERIC_KEYS: ReadonlySet<string> = new Set(['compact_events_to_show']);
+const NUMERIC_KEYS: ReadonlySet<string> = new Set(['compact_events_to_show', 'text_scale']);
 
 /**
  * One option that belongs to the calendar rather than to one block of it, in the four terms

@@ -63,6 +63,7 @@ const PER_CALENDAR_OPTIONS: ReadonlyArray<[string, unknown, unknown]> = [
   ['color', 'red', 'blue'],
   ['accent_color', 'red', 'blue'],
   ['label_icon_color', 'red', 'blue'],
+  ['text_scale', 0.75, 1.25],
   ['show_time', true, false],
   ['show_location', true, false],
   ['location_icon', 'mdi:map-marker-outline', 'mdi:microsoft-teams'],

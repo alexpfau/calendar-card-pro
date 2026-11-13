@@ -63,13 +63,13 @@ A tap shows the entry's title as the card does, without the prefix. A waste-coll
 
 ## 🧭 What It Adds
 
-| Editor                                              | YAML                                                                                                    | What it adds                                                                                              |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Calendars › Event Filtering                         | one calendar in four blocks, `allowlist`, `compact_events_to_show: 1`, `allday_expires_at: '10:00'`     | Each bin's next pickup only, since the limit counts per block, not per calendar; gone at 10:00 on its day |
-| Calendars › Name, Label & Colors · Text Replacement | `label`, `label_icon_color`, `accent_color`, `replace_pattern`                                          | A bin icon in the bin's color; the feed's prefix removed                                                  |
-| Events                                              | `allday_badge: title`, `allday_badge_style: tinted`, `show_countdown`, `show_single_allday_time: false` | The bin's name in a pill of its color; "tomorrow" instead of "All day"                                    |
-| Time Range & Content                                | `days_to_show: 31`, `hide_when_empty`                                                                   | A month ahead, so a monthly bin still shows; no pickups, no card                                          |
-| Actions & Refresh                                   | `event_tap_action: details`                                                                             | The feed's entry on tap                                                                                   |
+| Editor                                           | YAML                                                                                                    | What it adds                                                                                              |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Calendars › Event Filtering                      | one calendar in four blocks, `allowlist`, `compact_events_to_show: 1`, `allday_expires_at: '10:00'`     | Each bin's next pickup only, since the limit counts per block, not per calendar; gone at 10:00 on its day |
+| Calendars › Name & Appearance · Text Replacement | `label`, `label_icon_color`, `accent_color`, `replace_pattern`                                          | A bin icon in the bin's color; the feed's prefix removed                                                  |
+| Events                                           | `allday_badge: title`, `allday_badge_style: tinted`, `show_countdown`, `show_single_allday_time: false` | The bin's name in a pill of its color; "tomorrow" instead of "All day"                                    |
+| Time Range & Content                             | `days_to_show: 31`, `hide_when_empty`                                                                   | A month ahead, so a monthly bin still shows; no pickups, no card                                          |
+| Actions & Refresh                                | `event_tap_action: details`                                                                             | The feed's entry on tap                                                                                   |
 
 ## 🔀 Adapt It
 
