@@ -6,19 +6,26 @@
  * cannot import anyway: `checkConditionsMet` in `src/panels/lovelace/common/validate-condition.ts`
  * decides each condition, and `evaluateConditionsLocally` in
  * `src/common/condition/evaluate-locally.ts` decides how `and`, `or`, `not`, `enabled` and a
- * condition the browser cannot judge combine. The card judges what Home Assistant can judge in
- * the browser: `user`, `state`, `numeric_state`, `screen`, `time` and `view_columns`, under
- * `and`, `or` and `not`. Everything else Home Assistant sends to core (`template`, `sun`,
- * `zone`, `device`, a state held `for:` a while), which the card does not do, and `location`
- * would mean walking every state to find the viewer's person. Those are unknown here.
+ * condition the browser cannot judge combine.
+ *
+ * Since 2026.10 Home Assistant splits a list as `src/common/condition/split.ts` does: it judges
+ * `screen`, `user`, `time`, `view_columns` and `location` in the browser, and asks core for the
+ * rest through `subscribe_condition` (`template`, `sun`, `zone`, `device`, a state held `for:` a
+ * while), translated to core's shape (`translate.ts`). The card does the same: it judges the
+ * browser's share here, and reads core's answers from `utils/core-conditions.ts`, which holds the
+ * subscriptions `coreConditions` lists. Until core answers, or where Home Assistant is too old to,
+ * a condition the browser can judge is judged here and any other is unknown, as Home Assistant
+ * seeds a card's visibility before core answers.
  *
  * A list is judged true, false or unknown, and only true shows. Unknown stays unknown through
- * `not`, so `not: [template]` hides rather than shows: an entry whose conditions the card cannot
- * judge is hidden, never shown by accident. `tests/visibility.test.ts` pins the semantics, and a
- * probe outside the repository ran Home Assistant's own two functions over the same cases.
+ * `not`, so `not: [template]` hides rather than shows: an entry whose conditions nobody has judged
+ * yet is hidden, never shown by accident. An error from core hides the entry whatever the rest
+ * says, as Home Assistant hides a card. `tests/visibility.test.ts` pins the semantics, and a probe
+ * outside the repository ran Home Assistant's own functions over the same cases.
  *
- * Nothing here reads a `hass` state the configuration does not name, which is what lets the
- * card skip renders for other states (`utils/hass-relevance.ts`).
+ * Nothing here reads a `hass` state the configuration does not name, except where a `location`
+ * condition reads the viewer's person and the zones: `locationEntityIds` lists those, so the card
+ * can still skip renders for every other state (`utils/hass-relevance.ts`).
  */
 import type * as Types from '../config/types';
 
@@ -35,10 +42,26 @@ export interface VisibilityContext {
   now: number;
   /** Whether a media query matches now. */
   matches(query: string): boolean;
+  /** What core answered for a condition, by `coreKey`; undefined until it has. */
+  core?(key: string): CoreAnswer | undefined;
 }
 
-/** The condition types the card judges; anything else is unknown. */
-const JUDGED = new Set(['user', 'state', 'numeric_state', 'screen', 'time', 'view_columns']);
+/** What core answered for a condition: whether it holds, or that core could not judge it. */
+export type CoreAnswer = boolean | 'error';
+
+/** The condition types the card judges; anything else is unknown until core answers. */
+const JUDGED = new Set([
+  'user',
+  'state',
+  'numeric_state',
+  'screen',
+  'time',
+  'view_columns',
+  'location',
+]);
+
+/** The types Home Assistant judges in the browser and never sends to core (`translate.ts`). */
+const CLIENT = new Set(['screen', 'user', 'view_columns', 'location', 'time']);
 
 const LOGICAL = new Set(['and', 'or', 'not']);
 
@@ -106,6 +129,12 @@ export function evaluateVisibility(
   conditions: ReadonlyArray<unknown>,
   context: VisibilityContext,
 ): boolean | undefined {
+  // An error from core hides, whatever the rest says: a `not` around it must not show it.
+  if (context.core) {
+    for (const { key } of coreConditions(conditions, context.entityId ?? '')) {
+      if (context.core(key) === 'error') return undefined;
+    }
+  }
   return allOf(
     conditions.filter((condition) => !isDisabled(condition)).map((c) => judge(c, context)),
   );
@@ -151,9 +180,11 @@ function isRecord(value: unknown): value is VisibilityCondition {
 
 /**
  * Whether a condition asks for what only core can judge: a state held `for` a while, or a
- * template. Unknown in either shape. Home Assistant drops `for` from a dashboard-shaped `state`
- * condition and so ignores it there; the card hides the entry instead and says so, rather than
- * show it at once against what was written.
+ * template. Unknown here in either shape. In core's shape, which Home Assistant's editor writes,
+ * the card asks core (`isServerCondition`). In the dashboard shape Home Assistant drops `for` and
+ * so ignores it, and `state_not` held `for` a while has no single reading, so the card neither
+ * asks core nor ignores it: it hides the entry and says so, rather than show it at once against
+ * what was written.
  */
 function needsCore(condition: VisibilityCondition): boolean {
   return condition.for !== undefined || condition.value_template !== undefined;
@@ -179,6 +210,11 @@ function asList(value: unknown): unknown[] | undefined {
  */
 function judge(condition: unknown, context: VisibilityContext): boolean | undefined {
   if (!isRecord(condition)) return undefined;
+  // Core's answer wins once it has one, for exactly the conditions the card asked it about.
+  if (context.core && isServerCondition(condition)) {
+    const answer = context.core(coreKey(condition, context.entityId ?? ''));
+    if (typeof answer === 'boolean') return answer;
+  }
   // A templated `enabled` only core can render.
   if ('enabled' in condition && typeof condition.enabled !== 'boolean') return undefined;
 
@@ -218,6 +254,8 @@ function judge(condition: unknown, context: VisibilityContext): boolean | undefi
     case 'view_columns':
       // A card has no column count to compare, which Home Assistant reads as holding.
       return true;
+    case 'location':
+      return judgeLocation(condition, context);
     default:
       return judgeState(condition, context);
   }
@@ -589,6 +627,559 @@ function judgeTime(condition: VisibilityCondition, context: VisibilityContext): 
 }
 
 //-----------------------------------------------------------------------------
+// LOCATION
+//-----------------------------------------------------------------------------
+
+/** A registry entry, as far as resolving a `location` target reads it. */
+interface RegistryEntity {
+  entity_id: string;
+  device_id?: string | null;
+  area_id?: string | null;
+  labels?: ReadonlyArray<string>;
+}
+
+interface RegistryDevice {
+  id: string;
+  area_id?: string | null;
+  parent_device_id?: string | null;
+  labels?: ReadonlyArray<string>;
+}
+
+interface RegistryArea {
+  area_id: string;
+  floor_id?: string | null;
+  labels?: ReadonlyArray<string>;
+}
+
+/** The person entity each user was last found as (`cachedUserPerson` in Home Assistant). */
+const personOfUser = new Map<string, string>();
+
+/** An entity id's domain: what comes before the first dot (`computeDomain`). */
+function domainOf(entityId: string): string {
+  return entityId.slice(0, entityId.indexOf('.'));
+}
+
+/**
+ * The persons Home Assistant has registered. Read from the entity registry rather than by walking
+ * every state, as Home Assistant's `getUserPerson` does, so the card can keep skipping renders for
+ * states it does not read; a person is always registered.
+ */
+function personIds(hass: Types.Hass | null | undefined): string[] {
+  return Object.keys(hass?.entities ?? {}).filter((id) => domainOf(id) === 'person');
+}
+
+/**
+ * The person of the user viewing the dashboard (`getUserPerson`).
+ *
+ * @param hass - Home Assistant
+ * @returns Its state, or undefined where the user has none
+ */
+function viewerPerson(hass: Types.Hass | null | undefined): Types.HassEntity | undefined {
+  const userId = hass?.user?.id;
+  if (!userId) return undefined;
+  const cached = personOfUser.get(userId);
+  if (cached) {
+    const stateObj = hass?.states?.[cached];
+    if (stateObj?.attributes?.user_id === userId) return stateObj;
+  }
+  for (const id of personIds(hass)) {
+    const stateObj = hass?.states?.[id];
+    if (stateObj?.attributes?.user_id === userId) {
+      personOfUser.set(userId, id);
+      return stateObj;
+    }
+  }
+  return undefined;
+}
+
+/** The person's state while a zone is the one it shows: `home`, or the zone's name. */
+function activeZoneState(hass: Types.Hass | null | undefined, zoneId: string): unknown {
+  const stateObj = hass?.states?.[zoneId];
+  if (!stateObj || stateObj.attributes?.passive) return undefined;
+  return zoneId === 'zone.home' ? 'home' : stateObj.attributes?.friendly_name;
+}
+
+const TARGET_KEYS = ['entity_id', 'device_id', 'area_id', 'floor_id', 'label_id'];
+
+function isIdList(value: unknown): boolean {
+  return (
+    typeof value === 'string' ||
+    (Array.isArray(value) && value.every((id) => typeof id === 'string'))
+  );
+}
+
+/** A target Home Assistant can resolve: target keys to ids, and an `exclude` of the same. */
+function isTarget(value: unknown, allowExclude = true): value is VisibilityCondition {
+  return (
+    isRecord(value) &&
+    Object.entries(value).every(([key, ids]) =>
+      key === 'exclude'
+        ? allowExclude && isTarget(ids, false)
+        : TARGET_KEYS.includes(key) && isIdList(ids),
+    )
+  );
+}
+
+function idsOf(value: unknown): string[] {
+  return (asList(value) ?? []) as string[];
+}
+
+/**
+ * The zones a target names, directly or through a device, area, floor or label, as Home
+ * Assistant's `resolveEntityIDs` resolves it with a zone-only selector: a device or area counts
+ * only where it holds a zone; a device reached through an area gives only its zones that have no
+ * area of their own; a device named directly brings its child devices along.
+ *
+ * Every zone in the registry passes the selector, stateless or not, as Home Assistant gives each
+ * one a placeholder state while resolving. Its `exclude` is resolved without the selector, which
+ * gives the same zones, as a device or area without a zone gives none either way.
+ */
+function resolveZoneTarget(
+  target: VisibilityCondition,
+  entities: ReadonlyArray<RegistryEntity>,
+  devices: Readonly<Record<string, RegistryDevice>>,
+  areas: ReadonlyArray<RegistryArea>,
+): Set<string> {
+  const found = new Set(idsOf(target.entity_id));
+  const deviceIds = new Set(idsOf(target.device_id));
+  const areaIds = new Set(idsOf(target.area_id));
+  const direct = new Set(deviceIds);
+
+  const isZone = (entity: RegistryEntity): boolean => domainOf(entity.entity_id) === 'zone';
+  const holdsZone = (deviceId: string): boolean =>
+    entities.some((entity) => entity.device_id === deviceId && isZone(entity));
+  // A device in an area: its own, or its parent's where it has none (`devicesInEffectiveArea`).
+  const inArea = (areaId: string): RegistryDevice[] =>
+    Object.values(devices).filter((device) =>
+      device.area_id
+        ? device.area_id === areaId
+        : !!device.parent_device_id && devices[device.parent_device_id]?.area_id === areaId,
+    );
+  const areaHoldsZone = (areaId: string): boolean =>
+    inArea(areaId).some((device) => holdsZone(device.id)) ||
+    entities.some((entity) => entity.area_id === areaId && isZone(entity));
+
+  for (const label of idsOf(target.label_id)) {
+    for (const area of areas) {
+      if (area.labels?.includes(label) && areaHoldsZone(area.area_id)) areaIds.add(area.area_id);
+    }
+    for (const device of Object.values(devices)) {
+      if (device.labels?.includes(label) && holdsZone(device.id)) deviceIds.add(device.id);
+    }
+    for (const entity of entities) {
+      if (entity.labels?.includes(label) && isZone(entity)) found.add(entity.entity_id);
+    }
+  }
+  for (const floor of idsOf(target.floor_id)) {
+    for (const area of areas) {
+      if (area.floor_id === floor && areaHoldsZone(area.area_id)) areaIds.add(area.area_id);
+    }
+  }
+
+  const notViaArea = new Set(deviceIds);
+  for (const areaId of areaIds) {
+    for (const device of inArea(areaId)) if (holdsZone(device.id)) deviceIds.add(device.id);
+    for (const entity of entities) {
+      if (entity.area_id === areaId && isZone(entity)) found.add(entity.entity_id);
+    }
+  }
+  for (const device of Object.values(devices)) {
+    if (device.parent_device_id && direct.has(device.parent_device_id)) {
+      deviceIds.add(device.id);
+      notViaArea.add(device.id);
+    }
+  }
+  for (const deviceId of deviceIds) {
+    for (const entity of entities) {
+      if (entity.device_id !== deviceId || !isZone(entity)) continue;
+      if (notViaArea.has(deviceId) || !entity.area_id) found.add(entity.entity_id);
+    }
+  }
+  return found;
+}
+
+/** Zones per target, kept while the registries they were resolved from stay the same objects. */
+const zonesByTarget = new WeakMap<
+  object,
+  { entities: unknown; devices: unknown; areas: unknown; zones: string[] }
+>();
+
+/**
+ * The zones a `location` condition's target names that have a state now
+ * (`resolveLocationZones`).
+ *
+ * @param hass - Home Assistant, for its registries and states
+ * @param target - A valid target
+ * @returns Zone entity ids
+ */
+function locationZones(hass: Types.Hass | null | undefined, target: VisibilityCondition): string[] {
+  const cached = zonesByTarget.get(target);
+  let zones = cached?.zones;
+  if (
+    !cached ||
+    cached.entities !== hass?.entities ||
+    cached.devices !== hass?.devices ||
+    cached.areas !== hass?.areas
+  ) {
+    const entities = Object.values(hass?.entities ?? {});
+    const devices = hass?.devices ?? {};
+    const areas = Object.values(hass?.areas ?? {});
+    const excluded = isRecord(target.exclude)
+      ? resolveZoneTarget(target.exclude, entities, devices, areas)
+      : new Set<string>();
+    zones = [...resolveZoneTarget(target, entities, devices, areas)].filter(
+      (id) => domainOf(id) === 'zone' && !excluded.has(id),
+    );
+    zonesByTarget.set(target, {
+      entities: hass?.entities,
+      devices: hass?.devices,
+      areas: hass?.areas,
+      zones,
+    });
+  }
+  // Checked every time, so a zone that loses its state drops out and one that gains it counts.
+  return (zones ?? []).filter((id) => hass?.states?.[id] !== undefined);
+}
+
+/**
+ * A `location` condition: whether the person of the user viewing the dashboard is in one of the
+ * zones it names (`checkLocationCondition`).
+ *
+ * `locations` lists the person's state as written, `away` matches `not_home`, and `target` names
+ * zones. A person whose tracker reports which zones it is in (`in_zones`) matches any of them, or
+ * with `match_mode: active_zone` only the one its state shows; one whose tracker does not
+ * matches by its state alone.
+ *
+ * @param condition - The condition
+ * @param context - What it is judged against
+ * @returns Whether it holds
+ */
+function judgeLocation(condition: VisibilityCondition, context: VisibilityContext): boolean {
+  const hass = context.hass;
+  const person = viewerPerson(hass);
+  if (!person) return false;
+
+  const locations = condition.locations;
+  if (locations !== undefined && locations !== null) {
+    // Home Assistant calls `includes` on whatever is written, and anything else throws there.
+    if (!Array.isArray(locations) && typeof locations !== 'string') return false;
+    if (locations.includes(person.state)) return true;
+  }
+  if (condition.away === true && person.state === 'not_home') return true;
+  if (!isTarget(condition.target)) return false;
+
+  const zones = locationZones(hass, condition.target);
+  const inZones = person.attributes?.in_zones;
+  if (!Array.isArray(inZones) || inZones.length === 0) {
+    // A zone may be named `not_home`, but that state means away.
+    return (
+      person.state !== 'not_home' &&
+      zones.some((zoneId) => activeZoneState(hass, zoneId) === person.state)
+    );
+  }
+  if (condition.match_mode === 'active_zone') {
+    // Zone names need not be unique, so find the zone that set the state, not one of its name.
+    const active = inZones.find(
+      (zoneId) => typeof zoneId === 'string' && activeZoneState(hass, zoneId) === person.state,
+    );
+    return active !== undefined && zones.includes(active);
+  }
+  return inZones.some((zoneId) => zones.includes(zoneId));
+}
+
+/**
+ * The states a `location` condition reads besides those the configuration names: every
+ * registered person (to find the viewer's), every registered zone, `zone.home`, which is never
+ * registered, and the zones the viewer's person is in, which may be unregistered YAML zones.
+ *
+ * @param hass - Home Assistant
+ * @returns Entity ids
+ */
+export function locationEntityIds(hass: Types.Hass | null | undefined): string[] {
+  const ids = Object.keys(hass?.entities ?? {}).filter((id) => {
+    const domain = domainOf(id);
+    return domain === 'person' || domain === 'zone';
+  });
+  ids.push('zone.home');
+  const inZones = viewerPerson(hass)?.attributes?.in_zones;
+  if (Array.isArray(inZones)) {
+    for (const zoneId of inZones) if (typeof zoneId === 'string') ids.push(zoneId);
+  }
+  return ids;
+}
+
+//-----------------------------------------------------------------------------
+// CORE
+//-----------------------------------------------------------------------------
+
+function isLogical(condition: VisibilityCondition): boolean {
+  return typeof condition.condition === 'string' && LOGICAL.has(condition.condition);
+}
+
+function isReference(value: unknown): boolean {
+  return typeof value === 'string' && isEntityReference(value);
+}
+
+/**
+ * A dashboard-shaped `state` or `numeric_state` core would judge differently, which Home
+ * Assistant keeps in the browser (`hasLegacyOnlySemantics`): an attribute read as text, or a
+ * value or bound naming an entity.
+ */
+function readsAsDashboard(condition: VisibilityCondition): boolean {
+  if (condition.condition === 'numeric_state') {
+    return [condition.above, condition.below].some(isReference);
+  }
+  if (condition.attribute !== undefined) return true;
+  return [...(asList(condition.state) ?? []), ...(asList(condition.state_not) ?? [])].some(
+    isReference,
+  );
+}
+
+/**
+ * Whether core judges a condition rather than the browser (`isServerCondition`): anything but
+ * `screen`, `user`, `time`, `view_columns` and `location`, and an `and`, `or` or `not` only where
+ * everything under it is. A dashboard-shaped `state` or `numeric_state` goes too, unless it reads
+ * as a dashboard (`readsAsDashboard`) or waits or templates (`needsCore`), which stays unknown.
+ *
+ * @param condition - As written
+ * @returns True to ask core
+ */
+export function isServerCondition(condition: unknown): boolean {
+  if (!isRecord(condition)) return false;
+  if (isLogical(condition)) {
+    return (asList(condition.conditions) ?? []).every((child) => isServerCondition(child));
+  }
+  if (!('condition' in condition)) return !needsCore(condition) && !readsAsDashboard(condition);
+  const type = condition.condition;
+  if (typeof type !== 'string' || CLIENT.has(type)) return false;
+  if ((type === 'state' || type === 'numeric_state') && !('entity_id' in condition)) {
+    return !needsCore(condition) && !readsAsDashboard(condition);
+  }
+  return true;
+}
+
+/** The keys core reads on every condition, carried across a translation (`pickRowConfig`). */
+function rowConfig(condition: VisibilityCondition): VisibilityCondition {
+  const row: VisibilityCondition = {};
+  for (const key of ['alias', 'note', 'enabled']) {
+    if (key in condition) row[key] = condition[key];
+  }
+  return row;
+}
+
+/** A condition core can parse that never holds: not(and of nothing). */
+function never(): VisibilityCondition {
+  return { condition: 'not', conditions: [{ condition: 'and', conditions: [] }] };
+}
+
+/**
+ * A dashboard-shaped `state` or `numeric_state` naming no entity reads the calendar, as Home
+ * Assistant's `addEntityToCondition` points one at the card's own entity.
+ */
+function withEntity(condition: VisibilityCondition, entityId: string): VisibilityCondition {
+  if ('conditions' in condition && condition.conditions) {
+    return {
+      ...condition,
+      conditions: (asList(condition.conditions) ?? []).map((child) =>
+        isRecord(child) ? withEntity(child, entityId) : child,
+      ),
+    };
+  }
+  const type = condition.condition ?? 'state';
+  if ((type === 'state' || type === 'numeric_state') && !('entity_id' in condition)) {
+    return { ...condition, entity: condition.entity || entityId };
+  }
+  return condition;
+}
+
+/** A sentinel for a bound that can never be met. */
+const UNMET = Symbol('unmet');
+
+/**
+ * A dashboard bound in core's terms (`translateNumericBound`): a number, an entity id, nothing
+ * for a bound that is unreadable or always met, or `UNMET`.
+ */
+function coreBoundOf(
+  written: unknown,
+  side: 'above' | 'below',
+): string | number | undefined | typeof UNMET {
+  if (written === undefined || written === null) return undefined;
+  const value = typeof written === 'number' ? written : Number(written);
+  if (Number.isNaN(value)) {
+    return typeof written === 'string' && ENTITY_ID.test(written) ? written : undefined;
+  }
+  if (!Number.isFinite(value)) return (side === 'above') === value > 0 ? UNMET : undefined;
+  return value;
+}
+
+/**
+ * A condition in core's shape, as Home Assistant sends it to `subscribe_condition`
+ * (`translateToCoreCondition`): a dashboard `state` with `entity_id`, its `state_not` as a `not`,
+ * a dashboard `not` as not(all of them), since core's `not` is not(any of them).
+ *
+ * @param condition - A condition `isServerCondition` accepts
+ * @returns The condition core is asked about
+ */
+function toCore(condition: VisibilityCondition): VisibilityCondition {
+  if (!('condition' in condition)) return toCoreState({ condition: 'state', ...condition });
+  if (isLogical(condition)) {
+    const row = rowConfig(condition);
+    // No `conditions` at all holds.
+    if (condition.conditions === undefined) return { ...row, condition: 'and', conditions: [] };
+    const conditions = (asList(condition.conditions) ?? []).map((child) =>
+      toCore(child as VisibilityCondition),
+    );
+    return condition.condition === 'not'
+      ? { ...row, condition: 'not', conditions: [{ condition: 'and', conditions }] }
+      : { ...row, condition: condition.condition, conditions };
+  }
+  if (condition.condition === 'state') return toCoreState(condition);
+  if (condition.condition === 'numeric_state') return toCoreNumericState(condition);
+  return condition;
+}
+
+function toCoreState(condition: VisibilityCondition): VisibilityCondition {
+  if ('entity_id' in condition) return condition;
+  const row = rowConfig(condition);
+  if (!condition.entity || (condition.state === undefined && condition.state_not === undefined)) {
+    return { ...row, ...never() };
+  }
+  const base = {
+    condition: 'state',
+    entity_id: condition.entity,
+    ...(condition.attribute !== undefined ? { attribute: condition.attribute } : {}),
+  };
+  // `state` wins where both are written, as the dashboards read it.
+  if (condition.state !== undefined) return { ...row, ...base, state: condition.state };
+  return { ...row, condition: 'not', conditions: [{ ...base, state: condition.state_not }] };
+}
+
+function toCoreNumericState(condition: VisibilityCondition): VisibilityCondition {
+  if ('entity_id' in condition) return condition;
+  const row = rowConfig(condition);
+  if (!condition.entity) return { ...row, ...never() };
+
+  const above = coreBoundOf(condition.above, 'above');
+  const below = coreBoundOf(condition.below, 'below');
+  if (above === UNMET || below === UNMET) return { ...row, ...never() };
+
+  const entity = JSON.stringify(condition.entity);
+  if (above === undefined && below === undefined) {
+    // The dashboards only ask for a number here; core wants a bound, so a template asks instead.
+    return {
+      ...row,
+      condition: 'template',
+      value_template:
+        condition.attribute === undefined
+          ? `{{ is_number(states(${entity})) }}`
+          : `{{ is_number(state_attr(${entity}, ${JSON.stringify(condition.attribute)})) }}`,
+    };
+  }
+  return {
+    ...row,
+    condition: 'numeric_state',
+    entity_id: condition.entity,
+    ...(condition.attribute !== undefined ? { attribute: condition.attribute } : {}),
+    ...(above !== undefined ? { above } : {}),
+    ...(below !== undefined ? { below } : {}),
+  };
+}
+
+/**
+ * The string naming what a core condition says, so two entries asking the same share one
+ * subscription. JSON turns infinities into `null`, so they are added after it.
+ */
+function signatureOf(condition: VisibilityCondition): string {
+  const infinite: string[] = [];
+  const json = JSON.stringify(condition, (_key, value: unknown) => {
+    if (typeof value === 'number' && !Number.isFinite(value)) infinite.push(String(value));
+    return value;
+  });
+  return infinite.length > 0 ? `${json}|${infinite.join(',')}` : json;
+}
+
+/** One question for core: the key it is answered under, and the condition in core's shape. */
+export interface CoreCondition {
+  readonly key: string;
+  readonly condition: VisibilityCondition;
+}
+
+/** Translations per condition object and calendar. */
+const coreByCondition = new WeakMap<object, Map<string, CoreCondition>>();
+
+function coreConditionOf(condition: VisibilityCondition, entityId: string): CoreCondition {
+  let byEntity = coreByCondition.get(condition);
+  if (!byEntity) {
+    byEntity = new Map();
+    coreByCondition.set(condition, byEntity);
+  }
+  let core = byEntity.get(entityId);
+  if (!core) {
+    const translated = toCore(withEntity(condition, entityId));
+    core = { key: signatureOf(translated), condition: translated };
+    byEntity.set(entityId, core);
+  }
+  return core;
+}
+
+/**
+ * The key core answers a condition under.
+ *
+ * @param condition - A condition `isServerCondition` accepts
+ * @param entityId - The calendar its entry draws
+ * @returns The key
+ */
+export function coreKey(condition: VisibilityCondition, entityId: string): string {
+  return coreConditionOf(condition, entityId).key;
+}
+
+/** The questions per list and calendar. */
+const coreByList = new WeakMap<object, Map<string, ReadonlyArray<CoreCondition>>>();
+
+/**
+ * What one entry's conditions ask core: each condition core judges whose parent the browser
+ * judges, skipping any that are switched off, as Home Assistant's `splitConditionTree` asks it.
+ * Home Assistant asks once for all such siblings together; asking for each gives the same answers.
+ *
+ * @param conditions - A normalized list
+ * @param entityId - The calendar the entry draws
+ * @returns The questions, each once
+ */
+export function coreConditions(
+  conditions: ReadonlyArray<unknown>,
+  entityId: string,
+): ReadonlyArray<CoreCondition> {
+  let byEntity = coreByList.get(conditions);
+  if (!byEntity) {
+    byEntity = new Map();
+    coreByList.set(conditions, byEntity);
+  }
+  const cached = byEntity.get(entityId);
+  if (cached) return cached;
+
+  const found = new Map<string, CoreCondition>();
+  const visit = (list: ReadonlyArray<unknown>): void => {
+    for (const condition of list) {
+      if (!isRecord(condition) || isDisabled(condition)) continue;
+      if (isServerCondition(condition)) {
+        const core = coreConditionOf(condition, entityId);
+        found.set(core.key, core);
+        continue;
+      }
+      // A templated `enabled` on a node the browser judges leaves it unknown, and nothing under
+      // it is asked.
+      if ('enabled' in condition && typeof condition.enabled !== 'boolean') continue;
+      if (isLogical(condition)) visit(asList(condition.conditions) ?? []);
+    }
+  };
+  visit(conditions);
+
+  const result = [...found.values()];
+  byEntity.set(entityId, result);
+  return result;
+}
+
+//-----------------------------------------------------------------------------
 // WHAT TO WATCH
 //-----------------------------------------------------------------------------
 
@@ -672,7 +1263,10 @@ export function nextVisibilityChange(
 }
 
 /**
- * The kinds of condition in a list the card cannot judge, to warn about once.
+ * The kinds of condition in a list that neither the card nor core judges, to warn about once:
+ * one that is not a condition at all, and a dashboard-shaped one that waits (`for`) or templates
+ * (`value_template`), which stays unknown (`needsCore`). Anything else the card judges or asks
+ * core about; core reports what it cannot parse, and the card warns then.
  *
  * @param conditions - A normalized list
  * @returns The kinds, each once, as written; a condition that is not one reads as `malformed`
@@ -690,8 +1284,8 @@ export function unjudgedConditions(conditions: ReadonlyArray<unknown>): string[]
     } else if (LOGICAL.has(type)) {
       const children = asList(condition.conditions);
       if (children) unjudgedConditions(children).forEach((kind) => kinds.add(kind));
-    } else if (!JUDGED.has(type)) {
-      kinds.add(type);
+    } else if (isServerCondition(condition)) {
+      continue;
     } else if (condition.for !== undefined) {
       kinds.add(`${type} with for`);
     } else if (condition.value_template !== undefined) {
@@ -830,6 +1424,44 @@ export function entriesMediaQueries(entities: ReadonlyArray<Entry>): string[] {
     for (const query of visibilityMediaQueries(entry.visibility)) queries.add(query);
   }
   return [...queries];
+}
+
+/**
+ * What every entry's conditions ask core, each question once (`coreConditions`).
+ *
+ * @param entities - The card's normalized entries
+ * @returns The core conditions by key
+ */
+export function entriesCoreConditions(
+  entities: ReadonlyArray<Entry>,
+): Map<string, VisibilityCondition> {
+  const questions = new Map<string, VisibilityCondition>();
+  for (const entry of entities) {
+    if (typeof entry === 'string' || !entry.visibility) continue;
+    for (const { key, condition } of coreConditions(entry.visibility, entry.entity)) {
+      questions.set(key, condition);
+    }
+  }
+  return questions;
+}
+
+/**
+ * Whether any entry has a `location` condition, at any depth, switched off or not, which reads
+ * states the configuration does not name (`locationEntityIds`).
+ *
+ * @param entities - The card's normalized entries
+ * @returns True where one does
+ */
+export function entriesUseLocation(entities: ReadonlyArray<Entry>): boolean {
+  let found = false;
+  for (const entry of entities) {
+    if (typeof entry === 'string' || !entry.visibility) continue;
+    eachCondition(entry.visibility, (condition) => {
+      if (condition.condition === 'location') found = true;
+    });
+    if (found) return true;
+  }
+  return false;
 }
 
 /**

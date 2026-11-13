@@ -18,7 +18,13 @@ import { normalizeEntities } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import {
   conditionTimeZone,
+  coreConditions,
+  coreKey,
+  entriesCoreConditions,
+  entriesUseLocation,
   evaluateVisibility,
+  isServerCondition,
+  locationEntityIds,
   nextVisibilityChange,
   normalizeVisibility,
   parseTimeOfDay,
@@ -151,14 +157,13 @@ describe('one condition', () => {
   it.each([
     ['template', TEMPLATE],
     ['sun', { condition: 'sun', after: 'sunset' }],
-    ['location', { condition: 'location', locations: ['home'] }],
     [
       'a state of an entity with no state',
       { condition: 'state', entity: 'sensor.missing', state: 'on' },
     ],
     ['not a condition at all', 'user'],
     ['a templated enabled', { condition: 'user', users: ['u-anna'], enabled: '{{ x }}' }],
-  ])('cannot judge %s', (_name, condition) => {
+  ])('cannot judge %s, before core answers', (_name, condition) => {
     expect(judge([condition])).toBeUndefined();
   });
 });
@@ -342,15 +347,17 @@ describe('the list as written', () => {
     expect(visibilityMediaQueries(conditions)).toEqual([WIDE, '(orientation: portrait)']);
   });
 
-  it('names the conditions it cannot judge, to warn about', () => {
+  it('names the conditions neither it nor core judges, to warn about', () => {
     expect(
       unjudgedConditions([
         TEMPLATE,
         { condition: 'or', conditions: [{ condition: 'location' }, { condition: 'user' }] },
         42,
         { entity: 'input_boolean.guest', state: 'on' },
+        { condition: 'numeric_state', entity: 'sensor.temp', above: 1, value_template: '{{ 2 }}' },
+        { condition: 'state', entity_id: 'input_boolean.guest', state: 'on', for: 5 },
       ]),
-    ).toEqual(['template', 'location', 'malformed']);
+    ).toEqual(['malformed', 'numeric_state with value_template']);
   });
 });
 
@@ -358,8 +365,9 @@ describe('the list as written', () => {
  * Where the card answers differently from Home Assistant's own functions, on purpose.
  *
  * Home Assistant leaves the first three to core and has no answer of its own in the browser;
- * the card has no core to ask, so it answers as core would. The last two hide what Home
- * Assistant would show or compare oddly, because an entry is hidden whenever the card is unsure.
+ * the card answers them as core would until core does, and for good on a Home Assistant too old
+ * to ask. The last two hide what Home Assistant would show or compare oddly, because an entry is
+ * hidden whenever the card is unsure.
  */
 describe('departures from the browser side of Home Assistant', () => {
   it('reads a core-shaped list of entities as core does: all, or any with match: any', () => {
@@ -381,7 +389,7 @@ describe('departures from the browser side of Home Assistant', () => {
     );
   });
 
-  it('leaves a state held for a while to core in the dashboard shape too', () => {
+  it('keeps a state held for a while unknown in the dashboard shape, without asking core', () => {
     // Home Assistant drops `for` here and shows the entry at once; the card hides it and warns.
     const held = {
       condition: 'state',
@@ -395,9 +403,11 @@ describe('departures from the browser side of Home Assistant', () => {
     expect(
       unjudgedConditions([held, { entity: 'input_boolean.guest', state: 'on', for: 5 }]),
     ).toEqual(['state with for']);
+    expect(isServerCondition(held)).toBe(false);
+    expect(coreConditions([held], 'calendar.work')).toEqual([]);
   });
 
-  it('leaves to core what only core can judge', () => {
+  it('cannot judge, before core answers, what only core can judge', () => {
     for (const extra of [{ for: '00:05:00' }, { attribute: 'x' }, { match: 'some' }]) {
       expect(
         judge([
@@ -418,6 +428,390 @@ describe('departures from the browser side of Home Assistant', () => {
   it('cannot judge an attribute of an entity with no state, which Home Assistant reads as unknown', () => {
     expect(
       judge([{ condition: 'state', entity: 'sensor.missing', attribute: 'x', state: 'unknown' }]),
+    ).toBeUndefined();
+  });
+});
+
+describe('location', () => {
+  const zone = (name: string, extra: Record<string, unknown> = {}): Types.HassEntity =>
+    state('0', { friendly_name: name, ...extra });
+
+  /**
+   * A house with two persons, registered zones in areas, on floors, under labels and on a device,
+   * one passive, one registered without a state, and Home's own zone, which is never registered.
+   */
+  function house(person: { state: string; in_zones?: unknown }, userId = 'u-anna'): Types.Hass {
+    return {
+      states: {
+        'person.anna': state(person.state, {
+          user_id: 'u-anna',
+          ...(person.in_zones !== undefined ? { in_zones: person.in_zones } : {}),
+        }),
+        'person.ben': state('home', { user_id: 'u-ben', in_zones: ['zone.home'] }),
+        'zone.home': zone('Home'),
+        'zone.work': zone('Work'),
+        'zone.gym': zone('Gym'),
+        'zone.mall': zone('Mall', { passive: true }),
+        'zone.school': zone('School'),
+        'zone.yaml': zone('Not Home'),
+        'light.desk': state('on'),
+      },
+      user: { id: userId },
+      entities: {
+        'person.anna': { entity_id: 'person.anna' },
+        'person.ben': { entity_id: 'person.ben' },
+        'zone.work': { entity_id: 'zone.work', area_id: 'office', labels: ['weekday'] },
+        'zone.gym': { entity_id: 'zone.gym', labels: ['weekday'] },
+        'zone.mall': { entity_id: 'zone.mall', area_id: 'town', labels: [] },
+        'zone.school': { entity_id: 'zone.school', device_id: 'bus', labels: [] },
+        'zone.gone': { entity_id: 'zone.gone', area_id: 'office', labels: [] },
+        'light.desk': { entity_id: 'light.desk', area_id: 'office', labels: ['weekday'] },
+      },
+      devices: {
+        bus: { id: 'bus', area_id: 'town', labels: [] },
+        seat: { id: 'seat', area_id: null, parent_device_id: 'bus', labels: [] },
+      },
+      areas: {
+        office: { area_id: 'office', floor_id: 'ground', labels: [] },
+        town: { area_id: 'town', floor_id: 'upper', labels: ['out'] },
+      },
+    } as unknown as Types.Hass;
+  }
+
+  const at = (hass: Types.Hass, condition: Record<string, unknown>) =>
+    judge([{ condition: 'location', ...condition }], { hass });
+
+  it("is false where the viewer has no person, or Home Assistant's registry lists none", () => {
+    expect(at(house({ state: 'home' }, 'u-carl'), { locations: ['home'] })).toBe(false);
+    const unregistered = { ...house({ state: 'home' }), entities: {} } as Types.Hass;
+    expect(at(unregistered, { locations: ['home'] })).toBe(false);
+  });
+
+  it("reads the viewer's own person, not another's", () => {
+    const hass = house({ state: 'not_home', in_zones: [] });
+    expect(at(hass, { locations: ['home'] })).toBe(false);
+    expect(at({ ...hass, user: { id: 'u-ben' } } as Types.Hass, { locations: ['home'] })).toBe(
+      true,
+    );
+  });
+
+  it('matches the state against locations as written, and away against not_home', () => {
+    const work = house({ state: 'Work', in_zones: ['zone.work'] });
+    expect(at(work, { locations: ['home', 'Work'] })).toBe(true);
+    expect(at(work, { locations: ['home'] })).toBe(false);
+    // Home Assistant calls includes on whatever is written: a text matches within itself, and
+    // anything else fails the condition rather than being skipped.
+    expect(at(work, { locations: 'Workshop' })).toBe(true);
+    expect(at(work, { locations: 'Home' })).toBe(false);
+    expect(at(house({ state: 'not_home', in_zones: [] }), { locations: 7, away: true })).toBe(
+      false,
+    );
+    expect(at(house({ state: 'not_home', in_zones: [] }), { away: true })).toBe(true);
+    expect(at(work, { away: true })).toBe(false);
+  });
+
+  it('matches any zone the person is in, or only the one its state shows', () => {
+    // At home, and inside the passive mall zone that never becomes the state.
+    const hass = house({ state: 'home', in_zones: ['zone.home', 'zone.mall'] });
+    const mall = { target: { entity_id: 'zone.mall' } };
+    expect(at(hass, mall)).toBe(true);
+    expect(at(hass, { ...mall, match_mode: 'active_zone' })).toBe(false);
+    expect(at(hass, { target: { entity_id: ['zone.home'] }, match_mode: 'active_zone' })).toBe(
+      true,
+    );
+  });
+
+  it('matches by the state alone where the tracker does not report its zones, never as away', () => {
+    expect(at(house({ state: 'Work' }), { target: { entity_id: 'zone.work' } })).toBe(true);
+    expect(at(house({ state: 'Gym' }), { target: { entity_id: 'zone.work' } })).toBe(false);
+    // A zone named like the away state does not make away a place.
+    const named = house({ state: 'not_home' });
+    named.states['zone.yaml'] = zone('not_home');
+    expect(at(named, { target: { entity_id: 'zone.yaml' } })).toBe(false);
+  });
+
+  it('resolves zones through areas, floors, labels and devices, as Home Assistant does', () => {
+    const where = (zoneId: string) => house({ state: 'x', in_zones: [zoneId] });
+    expect(at(where('zone.work'), { target: { area_id: 'office' } })).toBe(true);
+    expect(at(where('zone.work'), { target: { floor_id: ['ground'] } })).toBe(true);
+    expect(at(where('zone.gym'), { target: { label_id: 'weekday' } })).toBe(true);
+    // The school zone hangs off a bus in town, and has no area of its own.
+    expect(at(where('zone.school'), { target: { area_id: 'town' } })).toBe(true);
+    expect(at(where('zone.school'), { target: { device_id: 'bus' } })).toBe(true);
+    expect(at(where('zone.school'), { target: { label_id: 'out' } })).toBe(true);
+    expect(at(where('zone.school'), { target: { area_id: 'office' } })).toBe(false);
+    // The light shares the office and the label but is no zone.
+    expect(at(where('light.desk'), { target: { area_id: 'office', label_id: 'weekday' } })).toBe(
+      false,
+    );
+  });
+
+  it('leaves out what the target excludes, and zones with no state', () => {
+    const gym = house({ state: 'x', in_zones: ['zone.gym'] });
+    expect(at(gym, { target: { label_id: 'weekday', exclude: { entity_id: 'zone.gym' } } })).toBe(
+      false,
+    );
+    expect(at(gym, { target: { label_id: 'weekday', exclude: { area_id: 'office' } } })).toBe(true);
+    expect(
+      at(house({ state: 'x', in_zones: ['zone.gone'] }), { target: { area_id: 'office' } }),
+    ).toBe(false);
+  });
+
+  it('is false for a target Home Assistant could not resolve', () => {
+    const hass = house({ state: 'Work', in_zones: ['zone.work'] });
+    for (const target of [
+      'zone.work',
+      { entity_id: 5 },
+      { zone: 'zone.work' },
+      { entity_id: 'zone.work', exclude: { exclude: {} } },
+    ]) {
+      expect(at(hass, { target })).toBe(false);
+    }
+  });
+
+  it('names the states it reads beyond the configuration, for the render rule', () => {
+    const hass = house({ state: 'x', in_zones: ['zone.work', 'zone.yaml'] });
+    expect(new Set(locationEntityIds(hass))).toEqual(
+      new Set([
+        'person.anna',
+        'person.ben',
+        'zone.work',
+        'zone.gym',
+        'zone.mall',
+        'zone.school',
+        'zone.gone',
+        'zone.home',
+        'zone.yaml',
+      ]),
+    );
+    expect(
+      entriesUseLocation([
+        'calendar.a',
+        {
+          entity: 'calendar.b',
+          visibility: [
+            { condition: 'not', conditions: [{ condition: 'location', enabled: false }] },
+          ],
+        },
+      ]),
+    ).toBe(true);
+    expect(entriesUseLocation([{ entity: 'calendar.b', visibility: [TEMPLATE] }])).toBe(false);
+  });
+});
+
+describe('what core is asked', () => {
+  const ask = (conditions: unknown[]) =>
+    coreConditions(conditions, 'calendar.work').map(({ condition }) => condition);
+
+  it('asks about everything Home Assistant judges in core, and nothing it judges in the browser', () => {
+    const table = {
+      template: TEMPLATE,
+      sun: { condition: 'sun', after: 'sunset' },
+      zone: { condition: 'zone', entity_id: 'person.anna', zone: 'zone.home' },
+      device: { condition: 'device', device_id: 'x', domain: 'light', type: 'is_on' },
+      unknown: { condition: 'spaceship' },
+      dashboardState: { condition: 'state', entity: 'sun.sun', state: 'below_horizon' },
+      bareState: { entity: 'sun.sun', state: 'below_horizon' },
+      coreState: { condition: 'state', entity_id: 'sun.sun', state: 'below_horizon', for: 60 },
+      numeric: { condition: 'numeric_state', entity: 'sensor.temp', above: 1 },
+      allServer: { condition: 'or', conditions: [TEMPLATE, { condition: 'sun' }] },
+      screen: { condition: 'screen', media_query: WIDE },
+      user: { condition: 'user', users: ['u-anna'] },
+      time: { condition: 'time', after: '08:00' },
+      view_columns: { condition: 'view_columns', min: 2 },
+      location: { condition: 'location', locations: ['home'] },
+      attribute: { condition: 'state', entity: 'sun.sun', attribute: 'rising', state: 'true' },
+      reference: { condition: 'state', entity: 'input_select.mode', state: 'sensor.ref' },
+      referenceBound: { condition: 'numeric_state', entity: 'sensor.temp', above: 'sensor.limit' },
+      held: { condition: 'state', entity: 'sun.sun', state: 'x', for: 5 },
+      mixed: { condition: 'or', conditions: [TEMPLATE, { condition: 'user' }] },
+      notACondition: 'template',
+      noType: { condition: 3 },
+    };
+    expect(
+      Object.fromEntries(Object.entries(table).map(([name, c]) => [name, isServerCondition(c)])),
+    ).toEqual({
+      template: true,
+      sun: true,
+      zone: true,
+      device: true,
+      unknown: true,
+      dashboardState: true,
+      bareState: true,
+      coreState: true,
+      numeric: true,
+      allServer: true,
+      screen: false,
+      user: false,
+      time: false,
+      view_columns: false,
+      location: false,
+      attribute: false,
+      reference: false,
+      referenceBound: false,
+      held: false,
+      mixed: false,
+      notACondition: false,
+      noType: false,
+    });
+  });
+
+  it("translates the dashboard's shapes to core's, as Home Assistant does", () => {
+    expect(
+      [
+        { condition: 'state', entity: 'sun.sun', state: 'below_horizon', alias: 'Night' },
+        { entity: 'sun.sun', state_not: ['above_horizon'] },
+        { condition: 'numeric_state', entity: 'sensor.temp', above: '10.5', below: 30 },
+        { condition: 'numeric_state', entity: 'sensor.temp', attribute: 'x' },
+        { condition: 'numeric_state', entity: 'sensor.temp', above: 'warm' },
+        { condition: 'numeric_state', entity: 'sensor.temp', above: Infinity },
+        { condition: 'numeric_state', entity: 'sensor.temp', below: Infinity, above: 2 },
+        { condition: 'state', entity: 'sun.sun' },
+      ].map((condition) => ask([condition])[0]),
+    ).toEqual([
+      {
+        alias: 'Night',
+        condition: 'state',
+        entity_id: 'sun.sun',
+        state: 'below_horizon',
+      },
+      {
+        condition: 'not',
+        conditions: [{ condition: 'state', entity_id: 'sun.sun', state: ['above_horizon'] }],
+      },
+      {
+        condition: 'numeric_state',
+        entity_id: 'sensor.temp',
+        above: 10.5,
+        below: 30,
+      },
+      {
+        condition: 'template',
+        value_template: '{{ is_number(state_attr("sensor.temp", "x")) }}',
+      },
+      { condition: 'template', value_template: '{{ is_number(states("sensor.temp")) }}' },
+      { condition: 'not', conditions: [{ condition: 'and', conditions: [] }] },
+      { condition: 'numeric_state', entity_id: 'sensor.temp', above: 2 },
+      { condition: 'not', conditions: [{ condition: 'and', conditions: [] }] },
+    ]);
+  });
+
+  it('points a condition naming no entity at the calendar, at any depth', () => {
+    expect(ask([{ condition: 'and', conditions: [{ condition: 'state', state: 'on' }] }])).toEqual([
+      {
+        condition: 'and',
+        conditions: [{ condition: 'state', entity_id: 'calendar.work', state: 'on' }],
+      },
+    ]);
+  });
+
+  it("reads the dashboard's not as not(all of them), where core's is not(any of them)", () => {
+    expect(ask([{ condition: 'not', conditions: [TEMPLATE, { condition: 'sun' }] }])).toEqual([
+      {
+        condition: 'not',
+        conditions: [{ condition: 'and', conditions: [TEMPLATE, { condition: 'sun' }] }],
+      },
+    ]);
+  });
+
+  it('asks each condition core judges under one the browser judges, once, and none switched off', () => {
+    const sun = { condition: 'sun', after: 'sunset' };
+    expect(
+      ask([
+        TEMPLATE,
+        { condition: 'or', conditions: [{ condition: 'user' }, sun, { ...TEMPLATE }] },
+        { ...sun, enabled: false },
+        { condition: 'not', conditions: [{ condition: 'screen' }, { condition: 'zone' }] },
+        // A templated enabled on a node the browser judges leaves it unknown, unasked.
+        {
+          condition: 'or',
+          enabled: '{{ x }}',
+          conditions: [{ condition: 'user' }, { condition: 'device' }],
+        },
+      ]),
+    ).toEqual([TEMPLATE, sun, { condition: 'zone' }]);
+  });
+
+  it('asks each question once across the entries, and keys it by what it says', () => {
+    const questions = entriesCoreConditions([
+      'calendar.a',
+      { entity: 'calendar.b', visibility: [TEMPLATE] },
+      { entity: 'calendar.c', visibility: [{ ...TEMPLATE }, { condition: 'state', state: 'on' }] },
+    ]);
+    expect([...questions.values()]).toEqual([
+      TEMPLATE,
+      { condition: 'state', entity_id: 'calendar.c', state: 'on' },
+    ]);
+    expect(coreKey({ ...TEMPLATE }, 'calendar.x')).toBe([...questions.keys()][0]);
+    // JSON writes an infinity as null; the key still tells them apart.
+    const bound = (above: number) =>
+      coreKey({ condition: 'numeric_state', entity_id: 'sensor.temp', above }, 'calendar.x');
+    expect(bound(Infinity)).not.toBe(bound(-Infinity));
+  });
+});
+
+describe("core's answers", () => {
+  const sun = { condition: 'sun', after: 'sunset' };
+
+  function answered(conditions: unknown[], answers: Record<string, boolean | 'error'>) {
+    const byKey = new Map(
+      Object.entries(answers).map(([name, answer]) => [
+        coreKey(
+          name === 'template' ? TEMPLATE : name === 'sun' ? sun : JSON.parse(name),
+          'calendar.work',
+        ),
+        answer,
+      ]),
+    );
+    return evaluateVisibility(conditions, {
+      hass: HASS,
+      entityId: 'calendar.work',
+      now: NOON,
+      matches: (query) => query === WIDE,
+      core: (key) => byKey.get(key),
+    });
+  }
+
+  it('decide what the card could not', () => {
+    expect(answered([TEMPLATE], { template: true })).toBe(true);
+    expect(answered([TEMPLATE], { template: false })).toBe(false);
+    expect(answered([{ condition: 'not', conditions: [TEMPLATE] }], { template: false })).toBe(
+      true,
+    );
+    expect(answered([TEMPLATE, sun], { template: true })).toBeUndefined();
+  });
+
+  it('combine with what the browser judges', () => {
+    const wide = { condition: 'screen', media_query: WIDE };
+    expect(answered([{ condition: 'or', conditions: [TEMPLATE, wide] }], { template: false })).toBe(
+      true,
+    );
+    expect(answered([wide, TEMPLATE], { template: true })).toBe(true);
+    expect(
+      answered([{ condition: 'state', entity: 'input_boolean.guest', state: 'off' }, TEMPLATE], {
+        template: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('win over what the card judged before they came', () => {
+    const guest = { condition: 'state', entity: 'input_boolean.guest', state: 'on' };
+    expect(judge([guest])).toBe(true);
+    expect(answered([guest], { [JSON.stringify(guest)]: false })).toBe(false);
+  });
+
+  it('hide the entry on an error, even under a not', () => {
+    expect(answered([TEMPLATE], { template: 'error' })).toBeUndefined();
+    expect(
+      answered([{ condition: 'not', conditions: [TEMPLATE] }], { template: 'error' }),
+    ).toBeUndefined();
+    expect(
+      answered(
+        [{ condition: 'or', conditions: [{ condition: 'user', users: ['u-anna'] }, TEMPLATE] }],
+        {
+          template: 'error',
+        },
+      ),
     ).toBeUndefined();
   });
 });
