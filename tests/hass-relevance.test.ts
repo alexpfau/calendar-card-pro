@@ -82,6 +82,7 @@ function baseHass(states = houseStates()): Types.Hass {
       },
     },
     config: { country: 'DE' },
+    user: { id: 'u-anna' },
     themes: { darkMode: false },
     entities: {},
     connection: {
@@ -261,6 +262,26 @@ describe('a mounted card', () => {
     },
   );
 
+  it('renders for a state a visibility condition reads, and only then', async () => {
+    const card = await mount({
+      entities: [
+        {
+          entity: 'calendar.anna',
+          visibility: [{ condition: 'state', entity: 'sensor.noise', state: 'on' }],
+        },
+      ],
+      days_to_show: 3,
+    });
+    const render = vi.spyOn(card, 'render');
+
+    tick(card, 'sensor.noise');
+    await card.updateComplete;
+    tick(card, 'zone.home');
+    await card.updateComplete;
+
+    expect(render).toHaveBeenCalledTimes(1);
+  });
+
   it("renders for a label's person, whose picture it draws", async () => {
     const { card, render } = await counted('list');
 
@@ -400,6 +421,28 @@ describe('reconciliation: the rule watches everything the card reads', () => {
       ['calendar.anna', 'weather.home'],
     ],
     ['a plain card', { entities: ['calendar.anna'] }, []],
+    [
+      // Every kind of condition the card judges reads a state the configuration names, or a
+      // top-level key: the viewer, the profile's and Home Assistant's time zones.
+      'calendars with visibility conditions',
+      {
+        entities: [
+          {
+            entity: 'calendar.anna',
+            visibility: [
+              { condition: 'user', users: ['u-anna'] },
+              { condition: 'state', entity: 'sensor.noise', state: 'on' },
+              { condition: 'numeric_state', entity: 'weather.home', above: 'zone.home' },
+              { condition: 'or', conditions: [{ condition: 'time', after: '08:00' }] },
+              { condition: 'screen', media_query: '(min-width: 0px)' },
+            ],
+          },
+          { entity: 'calendar.ben', visibility: [{ condition: 'state', state: 'on' }] },
+        ],
+        toolbar: { show: true, legend: true, add_event: true },
+      },
+      ['sensor.noise', 'weather.home', 'calendar.ben'],
+    ],
     [
       // The magnifier is named by Home Assistant's own word, a top-level read; the search reads
       // Home Assistant only once pressed.
