@@ -178,7 +178,8 @@ describe('a timed event across days in grid', () => {
     const now = new Date(2026, 9, 21, 10, 30);
     vi.useFakeTimers();
     vi.setSystemTime(now);
-    const config = buildConfig({ view: 'grid', ...BASE });
+    // A block a day: drawn as the default banner, a full day or longer draws no bar at all.
+    const config = buildConfig({ view: 'grid', ...BASE, time_grid: { multiday_banners: false } });
     const effective = ViewConfig.resolveEffectiveConfig(config, 'grid');
     const days = EventUtils.groupEventsByDay([EVENT], config, false, 'en', 'grid');
     const container = document.createElement('div');

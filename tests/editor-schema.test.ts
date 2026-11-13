@@ -921,6 +921,8 @@ describe('editor: applicability', () => {
       // Grid's card-level value is inert: all-day spans become one banner, and timed
       // events are segmented by the renderer instead of by the upstream list splitter.
       split_multiday_events: ['column', 'list'],
+      // Only grid has an all-day band above an hour axis for a timed event to move into.
+      multiday_banners: ['grid'],
       // Grid marks the present with its now line; `gridTimedEventContentParts` clears the
       // label whatever the option resolves to.
       show_now_indicator: ['column', 'list'],
@@ -3811,6 +3813,7 @@ describe('editor: per-calendar settings', () => {
         'show_time',
         'split_multiday_events',
         'text_scale',
+        'multiday_banners',
       ].sort(),
     );
   });
@@ -3825,7 +3828,13 @@ describe('editor: per-calendar settings', () => {
    * writes a literal `false` that no checkbox can take back.
    */
   it('offers a third state for the options that may be left to the card', () => {
-    const inheritable = ['show_time', 'show_location', 'show_description', 'split_multiday_events'];
+    const inheritable = [
+      'show_time',
+      'show_location',
+      'show_description',
+      'split_multiday_events',
+      'multiday_banners',
+    ];
 
     for (const name of inheritable) {
       const node = [...walkSchema(entitySchema().schema)].find(
@@ -3904,6 +3913,26 @@ describe('editor: per-calendar settings', () => {
     }
   });
 
+  // The grid's banner has its own two words for the same reason the split does, and the same
+  // hazard: drop either from the table and choosing it writes nothing.
+  it('round-trips the two decided states of the grid banner', () => {
+    const cases: Array<[boolean, string]> = [
+      [true, 'banner'],
+      [false, 'blocks'],
+    ];
+
+    for (const [stored, offered] of cases) {
+      const entry = { entity: 'calendar.a', multiday_banners: stored } as Types.EntityConfig;
+
+      expect(toEntityFormData(entry).multiday_banners, offered).toBe(offered);
+      expect(fromEntityFormData('calendar.a', { multiday_banners: offered }), offered).toEqual({
+        entity: 'calendar.a',
+        multiday_banners: stored,
+      });
+    }
+    expect(toEntityFormData({ entity: 'calendar.a' }).multiday_banners).toBe('inherit');
+  });
+
   /**
    * Both tristate tables, pinned by value.
    *
@@ -3927,6 +3956,7 @@ describe('editor: per-calendar settings', () => {
       show_location: ['inherit', 'show', 'hide'],
       show_description: ['inherit', 'show', 'hide'],
       split_multiday_events: ['inherit', 'split', 'whole'],
+      multiday_banners: ['inherit', 'banner', 'blocks'],
       event_type: ['inherit', 'all', 'timed', 'all_day'],
       days_of_week: ['inherit', 'weekdays', 'weekends'],
       filter_field: ['title', 'location', 'description'],
@@ -3938,6 +3968,7 @@ describe('editor: per-calendar settings', () => {
       show_location: { inherit: undefined, show: true, hide: false },
       show_description: { inherit: undefined, show: true, hide: false },
       split_multiday_events: { inherit: undefined, split: true, whole: false },
+      multiday_banners: { inherit: undefined, banner: true, blocks: false },
       event_type: { inherit: undefined, all: 'all', timed: 'timed', all_day: 'all_day' },
       days_of_week: { inherit: undefined, weekdays: 'weekdays', weekends: 'weekends' },
       filter_field: { title: undefined, location: 'location', description: 'description' },

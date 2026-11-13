@@ -49,6 +49,12 @@ export interface Config {
    */
   duplicate_accent_color?: string;
   split_multiday_events: boolean;
+  /**
+   * Whether grid view draws a timed event a full day or longer as one banner in its all-day
+   * band, rather than as a block in every column it touches. The event stays timed: its times
+   * sit at the banner's ends and in the popover. Grid view only; on by default.
+   */
+  multiday_banners: boolean;
   event_type: EventType;
   language?: string;
 
@@ -608,6 +614,13 @@ export interface TimeGridOverrides extends SharedViewOverrides {
   allday_band_max_rows?: number;
 
   /**
+   * Whether a timed event a full day or longer is drawn as a banner in the all-day band.
+   * The one grid override with a top-level counterpart that column view has no use for, which
+   * is why `TIME_GRID_OVERRIDE_KEYS` spreads column's list rather than aliasing it.
+   */
+  multiday_banners?: boolean;
+
+  /**
    * The horizontal rules across the time body, as a CSS length and a CSS color.
    *
    * Grid-only, and deliberately not `day_separator_*`. Those have meant one thing since
@@ -776,6 +789,8 @@ export interface EntityConfig {
    */
   replace_with?: string;
   split_multiday_events?: boolean;
+  /** This calendar's `multiday_banners`, over the card's. Grid view only. */
+  multiday_banners?: boolean;
   event_type?: EventType;
   days_of_week?: DaysOfWeekFilter;
   /**
@@ -989,6 +1004,12 @@ export interface CalendarEventData {
    * Keeps banner identity, true endpoints, expiry, and anniversary year across filtering.
    */
   _gridSource?: Pick<CalendarEventData, 'start' | 'end'>;
+  /**
+   * Set on every daily grid occurrence of a timed event that grid view draws as one banner in
+   * its all-day band (`multiday_banners`), so the renderer routes it there rather than into the
+   * hours. The occurrence keeps its timed shape; only where it is drawn changes.
+   */
+  _gridBanner?: boolean;
   /**
    * Set on every segment produced by splitting a **timed** multi-day event, recording the
    * class of the event the segment came from rather than the shape the segment now has.

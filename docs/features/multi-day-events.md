@@ -68,8 +68,10 @@ entities:
     split_multiday_events: false
 ```
 
-[Grid view](/features/grid-view) ignores the option and places multi-day events itself: a timed
-event gets a block on every day it touches, and an all-day event a banner across its days. A
+[Grid view](/features/grid-view) ignores the option and places multi-day events itself: an
+all-day event, or a timed one a full day or longer, is one banner across its days (see
+[Long Timed Events as Banners](/features/grid-view#long-timed-events-as-banners)), and a shorter
+timed event gets a block on every day it touches. A
 day's part of an event still shows when the event's first day is left off the card, by a
 weekday or weekend filter or because empty days are hidden. See
 [Options That Do Nothing in Grid View](/features/grid-view#options-that-do-nothing-in-grid-view).

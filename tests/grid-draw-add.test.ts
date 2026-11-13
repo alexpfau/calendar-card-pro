@@ -380,7 +380,8 @@ describe('drawing a new event in a grid', () => {
   });
 
   it("draws in an element of its own, which the grid's structure observers leave alone", async () => {
-    const { card } = await mount(ADD);
+    // Three days of blocks: drawn as one banner it would be one host, in the band.
+    const { card } = await mount({ ...ADD, time_grid: { multiday_banners: false } });
     const refits = vi.spyOn(
       card as unknown as { _reconcileGridStructure(): void },
       '_reconcileGridStructure',
@@ -706,8 +707,13 @@ describe('the new event while the popover adds it', () => {
   });
 
   it("is drawn by the day, as the grid draws an event's days", async () => {
-    // Today is June 17 at 10:00. From 9:00 today to 11:00 tomorrow, with progress bars.
-    const { card, dialogs } = await mount({ ...ADD, show_progress_bar: true });
+    // Today is June 17 at 10:00. From 9:00 today to 11:00 tomorrow, with progress bars, drawn
+    // as a block a day rather than the banner a full day or longer is by default.
+    const { card, dialogs } = await mount({
+      ...ADD,
+      show_progress_bar: true,
+      time_grid: { multiday_banners: false },
+    });
     await drawAndRelease(card);
     dialogs[0].dialogParams.changed?.(
       draftOf(dialogs, { times: { allDay: false, start: AT(17, 9), end: AT(18, 11) } }) as never,
@@ -1013,6 +1019,35 @@ describe('the all-day band while a new all-day event is drawn on days without on
     expect(all(card, '.grid-boundary-band-top')).toEqual([]);
     expect(drawn(card)).toEqual([bodies(card)[1]]);
     expect(label(bodies(card)[1])).toBe('New event\n10:00 - 11:00');
+  });
+
+  it('opens it for a timed new event lengthened to a full day, drawn as the banner it will be', async () => {
+    const { card, dialogs } = await mount(ADD, false, TIMED);
+    await tapTen(card);
+    const timed = async (start: Date, end: Date) => {
+      dialogs[0].dialogParams.changed?.({
+        calendarId: ANNA,
+        summary: '',
+        location: '',
+        description: '',
+        times: { allDay: false, start, end },
+      } as never);
+      await settle();
+    };
+
+    // From 10:00 on June 18 to 10:00 on June 19: a full day, so a banner over both days, with
+    // its times at its ends, opening a band the days had none of.
+    await timed(AT(18, 10), AT(19, 10));
+    const band = bandOf(card)!;
+    expect(band).not.toBeNull();
+    expect(drawn(card)).toEqual([band]);
+    expect(bar(card)).toEqual(['3 / span 2', expect.stringMatching(/^10:00\s+New event\s+10:00$/)]);
+    expect(newBlock(band)!.classList.contains('grid-banner-timed')).toBe(true);
+
+    // A minute short of it, a block a day again, and no band.
+    await timed(AT(18, 10), AT(19, 9, 59));
+    expect(bandOf(card)).toBeNull();
+    expect(drawn(card)).toEqual([bodies(card)[1], bodies(card)[2]]);
   });
 
   it('closes it while the new event lies on days the grid does not show', async () => {

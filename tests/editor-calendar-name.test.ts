@@ -308,7 +308,8 @@ describe('searching the editor for a calendar by its name', () => {
       { entity: ANNA, event_type: 'all_day', name: 'Anna at work' },
       BEN,
     ];
-    const everything = fieldNames(entitySchema());
+    // Everything a list card's editor draws, which withholds the time grid's own control.
+    const everything = fieldNames(entitySchema()).filter((name) => name !== 'multiday_banners');
 
     expect(search(entities, 0, 'at work')).toEqual(everything);
     expect(search(entities, 1, 'at work')).toEqual(everything);

@@ -2387,7 +2387,8 @@ export const cardStyles = css`
      class selected nothing, which meant a finished holiday stayed bright beside a
      finished meeting that dimmed, and dimmed in list and column but not here. Same
      opacity, applied to what the banner does emit. */
-  .grid-banner.past-event .grid-banner-title {
+  .grid-banner.past-event .grid-banner-title,
+  .grid-banner.past-event .grid-banner-time {
     opacity: var(--calendar-card-past-event-opacity, 0.6);
   }
 
@@ -5749,6 +5750,75 @@ export const cardStyles = css`
 
   .grid-banner.continues-after .grid-banner-title::after {
     content: '\\00A0\\25B8';
+  }
+
+  /* A timed event drawn as a banner (multiday_banners): its start time, its title and its end
+     time, with the end pushed to the banner's far end so each time sits in its own day's
+     column and needs no date.
+
+     The banner takes the event font size itself, and its title and times inherit it, so the
+     container queries below measure in the same em the text is set in. Applied to the title
+     as well as the banner, a relative size would compound, as the note on .grid-banner-title
+     says; inherit takes the banner's computed size, which is the one the title had.
+
+     Positioned for .grid-event-accessible, the empty element carrying the banner's name. */
+  .grid-banner-timed {
+    position: relative;
+    container: calendar-card-grid-banner / inline-size;
+    font-size: var(--calendar-card-font-size-event);
+  }
+
+  .grid-banner-timed .grid-banner-title {
+    font-size: inherit;
+  }
+
+  .grid-banner-content {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: 0.5em;
+    min-width: 0;
+  }
+
+  .grid-banner-time {
+    flex: none;
+    font-size: inherit;
+    line-height: 1.2;
+    color: var(--calendar-card-color-event);
+    white-space: nowrap;
+  }
+
+  .grid-banner-time-end {
+    margin-inline-start: auto;
+  }
+
+  /* The times give way before the title: first the end, then the start, so a narrow banner
+     still names its event. Measured in the banner's own width, so a banner spanning five
+     narrow columns keeps its times where a one-day banner beside it drops them. The widths
+     are the times, the gap and a few words of title, and 12-hour readings are longer.
+     Without container queries, before Safari 16, the times always show. */
+  @container calendar-card-grid-banner (width < 12em) {
+    .grid-banner-two-times .grid-banner-time-end {
+      display: none;
+    }
+  }
+
+  @container calendar-card-grid-banner (width < 8em) {
+    .grid-banner-time {
+      display: none;
+    }
+  }
+
+  @container calendar-card-grid-banner (width < 16em) {
+    .grid-banner-long-times.grid-banner-two-times .grid-banner-time-end {
+      display: none;
+    }
+  }
+
+  @container calendar-card-grid-banner (width < 11em) {
+    .grid-banner-long-times .grid-banner-time {
+      display: none;
+    }
   }
 
   /* ----- Time body ----- */

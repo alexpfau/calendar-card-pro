@@ -235,10 +235,15 @@ running forward, left to right and down each day.
 column is drawn whatever its events, so leaving events out would leave gaps rather than
 continue anything.
 
+**`multiday_banners`** draws a long timed event as a banner in grid view's all-day band. A
+column has no such band: each day of the event is a row in its column, as
+`split_multiday_events` decides. It does nothing in list view either.
+
 ::: tip Hidden When Editing Column View
 The editor omits these controls in the Columns workspace, including the per-calendar compact
-limit. Stored values are preserved and still apply when the card falls back to List. To
-change them, select List under Editing Settings For; Card Displays stays unchanged.
+limit and grid banner setting. Stored values are preserved and still apply where they are read:
+in List, which the card falls back to, and the banner setting in Grid. To change them, select
+that layout under Editing Settings For; Card Displays stays unchanged.
 See [Options for the Selected View](/features/editor#options-for-the-selected-view).
 :::
 

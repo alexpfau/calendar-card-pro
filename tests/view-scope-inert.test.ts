@@ -420,3 +420,37 @@ describe('time_max_lines in grid', () => {
     }
   });
 });
+
+describe('multiday_banners outside grid', () => {
+  /**
+   * A timed event a full day or longer, which grid draws as one banner by default. From 10:00
+   * tomorrow to 16:00 the day after, relative to today for the reason `NOW` gives, so that
+   * grouping against the real clock keeps it.
+   */
+  function onCall(): Types.CalendarEventData {
+    const start = new Date();
+    start.setDate(start.getDate() + 1);
+    start.setHours(10, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    end.setHours(16);
+    return {
+      start: { dateTime: start.toISOString() },
+      end: { dateTime: end.toISOString() },
+      summary: 'Anna on call',
+      _entityId: 'calendar.personal',
+    };
+  }
+
+  it('changes the grid, the control without which the rest proves nothing', () => {
+    const banner = renderView('grid', {}, [onCall()]);
+    expect(banner).toContain('grid-banner-timed');
+    expect(banner).not.toBe(renderView('grid', { multiday_banners: false }, [onCall()]));
+  });
+
+  it.each(['list', 'column'] as const)('cannot change the %s tree', (view) => {
+    expect(renderView(view, { multiday_banners: false }, [onCall()])).toBe(
+      renderView(view, {}, [onCall()]),
+    );
+  });
+});

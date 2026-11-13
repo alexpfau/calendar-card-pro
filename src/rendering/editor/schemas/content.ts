@@ -120,8 +120,11 @@ const contentSchema = Helpers.memoizeLast(
       // Outside Compact Mode, because it stays in force expanded. A list option, like the order.
       number('skip_first_events', 0),
 
+      // How a multi-day event is drawn across days, per view family: the split for list and
+      // column, the banner for the time grid. Each workspace offers the one its views read.
       heading('heading_multiday'),
       bool('split_multiday_events'),
+      bool('multiday_banners'),
 
       // Card-level only: the pipeline's terminal state, when nothing survived it.
       heading('heading_nothing'),

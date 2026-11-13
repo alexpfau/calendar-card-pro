@@ -4942,10 +4942,12 @@ class CalendarCardPro extends LitElement {
         return slot?.kind === kind ? [{ element, slot, day: GridDraft.dayOf(slot.timestamp) }] : [];
       });
     const wanted = new Map<Element, unknown>();
-    if (shown.times.allDay) {
-      const headers = daysOn('.grid-day-header', 'day');
-      const dayStarts = headers.map(({ day }) => day);
-      const byDay = this._newEventByDay(shown, dayStarts);
+    const dayStarts = daysOn('.grid-day-header', 'day').map(({ day }) => day);
+    const byHeaderDay = this._newEventByDay(shown, dayStarts);
+    // A timed event a full day or longer is drawn as the banner it will be once saved
+    // (`multiday_banners`), so drawing or editing it across that length moves it to the band.
+    if (shown.times.allDay || [...byHeaderDay.values()].some((event) => event._gridBanner)) {
+      const byDay = byHeaderDay;
       const columns = dayStarts.flatMap((day, column) => (byDay.has(day) ? [column] : []));
       const shownAs = byDay.values().next().value;
       const banners: unknown[] = [];
@@ -5351,11 +5353,12 @@ class CalendarCardPro extends LitElement {
     const first = new Date(Math.min(...dayStarts));
     const last = new Date(Math.max(...dayStarts));
     const end = new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1);
+    const asBanner = EventUtils.drawsAsGridBanner(asItStands, config);
     for (const piece of GridUtils.splitGridEventByDay(asItStands, first, end)) {
       const day = piece.start.dateTime
         ? new Date(piece.start.dateTime)
         : FormatUtils.parseAllDayDate(piece.start.date ?? '');
-      byDay.set(GridDraft.dayOf(day.getTime()), piece);
+      byDay.set(GridDraft.dayOf(day.getTime()), asBanner ? { ...piece, _gridBanner: true } : piece);
     }
     return byDay;
   }

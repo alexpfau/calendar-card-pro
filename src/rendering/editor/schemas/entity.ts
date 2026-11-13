@@ -17,6 +17,7 @@ export const ENTITY_TRISTATE_VALUES: Readonly<Record<string, ReadonlyArray<strin
   show_location: [INHERIT, 'show', 'hide'],
   show_description: [INHERIT, 'show', 'hide'],
   split_multiday_events: [INHERIT, 'split', 'whole'],
+  multiday_banners: [INHERIT, 'banner', 'blocks'],
   event_type: [INHERIT, 'all', 'timed', 'all_day'],
   days_of_week: [INHERIT, 'weekdays', 'weekends'],
   filter_field: ['title', 'location', 'description'],
@@ -46,6 +47,7 @@ export const ENTITY_TRISTATE_STORED: Readonly<
   show_location: { [INHERIT]: undefined, show: true, hide: false },
   show_description: { [INHERIT]: undefined, show: true, hide: false },
   split_multiday_events: { [INHERIT]: undefined, split: true, whole: false },
+  multiday_banners: { [INHERIT]: undefined, banner: true, blocks: false },
   event_type: { [INHERIT]: undefined, all: 'all', timed: 'timed', all_day: 'all_day' },
   // Its own mapping rather than a share of `event_type`'s, which is what the note above
   // is for: both store `all`, and a shared table would then have to agree on `weekdays`
@@ -417,8 +419,12 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     text('replace_pattern'),
     text('replace_with'),
 
+    // Both answer how a multi-day event is drawn: across the days of a list or columns, and
+    // in the time grid. Split first, as on the card-level Multi-Day section, where the grid's
+    // switch also follows it.
     heading('heading_multiday'),
     choice(ctx.language, 'split_multiday_events'),
+    choice(ctx.language, 'multiday_banners'),
 
     // `location_icon` sits under the switch that decides whether there is a location row
     // at all, for the same coarse-to-fine reason: whether the row appears, then what it

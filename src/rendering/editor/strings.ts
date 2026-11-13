@@ -331,6 +331,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.split_multiday_events.option.inherit.label': 'Follow the card',
   'entity.split_multiday_events.option.split.label': 'Split across each day',
   'entity.split_multiday_events.option.whole.label': 'Keep as one event',
+  'entity.multiday_banners': 'In the Time Grid',
+  'entity.multiday_banners.option.inherit.label': 'Follow the card',
+  'entity.multiday_banners.option.banner.label': 'One banner above the hours',
+  'entity.multiday_banners.option.blocks.label': 'A block on each day',
+  'entity.multiday_banners.helper':
+    'How this calendar\u2019s events with a time that last a full day or longer are drawn.',
 
   // --- Sub-headings ---------------------------------------------------------
   //
@@ -631,6 +637,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   split_multiday_events: 'Split Multi-Day Events',
   'split_multiday_events.helper':
     'Show an event on every day it covers rather than only on the day it starts.',
+  multiday_banners: 'Banners Above the Hours',
+  'multiday_banners.helper':
+    'Draws an event with a time that lasts a full day or longer as one banner above the ' +
+    'hours, its start and end times at its ends, instead of a block on every day it covers.',
   event_type: 'Event Type',
   'event_type.option.all.label': 'All events',
   'event_type.option.timed.label': 'Only events with a time',
@@ -1101,6 +1111,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Grid derives daily coverage itself. All-day events use spanning banners across included ' +
     'columns; timed events use a block per included day.',
   'scope.list_only': 'Applies to the list layout, which this card also uses on narrow screens.',
+  'scope.grid_only': 'Applies to the time grid layout.',
   'scope.list_only.today_indicator_position':
     'Applies to the list layout — column layout places the indicator for you.',
   'scope.list_only.compact_events_to_show':

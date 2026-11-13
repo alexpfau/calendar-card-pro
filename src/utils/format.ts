@@ -805,6 +805,61 @@ export function getCalendarDayDiff(start: Date, end: Date): number {
 }
 
 /**
+ * The days an event takes up, when it is a full day or longer: its first day, and how many
+ * days it runs, at least two. `null` for anything shorter.
+ *
+ * A day is a local calendar date the event takes up time on. The end instant itself takes up
+ * none, so a timed event ending at 0:00 does not count the date that midnight opens: its last
+ * day is the date of the moment before its end. That holds where a midnight is missing or
+ * repeats as well. Where the clocks go forward at midnight, an end at the new day's first
+ * moment, 01:00, leaves the day before as the last; where they go back at midnight, an end at
+ * the second 00:00 has taken up an hour of the new date, which counts.
+ *
+ * An all-day event qualifies from two dates. A timed event qualifies once it is a full day long
+ * on the local calendar, ending no earlier than its start's time of day on the next date, read
+ * on the wall clock. So a night from 22:00 to 06:00 is one night, and a day the clocks change
+ * is as long as the calendar says, 23 hours or 25. Comparing instants instead, the start plus
+ * one calendar day, would let a repeated hour through: in the Azores, 00:45 on October 24 to
+ * the second 00:30 on October 25 is 24 hours 45 minutes, yet ends before 00:45.
+ *
+ * @param start Event start, as Home Assistant sent it
+ * @param end Event end, as Home Assistant sent it
+ * @returns The event's first day and its number of days, or null for an event shorter than that
+ */
+export function fullDaySpan(
+  start: Types.CalendarEventData['start'] | undefined,
+  end: Types.CalendarEventData['end'] | undefined,
+): { first: Date; days: number } | null {
+  let first: Date;
+  let last: Date;
+
+  if (start?.date && end?.date) {
+    first = parseAllDayDate(start.date);
+    last = parseAllDayDate(end.date);
+    last.setDate(last.getDate() - 1);
+  } else if (start?.dateTime && end?.dateTime) {
+    first = new Date(start.dateTime);
+    const endInstant = new Date(end.dateTime);
+    // Written positively: an unparseable date compares false both ways, and must not pass.
+    if (!(endInstant.getTime() > first.getTime())) return null;
+
+    const dates = getCalendarDayDiff(first, endInstant);
+    const clock = (date: Date) =>
+      ((date.getHours() * 60 + date.getMinutes()) * 60 + date.getSeconds()) * 1000 +
+      date.getMilliseconds();
+    if (dates < 1 || (dates === 1 && clock(endInstant) < clock(first))) return null;
+
+    last = new Date(endInstant.getTime() - 1);
+  } else {
+    return null;
+  }
+
+  const days = getCalendarDayDiff(first, last) + 1;
+
+  return days >= 2 ? { first, days } : null;
+}
+
+/**
  * Format a time with the configured hour style.
  *
  * @param date Date to format

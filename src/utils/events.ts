@@ -1411,6 +1411,66 @@ function dayPassesWeekFilter(
 type LeftOffDisplayCopy = 'uid' | 'recurrence_id' | 'rrule' | 'status' | '_searchRing';
 
 /**
+ * Whether grid view draws this one event as a banner in its all-day band: a timed event a full
+ * day or longer (`FormatUtils.fullDaySpan`) whose calendar resolves `multiday_banners` on, per
+ * calendar over the card. Duplicates are `resolveGridBanners`'s to settle.
+ *
+ * @param event A source event, matched to its calendar entry
+ * @param config Configuration resolved for grid view
+ * @returns True where it is drawn as a banner
+ */
+export function drawsAsGridBanner(event: Types.CalendarEventData, config: Types.Config): boolean {
+  return (
+    event.start.dateTime !== undefined &&
+    (getEntitySetting(event._entityId, 'multiday_banners', config, event) ??
+      config.multiday_banners) === true &&
+    FormatUtils.fullDaySpan(event.start, event.end) !== null
+  );
+}
+
+/**
+ * Which events grid view draws as one banner in its all-day band rather than as a block per
+ * day: timed events a full day or longer (`FormatUtils.fullDaySpan`) from a calendar whose
+ * `multiday_banners` resolves on, per calendar over the card.
+ *
+ * Decided once per event, before any day is filtered, and with `filter_duplicates` by the
+ * first-listed calendar holding it, for every copy. Grid keeps or drops a duplicate day by
+ * day, so letting each copy decide for itself could draw one event as a banner early in the
+ * week and as blocks later on: with the first calendar's copy as blocks and the second's as a
+ * banner, a banner keeps its past days and a block does not, so Monday would be the second
+ * calendar's banner and Wednesday the first's block. The first-listed copy is the one
+ * `deduplicateEvents` keeps where both survive, so its answer is the one shown anyway.
+ *
+ * @param events Well-formed source events, as `processEvents` decorated them
+ * @param config Configuration resolved for grid view
+ * @returns The source events to draw as banners
+ */
+function resolveGridBanners(
+  events: Types.CalendarEventData[],
+  config: Types.Config,
+): ReadonlySet<Types.CalendarEventData> {
+  const wantsBanner = (event: Types.CalendarEventData) => drawsAsGridBanner(event, config);
+
+  if (!config.filter_duplicates) return new Set(events.filter(wantsBanner));
+
+  const ignoreLocation = config.filter_duplicates === Constants.DUPLICATES_IGNORE_LOCATION;
+  const signatures = new Map<Types.CalendarEventData, string>();
+  const presenting = new Map<string, Types.CalendarEventData>();
+  for (const event of events) {
+    const signature = generateEventSignature(event, ignoreLocation);
+    signatures.set(event, signature);
+    const first = presenting.get(signature);
+    if (
+      !first ||
+      getEntityIndex(event._entityId, config) < getEntityIndex(first._entityId, config)
+    ) {
+      presenting.set(signature, event);
+    }
+  }
+  return new Set(events.filter((event) => wantsBanner(presenting.get(signatures.get(event)!)!)));
+}
+
+/**
  * Group events by display day.
  *
  * @param rawEvents Calendar events to group
@@ -1481,11 +1541,15 @@ export function groupEventsByDay(
   const sourceSignatures = new Map<Types.CalendarEventData, string>();
   const displayDays = new Map<Types.CalendarEventData, string>();
   const ignoreLocation = config.filter_duplicates === Constants.DUPLICATES_IGNORE_LOCATION;
+  const splitsForGrid = ViewConfig.multidaySplitPolicy(effectiveView) === 'never';
+  const gridBanners = splitsForGrid ? resolveGridBanners(events, config) : undefined;
   const splitEvents = events.flatMap((event) => {
-    const occurrences =
-      ViewConfig.multidaySplitPolicy(effectiveView) === 'never'
-        ? Grid.splitGridEventByDay(event, referenceStart, windowEnd)
-        : processMultiDayEvents([event], config);
+    const split = splitsForGrid
+      ? Grid.splitGridEventByDay(event, referenceStart, windowEnd)
+      : processMultiDayEvents([event], config);
+    const occurrences = gridBanners?.has(event)
+      ? split.map((occurrence) => ({ ...occurrence, _gridBanner: true }))
+      : split;
     if (config.filter_duplicates) {
       const signature = generateEventSignature(event, ignoreLocation);
       occurrences.forEach((occurrence) => sourceSignatures.set(occurrence, signature));
@@ -1548,7 +1612,13 @@ export function groupEventsByDay(
     }
 
     if (!config.show_past_events) {
-      if (!isAllDayEvent && endDate < now) {
+      // A day of a banner is past only once the whole event is, as an all-day banner's is:
+      // the banner stands for the event, so on Wednesday it still starts on Monday.
+      const pastAt =
+        event._gridBanner && event._gridSource?.end.dateTime
+          ? new Date(event._gridSource.end.dateTime)
+          : endDate;
+      if (!isAllDayEvent && pastAt < now) {
         return false;
       }
 
@@ -1802,6 +1872,7 @@ export function groupEventsByDay(
         _splitFromTimedEvent: event._splitFromTimedEvent,
         _gridSegmentStartsEvent: event._gridSegmentStartsEvent,
         _gridSource: event._gridSource,
+        _gridBanner: event._gridBanner,
       } satisfies Types.EveryMember<Types.CalendarEventData, LeftOffDisplayCopy>);
     });
   }

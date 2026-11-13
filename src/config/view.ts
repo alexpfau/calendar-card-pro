@@ -143,19 +143,19 @@ export const COLUMN_ONLY_KEYS = [
 /**
  * Options a `time_grid:` block may override, each with a top-level counterpart.
  *
- * The same list as column's, and the same array rather than a copy. The question both
- * views ask is identical — how much room does one day get — and they answer it in the
- * same direction, away from the list layout. Separators included: a grid still rules
- * vertical lines between its day columns and still has week and month boundaries.
+ * Column's list plus `multiday_banners`. The question both views ask is otherwise identical —
+ * how much room does one day get — and they answer it in the same direction, away from the
+ * list layout. Separators included: a grid still rules vertical lines between its day columns
+ * and still has week and month boundaries. `multiday_banners` is the one difference: a column
+ * has no all-day band for a timed event to move into, so `column:` must not accept it.
  *
- * 🚨 Aliased, not filtered. A `.filter()` here would type as `ReadonlyArray<union>`
- * rather than a literal tuple, which quietly makes the partition assertion below
- * tautological: every key would read as classified while the filtered-out ones were
- * dropped at runtime, producing exactly the accepted-then-silently-ignored override the
- * assertion exists to prevent. If grid ever needs a genuinely different set, write it
- * out `as const` — do not derive it.
+ * 🚨 Spread, not filtered. A `.filter()` here would type as `ReadonlyArray<union>` rather
+ * than a literal tuple, which quietly makes the partition assertion below tautological:
+ * every key would read as classified while the filtered-out ones were dropped at runtime,
+ * producing exactly the accepted-then-silently-ignored override the assertion exists to
+ * prevent. The spread of a tuple is still a tuple.
  */
-export const TIME_GRID_OVERRIDE_KEYS = COLUMN_OVERRIDE_KEYS;
+export const TIME_GRID_OVERRIDE_KEYS = [...COLUMN_OVERRIDE_KEYS, 'multiday_banners'] as const;
 
 /** Grid-only options — the ones describing the time axis and responsive density. */
 export const TIME_GRID_ONLY_KEYS = [
@@ -335,6 +335,10 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   // All-day multi-day events become spanning banners. Grid's own daily coverage keeps
   // every timed segment timed before filters and empty-day omission run.
   split_multiday_events: new Set<Types.EffectiveView>(['list', 'column']),
+
+  // Only grid has an all-day band above an hour axis for a timed event to move into. A list
+  // or column row of the same event already reads as one row per day.
+  multiday_banners: new Set<Types.EffectiveView>(['grid']),
 
   // Grid discards _isEmptyDay rows in sortDayEvents. show_empty_days controls which columns exist;
   // only the placeholder's text and color are irrelevant there.

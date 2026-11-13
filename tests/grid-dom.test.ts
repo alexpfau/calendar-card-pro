@@ -857,7 +857,15 @@ describe('a block is sized by its duration (#206)', () => {
   });
 });
 
+/**
+ * A timed event a full day or longer is one banner in the all-day band by default
+ * (`multiday_banners`, `tests/grid-multiday-banner.test.ts`). Shorter ones, and longer ones
+ * under `multiday_banners: false` (`BLOCKS`), are drawn here: a block on every day.
+ */
 describe('timed multi-day events stay in the time grid', () => {
+  /** Long events drawn as blocks rather than as the default banner. */
+  const BLOCKS = { multiday_banners: false };
+
   function blockTexts(container: HTMLElement): string[] {
     return Array.from(container.querySelectorAll('.grid-event:not(.grid-event-overflow)')).map(
       (event) => event.textContent?.replace(/\s+/g, ' ').trim() ?? '',
@@ -877,7 +885,10 @@ describe('timed multi-day events stay in the time grid', () => {
   }
 
   it('renders a three-day timed event in every touched day column', () => {
-    const container = renderGrid([timedRange(17, '09:00', 19, '17:00', 'Conference')]);
+    const container = renderGrid(
+      [timedRange(17, '09:00', 19, '17:00', 'Conference')],
+      buildConfig({ view: 'grid', days_to_show: 3, time_grid: BLOCKS }),
+    );
     const columns = Array.from(container.querySelectorAll('.grid-day-body'));
 
     expect(
@@ -903,7 +914,12 @@ describe('timed multi-day events stay in the time grid', () => {
   it('keeps timed middle segments out of the all-day band even when list splitting is enabled', () => {
     const container = renderGrid(
       [timedRange(17, '09:00', 19, '17:00', 'Conference')],
-      buildConfig({ view: 'grid', days_to_show: 3, split_multiday_events: true }),
+      buildConfig({
+        view: 'grid',
+        days_to_show: 3,
+        split_multiday_events: true,
+        time_grid: BLOCKS,
+      }),
     );
 
     expect(container.querySelectorAll('.grid-event:not(.grid-event-overflow)')).toHaveLength(3);
@@ -922,7 +938,7 @@ describe('timed multi-day events stay in the time grid', () => {
   it('shows the whole span and the days to its end on a multi-day timed event first segment', () => {
     const container = renderGrid(
       [timedRange(17, '14:00', 19, '11:00', 'Conference Trip')],
-      buildConfig({ view: 'grid', days_to_show: 3, time_24h: true }),
+      buildConfig({ view: 'grid', days_to_show: 3, time_24h: true, time_grid: BLOCKS }),
     );
 
     expect(wording(blockTexts(container)[0])).toBe('Conference Trip 14:00 - 11:00 (+2)');
@@ -1034,7 +1050,12 @@ describe('timed multi-day events stay in the time grid', () => {
   it('counts a later midnight end to the date it falls on', () => {
     const container = renderGrid(
       [timedRange(17, '19:00', 19, '00:00', 'Sleepover')],
-      buildConfig({ view: 'grid', days_to_show: 3, time_24h: true, time_grid: EVENING }),
+      buildConfig({
+        view: 'grid',
+        days_to_show: 3,
+        time_24h: true,
+        time_grid: { ...EVENING, ...BLOCKS },
+      }),
     );
 
     expect(blockTexts(container).map(wording)).toEqual([
@@ -1085,7 +1106,7 @@ describe('timed multi-day events stay in the time grid', () => {
   it('shows title only on multi-day timed continuation segments', () => {
     const container = renderGrid(
       [timedRange(17, '14:00', 19, '11:00', 'Conference Trip')],
-      buildConfig({ view: 'grid', days_to_show: 3, time_24h: true }),
+      buildConfig({ view: 'grid', days_to_show: 3, time_24h: true, time_grid: BLOCKS }),
     );
 
     expect(blockTexts(container).slice(1)).toEqual(['Conference Trip', 'Conference Trip']);
@@ -1094,7 +1115,13 @@ describe('timed multi-day events stay in the time grid', () => {
   it('omits countdowns from multi-day timed continuation segments', () => {
     const container = renderGrid(
       [timedRange(17, '14:00', 19, '11:00', 'Conference Trip')],
-      buildConfig({ view: 'grid', days_to_show: 3, show_countdown: true, time_24h: true }),
+      buildConfig({
+        view: 'grid',
+        days_to_show: 3,
+        show_countdown: true,
+        time_24h: true,
+        time_grid: BLOCKS,
+      }),
     );
     const blocks = Array.from(container.querySelectorAll('.grid-event:not(.grid-event-overflow)'));
 
