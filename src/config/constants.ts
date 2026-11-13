@@ -98,6 +98,13 @@ export const EVENT_DETAILS_ACTION = 'details';
  */
 export const DUPLICATES_IGNORE_LOCATION = 'ignore_location';
 
+/**
+ * The `show_countdown` value that leaves out a countdown repeating the one above it on the same
+ * day, in list and column view: `true` shows every countdown. For a sparse calendar where
+ * several events share a date, such as a day the paper and the plastic bins both go out.
+ */
+export const COUNTDOWN_ONCE_PER_DAY = 'once_per_day';
+
 export const TIMING = {
   HOLD_THRESHOLD: 500,
 

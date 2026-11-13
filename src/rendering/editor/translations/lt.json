@@ -546,6 +546,8 @@
   "countdown_max_days": "Atgalinio skaičiavimo riba dienomis",
   "countdown_max_days.helper": "Atgalinis skaičiavimas rodomas tik įvykiams, prasidedantiems per tiek dienų: 0 – tik šiandien, 7 – savaitę į priekį. Palikus tuščią, jis rodomas visiems būsimiems įvykiams.",
   "show_countdown_allday": "Skaičiuoti ir iki visos dienos įvykių",
+  "countdown_once_per_day": "Praleisti pasikartojančius atgalinius skaičiavimus",
+  "countdown_once_per_day.helper": "Dieną su keliais įvykiais praleidžiamas atgalinis skaičiavimas, kuris sutampa su virš jo esančiu. Atgalinis skaičiavimas iki šiandien vėliau prasidedančių įvykių rodomas visada.",
   "countdown_exact_days": "Skaičiuoti tik dienomis",
   "countdown_exact_days.helper": "Nuo rytojaus skaičiuoja dienomis: „po 30 dienų“ vietoj „už mėnesį“ ir „po 1 dienos“ vietoj „rytoj“.",
   "show_progress_bar": "Rodyti progreso juostą",

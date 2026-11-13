@@ -546,6 +546,8 @@
   "countdown_max_days": "Dagsgräns för nedräkning",
   "countdown_max_days.helper": "Bara händelser som börjar inom detta antal dagar får en nedräkning: 0 betyder bara i dag, 7 en vecka framåt. Lämnas den tom får alla kommande händelser en.",
   "show_countdown_allday": "Räkna ned till heldagshändelser också",
+  "countdown_once_per_day": "Hoppa över upprepade nedräkningar",
+  "countdown_once_per_day.helper": "På en dag med flera händelser utelämnas en nedräkning som lyder likadant som den närmast ovanför. Nedräkningar till händelser senare i dag visas alltid.",
   "countdown_exact_days": "Räkna bara i dagar",
   "countdown_exact_days.helper": "Räknar allt från och med i morgon i dagar: ”om 30 dagar” i stället för ”om en månad” och ”om 1 dag” i stället för ”i morgon”.",
   "show_progress_bar": "Visa förloppsindikator",

@@ -108,7 +108,8 @@ export interface Config {
   event_background_opacity: number;
   past_event_opacity: number;
   show_past_events: boolean;
-  show_countdown: boolean;
+  /** `once_per_day` is on, leaving out repeats of the countdown above on the same day. */
+  show_countdown: boolean | 'once_per_day';
   show_countdown_allday: boolean;
   /** Count every date after tomorrow in days, rather than in months and years. */
   countdown_exact_days: boolean;
@@ -372,7 +373,7 @@ export interface SharedViewOverrides {
   past_event_opacity?: number;
   event_color?: string;
   event_font_size?: string;
-  show_countdown?: boolean;
+  show_countdown?: boolean | 'once_per_day';
   show_countdown_allday?: boolean;
   countdown_exact_days?: boolean;
   countdown_max_days?: number;

@@ -546,6 +546,8 @@
   "countdown_max_days": "Loenduri ulatus päevades",
   "countdown_max_days.helper": "Loendurit näidatakse ainult nende sündmuste juures, mis algavad nii mitme päeva jooksul: 0 tähendab ainult tänast päeva, 7 nädal ette. Tühjaks jättes näidatakse seda kõigi eelseisvate sündmuste juures.",
   "show_countdown_allday": "Loenda ka terve päeva sündmusteni",
+  "countdown_once_per_day": "Jäta korduvad loendurid välja",
+  "countdown_once_per_day.helper": "Mitme sündmusega päeval jäetakse ära loendur, mille tekst on sama mis selle kohal oleval. Täna hiljem algavate sündmuste loendureid näidatakse alati.",
   "countdown_exact_days": "Loenda ainult päevades",
   "countdown_exact_days.helper": "Loendab alates homsest päevades: „30 päeva pärast“, mitte „kuu aja pärast“, ja „1 päeva pärast“, mitte „homme“.",
   "show_progress_bar": "Näita edenemisriba",

@@ -2397,6 +2397,13 @@ const SENTINEL_OPTIONS = [
     file: 'src/config/constants.ts',
     constant: 'DUPLICATES_IGNORE_LOCATION',
   },
+  {
+    // `boolean | 'once_per_day'`, the same shape as `filter_duplicates` and as blind to
+    // check 21, so the value the editor's repeats switch writes is pinned to its row here.
+    fields: ['show_countdown'],
+    file: 'src/config/constants.ts',
+    constant: 'COUNTDOWN_ONCE_PER_DAY',
+  },
 ];
 
 /**

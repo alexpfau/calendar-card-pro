@@ -913,6 +913,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Only events starting within this many days get a countdown: 0 is today alone, 7 a ' +
     'week ahead. Left empty, every upcoming event gets one.',
   show_countdown_allday: 'Count Down To All-Day Events Too',
+  countdown_once_per_day: 'Leave Out Repeated Countdowns',
+  'countdown_once_per_day.helper':
+    'On a day with several events, a countdown that reads the same as the nearest one above ' +
+    'it is left out. Countdowns later today always show.',
   countdown_exact_days: 'Count In Days Only',
   'countdown_exact_days.helper':
     'Counts every date after today in days: “in 30 days” rather than “in a month”, and ' +

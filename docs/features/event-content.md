@@ -780,6 +780,30 @@ ahead, shows dates further off than that.
 
 :::
 
+### Repeated Countdowns
+
+`show_countdown: once_per_day` counts down once for a day of events that all read the same, as
+on a day two bins go out together: the first event keeps its countdown, and one that reads the
+same as the countdown above it is left out.
+
+```yaml
+show_countdown: once_per_day
+```
+
+| Value          | Countdowns                                                               |
+| -------------- | ------------------------------------------------------------------------ |
+| `false`        | None                                                                     |
+| `true`         | On every event still to come                                             |
+| `once_per_day` | On every event still to come, leaving out one that repeats the one above |
+
+- Countdowns later today always show, since two that read "in 5 hours" can name different
+  times.
+- A countdown that differs still shows, and an event without one, such as an all-day event with
+  `show_countdown_allday: false`, is passed over.
+- It applies in list and column view. In grid view every timed block keeps its countdown, as
+  with `true`.
+- In the visual editor it is **Leave Out Repeated Countdowns**, under Countdown & Progress.
+
 ### Counting in Days
 
 `countdown_exact_days` counts every date after today in days, so an event 30 days away reads

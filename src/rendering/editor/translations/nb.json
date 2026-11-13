@@ -546,6 +546,8 @@
   "countdown_max_days": "Dagsgrense for nedtelling",
   "countdown_max_days.helper": "Bare hendelser som begynner innen dette antallet dager, får nedtelling: 0 betyr bare i dag, 7 en uke frem. Står det tomt, får alle kommende hendelser nedtelling.",
   "show_countdown_allday": "Tell ned til heldagshendelser også",
+  "countdown_once_per_day": "Utelat gjentatte nedtellinger",
+  "countdown_once_per_day.helper": "På en dag med flere hendelser utelates en nedtelling som er lik den rett over. Nedtellinger til hendelser senere i dag vises alltid.",
   "countdown_exact_days": "Tell bare i dager",
   "countdown_exact_days.helper": "Teller alt fra og med i morgen i dager: «om 30 døgn» i stedet for «om en måned» og «om 1 døgn» i stedet for «i morgen».",
   "show_progress_bar": "Vis fremdriftslinje",

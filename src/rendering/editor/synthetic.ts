@@ -4,7 +4,11 @@
  */
 
 import * as Config from '../../config/config';
-import { DUPLICATES_IGNORE_LOCATION, EVENT_DETAILS_ACTION } from '../../config/constants';
+import {
+  COUNTDOWN_ONCE_PER_DAY,
+  DUPLICATES_IGNORE_LOCATION,
+  EVENT_DETAILS_ACTION,
+} from '../../config/constants';
 import * as Types from '../../config/types';
 import { eventActionKind } from '../../interaction/event-action-kind';
 import * as EntityColors from '../../utils/entity-colors';
@@ -461,6 +465,18 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
       value === DUPLICATES_IGNORE_LOCATION
         ? { changes: { filter_duplicates: DUPLICATES_IGNORE_LOCATION } }
         : { changes: { filter_duplicates: value === 'exact' } },
+  },
+
+  /**
+   * Leaving out repeated countdowns refines `show_countdown` rather than adding a key of its own,
+   * as `ignore_location` refines `filter_duplicates`: on, it stores `once_per_day`, off, `true`.
+   * Offered only while countdowns are on, so off never turns them off. The Show Countdown switch
+   * reads either value as on.
+   */
+  countdown_once_per_day: {
+    configKeys: ['show_countdown'],
+    derive: (config) => config.show_countdown === COUNTDOWN_ONCE_PER_DAY,
+    apply: (value) => ({ changes: { show_countdown: value ? COUNTDOWN_ONCE_PER_DAY : true } }),
   },
 
   location_country_mode: {

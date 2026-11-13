@@ -209,18 +209,21 @@ function descriptionGroup(language: string, showDescription: boolean): HaFormSch
 /**
  * The countdown and progress group — the two things the card says about *when*.
  *
- * The countdown's options run coarse to fine: which dates count down at all, then which kind
- * of event, then how the count reads.
+ * The countdown's options run coarse to fine: which dates count down at all, then which
+ * events, then which of a day's countdowns, then how the count reads.
  *
  * @param language - Effective language code
  * @param showCountdown - Whether the countdown is shown
  * @param showProgressBar - Whether the progress bar is shown
+ * @param repeatsApply - Whether the workspace draws a day's events one above the other, which
+ *   leaving out repeated countdowns needs; a grid draws every countdown
  * @returns The group, or nothing when neither is on
  */
 function progressGroup(
   language: string,
   showCountdown: boolean,
   showProgressBar: boolean,
+  repeatsApply: boolean,
 ): HaFormSchema[] {
   if (!showCountdown && !showProgressBar) return [];
 
@@ -230,6 +233,7 @@ function progressGroup(
         ? [
             number('countdown_max_days', 0),
             bool('show_countdown_allday'),
+            ...(repeatsApply ? [bool('countdown_once_per_day')] : []),
             bool('countdown_exact_days'),
           ]
         : []),
@@ -257,6 +261,7 @@ function progressGroup(
  * @param badgePosition - Resolved all-day badge position, or null when off
  * @param badgeColorMode - Derived all-day badge color mode
  * @param view - Layout whose headings are being built
+ * @param repeatsApply - Whether leaving out repeated countdowns applies in the workspace
  * @returns The panel's schema
  */
 const eventsSchema = Helpers.memoizeLast(
@@ -272,6 +277,7 @@ const eventsSchema = Helpers.memoizeLast(
     badgePosition: Helpers.AlldayBadgePosition | null,
     badgeColorMode: string,
     view: Types.EffectiveView,
+    repeatsApply: boolean,
   ): HaFormSchema[] => [
     // The switches that decide which lines an event is made of, in one visible run and ahead
     // of everything that styles them, with the one choice that decides where the time row
@@ -372,7 +378,7 @@ const eventsSchema = Helpers.memoizeLast(
     ...timeGroup(language, showTime),
     ...locationGroup(language, showLocation, countryMode),
     ...descriptionGroup(language, showDescription),
-    ...progressGroup(language, showCountdown, showProgressBar),
+    ...progressGroup(language, showCountdown, showProgressBar, repeatsApply),
   ],
 );
 
@@ -390,7 +396,7 @@ export function buildEventsSchema(ctx: SchemaCtx): HaFormSchema[] {
     resolveWorkspaceOption(ctx.config, 'show_location', workspace),
     resolveWorkspaceOption(ctx.config, 'show_description', workspace),
     Synthetic.locationCountryMode(ctx.config),
-    resolveWorkspaceOption(ctx.config, 'show_countdown', workspace),
+    Boolean(resolveWorkspaceOption(ctx.config, 'show_countdown', workspace)),
     resolveWorkspaceOption(ctx.config, 'show_progress_bar', workspace),
     Synthetic.accentColorMode(ctx.config),
     Helpers.resolveAlldayBadgePosition(
@@ -399,5 +405,6 @@ export function buildEventsSchema(ctx: SchemaCtx): HaFormSchema[] {
     // Mode and value use the same projection, including a custom color held by this view.
     Synthetic.alldayBadgeColorMode(ctx.config.allday_badge_color),
     ctx.view,
+    workspace !== 'grid',
   );
 }

@@ -546,6 +546,8 @@
   "countdown_max_days": "Countdown-Vorlauf in Tagen",
   "countdown_max_days.helper": "Nur Termine, die innerhalb dieser Anzahl von Tagen beginnen, bekommen einen Countdown: 0 heißt nur heute, 7 eine Woche im Voraus. Bleibt das Feld leer, bekommt jeder bevorstehende Termin einen.",
   "show_countdown_allday": "Auch zu Ganztagsterminen herunterzählen",
+  "countdown_once_per_day": "Wiederholte Countdowns weglassen",
+  "countdown_once_per_day.helper": "An einem Tag mit mehreren Terminen entfällt ein Countdown, der genauso lautet wie der darüber. Countdowns zu Terminen, die heute noch beginnen, werden immer angezeigt.",
   "countdown_exact_days": "Nur in Tagen zählen",
   "countdown_exact_days.helper": "Zählt ab morgen in Tagen: „in 30 Tagen“ statt „in einem Monat“ und „in 1 Tag“ statt „morgen“.",
   "show_progress_bar": "Fortschrittsbalken anzeigen",
