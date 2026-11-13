@@ -155,6 +155,7 @@ Each item in `entities` may be a plain entity ID string, or an object that overr
 the card-wide options for that one calendar:
 
 `entity` · `name` · `show_in_legend` · `label` · `label_type` · `color` · `accent_color` · `label_icon_color` ·
+`text_scale` ·
 `show_time` · `show_location` · `location_icon` · `show_description` ·
 `compact_events_to_show` · `blocklist` · `allowlist` · `filter_field` ·
 `replace_field` · `replace_pattern` · `replace_with` ·
@@ -162,6 +163,7 @@ the card-wide options for that one calendar:
 
 **→ [Entity configuration options](/features/core-settings#available-options-for-entity-configuration-objects)** — full table, with filtering examples.
 **→ [Naming a calendar in the card](/features/core-settings#naming-a-calendar-in-the-card)** — `name`, where it shows, and what keeps Home Assistant's name.
+**→ [Scaling one calendar's text](/features/core-settings#scaling-one-calendars-text)** — `text_scale`, what it makes larger or smaller, and where.
 **→ [Leaving a calendar out of the filter](/features/layout-appearance#leaving-a-calendar-out-of-the-filter)** — `show_in_legend`, for a calendar shown on the card without a chip of its own.
 **→ [Rewriting what an event says](/features/core-settings#text-replacement)** — `replace_pattern` and `replace_with`, and what each does when the other is left out.
 **→ [Choosing how a label is read](/features/core-settings#choosing-how-a-label-is-read)** — when `label_type` is needed, and when it is not.

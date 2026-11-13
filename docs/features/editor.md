@@ -120,7 +120,7 @@ Where they differ:
 ::: details Inside Each Panel
 
 - **Calendars** and **Time Range & Content** share an order: **Event Filtering**, then
-  **Multi-Day Events**. A calendar adds **Name, Label & Colors** above them,
+  **Multi-Day Events**. A calendar adds **Name & Appearance** above them,
   **Text Replacement** between them and **Event Details** below. Time Range & Content opens with
   **Time Range**, the days the card covers, and ends with **Empty Days**, then the collapsible
   groups **Compact Mode** and **Language & Time Format**.

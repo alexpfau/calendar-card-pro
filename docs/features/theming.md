@@ -58,7 +58,9 @@ above, so a theme does not replace them there and a card-mod rule on `ha-card` n
 only once `weather.event.color` is set.
 
 In grid view, and wherever `event_color` is `accent`, each event writes
-`--calendar-card-weather-event-color` on itself too, so the color below needs `!important`:
+`--calendar-card-weather-event-color` on itself too, so the color below needs `!important`.
+A calendar with a [`text_scale`](/features/core-settings#scaling-one-calendars-text) writes the
+two event sizes on its own events the same way, so a size set on `.event` needs it there too:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -208,6 +210,7 @@ A few more classes mark something the card draws only some of the time:
 | `event-now`         | `td.event` in list view, `.event` in column view               | the event is under way and `show_now_indicator` is on                                                                                    |
 | `event-interactive` | `.event` in column and grid view, `.event-button` in list view | `event_tap_action` is `details`                                                                                                          |
 | `event-tappable`    | `td.event` in list view                                        | `event_tap_action` is `details`                                                                                                          |
+| `event-text-scaled` | `.event` in every view                                         | its calendar has a [`text_scale`](/features/core-settings#scaling-one-calendars-text) other than 1                                       |
 | `time-beside-title` | `.event-content` in list and column view                       | `time_position` is `title` and the event has a time or a countdown, which then sits in `.title-aside` after `.summary` in `.summary-row` |
 | `title-wrap`        | `.summary-row`, with `time-beside-title`                       | the title wraps beside the time: no `title_max_lines: 1` or `scroll_long_titles`. `.summary` ends in `.title-room`, kept for the time    |
 | `title-capped`      | `.summary-row`, with `title-wrap`                              | `title_max_lines` is two or more                                                                                                         |

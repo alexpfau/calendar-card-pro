@@ -678,6 +678,17 @@ export interface EntityConfig {
   color?: string;
   accent_color?: string;
   label_icon_color?: string;
+  /**
+   * How large this block's events draw their text, as a multiple of the card's: `0.75` draws
+   * them at three quarters of every size the card would, `1.25` at a quarter more. Unset, or
+   * anything that is not a number above 0, draws them as the card does.
+   *
+   * It multiplies the sizes of the text in an event and of the icons beside it, and nothing
+   * else: an event's padding, its gaps and a grid block's height stay as they are. Read at
+   * render time from the event's matched block, so a calendar listed twice can draw its two
+   * blocks at two scales (`rendering/text-scale.ts`).
+   */
+  text_scale?: number;
   show_time?: boolean;
   show_location?: boolean;
   /**

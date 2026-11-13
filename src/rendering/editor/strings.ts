@@ -297,6 +297,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.accent_color_mode.option.custom.label': 'Custom color',
   'entity.label_icon_color': 'Label Icon Color',
   'entity.label_icon_color.helper': 'Left empty, the icon takes the text color around it.',
+  // "Scale" and not "Size": a size reads as a pixel value, and this is a multiplier. The
+  // translations keep that distinction, using each language's word for a display scale.
+  'entity.text_scale': 'Text Scale',
+  'entity.text_scale.helper':
+    'Multiplies the size of the text and icons in this calendar\u2019s events: below 1 draws ' +
+    'them smaller, above 1 larger. Left empty, they match the card.',
 
   'entity.show_time': 'Event Times',
   'entity.show_time.option.inherit.label': 'Follow the card',
@@ -358,7 +364,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   heading_replace: 'Text Replacement',
   heading_multiday: 'Multi-Day Events',
   heading_nothing: 'Empty Days',
-  heading_appearance: 'Name, Label & Colors',
+  heading_appearance: 'Name & Appearance',
   heading_details: 'Event Details',
   heading_event_state: 'Event State',
   heading_toolbar: 'Toolbar',

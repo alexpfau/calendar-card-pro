@@ -11,6 +11,7 @@ import * as Activation from './activation';
 import { gridDrawsEvent } from './grid';
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
+import * as TextScale from './text-scale';
 import * as Toolbar from './toolbar';
 import * as Constants from '../config/constants';
 import * as Types from '../config/types';
@@ -900,6 +901,7 @@ function renderEvent(
     'event-tappable': tap !== undefined,
     'event-now': presentation.isNow,
     'search-ring': event._searchRing === true,
+    [TextScale.TEXT_SCALED_CLASS]: presentation.textScaled,
   };
 
   // Prettier 3.9 would put each multi-line `${…}` below on lines of its own, which breaks
@@ -930,7 +932,7 @@ function renderEvent(
         class=${classMap(eventClasses)}
         .calendarCardDaySlot=${event._isEmptyDay ? undefined : Activation.COVERED}
         style="--calendar-card-event-accent-bar-color: ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};${Helpers.styleDeclarations(
-          presentation.accentTextProperties,
+          { ...presentation.accentTextProperties, ...presentation.textScaleProperties },
         )}"
       >
         ${Leaves.renderAccentBar()}

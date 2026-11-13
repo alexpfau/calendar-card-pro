@@ -22,6 +22,7 @@ import * as Activation from './activation';
 import { gridEventAccessibleName } from './grid-accessibility';
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
+import * as TextScale from './text-scale';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
 import * as Localize from '../translations/localize';
@@ -947,6 +948,7 @@ function renderTimedEvent(
         'grid-event-now': underWay,
         'event-interactive': tap !== undefined,
         'search-ring': event._searchRing === true,
+        [TextScale.TEXT_SCALED_CLASS]: presentation.textScaled,
       })}
       style=${styleMap({
         ...verticalGeometry(placement, edges),
@@ -958,6 +960,7 @@ function renderTimedEvent(
         '--calendar-card-event-accent-bar-color': presentation.entityAccentColor,
         backgroundColor: tint,
         ...presentation.accentTextProperties,
+        ...presentation.textScaleProperties,
       })}
       role=${tap ? 'button' : nothing}
       tabindex=${tap ? '0' : nothing}
@@ -1195,12 +1198,14 @@ function renderBanner(
         'continues-after': placement.continuesAfter,
         'event-interactive': tap !== undefined,
         'search-ring': event._searchRing === true,
+        [TextScale.TEXT_SCALED_CLASS]: presentation.textScaled,
       })}
       style=${styleMap({
         gridColumn: `${placement.columnIndex + 2} / span ${placement.span}`,
         ...(row === undefined ? {} : { gridRow: String(row) }),
         backgroundColor: presentation.entityAccentBackgroundColor,
         ...presentation.accentTextProperties,
+        ...presentation.textScaleProperties,
       })}
       role=${tap ? 'button' : nothing}
       tabindex=${tap ? '0' : nothing}
@@ -1452,7 +1457,9 @@ export function gridDrawsEvent(gridDays: Types.EventsByDay[], config: Types.Conf
  *   evaluated against one clock reading
  * @param cascadeThresholdMin - Minutes a later event must start below an earlier one to be
  *   drawn over it, measured by the host for the scale the card is drawn at; the floor until
- *   a first measurement exists. See `grid-cascade-threshold.ts`
+ *   a first measurement exists. Either one for every event, or one for each `text_scale`
+ *   the card's calendars draw at, which each event drawn over takes by its own. See
+ *   `grid-cascade-threshold.ts`
  * @param overflowStripPct - Width the `+N` strip prefers, as a percentage of a day column,
  *   measured by the host off a rendered label; `Infinity` until then, which leaves the strip
  *   as wide as its bounds allow. See `grid-overflow-strip.ts`
@@ -1472,7 +1479,8 @@ export function renderGridGroupedEvents(
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
   now: Date = new Date(),
-  cascadeThresholdMin: number = CascadeThreshold.CASCADE_THRESHOLD_FLOOR_MIN,
+  cascadeThresholdMin:
+    number | CascadeThreshold.CascadeThresholds = CascadeThreshold.CASCADE_THRESHOLD_FLOOR_MIN,
   overflowStripPct = Infinity,
   eventsTappable = false,
   dayAdd?: Activation.DayAddButtons,
@@ -1859,7 +1867,7 @@ function renderDayHeader(
  * @param columnIndex - Zero-based day track
  * @param maxLanes - Overlap cap
  * @param cascadeThresholdMin - Minutes below an earlier event a later one must start to be
- *   drawn over it, under the cascade
+ *   drawn over it, under the cascade: one for every event, or one per `text_scale`
  * @param overflowStripPct - Width the `+N` strip prefers, as a percentage of the column
  * @param showNowLine - Whether the now line is enabled
  * @param now - Instant to draw the now line at
@@ -1876,7 +1884,7 @@ function renderDayBody(
   language: string,
   columnIndex: number,
   maxLanes: number,
-  cascadeThresholdMin: number,
+  cascadeThresholdMin: number | CascadeThreshold.CascadeThresholds,
   overflowStripPct: number,
   showNowLine: boolean,
   now: Date,
@@ -1909,7 +1917,12 @@ function renderDayBody(
 
   if (cascade) {
     const layout = Grid.layoutCascade(visible, band, {
-      thresholdMin: cascadeThresholdMin,
+      thresholdMin: CascadeThreshold.thresholdForScale(cascadeThresholdMin, 1),
+      hostThresholdMin: (host) =>
+        CascadeThreshold.thresholdForScale(
+          cascadeThresholdMin,
+          TextScale.textScaleOf(host, config),
+        ),
       indentPct: Grid.CASCADE_INDENT_PCT,
       maxDepth: Grid.CASCADE_MAX_DEPTH,
       maxLanes,

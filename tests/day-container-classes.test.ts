@@ -437,6 +437,18 @@ describe('theming.md card-mod selectors', () => {
       litRender(Render.renderGroupedEvents(days, config, 'en', undefined, null, true), container);
       collect(container);
     }
+    // A calendar's text_scale marks each of its events, and no calendar carries one by default.
+    // The class is the same in every view, so one list render draws it.
+    {
+      const config = buildConfig({
+        ...base,
+        entities: [{ entity: 'calendar.personal', text_scale: 0.8 }],
+      } as Partial<Types.Config>);
+      const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', 'list');
+      const container = document.createElement('div');
+      litRender(Render.renderGroupedEvents(days, config, 'en', undefined, null, true), container);
+      collect(container);
+    }
     // Today's tint is off by default, and grid view draws its stripe only while it is set, so
     // one grid render with it on is what draws `.grid-today`. The clock is frozen inside the
     // window these events fill, so today is on screen.

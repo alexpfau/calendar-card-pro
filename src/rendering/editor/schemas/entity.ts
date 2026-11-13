@@ -330,7 +330,7 @@ function labelFields(
  * carries**. Every category shared with the card-level panel appears in the same relative
  * order there, and the keys inside a shared category start the same way.
  *
- * `Name, Label & Colors` leads, and is deliberately *outside* that spine rather than an
+ * `Name & Appearance` leads, and is deliberately *outside* that spine rather than an
  * exception to it. It selects nothing, arranges nothing and populates nothing — it says
  * which calendar is being edited. Identity precedes configuration, which is also why the
  * card-level panel has no counterpart: a card is not one of several. `name` opens it,
@@ -361,6 +361,10 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     text('label_icon_color'),
     row(text('color'), accentColorMode(ctx.language)),
     text('accent_color'),
+    // Last in the section that says how this calendar's events look: after which label and
+    // which colors, how large. No ceiling, as YAML has none, and a box rather than a slider,
+    // which Home Assistant draws only with both bounds.
+    { name: 'text_scale', selector: { number: { min: 0.1, step: 'any', mode: 'box' } } },
 
     // Ordered coarse-to-fine by **scope**, per _Where a new option goes is a decision, not
     // a default_ in `AGENTS.md`: which days qualify at all → which class of event → when

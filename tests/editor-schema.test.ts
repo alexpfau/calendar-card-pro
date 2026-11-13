@@ -3810,6 +3810,7 @@ describe('editor: per-calendar settings', () => {
         'show_location',
         'show_time',
         'split_multiday_events',
+        'text_scale',
       ].sort(),
     );
   });

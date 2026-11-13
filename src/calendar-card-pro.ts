@@ -57,6 +57,7 @@ import * as Menu from './rendering/menu';
 import * as Render from './rendering/render';
 import * as SearchPanel from './rendering/search-panel';
 import * as Styles from './rendering/styles';
+import * as TextScale from './rendering/text-scale';
 import * as Toolbar from './rendering/toolbar';
 import { loadIntlLocaleData } from './translations/intl-locale-data';
 import * as Localize from './translations/localize';
@@ -1678,10 +1679,12 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Minutes a later event must start below an earlier one for the grid's cascade to draw
-   * it on top, for the scale this card is drawn at. The floor until a render has been
-   * measured; see `_syncCascadeThreshold`.
+   * it on top, for the scale this card is drawn at, by the `text_scale` of the event drawn
+   * over. The floor until a render has been measured; see `_syncCascadeThreshold`.
    */
-  private _cascadeThresholdMin = CascadeThreshold.CASCADE_THRESHOLD_FLOOR_MIN;
+  private _cascadeThresholds: CascadeThreshold.CascadeThresholds = new Map([
+    [1, CascadeThreshold.CASCADE_THRESHOLD_FLOOR_MIN],
+  ]);
 
   /**
    * Share of a day column the grid's `+N` strip prefers, as a percentage. `Infinity` until a
@@ -2976,15 +2979,30 @@ class CalendarCardPro extends LitElement {
       ViewConfig.resolveTimeGridOption(this.effectiveConfig, 'start_time'),
       ViewConfig.resolveTimeGridOption(this.effectiveConfig, 'end_time'),
     );
-    const next = CascadeThreshold.cascadeThresholdMin(
+    const previous = this._cascadeThresholds;
+    const next = CascadeThreshold.cascadeThresholdsMin(
       CascadeThreshold.measureCascadeThreshold(this.renderRoot),
       band.endMin - band.startMin,
-      this._cascadeThresholdMin,
+      TextScale.textScalesIn(this.effectiveConfig),
+      previous,
+    );
+    // Against what the last render laid out with, which for a scale it had not seen yet was
+    // the threshold at 1.
+    const moved = [...next].filter(
+      ([scale, min]) => min !== CascadeThreshold.thresholdForScale(previous, scale),
     );
 
-    if (next !== this._cascadeThresholdMin) {
-      Logger.debug(`Cascade threshold ${this._cascadeThresholdMin} -> ${next} minutes`);
-      this._cascadeThresholdMin = next;
+    this._cascadeThresholds = next;
+
+    if (moved.length > 0) {
+      Logger.debug(
+        `Cascade threshold ${moved
+          .map(([scale, min]) => {
+            const from = CascadeThreshold.thresholdForScale(previous, scale);
+            return `${scale === 1 ? '' : `at ${scale}x `}${from} -> ${min}`;
+          })
+          .join(', ')} minutes`,
+      );
       this.requestUpdate();
     }
   }
@@ -7194,7 +7212,7 @@ class CalendarCardPro extends LitElement {
           this.weatherForecasts,
           this.safeHass,
           undefined,
-          this._cascadeThresholdMin,
+          this._cascadeThresholds,
           this._overflowStripPct,
           this._eventsActivatable,
           dayAdd,

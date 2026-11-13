@@ -30,6 +30,7 @@ entities:
 | `color`                  | string  | `event_color`            | Custom color for event titles from this calendar                                                                                                                                                                                                                                                                                                                         |
 | `accent_color`           | string  | `accent_color`           | Custom color for the accent bar and event background (when `event_background_opacity` is >0). Accepts `home-assistant` to follow this calendar's Home Assistant color                                                                                                                                                                                                    |
 | `label_icon_color`       | string  | `-`                      | Custom color for label icons (only applies to `mdi:` and other icon labels)                                                                                                                                                                                                                                                                                              |
+| `text_scale`             | number  | `1`                      | Draws this calendar's event text, and the icons beside it, at this multiple of the card's sizes: `0.75` at three quarters; see [Scaling One Calendar's Text](#scaling-one-calendars-text)                                                                                                                                                                                |
 | `show_time`              | boolean | `show_time`              | Whether to show event times for this calendar (overrides global `show_time` option)                                                                                                                                                                                                                                                                                      |
 | `show_location`          | boolean | `show_location`          | Whether to show event locations for this calendar (overrides global `show_location` option). `false` also keeps them out of the [event popover](/features/actions#narrowing-what-the-popover-offers)                                                                                                                                                                     |
 | `location_icon`          | string  | `mdi:map-marker-outline` | Icon shown beside this calendar's locations, e.g. `mdi:office-building`. Unset, Microsoft Teams meetings get `mdi:microsoft-teams` and every other location the map marker                                                                                                                                                                                               |
@@ -334,6 +335,56 @@ entities:
     label: home-assistant
     label_type: text
 ```
+
+:::
+
+### Scaling One Calendar's Text
+
+`text_scale` draws one calendar's events with smaller or larger text, so a calendar that only
+needs to be there, such as a school's, takes less room and less attention than the rest. It
+multiplies the card's own sizes: `0.75` draws them at three quarters, `1.25` at a quarter more.
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.family
+  - entity: calendar.school
+    text_scale: 0.75
+```
+
+It scales the text in each of the calendar's events and the icons beside it: the title with its
+label, the time with its countdown, the location, the description and the event's weather. The
+spacing around them stays as it is, so a scaled-down row is shorter and a scaled-up one taller.
+In grid view a block keeps the height its times give it, and its title and time fit into it as
+they would at any other size.
+
+It applies in list, column and grid view, all-day banners included. The event popover, search
+results and calendar filter keep the card's sizes. Left unset, or set to anything but a number
+above 0, the calendar's events draw as the card's do.
+
+::: tip Visual Editor
+**Text Scale** is the last field under **Name & Appearance** in each calendar's panel.
+:::
+
+::: details Calendars Listed Twice, Merged Rows, Grid Overlaps & Theming
+
+- The scale belongs to the entry, not the calendar. A calendar listed twice, as
+  [splitting it by event type](#separating-all-day-from-timed-events) does, can draw its all-day
+  and its timed events at two scales.
+- A row [merged from several calendars](#filtering-duplicate-events) takes the scale of the
+  calendar listed first among them.
+- In grid view, an event that starts shortly after a scaled-up one is drawn beside it rather
+  than over it until it starts far enough in to leave room for that event's larger title.
+- A font size written as a keyword, such as `large`, is scaled from the size browsers draw it at
+  by default. One that names a variable, as in `var(--my-size)`, is scaled whole; a variable
+  holding a keyword cannot be multiplied, and the text then takes the size of the text around it.
+- An icon size in `em` is scaled once, with the text it sits beside. One that names a variable
+  is scaled whole, which suits a variable holding a length such as `14px`; one holding an `em`
+  length comes out smaller than the text beside it.
+- A scaled calendar writes the card's size properties on its own events, so a card-mod rule
+  setting one of them on `.event` needs `!important` to reach that calendar's events; see
+  [Weather Custom Properties](/features/theming#weather-custom-properties). Its events carry
+  the class `event-text-scaled`.
 
 :::
 

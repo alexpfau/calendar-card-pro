@@ -3863,6 +3863,12 @@ describe('the time beside the title', () => {
       'font-size': 'var(--calendar-card-weather-event-font-size, 12px)',
       'align-self': 'baseline',
     }),
+    // A calendar's text_scale, on the badge's icon: it sits in the row's unscaled font beside the
+    // title, so a scaled event gives an em size the scale in full there (text-scale.ts).
+    ['.event-text-scaled :where(.summary-row, .title-aside) > .event-weather ha-icon']: one({
+      '--mdc-icon-size':
+        'var(--calendar-card-weather-event-title-icon-size, var(--calendar-card-weather-event-icon-size, 14px))',
+    }),
     [`${SHARED} > .event-weather`]: one({ 'margin-inline-end': '0' }),
     // The bullet, only after a badge, with the folded countdown's spacing.
     [`${SHARED} > .event-weather + .time::before`]: one({

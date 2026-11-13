@@ -988,6 +988,7 @@ describe('editor: the order of the two panels', () => {
       'color',
       'accent_color_mode',
       'accent_color',
+      'text_scale',
       '# heading_filters',
       'days_of_week',
       'event_type',
