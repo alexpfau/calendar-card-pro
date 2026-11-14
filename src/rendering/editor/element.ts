@@ -51,6 +51,7 @@ import * as LanguageCodes from '../../translations/language-codes';
 import { configuredCalendarName } from '../../utils/calendar-names';
 import * as Helpers from '../../utils/helpers';
 import * as Logger from '../../utils/logger';
+import { showsEventWeather } from '../../utils/weather-position';
 
 const ENTITY_ICON =
   'M19 19H5V8h14m-3-7v2H8V1H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-1V1h-2Z';
@@ -804,6 +805,7 @@ export class CalendarCardProEditor extends LitElement {
           Entities.showsLocation(entry, ctx.config, this._destinationView(ctx)),
           labelImageSourceOf(Entities.asEntityConfig(entry).label),
           hasLegend,
+          showsEventWeather(ctx.config.weather),
         );
         const schema = Filter.filterEntitySchema(declared, entry, subform.path, filterCtx);
         this._countHidden(

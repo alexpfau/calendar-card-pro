@@ -503,6 +503,17 @@ export function fromEntityFormData(
     if (key in ENTITY_TRISTATE_VALUES) {
       const stored = ENTITY_TRISTATE_STORED[key][String(value)];
       if (stored !== undefined) entry[key] = stored;
+      // `show_weather: true` is valid YAML the dropdown has no entry for, since it means what
+      // Follow the card means, which the panel shows for it. Kept while the panel still shows
+      // that: dropping it would delete a line the user wrote on an edit to some other field.
+      // Choosing Follow the card after Never show still stores nothing.
+      else if (
+        key === 'show_weather' &&
+        value === INHERIT &&
+        asEntityConfig(previous).show_weather === true
+      ) {
+        entry[key] = true;
+      }
       continue;
     }
 

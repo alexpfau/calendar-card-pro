@@ -68,6 +68,7 @@ const PER_CALENDAR_OPTIONS: ReadonlyArray<[string, unknown, unknown]> = [
   ['show_location', true, false],
   ['location_icon', 'mdi:map-marker-outline', 'mdi:microsoft-teams'],
   ['show_description', false, true],
+  ['show_weather', true, false],
   ['compact_events_to_show', 1, 2],
   ['blocklist', 'standup', 'retro'],
   ['allowlist', 'standup', 'retro'],

@@ -13,6 +13,7 @@ import * as Types from '../config/types';
 import * as Localize from '../translations/localize';
 import * as ColorMix from '../utils/color-mix';
 import * as EntityColors from '../utils/entity-colors';
+import * as EventUtils from '../utils/events';
 import * as FormatUtils from '../utils/format';
 import * as Helpers from '../utils/helpers';
 import * as Links from '../utils/links';
@@ -662,11 +663,15 @@ function renderEventTitle(
 }
 
 /**
- * Whether the card is configured to show a weather badge on individual events.
+ * Whether this event gets a weather badge: the card draws weather beside events, and the
+ * calendar the event came from has not turned it off with `show_weather: false`. A merged
+ * duplicate answers for the calendar listed first among its sources, whose block it carries.
  */
-function hasEventWeather(config: Types.Config): boolean {
-  const position = Weather.resolveWeatherPosition(config.weather);
-  return !!(config.weather?.entity && (position === 'event' || position === 'both'));
+function hasEventWeather(config: Types.Config, event: Types.CalendarEventData): boolean {
+  return (
+    Weather.showsEventWeather(config.weather) &&
+    EventUtils.getEntitySetting(event._entityId, 'show_weather', config, event) !== false
+  );
 }
 
 /**
@@ -720,7 +725,7 @@ export function eventWeatherContent(
   placement: 'title' | 'row' = 'title',
   hass?: Types.Hass | null,
 ) {
-  const showEventWeather = hasEventWeather(config);
+  const showEventWeather = hasEventWeather(config, event);
 
   if (!showEventWeather || !weatherForecasts?.hourly) {
     return null;
@@ -1076,7 +1081,7 @@ export function renderEventContent(
   const titleForecasts = weatherPlacement === 'title' ? weatherForecasts : undefined;
 
   const weatherRow =
-    weatherPlacement === 'row' && hasEventWeather(config)
+    weatherPlacement === 'row' && hasEventWeather(config, event)
       ? renderEventWeather(event, config, weatherForecasts, 'row', hass)
       : nothing;
 

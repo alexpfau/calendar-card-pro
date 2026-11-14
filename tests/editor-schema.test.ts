@@ -3811,6 +3811,7 @@ describe('editor: per-calendar settings', () => {
         'show_in_legend',
         'show_location',
         'show_time',
+        'show_weather',
         'split_multiday_events',
         'text_scale',
         'multiday_banners',
@@ -3887,6 +3888,64 @@ describe('editor: per-calendar settings', () => {
   });
 
   /**
+   * `show_weather` can only take weather away, since `weather.position` decides whether events
+   * get any, so its dropdown has two entries where its neighbors have three. Not in the list
+   * above, which requires three.
+   */
+  it('offers the weather beside events as Follow the card or Never show', () => {
+    const node = [...walkSchema(entitySchema().schema)].find(
+      (entry) => entry.node.name === 'show_weather',
+    )!.node;
+    const selector = (node as unknown as { selector: { select: { options: SelectOption[] } } })
+      .selector;
+
+    expect(selector.select.options.map((option) => option.value)).toEqual(['inherit', 'hide']);
+  });
+
+  it('stores only what Never show says for the weather beside events', () => {
+    expect(toEntityFormData({ entity: 'calendar.a' }).show_weather).toBe('inherit');
+    expect(fromEntityFormData('calendar.a', { show_weather: 'inherit' })).toBe('calendar.a');
+
+    const off = { entity: 'calendar.a', show_weather: false } as Types.EntityConfig;
+    expect(toEntityFormData(off).show_weather).toBe('hide');
+    expect(fromEntityFormData('calendar.a', { show_weather: 'hide' })).toEqual(off);
+
+    // Back to Follow the card is the user's own answer, so the line goes.
+    expect(fromEntityFormData('calendar.a', { show_weather: 'inherit' }, off)).toBe('calendar.a');
+  });
+
+  /**
+   * `show_weather: true` is valid YAML the dropdown has no entry for, and the panel shows it as
+   * Follow the card. An edit to another field must not delete the line the user wrote.
+   */
+  it('keeps an authored show_weather: true through an edit to another field', () => {
+    const entities: Array<string | Types.EntityConfig> = [
+      { entity: 'calendar.a', show_weather: true },
+    ];
+    const data = toEntityFormData(entities[0], entities);
+    expect(data.show_weather).toBe('inherit');
+
+    const next = writeEntity(entities, 0, { ...data, color: '#ff0000' });
+
+    expect(next[0]).toEqual({ entity: 'calendar.a', show_weather: true, color: '#ff0000' });
+    expect(fromEntityFormData('calendar.a', { show_weather: 'hide' }, entities[0])).toEqual({
+      entity: 'calendar.a',
+      show_weather: false,
+    });
+  });
+
+  it('offers the weather switch only on a card that draws weather beside events', () => {
+    const declared = entitySchema().schema;
+    const names = (showsEventWeather: boolean) =>
+      entitySchemaFor(declared, 'text', 'custom', 'custom', true, 'custom', true, showsEventWeather)
+        .map((node) => node.name)
+        .filter((name) => name === 'show_weather');
+
+    expect(names(true)).toEqual(['show_weather']);
+    expect(names(false)).toEqual([]);
+  });
+
+  /**
    * The split shares the tristate machinery but not its vocabulary: its two
    * decided states are offered as `split` and `whole` rather than `show` and
    * `hide`, and those two words are mapped in a second table. The round-trip
@@ -3956,6 +4015,7 @@ describe('editor: per-calendar settings', () => {
       show_time: ['inherit', 'show', 'hide'],
       show_location: ['inherit', 'show', 'hide'],
       show_description: ['inherit', 'show', 'hide'],
+      show_weather: ['inherit', 'hide'],
       split_multiday_events: ['inherit', 'split', 'whole'],
       multiday_banners: ['inherit', 'banner', 'blocks'],
       event_type: ['inherit', 'all', 'timed', 'all_day'],
@@ -3968,6 +4028,7 @@ describe('editor: per-calendar settings', () => {
       show_time: { inherit: undefined, show: true, hide: false },
       show_location: { inherit: undefined, show: true, hide: false },
       show_description: { inherit: undefined, show: true, hide: false },
+      show_weather: { inherit: undefined, hide: false },
       split_multiday_events: { inherit: undefined, split: true, whole: false },
       multiday_banners: { inherit: undefined, banner: true, blocks: false },
       event_type: { inherit: undefined, all: 'all', timed: 'timed', all_day: 'all_day' },

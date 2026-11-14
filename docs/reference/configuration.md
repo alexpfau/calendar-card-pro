@@ -158,7 +158,7 @@ the card-wide options for that one calendar:
 
 `entity` · `name` · `show_in_legend` · `label` · `label_type` · `color` · `accent_color` · `label_icon_color` ·
 `text_scale` ·
-`show_time` · `show_location` · `location_icon` · `show_description` ·
+`show_time` · `show_location` · `location_icon` · `show_description` · `show_weather` ·
 `compact_events_to_show` · `blocklist` · `allowlist` · `filter_field` ·
 `replace_field` · `replace_pattern` · `replace_with` ·
 `split_multiday_events` · `multiday_banners` · `event_type` · `allday_expires_at` · `days_of_week` · `visibility`
@@ -166,6 +166,7 @@ the card-wide options for that one calendar:
 **→ [Entity configuration options](/features/core-settings#available-options-for-entity-configuration-objects)** — full table, with filtering examples.
 **→ [Naming a calendar in the card](/features/core-settings#naming-a-calendar-in-the-card)** — `name`, where it shows, and what keeps Home Assistant's name.
 **→ [Scaling one calendar's text](/features/core-settings#scaling-one-calendars-text)** — `text_scale`, what it makes larger or smaller, and where.
+**→ [Turning weather off for one calendar](/features/weather#turning-weather-off-for-one-calendar)** — `show_weather`, what it leaves out, and why the day header keeps its forecast.
 **→ [Leaving a calendar out of the filter](/features/layout-appearance#leaving-a-calendar-out-of-the-filter)** — `show_in_legend`, for a calendar shown on the card without a chip of its own.
 **→ [Showing a calendar under conditions](/features/core-settings#showing-a-calendar-under-conditions)** — `visibility`, Home Assistant's conditions for one calendar: by person, place, state, screen, time or template.
 **→ [Rewriting what an event says](/features/core-settings#text-replacement)** — `replace_pattern` and `replace_with`, and what each does when the other is left out.
@@ -356,7 +357,11 @@ icon is always shown, so `show_conditions` writes the condition out in words ins
 `21° · Partly cloudy`. `weather → event → max_lines` limits how many lines those words may
 take, with `0` meaning no limit.
 
+One calendar can leave the weather out beside its own events with `show_weather: false` on its
+entry under `entities`; see [Per-Entity Options](#per-entity-options).
+
 **→ [Weather configuration options](/features/weather#weather-configuration-options)** — full table with defaults and worked examples.
+**→ [Turning weather off for one calendar](/features/weather#turning-weather-off-for-one-calendar)** — `show_weather`, what it leaves out, and where.
 
 ## 👆 Actions
 

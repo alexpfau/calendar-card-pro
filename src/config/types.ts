@@ -725,6 +725,18 @@ export interface EntityConfig {
    */
   location_icon?: string;
   show_description?: boolean;
+  /**
+   * `false` leaves the weather out beside this block's events: the list view's badge, the
+   * weather row of column and grid view, and the grid's screen-reader name. Unset or `true`
+   * follows the card, so the option can only take weather away; `weather.position` still
+   * decides whether events get any.
+   *
+   * The day header's forecast is not this block's to hide: it describes the day for every
+   * calendar on the card, on days with no events too. Read at render time from the event's
+   * matched block (`eventWeatherContent` in `rendering/leaves.ts`), so a calendar listed twice
+   * can keep it on one block, and the forecast subscriptions stay as `weather` asks.
+   */
+  show_weather?: boolean;
   compact_events_to_show?: number;
   blocklist?: string;
   allowlist?: string;

@@ -16,6 +16,9 @@ export const ENTITY_TRISTATE_VALUES: Readonly<Record<string, ReadonlyArray<strin
   show_time: [INHERIT, 'show', 'hide'],
   show_location: [INHERIT, 'show', 'hide'],
   show_description: [INHERIT, 'show', 'hide'],
+  // No `show`: the option can only take weather away, since whether events get any at all is
+  // `weather.position`'s to say. An entry for it would offer a choice that changes nothing.
+  show_weather: [INHERIT, 'hide'],
   split_multiday_events: [INHERIT, 'split', 'whole'],
   multiday_banners: [INHERIT, 'banner', 'blocks'],
   event_type: [INHERIT, 'all', 'timed', 'all_day'],
@@ -46,6 +49,7 @@ export const ENTITY_TRISTATE_STORED: Readonly<
   show_time: { [INHERIT]: undefined, show: true, hide: false },
   show_location: { [INHERIT]: undefined, show: true, hide: false },
   show_description: { [INHERIT]: undefined, show: true, hide: false },
+  show_weather: { [INHERIT]: undefined, hide: false },
   split_multiday_events: { [INHERIT]: undefined, split: true, whole: false },
   multiday_banners: { [INHERIT]: undefined, banner: true, blocks: false },
   event_type: { [INHERIT]: undefined, all: 'all', timed: 'timed', all_day: 'all_day' },
@@ -447,6 +451,10 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     choice(ctx.language, 'show_location'),
     { name: 'location_icon', selector: { icon: {} } },
     choice(ctx.language, 'show_description'),
+    // Last: times, locations and descriptions are the event's own, while the weather is the
+    // card's forecast laid beside it, and the one field here that comes and goes with the
+    // card's weather settings, so it moves none of the three above when it appears.
+    choice(ctx.language, 'show_weather'),
   ];
 }
 
@@ -535,6 +543,7 @@ function labelIconSource(language: string): SelectorSchema {
  * @param showsLocation - Whether this calendar's events draw a location row at all
  * @param imageSource - Where this calendar's image label comes from
  * @param hasLegend - Whether the card's toolbar shows a calendar filter at all
+ * @param showsEventWeather - Whether the card draws weather beside its events at all
  * @returns The schema this calendar renders
  */
 export function entitySchemaFor(
@@ -545,6 +554,7 @@ export function entitySchemaFor(
   showsLocation: boolean = true,
   imageSource: string = 'custom',
   hasLegend: boolean = true,
+  showsEventWeather: boolean = true,
 ): HaFormSchema[] {
   const replaced = new Set([LABEL_ICON_SOURCE, LABEL_IMAGE_SOURCE, 'label', 'label_icon_color']);
 
@@ -571,6 +581,11 @@ export function entitySchemaFor(
     // nothing to list the calendar in. Whether the filter is a menu or chips does not matter,
     // since it leaves the calendar out of both.
     if (node.name === SHOW_IN_LEGEND) return hasLegend ? [node] : [];
+
+    // Nor does the weather switch, on a card that draws no weather beside events: there is
+    // none for this calendar to leave out. A stored `false` stays in the YAML meanwhile, as
+    // the form data still carries it.
+    if (node.name === 'show_weather') return showsEventWeather ? [node] : [];
 
     if (!replaced.has(node.name)) return [node];
     if (inserted) return [];
