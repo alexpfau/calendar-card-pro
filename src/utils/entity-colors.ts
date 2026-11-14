@@ -8,6 +8,7 @@
  */
 
 import * as Logger from './logger';
+import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 
 //-----------------------------------------------------------------------------
@@ -166,6 +167,42 @@ let unsubscribe: (() => void) | undefined;
 let subscribeGeneration = 0;
 let reportedUnavailable = false;
 
+/**
+ * Bumped when the last card leaves, so a read still on its way when it does is ignored when
+ * it lands. Without it, that late answer set `loaded` behind the next card's back, and a card
+ * returning to the page kept whatever colors the registry held before it left.
+ */
+let readGeneration = 0;
+
+/** Consecutive failed reads, which decide how long the next retry waits. */
+let failures = 0;
+
+/**
+ * The retry a failed read is waiting for, and the `hass` it will read with — the newest one
+ * a card handed over, so the timer never pins a stale object.
+ */
+let retry: { timer: ReturnType<typeof setTimeout>; hass: Types.Hass } | undefined;
+
+/**
+ * Connections already asked to cut a retry short when they come back.
+ *
+ * Deliberately never cleared, by teardown or by {@link resetEntityColors}: the listener on a
+ * connection stays, so forgetting the connection would only add a second one. A `WeakSet`
+ * holds no connection alive.
+ */
+const watchedConnections = new WeakSet<object>();
+
+/**
+ * First retry after a failed read, then doubling per further failure up to the cap.
+ *
+ * The calendar fetch's default schedule: the same first wait, capped at the default refresh
+ * interval rather than at a card's own `refresh_interval`, because this cache is shared by
+ * every card on the page and no one card's interval is the page's. A reconnect does not wait
+ * for it at all; see {@link watchReconnects}.
+ */
+const RETRY_FIRST_MS = Constants.CACHE.RETRY_INITIAL_SECONDS * 1000;
+const RETRY_MAX_MS = Constants.CACHE.DEFAULT_DATA_REFRESH_MINUTES * 60 * 1000;
+
 /** Cards waiting to be told the registry moved. */
 const listeners = new Set<() => void>();
 
@@ -230,7 +267,14 @@ function notifyListeners(): void {
   }
 }
 
-function fetchColors(hass: Types.Hass): Promise<void> | undefined {
+/**
+ * Read the registry once, and keep its colors if the answer still counts.
+ *
+ * @param hass - Home Assistant instance
+ * @returns Whether the colors were read and kept, or `undefined` when there is no WebSocket
+ *   command API to ask
+ */
+function fetchColors(hass: Types.Hass): Promise<boolean> | undefined {
   const request = sendCommand<Types.EntityRegistryEntry[]>(hass, {
     type: 'config/entity_registry/list',
   });
@@ -246,15 +290,130 @@ function fetchColors(hass: Types.Hass): Promise<void> | undefined {
     return undefined;
   }
 
+  const generation = readGeneration;
   return request
     .then((entries) => {
+      if (generation !== readGeneration) {
+        return false;
+      }
+
       colors = extractColors(entries);
       loaded = true;
+      failures = 0;
+      clearRetry();
       Logger.debug(`Loaded ${colors.size} calendar colors from the entity registry`);
+      return true;
     })
     .catch((error) => {
       Logger.debug('Could not read calendar colors from the entity registry', error);
+      return false;
     });
+}
+
+/**
+ * Read the registry for the cards, tell them when the colors land, and wait if it fails.
+ *
+ * 🚨 A failed read notifies nobody. It used to, and that was a loop: the card repaints on
+ * notification, its `updated()` calls {@link ensureEntityColors} again, and with nothing
+ * loaded and nothing in flight that reads again. A rejection that arrives at once — every
+ * command home-assistant-js-websocket is asked to send while its socket is down — turned it
+ * into a microtask loop that froze the tab, reconnect timer included, so the page never came
+ * back on its own. Nothing a card draws changed on a failure, so there is nothing to repaint.
+ *
+ * @param hass - Home Assistant instance
+ */
+function read(hass: Types.Hass): void {
+  const request = fetchColors(hass);
+  if (!request) {
+    return;
+  }
+
+  const generation = readGeneration;
+  inFlight = request.then((succeeded) => {
+    if (generation !== readGeneration) {
+      return;
+    }
+
+    inFlight = undefined;
+    if (succeeded) {
+      notifyListeners();
+    } else {
+      scheduleRetry(hass);
+    }
+  });
+}
+
+/**
+ * Try a failed read again later, rather than on the card's next render.
+ *
+ * @param hass - Home Assistant instance the failed read used
+ */
+function scheduleRetry(hass: Types.Hass): void {
+  if (loaded || retry || listeners.size === 0) {
+    return;
+  }
+
+  failures += 1;
+  const delay = Math.min(RETRY_FIRST_MS * 2 ** Math.min(failures - 1, 20), RETRY_MAX_MS);
+  retry = { timer: setTimeout(() => retryNow(false), delay), hass };
+}
+
+function clearRetry(): void {
+  if (!retry) {
+    return;
+  }
+
+  clearTimeout(retry.timer);
+  retry = undefined;
+}
+
+/**
+ * Stop waiting and read now.
+ *
+ * @param reconnected - Whether the connection just came back, which starts the backoff over:
+ *   the failures it counted were the outage's
+ */
+function retryNow(reconnected: boolean): void {
+  const target = retry?.hass;
+  clearRetry();
+
+  if (reconnected) {
+    failures = 0;
+  }
+
+  if (target && !loaded && !inFlight && listeners.size > 0) {
+    read(target);
+  }
+}
+
+/**
+ * Cut a retry short when the connection comes back, which is when an outage's failed read can
+ * first succeed.
+ *
+ * One listener per connection, added once and never removed, as `live-calendars.ts` does it,
+ * and a no-op unless a retry is owed. 🚨 Removing it is not the tidier alternative it looks:
+ * home-assistant-js-websocket's `fireEvent` walks its listener array with `forEach`, and
+ * `removeEventListener` splices that same array, so a listener removing itself while `ready`
+ * is dispatched makes the next one — another card's, or Home Assistant's own — be skipped.
+ *
+ * @param hass - Home Assistant instance
+ */
+function watchReconnects(hass: Types.Hass): void {
+  const connection = hass.connection;
+  if (
+    !connection ||
+    typeof connection.addEventListener !== 'function' ||
+    watchedConnections.has(connection)
+  ) {
+    return;
+  }
+
+  watchedConnections.add(connection);
+  connection.addEventListener('ready', () => {
+    if (retry?.hass.connection === connection) {
+      retryNow(true);
+    }
+  });
 }
 
 /**
@@ -280,9 +439,20 @@ function subscribe(hass: Types.Hass): void {
 
   connection
     .subscribeEvents(() => {
+      // Closing a subscription is only acknowledged later, so an event can still arrive
+      // after the last card left — and read the registry for nobody, behind the next
+      // card's back.
+      if (generation !== subscribeGeneration) {
+        return;
+      }
+
       const refresh = fetchColors(hass);
       if (refresh) {
-        refresh.then(notifyListeners);
+        refresh.then((succeeded) => {
+          if (succeeded) {
+            notifyListeners();
+          }
+        });
       }
     }, 'entity_registry_updated')
     .then((off) => {
@@ -313,9 +483,13 @@ function subscribe(hass: Types.Hass): void {
  * accidentally preventing. `colors` itself is kept: a stale color repainted once beats
  * rendering no color at all, which is the trade {@link entityColors} already documents for
  * a cold cache.
+ *
+ * Anything still on its way is disowned rather than awaited, and a pending retry is dropped
+ * with its backoff, so the next card to arrive reads at once.
  */
 function teardown(): void {
   subscribeGeneration++;
+  readGeneration++;
 
   if (unsubscribe) {
     unsubscribe();
@@ -323,13 +497,16 @@ function teardown(): void {
   }
 
   loaded = false;
+  inFlight = undefined;
+  failures = 0;
+  clearRetry();
 }
 
 /**
  * Make sure Home Assistant's calendar colors are on their way, and keep them current.
  *
- * Safe to call on every update: the fetch happens once per page and the subscription once
- * per connection.
+ * Safe to call on every update: the fetch happens once per page, the subscription once per
+ * connection, and a failed fetch is retried on its own schedule rather than by the call.
  *
  * @param hass - Home Assistant instance, if one is available
  * @param onChange - Called when the colors change, so the caller can re-render
@@ -344,20 +521,18 @@ export function ensureEntityColors(
 
   listeners.add(onChange);
   subscribe(hass);
+  watchReconnects(hass);
+
+  if (retry) {
+    retry.hass = hass;
+    return;
+  }
 
   if (loaded || inFlight) {
     return;
   }
 
-  const request = fetchColors(hass);
-  if (!request) {
-    return;
-  }
-
-  inFlight = request.then(() => {
-    inFlight = undefined;
-    notifyListeners();
-  });
+  read(hass);
 }
 
 /**
@@ -383,7 +558,6 @@ export function releaseEntityColors(onChange: () => void): void {
  */
 export function resetEntityColors(): void {
   colors = new Map();
-  inFlight = undefined;
   reportedUnavailable = false;
   listeners.clear();
 

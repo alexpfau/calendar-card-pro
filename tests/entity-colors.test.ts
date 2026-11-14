@@ -375,6 +375,187 @@ describe('entity colors: reading the registry', () => {
   });
 });
 
+describe('entity colors: a registry that refuses', () => {
+  const MINUTE = 60 * 1000;
+
+  /**
+   * A `hass` whose registry refuses the first `refusals` reads, then answers.
+   *
+   * `calls` records when each read was asked for, in seconds since the start. `fireReady`
+   * announces a reconnect the way home-assistant-js-websocket's `fireEvent` does, with
+   * `forEach` over the live listener array, so a listener that removed itself mid-dispatch
+   * would make the next one be skipped here too.
+   */
+  function refusingHass(refusals = Infinity) {
+    const calls: number[] = [];
+    const ready: Array<() => void> = [];
+    const start = Date.now();
+
+    const hass = {
+      states: {},
+      callWS: () => {
+        calls.push((Date.now() - start) / 1000);
+        return calls.length > refusals
+          ? Promise.resolve([
+              { entity_id: 'calendar.work', options: { calendar: { color: 'red' } } },
+            ])
+          : Promise.reject({ code: 'unknown_command', message: 'Unknown command.' });
+      },
+      connection: {
+        addEventListener: (type: string, listener: () => void) => {
+          if (type === 'ready') ready.push(listener);
+        },
+        removeEventListener: (type: string, listener: () => void) => {
+          const at = ready.indexOf(listener);
+          if (type === 'ready' && at !== -1) ready.splice(at, 1);
+        },
+      },
+    } as unknown as Types.Hass;
+
+    return { hass, calls, ready, fireReady: () => ready.forEach((listener) => listener()) };
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('tells nobody about a failed read, and tries again on a backoff until it gets through', async () => {
+    // One minute, doubling, capped at the default refresh interval: the calendar fetch's default
+    // schedule. The seventh retry waits 30 minutes rather than 32.
+    const conn = refusingHass(7);
+    let repaints = 0;
+
+    EntityColors.ensureEntityColors(conn.hass, () => {
+      repaints += 1;
+    });
+    await vi.advanceTimersByTimeAsync(0);
+
+    // Nothing changed, so there is nothing to repaint — and a repaint is what used to ask again.
+    expect(repaints).toBe(0);
+
+    await vi.advanceTimersByTimeAsync(120 * MINUTE);
+
+    expect(conn.calls).toEqual([0, 60, 180, 420, 900, 1860, 3660, 5460]);
+    expect(repaints).toBe(1);
+    expect(EntityColors.entityColors().get('calendar.work')).toBe('var(--red-color)');
+  });
+
+  it('reads at once on a reconnect when a read is owed, and on no other', async () => {
+    const conn = refusingHass(1);
+    EntityColors.ensureEntityColors(conn.hass, () => {});
+    await vi.advanceTimersByTimeAsync(0);
+
+    // Registered after this module's own listener, so it runs only if that one leaves the
+    // listener array alone while `ready` is being dispatched.
+    let others = 0;
+    conn.ready.push(() => {
+      others += 1;
+    });
+
+    conn.fireReady();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(conn.calls).toEqual([0, 0]);
+    expect(others).toBe(1);
+    expect(EntityColors.entityColors().get('calendar.work')).toBe('var(--red-color)');
+
+    // Loaded now, so the next reconnect owes nothing.
+    conn.fireReady();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(conn.calls).toHaveLength(2);
+    expect(others).toBe(2);
+  });
+
+  it('starts the backoff over after a reconnect', async () => {
+    const conn = refusingHass();
+    EntityColors.ensureEntityColors(conn.hass, () => {});
+    await vi.advanceTimersByTimeAsync(MINUTE);
+    expect(conn.calls).toEqual([0, 60]);
+
+    // Two failures so far, so the next wait would be four minutes. The read the reconnect
+    // makes fails too, and is followed by a one-minute wait: the outage's failures are over.
+    await vi.advanceTimersByTimeAsync(10 * 1000);
+    conn.fireReady();
+    await vi.advanceTimersByTimeAsync(MINUTE);
+
+    expect(conn.calls).toEqual([0, 60, 70, 130]);
+  });
+
+  it('forgets a pending retry when the last card leaves', async () => {
+    const conn = refusingHass();
+    const onChange = () => {};
+
+    EntityColors.ensureEntityColors(conn.hass, onChange);
+    await vi.advanceTimersByTimeAsync(0);
+    EntityColors.releaseEntityColors(onChange);
+
+    // The next card to arrive asks at once instead of inheriting the wait.
+    EntityColors.ensureEntityColors(conn.hass, onChange);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(conn.calls).toEqual([0, 0]);
+
+    // And a page nobody is looking at stops asking.
+    EntityColors.releaseEntityColors(onChange);
+    await vi.advanceTimersByTimeAsync(120 * MINUTE);
+    expect(conn.calls).toHaveLength(2);
+  });
+
+  it('ignores a reconnect of a connection it does not read through', async () => {
+    // Only a page under test has two, but there a listener left on an earlier test's
+    // connection would otherwise answer for this one.
+    const earlier = refusingHass();
+    const current = refusingHass();
+    EntityColors.ensureEntityColors(earlier.hass, () => {});
+    await vi.advanceTimersByTimeAsync(0);
+    EntityColors.ensureEntityColors(current.hass, () => {});
+
+    earlier.fireReady();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(current.calls).toHaveLength(0);
+
+    current.fireReady();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(current.calls).toHaveLength(1);
+  });
+
+  it('repaints nothing for a registry change it could not read', async () => {
+    let onRegistryUpdated: (() => void) | undefined;
+    let refuse = false;
+    let repaints = 0;
+    const hass = {
+      states: {},
+      callWS: () =>
+        refuse
+          ? Promise.reject({ code: 3, message: 'Connection lost' })
+          : Promise.resolve([
+              { entity_id: 'calendar.work', options: { calendar: { color: 'red' } } },
+            ]),
+      connection: {
+        subscribeEvents: async (callback: () => void) => {
+          onRegistryUpdated = callback;
+          return () => {};
+        },
+      },
+    } as unknown as Types.Hass;
+
+    EntityColors.ensureEntityColors(hass, () => {
+      repaints += 1;
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(repaints).toBe(1);
+
+    refuse = true;
+    onRegistryUpdated?.();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(repaints).toBe(1);
+    expect(EntityColors.entityColors().get('calendar.work')).toBe('var(--red-color)');
+  });
+});
+
 describe('entity colors: the rendered card', () => {
   /**
    * The end of the pipeline. Everything above works on the resolver in isolation; this
