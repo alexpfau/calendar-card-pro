@@ -54,6 +54,34 @@ function labelNames(
   });
 }
 
+/**
+ * Name a timed banner (`multiday_banners`): who it belongs to, its title and its whole time
+ * span, whether or not the banner had room to draw its times. A banner draws nothing else, so
+ * its name says nothing else.
+ *
+ * @param event - The banner's event, with its own start and end
+ * @param parts - Its shared content
+ * @param config - Card configuration
+ * @param hass - Home Assistant instance
+ * @returns The name
+ */
+export function gridBannerAccessibleName(
+  event: Types.CalendarEventData,
+  parts: EventContentParts,
+  config: Types.Config,
+  hass?: Types.Hass | null,
+): string {
+  const words = [
+    ...labelNames(event, parts, config, hass),
+    event.summary,
+    parts.shouldShowTime ? parts.eventTime : '',
+  ];
+  return words
+    .filter((word): word is string => typeof word === 'string' && word.trim().length > 0)
+    .map((word) => `\u2068${word.trim()}\u2069`)
+    .join(', ');
+}
+
 /** Name a timed block using configured presentation and original, never clipped, source times. */
 export function gridEventAccessibleName(
   event: Types.CalendarEventData,

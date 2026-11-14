@@ -504,9 +504,14 @@ const DETAILS = { location: '12 High Street', description: 'Bring the quarterly 
 /**
  * One calendar per label kind, and events chosen to draw every placement: a running event
  * for the progress bar, upcoming ones for the countdown, three overlapping for the grid's
- * overflow block, all-day ones for badges, pills and banners, and an empty day.
+ * overflow block, all-day ones for badges, pills and banners, a timed one over two days for
+ * the grid's timed banner and its times (`multiday_banners`), and an empty day.
  */
 const EVENTS: Types.CalendarEventData[] = [
+  {
+    ...timed(18, '08:00', '12:00', 'Site visit', 'calendar.icon'),
+    end: { dateTime: new Date(2026, 5, 19, 12, 0).toISOString() },
+  },
   timed(17, '09:30', '11:00', 'Planning session', 'calendar.icon', DETAILS),
   timed(17, '14:00', '15:00', 'Upcoming review', 'calendar.image', DETAILS),
   timed(17, '14:00', '15:00', 'Overlapping call', 'calendar.emoji'),
@@ -1020,7 +1025,11 @@ describe('every piece of text is sized by its own option', () => {
       'event-title in summary': ['event_font_size'],
       'event-title-scroll in event-title': ['event_font_size'],
       'grid-axis-label in grid-axis': ['time_font_size'],
+      // A timed banner (multiday_banners) takes the event size itself, and its times and title
+      // inherit it, so its container queries measure in the size its text is set in.
+      'grid-banner-time in grid-banner-content': ['event_font_size'],
       'grid-banner-title in event': ['event_font_size'],
+      'grid-banner-title in grid-banner-content': ['event_font_size'],
       'grid-event-overflow-label in event': ['time_font_size'],
       // The legend's chips and the rows of the menu it folds into: controls, at Home
       // Assistant's control size like the rest of the toolbar. The menu sets its own size, so

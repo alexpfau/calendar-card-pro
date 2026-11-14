@@ -212,7 +212,9 @@ export function searchGroupingConfig(
  * The grouping as the view on screen draws it. Grid view draws a timed event's day only where it
  * reaches into the hours it shows (`renderDayBody`), so a day outside them is left out, by the
  * grid's own measure and test of it (`segmentMinutes`, `intersectsBand`), and an event none of
- * whose days reach in is not found. Every other view draws each day its grouping holds.
+ * whose days reach in is not found. A timed event drawn as a banner (`_gridBanner`) is in the
+ * all-day band, whatever its hours, so it is kept, as an all-day event is. Every other view
+ * draws each day its grouping holds.
  *
  * @param days - The grouping, as `groupEventsByDay` returns it for the view
  * @param config - The configuration it was grouped with, which holds the grid's hours
@@ -232,7 +234,7 @@ export function drawnIn(
   return days.map((day) => ({
     ...day,
     events: day.events.filter((event) => {
-      if (!event.start.dateTime) return true;
+      if (!event.start.dateTime || event._gridBanner) return true;
       const extent = Grid.segmentMinutes(event);
       return extent !== null && Grid.intersectsBand(extent.startMin, extent.endMin, band);
     }),

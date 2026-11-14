@@ -41,7 +41,21 @@ async function draw(
     titles: [
       ...container.querySelectorAll('.event-title:not(.empty-day-title), .grid-banner-title'),
     ].map((title) => title.textContent?.trim()),
+    banners: [...container.querySelectorAll<HTMLElement>('.grid-banner')].map(
+      (banner) => banner.style.gridColumn,
+    ),
   };
+}
+
+/**
+ * What a view draws for one event over `days` dates from the window's first: a row or block a
+ * day, or in grid one banner over them all, a timed event as well as an all-day one, since one
+ * a full day or longer is a banner by default (`multiday_banners`).
+ */
+function drawnOver(view: Types.EffectiveView, title: string, days: number) {
+  return view === 'grid'
+    ? { titles: [title], banners: [`2 / span ${days}`] }
+    : { titles: Array<string>(days).fill(title), banners: [] };
 }
 
 beforeEach(() => vi.useFakeTimers());
@@ -68,7 +82,7 @@ describe.each(['list', 'column', 'grid'] as const)('%s source boundaries', (view
     };
     const result = await draw(view, event);
     expect(result.dates).toEqual([dates.start, dates.middle]);
-    expect(result.titles).toEqual(['Conference', 'Conference']);
+    expect(result).toMatchObject(drawnOver(view, 'Conference', 2));
   });
 
   it('control: retains a real final-day millisecond', async () => {
@@ -83,7 +97,7 @@ describe.each(['list', 'column', 'grid'] as const)('%s source boundaries', (view
       { time_grid: { start_time: '00:00', end_time: '24:00' } },
     );
     expect(result.dates).toEqual(['2026-10-24', '2026-10-25', '2026-10-26']);
-    expect(result.titles).toEqual(['Conference', 'Conference', 'Conference']);
+    expect(result).toMatchObject(drawnOver(view, 'Conference', 3));
   });
 
   it.each(['timed', 'all-day'] as const)(
@@ -98,11 +112,7 @@ describe.each(['list', 'column', 'grid'] as const)('%s source boundaries', (view
       };
       const result = await draw(view, event);
       expect(result.dates).toEqual(['2026-12-31', '2027-01-01', '2027-01-02']);
-      expect(result.titles).toEqual(
-        kind === 'all-day' && view === 'grid'
-          ? ['Anniversary (26)']
-          : ['Anniversary (26)', 'Anniversary (26)', 'Anniversary (26)'],
-      );
+      expect(result).toMatchObject(drawnOver(view, 'Anniversary (26)', 3));
       expect(result.sourceStarts).toEqual([event.start, event.start, event.start]);
       expect(event.summary).toBe('Anniversary');
       expect(event.description).toBe('YEAR=2000');
