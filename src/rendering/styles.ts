@@ -3,6 +3,7 @@
 import { css } from 'lit';
 
 import { ACCENT_TEXT_OPTIONS } from './accent-text';
+import * as Leaves from './leaves';
 import * as Config from '../config/config';
 import type * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
@@ -67,6 +68,40 @@ const SUBSTITUTED = /(?:^|[^\w-])(?:var|attr)\(/i;
  */
 function inlineRoom(size: string): string {
   return SUBSTITUTED.test(size) ? '0.125em' : ViewConfig.scaleFontSize(size, 0.125);
+}
+
+/**
+ * The custom properties that size the invisible struts in a column or grid day header, so every
+ * header is as tall as the tallest a day can be drawn at (see "Struts" in the stylesheet).
+ *
+ * Empty while no day is drawn at a scale of its own, so a card without `today_date_scale` or
+ * `past_date_scale` writes nothing new and draws exactly as it did.
+ *
+ * @param config Card configuration, already resolved for the view
+ * @returns Properties to write on `ha-card`
+ */
+function dateStrutProperties(config: Types.Config): Record<string, string> {
+  if (Leaves.dateScale(config, true, false) === 1 && Leaves.dateScale(config, false, true) === 1) {
+    return {};
+  }
+
+  // A size's `!important` belongs to the declaration on the date. Inside max() or minmax() it
+  // would make the whole value invalid, and the strut would fall back to the inherited size.
+  const scale = Leaves.maxDateScale(config);
+  const size = (value: string): string =>
+    Leaves.scaleDateSize(value, scale).replace(/\s*!\s*important\s*$/i, '');
+  const day = size(config.day_font_size);
+
+  return {
+    // A zero-width space: a line of text with nothing to see in it.
+    '--calendar-card-date-strut': '"\\200b"',
+    '--calendar-card-date-weekday-row': size(config.weekday_font_size),
+    '--calendar-card-date-weekday-align': 'end',
+    '--calendar-card-date-day-strut-size': day,
+    '--calendar-card-date-text-strut-size': config.show_month
+      ? `max(${day}, ${size(config.month_font_size)})`
+      : day,
+  };
 }
 
 /**
@@ -164,7 +199,14 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     // size, which need not be a length (`150%`, `large`), so it is rewritten as one before it
     // is scaled, in the author's own unit where it has one. Parsing it to a number would size
     // an `em` font's column in `px`, reduce `calc(...)` to `NaN`, and lose a keyword entirely.
-    '--calendar-card-date-column-width': ViewConfig.scaleFontSize(config.day_font_size, 1.75),
+    //
+    // It is sized for the largest date a day is drawn at, so a larger today widens the column
+    // for every day and the events beside them stay in one line.
+    '--calendar-card-date-column-width': ViewConfig.scaleFontSize(
+      config.day_font_size,
+      1.75 * Leaves.maxDateScale(config),
+    ),
+    ...dateStrutProperties(config),
     '--calendar-card-date-column-vertical-alignment': config.date_vertical_alignment,
     '--calendar-card-event-icon-vertical-alignment':
       config.event_icon_vertical_alignment === 'top'
@@ -5150,10 +5192,77 @@ export const cardStyles = css`
     position: relative;
     z-index: 2; /* Above the today indicator, matching the list view. */
     min-width: 0;
+    /* At least as tall as the largest weekday a day is drawn with; see the struts below. */
+    grid-template-rows: minmax(var(--calendar-card-date-weekday-row, auto), auto) auto;
+  }
+
+  /* Struts: while today_date_scale or past_date_scale draws one day's date at a size of its
+     own, every header has to lay out as tall as the tallest, or that day's first event starts
+     lower than the others and, in grid view, the shared header row grows unevenly. Two
+     invisible pseudo-elements in each header's number row carry the largest sizes: one is a
+     line of text as tall as the larger of the scaled number and month, which also sets the
+     row's baseline; the other, with the tile on, is a copy of the tile at the scaled size.
+     The weekday row is held at the scaled weekday's height, and a weekday drawn smaller sits
+     at its bottom, beside the number below it.
+
+     A minimum height on the header was tried first and missed: a month larger than the
+     number, or a weather badge, made today's header taller anyway, because the height a
+     header needs depends on everything in its baseline row, not on two font sizes. Text
+     struts in that row are measured by the same rules as the text itself.
+
+     Pseudo-elements rather than elements: they add no node, so the grid's structure
+     observers never see them. With no scale set, --calendar-card-date-strut is unset, the
+     content is none, nothing is generated and the header draws as it always has. */
+  .column-date-content::before,
+  .column-date-content::after {
+    content: var(--calendar-card-date-strut, none);
+    grid-area: day;
+    justify-self: start;
+    width: 0;
+    visibility: hidden;
+    line-height: 1;
+    pointer-events: none;
+  }
+
+  .column-date-content::before {
+    font-size: var(--calendar-card-date-text-strut-size);
+  }
+
+  .column-date-content::after {
+    content: none;
+  }
+
+  /* The tile's copy, sized and centered as the tile is (.day.today-tile), with the other
+     days' boxes below reserving their height in the same way. */
+  .column-date-content.with-today-tile::before {
+    display: flex;
+    align-items: center;
+    min-height: 1.2em;
+  }
+
+  .column-date-content.with-today-tile::after {
+    content: var(--calendar-card-date-strut, none);
+    font-size: var(--calendar-card-date-day-strut-size);
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    height: 1.2em;
+    margin: 0;
+  }
+
+  @supports (text-box: trim-both cap alphabetic) {
+    .column-date-content.with-today-tile::after {
+      display: block;
+      align-content: center;
+      text-box: trim-both cap alphabetic;
+    }
   }
 
   .column-date-content .weekday {
     grid-area: weekday;
+    /* end only while a scale is set (dateStrutProperties); otherwise the header's baseline
+       alignment, which keeps the weekday where it has always been beside a tall icon. */
+    align-self: var(--calendar-card-date-weekday-align, auto);
   }
 
   .column-date-content .day {

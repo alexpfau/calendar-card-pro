@@ -849,7 +849,7 @@ column:
 
 ## 📆 Date Column Customization
 
-These options style the date column beside each day's events, with separate colors for weekends and for today:
+These options style the date column beside each day's events, with separate colors for weekends and for today, and a [size, weight and fade of their own](#today-past-days) for today and past days:
 
 ```yaml
 # Base date column styling
@@ -891,6 +891,52 @@ misspelled unit or a word that is not a font size falls back to the option's def
   the usual 16px, and the column can come out a few pixels wider than the number needs.
 - A `var()` is passed on as written: the date column follows it when the property it names holds
   a length, but not a percentage or a keyword.
+
+:::
+
+### Today & Past Days
+
+`today_date_scale` and `today_date_font_weight` draw today's date larger and bolder, and
+`past_date_opacity` fades the days before it, so a week that starts on Monday leads the eye
+straight to today. `past_date_scale` and `past_date_font_weight` restyle past days further. Each
+applies to the weekday, the day number and the month together.
+
+```yaml
+start_date: start_of_week
+days_to_show: 7
+today_date_scale: 1.25
+today_date_font_weight: bold
+past_date_opacity: 55
+```
+
+- A scale multiplies the date's sizes: `1.25` is a quarter larger, `0.85` a little smaller, and
+  `1`, the default, leaves the date as it is. The [date tile](#the-date-tile) grows with today's
+  number.
+- A weight is `light`, `regular`, `medium` or `bold`, which follow your theme's weights, or a
+  number from 1 to 1000. `default` keeps the card's own: a medium day number beside a regular
+  weekday and month.
+- `past_date_opacity` runs from 0 to 100, and `100`, the default, leaves past days as they are.
+  A past weekend keeps its weekend color, only fainter.
+- Days after today keep the base options above.
+- Each option can also be set in `list:`, `column:` or `time_grid:`, so a grid on a wall
+  display can enlarge today while the list a phone falls back to does not.
+
+::: tip Visual Editor
+Today's scale and weight are under **Day Header → Today**, and the past-day options under
+**Day Header → Past Days**.
+:::
+
+::: details Layout, Units & Card-Mod
+
+- In list view the date column widens for every day to fit the largest date, so the events
+  stay in line. In column and grid view every header keeps the height of the largest, so each
+  column's first event starts on the same line.
+- A size in any unit is scaled in that unit. A keyword such as `large` is scaled from the size
+  browsers draw it at.
+- A past day is one before today's date on the device showing the card. Today becomes one at
+  midnight, with no reload.
+- For anything the options do not cover, such as italic past days, select `.past-day` with
+  card-mod; see [Day Container Classes](/features/theming#day-container-classes).
 
 :::
 

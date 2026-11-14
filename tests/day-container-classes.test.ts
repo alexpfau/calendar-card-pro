@@ -437,6 +437,15 @@ describe('theming.md card-mod selectors', () => {
       litRender(Render.renderGroupedEvents(days, config, 'en', undefined, null, true), container);
       collect(container);
     }
+    // Every other render starts on the frozen day, so none draws a day before it. The class is
+    // the same on every day container, so one list render that starts two days earlier draws it.
+    {
+      const config = buildConfig({ ...base, start_date: '2026-06-15', show_empty_days: true });
+      const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', 'list');
+      const container = document.createElement('div');
+      litRender(Render.renderGroupedEvents(days, config, 'en', undefined, null, true), container);
+      collect(container);
+    }
     // A calendar's text_scale marks each of its events, and no calendar carries one by default.
     // The class is the same in every view, so one list render draws it.
     {

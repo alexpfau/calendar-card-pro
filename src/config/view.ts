@@ -12,6 +12,7 @@ import {
   normalizeEntities,
   normalizeNumericOptions,
   resolveToolbar,
+  toFontWeightCss,
   toValidNumber,
   toValidPercentage,
   validateFoldedLength,
@@ -66,6 +67,13 @@ export const COLUMN_OVERRIDE_KEYS = [
   'day_font_size',
   'show_month',
   'month_font_size',
+  // Each view sets them on its own, as the sizes above: a wall grid can enlarge today while the
+  // list a phone falls back to does not.
+  'today_date_scale',
+  'today_date_font_weight',
+  'past_date_scale',
+  'past_date_font_weight',
+  'past_date_opacity',
   'event_background_opacity',
   'past_event_opacity',
   'event_color',
@@ -1346,12 +1354,13 @@ function hasOverride(overrides: Types.ColumnOverrides, key: keyof Types.ColumnOv
 /**
  * Whether a view block's value stands for no value at all, so the view takes the card's.
  *
- * `undefined` always does. Two numbers go further, because a blank or invalid line in a view
+ * `undefined` always does. Some numbers go further, because a blank or invalid line in a view
  * block would otherwise resolve to the shipped default rather than to the card's value: a
- * view's blank `past_event_opacity` would read 60 under a card-wide 100, and a blank
- * `countdown_max_days` would lift a card-wide limit for that view alone. The resolver and the
- * editor's stored blocks both ask this, so a value the card ignores is never shown as the
- * view's own.
+ * view's blank `past_event_opacity` would read 60 under a card-wide 100, a blank
+ * `countdown_max_days` would lift a card-wide limit for that view alone, and a blank
+ * `today_date_scale` would draw today at its usual size under a card-wide 1.25. The resolver
+ * and the editor's stored blocks both ask this, so a value the card ignores is never shown as
+ * the view's own.
  *
  * @param key - Option name inside the view block
  * @param value - The block's value for it
@@ -1359,7 +1368,15 @@ function hasOverride(overrides: Types.ColumnOverrides, key: keyof Types.ColumnOv
  */
 export function inheritsInView(key: string, value: unknown): boolean {
   if (value === undefined) return true;
-  if (key === 'past_event_opacity') return toValidPercentage(value) === undefined;
+  if (key === 'past_event_opacity' || key === 'past_date_opacity') {
+    return toValidPercentage(value) === undefined;
+  }
+  if (key === 'today_date_scale' || key === 'past_date_scale') {
+    return toValidNumber(value, Number.MIN_VALUE) === undefined;
+  }
+  if (key === 'today_date_font_weight' || key === 'past_date_font_weight') {
+    return toFontWeightCss(value) === undefined;
+  }
   if (key === 'countdown_max_days') return toValidNumber(value, 0) === undefined;
   return false;
 }

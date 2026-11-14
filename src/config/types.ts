@@ -110,6 +110,16 @@ export interface Config {
   today_weekday_color?: string;
   today_day_color?: string;
   today_month_color?: string;
+  /** Multiplies the size of today's whole date, the date tile with it. 1 leaves it as it is. */
+  today_date_scale: number;
+  /** Weight of today's whole date: a name the editor offers, a number, or `default`. */
+  today_date_font_weight: string | number;
+  /** Multiplies the size of every past day's date. */
+  past_date_scale: number;
+  /** Weight of every past day's date, as `today_date_font_weight`. */
+  past_date_font_weight: string | number;
+  /** Opacity, from 0 to 100, of every past day's date. 100 leaves it as it is. */
+  past_date_opacity: number;
 
   // Event column
   event_background_opacity: number;
@@ -380,6 +390,11 @@ export interface SharedViewOverrides {
   day_font_size?: string;
   show_month?: boolean;
   month_font_size?: string;
+  today_date_scale?: number;
+  today_date_font_weight?: string | number;
+  past_date_scale?: number;
+  past_date_font_weight?: string | number;
+  past_date_opacity?: number;
 
   // Event column
   event_background_opacity?: number;

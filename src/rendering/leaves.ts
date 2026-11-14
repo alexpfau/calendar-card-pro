@@ -9,7 +9,9 @@ import { TemplateResult, html, nothing } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
+import * as Config from '../config/config';
 import * as Types from '../config/types';
+import * as ViewConfig from '../config/view';
 import * as Localize from '../translations/localize';
 import * as ColorMix from '../utils/color-mix';
 import * as EntityColors from '../utils/entity-colors';
@@ -85,15 +87,23 @@ export function renderDateWeather(
 }
 
 /**
- * Classify a day's start-of-day timestamp as today and/or tomorrow.
+ * Classify a day's start-of-day timestamp as today, tomorrow or past.
+ *
+ * Past is decided on the local calendar date, so a day becomes past at local midnight
+ * whatever its length; the clock repaint (`_nextClockRepaint`) redraws every view then.
  *
  * @param timestamp Start-of-day timestamp for the day
- * @returns Whether the day is today, and whether it is tomorrow
+ * @returns Whether the day is today, whether it is tomorrow, and whether it is before today
  */
-export function classifyDay(timestamp: number): { isToday: boolean; isTomorrow: boolean } {
+export function classifyDay(timestamp: number): {
+  isToday: boolean;
+  isTomorrow: boolean;
+  isPast: boolean;
+} {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const dayDateString = new Date(timestamp).toDateString();
+  const day = new Date(timestamp);
+  const dayDateString = day.toDateString();
 
   const tomorrowStart = new Date(todayStart);
   tomorrowStart.setDate(tomorrowStart.getDate() + 1);
@@ -101,7 +111,52 @@ export function classifyDay(timestamp: number): { isToday: boolean; isTomorrow: 
   return {
     isToday: dayDateString === todayStart.toDateString(),
     isTomorrow: dayDateString === tomorrowStart.toDateString(),
+    isPast: new Date(day.getFullYear(), day.getMonth(), day.getDate()) < todayStart,
   };
+}
+
+/**
+ * The scale a day's date is drawn at: `today_date_scale` for today, `past_date_scale` for a
+ * past day, and 1 for every other day.
+ *
+ * @param config Card configuration, already resolved for the view
+ * @param isToday Whether the day is today
+ * @param isPast Whether the day is before today
+ * @returns The multiplier
+ */
+export function dateScale(config: Types.Config, isToday: boolean, isPast: boolean): number {
+  const scale = isToday ? config.today_date_scale : isPast ? config.past_date_scale : 1;
+  // A configuration that skipped normalization draws at the card's size rather than at NaN.
+  return typeof scale === 'number' && scale > 0 ? scale : 1;
+}
+
+/**
+ * A date size multiplied by a scale, for a size the card writes inline on the date.
+ *
+ * `scaleTextSize` takes a CSS-wide keyword as the size the text inherits, which is what one
+ * means in a custom property. Written inline, `initial` is the browser's initial size, `medium`,
+ * so it is read as that first; every other CSS-wide keyword still means the inherited size.
+ *
+ * @param value A date's font size option, as `toValidFontSize` leaves it
+ * @param scale The multiplier
+ * @returns The scaled size, flagged `!important` where the option was
+ */
+export function scaleDateSize(value: string, scale: number): string {
+  return ViewConfig.scaleTextSize(
+    value.replace(/^\s*initial(?=\s*(?:!\s*important\s*)?$)/i, 'medium'),
+    scale,
+  );
+}
+
+/**
+ * The largest scale any day's date is drawn at, never below 1: what the list's date column
+ * and the column and grid headers are sized for, so every day lines up with the largest.
+ *
+ * @param config Card configuration, already resolved for the view
+ * @returns The multiplier
+ */
+export function maxDateScale(config: Types.Config): number {
+  return Math.max(1, dateScale(config, true, false), dateScale(config, false, true));
 }
 
 //-----------------------------------------------------------------------------
@@ -247,6 +302,20 @@ export function renderDateContent(
   hass?: Types.Hass | null,
 ): TemplateResult {
   const isWeekendDay = FormatUtils.isWeekendDate(date, hass);
+  const { isPast } = classifyDay(date.getTime());
+
+  // Today's and past days' own size, weight and fade. Sizes are scaled as text, as a calendar's
+  // `text_scale` scales its events, so a keyword size scales from the size it is drawn at.
+  const scale = dateScale(config, isToday, isPast);
+  const size = (value: string): string => (scale === 1 ? value : scaleDateSize(value, scale));
+  const weight =
+    Config.toFontWeightCss(
+      isToday ? config.today_date_font_weight : isPast ? config.past_date_font_weight : 'default',
+    ) || undefined;
+  const opacity =
+    isPast && config.past_date_opacity >= 0 && config.past_date_opacity < 100
+      ? String(config.past_date_opacity / 100)
+      : undefined;
 
   let weekdayColor = config.weekday_color;
   let dayColor = config.day_color;
@@ -288,8 +357,10 @@ export function renderDateContent(
     <div
       class="weekday"
       style=${styleMap({
-        'font-size': config.weekday_font_size,
+        'font-size': size(config.weekday_font_size),
         color: weekdayColor,
+        'font-weight': weight,
+        opacity,
       })}
     >
       ${weekday}
@@ -297,8 +368,10 @@ export function renderDateContent(
     <div
       class=${todayTile ? 'day today-tile' : 'day'}
       style=${styleMap({
-        'font-size': config.day_font_size,
+        'font-size': size(config.day_font_size),
         color: dayColor,
+        'font-weight': weight,
+        opacity,
       })}
     >
       ${day}
@@ -308,8 +381,10 @@ export function renderDateContent(
           <div
             class="month"
             style=${styleMap({
-              'font-size': config.month_font_size,
+              'font-size': size(config.month_font_size),
               color: monthColor,
+              'font-weight': weight,
+              opacity,
             })}
           >
             ${month}

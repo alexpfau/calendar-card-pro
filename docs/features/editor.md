@@ -145,6 +145,10 @@ Where they differ:
   only **Indicator Color**, while the dots, **An Icon** and **An Emoji or Image** add
   **Indicator Size** and, in List, **Indicator Position**. Under **Week Numbers**, the styling
   options appear once **Numbering** is anything but **None**.
+- **Day Header → Today** sits right above the indicator: today's scale and weight, then its three
+  colors. The days before today have a collapsed **Past Days** group of their own, and weekends
+  **Weekend Colors**, both last in the panel. The month's colors appear only while
+  **Show Month** is on.
 - **Events → Event State** sits between the Event Details switches and Accent.
   **Show Now Indicator** puts "Now" before the time of an event that is happening, and **Now Color** is the
   color of that event, offered whether or not the switch is on. It colors grid view's now line
