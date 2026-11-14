@@ -471,6 +471,9 @@ longer halves the width of everything that happens during it.
 On Wednesday, QA Window and Sprint Review start together and share the width, and Client Call,
 half an hour later, is drawn on top of Sprint Review. On Thursday the errands sit on top of the
 conference, a little indented, so its title stays readable above them and its edge beside them.
+The conference runs from Thursday morning into Friday, so by default it would be a
+[banner above the hours](#long-timed-events-as-banners); this card sets
+`multiday_banners: false` to keep it in the hours.
 
 The event drawn on top keeps nearly the whole column, and the longer one stays visible along its
 leading edge. Events that start together are drawn side by side instead, because both need the
@@ -534,7 +537,7 @@ time_grid:
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_overlaps_columns.png" alt="The same grid card drawn with overlap_layout: columns, showing three simultaneous events side by side on one day, beside a two-lane conference day"><br>
 
 The same two days side by side. Three events at once share Wednesday's column, and Thursday's
-conference keeps half the width all day. Each lane narrows rather than hiding anything.
+conference, kept in the hours as above, keeps half the width all day. Each lane narrows rather than hiding anything.
 
 ### How Many Fit Side by Side
 
