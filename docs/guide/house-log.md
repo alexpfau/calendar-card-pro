@@ -4,7 +4,7 @@ A household log, newest first, for a dashboard section and the same card on a ph
 
 ## 🖼️ See It
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_house_log.png" alt="A list card titled House Log with a month of household jobs, newest first under each date: Plants watered 3 hours ago, Water filter changed yesterday, and further down Lawn mowed 14 days ago and Smoke alarms tested a month ago, each entry's title followed on its line by how long ago it was" width="600"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_house_log.png" alt="A list card titled House Log with a month of household jobs, the newest at the top: Dishwasher descaled 27 minutes ago and Plants watered 3 hours ago today, Water filter changed yesterday, then one job a day back to Lawn mowed 14 days ago and Smoke alarms tested a month ago, each title with how long ago it was at the end of its line" width="600"><br>
 
 The last 30 days, newest first, each entry with how long ago it was.
 
@@ -75,7 +75,7 @@ sequence:
 
 The same card keeps a log of the front door: a car's plate, a parcel, a person a camera saw. There the time of day matters, so each entry keeps its time beside how long ago it was.
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_house_log_front_door.png" alt="A list card titled Front Door with a week of arrivals, newest first: cars by their plate, parcels and people at the door, each title followed on its line by the time it was logged and how long ago that was" width="600"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_house_log_front_door.png" alt="A list card titled Front Door with a week of arrivals, the newest at the top: Car KL 4821 arrived at 17:48, 41 minutes ago, a person at the door at 14:05, parcels delivered yesterday and 2 days ago, each title with the time it was logged and how long ago that was at the end of its line" width="600"><br>
 
 A week at the front door, newest first, with the time of each arrival.
 
@@ -91,7 +91,7 @@ entities:
     accent_color: '#5c6bc0'
 ```
 
-The card covers the last seven days, and each entry reads its time and how long ago it was, such as _Parcel delivered 14:05 · 4 hours ago_. `show_end_time: false` keeps an entry to one time however long it lasts, so an automation can log a visit with any length.
+The card covers the last seven days, and each entry reads its time and how long ago it was, such as _Person at the door 14:05 · 4 hours ago_. `show_end_time: false` keeps an entry to one time however long it lasts, so an automation can log a visit with any length.
 
 ## 🔀 Adapt It
 
