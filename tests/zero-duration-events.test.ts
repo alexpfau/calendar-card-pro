@@ -278,13 +278,20 @@ describe('the countdown to an event with no duration', () => {
     expect(getCountdownString(reminder(AT), 'en')).toBe(countdown(reminder(AT)));
   });
 
-  it.each([
-    ['at its instant', 0],
-    ['a millisecond after it', 1],
-  ])('has none %s', (_case, offsetMs) => {
-    vi.setSystemTime(new Date(Date.parse(AT) + offsetMs));
+  it('has none at its instant', () => {
+    vi.setSystemTime(new Date(AT));
 
     expect(countdown(reminder(AT))).toBeNull();
+  });
+
+  it('counts up from a millisecond after it, as from any event that ended then', () => {
+    // At its instant it has neither started counting up nor anything left to count down to;
+    // past it, it is a finished event, and reads as one ending at the same moment does.
+    vi.setSystemTime(new Date(Date.parse(AT) + 1));
+
+    expect(getCountdownString(reminder(AT), 'en')).toBeNull();
+    expect(countdown(reminder(AT))).toBe('a few seconds ago');
+    expect(countdown(reminder(AT))).toBe(countdown(timed('2026-06-17T13:41:00.000Z', AT)));
   });
 });
 

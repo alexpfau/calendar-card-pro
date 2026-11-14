@@ -692,7 +692,8 @@ time_grid:
 ## ⏳ Countdown Display
 
 `show_countdown` shows how long remains until each upcoming event starts, such as "in 20
-minutes" or "tomorrow", in every view:
+minutes" or "tomorrow", in every view. An event that has ended
+[counts up](#counting-up-from-past-events) instead, such as "13 days ago":
 
 ```yaml
 # Enable countdown display for events
@@ -719,6 +720,7 @@ It follows the same local calendar dates as the day headers:
 - The wording follows the card's language, and the date comparison stays correct across
   daylight-saving changes.
 - A countdown disappears once its event has started, so today's all-day events have none.
+  Once the event has ended it [counts up](#counting-up-from-past-events).
 
 In list view it ends the time row, or takes a line of its own where the time leaves it no room.
 In grid view it trails the time on a timed block tall enough to show one, and all-day banners
@@ -744,24 +746,58 @@ wraps between its words rather than run past the card's edge.
 
 :::
 
+### Counting Up From Past Events
+
+With `show_countdown` on, an event that has ended shows how long ago it was, such as "13 days
+ago": the countdown read backward. It suits a calendar kept as a log, such as when the lawn was
+last mowed or the water filter changed:
+
+```yaml
+show_countdown: true
+show_past_events: true # Keep finished events on the card
+```
+
+| When the Event Ended   | Count-Up                                                         |
+| ---------------------- | ---------------------------------------------------------------- |
+| Earlier today          | A clock count-up, such as "40 minutes ago" or "5 hours ago"      |
+| Yesterday, at any time | "yesterday"                                                      |
+| On an earlier date     | Date-based relative text, such as "13 days ago" or "a month ago" |
+
+- It counts from the event's end, between calendar dates as the countdown does: a trip that
+  ended on Sunday reads "yesterday" all Monday. An event ending at midnight belongs to the day
+  before, so at 0:05 it reads "yesterday" rather than "5 minutes ago".
+- It shows wherever the card keeps finished events: grid view does by default, and list and
+  column view with `show_past_events: true`.
+- The countdown's other options apply to it too. `show_countdown_allday: false` leaves out
+  finished all-day events, [`countdown_max_days`](#countdown-range) keeps it to events that
+  ended within that many days, [`countdown_exact_days`](#counting-in-days) reads "1 day ago"
+  for yesterday, and [`once_per_day`](#repeated-countdowns) leaves out one that repeats the one
+  above it.
+- An event under way has neither a countdown nor a count-up, and a count-up dims with its event
+  ([`past_event_opacity`](#past-events-display)).
+- For a log with the newest entry first, see [Event Order](/features/core-settings#event-order).
+- In the visual editor it comes with **Show Countdown**.
+
 ### Countdown Range
 
 `countdown_max_days` shows a countdown only for events starting within that many days, so a
 countdown appears as an event draws near rather than months ahead. `0` keeps countdowns to
-today's events, `7` to the week ahead:
+today's events, `7` to the week ahead. A [count-up](#counting-up-from-past-events) follows the
+same limit backward, so `7` also keeps one on events that ended in the past week:
 
 ```yaml
 show_countdown: true
 countdown_max_days: 7
 ```
 
-| Option               | Type   | Default | Description                                                                                          |
-| -------------------- | ------ | ------- | ---------------------------------------------------------------------------------------------------- |
-| `countdown_max_days` | number | -       | Show a countdown only for events starting within this many calendar days; unset, every event has one |
+| Option               | Type   | Default | Description                                                                                                                                                    |
+| -------------------- | ------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `countdown_max_days` | number | -       | Show a countdown only for events starting within this many calendar days, and a count-up only for events that ended within as many; unset, every event has one |
 
 - Days are counted between calendar dates, as the countdown counts them. With `7`, an event
   reading "in 7 days" keeps its countdown and one a day later has none until the next midnight.
-- Left unset, every upcoming event counts down.
+  An event reading "7 days ago" keeps its count-up until that midnight.
+- Left unset, every upcoming event counts down, and every finished one up.
 - Each view can set its own, in `list:`, `column:` or `time_grid:`. A view's limit replaces the
   card's, and a view left blank uses the card's:
 
@@ -785,20 +821,23 @@ ahead, shows dates further off than that.
 
 `show_countdown: once_per_day` counts down once for a day of events that all read the same, as
 on a day two bins go out together: the first event keeps its countdown, and one that reads the
-same as the countdown above it is left out.
+same as the countdown above it is left out. A day of finished events
+[counts up](#counting-up-from-past-events) once in the same way.
 
 ```yaml
 show_countdown: once_per_day
 ```
 
-| Value          | Countdowns                                                               |
-| -------------- | ------------------------------------------------------------------------ |
-| `false`        | None                                                                     |
-| `true`         | On every event still to come                                             |
-| `once_per_day` | On every event still to come, leaving out one that repeats the one above |
+| Value          | Countdowns                                                                        |
+| -------------- | --------------------------------------------------------------------------------- |
+| `false`        | None                                                                              |
+| `true`         | On every event still to come or ended                                             |
+| `once_per_day` | On every event still to come or ended, leaving out one that repeats the one above |
 
 - Countdowns later today always show, since two that read "in 5 hours" can name different
-  times.
+  times, and so do count-ups earlier today.
+- Under [`event_order: latest_first`](/features/core-settings#event-order) the first drawn is
+  the latest event, which keeps its count-up.
 - A countdown that differs still shows, and an event without one, such as an all-day event with
   `show_countdown_allday: false`, is passed over.
 - It applies in list and column view. In grid view every timed block keeps its countdown, as
@@ -809,17 +848,18 @@ show_countdown: once_per_day
 
 `countdown_exact_days` counts every date after today in days, so an event 30 days away reads
 "in 30 days" rather than "in a month", one 400 days away "in 400 days" rather than "in a year",
-and one tomorrow "in 1 day". It suits a card where the number itself matters, such as the days
-left until a trip:
+and one tomorrow "in 1 day". A [count-up](#counting-up-from-past-events) counts the same way,
+"40 days ago" and "1 day ago" for yesterday. It suits a card where the number itself matters,
+such as the days left until a trip:
 
 ```yaml
 show_countdown: true
 countdown_exact_days: true
 ```
 
-| Option                 | Type    | Default | Description                                                                                    |
-| ---------------------- | ------- | ------- | ---------------------------------------------------------------------------------------------- |
-| `countdown_exact_days` | boolean | `false` | Count every date after today in days, "in 1 day" for tomorrow, rather than in months and years |
+| Option                 | Type    | Default | Description                                                                                                                       |
+| ---------------------- | ------- | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `countdown_exact_days` | boolean | `false` | Count every date other than today in days, "in 1 day" for tomorrow and "1 day ago" for yesterday, rather than in months and years |
 
 - Later today reads as it does without it, such as "in 20 minutes" or "in 5 hours".
 - Tomorrow counts by its date, as "tomorrow" does: an event at 00:10 reads "in 1 day" all
@@ -1054,8 +1094,9 @@ event has already passed:
 show_progress_bar: true
 ```
 
-A bar shows only while an event runs and a [countdown](#countdown-display) only before it
-starts, so no event ever shows both.
+A bar shows only while an event runs, and a [countdown](#countdown-display) only before it
+starts or, [counting up](#counting-up-from-past-events), after it ends, so no event ever shows
+both.
 
 You can customize the appearance of the progress bars:
 

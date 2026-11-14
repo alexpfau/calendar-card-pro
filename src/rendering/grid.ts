@@ -896,7 +896,13 @@ function renderTimedEvent(
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
-  const contentParts = gridTimedEventContentParts(event, presentation.contentParts, config, hass);
+  const contentParts = gridTimedEventContentParts(
+    event,
+    presentation.contentParts,
+    config,
+    language,
+    hass,
+  );
   const tint = presentation.entityAccentBackgroundColor;
   // By its time span, not its drawn box: the 14px floor can stretch a block that has ended or
   // not yet begun across the line, and marking one of those as under way would say something
@@ -1031,9 +1037,15 @@ function renderTimedEvent(
  * isolate, because a right-to-left line would otherwise draw "(+1)" as "(1+)"; the no-break
  * space before it keeps it on the end's line.
  *
+ * That block's count-up counts from the event's end too, as its time reads, rather than from
+ * the midnight its segment ends at: an event still under way past midnight has none, and one
+ * that ended days later counts from that day. Its countdown is the same either way, since the
+ * block starts where the event does.
+ *
  * @param event - Timed grid event segment
  * @param presented - Shared presentation content
  * @param config - Card configuration
+ * @param language - Language code
  * @param hass - Home Assistant instance
  * @returns Content parts with grid-specific time text
  */
@@ -1041,6 +1053,7 @@ function gridTimedEventContentParts(
   event: Types.CalendarEventData,
   presented: Leaves.EventContentParts,
   config: Types.Config,
+  language: string,
   hass?: Types.Hass | null,
 ): Leaves.EventContentParts {
   // Grid marks the present with its now line, which runs straight through the block that
@@ -1052,6 +1065,7 @@ function gridTimedEventContentParts(
     eventTimeEnd: undefined,
     shouldShowTime: false,
     countdownStr: null,
+    countUp: false,
   };
 
   if (event._isMultiDaySegment && !event._gridSegmentStartsEvent) {
@@ -1064,6 +1078,7 @@ function gridTimedEventContentParts(
   const start = source?.start.dateTime ? new Date(source.start.dateTime) : undefined;
   const end = source?.end.dateTime ? new Date(source.end.dateTime) : undefined;
   const spansDays =
+    source !== undefined &&
     start !== undefined &&
     end !== undefined &&
     end.getTime() > start.getTime() &&
@@ -1084,11 +1099,16 @@ function gridTimedEventContentParts(
     };
   }
 
+  const whole = { ...event, start: source.start, end: source.end };
+  const wholePast = Presentation.isEventPast(whole);
+  const countdownStr = Presentation.eventCountdown(whole, config, language, wholePast);
+  const counted = { ...parts, countdownStr, countUp: countdownStr !== null && wholePast };
+
   const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
   const startText = FormatUtils.formatTime(start, use24h, config.time_two_digit_hours);
 
   if (!config.show_end_time) {
-    return { ...parts, eventTime: startText, eventTimeEnd: undefined };
+    return { ...counted, eventTime: startText, eventTimeEnd: undefined };
   }
 
   const readsMidnight = (date: Date) => date.getHours() === 0 && date.getMinutes() === 0;
@@ -1101,7 +1121,7 @@ function gridTimedEventContentParts(
   const count = untilMidnight ? '' : `\u00a0\u2066(+${days})\u2069`;
   const endText = ` - ${FormatUtils.formatTime(end, use24h, config.time_two_digit_hours)}${count}`;
 
-  return { ...parts, eventTime: `${startText}${endText}`, eventTimeEnd: endText };
+  return { ...counted, eventTime: `${startText}${endText}`, eventTimeEnd: endText };
 }
 
 /**
