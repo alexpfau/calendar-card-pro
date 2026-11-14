@@ -195,11 +195,14 @@ export function formatEventTimeParts(
   };
 }
 
-/** How a countdown counts, as the card's options set it. */
+/** How a countdown, or a count-up from a finished event, counts, as the card's options set it. */
 export interface CountdownOptions {
-  /** Count every date after today in days, "in 1 day" for tomorrow, never months or years. */
+  /** Count every date other than today in days, "in 1 day" for tomorrow, never months or years. */
   exactDays?: boolean;
-  /** Count down only to starts within this many calendar days; undefined is no limit. */
+  /**
+   * Count down only to starts within this many calendar days, and up only from ends within as
+   * many; undefined is no limit.
+   */
   maxDays?: number;
 }
 
@@ -266,6 +269,116 @@ export function getCountdownString(
   return hours >= 2
     ? getRelativeUnitString(hours, 'hour', language)
     : getRelativeTimeString(startDate, language, now);
+}
+
+/**
+ * What a count-up reads from a finished event, at an instant: its end, and how many local dates
+ * have passed since its last moment. Null where the event has not ended or its end cannot be
+ * read.
+ *
+ * The end instant itself takes up no time, as the day counter counts it, so an event ending at
+ * 0:00 is the day before's: at 0:05 it reads "yesterday", as at 23:50 an event starting at 0:10
+ * reads "tomorrow". An event with no duration is its own last moment. An all-day event's end
+ * date is exclusive, so its last moment falls on the date before.
+ *
+ * "Ended" is `isEventPast`'s, so a row counts up exactly when it is drawn as past: a timed event
+ * once its end instant has gone by, an all-day one from the date after its last.
+ *
+ * @param event Calendar event
+ * @param now The instant to read it at
+ * @returns The end and the days since the last moment, or null
+ */
+function countUpSpan(
+  event: Types.CalendarEventData,
+  now: Date,
+): { end: Date; days: number } | null {
+  if (event.end?.dateTime) {
+    const end = new Date(event.end.dateTime);
+    const start = event.start?.dateTime ? new Date(event.start.dateTime) : end;
+    const last = end.getTime() > start.getTime() ? new Date(end.getTime() - 1) : end;
+    // Written positively: an unreadable end compares false both ways, and must not count.
+    if (!(now.getTime() > end.getTime())) return null;
+    return { end, days: getCalendarDayDiff(last, now) };
+  }
+
+  if (event.end?.date) {
+    const last = parseAllDayDate(event.end.date);
+    last.setDate(last.getDate() - 1);
+    const days = getCalendarDayDiff(last, now);
+    return days >= 1 ? { end: parseAllDayDate(event.end.date), days } : null;
+  }
+
+  return null;
+}
+
+/**
+ * Generates a localized count-up string for a finished event: how long ago it ended, the
+ * countdown read backward ("40 minutes ago", "yesterday", "13 days ago").
+ *
+ * The same rules as `getCountdownString`, measured from the event's end. An event that ended
+ * earlier today counts in clock units, Day.js's short phrases under two hours and `Intl`'s
+ * hours from there, so a long wait never rounds into "a day ago". The date before today is
+ * `Intl`'s word for it, "yesterday", and earlier dates read in Day.js's natural units between
+ * calendar dates, "13 days ago" or "a month ago". With `exactDays` every earlier date reads in
+ * days, "1 day ago" included; `maxDays` keeps count-ups to events that ended within that many
+ * calendar days, `0` to today's.
+ *
+ * Every word is the browser's or Day.js's, as the countdown's are, so no card string is
+ * needed: Day.js's locales carry their "ago" forms beside their "in" ones.
+ *
+ * @param event Calendar event to count up from
+ * @param language Language to use
+ * @param options How the count reads, as for the countdown
+ * @returns Count-up string, or null for an event that has not ended, an empty day, or one
+ *   beyond `maxDays`
+ */
+export function getCountUpString(
+  event: Types.CalendarEventData,
+  language: string = 'en',
+  options: CountdownOptions = {},
+): string | null {
+  if (event._isEmptyDay) return null;
+
+  const now = new Date();
+  const span = countUpSpan(event, now);
+  if (!span) return null;
+
+  const { days } = span;
+  if (options.maxDays !== undefined && days > options.maxDays) return null;
+
+  if (days >= 1 && options.exactDays) {
+    return getRelativeUnitString(-days, 'day', language, 'always');
+  }
+
+  if (days === 1) {
+    return getRelativeUnitString(-1, 'day', language, 'auto');
+  }
+
+  if (days > 1) {
+    // Anchor both dates so clock time cannot change Day.js's natural unit selection.
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfLastDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() - days);
+    return getRelativeTimeString(startOfLastDay, language, startOfToday);
+  }
+
+  const hours = Math.round((now.getTime() - span.end.getTime()) / 3600000);
+  return hours >= 2
+    ? getRelativeUnitString(-hours, 'hour', language)
+    : getRelativeTimeString(span.end, language, now);
+}
+
+/**
+ * Whether a finished event's count-up reads in clock units: a timed event whose last moment
+ * fell earlier today. Such a count-up changes by the minute; every other one counts dates and
+ * changes only at midnight.
+ *
+ * @param event Calendar event
+ * @param now The instant to read it at
+ * @returns True for a count-up in minutes or hours
+ */
+export function countsUpTheClock(event: Types.CalendarEventData, now: Date = new Date()): boolean {
+  if (!event.start?.dateTime) return false;
+  return countUpSpan(event, now)?.days === 0;
 }
 
 /**

@@ -37,8 +37,9 @@ Friday, Oct 23 at 17:00".
 
 Each row stands for its day, which changes what other features show on it:
 
-- A [countdown](/features/event-content#countdown-display) counts to the row's own start, and a
-  row already under way has none.
+- A [countdown](/features/event-content#countdown-display) counts to the row's own start, a
+  [count-up](/features/event-content#counting-up-from-past-events) from its own end, and a row
+  under way has neither.
 - A [progress bar](/features/event-content#progress-bar-display) measures the whole event and
   is drawn on today's row, so it keeps growing from one day to the next.
 - The middle days of a timed event are whole days, so they get an

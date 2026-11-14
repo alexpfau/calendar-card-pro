@@ -912,21 +912,26 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   description_max_lines: 'Description Line Limit',
 
   progress: 'Countdown & Progress',
-  'progress.helper': 'How long until an event starts, and how far through it we are.',
+  'progress.helper':
+    'How long until an event starts or since it ended, and how far through it we are.',
   show_countdown: 'Show Countdown',
+  'show_countdown.helper':
+    'Shows how long until each event starts, such as “in 2 days”, and how long ago a ' +
+    'finished one ended, such as “2 days ago”.',
   countdown_max_days: 'Count Down Only Within Days',
   'countdown_max_days.helper':
-    'Only events starting within this many days get a countdown: 0 is today alone, 7 a ' +
-    'week ahead. Left empty, every upcoming event gets one.',
+    'Only events starting within this many days get a countdown, and only those that ended ' +
+    'within as many show how long ago: 0 is today alone, 7 a week either way. Left empty, ' +
+    'every event gets one.',
   show_countdown_allday: 'Count Down To All-Day Events Too',
   countdown_once_per_day: 'Leave Out Repeated Countdowns',
   'countdown_once_per_day.helper':
-    'On a day with several events, a countdown that reads the same as the nearest one above ' +
-    'it is left out. Countdowns later today always show.',
+    'On a day with several events, a countdown or a “2 days ago” that reads the same as the ' +
+    'nearest one above it is left out. Ones in minutes or hours always show.',
   countdown_exact_days: 'Count In Days Only',
   'countdown_exact_days.helper':
-    'Counts every date after today in days: “in 30 days” rather than “in a month”, and ' +
-    '“in 1 day” rather than “tomorrow”.',
+    'Counts every date other than today in days: “in 30 days” rather than “in a month”, ' +
+    '“in 1 day” rather than “tomorrow”, and “1 day ago” rather than “yesterday”.',
   show_progress_bar: 'Show Progress Bar',
   show_now_indicator: 'Show Now Indicator',
   'show_now_indicator.helper':

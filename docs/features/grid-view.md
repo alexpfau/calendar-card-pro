@@ -528,8 +528,10 @@ not fit is left out whole, never cut part way.
 - Event weather gets its own row under the time, as in column view, where its words can wrap
   beneath the temperature; the progress bar gets its own row under the title. A countdown trails
   the time, its words continuing on the next line where the block has room; in a lane too narrow
-  for it, the countdown gives way, not the time. Every block keeps its countdown, so
-  `show_countdown: once_per_day` reads here as `true` does.
+  for it, the countdown gives way, not the time. A finished block
+  [counts up](/features/event-content#counting-up-from-past-events) in the same place, and the
+  block that starts an overnight event counts from the event's end. Every block keeps its
+  countdown, so `show_countdown: once_per_day` reads here as `true` does.
 - Calendar labels, whether text, emoji, icon, picture or merged, sit before the title on its
   first line. That line counts toward the title's line limit, and the labels stay still while a
   scrolling title moves.

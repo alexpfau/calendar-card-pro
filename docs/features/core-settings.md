@@ -1219,6 +1219,8 @@ list:
 - **Today and paging stay as they are.** The today indicator still marks today, and the
   [date navigation](/features/layout-appearance#paging-through-dates) still moves back and
   forward in time.
+- **How long ago,** such as "13 days ago", shows on each entry with `show_countdown: true`; see
+  [Counting Up From Past Events](/features/event-content#counting-up-from-past-events).
 
 ::: details Empty Days in a Latest-First List
 With `show_empty_days` the days run from the window's last day back. A card with nothing to
