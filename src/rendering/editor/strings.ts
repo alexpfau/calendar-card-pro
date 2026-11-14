@@ -326,6 +326,14 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.show_description.option.hide.label': 'Never show',
   'entity.show_description.helper':
     'Never show also leaves them out when you open one of this calendar\u2019s events.',
+  // Only two choices: the card's weather position decides whether events get weather at all,
+  // so this can only take it away. The day header's forecast belongs to every calendar.
+  'entity.show_weather': 'Event Weather',
+  'entity.show_weather.option.inherit.label': 'Follow the card',
+  'entity.show_weather.option.hide.label': 'Never show',
+  'entity.show_weather.helper':
+    'Never show leaves the weather out beside this calendar\u2019s events. The forecast in ' +
+    'the day header stays.',
 
   'entity.split_multiday_events': 'Split Across Days',
   'entity.split_multiday_events.option.inherit.label': 'Follow the card',

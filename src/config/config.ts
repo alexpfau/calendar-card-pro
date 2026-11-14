@@ -1313,6 +1313,8 @@ export function normalizeEntities(
           show_location: item.show_location,
           location_icon: item.location_icon || undefined,
           show_description: item.show_description,
+          // Only a boolean decides; anything else follows the card, as an unset value does.
+          show_weather: typeof item.show_weather === 'boolean' ? item.show_weather : undefined,
           compact_events_to_show: toValidNumber(item.compact_events_to_show, 0),
           blocklist: item.blocklist,
           allowlist: item.allowlist,

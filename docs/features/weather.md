@@ -97,6 +97,49 @@ has the high and low temperatures, and only an event row has `show_temp`,
 hourly forecast reaches it. Every option and its default is in the
 [table above](#weather-configuration-options).
 
+## 🌂 Turning Weather Off for One Calendar
+
+`show_weather: false` on one calendar leaves the weather out beside that calendar's events and
+keeps it beside every other calendar's. It suits a calendar whose events the weather has no
+bearing on, such as work held indoors.
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.family
+  - entity: calendar.work
+    show_weather: false
+weather:
+  entity: weather.forecast_home
+  position: event
+```
+
+| Option         | Type    | Default | Description                                                                          |
+| -------------- | ------- | ------- | ------------------------------------------------------------------------------------ |
+| `show_weather` | boolean | `true`  | Set on a calendar under `entities`. `false` leaves the weather out beside its events |
+
+It leaves out the badge beside the title in list view and the weather row in column and grid
+view, and grid view no longer reads the event's weather to screen readers. The forecast in the
+day header stays, because it describes the day for every calendar on the card.
+
+The option can only take weather away. `position` decides whether events get weather at all, so
+while it is `date` or `none` this changes nothing, and `true` draws what the card draws anyway.
+
+::: tip Visual Editor
+**Event Weather** is the last field under **Event Details** in each calendar's panel. It appears
+once the card shows the forecast beside events.
+:::
+
+::: details Calendars Listed Twice & Merged Rows
+
+- The option belongs to the entry, not the calendar. A calendar
+  [listed twice to split its events by type](/features/core-settings#separating-all-day-from-timed-events)
+  can keep the weather on its all-day events and leave it off its timed ones.
+- A row [merged from several calendars](/features/core-settings#filtering-duplicate-events)
+  follows the calendar listed first among them.
+
+:::
+
 ## 🧭 Weather In The Column Layout
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_weather.png" alt="Weather on both the day header and each event in column view"><br>
@@ -194,4 +237,6 @@ Choose the position by the decision the forecast helps with:
   forecast for its hour.
 - `both` when both matter.
 
-Every option on this page lives under the card's weather settings — see [Weather in the configuration reference](/reference/configuration#weather).
+Every option on this page lives under the card's `weather` option, except `show_weather`, which is
+set on a calendar under `entities` — see [Weather in the configuration reference](/reference/configuration#weather)
+and [Per-Entity Options](/reference/configuration#per-entity-options).

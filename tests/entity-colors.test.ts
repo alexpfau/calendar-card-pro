@@ -776,6 +776,7 @@ describe('entity colors: every per-calendar dropdown round-trips', () => {
       'show_description',
       'show_location',
       'show_time',
+      'show_weather',
       'split_multiday_events',
     ]);
   });

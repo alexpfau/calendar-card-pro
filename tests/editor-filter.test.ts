@@ -1015,6 +1015,7 @@ describe('editor: the order of the two panels', () => {
       'show_location',
       'location_icon',
       'show_description',
+      'show_weather',
     ]);
   });
 
