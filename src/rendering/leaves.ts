@@ -876,6 +876,12 @@ export interface EventContentParts {
    * every placement it has. Absent everywhere the card draws no counter, grid included.
    */
   dayCounter?: string | null;
+  /**
+   * Whether `countdownStr` counts up from a finished event, "13 days ago", rather than down to
+   * one still to come. Drawn exactly as a countdown is, in every placement, with `count-up`
+   * beside `time-countdown` so a theme can tell the two apart.
+   */
+  countUp?: boolean;
 
   progressPercentage: number | null;
 
@@ -1015,6 +1021,7 @@ export function renderEventContent(
     shouldShowTime,
     countdownStr: countdownOnly,
     dayCounter = null,
+    countUp = false,
     progressPercentage,
     entityLabel,
     entityLabelAlt,
@@ -1027,11 +1034,15 @@ export function renderEventContent(
   const own = (text: string): string => TextDirection.inLanguageDirection(text, languageMark);
 
   // The day counter takes the countdown's place where the row has none, so from here on it is
-  // the countdown, and every placement below draws it as one. Its own class is what tells the
-  // two apart, for a theme.
+  // the countdown, and every placement below draws it as one. A count-up is drawn as a countdown
+  // is. Their own classes are what tell the three apart, for a theme.
   const countdownStr = countdownOnly ?? dayCounter;
   const countdownClass =
-    countdownOnly === null && dayCounter !== null ? 'time-countdown day-counter' : 'time-countdown';
+    countdownOnly === null && dayCounter !== null
+      ? 'time-countdown day-counter'
+      : countUp
+        ? 'time-countdown count-up'
+        : 'time-countdown';
 
   // Pieces only where a field holds a link, so every other row binds its plain string as before.
   const linked = links

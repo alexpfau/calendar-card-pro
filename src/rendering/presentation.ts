@@ -120,11 +120,15 @@ export function isEventPast(event: Types.CalendarEventData): boolean {
 /**
  * The countdown an event carries, or null for none: the one gate every view draws through.
  *
+ * A finished event counts up instead, "13 days ago" for "in 13 days", under the same switches:
+ * `show_countdown`, `show_countdown_allday`, `countdown_exact_days` and `countdown_max_days`
+ * read the same either way. An event under way has neither.
+ *
  * @param event - Event data
  * @param config - Card configuration, resolved for the view
  * @param language - Language code
  * @param isPastEvent - Whether the event is over, when the caller already knows
- * @returns The countdown text, or null
+ * @returns The countdown or count-up text, or null
  */
 export function eventCountdown(
   event: Types.CalendarEventData,
@@ -136,17 +140,17 @@ export function eventCountdown(
   if (
     !config.show_countdown ||
     (isAllDayEvent && !config.show_countdown_allday) ||
-    event._isEmptyDay ||
-    isPastEvent
+    event._isEmptyDay
   ) {
     return null;
   }
 
   // An event a day or more long trades its bar for the day counter once it has started, so a
   // later day of a trip under way names its day rather than counting down to its own start. The
-  // counter takes the countdown's place then, as the bar would have taken a row. Decided here
-  // rather than where the counter is drawn, so `repeatedCountdowns` passes such a row over
-  // instead of taking a countdown nobody sees for the one above.
+  // counter takes the countdown's place then, as the bar would have taken a row, and keeps it once
+  // the event has ended, where a count-up would otherwise go. Decided here rather than where the
+  // counter is drawn, so `repeatedCountdowns` passes such a row over instead of taking a countdown
+  // nobody sees for the one above.
   if (
     config.show_progress_bar &&
     event._dayOfEvent &&
@@ -155,21 +159,25 @@ export function eventCountdown(
     return null;
   }
 
-  return FormatUtils.getCountdownString(event, language, {
+  const options = {
     exactDays: Boolean(config.countdown_exact_days),
     maxDays: config.countdown_max_days,
-  });
+  };
+  return isPastEvent
+    ? FormatUtils.getCountUpString(event, language, options)
+    : FormatUtils.getCountdownString(event, language, options);
 }
 
 /**
  * Which of a day's events leave their countdown out under `show_countdown: once_per_day`.
  *
  * A countdown is left out when it reads exactly as the nearest countdown above it on the same
- * day, so a day of bins counts down once. Two kinds are never left out. A countdown to a start
- * later today names a clock time ("in 5 hours"), and two of them reading alike can still name
- * different times, which would make one come and go as the minutes round. And a countdown that
- * differs stays: an event already under way when the window opens is drawn on its first day
- * but counts to its own start, so that day can read "tomorrow" above "in 7 days".
+ * day, so a day of bins counts down once, and a day of finished ones counts up once. Two kinds
+ * are never left out. A countdown or count-up in clock units, to a start later today or from an
+ * end earlier today ("in 5 hours", "5 hours ago"), can read alike for two different times, which
+ * would make one come and go as the minutes round. And a countdown that differs stays: an event
+ * already under way when the window opens is drawn on its first day but counts to its own
+ * start, so that day can read "tomorrow" above "in 7 days".
  *
  * Rows without a countdown are passed over, so an all-day row with `show_countdown_allday`
  * off, or one beyond `countdown_max_days`, never takes the first one's place. Read from the
@@ -197,8 +205,9 @@ export function repeatedCountdowns(
     if (countdown === null) return;
 
     const countsTheClock =
-      event.start.dateTime !== undefined &&
-      FormatUtils.getCalendarDayDiff(now, new Date(event.start.dateTime)) === 0;
+      (event.start.dateTime !== undefined &&
+        FormatUtils.getCalendarDayDiff(now, new Date(event.start.dateTime)) === 0) ||
+      FormatUtils.countsUpTheClock(event, now);
     if (countdown === above && !countsTheClock) repeated.add(index);
     above = countdown;
   });
@@ -212,7 +221,10 @@ export function repeatedCountdowns(
  * @returns The same presentation, drawing no countdown
  */
 export function withoutCountdown(presentation: EventPresentation): EventPresentation {
-  return { ...presentation, contentParts: { ...presentation.contentParts, countdownStr: null } };
+  return {
+    ...presentation,
+    contentParts: { ...presentation.contentParts, countdownStr: null, countUp: false },
+  };
 }
 
 /**
@@ -433,6 +445,7 @@ export function buildEventPresentation(
     shouldShowTime,
     countdownStr,
     dayCounter,
+    countUp: countdownStr !== null && isPastEvent,
     progressPercentage,
     nowLabel,
     languageMark: TextDirection.languageMark(language, hass),

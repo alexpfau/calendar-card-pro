@@ -37,8 +37,9 @@ Friday, Oct 23 at 17:00".
 
 Each row stands for its day, which changes what other features show on it:
 
-- A [countdown](/features/event-content#countdown-display) counts to the row's own start, and a
-  row already under way has none.
+- A [countdown](/features/event-content#countdown-display) counts to the row's own start, a
+  [count-up](/features/event-content#counting-up-from-past-events) from its own end, and a row
+  under way has neither.
 - A [progress bar](/features/event-content#progress-bar-display) measures the whole event and
   is drawn on today's row, so it keeps growing from one day to the next.
 - The middle days of a timed event are whole days, so they get an
@@ -73,7 +74,8 @@ show_progress_bar: true
   [countdown](/features/event-content#countdown-display) keeps it, and the counter takes over
   once the event is under way. A row with no countdown to show, because it is off, the event
   is beyond [`countdown_max_days`](/features/event-content#countdown-range), or `once_per_day`
-  left a repeat out, names its day from the start.
+  left a repeat out, names its day from the start. After the event ends, the counter stays where
+  a [count-up](/features/event-content#counting-up-from-past-events) would go.
 - **In place of the bar.** A bar barely moves over a long event, so these events draw the
   counter instead, all-day ones included, which never had a bar. Shorter events keep theirs.
 - **No Now mark.** These events are never marked
