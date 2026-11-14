@@ -2943,11 +2943,11 @@ class CalendarCardPro extends LitElement {
    * When the card next draws something different with nothing else changing, other than at
    * an event's start or end, which `_syncNowBoundaryTimer` covers.
    *
-   * A minute from now while a countdown that names minutes or hours, or a progress bar, is on
-   * screen. Otherwise the next local midnight, which moves the mark of today, "Today" and
-   * "Tomorrow", a countdown that names days, the day counter, and the dimming of a past all-day
-   * event or empty day, on every card. Null where the now line's own tick repaints every minute
-   * anyway.
+   * A minute from now while a countdown or count-up that names minutes or hours, or a progress
+   * bar, is on screen. Otherwise the next local midnight, which moves the mark of today, "Today"
+   * and "Tomorrow", a countdown or count-up that names days, the day counter, and the dimming of
+   * a past all-day event or empty day, on every card. Null where the now line's own tick repaints
+   * every minute anyway.
    *
    * @param now - Epoch milliseconds
    * @returns Epoch milliseconds, or null
@@ -2973,11 +2973,14 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Whether a countdown or a progress bar on screen changes within the next minute or so.
+   * Whether a countdown, a count-up or a progress bar on screen changes within the next minute
+   * or so.
    *
-   * A countdown to a start later today reads in minutes or hours; one to a later day reads in
-   * days, and moves only at midnight. A progress bar moves while its event runs. The day
-   * counter, which takes a bar's place, moves only at midnight.
+   * A countdown to a start later today reads in minutes or hours, as a count-up from an end
+   * earlier today does; one to or from another day reads in days, and moves only at midnight. A
+   * progress bar moves while its event runs. The day counter, which takes a bar's place, moves
+   * only at midnight. An event's end, where its count-up begins, is a boundary
+   * `_syncNowBoundaryTimer` already renders at.
    *
    * @param now - Epoch milliseconds
    * @param midnight - The next local midnight, in epoch milliseconds
@@ -2992,6 +2995,10 @@ class CalendarCardPro extends LitElement {
     // that moves by the minute. Grid draws no counter and keeps its bars (`groupEventsByDay`).
     const counted = this.effectiveView !== 'grid';
 
+    // A finished event is drawn, and so counts up, only where past events are shown. The
+    // events here are the loaded ones, which still hold those `show_past_events: false` hides.
+    const countsUp = config.show_past_events;
+
     return this._shownEvents.some((event) => {
       if (event._isEmptyDay) return false;
       if (
@@ -3003,7 +3010,10 @@ class CalendarCardPro extends LitElement {
       }
       if (!countdown || !event.start?.dateTime) return false;
       const start = new Date(event.start.dateTime).getTime();
-      return start > now && start < midnight;
+      return (
+        (start > now && start < midnight) ||
+        (countsUp && FormatUtils.countsUpTheClock(event, new Date(now)))
+      );
     });
   }
 
