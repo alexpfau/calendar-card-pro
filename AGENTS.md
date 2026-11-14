@@ -1709,12 +1709,12 @@ name the members explicitly and gate on them.
 
 For a **timed** event running 23:30 to 00:30:
 
-| asked of                                              | answer                                                                             |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `isMultiDayEvent` (`events.ts`, drives splitting)     | **yes** — it renders as two rows                                                   |
-| `isMultiDayAllDayEvent` (`format.ts`, drives display) | **no** — `false` for any timed event, deliberately, pinned by a test               |
-| `!event.start.dateTime` on a split **middle segment** | reads **all-day** — `splitMultiDayEvent` rewrites middle days as `start: { date }` |
-| `fullDaySpan` (`format.ts`, drives grid's banners)    | **no** — a full day or longer on the wall clock, over two or more dates            |
+| asked of                                                        | answer                                                                             |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `isMultiDayEvent` (`events.ts`, drives splitting)               | **yes** — it renders as two rows                                                   |
+| `isMultiDayAllDayEvent` (`format.ts`, drives display)           | **no** — `false` for any timed event, deliberately, pinned by a test               |
+| `!event.start.dateTime` on a split **middle segment**           | reads **all-day** — `splitMultiDayEvent` rewrites middle days as `start: { date }` |
+| `fullDaySpan` (`format.ts`, drives banners and the day counter) | **no** — a full day or longer on the wall clock, over two or more dates            |
 
 None is wrong for its own caller. The third bites silently: anything filtering on event
 class must run **before** `processMultiDayEvents`, or it sees the middle of a three-day
@@ -1727,7 +1727,8 @@ _timed / all-day / multi-day_ is not a partition, and no selection over it can e
 names the all-day axis only, and why a span axis needs the card to **pick** one multi-day
 definition before it can offer one. The fourth answer is that pick for what a user sees: a full
 day or longer, read on the wall clock. Grid draws a timed event as a banner
-(`multiday_banners`) only where it says yes; reuse it rather than writing a fifth.
+(`multiday_banners`), and the day counter counts days, only where it says yes; reuse it rather
+than writing a fifth.
 
 ### The card renders only for `hass` changes it draws
 

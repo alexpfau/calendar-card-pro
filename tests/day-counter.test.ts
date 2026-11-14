@@ -494,7 +494,11 @@ describe('the drawn card', () => {
   });
 
   it('draws none in grid view, which keeps its bars', async () => {
-    const card = await mount({ view: 'grid', start_date: '2026-11-12' }, [TRIP]);
+    // Off, so the trip stays blocks with bars in the hours; on, it is a banner above them.
+    const card = await mount(
+      { view: 'grid', start_date: '2026-11-12', time_grid: { multiday_banners: false } },
+      [TRIP],
+    );
     expect(card.shadowRoot!.querySelectorAll('.grid-event').length).toBeGreaterThan(0);
     expect(card.shadowRoot!.querySelectorAll('.progress-bar').length).toBeGreaterThan(0);
     expect(counters(card)).toEqual([]);
