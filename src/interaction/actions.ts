@@ -104,12 +104,16 @@ function runCardAction(actionConfig: Types.ActionConfig, callbacks: CardActionCa
  * @param config - Card config containing tap_action, hold_action, and entity
  * @param action - Action type: "tap" or "hold"
  * @param callbacks - How the card runs its own actions
+ * @param entities - The calendars the card shows, the first of which an action on no entity of
+ *   its own applies to, as `more-info` does; the configured ones unless the card says otherwise,
+ *   and none where the card shows none
  */
 export function handleAction(
   node: HTMLElement,
   config: Types.Config,
   action: 'tap' | 'hold',
   callbacks: CardActionCallbacks = {},
+  entities: Array<string | Types.EntityConfig> = config.entities,
 ): void {
   const actionConfig = action === 'hold' ? config.hold_action : config.tap_action;
   // Defaults and the documented disable form are both `{ action: 'none' }`. Without this
@@ -118,7 +122,7 @@ export function handleAction(
 
   if (runCardAction(actionConfig, callbacks)) return;
 
-  const entityId = getPrimaryEntityId(config.entities);
+  const entityId = getPrimaryEntityId(entities);
   const hassActionConfig = {
     entity: entityId,
     tap_action: config.tap_action,
@@ -134,13 +138,14 @@ export function handleAction(
  * their callbacks, every other one handed to Home Assistant.
  *
  * Home Assistant reads the entity `toggle` acts on only from the configuration it is handed,
- * never from the action, so the button's `entity` goes there; without one, the card's first
- * calendar stands in, as it does for the card's own `tap_action`. A button with no action, or
+ * never from the action, so the button's `entity` goes there; without one, the first calendar the
+ * card shows stands in, as it does for the card's own `tap_action`. A button with no action, or
  * `none`, does nothing: it may be one still being set up.
  *
  * @param node - Element that triggered the action
  * @param button - The button pressed, as configured
- * @param entities - The card's calendars, the first of which stands in for a missing `entity`
+ * @param entities - The calendars the card shows, the first of which stands in for a missing
+ *   `entity`
  * @param callbacks - How the card runs its own actions
  */
 export function handleButtonAction(

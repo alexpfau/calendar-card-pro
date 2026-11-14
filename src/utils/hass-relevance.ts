@@ -11,9 +11,12 @@
  * Deny by default: any key of `hass` other than `states` that changes counts, whatever it is,
  * so a later reader of a new part of `hass` needs nothing here. Only `states` is narrowed, and
  * to every entity id the configuration names anywhere rather than to a list of options, so a
- * new option naming an entity is covered too. `tests/hass-relevance.test.ts` reconciles this
- * against what render actually reads.
+ * new option naming an entity is covered too. A `location` visibility condition is the one reader
+ * of states no configuration names (the viewer's person, the zones), which `watchedEntityIds` adds
+ * where one is configured. `tests/hass-relevance.test.ts` reconciles this against what render
+ * actually reads.
  */
+import * as Visibility from './visibility';
 import type * as Types from '../config/types';
 
 /** An entity id: a domain, a dot, an object id. Loose on purpose, as a miss costs a stale render. */
@@ -52,12 +55,38 @@ export function configEntityIds(config: Types.Config): ReadonlySet<string> {
   return ids;
 }
 
+/** Whether a configuration has a `location` condition, per configuration object. */
+const usesLocationByConfig = new WeakMap<object, boolean>();
+
+/**
+ * Every entity id whose state the card reads: those the configuration names, and where it has a
+ * `location` visibility condition, the persons and zones that condition reads
+ * (`Visibility.locationEntityIds`), which depend on `hass` rather than on the configuration.
+ *
+ * @param config - Card configuration
+ * @param hass - The `hass` the card renders with
+ * @returns The entity ids
+ */
+export function watchedEntityIds(
+  config: Types.Config,
+  hass: Types.Hass | undefined,
+): ReadonlySet<string> {
+  const named = configEntityIds(config);
+  let usesLocation = usesLocationByConfig.get(config);
+  if (usesLocation === undefined) {
+    usesLocation = Visibility.entriesUseLocation(config.entities ?? []);
+    usesLocationByConfig.set(config, usesLocation);
+  }
+  if (!usesLocation) return named;
+  return new Set([...named, ...Visibility.locationEntityIds(hass)]);
+}
+
 /**
  * Whether a new `hass` can change anything the card draws.
  *
  * @param previous - The `hass` the card last saw, undefined before the first
  * @param next - The new `hass`
- * @param entityIds - The entity ids the configuration names (`configEntityIds`)
+ * @param entityIds - The entity ids whose states the card reads (`watchedEntityIds`)
  * @returns False only when nothing but other entities' states changed
  */
 export function hassChangeIsVisible(
