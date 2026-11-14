@@ -553,6 +553,7 @@
   "countdown_exact_days": "Loenda ainult päevades",
   "countdown_exact_days.helper": "Loendab alates homsest päevades: „30 päeva pärast“, mitte „kuu aja pärast“, ja „1 päeva pärast“, mitte „homme“.",
   "show_progress_bar": "Näita edenemisriba",
+  "show_progress_bar.helper": "Loetelu- ja veeruvaates näitavad vähemalt päeva pikkused sündmused igal real, mitmes nende päev see on („Päev 2/3“): edenemisriba asemel ja pärast algust ka loenduri asemel.",
   "show_now_indicator": "Näita praeguse hetke tähist",
   "show_now_indicator.helper": "Lisab praegu toimuvate sündmuste kellaaja ette rohelise „Nüüd“.",
   "now_color": "Praeguse hetke värv",

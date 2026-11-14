@@ -19,6 +19,7 @@
   "viewGrid": "Quadrícula",
   "endsToday": "acaba avui",
   "endsTomorrow": "acaba demà",
+  "dayOfEvent": "Dia {day} de {days}",
   "noEvents": "Cap esdeveniment",
   "loading": "Carregant esdeveniments...",
   "error": "Error: No s'ha trobat l'entitat del calendari o aquesta està mal configurada",

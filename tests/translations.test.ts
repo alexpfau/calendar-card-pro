@@ -613,7 +613,11 @@ describe('Serbian is one translation in two scripts', () => {
 
   it('writes sr.json in Cyrillic alone', () => {
     // Guards the comparison below, which would pass trivially on two Latin files.
-    const text = Object.values(values('sr')).flat().join(' ');
+    // Placeholders such as `{day}` mark where a number goes, so their names are no words.
+    const text = Object.values(values('sr'))
+      .flat()
+      .join(' ')
+      .replace(/\{\w+\}/g, '');
     expect(text).toMatch(/\p{Script=Cyrillic}/u);
     expect(text).not.toMatch(/\p{Script=Latin}/u);
   });

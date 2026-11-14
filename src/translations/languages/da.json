@@ -11,6 +11,7 @@
   "viewGrid": "Gitter",
   "endsToday": "slutter i dag",
   "endsTomorrow": "slutter i morgen",
+  "dayOfEvent": "Dag {day} af {days}",
   "noEvents": "Ingen begivenheder",
   "loading": "Indlæser kalenderbegivenheder...",
   "error": "Fejl: Kalenderenheden blev ikke fundet eller er ikke konfigureret korrekt",

@@ -11,6 +11,7 @@
   "viewGrid": "Grilă",
   "endsToday": "se încheie astăzi",
   "endsTomorrow": "se încheie mâine",
+  "dayOfEvent": "Ziua {day} din {days}",
   "noEvents": "Nu sunt evenimente",
   "loading": "Încărcare evenimente de calendar...",
   "error": "Eroare: Entitatea de calendar nu a fost găsită sau este configurată incorect",

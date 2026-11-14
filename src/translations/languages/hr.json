@@ -11,6 +11,7 @@
   "viewGrid": "Mreža",
   "endsToday": "završava danas",
   "endsTomorrow": "završava sutra",
+  "dayOfEvent": "Dan {day} od {days}",
   "noEvents": "Nema događaja",
   "loading": "Učitavanje događaja...",
   "error": "Greška: Kalendar entitet nije pronađen ili je neispravno postavljen",

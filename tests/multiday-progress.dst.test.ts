@@ -14,8 +14,12 @@ import * as EventUtils from '../src/utils/events';
  *
  * Each day's row shows the bar while its own day is under way — as it always did — but
  * fills it over the whole event, so the bar only grows from one day to the next. Before,
- * the first and last rows measured their own slice (a bar that fell back at midnight), and a
- * middle row, rewritten as all-day by the splitter, drew no bar at all while the event ran.
+ * the first and last rows measured their own slice (a bar that fell back at midnight).
+ *
+ * In list and column view that is a night shorter than a day, with a first and a last day: an
+ * event a day or longer draws its day counter there instead of a bar (#281), and only such an
+ * event has a middle day. Grid keeps the bar on every block of a longer event, and fills it
+ * over the whole event too.
  *
  * A `*.dst.test.ts`, because the slices are local days and the fill is measured in absolute
  * time: a day of 23 or 25 hours must not tip either. The expected values are derived from
@@ -24,20 +28,31 @@ import * as EventUtils from '../src/utils/events';
  * day.
  */
 
-/** Tue 20 Oct 2026 20:00 to Thu 22 Oct 08:00, local: a first, a middle and a last day. */
+/** Tue 20 Oct 2026 20:00 to Wed 21 Oct 08:00, local: a first and a last day, under a day. */
 const START = new Date(2026, 9, 20, 20, 0);
-const END = new Date(2026, 9, 22, 8, 0);
+const END = new Date(2026, 9, 21, 8, 0);
 
 const EVENT: Types.CalendarEventData = {
-  summary: 'Ben night shifts',
+  summary: 'Ben night shift',
   start: { dateTime: START.toISOString() },
   end: { dateTime: END.toISOString() },
   _entityId: 'calendar.personal',
 };
 
+/** Tue 20 Oct 2026 20:00 to Thu 22 Oct 08:00, local: a first, a middle and a last day. */
+const LONG_START = new Date(2026, 9, 20, 20, 0);
+const LONG_END = new Date(2026, 9, 22, 8, 0);
+
+const LONG: Types.CalendarEventData = {
+  summary: 'Ben night shifts',
+  start: { dateTime: LONG_START.toISOString() },
+  end: { dateTime: LONG_END.toISOString() },
+  _entityId: 'calendar.personal',
+};
+
 /** Whole-event progress at an instant, the way the bar rounds it. */
-function wholeAt(now: Date): number {
-  return Math.floor(((now.getTime() - START.getTime()) / (END.getTime() - START.getTime())) * 100);
+function wholeAt(now: Date, start = START, end = END): number {
+  return Math.floor(((now.getTime() - start.getTime()) / (end.getTime() - start.getTime())) * 100);
 }
 
 const BASE: Partial<Types.Config> = {
@@ -80,35 +95,14 @@ describe('the test zone', () => {
 });
 
 describe('a split timed event', () => {
-  it('splits into a first, a middle and a last day', () => {
-    // The denominator: without a middle row the cases below would say nothing about it.
-    const rows = rowsAt(new Date(2026, 9, 21, 10, 30));
-    expect(rows).toHaveLength(3);
-    expect(rows[1].row.start.date, 'the middle row is not in the all-day shape').toBeDefined();
-  });
-
-  it('fills the middle day over the whole event, without a Now label', () => {
-    const now = new Date(2026, 9, 21, 10, 30);
-    const [first, middle, last] = rowsAt(now);
-
-    // The control: the day's own progress differs, so equality below means "whole event".
-    const dayStart = new Date(2026, 9, 21).getTime();
-    const dayEnd = new Date(2026, 9, 22).getTime();
-    const daySlice = Math.floor(((now.getTime() - dayStart) / (dayEnd - dayStart)) * 100);
-    expect(wholeAt(now)).not.toBe(daySlice);
-
-    expect(middle.progress).toBe(wholeAt(now));
-    // A middle day still reads as all-day, and an all-day row is never marked "Now".
-    expect(middle.now).toBeNull();
-
-    // Only today's row draws the bar.
-    expect(first.progress).toBeNull();
-    expect(last.progress).toBeNull();
+  it('splits into a first and a last day', () => {
+    // The denominator: without two rows the cases below would say nothing about either.
+    expect(rowsAt(new Date(2026, 9, 20, 22, 0))).toHaveLength(2);
   });
 
   it('fills the first day over the whole event, not its own evening', () => {
     const now = new Date(2026, 9, 20, 22, 0);
-    const [first, middle] = rowsAt(now);
+    const [first, last] = rowsAt(now);
 
     const slice = Math.floor(
       ((now.getTime() - START.getTime()) /
@@ -119,25 +113,33 @@ describe('a split timed event', () => {
 
     expect(first.progress).toBe(wholeAt(now));
     expect(first.now, 'the first day is timed and under way').not.toBeNull();
-    expect(middle.progress).toBeNull();
+    expect(last.progress).toBeNull();
   });
 
   it('fills the last day over the whole event, so the bar only grows', () => {
-    const wednesday = rowsAt(new Date(2026, 9, 21, 23, 0))[1].progress;
-    const now = new Date(2026, 9, 22, 4, 0);
-    const last = rowsAt(now)[2];
+    const tuesday = rowsAt(new Date(2026, 9, 20, 23, 0))[0].progress;
+    const now = new Date(2026, 9, 21, 4, 0);
+    const [first, last] = rowsAt(now);
+
+    const slice = Math.floor(
+      ((now.getTime() - new Date(2026, 9, 21).getTime()) /
+        (END.getTime() - new Date(2026, 9, 21).getTime())) *
+        100,
+    );
+    expect(wholeAt(now)).not.toBe(slice);
 
     expect(last.progress).toBe(wholeAt(now));
-    expect(last.progress!).toBeGreaterThan(wednesday!);
+    expect(last.progress!).toBeGreaterThan(tuesday!);
+    expect(first.progress).toBeNull();
   });
 
   it('fills the column view the same way', () => {
-    const now = new Date(2026, 9, 21, 10, 30);
+    const now = new Date(2026, 9, 21, 4, 0);
     expect(rowsAt(now, 'column')[1].progress).toBe(wholeAt(now));
   });
 
-  it('draws the bar on the middle row and no Now label there', () => {
-    const now = new Date(2026, 9, 21, 10, 30);
+  it('draws the bar on the row under way alone', () => {
+    const now = new Date(2026, 9, 21, 4, 0);
     vi.useFakeTimers();
     vi.setSystemTime(now);
     const config = buildConfig({ view: 'list', ...BASE });
@@ -148,15 +150,36 @@ describe('a split timed event', () => {
     const rows = [...container.querySelectorAll('.event')].filter((node) =>
       node.textContent?.includes(EVENT.summary!),
     );
-    expect(rows).toHaveLength(3);
+    expect(rows).toHaveLength(2);
 
-    const middle = rows[1];
-    const fill = middle.querySelector<HTMLElement>('.progress-bar-filled');
-    expect(fill, 'the middle row draws no bar').not.toBeNull();
+    const fill = rows[1].querySelector<HTMLElement>('.progress-bar-filled');
+    expect(fill, 'the last row draws no bar').not.toBeNull();
     expect(fill!.style.width).toBe(`${wholeAt(now)}%`);
-    expect(middle.querySelector('.now-indicator')).toBeNull();
     expect(rows[0].querySelector('.progress-bar')).toBeNull();
-    expect(rows[2].querySelector('.progress-bar')).toBeNull();
+  });
+
+  it('draws the day counter instead of a bar when it lasts a day or longer', () => {
+    // The control is the night above: the same harness draws its bar.
+    const now = new Date(2026, 9, 21, 10, 30);
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+    const config = buildConfig({ view: 'list', ...BASE });
+    const days = EventUtils.groupEventsByDay([LONG], config, false, 'en', 'list');
+    const container = document.createElement('div');
+    litRender(Render.renderGroupedEvents(days, config, 'en', undefined, null), container);
+
+    const rows = [...container.querySelectorAll('.event')].filter((node) =>
+      node.textContent?.includes(LONG.summary!),
+    );
+    expect(rows).toHaveLength(3);
+    expect(rows.map((row) => row.querySelector('.day-counter')?.textContent?.trim())).toEqual([
+      'Day 1 of 3',
+      'Day 2 of 3',
+      'Day 3 of 3',
+    ]);
+    expect(container.querySelector('.progress-bar')).toBeNull();
+    // A middle day still reads as all-day, and an all-day row is never marked "Now".
+    expect(rows[1].querySelector('.now-indicator')).toBeNull();
   });
 
   it('leaves a split all-day event without a bar', () => {
@@ -180,14 +203,14 @@ describe('a timed event across days in grid', () => {
     vi.setSystemTime(now);
     const config = buildConfig({ view: 'grid', ...BASE });
     const effective = ViewConfig.resolveEffectiveConfig(config, 'grid');
-    const days = EventUtils.groupEventsByDay([EVENT], config, false, 'en', 'grid');
+    const days = EventUtils.groupEventsByDay([LONG], config, false, 'en', 'grid');
     const container = document.createElement('div');
     litRender(Grid.renderGridGroupedEvents(days, effective, 'en', undefined, null, now), container);
 
-    const percent = `${wholeAt(now)}%`;
+    const percent = `${wholeAt(now, LONG_START, LONG_END)}%`;
     const names = [...container.querySelectorAll('.grid-event-accessible')]
       .map((node) => node.getAttribute('aria-label') ?? '')
-      .filter((name) => name.includes(EVENT.summary!));
+      .filter((name) => name.includes(LONG.summary!));
     expect(names.length, 'the event drew fewer than three blocks').toBe(3);
 
     // Today's block alone, and with the whole-event figure.

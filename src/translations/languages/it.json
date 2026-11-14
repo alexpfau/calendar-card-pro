@@ -11,6 +11,7 @@
   "viewGrid": "Griglia oraria",
   "endsToday": "termina oggi",
   "endsTomorrow": "termina domani",
+  "dayOfEvent": "Giorno {day} di {days}",
   "noEvents": "Nessun evento",
   "loading": "Caricamento eventi del calendario...",
   "error": "Errore: entità calendario non trovata o configurata in modo errato",

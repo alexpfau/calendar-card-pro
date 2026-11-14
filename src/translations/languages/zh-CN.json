@@ -24,6 +24,7 @@
   "viewGrid": "网格",
   "endsToday": "今天 {at} 结束",
   "endsTomorrow": "明天 {at} 结束",
+  "dayOfEvent": "第{day}天，共{days}天",
   "noEvents": "没有活动",
   "loading": "正在加载日历事件...",
   "error": "错误：找不到日历实体或配置不正确",

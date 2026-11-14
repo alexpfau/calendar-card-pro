@@ -42,10 +42,59 @@ Each row stands for its day, which changes what other features show on it:
 - A [progress bar](/features/event-content#progress-bar-display) measures the whole event and
   is drawn on today's row, so it keeps growing from one day to the next.
 - The middle days of a timed event are whole days, so they get an
-  [all-day badge](/features/event-content#which-events-get-one) and no
-  [Now mark](/features/event-content#the-now-indicator).
+  [all-day badge](/features/event-content#which-events-get-one).
 - Every row occupies a single day, so
   [`show_single_allday_time`](/features/event-content#hiding-the-time-row) governs all of them.
+- The [day counter](#day-counter) names the row's own day.
+
+## 🔢 Day Counter
+
+With the [progress bar](/features/event-content#progress-bar-display) on, an event a day or
+longer says which of its days it is on, such as "Day 12 of 45", in place of its bar, so a course,
+a trip or a vacation shows how far along it is at a glance. It goes where the countdown and the
+bar go:
+
+```yaml
+show_progress_bar: true
+```
+
+| Option              | Type    | Default | Description                                                                                                                       |
+| ------------------- | ------- | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `show_progress_bar` | boolean | `false` | Show a progress bar on events under way. In list and column view, an event a day or longer shows "Day 2 of 3" on each row instead |
+
+- **Which events count.** An all-day event over two or more dates, and a timed event at least a
+  full day long, ending no earlier than its start time on the next date. Days are calendar
+  dates, so Monday 18:00 to Wednesday 10:00 runs three days, while a night from 22:00 to 06:00
+  counts none.
+- **Which day a row names.** The day it is drawn on. Split, each day's row names its own; left
+  unsplit, a row names the day it stands under, so a course that began before the card's first
+  day reads "Day 12 of 45" there.
+- **The countdown comes first.** Before an event starts, a row with a
+  [countdown](/features/event-content#countdown-display) keeps it, and the counter takes over
+  once the event is under way. A row with no countdown to show, because it is off, the event
+  is beyond [`countdown_max_days`](/features/event-content#countdown-range), or `once_per_day`
+  left a repeat out, names its day from the start.
+- **In place of the bar.** A bar barely moves over a long event, so these events draw the
+  counter instead, all-day ones included, which never had a bar. Shorter events keep theirs.
+- **No Now mark.** These events are never marked
+  [Now](/features/event-content#the-now-indicator), on any row and with the bar on or off, and
+  their time is not drawn green: on a 45-day course "Now" would be true every day. A night shift
+  shorter than a day keeps its mark.
+
+::: details Midnight, Later Windows & Grid View
+
+- A timed event ending at 0:00 does not count the date that midnight opens: Nov 1 0:00 to Dec 16
+  0:00 is 45 days. Where the clocks go back at midnight, an event ending at the second 0:00 takes
+  up an hour of that date and counts it.
+- When the card's window starts after the event does, through `start_date` or the toolbar, an
+  unsplit row names the window's first day, such as "Day 19 of 45".
+- [Grid view](/features/grid-view) draws no counter, since its all-day banners already span
+  their days, and its blocks keep their progress bars.
+- The counter takes the countdown's place in every layout, including
+  [beside the title](/features/event-content#time-beside-the-title), and its look. A theme can
+  tell the two apart by the counter's `day-counter` class.
+
+:::
 
 ## 🧭 Column & Grid View
 
@@ -74,4 +123,4 @@ day's part of an event still shows when the event's first day is left off the ca
 weekday or weekend filter or because empty days are hidden. See
 [Options That Do Nothing in Grid View](/features/grid-view#options-that-do-nothing-in-grid-view).
 
-This is the `split_multiday_events` option — see [Core Settings in the configuration reference](/reference/configuration#core-settings).
+This page covers `split_multiday_events`, in [Core Settings in the configuration reference](/reference/configuration#core-settings), and the day counter, which `show_progress_bar` turns on, in [Event Column](/reference/configuration#event-column).

@@ -269,6 +269,24 @@ export function getCountdownString(
 }
 
 /**
+ * "Day 2 of 3": which day of a multi-day event a row stands for, in the card's language.
+ *
+ * The numbers are written as digits, as the date column writes its day: no card language
+ * writes its own. `Intl` has nothing to offer for the words, since it names the field "day"
+ * alone and no "of", so they are the card's `dayOfEvent` string.
+ *
+ * @param day Which day, counted from 1
+ * @param days How many days the event runs
+ * @param language Language code
+ * @returns The counter's text
+ */
+export function formatDayOfEvent(day: number, days: number, language: string): string {
+  return Localize.getTranslations(language)
+    .dayOfEvent.replace('{day}', () => String(day))
+    .replace('{days}', () => String(days));
+}
+
+/**
  * Compiled `remove_location_country` patterns, including the ones that failed to compile.
  *
  * The option is free text in the editor and unvalidated in YAML, so the expression it
@@ -802,6 +820,74 @@ export function getCalendarDayDiff(start: Date, end: Date): number {
   const endDay = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
 
   return Math.round((endDay - startDay) / 86400000);
+}
+
+/**
+ * The days an event takes up, when it is a full day or longer: its first day, and how many days
+ * it runs, at least two. Null for anything shorter. The day counter counts these days.
+ *
+ * A day is a local calendar date the event takes up time on. The end instant itself takes up
+ * none, so a timed event ending at 0:00 does not count the date that midnight opens: its last
+ * day is the date of the moment before its end. That holds where a midnight is missing or
+ * repeats as well. Where the clocks go forward at midnight, an end at the new day's first
+ * moment, 01:00, still leaves the day before as the last; where they go back at midnight, an
+ * end at the second 00:00 has taken up an hour of the new date, which counts. These are the
+ * days `splitMultiDayEvent` draws a row for, one for one.
+ *
+ * An all-day event qualifies from two dates. A timed event qualifies once it is a full day long
+ * on the wall clock: it ends on a later date, at or after its start's time of day on the next
+ * date. So a night from 22:00 to 06:00 is one night rather than "Day 2 of 2". Read off the
+ * clock rather than measured in hours, so a change of clocks moves nothing: noon to noon over a
+ * 23-hour spring day is a full day, and 00:45 to the second 00:30 of a night whose hour repeats
+ * is not, though it lasts 24 hours and 45 minutes. Stepping the start on by a day and comparing
+ * instants gets both of those wrong, because the stepped time lands on one of the repeated
+ * readings, or is pushed past a reading that does not exist.
+ *
+ * @param start Event start, as Home Assistant sent it
+ * @param end Event end, as Home Assistant sent it
+ * @returns The event's first day and its number of days, or null for an event shorter than that
+ */
+export function fullDaySpan(
+  start: Types.CalendarEventData['start'] | undefined,
+  end: Types.CalendarEventData['end'] | undefined,
+): { first: Date; days: number } | null {
+  let first: Date;
+  let last: Date;
+
+  if (start?.date && end?.date) {
+    first = parseAllDayDate(start.date);
+    last = parseAllDayDate(end.date);
+    last.setDate(last.getDate() - 1);
+  } else if (start?.dateTime && end?.dateTime) {
+    first = new Date(start.dateTime);
+    const endInstant = new Date(end.dateTime);
+    const datesLater = getCalendarDayDiff(first, endInstant);
+    // Written positively: an unparseable date compares false both ways, and must not pass.
+    if (!(datesLater >= 2 || (datesLater === 1 && timeOfDay(endInstant) >= timeOfDay(first)))) {
+      return null;
+    }
+    last = new Date(endInstant.getTime() - 1);
+  } else {
+    return null;
+  }
+
+  const days = getCalendarDayDiff(first, last) + 1;
+
+  return days >= 2 ? { first, days } : null;
+}
+
+/**
+ * A wall-clock reading, as milliseconds since its date's 00:00 on the clock: 00:30 is half an
+ * hour whichever of two 00:30s it is, and 03:00 is three hours on a day whose 02:00 is missing.
+ *
+ * @param date An instant
+ * @returns Its local time of day, in milliseconds
+ */
+function timeOfDay(date: Date): number {
+  return (
+    ((date.getHours() * 60 + date.getMinutes()) * 60 + date.getSeconds()) * 1000 +
+    date.getMilliseconds()
+  );
 }
 
 /**

@@ -553,6 +553,7 @@
   "countdown_exact_days": "Conta solo in giorni",
   "countdown_exact_days.helper": "Da domani conta in giorni: «tra 30 giorni» anziché «tra un mese» e «tra 1 giorno» anziché «domani».",
   "show_progress_bar": "Mostra barra di progresso",
+  "show_progress_bar.helper": "Nelle viste a lista e a colonne, gli eventi di un giorno o più mostrano su ogni riga di quale dei loro giorni si tratta («Giorno 2 di 3»): al posto della barra di progresso e, una volta iniziati, del conto alla rovescia.",
   "show_now_indicator": "Mostra indicatore Ora",
   "show_now_indicator.helper": "Aggiunge un “Ora” verde prima dell’orario degli eventi in corso.",
   "now_color": "Colore dell'ora corrente",

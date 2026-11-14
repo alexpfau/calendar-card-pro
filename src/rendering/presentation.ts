@@ -26,9 +26,9 @@ interface EventPresentation {
   isPastEvent: boolean;
 
   /**
-   * Whether the event is under way and the card marks it as "now": a timed event between its
-   * start and its end, with `show_now_indicator` on. Drives the `event-now` class, which
-   * colors the time row; the label itself travels in `contentParts.nowLabel`.
+   * Whether the event is under way and the card marks it as "now": a timed event shorter than a
+   * full day, between its start and its end, with `show_now_indicator` on. Drives the `event-now`
+   * class, which colors the time row; the label itself travels in `contentParts.nowLabel`.
    */
   isNow: boolean;
 
@@ -138,6 +138,19 @@ export function eventCountdown(
     (isAllDayEvent && !config.show_countdown_allday) ||
     event._isEmptyDay ||
     isPastEvent
+  ) {
+    return null;
+  }
+
+  // An event a day or more long trades its bar for the day counter once it has started, so a
+  // later day of a trip under way names its day rather than counting down to its own start. The
+  // counter takes the countdown's place then, as the bar would have taken a row. Decided here
+  // rather than where the counter is drawn, so `repeatedCountdowns` passes such a row over
+  // instead of taking a countdown nobody sees for the one above.
+  if (
+    config.show_progress_bar &&
+    event._dayOfEvent &&
+    EventUtils.eventHasStarted(event, new Date())
   ) {
     return null;
   }
@@ -290,18 +303,46 @@ export function buildEventPresentation(
 
   const countdownStr = eventCountdown(event, config, language, isPastEvent);
 
+  // The day counter: "Day 2 of 3" on a row of an event a day or more long, which is the progress
+  // bar's form on such an event and comes with `show_progress_bar`. It goes in the place the
+  // countdown and the bar take, drawn wherever the row has no countdown. The two hand the place
+  // over in the order an event lives through them: the countdown has it until the event starts,
+  // as it has today, and the counter from then on (`eventCountdown` gives way), where the bar
+  // would have been. A row with no countdown to show before then, because it is off, out of range
+  // or left out as a repeat, names its day too. `groupEventsByDay` stamps the day only in the
+  // views that draw it.
+  const dayOfEvent = config.show_progress_bar && !isEmptyDay ? event._dayOfEvent : undefined;
+  const dayCounter =
+    dayOfEvent?.day != null
+      ? FormatUtils.formatDayOfEvent(dayOfEvent.day, dayOfEvent.days, language)
+      : null;
+
   const isRunning = EventUtils.isEventCurrentlyRunning(event);
-  // Not gated on `isRunning`: a middle day of a split timed event reads as all-day, so it is
-  // not "running" for the Now label below, but its day is part of an event under way and
-  // carries the bar. `calculateEventProgress` answers null for every row that has none.
-  const progressPercentage = config.show_progress_bar
-    ? EventUtils.calculateEventProgress(event)
-    : null;
+  // Not gated on `isRunning`, which asks the row: `calculateEventProgress` asks the whole event,
+  // and answers null for every row that has no bar. A middle day of a split timed event, which
+  // reads as all-day and is never "running", belongs to an event a day or more long, so it
+  // draws the day counter below rather than a bar.
+  //
+  // No row of an event the day counter counts draws a bar: over a long event a bar barely moves,
+  // and the counter says how far along it is instead. Asked of the event, through the stamp,
+  // rather than of whether this row draws the counter, because the clock repaint asks the same
+  // question of the event (`_drawsMovingClockText`): a row naming no day that still drew a bar
+  // would have a bar nothing repaints.
+  const progressPercentage =
+    config.show_progress_bar && !dayOfEvent ? EventUtils.calculateEventProgress(event) : null;
 
   // All-day events never run in this sense — `isEventCurrentlyRunning` answers false for
   // them — so a day full of all-day entries does not turn into a column of "Now" labels.
+  //
+  // Nor does an event a full day or longer, on any of its rows, whatever `show_progress_bar`
+  // says: over a 45-day course "Now" is true on every day and says nothing, and its time would
+  // stay green for weeks. Asked of the whole event (`countsDays` reads the source span), so a
+  // split row of one is never marked either. Grid never draws the label, and its now line marks
+  // the clock rather than the event.
   const nowLabel =
-    isRunning && config.show_now_indicator && !isEmptyDay ? getNowString(language) : null;
+    isRunning && config.show_now_indicator && !isEmptyDay && !EventUtils.countsDays(event)
+      ? getNowString(language)
+      : null;
 
   const eventTimeParts = FormatUtils.formatEventTimeParts(event, config, language, hass);
 
@@ -391,6 +432,7 @@ export function buildEventPresentation(
     mergedLabels: EventUtils.resolveMergedLabels(event, config, hass),
     shouldShowTime,
     countdownStr,
+    dayCounter,
     progressPercentage,
     nowLabel,
     languageMark: TextDirection.languageMark(language, hass),

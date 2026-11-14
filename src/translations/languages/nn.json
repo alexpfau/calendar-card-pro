@@ -11,6 +11,7 @@
   "viewGrid": "Rutenett",
   "endsToday": "sluttar i dag",
   "endsTomorrow": "sluttar i morgon",
+  "dayOfEvent": "Dag {day} av {days}",
   "noEvents": "Ingen hendingar",
   "loading": "Lastar kalenderhendingar...",
   "error": "Feil: Kalendereininga vart ikkje funnen eller er ikkje konfigurert riktig",

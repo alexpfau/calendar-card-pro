@@ -553,6 +553,7 @@
   "countdown_exact_days": "Räkna bara i dagar",
   "countdown_exact_days.helper": "Räknar allt från och med i morgon i dagar: ”om 30 dagar” i stället för ”om en månad” och ”om 1 dag” i stället för ”i morgon”.",
   "show_progress_bar": "Visa förloppsindikator",
+  "show_progress_bar.helper": "För händelser som varar en dag eller längre visas en dagräknare på varje rad (”Dag 2 av 3”) i stället för förloppsindikatorn i list- och kolumnvyerna. När en händelse har börjat ersätter dagräknaren även nedräkningen.",
   "show_now_indicator": "Visa nu-markering",
   "show_now_indicator.helper": "Lägger ett grönt ”Nu” före tiden för händelser som pågår just nu.",
   "now_color": "Nu-färg",

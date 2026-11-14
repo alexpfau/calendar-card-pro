@@ -11,6 +11,7 @@
   "viewGrid": "Grille",
   "endsToday": "finit aujourd'hui",
   "endsTomorrow": "finit demain",
+  "dayOfEvent": "Jour {day} sur {days}",
   "noEvents": "Aucun événement",
   "loading": "Chargement des événements...",
   "error": "Erreur: Entité de calendrier introuvable ou mal configurée",
