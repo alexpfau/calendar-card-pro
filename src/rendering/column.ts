@@ -245,7 +245,7 @@ function renderDayColumn(
   dayAdd?: Activation.DayAddButtons,
 ): TemplateResult {
   const dayDate = new Date(day.timestamp);
-  const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
+  const { isToday, isTomorrow, isPast } = Leaves.classifyDay(day.timestamp);
   const isWeekendDay = FormatUtils.isWeekendDate(dayDate, hass);
 
   const weatherContent = Leaves.renderDateWeather(dayDate, config, weatherForecasts);
@@ -265,6 +265,7 @@ function renderDayColumn(
         today: isToday,
         tomorrow: isTomorrow,
         'future-day': !isToday,
+        'past-day': isPast,
         weekend: isWeekendDay,
       })}
       style=${styleMap({ gridColumn: String(columnIndex + 1), gridRow: '2' })}

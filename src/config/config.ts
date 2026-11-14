@@ -90,6 +90,11 @@ export const DEFAULT_CONFIG: Types.Config = {
   today_weekday_color: undefined, // Inherit from weekday_color or weekend_weekday_color
   today_day_color: undefined, // Inherit from day_color or weekend_day_color
   today_month_color: undefined, // Inherit from month_color or weekend_month_color,
+  today_date_scale: 1,
+  today_date_font_weight: 'default',
+  past_date_scale: 1,
+  past_date_font_weight: 'default',
+  past_date_opacity: 100,
 
   event_background_opacity: 0,
   past_event_opacity: 60,
@@ -276,6 +281,37 @@ export function toValidNumber(value: unknown, minimum = 0): number | undefined {
 export function toValidPercentage(value: unknown): number | undefined {
   const parsed = toValidNumber(value);
   return parsed !== undefined && parsed <= 100 ? parsed : undefined;
+}
+
+/**
+ * The weights the editor names, as Home Assistant's own tokens, so a theme's weights carry
+ * through. `normal` is CSS's word for `regular`.
+ */
+const NAMED_FONT_WEIGHTS: Readonly<Record<string, string>> = {
+  light: 'var(--ha-font-weight-light, 300)',
+  regular: 'var(--ha-font-weight-normal, 400)',
+  normal: 'var(--ha-font-weight-normal, 400)',
+  medium: 'var(--ha-font-weight-medium, 500)',
+  bold: 'var(--ha-font-weight-bold, 700)',
+};
+
+/**
+ * A date's font weight option as CSS: a name from {@link NAMED_FONT_WEIGHTS}, in any case, or
+ * a number from 1 to 1000, the range CSS accepts.
+ *
+ * @param value - Raw YAML or selector value
+ * @returns The CSS value; `''` for `default`, which leaves the card's own weights; `undefined`
+ *   for anything else
+ */
+export function toFontWeightCss(value: unknown): string | undefined {
+  const word = typeof value === 'string' ? value.trim().toLowerCase() : value;
+  if (word === 'default') return '';
+  if (typeof word === 'string' && Object.prototype.hasOwnProperty.call(NAMED_FONT_WEIGHTS, word)) {
+    return NAMED_FONT_WEIGHTS[word];
+  }
+
+  const number = toValidNumber(word, 1);
+  return number !== undefined && number <= 1000 ? String(number) : undefined;
 }
 
 /**
@@ -506,6 +542,16 @@ export function normalizeNumericOptions(config: Types.Config): Types.Config {
   validatePastEventOpacity(config.past_event_opacity);
   config.past_event_opacity =
     toValidPercentage(config.past_event_opacity) ?? DEFAULT_CONFIG.past_event_opacity;
+  // Any number above 0, as a calendar's `text_scale`; anything else draws at the card's size.
+  config.today_date_scale = toValidNumber(config.today_date_scale, Number.MIN_VALUE) ?? 1;
+  config.past_date_scale = toValidNumber(config.past_date_scale, Number.MIN_VALUE) ?? 1;
+  config.past_date_opacity = toValidPercentage(config.past_date_opacity) ?? 100;
+  if (toFontWeightCss(config.today_date_font_weight) === undefined) {
+    config.today_date_font_weight = 'default';
+  }
+  if (toFontWeightCss(config.past_date_font_weight) === undefined) {
+    config.past_date_font_weight = 'default';
+  }
 
   // Optional limits: `undefined` means "no limit", so invalid values clear them rather
   // than collapsing to zero and hiding content.

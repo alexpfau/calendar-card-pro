@@ -783,12 +783,43 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   weekend_day_color: 'Weekend Day Number Color',
   weekend_month_color: 'Weekend Month Color',
 
-  today_colors: 'Today Colors',
-  'today_colors.helper':
-    'Each of these falls back to its weekend equivalent, and then to its weekday one.',
+  heading_today: 'Today',
+  today_date_scale: "Today's Date Scale",
+  'today_date_scale.helper':
+    "Draws today's whole date larger or smaller, the date tile with it: 1.25 is a quarter " +
+    'larger. 1 leaves it as it is.',
+  today_date_font_weight: "Today's Font Weight",
+  'today_date_font_weight.option.default.label': 'Default',
+  'today_date_font_weight.option.light.label': 'Light',
+  'today_date_font_weight.option.regular.label': 'Regular',
+  'today_date_font_weight.option.medium.label': 'Medium',
+  'today_date_font_weight.option.bold.label': 'Bold',
   today_weekday_color: "Today's Weekday Color",
+  'today_weekday_color.helper':
+    "Left empty, each of today's colors falls back to its weekend equivalent on a weekend, and " +
+    'then to its usual one.',
   today_day_color: "Today's Day Number Color",
+  'today_day_color.helper':
+    "Left empty, the digits on the date tile take a deeper shade of the tile's color.",
   today_month_color: "Today's Month Color",
+
+  past_days: 'Past Days',
+  'past_days.helper':
+    'For the days before today, when the card starts earlier, as a week view starting on ' +
+    'Monday does.',
+  past_date_opacity: 'Past Date Opacity',
+  'past_date_opacity.helper':
+    'How strongly the dates of past days fade, from 0 to 100%. 100 leaves them as they are.',
+  past_date_scale: 'Past Date Scale',
+  'past_date_scale.helper':
+    'Draws the dates of past days larger or smaller: 0.85 is a little smaller. 1 leaves them ' +
+    'as they are.',
+  past_date_font_weight: 'Past Font Weight',
+  'past_date_font_weight.option.default.label': 'Default',
+  'past_date_font_weight.option.light.label': 'Light',
+  'past_date_font_weight.option.regular.label': 'Regular',
+  'past_date_font_weight.option.medium.label': 'Medium',
+  'past_date_font_weight.option.bold.label': 'Bold',
 
   today_indicator: 'Today Indicator',
   today_indicator_style: 'Style',

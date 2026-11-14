@@ -2022,7 +2022,7 @@ function renderDayHeader(
   dayAdd?: Activation.DayAddButtons,
 ): TemplateResult {
   const dayDate = new Date(day.timestamp);
-  const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
+  const { isToday, isTomorrow, isPast } = Leaves.classifyDay(day.timestamp);
   const weatherContent = Leaves.renderDateWeather(dayDate, config, weatherForecasts);
 
   return html`
@@ -2032,6 +2032,7 @@ function renderDayHeader(
         today: isToday,
         tomorrow: isTomorrow,
         'future-day': !isToday,
+        'past-day': isPast,
         weekend: FormatUtils.isWeekendDate(dayDate, hass),
       })}
       style=${styleMap({ gridColumn: String(columnIndex + 2), gridRow: '2' })}
@@ -2089,7 +2090,7 @@ function renderDayBody(
   dayLabelId?: string,
 ): TemplateResult {
   const dayDate = new Date(day.timestamp);
-  const { isToday } = Leaves.classifyDay(day.timestamp);
+  const { isToday, isPast } = Leaves.classifyDay(day.timestamp);
   const { timed } = sortDayEvents(day);
   // Lanes are shared out among events that overlap, so the set they are computed over
   // decides how wide each drawn block is. Handing `layoutLanes` the whole day let an event
@@ -2185,6 +2186,7 @@ function renderDayBody(
       class=${classMap({
         'grid-day-body': true,
         today: isToday,
+        'past-day': isPast,
         weekend: FormatUtils.isWeekendDate(dayDate, hass),
       })}
       style=${styleMap({ gridColumn: String(columnIndex + 2), gridRow: '4' })}

@@ -369,5 +369,5 @@ The `column:` block and every option inside it are listed under [Column-Only Opt
 configuration reference](/reference/configuration#column-only-options).
 
 For card-mod styling, note that the day container is `.day-column` here rather than list
-view's `.day-table`; both carry the same `today` / `tomorrow` / `future-day` / `weekend`
-state classes. See [Day Container Classes](/features/theming#day-container-classes).
+view's `.day-table`; both carry the same `today` / `tomorrow` / `past-day` / `future-day` /
+`weekend` state classes. See [Day Container Classes](/features/theming#day-container-classes).

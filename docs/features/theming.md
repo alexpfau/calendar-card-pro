@@ -136,19 +136,31 @@ nothing in the others unless each container is named:
 | [Grid](/features/grid-view)     | `.grid-day-header`, `.grid-day-body` | the day's cell in the date row, and its column on the time axis |
 
 The containers carry the same state classes, so the state half of a selector is portable
-even though the container name is not. Grid's day body carries only two of them:
+even though the container name is not. Grid's day body carries only three of them:
 
 | Class        | Applied when             | In grid view    |
 | ------------ | ------------------------ | --------------- |
 | `today`      | the day is today         | header and body |
 | `tomorrow`   | the day is tomorrow      | header only     |
+| `past-day`   | the day is before today  | header and body |
 | `future-day` | the day is not today     | header only     |
 | `weekend`    | the day is a weekend day | header and body |
+
+`future-day` is on past days too, as it always has been; select the days after today with
+`.future-day:not(.past-day)`.
 
 In list view, `weekend` is also on the date cell, `.date-column.weekend`, as a hook for your own
 rules. `weekend_weekday_color`, `weekend_day_color` and `weekend_month_color` are written inline
 on the `.weekday`, `.day` and `.month` inside it, so a color set there from card-mod needs
-`!important`.
+`!important`. The same goes for the size, weight and opacity that
+[today's and past days' own options](/features/layout-appearance#today-past-days) write there.
+Card-mod can add what the options do not, such as italic past days:
+
+```yaml
+card_mod:
+  style: |
+    .past-day .weekday, .past-day .day, .past-day .month { font-style: italic; }
+```
 
 ::: tip Name Every View's Container
 Selector lists cost nothing and survive a later change of view, including one made with the

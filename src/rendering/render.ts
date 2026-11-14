@@ -610,7 +610,7 @@ export function renderDay(
   eventsTappable = false,
   dayAdd?: Activation.DayAddButtons,
 ): TemplateResult {
-  const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
+  const { isToday, isTomorrow, isPast } = Leaves.classifyDay(day.timestamp);
   // Column view carries `weekend` on its day container, so list view does too — a card-mod
   // rule targeting weekends should not need to know which view is active. List view also
   // keeps it on `.date-column`, where it drives the built-in date-cell styling.
@@ -657,6 +657,7 @@ export function renderDay(
         today: isToday,
         tomorrow: isTomorrow,
         'future-day': !isToday,
+        'past-day': isPast,
         weekend: isWeekendDay,
         'with-event-gap': eventGap,
       })}

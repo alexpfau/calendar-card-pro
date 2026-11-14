@@ -276,11 +276,33 @@ const FAMILY_OPTIONS = [...new Set(FAMILY.flatMap(({ value }) => reads(value)))]
 /** A sentinel per family option, so an inline font size can be traced back to its option. */
 const SENTINELS = new Map(FAMILY_OPTIONS.map((path, index) => [path, `${7311 + index}px`]));
 
-/** The custom property each sentinel stands for. */
+/** The scales the corpus draws today's and past days' dates at; see its variants. */
+const TODAY_DATE_SCALE = 1.25;
+const PAST_DATE_SCALE = 0.9;
+
+/** The three sizes a date is drawn in, which a date's own scale multiplies inline. */
+const DATE_SIZE_PROPERTIES = new Set([
+  '--calendar-card-font-size-weekday',
+  '--calendar-card-font-size-day',
+  '--calendar-card-font-size-month',
+]);
+
+/**
+ * The custom property each sentinel stands for. A date drawn at a scale of its own carries its
+ * option's sentinel multiplied, and it is still that option's size, so the product traces to it
+ * too; only the date sizes, so a multiplied sentinel anywhere else still reads as fixed.
+ */
 const PROPERTY_OF_SENTINEL = new Map(
-  [...OPTION_OF_PROPERTY].flatMap(([property, path]) =>
-    SENTINELS.has(path) ? [[SENTINELS.get(path)!, property] as const] : [],
-  ),
+  [...OPTION_OF_PROPERTY].flatMap(([property, path]) => {
+    const sentinel = SENTINELS.get(path);
+    if (sentinel === undefined) return [];
+    const scaled = DATE_SIZE_PROPERTIES.has(property)
+      ? [TODAY_DATE_SCALE, PAST_DATE_SCALE].map(
+          (scale) => [`${Number.parseFloat(sentinel) * scale}px`, property] as const,
+        )
+      : [];
+    return [[sentinel, property] as const, ...scaled];
+  }),
 );
 
 //-----------------------------------------------------------------------------
@@ -548,6 +570,17 @@ const VIEWS = ['list', 'column', 'grid'] as const;
 /** Options that change what is drawn, each on top of the base. */
 const VARIANTS: Array<[string, Record<string, unknown>]> = [
   ['base', {}],
+  // Today's date on the tile and drawn larger, a past day's smaller: the header's struts, which
+  // carry the largest scaled sizes in column and grid view, are only drawn while a scale is set,
+  // and the tile's copy only with the tile.
+  [
+    'scaled dates on the tile',
+    {
+      today_indicator: 'tile',
+      today_date_scale: TODAY_DATE_SCALE,
+      past_date_scale: PAST_DATE_SCALE,
+    },
+  ],
   ['no time', { show_time: false }],
   ['scrolling titles', { scroll_long_titles: true }],
   ['all-day badge', { allday_badge: 'time' }],

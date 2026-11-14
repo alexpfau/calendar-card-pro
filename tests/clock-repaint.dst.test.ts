@@ -166,6 +166,32 @@ describe("today's empty-day notice at midnight", () => {
   );
 });
 
+describe('a past day at midnight', () => {
+  // The 14th turns past at local midnight. On fixed dates nothing is loaded then, so the clock
+  // repaint is what has to mark it and fade its date.
+  const isPastDay = (card: CardUnderTest): boolean[] =>
+    [...card.shadowRoot!.querySelectorAll('.day-table, .day-column')].map((day) =>
+      day.classList.contains('past-day'),
+    );
+
+  it.each(['list', 'column'] as const)(
+    'marks yesterday and fades its date in %s view, with no hass update and no fetch',
+    async (view) => {
+      const card = await mount({ view, past_date_opacity: 40 });
+      expect(card.effectiveView).toBe(view);
+      expect(isPastDay(card)).toEqual([false, false]);
+
+      await vi.advanceTimersByTimeAsync(3 * 60_000);
+      await card.updateComplete;
+
+      expect(isPastDay(card)).toEqual([true, false]);
+      const day = card.shadowRoot!.querySelector<HTMLElement>('.past-day .day')!;
+      expect(day.style.opacity).toBe('0.4');
+      expect(callApi).not.toHaveBeenCalled();
+    },
+  );
+});
+
 describe('midnight on a window that follows today, after a sleep', () => {
   // The window moves at midnight, so the new day has to be loaded, not only drawn. Armed at
   // 22:00; awake until 23:00, asleep until 23:50, so the pending load timer kept the delay it

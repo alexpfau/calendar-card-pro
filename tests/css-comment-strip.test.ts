@@ -279,8 +279,16 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(227_000);
-    // The time beside a wrapping title moved the ceiling last, from 222,000 to 227,000: the notes
+    expect(saved).toBeLessThan(232_000);
+    // The struts for today's and past days' own date scales moved the ceiling last, from 227,000
+    // to 232,000: the note on why every column and grid header has to lay out as tall as the
+    // largest date a day can be drawn at, why a minimum height on the header was tried first and
+    // missed (a month larger than the number, or a weather badge, made today's header taller
+    // anyway), and why the struts are pseudo-elements, which the grid's structure observers never
+    // see. The reading went from 225,331 to 227,067, taken with stripComments after the last
+    // comment was written.
+    //
+    // The time beside a wrapping title moved the ceiling before that, from 222,000 to 227,000: the notes
     // on why a wrapping title's row keeps the 12px end margin every time keeps, so the title's
     // lines stop where the time ends and the time ends where it does in every mode, why the time
     // gives up its own margin there, and why an all-day pill with nothing after it gives up its
