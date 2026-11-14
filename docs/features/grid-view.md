@@ -67,8 +67,11 @@ time_grid:
   [one banner above the hours](#long-timed-events-as-banners) instead. The block where it
   starts shows its start and end time, with how many days later the end falls, and
   its countdown: a late match from `22:05` to `01:35` reads `22:05 - 1:35 (+1)`, and with
-  `show_end_time: false` just `22:05`. The others show neither, even when the event began
-  before the card's first day; weather, location and description rows can still appear on
+  `show_end_time: false` just `22:05`. With
+  [`show_duration`](/features/event-content#event-duration) the event's whole length follows,
+  `22:05 - 1:35 (+1) (3 hr, 30 min)`. The others show neither, even when the event began
+  before the card's first day, and with `show_duration` only the length,
+  `(3 hr, 30 min total)`; weather, location and description rows can still appear on
   each. An event that runs until the midnight after it starts needs no count, so `22:00` to
   `00:00` is one block reading `22:00 - 0:00`.
 - An event with no duration, such as a reminder, or one shorter than a minute still gets a
@@ -385,7 +388,10 @@ time_grid:
 - All-day banners show the title only, filled with the calendar's color and with no accent bar.
   They follow background opacity and past-event dimming, but time badges, location,
   description, event weather, countdowns, progress bars and label icons stay out of the band.
-  A timed banner adds its start and end times and nothing else.
+  A timed banner adds its start and end times and nothing else. With
+  [`show_duration`](/features/event-content#event-duration) either kind adds the event's length
+  after its title, "Weekend away (3 days)", as a total where the banner shows only some of the
+  event's days, cut off at the card's edge or with days left out of it, "(5 days total)".
 - Banners beyond `allday_band_max_rows` are dropped, so a week of long events cannot push the
   hours off the bottom of the card. Positive fractional caps round down to whole rows, with a
   minimum of one.
@@ -428,8 +434,8 @@ time_grid:
   An end at midnight does not count the day that midnight opens, and like a start at midnight it
   draws no time.
 - **A time is drawn only at an end the card shows.** An event running past the first or last day
-  shown carries the same arrow as an all-day banner on that side. On a narrow banner the end
-  time gives way first, then the start time, so the title stays. `show_time: false` draws no
+  shown carries the same arrow as an all-day banner on that side. On a narrow banner the
+  event's length gives way first, then the end time, then the start time, so the title stays. `show_time: false` draws no
   times and `show_end_time: false` only the start.
 - **Per calendar:** set `multiday_banners` on a calendar to keep its long events in the hours,
   or to draw them as banners on a card that turned them off. To choose by title, list the

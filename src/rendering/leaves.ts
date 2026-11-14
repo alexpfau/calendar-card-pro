@@ -779,6 +779,13 @@ export interface EventContentParts {
   eventTimeEnd?: string;
 
   /**
+   * The duration that ends `eventTimeEnd` (`show_duration`), where grid keeps it after giving up
+   * the end time before it (`grid-time-fit.ts`). Drawn as a span of its own inside the end only
+   * where the end holds more than the duration.
+   */
+  eventTimeDuration?: string;
+
+  /**
    * The all-day label to draw as its own badge, present only when `allday_badge` names a
    * treatment and the event is all-day. When set, `eventTime` holds only what follows the
    * label, which is empty for a single-day all-day event.
@@ -1013,6 +1020,7 @@ export function renderEventContent(
   const {
     eventTime,
     eventTimeEnd,
+    eventTimeDuration,
     allDayBadge,
     titlePill,
     eventLocation,
@@ -1096,6 +1104,18 @@ export function renderEventContent(
   // The text before a droppable end, which the end's own layout depends on (see below).
   const timeHead = splitEnd ? eventTime.slice(0, -splitEnd.length) : eventTime;
 
+  // A duration ending the end is a piece grid keeps after the end time before it, so the two
+  // are spans of their own inside the end. Only where both are there: an end that is the
+  // duration alone, as under `show_end_time: false`, stays one span, as does every end without.
+  const splitDuration =
+    splitEnd &&
+    eventTimeDuration &&
+    splitEnd.endsWith(eventTimeDuration) &&
+    splitEnd !== eventTimeDuration
+      ? eventTimeDuration
+      : null;
+  const endReading = splitDuration && splitEnd ? splitEnd.slice(0, -splitDuration.length) : null;
+
   // No whitespace inside the split: a text node between the two spans would put a second
   // space in the middle of "10:00 - 12:00".
   //
@@ -1113,7 +1133,9 @@ export function renderEventContent(
   // the grid hides leaves a whole start behind.
   // prettier-ignore
   const timeValue = eventTime
-    ? splitEnd
+    ? splitDuration && endReading !== null
+      ? html`<span>${own(FormatUtils.isolateClockReadings(timeHead))}<span class="time-end"><span class="time-end-reading">${own(FormatUtils.isolateClockReadings(endReading, timeHead))}</span><span class="time-duration">${own(splitDuration)}</span></span></span>`
+      : splitEnd
       ? html`<span>${own(FormatUtils.isolateClockReadings(timeHead))}<span class="time-end">${own(FormatUtils.isolateClockReadings(splitEnd, timeHead))}</span></span>`
       : html`<span>${own(FormatUtils.isolateClockReadings(eventTime))}</span>`
     : nothing;

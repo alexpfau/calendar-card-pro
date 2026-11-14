@@ -893,6 +893,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'time_position.option.below.label': 'Below the title',
   'time_position.option.title.label': 'Beside the title',
   show_end_time: 'Show End Time',
+  show_duration: 'Show Duration',
+  'show_duration.helper':
+    'Adds how long each event lasts after its time, such as “(1 hr, 45 min)” or “(1 day)”. ' +
+    'Each day of an event split across days shows the whole event’s length, such as ' +
+    '“(3 days total)”.',
   show_single_allday_time: 'Show Time For All-Day Events',
   'show_single_allday_time.helper':
     'Applies to all-day events that occupy a single day. Multi-day ones have their own ' +

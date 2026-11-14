@@ -12,6 +12,7 @@
   "endsToday": "bitiş: bugün",
   "endsTomorrow": "bitiş: yarın",
   "dayOfEvent": "{days} günün {day}. günü",
+  "durationTotal": "toplam {duration}",
   "noEvents": "Etkinlik yok",
   "loading": "Takvim etkinlikleri yükleniyor...",
   "error": "Hata: Takvim içeriği bulunamadı veya yanlış yapılandırılmış",

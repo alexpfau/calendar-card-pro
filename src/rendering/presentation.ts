@@ -416,7 +416,7 @@ export function buildEventPresentation(
       : undefined;
 
   const eventTime = allDayBadge
-    ? eventTimeParts.text
+    ? FormatUtils.timeTextWithDuration(eventTimeParts)
     : FormatUtils.joinEventTimeParts(eventTimeParts, language);
   // `show_location_allday` and `show_description_allday` decide these; see `shownRowText`.
   const { location: eventLocation, description: eventDescription } = shownRowText(event, config);
@@ -433,7 +433,8 @@ export function buildEventPresentation(
 
   const contentParts: EventContentParts = {
     eventTime,
-    eventTimeEnd: eventTimeParts.end,
+    eventTimeEnd: FormatUtils.droppableTimeEnd(eventTimeParts),
+    eventTimeDuration: FormatUtils.durationSuffix(eventTimeParts),
     allDayBadge,
     titlePill,
     eventLocation,

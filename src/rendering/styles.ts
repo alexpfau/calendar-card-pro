@@ -5821,6 +5821,75 @@ export const cardStyles = css`
     }
   }
 
+  /* A banner's event length (show_duration), after its title: "Weekend away (3 days)". The
+     banner carries the event font size, as a timed one does, so the container query below
+     measures in the em the text is set in, and the title inherits it rather than compounding a
+     relative size. The length goes before anything else in a narrow banner, the times included,
+     and never cuts the title short or is cut itself: below the widths here it is not drawn. The
+     mark that the event carries on past the window follows the length while it is drawn, so it
+     stays at the banner's end. Widths are the length's words and a few words of title; 12-hour
+     times are longer. Without container queries, before Safari 16, the length always shows. */
+  .grid-banner-lasts {
+    container: calendar-card-grid-banner / inline-size;
+    font-size: var(--calendar-card-font-size-event);
+  }
+
+  .grid-banner-lasts .grid-banner-title {
+    font-size: inherit;
+  }
+
+  .grid-banner-duration {
+    flex: none;
+    margin-inline-start: 0.35em;
+    font-size: inherit;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--calendar-card-color-event);
+    white-space: nowrap;
+  }
+
+  .grid-banner-timed .grid-banner-duration {
+    margin-inline-start: 0;
+  }
+
+  .grid-banner-lasts.continues-after .grid-banner-title::after {
+    content: none;
+  }
+
+  .grid-banner-lasts.continues-after .grid-banner-duration::after {
+    content: '\\00A0\\25B8';
+  }
+
+  @container calendar-card-grid-banner (width < 10em) {
+    .grid-banner-duration {
+      display: none;
+    }
+
+    .grid-banner-lasts.continues-after .grid-banner-title::after {
+      content: '\\00A0\\25B8';
+    }
+  }
+
+  @container calendar-card-grid-banner (width < 20em) {
+    .grid-banner-timed .grid-banner-duration {
+      display: none;
+    }
+
+    .grid-banner-timed.grid-banner-lasts.continues-after .grid-banner-title::after {
+      content: '\\00A0\\25B8';
+    }
+  }
+
+  @container calendar-card-grid-banner (width < 24em) {
+    .grid-banner-long-times .grid-banner-duration {
+      display: none;
+    }
+
+    .grid-banner-lasts.continues-after .grid-banner-long-times .grid-banner-title::after {
+      content: '\\00A0\\25B8';
+    }
+  }
+
   /* ----- Time body ----- */
 
   .grid-day-body {
@@ -6676,6 +6745,15 @@ export const cardStyles = css`
     vertical-align: baseline;
   }
 
+  /* An end carrying a duration (show_duration) holds its time and the duration as spans of their
+     own, so the fit ladder can give up the time and keep the duration. Reset as the end is above,
+     for the same two reasons: an inline-block reading would swallow the space it leads with. */
+  .time .time-actual .time-end > .time-end-reading,
+  .time .time-actual .time-end > .time-duration {
+    display: inline;
+    vertical-align: baseline;
+  }
+
   /* The rungs of the fit ladder that give something up. All are set by the host, which
      measured this exact row rather than assuming a type scale - see grid-time-fit.ts. The
      icon goes first because the block's own position already says this is a time; the end
@@ -6688,6 +6766,11 @@ export const cardStyles = css`
   }
 
   .grid-event-disclosure.grid-time-no-end .time .time-actual .time-end {
+    display: none;
+  }
+
+  /* Rung 4: the end time goes and the duration after it stays, on the start's line. */
+  .grid-event-disclosure.grid-time-no-end-reading .time .time-actual .time-end-reading {
     display: none;
   }
 

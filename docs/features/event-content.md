@@ -323,6 +323,7 @@ show_multiday_allday_time: false # ...and for multi-day ones, which show an end 
 time_24h: false # Use 12-hour format (AM/PM)
 time_two_digit_hours: false # Use 2 digits in hours
 show_end_time: true # Show event end time
+show_duration: false # Show how long each event lasts
 time_font_size: '12px'
 time_color: 'var(--secondary-text-color)'
 time_icon_size: '14px'
@@ -353,6 +354,46 @@ integration or calendar file that gets it wrong. An all-day event whose end is m
 after its start has no time to fall back on and is not shown.
 
 :::
+
+### Event Duration
+
+`show_duration` adds how long each event lasts after its time, so a half-hour call reads
+"16:00 - 16:30 (30 min)" and a long weekend away "(3 days)". It is off by default:
+
+```yaml
+show_duration: true
+```
+
+- **Shorter than a day, it is the time that passes**: "(45 min)", "(1 hr, 45 min)". A night
+  when the clocks go forward reads an hour shorter than its clock times suggest, because it is.
+- **From a full day, it is days and the clock time left over**: "(1 day, 8 hr)". Noon to noon
+  the next day is "(1 day)", even across a change of clocks.
+- **An all-day event counts its days**: "(1 day)", "(3 days)".
+- **An event drawn on several days shows its whole length on each of them, marked as a
+  total.** Split into a row per day, a night shift reads "20:30 - 23:59 (8 hr total)" and
+  "0:00 - 4:30 (8 hr total)", and each day of a weekend away "All day (3 days total)". Column
+  view's days and grid view's later blocks read the same way. A row that shows the whole event
+  has no "total".
+- **An event that starts and ends in the same minute, such as a reminder, shows none.**
+- **It follows the time wherever the time goes**: after the start alone with
+  `show_end_time: false`, beside the title with
+  [`time_position: title`](#time-beside-the-title), and hidden with the time under
+  `show_time: false`.
+- **In grid view the end time goes before the duration** when a block is too narrow for both:
+  "13:15 (1 hr, 45 min)". The block where an overnight event starts carries the length after its
+  end, "22:05 - 1:35 (+1) (3 hr, 30 min)", and the blocks after it "(3 hr, 30 min total)".
+  [Banners](/features/grid-view) show it after their title, "Weekend away (3 days)", and leave it
+  out first where the banner is too narrow.
+- **The words are the browser's own for the card's language.** Swedish, Norwegian and Estonian
+  count days in their word for a full 24 hours: "1 dygn, 8 tim", "1 døgn, 8 t", "1 ööpäev, 8 t".
+
+Each layout can set it on its own:
+
+```yaml
+show_duration: true
+grid:
+  show_duration: false # the block's height already says it
+```
 
 ### Time Beside the Title
 

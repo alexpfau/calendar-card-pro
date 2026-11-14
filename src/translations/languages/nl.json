@@ -20,6 +20,7 @@
   "endsToday": "eindigt vandaag",
   "endsTomorrow": "eindigt morgen",
   "dayOfEvent": "Dag {day} van {days}",
+  "durationTotal": "{duration} in totaal",
   "noEvents": "Geen afspraken",
   "loading": "Kalender afspraken laden...",
   "error": "Fout: Kalender niet gevonden of verkeerd geconfigureerd",

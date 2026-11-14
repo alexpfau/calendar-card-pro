@@ -137,6 +137,7 @@ function timeGroup(language: string, showTime: boolean): HaFormSchema[] {
   return [
     group(language, 'time', TIME_ICON, [
       bool('show_end_time'),
+      bool('show_duration'),
       bool('show_single_allday_time'),
       bool('show_multiday_allday_time'),
       bool('time_two_digit_hours'),

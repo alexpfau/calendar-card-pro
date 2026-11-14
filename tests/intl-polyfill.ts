@@ -2,16 +2,17 @@
  * Home Assistant's `Intl` polyfill, as far as the card meets it: a formatjs service holding the
  * data of the languages loaded into it and no other.
  *
- * Home Assistant's frontend installs formatjs's `Intl.DateTimeFormat`, `Intl.RelativeTimeFormat`
- * and `Intl.ListFormat` where the browser has no data for the language it starts in, then loads
- * that language from `/static/locale-data/intl-<service>/<language>.json` through
- * `__addLocaleData`, which takes the file's `{ locale, data }` as it is. The fake keeps what
- * formatjs does with that (`registerLocaleData`): it registers the tag, every shorter tag down to
- * the language, and, for a tag naming a script, the tag with the script's usual region in its
- * place, so `zh-Hans` answers for `zh-CN` and `zh`. `supportedLocalesOf` and the constructor then
- * look a request up by truncation, as formatjs's lookup does, and a request it has nothing for
- * resolves to the first language loaded, formatjs's `__defaultLocale`. The text itself comes from
- * Node's own `Intl` in the resolved language.
+ * Home Assistant's frontend installs formatjs's `Intl.DateTimeFormat`, `Intl.RelativeTimeFormat`,
+ * `Intl.ListFormat` and `Intl.NumberFormat`, among others, where the browser has no data for the
+ * language it starts in, then loads that language from
+ * `/static/locale-data/intl-<service>/<language>.json` through `__addLocaleData`, which takes the
+ * file's `{ locale, data }` as it is. The fake keeps what formatjs does with that
+ * (`registerLocaleData`): it registers the tag, every shorter tag down to the language, and, for a
+ * tag naming a script, the tag with the script's usual region in its place, so `zh-Hans` answers
+ * for `zh-CN` and `zh`. `supportedLocalesOf` and the constructor then look a request up by
+ * truncation, as formatjs's lookup does, and a request it has nothing for resolves to the first
+ * language loaded, formatjs's `__defaultLocale`. The text itself comes from Node's own `Intl` in
+ * the resolved language.
  *
  * The real polyfill was checked against this on Home Assistant's own page in Chromium 151, with
  * Home Assistant's own files, for every card language: S114's harness, in the PR.
@@ -23,7 +24,12 @@ export type Service = (new (locales?: Intl.LocalesArgument, options?: object) =>
 };
 
 /** The services Home Assistant polyfills that the card or the editor writes with. */
-export const POLYFILLED = ['DateTimeFormat', 'RelativeTimeFormat', 'ListFormat'] as const;
+export const POLYFILLED = [
+  'DateTimeFormat',
+  'RelativeTimeFormat',
+  'ListFormat',
+  'NumberFormat',
+] as const;
 export type PolyfilledName = (typeof POLYFILLED)[number];
 
 const IntlServices = Intl as unknown as Record<string, Service>;
@@ -141,7 +147,7 @@ export function removePolyfill(): void {
 
 /** A file Home Assistant serves, by the path the card asks for it at. */
 const SERVED =
-  /^\/static\/locale-data\/intl-(datetimeformat|relativetimeformat|listformat)\/(.+)\.json$/;
+  /^\/static\/locale-data\/intl-(datetimeformat|relativetimeformat|listformat|numberformat)\/(.+)\.json$/;
 
 /**
  * Home Assistant's `/static/locale-data/`, as a `fetch` that records what it was asked for and

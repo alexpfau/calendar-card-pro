@@ -16,7 +16,8 @@
 import { forgetIntlFormats, intlLocales } from './intl-locales';
 
 /** The services the card or the editor may need a language in. */
-export type IntlServiceName = 'DateTimeFormat' | 'RelativeTimeFormat' | 'ListFormat';
+export type IntlServiceName =
+  'DateTimeFormat' | 'RelativeTimeFormat' | 'ListFormat' | 'NumberFormat';
 
 /** A service as Home Assistant's polyfill has it; a native one has no `__addLocaleData`. */
 interface PolyfilledService {

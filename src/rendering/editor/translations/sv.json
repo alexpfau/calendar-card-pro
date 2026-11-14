@@ -523,6 +523,8 @@
   "time_position.option.below.label": "Under titeln",
   "time_position.option.title.label": "Bredvid titeln",
   "show_end_time": "Visa sluttid",
+  "show_duration": "Visa varaktighet",
+  "show_duration.helper": "Visar varje händelses varaktighet i slutet av tidsraden, till exempel ”(1 tim, 45 min)” eller ”(1 dygn)”. För en händelse som delas upp över flera dagar visar varje dag hela händelsens varaktighet, till exempel ”(3 dygn totalt)”.",
   "show_single_allday_time": "Visa tid för heldagshändelser",
   "show_single_allday_time.helper": "Gäller heldagshändelser som omfattar en enda dag. Flerdagars har en egen inställning nedan, eftersom deras tidsrad även innehåller slutdatumet.",
   "show_multiday_allday_time": "Visa tid för flerdagars heldagshändelser",

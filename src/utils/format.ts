@@ -77,6 +77,58 @@ export interface EventTimeParts {
    * right.
    */
   end?: string;
+
+  /**
+   * How long the event lasts, "(1 hr, 45 min)", present only under `show_duration`. Kept out of
+   * `text` and `end`, because where it goes depends on how the parts are drawn: after the
+   * joined label and text, after the text beside a badge, and in grid after the droppable end
+   * (`timeTextWithDuration`, `droppableTimeEnd`). See `formatEventDuration`.
+   */
+  duration?: string;
+}
+
+/** The space that sets the duration after the time: no break, so it stays with what it measures. */
+const DURATION_GAP = '\u00a0';
+
+/**
+ * Text and duration together, as the time row draws them beside an all-day badge, which has
+ * taken the label.
+ *
+ * @param parts Parts as returned by `formatEventTimeParts`
+ * @returns The text with the duration after it, or the duration alone where there is no text
+ */
+export function timeTextWithDuration({ text, duration }: EventTimeParts): string {
+  if (!duration) return text;
+  return text ? `${text}${DURATION_GAP}${duration}` : duration;
+}
+
+/**
+ * The droppable end of the joined time text, duration included. Grid gives the end time up
+ * first, since a block's bottom edge says when it ends, and the duration after it
+ * (`durationSuffix`). The duration alone is droppable where there is no end time to drop with
+ * it, as under `show_end_time: false`.
+ *
+ * @param parts Parts as returned by `formatEventTimeParts`
+ * @returns A suffix of the joined text, or undefined where none can go
+ */
+export function droppableTimeEnd({
+  end,
+  duration,
+  allDayLabel,
+}: EventTimeParts): string | undefined {
+  if (!duration || allDayLabel !== undefined) return end;
+  return `${end ?? ''}${DURATION_GAP}${duration}`;
+}
+
+/**
+ * The duration as it ends `droppableTimeEnd`, the gap before it included, which grid keeps after
+ * giving up the end time before it.
+ *
+ * @param parts Parts as returned by `formatEventTimeParts`
+ * @returns A suffix of the droppable end, or undefined where it has no duration
+ */
+export function durationSuffix({ duration, allDayLabel }: EventTimeParts): string | undefined {
+  return duration && allDayLabel === undefined ? `${DURATION_GAP}${duration}` : undefined;
 }
 
 /**
@@ -110,15 +162,18 @@ export function formatEventTime(
  * @returns The joined, capitalized time string
  */
 export function joinEventTimeParts(
-  { allDayLabel, text }: EventTimeParts,
+  { allDayLabel, text, duration }: EventTimeParts,
   language: string,
 ): string {
+  const after = duration ? `${DURATION_GAP}${duration}` : '';
   if (allDayLabel === undefined) {
-    return capitalizeFirstLetter(text);
+    return capitalizeFirstLetter(`${text}${after}`);
   }
 
   const { separator } = Localize.getTranslations(language);
-  return capitalizeFirstLetter(text ? `${allDayLabel}${separator}${text}` : allDayLabel);
+  return capitalizeFirstLetter(
+    `${text ? `${allDayLabel}${separator}${text}` : allDayLabel}${after}`,
+  );
 }
 
 /**
@@ -135,6 +190,26 @@ export function joinEventTimeParts(
  * @returns The all-day label where the event has one, and the remaining time text
  */
 export function formatEventTimeParts(
+  event: Types.CalendarEventData,
+  config: Types.Config,
+  language: string,
+  hass?: Types.Hass | null,
+): EventTimeParts {
+  const parts = timeTextParts(event, config, language, hass);
+  const duration = config.show_duration ? formatEventDuration(event, language) : null;
+  return duration ? { ...parts, duration } : parts;
+}
+
+/**
+ * The time text and the all-day label, without the duration.
+ *
+ * @param event Calendar event
+ * @param config Card configuration
+ * @param language Language code
+ * @param hass Home Assistant object for system time format detection
+ * @returns The all-day label where the event has one, and the remaining time text
+ */
+function timeTextParts(
   event: Types.CalendarEventData,
   config: Types.Config,
   language: string,
@@ -193,6 +268,193 @@ export function formatEventTimeParts(
       config.time_two_digit_hours,
     ),
   };
+}
+
+/** A duration in the units the card writes one in. */
+interface DurationParts {
+  days: number;
+  hours: number;
+  minutes: number;
+}
+
+/**
+ * How long an event lasts, as `show_duration` writes it after the time: "(30 min)",
+ * "(1 hr, 45 min)", "(1 day, 8 hr)", "(1 day)". In a first-strong isolate, so the parentheses
+ * and the words keep their own direction whichever way the row runs.
+ *
+ * The whole event is measured, on every row it is drawn on, so its length is there whichever of
+ * its days is on screen. Where the row shows only part of the event (a day of a split event, a
+ * later grid block, a banner cut off at the window's edge) the length is marked as the whole
+ * event's, "(8 hr total)", or it would read as the length of the times beside it. A row that
+ * shows the whole event, or `part` false, keeps plain parentheses.
+ *
+ * None for an event that starts and ends in the same minute, which shows its start time alone
+ * (#625).
+ *
+ * @param event Calendar event, or a row of one
+ * @param language Language code
+ * @param part Whether the row shows only part of the event, where the caller knows better than
+ *   the row's own stamps, as a banner does
+ * @returns The duration in parentheses, or null for none
+ */
+export function formatEventDuration(
+  event: Types.CalendarEventData,
+  language: string,
+  part?: boolean,
+): string | null {
+  const shown = shownInterval(event);
+  const parts = durationParts(shown.start, shown.end);
+  const text = parts ? formatDurationParts(parts, language) : null;
+  if (!text) return null;
+  const words =
+    (part ?? shown.part)
+      ? Localize.getTranslations(language).durationTotal.replace('{duration}', () => text)
+      : text;
+  return `\u2068(${words})\u2069`;
+}
+
+/**
+ * The whole event a row stands for, and whether the row shows only part of it: a day of a
+ * split list or column event, or a grid block other than the one that starts its event.
+ *
+ * @param event Calendar event, or a row of one
+ * @returns The event's start and end, and whether the row shows part of it
+ */
+function shownInterval(
+  event: Types.CalendarEventData,
+): Pick<Types.CalendarEventData, 'start' | 'end'> & { part: boolean } {
+  if (event._gridSource) {
+    return {
+      ...event._gridSource,
+      part: event._isMultiDaySegment === true && !event._gridSegmentStartsEvent,
+    };
+  }
+  if (event._isMultiDaySegment && event._sourceStart && event._sourceEnd) {
+    return { start: event._sourceStart, end: event._sourceEnd, part: true };
+  }
+  return { start: event.start, end: event.end, part: false };
+}
+
+/**
+ * How long an interval lasts, in days, hours and minutes.
+ *
+ * Shorter than a full day, the elapsed time, to the minute: a night when the clocks go forward
+ * is an hour shorter than its clock readings say, and it says so. From a full day, the wall
+ * clock: whole calendar days, then the clock time between the start's time of day and the
+ * end's, so noon to noon is "1 day" whether the clocks changed in between or not. A full day is
+ * the day counter's (`fullDaySpan`): an end on a later date at or after the start's time of
+ * day. All-day events count their dates, one included.
+ *
+ * @param start Start, as Home Assistant sent it
+ * @param end End, as Home Assistant sent it
+ * @returns The duration, or null for none to show
+ */
+function durationParts(
+  start: Types.CalendarEventData['start'],
+  end: Types.CalendarEventData['end'],
+): DurationParts | null {
+  if (start.date && end.date) {
+    const days = getCalendarDayDiff(parseAllDayDate(start.date), parseAllDayDate(end.date));
+    return days >= 1 ? { days, hours: 0, minutes: 0 } : null;
+  }
+
+  if (!start.dateTime || !end.dateTime) return null;
+  const span = fullDaySpan(start, end);
+  const from = new Date(start.dateTime);
+  const to = new Date(end.dateTime);
+  // Written positively: an unreadable date compares false both ways, and must not pass.
+  if (!(to.getTime() > from.getTime()) || isSameMinute(from, to)) return null;
+
+  if (span) {
+    let days = getCalendarDayDiff(from, to);
+    let clock = timeOfDay(to) - timeOfDay(from);
+    if (clock < 0) {
+      days -= 1;
+      clock += 86400000;
+    }
+    let minutes = Math.round(clock / 60000);
+    if (minutes >= 1440) {
+      days += 1;
+      minutes -= 1440;
+    }
+    return { days, hours: Math.floor(minutes / 60), minutes: minutes % 60 };
+  }
+
+  const minutes = Math.max(1, Math.round((to.getTime() - from.getTime()) / 60000));
+  return { days: 0, hours: Math.floor(minutes / 60), minutes: minutes % 60 };
+}
+
+/** `Intl.ListFormat`, which the project's `lib` does not declare. */
+type ListFormatConstructor = new (
+  locales: string[],
+  options: Record<string, string>,
+) => { format(items: string[]): string };
+
+const durationFormatters = intlCache<string, ((parts: DurationParts) => string) | null>();
+
+/**
+ * A duration in the card's language, in the browser's own words: short units with days written
+ * out, "1 day, 8 hr". Null where the browser cannot write it, or cannot yet: a duration is left
+ * out rather than the row it belongs to.
+ *
+ * @param parts The duration
+ * @param language Language code
+ * @returns The duration's words, or null
+ */
+function formatDurationParts(parts: DurationParts, language: string): string | null {
+  let format = durationFormatters.get(language);
+  if (format === undefined) {
+    format = durationFormatter(language);
+    durationFormatters.set(language, format);
+  }
+  try {
+    return format ? format(parts) : null;
+  } catch {
+    // Home Assistant's polyfill without the data it needs, which can fail as late as here.
+    return null;
+  }
+}
+
+/**
+ * Make the function that writes a duration in a language: each unit by `Intl.NumberFormat`,
+ * joined by `Intl.ListFormat`.
+ *
+ * That is what `Intl.DurationFormat` writes, with `style: 'short'` and `days: 'long'`, in every
+ * card language, and it is not used for a reason. Where the browser lacks it, Home Assistant
+ * installs formatjs's, which builds on the same two services and keeps the ones it first made
+ * for a language. Made before the card's language data reached them, they would go on writing
+ * another language after it had, which no format of the card's own can be told to forget. These
+ * are, through `intlCache`, the moment the data lands.
+ *
+ * @param language Language code
+ * @returns The function, or null where the browser cannot write durations
+ */
+function durationFormatter(language: string): ((parts: DurationParts) => string) | null {
+  const ListFormat = (Intl as unknown as { ListFormat?: ListFormatConstructor }).ListFormat;
+  try {
+    const unit = (name: string, unitDisplay: string) =>
+      new Intl.NumberFormat(intlLocales(language), {
+        style: 'unit',
+        unit: name,
+        unitDisplay,
+      } as Intl.NumberFormatOptions);
+    const units = {
+      days: unit('day', 'long'),
+      hours: unit('hour', 'short'),
+      minutes: unit('minute', 'short'),
+    };
+    const list = ListFormat
+      ? new ListFormat(intlLocales(language), { type: 'unit', style: 'short' })
+      : null;
+    return (parts) => {
+      const words = (['days', 'hours', 'minutes'] as const)
+        .filter((key) => parts[key] > 0)
+        .map((key) => units[key].format(parts[key]));
+      return list ? list.format(words) : words.join(', ');
+    };
+  } catch {
+    return null;
+  }
 }
 
 /** How a countdown, or a count-up from a finished event, counts, as the card's options set it. */

@@ -147,6 +147,8 @@ export interface Config {
   time_24h: boolean | 'system';
   time_two_digit_hours: boolean;
   show_end_time: boolean;
+  /** Write how long each event lasts after its time, "(1 hr, 45 min)". */
+  show_duration: boolean;
   time_font_size: string;
   time_color: string;
   time_icon_size: string;
@@ -404,6 +406,7 @@ export interface SharedViewOverrides {
   allday_badge_color?: string;
   time_two_digit_hours?: boolean;
   show_end_time?: boolean;
+  show_duration?: boolean;
   time_color?: string;
   time_font_size?: string;
   time_icon_size?: string;
@@ -1519,6 +1522,12 @@ export interface Translations {
    * as Finnish does with "Päivä {day}/{days}".
    */
   dayOfEvent: string;
+  /**
+   * An event's whole length on a row that shows only part of it (`show_duration`), with
+   * `{duration}` where the browser's words for it go: "{duration} total", "8 hr total". The
+   * parentheses around it are the card's.
+   */
+  durationTotal: string;
   /** The header toolbar's view switcher, one name per view. */
   viewList: string;
   viewColumns: string;

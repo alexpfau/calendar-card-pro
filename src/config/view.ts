@@ -92,6 +92,7 @@ export const COLUMN_OVERRIDE_KEYS = [
   'allday_badge_color',
   'time_two_digit_hours',
   'show_end_time',
+  'show_duration',
   'time_color',
   'time_font_size',
   'time_icon_size',

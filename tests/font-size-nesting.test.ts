@@ -558,6 +558,9 @@ const VARIANTS: Array<[string, Record<string, unknown>]> = [
   ['time beside the title', { time_position: 'title' }],
   // With times off, the countdown alone sits beside the title.
   ['countdown beside the title', { time_position: 'title', show_time: false }],
+  // Each event's length after its time, and after the title of a grid banner, which then takes
+  // the event size itself, as a timed banner does, so its length and title inherit it.
+  ['durations', { show_duration: true }],
   // The header toolbar: the title shrinks to a label over the month, which takes the title's
   // option, so both are drawn here beside the controls they must not be nested in. Without
   // the date navigation the month is plain text.
@@ -1026,7 +1029,10 @@ describe('every piece of text is sized by its own option', () => {
       'event-title-scroll in event-title': ['event_font_size'],
       'grid-axis-label in grid-axis': ['time_font_size'],
       // A timed banner (multiday_banners) takes the event size itself, and its times and title
-      // inherit it, so its container queries measure in the size its text is set in.
+      // inherit it, so its container queries measure in the size its text is set in. So does a
+      // banner with its length after the title (show_duration).
+      'grid-banner-duration in event': ['event_font_size'],
+      'grid-banner-duration in grid-banner-content': ['event_font_size'],
       'grid-banner-time in grid-banner-content': ['event_font_size'],
       'grid-banner-title in event': ['event_font_size'],
       'grid-banner-title in grid-banner-content': ['event_font_size'],
@@ -1062,6 +1068,10 @@ describe('every piece of text is sized by its own option', () => {
       'time-countdown in time-text': ['time_font_size'],
       'time-end in time-actual': ['time_font_size'],
       'time-end in time-text': ['time_font_size'],
+      // An end with a duration (show_duration) holds its time and the duration as spans of their
+      // own, which the grid's fit ladder drops one at a time.
+      'time-duration in time-end': ['time_font_size'],
+      'time-end-reading in time-end': ['time_font_size'],
       // The word joiner opening the time's box beside a wrapping title: invisible, at the title's
       // size so the box's baseline is the title's.
       'title-strut in title-aside': ['event_font_size'],

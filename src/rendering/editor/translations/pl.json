@@ -523,6 +523,8 @@
   "time_position.option.below.label": "Pod tytułem",
   "time_position.option.title.label": "Obok tytułu",
   "show_end_time": "Pokaż czas zakończenia",
+  "show_duration": "Pokaż czas trwania",
+  "show_duration.helper": "Na końcu wiersza czasu pokazuje czas trwania każdego wydarzenia, np. „(1 godz. i 45 min)” lub „(1 dzień)”. Przy wydarzeniu podzielonym na kilka dni każdy dzień pokazuje czas trwania całego wydarzenia, np. „(łącznie 3 dni)”.",
   "show_single_allday_time": "Pokaż czas przy wydarzeniach całodniowych",
   "show_single_allday_time.helper": "Dotyczy wydarzeń całodniowych obejmujących jeden dzień. Wielodniowe mają własne ustawienie poniżej, ponieważ ich wiersz godziny zawiera też datę zakończenia.",
   "show_multiday_allday_time": "Pokaż godzinę przy wielodniowych wydarzeniach całodniowych",

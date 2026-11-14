@@ -1045,6 +1045,10 @@ function renderTimedEvent(
  * that ended days later counts from that day. Its countdown is the same either way, since the
  * block starts where the event does.
  *
+ * Under `show_duration` that block's whole length follows its end, "- 1:35 (+1) (3 hr, 30 min)",
+ * the last piece of the droppable end, which the fit ladder keeps after the end time before it.
+ * The later blocks draw no time, and carry the length alone, "(3 hr, 30 min total)".
+ *
  * @param event - Timed grid event segment
  * @param presented - Shared presentation content
  * @param config - Card configuration
@@ -1066,13 +1070,21 @@ function gridTimedEventContentParts(
     ...parts,
     eventTime: '',
     eventTimeEnd: undefined,
+    eventTimeDuration: undefined,
     shouldShowTime: false,
     countdownStr: null,
     countUp: false,
   };
 
   if (event._isMultiDaySegment && !event._gridSegmentStartsEvent) {
-    return untimed;
+    // A later block draws no time, since it starts at midnight rather than where the event does,
+    // but it carries the whole event's length, marked as such, so it is there whichever of the
+    // event's days is on screen.
+    const lasts =
+      config.show_duration && presented.shouldShowTime
+        ? FormatUtils.formatEventDuration(event, language)
+        : null;
+    return lasts ? { ...untimed, eventTime: lasts, shouldShowTime: true } : untimed;
   }
 
   // The event's own times. A split segment ends at midnight; `_gridSource` is what it was
@@ -1109,9 +1121,18 @@ function gridTimedEventContentParts(
 
   const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
   const startText = FormatUtils.formatTime(start, use24h, config.time_two_digit_hours);
+  const duration = config.show_duration
+    ? FormatUtils.formatEventDuration({ ...event, start: source.start, end: source.end }, language)
+    : null;
+  const lasts = duration ? `\u00a0${duration}` : '';
 
   if (!config.show_end_time) {
-    return { ...counted, eventTime: startText, eventTimeEnd: undefined };
+    return {
+      ...counted,
+      eventTime: `${startText}${lasts}`,
+      eventTimeEnd: lasts || undefined,
+      eventTimeDuration: lasts || undefined,
+    };
   }
 
   const readsMidnight = (date: Date) => date.getHours() === 0 && date.getMinutes() === 0;
@@ -1122,9 +1143,14 @@ function gridTimedEventContentParts(
     readsMidnight(end) &&
     !readsMidnight(start);
   const count = untilMidnight ? '' : `\u00a0\u2066(+${days})\u2069`;
-  const endText = ` - ${FormatUtils.formatTime(end, use24h, config.time_two_digit_hours)}${count}`;
+  const endText = ` - ${FormatUtils.formatTime(end, use24h, config.time_two_digit_hours)}${count}${lasts}`;
 
-  return { ...counted, eventTime: `${startText}${endText}`, eventTimeEnd: endText };
+  return {
+    ...counted,
+    eventTime: `${startText}${endText}`,
+    eventTimeEnd: endText,
+    eventTimeDuration: lasts || undefined,
+  };
 }
 
 /**
@@ -1214,6 +1240,13 @@ function renderBanner(
   const times = timed
     ? bannerTimes(event, placement, presentation.contentParts, config, hass)
     : null;
+  // The whole event's length, after the title, marked as such where the banner shows only part
+  // of it. It goes with the time, as on every row.
+  const lasts =
+    config.show_duration && presentation.contentParts.shouldShowTime
+      ? FormatUtils.formatEventDuration(event, language, bannerShowsPart(event, placement))
+      : null;
+  const duration = lasts ? html`<span class="grid-banner-duration">${lasts}</span>` : nothing;
 
   return html`
     <div
@@ -1221,6 +1254,7 @@ function renderBanner(
         event: true,
         'grid-banner': true,
         'grid-banner-timed': timed,
+        'grid-banner-lasts': lasts !== null,
         'past-event': presentation.isPastEvent,
         'continues-before': placement.continuesBefore,
         'continues-after': placement.continuesAfter,
@@ -1250,11 +1284,36 @@ function renderBanner(
               config,
               language,
               hass,
+              duration,
             )
-          : html`<span class="grid-banner-title">${event.summary ?? ''}</span>`
+          : lasts
+            ? html`<span class="grid-banner-title">${event.summary ?? ''}</span>${duration}`
+            : html`<span class="grid-banner-title">${event.summary ?? ''}</span>`
       }
     </div>
   `;
+}
+
+/**
+ * Whether a banner covers fewer of its event's days than the event takes up: where it runs past
+ * the window's edge, and as well where days the card does not draw, or a column the event's
+ * calendar leaves out, take days out of its middle without cutting it at either end.
+ *
+ * @param event - The banner's event
+ * @param placement - The columns it spans
+ * @returns True where the banner shows only part of its event
+ */
+function bannerShowsPart(event: Types.CalendarEventData, placement: Grid.BannerPlacement): boolean {
+  if (placement.continuesBefore || placement.continuesAfter) return true;
+  const source = event._gridSource ?? event;
+  const days =
+    source.start.date && source.end.date
+      ? FormatUtils.getCalendarDayDiff(
+          FormatUtils.parseAllDayDate(source.start.date),
+          FormatUtils.parseAllDayDate(source.end.date),
+        )
+      : (FormatUtils.fullDaySpan(source.start, source.end)?.days ?? 1);
+  return placement.span < days;
 }
 
 /** The times a timed banner draws at its ends, and whether they are 12-hour readings. */
@@ -1318,6 +1377,7 @@ function bannerTimes(
  * @param config - Card configuration
  * @param language - Language code for translations
  * @param hass - Home Assistant instance
+ * @param duration - The event's length, drawn after the title (`show_duration`)
  * @returns The content
  */
 function renderTimedBannerContent(
@@ -1327,6 +1387,7 @@ function renderTimedBannerContent(
   config: Types.Config,
   language: string,
   hass?: Types.Hass | null,
+  duration: TemplateResult | typeof nothing = nothing,
 ): TemplateResult {
   return html`<div
       class="grid-event-accessible"
@@ -1343,7 +1404,7 @@ function renderTimedBannerContent(
       aria-hidden="true"
     >
       ${times.start === null ? nothing : html`<span class="grid-banner-time">${times.start}</span>`}
-      <span class="grid-banner-title">${event.summary ?? ''}</span>
+      <span class="grid-banner-title">${event.summary ?? ''}</span>${duration}
       ${
         times.end === null
           ? nothing

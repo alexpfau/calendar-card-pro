@@ -12,6 +12,7 @@
   "endsToday": "slutar idag",
   "endsTomorrow": "slutar imorgon",
   "dayOfEvent": "Dag {day} av {days}",
+  "durationTotal": "{duration} totalt",
   "noEvents": "Inga händelser",
   "loading": "Laddar kalenderhändelser...",
   "error": "Fel: Kalenderentiteten hittades inte eller är felaktigt konfigurerad.",
