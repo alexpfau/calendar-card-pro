@@ -136,7 +136,13 @@ describe('Quick Setup', () => {
     );
     expect(
       [...root(editor).querySelectorAll<HTMLElement>('.story-tile')].map((t) => t.dataset.story),
-    ).toEqual(['family_hub', 'now_and_next', 'today_and_tomorrow', 'birthdays_and_holidays']);
+    ).toEqual([
+      'family_hub',
+      'now_and_next',
+      'today_and_tomorrow',
+      'birthdays_and_holidays',
+      'house_log',
+    ]);
     expect(reports).toEqual([]);
   });
 

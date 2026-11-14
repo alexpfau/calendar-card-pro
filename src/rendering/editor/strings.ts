@@ -109,6 +109,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'quick_setup.story.birthdays_and_holidays.best_for':
     'Birthdays with ages, and the next school break',
   'quick_setup.story.birthdays_and_holidays.space': 'A dashboard section or a pop-up',
+  'quick_setup.story.house_log': 'House Log',
+  'quick_setup.story.house_log.best_for': 'When each job was last done, newest first',
+  'quick_setup.story.house_log.space': 'A dashboard section, and the same card on a phone',
   'quick_setup.read_story': 'Read about this example',
   'quick_setup.card_title': 'Title',
   'quick_setup.card_title.helper': 'Leave it empty for a card without a title.',

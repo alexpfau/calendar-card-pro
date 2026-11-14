@@ -110,6 +110,7 @@ const EXAMPLE_STORIES = [
   { text: 'Today & Tomorrow', link: '/guide/today-and-tomorrow' },
   { text: 'Birthdays & Holidays', link: '/guide/birthdays-and-holidays' },
   { text: 'Bin Day', link: '/guide/bin-day' },
+  { text: 'House Log', link: '/guide/house-log' },
 ];
 const EXAMPLE_STORIES_MATCH = `^(${EXAMPLE_STORIES.map((story) => story.link).join('|')})$`;
 
