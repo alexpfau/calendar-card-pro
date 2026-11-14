@@ -21,6 +21,11 @@
  * without clearing `loaded` would hand the next card a map frozen at the moment the last
  * one left.
  *
+ * A third crossed the same seam later: a registry read that failed still notified the
+ * card, the card's update asked again, and a command that fails at once — any, while the
+ * socket is down — made that a loop with no wait in it. `a registry that cannot be read`
+ * pins the way out.
+ *
  * These drive the element rather than the module, because the module's own tests cannot
  * see a lifecycle callback that never fires.
  */
@@ -43,6 +48,25 @@ interface CardElement extends HTMLElement {
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 /**
+ * How home-assistant-js-websocket rejects a command it is asked to send while its socket is
+ * down: at once, inside the call, with no round trip to wait for.
+ */
+const CONNECTION_LOST = {
+  type: 'result',
+  success: false,
+  error: { code: 3, message: 'Connection lost' },
+};
+
+/**
+ * Where a refusing registry stops answering at all.
+ *
+ * The loop these fakes exist to catch never yields, so without a ceiling a regression would
+ * hang the suite instead of failing it. Past this many reads the fake stops settling, which
+ * ends the loop and leaves the count for an assertion to read.
+ */
+const REFUSAL_CAP = 50;
+
+/**
  * A fake connection that exposes whether anything is subscribed, and counts fetches.
  *
  * `handler` is the live `entity_registry_updated` callback, or `undefined` when nothing is
@@ -52,6 +76,11 @@ const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
  * `subscribes` counts handshakes rather than live subscriptions, which is the only way to
  * see a *duplicate* one: a second `subscribeEvents` overwrites `handler` with an
  * indistinguishable function, so "is anything subscribed" cannot tell one from two.
+ *
+ * `refuse` makes the registry command fail the way it does during an outage, and
+ * `fireReady` announces the connection is back, walking its listeners the way
+ * home-assistant-js-websocket's `fireEvent` does: `forEach` over the live array, which its
+ * `removeEventListener` splices.
  */
 function makeHass(color = 'red') {
   const state = {
@@ -62,6 +91,10 @@ function makeHass(color = 'red') {
     gate: null as Promise<void> | null,
     open: null as (() => void) | null,
     reject: false,
+    refuse: false,
+    listGate: null as Promise<void> | null,
+    openList: null as (() => void) | null,
+    ready: [] as Array<() => void>,
   };
 
   const hass = {
@@ -71,6 +104,11 @@ function makeHass(color = 'red') {
     callApi: async () => [],
     callWS: async () => {
       state.fetches += 1;
+      if (state.refuse) {
+        if (state.fetches >= REFUSAL_CAP) return new Promise(() => {});
+        throw CONNECTION_LOST;
+      }
+      if (state.listGate) await state.listGate;
       return [{ entity_id: 'calendar.personal', options: { calendar: { color: state.color } } }];
     },
     connection: {
@@ -82,6 +120,13 @@ function makeHass(color = 'red') {
         return () => {
           state.handler = undefined;
         };
+      },
+      addEventListener: (type: string, listener: () => void) => {
+        if (type === 'ready') state.ready.push(listener);
+      },
+      removeEventListener: (type: string, listener: () => void) => {
+        const at = state.ready.indexOf(listener);
+        if (type === 'ready' && at !== -1) state.ready.splice(at, 1);
       },
     },
   } as unknown as Types.Hass;
@@ -99,6 +144,20 @@ function makeHass(color = 'red') {
       state.open?.();
       state.gate = null;
       state.open = null;
+    },
+    /** Hold the registry read open, so a card can leave while it is on its way. */
+    holdList() {
+      state.listGate = new Promise<void>((resolve) => {
+        state.openList = resolve;
+      });
+    },
+    releaseList() {
+      state.openList?.();
+      state.listGate = null;
+      state.openList = null;
+    },
+    fireReady() {
+      state.ready.forEach((listener) => listener());
     },
   };
 }
@@ -438,5 +497,92 @@ describe('registry colors: one subscription, one fetch', () => {
     // guard and this number never moves.
     expect(state.subscribes).toBeGreaterThan(attemptsWhileRefused);
     expect(state.handler).toBeTypeOf('function');
+  });
+});
+
+describe('registry colors: a registry that cannot be read', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    EntityColors.resetEntityColors();
+    vi.restoreAllMocks();
+  });
+
+  it('asks once, not again on every repaint', async () => {
+    // 🚨 A failed read used to notify the card, the card's repaint reached `updated()`, and
+    // that read again — a loop with no wait in it, because a command sent while the socket
+    // is down fails inside the call. A card added during a Home Assistant restart froze the
+    // tab, and the frozen tab could not run the reconnect that would have ended it. Without
+    // the fix this counts `REFUSAL_CAP` reads instead of one.
+    const { state, hass } = makeHass();
+    state.refuse = true;
+
+    const card = await mount(hass);
+    await flush();
+    expect(state.fetches).toBe(1);
+
+    // A card update is not a reason to try again either: the retry has its own schedule.
+    card.requestUpdate();
+    await card.updateComplete;
+    await flush();
+
+    expect(state.fetches).toBe(1);
+    expect(EntityColors.entityColors().size).toBe(0);
+  });
+
+  it('reads again as soon as the connection is back, and draws the color', async () => {
+    const conn = makeHass('red');
+    conn.state.refuse = true;
+
+    const card = await mount(conn.hass);
+    await flush();
+    expect(conn.state.fetches).toBe(1);
+
+    const repaints = watchRepaints(card);
+    conn.state.refuse = false;
+    conn.fireReady();
+    await flush();
+
+    expect(conn.state.fetches).toBe(2);
+    expect(EntityColors.entityColors().get('calendar.personal')).toBe('var(--red-color)');
+    expect(repaints).toHaveBeenCalled();
+  });
+
+  it('lets a card that comes back read afresh, whatever a read still on its way says', async () => {
+    // A read answering after the last card left used to mark the registry loaded behind the
+    // next card's back, so a card returning to the page never read it again and kept a
+    // color that had changed while it was away.
+    const conn = makeHass('red');
+    conn.holdList();
+
+    const first = await mount(conn.hass);
+    first.remove();
+    await flush();
+
+    // The answer arrives for nobody, and then the registry moves.
+    conn.releaseList();
+    await flush();
+    conn.state.color = 'blue';
+
+    await mount(conn.hass);
+    await flush();
+
+    expect(conn.state.fetches).toBe(2);
+    expect(EntityColors.entityColors().get('calendar.personal')).toBe('var(--blue-color)');
+  });
+
+  it('reads nothing for a registry event that arrives after the last card left', async () => {
+    // Home Assistant acknowledges an unsubscribe a round trip later, so an event already on
+    // its way still reaches the old callback.
+    const { state, hass } = makeHass();
+    const card = await mount(hass);
+    const late = state.handler;
+    expect(late).toBeTypeOf('function');
+    const fetches = state.fetches;
+
+    card.remove();
+    late?.();
+    await flush();
+
+    expect(state.fetches).toBe(fetches);
   });
 });
