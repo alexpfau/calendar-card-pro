@@ -3,7 +3,7 @@
  *
  * `docs/guide/house-log.md` prints a list card for a calendar kept as a log, and its promises:
  * the last 30 days up to today, entries that have ended included, the newest at the top; each
- * entry one line, its title and how long ago it was, with no clock time; every entry at full
+ * entry its title with how long ago it was beside it, and no clock time; every entry at full
  * strength; a tap opens the entry. Its section on writing an entry promises that a script's
  * one-minute entry reads "a few seconds ago" once its minute is up, and its variation that the
  * same card, changed as it says, keeps each front-door entry's time beside how long ago it was.
