@@ -33,6 +33,7 @@
   "endsToday": "lõpeb täna",
   "endsTomorrow": "lõpeb homme",
   "dayOfEvent": "Päev {day}/{days}",
+  "durationTotal": "kokku {duration}",
   "noEvents": "Sündmusi pole",
   "loading": "Kalendrisündmuste laadimine...",
   "error": "Viga: kalendri entiteeti ei leitud või see on valesti seadistatud",

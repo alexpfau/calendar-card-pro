@@ -523,6 +523,8 @@
   "time_position.option.below.label": "Zem virsraksta",
   "time_position.option.title.label": "Blakus virsrakstam",
   "show_end_time": "Rādīt beigu laiku",
+  "show_duration": "Rādīt ilgumu",
+  "show_duration.helper": "Laika rindas beigās parāda katra notikuma ilgumu, piemēram, „(1 st. un 45 min)“ vai „(1 diena)“. Ja notikums ir sadalīts pa dienām, katrā dienā rāda visa notikuma ilgumu, piemēram, „(kopā 3 dienas)“.",
   "show_single_allday_time": "Rādīt laiku visas dienas notikumiem",
   "show_single_allday_time.helper": "Attiecas uz visas dienas notikumiem, kas aizņem vienu dienu. Vairāku dienu notikumiem ir savs iestatījums zemāk, jo to laika rindā ir arī beigu datums.",
   "show_multiday_allday_time": "Rādīt laiku vairāku dienu visas dienas notikumiem",

@@ -12,6 +12,7 @@
   "endsToday": "termina hoy",
   "endsTomorrow": "termina mañana",
   "dayOfEvent": "Día {day} de {days}",
+  "durationTotal": "{duration} en total",
   "noEvents": "No hay eventos",
   "loading": "Cargando eventos del calendario...",
   "error": "Error: La entidad del calendario no se encontró o está mal configurada",

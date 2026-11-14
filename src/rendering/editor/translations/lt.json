@@ -523,6 +523,8 @@
   "time_position.option.below.label": "Po pavadinimu",
   "time_position.option.title.label": "Šalia pavadinimo",
   "show_end_time": "Rodyti pabaigos laiką",
+  "show_duration": "Rodyti trukmę",
+  "show_duration.helper": "Laiko eilutės pabaigoje rodo kiekvieno įvykio trukmę, pvz., „(1 val. 45 min.)“ ar „(1 diena)“. Jei įvykis suskaidytas pagal dienas, kiekvieną dieną rodoma viso įvykio trukmė, pvz., „(iš viso 3 dienos)“.",
   "show_single_allday_time": "Rodyti laiką visos dienos įvykiams",
   "show_single_allday_time.helper": "Taikoma visos dienos įvykiams, trunkantiems vieną dieną. Kelių dienų turi savo nustatymą žemiau, nes jų laiko eilutėje nurodyta ir pabaigos data.",
   "show_multiday_allday_time": "Rodyti laiką kelių dienų visos dienos įvykiams",

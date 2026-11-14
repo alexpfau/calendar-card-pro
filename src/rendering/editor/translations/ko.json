@@ -345,6 +345,8 @@
   "time_position.option.below.label": "제목 아래",
   "time_position.option.title.label": "제목 옆",
   "show_end_time": "종료 시간 표시",
+  "show_duration": "소요 시간 표시",
+  "show_duration.helper": "시간 뒤에 각 이벤트의 소요 시간을 ‘(1시간 45분)’이나 ‘(1일)’처럼 표시합니다. 여러 날로 나뉜 이벤트는 날마다 전체 소요 시간을 ‘(총 3일)’처럼 표시합니다.",
   "show_single_allday_time": "단일 일자 종일 이벤트 시간 표시",
   "show_single_allday_time.helper": "하루 동안만 지속되는 종일 이벤트에 적용됩니다. 여러 날에 걸친 이벤트는 시간 행에 종료일도 함께 표시되므로 별도의 설정이 있습니다.",
   "show_multiday_allday_time": "다중 일자 종일 이벤트 시간 표시",

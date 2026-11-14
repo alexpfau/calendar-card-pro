@@ -523,6 +523,8 @@
   "time_position.option.below.label": "Unter dem Titel",
   "time_position.option.title.label": "Neben dem Titel",
   "show_end_time": "Endzeit anzeigen",
+  "show_duration": "Dauer anzeigen",
+  "show_duration.helper": "Zeigt nach der Uhrzeit, wie lange ein Termin dauert, etwa „(1 Std., 45 Min.)“ oder „(1 Tag)“. Bei einem auf mehrere Tage aufgeteilten Termin zeigt jeder Tag die Dauer des ganzen Termins, etwa „(3 Tage insgesamt)“.",
   "show_single_allday_time": "Uhrzeit bei Ganztagsterminen",
   "show_single_allday_time.helper": "Gilt für ganztägige Termine, die einen einzelnen Tag umfassen. Mehrtägige haben unten ihre eigene Einstellung, weil ihre Zeitzeile auch das Enddatum enthält.",
   "show_multiday_allday_time": "Uhrzeit bei mehrtägigen Ganztagsterminen",

@@ -523,6 +523,8 @@
   "time_position.option.below.label": "Pod názvom",
   "time_position.option.title.label": "Vedľa názvu",
   "show_end_time": "Zobraziť čas skončenia",
+  "show_duration": "Zobraziť trvanie",
+  "show_duration.helper": "Za časom zobrazí trvanie každej udalosti, napríklad „(1 h, 45 min)“ alebo „(1 deň)“. Pri udalosti rozdelenej na viac dní sa v každom dni zobrazí trvanie celej udalosti, napríklad „(spolu 3 dni)“.",
   "show_single_allday_time": "Zobraziť čas pri celodenných udalostiach",
   "show_single_allday_time.helper": "Platí pre celodenné udalosti trvajúce jeden deň. Viacdňové majú vlastné nastavenie nižšie, pretože ich riadok s časom obsahuje aj dátum konca.",
   "show_multiday_allday_time": "Zobraziť čas pri viacdňových celodenných udalostiach",

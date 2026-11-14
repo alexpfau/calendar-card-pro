@@ -523,6 +523,8 @@
   "time_position.option.below.label": "Sotto il titolo",
   "time_position.option.title.label": "Accanto al titolo",
   "show_end_time": "Mostra orario fine",
+  "show_duration": "Mostra durata",
+  "show_duration.helper": "Aggiunge dopo l’orario quanto dura ogni evento, ad esempio «(1 h e 45 min)» o «(1 giorno)». In un evento suddiviso su più giorni, ogni giorno mostra la durata dell’intero evento, ad esempio «(3 giorni in totale)».",
   "show_single_allday_time": "Mostra orario per gli eventi di tutto il giorno",
   "show_single_allday_time.helper": "Vale per gli eventi di tutto il giorno che occupano un solo giorno. Quelli su più giorni hanno la propria impostazione qui sotto, perché la loro riga dell'ora contiene anche la data di fine.",
   "show_multiday_allday_time": "Mostra l'ora per gli eventi di tutto il giorno su più giorni",

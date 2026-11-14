@@ -59,7 +59,7 @@ import * as SearchPanel from './rendering/search-panel';
 import * as Styles from './rendering/styles';
 import * as TextScale from './rendering/text-scale';
 import * as Toolbar from './rendering/toolbar';
-import { loadIntlLocaleData } from './translations/intl-locale-data';
+import { type IntlServiceName, loadIntlLocaleData } from './translations/intl-locale-data';
 import * as Localize from './translations/localize';
 import * as CalendarNames from './utils/calendar-names';
 import { inlineContentWidth } from './utils/content-box';
@@ -627,7 +627,10 @@ class CalendarCardPro extends LitElement {
   private _partialTimer: number | null = null;
 
   private _language = '';
-  /** The language Home Assistant's `Intl` polyfill was last asked for (`_loadIntlLocaleData`). */
+  /**
+   * The language Home Assistant's `Intl` polyfill was last asked for, and whether with durations
+   * (`_loadIntlLocaleData`).
+   */
   private _intlLanguage = '';
   private _refreshTimerId?: number;
   private _lastUpdateTime = 0;
@@ -3949,20 +3952,30 @@ class CalendarCardPro extends LitElement {
       (changedProps.has('config') && changedProps.get('config')?.language !== this.config.language)
     ) {
       this._language = Localize.getEffectiveLanguage(this.config.language, this.hass?.locale);
-      this._loadIntlLocaleData();
     }
+    if (changedProps.has('hass') || changedProps.has('config')) this._loadIntlLocaleData();
   }
 
   /**
    * Teach Home Assistant's `Intl` polyfill the card's language where it has installed one that
    * lacks it, and draw again, an open search panel included, as each service has it
    * (`intl-locale-data.ts`). Asked once per language; without the polyfill it does nothing.
+   *
+   * Where a view shows durations (`show_duration`), number and list formats are asked for too,
+   * since those write them (`formatEventDuration`). Only then, so a card without durations
+   * fetches what it always did.
    */
   private _loadIntlLocaleData(): void {
     const language = this._language;
-    if (language === this._intlLanguage) return;
-    this._intlLanguage = language;
-    void loadIntlLocaleData(language, ['DateTimeFormat', 'RelativeTimeFormat'], () => {
+    const durations = ViewConfig.VIEWS.some(
+      (view) => ViewConfig.resolveEffectiveConfig(this.config, view).show_duration,
+    );
+    const asked = durations ? `${language}:durations` : language;
+    if (asked === this._intlLanguage) return;
+    this._intlLanguage = asked;
+    const services: IntlServiceName[] = ['DateTimeFormat', 'RelativeTimeFormat'];
+    if (durations) services.push('NumberFormat', 'ListFormat');
+    void loadIntlLocaleData(language, services, () => {
       this.requestUpdate();
       this._search?.wordsChanged();
     });

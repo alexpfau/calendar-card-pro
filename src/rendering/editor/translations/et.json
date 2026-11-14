@@ -523,6 +523,8 @@
   "time_position.option.below.label": "Pealkirja all",
   "time_position.option.title.label": "Pealkirja kõrval",
   "show_end_time": "Näita lõppaega",
+  "show_duration": "Näita kestust",
+  "show_duration.helper": "Lisab kellaaja järele, kui kaua sündmus kestab, näiteks „(1 t, 45 min)“ või „(1 ööpäev)“. Mitmele päevale jagatud sündmuse iga päev näitab kogu sündmuse kestust, näiteks „(kokku 3 ööpäeva)“.",
   "show_single_allday_time": "Näita kellaaega terve päeva sündmustel",
   "show_single_allday_time.helper": "Kehtib terve päeva sündmustele, mis hõlmavad ühte päeva. Mitmepäevastel on allpool oma säte, sest nende ajarida sisaldab ka lõppkuupäeva.",
   "show_multiday_allday_time": "Näita aega mitmepäevastel terve päeva sündmustel",

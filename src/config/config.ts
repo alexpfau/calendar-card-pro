@@ -128,6 +128,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   time_24h: 'system',
   time_two_digit_hours: false,
   show_end_time: true,
+  show_duration: false,
   time_font_size: '12px',
   time_color: 'var(--secondary-text-color)',
   time_icon_size: '14px',
