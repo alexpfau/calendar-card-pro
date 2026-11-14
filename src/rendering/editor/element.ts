@@ -102,6 +102,14 @@ function editableConditions(value: unknown): ReadonlyArray<object> | undefined {
   return allConditions(list) ? (list as object[]) : undefined;
 }
 
+/**
+ * Whether two lists of conditions say the same, as stored: compared as JSON, which drops a key
+ * holding `undefined` the way the stored YAML does.
+ */
+function sameConditions(a: ReadonlyArray<unknown>, b: ReadonlyArray<unknown>): boolean {
+  return a === b || JSON.stringify(a) === JSON.stringify(b);
+}
+
 /** Editors waiting for Home Assistant's Visibility editor to be defined. */
 const awaitingConditionsEditor = new Set<{ requestUpdate(): void }>();
 
@@ -221,6 +229,12 @@ export class CalendarCardProEditor extends LitElement {
   @state() private _migration: MigrationState = { kind: 'current' };
 
   @state() private _quickSetup?: QuickSetupSession;
+
+  /** What Home Assistant's Visibility editor last sent for each calendar (`_conditionsFor`). */
+  private _emittedConditions = new Map<
+    number,
+    { readonly entityId: string; readonly conditions: ReadonlyArray<unknown> }
+  >();
 
   private _authoredRootKeys = new Set<string>();
 
@@ -819,7 +833,7 @@ export class CalendarCardProEditor extends LitElement {
         const entityId = Synthetic.entityIdOf(entry);
         const data = Entities.toEntityFormData(entry, entries);
         const conditions = conditionsEditor
-          ? editableConditions(Entities.asEntityConfig(entry).visibility)
+          ? this._conditionsFor(index, entityId, Entities.asEntityConfig(entry).visibility)
           : undefined;
         const split = conditions ? splitAtVisibility(schema) : undefined;
         const form = (part: ReadonlyArray<HaFormSchema>) => html`
@@ -1011,10 +1025,47 @@ export class CalendarCardProEditor extends LitElement {
     const entry = entries[index];
     if (!Array.isArray(conditions) || entry === undefined) return;
 
+    this._emittedConditions.set(index, {
+      entityId: Synthetic.entityIdOf(entry),
+      conditions,
+    });
     this._writeEntity(index, {
       ...Entities.toEntityFormData(entry, entries),
       visibility: conditions,
     });
+  }
+
+  /**
+   * A calendar's conditions as Home Assistant's Visibility editor is handed them: the very list it
+   * last sent for this calendar, wherever the stored conditions still say the same.
+   *
+   * Its editor keeps a condition open by the identity of the condition's object, and hands that
+   * identity on to the object it sends for a changed one, as Home Assistant's own card dialog
+   * hands the list straight back. Every write here stores a copy (`_report`), so the stored
+   * objects are new ones each time: handed those, the editor would take every condition for a new
+   * one and draw it closed, after every change. A list that says something else, because the YAML
+   * changed under it, is handed over as stored.
+   *
+   * @param index - Position of the calendar in the list
+   * @param entityId - The calendar
+   * @param stored - Its `visibility` as stored
+   * @returns The list, or undefined where only the YAML box can show it (`editableConditions`)
+   */
+  private _conditionsFor(
+    index: number,
+    entityId: string,
+    stored: unknown,
+  ): ReadonlyArray<unknown> | undefined {
+    const conditions = editableConditions(stored);
+    const emitted = this._emittedConditions.get(index);
+    if (
+      conditions !== undefined &&
+      emitted?.entityId === entityId &&
+      sameConditions(conditions, emitted.conditions)
+    ) {
+      return emitted.conditions;
+    }
+    return conditions;
   }
 
   /**

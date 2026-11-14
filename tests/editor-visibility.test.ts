@@ -317,6 +317,56 @@ describe('which editor a calendar panel shows', () => {
     expect(outside).not.toHaveBeenCalled();
   });
 
+  it('hands back the very list it sent, so it keeps each condition open, through the echo', async () => {
+    const editor = await render([{ entity: ANNA, visibility: CONDITIONS }, BEN]);
+    // As Home Assistant's editor sends a change: a new list, the changed condition a new object.
+    const sent = [{ ...CONDITIONS[0], users: ['8a1c', 'b2d4'] }, CONDITIONS[1]];
+
+    editor
+      .editors()[0]
+      .dispatchEvent(new CustomEvent('value-changed', { detail: { value: sent } }));
+    await editor.element.updateComplete;
+    expect(editor.editors()[0].conditions).toBe(sent);
+
+    // Home Assistant answers the write with the configuration it was sent, which the card has
+    // stored as a copy.
+    editor.element.setConfig(editor.emitted[editor.emitted.length - 1]);
+    await editor.element.updateComplete;
+    expect(editor.editors()[0].conditions).toBe(sent);
+    expect(editor.editors()[1].conditions).toEqual([]);
+  });
+
+  it('hands over the stored list once it says something else, or the panel holds another calendar', async () => {
+    const editor = await render([{ entity: ANNA, visibility: CONDITIONS }]);
+    const sent = [CONDITIONS[0]];
+    editor
+      .editors()[0]
+      .dispatchEvent(new CustomEvent('value-changed', { detail: { value: sent } }));
+    await editor.element.updateComplete;
+
+    // The YAML changed under it.
+    const written = [{ condition: 'user', users: ['c3e5'] }];
+    editor.element.setConfig({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: [{ entity: ANNA, visibility: written }],
+    });
+    await editor.element.updateComplete;
+    expect(editor.editors()[0].conditions).toBe(written);
+
+    // The same conditions, now on another calendar in that place.
+    editor
+      .editors()[0]
+      .dispatchEvent(new CustomEvent('value-changed', { detail: { value: sent } }));
+    await editor.element.updateComplete;
+    const moved = [{ condition: 'user', users: ['8a1c'] }];
+    editor.element.setConfig({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: [{ entity: BEN, visibility: moved }],
+    });
+    await editor.element.updateComplete;
+    expect(editor.editors()[0].conditions).toBe(moved);
+  });
+
   it('stores nothing once the last condition is removed', async () => {
     const editor = await render([{ entity: ANNA, label: 'A', visibility: CONDITIONS }]);
 
