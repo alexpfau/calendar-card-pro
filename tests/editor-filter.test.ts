@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import { CARD, changeField, formOf, formsOf, mountEditor } from './helpers/editor-host';
 import { CURRENT_CONFIG_VERSION, DEFAULT_CONFIG } from '../src/config/config';
 import type * as Types from '../src/config/types';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import {
   CUSTOMIZED_ONLY_FIELD,
   ESSENTIALS_ONLY_FIELD,
@@ -635,34 +635,16 @@ describe('editor filter: the bar itself', () => {
 });
 
 describe('editor filter: the chassis', () => {
-  const TAG = 'test-calendar-card-pro-editor-filter';
-  if (!customElements.get(TAG)) {
-    customElements.define(TAG, class extends CalendarCardProEditor {});
-  }
-
   async function mount(config: Partial<Types.Config>) {
-    const element = document.createElement(TAG) as CalendarCardProEditor;
-    element.hass = {} as Types.Hass;
-    element.setConfig({
+    const element = await mountEditor({
       config_version: CURRENT_CONFIG_VERSION,
       ...config,
-    } as Types.Config);
-    document.body.appendChild(element);
-    await element.updateComplete;
+    });
 
     const dispatched: Array<Record<string, unknown>> = [];
     element.addEventListener('config-changed', (event) => {
       dispatched.push((event as CustomEvent).detail.config);
     });
-
-    const filterBy = async (patch: Record<string, unknown>) => {
-      const form = element.shadowRoot!.querySelector('ha-form.filter-form')!;
-      const data = (form as unknown as { data: Record<string, unknown> }).data;
-      form.dispatchEvent(
-        new CustomEvent('value-changed', { detail: { value: { ...data, ...patch } } }),
-      );
-      await element.updateComplete;
-    };
 
     const panels = () =>
       [...element.shadowRoot!.querySelectorAll('ha-expansion-panel')].filter(
@@ -672,22 +654,23 @@ describe('editor filter: the chassis', () => {
           !node.classList.contains('exceptions'),
       );
 
-    return { element, dispatched, filterBy, panels };
+    return { element, dispatched, panels };
   }
 
   it('renders the filter bar above the panels', async () => {
     const { element } = await mount({ entities: ['calendar.a'] });
 
     expect(element.shadowRoot!.querySelectorAll('ha-form.filter-form')).toHaveLength(1);
+    expect(formOf(element, `filter:${SEARCH_FIELD}`)).toBeDefined();
   });
 
   it('collapses away the panels a search empties', async () => {
-    const { filterBy, panels } = await mount({ entities: ['calendar.a'] });
+    const { element, panels } = await mount({ entities: ['calendar.a'] });
 
     const before = panels().length;
     expect(before).toBe(PANELS.length);
 
-    await filterBy({ [SEARCH_FIELD]: 'min_day_width' });
+    await changeField(element, `filter:${SEARCH_FIELD}`, 'min_day_width');
 
     // Column density is a Layout option, and the card is a list here — so nothing at all
     // matches and no panel is left holding an empty body.
@@ -699,13 +682,13 @@ describe('editor filter: the chassis', () => {
    * option is, and a closed panel replies only with which section it is in.
    */
   it('expands the panels that still have something to show', async () => {
-    const { filterBy, panels } = await mount({ entities: ['calendar.a'] });
+    const { element, panels } = await mount({ entities: ['calendar.a'] });
 
     expect(panels().every((panel) => (panel as unknown as { expanded: boolean }).expanded)).toBe(
       false,
     );
 
-    await filterBy({ [SEARCH_FIELD]: 'week' });
+    await changeField(element, `filter:${SEARCH_FIELD}`, 'week');
 
     const shown = panels();
     expect(shown.length).toBeGreaterThan(0);
@@ -713,9 +696,9 @@ describe('editor filter: the chassis', () => {
   });
 
   it('says so when a search matches nothing', async () => {
-    const { element, filterBy, panels } = await mount({ entities: ['calendar.a'] });
+    const { element, panels } = await mount({ entities: ['calendar.a'] });
 
-    await filterBy({ [SEARCH_FIELD]: 'zzzznotathing' });
+    await changeField(element, `filter:${SEARCH_FIELD}`, 'zzzznotathing');
 
     expect(panels()).toHaveLength(0);
 
@@ -726,32 +709,32 @@ describe('editor filter: the chassis', () => {
   });
 
   it('says so when nothing has been customized', async () => {
-    const { element, filterBy, panels } = await mount({ entities: [] });
+    const { element, panels } = await mount({ entities: [] });
 
-    await filterBy({ [CUSTOMIZED_ONLY_FIELD]: true });
+    await changeField(element, `filter:${CUSTOMIZED_ONLY_FIELD}`, true);
 
     expect(panels()).toHaveLength(0);
     expect(element.shadowRoot!.querySelector('.filter-empty')?.textContent).toContain('customized');
   });
 
   it('shows the calendars a card has configured, and hides the ones it has not', async () => {
-    const { element, filterBy } = await mount({
+    const { element } = await mount({
       entities: [{ entity: 'calendar.a', color: '#ff0000' }, 'calendar.b'],
     });
 
     expect(element.shadowRoot!.querySelectorAll('ha-expansion-panel.entity-panel')).toHaveLength(2);
 
-    await filterBy({ [CUSTOMIZED_ONLY_FIELD]: true });
+    await changeField(element, `filter:${CUSTOMIZED_ONLY_FIELD}`, true);
 
     expect(element.shadowRoot!.querySelectorAll('ha-expansion-panel.entity-panel')).toHaveLength(1);
   });
 
   it('offers no reset until a view has an explicit value', async () => {
-    const { element, filterBy } = await mount({ view: 'column', entities: ['calendar.a'] });
+    const { element } = await mount({ view: 'column', entities: ['calendar.a'] });
 
     expect(element.shadowRoot!.querySelectorAll('.view-resets')).toHaveLength(0);
 
-    await filterBy({ [CUSTOMIZED_ONLY_FIELD]: true });
+    await changeField(element, `filter:${CUSTOMIZED_ONLY_FIELD}`, true);
 
     expect(element.shadowRoot!.querySelectorAll('.view-resets')).toHaveLength(0);
   });
@@ -760,20 +743,18 @@ describe('editor filter: the chassis', () => {
    * An explicit view value remains editable and resettable while customized-only is on.
    */
   it('keeps explicit view values and their reset controls', async () => {
-    const { element, filterBy } = await mount({
+    const { element } = await mount({
       view: 'column',
       entities: ['calendar.a'],
       column: { event_font_size: '22px' },
     } as Partial<Types.Config>);
 
-    await filterBy({ [CUSTOMIZED_ONLY_FIELD]: true });
+    await changeField(element, `filter:${CUSTOMIZED_ONLY_FIELD}`, true);
 
     expect(
       element.shadowRoot!.querySelectorAll('[data-reset-keys="event_font_size"]'),
     ).toHaveLength(1);
-    const offered = [...element.shadowRoot!.querySelectorAll('ha-form.panel-form')].flatMap(
-      (form) => fieldNames((form as unknown as { schema: HaFormSchema[] }).schema),
-    );
+    const offered = formsOf(element, CARD).flatMap((form) => fieldNames(form.schema));
     expect(offered).toContain('event_font_size');
   });
 
@@ -782,11 +763,11 @@ describe('editor filter: the chassis', () => {
    * would be a config key nobody asked for, in a file the user has to live with.
    */
   it('never reports a configuration change of its own', async () => {
-    const { dispatched, filterBy } = await mount({ entities: ['calendar.a'] });
+    const { element, dispatched } = await mount({ entities: ['calendar.a'] });
 
-    await filterBy({ [SEARCH_FIELD]: 'width' });
-    await filterBy({ [CUSTOMIZED_ONLY_FIELD]: true });
-    await filterBy({ [SEARCH_FIELD]: '' });
+    await changeField(element, `filter:${SEARCH_FIELD}`, 'width');
+    await changeField(element, `filter:${CUSTOMIZED_ONLY_FIELD}`, true);
+    await changeField(element, `filter:${SEARCH_FIELD}`, '');
 
     expect(dispatched).toEqual([]);
   });
@@ -797,19 +778,14 @@ describe('editor filter: the chassis', () => {
    * would. Worth pinning: the opposite would be silent, and it would be data loss.
    */
   it('writes the same configuration for an edit made while filtered', async () => {
-    const { element, dispatched, filterBy } = await mount({
+    const { element, dispatched } = await mount({
       entities: ['calendar.a'],
       days_to_show: 7,
     });
 
-    await filterBy({ [SEARCH_FIELD]: 'days_to_show' });
+    await changeField(element, `filter:${SEARCH_FIELD}`, 'days_to_show');
 
-    const form = element.shadowRoot!.querySelector('ha-form.panel-form')!;
-    const data = (form as unknown as { data: Record<string, unknown> }).data;
-    form.dispatchEvent(
-      new CustomEvent('value-changed', { detail: { value: { ...data, days_to_show: 10 } } }),
-    );
-    await element.updateComplete;
+    await changeField(element, 'content:days_to_show', 10);
 
     expect(dispatched).toHaveLength(1);
     // The List workspace owns this edit, so the new count is the list block's and the

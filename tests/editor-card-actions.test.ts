@@ -26,10 +26,17 @@
 
 import { describe, expect, it } from 'vitest';
 
+import {
+  type FormElement,
+  changeField,
+  fakeHass,
+  formOf,
+  formsOf,
+  mountEditor,
+  valueOf,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
-import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import {
   HA_ACTION_LABEL_PREFIX,
   withCardActionLabels,
@@ -45,8 +52,6 @@ import {
 } from '../src/rendering/editor/schemas/actions';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { eventOpensDetails } from '../src/rendering/editor/synthetic';
-
-customElements.define('editor-card-actions-probe', CalendarCardProEditor);
 
 /** The exact list both dropdowns offer, card actions first. */
 const EXPECTED_ACTIONS = [
@@ -237,32 +242,27 @@ describe('withCardActionLabels', () => {
 describe('editor wiring', () => {
   it('gives its forms a hass that can name the card’s actions', async () => {
     document.body.innerHTML = '';
-    const element = document.createElement('editor-card-actions-probe') as HTMLElement & {
-      hass: unknown;
-      setConfig(config: unknown): void;
-      readonly updateComplete: Promise<unknown>;
-    };
     const asked: string[] = [];
-    element.hass = {
-      states: {},
-      locale: { language: 'en' },
-      localize: (key: string) => {
-        asked.push(key);
-        return `HA:${key}`;
+    const element = await mountEditor(
+      {
+        config_version: Config.CURRENT_CONFIG_VERSION,
+        entities: ['calendar.anna'],
       },
-    };
-    document.body.appendChild(element);
-    element.setConfig({
-      config_version: Config.CURRENT_CONFIG_VERSION,
-      entities: ['calendar.anna'],
-    });
-    await element.updateComplete;
+      {
+        hass: fakeHass({
+          localize: (key: string) => {
+            asked.push(key);
+            return `HA:${key}`;
+          },
+        }),
+      },
+    );
 
-    const forms = Array.from(element.shadowRoot!.querySelectorAll('ha-form'));
+    const forms = formsOf(element);
     expect(forms.length).toBeGreaterThan(0);
 
     for (const form of forms) {
-      const formHass = (form as unknown as { hass?: Types.Hass }).hass;
+      const formHass = form.hass;
       expect(formHass?.localize?.(`${HA_ACTION_LABEL_PREFIX}expand`)).toBe(
         'Toggle Compact/Expanded View',
       );
@@ -314,23 +314,13 @@ describe('the event action dropdowns', () => {
  * so a switch left at its default must still write nothing.
  */
 describe('the event tap action in the editor', () => {
-  type EditorHost = HTMLElement & {
-    hass: unknown;
-    setConfig(config: unknown): void;
-    readonly updateComplete: Promise<unknown>;
-  };
-
   async function mount(config: Record<string, unknown>) {
     document.body.innerHTML = '';
-    const element = document.createElement('editor-card-actions-probe') as EditorHost;
-    element.hass = { states: {}, locale: { language: 'en' } };
-    document.body.appendChild(element);
-    element.setConfig({
+    const element = await mountEditor({
       config_version: Config.CURRENT_CONFIG_VERSION,
       entities: ['calendar.anna'],
       ...config,
     });
-    await element.updateComplete;
 
     const reported: Array<Record<string, unknown>> = [];
     element.addEventListener('config-changed', (event) => {
@@ -339,43 +329,29 @@ describe('the event tap action in the editor', () => {
       reported.push(next);
     });
 
-    const forms = () => Array.from(element.shadowRoot!.querySelectorAll('ha-form.panel-form'));
-    const names = (form: Element) =>
-      [...walkSchema((form as unknown as { schema: HaFormSchema[] }).schema)].map(
-        ({ node }) => node.name,
-      );
-    const owner = (option: string) => forms().find((form) => names(form).includes(option));
-    const shown = (option: string) =>
-      (owner(option) as unknown as { data: Record<string, unknown> } | undefined)?.data[option];
+    const names = (form: FormElement) => [...walkSchema(form.schema)].map(({ node }) => node.name);
 
-    /** Fires the whole-object change `ha-form` emits, from the form owning `option`. */
-    const change = async (option: string, value: unknown) => {
-      const form = owner(option);
-      if (!form) throw new Error(`no rendered form offers ${option}`);
-      const data = (form as unknown as { data: Record<string, unknown> }).data;
-      form.dispatchEvent(
-        new CustomEvent('value-changed', { detail: { value: { ...data, [option]: value } } }),
-      );
-      await element.updateComplete;
-    };
-
-    return { reported, owner, names, shown, change };
+    return { element, reported, names };
   }
 
   const last = (reported: ReadonlyArray<Record<string, unknown>>) => reported[reported.length - 1];
 
   it('stores Show Event Details as the details action, and reveals the switches', async () => {
-    const { reported, owner, shown, change } = await mount({});
+    const { element, reported } = await mount({});
 
-    expect(shown('event_tap_action')).toEqual({ action: 'none' });
-    expect(owner('allow_event_edit')).toBeUndefined();
-    expect(owner('allow_event_delete')).toBeUndefined();
+    expect(valueOf(element, 'actions:event_tap_action')).toEqual({ action: 'none' });
+    expect(formOf(element, 'actions:allow_event_edit')).toBeUndefined();
+    expect(formOf(element, 'actions:allow_event_delete')).toBeUndefined();
 
-    await change('event_tap_action', { action: 'details' });
+    await changeField(element, 'actions:event_tap_action', { action: 'details' });
 
     // Both under the same form as the dropdown, and nothing but the action written.
-    expect(owner('allow_event_edit')).toBe(owner('event_tap_action'));
-    expect(owner('allow_event_delete')).toBe(owner('event_tap_action'));
+    expect(formOf(element, 'actions:allow_event_edit')).toBe(
+      formOf(element, 'actions:event_tap_action'),
+    );
+    expect(formOf(element, 'actions:allow_event_delete')).toBe(
+      formOf(element, 'actions:event_tap_action'),
+    );
     expect(last(reported)).toEqual({
       entities: ['calendar.anna'],
       event_tap_action: { action: 'details' },
@@ -383,33 +359,36 @@ describe('the event tap action in the editor', () => {
   });
 
   it('stores Nothing as no key at all, and hides the switches again', async () => {
-    const { reported, owner, shown, change } = await mount({
+    const { element, reported } = await mount({
       event_tap_action: { action: 'details' },
     });
-    expect(shown('event_tap_action')).toEqual({ action: 'details' });
-    expect(owner('allow_event_edit')).toBeDefined();
+    expect(valueOf(element, 'actions:event_tap_action')).toEqual({ action: 'details' });
+    expect(formOf(element, 'actions:allow_event_edit')).toBeDefined();
 
-    await change('event_tap_action', { action: 'none' });
+    await changeField(element, 'actions:event_tap_action', { action: 'none' });
 
     expect(last(reported)).toEqual({ entities: ['calendar.anna'] });
-    expect(owner('allow_event_edit')).toBeUndefined();
-    expect(owner('allow_event_delete')).toBeUndefined();
+    expect(formOf(element, 'actions:allow_event_edit')).toBeUndefined();
+    expect(formOf(element, 'actions:allow_event_delete')).toBeUndefined();
   });
 
   it("shows one of Home Assistant's actions as stored, without the switches, and keeps its fields", async () => {
     const urlAction = { action: 'url', url_path: 'https://example.com/search?q={title}' };
-    const { reported, owner, shown, change } = await mount({
+    const { element, reported } = await mount({
       event_tap_action: { action: 'more-info', entity: 'calendar.ben' },
     });
-    expect(shown('event_tap_action')).toEqual({ action: 'more-info', entity: 'calendar.ben' });
-    expect(owner('allow_event_edit')).toBeUndefined();
+    expect(valueOf(element, 'actions:event_tap_action')).toEqual({
+      action: 'more-info',
+      entity: 'calendar.ben',
+    });
+    expect(formOf(element, 'actions:allow_event_edit')).toBeUndefined();
 
     // A field name in braces is the user's text and is stored as written.
-    await change('event_tap_action', urlAction);
+    await changeField(element, 'actions:event_tap_action', urlAction);
     expect(last(reported)).toEqual({ entities: ['calendar.anna'], event_tap_action: urlAction });
-    expect(owner('allow_event_edit')).toBeUndefined();
+    expect(formOf(element, 'actions:allow_event_edit')).toBeUndefined();
 
-    await change('event_tap_action', { action: 'details' });
+    await changeField(element, 'actions:event_tap_action', { action: 'details' });
     expect(last(reported)).toEqual({
       entities: ['calendar.anna'],
       event_tap_action: { action: 'details' },
@@ -419,16 +398,16 @@ describe('the event tap action in the editor', () => {
   it.each(['allow_event_edit', 'allow_event_delete'])(
     'stores %s only while it is off, its non-default value',
     async (option) => {
-      const { reported, change } = await mount({ event_tap_action: { action: 'details' } });
+      const { element, reported } = await mount({ event_tap_action: { action: 'details' } });
 
-      await change(option, false);
+      await changeField(element, `actions:${option}`, false);
       expect(last(reported)).toEqual({
         entities: ['calendar.anna'],
         event_tap_action: { action: 'details' },
         [option]: false,
       });
 
-      await change(option, true);
+      await changeField(element, `actions:${option}`, true);
       expect(last(reported)).toEqual({
         entities: ['calendar.anna'],
         event_tap_action: { action: 'details' },
@@ -437,14 +416,14 @@ describe('the event tap action in the editor', () => {
   );
 
   it('offers the toolbar switch beside the title, and its controls only while it is on', async () => {
-    const { reported, owner, names, shown, change } = await mount({});
+    const { element, reported, names } = await mount({});
 
-    const card = owner('toolbar');
+    const card = formOf(element, 'card:toolbar');
     expect(card).toBeDefined();
     expect(names(card!)).toContain('title');
     expect(names(card!)).not.toContain('tap_action');
     expect(names(card!)).not.toContain('add_event');
-    expect(shown('toolbar')).toEqual({
+    expect(valueOf(element, 'card:toolbar')).toEqual({
       show: false,
       navigation: true,
       view_switcher: true,
@@ -458,9 +437,9 @@ describe('the event tap action in the editor', () => {
 
     // Every control but reset arrives switched on, as the card reads them, search included
     // (backlog item 182), the filter as a menu, and nothing but the switch is written.
-    await change('toolbar', { ...(shown('toolbar') as object), show: true });
+    await changeField(element, 'card:toolbar.show', true);
     expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
-    expect(names(owner('toolbar')!)).toEqual(
+    expect(names(formOf(element, 'card:toolbar')!)).toEqual(
       expect.arrayContaining([
         'show',
         'navigation',
@@ -472,7 +451,7 @@ describe('the event tap action in the editor', () => {
         'legend',
       ]),
     );
-    expect(shown('toolbar')).toEqual({
+    expect(valueOf(element, 'card:toolbar')).toEqual({
       show: true,
       navigation: true,
       view_switcher: true,
@@ -485,80 +464,80 @@ describe('the event tap action in the editor', () => {
     });
 
     // The one control off by default reads back on once it is switched on: one flip.
-    await change('toolbar', { ...(shown('toolbar') as object), reset: true });
+    await changeField(element, 'card:toolbar.reset', true);
     expect(last(reported)).toEqual({
       entities: ['calendar.anna'],
       toolbar: { show: true, reset: true },
     });
-    expect((shown('toolbar') as Record<string, unknown>).reset).toBe(true);
-    await change('toolbar', { ...(shown('toolbar') as object), reset: false });
+    expect((valueOf(element, 'card:toolbar') as Record<string, unknown>).reset).toBe(true);
+    await changeField(element, 'card:toolbar.reset', false);
     expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
 
     // Search, on by default, is written only once switched off, and reads back off.
-    await change('toolbar', { ...(shown('toolbar') as object), search: false });
+    await changeField(element, 'card:toolbar.search', false);
     expect(last(reported)).toEqual({
       entities: ['calendar.anna'],
       toolbar: { show: true, search: false },
     });
-    expect((shown('toolbar') as Record<string, unknown>).search).toBe(false);
-    await change('toolbar', { ...(shown('toolbar') as object), search: true });
+    expect((valueOf(element, 'card:toolbar') as Record<string, unknown>).search).toBe(false);
+    await changeField(element, 'card:toolbar.search', true);
     expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
 
     // And one on by default is written only once switched off.
-    await change('toolbar', { ...(shown('toolbar') as object), refresh: false });
+    await changeField(element, 'card:toolbar.refresh', false);
     expect(last(reported)).toEqual({
       entities: ['calendar.anna'],
       toolbar: { show: true, refresh: false },
     });
-    await change('toolbar', { ...(shown('toolbar') as object), refresh: true });
+    await changeField(element, 'card:toolbar.refresh', true);
     expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
 
     // The filter's dropdown holds strings, so it says `off` where the configuration says
     // `false`: written as `false`, never as the word, and shown as the word again.
-    await change('toolbar', { ...(shown('toolbar') as object), legend: 'off' });
+    await changeField(element, 'card:toolbar.legend', 'off');
     expect(last(reported)).toEqual({
       entities: ['calendar.anna'],
       toolbar: { show: true, legend: false },
     });
-    expect((shown('toolbar') as Record<string, unknown>).legend).toBe('off');
-    await change('toolbar', { ...(shown('toolbar') as object), legend: 'chips' });
+    expect((valueOf(element, 'card:toolbar') as Record<string, unknown>).legend).toBe('off');
+    await changeField(element, 'card:toolbar.legend', 'chips');
     expect(last(reported)).toEqual({
       entities: ['calendar.anna'],
       toolbar: { show: true, legend: 'chips' },
     });
-    expect((shown('toolbar') as Record<string, unknown>).legend).toBe('chips');
+    expect((valueOf(element, 'card:toolbar') as Record<string, unknown>).legend).toBe('chips');
     // The default, a menu, is not written.
-    await change('toolbar', { ...(shown('toolbar') as object), legend: 'menu' });
+    await changeField(element, 'card:toolbar.legend', 'menu');
     expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
 
-    await change('toolbar', { ...(shown('toolbar') as object), add_event: false });
+    await changeField(element, 'card:toolbar.add_event', false);
     expect(last(reported)).toEqual({
       entities: ['calendar.anna'],
       toolbar: { show: true, add_event: false },
     });
 
     // Hiding the bar keeps the choices made for it.
-    await change('toolbar', { ...(shown('toolbar') as object), show: false });
+    await changeField(element, 'card:toolbar.show', false);
     expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { add_event: false } });
-    expect(names(owner('toolbar')!)).not.toContain('add_event');
+    expect(names(formOf(element, 'card:toolbar')!)).not.toContain('add_event');
 
     // One switch at a time, as the form allows: the button's switch is not drawn while the
     // toolbar is hidden, so it cannot change in the same event that shows it.
-    await change('toolbar', { ...(shown('toolbar') as object), show: true });
+    await changeField(element, 'card:toolbar.show', true);
     expect(last(reported)).toEqual({
       entities: ['calendar.anna'],
       toolbar: { show: true, add_event: false },
     });
-    await change('toolbar', { ...(shown('toolbar') as object), add_event: true });
+    await changeField(element, 'card:toolbar.add_event', true);
     expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
   });
 
   it.each(['list', 'column', 'grid'])(
     'writes the toolbar at the top level while editing the %s layout',
     async (view) => {
-      const { reported, shown, change } = await mount({ view });
+      const { element, reported } = await mount({ view });
 
-      await change('toolbar', { ...(shown('toolbar') as object), show: true });
+      await changeField(element, 'card:toolbar.show', true);
       // `view` stays as the YAML wrote it, even at its default `list`: the edit did not touch it.
       expect(last(reported)).toEqual({
         entities: ['calendar.anna'],

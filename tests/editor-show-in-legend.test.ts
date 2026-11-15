@@ -17,9 +17,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import { changeField, entry, formsOf, mountEditor, valueOf } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import * as Entities from '../src/rendering/editor/entities';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { lookup } from '../src/rendering/editor/localize';
@@ -27,8 +27,6 @@ import { walkSchema } from '../src/rendering/editor/panels';
 import { buildEntitySchema, entitySchemaFor } from '../src/rendering/editor/schemas/entity';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { EDITOR_LANGUAGE_STRINGS } from '../src/rendering/editor/translations';
-
-customElements.define('editor-show-in-legend-probe', CalendarCardProEditor);
 
 const ANNA = 'calendar.anna';
 const BEN = 'calendar.ben';
@@ -257,17 +255,6 @@ describe('copying and pasting a calendar’s settings', () => {
 });
 
 describe('the filter switch in the rendered editor', () => {
-  interface EditorHost extends HTMLElement {
-    hass: unknown;
-    setConfig(config: unknown): void;
-    updateComplete: Promise<unknown>;
-  }
-
-  interface Form extends HTMLElement {
-    data: Record<string, unknown>;
-    schema: HaFormSchema[];
-  }
-
   /**
    * Builds a rendered editor over the given calendars and toolbar.
    *
@@ -276,28 +263,22 @@ describe('the filter switch in the rendered editor', () => {
    * @returns The editor and every configuration it reports
    */
   async function render(entities: ReadonlyArray<unknown>, toolbar?: Types.ToolbarConfig) {
-    const element = document.createElement('editor-show-in-legend-probe') as EditorHost;
-    element.hass = { states: {}, locale: { language: 'en' } };
-    document.body.appendChild(element);
-    element.setConfig({
+    const element = await mountEditor({
       config_version: Config.CURRENT_CONFIG_VERSION,
       entities,
       ...(toolbar ? { toolbar } : {}),
     });
-    await element.updateComplete;
 
     const emitted: Array<Record<string, unknown>> = [];
     element.addEventListener('config-changed', (event) => {
       emitted.push((event as CustomEvent).detail.config as Record<string, unknown>);
     });
 
-    const forms = () =>
-      Array.from(element.shadowRoot!.querySelectorAll<Form>('ha-form.entity-form'));
     return {
       element,
       emitted,
-      forms,
-      offers: () => forms().map((form) => fieldNames(form.schema).includes('show_in_legend')),
+      offers: () =>
+        formsOf(element, entry()).map((form) => fieldNames(form.schema).includes('show_in_legend')),
     };
   }
 
@@ -351,15 +332,11 @@ describe('the filter switch in the rendered editor', () => {
       [{ entity: ANNA, show_in_legend: false }, { entity: ANNA, event_type: 'all_day' }, BEN],
       { show: true, legend: 'chips' },
     );
-    const second = editor.forms()[1];
-    expect(editor.forms().map((form) => form.data.show_in_legend)).toEqual([false, false, true]);
+    expect(
+      [0, 1, 2].map((index) => valueOf(editor.element, 'calendar:show_in_legend', entry(index))),
+    ).toEqual([false, false, true]);
 
-    second.dispatchEvent(
-      new CustomEvent('value-changed', {
-        detail: { value: { ...second.data, show_in_legend: true } },
-      }),
-    );
-    await editor.element.updateComplete;
+    await changeField(editor.element, 'calendar:show_in_legend', true, entry(1));
 
     expect(editor.emitted).toHaveLength(1);
     expect(editor.emitted[0].entities).toEqual([

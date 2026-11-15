@@ -5,6 +5,15 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
 import {
+  CARD,
+  changeField,
+  entry,
+  formOf,
+  formsOf,
+  mountEditor,
+  valueOf,
+} from './helpers/editor-host';
+import {
   CURRENT_CONFIG_VERSION,
   DEFAULT_CONFIG,
   DEPRECATED_CONFIG_MAP,
@@ -27,7 +36,6 @@ import {
   resolveColumnFit,
   resolveEffectiveConfig,
 } from '../src/config/view';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import {
   clearCopiedSettings,
   copiedSettings,
@@ -1490,22 +1498,11 @@ describe('editor: the chassis', () => {
    * bound to — which is all this needs. Nothing about the assertions below depends on
    * Home Assistant actually rendering a field.
    */
-  // Registered once, under a tag of this suite's own, because a custom element has to
-  // be defined before it can be constructed.
-  const TAG = 'test-calendar-card-pro-editor';
-  if (!customElements.get(TAG)) {
-    customElements.define(TAG, class extends CalendarCardProEditor {});
-  }
-
   async function mount(config: Partial<Types.Config>) {
-    const element = document.createElement(TAG) as CalendarCardProEditor;
-    element.hass = {} as Types.Hass;
-    element.setConfig({
+    const element = await mountEditor({
       config_version: CURRENT_CONFIG_VERSION,
       ...config,
-    } as Types.Config);
-    document.body.appendChild(element);
-    await element.updateComplete;
+    });
 
     const dispatched: Array<Record<string, unknown>> = [];
     element.addEventListener('config-changed', (event) => {
@@ -1514,37 +1511,13 @@ describe('editor: the chassis', () => {
       dispatched.push(next);
     });
 
-    /**
-     * Fires a form change the way `ha-form` does: the whole merged data object.
-     *
-     * Selects the form that actually offers the changed field. Pass an index where
-     * the panel itself is under test; unrelated fields in a form's data are not edits.
-     */
-    const change = async (patch: Record<string, unknown>, panelIndex?: number) => {
-      const forms = [...element.shadowRoot!.querySelectorAll('ha-form.panel-form')];
-      const target =
-        panelIndex === undefined
-          ? forms.find((form) =>
-              [...walkSchema(schemaOf(form))].some(({ node }) =>
-                Object.prototype.hasOwnProperty.call(patch, node.name),
-              ),
-            )
-          : forms[panelIndex];
-      if (!target) throw new Error('No rendered form offers this edit');
-      const data = (target as unknown as { data: Record<string, unknown> }).data;
-      target.dispatchEvent(
-        new CustomEvent('value-changed', { detail: { value: { ...data, ...patch } } }),
-      );
-      await element.updateComplete;
-    };
-
-    return { element, dispatched, change };
+    return { element, dispatched };
   }
 
   it('reports an ordinary edit to Home Assistant', async () => {
-    const { dispatched, change } = await mount({ entities: ['calendar.personal'] });
+    const { element, dispatched } = await mount({ entities: ['calendar.personal'] });
 
-    await change({ first_day_of_week: 'sunday' });
+    await changeField(element, 'content:first_day_of_week', 'sunday');
 
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0].first_day_of_week).toBe('sunday');
@@ -1557,7 +1530,7 @@ describe('editor: the chassis', () => {
    * of the keystroke that produced it. The field then appears to reject `-` entirely.
    */
   it('says nothing when an edit only moved uncommitted text', async () => {
-    const { dispatched, change } = await mount({
+    const { element, dispatched } = await mount({
       entities: ['calendar.personal'],
       start_date: '-7',
       // Stored explicitly at its default, so the first write would otherwise strip it
@@ -1565,19 +1538,19 @@ describe('editor: the chassis', () => {
       days_to_show: DEFAULT_CONFIG.days_to_show,
     });
 
-    await change({ start_date_offset: '-' });
+    await changeField(element, 'content:start_date_offset', '-');
 
     expect(dispatched).toEqual([]);
   });
 
   it('keeps held text through Home Assistant echoing the config back', async () => {
-    const { element, dispatched, change } = await mount({
+    const { element, dispatched } = await mount({
       entities: ['calendar.personal'],
       start_date: '-7',
     });
 
-    await change({ days_to_show: 9 });
-    await change({ start_date_offset: '-' });
+    await changeField(element, 'content:days_to_show', 9);
+    await changeField(element, 'content:start_date_offset', '-');
 
     // Home Assistant answers a `config-changed` by feeding the configuration back in.
     // That echo must not reset the editor's uncommitted state.
@@ -1587,15 +1560,13 @@ describe('editor: the chassis', () => {
     } as unknown as Types.Config);
     await element.updateComplete;
 
-    const form = element.shadowRoot!.querySelector('ha-form.panel-form')!;
-    const data = (form as unknown as { data: Record<string, unknown> }).data;
-    expect(data.start_date_offset).toBe('-');
+    expect(valueOf(element, 'content:start_date_offset')).toBe('-');
   });
 
   it('never writes a synthetic key out to Home Assistant', async () => {
-    const { dispatched, change } = await mount({ entities: ['calendar.personal'] });
+    const { element, dispatched } = await mount({ entities: ['calendar.personal'] });
 
-    await change({ height_mode: 'fixed' });
+    await changeField(element, 'layout:height_mode', 'fixed');
 
     const stored = dispatched[0] as Record<string, unknown>;
     const block = (stored.list ?? {}) as Record<string, unknown>;
@@ -1614,7 +1585,7 @@ describe('editor: the chassis', () => {
 
     // `.panel-form` rather than every form: the two hand-written widgets render forms
     // of their own inside the panels that own them, and those are not panels.
-    expect(element.shadowRoot!.querySelectorAll('ha-form.panel-form')).toHaveLength(PANELS.length);
+    expect(formsOf(element, CARD)).toHaveLength(PANELS.length);
   });
 
   /**
@@ -1625,39 +1596,30 @@ describe('editor: the chassis', () => {
    * wired to each other.
    */
   it('keeps the offset field standing while a lone minus is typed into it', async () => {
-    const { element, dispatched, change } = await mount({
+    const { element, dispatched } = await mount({
       entities: ['calendar.personal'],
       start_date: '-7',
       days_to_show: DEFAULT_CONFIG.days_to_show,
     });
 
-    const panelIndex = PANELS.findIndex((panel) => panel.id === 'content');
-    const contentForm = () =>
-      element.shadowRoot!.querySelectorAll('ha-form.panel-form')[panelIndex];
-    const dataOf = (form: Element) => (form as unknown as { data: Record<string, unknown> }).data;
-    const namesOf = (form: Element) =>
-      [...walkSchema((form as unknown as { schema: HaFormSchema[] }).schema)].map(
-        (entry) => entry.node.name,
-      );
-
-    await change({ start_date_offset: '-' }, panelIndex);
+    await changeField(element, 'content:start_date_offset', '-');
 
     expect(dispatched).toEqual([]);
-    expect(dataOf(contentForm()).start_date_offset).toBe('-');
-    expect(namesOf(contentForm())).toContain('start_date_offset');
+    expect(valueOf(element, 'content:start_date_offset')).toBe('-');
+    expect(formOf(element, 'content:start_date_offset')).toBeDefined();
 
-    await change({ start_date_offset: '-14' }, panelIndex);
+    await changeField(element, 'content:start_date_offset', '-14');
 
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0].start_date).toBe('-14');
   });
 
   it('keeps a calendar object through being reordered in the picker', async () => {
-    const { dispatched, change } = await mount({
+    const { element, dispatched } = await mount({
       entities: [{ entity: 'calendar.a', label: 'Home', color: '#0f0' }, 'calendar.b'],
     });
 
-    await change({ calendars: ['calendar.b', 'calendar.a'] });
+    await changeField(element, 'calendars:calendars', ['calendar.b', 'calendar.a']);
 
     expect(dispatched[0].entities).toEqual([
       'calendar.b',
@@ -1666,12 +1628,12 @@ describe('editor: the chassis', () => {
   });
 
   it('does not persist the projected column defaults just by being opened', async () => {
-    const { dispatched, change } = await mount({
+    const { element, dispatched } = await mount({
       entities: ['calendar.personal'],
       view: 'column',
     });
 
-    await change({ first_day_of_week: 'sunday' });
+    await changeField(element, 'content:first_day_of_week', 'sunday');
 
     expect(dispatched[0]).not.toHaveProperty('column');
   });
@@ -3459,33 +3421,9 @@ describe('editor: group headings resolve their own strings', () => {
   });
 });
 
-/**
- * A tag of this file's own for the widgets mounted below, since a custom element has to
- * be defined before it can be constructed and may only be defined once.
- */
-const CHASSIS_TAG = 'test-calendar-card-pro-editor-widgets';
-if (!customElements.get(CHASSIS_TAG)) {
-  customElements.define(CHASSIS_TAG, class extends CalendarCardProEditor {});
-}
-
 /** Reads a mounted form's schema. */
 function schemaOf(form: Element): HaFormSchema[] {
   return (form as unknown as { schema: HaFormSchema[] }).schema;
-}
-
-/** Fires a change from one of the editor's forms, the way `ha-form` does. */
-async function fire(
-  element: CalendarCardProEditor,
-  selector: string,
-  patch: Record<string, unknown>,
-  index = 0,
-) {
-  const form = element.shadowRoot!.querySelectorAll(selector)[index];
-  const data = (form as unknown as { data: Record<string, unknown> }).data;
-  form.dispatchEvent(
-    new CustomEvent('value-changed', { detail: { value: { ...data, ...patch } } }),
-  );
-  await element.updateComplete;
 }
 
 /**
@@ -3498,18 +3436,9 @@ async function fire(
 describe('editor: the weather block', () => {
   /** Mounts the editor on a raw config and returns the panel form data holding `weather`. */
   async function weatherFormData(weather: unknown): Promise<Record<string, unknown>> {
-    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
-    element.hass = {} as Types.Hass;
-    element.setConfig({ entities: ['calendar.a'], weather } as Types.Config);
-    document.body.appendChild(element);
-    await element.updateComplete;
+    const element = await mountEditor({ entities: ['calendar.a'], weather });
 
-    const form = [...element.shadowRoot!.querySelectorAll('ha-form.panel-form')].find(
-      (candidate) =>
-        (candidate as unknown as { data: Record<string, unknown> }).data?.weather !== undefined,
-    )!;
-
-    return (form as unknown as { data: { weather: Record<string, unknown> } }).data.weather;
+    return valueOf(element, 'weather:weather') as Record<string, unknown>;
   }
 
   it('binds every defaulted option a minimal weather block leaves out', async () => {
@@ -3578,13 +3507,9 @@ describe('editor: per-calendar settings', () => {
   });
 
   it('renders one collapsible form per configured calendar', async () => {
-    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
-    element.hass = {} as Types.Hass;
-    element.setConfig({ entities: ['calendar.a', 'calendar.b'] } as Types.Config);
-    document.body.appendChild(element);
-    await element.updateComplete;
+    const element = await mountEditor({ entities: ['calendar.a', 'calendar.b'] });
 
-    expect(element.shadowRoot!.querySelectorAll('ha-form.entity-form')).toHaveLength(2);
+    expect(formsOf(element, entry())).toHaveLength(2);
   });
 
   /**
@@ -3594,16 +3519,13 @@ describe('editor: per-calendar settings', () => {
    * element rather than only through `entitySchemaFor`.
    */
   it('narrows each calendar to its own label shape, through the chassis', async () => {
-    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
-    element.hass = {} as Types.Hass;
-    element.setConfig({
+    const element = await mountEditor({
       entities: [{ entity: 'calendar.a', label: 'mdi:home' }, 'calendar.b'],
-    } as Types.Config);
-    document.body.appendChild(element);
-    await element.updateComplete;
+    });
 
-    const forms = [...element.shadowRoot!.querySelectorAll('ha-form.entity-form')];
-    const names = forms.map((form) => schemaOf(form).map((node) => node.name));
+    const names = [0, 1].map((index) =>
+      schemaOf(formOf(element, 'calendar:label_type', entry(index))!).map((node) => node.name),
+    );
 
     // The calendar with an icon label gets the picker and the icon color; the one with
     // no label at all gets neither, and its shape dropdown reads *None*.
@@ -3611,8 +3533,7 @@ describe('editor: per-calendar settings', () => {
     expect(names[1]).not.toContain('label_icon_color');
     expect(names[1]).not.toContain('label');
 
-    const data = (forms[1] as unknown as { data: Record<string, unknown> }).data;
-    expect(data.label_type).toBe('none');
+    expect(valueOf(element, 'calendar:label_type', entry(1))).toBe('none');
   });
 
   /**
@@ -3624,39 +3545,33 @@ describe('editor: per-calendar settings', () => {
    * passes. Checked by dropping it: 2810 unit tests, none of them noticed.
    */
   it('renders the person picker for a calendar labeled with a person, through the chassis', async () => {
-    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
-    element.hass = {} as Types.Hass;
-    element.setConfig({
+    const element = await mountEditor({
       entities: [
         { entity: 'calendar.a', label: 'person.anna' },
         { entity: 'calendar.b', label: '/local/work.png' },
       ],
-    } as Types.Config);
-    document.body.appendChild(element);
-    await element.updateComplete;
+    });
 
-    const forms = [...element.shadowRoot!.querySelectorAll('ha-form.entity-form')];
+    const first = formOf(element, 'calendar:label', entry(0))!;
 
-    const person = schemaOf(forms[0]).find((node) => node.name === 'label')!;
-    expect(schemaOf(forms[0]).map((node) => node.name)).toContain('label_image_source');
+    const person = schemaOf(first).find((node) => node.name === 'label')!;
+    expect(schemaOf(first).map((node) => node.name)).toContain('label_image_source');
     expect('selector' in person && 'entity' in person.selector, 'person mode wants a picker').toBe(
       true,
     );
 
     // The other mode through the same wiring, so the assertion above is about the source
     // rather than about every image label getting a picker.
-    const typed = schemaOf(forms[1]).find((node) => node.name === 'label')!;
+    const typed = schemaOf(formOf(element, 'calendar:label', entry(1))!).find(
+      (node) => node.name === 'label',
+    )!;
     expect('selector' in typed && 'text' in typed.selector, 'custom mode wants a text box').toBe(
       true,
     );
   });
 
   it('stores a label chosen through the shape dropdown, through the chassis', async () => {
-    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
-    element.hass = {} as Types.Hass;
-    element.setConfig({ entities: ['calendar.a'] } as Types.Config);
-    document.body.appendChild(element);
-    await element.updateComplete;
+    const element = await mountEditor({ entities: ['calendar.a'] });
 
     const dispatched: Array<Record<string, unknown>> = [];
     element.addEventListener('config-changed', (event) => {
@@ -3665,7 +3580,7 @@ describe('editor: per-calendar settings', () => {
       element.setConfig(config);
     });
 
-    await fire(element, 'ha-form.entity-form', { label_type: 'icon' });
+    await changeField(element, 'calendar:label_type', 'icon', entry(0));
 
     // The shape is what is stored; nothing is seeded into the picker for the user to
     // clear first. It has to be stored here, because an icon shape with no icon in it
@@ -3675,12 +3590,11 @@ describe('editor: per-calendar settings', () => {
     ]);
 
     // The picker is now on screen, empty, with the color that only applies to it.
-    const form = element.shadowRoot!.querySelector('ha-form.entity-form')!;
+    const form = formOf(element, 'calendar:label_type', entry(0))!;
     expect(schemaOf(form).map((node) => node.name)).toContain('label_icon_color');
 
-    const data = (form as unknown as { data: Record<string, unknown> }).data;
-    expect(data.label_type).toBe('icon');
-    expect(data.label ?? '').toBe('');
+    expect(valueOf(element, 'calendar:label_type', entry(0))).toBe('icon');
+    expect(valueOf(element, 'calendar:label', entry(0)) ?? '').toBe('');
   });
 
   /**
@@ -3699,11 +3613,7 @@ describe('editor: per-calendar settings', () => {
    * from it, and it is that second half that dropped the field.
    */
   it('keeps the label field on screen while the text is cleared and retyped', async () => {
-    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
-    element.hass = {} as Types.Hass;
-    element.setConfig({ entities: ['calendar.a'] } as Types.Config);
-    document.body.appendChild(element);
-    await element.updateComplete;
+    const element = await mountEditor({ entities: ['calendar.a'] });
 
     element.addEventListener('config-changed', (event) => {
       element.setConfig((event as CustomEvent).detail.config as Types.Config);
@@ -3711,36 +3621,31 @@ describe('editor: per-calendar settings', () => {
 
     /** The names the one calendar's form is currently rendering. */
     const rendered = () =>
-      schemaOf(element.shadowRoot!.querySelector('ha-form.entity-form')!).map((node) => node.name);
-    /** That form's data, as `ha-form` would read it. */
-    const formData = () =>
-      (
-        element.shadowRoot!.querySelector('ha-form.entity-form') as unknown as {
-          data: Record<string, unknown>;
-        }
-      ).data;
+      schemaOf(formOf(element, 'calendar:label_type', entry(0))!).map((node) => node.name);
 
-    await fire(element, 'ha-form.entity-form', { label_type: 'text' });
+    await changeField(element, 'calendar:label_type', 'text', entry(0));
 
     // Choosing the shape is enough to put the field on screen. It arrives empty: a seeded
     // value only ever existed to stop the shape deriving straight back to *None*, and an
     // explicit shape does not need one.
     expect(rendered()).toContain('label');
-    expect(formData().label_type).toBe('text');
-    expect(formData().label ?? '').toBe('');
+    expect(valueOf(element, 'calendar:label_type', entry(0))).toBe('text');
+    expect(valueOf(element, 'calendar:label', entry(0)) ?? '').toBe('');
 
-    await fire(element, 'ha-form.entity-form', { label: 'Fam' });
-    expect(formData().label).toBe('Fam');
+    await changeField(element, 'calendar:label', 'Fam', entry(0));
+    expect(valueOf(element, 'calendar:label', entry(0))).toBe('Fam');
 
     // The step that used to break it.
-    await fire(element, 'ha-form.entity-form', { label: '' });
+    await changeField(element, 'calendar:label', '', entry(0));
 
     expect(rendered(), 'the field survived being cleared').toContain('label');
-    expect(formData().label_type, 'the shape did not snap back').toBe('text');
+    expect(valueOf(element, 'calendar:label_type', entry(0)), 'the shape did not snap back').toBe(
+      'text',
+    );
 
     // And the user can now type the label they wanted all along.
-    await fire(element, 'ha-form.entity-form', { label: 'Familienkalender' });
-    expect(formData().label).toBe('Familienkalender');
+    await changeField(element, 'calendar:label', 'Familienkalender', entry(0));
+    expect(valueOf(element, 'calendar:label', entry(0))).toBe('Familienkalender');
   });
 
   /**
@@ -3749,26 +3654,22 @@ describe('editor: per-calendar settings', () => {
    * the label, re-derive the shape as *None*, and take both controls away at once.
    */
   it('keeps the icon picker and its color on screen while the icon is cleared', async () => {
-    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
-    element.hass = {} as Types.Hass;
-    element.setConfig({
+    const element = await mountEditor({
       entities: [{ entity: 'calendar.a', label: 'mdi:home' }],
-    } as Types.Config);
-    document.body.appendChild(element);
-    await element.updateComplete;
+    });
 
     element.addEventListener('config-changed', (event) => {
       element.setConfig((event as CustomEvent).detail.config as Types.Config);
     });
 
-    await fire(element, 'ha-form.entity-form', { label: '' });
+    await changeField(element, 'calendar:label', '', entry(0));
 
-    const form = element.shadowRoot!.querySelector('ha-form.entity-form')!;
+    const form = formOf(element, 'calendar:label_type', entry(0))!;
     const names = schemaOf(form).map((node) => node.name);
 
     expect(names, 'the picker survived being cleared').toContain('label');
     expect(names, 'so did the icon color').toContain('label_icon_color');
-    expect((form as unknown as { data: Record<string, unknown> }).data.label_type).toBe('icon');
+    expect(valueOf(element, 'calendar:label_type', entry(0))).toBe('icon');
   });
 
   it('offers every per-calendar option the card reads', () => {
@@ -4784,21 +4685,9 @@ describe('editor: removing view overrides', () => {
   });
 });
 
-function routedFormIndex(element: CalendarCardProEditor, key: string): number {
-  const index = [...element.shadowRoot!.querySelectorAll('ha-form.panel-form')].findIndex((form) =>
-    [...walkSchema(schemaOf(form))].some(({ node }) => node.name === key),
-  );
-  if (index < 0) throw new Error(`No routed form for ${key}`);
-  return index;
-}
-
 describe('editor: direct view controls in the chassis', () => {
   async function mountColumn(config: Partial<Types.Config>) {
-    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
-    element.hass = {} as Types.Hass;
-    element.setConfig({ view: 'column', ...config } as Types.Config);
-    document.body.appendChild(element);
-    await element.updateComplete;
+    const element = await mountEditor({ view: 'column', ...config });
 
     const dispatched: Array<Record<string, unknown>> = [];
     element.addEventListener('config-changed', (event) => {
@@ -4839,39 +4728,29 @@ describe('editor: direct view controls in the chassis', () => {
   it('renders the effective field immediately without storing an override', async () => {
     const { element, dispatched } = await mountColumn({ entities: ['calendar.a'] });
 
-    expect(routedFormIndex(element, 'event_font_size')).toBeGreaterThanOrEqual(0);
+    expect(formOf(element, 'events:event_font_size')).toBeDefined();
     expect(dispatched).toEqual([]);
   });
 
   it('stores the exception once its value differs, and only then', async () => {
     const { element, dispatched } = await mountColumn({ entities: ['calendar.a'] });
 
-    const formIndex = routedFormIndex(element, 'event_font_size');
-    await fire(element, 'ha-form.panel-form', { event_font_size: '22px' }, formIndex);
+    await changeField(element, 'events:event_font_size', '22px');
 
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0].column).toEqual({ event_font_size: '22px' });
   });
 
   it('shows the active view’s effective values rather than another view’s overrides', async () => {
-    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
-    element.hass = {} as Types.Hass;
     const config = {
       entities: ['calendar.a'],
       column: { event_font_size: '22px' },
       time_grid: { event_font_size: '23px' },
     } as Types.Config;
 
-    document.body.appendChild(element);
-    element.setConfig({ ...config, view: 'grid' });
-    await element.updateComplete;
+    const element = await mountEditor({ ...config, view: 'grid' });
 
-    const current = () =>
-      (
-        element.shadowRoot!.querySelectorAll('ha-form.panel-form')[
-          routedFormIndex(element, 'event_font_size')
-        ] as unknown as { data: Record<string, unknown> }
-      ).data.event_font_size;
+    const current = () => valueOf(element, 'events:event_font_size');
     expect(current()).toBe('23px');
 
     element.setConfig({ ...config, view: 'column' });
@@ -4885,11 +4764,7 @@ describe('editor: direct view controls in the chassis', () => {
    * input. That remains true when Home Assistant echoes every write immediately.
    */
   it('survives add, differ, revert and remove with Home Assistant echoing each write', async () => {
-    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
-    element.hass = {} as Types.Hass;
-    element.setConfig({ entities: ['calendar.a'], view: 'column' } as Types.Config);
-    document.body.appendChild(element);
-    await element.updateComplete;
+    const element = await mountEditor({ entities: ['calendar.a'], view: 'column' });
 
     const dispatched: Array<Record<string, unknown>> = [];
     element.addEventListener('config-changed', (event) => {
@@ -4898,29 +4773,20 @@ describe('editor: direct view controls in the chassis', () => {
       element.setConfig(config);
     });
 
-    const rowShown = () =>
-      [...element.shadowRoot!.querySelectorAll('ha-form.panel-form')].some((form) =>
-        [...walkSchema(schemaOf(form))].some(({ node }) => node.name === 'event_font_size'),
-      );
+    const rowShown = () => formOf(element, 'events:event_font_size') !== undefined;
 
     expect(dispatched, 'opening the editor configures nothing').toEqual([]);
     expect(rowShown()).toBe(true);
 
-    const formIndex = routedFormIndex(element, 'event_font_size');
-    await fire(element, 'ha-form.panel-form', { event_font_size: '22px' }, formIndex);
+    await changeField(element, 'events:event_font_size', '22px');
     expect(dispatched.slice(-1)[0]!.column).toEqual({ event_font_size: '22px' });
 
     // Set back to what it inherits: the key goes, the row stays.
-    await fire(
-      element,
-      'ha-form.panel-form',
-      { event_font_size: DEFAULT_CONFIG.event_font_size },
-      formIndex,
-    );
+    await changeField(element, 'events:event_font_size', DEFAULT_CONFIG.event_font_size);
     expect(dispatched.slice(-1)[0]).not.toHaveProperty('column');
     expect(rowShown(), 'the row survives the echo of its own value being stripped').toBe(true);
 
-    await fire(element, 'ha-form.panel-form', { event_font_size: '24px' }, formIndex);
+    await changeField(element, 'events:event_font_size', '24px');
     const reset = element.shadowRoot!.querySelector<HTMLButtonElement>(
       '[data-reset-keys="event_font_size"]',
     );
@@ -4960,15 +4826,11 @@ describe('editor: stored and rendered union values', () => {
   });
 
   it('edits one through the chassis, end to end', async () => {
-    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
-    element.hass = {} as Types.Hass;
-    element.setConfig({
+    const element = await mountEditor({
       entities: ['calendar.a'],
       view: 'column',
       show_week_numbers: 'iso',
-    } as Types.Config);
-    document.body.appendChild(element);
-    await element.updateComplete;
+    });
 
     const dispatched: Array<Record<string, unknown>> = [];
     element.addEventListener('config-changed', (event) => {
@@ -4978,20 +4840,14 @@ describe('editor: stored and rendered union values', () => {
     });
 
     expect(dispatched, 'opening the editor configures nothing').toEqual([]);
-    const formIndex = routedFormIndex(element, 'week_number_mode');
-    expect(formIndex).toBeGreaterThanOrEqual(0);
+    expect(formOf(element, 'day_header:week_number_mode')).toBeDefined();
 
-    await fire(element, 'ha-form.panel-form', { week_number_mode: 'none' }, formIndex);
+    await changeField(element, 'day_header:week_number_mode', 'none');
 
     expect(dispatched.slice(-1)[0]!.column).toEqual({ show_week_numbers: null });
 
     // The row survives the echo, and still shows the shape that was chosen.
-    const data = (
-      element.shadowRoot!.querySelectorAll('ha-form.panel-form')[formIndex] as unknown as {
-        data: Record<string, unknown>;
-      }
-    ).data;
-    expect(data.week_number_mode).toBe('none');
+    expect(valueOf(element, 'day_header:week_number_mode')).toBe('none');
   });
 });
 

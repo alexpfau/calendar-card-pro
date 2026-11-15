@@ -12,9 +12,10 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { type FormElement, changeField, formOf, mountEditor } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
+import type { CalendarCardProEditor } from '../src/rendering/editor/element';
 import {
   type FilterCriteria,
   type FilterCtx,
@@ -26,8 +27,6 @@ import {
 import { type HaFormSchema, isGroupSchema } from '../src/rendering/editor/ha-form';
 import { PANELS, type SchemaCtx } from '../src/rendering/editor/panels';
 import { type EditorWorkspace, WORKSPACES } from '../src/rendering/editor/workspace';
-
-customElements.define('editor-search-opens-groups-test', CalendarCardProEditor);
 
 interface Leaf {
   name: string;
@@ -140,39 +139,19 @@ describe('opening what a search finds', () => {
   });
 });
 
-interface Form extends HTMLElement {
-  schema: ReadonlyArray<HaFormSchema>;
-  data: Record<string, unknown>;
-}
-
 async function mount() {
-  const editor = document.createElement('editor-search-opens-groups-test') as CalendarCardProEditor;
-  editor.hass = { states: {}, locale: { language: 'en' } } as unknown as Types.Hass;
-  editor.setConfig({
+  return mountEditor({
     config_version: Config.CURRENT_CONFIG_VERSION,
     entities: ['calendar.anna'],
-  } as Types.Config);
-  document.body.appendChild(editor);
-  await editor.updateComplete;
-  return editor;
+  });
 }
 
 async function search(editor: CalendarCardProEditor, query: string) {
-  const form = editor.shadowRoot!.querySelector<Form>('.filter-form')!;
-  form.dispatchEvent(
-    new CustomEvent('value-changed', {
-      detail: { value: { ...form.data, search: query } },
-      bubbles: true,
-      composed: true,
-    }),
-  );
-  await editor.updateComplete;
+  await changeField(editor, 'filter:search', query);
 }
 
-function dayHeaderForm(editor: CalendarCardProEditor): Form | undefined {
-  return [...editor.shadowRoot!.querySelectorAll<Form>('ha-form.panel-form')].find((form) =>
-    leaves(form.schema).some((leaf) => leaf.name === 'past_date_opacity'),
-  );
+function dayHeaderForm(editor: CalendarCardProEditor): FormElement | undefined {
+  return formOf(editor, 'day_header:past_date_opacity');
 }
 
 describe('the mounted editor', () => {

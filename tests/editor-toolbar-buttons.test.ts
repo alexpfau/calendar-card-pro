@@ -20,12 +20,25 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import {
+  CARD,
+  type FormElement,
+  button,
+  changeField,
+  changeFields,
+  fakeHass,
+  formOf,
+  formsOf,
+  helperOf,
+  labelOf,
+  mountEditor,
+  openPageOf,
+  valueOf,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as Buttons from '../src/rendering/editor/buttons';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import { CUSTOMIZED_ONLY_FIELD, SEARCH_FIELD } from '../src/rendering/editor/filter';
-import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { HA_ACTION_LABEL_PREFIX } from '../src/rendering/editor/hass-localize';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 import { ACTION_OPTIONS } from '../src/rendering/editor/schemas/actions';
@@ -35,25 +48,9 @@ import {
   TOOLBAR_BUTTON_PATH,
 } from '../src/rendering/editor/schemas/card';
 
-customElements.define('editor-toolbar-buttons-probe', CalendarCardProEditor);
-
-type EditorHost = HTMLElement & {
-  hass: unknown;
-  setConfig(config: unknown): void;
-  readonly updateComplete: Promise<unknown>;
-};
-
 interface Panel extends HTMLElement {
   header?: string;
   expanded?: boolean;
-}
-
-interface Form extends HTMLElement {
-  data: Record<string, unknown>;
-  schema: HaFormSchema[];
-  hass?: Types.Hass;
-  computeLabel: (schema: HaFormSchema) => string;
-  computeHelper: (schema: HaFormSchema) => string | undefined;
 }
 
 /** The exact list a button's action dropdown offers: the card's own actions, then HA's. */
@@ -99,20 +96,15 @@ async function mount(
   toolbar: Record<string, unknown> | undefined,
   extra: Record<string, unknown> = {},
 ) {
-  const element = document.createElement('editor-toolbar-buttons-probe') as EditorHost;
-  element.hass = {
-    states: {},
-    locale: { language: 'en' },
-    localize: (key: string) => `HA:${key}`,
-  };
-  document.body.appendChild(element);
-  element.setConfig({
-    config_version: Config.CURRENT_CONFIG_VERSION,
-    entities: ['calendar.anna'],
-    ...(toolbar === undefined ? {} : { toolbar }),
-    ...extra,
-  });
-  await element.updateComplete;
+  const element = await mountEditor(
+    {
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: ['calendar.anna'],
+      ...(toolbar === undefined ? {} : { toolbar }),
+      ...extra,
+    },
+    { hass: fakeHass({ localize: (key: string) => `HA:${key}` }) },
+  );
 
   const reported: Array<Record<string, unknown>> = [];
   element.addEventListener('config-changed', (event) => {
@@ -123,8 +115,9 @@ async function mount(
 
   const root = element.shadowRoot!;
   const panels = () => Array.from(root.querySelectorAll<Panel>('ha-expansion-panel.button-panel'));
-  const forms = () => panels().map((panel) => panel.querySelector('ha-form.button-form') as Form);
-  const fieldNames = (form: Form) => [...walkSchema(form.schema)].map(({ node }) => node.name);
+  const forms = () => formsOf(element, button());
+  const fieldNames = (form: FormElement) =>
+    [...walkSchema(form.schema)].map(({ node }) => node.name);
 
   /** One panel's button, by the text on it. */
   const control = (panel: number, label: string) => {
@@ -138,41 +131,6 @@ async function mount(
   const press = async (button: HTMLButtonElement | null) => {
     if (!button) throw new Error('no such button');
     button.click();
-    await element.updateComplete;
-  };
-
-  /** Fires the whole-object change `ha-form` emits, from one button's form. */
-  const change = async (index: number, patch: Record<string, unknown>) => {
-    const form = forms()[index];
-    form.dispatchEvent(
-      new CustomEvent('value-changed', { detail: { value: { ...form.data, ...patch } } }),
-    );
-    await element.updateComplete;
-  };
-
-  /** The panel form that owns `option`, among the card's own fields. */
-  const mainForm = (option: string) => {
-    const form = Array.from(root.querySelectorAll<Form>('ha-form.panel-form')).find((candidate) =>
-      [...walkSchema(candidate.schema)].some(({ node }) => node.name === option),
-    );
-    if (!form) throw new Error(`no panel form offers ${option}`);
-    return form;
-  };
-
-  /** Fires a change from the panel form that owns `option`, as the card's own fields do. */
-  const changeMain = async (option: string, value: unknown) => {
-    const form = mainForm(option);
-    form.dispatchEvent(
-      new CustomEvent('value-changed', { detail: { value: { ...form.data, [option]: value } } }),
-    );
-    await element.updateComplete;
-  };
-
-  const filterBy = async (patch: Record<string, unknown>) => {
-    const form = root.querySelector<Form>('ha-form.filter-form')!;
-    form.dispatchEvent(
-      new CustomEvent('value-changed', { detail: { value: { ...form.data, ...patch } } }),
-    );
     await element.updateComplete;
   };
 
@@ -191,11 +149,7 @@ async function mount(
     fieldNames,
     control,
     press,
-    change,
-    changeMain,
-    mainValue: (option: string) => mainForm(option).data[option],
-    filterBy,
-    heading: () => root.querySelectorAll<Form>('ha-form.buttons-heading'),
+    heading: () => formOf(element, 'button:heading', CARD),
     add: () => root.querySelector<HTMLButtonElement>('.add-button'),
   };
 }
@@ -210,7 +164,7 @@ describe('the toolbar buttons in the editor', () => {
       const editor = await mount(toolbar);
 
       expect(editor.panels()).toHaveLength(0);
-      expect(editor.heading()).toHaveLength(0);
+      expect(editor.heading()).toBeUndefined();
       expect(editor.add()).toBeNull();
     }
   });
@@ -218,7 +172,7 @@ describe('the toolbar buttons in the editor', () => {
   it('keeps a hidden toolbar’s buttons through an edit elsewhere', async () => {
     const editor = await mount({ show: false, buttons: [BACK] });
 
-    await editor.changeMain('title', 'Family');
+    await changeField(editor.element, 'card:title', 'Family');
 
     expect(editor.last().title).toBe('Family');
     expect(editor.last().toolbar).toEqual({ show: false, buttons: [BACK] });
@@ -256,9 +210,9 @@ describe('the toolbar buttons in the editor', () => {
 
     expect(editor.panels()).toHaveLength(0);
     const heading = editor.heading();
-    expect(heading).toHaveLength(1);
-    expect(heading[0].schema).toEqual([{ name: 'heading', type: 'constant' }]);
-    expect(heading[0].computeLabel(heading[0].schema[0])).toBe('Your Own Buttons');
+    expect(heading).toBeDefined();
+    expect(heading!.schema).toEqual([{ name: 'heading', type: 'constant' }]);
+    expect(labelOf(editor.element, 'button:heading', CARD)).toBe('Your Own Buttons');
     expect(editor.add()?.textContent?.trim()).toBe('Add Button');
   });
 
@@ -283,7 +237,7 @@ describe('the toolbar buttons in the editor', () => {
 
     const lights = editor.panels()[1];
     // Opened by hand, as its chevron does.
-    lights.expanded = true;
+    await openPageOf(editor.element, 'button:icon', button(1));
 
     await editor.press(editor.control(1, 'Move Up'));
 
@@ -343,11 +297,15 @@ describe('the toolbar buttons in the editor', () => {
   it('writes a field into its own button, and drops a field emptied', async () => {
     const editor = await mount({ show: true, buttons: [BACK, LIGHTS, HOME] });
 
-    await editor.change(1, { name: 'Kitchen lights' });
+    await changeField(editor.element, 'button:name', 'Kitchen lights', button(1));
     expect(editor.storedButtons()).toEqual([BACK, { ...LIGHTS, name: 'Kitchen lights' }, HOME]);
     expect(editor.headers()).toEqual(['Back', 'Kitchen lights', 'Home']);
 
-    await editor.change(1, { name: '', entity: undefined });
+    await changeFields(
+      editor.element,
+      { 'button:name': '', 'button:entity': undefined },
+      button(1),
+    );
     expect(editor.storedButtons()).toEqual([
       BACK,
       { icon: 'mdi:lightbulb', tap_action: { action: 'toggle' } },
@@ -360,7 +318,7 @@ describe('the toolbar buttons in the editor', () => {
     const editor = await mount({ show: true, buttons: [BACK, LIGHTS] });
 
     // Home Assistant's action editor writes Nothing as { action: 'none' }.
-    await editor.change(1, { tap_action: { action: 'none' } });
+    await changeField(editor.element, 'button:tap_action', { action: 'none' }, button(1));
 
     expect(editor.storedButtons()).toEqual([
       BACK,
@@ -372,7 +330,7 @@ describe('the toolbar buttons in the editor', () => {
     const quiet = { icon: 'mdi:bell-off', name: 'Quiet', tap_action: { action: 'none' } };
     const editor = await mount({ show: true, buttons: [quiet] });
 
-    await editor.change(0, { name: 'Silent' });
+    await changeField(editor.element, 'button:name', 'Silent', button(0));
 
     expect(editor.storedButtons()).toEqual([{ ...quiet, name: 'Silent' }]);
   });
@@ -383,7 +341,7 @@ describe('the toolbar buttons in the editor', () => {
       buttons: [{ ...HOME, hold_action: { action: 'none' } }],
     });
 
-    await editor.change(0, { name: 'House' });
+    await changeField(editor.element, 'button:name', 'House', button(0));
 
     expect(editor.storedButtons()).toEqual([
       { ...HOME, name: 'House', hold_action: { action: 'none' } },
@@ -395,7 +353,7 @@ describe('the toolbar buttons in the editor', () => {
 
     expect(editor.headers()).toEqual(['Draft', 'Home']);
 
-    await editor.change(1, { icon: '' });
+    await changeField(editor.element, 'button:icon', '', button(1));
     expect(editor.storedButtons()).toEqual([
       { name: 'Draft' },
       { name: 'Home', tap_action: HOME.tap_action },
@@ -407,18 +365,15 @@ describe('the toolbar buttons in the editor', () => {
     const toolbar = { show: true, refresh: false, buttons: [BACK, LIGHTS] };
     const editor = await mount(structuredClone(toolbar));
 
-    await editor.changeMain('title', 'Family');
+    await changeField(editor.element, 'card:title', 'Family');
     expect(editor.last().toolbar).toEqual(toolbar);
 
     // A toolbar switch is written beside the list, which stays as it was.
-    await editor.changeMain('toolbar', {
-      ...(editor.mainValue('toolbar') as Record<string, unknown>),
-      reset: true,
-    });
+    await changeField(editor.element, 'card:toolbar.reset', true);
     expect(editor.last().toolbar).toEqual({ ...toolbar, reset: true });
 
     const before = editor.last();
-    await editor.change(0, { name: 'Go back' });
+    await changeField(editor.element, 'button:name', 'Go back', button(0));
     const after = editor.last();
     expect({ ...after, toolbar: undefined }).toEqual({ ...before, toolbar: undefined });
     expect(after.toolbar).toEqual({
@@ -431,8 +386,13 @@ describe('the toolbar buttons in the editor', () => {
   it('reports nothing for a form change that leaves the button as it was', async () => {
     const editor = await mount({ show: true, buttons: [BACK] });
 
-    await editor.change(0, { name: 'Back ' });
-    await editor.change(0, {});
+    await changeField(editor.element, 'button:name', 'Back ', button(0));
+    await changeField(
+      editor.element,
+      'button:name',
+      valueOf(editor.element, 'button:name', button(0)),
+      button(0),
+    );
 
     expect(editor.reported).toHaveLength(0);
   });
@@ -446,22 +406,25 @@ describe('a toolbar button’s form', () => {
   it('edits icon, name, entity and tap action, each labeled and explained', async () => {
     const editor = await mount({ show: true, buttons: [BACK] });
 
-    const form = editor.forms()[0];
+    const form = formOf(editor.element, 'button:icon', button(0))!;
     expect(editor.fieldNames(form)).toEqual(['icon', 'name', 'entity', 'tap_action']);
-    expect(form.schema.map((node) => form.computeLabel(node))).toEqual([
+    const fields = ['button:icon', 'button:name', 'button:entity', 'button:tap_action'];
+    expect(fields.map((id) => labelOf(editor.element, id, button(0)))).toEqual([
       'Icon',
       'Name',
       'Entity',
       'Tap Action',
     ]);
-    for (const node of form.schema) expect(form.computeHelper(node)).toBeTruthy();
+    for (const id of fields) expect(helperOf(editor.element, id, button(0))).toBeTruthy();
     expect(form.data).toEqual(BACK);
   });
 
   it('offers every card action, back included, ahead of Home Assistant’s', async () => {
     const editor = await mount({ show: true, buttons: [BACK] });
 
-    const node = editor.forms()[0].schema.find((candidate) => candidate.name === 'tap_action');
+    const node = formOf(editor.element, 'button:tap_action', button(0))!.schema.find(
+      (candidate) => candidate.name === 'tap_action',
+    );
     expect(node).toEqual({
       name: 'tap_action',
       selector: { ui_action: { actions: EXPECTED_ACTIONS } },
@@ -471,7 +434,7 @@ describe('a toolbar button’s form', () => {
   it('names the card’s own actions through the editor’s hass, back among them', async () => {
     const editor = await mount({ show: true, buttons: [BACK] });
 
-    const hass = editor.forms()[0].hass;
+    const hass = formOf(editor.element, 'button:tap_action', button(0))!.hass;
     expect(hass?.localize?.(`${HA_ACTION_LABEL_PREFIX}back`)).toBe('Go Back');
     expect(hass?.localize?.(`${HA_ACTION_LABEL_PREFIX}refresh`)).toBe('Refresh Events');
     // Still Home Assistant's own table for everything else.
@@ -508,19 +471,24 @@ describe('searching the toolbar buttons', () => {
   it('shows a button whose name answers, whole, and withholds Add Button', async () => {
     const editor = await mount({ show: true, buttons: [BACK, LIGHTS, HOME] });
 
-    await editor.filterBy({ [SEARCH_FIELD]: 'kitchen' });
+    await changeField(editor.element, `filter:${SEARCH_FIELD}`, 'kitchen');
 
     expect(editor.headers()).toEqual(['Lights']);
-    expect(editor.fieldNames(editor.forms()[0])).toEqual(['icon', 'name', 'entity', 'tap_action']);
+    expect(editor.fieldNames(formOf(editor.element, 'button:icon', button(1))!)).toEqual([
+      'icon',
+      'name',
+      'entity',
+      'tap_action',
+    ]);
     expect(editor.panels()[0].expanded).toBe(true);
-    expect(editor.heading()).toHaveLength(1);
+    expect(editor.heading()).toBeDefined();
     expect(editor.add()).toBeNull();
   });
 
   it('shows only the field a search names, on every button', async () => {
     const editor = await mount({ show: true, buttons: [BACK, LIGHTS] });
 
-    await editor.filterBy({ [SEARCH_FIELD]: 'tap action' });
+    await changeField(editor.element, `filter:${SEARCH_FIELD}`, 'tap action');
 
     expect(editor.headers()).toEqual(['Back', 'Lights']);
     expect(editor.forms().map(editor.fieldNames)).toEqual([['tap_action'], ['tap_action']]);
@@ -530,17 +498,17 @@ describe('searching the toolbar buttons', () => {
     const editor = await mount({ show: true, buttons: [BACK, LIGHTS] });
 
     // The heading's own words are no match: a heading is never a hit of its own.
-    await editor.filterBy({ [SEARCH_FIELD]: 'your own buttons' });
+    await changeField(editor.element, `filter:${SEARCH_FIELD}`, 'your own buttons');
 
     expect(editor.panels()).toHaveLength(0);
-    expect(editor.heading()).toHaveLength(0);
+    expect(editor.heading()).toBeUndefined();
     expect(editor.add()).toBeNull();
   });
 
   it('shows each button’s own fields under customized only', async () => {
     const editor = await mount({ show: true, buttons: [{ icon: 'mdi:home' }, LIGHTS] });
 
-    await editor.filterBy({ [CUSTOMIZED_ONLY_FIELD]: true });
+    await changeField(editor.element, `filter:${CUSTOMIZED_ONLY_FIELD}`, true);
 
     expect(editor.forms().map(editor.fieldNames)).toEqual([
       ['icon'],

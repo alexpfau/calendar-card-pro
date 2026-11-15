@@ -3,13 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import '../src/calendar-card-pro';
 import { FROZEN_NOW } from './fixtures';
+import { changeField, formOf, mountEditor, valueOf } from './helpers/editor-host';
 import type * as Types from '../src/config/types';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
-import type { HaFormSchema } from '../src/rendering/editor/ha-form';
-import { workspaceFields } from '../src/rendering/editor/routing';
 import * as Logger from '../src/utils/logger';
-
-customElements.define('grid-band-normalization-editor-test', CalendarCardProEditor);
 
 interface Card extends HTMLElement {
   setConfig(config: Record<string, unknown>): void;
@@ -17,17 +13,6 @@ interface Card extends HTMLElement {
   events: Types.CalendarEventData[];
   isInitialLoad: boolean;
   render(): TemplateResult;
-}
-
-interface Editor extends HTMLElement {
-  setConfig(config: Record<string, unknown>): void;
-  hass: unknown;
-  readonly updateComplete: Promise<boolean>;
-}
-
-interface Form extends HTMLElement {
-  schema: HaFormSchema[];
-  data: Record<string, unknown>;
 }
 
 function draw(raw: Record<string, unknown>): { first: string; last: string } {
@@ -52,14 +37,6 @@ function draw(raw: Record<string, unknown>): { first: string; last: string } {
   );
   expect(labels.length).toBeGreaterThan(1);
   return { first: labels[0], last: labels.slice(-1)[0]! };
-}
-
-function formFor(editor: Editor, key: string): Form {
-  const forms = [...editor.shadowRoot!.querySelectorAll<Form>('ha-form')].filter((form) =>
-    [...workspaceFields(form.schema)].some(({ node }) => node.name === key),
-  );
-  expect(forms).toHaveLength(1);
-  return forms[0];
 }
 
 beforeEach(() => {
@@ -112,47 +89,29 @@ it.each([
   'retains an invalid band through editor projection and an unrelated save: %j',
   async (time_grid) => {
     vi.spyOn(Logger, 'warn').mockImplementation(() => {});
-    const editor = document.createElement('grid-band-normalization-editor-test') as Editor;
-    editor.setConfig({ config_version: 5, view: 'grid', entities: ['calendar.anna'], time_grid });
-    editor.hass = { states: {}, locale: { language: 'en' } };
-    document.body.append(editor);
-    await editor.updateComplete;
+    const editor = await mountEditor({
+      config_version: 5,
+      view: 'grid',
+      entities: ['calendar.anna'],
+      time_grid,
+    });
     const reports: Record<string, unknown>[] = [];
     editor.addEventListener('config-changed', (event) =>
       reports.push((event as CustomEvent<{ config: Record<string, unknown> }>).detail.config),
     );
-    const axis = formFor(editor, 'start_time').data.time_grid;
+    expect(formOf(editor, 'layout:time_grid.start_time')).toBeDefined();
+    const axis = valueOf(editor, 'layout:time_grid');
     const invalidKey = typeof time_grid.start_time === 'number' ? 'start_time' : 'end_time';
     expect(axis).toHaveProperty(invalidKey, String(time_grid[invalidKey]));
     expect(draw({ time_grid: axis })).toEqual({ first: '7', last: '22' });
-    const form = formFor(editor, 'title');
-    form.dispatchEvent(
-      new CustomEvent('value-changed', {
-        detail: { value: { ...form.data, title: 'Keep invalid bounds visible' } },
-        bubbles: true,
-        composed: true,
-      }),
-    );
-    await editor.updateComplete;
+    await changeField(editor, 'card:title', 'Keep invalid bounds visible');
     expect(reports).toHaveLength(1);
     expect(draw(reports[0])).toEqual({ first: '7', last: '22' });
-    const repair = formFor(editor, invalidKey);
-    repair.dispatchEvent(
-      new CustomEvent('value-changed', {
-        detail: {
-          value: {
-            ...repair.data,
-            time_grid: {
-              ...(repair.data.time_grid as Record<string, unknown>),
-              [invalidKey]: invalidKey === 'start_time' ? '08:00' : '19:00',
-            },
-          },
-        },
-        bubbles: true,
-        composed: true,
-      }),
+    await changeField(
+      editor,
+      `layout:time_grid.${invalidKey}`,
+      invalidKey === 'start_time' ? '08:00' : '19:00',
     );
-    await editor.updateComplete;
     expect(reports).toHaveLength(2);
     expect(draw(reports[1])).toEqual({ first: '8', last: '19' });
   },

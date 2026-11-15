@@ -12,24 +12,25 @@
 import { mdiChevronRight, mdiCreation } from '@mdi/js';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import {
+  CARD,
+  CHASSIS,
+  changeField,
+  changeFields,
+  fakeHass,
+  formsOf,
+  lastConfig,
+  mountEditor,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
-import { workspaceFields } from '../src/rendering/editor/routing';
 import { storyById } from '../src/rendering/editor/stories';
 import { chassisSubforms } from '../src/rendering/editor/subforms';
-
-customElements.define('editor-quick-setup-test', CalendarCardProEditor);
 
 interface EditorHost extends HTMLElement {
   hass: unknown;
   setConfig(config: Record<string, unknown>): void;
   readonly updateComplete: Promise<unknown>;
-}
-
-interface Form extends HTMLElement {
-  schema: ReadonlyArray<HaFormSchema>;
-  data: Record<string, unknown>;
 }
 
 const OPENING = {
@@ -46,14 +47,9 @@ const OPENING = {
 };
 
 async function mount(config: Record<string, unknown> = OPENING, echo = true) {
-  const editor = document.createElement('editor-quick-setup-test') as EditorHost;
-  editor.hass = {
-    states: { 'calendar.anna': {}, 'calendar.ben': {}, 'weather.home': {} },
-    locale: { language: 'en' },
-  };
-  editor.setConfig(structuredClone(config));
-  document.body.appendChild(editor);
-  await editor.updateComplete;
+  const editor = await mountEditor(structuredClone(config), {
+    hass: fakeHass({ states: { 'calendar.anna': {}, 'calendar.ben': {}, 'weather.home': {} } }),
+  });
   const reports: Record<string, unknown>[] = [];
   editor.addEventListener('config-changed', (event) => {
     const reported = (event as CustomEvent<{ config: Record<string, unknown> }>).detail.config;
@@ -78,34 +74,6 @@ async function click(editor: EditorHost, selector: string): Promise<void> {
   await editor.updateComplete;
 }
 
-async function answer(editor: EditorHost, values: Record<string, unknown>): Promise<void> {
-  const form = root(editor).querySelector<Form>('ha-form.quick-setup-form')!;
-  form.dispatchEvent(
-    new CustomEvent('value-changed', {
-      detail: { value: { ...form.data, ...values } },
-      bubbles: true,
-      composed: true,
-    }),
-  );
-  await editor.updateComplete;
-}
-
-async function change(editor: EditorHost, key: string, value: unknown): Promise<void> {
-  const form = [...root(editor).querySelectorAll<Form>('ha-form.panel-form')].find((candidate) =>
-    [...workspaceFields(candidate.schema)].some(({ node }) => node.name === key),
-  )!;
-  form.dispatchEvent(
-    new CustomEvent('value-changed', {
-      detail: { value: { ...form.data, [key]: value } },
-      bubbles: true,
-      composed: true,
-    }),
-  );
-  await editor.updateComplete;
-}
-
-const last = (reports: Record<string, unknown>[]) => reports[reports.length - 1];
-
 afterEach(() => document.body.replaceChildren());
 
 describe('Quick Setup', () => {
@@ -125,12 +93,12 @@ describe('Quick Setup', () => {
 
   it('opens on the starting point without writing anything', async () => {
     const { editor, reports } = await mount();
-    expect(root(editor).querySelector('ha-form.panel-form')).not.toBeNull();
+    expect(formsOf(editor, CARD)).not.toHaveLength(0);
 
     await click(editor, '[data-quick-setup-open]');
 
     expect(step(editor)).toBe('story');
-    expect(root(editor).querySelector('ha-form.panel-form')).toBeNull();
+    expect(formsOf(editor, CARD)).toHaveLength(0);
     expect(root(editor).querySelector<HTMLButtonElement>('[data-quick-setup-next]')!.disabled).toBe(
       true,
     );
@@ -168,20 +136,23 @@ describe('Quick Setup', () => {
   });
 
   it('follows each answer, and brings a removed calendar’s blocks back', async () => {
-    const { editor, reports } = await mount();
+    const { editor } = await mount();
     await click(editor, '[data-quick-setup-open]');
     await click(editor, '[data-story="now_and_next"]');
     await click(editor, '[data-quick-setup-next]');
     expect(step(editor)).toBe('calendars');
 
-    await answer(editor, { card_calendars: [] });
+    await changeField(editor, 'quick_setup:card_calendars', []);
     expect(root(editor).querySelector('.quick-setup-note')).not.toBeNull();
     expect(root(editor).querySelector<HTMLButtonElement>('[data-quick-setup-next]')!.disabled).toBe(
       true,
     );
 
-    await answer(editor, { card_title: 'Hall', card_calendars: ['calendar.ben', 'calendar.anna'] });
-    expect(last(reports)).toMatchObject({
+    await changeFields(editor, {
+      'quick_setup:card_title': 'Hall',
+      'quick_setup:card_calendars': ['calendar.ben', 'calendar.anna'],
+    });
+    expect(lastConfig(editor)).toMatchObject({
       title: 'Hall',
       entities: [
         { entity: 'calendar.ben', accent_color: '#123456' },
@@ -191,32 +162,36 @@ describe('Quick Setup', () => {
     });
 
     await click(editor, '[data-quick-setup-next]');
-    await answer(editor, { weather_entity: 'weather.home' });
-    expect(last(reports).weather).toEqual({ entity: 'weather.home' });
+    await changeField(editor, 'quick_setup:weather_entity', 'weather.home');
+    expect(lastConfig(editor)!.weather).toEqual({ entity: 'weather.home' });
 
     await click(editor, '[data-quick-setup-next]');
-    await answer(editor, { show_toolbar: true, event_details: true, day_adds: false });
-    expect(last(reports)).toMatchObject({
+    await changeFields(editor, {
+      'quick_setup:show_toolbar': true,
+      'quick_setup:event_details': true,
+      'quick_setup:day_adds': false,
+    });
+    expect(lastConfig(editor)).toMatchObject({
       toolbar: { show: true },
       event_tap_action: { action: 'details' },
       tap_action: { action: 'expand' },
     });
-    expect(last(reports)).not.toHaveProperty('day_tap_action');
+    expect(lastConfig(editor)).not.toHaveProperty('day_tap_action');
   });
 
   it('cancels back to the card as it was, authorship included', async () => {
-    const { editor, reports } = await mount();
+    const { editor } = await mount();
     await click(editor, '[data-quick-setup-open]');
     await click(editor, '[data-story="family_hub"]');
     await click(editor, '[data-story="today_and_tomorrow"]');
     await click(editor, '[data-quick-setup-cancel]');
 
     expect(step(editor)).toBeUndefined();
-    expect(last(reports)).toEqual(OPENING);
+    expect(lastConfig(editor)).toEqual(OPENING);
 
     // `show_empty_days: false` equals the default; it stays because the YAML holds it.
-    await change(editor, 'title', 'After');
-    expect(last(reports)).toEqual({ ...OPENING, title: 'After' });
+    await changeField(editor, 'card:title', 'After');
+    expect(lastConfig(editor)).toEqual({ ...OPENING, title: 'After' });
   });
 
   it('cancels without writing when nothing was picked', async () => {
@@ -225,7 +200,7 @@ describe('Quick Setup', () => {
     await click(editor, '[data-quick-setup-cancel]');
 
     expect(reports).toEqual([]);
-    expect(root(editor).querySelector('ha-form.panel-form')).not.toBeNull();
+    expect(formsOf(editor, CARD)).not.toHaveLength(0);
   });
 
   it('applies, and the next unrelated edit keeps every line the story wrote', async () => {
@@ -244,8 +219,8 @@ describe('Quick Setup', () => {
     expect(reports).toHaveLength(written);
     expect(step(editor)).toBeUndefined();
 
-    await change(editor, 'title', 'Kitchen');
-    const after = last(reports);
+    await changeField(editor, 'card:title', 'Kitchen');
+    const after = lastConfig(editor)!;
     expect(after.title).toBe('Kitchen');
     const shell = storyById('family_hub').shell();
     for (const key of ['list', 'column', 'time_grid', 'toolbar', 'duplicate_accent_color']) {
@@ -262,8 +237,7 @@ describe('Quick Setup', () => {
 
     const drawn: Array<ReadonlyArray<HaFormSchema>> = [];
     for (let i = 0; i < 4; i++) {
-      const form = root(editor).querySelector<Form>('ha-form.quick-setup-form');
-      if (form !== null) drawn.push(form.schema);
+      for (const form of formsOf(editor, CHASSIS)) drawn.push(form.schema);
       await click(editor, '[data-quick-setup-next]');
     }
 
@@ -300,23 +274,23 @@ describe('Quick Setup', () => {
 
     expect(step(editor)).toBeUndefined();
     expect(reports).toHaveLength(1);
-    expect(root(editor).querySelector('ha-form.panel-form')).not.toBeNull();
+    expect(formsOf(editor, CARD)).not.toHaveLength(0);
   });
 
   it('keeps a title the user typed when the story changes', async () => {
-    const { editor, reports } = await mount({ ...OPENING, title: undefined });
+    const { editor } = await mount({ ...OPENING, title: undefined });
     await click(editor, '[data-quick-setup-open]');
     await click(editor, '[data-story="family_hub"]');
-    expect(last(reports).title).toBe('Family');
+    expect(lastConfig(editor)!.title).toBe('Family');
 
     await click(editor, '[data-story="today_and_tomorrow"]');
-    expect(last(reports).title).toBe('Today & Tomorrow');
+    expect(lastConfig(editor)!.title).toBe('Today & Tomorrow');
 
     await click(editor, '[data-quick-setup-next]');
-    await answer(editor, { card_title: 'Hall' });
+    await changeField(editor, 'quick_setup:card_title', 'Hall');
     await click(editor, '[data-quick-setup-back]');
     await click(editor, '[data-story="birthdays_and_holidays"]');
-    expect(last(reports).title).toBe('Hall');
+    expect(lastConfig(editor)!.title).toBe('Hall');
   });
 });
 
@@ -326,15 +300,10 @@ describe('Quick Setup', () => {
  * write carried. So writes sent in one turn are all answered with the newest.
  */
 async function mountLikeHomeAssistant(config: Record<string, unknown> = OPENING) {
-  const editor = document.createElement('editor-quick-setup-test') as EditorHost;
-  editor.hass = {
-    states: { 'calendar.anna': {}, 'calendar.ben': {}, 'weather.home': {} },
-    locale: { language: 'en' },
-  };
   let current = structuredClone(config);
-  editor.setConfig(structuredClone(current));
-  document.body.appendChild(editor);
-  await editor.updateComplete;
+  const editor = await mountEditor(structuredClone(current), {
+    hass: fakeHass({ states: { 'calendar.anna': {}, 'calendar.ben': {}, 'weather.home': {} } }),
+  });
   const reports: Record<string, unknown>[] = [];
   editor.addEventListener('config-changed', (event) => {
     current = structuredClone(
@@ -367,8 +336,8 @@ describe('Quick Setup against Home Assistant’s echo', () => {
     expect(step(editor)).toBeUndefined();
     expect(current()).toMatchObject({ days_to_show: 2, tap_action: { action: 'expand' } });
     expect(current()).not.toHaveProperty('view');
-    await change(editor, 'title', 'Hall');
-    expect(last(reports)).toMatchObject({ title: 'Hall', days_to_show: 2 });
+    await changeField(editor, 'card:title', 'Hall');
+    expect(lastConfig(editor)).toMatchObject({ title: 'Hall', days_to_show: 2 });
   });
 
   it('cancels back to the card as it was when Cancel outruns the previews’ echoes', async () => {
@@ -381,8 +350,8 @@ describe('Quick Setup against Home Assistant’s echo', () => {
     await editor.updateComplete;
 
     expect(current()).toEqual(OPENING);
-    expect(root(editor).querySelector('ha-form.panel-form')).not.toBeNull();
-    await change(editor, 'title', 'After');
+    expect(formsOf(editor, CARD)).not.toHaveLength(0);
+    await changeField(editor, 'card:title', 'After');
     expect(current()).toEqual({ ...OPENING, title: 'After' });
   });
 });

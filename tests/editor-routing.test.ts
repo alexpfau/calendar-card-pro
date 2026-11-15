@@ -3,11 +3,19 @@ import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import {
+  changeField,
+  emitChange,
+  fakeHass,
+  formOf,
+  formsOf,
+  mountEditor,
+  valueOf,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as View from '../src/config/view';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
-import type { HaFormSchema } from '../src/rendering/editor/ha-form';
+import type { CalendarCardProEditor } from '../src/rendering/editor/element';
 import * as Routing from '../src/rendering/editor/routing';
 import * as Synthetic from '../src/rendering/editor/synthetic';
 import * as Value from '../src/rendering/editor/value';
@@ -434,33 +442,8 @@ describe('synthetic edits are routed as real options', () => {
   });
 });
 
-customElements.define('editor-routing-test', CalendarCardProEditor);
-interface Form extends HTMLElement {
-  data: Record<string, unknown>;
-  schema: ReadonlyArray<HaFormSchema>;
-}
-function owner(editor: CalendarCardProEditor, key: string): Form {
-  const form = [...editor.shadowRoot!.querySelectorAll<Form>('ha-form.panel-form')].find(
-    (candidate) =>
-      [...Routing.workspaceFields(candidate.schema)].some(({ node }) => node.name === key),
-  );
-  if (!form) throw new Error(`No form for ${key}`);
-  return form;
-}
-function emit(form: Form, data: Record<string, unknown>): void {
-  form.dispatchEvent(
-    new CustomEvent('value-changed', { detail: { value: data }, bubbles: true, composed: true }),
-  );
-}
 async function mount(extra: Record<string, unknown> = {}) {
-  const editor = new CalendarCardProEditor();
-  editor.hass = {
-    states: {},
-    locale: { language: 'en' },
-    callApi: async () => [],
-    callService: () => {},
-  };
-  editor.setConfig(
+  const editor = await mountEditor(
     buildConfig({
       config_version: Config.CURRENT_CONFIG_VERSION,
       view: 'grid',
@@ -469,9 +452,8 @@ async function mount(extra: Record<string, unknown> = {}) {
       time_grid: { event_font_size: '23px' },
       ...extra,
     }),
+    { hass: fakeHass() },
   );
-  document.body.appendChild(editor);
-  await editor.updateComplete;
   const seen: Record<string, unknown>[] = [];
   editor.addEventListener('config-changed', (event) =>
     seen.push(
@@ -500,18 +482,13 @@ describe('rendered form frames preserve edit intent', () => {
    */
   it('clears a root option without restoring it from the previous object', async () => {
     const { editor, seen } = await mount();
-    emit(editor.shadowRoot!.querySelector<Form>('ha-form.workspace-form')!, {
-      editing_workspace: 'shared',
-    });
-    await editor.updateComplete;
-    const form = owner(editor, 'event_font_size');
-    emit(form, { ...form.data, event_font_size: undefined });
-    await editor.updateComplete;
+    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await changeField(editor, 'events:event_font_size', undefined);
     expect(seen).toHaveLength(1);
     expect(seen[0]).not.toHaveProperty('event_font_size');
     expect(seen[0].column).toEqual({ event_font_size: '19px' });
     expect(seen[0].time_grid).toEqual({ event_font_size: '23px' });
-    expect(owner(editor, 'event_font_size').data.event_font_size).toBe('14px');
+    expect(valueOf(editor, 'events:event_font_size')).toBe('14px');
   });
 
   /**
@@ -521,21 +498,16 @@ describe('rendered form frames preserve edit intent', () => {
    */
   it('clears a list override back to the shared base rather than to the default', async () => {
     const { editor, seen } = await mount({ list: { event_font_size: '21px' } });
-    emit(editor.shadowRoot!.querySelector<Form>('ha-form.workspace-form')!, {
-      editing_workspace: 'list',
-    });
-    await editor.updateComplete;
+    await changeField(editor, 'workspace:editing_workspace', 'list');
 
-    expect(owner(editor, 'event_font_size').data.event_font_size).toBe('21px');
+    expect(valueOf(editor, 'events:event_font_size')).toBe('21px');
 
-    const form = owner(editor, 'event_font_size');
-    emit(form, { ...form.data, event_font_size: undefined });
-    await editor.updateComplete;
+    await changeField(editor, 'events:event_font_size', undefined);
 
     expect(seen).toHaveLength(1);
     expect(seen[0]).not.toHaveProperty('list');
     expect(seen[0].event_font_size).toBe('17px');
-    expect(owner(editor, 'event_font_size').data.event_font_size).toBe('17px');
+    expect(valueOf(editor, 'events:event_font_size')).toBe('17px');
   });
 
   it('clears root values written by a synthetic mode control', async () => {
@@ -547,31 +519,22 @@ describe('rendered form frames preserve edit intent', () => {
       }),
     );
     await editor.updateComplete;
-    const form = owner(editor, 'start_date_mode');
-    emit(form, { ...form.data, start_date_mode: 'default' });
-    await editor.updateComplete;
+    await changeField(editor, 'content:start_date_mode', 'default');
     expect(seen).toHaveLength(1);
     expect(seen[0]).not.toHaveProperty('start_date');
-    expect(owner(editor, 'start_date_mode').data.start_date_mode).toBe('default');
+    expect(valueOf(editor, 'content:start_date_mode')).toBe('default');
   });
 
   it.each(['column', 'grid'] as const)(
     'still clears a %s value through the nested write path',
     async (view) => {
       const { editor, seen } = await mount();
-      emit(editor.shadowRoot!.querySelector<Form>('ha-form.workspace-form')!, {
-        editing_workspace: view,
-      });
-      await editor.updateComplete;
-      const form = owner(editor, 'event_font_size');
-      emit(form, { ...form.data, event_font_size: undefined });
-      await editor.updateComplete;
+      await changeField(editor, 'workspace:editing_workspace', view);
+      await changeField(editor, 'events:event_font_size', undefined);
       expect(seen).toHaveLength(1);
       expect(seen[0]).not.toHaveProperty(`${View.OVERRIDE_BLOCK_BY_VIEW[view]}.event_font_size`);
       expect(seen[0].event_font_size).toBe('17px');
-      expect(owner(editor, 'event_font_size').data.event_font_size).toBe(
-        view === 'grid' ? '12px' : '17px',
-      );
+      expect(valueOf(editor, 'events:event_font_size')).toBe(view === 'grid' ? '12px' : '17px');
     },
   );
 
@@ -579,18 +542,13 @@ describe('rendered form frames preserve edit intent', () => {
     'keeps %s font input intact through renders and save echoes',
     async (view) => {
       const { editor, seen } = await mount();
-      emit(editor.shadowRoot!.querySelector<Form>('ha-form.workspace-form')!, {
-        editing_workspace: view,
-      });
-      await editor.updateComplete;
+      await changeField(editor, 'workspace:editing_workspace', view);
       editor.addEventListener('config-changed', (event) =>
         editor.setConfig((event as CustomEvent<{ config: Types.Config }>).detail.config),
       );
       for (const text of ['2', '24', '24p', '24px']) {
-        const form = owner(editor, 'event_font_size');
-        emit(form, { ...form.data, event_font_size: text });
-        await editor.updateComplete;
-        expect(owner(editor, 'event_font_size').data.event_font_size).toBe(text);
+        await changeField(editor, 'events:event_font_size', text);
+        expect(valueOf(editor, 'events:event_font_size')).toBe(text);
       }
       const block = View.OVERRIDE_BLOCK_BY_VIEW[view];
       expect(block ? seen.slice(-1)[0]?.[block] : seen.slice(-1)[0]).toMatchObject({
@@ -602,69 +560,51 @@ describe('rendered form frames preserve edit intent', () => {
   it('preserves nested Grid length input, not only top-level overrides', async () => {
     const { editor, seen } = await mount();
     for (const text of ['6', '60', '60p', '60px']) {
-      const form = owner(editor, 'hour_height');
-      const grid = form.data.time_grid as Record<string, unknown>;
-      emit(form, { ...form.data, time_grid: { ...grid, hour_height: text } });
-      await editor.updateComplete;
-      expect(owner(editor, 'hour_height').data.time_grid).toHaveProperty('hour_height', text);
+      await changeField(editor, 'layout:time_grid.hour_height', text);
+      expect(valueOf(editor, 'layout:time_grid')).toHaveProperty('hour_height', text);
     }
     expect(seen.slice(-1)[0]?.time_grid).toHaveProperty('hour_height', '60px');
   });
 
   it('preserves synthetic height input using the same scoped pending text', async () => {
     const { editor, seen } = await mount();
-    const mode = owner(editor, 'height_mode');
-    emit(mode, { ...mode.data, height_mode: 'fixed' });
-    await editor.updateComplete;
+    await changeField(editor, 'layout:height_mode', 'fixed');
     for (const text of ['2', '24', '24e', '24em']) {
-      const form = owner(editor, 'card_height');
-      emit(form, { ...form.data, card_height: text });
-      await editor.updateComplete;
-      expect(owner(editor, 'card_height').data.card_height).toBe(text);
+      await changeField(editor, 'layout:card_height', text);
+      expect(valueOf(editor, 'layout:card_height')).toBe(text);
     }
     expect(seen.slice(-1)[0]?.time_grid).toHaveProperty('height', '24em');
   });
 
   it('keeps format-only edits without writing an equivalent override again', async () => {
     const { editor, seen } = await mount();
-    let form = owner(editor, 'event_font_size');
-    emit(form, { ...form.data, event_font_size: '2' });
-    await editor.updateComplete;
-    expect(owner(editor, 'event_font_size').data.event_font_size).toBe('2');
+    await changeField(editor, 'events:event_font_size', '2');
+    expect(valueOf(editor, 'events:event_font_size')).toBe('2');
     seen.length = 0;
-    form = owner(editor, 'event_font_size');
-    emit(form, { ...form.data, event_font_size: '2px' });
-    await editor.updateComplete;
-    expect(owner(editor, 'event_font_size').data.event_font_size).toBe('2px');
+    await changeField(editor, 'events:event_font_size', '2px');
+    expect(valueOf(editor, 'events:event_font_size')).toBe('2px');
     expect(seen).toHaveLength(0);
   });
 
   it('clears raw length text on reset even when it equals the view default', async () => {
     const { editor } = await mount();
-    const form = owner(editor, 'event_font_size');
-    emit(form, { ...form.data, event_font_size: '12' });
-    await editor.updateComplete;
-    expect(owner(editor, 'event_font_size').data.event_font_size).toBe('12');
+    await changeField(editor, 'events:event_font_size', '12');
+    expect(valueOf(editor, 'events:event_font_size')).toBe('12');
     editor
       .shadowRoot!.querySelector<HTMLButtonElement>('[data-reset-keys="event_font_size"]')!
       .click();
     await editor.updateComplete;
-    expect(owner(editor, 'event_font_size').data.event_font_size).toBe('12px');
+    expect(valueOf(editor, 'events:event_font_size')).toBe('12px');
   });
 
   it('keeps raw text in its storage scope and clears it on external config', async () => {
     const { editor } = await mount();
-    const form = owner(editor, 'event_font_size');
-    emit(form, { ...form.data, event_font_size: '2' });
-    await editor.updateComplete;
-    expect(owner(editor, 'event_font_size').data.event_font_size).toBe('2');
-    const workspace = editor.shadowRoot!.querySelector<Form>('ha-form.workspace-form')!;
-    emit(workspace, { editing_workspace: 'column' });
-    await editor.updateComplete;
-    expect(owner(editor, 'event_font_size').data.event_font_size).toBe('19px');
-    emit(workspace, { editing_workspace: 'grid' });
-    await editor.updateComplete;
-    expect(owner(editor, 'event_font_size').data.event_font_size).toBe('2');
+    await changeField(editor, 'events:event_font_size', '2');
+    expect(valueOf(editor, 'events:event_font_size')).toBe('2');
+    await changeField(editor, 'workspace:editing_workspace', 'column');
+    expect(valueOf(editor, 'events:event_font_size')).toBe('19px');
+    await changeField(editor, 'workspace:editing_workspace', 'grid');
+    expect(valueOf(editor, 'events:event_font_size')).toBe('2');
     editor.setConfig(
       buildConfig({
         config_version: Config.CURRENT_CONFIG_VERSION,
@@ -673,31 +613,30 @@ describe('rendered form frames preserve edit intent', () => {
       }),
     );
     await editor.updateComplete;
-    expect(owner(editor, 'event_font_size').data.event_font_size).toBe('2px');
+    expect(valueOf(editor, 'events:event_font_size')).toBe('2px');
   });
 
   it('routes a delayed edit to the workspace that rendered its form', async () => {
     const { editor, seen } = await mount();
-    const old = owner(editor, 'event_font_size');
-    const workspace = editor.shadowRoot!.querySelector<Form>('ha-form.workspace-form')!;
-    emit(workspace, { editing_workspace: 'column' });
-    emit(old, { ...old.data, event_font_size: '24px' });
+    const old = formOf(editor, 'events:event_font_size')!;
+    const workspace = formOf(editor, 'workspace:editing_workspace')!;
+    emitChange(workspace, { 'workspace:editing_workspace': 'column' });
+    emitChange(old, { 'events:event_font_size': '24px' });
     await editor.updateComplete;
     expect(seen).toHaveLength(1);
     expect(seen[0].time_grid).toMatchObject({ event_font_size: '24px' });
     expect(seen[0].column).toMatchObject({ event_font_size: '19px' });
-    expect(owner(editor, 'event_font_size').data.event_font_size).toBe('19px');
+    expect(valueOf(editor, 'events:event_font_size')).toBe('19px');
   });
 
   it('does not treat re-derived synthetic values as a second user edit', async () => {
     const { editor, seen } = await mount();
-    const form = owner(editor, 'event_color');
-    const data = { ...form.data };
-    expect(data.accent_event_text).toBe(true);
-    emit(form, { ...data, event_color: '#112233' });
+    const form = formOf(editor, 'events:event_color')!;
+    expect(valueOf(editor, 'events:accent_event_text')).toBe(true);
+    emitChange(form, { 'events:event_color': '#112233' });
     // A second color edit masks the stale checkbox by writing the color again.
     // Changing another field leaves the checkbox's accidental reset exposed.
-    emit(form, { ...data, event_color: '#112233', event_font_size: '24px' });
+    emitChange(form, { 'events:event_color': '#112233', 'events:event_font_size': '24px' });
     await editor.updateComplete;
     expect(seen.slice(-1)[0]?.time_grid).toMatchObject({
       event_color: '#112233',
@@ -708,10 +647,9 @@ describe('rendered form frames preserve edit intent', () => {
 
   it('recognizes a second edit returning to the originally rendered value', async () => {
     const { editor, seen } = await mount();
-    const form = owner(editor, 'event_font_size');
-    const data = { ...form.data };
-    emit(form, { ...data, event_font_size: '24px' });
-    emit(form, { ...data, event_font_size: '23px' });
+    const form = formOf(editor, 'events:event_font_size')!;
+    emitChange(form, { 'events:event_font_size': '24px' });
+    emitChange(form, { 'events:event_font_size': '23px' });
     await editor.updateComplete;
     expect(seen.slice(-1)[0]?.time_grid).toMatchObject({ event_font_size: '23px' });
   });
@@ -729,7 +667,7 @@ describe('rendered form frames preserve edit intent', () => {
     expect(seen[0].time_grid).toBeUndefined();
     expect(seen[0].column).toEqual({ event_font_size: '19px' });
     expect(seen[0].event_font_size).toBe('17px');
-    expect(owner(editor, 'event_font_size').data.event_font_size).toBe('12px');
+    expect(valueOf(editor, 'events:event_font_size')).toBe('12px');
   });
 });
 
@@ -759,10 +697,7 @@ describe('reset controls follow the workspace destination, not the built view', 
     });
 
   const select = async (editor: CalendarCardProEditor, workspace: string) => {
-    emit(editor.shadowRoot!.querySelector<Form>('ha-form.workspace-form')!, {
-      editing_workspace: workspace,
-    });
-    await editor.updateComplete;
+    await changeField(editor, 'workspace:editing_workspace', workspace);
   };
 
   it('offers a list override its reset in the List workspace', async () => {
@@ -795,17 +730,10 @@ describe('reset controls follow the workspace destination, not the built view', 
  */
 describe('entity subforms resolve show_location against the layer being edited', () => {
   const hasLocationIcon = (editor: CalendarCardProEditor) =>
-    [...editor.shadowRoot!.querySelectorAll<Form>('ha-form')].some((form) =>
-      JSON.stringify((form as unknown as { schema?: unknown }).schema ?? []).includes(
-        'location_icon',
-      ),
-    );
+    formsOf(editor).some((form) => JSON.stringify(form.schema ?? []).includes('location_icon'));
 
   const openWorkspace = async (editor: CalendarCardProEditor, workspace: string) => {
-    emit(editor.shadowRoot!.querySelector<Form>('ha-form.workspace-form')!, {
-      editing_workspace: workspace,
-    });
-    await editor.updateComplete;
+    await changeField(editor, 'workspace:editing_workspace', workspace);
   };
 
   const mountLocationCard = async () =>

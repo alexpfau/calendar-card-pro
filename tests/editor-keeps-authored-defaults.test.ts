@@ -11,11 +11,10 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { changeField, mountEditor } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
-import type { HaFormSchema } from '../src/rendering/editor/ha-form';
-import { valueSource, workspaceFields } from '../src/rendering/editor/routing';
+import { valueSource } from '../src/rendering/editor/routing';
 import {
   storedViewBlocks,
   stripColumnDefaults,
@@ -23,26 +22,14 @@ import {
   toStoredConfig,
 } from '../src/rendering/editor/value';
 
-const TAG = 'editor-keeps-authored-defaults-test';
-customElements.define(TAG, CalendarCardProEditor);
-
 interface EditorHost extends HTMLElement {
   hass: unknown;
   setConfig(config: Record<string, unknown>): void;
   readonly updateComplete: Promise<unknown>;
 }
 
-interface Form extends HTMLElement {
-  schema: ReadonlyArray<HaFormSchema>;
-  data: Record<string, unknown>;
-}
-
 async function mount(config: Record<string, unknown>) {
-  const editor = document.createElement(TAG) as EditorHost;
-  editor.hass = { states: {}, locale: { language: 'en' } };
-  editor.setConfig(structuredClone(config));
-  document.body.appendChild(editor);
-  await editor.updateComplete;
+  const editor = await mountEditor(structuredClone(config));
   const reports: Record<string, unknown>[] = [];
   editor.addEventListener('config-changed', (event) => {
     reports.push(
@@ -50,28 +37,6 @@ async function mount(config: Record<string, unknown>) {
     );
   });
   return { editor, reports };
-}
-
-function formFor(editor: EditorHost, key: string): Form {
-  const matches = [...editor.shadowRoot!.querySelectorAll<Form>('ha-form')].filter(
-    (form) =>
-      !form.classList.contains('entity-form') &&
-      [...workspaceFields(form.schema)].some(({ node, path }) => node.name === key && !path.length),
-  );
-  expect(matches, `form for ${key}`).toHaveLength(1);
-  return matches[0];
-}
-
-async function change(editor: EditorHost, key: string, value: unknown): Promise<void> {
-  const form = formFor(editor, key);
-  form.dispatchEvent(
-    new CustomEvent('value-changed', {
-      detail: { value: { ...form.data, [key]: value } },
-      bubbles: true,
-      composed: true,
-    }),
-  );
-  await editor.updateComplete;
 }
 
 async function choose(editor: EditorHost, choice: 'keep-list' | 'shared-root'): Promise<void> {
@@ -165,7 +130,7 @@ describe('answering the upgrade prompt', () => {
       const { editor, reports } = await mount(V4_CARD);
 
       await choose(editor, answer);
-      await change(editor, 'title', 'Family calendar');
+      await changeField(editor, 'card:title', 'Family calendar');
 
       expect(reports.slice(-1)[0]).toEqual({ ...ANSWERS[answer], title: 'Family calendar' });
     },
@@ -188,7 +153,7 @@ describe('adopting a layered card on its first edit', () => {
     const { editor, reports } = await mount(card);
     expect(reports).toEqual([]);
 
-    await change(editor, 'title', 'Grid');
+    await changeField(editor, 'card:title', 'Grid');
 
     expect(reports).toEqual([
       { ...card, title: 'Grid', config_version: Config.CURRENT_CONFIG_VERSION },
@@ -205,13 +170,13 @@ describe('what an edit still removes', () => {
     });
 
     // All Layouts writes the top level; List would write `list:`, which keeps every value.
-    await change(editor, 'editing_workspace', 'shared');
+    await changeField(editor, 'workspace:editing_workspace', 'shared');
     expect(reports).toEqual([]);
 
-    await change(editor, 'show_month', false);
+    await changeField(editor, 'day_header:show_month', false);
     expect(reports.slice(-1)[0]).toHaveProperty('show_month', false);
 
-    await change(editor, 'show_month', true);
+    await changeField(editor, 'day_header:show_month', true);
     expect(reports.slice(-1)[0]).toEqual({
       config_version: Config.CURRENT_CONFIG_VERSION,
       entities: ['calendar.anna'],
@@ -226,7 +191,7 @@ describe('what an edit still removes', () => {
       show_month: true,
     });
 
-    await change(editor, 'title', 'Pruned');
+    await changeField(editor, 'card:title', 'Pruned');
 
     expect(reports).toEqual([
       {

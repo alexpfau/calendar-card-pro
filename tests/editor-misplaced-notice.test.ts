@@ -9,12 +9,8 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { changeField, changeFields, fakeHass, mountEditor } from './helpers/editor-host';
 import * as Config from '../src/config/config';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
-import type { HaFormSchema } from '../src/rendering/editor/ha-form';
-import { workspaceFields } from '../src/rendering/editor/routing';
-
-customElements.define('editor-misplaced-notice-test', CalendarCardProEditor);
 
 interface EditorHost extends HTMLElement {
   hass: unknown;
@@ -22,21 +18,15 @@ interface EditorHost extends HTMLElement {
   readonly updateComplete: Promise<unknown>;
 }
 
-interface Form extends HTMLElement {
-  schema: ReadonlyArray<HaFormSchema>;
-  data: Record<string, unknown>;
-}
-
 async function mount(config: Record<string, unknown>, language = 'en') {
-  const editor = document.createElement('editor-misplaced-notice-test') as EditorHost;
-  editor.hass = { states: {}, locale: { language } };
-  editor.setConfig({
-    config_version: Config.CURRENT_CONFIG_VERSION,
-    entities: ['calendar.anna'],
-    ...config,
-  });
-  document.body.appendChild(editor);
-  await editor.updateComplete;
+  const editor = await mountEditor(
+    {
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: ['calendar.anna'],
+      ...config,
+    },
+    { hass: fakeHass({ language }) },
+  );
   const reports: Record<string, unknown>[] = [];
   editor.addEventListener('config-changed', (event) => {
     const reported = (event as CustomEvent<{ config: Record<string, unknown> }>).detail.config;
@@ -69,20 +59,6 @@ async function press(editor: EditorHost, path: string, label: string): Promise<v
   ].find((candidate) => candidate.textContent!.trim() === label);
   expect(button, `${label} for ${path}`).toBeDefined();
   button!.click();
-  await editor.updateComplete;
-}
-
-async function change(editor: EditorHost, key: string, value: unknown): Promise<void> {
-  const form = [...editor.shadowRoot!.querySelectorAll<Form>('ha-form')].find((candidate) =>
-    [...workspaceFields(candidate.schema)].some(({ node }) => node.name === key),
-  )!;
-  form.dispatchEvent(
-    new CustomEvent('value-changed', {
-      detail: { value: { ...form.data, [key]: value } },
-      bubbles: true,
-      composed: true,
-    }),
-  );
   await editor.updateComplete;
 }
 
@@ -172,7 +148,7 @@ describe('the misplaced-option notice', () => {
 
     await press(editor, 'list.allow_event_edit', 'Move to Top Level');
     await press(editor, 'list.hide_when_empty', 'Move to Top Level');
-    await change(editor, 'title', 'After');
+    await changeField(editor, 'card:title', 'After');
 
     const last = reports[reports.length - 1];
     expect(last.title).toBe('After');
@@ -184,7 +160,7 @@ describe('the misplaced-option notice', () => {
   it('keeps a misplaced list line, and the notice, through an unrelated edit', async () => {
     const { editor, reports } = await mount({ title: 'Before', list: { start_date: 'today' } });
 
-    await change(editor, 'title', 'After');
+    await changeField(editor, 'card:title', 'After');
 
     expect(reports[reports.length - 1].list).toEqual({ start_date: 'today' });
     expect(Object.keys(rows(editor))).toEqual(['list.start_date']);
@@ -192,16 +168,11 @@ describe('the misplaced-option notice', () => {
 
   it('stays in view while search hides every panel', async () => {
     const { editor } = await mount({ list: { toolbar: { show: true } } });
-    const filter = editor.shadowRoot!.querySelector<Form>('.filter-form')!;
 
-    filter.dispatchEvent(
-      new CustomEvent('value-changed', {
-        detail: { value: { ...filter.data, search: 'zzzz-no-such-option', customized_only: true } },
-        bubbles: true,
-        composed: true,
-      }),
-    );
-    await editor.updateComplete;
+    await changeFields(editor, {
+      'filter:search': 'zzzz-no-such-option',
+      'filter:customized_only': true,
+    });
 
     expect(Object.keys(rows(editor))).toEqual(['list.toolbar']);
   });
