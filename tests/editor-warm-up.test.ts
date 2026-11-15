@@ -41,21 +41,27 @@ import {
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
+import type * as Types from '../src/config/types';
 import { schemaCtx } from '../src/rendering/editor/field-index';
 import { corpus } from '../src/rendering/editor/gates';
 import { type HaFormSchema, warmSchema } from '../src/rendering/editor/ha-form';
 import { VALUE_SELECTORS } from '../src/rendering/editor/hass-key';
+import {
+  HA_ACTION_LABEL_PREFIX,
+  withCardActionLabels,
+} from '../src/rendering/editor/hass-localize';
 import { PANELS } from '../src/rendering/editor/panels';
 import { chassisSchemas } from '../src/rendering/editor/subforms';
 import { WORKSPACE_FIELD } from '../src/rendering/editor/workspace';
 
-const plant = vi.hoisted(() => ({ on: false, action: false, many: 0 }));
+const plant = vi.hoisted(() => ({ on: false, action: false, many: 0, extra: '' }));
 
 // A selector type no builder uses, added to a panel's build, at its top level and inside a grid,
 // to a calendar's form and to a toolbar button's form while `plant.on` is set: nothing but the
 // builders learns of it. While `plant.action` is set, a calendar's form gains a field of a type
 // whose element draws what its value picks, which no calendar's form has today. `plant.many`
-// adds that many further selector types to a panel, used nowhere else.
+// adds that many further selector types to a panel, used nowhere else, and `plant.extra` the one
+// it names.
 vi.mock('../src/rendering/editor/panels', async (importOriginal) => {
   const original = await importOriginal<typeof import('../src/rendering/editor/panels')>();
   const { ENTITY_PATH } = await import('../src/rendering/editor/schemas/calendars');
@@ -71,19 +77,21 @@ vi.mock('../src/rendering/editor/panels', async (importOriginal) => {
     ...original,
     PANELS: original.PANELS.map((panel) => ({
       ...panel,
-      build: (ctx: Parameters<typeof panel.build>[0]) =>
-        plant.on && panel.id === 'layout'
-          ? [
-              ...panel.build(ctx),
-              planted('planted_panel'),
-              { type: 'grid', name: '', schema: [planted('planted_nested')] } as HaFormSchema,
-            ]
-          : plant.many > 0 && panel.id === 'layout'
+      build: (ctx: Parameters<typeof panel.build>[0]) => {
+        const built = panel.build(ctx);
+        if (panel.id !== 'layout') return built;
+        return [
+          ...built,
+          ...(plant.on
             ? [
-                ...panel.build(ctx),
-                ...Array.from({ length: plant.many }, (_, at) => planted(`planted_many${at}`)),
+                planted('planted_panel'),
+                { type: 'grid', name: '', schema: [planted('planted_nested')] } as HaFormSchema,
               ]
-            : panel.build(ctx),
+            : []),
+          ...Array.from({ length: plant.many }, (_, at) => planted(`planted_many${at}`)),
+          ...(plant.extra ? [planted(plant.extra)] : []),
+        ];
+      },
       ...(panel.subforms && {
         subforms: (ctx: Parameters<NonNullable<typeof panel.subforms>>[0]) =>
           panel.subforms!(ctx).map((subform) =>
@@ -383,6 +391,8 @@ class FormStandIn extends LitElement {
     data: { attribute: false },
   };
 
+  declare hass?: unknown;
+
   declare schema?: ReadonlyArray<HaFormSchema>;
 
   declare data?: Record<string, unknown>;
@@ -390,9 +400,11 @@ class FormStandIn extends LitElement {
   override render() {
     return (this.schema ?? []).map((node) => {
       const element = document.createElement(elementFor(node)) as HTMLElement & {
+        hass?: unknown;
         selector?: unknown;
         value?: unknown;
       };
+      element.hass = this.hass;
       if ('selector' in node) {
         element.selector = node.selector;
         element.value = this.data?.[node.name];
@@ -405,7 +417,9 @@ class FormStandIn extends LitElement {
 /**
  * Home Assistant's action editor as the tests draw it, after `hui-action-editor`: a label, and for
  * a `navigate` or an `assist` action a form of its own, whose selector Home Assistant loads the
- * first time one is drawn. Nothing for any other action.
+ * first time one is drawn. For a `perform-action`, a color field for each color mode its target
+ * reports, as Home Assistant's service controls draw a field only for a target that supports it.
+ * Nothing for any other action.
  */
 class ActionEditorStandIn extends LitElement {
   static override properties = {
@@ -414,17 +428,30 @@ class ActionEditorStandIn extends LitElement {
     value: { attribute: false },
   };
 
-  declare value?: { action?: string };
+  declare hass?: Types.Hass;
+
+  declare value?: { action?: string; target?: { entity_id?: string } };
 
   override render() {
     const picked = (
       { navigate: 'navigation', assist: 'assist_pipeline' } as Record<string, string>
     )[this.value?.action ?? ''];
+    const target = this.hass?.states[this.value?.target?.entity_id ?? ''];
+    const modes =
+      this.value?.action === 'perform-action'
+        ? ((target?.attributes as { supported_color_modes?: string[] } | undefined)
+            ?.supported_color_modes ?? [])
+        : [];
     return html`<b>${this.value?.action}</b>${
         picked ? document.createElement(`ha-selector-${picked}`) : nothing
-      }`;
+      }${modes
+        .filter((mode) => mode in COLOR_FIELDS)
+        .map((mode) => document.createElement(`ha-selector-${COLOR_FIELDS[mode]}`))}`;
   }
 }
+
+/** The selector Home Assistant's light fields draw for each color mode the stand-in knows. */
+const COLOR_FIELDS: Record<string, string> = { rgb: 'color_rgb', color_temp: 'color_temp' };
 
 /** The stand-ins for elements that draw something; any other element defined draws nothing. */
 const STAND_INS: Record<string, CustomElementConstructor> = {
@@ -580,9 +607,14 @@ describe('the warm-up form', () => {
     expect(heard).toHaveLength(1);
   });
 
-  it('is out of layout and of the accessibility tree, inert, and on the steady feed', async () => {
-    // A Home Assistant with a string table, so that the steady feed is a wrapper of its own.
-    const hass = fakeHass({ localize: (key: string) => key });
+  it('is out of layout and of the accessibility tree, inert, and on the live feed while it is drawn', async () => {
+    // A Home Assistant with a string table, so that the feeds are wrappers of their own, and a
+    // light the editor draws nothing of.
+    const states = {
+      'calendar.anna': { entity_id: 'calendar.anna', state: 'off', attributes: {} },
+      'light.porch': { entity_id: 'light.porch', state: 'off', attributes: {} },
+    };
+    const hass = fakeHass({ localize: (key: string) => key, states });
     const editor = await mountEditor(KINDS, { hass });
     const warm = warmUp(editor)!;
     const form = warmForm(editor)!;
@@ -592,12 +624,36 @@ describe('the warm-up form', () => {
     expect(warm.hasAttribute('inert')).toBe(true);
     expect(warm.getAttribute('aria-hidden')).toBe('true');
     expect(form.parentElement).toBe(warm);
-    const steady = editor.shadowRoot!.querySelector<Form>('ha-form[data-hass="steady"]')!;
-    // The control: the steady feed is not Home Assistant's own object, so the two can be told apart.
-    expect(steady.hass).not.toBe(hass);
-    expect(form.hass).toBe(steady.hass);
     // It holds the values its nodes name and nothing else (`warmValues`).
     expect(warmValues(editor)).toHaveLength(4);
+
+    // The live feed, with the card's own action names, as the forms with an action have it.
+    expect(form.getAttribute('data-hass')).toBe('live');
+    expect(form.hass).toBe(withCardActionLabels(hass, 'en'));
+    const expand = `${HA_ACTION_LABEL_PREFIX}expand`;
+    expect((form.hass as Types.Hass).localize!(expand)).not.toBe(expand);
+    const steady = editor.shadowRoot!.querySelector<Form>('ha-form[data-hass="steady"]')!;
+    const before = steady.hass;
+
+    // A Home Assistant with the light on, which the editor does not render for: it reaches the
+    // warm-up all the same, and the steady forms keep what they had (the control).
+    const lit = { ...states['light.porch'], state: 'on', attributes: { brightness: 255 } };
+    const next = { ...hass, states: { ...states, 'light.porch': lit } } as Types.Hass;
+    editor.hass = next;
+    await editor.updateComplete;
+    expect(form.hass).toBe(withCardActionLabels(next, 'en'));
+    expect((form.hass as Types.Hass).states['light.porch']).toBe(lit);
+    expect(steady.hass).toBe(before);
+
+    // One the editor renders for, a calendar's state moved: the warm-up is fed from the render.
+    const later = {
+      ...next,
+      states: { ...next.states, 'calendar.anna': { ...states['calendar.anna'], state: 'on' } },
+    } as Types.Hass;
+    editor.hass = later;
+    await editor.updateComplete;
+    expect(warmForm(editor)).toBe(form);
+    expect(form.hass).toBe(withCardActionLabels(later, 'en'));
   });
 });
 
@@ -652,6 +708,11 @@ describe('with Home Assistant’s Visibility editor', () => {
     // Handed `hass` as it is, as the visible one is; the control: the warm-up's form is not.
     expect(conditions.hass).toBe(hass);
     expect(warmForm(editor)!.hass).not.toBe(hass);
+    // And the newest one, though the editor does not render for it, while it is drawn.
+    const next = { ...hass } as Types.Hass;
+    editor.hass = next;
+    await editor.updateComplete;
+    expect(conditions.hass).toBe(next);
     expect(conditions.parentElement).toBe(warmUp(editor));
   });
 
@@ -864,6 +925,130 @@ describe('once Home Assistant draws what it holds', () => {
       await gone(editor);
     } finally {
       plant.on = false;
+    }
+  });
+
+  it('warms an action with the states as they are when it is configured', async () => {
+    const off = {
+      entity_id: 'light.hall',
+      state: 'off',
+      attributes: { supported_color_modes: ['onoff'] },
+    };
+    const hass = fakeHass({ localize: (key: string) => key, states: { 'light.hall': off } });
+    const editor = await mountEditor(ANNA, { hass });
+    await gone(editor);
+
+    // The light now reports a color mode, in a Home Assistant the editor does not render for.
+    const rgb = { ...off, attributes: { supported_color_modes: ['rgb'] } };
+    editor.hass = { ...hass, states: { 'light.hall': rgb } } as Types.Hass;
+    await editor.updateComplete;
+    // Then an action for it is configured: the warm-up draws what the light supports now.
+    const action = {
+      action: 'perform-action',
+      perform_action: 'light.turn_on',
+      target: { entity_id: 'light.hall' },
+    };
+    editor.setConfig({ ...ANNA, hold_action: action });
+    await editor.updateComplete;
+    expect(warmValues(editor)).toEqual([['ha-selector-ui_action', action]]);
+    await vi.waitFor(() => expect(undefinedIn(warmUp(editor)!)).toEqual(['ha-selector-color_rgb']));
+    await settle(editor);
+    expect(warmUp(editor)).not.toBeNull();
+
+    define('ha-selector-color_rgb');
+    await gone(editor);
+  });
+
+  it('warms an action again once what it names, or the services, move, and not for a state alone', async () => {
+    const off = {
+      entity_id: 'light.porch',
+      state: 'off',
+      attributes: { supported_color_modes: ['onoff'] },
+    };
+    const action = {
+      action: 'perform-action',
+      perform_action: 'light.turn_on',
+      target: { entity_id: 'light.porch' },
+    };
+    const hass = fakeHass({ states: { 'light.porch': off }, services: { light: {} } });
+    const editor = await mountEditor({ ...ANNA, hold_action: action }, { hass });
+    expect(warmValues(editor)).toEqual(
+      [
+        ['ha-selector-ui_action', action],
+        ['ha-selector-ui_action', NONE],
+      ].sort(byJson),
+    );
+    await gone(editor);
+    const render = vi.spyOn(editor, 'render');
+
+    // The light turns on, its attributes as they were: nothing to warm, and nothing rendered.
+    let now = { ...hass, states: { 'light.porch': { ...off, state: 'on' } } } as Types.Hass;
+    editor.hass = now;
+    await editor.updateComplete;
+    expect(render).not.toHaveBeenCalled();
+    expect(warmUp(editor)).toBeNull();
+
+    // It reports a color temperature: the action is warmed again, against the light as it is.
+    now = {
+      ...now,
+      states: {
+        'light.porch': {
+          ...off,
+          state: 'on',
+          attributes: { supported_color_modes: ['color_temp'] },
+        },
+      },
+    } as Types.Hass;
+    editor.hass = now;
+    await editor.updateComplete;
+    expect(warmValues(editor)).toEqual([['ha-selector-ui_action', action]]);
+    await vi.waitFor(() =>
+      expect(undefinedIn(warmUp(editor)!)).toEqual(['ha-selector-color_temp']),
+    );
+    define('ha-selector-color_temp');
+    await gone(editor);
+
+    // Home Assistant's services move: every action is warmed again.
+    editor.hass = { ...now, services: { light: {}, scene: {} } } as Types.Hass;
+    await editor.updateComplete;
+    expect(warmValues(editor)).toEqual(
+      [
+        ['ha-selector-ui_action', action],
+        ['ha-selector-ui_action', NONE],
+      ].sort(byJson),
+    );
+    await gone(editor);
+  });
+
+  it('is not drawn away by an earlier warm-up’s search, where a later one holds the same', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'Date'] });
+    try {
+      // A for five seconds, B for one, then A again: the same as the first, drawn anew.
+      plant.extra = 'planted_a';
+      const editor = await mountEditor(ANNA);
+      expect(warmed(editor)).toContain('ha-selector-planted_a');
+      await vi.advanceTimersByTimeAsync(5_000);
+      plant.extra = 'planted_b';
+      editor.setConfig({ ...ANNA, title: 'B' });
+      await editor.updateComplete;
+      expect(warmed(editor)).toContain('ha-selector-planted_b');
+      expect(warmed(editor)).not.toContain('ha-selector-planted_a');
+      await vi.advanceTimersByTimeAsync(1_000);
+      plant.extra = 'planted_a';
+      editor.setConfig({ ...ANNA, title: 'A' });
+      await editor.updateComplete;
+      expect(warmed(editor)).toContain('ha-selector-planted_a');
+
+      // Past the first A's ten seconds: the second stays, still waiting.
+      await vi.advanceTimersByTimeAsync(4_500);
+      expect(warmUp(editor)).not.toBeNull();
+      expect(undefinedIn(warmUp(editor)!)).toContain('ha-selector-planted_a');
+      // Its own ten seconds end it.
+      await vi.advanceTimersByTimeAsync(5_600);
+      expect(warmUp(editor)).toBeNull();
+    } finally {
+      plant.extra = '';
+      vi.useRealTimers();
     }
   });
 });

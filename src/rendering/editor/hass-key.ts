@@ -14,7 +14,8 @@
  *   `entity`, `icon`, `ui_action` or `object` selector lists, names or acts on entities, so it
  *   needs every state as it arrives, and the action dropdown needs the card's own action names. A
  *   render the editor skips hands it the new `hass` directly. Home Assistant's Visibility editor is
- *   live too, given `hass` as it is.
+ *   live too, given `hass` as it is, and so is the warm-up while it is drawn (`element.ts` ›
+ *   `updated`).
  * - **Steady**, `steadyHass`: every other form (text, number, boolean, select) reads labels, locale
  *   and theme, never a state, so it is handed one object for as long as those stay as they are,
  *   and a new `hass` does not update it at all. Its states are stale by design.

@@ -1840,20 +1840,24 @@ the card's rule above, with four consequences for new code and tests:
   their state. A test reading a form inside a panel opens it first, with `openPageOf` or
   `openPanels` from `tests/helpers/editor-host.ts`, the harness editor tests reach forms
   through, by field id and owner.
-- **The warm-up is load-bearing.** `ha-form` and `ha-selector` import an element the first
-  time a form needs it, so a panel mounting its forms as it opens would be measured while those
-  modules still load, and open short. The editor therefore draws one hidden form
-  (`ha-form.ts` › `warmSchema`) holding a node for each element its schemas need that is not
-  defined yet, and a node for each value its forms hold in a field whose element draws what that
-  value picks, holding the value: a `navigate` or `assist` action draws a form of its own, a
-  `perform-action` a service's controls. Beside it, Home Assistant's Visibility editor holds every
-  calendar's conditions, whose forms load the same way. It is drawn away once a search of
-  everything below it finds no element left undefined, or after ten searches or ten seconds. It
-  reads the element types from the schemas, so a new selector type needs nothing here; a selector
-  whose subtree depends on its value goes in `VALUE_SELECTORS` (`hass-key.ts`), which nothing can
-  derive. Removing any of it as dead code, or leaving such a selector out of that list, brings the
-  short first opens back, and only Home Assistant shows them: the test suite cannot measure a
-  panel's height, and its stand-ins draw only what they are written to draw.
+- **The warm-up is load-bearing.** `ha-form` and `ha-selector` import an element the first time a
+  form needs it, so a panel mounting its forms as it opens would be measured while those modules
+  still load, and open short. The editor therefore draws one hidden form (`ha-form.ts` ›
+  `warmSchema`) holding a node for each element its schemas need that is not defined yet, and a node
+  for each value its forms hold in a field whose element draws what that value picks, holding the
+  value: a `navigate` or `assist` action draws a form of its own, a `perform-action` a service's
+  controls. Beside it, Home Assistant's Visibility editor holds every calendar's conditions, whose
+  forms load the same way. It is drawn away once a search of everything below it finds no element
+  left undefined, or after ten searches or ten seconds. It takes the live feed while it is drawn,
+  and holds a value again once Home Assistant's services, or the attributes of an entity the value
+  names, move: a service's controls draw a field only for a target that supports it. What a control
+  loads for itself once drawn, as the assist pipeline picker loads its pipeline list, no warm-up
+  reaches, since Home Assistant keeps it per instance. It reads the element types from the schemas,
+  so a new selector type needs nothing here; a selector whose subtree depends on its value goes in
+  `VALUE_SELECTORS` (`hass-key.ts`), which nothing can derive. Removing any of it as dead code, or
+  leaving such a selector out of that list, brings the short first opens back, and only Home
+  Assistant shows them: the test suite cannot measure a panel's height, and its stand-ins draw only
+  what they are written to draw.
 
 ### The picker shows calendars; the panel list shows blocks
 
