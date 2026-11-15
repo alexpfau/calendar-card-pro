@@ -258,7 +258,31 @@ export function formDataFor(
   return part;
 }
 
-function atPath(data: unknown, path: ReadonlyArray<string>, key: string): unknown {
+/**
+ * A field in a form of its own, nested in named grids for its data path, so the form nests its data
+ * exactly as the field's panel did (`schemas/common.ts` › `blockScope`). A named `grid` nests data
+ * and not labels.
+ *
+ * @param node - The field
+ * @param dataPath - Enclosing data keys, outermost first
+ * @returns The one-field schema
+ */
+export function nestedSchema(node: HaFormSchema, dataPath: ReadonlyArray<string>): HaFormSchema[] {
+  return dataPath.reduceRight<HaFormSchema[]>(
+    (child, name) => [{ type: 'grid', name, column_min_width: '100%', schema: child }],
+    [node],
+  );
+}
+
+/**
+ * The value under a key inside nested data.
+ *
+ * @param data - Form data or configuration
+ * @param path - Enclosing data keys, outermost first
+ * @param key - The key
+ * @returns The value, or undefined where a step is missing
+ */
+export function atPath(data: unknown, path: ReadonlyArray<string>, key: string): unknown {
   let value = data;
   for (const part of [...path, key]) {
     value = Helpers.isConfigBlock(value) ? value[part] : undefined;
@@ -266,7 +290,17 @@ function atPath(data: unknown, path: ReadonlyArray<string>, key: string): unknow
   return value;
 }
 
-function writePath<T extends object>(
+/**
+ * A copy of nested data with one value replaced, the blocks above it copied and every other value
+ * kept. An undefined value removes the key.
+ *
+ * @param data - Form data or configuration
+ * @param path - Enclosing data keys, outermost first
+ * @param key - The key
+ * @param value - The new value
+ * @returns The new data
+ */
+export function writePath<T extends object>(
   data: Readonly<T>,
   path: ReadonlyArray<string>,
   key: string,

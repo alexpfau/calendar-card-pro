@@ -1799,7 +1799,7 @@ Everything except `element.ts` and `styles.ts` is free of Lit and of the DOM. Th
 load-bearing, not tidiness: it is what lets both the test suite and `check:i18n` import a
 schema and read it, rather than scraping the source that produces it. Keep it that way.
 
-Four things are easy to get wrong:
+Five things are easy to get wrong:
 
 - **`ha-form` hands back the whole merged data object on every keystroke.** `value.ts`
   narrows it again on the way out. Anything that bypasses `toStoredConfig` writes ninety
@@ -1820,6 +1820,18 @@ Four things are easy to get wrong:
 - **Colors are `text`, not `ui_color`.** HA's color selector emits a theme token that
   cards pass through `computeCssColor()`; this card writes colors straight into CSS
   custom properties and has no such step. See the note in `ha-form.ts`.
+- **A calendar's or a toolbar button's write names its owner by key, never by place.** Each
+  entry and button carries a key the editor keeps beside its list (`_entryKeys`,
+  `_buttonKeys`), and its panel is drawn with Lit's keyed `repeat` by that key, so a removal
+  above it cannot hand it another's panel and listeners. Its forms write through a frame
+  (`write-frames.ts` › `OwnedFrame`) that resolves the key when the change arrives, re-reads the
+  owner whole and lays over it only what that form changed. A control the editor draws itself
+  writes the same way, through `_writeFieldValue(owner, fieldId, value)`: never through the
+  card's write path, which would put a calendar's color at the card's root, and never through
+  `writeEntity` or `writeButton` with partial data, which keeps only the keys it is handed.
+  A panel drawn by key also takes its focused control with it when its owner leaves, so Remove
+  puts focus back itself (`_focusAfterRemove`). `tests/editor-write-owners.test.ts` pins each of
+  these.
 
 ### The editor renders only what it draws
 
@@ -1869,6 +1881,13 @@ could be **seen** there and **cleared** there, but never **added** there.
 per-id queue per row, which is correct only when rows and blocks are 1:1. Deduplicating
 `derive` alone therefore loses every block after the first, silently, on the next thing the
 user touches in the picker. Each row emits its calendar's **whole** queue.
+
+**The entries' keys move with `apply`, too.** A picker write carries each entry's key onto the
+list `apply` returns (`write-frames.ts` › `carryEntryKeys`), reading it as `apply` builds it:
+every calendar's whole queue, in its order, so the n-th block of a calendar keeps the n-th key
+it had. An `apply` that emitted a calendar's blocks in any other order would hand one block's
+key, and with it its panel and any late edit, to another. Quick Setup rebuilds the list the
+same way and carries the keys through the same function.
 
 **Collapsing duplicates costs no ordering, and this is provable rather than probable** —
 worth knowing before anyone "restores" interleaving. Only three things read the order of

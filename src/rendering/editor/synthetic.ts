@@ -701,7 +701,8 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
       // drop the rest, which is what makes this the half that cannot be changed alone.
       // Clearing a row therefore drops every block for that calendar, which is the
       // model the picker now presents; removing a single block is the panel's own
-      // Remove action.
+      // Remove action. The editor's keys for the entries follow these queues in order
+      // (`write-frames.ts` › `carryEntryKeys`), so neither may reorder a queue alone.
       const used = new Set<string>();
 
       return {
