@@ -557,8 +557,11 @@ const REGISTRY_PREFIXES = ['page.', 'heading.', 'family.', 'gate.needs.'];
  * Titles are page titles, headings (per layout too) and family titles; they must exist, as a
  * panel title must. The rest are notes, helper lines and the phrases a gate or one of its
  * conditions is named by. A helper line is looked up by its own key, so only its base is
- * registered as a helper root. Words a page is searched by are `.aliases` strings, held to their
- * keys by `checkEditorStrings` like every other alias, never listed here.
+ * registered as a helper root.
+ *
+ * A page has no search words of its own yet. Nothing here names an `.aliases` key, and the alias
+ * keys `checkEditorStrings` accepts are fields' alone, so a `page.<id>.aliases` string fails it
+ * twice: as a page-registry key nothing names, and as an alias no field resolves.
  *
  * @param editor - The bundled editor modules
  * @returns Titles and other named keys, each with where it is named, and helper bases

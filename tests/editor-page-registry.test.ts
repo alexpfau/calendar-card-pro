@@ -7,7 +7,9 @@
  * button schema with it, and the leaves walked here are the denominator. Every one of them must
  * be placed exactly once, and every placed id must be built somewhere. A field added to a
  * builder, a registry line deleted, an id placed twice and a gate the corpus no longer opens
- * each fail one of the first three tests.
+ * each fail one of the first three tests. Where each id goes is pinned too, by value, against
+ * the approved page map typed out below: the reconciliations above cannot see two fields trade
+ * places, since every count still agrees.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -130,6 +132,502 @@ function familyOf(appearance: Appearance): FamilyId | undefined {
   return typeof appearance === 'object' && 'family' in appearance ? appearance.family : undefined;
 }
 
+/**
+ * The approved page map, heading by heading: page, heading, family, and each field in order
+ * with its marker (E essential, A Add, W a mode value, F a family member, B a toolbar button's
+ * row) and the workspaces that offer it (S All Layouts, L List, C Columns, G Grid; none means
+ * all four). Typed out from the approved map, never read from `pages.ts`, so a field moved to
+ * another page, heading or marker fails here even where every count still agrees. The
+ * overview's two blocks are one run, as the registry keeps them.
+ */
+const APPROVED_MAP: ReadonlyArray<
+  readonly [page: string, heading: string, family: string, fields: ReadonlyArray<string>]
+> = [
+  [
+    'Overview',
+    '',
+    '',
+    [
+      'calendars:calendars E',
+      'content:days_to_show E',
+      'content:start_date_mode E',
+      'content:start_date_fixed W',
+      'content:start_date_offset W',
+    ],
+  ],
+  [
+    'Which Events',
+    '',
+    '',
+    [
+      'content:event_type A',
+      'content:filter_duplicates_mode A',
+      'content:duplicate_accent_color A',
+      'content:event_order A L',
+      'content:skip_first_events A L',
+    ],
+  ],
+  [
+    'Which Events',
+    'Past Events',
+    '',
+    ['content:show_past_events E', 'events:past_event_opacity A'],
+  ],
+  [
+    'Which Events',
+    'Multi-Day Events',
+    '',
+    ['content:split_multiday_events A SLC', 'content:multiday_banners A G'],
+  ],
+  [
+    'Which Events',
+    'Empty Days',
+    '',
+    [
+      'content:show_empty_days E',
+      'content:show_empty_today E',
+      'content:empty_day_text E SLC',
+      'content:empty_day_color A SLC',
+      'content:hide_when_empty A',
+    ],
+  ],
+  [
+    'Which Events',
+    'Compact Mode',
+    'compact_mode',
+    [
+      'content:compact_days_to_show F L',
+      'content:compact_events_to_show F L',
+      'content:compact_events_complete_days F L',
+    ],
+  ],
+  [
+    'Card & Header',
+    '',
+    '',
+    [
+      'card:title E',
+      'card:title_font_size A',
+      'card:title_color A',
+      'card:background_color A',
+      'content:language_mode A',
+      'content:language W',
+    ],
+  ],
+  [
+    'Card & Header',
+    'Toolbar',
+    '',
+    [
+      'card:toolbar.show E',
+      'card:toolbar.legend E',
+      'card:toolbar.add_event E',
+      'card:toolbar.view_switcher E',
+      'card:toolbar.reset E',
+      'card:toolbar.refresh E',
+      'card:toolbar.search E',
+      'card:toolbar.navigation E',
+    ],
+  ],
+  [
+    'Card & Header',
+    'Your Own Buttons',
+    '',
+    ['button:icon B', 'button:name B', 'button:entity B', 'button:tap_action B'],
+  ],
+  [
+    'Day Header',
+    '',
+    '',
+    [
+      'day_header:date_vertical_alignment A L',
+      'day_header:weekday_font_size A',
+      'day_header:weekday_color A',
+      'day_header:day_font_size A',
+      'day_header:day_color A',
+      'day_header:show_month E',
+      'day_header:month_font_size A',
+      'day_header:month_color A',
+    ],
+  ],
+  [
+    'Day Header',
+    'Gap & Rule',
+    '',
+    [
+      'day_header:column.day_header_gap A C',
+      'day_header:column.day_header_separator_width A C',
+      'day_header:column.day_header_separator_color A C',
+      'day_header:time_grid.day_header_gap A G',
+      'day_header:time_grid.day_header_separator_width A G',
+      'day_header:time_grid.day_header_separator_color A G',
+    ],
+  ],
+  [
+    'Day Header',
+    'Weeks',
+    '',
+    [
+      'content:first_day_of_week E',
+      'day_header:week_number_mode E',
+      'day_header:show_current_week_number E',
+      'day_header:week_number_font_size A',
+      'day_header:week_number_color A',
+      'day_header:week_number_background_color A',
+    ],
+  ],
+  [
+    'Day Header',
+    'Today',
+    '',
+    [
+      'day_header:today_date_scale A',
+      'day_header:today_date_font_weight A',
+      'day_header:today_weekday_color A',
+      'day_header:today_day_color A',
+      'day_header:today_month_color A',
+    ],
+  ],
+  [
+    'Day Header',
+    'Today Indicator',
+    '',
+    [
+      'day_header:today_indicator_style E',
+      'day_header:today_indicator_icon W',
+      'day_header:today_indicator_custom W',
+      'day_header:today_indicator_color A',
+      'day_header:today_indicator_size A',
+      'day_header:today_indicator_position A L',
+    ],
+  ],
+  [
+    'Day Header',
+    'Past Days',
+    'past_days',
+    [
+      'day_header:past_date_opacity F',
+      'day_header:past_date_scale F',
+      'day_header:past_date_font_weight F',
+    ],
+  ],
+  [
+    'Day Header',
+    'Weekend Colors',
+    'weekend_colors',
+    [
+      'day_header:weekend_weekday_color F',
+      'day_header:weekend_day_color F',
+      'day_header:weekend_month_color F',
+    ],
+  ],
+  [
+    'Events',
+    'Event Details',
+    '',
+    [
+      'events:show_time E',
+      'events:show_location E',
+      'events:show_description E',
+      'events:show_countdown E',
+      'events:show_progress_bar A',
+      'content:time_format E',
+      'events:time_position A SLC',
+    ],
+  ],
+  ['Events', 'Event State', '', ['events:show_now_indicator A SLC', 'events:now_color A']],
+  [
+    'Events',
+    'Accent',
+    '',
+    [
+      'events:accent_event_text A',
+      'events:accent_color_mode A',
+      'events:accent_color W',
+      'events:vertical_line_width A',
+      'events:event_background_opacity A',
+    ],
+  ],
+  [
+    'Events',
+    'Title',
+    '',
+    [
+      'events:event_font_size A',
+      'events:event_color A',
+      'events:title_max_lines A',
+      'events:scroll_long_titles A',
+    ],
+  ],
+  [
+    'Events',
+    'Icon & Badge',
+    '',
+    [
+      'events:event_icon_vertical_alignment A',
+      'events:allday_badge_position A SLC',
+      'events:allday_badge_style W SLC',
+      'events:allday_badge_color_mode W SLC',
+      'events:allday_badge_color W SLC',
+    ],
+  ],
+  [
+    'Events',
+    'Time',
+    '',
+    [
+      'events:show_end_time E',
+      'events:show_duration A',
+      'events:show_single_allday_time A SLC',
+      'events:show_multiday_allday_time A SLC',
+      'events:time_two_digit_hours A',
+      'events:time_font_size A',
+      'events:time_color A',
+      'events:time_icon_size A',
+      'events:time_max_lines A SLC',
+    ],
+  ],
+  [
+    'Events',
+    'Location',
+    '',
+    [
+      'events:show_location_allday A SLC',
+      'events:location_country_mode A',
+      'events:location_country_pattern W',
+      'events:location_font_size A',
+      'events:location_color A',
+      'events:location_icon_size A',
+      'events:location_max_lines A',
+    ],
+  ],
+  [
+    'Events',
+    'Description',
+    '',
+    [
+      'events:show_description_allday A SLC',
+      'events:description_font_size A',
+      'events:description_color A',
+      'events:description_icon_size A',
+      'events:description_max_lines A',
+    ],
+  ],
+  [
+    'Events',
+    'Countdown & Progress',
+    '',
+    [
+      'events:countdown_max_days A',
+      'events:show_countdown_allday A SLC',
+      'events:countdown_once_per_day A SLC',
+      'events:countdown_exact_days A',
+      'events:progress_bar_color A',
+      'events:progress_bar_height A',
+      'events:progress_bar_width A',
+    ],
+  ],
+  [
+    'Size & Spacing',
+    'Card Size & Spacing',
+    '',
+    [
+      'layout:height_mode E',
+      'layout:card_height W',
+      'layout:card_max_height W',
+      'layout:additional_card_spacing A',
+      'layout:event_gap A SLC',
+      'layout:event_spacing A SLC',
+    ],
+  ],
+  [
+    'Size & Spacing',
+    'Column Density',
+    'column_density',
+    [
+      'layout:column.min_day_width F C',
+      'layout:column.min_days_to_show F C',
+      'layout:column.min_days_fallback F C',
+    ],
+  ],
+  [
+    'Size & Spacing',
+    'Grid Density',
+    'grid_density',
+    [
+      'layout:time_grid.min_day_width F G',
+      'layout:time_grid.min_days_to_show F G',
+      'layout:time_grid.min_days_fallback F G',
+    ],
+  ],
+  [
+    'Size & Spacing',
+    'Between Days',
+    '',
+    [
+      'layout:day_spacing A SLC',
+      'separators:day_spacing A G',
+      'separators:day_separator_width A',
+      'separators:day_separator_color A',
+      'separators:week_separator_width A',
+      'separators:week_separator_color A',
+      'separators:month_separator_width A',
+      'separators:month_separator_color A',
+    ],
+  ],
+  [
+    'Size & Spacing',
+    'Across the Grid',
+    '',
+    [
+      'separators:time_grid.hour_line_width A G',
+      'separators:time_grid.hour_line_color A G',
+      'separators:time_grid.allday_band_line_width A G',
+      'separators:time_grid.allday_band_line_color A G',
+    ],
+  ],
+  [
+    'Grid',
+    'Time Axis',
+    '',
+    [
+      'layout:time_grid.start_time E G',
+      'layout:time_grid.end_time E G',
+      'layout:time_grid.slot_minutes A G',
+      'layout:time_grid.hour_height A G',
+    ],
+  ],
+  [
+    'Grid',
+    'Hour Labels',
+    '',
+    [
+      'layout:time_grid.axis_width A G',
+      'layout:time_grid.show_axis_labels A G',
+      'layout:time_grid.axis_label_minutes A G',
+    ],
+  ],
+  [
+    'Grid',
+    'On the Grid',
+    '',
+    [
+      'layout:time_grid.weekend_background_color A G',
+      'layout:time_grid.today_background_color A G',
+      'layout:time_grid.show_now_line A G',
+      'layout:time_grid.allday_band_max_rows A G',
+      'layout:time_grid.overlap_layout A G',
+      'layout:time_grid.max_simultaneous_events A G',
+    ],
+  ],
+  ['Weather', '', '', ['weather:weather.entity E', 'weather:weather.position E']],
+  [
+    'Weather',
+    'In the Day Header',
+    '',
+    [
+      'weather:weather.date.show_conditions E',
+      'weather:weather.date.show_high_temp E',
+      'weather:weather.date.show_low_temp E',
+      'weather:weather.date.show_uv_index E',
+      'weather:weather.date.uv_index_threshold W',
+      'weather:weather.date.icon_size A',
+      'weather:weather.date.font_size A',
+      'weather:weather.date.color A',
+    ],
+  ],
+  [
+    'Weather',
+    'Beside Each Event',
+    '',
+    [
+      'weather:weather.event.show_conditions E',
+      'weather:weather.event.show_temp E',
+      'weather:weather.event.show_uv_index E',
+      'weather:weather.event.uv_index_threshold W',
+      'weather:weather.event.daily_forecast_fallback E',
+      'weather:weather.event.icon_size A',
+      'weather:weather.event.font_size A',
+      'weather:weather.event.color A',
+      'weather:weather.event.max_lines A',
+    ],
+  ],
+  [
+    'Taps & Refresh',
+    '',
+    '',
+    [
+      'actions:tap_action E',
+      'actions:hold_action A',
+      'actions:day_tap_action_mode E',
+      'actions:event_tap_action E',
+      'actions:event_hold_action A',
+      'actions:open_links A SLC',
+      'actions:allow_event_edit E',
+      'actions:allow_event_delete E',
+      'actions:refresh_interval A',
+      'actions:refresh_on_navigate A',
+    ],
+  ],
+  [
+    'Calendar Entry',
+    'Name & Look',
+    '',
+    [
+      'calendar:name E',
+      'calendar:show_in_legend A',
+      'calendar:label_type E',
+      'calendar:label_icon_source W',
+      'calendar:label_image_source W',
+      'calendar:label W',
+      'calendar:label_icon_color A',
+      'calendar:color A',
+      'calendar:accent_color_mode E',
+      'calendar:accent_color W',
+      'calendar:text_scale A',
+    ],
+  ],
+  ['Calendar Entry', 'Who Sees It', '', ['calendar:visibility A']],
+  [
+    'Calendar Entry',
+    'Which Events',
+    '',
+    [
+      'calendar:days_of_week A',
+      'calendar:event_type A',
+      'calendar:allday_expires_at A',
+      'calendar:filter_field W',
+      'calendar:blocklist A',
+      'calendar:allowlist A',
+      'calendar:compact_events_to_show A L',
+    ],
+  ],
+  [
+    'Calendar Entry',
+    'Text Replacement',
+    'replace',
+    ['calendar:replace_field F', 'calendar:replace_pattern F', 'calendar:replace_with F'],
+  ],
+  [
+    'Calendar Entry',
+    'Multi-Day Events',
+    '',
+    ['calendar:split_multiday_events A SLC', 'calendar:multiday_banners A G'],
+  ],
+  [
+    'Calendar Entry',
+    'Event Details',
+    '',
+    [
+      'calendar:show_time A',
+      'calendar:show_location A',
+      'calendar:location_icon A',
+      'calendar:show_description A',
+      'calendar:show_weather A',
+    ],
+  ],
+];
+
 /** Every heading in the registry, entry groups included. */
 const HEADINGS: ReadonlyArray<HeadingDef> = [
   ...PAGES.flatMap((page) => page.headings),
@@ -138,8 +636,8 @@ const HEADINGS: ReadonlyArray<HeadingDef> = [
 
 describe('the page registry places every built field exactly once', () => {
   it('walks the whole corpus', () => {
-    // The denominators, beside the verdicts below. A short walk shows here first: Appendix A
-    // places 223 ids, and every one of them is built under some workspace and state.
+    // The denominators, beside the verdicts below. A short walk shows here first: the approved
+    // map places 223 ids, and every one of them is built under some workspace and state.
     console.info(
       `Page registry: ${BUILT.size} ids built over ${STATES.length} corpus states in ` +
         `${WORKSPACES.length} workspaces; ${PLACED.length} placements.`,
@@ -176,30 +674,60 @@ describe('the page registry places every built field exactly once', () => {
     }
   });
 
-  it('gives each appearance its Appendix A count', () => {
-    const kinds = { essential: 0, mode: 0, add: 0, family: 0, buttonRows: 0, chips: 0 };
+  it('places every id where the approved map does, with its marker and scope', () => {
+    const tags: ReadonlyArray<readonly [EditorWorkspace, string]> = [
+      ['shared', 'S'],
+      ['list', 'L'],
+      ['column', 'C'],
+      ['grid', 'G'],
+    ];
+    const offered = (id: FieldId): string => {
+      const scopes = tags
+        .filter(([workspace]) => BUILT.get(id)?.workspaces.has(workspace))
+        .map(([, tag]) => tag)
+        .join('');
+      return scopes === 'SLCG' ? '' : ` ${scopes}`;
+    };
+    const marker = (appearance: Appearance): string => {
+      if (appearance === 'essential') return 'E';
+      if (appearance === 'add') return 'A';
+      if (appearance === 'button-rows') return 'B';
+      if ('with' in appearance) return 'W';
+      return 'family' in appearance ? 'F' : 'chips';
+    };
+    const words = (key: string | undefined): string =>
+      key === undefined ? '' : (EDITOR_STRINGS[key] ?? key);
+    const row = (page: string, heading: string, fields: HeadingDef['fields']) => [
+      page,
+      heading,
+      [...new Set(fields.flatMap(([, appearance]) => familyOf(appearance) ?? []))].join(','),
+      fields.map(([id, appearance]) => `${id} ${marker(appearance)}${offered(id)}`),
+    ];
+
+    const registry = [
+      row('Overview', '', OVERVIEW_FIELDS),
+      ...PAGES.flatMap((page) =>
+        page.headings.map((heading) =>
+          row(words(page.titleKey), words(heading.key), heading.fields),
+        ),
+      ),
+      ...ENTRY_GROUPS.map((heading) => row('Calendar Entry', words(heading.key), heading.fields)),
+    ];
+    const markers = new Map<string, number>();
     for (const { appearance } of PLACED) {
-      if (appearance === 'essential') kinds.essential += 1;
-      else if (appearance === 'add') kinds.add += 1;
-      else if (appearance === 'button-rows') kinds.buttonRows += 1;
-      else if ('with' in appearance) kinds.mode += 1;
-      else if ('family' in appearance) kinds.family += 1;
-      else kinds.chips += 1;
+      markers.set(marker(appearance), (markers.get(marker(appearance)) ?? 0) + 1);
     }
-    console.info(`Page registry appearances: ${JSON.stringify(kinds)}`);
-    expect(kinds).toEqual({
-      essential: 48,
-      mode: 19,
-      add: 134,
-      family: 18,
-      buttonRows: 4,
-      chips: 0,
-    });
+    console.info(
+      `Page registry against the approved map: ${APPROVED_MAP.length} headings, ` +
+        `${APPROVED_MAP.flatMap(([, , , fields]) => fields).length} fields; markers ` +
+        `${JSON.stringify(Object.fromEntries(markers))}.`,
+    );
+    expect(registry).toEqual(APPROVED_MAP);
   });
 });
 
 describe('the page registry is consistent with itself', () => {
-  it('orders the pages as D17 A does', () => {
+  it('orders the pages as the approved map does', () => {
     expect(PAGES.map((page) => page.id)).toEqual([
       'which_events',
       'card_header',

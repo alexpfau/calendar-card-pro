@@ -1,10 +1,10 @@
 /**
  * The page registry: where every field the builders build is drawn.
  *
- * Placement is candidate A's page map, the headings and their order are the implementation
- * plan's Appendix A, and each field's appearance says how a page shows it. Nothing here decides
- * whether a field exists; the builders do, and `tests/editor-page-registry.test.ts` reconciles
- * this table against everything they build, in both directions, over the whole gate corpus.
+ * Placement, headings and their order are the approved page map, and each field's appearance
+ * says how a page shows it. Nothing here decides whether a field exists; the builders do, and
+ * `tests/editor-page-registry.test.ts` reconciles this table against everything they build, in
+ * both directions, over the whole gate corpus, and pins where each field goes against that map.
  */
 
 import {

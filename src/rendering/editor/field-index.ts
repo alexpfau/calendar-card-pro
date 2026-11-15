@@ -21,6 +21,7 @@ import * as Entities from './entities';
 import * as Filter from './filter';
 import { corpus } from './gates';
 import type { HaFormSchema, SelectorSchema } from './ha-form';
+import { computeHelper, computeLabel, computeSubformHelper, lookup } from './localize';
 import { PANELS, type SchemaCtx, walkSchema } from './panels';
 import * as Routing from './routing';
 import { ENTITY_PATH } from './schemas/calendars';
@@ -37,6 +38,7 @@ import * as Synthetic from './synthetic';
 import * as Workspace from './workspace';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
+import { entityScopeFor } from '../../config/view';
 import * as Helpers from '../../utils/helpers';
 import { showsEventWeather } from '../../utils/weather-position';
 
@@ -253,6 +255,46 @@ export function buttonFieldIndex(buttonSchema: ReadonlyArray<HaFormSchema>): Fie
   const fields = new Map<FieldId, IndexedField>();
   indexLeaves(fields, 'button', buttonSchema, TOOLBAR_BUTTON_PATH, (name) => [name]);
   return { fields };
+}
+
+/**
+ * A field's label, worded as the form it was built for words it today: through the label path
+ * the index keeps for it, which its lifted form no longer hands `computeLabel` by itself.
+ *
+ * @param field - Indexed field
+ * @param language - Editor language
+ * @returns The label
+ */
+export function fieldLabel(field: IndexedField, language: string): string {
+  return computeLabel(language, field.node, field.labelPath);
+}
+
+/**
+ * A field's helper line, worded as the form it was built for words it today, through its label
+ * path. A card field's is a panel form's (`element.ts` › `_computeHelper`), led by the note on
+ * where its value comes from; a calendar field's is an entry form's, with the layouts its option
+ * affects; a toolbar button field's is a button form's.
+ *
+ * @param field - Indexed field
+ * @param ctx - Schema context the field was built in
+ * @returns The helper, or `undefined` where the form shows none
+ */
+export function fieldHelper(field: IndexedField, ctx: SchemaCtx): string | undefined {
+  const { scope } = parseFieldId(field.id);
+  const { node, labelPath } = field;
+  if (scope === 'calendar') {
+    return computeSubformHelper(ctx.language, ctx.view, node, labelPath, entityScopeFor(node.name));
+  }
+  if (scope === 'button') return computeSubformHelper(ctx.language, ctx.view, node, labelPath);
+
+  const helper = computeHelper(ctx.language, ctx.view, node, labelPath, true);
+  const source = Routing.valueSource(
+    ctx.rawConfig ?? ctx.config,
+    ctx.workspace ?? ctx.view,
+    node.name,
+  );
+  const note = source ? lookup(ctx.language, `value_source.${source}`) : undefined;
+  return [note, helper].filter((part) => part !== undefined).join(' ') || undefined;
 }
 
 /**
