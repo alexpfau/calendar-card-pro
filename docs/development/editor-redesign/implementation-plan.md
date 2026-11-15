@@ -420,7 +420,8 @@ export interface OwnedFrame {
   action object.
 - **Card**: `applyWorkspaceChange(config, frame, incoming, pending, gridResetKeys,
 authoredRootKeys)`, today's path, which already writes only the fields whose value differs from
-  `frame.data` [read].
+  `frame.data` [read]. `write-frames.ts` › `applyOwnedChange` always answers the card's change, an
+  empty one included, so a card change sets the editor's state exactly as it did before PR 4.
 - **Entry (key)**: the key is resolved to an index when the event arrives (an entry that has left
   drops the event). The writer re-projects the entry at event time with
   `entities.ts` › `toEntityFormData(entry, entities)`, which is complete (it spreads the stored
@@ -430,13 +431,38 @@ authoredRootKeys)`, today's path, which already writes only the fields whose val
 - **`_writeFieldValue(owner, fieldId, value)`** builds the incoming data for a card-built control
   (radio groups, chips, swatches, Start Date shortcuts, the tapping switch) from that owner's
   projection and hands it to the same writer, so routing, synthetic fields, pending text and
-  authorship stay one mechanism per owner.
+  authorship stay one mechanism per owner. `_writeFieldValues(owner, values)` writes several of one
+  owner's fields as one change, through one frame whose baseline is the very data the change is
+  built from (`write-frames.ts` › `frameFor`, `withValue`). As built in PR 4, a card field is looked
+  up among those its panel draws now, so a field the configuration gates off cannot be written yet:
+  the universe lives in `field-index.ts`, which brings `gates.ts` and its corpus into the editor
+  chunk, +1.6 to +1.9 KB gzip -9 and a circular import Rollup warns about [measured, PR 4], before
+  PR 5 needs them there. An entry's or a button's field is looked up among those every entry or
+  button declares, so a mode and the value it reveals can be written as one change. Home
+  Assistant's Visibility editor writes a calendar's conditions through it.
 - **`_commit(label, coalesceKey, run)`** takes the history snapshot before `run`, the one after it,
   and records an undo entry when the stored configuration changed (section 5.4).
 
-Today's per-calendar forms pass an index captured at render (`element.ts` ›
-`_entityChanged(index, event)`), which a removal above them shifts. PR 4 moves them, and the button
-forms, onto keyed frames without changing anything a user sees.
+Before PR 4 the per-calendar forms passed an index captured at render (`element.ts` ›
+`_entityChanged(index, event)`), which a removal above them shifted. PR 4 moved them, the button
+forms and Home Assistant's Visibility editor onto keyed frames, and the editor writes what it did
+before. As built:
+
+- **Click actions keep their index until PR 10.** Copy, Paste, Duplicate and Remove, and a button's
+  Move Up, Move Down and Remove, take the index bound at render: a click cannot outlive the render
+  that bound it, since a keyed panel takes a removed owner's actions with it. `_emittedConditions`
+  stays keyed by index until PR 10 re-keys it (section 5.4).
+- **Panels keep their own open state.** Drawn by key, a calendar's panel stays open or closed
+  through a removal, a duplicate or the picker, as a toolbar button's already did. Drawn by place,
+  the next calendar took over a removed one's open panel. This is the one difference a user can see.
+- **Focus after Remove.** A panel drawn by key takes its focused Remove with it, where drawing by
+  place left focus on the same button, by then the next calendar's. So where focus was in the
+  removed calendar's panel, as on a keyboard's Remove, `_focusAfterRemove` moves it to the Remove of
+  the calendar drawn in its place now, opening that calendar's panel where it is closed, since a
+  closed panel draws nothing to focus; to the one before it where the removed calendar was the last;
+  and to the calendar picker where none is left, its form in a group of the editor's own named
+  after the field (`tabindex=-1`), as `ha-form` focuses nothing it draws. Focus held elsewhere stays
+  where it is. Section 5.4's status bar replaces this with the calendar list in PR 10.
 
 ### 3.8 Templates Move Out of `element.ts`
 
@@ -626,9 +652,11 @@ and the `.aliases` strings of its title key, held by #834's check like a field's
 **`hass-key.ts`** (PR 3). `editorEntityIds(config)`, `editorHassKey(previous, next, ids)` and
 `steadyHass(hass, language)` of section 3.6.
 
-**`write-frames.ts`** (PR 4). `WriteOwner` and `OwnedFrame` of section 3.7, and:
+**`write-frames.ts`** (PR 4, as built). `WriteOwner` and `OwnedFrame` of section 3.7, and:
 
 ```ts
+export const CARD_OWNER: WriteOwner;
+export type WrittenField = Pick<IndexedField, 'node' | 'dataPath' | 'lifted'>;
 export interface WriteState {
   readonly config: Types.Config;
   readonly pending: Readonly<Record<string, string>>;
@@ -641,25 +669,51 @@ export function projectionFor(
   owner: WriteOwner,
   state: WriteState,
   workspace: EditorWorkspace,
-): Record<string, unknown>;
+): Record<string, unknown> | undefined; // undefined: an entry or a button that has left
 export function writeSet(
   frame: OwnedFrame,
   incoming: Record<string, unknown>,
 ): ReadonlyArray<ReadonlyArray<string>>; // changed paths
+// Always answers the card's change; undefined for an entry or a button that has left, or one
+// whose write set changes nothing.
 export function applyOwnedChange(
   state: WriteState,
   frame: OwnedFrame, // its data, the baseline, becomes `incoming` once applied
   incoming: Record<string, unknown>,
   hass?: Types.Hass,
-): { config: Types.Config; pending: Record<string, string> } | undefined; // undefined: an empty write set or a gone owner
-export function incomingFor(
+): { config: Types.Config; pending: Record<string, string> } | undefined;
+// For card-built controls: the fields' one-field forms, the owner's data as their baseline;
+// undefined for an entry or a button that has left.
+export function frameFor(
   owner: WriteOwner,
-  field: IndexedField,
-  value: unknown,
+  fields: ReadonlyArray<WrittenField>,
   state: WriteState,
   workspace: EditorWorkspace,
-): Record<string, unknown>; // for card-built controls
+): OwnedFrame | undefined;
+export function withValue(
+  data: Record<string, unknown>,
+  field: WrittenField,
+  value: unknown,
+): Record<string, unknown>; // a field's value laid over form data at its data path
+export function keysByPosition(
+  keys: ReadonlyArray<number>,
+  length: number,
+  mint: () => number,
+): number[]; // a configuration the editor did not send
+export function carryEntryKeys(
+  before: ReadonlyArray<string | Types.EntityConfig>,
+  keys: ReadonlyArray<number>,
+  after: ReadonlyArray<string | Types.EntityConfig>,
+  mint: () => number,
+): number[]; // a list rebuilt a calendar at a time: the picker's `apply`, Quick Setup, their echoes
 ```
+
+`frameFor` and `withValue` replace the first contract's `incomingFor(owner, field, value, state,
+workspace)`, so `_writeFieldValues` is one frame and one change for several fields, its baseline the
+data its incoming data is built from. `WrittenField` is what a write needs of an `IndexedField`, so
+PR 5 hands one over as it is; until then the element finds a field in the schema its owner draws
+(section 3.7), the one-field nesting shared with `field-index.ts` › `liftField` through
+`routing.ts` › `nestedSchema`.
 
 **`navigation.ts`** (PR 5).
 
@@ -1039,7 +1093,7 @@ their contracts are in section 5.
 | `entities.ts`                    | Keyed writers (PR 4); repointing that adopts the calendar's options (PR 10); a reset that respects `CALENDAR_OPTIONS` (PR 14); word-list form data (PR 19).                                                                                                                                                                                                                                                                                                                                                                                                                         | 4, 10, 14, 19       |
 | `buttons.ts`                     | Keyed writers (PR 4); `buttonSummary(entry, localize)`, the row's "Toggle · light.kitchen" (PR 18).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | 4, 18               |
 | `schemas/common.ts`              | `color()` marks its nodes for `colors.ts` (PR 11).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | 11                  |
-| `routing.ts`                     | Exports `atPath` and `writePath` for `write-frames.ts`. Nothing else changes; a write on What This Card Changes uses a frame whose workspace is the line's own destination.                                                                                                                                                                                                                                                                                                                                                                                                         | 4                   |
+| `routing.ts`                     | Exports `atPath` and `writePath` for `write-frames.ts`, and `nestedSchema`, the one-field nesting `field-index.ts` › `liftField` and `_writeFieldValue` share (PR 4). Nothing else changes; a write on What This Card Changes uses a frame whose workspace is the line's own destination.                                                                                                                                                                                                                                                                                           | 4                   |
 | `hass-localize.ts`               | Unchanged; both feeds wrap through `withCardActionLabels`, the steady one keyed differently (section 3.6).                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | 3                   |
 | `localize.ts`                    | Unchanged. `computeAliases` (#834) feeds the search index as it feeds today's filter (PR 8).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | 8                   |
 | `filter.ts`                      | Keeps `withholdInertFields`, `hasFields`, `countFields`, `isHeading`. #834's group opening (`openMatches`, `openMatching`) retires with in-place filtering in PR 8, where results become rows; its `holdsValue` rule (a blank or null is not stored) moves to `plan.ts` › `storedAt` in PR 14; `isStored`, `isSetByCard` and the rest of Essentials Only and Customized Only go in PR 15. Matching moves to `search.ts` (PR 8).                                                                                                                                                     | 8, 14, 15           |
@@ -1051,7 +1105,7 @@ their contracts are in section 5.
 | `strings.ts`, translations       | Section 8.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | all, 20             |
 | `scripts/check-i18n.mjs`         | Section 8.3.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | 1, 5, 6, 10, 11, 17 |
 | `scripts/load-editor-schema.mjs` | Exports `PAGES`, `OVERVIEW_FIELDS`, `ENTRY_GROUPS`, `FAMILIES`, `GATES`, `ENTRY_GATES`, `corpus` and `schemaCtx` (PR 1, built) and `SWATCH_TOKENS` (PR 11).                                                                                                                                                                                                                                                                                                                                                                                                                         | 1, 11               |
-| `AGENTS.md` (Editor section)     | `views/` (PR 5); pages own headings and placement, replacing _Sub-headings are `constant` nodes_ and _Where a new option goes_ (PR 6); the calendar list replacing _The picker shows calendars_ (PR 10); the shown-set rule and one reset path (PR 15).                                                                                                                                                                                                                                                                                                                             | 5, 6, 10, 15        |
+| `AGENTS.md` (Editor section)     | A write's owner by key, focus after Remove, and the keys moving with the picker's `apply` (PR 4); `views/` (PR 5); pages own headings and placement, replacing _Sub-headings are `constant` nodes_ and _Where a new option goes_ (PR 6); the calendar list replacing _The picker shows calendars_ (PR 10); the shown-set rule and one reset path (PR 15).                                                                                                                                                                                                                           | 5, 6, 10, 15        |
 
 ### 4.3 What Retires
 
@@ -1444,7 +1498,12 @@ toolbar's buttons today (`element.ts` › `_buttonKeysFor`). PR 4 introduces it 
 frames (section 3.7); every list operation in `calendar-list.ts` moves keys with their entries, a new
 entry takes `_nextEntryKey++`, and a configuration the editor did not send reassigns keys by
 position. An entry page's route holds the key, so moves, removals elsewhere and undo never open the
-wrong entry.
+wrong entry. As built in PR 4 on today's panels: Duplicate gives the copy a new key and Remove
+takes the removed entry's away; the calendar picker, Quick Setup's previews, Apply and Cancel, and
+the echo of the editor's own write carry keys by calendar and order (`write-frames.ts` ›
+`carryEntryKeys`, which mirrors the picker's `apply`); a configuration the editor did not send
+keeps each place's key; and `_entryKeysFor` follows by place a list whose length moved some other
+way.
 
 **A calendar with one entry** is one row: the drag handle (section 5.11), a color dot
 (`aria-hidden`), the label, the calendar's name (`name`, else `entities.ts` › `entityDisplayName`),
@@ -2075,29 +2134,29 @@ add to the editor chunk, code, CSS and English strings, gzip -9 through `node:zl
 (section 10); a PR that would exceed it stops and reports instead of merging. The card chunk's
 sha256 never changes.
 
-| PR  | Title                                    | Step | Lines (est.)                               | New English strings                | Cap (gzip -9)                                   |
-| --- | ---------------------------------------- | ---- | ------------------------------------------ | ---------------------------------- | ----------------------------------------------- |
-| 1   | Field Index, Page Registry & Gate Corpus | 1    | 1,600; built at 4,084, 2,098 of them tests | 19, ten gate phrases among them    | +0.43 KB, measured                              |
-| 2   | Test Harness by Field Id                 | 1    | 1,700                                      | 0                                  | 0                                               |
-| 3   | Render Cost & Identity                   | 1    | 1,100                                      | 0                                  | +2.1 KB, raised from +0.8 KB; measured +2.08 KB |
-| 4   | Write Owners & Frames                    | 1    | 1,200                                      | 0                                  | +0.5 KB                                         |
-| 5   | Overview, Pages & Navigation             | 1    | 2,000                                      | about 32; 16 changed               | +4.0 KB                                         |
-| 6   | Builders Hand Presentation to Pages      | 1    | 900                                        | minus 25 to 43                     | below 0                                         |
-| 7   | Undo & Redo                              | 1    | 1,200                                      | about 22                           | +1.7 KB                                         |
-| 8   | Jump List                                | 1    | 900                                        | about 8                            | +1.1 KB                                         |
-| 9   | Calendar List Algebra                    | 2    | 800                                        | about 10                           | +0.8 KB                                         |
-| 10  | Calendar List & Entry Pages              | 2    | 2,000                                      | about 42                           | +2.6 KB                                         |
-| 11  | Color Control                            | 2    | 1,300                                      | about 20, plus 19 English-only     | +2.6 KB                                         |
-| 12  | Split This Calendar                      | 2    | 2,300                                      | about 40                           | +4.8 KB                                         |
-| 13  | Reordering: Drag & Keyboard Grab         | 2    | 900                                        | about 5                            | +1.8 KB                                         |
-| 14  | Shown-Set Plan & One Reset Path          | 3    | 1,400                                      | about 1                            | +0.6 KB                                         |
-| 15  | Show What Applies                        | 3    | 2,200                                      | about 63                           | +3.2 KB                                         |
-| 16  | What This Card Changes & Notices         | 3    | 1,400                                      | about 24                           | +1.8 KB                                         |
-| 17  | Search, Full                             | 4    | 1,500                                      | about 11, plus about 14 alias keys | +2.0 KB                                         |
-| 18  | Event-Part Chips & Toolbar               | 5    | 1,500                                      | about 19                           | +1.5 KB                                         |
-| 19  | Start Date, Tapping & Word Lists         | 5    | 1,000                                      | about 9                            | +1.0 KB                                         |
-| 20  | Translations                             | 6    | 4,000 (data)                               | 0                                  | measured rate × count                           |
-| 21  | Docs, Accessibility Pass & Media         | 6    | 1,500                                      | fixes only                         | +0.3 KB                                         |
+| PR  | Title                                    | Step | Lines (est.)                               | New English strings                | Cap (gzip -9)                                                                                 |
+| --- | ---------------------------------------- | ---- | ------------------------------------------ | ---------------------------------- | --------------------------------------------------------------------------------------------- |
+| 1   | Field Index, Page Registry & Gate Corpus | 1    | 1,600; built at 4,084, 2,098 of them tests | 19, ten gate phrases among them    | +0.43 KB, measured                                                                            |
+| 2   | Test Harness by Field Id                 | 1    | 1,700                                      | 0                                  | 0                                                                                             |
+| 3   | Render Cost & Identity                   | 1    | 1,100                                      | 0                                  | +2.1 KB, raised from +0.8 KB; measured +2.08 KB                                               |
+| 4   | Write Owners & Frames                    | 1    | 1,200; built at 2,018, 1,011 of them tests | 0                                  | +1.2 KB, raised from +0.5 KB; measured +1.41 KB; a proposed cap of +1.4 KB, awaiting approval |
+| 5   | Overview, Pages & Navigation             | 1    | 2,000                                      | about 32; 16 changed               | +4.0 KB                                                                                       |
+| 6   | Builders Hand Presentation to Pages      | 1    | 900                                        | minus 25 to 43                     | below 0                                                                                       |
+| 7   | Undo & Redo                              | 1    | 1,200                                      | about 22                           | +1.7 KB                                                                                       |
+| 8   | Jump List                                | 1    | 900                                        | about 8                            | +1.1 KB                                                                                       |
+| 9   | Calendar List Algebra                    | 2    | 800                                        | about 10                           | +0.8 KB                                                                                       |
+| 10  | Calendar List & Entry Pages              | 2    | 2,000                                      | about 42                           | +2.6 KB                                                                                       |
+| 11  | Color Control                            | 2    | 1,300                                      | about 20, plus 19 English-only     | +2.6 KB                                                                                       |
+| 12  | Split This Calendar                      | 2    | 2,300                                      | about 40                           | +4.8 KB                                                                                       |
+| 13  | Reordering: Drag & Keyboard Grab         | 2    | 900                                        | about 5                            | +1.8 KB                                                                                       |
+| 14  | Shown-Set Plan & One Reset Path          | 3    | 1,400                                      | about 1                            | +0.6 KB                                                                                       |
+| 15  | Show What Applies                        | 3    | 2,200                                      | about 63                           | +3.2 KB                                                                                       |
+| 16  | What This Card Changes & Notices         | 3    | 1,400                                      | about 24                           | +1.8 KB                                                                                       |
+| 17  | Search, Full                             | 4    | 1,500                                      | about 11, plus about 14 alias keys | +2.0 KB                                                                                       |
+| 18  | Event-Part Chips & Toolbar               | 5    | 1,500                                      | about 19                           | +1.5 KB                                                                                       |
+| 19  | Start Date, Tapping & Word Lists         | 5    | 1,000                                      | about 9                            | +1.0 KB                                                                                       |
+| 20  | Translations                             | 6    | 4,000 (data)                               | 0                                  | measured rate × count                                                                         |
+| 21  | Docs, Accessibility Pass & Media         | 6    | 1,500                                      | fixes only                         | +0.3 KB                                                                                       |
 
 Every PR also updates `docs/guide/installation.md`'s editor size sentence when its change crosses a
 kilobyte (`scripts/check-bundle.mjs` › `DOC_SIZES`), and states in its body the before and after
@@ -2320,14 +2379,17 @@ Behavior-preserving, on today's panels.
 
 ### PR 4 · Write Owners & Frames
 
-Behavior-preserving.
+Behavior-preserving in what the editor writes; built as below, on the feature branch, with the
+differences section 3.7 records as built.
 
 - **Scope.** Section 3.7: `write-frames.ts`; `_entryKeys` and `_nextEntryKey`; today's per-calendar
   and button forms rendered with Lit's keyed `repeat`, keyed by their owner's key, and capturing
   that owner and the workspace at render; entries and buttons re-projected at event time and only
   the event's write set overlaid; `_writeFieldValue(owner, fieldId, value)` and
-  `_writeFieldValues(owner, values)` for the card-built controls of later PRs; `routing.ts` exports
-  `atPath` and `writePath`.
+  `_writeFieldValues(owner, values)` for the card-built controls of later PRs, which Home
+  Assistant's Visibility editor already writes through; `routing.ts` exports `atPath`, `writePath`
+  and `nestedSchema`; focus after Remove (`_focusAfterRemove`) and the calendar picker's focus
+  group.
 - **Keys through today's picker.** Until PR 10 the calendar picker adds, removes and reorders
   entries (`synthetic.ts` › `SYNTHETIC_FIELDS.calendars`' `apply`), so its writes move keys with
   their entries: an added calendar takes a new key, a removed one takes its key with it, a
@@ -2347,10 +2409,43 @@ Behavior-preserving.
   - `_writeFieldValue(entry(key), 'calendar:color', '#f00')` keeps the entry's name, filters,
     visibility and an unknown key (the engineering review's counterexample, where `writeEntity` given
     `{ color }` alone dropped them);
-  - the same for a button; a late event from a removed entry or button is dropped.
+  - the same for a button; a late event from a removed entry or button is dropped;
+  - as built besides: the entries and the buttons after a removed one sending changes before the
+    removal is drawn, each written to its own; a calendar listed twice moved by the picker with
+    both its entries; a field returned to its first value after another form's write and a render;
+    a stale button form's next change keeping an action another write changed, sent as `ha-form`
+    sends it, keeping the data it sends; an action compared whole (an equal one in another object
+    is no change) and written whole; `_writeFieldValue` for the card through its workspace, for two
+    fields at once (an accent mode and the color it reveals), and refusing a field or an owner it
+    has none of; keys through Quick Setup and from outside; focus after a keyboard Remove to the
+    next calendar's Remove (its closed panel opening), to the one before it after the last, and to
+    the calendar picker when none is left, and left alone when it was elsewhere. 30 tests, each run
+    with the defect it exists for planted against an unmutated control: panels drawn by place, an
+    owner resolved by the index it had at render (entries and buttons), even one that still drops a
+    change from an owner that has left, one baseline shared by every event, a baseline frozen at
+    first render, one no render resets, an action compared as the same object rather than an equal
+    one, a changed action merged into the one it replaces, the write set written alone through
+    `writeEntity`, a reordered calendar taking a new key, a key leaking into the configuration, no
+    focus target after Remove, focus moved where it was not, a closed panel left closed;
+  - the harness places a calendar's panel by its key and still holds the panels drawn to the blocks
+    the editor's filter keeps, as many, one each and in list order; three tests in
+    `tests/editor-host.test.ts` pin that it fails on a panel missing, two keyed alike and panels out
+    of order, which reading panels by key alone lets through.
 - **Done when.** Those pass and the harness suite passes unchanged.
-- **Live review.** None visible; optionally edit two calendars' panels in quick succession on the
-  wall card, and remove the first calendar, then edit the next.
+- **Bytes, as built.** Editor +4,732 B raw, +1,414 B gzip -9 (185,936 B) over PR 3's head, the
+  card's sha256 `fbce536bd288…` unchanged; `docs/guide/installation.md` moves from 600 KB to
+  605 KB. Over PR 3 before its warm-up fix the same change measured +1,370 B, and removed from that
+  build each piece saved gzip -9: the field-write API 277 B, which later PRs call, so the cap is
+  raised from +0.5 KB to +1.2 KB; restoring focus after Remove 209 B, which takes it past that;
+  keys moved by Duplicate and Remove 29 B; keys carried through echoes and Quick Setup 22 B; keyed
+  drawing 4 B; the owner frames and write sets the remaining 829 B. The +1,414 B is 214 B over the
+  +1.2 KB cap and 14 B over a proposed cap of +1.4 KB, both awaiting a decision.
+- **Live review.** On the wall card: remove a calendar with the keyboard (focus lands on the next
+  calendar's Remove, its panel open), then the last (the one before it), then every calendar of a
+  one-calendar card (the calendar picker); remove one with the mouse in desktop Safari, which
+  focuses no button, so focus moves only where it was inside that calendar's panel; each calendar's
+  panel keeps its own open state through Remove, Duplicate and the picker; edit two calendars'
+  panels in quick succession, and remove the first calendar, then edit the next.
 - **Must not regress.** Copy and Paste, calendar options shared across entries, the conditions
   editor's open condition across a write.
 
@@ -3172,6 +3267,10 @@ and invalid colors written) are reversed above and gone from this list.
 | 46  | A chip's gate line is the clause `gate.when.pressed`, "{part} is pressed", inside the one `gate.line` template (5.2)                                                                                                                                                                                                                                    | `gate.line_pressed` and a bare twin of it, two more templates for the same sentence                                                                                                                                                                                    |
 | 47  | A panel keeps its forms after it closes (PR 3)                                                                                                                                                                                                                                                                                                          | Unmount on close, which discards the open state of the groups inside it                                                                                                                                                                                                |
 | 48  | A hidden warm-up, read from the editor's schemas and the values its forms hold, loads the elements Home Assistant imports on first use, and what each configured action and each calendar's conditions draw, before any panel first opens; drawn away once nothing below it is left undefined (PR 3)                                                    | Mount every panel's forms as the editor opens, the cost PR 3 removes; accept panels opening short on their first click; or warm element types alone, which leaves what a configured action or condition draws loading on first open                                    |
+| 49  | A calendar's panel keeps its own open or closed state through a removal, a duplicate or the picker, as a toolbar button's does (PR 4)                                                                                                                                                                                                                   | Draw by place, which hands a removed calendar's panel, and its listeners, to the next calendar                                                                                                                                                                         |
+| 50  | After Remove takes the focused button with its panel, focus goes to the Remove of the calendar drawn in its place, its panel opening, else to the one before it, else to the calendar picker in a focus group of the editor's own; focus held elsewhere stays (PR 4, until PR 10)                                                                       | Let focus fall where the browser drops it; or keep drawing by place, which kept focus on the next calendar's Remove only by handing it the removed one's panel                                                                                                         |
+| 51  | `_writeFieldValue` finds a card field among those its panel draws now, an entry's or a button's among those every entry or button declares (PR 4)                                                                                                                                                                                                       | Import `field-index.ts` for the universe, which brings `gates.ts` and its corpus into the editor chunk, +1.6 to +1.9 KB gzip -9 and a circular import, before PR 5 needs them                                                                                          |
+| 52  | Click actions (Copy, Paste, Duplicate, Remove, a button's moves) keep the index bound at render until PR 10; forms and the Visibility editor resolve their key when a change arrives (PR 4)                                                                                                                                                             | Resolve every click by key, which a keyed panel makes moot: a click cannot outlive the render that bound it                                                                                                                                                            |
 
 ## 13. Findings
 
