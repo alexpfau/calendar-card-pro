@@ -154,11 +154,13 @@ Family lunch is on Anna's, Ben's and Leo's calendars at once. [`filter_duplicate
 
 ### A Birthday That Counts Itself
 
-Grandma's birthday is a yearly all-day event on the Family calendar, called _🎂 Grandma's birthday_, with `YEAR=1956` in its description. The card adds her age to the title, so the 2026 banner reads _🎂 Grandma's birthday (70)_ and the 2027 one says 71, with nothing to edit. Because the age is part of the title, it shows even in the grid, where a banner shows its title and nothing else. See [Birthday Ages & Anniversary Counts](/features/event-content#birthday-ages-anniversary-counts).
+Grandma's birthday is a yearly all-day event on the Family calendar, called _🎂 Grandma's birthday_, with `YEAR=1956` in its description. The card adds her age to the title, so the 2026 banner reads _🎂 Grandma's birthday (70)_ and the 2027 one says 71, with nothing to edit. Because the age is part of the title, it shows even in the grid, where an all-day banner shows its title and nothing else. See [Birthday Ages & Anniversary Counts](/features/event-content#birthday-ages-anniversary-counts).
 
 ### The All-Day Band
 
 In grid view, all-day events get a band between the dates and the hours, and an event that runs for several days is one banner across them, like daycare closing for two days. See [All-Day Events](/features/grid-view#all-day-events).
+
+A trip entered with times goes there too once it lasts a full day or longer, such as Ben flying out on Tuesday at 08:00 and back on Thursday at 18:00: one banner with its times at its ends, so the hours stay clear for what happens at home. See [Long Timed Events as Banners](/features/grid-view#long-timed-events-as-banners).
 
 Banners show no label, so the emoji in _🗑️ Recycling collection_ and _🏫 Daycare closed_ are written into the titles in the calendars themselves. They do the job a face does in the timed blocks.
 
@@ -166,7 +168,7 @@ The [Family Agenda](/guide/one-calendar-many-purposes#a-reminder-that-retires-it
 
 ### The Next Seven Days on an Hour Axis
 
-`view: grid` gives each day a column and puts every event at the time it starts, as tall as it is long. With no `start_date`, the seven days start today and move on at midnight; a wall that shows Monday to Sunday is the [first variation](#a-fixed-week-on-a-dedicated-wall). See [Grid View](/features/grid-view).
+`view: grid` gives each day a column and puts every event shorter than a day at the time it starts, as tall as it is long. With no `start_date`, the seven days start today and move on at midnight; a wall that shows Monday to Sunday is the [first variation](#a-fixed-week-on-a-dedicated-wall). See [Grid View](/features/grid-view).
 
 Grid view keeps today's finished events on screen, and an emerald line marks the current time. `weather` puts each day's forecast in its date header, as far ahead as the forecast reaches. See [The Now Line](/features/grid-view#the-now-line) and [Weather in the Grid Layout](/features/weather#weather-in-the-grid-layout).
 
@@ -198,6 +200,7 @@ first_day_of_week: monday
 today_weekday_color: '#34d399'
 today_day_color: '#34d399'
 today_month_color: '#34d399'
+past_date_opacity: 50
 time_grid:
   start_time: '07:00'
   end_time: '22:00'
@@ -208,7 +211,7 @@ time_grid:
   today_background_color: 'color-mix(in srgb, #34d399 12%, transparent)'
 ```
 
-`start_date: start_of_week` holds the current week, and `first_day_of_week: monday` starts that week on Monday rather than wherever Home Assistant does. `past_event_opacity: 100` keeps the week's finished events at full strength, and `min_days_to_show: 7` never shows fewer than seven days, turning the card into a list where they do not fit. Without the toolbar there is room for 40px hours and 13px type, a pixel above grid view's default, and the `today_*` colors paint today's date in the now line's green. On a week that starts on Monday, today moves along the wall, so `today_background_color` tints today's column in the same green, which finds it from across the room. See [A Full Week Without Dimming](/features/grid-view#a-full-week-without-dimming), [Shading Today](/features/grid-view#shading-today) and [Dynamic Start Date](/features/start-date-offset).
+`start_date: start_of_week` holds the current week, and `first_day_of_week: monday` starts that week on Monday rather than wherever Home Assistant does. `past_event_opacity: 100` keeps the week's finished events at full strength, and `min_days_to_show: 7` never shows fewer than seven days, turning the card into a list where they do not fit. Without the toolbar there is room for 40px hours and 13px type, a pixel above grid view's default, and the `today_*` colors paint today's date in the now line's green. On a week that starts on Monday, today moves along the wall, so `today_background_color` tints today's column in the same green, which finds it from across the room, and `past_date_opacity: 50` fades the dates of the days already behind it, while their events stay at full strength. See [A Full Week Without Dimming](/features/grid-view#a-full-week-without-dimming), [Shading Today](/features/grid-view#shading-today), [Today & Past Days](/features/layout-appearance#today-past-days) and [Dynamic Start Date](/features/start-date-offset).
 
 ### A Private Work Calendar
 

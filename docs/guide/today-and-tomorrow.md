@@ -4,13 +4,13 @@ Today and tomorrow on an hour axis, for the breakfast question: where are we in 
 
 ## 🖼️ See It
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_today_and_tomorrow.png" alt="One two-day grid card at three widths, on a phone, in a dashboard section and on a portrait tablet: today and tomorrow from 07:00 to 21:00 as colored blocks with faces, the hour's temperature on events with room for it and the forecast above each column"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_today_and_tomorrow.png" alt="One two-day grid card at three widths, on a phone, in a dashboard section and on a portrait tablet: today and tomorrow from 07:00 to 21:00 as colored blocks with faces, the hour's temperature on the family's events with room for it, but not on Ben's work, and the forecast above each column"><br>
 
 A phone, a dashboard section and an 800px portrait tablet, with a bar filling on the event under way.
 
 ## 📋 Copy the Card
 
-Replace the `calendar.*` ids, the `person.*` labels and `weather.home` with your own, and set `start_time` and `end_time` to your own day. They are hard bounds: an event wholly outside them is not drawn at all, and one that runs past them is cut off at the edge.
+Replace the `calendar.*` ids, the `person.*` labels and `weather.home` with your own, and set `start_time` and `end_time` to your own day. They are hard bounds for a timed event shorter than a day: one wholly outside them is not drawn at all, and one that runs past them is cut off at the edge. An event a full day or longer is a [banner above the hours](/features/grid-view#long-timed-events-as-banners) instead, whatever its times.
 
 ```yaml
 type: custom:calendar-card-pro
@@ -47,6 +47,7 @@ entities:
   - entity: calendar.work
     label: person.ben
     accent_color: '#90a4ae'
+    show_weather: false
   - entity: calendar.family
     accent_color: '#ffb74d'
 time_grid:
@@ -70,7 +71,7 @@ Grid leaves locations off its blocks by default; the popover a tap opens shows t
 | Layout › Card Displays · Time Range & Content | `view: grid`, `days_to_show: 2`                                                                                  | Two days on one hour axis                                                                                                                                                                   |
 | Layout › Time Axis · Events                   | `start_time` / `end_time`, `hour_height: 56px`, `slot_minutes: 30`, `event_font_size: 13px`, `show_progress_bar` | 07:00 to 21:00, ruled every half hour, readable across a kitchen; a bar on the running event                                                                                                |
 | Time Range & Content · Calendars              | `filter_duplicates`, `duplicate_accent_color`, labels and colors                                                 | A face and color per person; shared plans once, in gold                                                                                                                                     |
-| Weather                                       | `position: both`, `event.show_conditions: false`                                                                 | The day's forecast over each column; the hour's icon and temperature in each timed event with room                                                                                          |
+| Weather                                       | `position: both`, `event.show_conditions: false`, `show_weather: false` on Work                                  | The day's forecast over each column; the hour's icon and temperature in each timed event with room, but not beside Ben's meetings                                                           |
 | Card & Header › Toolbar                       | `legend: false`, `view_switcher: false`                                                                          | Add, refresh, paging by arrow or swipe, the date picker and search; no filter or layout switch                                                                                              |
 | Actions & Refresh                             | `event_tap_action: details`, `day_tap_action: add-event`                                                         | The whole event on tap, editable and with Delete where the calendar allows, but not on a shared plan; a tap on a free hour adds an event there, and a hold dragged down draws it to its end |
 
@@ -84,7 +85,7 @@ Grid leaves locations off its blocks by default; the popover a tap opens shows t
 ## 📚 Next Steps
 
 - [Grid View](/features/grid-view) — the axis, its hours and how overlaps are drawn
-- [Weather in the Grid Layout](/features/weather#weather-in-the-grid-layout) — both forecast positions
+- [Weather in the Grid Layout](/features/weather#weather-in-the-grid-layout) — both forecast positions, and [Turning Weather Off for One Calendar](/features/weather#turning-weather-off-for-one-calendar)
 - [Editing & Deleting Events](/features/actions#editing-deleting-events) — what the popover offers
 - [Tapping a Day to Add an Event](/features/actions#tapping-a-day-to-add-an-event) — adding from a free hour, and drawing an event in the grid
 - [Configuration Reference](/reference/configuration) — every option

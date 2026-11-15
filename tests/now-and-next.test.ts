@@ -149,7 +149,7 @@ describe('the Now & Next card behaves as its page describes', () => {
       days_to_show: 2,
       filter_duplicates: true,
       show_empty_today: true,
-      show_countdown: true,
+      show_countdown: 'once_per_day',
       show_progress_bar: true,
       show_location: false,
       show_end_time: false,
@@ -307,6 +307,51 @@ describe('the Now & Next card behaves as its page describes', () => {
     expect(listRows(plain).map((row) => [row.title, row.progress, row.countdown])).toEqual(
       COLLAPSED.map((title) => [title, null, null]),
     );
+  });
+
+  it('says "tomorrow" once, on the first of tomorrow\'s events', async () => {
+    // "'tomorrow' once rather than on every row of the day": today's waits are in hours and
+    // each keeps its own; tomorrow's dentist and piano read the same, so the piano drops it.
+    const card = await mountStory(CARD, WEEK);
+    await tap(card, haCard(card));
+    expect(listRows(card).map((row) => [row.title, row.countdown])).toEqual([
+      ['Bike repair', null],
+      ['Pilates', null],
+      ['Swimming', 'in 2 hours'],
+      ['Zoo 🦒', 'in 5 hours'],
+      ['Groceries', 'in 8 hours'],
+      ['Dentist', 'tomorrow'],
+      ['Piano', null],
+    ]);
+
+    // Control: with `show_countdown: true` the piano says "tomorrow" too.
+    const every = await mountStory(withOptions(CARD, { show_countdown: true }), WEEK);
+    await tap(every, haCard(every));
+    expect(rowTitled(every, 'Piano').countdown).toBe('tomorrow');
+  });
+
+  it('names the day of an event two days long instead of a bar', async () => {
+    // "Or which day of a longer one": Leo's daycare is closed today and tomorrow.
+    const closed: StoryHass = {
+      ...WEEK,
+      payload: {
+        'calendar.leo': [
+          {
+            summary: 'Daycare closed',
+            start: { date: '2026-06-17' },
+            end: { date: '2026-06-19' },
+          },
+        ],
+      },
+    };
+    const card = await mountStory(CARD, closed);
+    expect(listRows(card).map((row) => [row.title, row.progress, row.countdown])).toEqual([
+      ['Daycare closed', null, 'Day 1 of 2'],
+    ]);
+
+    // Control: without `show_progress_bar` the closure names no day.
+    const plain = await mountStory(dropOption(CARD, 'show_progress_bar'), closed);
+    expect(rowTitled(plain, 'Daycare closed').countdown).toBeNull();
   });
 
   it('keeps every event to two short lines: no place, no end time', async () => {
