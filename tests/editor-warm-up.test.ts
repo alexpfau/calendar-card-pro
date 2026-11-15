@@ -46,6 +46,7 @@ import {
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { buildFieldIndex, schemaCtx } from '../src/rendering/editor/field-index';
+import { NO_FILTER } from '../src/rendering/editor/filter';
 import { corpus } from '../src/rendering/editor/gates';
 import { type HaFormSchema, warmSchema } from '../src/rendering/editor/ha-form';
 import { VALUE_SELECTORS } from '../src/rendering/editor/hass-key';
@@ -1056,6 +1057,76 @@ describe('once Home Assistant draws what it holds', () => {
         ['ha-selector-ui_action', NONE],
       ].sort(byJson),
     );
+    await gone(editor);
+  });
+
+  it('forgets an action no drawn form holds any more, so the light it named renders nothing', async () => {
+    const off = (id: string) => ({
+      entity_id: id,
+      state: 'off',
+      attributes: { supported_color_modes: ['onoff'] },
+    });
+    const turnOn = (id: string) => ({
+      action: 'perform-action',
+      perform_action: 'light.turn_on',
+      target: { entity_id: id },
+    });
+    const states = { 'light.porch': off('light.porch'), 'light.hall': off('light.hall') };
+    const hass = fakeHass({ states });
+    const editor = await mountEditor({ ...ANNA, hold_action: turnOn('light.porch') }, { hass });
+    await gone(editor);
+    // The action now turns on another light.
+    editor.setConfig({ ...ANNA, hold_action: turnOn('light.hall') });
+    await editor.updateComplete;
+    await gone(editor);
+    const records = () =>
+      [...(editor as unknown as { _warmed: Map<string, unknown> })._warmed.keys()].filter((key) =>
+        key.includes('light.'),
+      );
+    expect(records()).toEqual([`ha-selector-ui_action ${JSON.stringify(turnOn('light.hall'))}`]);
+    const render = vi.spyOn(editor, 'render');
+    const dimmed = (id: keyof typeof states) => ({
+      ...states[id],
+      attributes: { supported_color_modes: ['onoff'], brightness: 3 },
+    });
+
+    // The light the action named before reports new attributes: nothing renders, nothing is kept.
+    let now = {
+      ...hass,
+      states: { ...states, 'light.porch': dimmed('light.porch') },
+    } as Types.Hass;
+    editor.hass = now;
+    await editor.updateComplete;
+    expect(render).not.toHaveBeenCalled();
+    expect(records()).toHaveLength(1);
+
+    // The control: the light it names now does, and the editor renders to warm it again.
+    now = { ...now, states: { ...now.states, 'light.hall': dimmed('light.hall') } } as Types.Hass;
+    editor.hass = now;
+    await editor.updateComplete;
+    expect(render).toHaveBeenCalled();
+    await gone(editor);
+  });
+
+  it('keeps what it knows of a calendar’s conditions while a search hides the calendar', async () => {
+    const screen = { condition: 'screen', media_query: '(min-width: 0)' };
+    const editor = await mountEditor({
+      ...ANNA,
+      entities: [{ entity: 'calendar.anna', visibility: [screen] }],
+    });
+    expect(warmConditions(editor)!.conditions).toEqual([screen]);
+    await gone(editor);
+
+    // A search that matches nothing draws no calendar, and is then cleared: the conditions it held
+    // to the end are not held again.
+    const search = editor as unknown as { _filter: unknown };
+    search._filter = { ...NO_FILTER, query: 'nothing matches this' };
+    await editor.updateComplete;
+    expect(editor.shadowRoot!.querySelector('ha-expansion-panel.entity-panel')).toBeNull();
+    search._filter = NO_FILTER;
+    await editor.updateComplete;
+    expect(editor.shadowRoot!.querySelector('ha-expansion-panel.entity-panel')).not.toBeNull();
+    expect(warmConditions(editor)).toBeNull();
     await gone(editor);
   });
 

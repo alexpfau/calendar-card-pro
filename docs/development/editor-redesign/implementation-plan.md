@@ -2138,8 +2138,8 @@ sha256 never changes.
 | --- | ---------------------------------------- | ---- | ------------------------------------------ | ---------------------------------- | --------------------------------------------------------------------------------------------- |
 | 1   | Field Index, Page Registry & Gate Corpus | 1    | 1,600; built at 4,084, 2,098 of them tests | 19, ten gate phrases among them    | +0.43 KB, measured                                                                            |
 | 2   | Test Harness by Field Id                 | 1    | 1,700                                      | 0                                  | 0                                                                                             |
-| 3   | Render Cost & Identity                   | 1    | 1,100                                      | 0                                  | +2.3 KB proposed; was 0.8 KB; measured +2.24 KB                                               |
-| 4   | Write Owners & Frames                    | 1    | 1,200; built at 2,018, 1,011 of them tests | 0                                  | +1.2 KB, raised from +0.5 KB; measured +1.42 KB; a proposed cap of +1.4 KB, awaiting approval |
+| 3   | Render Cost & Identity                   | 1    | 1,100                                      | 0                                  | +2.3 KB proposed; was 0.8 KB; measured +2.28 KB                                               |
+| 4   | Write Owners & Frames                    | 1    | 1,200; built at 2,018, 1,011 of them tests | 0                                  | +1.2 KB, raised from +0.5 KB; measured +1.43 KB; a proposed cap of +1.4 KB, awaiting approval |
 | 5   | Overview, Pages & Navigation             | 1    | 2,000                                      | about 32; 16 changed               | +4.0 KB                                                                                       |
 | 6   | Builders Hand Presentation to Pages      | 1    | 900                                        | minus 25 to 43                     | below 0                                                                                       |
 | 7   | Undo & Redo                              | 1    | 1,200                                      | about 22                           | +1.7 KB                                                                                       |
@@ -2373,8 +2373,9 @@ Behavior-preserving, on today's panels.
     stand-ins that draw as Home Assistant's do, it stays until what an event's action, a button's
     action and a `state` condition pick is defined; it warms a service against its target as it
     is when the action is configured, and again once that target's attributes or the services
-    move, not for a state alone; its search and time bounds draw it away regardless, and an
-    earlier warm-up's search does not end a later one holding the same.
+    move, not for a state alone, and forgets one no drawn form holds any more; its search and time
+    bounds draw it away regardless, and an earlier warm-up's search does not end a later one holding
+    the same.
 - **Done when.** The tests pass; the step 0 probe's idle measurement, re-run on this PR's dev build
   in Home Assistant, shows the editor rendering only for changes it draws (renders and milliseconds
   per idle 10 s, before and after, in the PR body); first-open geometry is checked in Home Assistant
@@ -2441,14 +2442,14 @@ differences section 3.7 records as built.
     `tests/editor-host.test.ts` pin that it fails on a panel missing, two keyed alike and panels out
     of order, which reading panels by key alone lets through.
 - **Done when.** Those pass and the harness suite passes unchanged.
-- **Bytes, as built.** Editor +4,732 B raw, +1,419 B gzip -9 (186,250 B) over PR 3's head
-  `1b1f504c`, the card's sha256 `fbce536bd288…` unchanged; `docs/guide/installation.md` moves
+- **Bytes, as built.** Editor +4,732 B raw, +1,426 B gzip -9 (186,298 B) over PR 3's head
+  `4585197d`, the card's sha256 `fbce536bd288…` unchanged; `docs/guide/installation.md` moves
   from 602 KB to 606 KB. Over PR 3 before its warm-up fix the same change measured +1,370 B, and removed from that
   build each piece saved gzip -9: the field-write API 277 B, which later PRs call, so the cap is
   raised from +0.5 KB to +1.2 KB; restoring focus after Remove 209 B, which takes it past that;
   keys moved by Duplicate and Remove 29 B; keys carried through echoes and Quick Setup 22 B; keyed
-  drawing 4 B; the owner frames and write sets the remaining 829 B. The +1,419 B is 219 B over the
-  +1.2 KB cap and 19 B over a proposed cap of +1.4 KB, both awaiting a decision.
+  drawing 4 B; the owner frames and write sets the remaining 829 B. The +1,426 B is 226 B over the
+  +1.2 KB cap and 26 B over a proposed cap of +1.4 KB, both awaiting a decision.
 - **Live review.** On the wall card: remove a calendar with the keyboard (focus lands on the next
   calendar's Remove, its panel open), then the last (the one before it), then every calendar of a
   one-calendar card (the calendar picker); remove one with the mouse in desktop Safari, which
@@ -3327,6 +3328,15 @@ point was settled.
     behavior, Back closing the dialog behind Home Assistant's unsaved-changes prompt after an edit,
     and the first live review on a phone, PR 5's, runs the check.
 12. **The stray branch that broke `git fetch` here is gone**; fetching works again in this worktree.
+13. **Two first opens stay short after PR 3, recorded with no code.** At 400 px a panel holding an
+    `assist` action opens 56 px short, 1,109 px against 1,165: the assist pipeline picker asks for
+    its pipeline list once per instance and draws nothing until it has it, about 20 ms after Home
+    Assistant has measured the panel, and the warm-up's own picker cannot lend it the list
+    [measured, PR 3]. Beside it, the warm-up watches only the entities a value names: one a
+    `perform-action` target reaches only through an area, a device or a label is not watched, so a
+    field such an entity comes to support, a color once its light reports `rgb`, loads on the
+    panel's first open [probe]. Same symptom, rarer still. PR 5 turns Actions & Refresh, where both
+    show, into a page with no measured open; a toolbar button's action keeps its panel until PR 18.
 
 ### Differences From the Approved Design, Decided
 
