@@ -244,6 +244,7 @@ function searchableText(
   text.push(
     EditorLocalize.computeLabel(ctx.language, node, path),
     EditorLocalize.computeHelper(ctx.language, ctx.view, node, path, ctx.workspace !== undefined),
+    EditorLocalize.computeAliases(ctx.language, node, path),
   );
   if (ctx.workspace !== undefined && 'selector' in node) {
     const source = Routing.valueSource(ctx.rawConfig ?? ctx.config, ctx.workspace, node.name);

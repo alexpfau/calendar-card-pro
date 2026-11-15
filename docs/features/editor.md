@@ -361,6 +361,8 @@ collapsed heading.
 
 Search matches what is on screen: the name of a setting, the sentence explaining it, and the choices a dropdown offers. Typing `opacity` finds **Past Event Opacity** and **Event Background Opacity**; typing `iso` finds the week-number control, because that is where the word appears. It also matches the YAML option name, so a key copied out of the [Configuration Options reference](/reference/configuration) leads straight to its control, including the controls the editor names differently from the option they write: `time_24h` finds **Time Format**, and `entities` finds the **Calendars** picker.
 
+It also knows a few words people use for a setting whose name says something else: `12h` or `AM/PM` finds **Time Format**, `hide past` finds **Show Past Events**, `newest first` finds **Event Order**, `tomorrow` finds **Start Date**, and `exclude` finds a calendar's **Blocklist**. A translated editor searches by its own language's words for these, and by the English ones where it has none.
+
 Some searches bring back a whole group rather than one control:
 
 - **A panel's title or helper** shows that panel's relevant controls, including a

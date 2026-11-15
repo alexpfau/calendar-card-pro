@@ -1536,6 +1536,15 @@ _Build commands_ for why that is a reconciliation and not a list. The practical 
 when adding a dropdown: write the `<key>.option.<value>.label` strings in `strings.ts` in
 the same edit, and let `check:i18n` tell you the exact keys it asked for.
 
+**A `<label key>.aliases` string is searched and never shown**: the words users type for a
+setting whose label says something else (`time_format.aliases` holds `12h`). `check:i18n` holds
+it to the key `computeAliases` reads, exactly as it holds a `.helper`, so one filed under a
+group, a heading, an option or a control outside the panels fails rather than silently finding
+nothing. Aliases are exempt from
+the label rules and from the glossary's rejected forms, because they exist to catch the words the
+interface chose not to use. Add one only for a word users have used and the search misses;
+`tests/editor-search-aliases.test.ts` pins the families by value.
+
 **The editor's termbase lives in [`scripts/editor-glossary.mjs`](./scripts/editor-glossary.mjs).**
 It records, per language, the decided form of each UI term and the forms rejected for it,
 and `check:i18n` enforces both: a rejected form anywhere in a governed key is an error, and
