@@ -394,8 +394,95 @@ type LeafPredicate = (
   dataPath: ReadonlyArray<string>,
 ) => boolean;
 
+type GroupSchema = Extract<HaFormSchema, { schema: ReadonlyArray<HaFormSchema> }>;
+
+/**
+ * The label path a group's children are rendered under: Home Assistant qualifies labels only
+ * inside a named collapsible.
+ *
+ * @param node - Group
+ * @param path - Label path the group itself is under
+ * @returns Its children's label path
+ */
+function childLabelPath(node: GroupSchema, path: ReadonlyArray<string>): ReadonlyArray<string> {
+  return node.type === 'expandable' && node.name !== '' ? [...path, node.name] : path;
+}
+
+/**
+ * The configuration path a group's children write under: a named group nests its data unless
+ * it is flattened.
+ *
+ * @param node - Group
+ * @param dataPath - Configuration path the group itself is under
+ * @returns Its children's configuration path
+ */
+function childDataPath(node: GroupSchema, dataPath: ReadonlyArray<string>): ReadonlyArray<string> {
+  return node.name !== '' && node.flatten !== true ? [...dataPath, node.name] : dataPath;
+}
+
+/**
+ * Opens the collapsible groups that hold a match, at any depth, and leaves the rest as declared.
+ *
+ * A group holds a match when one of its fields answers the query, or its own heading does. A
+ * sub-heading never counts, as it never counts as a hit.
+ *
+ * @param schema - Schema to open
+ * @param ctx - Matching context
+ * @param path - Enclosing group names, outermost first
+ * @param dataPath - Enclosing configuration keys, outermost first
+ * @returns The schema with its matching groups open, and whether it held a match at all
+ */
+function openMatching(
+  schema: ReadonlyArray<HaFormSchema>,
+  ctx: FilterCtx,
+  path: ReadonlyArray<string>,
+  dataPath: ReadonlyArray<string>,
+): { schema: HaFormSchema[]; matched: boolean } {
+  let matched = false;
+
+  const opened = schema.map((node): HaFormSchema => {
+    if (!isGroupSchema(node)) {
+      if (!isHeading(node) && matchesQuery(node, path, ctx, dataPath)) matched = true;
+      return node;
+    }
+
+    const inner = openMatching(
+      node.schema,
+      ctx,
+      childLabelPath(node, path),
+      childDataPath(node, dataPath),
+    );
+    const open =
+      inner.matched || (node.type === 'expandable' && matchesQuery(node, path, ctx, dataPath));
+    if (open) matched = true;
+
+    return node.type === 'expandable' && open
+      ? { ...node, schema: inner.schema, expanded: true }
+      : { ...node, schema: inner.schema };
+  });
+
+  return { schema: opened, matched };
+}
+
+/**
+ * Opens the groups of a schema let through whole, because a panel's own heading matched, that
+ * hold a match of their own: a field the query names is then never left behind a closed heading.
+ *
+ * @param schema - Schema shown whole
+ * @param ctx - Matching context
+ * @returns The schema, with the groups holding a match open; unchanged when nothing was typed
+ */
+export function openMatches(schema: ReadonlyArray<HaFormSchema>, ctx: FilterCtx): HaFormSchema[] {
+  if (!hasQuery(ctx.criteria)) return [...schema];
+  return openMatching(schema, ctx, [], []).schema;
+}
+
 /**
  * Filters a schema to the nodes a predicate keeps, groups and all.
+ *
+ * While a search or Customized Only narrows the editor, every collapsible group it keeps opens,
+ * as the panels around it do, so nothing it found is left behind a closed heading. A group let
+ * through whole by its own heading opens the groups inside it that hold a match.
  *
  * @param schema - Schema to filter
  * @param ctx - Search context, or undefined when no group may bypass the predicate
@@ -412,6 +499,7 @@ function filterNodes(
   dataPath: ReadonlyArray<string>,
 ): HaFormSchema[] {
   const kept: HaFormSchema[] = [];
+  const opens = ctx !== undefined && isSearching(ctx.criteria);
 
   for (const node of schema) {
     if (!isGroupSchema(node)) {
@@ -419,8 +507,8 @@ function filterNodes(
       continue;
     }
 
-    const nestsLabels = node.type === 'expandable' && node.name !== '';
-    const nestsData = node.name !== '' && node.flatten !== true;
+    const labelPath = childLabelPath(node, path);
+    const nodeDataPath = childDataPath(node, dataPath);
 
     const wholeGroup =
       ctx !== undefined &&
@@ -429,18 +517,16 @@ function filterNodes(
       matchesQuery(node, path, ctx, dataPath);
 
     const children = wholeGroup
-      ? [...node.schema]
-      : filterNodes(
-          node.schema,
-          ctx,
-          keeps,
-          nestsLabels ? [...path, node.name] : path,
-          nestsData ? [...dataPath, node.name] : dataPath,
-        );
+      ? openMatching(node.schema, ctx, labelPath, nodeDataPath).schema
+      : filterNodes(node.schema, ctx, keeps, labelPath, nodeDataPath);
 
     if (!hasFields(children)) continue;
 
-    kept.push({ ...node, schema: children });
+    kept.push(
+      opens && node.type === 'expandable'
+        ? { ...node, schema: children, expanded: true }
+        : { ...node, schema: children },
+    );
   }
 
   return kept;

@@ -656,7 +656,9 @@ export class CalendarCardProEditor extends LitElement {
       Filter.hasQuery(this._filter) &&
       !this._filter.customizedOnly &&
       Filter.matchesPanel(panel, filterCtx);
-    const schema = wholePanel ? built : Filter.filterSchema(built, filterCtx);
+    const schema = wholePanel
+      ? Filter.openMatches(built, filterCtx)
+      : Filter.filterSchema(built, filterCtx);
 
     const data = this._formData();
     // Key the form node as well as its callback: reusing a node would redirect its

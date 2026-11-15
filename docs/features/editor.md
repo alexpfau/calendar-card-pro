@@ -370,7 +370,7 @@ Some searches bring back a whole group rather than one control:
   of that calendar, on each of its blocks, and keeps the **Calendars** picker that lists it.
 - **A label** shows every setting of the block that carries it.
 
-**Customized Only** hides everything still set to the value the card would use anyway, leaving exactly what this card changes. Three things follow their own rule under it:
+**Customized Only** hides everything still set to the value the card would use anyway, leaving exactly what this card changes, with every panel and group it leaves open. Three things follow their own rule under it:
 
 - **Calendars** show only the ones you have given settings of their own, which is a quick way to see which calendars have a color or a label and which simply follow the card.
 - **Per-calendar options** count as customized when they are set at all. Several of them mean "follow the card" when left alone, so `Show Time: Off` on one calendar is a real setting rather than a default.
