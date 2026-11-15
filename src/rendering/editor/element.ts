@@ -1685,8 +1685,7 @@ export class CalendarCardProEditor extends LitElement {
    *
    * One button, so the whole banner is the target: a primary-color badge, the title and one line
    * saying what it does, and a chevron. Drawn from Home Assistant's theme variables, so it follows
-   * any theme, light or dark (Alex picked this over a filled button and a card with example
-   * chips, Nov 10).
+   * any theme, light or dark (chosen over a filled button and a card with example chips).
    *
    * @param ctx - Current editor context
    * @returns The entry
