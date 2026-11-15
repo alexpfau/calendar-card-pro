@@ -41,6 +41,7 @@ import * as EditorLocalize from './localize';
 import * as Misplaced from './misplaced';
 import * as Navigation from './navigation';
 import {
+  CALENDARS_BLOCK,
   type HeadingDef,
   OVERVIEW_FIELDS,
   PAGES,
@@ -1308,15 +1309,7 @@ export class CalendarCardProEditor extends LitElement {
     const shown = new Set<FieldId>();
     for (const panel of PANELS) {
       const built = builtSchema(panel, ctx);
-      // Only a typed query may let a whole panel through by its name: on an empty one every
-      // panel matches, and Essentials Only would show all it hides.
-      const wholePanel =
-        Filter.hasQuery(this._filter) &&
-        !this._filter.customizedOnly &&
-        Filter.matchesPanel(panel, filterCtx);
-      const schema = wholePanel
-        ? Filter.openMatches(built, filterCtx)
-        : Filter.filterSchema(built, filterCtx);
+      const schema = Filter.filterSchema(built, filterCtx);
       this._countHidden(built, schema);
       schemas.set(panel.id, schema);
       for (const { node, dataPath } of walkSchema(schema)) {
@@ -1334,12 +1327,24 @@ export class CalendarCardProEditor extends LitElement {
         for (const { offered, schema: kept } of forms) this._countHidden(offered, kept);
       }
     }
-    // A page is let through whole by its own title, as a panel is by its: the pages' titles are
-    // the ones the overview shows.
+    // A page is let through whole by its own title, and a heading by its title or the line under
+    // it, as the panels and the groups that held these fields were by theirs.
     if (!this._filter.customizedOnly) {
       for (const page of PAGES) {
-        if (!Filter.matchesText([page.id, this._pageTitle(page, ctx)], filterCtx)) continue;
-        for (const heading of page.headings) for (const [id] of heading.fields) shown.add(id);
+        const wholePage = Filter.matchesText([page.id, this._pageTitle(page, ctx)], filterCtx);
+        for (const heading of page.headings) {
+          const named =
+            wholePage ||
+            Filter.matchesText(
+              [
+                heading.key,
+                this._headingTitle(heading, ctx),
+                heading.helperKey === undefined ? undefined : this._string(ctx, heading.helperKey),
+              ],
+              filterCtx,
+            );
+          if (named) for (const [id] of heading.fields) shown.add(id);
+        }
       }
     }
     return { schemas, shown };
@@ -1756,7 +1761,7 @@ export class CalendarCardProEditor extends LitElement {
     const entries = this._renderEntities(panel, ctx);
     if (picker.length === 0 && entries === nothing) return nothing;
     return html`<section class="page-group" data-heading="calendars">
-      <h3 class="heading" tabindex="-1">${this._string(ctx, panel.titleKey)}</h3>
+      <h3 class="heading" tabindex="-1">${this._string(ctx, CALENDARS_BLOCK.titleKey)}</h3>
       ${this._renderFields(picker, ctx)} ${entries}
     </section>`;
   }
@@ -1948,7 +1953,11 @@ export class CalendarCardProEditor extends LitElement {
     }
     if (page.id === 'size_spacing') {
       const layout = PANELS.find((panel) => panel.id === 'layout')!;
-      const extras = Filter.filterExtras(layout.extras?.(ctx) ?? [], layout, this._filterCtx);
+      const extras = Filter.filterExtras(
+        layout.extras?.(ctx) ?? [],
+        [page.id, this._pageTitle(page, ctx)],
+        this._filterCtx,
+      );
       parts.push(...extras.map((extra) => this._renderExtra(extra)));
     }
     const resets = this._renderResetControls(

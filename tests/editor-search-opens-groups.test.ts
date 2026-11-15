@@ -9,6 +9,9 @@
  * Read from the schema the forms are handed rather than from rendered panels: happy-dom does
  * not render Home Assistant's `ha-form-expandable`, and the flag on the schema is exactly what
  * that element binds (`.expanded=${Boolean(this.schema.expanded)}`).
+ *
+ * The card's builders now emit no collapsible at all (pages draw headings, which never close),
+ * so the promise holds by construction there; the cases below keep it from coming back.
  */
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -51,17 +54,6 @@ function leaves(schema: ReadonlyArray<HaFormSchema>, open = true, depth = 0): Le
   });
 }
 
-/** The collapsible groups of a schema, by name, with whether each is open. */
-function groups(schema: ReadonlyArray<HaFormSchema>): Record<string, boolean> {
-  const found: Record<string, boolean> = {};
-  for (const node of schema) {
-    if (!isGroupSchema(node)) continue;
-    if (node.type === 'expandable') found[node.name] = node.expanded === true;
-    Object.assign(found, groups(node.schema));
-  }
-  return found;
-}
-
 function ctxFor(
   workspace: EditorWorkspace,
   criteria: Partial<FilterCriteria>,
@@ -94,14 +86,16 @@ describe.each(WORKSPACES)('a search in the %s workspace', (workspace) => {
   it.each(['color', 'font', 'opacity', 'weekend'])('leaves no hit for "%s" closed', (query) => {
     const shown = filtered(ctxFor(workspace, { query }));
 
-    // The denominator: hits inside collapsibles exist, so "none is closed" can fail.
-    expect(shown.filter((leaf) => leaf.depth > 0).length).toBeGreaterThan(0);
+    // The denominator: the query finds something, so "none is closed" can fail.
+    expect(shown.length).toBeGreaterThan(0);
     expect(shown.filter((leaf) => !leaf.open).map((leaf) => leaf.name)).toEqual([]);
+    // No hit sits inside a collapsible: the builders emit none.
+    expect(shown.filter((leaf) => leaf.depth > 0).map((leaf) => leaf.name)).toEqual([]);
   });
 });
 
 describe('opening what a search finds', () => {
-  it('opens the groups Customized Only keeps, as it opens their panels', () => {
+  it('leaves what Customized Only keeps in no collapsible', () => {
     const shown = filtered(
       ctxFor('shared', { customizedOnly: true }, {
         time_color: '#ff0000',
@@ -111,26 +105,8 @@ describe('opening what a search finds', () => {
     expect(shown.find((leaf) => leaf.name === 'time_color')).toEqual({
       name: 'time_color',
       open: true,
-      depth: 1,
+      depth: 0,
     });
-  });
-
-  it('opens a group let through whole by its own heading', () => {
-    const ctx = ctxFor('list', { query: 'weekend colors' });
-    const schema = filterSchema(dayHeader(ctx), ctx);
-
-    expect(groups(schema)).toEqual({ weekend_colors: true });
-    expect(leaves(schema).every((leaf) => leaf.open)).toBe(true);
-  });
-
-  it('opens only the groups of a whole panel that hold a match', () => {
-    const ctx = ctxFor('list', { query: 'opacity' });
-    const before = groups(dayHeader(ctx));
-    expect(Object.values(before)).not.toContain(true);
-
-    const opened = groups(openMatches(dayHeader(ctx), ctx));
-    expect(opened.past_days).toBe(true);
-    expect(opened.weekend_colors).toBe(false);
   });
 
   it('leaves a whole panel as declared when nothing was typed', () => {
@@ -188,8 +164,8 @@ describe('the mounted editor', () => {
 
   it('draws every setting of a section its own title let through, none closed', async () => {
     const editor = await mount();
-    // "day" names Day Header itself, so the whole section comes through, its two groups
-    // (Weekend Colors, Past Days) with it.
+    // "day" names Day Header itself, so the whole section comes through, Weekend Colors and
+    // Past Days with it.
     const hits = dayHeaderHits(editor, 'day');
     expect(hits).toEqual(
       expect.arrayContaining(['day_header:past_date_opacity', 'day_header:weekend_day_color']),
@@ -198,6 +174,20 @@ describe('the mounted editor', () => {
     await search(editor, 'day');
     expect(drawn(editor, hits)).toEqual(
       Object.fromEntries(hits.map((id) => [id, { results: true, open: true }])),
+    );
+  });
+
+  it('draws every setting under a heading its own title let through', async () => {
+    const editor = await mount();
+    // "weekend colors" names the Weekend Colors heading and none of the fields under it.
+    const ids = [
+      'day_header:weekend_weekday_color',
+      'day_header:weekend_day_color',
+      'day_header:weekend_month_color',
+    ];
+    await search(editor, 'weekend colors');
+    expect(drawn(editor, ids)).toEqual(
+      Object.fromEntries(ids.map((id) => [id, { results: true, open: true }])),
     );
   });
 

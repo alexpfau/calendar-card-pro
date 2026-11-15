@@ -2,7 +2,7 @@
  * Layout schema rows.
  */
 
-import { blockScope, bool, color, heading, row, text } from './common';
+import { blockScope, bool, color, text } from './common';
 import * as Types from '../../../config/types';
 import * as ViewConfig from '../../../config/view';
 import * as Helpers from '../../../utils/helpers';
@@ -63,36 +63,30 @@ export function buildDisplayViewSchema(language: string): HaFormSchema[] {
  * @param blockKey - Config key holding this view's override block
  * @param daysToShow - Configured day count, which bounds the column floor
  * @param language - Effective language code
- * @returns The density group
+ * @returns The density fields, in the view's own block
  */
-function densityGroup(blockKey: string, daysToShow: number, language: string): HaFormSchema {
-  const schema: HaFormSchema[] = [
+function densityFields(blockKey: string, daysToShow: number, language: string): HaFormSchema {
+  return blockScope(blockKey, [
     {
-      type: 'grid',
-      name: '',
-      schema: [
-        {
-          name: 'min_day_width',
-          // No ceiling: `normalizeColumnValue` accepts any positive number, and the
-          // arithmetic in `computeColumnThresholdPxFor` has no upper bound either — a
-          // large floor simply means "give me columns only if each can be this wide",
-          // which is a real config on a wide dashboard card. A `max` here made that
-          // unauthorable in the editor while YAML accepted it, and it was the only
-          // arbitrary ceiling among the editor's numeric selectors (`min_days_to_show`
-          // derives its own from `days_to_show`). The floor is `1` for the same reason:
-          // it is the smallest integer the runtime's `parsed > 0` test admits at this
-          // step. Dropping `max` also settles the control type, since Home Assistant
-          // renders a slider only when both bounds are present — `mode` states that
-          // rather than leaving it to be inferred.
-          selector: { number: { min: 1, step: 1, mode: 'box', unit_of_measurement: 'px' } },
-        },
-        {
-          name: 'min_days_to_show',
-          selector: {
-            number: { min: 1, max: Math.max(1, Math.floor(daysToShow)), step: 1 },
-          },
-        },
-      ],
+      name: 'min_day_width',
+      // No ceiling: `normalizeColumnValue` accepts any positive number, and the
+      // arithmetic in `computeColumnThresholdPxFor` has no upper bound either — a
+      // large floor simply means "give me columns only if each can be this wide",
+      // which is a real config on a wide dashboard card. A `max` here made that
+      // unauthorable in the editor while YAML accepted it, and it was the only
+      // arbitrary ceiling among the editor's numeric selectors (`min_days_to_show`
+      // derives its own from `days_to_show`). The floor is `1` for the same reason:
+      // it is the smallest integer the runtime's `parsed > 0` test admits at this
+      // step. Dropping `max` also settles the control type, since Home Assistant
+      // renders a slider only when both bounds are present — `mode` states that
+      // rather than leaving it to be inferred.
+      selector: { number: { min: 1, step: 1, mode: 'box', unit_of_measurement: 'px' } },
+    },
+    {
+      name: 'min_days_to_show',
+      selector: {
+        number: { min: 1, max: Math.max(1, Math.floor(daysToShow)), step: 1 },
+      },
     },
     {
       name: 'min_days_fallback',
@@ -108,87 +102,44 @@ function densityGroup(blockKey: string, daysToShow: number, language: string): H
         },
       },
     },
-  ];
-
-  return {
-    type: 'expandable',
-    name: blockKey,
-    title: lookup(language, `${blockKey}.density`) ?? humanize('density'),
-    titleKey: `${blockKey}.density`,
-    iconPath: 'M4 5h16v2H4V5m0 6h16v2H4v-2m0 6h16v2H4v-2Z',
-    schema,
-  };
+  ]);
 }
 
 /**
- * The time axis — everything the `time_grid:` block owns that has no top-level counterpart.
+ * The time axis and what the grid draws on it — everything the `time_grid:` block owns that has
+ * no top-level counterpart.
  *
- * These are **top-level captioned runs, not a collapsible**, and that is the whole point.
- * As a collapsed `Time Axis` group beside a collapsed `Grid Density` group, the Layout
- * panel opened on exactly two visible options — `additional_card_spacing` and the card
- * height — while first hour, last hour, height per hour, the now line and every axis
- * control sat behind a disclosure. That inverts the panel: the two options almost nobody
- * touches were the only ones on show, and the ones that decide what a grid card looks
- * like had to be hunted for. A collapsible is for the rare and the advanced; the axis is
- * neither in this view, it *is* the layout.
- *
- * Ordered coarse to fine by what each option decides, the same rule the panels themselves
- * follow: which slice of the day the card draws and how tall that slice is, then the
- * gutter that labels it, then what is laid on top of it and how much of it may stack.
- *
- * `start_time` and `end_time` share a row because they are a pair — a bad half resets
- * both, so reading them apart misleads.
- *
- * 🚨 Each run is wrapped in `blockScope`, never a bare `scope`: storage nesting and label
- * nesting are separate mechanisms, and a bare `scope` would keep the values in
- * `time_grid:` while silently dropping the `time_grid.` prefix their translations are
- * filed under, in all nine languages at once. The three sibling scopes share a name on
- * purpose — `workspaceFields` walks paths rather than keying by name, so they contribute
- * to one `time_grid:` block.
+ * 🚨 Wrapped in `blockScope`, never a bare `scope`: storage nesting and label nesting are
+ * separate mechanisms, and a bare `scope` would keep the values in `time_grid:` while silently
+ * dropping the `time_grid.` prefix their translations are filed under, in all nine languages at
+ * once.
  *
  * @param blockKey - Config key holding this view's override block
  * @param language - Effective language code
- * @returns The captioned runs
+ * @returns The fields, in the view's own block
  */
 function timeAxisFields(blockKey: string, language: string): HaFormSchema[] {
   return [
-    // This heading sits *inside* the scope while the two below sit outside it, and that is
-    // deliberate rather than sloppy. `blockScope` stamps `time_grid.` onto its children,
-    // so this one resolves `time_grid.axis` — the title the collapsible used to carry,
-    // already translated into nine languages. "Time Axis" is the right caption for this
-    // run on its own merits (it is literally the axis: which hours, how often ruled, how
-    // tall), so nothing is bent to keep the strings; they simply come along. The other two
-    // runs have no such key and use ordinary shared `heading_*` names.
     blockScope(blockKey, [
-      heading('axis'),
-      row(text('start_time'), text('end_time')),
-      row(
-        {
-          name: 'slot_minutes',
-          selector: {
-            select: {
-              mode: 'dropdown',
-              options: ([15, 20, 30, 60] as const).map((value) => ({
-                value,
-                label:
-                  lookup(language, `${blockKey}.slot_minutes.option.${value}.label`) ??
-                  String(value),
-              })),
-            },
+      text('start_time'),
+      text('end_time'),
+      {
+        name: 'slot_minutes',
+        selector: {
+          select: {
+            mode: 'dropdown',
+            options: ([15, 20, 30, 60] as const).map((value) => ({
+              value,
+              label:
+                lookup(language, `${blockKey}.slot_minutes.option.${value}.label`) ?? String(value),
+            })),
           },
         },
-        text('hour_height'),
-      ),
-    ]),
-
-    // The gutter, and the two options qualifying it. `axis_label_minutes` follows
-    // `show_axis_labels` because it is moot without it — a cadence read before the switch
-    // that turns labeling off is half an answer — and it sits with `axis_width` because
-    // the two move together: below the hour every label carries minutes, which is what
-    // makes a content-sized gutter wider.
-    heading('heading_hour_labels'),
-    blockScope(blockKey, [
-      row(text('axis_width'), bool('show_axis_labels'), {
+      },
+      text('hour_height'),
+      text('axis_width'),
+      bool('show_axis_labels'),
+      {
         name: 'axis_label_minutes',
         selector: {
           select: {
@@ -201,22 +152,7 @@ function timeAxisFields(blockKey: string, language: string): HaFormSchema[] {
             })),
           },
         },
-      }),
-    ]),
-
-    // What is drawn onto the grid rather than what rules it, and then the two caps on how
-    // much may stack there. The `hour_line_*` and `allday_band_line_*` rows that used to
-    // sit with these are in Separators now, with every other rule the grid draws: a user
-    // restyling "the grid's lines" was being sent to two panels. The shading stays here
-    // because it fills a column rather than ruling one, and nothing in Separators would
-    // caption it. Today's tint follows the weekend's: the same kind of fill, narrowed from a
-    // class of days to one day, which is the coarse-to-fine order a section reads in.
-    //
-    // `overlap_layout` sits directly above `max_simultaneous_events` because it decides
-    // what that cap counts: how many events may share the width side by side. Read the
-    // other way round, the cap would describe a layout the reader has not been shown yet.
-    heading('heading_on_the_grid'),
-    blockScope(blockKey, [
+      },
       color('weekend_background_color'),
       color('today_background_color'),
       bool('show_now_line'),
@@ -264,26 +200,9 @@ const layoutSchema = Helpers.memoizeLast(
   ): HaFormSchema[] => {
     // Grid keeps none of them: `event_spacing` and `event_gap` are inert there and withheld
     // by `VIEW_SCOPE`, and `day_spacing` is the column gutter rather than vertical space
-    // between days, so it is in Separators beside the rules drawn inside it. Building the row
-    // conditionally rather than letting the filter empty it keeps the panel's shape a
-    // decision made here, where it can be read.
-    //
-    // Ordered from the outside in: the space between days, the space between a day's
-    // events, then the space inside each event.
+    // between days, so Separators builds it beside the rules drawn inside it.
     const spacing: HaFormSchema[] =
-      view === 'grid'
-        ? []
-        : [
-            {
-              type: 'grid',
-              name: '',
-              schema: [
-                { name: 'day_spacing', selector: { text: { type: 'text' } } },
-                { name: 'event_gap', selector: { text: { type: 'text' } } },
-                { name: 'event_spacing', selector: { text: { type: 'text' } } },
-              ],
-            },
-          ];
+      view === 'grid' ? [] : [text('day_spacing'), text('event_gap'), text('event_spacing')];
 
     const cardBox: HaFormSchema[] = [
       {
@@ -312,33 +231,17 @@ const layoutSchema = Helpers.memoizeLast(
 
     const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view];
 
-    // Grid leads with the axis and ends with the card box; the other two views keep the
-    // order they always had, spacing first and the card box after it. Both put the
-    // card-level options last, so this is one convention rather than two — the grid simply
-    // has a great deal more to say before it gets there, and captions what it says.
-    //
-    // Only grid is captioned. List and column have four or five plain fields here, and a
-    // heading over a run that short labels the obvious; grid has thirteen, where the
-    // captions are what makes the panel scannable at all.
     const schema: HaFormSchema[] =
       view === 'grid' && blockKey !== undefined
-        ? [...timeAxisFields(blockKey, language), heading('heading_card_size'), ...cardBox]
+        ? [...timeAxisFields(blockKey, language), ...cardBox]
         : [...spacing, ...cardBox];
 
-    // Gated on the view owning these keys, not merely on it owning a block. The group is
-    // the density story — `min_day_width`, `min_days_to_show`, `min_days_fallback` — and
-    // emitting it for any view with a block offered a list card three controls its config
-    // does not accept, each of which would have been stored and then ignored.
-    // `VIEWS_WITH_WIDTH_FALLBACK` is the same concept the width table below is already
-    // gated on. `day_header_gap` was a fourth member until it moved to the Day Header
-    // panel, where it sits with the rule drawn inside it.
-    //
-    // Last in every view that has it, which is now the panel's only collapsible. That is
-    // the convention this editor keeps: a panel's plain options first, its collapsed
-    // subsections after them. It also earns the disclosure honestly — how narrow the card
-    // may get before columns drop is a genuinely advanced question, unlike the axis.
+    // Gated on the view owning these keys, not merely on it owning a block: emitting the
+    // density fields for any view with a block offered a list card three controls its config
+    // does not accept. `VIEWS_WITH_WIDTH_FALLBACK` is the same concept the width table below
+    // is gated on.
     if (blockKey !== undefined && ViewConfig.VIEWS_WITH_WIDTH_FALLBACK.has(view)) {
-      schema.push(densityGroup(blockKey, daysToShow, language));
+      schema.push(densityFields(blockKey, daysToShow, language));
     }
 
     return schema;

@@ -2,17 +2,12 @@
  * Event schema rows.
  */
 
-import { mdiCalendarText } from '@mdi/js';
-
-import type * as Types from '../../../config/types';
 import * as Helpers from '../../../utils/helpers';
 import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx } from '../panels';
 import * as Synthetic from '../synthetic';
 import { resolveWorkspaceOption } from '../workspace';
-import { bool, color, group, heading, number, row, select, text } from './common';
-
-export const EVENTS_ICON = mdiCalendarText;
+import { bool, color, number, select, text } from './common';
 
 /** `off` first: the default reads as the top of the list, and the rest are places. */
 /* Title before time, because the title sits ABOVE the time row on the card -- a dropdown
@@ -56,24 +51,9 @@ export const TIME_POSITION_OPTIONS: ReadonlyArray<string> = ['below', 'title'];
  */
 export const ALLDAY_BADGE_COLOR_MODES: ReadonlyArray<string> = ['accent', 'text', 'custom'];
 
-const TIME_ICON =
-  'M12 20a8 8 0 1 1 8-8 8 8 0 0 1-8 8m0-18a10 10 0 1 0 10 10A10 10 0 0 0 12 2m.5 5H11v6l5.25 3.15.75-1.23-4.5-2.67V7Z';
-const LOCATION_ICON =
-  'M12 11.5A2.5 2.5 0 0 1 9.5 9 2.5 2.5 0 0 1 12 6.5 2.5 2.5 0 0 1 14.5 9a2.5 2.5 0 0 1-2.5 2.5M12' +
-  ' 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7Z';
-const DESCRIPTION_ICON = 'M3 5h18v2H3V5m0 6h18v2H3v-2m0 6h12v2H3v-2Z';
-const PROGRESS_ICON = 'M2 10h20v4H2v-4m2 2h8v0H4v0Z';
-
 /** Card-wide accent modes. No "inherit": nothing sits above the card to inherit from. */
 const ACCENT_COLOR_MODES = ['custom', 'home_assistant'] as const;
 
-/**
- * The time group, and the seven fields it holds once times are shown at all.
- *
- * @param language - Effective language code
- * @param showTime - Whether event times are shown
- * @returns The group
- */
 /**
  * The all-day badge controls: where the pill goes, and -- once it goes anywhere -- which of
  * the four treatments draws it and in which color.
@@ -101,49 +81,34 @@ function alldayBadgeFields(
 
   if (position === null) return [positionField];
 
-  // The mode and the color it governs share a row for the reason `accent_color_mode`
-  // documents above: a grid collapses to one column on a narrow viewport, so a conditional
-  // field placed after the row lands below whatever else the row held.
-  const colorField =
-    colorMode === 'custom'
-      ? row(
-          select(language, 'allday_badge_color_mode', ALLDAY_BADGE_COLOR_MODES),
-          color('allday_badge_color'),
-        )
-      : select(language, 'allday_badge_color_mode', ALLDAY_BADGE_COLOR_MODES);
-
   return [
     positionField,
     select(language, 'allday_badge_style', ALLDAY_BADGE_STYLE_OPTIONS),
-    colorField,
+    select(language, 'allday_badge_color_mode', ALLDAY_BADGE_COLOR_MODES),
+    ...(colorMode === 'custom' ? [color('allday_badge_color')] : []),
   ];
 }
 
 /**
- * The time group — how the time line looks, once there is one.
+ * How the time line looks, once there is one. `show_time` itself is not here: whether the line
+ * exists at all is the switch that gates these.
  *
- * `show_time` itself is not here: whether the line exists at all is a content decision
- * and sits in the panel's visible run. Returning an empty array rather than an empty
- * group is what stops a disclosure opening onto nothing; the same contract holds for the
- * three groups below.
- *
- * @param language - Effective language code
  * @param showTime - Whether event times are shown
- * @returns The group, or nothing when times are off
+ * @returns The fields, or none when times are off
  */
-function timeGroup(language: string, showTime: boolean): HaFormSchema[] {
+function timeFields(showTime: boolean): HaFormSchema[] {
   if (!showTime) return [];
 
   return [
-    group(language, 'time', TIME_ICON, [
-      bool('show_end_time'),
-      bool('show_duration'),
-      bool('show_single_allday_time'),
-      bool('show_multiday_allday_time'),
-      bool('time_two_digit_hours'),
-      row(text('time_font_size'), color('time_color')),
-      row(text('time_icon_size'), number('time_max_lines', 0)),
-    ]),
+    bool('show_end_time'),
+    bool('show_duration'),
+    bool('show_single_allday_time'),
+    bool('show_multiday_allday_time'),
+    bool('time_two_digit_hours'),
+    text('time_font_size'),
+    color('time_color'),
+    text('time_icon_size'),
+    number('time_max_lines', 0),
   ];
 }
 
@@ -164,14 +129,14 @@ export function locationCountryFields(language: string, countryMode: string): Ha
 }
 
 /**
- * The location group, whose country handling is a union stored in one key.
+ * How the location line looks, whose country handling is a union stored in one key.
  *
  * @param language - Effective language code
  * @param showLocation - Whether event locations are shown
  * @param countryMode - Derived country-removal mode
- * @returns The group, or nothing when locations are off
+ * @returns The fields, or none when locations are off
  */
-function locationGroup(
+function locationFields(
   language: string,
   showLocation: boolean,
   countryMode: string,
@@ -179,72 +144,60 @@ function locationGroup(
   if (!showLocation) return [];
 
   return [
-    group(language, 'location', LOCATION_ICON, [
-      bool('show_location_allday'),
-      ...locationCountryFields(language, countryMode),
-      row(text('location_font_size'), color('location_color')),
-      row(text('location_icon_size'), number('location_max_lines', 0)),
-    ]),
+    bool('show_location_allday'),
+    ...locationCountryFields(language, countryMode),
+    text('location_font_size'),
+    color('location_color'),
+    text('location_icon_size'),
+    number('location_max_lines', 0),
   ];
 }
 
 /**
- * The description group.
+ * How the description line looks.
  *
- * @param language - Effective language code
  * @param showDescription - Whether event descriptions are shown
- * @returns The group, or nothing when descriptions are off
+ * @returns The fields, or none when descriptions are off
  */
-function descriptionGroup(language: string, showDescription: boolean): HaFormSchema[] {
+function descriptionFields(showDescription: boolean): HaFormSchema[] {
   if (!showDescription) return [];
 
   return [
-    group(language, 'description', DESCRIPTION_ICON, [
-      bool('show_description_allday'),
-      row(text('description_font_size'), color('description_color')),
-      row(text('description_icon_size'), number('description_max_lines', 0)),
-    ]),
+    bool('show_description_allday'),
+    text('description_font_size'),
+    color('description_color'),
+    text('description_icon_size'),
+    number('description_max_lines', 0),
   ];
 }
 
 /**
- * The countdown and progress group — the two things the card says about *when*.
+ * The countdown's and the progress bar's options — the two things the card says about *when* —
+ * each while its switch is on.
  *
- * The countdown's options run coarse to fine: which dates count down at all, then which
- * events, then which of a day's countdowns, then how the count reads.
- *
- * @param language - Effective language code
  * @param showCountdown - Whether the countdown is shown
  * @param showProgressBar - Whether the progress bar is shown
  * @param repeatsApply - Whether the workspace draws a day's events one above the other, which
  *   leaving out repeated countdowns needs; a grid draws every countdown
- * @returns The group, or nothing when neither is on
+ * @returns The fields, or none when neither is on
  */
-function progressGroup(
-  language: string,
+function progressFields(
   showCountdown: boolean,
   showProgressBar: boolean,
   repeatsApply: boolean,
 ): HaFormSchema[] {
-  if (!showCountdown && !showProgressBar) return [];
-
   return [
-    group(language, 'progress', PROGRESS_ICON, [
-      ...(showCountdown
-        ? [
-            number('countdown_max_days', 0),
-            bool('show_countdown_allday'),
-            ...(repeatsApply ? [bool('countdown_once_per_day')] : []),
-            bool('countdown_exact_days'),
-          ]
-        : []),
-      ...(showProgressBar
-        ? [
-            color('progress_bar_color'),
-            row(text('progress_bar_height'), text('progress_bar_width')),
-          ]
-        : []),
-    ]),
+    ...(showCountdown
+      ? [
+          number('countdown_max_days', 0),
+          bool('show_countdown_allday'),
+          ...(repeatsApply ? [bool('countdown_once_per_day')] : []),
+          bool('countdown_exact_days'),
+        ]
+      : []),
+    ...(showProgressBar
+      ? [color('progress_bar_color'), text('progress_bar_height'), text('progress_bar_width')]
+      : []),
   ];
 }
 
@@ -261,7 +214,6 @@ function progressGroup(
  * @param accentMode - Derived card accent mode
  * @param badgePosition - Resolved all-day badge position, or null when off
  * @param badgeColorMode - Derived all-day badge color mode
- * @param view - Layout whose headings are being built
  * @param repeatsApply - Whether leaving out repeated countdowns applies in the workspace
  * @returns The panel's schema
  */
@@ -277,51 +229,17 @@ const eventsSchema = Helpers.memoizeLast(
     accentMode: string,
     badgePosition: Helpers.AlldayBadgePosition | null,
     badgeColorMode: string,
-    view: Types.EffectiveView,
     repeatsApply: boolean,
   ): HaFormSchema[] => [
-    // The switches that decide which lines an event is made of, in one visible run and ahead
-    // of everything that styles them, with the one choice that decides where the time row
-    // goes directly under the switch for it.
-    //
-    // They were one per collapsed group, each leading the styling it gates — which reads
-    // well once you have opened the group and is invisible until you do. On a fresh card
-    // the styling is conditional and mostly absent, so three of those four groups held a
-    // single switch: `Location` was one checkbox behind a disclosure, `Description` the
-    // same, `Countdown & Progress` two. A reader could not discover that this card shows
-    // a location at all without opening a group captioned as though it were about
-    // location *styling*.
-    //
-    // So the switch and its styling split by what they answer: whether the line exists is
-    // a content decision and belongs with the other switches; how it looks is a refinement
-    // of a line that already exists. Each group is now emitted only when its switch is on,
-    // which is why there is no group here holding nothing — a disclosure that opens onto
-    // one checkbox is worse than the checkbox.
-    //
-    // `heading_details` rather than a new key: the per-calendar subform already captions
-    // `show_time` / `show_location` / `show_description` with it, so this is the same
-    // category one level up, and reusing it keeps the two surfaces reading alike in all
-    // nine translated languages instead of putting an English-only caption over the
-    // card-level copy. `What Each Event Shows` was considered and is the wording this
-    // file's heading comment records as already rejected — the headings are terse noun
-    // phrases, and that one collides with the panel about what a card shows.
-    heading('heading_details'),
     bool('show_time'),
-    // Where the time row goes is the same question as whether there is one: together they
-    // decide which lines an event is made of. Not gated on `show_time`, and not in the Time
-    // group, which is emitted only while times are on: with times off a countdown still sits
-    // beside the title when this asks for it, and list view's progress bar still takes a row of
-    // its own. Grid hides it through `VIEW_SCOPE`, where it has no title line to join.
+    // Not gated on `show_time`: with times off a countdown still sits beside the title when
+    // this asks for it, and list view's progress bar still takes a row of its own. Grid hides
+    // it through `VIEW_SCOPE`, where it has no title line to join.
     select(language, 'time_position', TIME_POSITION_OPTIONS),
     bool('show_location'),
     bool('show_description'),
     bool('show_countdown'),
     bool('show_progress_bar'),
-
-    // State affects the whole content layer, before the individual accent and ink choices.
-    // The present before the past: the switch that marks a running event, then how far a
-    // finished one fades.
-    heading('heading_event_state'),
     bool('show_now_indicator'),
     color('now_color'),
     {
@@ -330,56 +248,23 @@ const eventsSchema = Helpers.memoizeLast(
         number: { min: 0, max: 100, step: 'any', mode: 'box', unit_of_measurement: '%' },
       },
     },
-
-    // Accent next, because it is the coarsest of the styling runs: one color, taken from
-    // the calendar, that the bar, the tint and — through the switch leading this run —
-    // every line of text can be drawn from. Those four were spread across the panel with
-    // `title_max_lines` and the background opacity in between, so the accent read as four
-    // unrelated options rather than as one decision with three consequences.
-    heading('heading_accent'),
-    // Still first within it, and still ahead of every color control it governs, which is
-    // the invariant this run was ordered around before it had a heading: it changes what
-    // `event_color` and the four group colors below mean, so a reader meeting it after
-    // picking one has already picked a color that is being overridden. It
-    // forward-references the accent the next control decides; the helper says so.
     bool('accent_event_text'),
-    // The mode and the color it governs are one control, so they share a row. A grid
-    // collapses to a single column on a narrow viewport, so a conditional field placed
-    // after this row would land below whatever else the row held — which is how the
-    // color input ended up separated from its dropdown by `vertical_line_width` on a
-    // phone while reading correctly on a desktop.
-    accentMode === 'custom'
-      ? row(select(language, 'accent_color_mode', ACCENT_COLOR_MODES), color('accent_color'))
-      : select(language, 'accent_color_mode', ACCENT_COLOR_MODES),
+    select(language, 'accent_color_mode', ACCENT_COLOR_MODES),
+    ...(accentMode === 'custom' ? [color('accent_color')] : []),
     text('vertical_line_width'),
-    // With the accent rather than with the title, because the tint is *made* of the accent
-    // — `presentation.ts` mixes it from the same resolved color the bar uses. Reading it
-    // beside a font size suggested it was a property of the event box; it is the third
-    // place the accent shows up.
     number('event_background_opacity', 0, 100, '%'),
-
-    // The title's own four, which were split in two by the accent run above: size and
-    // color came before it, the line limit and the scroll after. Nothing separates them
-    // now, and this is the only run in the panel that styles the title — the four groups
-    // below each style one other line.
-    heading('heading_title'),
-    row(text('event_font_size'), color('event_color')),
+    text('event_font_size'),
+    color('event_color'),
     number('title_max_lines', 0),
     bool('scroll_long_titles'),
-
-    // The two markers an event can carry, as opposed to the text it is made of. The badge
-    // is not inside the time group and not gated on show_time: it marks an event as
-    // all-day, only one of its two positions happens to sit in the time row, and gating
-    // the pair on show_time would make the TITLE pill unreachable for anyone who has
-    // turned times off — exactly the configuration the title position exists to serve.
-    heading(view === 'grid' ? 'heading_icons' : 'heading_icon_and_badge'),
     select(language, 'event_icon_vertical_alignment', ['top', 'middle', 'bottom']),
+    // Not gated on `show_time`: the badge marks an event as all-day, and only one of its two
+    // positions sits in the time row.
     ...alldayBadgeFields(language, badgePosition, badgeColorMode),
-
-    ...timeGroup(language, showTime),
-    ...locationGroup(language, showLocation, countryMode),
-    ...descriptionGroup(language, showDescription),
-    ...progressGroup(language, showCountdown, showProgressBar, repeatsApply),
+    ...timeFields(showTime),
+    ...locationFields(language, showLocation, countryMode),
+    ...descriptionFields(showDescription),
+    ...progressFields(showCountdown, showProgressBar, repeatsApply),
   ],
 );
 
@@ -405,7 +290,6 @@ export function buildEventsSchema(ctx: SchemaCtx): HaFormSchema[] {
     ),
     // Mode and value use the same projection, including a custom color held by this view.
     Synthetic.alldayBadgeColorMode(ctx.config.allday_badge_color),
-    ctx.view,
     workspace !== 'grid',
   );
 }
