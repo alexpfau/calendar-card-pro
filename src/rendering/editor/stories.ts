@@ -8,7 +8,7 @@
  *
  * Only the five stories that work without per-calendar filters are here. Bin Day splits one
  * calendar four ways by words in event titles, and Family Agenda separates work events by a tag
- * in their descriptions; neither can be guessed for someone else's calendars (Alex, Nov 9).
+ * in their descriptions; neither can be guessed for someone else's calendars.
  *
  * 🚨 These are copies of the docs, and `tests/quick-setup-stories.test.ts` reconciles each one,
  * shell and palette, against the first YAML block on its page. Edit both, or that test fails.
