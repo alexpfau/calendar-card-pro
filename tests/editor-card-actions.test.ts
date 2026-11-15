@@ -27,12 +27,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CARD,
   type FormElement,
   changeField,
   fakeHass,
   formOf,
   formsOf,
   mountEditor,
+  openPageOf,
   openPanels,
   valueOf,
 } from './helpers/editor-host';
@@ -350,13 +352,12 @@ describe('the event tap action in the editor', () => {
 
     await changeField(element, 'actions:event_tap_action', { action: 'details' });
 
-    // Both under the same form as the dropdown, and nothing but the action written.
-    expect(formOf(element, 'actions:allow_event_edit')).toBe(
-      formOf(element, 'actions:event_tap_action'),
-    );
-    expect(formOf(element, 'actions:allow_event_delete')).toBe(
-      formOf(element, 'actions:event_tap_action'),
-    );
+    // Both on the dropdown's page, each in a form of its own, and nothing but the action written.
+    await openPageOf(element, 'actions:event_tap_action');
+    const page = element.shadowRoot!.querySelector('.page[data-page="taps_refresh"]')!;
+    for (const id of ['actions:allow_event_edit', 'actions:allow_event_delete']) {
+      expect(page.contains(formOf(element, id)!), id).toBe(true);
+    }
     expect(last(reported)).toEqual({
       entities: ['calendar.anna'],
       event_tap_action: { action: 'details' },
@@ -423,11 +424,13 @@ describe('the event tap action in the editor', () => {
   it('offers the toolbar switch beside the title, and its controls only while it is on', async () => {
     const { element, reported, names } = await mount({});
 
-    const card = formOf(element, 'card:toolbar');
-    expect(card).toBeDefined();
-    expect(names(card!)).toContain('title');
-    expect(names(card!)).not.toContain('tap_action');
-    expect(names(card!)).not.toContain('add_event');
+    // The card's own fields, each in a form of its own, by the ids their wrappers name.
+    const cardIds = () =>
+      formsOf(element, CARD)
+        .map((form) => form.closest('[data-field]')?.getAttribute('data-field') ?? '')
+        .filter((id) => id.startsWith('card:'));
+    expect(cardIds()).toEqual(expect.arrayContaining(['card:title', 'card:toolbar.show']));
+    expect(cardIds()).not.toContain('card:toolbar.add_event');
     expect(valueOf(element, 'card:toolbar')).toEqual({
       show: false,
       navigation: true,
@@ -444,17 +447,19 @@ describe('the event tap action in the editor', () => {
     // (backlog item 182), the filter as a menu, and nothing but the switch is written.
     await changeField(element, 'card:toolbar.show', true);
     expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
-    expect(names(formOf(element, 'card:toolbar')!)).toEqual(
-      expect.arrayContaining([
-        'show',
-        'navigation',
-        'view_switcher',
-        'reset',
-        'refresh',
-        'search',
-        'add_event',
-        'legend',
-      ]),
+    expect(cardIds()).toEqual(
+      expect.arrayContaining(
+        [
+          'show',
+          'navigation',
+          'view_switcher',
+          'reset',
+          'refresh',
+          'search',
+          'add_event',
+          'legend',
+        ].map((name) => `card:toolbar.${name}`),
+      ),
     );
     expect(valueOf(element, 'card:toolbar')).toEqual({
       show: true,

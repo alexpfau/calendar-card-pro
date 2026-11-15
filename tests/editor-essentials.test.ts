@@ -192,15 +192,8 @@ describe('Essentials Only on the editor', () => {
     const editor = await mount();
     await changeFields(editor, { 'filter:essentials_only': true });
 
-    // Panels with no essential field go; the rest stay closed, as they do without it.
-    const panels = [
-      ...root(editor).querySelectorAll<HTMLElement & { expanded: boolean }>(
-        'ha-expansion-panel:not(.entity-panel):not(.button-panel)',
-      ),
-    ];
-    expect(panels).toHaveLength(6);
-    expect(panels.every((panel) => !panel.expanded)).toBe(true);
-    // Read once they are seen closed: a closed panel mounts no form, so each is opened to read.
+    // Every page keeps its row; each page draws its essential fields alone.
+    expect(root(editor).querySelectorAll('[data-focus^="nav:"]')).toHaveLength(7);
     await openPanels(editor);
     expect(panelFields(editor)).toEqual(LIST_ESSENTIALS);
   });
@@ -210,17 +203,19 @@ describe('Essentials Only on the editor', () => {
     await changeFields(editor, { 'filter:essentials_only': true });
     await openPanels(editor);
 
-    expect(panelFields(editor).slice(0, 3)).toEqual([
-      'calendars',
-      'time_grid.start_time',
-      'time_grid.end_time',
-    ]);
+    // The Grid page draws them, after the overview's own.
+    expect(panelFields(editor)[0]).toBe('calendars');
+    expect(panelFields(editor)).toEqual(
+      expect.arrayContaining(['time_grid.start_time', 'time_grid.end_time']),
+    );
   });
 
   it('cuts each calendar’s form to its essentials and keeps what each toolbar button sets', async () => {
     const editor = await mount({
       entities: [{ entity: 'calendar.anna', name: 'Anna', label: '🎂', accent_color: '#ff6c92' }],
     });
+    // The toolbar's own buttons sit on Card & Header.
+    await openPageOf(editor, 'card:title');
     expect(root(editor).querySelectorAll('.button-panel')).toHaveLength(1);
     expect(root(editor).querySelector('.add-button')).not.toBeNull();
 
@@ -232,8 +227,9 @@ describe('Essentials Only on the editor', () => {
     expect(fields).toContain('accent_color');
     expect(fields.filter((name) => !ESSENTIAL_CALENDAR_FIELDS.has(name))).toEqual([]);
     // A button the card has is part of what the card does: its own fields stay, the rest go.
-    expect(root(editor).querySelectorAll('.button-panel')).toHaveLength(1);
     expect(buttonFields(editor).sort()).toEqual(['icon', 'name']);
+    await openPageOf(editor, 'card:title');
+    expect(root(editor).querySelectorAll('.button-panel')).toHaveLength(1);
     expect(root(editor).querySelector('.add-button')).toBeNull();
   });
 
@@ -282,11 +278,11 @@ describe('Essentials Only on the editor', () => {
     // The Events panel, opened as a user would: its group must still be closed inside it.
     await openPageOf(editor, 'events:time_color');
 
+    // A field sits in a form of its own on its page, under the page's own heading, so there is
+    // no group left to open; nor does the form hold one.
     const form = formOf(editor, 'events:time_color')!;
-    const group = form.schema.find(
-      (node) => 'schema' in node && ids(node.schema).includes('time_color'),
-    ) as { expanded?: boolean };
-    expect(group.expanded).not.toBe(true);
+    expect(ids(form.schema)).toEqual(['time_color']);
+    expect(JSON.stringify(form.schema)).not.toContain('"expanded":true');
   });
 
   it('steps aside for a search, which reaches every setting', async () => {
@@ -299,6 +295,7 @@ describe('Essentials Only on the editor', () => {
   it('beside Customized Only, shows what Customized Only shows', async () => {
     const editor = await mount({ title: 'Family', refresh_interval: 60 });
     await changeFields(editor, { 'filter:customized_only': true });
+    await openPanels(editor);
     const customized = panelFields(editor);
     expect(customized).toEqual(expect.arrayContaining(['title', 'refresh_interval']));
     expect(customized).not.toContain('days_to_show');
@@ -358,9 +355,13 @@ describe('Essentials Only in Columns', () => {
 
   it('leaves out the width table, which explains a layout rather than setting it', async () => {
     const editor = await mount({ view: 'column' });
+    // Drawn on Size & Spacing, where the column widths are set.
+    await openPageOf(editor, 'layout:height_mode');
     expect(root(editor).querySelector('.width-table')).not.toBeNull();
 
     await changeFields(editor, { 'filter:essentials_only': true });
+    root(editor).querySelector<HTMLElement>('[data-focus="nav:size_spacing"]')!.click();
+    await editor.updateComplete;
 
     expect(root(editor).querySelector('.width-table')).toBeNull();
   });

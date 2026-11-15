@@ -12,6 +12,7 @@ import {
   formsOf,
   mountEditor,
   openPanels,
+  resetButton,
   valueOf,
 } from './helpers/editor-host';
 import {
@@ -1583,12 +1584,17 @@ describe('editor: the chassis', () => {
     expect(block.height ?? stored.height).toBe('300px');
   });
 
-  it('mounts one form per registered panel', async () => {
+  it('draws each card field in a form of its own, once, across every page', async () => {
     const { element } = await mount({ entities: ['calendar.personal'] });
+    await openPanels(element);
 
-    // `.panel-form` rather than every form: the two hand-written widgets render forms
-    // of their own inside the panels that own them, and those are not panels.
-    expect(formsOf(element, CARD)).toHaveLength(PANELS.length);
+    // Every card form sits in the frame of the one field it draws, and no field is drawn twice.
+    const ids = formsOf(element, CARD).map(
+      (form) => form.closest('[data-field]')?.getAttribute('data-field') ?? '',
+    );
+    expect(ids.length).toBeGreaterThan(PANELS.length);
+    expect(ids.filter((id) => id === '')).toEqual([]);
+    expect(ids.filter((id, at) => ids.indexOf(id) !== at)).toEqual([]);
   });
 
   /**
@@ -4810,9 +4816,7 @@ describe('editor: direct view controls in the chassis', () => {
     expect(rowShown(), 'the row survives the echo of its own value being stripped').toBe(true);
 
     await changeField(element, 'events:event_font_size', '24px');
-    const reset = element.shadowRoot!.querySelector<HTMLButtonElement>(
-      '[data-reset-keys="event_font_size"]',
-    );
+    const reset = await resetButton(element, 'event_font_size');
     expect(reset).not.toBeNull();
     reset!.click();
     await element.updateComplete;
@@ -4826,9 +4830,7 @@ describe('editor: direct view controls in the chassis', () => {
       column: { event_font_size: '22px' } as Types.ColumnOverrides,
     });
 
-    const reset = element.shadowRoot!.querySelector<HTMLButtonElement>(
-      '[data-reset-keys="event_font_size"]',
-    );
+    const reset = await resetButton(element, 'event_font_size');
     expect(reset).not.toBeNull();
     reset!.click();
     await element.updateComplete;

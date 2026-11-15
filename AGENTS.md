@@ -1767,12 +1767,13 @@ moved (`src/utils/hass-relevance.ts`). Two consequences for new code:
 
 ## Editor (`src/rendering/editor/`)
 
-The visual editor is **schema-driven**: each panel is an `<ha-form>` fed by an array of
-plain schema objects, and a schema names a **selector** rather than an element. That is
+The visual editor is **schema-driven**: each field is an `<ha-form>` of its own, fed a plain
+schema object, and a schema names a **selector** rather than an element. That is
 the whole point — Home Assistant renames its input components without notice (`ha-textfield`
 became `ha-input` in 2026.5 and cost us a runtime-detection shim), and a card that names
-selectors is not exposed to it. The element names three Home Assistant components in total:
-`ha-form`, `ha-expansion-panel` and `ha-svg-icon`, plus one exception below.
+selectors is not exposed to it. The element names two Home Assistant components in total,
+`ha-form` and `ha-expansion-panel`, plus one exception below; its icons are inline SVG
+(`views/icon.ts`), sized by the `--mdc-icon-size` Home Assistant's own icons read.
 
 **Never name an HA input element in a schema.** If a panel seems to need one, that is the
 signal to stop, not to reach for `static-html`.
@@ -1795,9 +1796,13 @@ Home Assistant's card editor imports it statically to draw the Visibility tab, s
 before this editor opens, and its name and those two properties have held since 2023.11. Do not
 add a second exception without the same guard and fallback.
 
-Everything except `element.ts` and `styles.ts` is free of Lit and of the DOM. That is
+Everything except `element.ts`, `styles.ts` and `views/` is free of Lit and of the DOM. That is
 load-bearing, not tidiness: it is what lets both the test suite and `check:i18n` import a
 schema and read it, rather than scraping the source that produces it. Keep it that way.
+`views/` holds the overview's and pages' templates and the DOM helpers behind focus, scrolling
+and Escape; what they decide (where Back goes, what Escape does, whether Settings For is compact,
+a section row's summary) lives in DOM-free modules beside the schemas (`navigation.ts`,
+`announce.ts`, `summary.ts`, `workspace.ts`) and is tested there, so a template stays a template.
 
 Five things are easy to get wrong:
 
@@ -1847,11 +1852,15 @@ the card's rule above, with four consequences for new code and tests:
   by design. A selector found reading `states` belongs in `LIVE_SELECTORS`.
   `tests/editor-hass-read-set.test.ts` records every `hass` read the editor makes from its first
   render on, through both feeds, and fails on one outside the key.
-- **A panel mounts its forms the first time it opens**, on `expanded-will-change`, before Home
-  Assistant measures its height, and keeps them when it closes, so the groups inside it keep
-  their state. A test reading a form inside a panel opens it first, with `openPageOf` or
-  `openPanels` from `tests/helpers/editor-host.ts`, the harness editor tests reach forms
-  through, by field id and owner.
+- **A page draws only its own fields, and a panel mounts its forms the first time it opens**, on
+  `expanded-will-change`, before Home Assistant measures its height, and keeps them when it
+  closes, so the groups inside it keep their state. A test reaches a form as a user does, through
+  `tests/helpers/editor-host.ts` by field id and owner: `openPageOf` clicks the overview's row for
+  the field's page (and opens a calendar's or a button's panel), `openPanels` visits every page,
+  and `changeField` does the first for you. A form read off a page the editor has since left is
+  kept by the harness and redrawn when the editor changes, so a test may still read it.
+  `tests/editor-reachability.test.ts` walks every present field to its page over the gate corpus
+  in every scope, which is what proves no field was lost to a page.
 - **The warm-up is load-bearing.** `ha-form` and `ha-selector` import an element the first time a
   form needs it, so a panel mounting its forms as it opens would be measured while those modules
   still load, and open short. The editor therefore draws one hidden form (`ha-form.ts` ›

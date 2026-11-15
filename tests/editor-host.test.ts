@@ -168,28 +168,28 @@ describe('the harness refuses to guess', () => {
     const editor = await mount([ANNA]);
     await openPageOf(editor, 'events:show_time');
     const events = formOf(editor, 'events:show_time')!;
-    // Planted: a second form of the same panel holding the same fields.
+    // Planted: a second form in the same field's wrapper, holding the same field.
     const twin = document.createElement('ha-form') as FormElement;
-    twin.className = 'panel-form';
+    twin.className = 'field-form';
     twin.schema = events.schema;
     twin.data = events.data;
     events.after(twin);
     const place = formsOf(editor).indexOf(events) + 1;
 
     expect(() => formOf(editor, 'events:show_time')).toThrow(
-      `'events:show_time' is drawn twice by the card, in form ${place} (ha-form.panel-form) ` +
-        `and form ${place + 1} (ha-form.panel-form): one owner's field belongs in one form.`,
+      `'events:show_time' is drawn twice by the card, in form ${place} (ha-form.field-form) ` +
+        `and form ${place + 1} (ha-form.field-form): one owner's field belongs in one form.`,
     );
   });
 
   it('fails on a field asked of an owner of another kind, naming the one that draws it', async () => {
-    const editor = await mount([ANNA], { toolbar: { show: true } });
-    await openPageOf(editor, 'button:heading', CARD);
+    const editor = await mount([ANNA]);
+    await openPageOf(editor, 'calendar:name', entry(0));
 
-    expect(() => formOf(editor, 'button:heading')).toThrow(
-      "'button:heading' is drawn by the card, not by any button: pass CARD.",
+    expect(() => formOf(editor, 'calendar:name', CARD)).toThrow(
+      "'calendar:name' is drawn by entry 0, not by the card: pass entry(index).",
     );
-    expect(formOf(editor, 'button:heading', CARD)).toBeDefined();
+    expect(formOf(editor, 'calendar:name', entry(0))).toBeDefined();
   });
 
   describe('fails on calendar panels that are not the blocks the filter keeps', () => {
@@ -291,6 +291,19 @@ describe('a change', () => {
 });
 
 describe('opening a page', () => {
+  it('goes to a card field’s page from the overview’s row, and back for an overview field', async () => {
+    const editor = await mount([ANNA]);
+    expect(formOf(editor, 'events:show_time')).toBeUndefined();
+
+    await openPageOf(editor, 'events:show_time');
+    expect(editor.shadowRoot!.querySelector('.page')!.getAttribute('data-page')).toBe('events');
+    expect(formOf(editor, 'events:show_time')).toBeDefined();
+
+    await openPageOf(editor, 'content:days_to_show');
+    expect(editor.shadowRoot!.querySelector('.page')).toBeNull();
+    expect(formOf(editor, 'content:days_to_show')).toBeDefined();
+  });
+
   it('opens every panel around the field, outermost first, as Home Assistant’s does', async () => {
     const editor = await mount([ANNA, BEN]);
     const announced: string[] = [];
@@ -302,9 +315,8 @@ describe('opening a page', () => {
 
     await openPageOf(editor, 'calendar:name', entry(1));
 
+    // The calendars sit on the overview, in no panel of their own.
     expect(announced).toEqual([
-      'expanded-will-change Calendars',
-      'expanded-changed Calendars',
       'expanded-will-change calendar.ben',
       'expanded-changed calendar.ben',
     ]);
@@ -326,7 +338,7 @@ describe('opening a page', () => {
       seen.push(`changed, now ${state(event)}`),
     );
 
-    await openPageOf(editor, 'events:show_time');
+    await openPageOf(editor, 'calendar:name', entry(0));
 
     expect(seen).toEqual([
       'will change while closed',
@@ -342,9 +354,10 @@ describe('opening a page', () => {
     try {
       const now = Date.now();
       await openPageOf(editor, 'events:show_time');
+      await openPageOf(editor, 'calendar:name', entry(0));
 
       expect(Date.now()).toBe(now);
-      const panel = formOf(editor, 'events:show_time')!.closest('ha-expansion-panel');
+      const panel = formOf(editor, 'calendar:name', entry(0))!.closest('ha-expansion-panel');
       expect((panel as HTMLElement & { expanded: boolean }).expanded).toBe(true);
     } finally {
       vi.useRealTimers();
@@ -358,10 +371,10 @@ describe('opening a page', () => {
       vi.resetModules();
       const fresh = await import('./helpers/editor-host');
       const now = Date.now();
-      await fresh.openPageOf(editor, 'events:show_time');
+      await fresh.openPageOf(editor, 'calendar:name', fresh.entry(0));
 
       expect(Date.now()).toBe(now);
-      const panel = formOf(editor, 'events:show_time')!.closest('ha-expansion-panel');
+      const panel = formOf(editor, 'calendar:name', entry(0))!.closest('ha-expansion-panel');
       expect((panel as HTMLElement & { expanded: boolean }).expanded).toBe(true);
     } finally {
       vi.useRealTimers();

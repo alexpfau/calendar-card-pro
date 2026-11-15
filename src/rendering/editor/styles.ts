@@ -449,4 +449,324 @@ export default css`
     color: var(--disabled-text-color);
     cursor: default;
   }
+
+  /* --- Overview and pages ---------------------------------------------------
+     Drawn by the editor itself from Home Assistant's theme variables. Every target is at least
+     44px tall, nothing is sticky, and labels wrap rather than truncate. */
+  .overview,
+  .page {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .icon {
+    flex: none;
+    width: var(--mdc-icon-size, 24px);
+    height: var(--mdc-icon-size, 24px);
+    fill: var(--icon-primary-color, currentcolor);
+  }
+
+  .icon-button {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    color: var(--primary-text-color);
+    cursor: pointer;
+  }
+
+  .icon-button:hover,
+  .nav-row:hover,
+  .display-choice:hover,
+  .scope-choice:hover {
+    background: var(--secondary-background-color);
+  }
+
+  .icon-button:focus-visible,
+  .nav-row:focus-visible,
+  .text-button:focus-visible,
+  .link:focus-visible,
+  .field:focus-visible,
+  .heading:focus-visible,
+  .page-title:focus-visible,
+  .display-choice:focus-within,
+  .scope-choice:focus-within {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+
+  .heading:focus:not(:focus-visible),
+  .page-title:focus:not(:focus-visible),
+  .field:focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  .label {
+    padding: 0;
+    color: var(--primary-text-color);
+    font-weight: 500;
+  }
+
+  .hint,
+  .page-line {
+    margin: 0;
+    color: var(--secondary-text-color);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .page-line {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    --mdc-icon-size: 16px;
+  }
+
+  .scope,
+  .displays {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+  }
+
+  .scope-compact {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 4px 0 12px;
+    border: 1px solid var(--divider-color);
+    border-radius: 12px;
+    color: var(--secondary-text-color);
+  }
+
+  .scope-line b {
+    color: var(--primary-text-color);
+    font-weight: 500;
+  }
+
+  .scope-choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .scope-choice {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 0 12px 0 6px;
+    border: 1px solid var(--divider-color);
+    border-radius: 22px;
+    cursor: pointer;
+  }
+
+  .scope-choice:has(input:checked),
+  .display-choice:has(input:checked) {
+    border-color: var(--primary-color);
+  }
+
+  .scope-count {
+    color: var(--secondary-text-color);
+    font-size: 12px;
+  }
+
+  .scope-preview {
+    color: var(--warning-color);
+  }
+
+  .display-choices {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
+  }
+
+  .display-choice {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: start;
+    gap: 4px 6px;
+    padding: 8px;
+    border: 1px solid var(--divider-color);
+    border-radius: 12px;
+    cursor: pointer;
+  }
+
+  .display-text {
+    display: flex;
+    flex-direction: column;
+    padding-top: 2px;
+  }
+
+  .display-label {
+    font-weight: 500;
+  }
+
+  .display-description {
+    color: var(--secondary-text-color);
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .display-image {
+    grid-column: 1 / -1;
+    width: 100%;
+    max-height: 72px;
+    object-fit: contain;
+  }
+
+  .row-group {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--divider-color);
+    border-radius: var(--ha-card-border-radius, 12px);
+    padding: 4px 0;
+  }
+
+  .row-group > .heading {
+    padding: 8px 16px 4px;
+  }
+
+  .heading {
+    margin: 0;
+    color: var(--primary-text-color);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+
+  .nav-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    min-height: 56px;
+    padding: 8px 16px;
+    border: none;
+    background: none;
+    color: var(--primary-text-color);
+    cursor: pointer;
+    font: inherit;
+    text-align: start;
+  }
+
+  .nav-icon,
+  .nav-chevron {
+    color: var(--secondary-text-color);
+  }
+
+  .nav-chevron:dir(rtl) {
+    transform: scaleX(-1);
+  }
+
+  .nav-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .nav-summary {
+    color: var(--secondary-text-color);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .quick-setup-entry {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .page-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-inline-start: -8px;
+  }
+
+  .page-head .icon-button:dir(rtl),
+  .page-foot .icon:dir(rtl) {
+    transform: scaleX(-1);
+  }
+
+  .page-titles {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .page-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 500;
+  }
+
+  .page-sub {
+    color: var(--secondary-text-color);
+    font-size: 12px;
+  }
+
+  .page-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .page-foot {
+    padding-top: 12px;
+    border-top: 1px solid var(--divider-color);
+  }
+
+  .page-foot .text-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 44px;
+  }
+
+  .link {
+    min-height: 24px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--primary-color);
+    cursor: pointer;
+    font: inherit;
+    text-decoration: underline;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    border-radius: 4px;
+  }
+
+  .live-region {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .quick-setup-banner {
+      transition: none;
+    }
+  }
 `;

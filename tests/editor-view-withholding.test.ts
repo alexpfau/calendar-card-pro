@@ -136,6 +136,22 @@ function expectedFields(
   });
 }
 
+/**
+ * The fields of every card form drawn, in the order the builders build them: the pages draw them
+ * in the registry's order, which the registry test pins, so here only which fields, and how each is
+ * built, is compared.
+ *
+ * @param editor - Editor
+ * @param built - The fields in builder order
+ * @returns The drawn fields, in that order
+ */
+function drawnInBuiltOrder(editor: CalendarCardProEditor, built: Field[]): Field[] {
+  const order = built.map((field) => field.key);
+  return formsOf(editor, CARD)
+    .flatMap((form) => fields(form.schema))
+    .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
+}
+
 function reconcile(actual: Field[], expected: Field[]): void {
   const actualKeys = actual.map((field) => field.key);
   const expectedKeys = expected.map((field) => field.key);
@@ -180,10 +196,7 @@ describe('view withholding reconciles both directions', () => {
 
       reconcile(fields(Filter.withholdInertFields(raw, view)), expected);
       const editor = await mount(config);
-      reconcile(
-        formsOf(editor, CARD).flatMap((form) => fields(form.schema)),
-        expected,
-      );
+      reconcile(drawnInBuiltOrder(editor, expected), expected);
       expect(schemas).toEqual(before);
     }
   });
@@ -265,17 +278,23 @@ describe('view withholding reconciles both directions', () => {
     ]);
   });
 
-  it('drops a panel emptied by withholding even without a search', async () => {
+  it('draws nothing of a panel emptied by withholding, even without a search', async () => {
     const config = configFor('grid');
-    const before = formsOf(await mount(config), CARD).length;
-    expect(before).toBeGreaterThan(1);
+    const cardFields = (forms: ReadonlyArray<HTMLElement>) =>
+      forms.filter((form) =>
+        form.closest('[data-field]')?.getAttribute('data-field')?.startsWith('card:'),
+      );
+    const before = formsOf(await mount(config), CARD);
+    expect(cardFields(before).length).toBeGreaterThan(1);
     const panel = PANELS.find((candidate) => candidate.id === 'card');
     if (!panel) throw new Error('Card panel not found');
     vi.spyOn(panel, 'build').mockReturnValue([
       heading('empty_heading'),
       text('compact_events_to_show'),
     ]);
-    expect(formsOf(await mount(config), CARD)).toHaveLength(before - 1);
+    const after = formsOf(await mount(config), CARD);
+    expect(cardFields(after)).toEqual([]);
+    expect(after).toHaveLength(before.length - cardFields(before).length);
   });
 
   it('reconciles per-calendar forms, including the newly supported column split control', async () => {
@@ -348,7 +367,7 @@ describe('withholding is not a search filter or a config edit', () => {
     });
     const before = PANELS.flatMap((panel) => panel.build(context(config)));
     reconcile(
-      formsOf(editor, CARD).flatMap((form) => fields(form.schema)),
+      drawnInBuiltOrder(editor, expectedFields(before, from)),
       expectedFields(before, from),
     );
 
@@ -356,10 +375,7 @@ describe('withholding is not a search filter or a config edit', () => {
     expect(seen).toHaveLength(1);
     expect(seen[0].view).toBe(to);
     const after = PANELS.flatMap((panel) => panel.build(context(seen[0])));
-    reconcile(
-      formsOf(editor, CARD).flatMap((form) => fields(form.schema)),
-      expectedFields(after, to),
-    );
+    reconcile(drawnInBuiltOrder(editor, expectedFields(after, to)), expectedFields(after, to));
   });
 
   it('cannot be bypassed by panel, group, field, or customized-only searches', async () => {

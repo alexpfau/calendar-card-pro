@@ -12,13 +12,7 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 
-import {
-  type FormElement,
-  changeField,
-  formOf,
-  mountEditor,
-  openPageOf,
-} from './helpers/editor-host';
+import { changeField, formOf, mountEditor, openPageOf, valueOf } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import type { CalendarCardProEditor } from '../src/rendering/editor/element';
@@ -146,52 +140,83 @@ describe('opening what a search finds', () => {
 });
 
 async function mount() {
-  const editor = await mountEditor({
+  return mountEditor({
     config_version: Config.CURRENT_CONFIG_VERSION,
     entities: ['calendar.anna'],
   });
-  // The Day Header panel, opened as a user would to read it: a closed panel mounts no form.
-  await openPageOf(editor, 'day_header:past_date_opacity');
-  return editor;
 }
 
 async function search(editor: CalendarCardProEditor, query: string) {
   await changeField(editor, 'filter:search', query);
 }
 
-function dayHeaderForm(editor: CalendarCardProEditor): FormElement | undefined {
-  return formOf(editor, 'day_header:past_date_opacity');
+/**
+ * The Day Header settings a query keeps, as the editor's own filter keeps them in the scope the
+ * editor shows: the fields the query must find drawn.
+ */
+function dayHeaderHits(editor: CalendarCardProEditor, query: string): string[] {
+  const workspace = valueOf(editor, 'workspace:editing_workspace') as EditorWorkspace;
+  const ctx = ctxFor(workspace, { query });
+  return leaves(filterSchema(dayHeader(ctx), ctx)).map((leaf) => `day_header:${leaf.name}`);
+}
+
+/**
+ * Each field drawn, where it is drawn, and whether a closed collapsible hides any of it.
+ *
+ * Pages draw their headings as headings, which never close, and each field in a form of its own;
+ * a field still behind a closed expandable would show up here as not open.
+ */
+function drawn(editor: CalendarCardProEditor, ids: ReadonlyArray<string>) {
+  return Object.fromEntries(
+    ids.map((id) => {
+      const form = formOf(editor, id);
+      return [
+        id,
+        form === undefined
+          ? 'not drawn'
+          : {
+              results: form.closest('.overview') !== null,
+              open: leaves(form.schema).every((leaf) => leaf.open),
+            },
+      ];
+    }),
+  );
 }
 
 describe('the mounted editor', () => {
   afterEach(() => document.body.replaceChildren());
 
-  it('opens the groups holding a match in a panel its own title let through', async () => {
+  it('draws every setting of a section its own title let through, none closed', async () => {
     const editor = await mount();
-    expect(groups(dayHeaderForm(editor)!.schema)).toEqual({
-      weekend_colors: false,
-      past_days: false,
-    });
+    // "day" names Day Header itself, so the whole section comes through, its two groups
+    // (Weekend Colors, Past Days) with it.
+    const hits = dayHeaderHits(editor, 'day');
+    expect(hits).toEqual(
+      expect.arrayContaining(['day_header:past_date_opacity', 'day_header:weekend_day_color']),
+    );
 
-    // "day" names the Day Header panel itself, so the whole panel comes through.
     await search(editor, 'day');
-    expect(groups(dayHeaderForm(editor)!.schema)).toEqual({
-      weekend_colors: true,
-      past_days: true,
-    });
+    expect(drawn(editor, hits)).toEqual(
+      Object.fromEntries(hits.map((id) => [id, { results: true, open: true }])),
+    );
   });
 
-  it('closes them again when the search is cleared', async () => {
+  it('draws them on their page, none closed, once the search is cleared', async () => {
     const editor = await mount();
     await search(editor, 'opacity');
-    expect(groups(dayHeaderForm(editor)!.schema)).toEqual({ past_days: true });
+    expect(drawn(editor, ['day_header:past_date_opacity'])).toEqual({
+      'day_header:past_date_opacity': { results: true, open: true },
+    });
 
     await search(editor, '');
-    // Clearing the search closes every panel, and one the search left out comes back closed.
-    await openPageOf(editor, 'day_header:past_date_opacity');
-    expect(groups(dayHeaderForm(editor)!.schema)).toEqual({
-      weekend_colors: false,
-      past_days: false,
+    // Cleared, the results go; the page draws every setting under its headings.
+    expect(drawn(editor, ['day_header:past_date_opacity'])).toEqual({
+      'day_header:past_date_opacity': 'not drawn',
     });
+    await openPageOf(editor, 'day_header:past_date_opacity');
+    const all = dayHeaderHits(editor, '');
+    expect(drawn(editor, all)).toEqual(
+      Object.fromEntries(all.map((id) => [id, { results: false, open: true }])),
+    );
   });
 });

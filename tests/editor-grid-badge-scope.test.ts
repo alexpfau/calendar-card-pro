@@ -6,11 +6,12 @@ import {
   changeField,
   formsOf,
   mountEditor,
+  openPageOf,
   openPanels,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
-import { walkSchema } from '../src/rendering/editor/panels';
 import { workspaceFields } from '../src/rendering/editor/routing';
+import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import type { EditorWorkspace } from '../src/rendering/editor/workspace';
 
 function fields(editor: EditorElement): string[] {
@@ -57,14 +58,17 @@ describe('all-day badge controls follow the layouts that render badges', () => {
       for (const key of BADGE_FIELDS) {
         expect(names.includes(key), key).toBe(workspace !== 'grid');
       }
-      const headings = formsOf(editor, CARD)
-        .flatMap((form) => [...walkSchema(form.schema)])
-        .filter(({ node }) => 'type' in node && node.type === 'constant')
-        .map(({ node }) => node.name);
-      expect(headings).toContain(workspace === 'grid' ? 'heading_icons' : 'heading_icon_and_badge');
-      expect(headings).not.toContain(
-        workspace === 'grid' ? 'heading_icon_and_badge' : 'heading_icons',
+      // The Events page's own heading over them, named for what the layout draws.
+      await openPageOf(editor, 'events:event_icon_vertical_alignment');
+      const headings = [...editor.shadowRoot!.querySelectorAll('.page .heading')].map((heading) =>
+        heading.textContent!.trim(),
       );
+      const [kept, gone] =
+        workspace === 'grid'
+          ? ['heading_icons', 'heading_icon_and_badge']
+          : ['heading_icon_and_badge', 'heading_icons'];
+      expect(headings).toContain(EDITOR_STRINGS[kept]);
+      expect(headings).not.toContain(EDITOR_STRINGS[gone]);
     },
   );
 
@@ -74,6 +78,7 @@ describe('all-day badge controls follow the layouts that render badges', () => {
       const { editor } = await mount();
       await changeField(editor, 'filter:search', query);
       expect(fields(editor).some((key) => BADGE_FIELDS.includes(key))).toBe(false);
+      // The results draw every reset the query keeps, page by page.
       expect(editor.shadowRoot!.querySelector('[data-reset-keys^="allday_badge"]')).toBeNull();
     },
   );

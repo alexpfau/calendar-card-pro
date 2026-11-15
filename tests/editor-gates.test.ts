@@ -1298,7 +1298,7 @@ describe('what a gate says it waits for', () => {
     expect(lines).toEqual([
       { text: 'Weather Entity', unmet: `${W}entity` },
       { text: 'the forecast beside each event', unmet: `${W}position` },
-      { text: 'Show Conditions', unmet: `${W}event.show_conditions` },
+      { text: 'Show Conditions Beside Events', unmet: `${W}event.show_conditions` },
       { text: undefined, unmet: undefined },
     ]);
   });

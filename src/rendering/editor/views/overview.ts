@@ -93,6 +93,7 @@ export function scopeControl(
             <input
               type="radio"
               name="scope"
+              value=${choice.value}
               data-focus=${`scope:${choice.value}`}
               .checked=${choice.value === model.workspace}
               aria-label=${
@@ -165,6 +166,7 @@ export function displayControl(
             <input
               type="radio"
               name="view"
+              value=${choice.value}
               data-focus=${`view:${choice.value}`}
               .checked=${choice.value === value}
               @change=${() => onPick(choice.value)}
@@ -202,7 +204,13 @@ export interface NavRow {
  * @returns The row
  */
 export function navRow(row: NavRow, onOpen: () => void): TemplateResult {
-  return html`<button type="button" class="nav-row" data-focus=${row.key} @click=${onOpen}>
+  return html`<button
+    type="button"
+    class="nav-row"
+    data-focus=${row.key}
+    ?data-quick-setup-open=${row.key === 'more:example'}
+    @click=${onOpen}
+  >
     ${icon(row.iconPath, 'nav-icon')}
     <span class="nav-text">
       <span class="nav-title">${row.title}</span>

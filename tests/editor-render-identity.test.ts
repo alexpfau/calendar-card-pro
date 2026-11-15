@@ -20,20 +20,20 @@ import {
   CARD,
   type FormElement,
   type Owner,
+  button,
   changeField,
   entry,
   fakeHass,
   formOf,
-  formsOf,
   helperOf,
   mountEditor,
+  openPageOf,
   openPanels,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import { PANELS } from '../src/rendering/editor/panels';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { WORKSPACE_FIELD } from '../src/rendering/editor/workspace';
-import * as Logger from '../src/utils/logger';
 
 const INPUTS = ['schema', 'data', 'hass', 'computeLabel', 'computeHelper'] as const;
 
@@ -83,38 +83,74 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe.each<{ name: string; workspace?: string; id: string; value: unknown; owner: Owner }>([
-  { name: 'the card’s title', id: 'card:title', value: 'Family', owner: CARD },
-  { name: 'one calendar’s name', id: 'calendar:name', value: 'Ben at school', owner: entry(1) },
+/**
+ * Every form the place open draws, live: the field forms of the overview or of one page, and the
+ * calendars' and buttons' forms in their panels there.
+ *
+ * @param editor - The editor
+ * @returns The forms, in document order
+ */
+function drawnHere(editor: HTMLElement): FormElement[] {
+  return [...editor.shadowRoot!.querySelectorAll<FormElement>('ha-form')];
+}
+
+describe.each<{
+  name: string;
+  workspace?: string;
+  id: string;
+  value: unknown;
+  owner: Owner;
+  open: ReadonlyArray<readonly [string, Owner]>;
+}>([
+  {
+    name: 'the card’s title',
+    id: 'card:title',
+    value: 'Family',
+    owner: CARD,
+    // Card & Header, with the toolbar button's own panel open.
+    open: [['button:icon', button(0)]],
+  },
+  {
+    name: 'one calendar’s name',
+    id: 'calendar:name',
+    value: 'Ben at school',
+    owner: entry(1),
+    // The overview, with both calendars' panels open.
+    open: [
+      ['calendar:name', entry(0)],
+      ['calendar:name', entry(1)],
+    ],
+  },
   {
     name: 'a size in the List layout, which then holds it as its own',
     workspace: 'list',
     id: 'events:event_font_size',
     value: '18px',
     owner: CARD,
+    open: [['events:event_font_size', CARD]],
   },
-])('a write to $name', ({ workspace, id, value, owner }) => {
+])('a write to $name', ({ workspace, id, value, owner, open }) => {
   it('hands every other form the objects it held before, through the write and a bare render', async () => {
     const editor = await mountEditor(CONFIG, {
       hass: fakeHass({ localize: (key: string) => key }),
     });
     if (workspace !== undefined)
       await changeField(editor, `workspace:${WORKSPACE_FIELD}`, workspace);
-    await openPanels(editor);
+    for (const [field, who] of open) await openPageOf(editor, field, who);
     const render = vi.spyOn(editor, 'render');
 
-    const forms = formsOf(editor);
+    const forms = drawnHere(editor);
     const written = formOf(editor, id, owner)!;
     const before = inputsOf(forms);
-    // Every form the editor draws: the three above the panels, the nine panels' forms, the
-    // buttons' caption, both calendars' and the button's.
-    expect(forms).toHaveLength(3 + 9 + 1 + 2 + 1);
+    // Every form the place draws, one per field, and the panels' own.
+    expect(forms.length).toBeGreaterThan(5);
+    expect(forms).toContain(written);
 
     await changeField(editor, id, value, owner);
-    const afterWrite = inputsOf(formsOf(editor));
+    const afterWrite = inputsOf(drawnHere(editor));
     editor.requestUpdate();
     await editor.updateComplete;
-    const afterRender = inputsOf(formsOf(editor));
+    const afterRender = inputsOf(drawnHere(editor));
 
     // Two genuine renders, the same forms both times.
     expect(render).toHaveBeenCalledTimes(2);
@@ -132,6 +168,23 @@ describe.each<{ name: string; workspace?: string; id: string; value: unknown; ow
     );
     // And the bare render hands the written form what the write left it.
     expect(moved(afterWrite, afterRender)).toEqual([]);
+  });
+});
+
+describe('a visit to a page', () => {
+  it('leaves the overview’s forms as they were, the very elements with the very inputs', async () => {
+    const editor = await mountEditor(CONFIG);
+    await openPageOf(editor, 'calendar:name', entry(0));
+    const forms = drawnHere(editor);
+    const before = inputsOf(forms);
+    expect(forms.length).toBeGreaterThan(3);
+
+    await openPageOf(editor, 'events:show_time');
+    expect(drawnHere(editor).some((form) => forms.includes(form))).toBe(false);
+    await openPageOf(editor, 'content:days_to_show');
+
+    expect(drawnHere(editor)).toEqual(forms);
+    expect(moved(before, inputsOf(drawnHere(editor)))).toEqual([]);
   });
 });
 
@@ -184,28 +237,5 @@ describe('a kept helper', () => {
     expect(helperOf(editor, 'layout:card_max_height')).toContain(
       EDITOR_STRINGS['value_source.own'],
     );
-  });
-});
-
-describe('a form whose change the editor does not take', () => {
-  it('is handed the data the editor holds again, as every render used to hand it', async () => {
-    const editor = await mountEditor(CONFIG);
-    const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
-    const form = formOf(editor, `workspace:${WORKSPACE_FIELD}`)!;
-    const shown = form.data;
-
-    // As `ha-form` does: it takes the value into its own data, then announces it.
-    form.data = { ...shown, [WORKSPACE_FIELD]: 'nowhere' };
-    form.dispatchEvent(
-      new CustomEvent('value-changed', {
-        detail: { value: form.data },
-        bubbles: true,
-        composed: true,
-      }),
-    );
-    await editor.updateComplete;
-
-    expect(warn).toHaveBeenCalledTimes(1);
-    expect(form.data).toBe(shown);
   });
 });

@@ -10,7 +10,10 @@ import {
   formOf,
   formsOf,
   mountEditor,
+  openPageOf,
   openPanels,
+  resetButton,
+  resetButtons,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -593,9 +596,7 @@ describe('rendered form frames preserve edit intent', () => {
     const { editor } = await mount();
     await changeField(editor, 'events:event_font_size', '12');
     expect(valueOf(editor, 'events:event_font_size')).toBe('12');
-    editor
-      .shadowRoot!.querySelector<HTMLButtonElement>('[data-reset-keys="event_font_size"]')!
-      .click();
+    (await resetButton(editor, 'event_font_size'))!.click();
     await editor.updateComplete;
     expect(valueOf(editor, 'events:event_font_size')).toBe('12px');
   });
@@ -621,9 +622,16 @@ describe('rendered form frames preserve edit intent', () => {
 
   it('routes a delayed edit to the workspace that rendered its form', async () => {
     const { editor, seen } = await mount();
+    await openPageOf(editor, 'events:event_font_size');
+    const root = editor.shadowRoot!;
+    // Settings For, opened from its compact line where the page draws that.
+    root.querySelector<HTMLButtonElement>('[data-focus="scope-change"]')?.click();
+    await editor.updateComplete;
     const old = formOf(editor, 'events:event_font_size')!;
-    const workspace = formOf(editor, 'workspace:editing_workspace')!;
-    emitChange(workspace, { 'workspace:editing_workspace': 'column' });
+    const column = root.querySelector<HTMLInputElement>('input[name="scope"][value="column"]')!;
+    // The scope moves, and the form drawn for Grid reports its edit before the page redraws.
+    column.checked = true;
+    column.dispatchEvent(new Event('change', { bubbles: true }));
     emitChange(old, { 'events:event_font_size': '24px' });
     await editor.updateComplete;
     expect(seen).toHaveLength(1);
@@ -634,12 +642,16 @@ describe('rendered form frames preserve edit intent', () => {
 
   it('does not treat re-derived synthetic values as a second user edit', async () => {
     const { editor, seen } = await mount();
+    await openPageOf(editor, 'events:event_color');
     const form = formOf(editor, 'events:event_color')!;
+    const size = formOf(editor, 'events:event_font_size')!;
     expect(valueOf(editor, 'events:accent_event_text')).toBe(true);
     emitChange(form, { 'events:event_color': '#112233' });
     // A second color edit masks the stale checkbox by writing the color again.
-    // Changing another field leaves the checkbox's accidental reset exposed.
-    emitChange(form, { 'events:event_color': '#112233', 'events:event_font_size': '24px' });
+    // Changing another field, from a form drawn before the first edit, leaves the
+    // checkbox's accidental reset exposed.
+    emitChange(form, { 'events:event_color': '#112233' });
+    emitChange(size, { 'events:event_font_size': '24px' });
     await editor.updateComplete;
     expect(seen.slice(-1)[0]?.time_grid).toMatchObject({
       event_color: '#112233',
@@ -660,9 +672,7 @@ describe('rendered form frames preserve edit intent', () => {
   it('replaces the picker with a targeted reset that preserves unrelated values', async () => {
     const { editor, seen } = await mount();
     expect(editor.shadowRoot!.querySelector('.exception-picker')).toBeNull();
-    const reset = editor.shadowRoot!.querySelector<HTMLButtonElement>(
-      '[data-reset-keys="event_font_size"]',
-    );
+    const reset = await resetButton(editor, 'event_font_size');
     expect(reset).not.toBeNull();
     reset!.click();
     await editor.updateComplete;
@@ -685,10 +695,8 @@ describe('rendered form frames preserve edit intent', () => {
  * silently; dropping the list case lets a guard that returns nothing everywhere pass.
  */
 describe('reset controls follow the workspace destination, not the built view', () => {
-  const resetKeys = (editor: CalendarCardProEditor) =>
-    [...editor.shadowRoot!.querySelectorAll('[data-reset-keys]')].map((node) =>
-      node.getAttribute('data-reset-keys'),
-    );
+  const resetKeys = async (editor: CalendarCardProEditor) =>
+    (await resetButtons(editor)).map((node) => node.getAttribute('data-reset-keys'));
 
   const mountListCard = async () =>
     mount({
@@ -706,19 +714,19 @@ describe('reset controls follow the workspace destination, not the built view', 
   it('offers a list override its reset in the List workspace', async () => {
     const { editor } = await mountListCard();
     await select(editor, 'list');
-    expect(resetKeys(editor)).toContain('event_font_size');
+    expect(await resetKeys(editor)).toContain('event_font_size');
   });
 
   it('offers no resets in the shared workspace, which inherits from nothing', async () => {
     const { editor } = await mountListCard();
     await select(editor, 'shared');
-    expect(resetKeys(editor)).toEqual([]);
+    expect(await resetKeys(editor)).toEqual([]);
   });
 
   it('leaves a list override untouched when the shared workspace is open', async () => {
     const { editor, seen } = await mountListCard();
     await select(editor, 'shared');
-    expect(editor.shadowRoot!.querySelector('[data-reset-keys="event_font_size"]')).toBeNull();
+    expect(await resetButton(editor, 'event_font_size')).toBeNull();
     expect(seen).toHaveLength(0);
   });
 });
