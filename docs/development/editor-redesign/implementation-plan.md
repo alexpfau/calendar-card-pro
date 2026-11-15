@@ -2079,7 +2079,7 @@ sha256 never changes.
 | --- | ---------------------------------------- | ---- | ------------------------------------------ | ---------------------------------- | ----------------------------------------------- |
 | 1   | Field Index, Page Registry & Gate Corpus | 1    | 1,600; built at 4,084, 2,098 of them tests | 19, ten gate phrases among them    | +0.43 KB, measured                              |
 | 2   | Test Harness by Field Id                 | 1    | 1,700                                      | 0                                  | 0                                               |
-| 3   | Render Cost & Identity                   | 1    | 1,100                                      | 0                                  | +1.6 KB, raised from +0.8 KB; measured +1.58 KB |
+| 3   | Render Cost & Identity                   | 1    | 1,100                                      | 0                                  | +2.1 KB, raised from +0.8 KB; measured +2.08 KB |
 | 4   | Write Owners & Frames                    | 1    | 1,200                                      | 0                                  | +0.5 KB                                         |
 | 5   | Overview, Pages & Navigation             | 1    | 2,000                                      | about 32; 16 changed               | +4.0 KB                                         |
 | 6   | Builders Hand Presentation to Pages      | 1    | 900                                        | minus 25 to 43                     | below 0                                         |
@@ -2263,11 +2263,19 @@ Behavior-preserving, on today's panels.
     ships, fires that event, renders, awaits a frame and a timeout, measures the content and only
     then fires `expanded-changed` [read]. A panel keeps its forms when it closes, so the groups
     inside it keep their state. Search still opens the panels it matches, which then mount;
-  - a hidden warm-up form (`ha-form.ts` › `warmSchema`), drawn as the editor opens and drawn away
-    once every element it names is defined, holds a node for each form and selector element the
-    editor's schemas need, so Home Assistant has imported them before a panel first measures
-    itself. Without it, 12 of 18 panels of a seven-calendar Grid card opened short on their first
-    click, at full width and at 400 px [measured, PR 3];
+  - a hidden warm-up, drawn as the editor opens: a form (`ha-form.ts` › `warmSchema`) holding a
+    node for each form and selector element the editor's schemas need, and a node for each value
+    its forms hold in a field of a type in `hass-key.ts` › `VALUE_SELECTORS`, holding that value
+    (today `ui_action`, whose element draws a `navigate` or `assist` action's form, or a service's
+    controls); and Home Assistant's Visibility editor holding every calendar's conditions, behind
+    the visible one's guard. So Home Assistant has imported what each panel draws, its configured
+    branches included, before the panel first measures itself. It is drawn away once a search of
+    everything below it, through every shadow root, finds no element still undefined, or after
+    ten searches or 10 s regardless. Without it, 12 of 18 panels of a seven-calendar Grid card
+    opened short on their first click, at full width and at 400 px [measured, PR 3]. Warming the
+    element types alone left what a configured action or a `state` condition draws loading until
+    its panel opened [measured: the frontend's own sources, their definitions delayed]; that the
+    full warm-up closes that in Home Assistant is [unverified] until measured there;
   - each panel's `build` memoized on its inputs, and each panel schema interned by structural key;
   - each form's `data`, `computeLabel` and `computeHelper` memoized on what they read;
   - `hass-key.ts`: the live feed for forms with `entity`, `icon`, `ui_action` or `object` selectors
@@ -2293,13 +2301,19 @@ Behavior-preserving, on today's panels.
     of `hass.config` in a render path fails it, and a member added to the wrapper's spread does not.
   - Lazy mounting: a closed panel holds no form; opening it mounts its forms in the same update that
     opens it, before the panel's `expanded-changed`.
+  - **The warm-up**, `tests/editor-warm-up.test.ts`: the element types it holds are those the forms
+    draw with every panel open, across the corpus, and those the builders use, a planted selector
+    type included; the values it holds are those the open forms hold in fields of
+    `VALUE_SELECTORS`; it writes nothing. With stand-ins that draw as Home Assistant's do, it stays
+    until what an event's action, a button's action and a `state` condition pick is defined, and
+    its search and time bounds draw it away regardless.
 - **Done when.** The tests pass; the step 0 probe's idle measurement, re-run on this PR's dev build
   in Home Assistant, shows the editor rendering only for changes it draws (renders and milliseconds
   per idle 10 s, before and after, in the PR body); first-open geometry is checked in Home Assistant
   (each panel opens to its full height on the first click, at full width and at 400 px); the card's
   sha256 is unchanged.
 - **Live review.** Open the wall card's editor; open each panel once and watch it open to its full
-  height; rename a calendar entity in another tab: the name updates in the editor. Open Taps &
+  height, a calendar with a `state` condition and a button with a `navigate` action among them; rename a calendar entity in another tab: the name updates in the editor. Open Taps &
   Refresh: the action dropdown still names the card's own actions. Disable an entity used by a
   toolbar button: its picker shows it as unavailable. Search still opens matching panels.
 - **Must not regress.** Everything: the harness suite passes unchanged.
@@ -3157,7 +3171,7 @@ and invalid colors written) are reversed above and gone from this list.
 | 45  | Gate lines and search tags each keep their approved form: PR 1's nouns stay for search's "Needs …" tags (the D05 mockup), and a clause beside each, `whenKey` next to `needsKey`, with "{label} is on" for a switch, gives the gate line's "Appears once …" (5.2; section 13, row F)                                                                    | Rewrite PR 1's nouns as clauses, which leaves search without the D05 mockup's "Needs Show Description"; or one noun form for both, the "Appears with …" that row F declines                                                                                            |
 | 46  | A chip's gate line is the clause `gate.when.pressed`, "{part} is pressed", inside the one `gate.line` template (5.2)                                                                                                                                                                                                                                    | `gate.line_pressed` and a bare twin of it, two more templates for the same sentence                                                                                                                                                                                    |
 | 47  | A panel keeps its forms after it closes (PR 3)                                                                                                                                                                                                                                                                                                          | Unmount on close, which discards the open state of the groups inside it                                                                                                                                                                                                |
-| 48  | A hidden warm-up form, its nodes read from the editor's schemas, loads the form and selector elements Home Assistant imports on first use before any panel first opens (PR 3)                                                                                                                                                                           | Mount every panel's forms as the editor opens, the cost PR 3 removes; or accept panels opening short on their first click                                                                                                                                              |
+| 48  | A hidden warm-up, read from the editor's schemas and the values its forms hold, loads the elements Home Assistant imports on first use, and what each configured action and each calendar's conditions draw, before any panel first opens; drawn away once nothing below it is left undefined (PR 3)                                                    | Mount every panel's forms as the editor opens, the cost PR 3 removes; accept panels opening short on their first click; or warm element types alone, which leaves what a configured action or condition draws loading on first open                                    |
 
 ## 13. Findings
 

@@ -39,6 +39,17 @@ export const EDITOR_HASS_MEMBERS = ['language', 'locale', 'localize', 'themes'] 
 export const LIVE_SELECTORS = ['entity', 'icon', 'object', 'ui_action'] as const;
 
 /**
+ * The selectors whose element draws something its value picks, which Home Assistant loads the
+ * first time it is drawn: `ui_action` draws a form of its own for a `navigate` or an `assist`
+ * action, and a service's controls for `perform-action`. The warm-up holds a field of such a type
+ * once for each value the editor's forms hold, so each configured branch has loaded before a panel
+ * first opens (`ha-form.ts` › `warmSchema`). A type belongs here when what its element draws
+ * depends on its value; one that draws the same whatever its value, as a text field or a switch
+ * does, does not. Only Home Assistant shows a type missing from here, as a panel that opens short.
+ */
+export const VALUE_SELECTORS = ['ui_action'] as const;
+
+/**
  * Every entity whose state the editor draws: the card's calendars, whose names head their panels,
  * the weather entity, the toolbar buttons' entities and the persons the calendars' labels name.
  *

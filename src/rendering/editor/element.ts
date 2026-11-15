@@ -23,7 +23,7 @@ import * as Entities from './entities';
 import * as Essentials from './essentials';
 import * as Exceptions from './exceptions';
 import * as Filter from './filter';
-import { type HaFormSchema, elementOf, warmSchema } from './ha-form';
+import { type HaFormSchema, warmSchema } from './ha-form';
 import * as HassKey from './hass-key';
 import { withCardActionLabels } from './hass-localize';
 import * as EditorLocalize from './localize';
@@ -213,6 +213,35 @@ const NO_DATA: Readonly<Record<string, unknown>> = {};
 /** Keeps an event from going any further than where it started. */
 const stopEvent = (event: Event): void => event.stopPropagation();
 
+/** How many times the warm-up searches what it drew before it is drawn away regardless. */
+const WARM_UP_ROUNDS = 10;
+
+/** How long the warm-up waits on definitions before it is drawn away regardless, in ms. */
+const WARM_UP_MS = 10_000;
+
+/**
+ * The custom elements below a node, through every shadow root but its own, that are not defined
+ * yet, by tag: each still has the prototype it was created with, `HTMLElement`'s. Read off the
+ * prototype rather than off `customElements.get`, which cannot see an element a scoped registry
+ * defines.
+ *
+ * @param root - Where to search
+ * @param found - The tags found so far
+ * @returns The tags
+ */
+function undefinedBelow(root: ParentNode, found = new Set<string>()): Set<string> {
+  for (const element of root.querySelectorAll('*')) {
+    if (
+      element.localName.includes('-') &&
+      Object.getPrototypeOf(element) === HTMLElement.prototype
+    ) {
+      found.add(element.localName);
+    }
+    if (element.shadowRoot) undefinedBelow(element.shadowRoot, found);
+  }
+  return found;
+}
+
 /**
  * A panel's schema as its builder makes it for a context, inert fields withheld, built once per
  * context: `_ctx` is made again only when the configuration, the workspace or the language moves.
@@ -327,39 +356,86 @@ export class CalendarCardProEditor extends LitElement {
    * it (`LOAD_ELEMENTS` in its frontend), and a panel now mounts its forms only as it opens, one
    * render before Home Assistant measures it: an element still loading then has drawn nothing,
    * and the panel opens short. Every form used to be drawn as the editor opened, which loaded them
-   * all before any click. So once a render has named the schemas its forms are handed (`_drawn`),
-   * one form holding a node for each element not defined yet (`warmSchema`) is drawn, and drawn
-   * away once `customElements.whenDefined` has answered for each. A later render warms whatever a
-   * switched layout, an opened gate or a cleared filter newly needs.
+   * all before any click. So once a render has named the forms it draws (`_drawn`), the warm-up is
+   * drawn: one form holding a node for each element not defined yet, and one for each value a
+   * field of a type in `HassKey.VALUE_SELECTORS` holds, with that value, so that Home Assistant
+   * draws, and loads, what the value picks (`warmSchema`); and Home Assistant's Visibility editor
+   * holding every calendar's conditions, which it draws with forms of its own. A value or a
+   * condition an earlier warm-up held through to its end is not held again. It is drawn away once nothing below it waits on a definition (`_finishWarmUp`). A
+   * later render warms whatever a switched layout, an opened gate, a cleared filter or a new value
+   * newly needs.
    *
-   * The form is a child of the editor's own element, which its shadow root never slots, so it is
-   * never laid out, painted or exposed; it is inert and `aria-hidden` besides, takes the steady
-   * `hass`, and no `value-changed` of its goes further.
+   * It is a child of the editor's own element, which its shadow root never slots, so it is never
+   * laid out, painted or exposed; it is inert and `aria-hidden` besides, its form takes the steady
+   * `hass`, its Visibility editor the calendar it would edit against, and no `value-changed` or
+   * `config-changed` of its goes further.
    */
   protected override updated(): void {
     if (!this._drawn) return;
-    const schema = warmSchema(this._drawn, (tag) => !customElements.get(tag));
-    const tags = schema.map(elementOf);
-    if (`${tags}` === this._warmTags) return;
-    this._warmTags = `${tags}`;
+    const keep = (key: string): boolean => !this._warmed.has(key) && !customElements.get(key);
+    const [keys, schema, data] = warmSchema(this._drawn, keep, HassKey.VALUE_SELECTORS);
+    const held = [...this._drawnConditions.keys()].filter(keep);
+    const key = [...keys, ...held].join('\n');
+    if (key === this._warmKey) return;
+    this._warmKey = key;
+    // Asked for only by a condition's editor, so only while a condition is held.
+    const calendar = this._drawnConditions.get(held[0]!)!;
     renderInto(
-      tags.length > 0
-        ? html`<ha-form
+      key
+        ? html`<div
             inert
             aria-hidden="true"
-            .hass=${HassKey.steadyHass(this.hass, this._ctx.language)}
-            .schema=${schema}
-            .data=${NO_DATA}
             @value-changed=${stopEvent}
-          ></ha-form>`
+            @config-changed=${stopEvent}
+            @context-request=${(event: Event) => provideCalendar(event, calendar)}
+          >
+            <ha-form
+              .hass=${HassKey.steadyHass(this.hass, this._ctx.language)}
+              .schema=${schema}
+              .data=${data}
+            ></ha-form>
+            ${
+              held.length > 0
+                ? html`<ha-card-conditions-editor
+                    .hass=${this.hass}
+                    .conditions=${held.map((each) => JSON.parse(each))}
+                  ></ha-card-conditions-editor>`
+                : nothing
+            }
+          </div>`
         : nothing,
       this,
     );
-    if (tags.length > 0) {
-      void Promise.all(tags.map((tag) => customElements.whenDefined(tag))).then(() =>
-        this.requestUpdate(),
-      );
+    if (key) void this._finishWarmUp(key);
+  }
+
+  /**
+   * Draws the warm-up away once nothing below it waits on a definition.
+   *
+   * What a value picks, or a condition's form, is drawn only once the element drawing it is
+   * defined, so the warm-up is done when its subtree says so, not when the elements it names are:
+   * after each render it is searched, through every shadow root, for elements not defined yet
+   * (`undefinedBelow`), and their definitions awaited, until a search finds none. After
+   * `WARM_UP_ROUNDS` searches or `WARM_UP_MS` it is drawn away regardless. What it held is then
+   * not held again; a warm-up a later render draws in its place takes over instead.
+   *
+   * @param key - What it holds (`updated`)
+   */
+  private async _finishWarmUp(key: string): Promise<void> {
+    const deadline = Date.now() + WARM_UP_MS;
+    for (let round = 0; round < WARM_UP_ROUNDS; round++) {
+      await new Promise((resolve) => setTimeout(resolve));
+      const missing = undefinedBelow(this);
+      if (this._warmKey !== key || missing.size === 0 || Date.now() >= deadline) break;
+      await Promise.race([
+        Promise.all([...missing].map((tag) => customElements.whenDefined(tag))),
+        new Promise((resolve) => setTimeout(resolve, deadline - Date.now())),
+      ]);
     }
+    if (this._warmKey !== key) return;
+    for (const held of key.split('\n')) this._warmed.add(held);
+    this._warmKey = '';
+    renderInto(nothing, this);
   }
 
   @property({ attribute: false }) hass?: Types.Hass;
@@ -409,11 +485,23 @@ export class CalendarCardProEditor extends LitElement {
   /** What each form input was last handed, by slot, with what it was made from (`_keep`). */
   private _kept = new Map<string, { readonly from: unknown; readonly value: unknown }>();
 
-  /** The schemas the last render of the panels handed its forms, drawn or not (`updated`). */
-  private _drawn?: ReadonlyArray<HaFormSchema>[];
+  /**
+   * The forms the last render of the panels drew, opened or not, each as its schema and its data
+   * (`updated`).
+   */
+  private _drawn?: (readonly [ReadonlyArray<HaFormSchema>, unknown])[];
 
-  /** The elements the warm-up form is loading, as a list of tags (`updated`). */
-  private _warmTags = '';
+  /**
+   * The conditions the same render handed the Visibility editor, each as JSON, with the calendar it
+   * was handed for (the last, where several calendars hold it).
+   */
+  private _drawnConditions = new Map<string, string>();
+
+  /** What the warm-up holds, its keys joined by line, empty when it is not drawn (`updated`). */
+  private _warmKey = '';
+
+  /** The keys of what a warm-up held through to its end, which are not held again. */
+  private _warmed = new Set<string>();
 
   /**
    * How many settings Essentials Only is hiding, counted as this render draws the panels and read
@@ -935,7 +1023,7 @@ export class CalendarCardProEditor extends LitElement {
     if (empty) {
       return nothing;
     }
-    this._drawn?.push(schema);
+    this._drawn?.push([schema, this._formData()]);
 
     return html`
       <ha-expansion-panel
@@ -1111,7 +1199,13 @@ export class CalendarCardProEditor extends LitElement {
           ? this._conditionsFor(index, entityId, Entities.asEntityConfig(entry).visibility)
           : undefined;
         const split = conditions ? splitAtVisibility(schema) : undefined;
-        this._drawn?.push(...(split ? [split.before, split.after] : [schema]));
+        const values = Entities.toEntityFormData(entry, entries);
+        for (const part of split ? [split.before, split.after] : [schema]) {
+          this._drawn?.push([part, values]);
+        }
+        if (split) {
+          for (const each of conditions!) this._drawnConditions.set(JSON.stringify(each), entityId);
+        }
 
         return html`
           <ha-expansion-panel
@@ -1160,7 +1254,7 @@ export class CalendarCardProEditor extends LitElement {
               </div>
               ${whenOpened(() => {
                 const slot = `entry.${index}`;
-                const data = this._intern(slot, Entities.toEntityFormData(entry, entries));
+                const data = this._intern(slot, values);
                 const form = (part: ReadonlyArray<HaFormSchema>, name: string) => {
                   const kept = this._intern(`${slot}.${name}`, part);
                   const [hass, feed] = this._feed(kept, ctx.language);
@@ -1471,12 +1565,16 @@ export class CalendarCardProEditor extends LitElement {
       .map((entry, index) => {
         const schema = Filter.filterButtonSchema(fields, entry, subform.path, filterCtx);
         this._countHidden(fields, schema);
-        return { entry, index, key: keys[index], schema };
+        const data = Buttons.toButtonFormData(entry);
+        return { entry, index, key: keys[index], schema, data };
       })
       .filter((candidate) => Filter.hasFields(candidate.schema));
 
     if (filtering && shown.length === 0) return nothing;
-    this._drawn?.push(headings, ...shown.map(({ schema }) => schema));
+    this._drawn?.push(
+      [headings, NO_DATA],
+      ...shown.map(({ schema, data }) => [schema, data] as const),
+    );
 
     const computeLabel = this._labeler(ctx.language, subform.path);
     const computeHelper = this._subformHelper(ctx, subform.path, false);
@@ -1501,7 +1599,7 @@ export class CalendarCardProEditor extends LitElement {
       ${repeat(
         shown,
         ({ key }) => key,
-        ({ entry, index, key, schema }) => html`
+        ({ entry, index, key, schema, data }) => html`
           <ha-expansion-panel
             outlined
             class="button-panel"
@@ -1550,7 +1648,7 @@ export class CalendarCardProEditor extends LitElement {
                     class="button-form"
                     data-hass=${feed}
                     .hass=${hass}
-                    .data=${this._intern(`${slot}.data`, Buttons.toButtonFormData(entry))}
+                    .data=${this._intern(`${slot}.data`, data)}
                     .schema=${kept}
                     .computeLabel=${computeLabel}
                     .computeHelper=${computeHelper}
@@ -1859,6 +1957,7 @@ export class CalendarCardProEditor extends LitElement {
     }
     this._essentialsHidden = 0;
     this._drawn = [];
+    this._drawnConditions = new Map();
     const panels = PANELS.map((panel) => this._renderPanel(panel, ctx)).filter(
       (panel) => panel !== nothing,
     );
@@ -1867,7 +1966,10 @@ export class CalendarCardProEditor extends LitElement {
     const chassis = this._keep('chassis', ctx.language, () =>
       Subforms.chassisSchemas(ctx.language),
     );
-    this._drawn.push(chassis.displayView, chassis.workspace, chassis.filter);
+    // Drawn as the editor opens, so these load their own values' elements: their types suffice.
+    for (const form of [chassis.displayView, chassis.workspace, chassis.filter]) {
+      this._drawn.push([form, NO_DATA]);
+    }
 
     return html`
       <div class="card-config" @expanded-will-change=${this._panelWillChange}>

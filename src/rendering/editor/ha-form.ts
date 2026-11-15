@@ -145,27 +145,53 @@ export function elementOf(node: HaFormSchema): string {
 }
 
 /**
- * One node for each element the schemas draw, a group without its children, in the order first
- * met: a form holding them has Home Assistant import every element those schemas need.
+ * One node for each element some forms draw, a group without its children, in the order first
+ * met, and one for each value they hold in a field whose element draws what its value picks,
+ * holding that value: a form holding them has Home Assistant import every element those forms
+ * need, and draw each branch those values pick, so that it imports what those draw as well.
  *
- * @param schemas - Schemas the editor's forms are handed
- * @param keep - Which elements to include, by tag
- * @returns The nodes
+ * A node is keyed by its element's tag, and a value's by the tag and the value as JSON, so each
+ * is held once. Values are read as `ha-form` reads them: a field's under its name, a group's
+ * children from its own under its name unless it has none or is flattened.
+ *
+ * @param forms - The schema and data of each form
+ * @param keep - Which nodes to hold, by key
+ * @param valued - The selector types whose element draws what its value picks
+ * @returns The keys held, the nodes, each value's renamed to its key, and the data holding each
+ *   value under its key
  */
 export function warmSchema(
-  schemas: Iterable<ReadonlyArray<HaFormSchema>>,
-  keep: (tag: string) => boolean = () => true,
-): HaFormSchema[] {
+  forms: Iterable<readonly [ReadonlyArray<HaFormSchema>, unknown]>,
+  keep: (key: string) => boolean,
+  valued: ReadonlyArray<string>,
+): [string[], HaFormSchema[], Record<string, unknown>] {
   const nodes = new Map<string, HaFormSchema>();
-  const walk = (schema: ReadonlyArray<HaFormSchema>): void => {
+  const data: Record<string, unknown> = {};
+  const walk = (schema: ReadonlyArray<HaFormSchema>, values: unknown): void => {
     for (const node of schema) {
       const tag = elementOf(node);
-      if (!nodes.has(tag) && keep(tag)) {
-        nodes.set(tag, isGroupSchema(node) ? { ...node, schema: [] } : node);
+      const value =
+        !node.name || (isGroupSchema(node) && node.flatten)
+          ? values
+          : (values as Record<string, unknown> | undefined)?.[node.name];
+      const key =
+        'selector' in node && value !== undefined && valued.some((type) => type in node.selector)
+          ? `${tag} ${JSON.stringify(value)}`
+          : tag;
+      if (!nodes.has(key) && keep(key)) {
+        if (key !== tag) data[key] = value;
+        nodes.set(
+          key,
+          isGroupSchema(node)
+            ? { ...node, schema: [] }
+            : key === tag
+              ? node
+              : { ...node, name: key },
+        );
       }
-      if (isGroupSchema(node)) walk(node.schema);
+      if (isGroupSchema(node)) walk(node.schema, value);
     }
   };
-  for (const schema of schemas) walk(schema);
-  return [...nodes.values()];
+  for (const [schema, values] of forms) walk(schema, values);
+  return [[...nodes.keys()], [...nodes.values()], data];
 }
