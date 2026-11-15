@@ -408,9 +408,18 @@ export class CalendarCardProEditor extends LitElement {
    */
   protected override updated(): void {
     if (!this._drawn) return;
-    const keep = (key: string): boolean => !this._warmed.has(key) && !customElements.get(key);
+    // Every key the drawn forms hold, held or not: `warmSchema` asks about each one it meets.
+    const drawn = new Set<string>();
+    const keep = (key: string): boolean => {
+      drawn.add(key);
+      return !this._warmed.has(key) && !customElements.get(key);
+    };
     const [keys, schema, data] = warmSchema(this._drawn, keep, HassKey.VALUE_SELECTORS);
     const held = [...this._drawnConditions.keys()].filter(keep);
+    // A value the configuration no longer holds is forgotten; element types and conditions stay.
+    for (const each of this._warmed.keys()) {
+      if (/^ha-\S+ /.test(each) && !drawn.has(each)) this._warmed.delete(each);
+    }
     const key = [...keys, ...held].join('\n');
     if (key === this._warmKey) {
       // A render while it is drawn feeds it as a skipped one would.
@@ -466,7 +475,8 @@ export class CalendarCardProEditor extends LitElement {
    *
    * What it held is then not held again while what it read stays as it was: for a value, Home
    * Assistant's services and the attributes of each entity the value names, which its service
-   * controls filter their fields by; for anything else, nothing (`shouldUpdate`).
+   * controls filter their fields by, though not of an entity a target reaches only through an area,
+   * a device or a label; for anything else, nothing (`shouldUpdate`).
    *
    * @param run - Which warm-up this is (`updated`)
    */
@@ -616,7 +626,7 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * What a warm-up held through to its end, which is not held again, each with whether what it
-   * read has moved since (`_finishWarmUp`).
+   * read has moved since (`_finishWarmUp`). A value's goes once no drawn form holds it (`updated`).
    */
   private _warmed = new Map<string, () => boolean>();
 
