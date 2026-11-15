@@ -35,6 +35,44 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'panel.layout': 'Layout',
   'panel.layout.helper': 'How the card arranges days, and how much room it takes up.',
 
+  // --- Pages ----------------------------------------------------------------
+  //
+  // Read from the page registry (`pages.ts`), which is what makes them used: `check:i18n`
+  // reconciles every `page.`, `heading.` and `gate.needs.` key against the keys the registry and
+  // the gate table name. Only the words no string had yet live here. Card & Header, Day Header,
+  // Events and Weather keep their panel titles, Grid is the scope's own option label, and every
+  // other heading reuses today's heading or group title, so all of those arrive already
+  // translated.
+  'page.which_events': 'Which Events',
+  'page.which_events.note':
+    'Hide events by words, or split one calendar, on that calendar’s own page.',
+  'page.size_spacing': 'Size & Spacing',
+  'page.taps_refresh': 'Taps & Refresh',
+  'page.taps_refresh.note':
+    'The preview does not run taps while you edit the card. Try them on the dashboard.',
+  'heading.past_events': 'Past Events',
+  // Week Numbers until this heading took the first day of the week as well.
+  'heading.weeks': 'Weeks',
+  'heading.name_and_look': 'Name & Look',
+  'heading.who_sees_it': 'Who Sees It',
+
+  // --- Gates ----------------------------------------------------------------
+  //
+  // What a withheld setting waits for, where the control's own label does not say it. Read from
+  // the gate table (`gates.ts`) by a condition, or by a gate for any of its conditions without a
+  // phrase of its own. Each completes a sentence, as in "Appears with the forecast beside each
+  // event: Size.", so it starts in lower case unless it starts with a label.
+  'gate.needs.indicator_shown': 'a Style other than None',
+  'gate.needs.indicator_marker': 'a dot, icon or emoji Style',
+  'gate.needs.empty_days_off': 'Show Empty Days off',
+  'gate.needs.empty_or_today': 'Show Empty Days or Show Today When Empty',
+  'gate.needs.forecast_by_day': 'the forecast in the day header',
+  'gate.needs.forecast_by_event': 'the forecast beside each event',
+  'gate.needs.event_details': 'Show Event Details as a tap or hold action',
+  'gate.needs.no_event_actions': 'both event actions set to Nothing',
+  'gate.needs.events_limit': 'an Events limit under Compact Mode',
+  'gate.needs.calendar_filter': 'a calendar filter in the toolbar',
+
   // --- View -----------------------------------------------------------------
   view: 'Card Displays',
   'view.option.list.label': 'List',
