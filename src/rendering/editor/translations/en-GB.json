@@ -4,8 +4,8 @@
   "quick_setup.review_colors": "Colours from the example for: {calendars}.",
   "entity.color": "Event Colour",
   "entity.color.helper": "Event titles from this calendar. Overrides the card colour.",
-  "entity.accent_color": "Accent Colour",
-  "entity.accent_color_mode": "Accent Colour",
+  "entity.accent_color": "Custom Accent Colour",
+  "entity.accent_color_mode": "Accent Colour Source",
   "entity.accent_color_mode.helper": "Home Assistant can hold a colour for each calendar, under Settings, Devices & Services, Entities. Calendars it has no colour for fall back to the card.",
   "entity.accent_color_mode.option.custom.label": "Custom colour",
   "entity.label_icon_color": "Label Icon Colour",
@@ -41,8 +41,8 @@
   "week_number_color": "Week Number Colour",
   "week_number_background_color": "Week Number Background Colour",
   "event_color": "Event Colour",
-  "accent_color": "Accent Colour",
-  "accent_color_mode": "Accent Colour",
+  "accent_color": "Custom Accent Colour",
+  "accent_color_mode": "Accent Colour Source",
   "accent_color_mode.helper": "Home Assistant can hold a colour for each calendar, under Settings, Devices & Services, Entities. Calendars it has no colour for keep the card default.",
   "accent_color_mode.option.custom.label": "Custom colour",
   "event_background_opacity.helper": "Tints each event with its accent colour. Zero leaves it untinted.",
@@ -65,6 +65,6 @@
   "month_separator_color": "Month Rule Colour",
   "column.day_header_separator_color": "Day Header Rule Colour",
   "time_grid.day_header_separator_color": "Day Header Rule Colour",
-  "date.color": "Colour",
-  "event.color": "Colour"
+  "date.color": "Colour Beside Days",
+  "event.color": "Colour Beside Events"
 }
