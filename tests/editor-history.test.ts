@@ -349,10 +349,22 @@ describe('the migration choice', () => {
     expect(internals(editor)._history.canRedo).toBe(true);
     expect(editor.shadowRoot!.activeElement?.id).toBe('config-migration-title');
 
-    const redo = await key(editor, editor.shadowRoot!.activeElement!, { key: 'y', ctrlKey: true });
+    const redo = await key(editor, editor.shadowRoot!.activeElement!, {
+      key: 'y',
+      ctrlKey: true,
+    });
     expect(redo.prevented).toBe(true);
     expect(sent[2]).toBe(chosen);
     expect($(editor, '[data-config-migration]')).toBeNull();
+  });
+
+  it('shows the choice again before Home Assistant echoes anything', async () => {
+    const { editor, sent } = await mount(PRE_V5, false);
+    choices(editor)[1]!.click();
+    await settle(editor);
+    await press(editor, 'undo');
+    expect(sent[1]).toBe(JSON.stringify(PRE_V5));
+    expect($(editor, '[data-config-migration]')).not.toBeNull();
   });
 });
 
