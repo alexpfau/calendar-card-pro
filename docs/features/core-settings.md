@@ -105,8 +105,14 @@ for, and a calendar can have either, both or neither.
 
 `visibility` shows a calendar only while Home Assistant conditions hold, so one card can show
 each person their own calendars, drop a work calendar during a holiday, or keep the birthdays
-off the kitchen tablet. It takes the conditions a card's own **Visibility** tab in Home
-Assistant takes, for one calendar at a time:
+off the kitchen tablet.
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_visibility_two_people.png" alt="One Family card as two people see it. Signed in as Anna, it shows her working from home now, Leo's afternoon at Grandma's and the family dinner. Signed in as Ben, it shows his business trip on Day 3 of 3, his work under way, Leo's afternoon at Grandma's, his train home and the family dinner" width="450"><br>
+
+One card, two sign-ins: each parent's own calendars show only for them, and the rest for both.
+
+It takes the conditions a card's own **Visibility** tab in Home Assistant takes, for one
+calendar at a time:
 
 ```yaml
 type: custom:calendar-card-pro

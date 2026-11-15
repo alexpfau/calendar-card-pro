@@ -284,6 +284,23 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Order matters, and can be dragged. When two entries carry the same event and ' +
     'duplicates are filtered, the copy from the one listed first is the one kept.',
 
+  // --- Calendar list rows ---------------------------------------------------
+  //
+  // What tells one entry from its calendar's others on the list (`calendar-list.ts` ›
+  // `rowParts`), at most two of them, in sentence case as option labels are. "All events",
+  // for an entry that sets none of them, is the Event Type option's own string.
+  'row.all_day': 'All-day events',
+  'row.timed': 'Events with a time',
+  'row.only': 'Only: {words}',
+  'row.without': 'Without: {words}',
+  'row.weekdays': 'Weekdays',
+  'row.weekends': 'Weekend days',
+  'row.expires': 'Expires at {time}',
+  'row.conditions': 'Shown under conditions',
+  // An entry's name inside a calendar with several, as its controls are named: "Remove Family,
+  // All-day events". A template, so a language can order the two its own way.
+  'row.name': '{name}, {part}',
+
   // --- Per-calendar settings ------------------------------------------------
   //
   // Each calendar gets its own collapsible form below the picker. Four of these are
