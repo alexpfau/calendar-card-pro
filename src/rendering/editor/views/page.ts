@@ -13,14 +13,21 @@ import { icon } from './icon';
 import type { Translate } from './overview';
 
 /**
- * The page's header: Back, then its title as the `h2` that takes focus as the page opens.
+ * The page's header: Back, then its title as the `h2` that takes focus as the page opens, then
+ * Undo and Redo.
  *
  * @param title - The page's title
  * @param t - The editor's strings
  * @param onBack - Back was pressed
+ * @param actions - What the header holds at its end
  * @returns The header
  */
-export function pageHead(title: string, t: Translate, onBack: () => void): TemplateResult {
+export function pageHead(
+  title: string,
+  t: Translate,
+  onBack: () => void,
+  actions?: unknown,
+): TemplateResult {
   return html`<div class="page-head">
     <button
       type="button"
@@ -36,6 +43,7 @@ export function pageHead(title: string, t: Translate, onBack: () => void): Templ
       <h2 class="page-title" tabindex="-1">${title}</h2>
       <span class="page-sub">${t('overview.settings')}</span>
     </div>
+    ${actions}
   </div>`;
 }
 

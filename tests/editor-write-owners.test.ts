@@ -629,13 +629,50 @@ describe("focus after a calendar's Remove", () => {
     await new Promise((resolve) => setTimeout(resolve));
   }
 
-  it('goes to the Remove of the calendar now in its place, whose panel opens for it', async () => {
+  /** The Undo of the line a removal leaves, "Removed Anna · Undo". */
+  const lineUndo = (editor: EditorElement) =>
+    editor.shadowRoot!.querySelector<HTMLButtonElement>(
+      '[data-status-bar] [data-focus="status-undo"]',
+    );
+
+  /**
+   * Closes the line a removal left while focus is still on its Undo, as the next change does,
+   * and waits until focus has moved.
+   *
+   * @param editor - Editor element
+   */
+  async function closeLine(editor: EditorElement): Promise<void> {
+    expect(editor.shadowRoot!.activeElement).toBe(lineUndo(editor));
+    // Found first: finding a form the harness keeps can move focus.
+    const form = formOf(editor, 'content:days_to_show')!;
+    lineUndo(editor)!.focus();
+    emitChange(form, { 'content:days_to_show': 9 });
+    await editor.updateComplete;
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(lineUndo(editor)).toBeNull();
+  }
+
+  it('puts focus on the Undo of the line the removal leaves', async () => {
+    const { editor } = await mount({ entities: ENTRIES });
+    await openPanels(editor);
+    const [anna] = keysOf(editor, 'entry');
+
+    await removeWithKeyboard(editor, anna);
+
+    expect(editor.shadowRoot!.activeElement).toBe(lineUndo(editor));
+    expect(
+      editor.shadowRoot!.querySelector('[data-status-bar] .status-text')?.textContent?.trim(),
+    ).toMatch(/^Removed /);
+  });
+
+  it('goes to the Remove of the calendar now in its place once the line closes, its panel open', async () => {
     const { editor } = await mount({ entities: ENTRIES });
     await openPageOf(editor, 'calendar:label', entry(0));
     const [anna, ben] = keysOf(editor, 'entry');
     expect(panelOf(editor, ben).expanded).not.toBe(true);
 
     await removeWithKeyboard(editor, anna);
+    await closeLine(editor);
 
     expect(editor.shadowRoot!.activeElement).toBe(action(editor, 'entry', ben, 'Remove'));
     expect(panelOf(editor, ben).expanded).toBe(true);
@@ -648,6 +685,7 @@ describe("focus after a calendar's Remove", () => {
     const [, ben, leo] = keysOf(editor, 'entry');
 
     await removeWithKeyboard(editor, leo);
+    await closeLine(editor);
 
     expect(editor.shadowRoot!.activeElement).toBe(action(editor, 'entry', ben, 'Remove'));
   });
@@ -658,6 +696,7 @@ describe("focus after a calendar's Remove", () => {
     const [anna] = keysOf(editor, 'entry');
 
     await removeWithKeyboard(editor, anna);
+    await closeLine(editor);
 
     const focused = editor.shadowRoot!.activeElement as HTMLElement;
     expect(focused.contains(formOf(editor, 'calendars:calendars')!)).toBe(true);
@@ -667,16 +706,20 @@ describe("focus after a calendar's Remove", () => {
     ]);
   });
 
-  it('stays where it was when Remove is pressed while focus is elsewhere', async () => {
+  it('leaves focus where it is when the line closes with focus elsewhere', async () => {
     const { editor } = await mount({ entities: ENTRIES });
     await openPageOf(editor, 'calendar:label', entry(0));
     const [anna, ben] = keysOf(editor, 'entry');
-    const picker = editor.shadowRoot!.querySelector<HTMLElement>('.calendar-picker')!;
-    picker.focus();
 
     await press(editor, action(editor, 'entry', anna, 'Remove'));
     await new Promise((resolve) => setTimeout(resolve));
+    const picker = editor.shadowRoot!.querySelector<HTMLElement>('.calendar-picker')!;
+    picker.focus();
+    emitChange(formOf(editor, 'content:days_to_show')!, { 'content:days_to_show': 9 });
+    await editor.updateComplete;
+    await new Promise((resolve) => setTimeout(resolve));
 
+    expect(lineUndo(editor)).toBeNull();
     expect(editor.shadowRoot!.activeElement).toBe(picker);
     expect(panelOf(editor, ben).expanded).not.toBe(true);
   });
