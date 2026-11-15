@@ -326,6 +326,121 @@ describe('grid time row fit', () => {
     });
 
     /**
+     * `show_duration` puts the event's length after the end time, inside the droppable end. The
+     * end time goes first and the length stays beside the start, "13:15 (1 hr, 45 min)", a rung
+     * between the wrap and the start alone; a row without a length keeps the ladder it had. The
+     * widths are of "13:15", " - 15:00" and " (1 hr, 45 min)", so the wrapped second line, the
+     * end time and the length, is wider than the start and the length together, as it is in a
+     * browser: that is the lane the rung fills.
+     */
+    describe('with a duration after the end time', () => {
+      const START_TEXT = 35.2;
+      const READING = 47.9;
+      const DURATION = 86.4;
+      const LASTS = {
+        full: ICON + START_TEXT + READING + DURATION,
+        icon: ICON,
+        end: READING + DURATION,
+        duration: DURATION,
+        wrapped: READING + DURATION - 4,
+      };
+
+      it('gives up the end time before the duration, and the duration before the start', () => {
+        expect(
+          [190, 170, 131, 125, 40, 30].map((available) =>
+            GridTimeFit.gridTimeFit({ ...LASTS, available }),
+          ),
+        ).toEqual([
+          { time: true, icon: true, end: true, wrap: false },
+          { time: true, icon: false, end: true, wrap: false },
+          { time: true, icon: false, end: true, wrap: true },
+          { time: true, icon: false, end: false, wrap: false, duration: true },
+          { time: true, icon: false, end: false, wrap: false },
+          { time: false, icon: false, end: false, wrap: false },
+        ]);
+        // The control: the same row without a length to keep goes from the wrap to the start.
+        expect(GridTimeFit.gridTimeFit({ ...LASTS, duration: 0, available: 125 })).toEqual({
+          time: true,
+          icon: false,
+          end: false,
+          wrap: false,
+        });
+      });
+
+      it('keeps the duration where a block cannot afford the wrapped line', () => {
+        const costs = { ...LASTS, available: 131 };
+        expect(GridTimeFit.gridTimeFallback(costs, GridTimeFit.gridTimeFit(costs))).toEqual({
+          time: true,
+          icon: false,
+          end: false,
+          wrap: false,
+          duration: true,
+        });
+        const without = { ...costs, duration: 0 };
+        expect(GridTimeFit.gridTimeFallback(without, GridTimeFit.gridTimeFit(without))).toEqual({
+          time: true,
+          icon: false,
+          end: false,
+          wrap: false,
+        });
+      });
+
+      it('keeps the duration where a block that left its countdown out cannot afford the wrap', () => {
+        const DOT = 11.34;
+        const WORDS = 140;
+        const costs = {
+          ...LASTS,
+          full: LASTS.full + DOT + WORDS,
+          wrapped: LASTS.wrapped + DOT,
+          words: WORDS,
+          separator: DOT,
+          available: 131,
+        };
+        const fit = GridTimeFit.gridTimeFit(costs);
+        expect(fit).toEqual({ time: true, icon: false, end: true, wrap: true, countdown: false });
+        expect(GridTimeFit.gridTimeFallback(costs, fit)).toEqual({
+          time: true,
+          icon: false,
+          end: false,
+          wrap: false,
+          duration: true,
+          countdown: false,
+        });
+        const without = { ...costs, duration: 0 };
+        expect(GridTimeFit.gridTimeFallback(without, GridTimeFit.gridTimeFit(without))).toEqual({
+          time: true,
+          icon: false,
+          end: false,
+          wrap: false,
+          countdown: false,
+        });
+      });
+
+      it('hides the end time alone, and the end with its duration below that', () => {
+        const classesFor = (fit: GridTimeFit.GridTimeFit) => {
+          const disclosure = document.createElement('div');
+          const time = document.createElement('div');
+          GridTimeFit.applyGridTimeFit(
+            { disclosure, time, icon: null, end: null, duration: null, countdown: null },
+            fit,
+          );
+          return [...disclosure.classList];
+        };
+        const kept = { time: true, icon: false, end: false, wrap: false, duration: true } as const;
+        expect(classesFor(kept)).toEqual([
+          'grid-time-fits',
+          'grid-time-no-icon',
+          'grid-time-no-end-reading',
+        ]);
+        expect(classesFor({ ...kept, duration: undefined })).toEqual([
+          'grid-time-fits',
+          'grid-time-no-icon',
+          'grid-time-no-end',
+        ]);
+      });
+    });
+
+    /**
      * A countdown folded into the time: "9:00 - 13:00 · in 4 days". Its words flow after the
      * time and break where the line runs out, as the weather row's chips do, so they cost the
      * time row nothing below the first rung. Its separator is glued to the time before it and

@@ -79,11 +79,14 @@ function event(start: Date, end: Date): CalendarEventData {
 function blockTimes(source: CalendarEventData): string[] {
   const start = new Date(source.start.dateTime!);
   vi.setSystemTime(new Date(start.getFullYear(), start.getMonth(), start.getDate(), 12));
+  // Blocks, which are what this file reads. Over two nights across the 23-hour day, an event
+  // under a day of elapsed time still ends later on the clock than it started, a calendar day
+  // on, so it would be drawn as a banner by default (`multiday_banners`).
   const config = buildConfig({
     view: 'grid',
     days_to_show: 2,
     time_24h: true,
-    time_grid: { start_time: '00:00', end_time: '24:00' },
+    time_grid: { start_time: '00:00', end_time: '24:00', multiday_banners: false },
   });
   const days = groupEventsByDay([source], config, false, 'en', 'grid');
   const container = document.createElement('div');

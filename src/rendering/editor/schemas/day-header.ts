@@ -2,7 +2,7 @@
  * Day-header schema rows.
  */
 
-import { mdiCalendarWeekBegin } from '@mdi/js';
+import { mdiCalendarArrowLeft, mdiCalendarWeekBegin } from '@mdi/js';
 
 import * as ViewConfig from '../../../config/view';
 import * as Helpers from '../../../utils/helpers';
@@ -16,7 +16,39 @@ export const DAY_HEADER_ICON = mdiCalendarWeekBegin;
 const WEEKEND_ICON =
   'M12 20a8 8 0 0 1-8-8 8 8 0 0 1 8-8 8 8 0 0 1 8 8 8 8 0 0 1-8 8m0-18a10 10 0 0 0-10 10 10 10 0' +
   ' 0 0 10 10 10 10 0 0 0 10-10A10 10 0 0 0 12 2m.5 5H11v6l4.75 2.85.75-1.23-4-2.37V7Z';
-const TODAY_COLOR_ICON = 'M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2m0 4a6 6 0 0 1 0 12V6Z';
+
+/**
+ * The weights a date can be drawn in. `default` keeps the card's own and is the shipped value,
+ * so choosing it writes nothing.
+ */
+export const DATE_FONT_WEIGHTS: ReadonlyArray<string> = [
+  'default',
+  'light',
+  'regular',
+  'medium',
+  'bold',
+];
+
+/**
+ * A date's scale: a multiplier, as a calendar's `text_scale` is, in the same box.
+ *
+ * @param name - Config key
+ * @returns The field
+ */
+function dateScaleField(name: string): HaFormSchema {
+  return { name, selector: { number: { min: 0.1, step: 'any', mode: 'box' } } };
+}
+
+/**
+ * A date's weight.
+ *
+ * @param language - Effective language code
+ * @param name - Config key
+ * @returns The field
+ */
+function dateWeightField(language: string, name: string): HaFormSchema {
+  return select(language, name, DATE_FONT_WEIGHTS);
+}
 
 export const TODAY_INDICATOR_STYLES: ReadonlyArray<string> = [
   'none',
@@ -80,6 +112,29 @@ function todayIndicatorRun(language: string, style: string): HaFormSchema[] {
           ];
 
   return [heading('today_indicator'), ...todayIndicatorFields(language, style), ...styling];
+}
+
+/**
+ * Today's run: how today's date is drawn, before the indicator that marks it.
+ *
+ * The size and weight come first because they restyle the whole date, the colors next because
+ * each restyles one part of it. They sat in a collapsed "Today Colors" group at the foot of the
+ * panel, with Week Numbers between them and the indicator, so making today stand out meant
+ * visiting two places; here everything about today reads as one run, and the indicator's own
+ * heading follows it directly.
+ *
+ * @param language - Effective language code
+ * @param showMonth - Whether the month line is shown
+ * @returns The heading and its fields
+ */
+function todayRun(language: string, showMonth: boolean): HaFormSchema[] {
+  return [
+    heading('heading_today'),
+    row(dateScaleField('today_date_scale'), dateWeightField(language, 'today_date_font_weight')),
+    color('today_weekday_color'),
+    color('today_day_color'),
+    ...(showMonth ? [color('today_month_color')] : []),
+  ];
 }
 
 /**
@@ -150,6 +205,9 @@ const dayHeaderSchema = Helpers.memoizeLast(
     weekNumberMode: string,
     blockKey: string | undefined,
   ): HaFormSchema[] => [
+    // What every date shares, then the header's geometry and week numbering, then the
+    // exceptions, by the kind of day they change. Each later run overrides the first one for
+    // its own days, so the order is also the order a reader resolves a date's look in.
     select(language, 'date_vertical_alignment', ['top', 'middle', 'bottom']),
 
     row(text('weekday_font_size'), color('weekday_color')),
@@ -157,47 +215,40 @@ const dayHeaderSchema = Helpers.memoizeLast(
     bool('show_month'),
     ...(showMonth ? [row(text('month_font_size'), color('month_color'))] : []),
 
-    // Above the collapsibles, not below them. Every panel in this editor ends in its
-    // collapsed subsections, so a bare heading and two plain fields appended *after* four
-    // of them reads as an afterthought stapled to the bottom rather than as part of the
-    // panel — and a reader who has scrolled past four closed groups has stopped expecting
-    // ordinary options at all.
-    //
-    // An earlier version of this file argued the opposite, on the grounds that keeping the
-    // run last means a user switching workspaces sees the same panel with a section added
-    // rather than the same options reordered. That is true, and it is the weaker claim:
-    // the collapsibles-last convention is what a user reads on every panel of every view,
-    // whereas the reordering is noticed once by someone changing workspace. Consistency
-    // within a panel beats consistency between two visits to it.
+    // Above the runs about particular days, not among them: the gap and the rule are drawn
+    // under every day's header alike, so they belong with what every date shares.
     ...(blockKey === undefined ? [] : dayHeaderRuleFields(blockKey)),
 
-    // Two headed runs where there were two collapsed groups. Both held exactly one control
-    // on a fresh card — a dropdown set to `none`, with every styling field below it
-    // conditional on that dropdown — so the panel offered two disclosures that opened onto
-    // one field each, and neither feature was discoverable without opening one.
+    // Week numbers before today: they mark weeks, not days, and leaving them between today's
+    // run and the other days' groups split the per-day controls in two.
     //
-    // A heading rather than a promoted field, because the field cannot stand alone: the
-    // labels are `Style` and `Numbering`, which read correctly under a caption naming the
-    // subject and mean nothing at panel level. Renaming them would have been an
-    // English-only change against nine translated labels that are currently right.
-    //
-    // The headings reuse the group titles' own keys, so `Today Indicator` and
-    // `Week Numbers` arrive already translated in all nine languages. A new heading key
-    // would have been English everywhere — the same trap `lookupForView` documents, in the
-    // direction where nothing warns you.
-    ...todayIndicatorRun(language, indicatorStyle),
+    // Both indicator and week numbers are headed runs rather than collapsed groups. Each held
+    // exactly one control on a fresh card — a dropdown set to `none` with every styling field
+    // conditional on it — so a group opened onto one field. The headings reuse the old group
+    // titles' keys, which arrive translated in all nine languages; the labels beneath them,
+    // `Style` and `Numbering`, mean nothing at panel level without them.
     ...weekNumberRun(language, weekNumberMode),
+
+    // Today visible, the other kinds of day collapsed: today is what a card is mostly about,
+    // and the indicator that marks it is on by default, so neither may hide behind a click.
+    ...todayRun(language, showMonth),
+    ...todayIndicatorRun(language, indicatorStyle),
+
+    group(language, 'past_days', mdiCalendarArrowLeft, [
+      // The fade first: it is what a past day is usually given, and it needs nothing else.
+      {
+        name: 'past_date_opacity',
+        selector: {
+          number: { min: 0, max: 100, step: 'any', mode: 'box', unit_of_measurement: '%' },
+        },
+      },
+      row(dateScaleField('past_date_scale'), dateWeightField(language, 'past_date_font_weight')),
+    ]),
 
     group(language, 'weekend_colors', WEEKEND_ICON, [
       color('weekend_weekday_color'),
       color('weekend_day_color'),
-      color('weekend_month_color'),
-    ]),
-
-    group(language, 'today_colors', TODAY_COLOR_ICON, [
-      color('today_weekday_color'),
-      color('today_day_color'),
-      color('today_month_color'),
+      ...(showMonth ? [color('weekend_month_color')] : []),
     ]),
   ],
 );

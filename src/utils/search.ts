@@ -174,10 +174,11 @@ export function searchWindow(now: Date): SearchWindow {
  * The configuration the card's own grouping (`groupEventsByDay`) describes a search's events
  * with, in the view on screen, since a pick pages the card in that view: the view's own, so
  * duplicates, splitting and the words drawn are the ones the card draws, opening on the
- * window's first day and spanning all of it, with every past event kept and no empty day made
- * up. A view's block outranks the shared value, and so does a view's own default (the grid's
- * `show_empty_days`, say), so those values are written into the view's block as well; the rest
- * of the block, the grid's hours among it, stays as configured.
+ * window's first day and spanning all of it, with every past event kept, no empty day made
+ * up, nothing skipped and the days in time order, whatever `event_order` and
+ * `skip_first_events` the list reads. A view's block outranks the shared value, and so does a
+ * view's own default (the grid's `show_empty_days`, say), so those values are written into the
+ * view's block as well; the rest of the block, the grid's hours among it, stays as configured.
  *
  * @param viewConfig - The configuration as it applies to the view on screen
  * @param window - The days searched
@@ -195,6 +196,8 @@ export function searchGroupingConfig(
     show_past_events: true,
     show_empty_days: false,
     show_empty_today: false,
+    event_order: 'earliest_first',
+    skip_first_events: 0,
   };
   const config: Record<string, unknown> = { ...viewConfig, ...forced };
   const blockKey = ViewConfig.VIEW_BLOCKS[view]?.blockKey;
@@ -209,7 +212,9 @@ export function searchGroupingConfig(
  * The grouping as the view on screen draws it. Grid view draws a timed event's day only where it
  * reaches into the hours it shows (`renderDayBody`), so a day outside them is left out, by the
  * grid's own measure and test of it (`segmentMinutes`, `intersectsBand`), and an event none of
- * whose days reach in is not found. Every other view draws each day its grouping holds.
+ * whose days reach in is not found. A timed event drawn as a banner (`_gridBanner`) is in the
+ * all-day band, whatever its hours, so it is kept, as an all-day event is. Every other view
+ * draws each day its grouping holds.
  *
  * @param days - The grouping, as `groupEventsByDay` returns it for the view
  * @param config - The configuration it was grouped with, which holds the grid's hours
@@ -229,7 +234,7 @@ export function drawnIn(
   return days.map((day) => ({
     ...day,
     events: day.events.filter((event) => {
-      if (!event.start.dateTime) return true;
+      if (!event.start.dateTime || event._gridBanner) return true;
       const extent = Grid.segmentMinutes(event);
       return extent !== null && Grid.intersectsBand(extent.startMin, extent.endMin, band);
     }),

@@ -803,6 +803,7 @@ describe('editor: change detection', () => {
       'calendars',
       'card_height',
       'card_max_height',
+      'countdown_once_per_day',
       'day_tap_action_mode',
       'filter_duplicates_mode',
       'height_mode',
@@ -911,9 +912,17 @@ describe('editor: applicability', () => {
       compact_events_to_show: ['list'],
       compact_days_to_show: ['list'],
       compact_events_complete_days: ['list'],
+      // Column and grid view keep time running forward, left to right and down the hours;
+      // `groupEventsByDay` reads it only where `appliesToView` says list.
+      event_order: ['list'],
+      // Column and grid view draw their days whatever their events, so leaving rows out
+      // would leave holes rather than continue a list.
+      skip_first_events: ['list'],
       // Grid's card-level value is inert: all-day spans become one banner, and timed
       // events are segmented by the renderer instead of by the upstream list splitter.
       split_multiday_events: ['column', 'list'],
+      // Only grid has an all-day band above an hour axis for a timed event to move into.
+      multiday_banners: ['grid'],
       // Grid marks the present with its now line; `gridTimedEventContentParts` clears the
       // label whatever the option resolves to.
       show_now_indicator: ['column', 'list'],
@@ -3802,7 +3811,11 @@ describe('editor: per-calendar settings', () => {
         'show_in_legend',
         'show_location',
         'show_time',
+        'show_weather',
         'split_multiday_events',
+        'text_scale',
+        'multiday_banners',
+        'visibility',
       ].sort(),
     );
   });
@@ -3817,7 +3830,13 @@ describe('editor: per-calendar settings', () => {
    * writes a literal `false` that no checkbox can take back.
    */
   it('offers a third state for the options that may be left to the card', () => {
-    const inheritable = ['show_time', 'show_location', 'show_description', 'split_multiday_events'];
+    const inheritable = [
+      'show_time',
+      'show_location',
+      'show_description',
+      'split_multiday_events',
+      'multiday_banners',
+    ];
 
     for (const name of inheritable) {
       const node = [...walkSchema(entitySchema().schema)].find(
@@ -3869,6 +3888,64 @@ describe('editor: per-calendar settings', () => {
   });
 
   /**
+   * `show_weather` can only take weather away, since `weather.position` decides whether events
+   * get any, so its dropdown has two entries where its neighbors have three. Not in the list
+   * above, which requires three.
+   */
+  it('offers the weather beside events as Follow the card or Never show', () => {
+    const node = [...walkSchema(entitySchema().schema)].find(
+      (entry) => entry.node.name === 'show_weather',
+    )!.node;
+    const selector = (node as unknown as { selector: { select: { options: SelectOption[] } } })
+      .selector;
+
+    expect(selector.select.options.map((option) => option.value)).toEqual(['inherit', 'hide']);
+  });
+
+  it('stores only what Never show says for the weather beside events', () => {
+    expect(toEntityFormData({ entity: 'calendar.a' }).show_weather).toBe('inherit');
+    expect(fromEntityFormData('calendar.a', { show_weather: 'inherit' })).toBe('calendar.a');
+
+    const off = { entity: 'calendar.a', show_weather: false } as Types.EntityConfig;
+    expect(toEntityFormData(off).show_weather).toBe('hide');
+    expect(fromEntityFormData('calendar.a', { show_weather: 'hide' })).toEqual(off);
+
+    // Back to Follow the card is the user's own answer, so the line goes.
+    expect(fromEntityFormData('calendar.a', { show_weather: 'inherit' }, off)).toBe('calendar.a');
+  });
+
+  /**
+   * `show_weather: true` is valid YAML the dropdown has no entry for, and the panel shows it as
+   * Follow the card. An edit to another field must not delete the line the user wrote.
+   */
+  it('keeps an authored show_weather: true through an edit to another field', () => {
+    const entities: Array<string | Types.EntityConfig> = [
+      { entity: 'calendar.a', show_weather: true },
+    ];
+    const data = toEntityFormData(entities[0], entities);
+    expect(data.show_weather).toBe('inherit');
+
+    const next = writeEntity(entities, 0, { ...data, color: '#ff0000' });
+
+    expect(next[0]).toEqual({ entity: 'calendar.a', show_weather: true, color: '#ff0000' });
+    expect(fromEntityFormData('calendar.a', { show_weather: 'hide' }, entities[0])).toEqual({
+      entity: 'calendar.a',
+      show_weather: false,
+    });
+  });
+
+  it('offers the weather switch only on a card that draws weather beside events', () => {
+    const declared = entitySchema().schema;
+    const names = (showsEventWeather: boolean) =>
+      entitySchemaFor(declared, 'text', 'custom', 'custom', true, 'custom', true, showsEventWeather)
+        .map((node) => node.name)
+        .filter((name) => name === 'show_weather');
+
+    expect(names(true)).toEqual(['show_weather']);
+    expect(names(false)).toEqual([]);
+  });
+
+  /**
    * The split shares the tristate machinery but not its vocabulary: its two
    * decided states are offered as `split` and `whole` rather than `show` and
    * `hide`, and those two words are mapped in a second table. The round-trip
@@ -3896,6 +3973,26 @@ describe('editor: per-calendar settings', () => {
     }
   });
 
+  // The grid's banner has its own two words for the same reason the split does, and the same
+  // hazard: drop either from the table and choosing it writes nothing.
+  it('round-trips the two decided states of the grid banner', () => {
+    const cases: Array<[boolean, string]> = [
+      [true, 'banner'],
+      [false, 'blocks'],
+    ];
+
+    for (const [stored, offered] of cases) {
+      const entry = { entity: 'calendar.a', multiday_banners: stored } as Types.EntityConfig;
+
+      expect(toEntityFormData(entry).multiday_banners, offered).toBe(offered);
+      expect(fromEntityFormData('calendar.a', { multiday_banners: offered }), offered).toEqual({
+        entity: 'calendar.a',
+        multiday_banners: stored,
+      });
+    }
+    expect(toEntityFormData({ entity: 'calendar.a' }).multiday_banners).toBe('inherit');
+  });
+
   /**
    * Both tristate tables, pinned by value.
    *
@@ -3918,7 +4015,9 @@ describe('editor: per-calendar settings', () => {
       show_time: ['inherit', 'show', 'hide'],
       show_location: ['inherit', 'show', 'hide'],
       show_description: ['inherit', 'show', 'hide'],
+      show_weather: ['inherit', 'hide'],
       split_multiday_events: ['inherit', 'split', 'whole'],
+      multiday_banners: ['inherit', 'banner', 'blocks'],
       event_type: ['inherit', 'all', 'timed', 'all_day'],
       days_of_week: ['inherit', 'weekdays', 'weekends'],
       filter_field: ['title', 'location', 'description'],
@@ -3929,7 +4028,9 @@ describe('editor: per-calendar settings', () => {
       show_time: { inherit: undefined, show: true, hide: false },
       show_location: { inherit: undefined, show: true, hide: false },
       show_description: { inherit: undefined, show: true, hide: false },
+      show_weather: { inherit: undefined, hide: false },
       split_multiday_events: { inherit: undefined, split: true, whole: false },
+      multiday_banners: { inherit: undefined, banner: true, blocks: false },
       event_type: { inherit: undefined, all: 'all', timed: 'timed', all_day: 'all_day' },
       days_of_week: { inherit: undefined, weekdays: 'weekdays', weekends: 'weekends' },
       filter_field: { title: undefined, location: 'location', description: 'description' },
@@ -4998,6 +5099,9 @@ describe('editor: enumerated options offer their whole vocabulary', () => {
     // A shared view override with a card-level control of the same name, whose dropdown is
     // exactly the union: `below` is the shipped layout rather than an absent value.
     time_position: { field: 'time_position' },
+    // A list option whose dropdown is exactly the union: `earliest_first` is the shipped
+    // order rather than an absent value.
+    event_order: { field: 'event_order' },
   };
 
   /**

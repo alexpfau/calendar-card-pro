@@ -567,7 +567,10 @@ describe('editor filter: the per-calendar settings', () => {
       ctxFor(config, { query: 'birthdays' }),
     );
 
-    expect(fieldNames(byId)).toEqual(fieldNames(schema));
+    // Whole as a list card's editor draws it, which withholds the time grid's own control.
+    expect(fieldNames(byId)).toEqual(
+      fieldNames(schema).filter((name) => name !== 'multiday_banners'),
+    );
   });
 
   it('filters a calendar down to the fields that match', () => {
@@ -845,6 +848,7 @@ describe('editor filter: section headings', () => {
     // headings at all.
     expect(headingNames(entitySchema())).toEqual([
       'heading_appearance',
+      'heading_visibility',
       'heading_filters',
       'heading_replace',
       'heading_multiday',
@@ -988,6 +992,9 @@ describe('editor: the order of the two panels', () => {
       'color',
       'accent_color_mode',
       'accent_color',
+      'text_scale',
+      '# heading_visibility',
+      'visibility',
       '# heading_filters',
       'days_of_week',
       'event_type',
@@ -1002,11 +1009,13 @@ describe('editor: the order of the two panels', () => {
       'replace_with',
       '# heading_multiday',
       'split_multiday_events',
+      'multiday_banners',
       '# heading_details',
       'show_time',
       'show_location',
       'location_icon',
       'show_description',
+      'show_weather',
     ]);
   });
 
@@ -1021,12 +1030,15 @@ describe('editor: the order of the two panels', () => {
       'days_to_show',
       'start_date_mode',
       'first_day_of_week',
+      'event_order',
       '# heading_filters',
       'event_type',
       'show_past_events',
       'filter_duplicates_mode',
+      'skip_first_events',
       '# heading_multiday',
       'split_multiday_events',
+      'multiday_banners',
       '# heading_nothing',
       'show_empty_days',
       // No `show_empty_today`: with every empty day already showing it has nothing to add,
@@ -1095,7 +1107,12 @@ describe('editor: the order of the two panels', () => {
       'allowlist',
       'compact_events_to_show',
     ]);
-    expect(contentFilters).toEqual(['event_type', 'show_past_events', 'filter_duplicates_mode']);
+    expect(contentFilters).toEqual([
+      'event_type',
+      'show_past_events',
+      'filter_duplicates_mode',
+      'skip_first_events',
+    ]);
 
     /**
      * The invariant, stated over the options the two panels actually share.

@@ -6,7 +6,22 @@ Each entry below covers a whole minor release line — the `X.Y.0` release plus 
 patch that followed it — so this page reads as the card's progression from the first
 public release in January 2025 to today.
 
-## Latest Release: v5.2
+## Latest Release: v5.3
+
+- 👥 **Each Calendar for the Right People**: a calendar's [`visibility`](/features/core-settings#showing-a-calendar-under-conditions) takes the conditions a card's own Visibility tab sets in Home Assistant, so one card can show each person their own calendars, drop a work calendar on holiday or keep one off a small screen. Each calendar's panel in the editor holds Home Assistant's own Visibility editor
+- 📜 **A Calendar Kept as a Log**: with `show_countdown` on, a finished event [says how long ago it ended](/features/event-content#counting-up-from-past-events), such as "13 days ago", and [`event_order: latest_first`](/features/core-settings#event-order) reads a list card newest first, its event limit keeping the most recent entries. The [House Log](/guide/house-log), a seventh Example Story that Quick Setup offers, puts the two together
+- ⏳ **Countdowns That Say What You Need**: [`countdown_exact_days`](/features/event-content#counting-in-days) counts in days, "in 36 days" rather than "in a month", [`countdown_max_days`](/features/event-content#countdown-range) shows a countdown only as an event draws near, and [`show_countdown: once_per_day`](/features/event-content#repeated-countdowns) says "tomorrow" once for two bins going out together
+- 🔢 **Which Day of a Long Event It Is**: with `show_progress_bar` on, an event that lasts a full day or longer and runs into a second date reads ["Day 12 of 45"](/features/multi-day-events#day-counter) in list and column view, instead of a bar that barely moved
+- 🗓️ **Long Timed Events as Banners**: grid view draws a timed event that lasts a full day or longer and runs into a second date, such as an on-call week, as [one banner above the hours](/features/grid-view#long-timed-events-as-banners) instead of a block on every day it covers
+- ⏱️ **How Long an Event Lasts**: [`show_duration`](/features/event-content#event-duration) adds each event's length after its time, in the card's language, such as "(30 min)" or "(1 day, 8 hr)"
+- 🔉 **A Quieter Calendar**: [`text_scale`](/features/core-settings#scaling-one-calendars-text) draws one calendar's events smaller or larger, and [`show_weather: false`](/features/weather#turning-weather-off-for-one-calendar) leaves the forecast out beside them
+- 📅 **Today Stands Out, Past Days Fade**: [today's date can be drawn larger and bolder](/features/layout-appearance#today-past-days), and past days' dates fainter
+- ⏭️ **A Second Card That Carries On**: [`skip_first_events`](/features/core-settings#continuing-a-list-on-a-second-card) leaves the first events off a list card, so a second card continues where the first one stops
+- 🔎 **Search by the Words You Use**: the editor's [search](/features/editor#search-customized-only) finds a setting by the words people use for it, such as `AM/PM` for Time Format or `newest first` for Event Order, and [Essentials Only](/features/editor#essentials-only) now keeps every setting a card sets
+- ⚠️ **Changes to Existing Cards**: an event that runs a full day or longer into a second date no longer shows "Now", grid view draws long timed events as banners by default (`multiday_banners: false` keeps the blocks), and on a card with countdowns, finished events say how long ago they ended. The [release notes](/RELEASE_NOTES) list every change
+- 🐛 **A Restart No Longer Freezes the Dashboard**: a card taking its colors from Home Assistant could freeze the browser tab for good when it appeared while Home Assistant was restarting; it now waits and tries again
+
+## v5.2
 
 - 🪄 **Quick Setup**: start a card from [one of four Example Stories](/features/editor#quick-setup), the Family Hub, Now & Next, Today & Tomorrow or Birthdays & Holidays, and answer only what a story cannot know about your home: the title, your calendars, your weather, the toolbar and what a tap should do. The preview follows each answer, and Cancel puts the card back as it was
 - 🧰 **An Easier Editor**: [Essentials Only](/features/editor#essentials-only) cuts the editor down to about twenty settings most cards need, and an option written [where the card does not read it](/features/editor#options-the-card-ignores) is listed at the top, with where it works and, where that place is free, an offer to move it there. On Home Assistant 2026.6 or later, the card picker's interactive cards show your forecast where Home Assistant has one weather entity

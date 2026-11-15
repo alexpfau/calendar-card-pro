@@ -4,7 +4,7 @@ The next 60 days of birthdays and holidays, for a dashboard section or a pop-up:
 
 ## 🖼️ See It
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_birthdays_and_holidays.png" alt="A list card showing two months of birthdays and holidays under a header with a search button, the title Coming Up as a small label over the month, and arrows to page: each birthday with a cake emoji and the age after the name, each holiday with a party emoji, a countdown under every one still to come, a holiday of several days showing when it ends, and a thin rule between the months" width="600"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_birthdays_and_holidays.png" alt="A list card showing two months of birthdays and holidays under a header with a search button, the title Coming Up as a small label over the month, and arrows to page: each birthday with a cake emoji and the age after the name, each holiday with a party emoji, a countdown in days under every one still to come, a holiday of several days showing when it ends, and a thin rule between the months" width="600"><br>
 
 Birthdays in pink, holidays in teal, and a rule where one month ends.
 
@@ -18,6 +18,7 @@ config_version: 5
 title: Coming Up
 days_to_show: 60
 show_countdown: true
+countdown_exact_days: true
 show_single_allday_time: false
 month_separator_width: 1px
 day_spacing: 4px
@@ -48,14 +49,14 @@ The toolbar is there for its magnifier: a search answers _when is Clara's birthd
 
 ## 🧭 What It Adds
 
-| Editor                           | YAML                                                                           | What it adds                                                                                                                                              |
-| -------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Time Range & Content             | `days_to_show: 60`                                                             | 60 days, about two months ahead; days with nothing on them stay hidden                                                                                    |
-| Events                           | `show_countdown`, `show_single_allday_time: false`, `vertical_line_width: 4px` | How far away each event still to come is; no "All day" line under a one-day event, while a holiday of several days still shows when it ends; a bolder bar |
-| Separators · Layout              | `month_separator_width: 1px`, `day_spacing: 4px`, `event_gap: 4px`             | A rule between months; days close together, each event with a bar of its own                                                                              |
-| Calendars › Name, Label & Colors | `label`, `accent_color`                                                        | A 🎂 or 🎉 before each title, in its calendar's color                                                                                                     |
-| Card & Header › Toolbar          | `toolbar` with `legend`, `add_event`, `refresh` and `view_switcher` off        | A search for any birthday or holiday a year back or ahead, and the arrows it comes with                                                                   |
-| Actions & Refresh                | `event_tap_action: details`                                                    | The calendar's entry on tap                                                                                                                               |
+| Editor                        | YAML                                                                                                   | What it adds                                                                                                                                                                                           |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Time Range & Content          | `days_to_show: 60`                                                                                     | 60 days, about two months ahead; days with nothing on them stay hidden                                                                                                                                 |
+| Events                        | `show_countdown`, `countdown_exact_days`, `show_single_allday_time: false`, `vertical_line_width: 4px` | How many days away each event still to come is, "in 36 days" rather than "in a month"; no "All day" line under a one-day event, while a holiday of several days still shows when it ends; a bolder bar |
+| Separators · Layout           | `month_separator_width: 1px`, `day_spacing: 4px`, `event_gap: 4px`                                     | A rule between months; days close together, each event with a bar of its own                                                                                                                           |
+| Calendars › Name & Appearance | `label`, `accent_color`                                                                                | A 🎂 or 🎉 before each title, in its calendar's color                                                                                                                                                  |
+| Card & Header › Toolbar       | `toolbar` with `legend`, `add_event`, `refresh` and `view_switcher` off                                | A search for any birthday or holiday a year back or ahead, and the arrows it comes with                                                                                                                |
+| Actions & Refresh             | `event_tap_action: details`                                                                            | The calendar's entry on tap                                                                                                                                                                            |
 
 ## 🔀 Adapt It
 
@@ -63,11 +64,12 @@ The toolbar is there for its magnifier: a search answers _when is Clara's birthd
 - **Two holiday calendars.** Two regions' public holidays share many days, and Home Assistant's Holiday integration writes each calendar's own name into every holiday's location, so even `filter_duplicates: true` shows a shared holiday twice. Add the second calendar and `filter_duplicates: ignore_location` to show it once. See [Filtering Duplicate Events](/features/core-settings#filtering-duplicate-events).
 - **Anniversaries.** The same `YEAR=` marker counts the years since a wedding.
 - **Further ahead.** Raise `days_to_show`; the month rules keep a long list readable.
+- **Days into a break.** `show_progress_bar: true` writes "Day 3 of 5" on a holiday of several days once it has begun, so the family can see how much of the break is left. Before it starts, the countdown stays. See [Day Counter](/features/multi-day-events#day-counter).
 
 ## 📚 Next Steps
 
 - [Birthday Ages & Anniversary Counts](/features/event-content#birthday-ages-anniversary-counts) — how to write the marker, and what the card does with it
-- [Countdown Display](/features/event-content#countdown-display) — the wording under each event
+- [Countdown Display](/features/event-content#countdown-display) and [Counting in Days](/features/event-content#counting-in-days) — the wording under each event
 - [Week Numbers & Visual Separators](/features/layout-appearance#week-numbers-visual-separators) — the rule between months
 - [Tapping an Event](/features/actions#tapping-an-event) — what the popover shows
 - [Searching the Card](/features/layout-appearance#searching-the-card) — what the magnifier finds

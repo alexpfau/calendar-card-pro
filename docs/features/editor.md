@@ -15,7 +15,7 @@ what a story cannot know about your home: the title, your calendars, your weathe
 card should answer a tap. Use it on a new card to get a finished-looking one in a few steps, or
 on an existing card to try a different look without retyping anything.
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_quick_setup.png" alt="Home Assistant's card editor with Quick Setup open on its first step, Starting Point: four stories to start from with Family Hub picked, beside a preview already drawing the Family Hub card"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_quick_setup.png" alt="Home Assistant's card editor with Quick Setup open on its first step, Starting Point: five stories to start from with Family Hub picked, beside a preview already drawing the Family Hub card"><br>
 
 Pick a story and the preview draws it at once, on your own calendars as soon as you name them.
 
@@ -28,6 +28,7 @@ config_version: 5
 title: Coming Up
 days_to_show: 60
 show_countdown: true
+countdown_exact_days: true
 show_single_allday_time: false
 month_separator_width: 1px
 day_spacing: 4px
@@ -48,13 +49,13 @@ entities:
     accent_color: '#26a69a'
 ```
 
-| Step                  | What it asks                                                                                                                                                                    |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Starting Point**    | [Family Hub](/guide/family-calendar), [Now & Next](/guide/now-and-next), [Today & Tomorrow](/guide/today-and-tomorrow) or [Birthdays & Holidays](/guide/birthdays-and-holidays) |
-| **Title & Calendars** | The card's title, and its calendars; at least one                                                                                                                               |
-| **Weather**           | A weather entity, or none                                                                                                                                                       |
-| **Taps & Toolbar**    | Whether to show the toolbar, open an event on a tap, and add an event on a tap on a day                                                                                         |
-| **Review**            | What Apply will change, then **Apply**                                                                                                                                          |
+| Step                  | What it asks                                                                                                                                                                                                   |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Starting Point**    | [Family Hub](/guide/family-calendar), [Now & Next](/guide/now-and-next), [Today & Tomorrow](/guide/today-and-tomorrow), [Birthdays & Holidays](/guide/birthdays-and-holidays) or [House Log](/guide/house-log) |
+| **Title & Calendars** | The card's title, and its calendars; at least one                                                                                                                                                              |
+| **Weather**           | A weather entity, or none                                                                                                                                                                                      |
+| **Taps & Toolbar**    | Whether to show the toolbar, open an event on a tap, and add an event on a tap on a day                                                                                                                        |
+| **Review**            | What Apply will change, then **Apply**                                                                                                                                                                         |
 
 - **The preview follows every answer.** **Cancel** puts the card back exactly as it was.
 - **The story replaces the card's look**: its layout, spacing, toolbar settings and actions, and
@@ -67,7 +68,7 @@ entities:
 
 ::: details When Quick Setup Behaves Differently
 
-- Two of the six stories are not offered. [Bin Day](/guide/bin-day) and
+- Two of the seven stories are not offered. [Bin Day](/guide/bin-day) and
   [Family Agenda](/guide/one-calendar-many-purposes) sort events by words in their titles and
   descriptions, which no question can guess for your calendars; copy them from their pages.
 - A story's names and labels for each calendar are not carried over: they belong to the
@@ -103,8 +104,8 @@ settings that belong to it.
 Most panels look the same whichever [layout you are editing](#options-for-the-selected-view).
 Where they differ:
 
-- **List** adds **Compact Mode** under Time Range & Content, and **Vertical Alignment** and
-  **Indicator Position** under Day Header.
+- **List** adds **Event Order**, **Skip First Events** and **Compact Mode** under Time Range &
+  Content, and **Vertical Alignment** and **Indicator Position** under Day Header.
 - **Columns** adds a collapsible **Column Density** group under Layout, which decides how narrow a column may get
   before the card gives one up.
 - **Columns** and **Grid** add **Gap & Rule** under Day Header, the space under a day header
@@ -120,8 +121,11 @@ Where they differ:
 ::: details Inside Each Panel
 
 - **Calendars** and **Time Range & Content** share an order: **Event Filtering**, then
-  **Multi-Day Events**. A calendar adds **Name, Label & Colors** above them,
-  **Text Replacement** between them and **Event Details** below. Time Range & Content opens with
+  **Multi-Day Events**. A calendar adds **Name & Appearance** and **Visibility** above them,
+  **Text Replacement** between them and **Event Details** below. **Visibility** holds Home
+  Assistant's own Visibility editor, for the calendar's
+  [visibility conditions](/features/core-settings#showing-a-calendar-under-conditions). Time
+  Range & Content opens with
   **Time Range**, the days the card covers, and ends with **Empty Days**, then the collapsible
   groups **Compact Mode** and **Language & Time Format**.
 - **Layout** orders its spacing from the outside in: between days (**Day Spacing**), between a
@@ -142,6 +146,10 @@ Where they differ:
   only **Indicator Color**, while the dots, **An Icon** and **An Emoji or Image** add
   **Indicator Size** and, in List, **Indicator Position**. Under **Week Numbers**, the styling
   options appear once **Numbering** is anything but **None**.
+- **Day Header → Today** sits right above the indicator: today's scale and weight, then its three
+  colors. The days before today have a collapsed **Past Days** group of their own, and weekends
+  **Weekend Colors**, both last in the panel. The month's colors appear only while
+  **Show Month** is on.
 - **Events → Event State** sits between the Event Details switches and Accent.
   **Show Now Indicator** puts "Now" before the time of an event that is happening, and **Now Color** is the
   color of that event, offered whether or not the switch is on. It colors grid view's now line
@@ -336,7 +344,7 @@ Column's two substitutions are listed in
 - **Context-Aware Options** — settings appear only when they are relevant, so a panel shows what applies rather than everything that exists
 - **Search** — find any option by name or by what it does, without knowing which panel holds it
 - **Customized Only** — hide everything left at its default, to see what a card actually changes
-- **Essentials Only** — show only the settings most cards need
+- **Essentials Only** — show the settings most cards need, plus any your card sets
 - **Direct Per-View Editing** — choose a workspace and edit its effective values without adding a second control
 
 ::: info Editor Language Support
@@ -354,6 +362,8 @@ collapsed heading.
 
 Search matches what is on screen: the name of a setting, the sentence explaining it, and the choices a dropdown offers. Typing `opacity` finds **Past Event Opacity** and **Event Background Opacity**; typing `iso` finds the week-number control, because that is where the word appears. It also matches the YAML option name, so a key copied out of the [Configuration Options reference](/reference/configuration) leads straight to its control, including the controls the editor names differently from the option they write: `time_24h` finds **Time Format**, and `entities` finds the **Calendars** picker.
 
+It also knows a few words people use for a setting whose name says something else: `12h` or `AM/PM` finds **Time Format**, `hide past` finds **Show Past Events**, `newest first` finds **Event Order**, `tomorrow` finds **Start Date**, and `exclude` finds a calendar's **Blocklist**. A translated editor searches by its own language's words for these, and by the English ones where it has none.
+
 Some searches bring back a whole group rather than one control:
 
 - **A panel's title or helper** shows that panel's relevant controls, including a
@@ -363,7 +373,7 @@ Some searches bring back a whole group rather than one control:
   of that calendar, on each of its blocks, and keeps the **Calendars** picker that lists it.
 - **A label** shows every setting of the block that carries it.
 
-**Customized Only** hides everything still set to the value the card would use anyway, leaving exactly what this card changes. Three things follow their own rule under it:
+**Customized Only** hides everything still set to the value the card would use anyway, leaving exactly what this card changes, with every panel and group it leaves open. Three things follow their own rule under it:
 
 - **Calendars** show only the ones you have given settings of their own, which is a quick way to see which calendars have a color or a label and which simply follow the card.
 - **Per-calendar options** count as customized when they are set at all. Several of them mean "follow the card" when left alone, so `Show Time: Off` on one calendar is a real setting rather than a default.
@@ -372,10 +382,11 @@ Some searches bring back a whole group rather than one control:
 ### Essentials Only
 
 **Essentials Only** cuts the editor down to about twenty settings most cards need, so a first
-setup is not a walk through nine panels. It is off until you switch it on, and your browser
+setup is not a walk through nine panels. Every setting your card already sets stays as well, so
+the switch never hides what a card does. It is off until you switch it on, and your browser
 remembers it for every card.
 
-It keeps these, and hides the rest:
+It keeps these, plus anything the card's YAML holds:
 
 - **Calendars**: the calendar picker, and each calendar's name, label and accent color
 - **Time Range & Content**: Days to Show, Start Date, Show Past Events and Show Empty Days
@@ -385,13 +396,16 @@ It keeps these, and hides the rest:
 - **Actions & Refresh**: Tap Action, Day Tap Action and Event Tap Action
 - **Layout**, in Grid only: the hours the grid starts and ends
 
+What the card sets counts on the card, in each calendar and on each of your toolbar's own
+buttons. A line written at its default value counts too, and in a layout, so does a value it
+takes from the shared base.
+
 Typing a search sets Essentials Only aside, so a search still reaches every setting. With
-**Customized Only** also on, it shows the essentials this card has changed. Your toolbar's own
-buttons are hidden while it is on, and a line under the switches says how many settings it is
-hiding.
+**Customized Only** also on, the editor shows what Customized Only shows. A line under the
+switches says how many settings Essentials Only is hiding.
 
 ::: tip Not Everything Is There To Be Found
-The editor only offers the settings your current configuration calls for: a fixed calendar content height appears once the height mode is fixed, the compact-mode modifier appears once there is an event limit for it to modify, Allow Editing Events and Allow Deleting Events appear once Event Tap Action is Show Event Details, and Open Links in Events only while Event Tap Action and Event Hold Action are both Nothing. A search cannot turn up a control that is not on screen, so if nothing matches, check whether the option it depends on is switched on.
+The editor only offers the settings your current configuration calls for: a fixed calendar content height appears once the height mode is fixed, the compact-mode modifier appears once there is an event limit for it to modify, Allow Editing Events and Allow Deleting Events appear once Event Tap Action is Show Event Details, a calendar's Event Weather appears once the forecast is shown beside events, and Open Links in Events only while Event Tap Action and Event Hold Action are both Nothing. A search cannot turn up a control that is not on screen, so if nothing matches, check whether the option it depends on is switched on.
 :::
 
 ::: details How Search & Customized Only Read the Editor

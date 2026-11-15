@@ -511,11 +511,21 @@ describe('time_position', () => {
     );
 
     it('leaves a row with nothing beside the title in the shape below, its bar on a row', () => {
-      // Times off and no countdown: the running event's bar is all its time row held.
+      // Times off and no countdown: the running event's bar is all its time row held. The bar's
+      // day counter on the fixtures' multi-day Conference, which sits where a countdown does, is
+      // the one thing left to move.
       const config = { time_position: 'title', show_time: false, show_progress_bar: true };
       for (const view of ['list', 'column'] as const) {
         const container = render(view, config);
-        expect(moved(container), view).toEqual([]);
+        const counted = moved(container);
+        expect(counted.length, view).toBeGreaterThan(0);
+        for (const body of counted) {
+          expect(titleOf(body), view).toBe('Conference');
+          expect(
+            [...body.querySelectorAll('.title-aside .time > *')].map((child) => child.className),
+            view,
+          ).toEqual(['time-countdown day-counter']);
+        }
         expect(container.querySelector('.title-scrollable'), view).toBeNull();
         const running = bodies(container).find(
           (body) => titleOf(body) === 'Currently running review',
@@ -523,10 +533,12 @@ describe('time_position', () => {
         expect(running.querySelector('.time'), view).toBeNull();
         expect(running.querySelector('.time-location > .progress-bar-row'), view).not.toBeNull();
       }
-      // Column view draws it so below the title too, so its rows are the default's exactly.
-      expect(render('column', config).innerHTML).toBe(
-        render('column', { ...config, time_position: 'below' }).innerHTML,
-      );
+      // Column view draws it so below the title too, so its row is the default's exactly.
+      const runningIn = (overrides: Record<string, unknown>) =>
+        bodies(render('column', { ...config, ...overrides })).find(
+          (body) => titleOf(body) === 'Currently running review',
+        )!.outerHTML;
+      expect(runningIn({})).toBe(runningIn({ time_position: 'below' }));
     });
 
     it.each(['list', 'column'] as const)('leaves an empty day as it was, in %s view', (view) => {
@@ -710,10 +722,11 @@ describe('time_position', () => {
           body.querySelector('.time-location > .time > .time-actual:not(:empty), .time-countdown'),
         );
         expect(movedRows).toBe(withTime.length);
-        // Every configuration here draws a time somewhere, bar one: column view's bar has a
-        // row of its own, so with times off and no countdown nothing is left to move.
+        // Every configuration here draws a time somewhere. With times off and no countdown,
+        // column view's bar has a row of its own and leaves nothing to move, so the one thing
+        // there is the bar's day counter on the fixtures' multi-day Conference.
         if (overrides.show_time === false && !overrides.show_countdown) {
-          expect(withTime).toEqual([]);
+          expect(new Set(withTime.map(titleOf))).toEqual(new Set(['Conference']));
         } else {
           expect(withTime.length).toBeGreaterThan(0);
         }

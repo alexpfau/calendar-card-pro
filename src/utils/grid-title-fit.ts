@@ -910,6 +910,28 @@ export function centerGridTitles(targets: GridTitleTarget[]): void {
   }
 }
 
+/**
+ * The scrolling titles a fitting pass may have resized, for the caller to measure again.
+ *
+ * A fitted (compact) title is laid out on a line of its own at a scale of its own, so one that
+ * enters that mode, leaves it, or is fitted again has a width its last measurement did not
+ * see. A title back from a blank block was never measured there. A blank block shows no title
+ * and is left out; a title that was and stays normal or centered keeps its width.
+ *
+ * @param targets - The timed titles the pass fitted, each with the mode it had before
+ * @returns The titles to measure again
+ */
+export function gridTitlesToRemeasure(targets: GridTitleTarget[]): HTMLElement[] {
+  return targets.flatMap((target) => {
+    const mode = target.block.dataset.gridTitleFit;
+    const resized =
+      mode === 'compact' || target.previousMode === 'compact' || target.previousMode === 'blank';
+    return mode !== 'blank' && resized && target.title.classList.contains('title-scrollable')
+      ? [target.title]
+      : [];
+  });
+}
+
 function measureCompact(
   target: GridTitleTarget,
   canvas: CanvasRenderingContext2D | null,

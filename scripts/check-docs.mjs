@@ -250,6 +250,12 @@ const VERIFIED_RUNTIME_FALLBACKS = new Map([
   // means no limit, which is why an invalid value clears rather than collapses to zero.
   ['compact_days_to_show', '-'],
   ['compact_events_to_show', '-'],
+  // Same floor-not-default rule, `toValidNumber(…, 0)`: absent means every upcoming event
+  // counts down, which is what `getCountdownString` does with no `maxDays`.
+  ['countdown_max_days', '-'],
+  // utils/events.ts `groupEventsByDay` — `config.skip_first_events ?? 0`, after
+  // `toValidNumber(…, 0)` clears a negative or unreadable value. Absent skips nothing.
+  ['skip_first_events', '-'],
   // utils/events.ts — `customEmptyText || translations.noEvents`, so absence renders the
   // translated string and no new language key is needed.
   ['empty_day_text', '_translated default_'],
@@ -2390,6 +2396,13 @@ const SENTINEL_OPTIONS = [
     fields: ['filter_duplicates'],
     file: 'src/config/constants.ts',
     constant: 'DUPLICATES_IGNORE_LOCATION',
+  },
+  {
+    // `boolean | 'once_per_day'`, the same shape as `filter_duplicates` and as blind to
+    // check 21, so the value the editor's repeats switch writes is pinned to its row here.
+    fields: ['show_countdown'],
+    file: 'src/config/constants.ts',
+    constant: 'COUNTDOWN_ONCE_PER_DAY',
   },
 ];
 

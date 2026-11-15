@@ -17,7 +17,8 @@
  * through the card's own matching (`processEvents`) and grouping (`groupEventsByDay`), in the view
  * on screen and as it draws it (`drawnIn`), so a search finds exactly the events the card would
  * draw on some page of that view, in the words it would draw them in, and the calendars the
- * filter hides stay hidden.
+ * filter hides stay hidden, as do the entries their visibility conditions hide. Those calendars
+ * are still loaded, as the card loads them, so one their conditions show again is found at once.
  */
 
 import * as Types from '../config/types';
@@ -29,6 +30,7 @@ import * as LiveCalendars from '../utils/live-calendars';
 import * as Logger from '../utils/logger';
 import * as Paging from '../utils/paging';
 import * as Search from '../utils/search';
+import * as Visibility from '../utils/visibility';
 
 //-----------------------------------------------------------------------------
 // TYPES
@@ -48,6 +50,8 @@ export interface SearchHost {
   language: string;
   /** The calendars the filter hides on this device. */
   hidden: ReadonlySet<string>;
+  /** What the entries' visibility conditions hide now, which a search never finds. */
+  visibility: Visibility.EntryVerdicts;
   /** The events the card holds now, matched to its calendars. */
   held: ReadonlyArray<Types.CalendarEventData>;
   /** Home Assistant's word for today, or undefined where it has none. */
@@ -167,6 +171,14 @@ export class SearchSession implements SearchSource {
   }
 
   /**
+   * A visibility condition answered differently: an open panel reads its results again, without
+   * the entries it now hides and with those it now shows, the term kept.
+   */
+  visibilityChanged(): void {
+    this._panel?.changed();
+  }
+
+  /**
    * A calendar the card shows was written to, or its events changed live. While the panel is
    * open and that leaves the year in memory out of date, the year is loaded again, once, and the
    * panel told; the term and the result the keyboard is on are the panel's, and stay. Closed, the
@@ -274,7 +286,9 @@ export class SearchSession implements SearchSource {
 
   get failed(): ReadonlyArray<string> {
     const host = this._host();
-    return [...(this._load?.failed ?? [])].map((id) => host.failedNameOf(id));
+    return [...(this._load?.failed ?? [])]
+      .filter((id) => !host.visibility.calendars.has(id))
+      .map((id) => host.failedNameOf(id));
   }
 
   find(term: string): Search.SearchResults {
@@ -303,7 +317,8 @@ export class SearchSession implements SearchSource {
   /**
    * Every event the search can find, described as the card draws it: held events for the
    * calendars still to answer, the load's for those that have, none for those that failed,
-   * matched to the card's calendars, the hidden ones left out, grouped as the view on screen
+   * matched to the card's calendars, the hidden ones and hidden entries left out, grouped as the
+   * view on screen
    * groups them over the whole window, and only those it draws. Built again only when one of
    * those changes.
    *
@@ -323,6 +338,7 @@ export class SearchSession implements SearchSource {
       host.view,
       host.language,
       host.hidden,
+      host.visibility,
       host.today,
       host.hass?.locale,
       today,
@@ -339,7 +355,10 @@ export class SearchSession implements SearchSource {
     const events = [
       ...host.held.filter((event) => !loaded(event._entityId)),
       ...(answered.length > 0 ? EventUtils.processEvents(answered, host.config) : []),
-    ].filter((event) => !host.hidden.has(event._entityId ?? ''));
+    ].filter(
+      (event) =>
+        !host.hidden.has(event._entityId ?? '') && !Visibility.entryHidden(event, host.visibility),
+    );
 
     let rows: Search.SearchRow[] = [];
     if (events.length > 0) {

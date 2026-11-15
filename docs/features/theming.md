@@ -58,7 +58,9 @@ above, so a theme does not replace them there and a card-mod rule on `ha-card` n
 only once `weather.event.color` is set.
 
 In grid view, and wherever `event_color` is `accent`, each event writes
-`--calendar-card-weather-event-color` on itself too, so the color below needs `!important`:
+`--calendar-card-weather-event-color` on itself too, so the color below needs `!important`.
+A calendar with a [`text_scale`](/features/core-settings#scaling-one-calendars-text) writes the
+two event sizes on its own events the same way, so a size set on `.event` needs it there too:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -134,19 +136,31 @@ nothing in the others unless each container is named:
 | [Grid](/features/grid-view)     | `.grid-day-header`, `.grid-day-body` | the day's cell in the date row, and its column on the time axis |
 
 The containers carry the same state classes, so the state half of a selector is portable
-even though the container name is not. Grid's day body carries only two of them:
+even though the container name is not. Grid's day body carries only three of them:
 
 | Class        | Applied when             | In grid view    |
 | ------------ | ------------------------ | --------------- |
 | `today`      | the day is today         | header and body |
 | `tomorrow`   | the day is tomorrow      | header only     |
+| `past-day`   | the day is before today  | header and body |
 | `future-day` | the day is not today     | header only     |
 | `weekend`    | the day is a weekend day | header and body |
+
+`future-day` is on past days too, as it always has been; select the days after today with
+`.future-day:not(.past-day)`.
 
 In list view, `weekend` is also on the date cell, `.date-column.weekend`, as a hook for your own
 rules. `weekend_weekday_color`, `weekend_day_color` and `weekend_month_color` are written inline
 on the `.weekday`, `.day` and `.month` inside it, so a color set there from card-mod needs
-`!important`.
+`!important`. The same goes for the size, weight and opacity that
+[today's and past days' own options](/features/layout-appearance#today-past-days) write there.
+Card-mod can add what the options do not, such as italic past days:
+
+```yaml
+card_mod:
+  style: |
+    .past-day .weekday, .past-day .day, .past-day .month { font-style: italic; }
+```
 
 ::: tip Name Every View's Container
 Selector lists cost nothing and survive a later change of view, including one made with the
@@ -205,9 +219,11 @@ A few more classes mark something the card draws only some of the time:
 | ------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `today-tile`        | today's day number, `.day`                                     | `today_indicator` is `tile`, the default                                                                                                 |
 | `with-today-tile`   | every day's `.column-date-content`, in column and grid view    | `today_indicator` is `tile`                                                                                                              |
-| `event-now`         | `td.event` in list view, `.event` in column view               | the event is under way and `show_now_indicator` is on                                                                                    |
+| `event-now`         | `td.event` in list view, `.event` in column view               | the event is under way, shorter than a full day, and `show_now_indicator` is on                                                          |
 | `event-interactive` | `.event` in column and grid view, `.event-button` in list view | `event_tap_action` is `details`                                                                                                          |
 | `event-tappable`    | `td.event` in list view                                        | `event_tap_action` is `details`                                                                                                          |
+| `event-text-scaled` | `.event` in every view                                         | its calendar has a [`text_scale`](/features/core-settings#scaling-one-calendars-text) other than 1                                       |
+| `count-up`          | `.time-countdown` in every view                                | it reads how long ago a finished event ended, [counting up](/features/event-content#counting-up-from-past-events)                        |
 | `time-beside-title` | `.event-content` in list and column view                       | `time_position` is `title` and the event has a time or a countdown, which then sits in `.title-aside` after `.summary` in `.summary-row` |
 | `title-wrap`        | `.summary-row`, with `time-beside-title`                       | the title wraps beside the time: no `title_max_lines: 1` or `scroll_long_titles`. `.summary` ends in `.title-room`, kept for the time    |
 | `title-capped`      | `.summary-row`, with `title-wrap`                              | `title_max_lines` is two or more                                                                                                         |

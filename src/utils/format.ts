@@ -77,6 +77,58 @@ export interface EventTimeParts {
    * right.
    */
   end?: string;
+
+  /**
+   * How long the event lasts, "(1 hr, 45 min)", present only under `show_duration`. Kept out of
+   * `text` and `end`, because where it goes depends on how the parts are drawn: after the
+   * joined label and text, after the text beside a badge, and in grid after the droppable end
+   * (`timeTextWithDuration`, `droppableTimeEnd`). See `formatEventDuration`.
+   */
+  duration?: string;
+}
+
+/** The space that sets the duration after the time: no break, so it stays with what it measures. */
+const DURATION_GAP = '\u00a0';
+
+/**
+ * Text and duration together, as the time row draws them beside an all-day badge, which has
+ * taken the label.
+ *
+ * @param parts Parts as returned by `formatEventTimeParts`
+ * @returns The text with the duration after it, or the duration alone where there is no text
+ */
+export function timeTextWithDuration({ text, duration }: EventTimeParts): string {
+  if (!duration) return text;
+  return text ? `${text}${DURATION_GAP}${duration}` : duration;
+}
+
+/**
+ * The droppable end of the joined time text, duration included. Grid gives the end time up
+ * first, since a block's bottom edge says when it ends, and the duration after it
+ * (`durationSuffix`). The duration alone is droppable where there is no end time to drop with
+ * it, as under `show_end_time: false`.
+ *
+ * @param parts Parts as returned by `formatEventTimeParts`
+ * @returns A suffix of the joined text, or undefined where none can go
+ */
+export function droppableTimeEnd({
+  end,
+  duration,
+  allDayLabel,
+}: EventTimeParts): string | undefined {
+  if (!duration || allDayLabel !== undefined) return end;
+  return `${end ?? ''}${DURATION_GAP}${duration}`;
+}
+
+/**
+ * The duration as it ends `droppableTimeEnd`, the gap before it included, which grid keeps after
+ * giving up the end time before it.
+ *
+ * @param parts Parts as returned by `formatEventTimeParts`
+ * @returns A suffix of the droppable end, or undefined where it has no duration
+ */
+export function durationSuffix({ duration, allDayLabel }: EventTimeParts): string | undefined {
+  return duration && allDayLabel === undefined ? `${DURATION_GAP}${duration}` : undefined;
 }
 
 /**
@@ -110,15 +162,18 @@ export function formatEventTime(
  * @returns The joined, capitalized time string
  */
 export function joinEventTimeParts(
-  { allDayLabel, text }: EventTimeParts,
+  { allDayLabel, text, duration }: EventTimeParts,
   language: string,
 ): string {
+  const after = duration ? `${DURATION_GAP}${duration}` : '';
   if (allDayLabel === undefined) {
-    return capitalizeFirstLetter(text);
+    return capitalizeFirstLetter(`${text}${after}`);
   }
 
   const { separator } = Localize.getTranslations(language);
-  return capitalizeFirstLetter(text ? `${allDayLabel}${separator}${text}` : allDayLabel);
+  return capitalizeFirstLetter(
+    `${text ? `${allDayLabel}${separator}${text}` : allDayLabel}${after}`,
+  );
 }
 
 /**
@@ -135,6 +190,26 @@ export function joinEventTimeParts(
  * @returns The all-day label where the event has one, and the remaining time text
  */
 export function formatEventTimeParts(
+  event: Types.CalendarEventData,
+  config: Types.Config,
+  language: string,
+  hass?: Types.Hass | null,
+): EventTimeParts {
+  const parts = timeTextParts(event, config, language, hass);
+  const duration = config.show_duration ? formatEventDuration(event, language) : null;
+  return duration ? { ...parts, duration } : parts;
+}
+
+/**
+ * The time text and the all-day label, without the duration.
+ *
+ * @param event Calendar event
+ * @param config Card configuration
+ * @param language Language code
+ * @param hass Home Assistant object for system time format detection
+ * @returns The all-day label where the event has one, and the remaining time text
+ */
+function timeTextParts(
   event: Types.CalendarEventData,
   config: Types.Config,
   language: string,
@@ -195,18 +270,228 @@ export function formatEventTimeParts(
   };
 }
 
+/** A duration in the units the card writes one in. */
+interface DurationParts {
+  days: number;
+  hours: number;
+  minutes: number;
+}
+
+/**
+ * How long an event lasts, as `show_duration` writes it after the time: "(30 min)",
+ * "(1 hr, 45 min)", "(1 day, 8 hr)", "(1 day)". In a first-strong isolate, so the parentheses
+ * and the words keep their own direction whichever way the row runs.
+ *
+ * The whole event is measured, on every row it is drawn on, so its length is there whichever of
+ * its days is on screen. Where the row shows only part of the event (a day of a split event, a
+ * later grid block, a banner cut off at the window's edge) the length is marked as the whole
+ * event's, "(8 hr total)", or it would read as the length of the times beside it. A row that
+ * shows the whole event, or `part` false, keeps plain parentheses.
+ *
+ * None for an event that starts and ends in the same minute, which shows its start time alone
+ * (#625).
+ *
+ * @param event Calendar event, or a row of one
+ * @param language Language code
+ * @param part Whether the row shows only part of the event, where the caller knows better than
+ *   the row's own stamps, as a banner does
+ * @returns The duration in parentheses, or null for none
+ */
+export function formatEventDuration(
+  event: Types.CalendarEventData,
+  language: string,
+  part?: boolean,
+): string | null {
+  const shown = shownInterval(event);
+  const parts = durationParts(shown.start, shown.end);
+  const text = parts ? formatDurationParts(parts, language) : null;
+  if (!text) return null;
+  const words =
+    (part ?? shown.part)
+      ? Localize.getTranslations(language).durationTotal.replace('{duration}', () => text)
+      : text;
+  return `\u2068(${words})\u2069`;
+}
+
+/**
+ * The whole event a row stands for, and whether the row shows only part of it: a day of a
+ * split list or column event, or a grid block other than the one that starts its event.
+ *
+ * @param event Calendar event, or a row of one
+ * @returns The event's start and end, and whether the row shows part of it
+ */
+function shownInterval(
+  event: Types.CalendarEventData,
+): Pick<Types.CalendarEventData, 'start' | 'end'> & { part: boolean } {
+  if (event._gridSource) {
+    return {
+      ...event._gridSource,
+      part: event._isMultiDaySegment === true && !event._gridSegmentStartsEvent,
+    };
+  }
+  if (event._isMultiDaySegment && event._sourceStart && event._sourceEnd) {
+    return { start: event._sourceStart, end: event._sourceEnd, part: true };
+  }
+  return { start: event.start, end: event.end, part: false };
+}
+
+/**
+ * How long an interval lasts, in days, hours and minutes.
+ *
+ * Shorter than a full day, the elapsed time, to the minute: a night when the clocks go forward
+ * is an hour shorter than its clock readings say, and it says so. From a full day, the wall
+ * clock: whole calendar days, then the clock time between the start's time of day and the
+ * end's, so noon to noon is "1 day" whether the clocks changed in between or not. A full day is
+ * the day counter's (`fullDaySpan`): an end on a later date at or after the start's time of
+ * day. All-day events count their dates, one included.
+ *
+ * @param start Start, as Home Assistant sent it
+ * @param end End, as Home Assistant sent it
+ * @returns The duration, or null for none to show
+ */
+function durationParts(
+  start: Types.CalendarEventData['start'],
+  end: Types.CalendarEventData['end'],
+): DurationParts | null {
+  if (start.date && end.date) {
+    const days = getCalendarDayDiff(parseAllDayDate(start.date), parseAllDayDate(end.date));
+    return days >= 1 ? { days, hours: 0, minutes: 0 } : null;
+  }
+
+  if (!start.dateTime || !end.dateTime) return null;
+  const span = fullDaySpan(start, end);
+  const from = new Date(start.dateTime);
+  const to = new Date(end.dateTime);
+  // Written positively: an unreadable date compares false both ways, and must not pass.
+  if (!(to.getTime() > from.getTime()) || isSameMinute(from, to)) return null;
+
+  if (span) {
+    let days = getCalendarDayDiff(from, to);
+    let clock = timeOfDay(to) - timeOfDay(from);
+    if (clock < 0) {
+      days -= 1;
+      clock += 86400000;
+    }
+    let minutes = Math.round(clock / 60000);
+    if (minutes >= 1440) {
+      days += 1;
+      minutes -= 1440;
+    }
+    return { days, hours: Math.floor(minutes / 60), minutes: minutes % 60 };
+  }
+
+  const minutes = Math.max(1, Math.round((to.getTime() - from.getTime()) / 60000));
+  return { days: 0, hours: Math.floor(minutes / 60), minutes: minutes % 60 };
+}
+
+/** `Intl.ListFormat`, which the project's `lib` does not declare. */
+type ListFormatConstructor = new (
+  locales: string[],
+  options: Record<string, string>,
+) => { format(items: string[]): string };
+
+const durationFormatters = intlCache<string, ((parts: DurationParts) => string) | null>();
+
+/**
+ * A duration in the card's language, in the browser's own words: short units with days written
+ * out, "1 day, 8 hr". Null where the browser cannot write it, or cannot yet: a duration is left
+ * out rather than the row it belongs to.
+ *
+ * @param parts The duration
+ * @param language Language code
+ * @returns The duration's words, or null
+ */
+function formatDurationParts(parts: DurationParts, language: string): string | null {
+  let format = durationFormatters.get(language);
+  if (format === undefined) {
+    format = durationFormatter(language);
+    durationFormatters.set(language, format);
+  }
+  try {
+    return format ? format(parts) : null;
+  } catch {
+    // Home Assistant's polyfill without the data it needs, which can fail as late as here.
+    return null;
+  }
+}
+
+/**
+ * Make the function that writes a duration in a language: each unit by `Intl.NumberFormat`,
+ * joined by `Intl.ListFormat`.
+ *
+ * That is what `Intl.DurationFormat` writes, with `style: 'short'` and `days: 'long'`, in every
+ * card language, and it is not used for a reason. Where the browser lacks it, Home Assistant
+ * installs formatjs's, which builds on the same two services and keeps the ones it first made
+ * for a language. Made before the card's language data reached them, they would go on writing
+ * another language after it had, which no format of the card's own can be told to forget. These
+ * are, through `intlCache`, the moment the data lands.
+ *
+ * @param language Language code
+ * @returns The function, or null where the browser cannot write durations
+ */
+function durationFormatter(language: string): ((parts: DurationParts) => string) | null {
+  const ListFormat = (Intl as unknown as { ListFormat?: ListFormatConstructor }).ListFormat;
+  try {
+    const unit = (name: string, unitDisplay: string) =>
+      new Intl.NumberFormat(intlLocales(language), {
+        style: 'unit',
+        unit: name,
+        unitDisplay,
+      } as Intl.NumberFormatOptions);
+    const units = {
+      days: unit('day', 'long'),
+      hours: unit('hour', 'short'),
+      minutes: unit('minute', 'short'),
+    };
+    const list = ListFormat
+      ? new ListFormat(intlLocales(language), { type: 'unit', style: 'short' })
+      : null;
+    return (parts) => {
+      const words = (['days', 'hours', 'minutes'] as const)
+        .filter((key) => parts[key] > 0)
+        .map((key) => units[key].format(parts[key]));
+      return list ? list.format(words) : words.join(', ');
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** How a countdown, or a count-up from a finished event, counts, as the card's options set it. */
+export interface CountdownOptions {
+  /** Count every date other than today in days, "in 1 day" for tomorrow, never months or years. */
+  exactDays?: boolean;
+  /**
+   * Count down only to starts within this many calendar days, and up only from ends within as
+   * many; undefined is no limit.
+   */
+  maxDays?: number;
+}
+
 /**
  * Generates a localized countdown string for an event
  * Future dates use natural relative units measured between local calendar dates.
  * Only starts later today use clock units.
  *
+ * With `exactDays`, every date after today is worded by `Intl` in days, tomorrow included:
+ * "in 1 day" rather than "tomorrow", as an option that counts in days promises. `Intl` is the
+ * formatter that already writes "tomorrow" and a wait of hours, rather than Day.js's natural
+ * units, which word "in N days" differently from `Intl` in about half the card's languages;
+ * switching formatter at the point Day.js would say "in a month" would change the wording
+ * mid-count. Starts later today keep their clock units either way.
+ *
+ * `maxDays` is measured in calendar dates, as the count is, so it moves at midnight and never
+ * with the time of day: `0` is today's starts alone, `7` a week ahead.
+ *
  * @param event Calendar event to generate countdown for
  * @param language Language to use
- * @returns Countdown string or null if event is past or empty day
+ * @param options How the countdown counts
+ * @returns Countdown string or null if event is past or empty day, or beyond `maxDays`
  */
 export function getCountdownString(
   event: Types.CalendarEventData,
   language: string = 'en',
+  options: CountdownOptions = {},
 ): string | null {
   if (event._isEmptyDay || !event.start) return null;
 
@@ -220,6 +505,12 @@ export function getCountdownString(
   if (!startDate || startDate <= now) return null;
 
   const days = getCalendarDayDiff(now, startDate);
+  if (options.maxDays !== undefined && days > options.maxDays) return null;
+
+  if (days >= 1 && options.exactDays) {
+    return getRelativeUnitString(days, 'day', language, 'always');
+  }
+
   if (days === 1) {
     return getRelativeUnitString(1, 'day', language);
   }
@@ -240,6 +531,134 @@ export function getCountdownString(
   return hours >= 2
     ? getRelativeUnitString(hours, 'hour', language)
     : getRelativeTimeString(startDate, language, now);
+}
+
+/**
+ * "Day 2 of 3": which day of a multi-day event a row stands for, in the card's language.
+ *
+ * The numbers are written as digits, as the date column writes its day: no card language
+ * writes its own. `Intl` has nothing to offer for the words, since it names the field "day"
+ * alone and no "of", so they are the card's `dayOfEvent` string.
+ *
+ * @param day Which day, counted from 1
+ * @param days How many days the event runs
+ * @param language Language code
+ * @returns The counter's text
+ */
+export function formatDayOfEvent(day: number, days: number, language: string): string {
+  return Localize.getTranslations(language)
+    .dayOfEvent.replace('{day}', () => String(day))
+    .replace('{days}', () => String(days));
+}
+
+/**
+ * What a count-up reads from a finished event, at an instant: its end, and how many local dates
+ * have passed since its last moment. Null where the event has not ended or its end cannot be
+ * read.
+ *
+ * The end instant itself takes up no time, as the day counter counts it, so an event ending at
+ * 0:00 is the day before's: at 0:05 it reads "yesterday", as at 23:50 an event starting at 0:10
+ * reads "tomorrow". An event with no duration is its own last moment. An all-day event's end
+ * date is exclusive, so its last moment falls on the date before.
+ *
+ * "Ended" is `isEventPast`'s, so a row counts up exactly when it is drawn as past: a timed event
+ * once its end instant has gone by, an all-day one from the date after its last.
+ *
+ * @param event Calendar event
+ * @param now The instant to read it at
+ * @returns The end and the days since the last moment, or null
+ */
+function countUpSpan(
+  event: Types.CalendarEventData,
+  now: Date,
+): { end: Date; days: number } | null {
+  if (event.end?.dateTime) {
+    const end = new Date(event.end.dateTime);
+    const start = event.start?.dateTime ? new Date(event.start.dateTime) : end;
+    const last = end.getTime() > start.getTime() ? new Date(end.getTime() - 1) : end;
+    // Written positively: an unreadable end compares false both ways, and must not count.
+    if (!(now.getTime() > end.getTime())) return null;
+    return { end, days: getCalendarDayDiff(last, now) };
+  }
+
+  if (event.end?.date) {
+    const last = parseAllDayDate(event.end.date);
+    last.setDate(last.getDate() - 1);
+    const days = getCalendarDayDiff(last, now);
+    return days >= 1 ? { end: parseAllDayDate(event.end.date), days } : null;
+  }
+
+  return null;
+}
+
+/**
+ * Generates a localized count-up string for a finished event: how long ago it ended, the
+ * countdown read backward ("40 minutes ago", "yesterday", "13 days ago").
+ *
+ * The same rules as `getCountdownString`, measured from the event's end. An event that ended
+ * earlier today counts in clock units, Day.js's short phrases under two hours and `Intl`'s
+ * hours from there, so a long wait never rounds into "a day ago". The date before today is
+ * `Intl`'s word for it, "yesterday", and earlier dates read in Day.js's natural units between
+ * calendar dates, "13 days ago" or "a month ago". With `exactDays` every earlier date reads in
+ * days, "1 day ago" included; `maxDays` keeps count-ups to events that ended within that many
+ * calendar days, `0` to today's.
+ *
+ * Every word is the browser's or Day.js's, as the countdown's are, so no card string is
+ * needed: Day.js's locales carry their "ago" forms beside their "in" ones.
+ *
+ * @param event Calendar event to count up from
+ * @param language Language to use
+ * @param options How the count reads, as for the countdown
+ * @returns Count-up string, or null for an event that has not ended, an empty day, or one
+ *   beyond `maxDays`
+ */
+export function getCountUpString(
+  event: Types.CalendarEventData,
+  language: string = 'en',
+  options: CountdownOptions = {},
+): string | null {
+  if (event._isEmptyDay) return null;
+
+  const now = new Date();
+  const span = countUpSpan(event, now);
+  if (!span) return null;
+
+  const { days } = span;
+  if (options.maxDays !== undefined && days > options.maxDays) return null;
+
+  if (days >= 1 && options.exactDays) {
+    return getRelativeUnitString(-days, 'day', language, 'always');
+  }
+
+  if (days === 1) {
+    return getRelativeUnitString(-1, 'day', language, 'auto');
+  }
+
+  if (days > 1) {
+    // Anchor both dates so clock time cannot change Day.js's natural unit selection.
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfLastDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() - days);
+    return getRelativeTimeString(startOfLastDay, language, startOfToday);
+  }
+
+  const hours = Math.round((now.getTime() - span.end.getTime()) / 3600000);
+  return hours >= 2
+    ? getRelativeUnitString(-hours, 'hour', language)
+    : getRelativeTimeString(span.end, language, now);
+}
+
+/**
+ * Whether a finished event's count-up reads in clock units: a timed event whose last moment
+ * fell earlier today. Such a count-up changes by the minute; every other one counts dates and
+ * changes only at midnight.
+ *
+ * @param event Calendar event
+ * @param now The instant to read it at
+ * @returns True for a count-up in minutes or hours
+ */
+export function countsUpTheClock(event: Types.CalendarEventData, now: Date = new Date()): boolean {
+  if (!event.start?.dateTime) return false;
+  return countUpSpan(event, now)?.days === 0;
 }
 
 /**
@@ -776,6 +1195,74 @@ export function getCalendarDayDiff(start: Date, end: Date): number {
   const endDay = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
 
   return Math.round((endDay - startDay) / 86400000);
+}
+
+/**
+ * The days an event takes up, when it is a full day or longer: its first day, and how many days
+ * it runs, at least two. Null for anything shorter. The day counter counts these days.
+ *
+ * A day is a local calendar date the event takes up time on. The end instant itself takes up
+ * none, so a timed event ending at 0:00 does not count the date that midnight opens: its last
+ * day is the date of the moment before its end. That holds where a midnight is missing or
+ * repeats as well. Where the clocks go forward at midnight, an end at the new day's first
+ * moment, 01:00, still leaves the day before as the last; where they go back at midnight, an
+ * end at the second 00:00 has taken up an hour of the new date, which counts. These are the
+ * days `splitMultiDayEvent` draws a row for, one for one.
+ *
+ * An all-day event qualifies from two dates. A timed event qualifies once it is a full day long
+ * on the wall clock: it ends on a later date, at or after its start's time of day on the next
+ * date. So a night from 22:00 to 06:00 is one night rather than "Day 2 of 2". Read off the
+ * clock rather than measured in hours, so a change of clocks moves nothing: noon to noon over a
+ * 23-hour spring day is a full day, and 00:45 to the second 00:30 of a night whose hour repeats
+ * is not, though it lasts 24 hours and 45 minutes. Stepping the start on by a day and comparing
+ * instants gets both of those wrong, because the stepped time lands on one of the repeated
+ * readings, or is pushed past a reading that does not exist.
+ *
+ * @param start Event start, as Home Assistant sent it
+ * @param end Event end, as Home Assistant sent it
+ * @returns The event's first day and its number of days, or null for an event shorter than that
+ */
+export function fullDaySpan(
+  start: Types.CalendarEventData['start'] | undefined,
+  end: Types.CalendarEventData['end'] | undefined,
+): { first: Date; days: number } | null {
+  let first: Date;
+  let last: Date;
+
+  if (start?.date && end?.date) {
+    first = parseAllDayDate(start.date);
+    last = parseAllDayDate(end.date);
+    last.setDate(last.getDate() - 1);
+  } else if (start?.dateTime && end?.dateTime) {
+    first = new Date(start.dateTime);
+    const endInstant = new Date(end.dateTime);
+    const datesLater = getCalendarDayDiff(first, endInstant);
+    // Written positively: an unparseable date compares false both ways, and must not pass.
+    if (!(datesLater >= 2 || (datesLater === 1 && timeOfDay(endInstant) >= timeOfDay(first)))) {
+      return null;
+    }
+    last = new Date(endInstant.getTime() - 1);
+  } else {
+    return null;
+  }
+
+  const days = getCalendarDayDiff(first, last) + 1;
+
+  return days >= 2 ? { first, days } : null;
+}
+
+/**
+ * A wall-clock reading, as milliseconds since its date's 00:00 on the clock: 00:30 is half an
+ * hour whichever of two 00:30s it is, and 03:00 is three hours on a day whose 02:00 is missing.
+ *
+ * @param date An instant
+ * @returns Its local time of day, in milliseconds
+ */
+function timeOfDay(date: Date): number {
+  return (
+    ((date.getHours() * 60 + date.getMinutes()) * 60 + date.getSeconds()) * 1000 +
+    date.getMilliseconds()
+  );
 }
 
 /**

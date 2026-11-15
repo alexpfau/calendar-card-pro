@@ -11,6 +11,8 @@
   "viewGrid": "Grid",
   "endsToday": "ends today",
   "endsTomorrow": "ends tomorrow",
+  "dayOfEvent": "Day {day} of {days}",
+  "durationTotal": "{duration} total",
   "noEvents": "No events",
   "loading": "Loading calendar events...",
   "error": "Error: Calendar entity not found or improperly configured",

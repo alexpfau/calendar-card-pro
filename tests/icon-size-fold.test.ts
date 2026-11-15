@@ -28,6 +28,7 @@ import { PANELS } from '../src/rendering/editor/panels';
 import * as Routing from '../src/rendering/editor/routing';
 import * as Workspace from '../src/rendering/editor/workspace';
 import { cardStyles, generateCustomPropertiesObject } from '../src/rendering/styles';
+import * as TextScale from '../src/rendering/text-scale';
 import * as Logger from '../src/utils/logger';
 import '../src/calendar-card-pro';
 
@@ -171,13 +172,23 @@ describe('the fold covers every option that sizes a Home Assistant icon', () => 
     });
   }
 
+  /**
+   * Properties a calendar's text_scale writes on its own events rather than the card on
+   * ha-card, each mapped to the property the card writes that it is derived from. The option
+   * feeding that one is the option folded; the last test below checks the derivation is real.
+   */
+  const SCALE_DERIVED: ReadonlyMap<string, string> = new Map([
+    [TextScale.WEATHER_TITLE_ICON_PROPERTY, '--calendar-card-weather-event-icon-size'],
+  ]);
+
   /** The option paths whose value lands in a custom property, found by planting each. */
   function optionsFeeding(property: string): string[] {
+    const written = SCALE_DERIVED.get(property) ?? property;
     return stringPaths(Config.DEFAULT_CONFIG as unknown as Record<string, unknown>).filter(
       (path) => {
         const sentinel = '7301px';
         const config = buildConfig(at(path, sentinel) as Partial<Types.Config>);
-        return generateCustomPropertiesObject(config)[property] === sentinel;
+        return generateCustomPropertiesObject(config)[written] === sentinel;
       },
     );
   }
@@ -222,6 +233,15 @@ describe('the fold covers every option that sizes a Home Assistant icon', () => 
     expect(unprotected, 'icon sizes that pass an unusable value through').toEqual([]);
     expect(stale, 'folded options that size no icon').toEqual([]);
     expect(settled, 'exceptions that no longer apply').toEqual([]);
+  });
+
+  it('derives each property a scaled event writes from the option it names', () => {
+    // Planted in em, which only the derived property scales; at 0.5, 2em is 1em.
+    for (const [derived, source] of SCALE_DERIVED) {
+      const [path] = optionsFeeding(source);
+      const config = buildConfig(at(path, '2em') as Partial<Types.Config>);
+      expect(TextScale.textScaleProperties(config, 0.5)[derived], derived).toBe('1em');
+    }
   });
 });
 

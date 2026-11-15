@@ -31,7 +31,10 @@ they draw what is stored first and when they ask Home Assistant.
    final-day expiry. Anniversary counts read the source start (`_sourceStart`, `_gridSource`),
    never the display date, while countdowns and expiry stay per day. Duplicates are resolved after
    the per-calendar date and expiry filters, by source signature, so identical daily slices of
-   distinct events never merge.
+   distinct events never merge. List view's `event_order: latest_first` reverses the days and
+   each day's events before any limit or empty-day fill, so every one of them keeps from the top
+   (`listsLatestFirst`). Each calendar's cap runs next, then `skip_first_events`, then the day and
+   event limits, and the empty-day fill starts where the skip stopped (`continueFrom`).
 6. **Present.** `buildEventPresentation` runs at render (see
    [Rendering & Views](/architecture-rendering)).
 

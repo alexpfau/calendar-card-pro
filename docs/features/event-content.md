@@ -323,6 +323,7 @@ show_multiday_allday_time: false # ...and for multi-day ones, which show an end 
 time_24h: false # Use 12-hour format (AM/PM)
 time_two_digit_hours: false # Use 2 digits in hours
 show_end_time: true # Show event end time
+show_duration: false # Show how long each event lasts
 time_font_size: '12px'
 time_color: 'var(--secondary-text-color)'
 time_icon_size: '14px'
@@ -353,6 +354,46 @@ integration or calendar file that gets it wrong. An all-day event whose end is m
 after its start has no time to fall back on and is not shown.
 
 :::
+
+### Event Duration
+
+`show_duration` adds how long each event lasts after its time, so a half-hour call reads
+"16:00 - 16:30 (30 min)" and a long weekend away "(3 days)". It is off by default:
+
+```yaml
+show_duration: true
+```
+
+- **Shorter than a day, it is the time that passes**: "(45 min)", "(1 hr, 45 min)". A night
+  when the clocks go forward reads an hour shorter than its clock times suggest, because it is.
+- **From a full day, it is days and the clock time left over**: "(1 day, 8 hr)". Noon to noon
+  the next day is "(1 day)", even across a change of clocks.
+- **An all-day event counts its days**: "(1 day)", "(3 days)".
+- **An event drawn on several days shows its whole length on each of them, marked as a
+  total.** Split into a row per day, a night shift reads "20:30 - 23:59 (8 hr total)" and
+  "0:00 - 4:30 (8 hr total)", and each day of a weekend away "All day (3 days total)". Column
+  view's days and grid view's later blocks read the same way. A row that shows the whole event
+  has no "total".
+- **An event that starts and ends in the same minute, such as a reminder, shows none.**
+- **It follows the time wherever the time goes**: after the start alone with
+  `show_end_time: false`, beside the title with
+  [`time_position: title`](#time-beside-the-title), and hidden with the time under
+  `show_time: false`.
+- **In grid view the end time goes before the duration** when a block is too narrow for both:
+  "13:15 (1 hr, 45 min)". The block where an overnight event starts carries the length after its
+  end, "22:05 - 1:35 (+1) (3 hr, 30 min)", and the blocks after it "(3 hr, 30 min total)".
+  [Banners](/features/grid-view) show it after their title, "Weekend away (3 days)", and leave it
+  out first where the banner is too narrow.
+- **The words are the browser's own for the card's language.** Swedish, Norwegian and Estonian
+  count days in their word for a full 24 hours: "1 dygn, 8 tim", "1 døgn, 8 t", "1 ööpäev, 8 t".
+
+Each layout can set it on its own:
+
+```yaml
+show_duration: true
+grid:
+  show_duration: false # the block's height already says it
+```
 
 ### Time Beside the Title
 
@@ -630,8 +671,8 @@ column:
   title keeps its hyphens.
 - In grid view a title also stops at the last line its block shows whole, ending in "…" when
   more follows. A block too short for a complete first label and title line uses the
-  [short timed title fallback](/features/grid-view#short-timed-titles) instead: one static line
-  that keeps every label. A later line that does not fit never triggers it.
+  [short timed title fallback](/features/grid-view#short-timed-titles) instead: one line that
+  keeps every label. A later line that does not fit never triggers it.
 
 :::
 
@@ -683,15 +724,17 @@ time_grid:
   When the whole card is scrolled off screen its titles pause in place, and they resume when it
   comes back.
 - A grid block too short for its normal title uses the
-  [short timed title fallback](/features/grid-view#short-timed-titles), which stays static and
-  keeps every label. Scrolling resumes once the block has room for its normal title.
+  [short timed title fallback](/features/grid-view#short-timed-titles): one line, smaller if it
+  has to be, that scrolls like any other title and keeps every label still beside it. A block
+  too short even for that line shows no text.
 
 :::
 
 ## ⏳ Countdown Display
 
 `show_countdown` shows how long remains until each upcoming event starts, such as "in 20
-minutes" or "tomorrow", in every view:
+minutes" or "tomorrow", in every view. An event that has ended
+[counts up](#counting-up-from-past-events) instead, such as "13 days ago":
 
 ```yaml
 # Enable countdown display for events
@@ -714,10 +757,11 @@ It follows the same local calendar dates as the day headers:
   when, so with event times hidden, "tomorrow" alone does not say how soon after midnight.
 - Today's timed events always count in clock units, never in days, however long the wait.
 - Distant dates read naturally: "in a month" for an event 30 days away, "in a year" for one 365
-  days away.
+  days away. [`countdown_exact_days`](#counting-in-days) counts them in days instead.
 - The wording follows the card's language, and the date comparison stays correct across
   daylight-saving changes.
 - A countdown disappears once its event has started, so today's all-day events have none.
+  Once the event has ended it [counts up](#counting-up-from-past-events).
 
 In list view it ends the time row, or takes a line of its own where the time leaves it no room.
 In grid view it trails the time on a timed block tall enough to show one, and all-day banners
@@ -734,12 +778,150 @@ show_countdown_allday: false # Timed events only
 When [`split_multiday_events`](/features/multi-day-events) is on, each day's row counts to its
 own start by the rules above: a holiday starting tomorrow reads "tomorrow", "in 2 days", "in 3
 days" and so on down its rows, whether or not it has a start time. An unsplit event counts to
-its original start, and a row already under way has no countdown.
+its original start, and a row already under way has no countdown. With the
+[progress bar](#progress-bar-display) on, a row of an event a day or longer names its
+[day](/features/multi-day-events#day-counter) once the event has started, rather than counting
+down to its own start.
 
 ::: details Long Countdowns on a Narrow Card
 
 In list view, a phrase wider than the whole row, as a long Finnish one can be on a narrow card,
 wraps between its words rather than run past the card's edge.
+
+:::
+
+### Counting Up From Past Events
+
+With `show_countdown` on, an event that has ended shows how long ago it was, such as "13 days
+ago": the countdown read backward. It suits a calendar kept as a log, such as when the lawn was
+last mowed or the water filter changed:
+
+```yaml
+show_countdown: true
+show_past_events: true # Keep finished events on the card
+```
+
+| When the Event Ended   | Count-Up                                                         |
+| ---------------------- | ---------------------------------------------------------------- |
+| Earlier today          | A clock count-up, such as "40 minutes ago" or "5 hours ago"      |
+| Yesterday, at any time | "yesterday"                                                      |
+| On an earlier date     | Date-based relative text, such as "13 days ago" or "a month ago" |
+
+- It counts from the event's end, between calendar dates as the countdown does: a trip that
+  ended on Sunday reads "yesterday" all Monday. An event ending at midnight belongs to the day
+  before, so at 0:05 it reads "yesterday" rather than "5 minutes ago".
+- It shows wherever the card keeps finished events: grid view does by default, and list and
+  column view with `show_past_events: true`.
+- The countdown's other options apply to it too. `show_countdown_allday: false` leaves out
+  finished all-day events, [`countdown_max_days`](#countdown-range) keeps it to events that
+  ended within that many days, [`countdown_exact_days`](#counting-in-days) reads "1 day ago"
+  for yesterday, and [`once_per_day`](#repeated-countdowns) leaves out one that repeats the one
+  above it.
+- An event under way has neither a countdown nor a count-up, and a count-up dims with its event
+  ([`past_event_opacity`](#past-events-display)).
+- With the [progress bar](#progress-bar-display) on, an event a day or longer keeps its
+  [day counter](/features/multi-day-events#day-counter) after it ends, such as "Day 1 of 3",
+  rather than counting up.
+- For a log with the newest entry first, see [Event Order](/features/core-settings#event-order),
+  and the [House Log](/guide/house-log) story for a complete card.
+- In the visual editor it comes with **Show Countdown**.
+
+### Countdown Range
+
+`countdown_max_days` shows a countdown only for events starting within that many days, so a
+countdown appears as an event draws near rather than months ahead. `0` keeps countdowns to
+today's events, `7` to the week ahead. A [count-up](#counting-up-from-past-events) follows the
+same limit backward, so `7` also keeps one on events that ended in the past week:
+
+```yaml
+show_countdown: true
+countdown_max_days: 7
+```
+
+| Option               | Type   | Default | Description                                                                                                                                                    |
+| -------------------- | ------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `countdown_max_days` | number | -       | Show a countdown only for events starting within this many calendar days, and a count-up only for events that ended within as many; unset, every event has one |
+
+- Days are counted between calendar dates, as the countdown counts them. With `7`, an event
+  reading "in 7 days" keeps its countdown and one a day later has none until the next midnight.
+  An event reading "7 days ago" keeps its count-up until that midnight.
+- Left unset, every upcoming event counts down, and every finished one up.
+- Each view can set its own, in `list:`, `column:` or `time_grid:`. A view's limit replaces the
+  card's, and a view left blank uses the card's:
+
+```yaml
+show_countdown: true
+countdown_max_days: 7 # A week ahead in list and grid view
+column:
+  countdown_max_days: 0 # Today's events only in column view
+```
+
+::: details No Limit in One View
+
+A blank `countdown_max_days` in a view uses the card's limit. To lift the limit in one view
+alone, give that view a number larger than any wait it will show, such as `3650`. Its
+`days_to_show` is not enough on its own: a card that starts later than today, or is paged
+ahead, shows dates further off than that.
+
+:::
+
+### Repeated Countdowns
+
+`show_countdown: once_per_day` counts down once for a day of events that all read the same, as
+on a day two bins go out together: the first event keeps its countdown, and one that reads the
+same as the countdown above it is left out. A day of finished events
+[counts up](#counting-up-from-past-events) once in the same way.
+
+```yaml
+show_countdown: once_per_day
+```
+
+| Value          | Countdowns                                                                        |
+| -------------- | --------------------------------------------------------------------------------- |
+| `false`        | None                                                                              |
+| `true`         | On every event still to come or ended                                             |
+| `once_per_day` | On every event still to come or ended, leaving out one that repeats the one above |
+
+- Countdowns later today always show, since two that read "in 5 hours" can name different
+  times, and so do count-ups earlier today.
+- Under [`event_order: latest_first`](/features/core-settings#event-order) the first drawn is
+  the latest event, which keeps its count-up.
+- A countdown that differs still shows, and an event without one, such as an all-day event with
+  `show_countdown_allday: false` or one showing the
+  [day counter](/features/multi-day-events#day-counter) in its place, is passed over.
+- It applies in list and column view. In grid view every timed block keeps its countdown, as
+  with `true`.
+- In the visual editor it is **Leave Out Repeated Countdowns**, under Countdown & Progress.
+
+### Counting in Days
+
+`countdown_exact_days` counts every date after today in days, so an event 30 days away reads
+"in 30 days" rather than "in a month", one 400 days away "in 400 days" rather than "in a year",
+and one tomorrow "in 1 day". A [count-up](#counting-up-from-past-events) counts the same way,
+"40 days ago" and "1 day ago" for yesterday. It suits a card where the number itself matters,
+such as the days left until a trip:
+
+```yaml
+show_countdown: true
+countdown_exact_days: true
+```
+
+| Option                 | Type    | Default | Description                                                                                                                       |
+| ---------------------- | ------- | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `countdown_exact_days` | boolean | `false` | Count every date other than today in days, "in 1 day" for tomorrow and "1 day ago" for yesterday, rather than in months and years |
+
+- Later today reads as it does without it, such as "in 20 minutes" or "in 5 hours".
+- Tomorrow counts by its date, as "tomorrow" does: an event at 00:10 reads "in 1 day" all
+  evening, and "in 10 minutes" from midnight.
+- Each view can set its own, in `list:`, `column:` or `time_grid:`.
+
+::: details Wording in Other Languages
+
+The days are worded by the browser's own date formatting, as the default "tomorrow" is. In
+some languages that reads a little differently from the default countdown for the same wait:
+Spanish "dentro de 3 días" rather than "en 3 días", Norwegian "om 3 døgn" rather than "om 3
+dager". Where the browser has no wording for the card's language, the days read in English, as
+"tomorrow" does there: Chromium has none for Icelandic.
 
 :::
 
@@ -816,9 +998,11 @@ show_now_indicator: false # Turn it off
 now_color: '#ef4444' # Mark it in red instead
 ```
 
-- Only timed events are marked. A multi-day timed event is marked while it runs; split across
-  days, as column view does by default, it is marked on its first and last day, and the days in
-  between show it as an all-day event, which is not marked.
+- Only timed events shorter than a [full day](/features/multi-day-events#day-counter) are
+  marked, so a night shift is and a three-day trip is not: on a long event "Now" would be true,
+  in green, on every one of its days. With the [progress bar](#progress-bar-display) on, a long
+  event says which of its days it is on instead. Split across days, as column view does by
+  default, a shorter event is marked on whichever of its rows is under way.
 - The mark lives on the time line, so nothing is marked while that line is hidden: with
   `show_time: false`, card-wide or on that calendar, a running event looks like any other. With
   [`time_position: title`](#time-beside-the-title) the time has no clock, so "Now ·" and the
@@ -955,14 +1139,16 @@ weekend_month_color: '#E67C73'
 ## 📊 Progress Bar Display
 
 `show_progress_bar` draws a bar on an event that is running now, filled to show how much of the
-event has already passed:
+event has already passed. An event a day or longer says which of its days it is on instead, such
+as "Day 3 of 5": see [Day Counter](/features/multi-day-events#day-counter).
 
 ```yaml
 show_progress_bar: true
 ```
 
-A bar shows only while an event runs and a [countdown](#countdown-display) only before it
-starts, so no event ever shows both.
+A bar shows only while an event runs, and a [countdown](#countdown-display) only before it
+starts or, [counting up](#counting-up-from-past-events), after it ends, so no event ever shows
+both.
 
 You can customize the appearance of the progress bars:
 
@@ -1003,9 +1189,11 @@ Grid view draws the bar at `100%` of the block, in the block's accent color, wha
 top-level `progress_bar_width` and `progress_bar_color` say, until a `time_grid:` block sets its
 own. See [Options That Start From a Different Default](/features/grid-view#options-that-start-from-a-different-default).
 
-An event running over several days fills its bar over the whole event. Split across days by
-[`split_multiday_events`](/features/multi-day-events), it draws the bar on today's row only,
-including a middle day shown as all-day, so the bar keeps growing from one day's row to the
-next instead of starting again at midnight.
+An event running past midnight fills its bar over the whole event. Split across days by
+[`split_multiday_events`](/features/multi-day-events), it draws the bar on today's row only, so
+the bar keeps growing from one day's row to the next instead of starting again at midnight. In
+list and column view that is an event shorter than a day, such as a night shift, since one a day
+or longer draws its [day counter](/features/multi-day-events#day-counter) instead. Grid view
+keeps the bar on each day's block.
 
 Most options on this page live under the card's event column settings — see [Event Column in the configuration reference](/reference/configuration#event-column). Two groups sit elsewhere: the empty-day options are card-wide and belong to [Core Settings](/reference/configuration#core-settings), and `location_icon` is per calendar, listed under [Per-Entity Options](/reference/configuration#per-entity-options).

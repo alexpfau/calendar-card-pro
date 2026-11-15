@@ -3,6 +3,7 @@
 import { css } from 'lit';
 
 import { ACCENT_TEXT_OPTIONS } from './accent-text';
+import * as Leaves from './leaves';
 import * as Config from '../config/config';
 import type * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
@@ -67,6 +68,40 @@ const SUBSTITUTED = /(?:^|[^\w-])(?:var|attr)\(/i;
  */
 function inlineRoom(size: string): string {
   return SUBSTITUTED.test(size) ? '0.125em' : ViewConfig.scaleFontSize(size, 0.125);
+}
+
+/**
+ * The custom properties that size the invisible struts in a column or grid day header, so every
+ * header is as tall as the tallest a day can be drawn at (see "Struts" in the stylesheet).
+ *
+ * Empty while no day is drawn at a scale of its own, so a card without `today_date_scale` or
+ * `past_date_scale` writes nothing new and draws exactly as it did.
+ *
+ * @param config Card configuration, already resolved for the view
+ * @returns Properties to write on `ha-card`
+ */
+function dateStrutProperties(config: Types.Config): Record<string, string> {
+  if (Leaves.dateScale(config, true, false) === 1 && Leaves.dateScale(config, false, true) === 1) {
+    return {};
+  }
+
+  // A size's `!important` belongs to the declaration on the date. Inside max() or minmax() it
+  // would make the whole value invalid, and the strut would fall back to the inherited size.
+  const scale = Leaves.maxDateScale(config);
+  const size = (value: string): string =>
+    Leaves.scaleDateSize(value, scale).replace(/\s*!\s*important\s*$/i, '');
+  const day = size(config.day_font_size);
+
+  return {
+    // A zero-width space: a line of text with nothing to see in it.
+    '--calendar-card-date-strut': '"\\200b"',
+    '--calendar-card-date-weekday-row': size(config.weekday_font_size),
+    '--calendar-card-date-weekday-align': 'end',
+    '--calendar-card-date-day-strut-size': day,
+    '--calendar-card-date-text-strut-size': config.show_month
+      ? `max(${day}, ${size(config.month_font_size)})`
+      : day,
+  };
 }
 
 /**
@@ -164,7 +199,14 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     // size, which need not be a length (`150%`, `large`), so it is rewritten as one before it
     // is scaled, in the author's own unit where it has one. Parsing it to a number would size
     // an `em` font's column in `px`, reduce `calc(...)` to `NaN`, and lose a keyword entirely.
-    '--calendar-card-date-column-width': ViewConfig.scaleFontSize(config.day_font_size, 1.75),
+    //
+    // It is sized for the largest date a day is drawn at, so a larger today widens the column
+    // for every day and the events beside them stay in one line.
+    '--calendar-card-date-column-width': ViewConfig.scaleFontSize(
+      config.day_font_size,
+      1.75 * Leaves.maxDateScale(config),
+    ),
+    ...dateStrutProperties(config),
     '--calendar-card-date-column-vertical-alignment': config.date_vertical_alignment,
     '--calendar-card-event-icon-vertical-alignment':
       config.event_icon_vertical_alignment === 'top'
@@ -376,8 +418,14 @@ export const cardStyles = css`
     --calendar-card-grid-block-room: 1px;
   }
 
+  /* Declared again on an event drawn at its calendar's text_scale, which writes its own sizes
+     and with them its own share (text-scale.ts). A custom property substitutes the variables it
+     names where it is declared, so inherited from ha-card these two kept the card's share: a
+     title at twice the card's size cut its marks with the room of one. Only on a scaled event:
+     every other inherits them from ha-card, a theme's own value for them included. */
   @supports (width: round(1px, 1px)) {
-    ha-card {
+    ha-card,
+    .event-text-scaled {
       --calendar-card-event-row-room: round(
         up,
         var(--calendar-card-event-inline-room, 0.125em),
@@ -2381,7 +2429,8 @@ export const cardStyles = css`
      class selected nothing, which meant a finished holiday stayed bright beside a
      finished meeting that dimmed, and dimmed in list and column but not here. Same
      opacity, applied to what the banner does emit. */
-  .grid-banner.past-event .grid-banner-title {
+  .grid-banner.past-event .grid-banner-title,
+  .grid-banner.past-event .grid-banner-time {
     opacity: var(--calendar-card-past-event-opacity, 0.6);
   }
 
@@ -2988,6 +3037,17 @@ export const cardStyles = css`
     margin-inline-end: 2px;
     --mdc-icon-size: var(--calendar-card-weather-event-icon-size, 14px);
     color: var(--calendar-card-weather-event-color, var(--secondary-text-color));
+  }
+
+  /* Beside the title, where list view draws the badge, its icon is sized in the font of the row,
+     which the calendar's text_scale does not set; in a row of its own it sits in the weather
+     font, which it does. So an icon sized in em takes a scaled event's scale in full here, from
+     a property the event writes only where that differs (text-scale.ts). */
+  .event-text-scaled :where(.summary-row, .title-aside) > .event-weather ha-icon {
+    --mdc-icon-size: var(
+      --calendar-card-weather-event-title-icon-size,
+      var(--calendar-card-weather-event-icon-size, 14px)
+    );
   }
 
   /* Summary-row weather placement. These rules are the list-view
@@ -5132,10 +5192,77 @@ export const cardStyles = css`
     position: relative;
     z-index: 2; /* Above the today indicator, matching the list view. */
     min-width: 0;
+    /* At least as tall as the largest weekday a day is drawn with; see the struts below. */
+    grid-template-rows: minmax(var(--calendar-card-date-weekday-row, auto), auto) auto;
+  }
+
+  /* Struts: while today_date_scale or past_date_scale draws one day's date at a size of its
+     own, every header has to lay out as tall as the tallest, or that day's first event starts
+     lower than the others and, in grid view, the shared header row grows unevenly. Two
+     invisible pseudo-elements in each header's number row carry the largest sizes: one is a
+     line of text as tall as the larger of the scaled number and month, which also sets the
+     row's baseline; the other, with the tile on, is a copy of the tile at the scaled size.
+     The weekday row is held at the scaled weekday's height, and a weekday drawn smaller sits
+     at its bottom, beside the number below it.
+
+     A minimum height on the header was tried first and missed: a month larger than the
+     number, or a weather badge, made today's header taller anyway, because the height a
+     header needs depends on everything in its baseline row, not on two font sizes. Text
+     struts in that row are measured by the same rules as the text itself.
+
+     Pseudo-elements rather than elements: they add no node, so the grid's structure
+     observers never see them. With no scale set, --calendar-card-date-strut is unset, the
+     content is none, nothing is generated and the header draws as it always has. */
+  .column-date-content::before,
+  .column-date-content::after {
+    content: var(--calendar-card-date-strut, none);
+    grid-area: day;
+    justify-self: start;
+    width: 0;
+    visibility: hidden;
+    line-height: 1;
+    pointer-events: none;
+  }
+
+  .column-date-content::before {
+    font-size: var(--calendar-card-date-text-strut-size);
+  }
+
+  .column-date-content::after {
+    content: none;
+  }
+
+  /* The tile's copy, sized and centered as the tile is (.day.today-tile), with the other
+     days' boxes below reserving their height in the same way. */
+  .column-date-content.with-today-tile::before {
+    display: flex;
+    align-items: center;
+    min-height: 1.2em;
+  }
+
+  .column-date-content.with-today-tile::after {
+    content: var(--calendar-card-date-strut, none);
+    font-size: var(--calendar-card-date-day-strut-size);
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    height: 1.2em;
+    margin: 0;
+  }
+
+  @supports (text-box: trim-both cap alphabetic) {
+    .column-date-content.with-today-tile::after {
+      display: block;
+      align-content: center;
+      text-box: trim-both cap alphabetic;
+    }
   }
 
   .column-date-content .weekday {
     grid-area: weekday;
+    /* end only while a scale is set (dateStrutProperties); otherwise the header's baseline
+       alignment, which keeps the weekday where it has always been beside a tall icon. */
+    align-self: var(--calendar-card-date-weekday-align, auto);
   }
 
   .column-date-content .day {
@@ -5732,6 +5859,144 @@ export const cardStyles = css`
 
   .grid-banner.continues-after .grid-banner-title::after {
     content: '\\00A0\\25B8';
+  }
+
+  /* A timed event drawn as a banner (multiday_banners): its start time, its title and its end
+     time, with the end pushed to the banner's far end so each time sits in its own day's
+     column and needs no date.
+
+     The banner takes the event font size itself, and its title and times inherit it, so the
+     container queries below measure in the same em the text is set in. Applied to the title
+     as well as the banner, a relative size would compound, as the note on .grid-banner-title
+     says; inherit takes the banner's computed size, which is the one the title had.
+
+     Positioned for .grid-event-accessible, the empty element carrying the banner's name. */
+  .grid-banner-timed {
+    position: relative;
+    container: calendar-card-grid-banner / inline-size;
+    font-size: var(--calendar-card-font-size-event);
+  }
+
+  .grid-banner-timed .grid-banner-title {
+    font-size: inherit;
+  }
+
+  .grid-banner-content {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: 0.5em;
+    min-width: 0;
+  }
+
+  .grid-banner-time {
+    flex: none;
+    font-size: inherit;
+    line-height: 1.2;
+    color: var(--calendar-card-color-event);
+    white-space: nowrap;
+  }
+
+  .grid-banner-time-end {
+    margin-inline-start: auto;
+  }
+
+  /* The times give way before the title: first the end, then the start, so a narrow banner
+     still names its event. Measured in the banner's own width, so a banner spanning five
+     narrow columns keeps its times where a one-day banner beside it drops them. The widths
+     are the times, the gap and a few words of title, and 12-hour readings are longer.
+     Without container queries, before Safari 16, the times always show. */
+  @container calendar-card-grid-banner (width < 12em) {
+    .grid-banner-two-times .grid-banner-time-end {
+      display: none;
+    }
+  }
+
+  @container calendar-card-grid-banner (width < 8em) {
+    .grid-banner-time {
+      display: none;
+    }
+  }
+
+  @container calendar-card-grid-banner (width < 16em) {
+    .grid-banner-long-times.grid-banner-two-times .grid-banner-time-end {
+      display: none;
+    }
+  }
+
+  @container calendar-card-grid-banner (width < 11em) {
+    .grid-banner-long-times .grid-banner-time {
+      display: none;
+    }
+  }
+
+  /* A banner's event length (show_duration), after its title: "Weekend away (3 days)". The
+     banner carries the event font size, as a timed one does, so the container query below
+     measures in the em the text is set in, and the title inherits it rather than compounding a
+     relative size. The length goes before anything else in a narrow banner, the times included,
+     and never cuts the title short or is cut itself: below the widths here it is not drawn. The
+     mark that the event carries on past the window follows the length while it is drawn, so it
+     stays at the banner's end. Widths are the length's words and a few words of title; 12-hour
+     times are longer. Without container queries, before Safari 16, the length always shows. */
+  .grid-banner-lasts {
+    container: calendar-card-grid-banner / inline-size;
+    font-size: var(--calendar-card-font-size-event);
+  }
+
+  .grid-banner-lasts .grid-banner-title {
+    font-size: inherit;
+  }
+
+  .grid-banner-duration {
+    flex: none;
+    margin-inline-start: 0.35em;
+    font-size: inherit;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--calendar-card-color-event);
+    white-space: nowrap;
+  }
+
+  .grid-banner-timed .grid-banner-duration {
+    margin-inline-start: 0;
+  }
+
+  .grid-banner-lasts.continues-after .grid-banner-title::after {
+    content: none;
+  }
+
+  .grid-banner-lasts.continues-after .grid-banner-duration::after {
+    content: '\\00A0\\25B8';
+  }
+
+  @container calendar-card-grid-banner (width < 10em) {
+    .grid-banner-duration {
+      display: none;
+    }
+
+    .grid-banner-lasts.continues-after .grid-banner-title::after {
+      content: '\\00A0\\25B8';
+    }
+  }
+
+  @container calendar-card-grid-banner (width < 20em) {
+    .grid-banner-timed .grid-banner-duration {
+      display: none;
+    }
+
+    .grid-banner-timed.grid-banner-lasts.continues-after .grid-banner-title::after {
+      content: '\\00A0\\25B8';
+    }
+  }
+
+  @container calendar-card-grid-banner (width < 24em) {
+    .grid-banner-long-times .grid-banner-duration {
+      display: none;
+    }
+
+    .grid-banner-lasts.continues-after .grid-banner-long-times .grid-banner-title::after {
+      content: '\\00A0\\25B8';
+    }
   }
 
   /* ----- Time body ----- */
@@ -6589,6 +6854,15 @@ export const cardStyles = css`
     vertical-align: baseline;
   }
 
+  /* An end carrying a duration (show_duration) holds its time and the duration as spans of their
+     own, so the fit ladder can give up the time and keep the duration. Reset as the end is above,
+     for the same two reasons: an inline-block reading would swallow the space it leads with. */
+  .time .time-actual .time-end > .time-end-reading,
+  .time .time-actual .time-end > .time-duration {
+    display: inline;
+    vertical-align: baseline;
+  }
+
   /* The rungs of the fit ladder that give something up. All are set by the host, which
      measured this exact row rather than assuming a type scale - see grid-time-fit.ts. The
      icon goes first because the block's own position already says this is a time; the end
@@ -6601,6 +6875,11 @@ export const cardStyles = css`
   }
 
   .grid-event-disclosure.grid-time-no-end .time .time-actual .time-end {
+    display: none;
+  }
+
+  /* Rung 4: the end time goes and the duration after it stays, on the start's line. */
+  .grid-event-disclosure.grid-time-no-end-reading .time .time-actual .time-end-reading {
     display: none;
   }
 
@@ -6886,11 +7165,20 @@ export const cardStyles = css`
     margin-inline: 0;
   }
 
-  .grid-event:is(
-      [data-grid-title-fit='measuring'],
-      [data-grid-title-fit='compact'],
-      [data-grid-title-fit='blank']
-    )
+  /* A fitted (compact) title scrolls with scroll_long_titles like any other one-line title,
+     but its ellipsis above outranks the clip a moving title takes, and an ellipsis can hide an
+     inline-block wider than its line whole, leaving "…" alone. So a fitted title that moves
+     gives the ellipsis up, and keeps it while pending or with reduce motion on. Measuring and
+     blank blocks hold the text still: one is being laid out, the other shows nothing. */
+  @media (prefers-reduced-motion: no-preference) {
+    .grid-event[data-grid-title-fit='compact']
+      .summary
+      > .event-title.title-scrollable.title-overflowing:not([data-title-motion='pending']) {
+      text-overflow: clip;
+    }
+  }
+
+  .grid-event:is([data-grid-title-fit='measuring'], [data-grid-title-fit='blank'])
     .event-title-scroll {
     display: inline !important;
     animation: none !important;

@@ -216,6 +216,16 @@ describe('resolveEffectiveConfig', () => {
   it('agrees with resolveViewOption on every declared override key', () => {
     expect(COLUMN_OVERRIDE_KEYS.length).toBeGreaterThan(30);
 
+    // A number whose shipped default is "no limit" has no default to read its type from.
+    const numbersWithoutDefault: ReadonlySet<string> = new Set(['countdown_max_days']);
+    // Values a rejected sentinel cannot stand in for: an opacity whose default is already the
+    // top of its range, and a weight, which takes a name or a number and nothing else.
+    const accepted: Readonly<Record<string, unknown>> = {
+      past_date_opacity: 17,
+      today_date_font_weight: 'bold',
+      past_date_font_weight: 'light',
+    };
+
     for (const key of COLUMN_OVERRIDE_KEYS) {
       // Numeric overrides use the root's normalization, so their distinguishing value
       // must be a number rather than a rejected text sentinel. A folded length or font size
@@ -223,11 +233,15 @@ describe('resolveEffectiveConfig', () => {
       // test could no longer tell an applied override from an ignored one — so it gets a size.
       const reference = DEFAULT_CONFIG[key];
       const sentinel =
-        typeof reference === 'number'
-          ? reference + 17
-          : FOLDED_OPTIONS.includes(key)
-            ? '17em'
-            : `__${key}__`;
+        key in accepted
+          ? accepted[key]
+          : typeof reference === 'number'
+            ? reference + 17
+            : numbersWithoutDefault.has(key)
+              ? 17
+              : FOLDED_OPTIONS.includes(key)
+                ? '17em'
+                : `__${key}__`;
       const config = buildConfig({
         column: { [key]: sentinel } as Partial<Types.Config>['column'],
       });

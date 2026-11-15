@@ -607,3 +607,103 @@ describe('layoutCascade over generated days', () => {
     expect(splitClusters).toBeGreaterThan(SEEDS / 4);
   });
 });
+
+/**
+ * A threshold per host, for a calendar drawn at its own `text_scale`.
+ *
+ * The threshold protects the header rows of the event being nested over, and a calendar whose
+ * text is drawn larger needs more of them. So the host's threshold decides, and an event that
+ * is not hosting anything larger keeps exactly the layout it had.
+ */
+describe('layoutCascade with a threshold per host', () => {
+  const pair = (late: number) => [
+    { id: 'host', startMin: at(9), endMin: at(12) },
+    { id: 'late', startMin: at(9, late), endMin: at(10, 30) },
+  ];
+
+  it("nests by the would-be host's own threshold", () => {
+    const larger = (host: Ev) => (host.id === 'host' ? 60 : undefined);
+
+    expect(byId(layoutCascade(pair(30), BAND, OPTIONS).placed).late.depth).toBe(2);
+    // The same pair beside a host that asks for an hour: side by side.
+    expect(
+      byId(layoutCascade(pair(30), BAND, { ...OPTIONS, hostThresholdMin: larger }).placed).late,
+    ).toMatchObject({ depth: 1, x0Pct: 50 });
+    // ...until the later one starts an hour in.
+    expect(
+      byId(layoutCascade(pair(60), BAND, { ...OPTIONS, hostThresholdMin: larger }).placed).late
+        .depth,
+    ).toBe(2);
+    // A host that answers nothing takes the card's.
+    expect(
+      byId(layoutCascade(pair(30), BAND, { ...OPTIONS, hostThresholdMin: () => undefined }).placed)
+        .late.depth,
+    ).toBe(2);
+  });
+
+  it('leaves every other host on the threshold it had', () => {
+    // Two hosts on one day, the first drawn larger. Only the first stops hosting at 30.
+    const { placed } = layoutCascade(
+      [
+        { id: 'big', startMin: at(9), endMin: at(11) },
+        { id: 'bigLate', startMin: at(9, 30), endMin: at(10) },
+        { id: 'small', startMin: at(14), endMin: at(16) },
+        { id: 'smallLate', startMin: at(14, 30), endMin: at(15) },
+      ],
+      BAND,
+      { ...OPTIONS, hostThresholdMin: (host: Ev) => (host.id === 'big' ? 60 : undefined) },
+    );
+
+    expect(byId(placed).bigLate.depth).toBe(1);
+    expect(byId(placed).smallLate.depth).toBe(2);
+  });
+
+  it('lays out exactly as one threshold does when every host answers it (2000 days)', () => {
+    const mismatches: number[] = [];
+    let nested = 0;
+
+    for (let seed = 1; seed <= 2000; seed++) {
+      const day = randomDay(seed);
+      const one = layoutCascade(day, BAND, OPTIONS);
+      const each = layoutCascade(day, BAND, { ...OPTIONS, hostThresholdMin: () => 30 });
+      if (JSON.stringify(one) !== JSON.stringify(each)) mismatches.push(seed);
+      if (one.placed.some((p) => p.depth > 1)) nested++;
+    }
+
+    expect(mismatches).toEqual([]);
+    expect(nested).toBeGreaterThan(500);
+  });
+
+  it('keeps each block its own full header, up to its own threshold (2000 days)', () => {
+    // Half the events host at 15 minutes and half at 60, by id, so a day mixes both.
+    const thresholdOf = (event: Ev) => (Number(event.id.slice(1)) % 2 === 0 ? 15 : 60);
+    let minHeader = Infinity;
+    let nestedOverEach = { 15: 0, 60: 0 };
+
+    for (let seed = 1; seed <= 2000; seed++) {
+      const { placed } = layoutCascade(randomDay(seed), BAND, {
+        ...OPTIONS,
+        hostThresholdMin: thresholdOf,
+      });
+
+      for (const p of placed) {
+        const threshold = thresholdOf(p);
+        const [top, bottom] = displayed(p);
+        if (p.contentEndMin < bottom - 1e-2) {
+          nestedOverEach = { ...nestedOverEach, [threshold]: nestedOverEach[threshold] + 1 };
+        }
+        if (bottom - top > 1e-2) {
+          minHeader = Math.min(
+            minHeader,
+            Math.min(p.contentEndMin - top, threshold) / Math.min(threshold, bottom - top),
+          );
+        }
+      }
+    }
+
+    expect(minHeader).toBeGreaterThanOrEqual(1 - 1e-9);
+    // Both kinds of host were nested over, or the bound above saw only one of them.
+    expect(nestedOverEach[15]).toBeGreaterThan(100);
+    expect(nestedOverEach[60]).toBeGreaterThan(100);
+  });
+});

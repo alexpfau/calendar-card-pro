@@ -122,6 +122,61 @@ export function cascadeThresholdMin(
 }
 
 /**
+ * The threshold for each scale a card's calendars draw their text at (`text_scale`), 1 among
+ * them, in minutes.
+ *
+ * The minutes protect the header rows of the event being nested over, and those rows are as
+ * tall as that event's own text. So a calendar drawn at twice the card's size needs twice the
+ * headroom above anything nested in it, and every other calendar keeps exactly the threshold
+ * it had. One threshold for the whole card, from its largest scale, would have moved every
+ * calendar's nesting for the sake of one: at a 48px hour, one calendar at 2 took every other
+ * from 30 minutes to 60.
+ */
+export type CascadeThresholds = ReadonlyMap<number, number>;
+
+/**
+ * The threshold an event drawn at `scale` takes: its own, else the card's at 1, else the
+ * floor. A plain number is one threshold for every scale.
+ *
+ * @param thresholds - Thresholds by scale, or one for all
+ * @param scale - The event's text scale
+ * @returns Minutes
+ */
+export function thresholdForScale(thresholds: number | CascadeThresholds, scale: number): number {
+  if (typeof thresholds === 'number') return thresholds;
+  return thresholds.get(scale) ?? thresholds.get(1) ?? CASCADE_THRESHOLD_FLOOR_MIN;
+}
+
+/**
+ * {@link cascadeThresholdMin} for each scale, from one measurement: the measured font size is
+ * the card's, and an event drawn at a scale draws its title that many times larger.
+ *
+ * @param scale - The measured scale, or `null` before anything was measured
+ * @param bandMinutes - Length of the visible band
+ * @param textScales - Every scale the card's calendars draw at, 1 among them
+ * @param current - The thresholds in use, for hysteresis; a scale missing from it is measured
+ *   for the first time
+ * @returns The thresholds to lay out with
+ */
+export function cascadeThresholdsMin(
+  scale: CascadeScale | null,
+  bandMinutes: number,
+  textScales: ReadonlyArray<number>,
+  current: CascadeThresholds,
+): Map<number, number> {
+  return new Map(
+    textScales.map((textScale) => [
+      textScale,
+      cascadeThresholdMin(
+        scale && { ...scale, fontPx: scale.fontPx * textScale },
+        bandMinutes,
+        current.get(textScale),
+      ),
+    ]),
+  );
+}
+
+/**
  * Class carried by the measurement probe {@link measureCascadeThreshold} inserts.
  *
  * The probe is a real child of a day body for the length of one measurement, so the host's

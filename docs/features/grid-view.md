@@ -62,11 +62,16 @@ time_grid:
   edge on that side, so the event reads as carrying on past the visible hours. An event
   entirely outside the window is not drawn at all, so the window decides what the card shows,
   not only how it looks.
-- A timed event that runs across more than one day gets one block per day column. The block
-  where it starts shows its start and end time, with how many days later the end falls, and
+- A timed event that runs across more than one day but lasts less than a full day, such as a
+  night shift, gets one block per day column; a longer one is
+  [one banner above the hours](#long-timed-events-as-banners) instead. The block where it
+  starts shows its start and end time, with how many days later the end falls, and
   its countdown: a late match from `22:05` to `01:35` reads `22:05 - 1:35 (+1)`, and with
-  `show_end_time: false` just `22:05`. The others show neither, even when the event began
-  before the card's first day; weather, location and description rows can still appear on
+  `show_end_time: false` just `22:05`. With
+  [`show_duration`](/features/event-content#event-duration) the event's whole length follows,
+  `22:05 - 1:35 (+1) (3 hr, 30 min)`. The others show neither, even when the event began
+  before the card's first day, and with `show_duration` only the length,
+  `(3 hr, 30 min total)`; weather, location and description rows can still appear on
   each. An event that runs until the midnight after it starts needs no count, so `22:00` to
   `00:00` is one block reading `22:00 - 0:00`.
 - An event with no duration, such as a reminder, or one shorter than a minute still gets a
@@ -366,9 +371,10 @@ today reads as a column of its own.
 
 ## 📅 All-Day Events
 
-All-day events get a band of their own between the day headers and the hours. A multi-day
-event is **one banner spanning its days**, not a chip repeated in each. `allday_band_max_rows`
-caps how many rows the band may grow to, `3` by default:
+All-day events get a band of their own between the day headers and the hours, and so does a
+[timed event a full day or longer](#long-timed-events-as-banners). A multi-day event is **one
+banner spanning its days**, not a chip repeated in each. `allday_band_max_rows` caps how many
+rows the band may grow to, `3` by default:
 
 ```yaml
 time_grid:
@@ -379,9 +385,13 @@ time_grid:
   a small arrow on that side and is squared off there, so a week-long holiday reads as
   continuing past the card's edge. An end where the event really starts or finishes is
   rounded into a full pill.
-- Banners show the title only, filled with the calendar's color and with no accent bar. They
-  follow background opacity and past-event dimming, but time badges, location, description,
-  event weather, countdowns, progress bars and label icons stay out of the band.
+- All-day banners show the title only, filled with the calendar's color and with no accent bar.
+  They follow background opacity and past-event dimming, but time badges, location,
+  description, event weather, countdowns, progress bars and label icons stay out of the band.
+  A timed banner adds its start and end times and nothing else. With
+  [`show_duration`](/features/event-content#event-duration) either kind adds the event's length
+  after its title, "Weekend away (3 days)", as a total where the banner shows only some of the
+  event's days, cut off at the card's edge or with days left out of it, "(5 days total)".
 - Banners beyond `allday_band_max_rows` are dropped, so a week of long events cannot push the
   hours off the bottom of the card. Positive fractional caps round down to whole rows, with a
   minimum of one.
@@ -398,6 +408,69 @@ time_grid:
 
 :::
 
+### Long Timed Events as Banners
+
+A timed event that lasts a full day or longer, such as an on-call week from Monday 10:00 to
+Friday 16:00, is drawn as one banner in the all-day band rather than as a block filling every
+day's hours, so the hours stay clear for appointments. It keeps its times: the start is written
+at the banner's start, the end at its end, and the popover shows both.
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_week_medium.png" alt="A grid card showing Monday to Friday: a conference from Thursday 07:00 to Friday 16:00 drawn as one banner in the all-day band, 7:00 at its start and 16:00 at its end, with Thursday's and Friday's appointments in the hours below it"><br>
+
+A two-day conference above the hours, its times at its ends.
+
+`multiday_banners` turns this off:
+
+```yaml
+time_grid:
+  multiday_banners: false
+```
+
+| Option             | Type    | Default | Description                                                                                                                                                              |
+| ------------------ | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `multiday_banners` | boolean | `true`  | Draw a timed event a full day or longer as one banner above the hours, its times at its ends. Grid view only, so it belongs in `time_grid:`; a calendar's own value wins |
+
+- **A full day or longer** means the event ends at least two dates after it starts, or on the
+  next date at or after the clock time it started at: Monday 10:00 to Tuesday 10:00 is a banner,
+  Monday 10:00 to Tuesday 9:59 is not, and Monday 10:00 to Wednesday 9:00 is. A night shift
+  from 22:00 to 06:00 stays in the hours, and so does an event from midnight to midnight, which
+  takes up a single date.
+- **The banner covers every day the event takes up time on**, the first and the last included.
+  An end at midnight does not count the day that midnight opens, and like a start at midnight it
+  draws no time.
+- **A time is drawn only at an end the card shows.** An event running past the first or last day
+  shown carries the same arrow as an all-day banner on that side. On a narrow banner the
+  event's length gives way first, then the end time, then the start time, so the title stays. `show_time: false` draws no
+  times and `show_end_time: false` only the start.
+- **Per calendar:** set `multiday_banners` on a calendar to keep its long events in the hours,
+  or to draw them as banners on a card that turned them off. To choose by title, list the
+  calendar twice with opposite filters:
+
+```yaml
+entities:
+  - entity: calendar.work
+    allowlist: Shift
+    multiday_banners: false # long shifts stay in the hours
+  - entity: calendar.work
+    blocklist: Shift # everything else follows the card
+```
+
+- A banner cannot be [dragged](#moving-events-by-drag); change its times in the popover.
+
+::: details Clock Changes, Duplicates & Past Days
+
+- Lengths are read on the wall clock, so a day the clocks change counts as a full day whatever
+  its length: noon to noon across the 23-hour spring day is a banner, while 11:30 across the
+  25-hour autumn day is not, though it is more than 24 hours after noon.
+- With past events hidden, a banner keeps its earlier days until the whole event has ended, as
+  an all-day banner does.
+- With `filter_duplicates`, an event two calendars carry is drawn the way the calendar listed
+  first draws it, on every day: never a banner on some days and blocks on others.
+- A timed banner counts against `allday_band_max_rows` like any other, and draws its title and
+  times only: no progress bar, countdown, location, description or weather.
+
+:::
+
 ## 🔀 Overlapping Events
 
 When events overlap, one that starts well inside a longer one is drawn on top of it, slightly
@@ -409,6 +482,9 @@ longer halves the width of everything that happens during it.
 On Wednesday, QA Window and Sprint Review start together and share the width, and Client Call,
 half an hour later, is drawn on top of Sprint Review. On Thursday the errands sit on top of the
 conference, a little indented, so its title stays readable above them and its edge beside them.
+The conference runs from Thursday morning into Friday, so by default it would be a
+[banner above the hours](#long-timed-events-as-banners); this card sets
+`multiday_banners: false` to keep it in the hours.
 
 The event drawn on top keeps nearly the whole column, and the longer one stays visible along its
 leading edge. Events that start together are drawn side by side instead, because both need the
@@ -472,7 +548,7 @@ time_grid:
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_overlaps_columns.png" alt="The same grid card drawn with overlap_layout: columns, showing three simultaneous events side by side on one day, beside a two-lane conference day"><br>
 
 The same two days side by side. Three events at once share Wednesday's column, and Thursday's
-conference keeps half the width all day. Each lane narrows rather than hiding anything.
+conference, kept in the hours as above, keeps half the width all day. Each lane narrows rather than hiding anything.
 
 ### How Many Fit Side by Side
 
@@ -528,7 +604,10 @@ not fit is left out whole, never cut part way.
 - Event weather gets its own row under the time, as in column view, where its words can wrap
   beneath the temperature; the progress bar gets its own row under the title. A countdown trails
   the time, its words continuing on the next line where the block has room; in a lane too narrow
-  for it, the countdown gives way, not the time.
+  for it, the countdown gives way, not the time. A finished block
+  [counts up](/features/event-content#counting-up-from-past-events) in the same place, and the
+  block that starts an overnight event counts from the event's end. Every block keeps its
+  countdown, so `show_countdown: once_per_day` reads here as `true` does.
 - Calendar labels, whether text, emoji, icon, picture or merged, sit before the title on its
   first line. That line counts toward the title's line limit, and the labels stay still while a
   scrolling title moves.
@@ -585,8 +664,9 @@ time_grid:
   to the largest size that fits, never below `10px` for the title or any text or emoji label.
   Every calendar label stays, merged labels included, and text, emoji, icons and pictures keep
   their relative sizes, colors, order and proportions.
-- The fitted title does not scroll, and ends in "…" when needed, even with
-  `scroll_long_titles: true`. Normal text and scrolling return when more room becomes available.
+- A fitted title that is too long scrolls with `scroll_long_titles: true`, like any other
+  title, and ends in "…" without it. It is the block's only line, so the time and other
+  details are left out. Normal text returns when more room becomes available.
 - Some blocks still cannot show a useful line: large labels, unusually tall line spacing or a
   very narrow lane can leave no room for the labels plus meaningful title text. Grid then leaves
   the block visually empty rather than showing a label or "…" alone, so a quarter-hour event is
@@ -606,9 +686,9 @@ time_grid:
 - When the block's height leaves out every detail row but the usual title fits, grid centers that
   title without shrinking it or forcing two fitting lines onto one. A tall title-only event whose
   details were turned off or absent keeps its usual alignment.
-- Only usual, overflowing timed titles join the card's
-  [shared forward starts](/features/event-content#scrolling-long-titles). Fitted or blank titles,
-  all-day banners and `+N` strips never join, and labels and pictures stay still.
+- Overflowing timed titles, fitted ones included, join the card's
+  [shared forward starts](/features/event-content#scrolling-long-titles). Blank blocks, all-day
+  banners and `+N` strips never join, and labels and pictures stay still.
 - The screen-reader text follows the card's language, describes continuations by the event's
   original times, and leaves out details you turned off. It adds no event action or keyboard
   tab stop; [`event_tap_action`](/features/actions#tapping-an-event) adds both. All-day banners
@@ -866,19 +946,20 @@ column view; see [Grid Lines](#grid-lines) above.
 These options have no effect while the card renders as a grid, and the visual editor leaves
 them out of its **Grid** workspace. Stored values are kept for the layouts they apply to.
 
-| Options                                                                                                                            | In Grid View                                                                                                                                                                 |
-| ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `split_multiday_events`                                                                                                            | Grid splits on its own: an all-day event is one banner across its admitted columns, and a timed event one block for each day it touches                                      |
-| `empty_day_text`, `empty_day_color`                                                                                                | There are no placeholder rows. `show_empty_days` still decides whether empty days get a column, and with it off, `show_empty_today` keeps today's                            |
-| `show_now_indicator`                                                                                                               | The [now line](#the-now-line) already runs through the event under way; list and column view show the [label](/features/event-content#the-now-indicator) instead             |
-| `compact_events_to_show`, `compact_days_to_show`, `compact_events_complete_days`                                                   | List-only, so they do nothing in column view either. They apply again if `min_days_fallback: list` drops the card to the list layout                                         |
-| `date_vertical_alignment`, `today_indicator_position`                                                                              | List-only: they describe the list layout's date cell                                                                                                                         |
-| `allday_badge`, `allday_badge_style`, `allday_badge_color`                                                                         | All-day events are banners with their own shape, and timed blocks never draw an all-day badge                                                                                |
-| `show_single_allday_time`, `show_multiday_allday_time`, `show_location_allday`, `show_description_allday`, `show_countdown_allday` | All-day events are [title-only banners](#all-day-events), with no time, location, description or countdown to switch                                                         |
-| `time_position`                                                                                                                    | A block lays out its own rows, so there is no title row for the time to join; list and column view move it [beside the title](/features/event-content#time-beside-the-title) |
-| `time_max_lines`                                                                                                                   | Grid fits each time row to its block, as [What a Block Shows](#what-a-block-shows) describes. Title, location and description line limits still apply                        |
-| `event_spacing`, `event_gap`                                                                                                       | A grid block sets its own padding and is placed by its time. `day_spacing` still sets the gap between day columns                                                            |
-| `open_links`                                                                                                                       | Location and description stay text in a block; [Links in Events](/features/actions#links-in-events) has the list and column behavior                                         |
+| Options                                                                                                                            | In Grid View                                                                                                                                                                          |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `split_multiday_events`                                                                                                            | Grid splits on its own: an all-day event, or a timed one a full day or longer, is one banner across its admitted columns, and a shorter timed event one block for each day it touches |
+| `empty_day_text`, `empty_day_color`                                                                                                | There are no placeholder rows. `show_empty_days` still decides whether empty days get a column, and with it off, `show_empty_today` keeps today's                                     |
+| `show_now_indicator`                                                                                                               | The [now line](#the-now-line) already runs through the event under way; list and column view show the [label](/features/event-content#the-now-indicator) instead                      |
+| `compact_events_to_show`, `compact_days_to_show`, `compact_events_complete_days`                                                   | List-only, so they do nothing in column view either. They apply again if `min_days_fallback: list` drops the card to the list layout                                                  |
+| `date_vertical_alignment`, `today_indicator_position`                                                                              | List-only: they describe the list layout's date cell                                                                                                                                  |
+| `event_order`, `skip_first_events`                                                                                                 | List-only: the grid keeps time running forward and draws every day whatever its events                                                                                                |
+| `allday_badge`, `allday_badge_style`, `allday_badge_color`                                                                         | All-day events are banners with their own shape, and timed blocks never draw an all-day badge                                                                                         |
+| `show_single_allday_time`, `show_multiday_allday_time`, `show_location_allday`, `show_description_allday`, `show_countdown_allday` | All-day events are [title-only banners](#all-day-events), with no time, location, description or countdown to switch                                                                  |
+| `time_position`                                                                                                                    | A block lays out its own rows, so there is no title row for the time to join; list and column view move it [beside the title](/features/event-content#time-beside-the-title)          |
+| `time_max_lines`                                                                                                                   | Grid fits each time row to its block, as [What a Block Shows](#what-a-block-shows) describes. Title, location and description line limits still apply                                 |
+| `event_spacing`, `event_gap`                                                                                                       | A grid block sets its own padding and is placed by its time. `day_spacing` still sets the gap between day columns                                                                     |
+| `open_links`                                                                                                                       | Location and description stay text in a block; [Links in Events](/features/actions#links-in-events) has the list and column behavior                                                  |
 
 The editor also leaves out the per-calendar compact limit and multi-day splitting. To edit any
 of these, choose a layout they apply to under **Editing Settings For**, without changing
@@ -886,8 +967,9 @@ of these, choose a layout they apply to under **Editing Settings For**, without 
 [Options for the Selected View](/features/editor#options-for-the-selected-view).
 
 The other detail-row options still shape timed blocks but never reach the all-day band:
-`show_time`, `show_progress_bar`, `weather.position: event`, per-calendar `label`,
-`label_type`, `label_icon_color` and the title and weather line limits.
+`show_progress_bar`, `weather.position: event`, per-calendar `label`, `label_type`,
+`label_icon_color` and the title and weather line limits. `show_time` reaches it only to decide
+whether a [timed banner](#long-timed-events-as-banners) draws its times.
 
 **→ [Options With No Effect in Grid View](/reference/configuration#options-with-no-effect-in-grid-view)** — the same options in the configuration reference.
 **→ [Grid-Only Options in the configuration reference](/reference/configuration#grid-only-options)** — full option table.

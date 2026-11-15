@@ -11,6 +11,7 @@ import * as Activation from './activation';
 import { gridDrawsEvent } from './grid';
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
+import * as TextScale from './text-scale';
 import * as Toolbar from './toolbar';
 import * as Constants from '../config/constants';
 import * as Types from '../config/types';
@@ -609,7 +610,7 @@ export function renderDay(
   eventsTappable = false,
   dayAdd?: Activation.DayAddButtons,
 ): TemplateResult {
-  const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
+  const { isToday, isTomorrow, isPast } = Leaves.classifyDay(day.timestamp);
   // Column view carries `weekend` on its day container, so list view does too — a card-mod
   // rule targeting weekends should not need to know which view is active. List view also
   // keeps it on `.date-column`, where it drives the built-in date-cell styling.
@@ -627,6 +628,7 @@ export function renderDay(
 
   const dayLabelId = eventsTappable || dayAdd ? Activation.dayLabelId(day.timestamp) : undefined;
   const eventGap = ViewConfig.hasEventGap(config);
+  const repeatedCountdowns = Presentation.repeatedCountdowns(day.events, config, language);
 
   const daySeparatorWidth = config.day_separator_width;
   const daySeparatorColor = config.day_separator_color;
@@ -655,6 +657,7 @@ export function renderDay(
         today: isToday,
         tomorrow: isTomorrow,
         'future-day': !isToday,
+        'past-day': isPast,
         weekend: isWeekendDay,
         'with-event-gap': eventGap,
       })}
@@ -676,6 +679,7 @@ export function renderDay(
             eventsTappable,
             dayLabelId,
             dayAdd,
+            repeatedCountdowns.has(index),
           );
 
           return eventGap && index > 0 ? html`${renderEventGapRow()}${row}` : row;
@@ -859,6 +863,7 @@ function renderDayAddButton(
  * @param dayLabelId - The id the day's date carries while events are tap targets or the day
  *   is a button, by which each event and the button name the day
  * @param dayAdd - How to draw the day's add button, or undefined for none
+ * @param countdownRepeated - Whether the countdown repeats the one above it and is left out
  * @returns TemplateResult for the event
  */
 function renderEvent(
@@ -873,8 +878,10 @@ function renderEvent(
   eventsTappable = false,
   dayLabelId?: string,
   dayAdd?: Activation.DayAddButtons,
+  countdownRepeated = false,
 ): TemplateResult {
-  const presentation = Presentation.buildEventPresentation(event, config, language, hass);
+  const presented = Presentation.buildEventPresentation(event, config, language, hass);
+  const presentation = countdownRepeated ? Presentation.withoutCountdown(presented) : presented;
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
 
   const dayDate = new Date(day.timestamp);
@@ -895,6 +902,7 @@ function renderEvent(
     'event-tappable': tap !== undefined,
     'event-now': presentation.isNow,
     'search-ring': event._searchRing === true,
+    [TextScale.TEXT_SCALED_CLASS]: presentation.textScaled,
   };
 
   // Prettier 3.9 would put each multi-line `${…}` below on lines of its own, which breaks
@@ -925,7 +933,7 @@ function renderEvent(
         class=${classMap(eventClasses)}
         .calendarCardDaySlot=${event._isEmptyDay ? undefined : Activation.COVERED}
         style="--calendar-card-event-accent-bar-color: ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};${Helpers.styleDeclarations(
-          presentation.accentTextProperties,
+          { ...presentation.accentTextProperties, ...presentation.textScaleProperties },
         )}"
       >
         ${Leaves.renderAccentBar()}

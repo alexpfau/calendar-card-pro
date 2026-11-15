@@ -871,13 +871,20 @@ export const CASCADE_INDENT_PCT = 6;
 export const CASCADE_MAX_DEPTH = 3;
 
 /** Tuning for {@link layoutCascade}. */
-export interface CascadeOptions {
+export interface CascadeOptions<T extends LaneInput = LaneInput> {
   /**
    * Minutes a later event has to start below an earlier event's visible top before it may
    * be drawn over it. Closer than that, both need the same header rows, so they share the
    * width side by side instead.
    */
   thresholdMin: number;
+
+  /**
+   * The threshold for one would-be host, where hosts differ: the minutes protect the host's
+   * header rows, and a host whose calendar draws its text larger needs more of them. Omitted,
+   * or answering `undefined`, every host takes {@link CascadeOptions.thresholdMin}.
+   */
+  hostThresholdMin?: (host: T) => number | undefined;
 
   /** Inline offset of one nesting level, as a percentage of the day column. */
   indentPct: number;
@@ -1030,8 +1037,9 @@ function isRunningAt<T extends LaneInput>(earlier: CascadeNode<T>, later: Cascad
  * Three passes, each with one job:
  *
  * 1. **Structure.** Events are taken in start order, longest first on ties. Each picks a
- *    host among the events still on screen at its start. An event it starts at least
- *    `thresholdMin` below may host it: it nests over that event's body, never its header.
+ *    host among the events still on screen at its start. An event it starts at least that
+ *    event's threshold below (`hostThresholdMin`, else `thresholdMin`) may host it: it nests
+ *    over that event's body, never its header.
  *    An event it starts closer to than that may not, so it joins that event as a sibling
  *    instead, under the same host. The deepest candidate wins, the one painted last on
  *    ties. Siblings that overlap in time get side-by-side lanes exactly as `layoutLanes`
@@ -1062,7 +1070,7 @@ function isRunningAt<T extends LaneInput>(earlier: CascadeNode<T>, later: Cascad
 export function layoutCascade<T extends LaneInput>(
   events: T[],
   band: GridBand,
-  options: CascadeOptions,
+  options: CascadeOptions<T>,
 ): CascadeLayout<T> {
   const cap = Number.isFinite(options.maxLanes) ? Math.max(1, Math.floor(options.maxLanes)) : 1;
   const minWidth = 100 / (cap + 1);
@@ -1103,7 +1111,7 @@ export function layoutCascade<T extends LaneInput>(
 function runCascade<T extends LaneInput>(
   sorted: T[],
   band: GridBand,
-  options: CascadeOptions,
+  options: CascadeOptions<T>,
   cap: number,
   barred: ReadonlySet<number>,
 ): CascadeNode<T>[] {
@@ -1124,7 +1132,7 @@ function runCascade<T extends LaneInput>(
         !other.hidden &&
         !barred.has(other.order) &&
         other.depth < options.maxDepth &&
-        top - other.top >= options.thresholdMin;
+        top - other.top >= (options.hostThresholdMin?.(other.event) ?? options.thresholdMin);
       const candidate = nests ? other : other.host;
 
       if (isPreferredHost(candidate, host)) {
@@ -1538,7 +1546,12 @@ export interface BannerPlacement {
  * An event whose start and end are equal covers no days at all; that is malformed
  * rather than empty, and returning `null` keeps a `span: 0` out of the CSS.
  *
- * @param event - An all-day event, i.e. one carrying `start.date`
+ * A timed event drawn as a banner (`multiday_banners`) covers the dates it takes up time on:
+ * from its start's to that of the moment before its end, so an end at a day's first moment
+ * leaves that day out, where a midnight is missing or repeats as well.
+ *
+ * @param event - An all-day event, i.e. one carrying `start.date`, or a timed one drawn as a
+ *   banner
  * @param visibleDayStarts - Local midnights for the day columns on screen, in render order
  * @returns The banner's placement, or `null` when it does not intersect the window
  */
@@ -1546,15 +1559,27 @@ export function computeBannerPlacement(
   event: Types.CalendarEventData,
   visibleDayStarts: readonly Date[],
 ): BannerPlacement | null {
-  if (!event.start.date || visibleDayStarts.length < 1) {
+  if (visibleDayStarts.length < 1) {
     return null;
   }
 
-  const start = FormatUtils.parseAllDayDate(event.start.date);
-
-  // A missing end is a one-day event. Otherwise the iCal end is exclusive, so step back
-  // one day to reach the last day the event actually covers.
-  const lastDay = event.end.date ? addDays(FormatUtils.parseAllDayDate(event.end.date), -1) : start;
+  let start: Date;
+  let lastDay: Date;
+  if (event.start.date) {
+    start = FormatUtils.parseAllDayDate(event.start.date);
+    // A missing end is a one-day event. Otherwise the iCal end is exclusive, so step back
+    // one day to reach the last day the event actually covers.
+    lastDay = event.end.date ? addDays(FormatUtils.parseAllDayDate(event.end.date), -1) : start;
+  } else if (event.start.dateTime && event.end.dateTime) {
+    const startInstant = new Date(event.start.dateTime);
+    const endInstant = new Date(event.end.dateTime);
+    start = startOfDay(startInstant);
+    lastDay = startOfDay(
+      endInstant > startInstant ? new Date(endInstant.getTime() - 1) : startInstant,
+    );
+  } else {
+    return null;
+  }
 
   if (Number.isNaN(start.getTime()) || Number.isNaN(lastDay.getTime()) || lastDay < start) {
     return null;

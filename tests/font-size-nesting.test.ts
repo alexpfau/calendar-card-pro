@@ -276,11 +276,33 @@ const FAMILY_OPTIONS = [...new Set(FAMILY.flatMap(({ value }) => reads(value)))]
 /** A sentinel per family option, so an inline font size can be traced back to its option. */
 const SENTINELS = new Map(FAMILY_OPTIONS.map((path, index) => [path, `${7311 + index}px`]));
 
-/** The custom property each sentinel stands for. */
+/** The scales the corpus draws today's and past days' dates at; see its variants. */
+const TODAY_DATE_SCALE = 1.25;
+const PAST_DATE_SCALE = 0.9;
+
+/** The three sizes a date is drawn in, which a date's own scale multiplies inline. */
+const DATE_SIZE_PROPERTIES = new Set([
+  '--calendar-card-font-size-weekday',
+  '--calendar-card-font-size-day',
+  '--calendar-card-font-size-month',
+]);
+
+/**
+ * The custom property each sentinel stands for. A date drawn at a scale of its own carries its
+ * option's sentinel multiplied, and it is still that option's size, so the product traces to it
+ * too; only the date sizes, so a multiplied sentinel anywhere else still reads as fixed.
+ */
 const PROPERTY_OF_SENTINEL = new Map(
-  [...OPTION_OF_PROPERTY].flatMap(([property, path]) =>
-    SENTINELS.has(path) ? [[SENTINELS.get(path)!, property] as const] : [],
-  ),
+  [...OPTION_OF_PROPERTY].flatMap(([property, path]) => {
+    const sentinel = SENTINELS.get(path);
+    if (sentinel === undefined) return [];
+    const scaled = DATE_SIZE_PROPERTIES.has(property)
+      ? [TODAY_DATE_SCALE, PAST_DATE_SCALE].map(
+          (scale) => [`${Number.parseFloat(sentinel) * scale}px`, property] as const,
+        )
+      : [];
+    return [[sentinel, property] as const, ...scaled];
+  }),
 );
 
 //-----------------------------------------------------------------------------
@@ -504,9 +526,14 @@ const DETAILS = { location: '12 High Street', description: 'Bring the quarterly 
 /**
  * One calendar per label kind, and events chosen to draw every placement: a running event
  * for the progress bar, upcoming ones for the countdown, three overlapping for the grid's
- * overflow block, all-day ones for badges, pills and banners, and an empty day.
+ * overflow block, all-day ones for badges, pills and banners, a timed one over two days for
+ * the grid's timed banner and its times (`multiday_banners`), and an empty day.
  */
 const EVENTS: Types.CalendarEventData[] = [
+  {
+    ...timed(18, '08:00', '12:00', 'Site visit', 'calendar.icon'),
+    end: { dateTime: new Date(2026, 5, 19, 12, 0).toISOString() },
+  },
   timed(17, '09:30', '11:00', 'Planning session', 'calendar.icon', DETAILS),
   timed(17, '14:00', '15:00', 'Upcoming review', 'calendar.image', DETAILS),
   timed(17, '14:00', '15:00', 'Overlapping call', 'calendar.emoji'),
@@ -543,6 +570,17 @@ const VIEWS = ['list', 'column', 'grid'] as const;
 /** Options that change what is drawn, each on top of the base. */
 const VARIANTS: Array<[string, Record<string, unknown>]> = [
   ['base', {}],
+  // Today's date on the tile and drawn larger, a past day's smaller: the header's struts, which
+  // carry the largest scaled sizes in column and grid view, are only drawn while a scale is set,
+  // and the tile's copy only with the tile.
+  [
+    'scaled dates on the tile',
+    {
+      today_indicator: 'tile',
+      today_date_scale: TODAY_DATE_SCALE,
+      past_date_scale: PAST_DATE_SCALE,
+    },
+  ],
   ['no time', { show_time: false }],
   ['scrolling titles', { scroll_long_titles: true }],
   ['all-day badge', { allday_badge: 'time' }],
@@ -553,6 +591,9 @@ const VARIANTS: Array<[string, Record<string, unknown>]> = [
   ['time beside the title', { time_position: 'title' }],
   // With times off, the countdown alone sits beside the title.
   ['countdown beside the title', { time_position: 'title', show_time: false }],
+  // Each event's length after its time, and after the title of a grid banner, which then takes
+  // the event size itself, as a timed banner does, so its length and title inherit it.
+  ['durations', { show_duration: true }],
   // The header toolbar: the title shrinks to a label over the month, which takes the title's
   // option, so both are drawn here beside the controls they must not be nested in. Without
   // the date navigation the month is plain text.
@@ -1020,7 +1061,14 @@ describe('every piece of text is sized by its own option', () => {
       'event-title in summary': ['event_font_size'],
       'event-title-scroll in event-title': ['event_font_size'],
       'grid-axis-label in grid-axis': ['time_font_size'],
+      // A timed banner (multiday_banners) takes the event size itself, and its times and title
+      // inherit it, so its container queries measure in the size its text is set in. So does a
+      // banner with its length after the title (show_duration).
+      'grid-banner-duration in event': ['event_font_size'],
+      'grid-banner-duration in grid-banner-content': ['event_font_size'],
+      'grid-banner-time in grid-banner-content': ['event_font_size'],
       'grid-banner-title in event': ['event_font_size'],
+      'grid-banner-title in grid-banner-content': ['event_font_size'],
       'grid-event-overflow-label in event': ['time_font_size'],
       // The legend's chips and the rows of the menu it folds into: controls, at Home
       // Assistant's control size like the rest of the toolbar. The menu sets its own size, so
@@ -1053,6 +1101,10 @@ describe('every piece of text is sized by its own option', () => {
       'time-countdown in time-text': ['time_font_size'],
       'time-end in time-actual': ['time_font_size'],
       'time-end in time-text': ['time_font_size'],
+      // An end with a duration (show_duration) holds its time and the duration as spans of their
+      // own, which the grid's fit ladder drops one at a time.
+      'time-duration in time-end': ['time_font_size'],
+      'time-end-reading in time-end': ['time_font_size'],
       // The word joiner opening the time's box beside a wrapping title: invisible, at the title's
       // size so the box's baseline is the title's.
       'title-strut in title-aside': ['event_font_size'],

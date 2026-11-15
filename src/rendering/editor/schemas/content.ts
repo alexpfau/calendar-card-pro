@@ -90,6 +90,9 @@ const contentSchema = Helpers.memoizeLast(
       number('days_to_show', 1),
       ...startDateFields(language, startMode),
       select(language, 'first_day_of_week', ['system', 'monday', 'sunday']),
+      // Last in the range, because it says which end of the range the list starts from. A
+      // list option: the List workspace offers it, and the others withhold it.
+      select(language, 'event_order', ['earliest_first', 'latest_first']),
 
       // The three runs below were one collapsed group titled "What The Card Shows", which
       // put `show_past_events` — among the most commonly changed options in the card —
@@ -112,9 +115,16 @@ const contentSchema = Helpers.memoizeLast(
       // so an always-visible field would be inert half the time — the silent no-op this
       // editor tries hard not to ship.
       ...(filterDuplicates ? [color('duplicate_accent_color')] : []),
+      // Last, because it acts on what the filters above leave rather than on one event: it
+      // drops rows from the top of the result, as the compact limit drops them from its end.
+      // Outside Compact Mode, because it stays in force expanded. A list option, like the order.
+      number('skip_first_events', 0),
 
+      // How a multi-day event is drawn across days, per view family: the split for list and
+      // column, the banner for the time grid. Each workspace offers the one its views read.
       heading('heading_multiday'),
       bool('split_multiday_events'),
+      bool('multiday_banners'),
 
       // Card-level only: the pipeline's terminal state, when nothing survived it.
       heading('heading_nothing'),

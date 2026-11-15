@@ -2606,7 +2606,7 @@ describe('card stylesheet', () => {
       // degradation has to sit after the time row's rung, or a block that reaches a lower rung
       // gets its icon back from the reveal it just passed through.
       const degradation = [
-        ...CSS.matchAll(/\.grid-time-(no-icon|no-end|wrap)([^{]*)\{([^}]*)\}/g),
+        ...CSS.matchAll(/\.grid-time-(no-icon|no-end-reading|no-end|wrap)([^{]*)\{([^}]*)\}/g),
       ].map((rule) => ({
         rung: rule[1],
         target: rule[2].replace(/\s+/g, ' ').trim(),
@@ -2616,6 +2616,12 @@ describe('card stylesheet', () => {
       expect(degradation).toEqual([
         { rung: 'no-icon', target: '.time .time-actual > ha-icon', body: 'display: none;' },
         { rung: 'no-end', target: '.time .time-actual .time-end', body: 'display: none;' },
+        // With a duration after the end time (show_duration), the time goes and the duration stays.
+        {
+          rung: 'no-end-reading',
+          target: '.time .time-actual .time-end-reading',
+          body: 'display: none;',
+        },
         // A block that clips keeps room at its inline edges, given back by its margin ("Marks
         // above and below the line"); inline, it keeps none.
         {
@@ -3862,6 +3868,12 @@ describe('the time beside the title', () => {
     [':where(.title-aside) > .event-weather > .event-weather-text']: one({
       'font-size': 'var(--calendar-card-weather-event-font-size, 12px)',
       'align-self': 'baseline',
+    }),
+    // A calendar's text_scale, on the badge's icon: it sits in the row's unscaled font beside the
+    // title, so a scaled event gives an em size the scale in full there (text-scale.ts).
+    ['.event-text-scaled :where(.summary-row, .title-aside) > .event-weather ha-icon']: one({
+      '--mdc-icon-size':
+        'var(--calendar-card-weather-event-title-icon-size, var(--calendar-card-weather-event-icon-size, 14px))',
     }),
     [`${SHARED} > .event-weather`]: one({ 'margin-inline-end': '0' }),
     // The bullet, only after a badge, with the folded countdown's spacing.

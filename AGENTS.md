@@ -245,6 +245,12 @@ a failed calendar. Unless the test is about live updates, answer it as Home Assi
 2026.5 does, with `Promise.reject({ code: 'unknown_command' })`; `tests/live-updates.test.ts`
 has a fake that pushes.
 
+The card also subscribes with `subscribe_condition` for each visibility condition only Home
+Assistant can judge (`src/utils/core-conditions.ts`). A fake that resolves it and never pushes is
+harmless there, as such a calendar stays hidden until an answer comes, which is what a test of
+those conditions expects anyway; to make one show, push an answer, as `withCore` in
+`tests/visibility-card.test.ts` does.
+
 🚨 **A test that walks a table's own keys cannot notice a key leaving it.** The idiom
 `for (const key of Object.keys(TABLE)) expect(somethingAbout(key)).toBeDefined()` reads
 like coverage and is not: delete an entry and the loop runs one fewer time, so the suite
@@ -1530,6 +1536,15 @@ _Build commands_ for why that is a reconciliation and not a list. The practical 
 when adding a dropdown: write the `<key>.option.<value>.label` strings in `strings.ts` in
 the same edit, and let `check:i18n` tell you the exact keys it asked for.
 
+**A `<label key>.aliases` string is searched and never shown**: the words users type for a
+setting whose label says something else (`time_format.aliases` holds `12h`). `check:i18n` holds
+it to the key `computeAliases` reads, exactly as it holds a `.helper`, so one filed under a
+group, a heading, an option or a control outside the panels fails rather than silently finding
+nothing. Aliases are exempt from
+the label rules and from the glossary's rejected forms, because they exist to catch the words the
+interface chose not to use. Add one only for a word users have used and the search misses;
+`tests/editor-search-aliases.test.ts` pins the families by value.
+
 **The editor's termbase lives in [`scripts/editor-glossary.mjs`](./scripts/editor-glossary.mjs).**
 It records, per language, the decided form of each UI term and the forms rejected for it,
 and `check:i18n` enforces both: a rejected form anywhere in a governed key is an error, and
@@ -1705,15 +1720,16 @@ calls have none**, which is what `scripts/editor-glossary.mjs` is for. Same less
 different mechanism: enforce the family where the family is enumerable, and where it is not,
 name the members explicitly and gate on them.
 
-### The card holds three disagreeing answers to "is this multi-day?"
+### The card holds four disagreeing answers to "is this multi-day?"
 
 For a **timed** event running 23:30 to 00:30:
 
-| asked of                                              | answer                                                                             |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `isMultiDayEvent` (`events.ts`, drives splitting)     | **yes** — it renders as two rows                                                   |
-| `isMultiDayAllDayEvent` (`format.ts`, drives display) | **no** — `false` for any timed event, deliberately, pinned by a test               |
-| `!event.start.dateTime` on a split **middle segment** | reads **all-day** — `splitMultiDayEvent` rewrites middle days as `start: { date }` |
+| asked of                                                        | answer                                                                             |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `isMultiDayEvent` (`events.ts`, drives splitting)               | **yes** — it renders as two rows                                                   |
+| `isMultiDayAllDayEvent` (`format.ts`, drives display)           | **no** — `false` for any timed event, deliberately, pinned by a test               |
+| `!event.start.dateTime` on a split **middle segment**           | reads **all-day** — `splitMultiDayEvent` rewrites middle days as `start: { date }` |
+| `fullDaySpan` (`format.ts`, drives banners and the day counter) | **no** — a full day or longer on the wall clock, over two or more dates            |
 
 None is wrong for its own caller. The third bites silently: anything filtering on event
 class must run **before** `processMultiDayEvents`, or it sees the middle of a three-day
@@ -1724,7 +1740,10 @@ The design consequence is larger than the bug. All-day-ness and multi-day-ness a
 _timed / all-day / multi-day_ is not a partition, and no selection over it can express
 "every all-day event one color, every timed event another" — which is why `event_type`
 names the all-day axis only, and why a span axis needs the card to **pick** one multi-day
-definition before it can offer one.
+definition before it can offer one. The fourth answer is that pick for what a user sees: a full
+day or longer, read on the wall clock. Grid draws a timed event as a banner
+(`multiday_banners`), and the day counter counts days, only where it says yes; reuse it rather
+than writing a fifth.
 
 ### The card renders only for `hass` changes it draws
 
@@ -1735,7 +1754,10 @@ moved (`src/utils/hass-relevance.ts`). Two consequences for new code:
   of an entity the configuration names. Walking every state (`Object.keys(hass.states)`), or
   reading an entity the configuration does not name, silently breaks the rule:
   `tests/hass-relevance.test.ts` records every read across a matrix of views and fails on
-  either. Add a case there when a feature reads `hass` in a new way.
+  either. Add a case there when a feature reads `hass` in a new way. The one reader of states
+  the configuration does not name is a `location` visibility condition: the viewer's person,
+  found through the entity registry rather than by walking states, and the zones.
+  `watchedEntityIds` adds those for a card that has one; a later reader of that kind goes there.
 - **Nothing on screen may rely on `hass` traffic to stay current.** Unrelated updates used to
   repaint every card every few seconds, which kept countdowns, progress bars,
   `allday_expires_at` and midnight moving without anything scheduling it. Text that changes
@@ -1750,10 +1772,28 @@ plain schema objects, and a schema names a **selector** rather than an element. 
 the whole point — Home Assistant renames its input components without notice (`ha-textfield`
 became `ha-input` in 2026.5 and cost us a runtime-detection shim), and a card that names
 selectors is not exposed to it. The element names three Home Assistant components in total:
-`ha-form`, `ha-expansion-panel` and `ha-svg-icon`.
+`ha-form`, `ha-expansion-panel` and `ha-svg-icon`, plus one exception below.
 
 **Never name an HA input element in a schema.** If a panel seems to need one, that is the
 signal to stop, not to reach for `static-html`.
+
+**The one exception: `ha-card-conditions-editor`, and only behind a guard.** A calendar's
+visibility conditions are edited in Home Assistant's own Visibility editor, the element under
+every card's Visibility tab, because no selector reaches it: the `condition` selector edits an
+automation's conditions, which have no `user`, `screen`, `time` or `location`. It is named in
+`element.ts` alone, outside every schema, between two halves of the calendar's form
+(`splitAtVisibility`), and only where `customElements.get()` finds it **and** Lit's
+`elementProperties` on it declare the `hass` and `conditions` the editor sets. Anywhere else,
+including a Home Assistant that renames or removes it, the panel keeps the `object` selector, a
+YAML box, which is how the conditions were edited before. So a rename costs the nicer editor and
+never a dead panel; `tests/editor-visibility.test.ts` pins both sides. The panel also tells the
+element which calendar it edits against, answering Lit's `context-request` for Home Assistant's
+key `conditions-entity-context` as Home Assistant's own card dialog does for a card with one
+entity; should that key be renamed, nothing answers and the element works without an entity, as
+on a card that has none. Two facts it relies on:
+Home Assistant's card editor imports it statically to draw the Visibility tab, so it is defined
+before this editor opens, and its name and those two properties have held since 2023.11. Do not
+add a second exception without the same guard and fallback.
 
 Everything except `element.ts` and `styles.ts` is free of Lit and of the DOM. That is
 load-bearing, not tidiness: it is what lets both the test suite and `check:i18n` import a

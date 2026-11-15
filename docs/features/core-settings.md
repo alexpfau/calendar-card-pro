@@ -30,10 +30,12 @@ entities:
 | `color`                  | string  | `event_color`            | Custom color for event titles from this calendar                                                                                                                                                                                                                                                                                                                         |
 | `accent_color`           | string  | `accent_color`           | Custom color for the accent bar and event background (when `event_background_opacity` is >0). Accepts `home-assistant` to follow this calendar's Home Assistant color                                                                                                                                                                                                    |
 | `label_icon_color`       | string  | `-`                      | Custom color for label icons (only applies to `mdi:` and other icon labels)                                                                                                                                                                                                                                                                                              |
+| `text_scale`             | number  | `1`                      | Draws this calendar's event text, and the icons beside it, at this multiple of the card's sizes: `0.75` at three quarters; see [Scaling One Calendar's Text](#scaling-one-calendars-text)                                                                                                                                                                                |
 | `show_time`              | boolean | `show_time`              | Whether to show event times for this calendar (overrides global `show_time` option)                                                                                                                                                                                                                                                                                      |
 | `show_location`          | boolean | `show_location`          | Whether to show event locations for this calendar (overrides global `show_location` option). `false` also keeps them out of the [event popover](/features/actions#narrowing-what-the-popover-offers)                                                                                                                                                                     |
 | `location_icon`          | string  | `mdi:map-marker-outline` | Icon shown beside this calendar's locations, e.g. `mdi:office-building`. Unset, Microsoft Teams meetings get `mdi:microsoft-teams` and every other location the map marker                                                                                                                                                                                               |
 | `show_description`       | boolean | `show_description`       | Whether to show event descriptions for this calendar (overrides global `show_description` option). `false` also keeps them out of the [event popover](/features/actions#narrowing-what-the-popover-offers)                                                                                                                                                               |
+| `show_weather`           | boolean | `true`                   | `false` leaves the weather out beside this calendar's events. The forecast in the day header stays; see [Turning Weather Off for One Calendar](/features/weather#turning-weather-off-for-one-calendar)                                                                                                                                                                   |
 | `compact_events_to_show` | number  | `-`                      | Most events this calendar shows while the card is compact. Its events still count toward the card-wide `compact_events_to_show`; see [Entity-Level vs. Global Event Limits](#entity-level-vs-global-event-limits)                                                                                                                                                        |
 | `blocklist`              | string  | `-`                      | RegExp pattern to specify events to exclude (e.g., "Private\|Conference")                                                                                                                                                                                                                                                                                                |
 | `allowlist`              | string  | `-`                      | RegExp pattern to specify events to include (e.g., "Birthday\|Anniversary")                                                                                                                                                                                                                                                                                              |
@@ -42,9 +44,11 @@ entities:
 | `replace_pattern`        | string  | `-`                      | RegExp pattern to find in that field. Every match is replaced, whatever its case. Unset, the whole field is replaced instead                                                                                                                                                                                                                                             |
 | `replace_with`           | string  | `-`                      | Text to put in place of each match, or of the whole field when `replace_pattern` is unset. Unset, the match is removed                                                                                                                                                                                                                                                   |
 | `split_multiday_events`  | boolean | `split_multiday_events`  | Whether multi-day events from this calendar span each day they cover (overrides global `split_multiday_events`)                                                                                                                                                                                                                                                          |
+| `multiday_banners`       | boolean | `multiday_banners`       | In grid view, whether this calendar's timed events a full day or longer are drawn as one banner above the hours, or as a block on each day (overrides global `multiday_banners`); see [Long Timed Events as Banners](/features/grid-view#long-timed-events-as-banners)                                                                                                   |
 | `event_type`             | string  | `event_type`             | Which class of this calendar's events to keep — `all`, `timed` for events with a clock time, or `all_day` for all-day ones (overrides global `event_type`)                                                                                                                                                                                                               |
 | `allday_expires_at`      | string  | midnight                 | Time of day, as `HH:MM`, at which this calendar's all-day events start counting as past, read against the last day each one covers. Unset, they last until midnight. Only applies while `show_past_events` is `false`                                                                                                                                                    |
 | `days_of_week`           | string  | `-`                      | Restricts this calendar to `weekdays` (every day except the weekend) or `weekends` (the weekend days alone), judged on the day each row lands on. Which days are the weekend follows the country set in Home Assistant, or its language when no country is set. Unset, every day qualifies                                                                               |
+| `visibility`             | list    | `-`                      | Home Assistant visibility conditions, as a card's own Visibility tab takes them. This entry's events show only while all of them hold; unset, they always show. See [Showing a Calendar Under Conditions](#showing-a-calendar-under-conditions)                                                                                                                          |
 
 These options are per calendar. For the card-wide options they override, see [Core Settings in the configuration reference](/reference/configuration#core-settings).
 
@@ -94,6 +98,83 @@ for, and a calendar can have either, both or neither.
   (calendar.ana_personal)", so the entry to fix is easy to find.
 - Like any change to the configuration, renaming a calendar shows every hidden calendar again on
   every device; see [Showing & Hiding Calendars](/features/layout-appearance#showing-hiding-calendars).
+
+:::
+
+### Showing a Calendar Under Conditions
+
+`visibility` shows a calendar only while Home Assistant conditions hold, so one card can show
+each person their own calendars, drop a work calendar during a holiday, or keep the birthdays
+off the kitchen tablet. It takes the conditions a card's own **Visibility** tab in Home
+Assistant takes, for one calendar at a time:
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.family
+  - entity: calendar.anna_work
+    visibility:
+      - condition: user
+        users:
+          - 8a1c3f2e9b0d4c6a
+      - condition: state
+        entity: input_boolean.vacation
+        state: 'off'
+  - entity: calendar.birthdays
+    visibility:
+      - condition: screen
+        media_query: '(min-width: 1024px)'
+```
+
+A calendar's events show while every condition in its list holds, and a calendar with no list
+always shows. In the [visual editor](/features/editor#per-calendar-panels-actions), each
+calendar's panel has a **Visibility** section holding Home Assistant's own Visibility editor, the
+one under a card's **Visibility** tab, which picks people by name rather than by ID.
+
+Every condition that editor offers works here:
+
+- `user`, `state`, `numeric_state`, `screen`, `time` and `location` (where the person linked to
+  your Home Assistant user is), and `and`, `or` and `not` over any of them;
+- `template`, `sun`, `zone`, `device`, and a `state` that must have held `for` a while, which
+  Home Assistant judges itself. These need Home Assistant 2026.10 or later, and a calendar that
+  depends on one stays hidden until Home Assistant has answered.
+
+A calendar hidden this way is not on the card for that person at that moment. Its events are
+gone from every view and from [search](/features/layout-appearance#searching-the-card), it has
+no chip or row in the [calendar filter](/features/layout-appearance#showing-hiding-calendars),
+new events cannot be added or moved to it, and the event limits fill from the calendars shown.
+The card still loads it, so it reappears the moment a condition changes.
+
+::: warning Not a Privacy Control
+Conditions tidy a shared card; they do not keep a calendar private. Everyone with a Home
+Assistant login can read every calendar through Home Assistant itself, and anyone who can open
+the dashboard can read its configuration, conditions included.
+:::
+
+::: details Older Home Assistant, Calendars Listed Twice & Editing
+
+- Before Home Assistant 2026.10, a calendar whose conditions depend on `template`, `sun`, `zone`,
+  `device` or a `state` held `for` a while stays hidden, and the browser console says why once.
+  2026.6 to 2026.9 judge them for administrators only. A template binary sensor does the same job
+  on any version: put the test in the sensor, and use `condition: state` on it.
+- Before Home Assistant 2023.11, which has no Visibility editor to lend, the panel takes the
+  conditions as YAML instead.
+- Written by hand, a `state` or `numeric_state` condition naming its entity with `entity` rather
+  than `entity_id` cannot wait (`for`) or use a `value_template`. Its calendar stays hidden, and
+  the browser console says why. Home Assistant's editor writes `entity_id`.
+- Conditions belong to one entry in `entities`. A calendar listed twice, as
+  [splitting it by event type](#separating-all-day-from-timed-events) does, needs them on each
+  entry, and one entry can show while the other does not. The calendar leaves the filter, adding
+  events and the "Couldn't load" line only while all its entries are hidden.
+- A `state` or `numeric_state` condition with no `entity` reads the calendar itself, which is
+  `on` while one of its events is under way.
+- `time` reads the time zone your Home Assistant profile sets: the server's or this device's.
+- While the card is being edited every calendar shows, so you can still style one hidden from
+  you.
+- A calendar the filter hid stays hidden there while its conditions hide it, and when it comes
+  back.
+- An event's popover or a new event's form that is already open when a condition changes keeps
+  the calendars it opened with until it closes.
 
 :::
 
@@ -334,6 +415,56 @@ entities:
     label: home-assistant
     label_type: text
 ```
+
+:::
+
+### Scaling One Calendar's Text
+
+`text_scale` draws one calendar's events with smaller or larger text, so a calendar that only
+needs to be there, such as a school's, takes less room and less attention than the rest. It
+multiplies the card's own sizes: `0.75` draws them at three quarters, `1.25` at a quarter more.
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.family
+  - entity: calendar.school
+    text_scale: 0.75
+```
+
+It scales the text in each of the calendar's events and the icons beside it: the title with its
+label, the time with its countdown, the location, the description and the event's weather. The
+spacing around them stays as it is, so a scaled-down row is shorter and a scaled-up one taller.
+In grid view a block keeps the height its times give it, and its title and time fit into it as
+they would at any other size.
+
+It applies in list, column and grid view, all-day banners included. The event popover, search
+results and calendar filter keep the card's sizes. Left unset, or set to anything but a number
+above 0, the calendar's events draw as the card's do.
+
+::: tip Visual Editor
+**Text Scale** is the last field under **Name & Appearance** in each calendar's panel.
+:::
+
+::: details Calendars Listed Twice, Merged Rows, Grid Overlaps & Theming
+
+- The scale belongs to the entry, not the calendar. A calendar listed twice, as
+  [splitting it by event type](#separating-all-day-from-timed-events) does, can draw its all-day
+  and its timed events at two scales.
+- A row [merged from several calendars](#filtering-duplicate-events) takes the scale of the
+  calendar listed first among them.
+- In grid view, an event that starts shortly after a scaled-up one is drawn beside it rather
+  than over it until it starts far enough in to leave room for that event's larger title.
+- A font size written as a keyword, such as `large`, is scaled from the size browsers draw it at
+  by default. One that names a variable, as in `var(--my-size)`, is scaled whole; a variable
+  holding a keyword cannot be multiplied, and the text then takes the size of the text around it.
+- An icon size in `em` is scaled once, with the text it sits beside. One that names a variable
+  is scaled whole, which suits a variable holding a length such as `14px`; one holding an `em`
+  length comes out smaller than the text beside it.
+- A scaled calendar writes the card's size properties on its own events, so a card-mod rule
+  setting one of them on `.event` needs `!important` to reach that calendar's events; see
+  [Weather Custom Properties](/features/theming#weather-custom-properties). Its events carry
+  the class `event-text-scaled`.
 
 :::
 
@@ -1074,11 +1205,111 @@ second would not appear at all. Complete days stretch only the card's own limit:
 still shows no more days than `compact_days_to_show`, and events a calendar's own cap held
 back stay hidden.
 
+### Continuing a List on a Second Card
+
+`skip_first_events` leaves the first events off a list, so a second card can carry on where a
+first one stops: a small card showing what is on now, and a card under it with what comes
+later.
+
+```yaml
+type: vertical-stack
+cards:
+  - type: custom:calendar-card-pro
+    title: Now
+    entities:
+      - calendar.anna
+    list:
+      compact_events_to_show: 1
+  - type: custom:calendar-card-pro
+    title: Later
+    entities:
+      - calendar.anna
+    list:
+      skip_first_events: 1
+```
+
+| Option                     | Type   | Default | Description                                                |
+| -------------------------- | ------ | ------- | ---------------------------------------------------------- |
+| `list → skip_first_events` | number | -       | Events left off the top of the list; unset leaves none off |
+
+- **Same calendars, same count.** The second card continues exactly when it shows the same
+  calendars, dates and filters as the first, including `filter_duplicates` and each
+  calendar's own cap, and skips as many events as the first card's `compact_events_to_show`.
+- **It counts what the card would show,** in the list's order, after every filter. A
+  multi-day event split over several days counts once for each day, as the event limit counts
+  it. In [latest-first order](#event-order) it leaves off the most recent events.
+- **It holds when the card is expanded,** so expanding the second card never brings the first
+  card's events back. The card's own day and event limits count from the first event left.
+- **A day it empties leaves the card.** With `show_empty_days` or `show_empty_today` the days
+  start where the list goes on, so the second card never repeats a day the first one covered.
+
+::: details When the Second Card Does Not Continue Exactly
+
+- `compact_events_complete_days` can make the first card show more events than its limit, and
+  a `compact_days_to_show` it reaches first can make it show fewer. Set `skip_first_events` to
+  the number the first card actually shows.
+- Expanding the second card lifts its calendars' own caps, so with a cap set it can show
+  events the first card already shows.
+- A second card with nothing left shows its notice on the day the list would go on from, held
+  within the card's dates. [`hide_when_empty`](/reference/configuration#core-settings) hides
+  it instead.
+
+:::
+
 ### Benefits of These Controls
 
 Together, these keep a dashboard card short: a few days, a cap on any calendar that would
 crowd out the rest, a card-wide limit that never cuts its last day off part-way, and the full
 range one expand away.
+
+## 🔃 Event Order
+
+`event_order: latest_first` turns a list card upside down, with the most recent day and event
+at the top. It is for a calendar used as a log, such as visitors arriving or a camera's
+detections, where the newest entry is the one that matters.
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.visitors
+start_date: today-29
+days_to_show: 30
+show_past_events: true
+list:
+  event_order: latest_first
+  compact_events_to_show: 5
+```
+
+| Option               | Type   | Default          | Description                                                                 |
+| -------------------- | ------ | ---------------- | --------------------------------------------------------------------------- |
+| `list → event_order` | string | `earliest_first` | `earliest_first`, or `latest_first` for the most recent day and event first |
+
+- **It changes the order, not the dates.** The card covers the days `start_date` and
+  `days_to_show` name, so a log's window starts in the past: `today-29` with 30 days is the
+  last 30 days up to today. [`show_past_events`](/reference/configuration#event-column) keeps
+  the entries that have ended, and `past_event_opacity: 100` stops dimming them.
+- **Every limit keeps from the top.** `compact_events_to_show` keeps the most recent events,
+  `compact_days_to_show` the most recent days with events, and a calendar's own cap its most
+  recent events. Expanded, the card shows every entry, still latest first.
+- **Within a day,** the latest event comes first and all-day events come last, so a limit of
+  one keeps today's latest entry rather than an all-day event.
+- **List view only.** Column and grid view keep time running forward, and the option applies
+  again whenever they fall back to a list on a narrow card. The visual editor offers it under
+  Time Range when List is the layout being edited.
+- **Today and paging stay as they are.** The today indicator still marks today, and the
+  [date navigation](/features/layout-appearance#paging-through-dates) still moves back and
+  forward in time.
+- **How long ago,** such as "13 days ago", shows on each entry with `show_countdown: true`; see
+  [Counting Up From Past Events](/features/event-content#counting-up-from-past-events). The
+  [House Log](/guide/house-log) story is a complete card built this way.
+
+::: details Empty Days in a Latest-First List
+With `show_empty_days` the days run from the window's last day back. A card with nothing to
+show puts its notice on the window's last day, at the top, and `show_empty_today` keeps today
+wherever it falls.
+:::
+
+**→ [List-Only Options in the configuration reference](/reference/configuration#list-only-options)** — `event_order` beside the compact limits.
 
 ## 🧱 Per-View Options
 
@@ -1180,7 +1411,7 @@ layouts never loads anything. The rest of the card follows the layout on screen:
 
 **→ [Column View](/features/column-view)** — what column may override, and what it ignores.
 **→ [Grid View](/features/grid-view)** — the same for the time grid.
-**→ [List-Only Options in the configuration reference](/reference/configuration#list-only-options)** — the five options only list reads.
+**→ [List-Only Options in the configuration reference](/reference/configuration#list-only-options)** — the seven options only list reads.
 
 ## 🌐 Language
 

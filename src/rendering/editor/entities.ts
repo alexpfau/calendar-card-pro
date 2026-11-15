@@ -12,6 +12,7 @@ import {
   LABEL_IMAGE_SOURCE,
   LABEL_TYPE,
   SHOW_IN_LEGEND,
+  VISIBILITY,
   accentColorModeOf,
   labelIconSourceOf,
   labelImageSourceOf,
@@ -26,7 +27,7 @@ import { ENTITY_ICON_SENTINEL, entityIcon, isEntityIconSentinel } from '../../ut
 import * as Helpers from '../../utils/helpers';
 import { firstPersonEntityId, isPersonEntityId } from '../../utils/person-pictures';
 
-const NUMERIC_KEYS: ReadonlySet<string> = new Set(['compact_events_to_show']);
+const NUMERIC_KEYS: ReadonlySet<string> = new Set(['compact_events_to_show', 'text_scale']);
 
 /**
  * One option that belongs to the calendar rather than to one block of it, in the four terms
@@ -502,10 +503,25 @@ export function fromEntityFormData(
     if (key in ENTITY_TRISTATE_VALUES) {
       const stored = ENTITY_TRISTATE_STORED[key][String(value)];
       if (stored !== undefined) entry[key] = stored;
+      // `show_weather: true` is valid YAML the dropdown has no entry for, since it means what
+      // Follow the card means, which the panel shows for it. Kept while the panel still shows
+      // that: dropping it would delete a line the user wrote on an edit to some other field.
+      // Choosing Follow the card after Never show still stores nothing.
+      else if (
+        key === 'show_weather' &&
+        value === INHERIT &&
+        asEntityConfig(previous).show_weather === true
+      ) {
+        entry[key] = true;
+      }
       continue;
     }
 
     if (!isSet(value)) continue;
+
+    // A cleared code editor hands back an empty list or an empty object, and an empty object
+    // would be read as one condition the card cannot judge, hiding the calendar.
+    if (key === VISIBILITY && isEmptyVisibility(value)) continue;
 
     if (NUMERIC_KEYS.has(key)) {
       const numeric = Number(value);
@@ -581,6 +597,17 @@ export function fromEntityFormData(
  * @param inherited - The card-wide color this calendar is currently showing
  * @returns The value to store, or `undefined` to store nothing
  */
+/**
+ * Whether a `visibility` value says nothing: an empty list, or an empty object.
+ *
+ * @param value - The value as the code editor handed it back
+ * @returns True to store nothing
+ */
+function isEmptyVisibility(value: unknown): boolean {
+  if (Array.isArray(value)) return value.length === 0;
+  return typeof value === 'object' && value !== null && Object.keys(value).length === 0;
+}
+
 function accentColorFor(mode: string, value: unknown, inherited: unknown): string | undefined {
   if (mode === 'home_assistant') return ENTITY_COLOR_SENTINEL;
   if (mode !== 'custom') return undefined;

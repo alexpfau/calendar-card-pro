@@ -211,6 +211,8 @@ describe('the Today & Tomorrow card behaves as its page describes', () => {
       ['calendar.work', 'person.ben', '#90a4ae'],
       ['calendar.family', null, '#ffb74d'],
     ]);
+    // Only the work calendar leaves the weather out.
+    expect(BLOCKS.map((b) => b.show_weather ?? null)).toEqual([null, null, null, false, null]);
     expect(CARD).toMatchObject({
       view: 'grid',
       days_to_show: 2,
@@ -299,18 +301,36 @@ describe('the Today & Tomorrow card behaves as its page describes', () => {
       ['19°', 'mdi:weather-rainy'],
     ]);
 
-    // The hour each event starts in: 09:00 is 19°, 11:00 is 21°, 14:00 is 24°, and Thursday's
-    // 17:00 is 15°. An icon on each, and no condition words.
+    // The hour each event starts in: 09:00 is 19°, 14:00 is 24°, and Thursday's 17:00 is 15°.
+    // An icon on each, and no condition words. Ben's design review is on his work calendar,
+    // which leaves the weather out, so its 11:00 stays blank.
     expect(blocks(card).map((b) => [b.title, b.weather])).toEqual([
       ['Standup', { temperature: '19°', icon: 'mdi:weather-partly-cloudy', condition: null }],
-      ['Design review', { temperature: '21°', icon: 'mdi:weather-partly-cloudy', condition: null }],
+      ['Design review', null],
       ['Zoo 🦒', { temperature: '24°', icon: 'mdi:weather-partly-cloudy', condition: null }],
       ['Dinner', { temperature: '15°', icon: 'mdi:weather-partly-cloudy', condition: null }],
     ]);
 
-    // Control: without `event.show_conditions: false` every block names its condition.
+    // Control: without the work calendar's `show_weather: false` its 11:00 is there, 21°.
+    const allWeather = await mountStory(
+      dropFromBlocks(CARD, 'show_weather', (b) => b.entity === 'calendar.work'),
+      DAYS,
+    );
+    expect(block(allWeather, 'Design review').weather).toEqual({
+      temperature: '21°',
+      icon: 'mdi:weather-partly-cloudy',
+      condition: null,
+    });
+
+    // Control: without `event.show_conditions: false` every block with weather names its
+    // condition.
     const worded = await mountStory(dropOption(CARD, 'weather.event.show_conditions'), DAYS);
-    expect(blocks(worded).map((b) => b.weather?.condition)).toEqual(Array(4).fill('Partly cloudy'));
+    expect(blocks(worded).map((b) => b.weather?.condition ?? null)).toEqual([
+      'Partly cloudy',
+      null,
+      'Partly cloudy',
+      'Partly cloudy',
+    ]);
 
     // Control: `both` is what puts it in both places. Each single position empties the other.
     const dateOnly = await mountStory(withWeatherAt('date'), DAYS);

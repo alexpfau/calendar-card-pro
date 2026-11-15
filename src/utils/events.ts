@@ -1411,6 +1411,66 @@ function dayPassesWeekFilter(
 type LeftOffDisplayCopy = 'uid' | 'recurrence_id' | 'rrule' | 'status' | '_searchRing';
 
 /**
+ * Whether grid view draws this one event as a banner in its all-day band: a timed event a full
+ * day or longer (`FormatUtils.fullDaySpan`) whose calendar resolves `multiday_banners` on, per
+ * calendar over the card. Duplicates are `resolveGridBanners`'s to settle.
+ *
+ * @param event A source event, matched to its calendar entry
+ * @param config Configuration resolved for grid view
+ * @returns True where it is drawn as a banner
+ */
+export function drawsAsGridBanner(event: Types.CalendarEventData, config: Types.Config): boolean {
+  return (
+    event.start.dateTime !== undefined &&
+    (getEntitySetting(event._entityId, 'multiday_banners', config, event) ??
+      config.multiday_banners) === true &&
+    FormatUtils.fullDaySpan(event.start, event.end) !== null
+  );
+}
+
+/**
+ * Which events grid view draws as one banner in its all-day band rather than as a block per
+ * day: timed events a full day or longer (`FormatUtils.fullDaySpan`) from a calendar whose
+ * `multiday_banners` resolves on, per calendar over the card.
+ *
+ * Decided once per event, before any day is filtered, and with `filter_duplicates` by the
+ * first-listed calendar holding it, for every copy. Grid keeps or drops a duplicate day by
+ * day, so letting each copy decide for itself could draw one event as a banner early in the
+ * week and as blocks later on: with the first calendar's copy as blocks and the second's as a
+ * banner, a banner keeps its past days and a block does not, so Monday would be the second
+ * calendar's banner and Wednesday the first's block. The first-listed copy is the one
+ * `deduplicateEvents` keeps where both survive, so its answer is the one shown anyway.
+ *
+ * @param events Well-formed source events, as `processEvents` decorated them
+ * @param config Configuration resolved for grid view
+ * @returns The source events to draw as banners
+ */
+function resolveGridBanners(
+  events: Types.CalendarEventData[],
+  config: Types.Config,
+): ReadonlySet<Types.CalendarEventData> {
+  const wantsBanner = (event: Types.CalendarEventData) => drawsAsGridBanner(event, config);
+
+  if (!config.filter_duplicates) return new Set(events.filter(wantsBanner));
+
+  const ignoreLocation = config.filter_duplicates === Constants.DUPLICATES_IGNORE_LOCATION;
+  const signatures = new Map<Types.CalendarEventData, string>();
+  const presenting = new Map<string, Types.CalendarEventData>();
+  for (const event of events) {
+    const signature = generateEventSignature(event, ignoreLocation);
+    signatures.set(event, signature);
+    const first = presenting.get(signature);
+    if (
+      !first ||
+      getEntityIndex(event._entityId, config) < getEntityIndex(first._entityId, config)
+    ) {
+      presenting.set(signature, event);
+    }
+  }
+  return new Set(events.filter((event) => wantsBanner(presenting.get(signatures.get(event)!)!)));
+}
+
+/**
  * Group events by display day.
  *
  * @param rawEvents Calendar events to group
@@ -1452,6 +1512,23 @@ export function groupEventsByDay(
   const expandApplies = isExpanded && ViewConfig.viewAppliesCompactLimits(effectiveView);
   const compactLimitsApply = !expandApplies && ViewConfig.viewAppliesCompactLimits(effectiveView);
 
+  // `latest_first` is the earliest-first list read from the bottom up, ties included. Every
+  // step below that keeps a prefix of the days or of a day's events (the day limit, each
+  // calendar's cap, the card's event limit, the empty-day fill and the final cut) then keeps
+  // from the top, so the event limit keeps the most recent events. Gated on the view, because
+  // a top-level value reaches column and grid view's configuration too.
+  const latestFirst = ViewConfig.listsLatestFirst(config, effectiveView);
+  const byDay = (a: Types.EventsByDay, b: Types.EventsByDay): number =>
+    latestFirst ? b.timestamp - a.timestamp : a.timestamp - b.timestamp;
+
+  // Which day of its event a row stands for, only where it is drawn, and only while the progress
+  // bar is on, whose form the counter is on an event a day or more long, so a card without it
+  // keeps its rows as they were. Not in grid, whose all-day banners already span their days and
+  // whose later blocks of a timed event draw a title alone; the gate decides nothing there today,
+  // since its splitter hands this function one-day segments, which never count. It is here so
+  // that stays a decision.
+  const stampsDayOfEvent = Boolean(config.show_progress_bar) && effectiveView !== 'grid';
+
   const referenceDate = getStartDateReference(
     config,
     FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hass?.locale),
@@ -1472,11 +1549,15 @@ export function groupEventsByDay(
   const sourceSignatures = new Map<Types.CalendarEventData, string>();
   const displayDays = new Map<Types.CalendarEventData, string>();
   const ignoreLocation = config.filter_duplicates === Constants.DUPLICATES_IGNORE_LOCATION;
+  const splitsForGrid = ViewConfig.multidaySplitPolicy(effectiveView) === 'never';
+  const gridBanners = splitsForGrid ? resolveGridBanners(events, config) : undefined;
   const splitEvents = events.flatMap((event) => {
-    const occurrences =
-      ViewConfig.multidaySplitPolicy(effectiveView) === 'never'
-        ? Grid.splitGridEventByDay(event, referenceStart, windowEnd)
-        : processMultiDayEvents([event], config);
+    const split = splitsForGrid
+      ? Grid.splitGridEventByDay(event, referenceStart, windowEnd)
+      : processMultiDayEvents([event], config);
+    const occurrences = gridBanners?.has(event)
+      ? split.map((occurrence) => ({ ...occurrence, _gridBanner: true }))
+      : split;
     if (config.filter_duplicates) {
       const signature = generateEventSignature(event, ignoreLocation);
       occurrences.forEach((occurrence) => sourceSignatures.set(occurrence, signature));
@@ -1539,7 +1620,13 @@ export function groupEventsByDay(
     }
 
     if (!config.show_past_events) {
-      if (!isAllDayEvent && endDate < now) {
+      // A day of a banner is past only once the whole event is, as an all-day banner's is:
+      // the banner stands for the event, so on Wednesday it still starts on Monday.
+      const pastAt =
+        event._gridBanner && event._gridSource?.end.dateTime
+          ? new Date(event._gridSource.end.dateTime)
+          : endDate;
+      if (!isAllDayEvent && pastAt < now) {
         return false;
       }
 
@@ -1791,8 +1878,12 @@ export function groupEventsByDay(
         _sourceStart: event._sourceStart,
         _sourceEnd: event._sourceEnd,
         _splitFromTimedEvent: event._splitFromTimedEvent,
+        _dayOfEvent: stampsDayOfEvent
+          ? (resolveDayOfEvent(event, displayDate) ?? undefined)
+          : undefined,
         _gridSegmentStartsEvent: event._gridSegmentStartsEvent,
         _gridSource: event._gridSource,
+        _gridBanner: event._gridBanner,
       } satisfies Types.EveryMember<Types.CalendarEventData, LeftOffDisplayCopy>);
     });
   }
@@ -1842,15 +1933,18 @@ export function groupEventsByDay(
 
       return aStart - bStart;
     });
+    if (latestFirst) day.events.reverse();
   });
 
   const effectiveDaysToShow = compactLimitsApply
     ? Math.min(config.compact_days_to_show || config.days_to_show, config.days_to_show)
     : config.days_to_show;
 
-  let days = Object.values(eventsByDay)
-    .sort((a, b) => a.timestamp - b.timestamp)
-    .slice(0, effectiveDaysToShow || 3);
+  // Every day with events, in the list's order. Each calendar's cap and then the skip run over
+  // all of them, before the day limit, so the skip counts the rows the card would otherwise
+  // draw and the day limit counts from the first day left. A cap counts from the top and the
+  // day limit keeps a prefix, so capping first keeps exactly what capping the kept days did.
+  let days = Object.values(eventsByDay).sort(byDay);
 
   if (compactLimitsApply) {
     const entityConfigEventCounts = new Map<string, number>();
@@ -1887,6 +1981,41 @@ export function groupEventsByDay(
       day.events = filteredEvents;
     }
   }
+
+  // `skip_first_events` leaves out the first rows the card would draw, so a second card
+  // continues where a first one with the matching event limit stopped. It stays in force
+  // expanded: expanding the second card must not bring the first card's events back. A day
+  // the skip empties leaves the card and takes no day slot, and `continueFrom` is the day the
+  // list now starts from, before which no empty day is drawn: the day the skip stopped in, or
+  // the next date when it stopped at the end of a day.
+  let continueFrom: Date | undefined;
+  const skip = ViewConfig.appliesToView('skip_first_events', effectiveView)
+    ? Math.floor(config.skip_first_events ?? 0)
+    : 0;
+  if (skip > 0) {
+    let left = skip;
+    let stoppedIn: Types.EventsByDay | undefined;
+    days = days.filter((day) => {
+      if (left === 0) return true;
+      if (day.events.length > left) {
+        day.events = day.events.slice(left);
+        left = 0;
+        stoppedIn = day;
+        return true;
+      }
+      left -= day.events.length;
+      if (day.events.length > 0) stoppedIn = day;
+      day.events = [];
+      return false;
+    });
+    if (stoppedIn) {
+      const date = new Date(stoppedIn.timestamp);
+      const next = stoppedIn.events.length > 0 ? 0 : latestFirst ? -1 : 1;
+      continueFrom = new Date(date.getFullYear(), date.getMonth(), date.getDate() + next);
+    }
+  }
+
+  days = days.slice(0, effectiveDaysToShow || 3);
 
   if (!expandApplies && !showEmptyDays) {
     days = days.filter(
@@ -1995,12 +2124,19 @@ export function groupEventsByDay(
   // Empty means empty before the compact limits ran. They can drop today's events from a
   // collapsed card whose window starts before today, and the fill must not then report a
   // day as free that expanding the card shows is not.
+  //
+  // Nor is today kept on a day a skip passed over: its events, if it had any, are on the card
+  // the skip continues from.
   let emptyToday: Date | undefined;
   if (config.show_empty_today && !showEmptyDays) {
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const offset = FormatUtils.getCalendarDayDiff(referenceStart, today);
     const hasEvents = Boolean(eventsByDay[FormatUtils.getLocalDateKey(today)]);
-    if (offset >= 0 && offset < config.days_to_show && !hasEvents) emptyToday = today;
+    const skippedOver =
+      continueFrom !== undefined && (latestFirst ? today > continueFrom : today < continueFrom);
+    if (offset >= 0 && offset < config.days_to_show && !hasEvents && !skippedOver) {
+      emptyToday = today;
+    }
   }
 
   const eventDayCount = days.length;
@@ -2012,36 +2148,52 @@ export function groupEventsByDay(
     const hasCustomEmptyText = Boolean(customEmptyText);
     const emptyDayText = customEmptyText || translations.noEvents;
 
-    let startDateForEmptyDays = new Date(referenceDate);
+    // Every range starts where the list starts and runs its way: from the window's first day,
+    // from its last for a list read latest first, or from the day a skip stopped in
+    // (`continueFrom`), held inside the window. Built from local date fields, so a range across
+    // a daylight-saving change is still whole days.
+    const dayOf = (date: Date, offset = 0) =>
+      new Date(date.getFullYear(), date.getMonth(), date.getDate() + offset);
+    const windowFirstDay = dayOf(referenceDate);
+    const windowLastDay = dayOf(referenceDate, config.days_to_show - 1);
+    const listStart = continueFrom
+      ? new Date(
+          Math.min(
+            Math.max(continueFrom.getTime(), windowFirstDay.getTime()),
+            windowLastDay.getTime(),
+          ),
+        )
+      : latestFirst
+        ? windowLastDay
+        : windowFirstDay;
 
-    let endDateForEmptyDays: Date;
+    // How many dates from there the fill covers.
+    let span: number;
 
     if (expandApplies) {
-      endDateForEmptyDays = new Date(referenceDate);
-      endDateForEmptyDays.setDate(endDateForEmptyDays.getDate() + effectiveDaysToShow - 1);
+      span = effectiveDaysToShow;
     } else if (days.length === 0) {
-      if (showEmptyDays) {
-        endDateForEmptyDays = new Date(referenceDate);
-        endDateForEmptyDays.setDate(endDateForEmptyDays.getDate() + effectiveDaysToShow - 1);
-      } else {
-        endDateForEmptyDays = new Date(referenceDate);
-      }
+      // A card with nothing to show gives one notice, on the day its list starts from.
+      span = showEmptyDays ? effectiveDaysToShow : 1;
     } else if (compactLimitsApply && config.compact_events_to_show) {
-      if (days.length > 0) {
-        const lastDayTimestamp = Math.max(...days.map((d) => d.timestamp));
-        endDateForEmptyDays = new Date(lastDayTimestamp);
-      } else {
-        endDateForEmptyDays = new Date(referenceDate);
-      }
+      // As far as the farthest day the event limit reached.
+      const shown = days.map((d) => d.timestamp);
+      const farthest = new Date(latestFirst ? Math.min(...shown) : Math.max(...shown));
+      span = Math.abs(FormatUtils.getCalendarDayDiff(listStart, farthest)) + 1;
     } else {
       // Everything else pads to the full window, including a compact day limit with no
       // event limit: `effectiveDaysToShow` has already been narrowed to that limit above,
       // so that case needs no branch of its own. It used to have one, whose body was a
       // byte-for-byte copy of this block, which read as a special case while doing nothing
       // a reader could distinguish from the default.
-      endDateForEmptyDays = new Date(referenceDate);
-      endDateForEmptyDays.setDate(endDateForEmptyDays.getDate() + effectiveDaysToShow - 1);
+      span = effectiveDaysToShow;
     }
+
+    const farEnd = dayOf(listStart, (latestFirst ? -1 : 1) * (span - 1));
+    let startDateForEmptyDays = latestFirst ? farEnd : listStart;
+    let endDateForEmptyDays = latestFirst ? listStart : farEnd;
+    if (startDateForEmptyDays < windowFirstDay) startDateForEmptyDays = windowFirstDay;
+    if (endDateForEmptyDays > windowLastDay) endDateForEmptyDays = windowLastDay;
 
     // Collapse the range the loop already walks, rather than filling it and then
     // throwing the other days away. A blank card's single start-date row becomes
@@ -2092,7 +2244,7 @@ export function groupEventsByDay(
       }
     }
 
-    allDays.sort((a, b) => a.timestamp - b.timestamp);
+    allDays.sort(byDay);
     days = allDays;
   }
 
@@ -2961,6 +3113,73 @@ export function calculateEventProgress(event: Types.CalendarEventData): number |
   );
 
   return progressPercentage;
+}
+
+/**
+ * Whether the day counter counts this event's days: whether it is a day or more long, as
+ * `FormatUtils.fullDaySpan` measures it. Under `show_progress_bar`, a row of such an event
+ * draws the counter rather than a bar, which is what the clock repaint asks this for, and no
+ * row of one is marked "Now" (`buildEventPresentation`).
+ *
+ * @param event A whole event or one day of one, as list and column split it
+ * @returns True for an event a day or more long
+ */
+export function countsDays(event: Types.CalendarEventData): boolean {
+  return (
+    FormatUtils.fullDaySpan(event._sourceStart ?? event.start, event._sourceEnd ?? event.end) !==
+    null
+  );
+}
+
+/**
+ * Which of its event's days a list or column row stands for, "Day 2 of 3".
+ *
+ * A row names the date it is drawn under, so a day of an event split across several names its
+ * own, and a row standing for a whole event names the day it is drawn on: its first, or the
+ * window's first day for an event that began earlier. A row under a date the event takes up no
+ * time on names no day, but is still a row of a counted event, so it draws no progress bar
+ * either: the bar's rule, and the clock repaint's, is the event's, not the row's. Grouping draws
+ * such a row in one case, an unsplit event ending at the first midnight of a window that starts
+ * later, which counted from the event's start would read "Day 4 of 3".
+ *
+ * @param event A whole event or one day of one, as list and column split it
+ * @param displayDate The date the row is drawn under
+ * @returns The day, null where the row names none, and the number of days; or null for an
+ *   event shorter than a day
+ */
+export function resolveDayOfEvent(
+  event: Types.CalendarEventData,
+  displayDate: Date,
+): Types.DayOfEvent | null {
+  const span = FormatUtils.fullDaySpan(
+    event._sourceStart ?? event.start,
+    event._sourceEnd ?? event.end,
+  );
+  if (!span) return null;
+
+  const day = FormatUtils.getCalendarDayDiff(span.first, displayDate) + 1;
+
+  return { day: day >= 1 && day <= span.days ? day : null, days: span.days };
+}
+
+/**
+ * Whether the event a row belongs to has begun: a day of a split event asks about the event,
+ * not about its own day, so the third day of a trip under way has begun although its own
+ * midnight is still ahead.
+ *
+ * @param event A whole event or one day of one, as list and column split it
+ * @param now The instant to measure against
+ * @returns True once the event's start has passed
+ */
+export function eventHasStarted(event: Types.CalendarEventData, now: Date): boolean {
+  const start = event._sourceStart ?? event.start;
+  const instant = start?.dateTime
+    ? new Date(start.dateTime)
+    : start?.date
+      ? FormatUtils.parseAllDayDate(start.date)
+      : null;
+
+  return instant !== null && instant <= now;
 }
 
 //-----------------------------------------------------------------------------

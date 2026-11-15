@@ -6,6 +6,7 @@ import * as Constants from './constants';
 import * as Types from './types';
 import * as Helpers from '../utils/helpers';
 import * as Logger from '../utils/logger';
+import { normalizeVisibility } from '../utils/visibility';
 
 //-----------------------------------------------------------------------------
 // CORE CONFIGURATION
@@ -22,6 +23,8 @@ export const DEFAULT_CONFIG: Types.Config = {
   compact_days_to_show: undefined,
   compact_events_to_show: undefined,
   compact_events_complete_days: false,
+  event_order: 'earliest_first',
+  skip_first_events: undefined,
   show_empty_days: false,
   show_empty_today: false,
   hide_when_empty: false,
@@ -29,6 +32,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   filter_duplicates: false,
   duplicate_accent_color: undefined,
   split_multiday_events: false,
+  multiday_banners: true,
   event_type: 'all',
   language: undefined,
 
@@ -86,12 +90,20 @@ export const DEFAULT_CONFIG: Types.Config = {
   today_weekday_color: undefined, // Inherit from weekday_color or weekend_weekday_color
   today_day_color: undefined, // Inherit from day_color or weekend_day_color
   today_month_color: undefined, // Inherit from month_color or weekend_month_color,
+  today_date_scale: 1,
+  today_date_font_weight: 'default',
+  past_date_scale: 1,
+  past_date_font_weight: 'default',
+  past_date_opacity: 100,
 
   event_background_opacity: 0,
   past_event_opacity: 60,
   show_past_events: false,
   show_countdown: false,
   show_countdown_allday: true,
+  countdown_exact_days: false,
+  // No limit: every upcoming event counts down, as before the option existed.
+  countdown_max_days: undefined,
   show_progress_bar: false,
   show_now_indicator: true,
   // The card's color for "now": a running event's time in list and column view, and the
@@ -121,6 +133,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   time_24h: 'system',
   time_two_digit_hours: false,
   show_end_time: true,
+  show_duration: false,
   time_font_size: '12px',
   time_color: 'var(--secondary-text-color)',
   time_icon_size: '14px',
@@ -268,6 +281,37 @@ export function toValidNumber(value: unknown, minimum = 0): number | undefined {
 export function toValidPercentage(value: unknown): number | undefined {
   const parsed = toValidNumber(value);
   return parsed !== undefined && parsed <= 100 ? parsed : undefined;
+}
+
+/**
+ * The weights the editor names, as Home Assistant's own tokens, so a theme's weights carry
+ * through. `normal` is CSS's word for `regular`.
+ */
+const NAMED_FONT_WEIGHTS: Readonly<Record<string, string>> = {
+  light: 'var(--ha-font-weight-light, 300)',
+  regular: 'var(--ha-font-weight-normal, 400)',
+  normal: 'var(--ha-font-weight-normal, 400)',
+  medium: 'var(--ha-font-weight-medium, 500)',
+  bold: 'var(--ha-font-weight-bold, 700)',
+};
+
+/**
+ * A date's font weight option as CSS: a name from {@link NAMED_FONT_WEIGHTS}, in any case, or
+ * a number from 1 to 1000, the range CSS accepts.
+ *
+ * @param value - Raw YAML or selector value
+ * @returns The CSS value; `''` for `default`, which leaves the card's own weights; `undefined`
+ *   for anything else
+ */
+export function toFontWeightCss(value: unknown): string | undefined {
+  const word = typeof value === 'string' ? value.trim().toLowerCase() : value;
+  if (word === 'default') return '';
+  if (typeof word === 'string' && Object.prototype.hasOwnProperty.call(NAMED_FONT_WEIGHTS, word)) {
+    return NAMED_FONT_WEIGHTS[word];
+  }
+
+  const number = toValidNumber(word, 1);
+  return number !== undefined && number <= 1000 ? String(number) : undefined;
 }
 
 /**
@@ -498,11 +542,23 @@ export function normalizeNumericOptions(config: Types.Config): Types.Config {
   validatePastEventOpacity(config.past_event_opacity);
   config.past_event_opacity =
     toValidPercentage(config.past_event_opacity) ?? DEFAULT_CONFIG.past_event_opacity;
+  // Any number above 0, as a calendar's `text_scale`; anything else draws at the card's size.
+  config.today_date_scale = toValidNumber(config.today_date_scale, Number.MIN_VALUE) ?? 1;
+  config.past_date_scale = toValidNumber(config.past_date_scale, Number.MIN_VALUE) ?? 1;
+  config.past_date_opacity = toValidPercentage(config.past_date_opacity) ?? 100;
+  if (toFontWeightCss(config.today_date_font_weight) === undefined) {
+    config.today_date_font_weight = 'default';
+  }
+  if (toFontWeightCss(config.past_date_font_weight) === undefined) {
+    config.past_date_font_weight = 'default';
+  }
 
   // Optional limits: `undefined` means "no limit", so invalid values clear them rather
   // than collapsing to zero and hiding content.
   config.compact_days_to_show = toValidNumber(config.compact_days_to_show, 1);
   config.compact_events_to_show = toValidNumber(config.compact_events_to_show, 0);
+  config.countdown_max_days = toValidNumber(config.countdown_max_days, 0);
+  config.skip_first_events = toValidNumber(config.skip_first_events, 0);
 
   return config;
 }
@@ -1296,10 +1352,15 @@ export function normalizeEntities(
           color: item.color || undefined,
           accent_color: item.accent_color || undefined,
           label_icon_color: item.label_icon_color || undefined,
+          // A number above 0, or a string that reads as one; anything else draws at the card's
+          // size, as an unset scale does.
+          text_scale: toValidNumber(item.text_scale, Number.MIN_VALUE),
           show_time: item.show_time,
           show_location: item.show_location,
           location_icon: item.location_icon || undefined,
           show_description: item.show_description,
+          // Only a boolean decides; anything else follows the card, as an unset value does.
+          show_weather: typeof item.show_weather === 'boolean' ? item.show_weather : undefined,
           compact_events_to_show: toValidNumber(item.compact_events_to_show, 0),
           blocklist: item.blocklist,
           allowlist: item.allowlist,
@@ -1308,9 +1369,11 @@ export function normalizeEntities(
           replace_pattern: item.replace_pattern,
           replace_with: item.replace_with,
           split_multiday_events: item.split_multiday_events,
+          multiday_banners: item.multiday_banners,
           event_type: item.event_type,
           days_of_week: item.days_of_week,
           allday_expires_at: item.allday_expires_at,
+          visibility: normalizeVisibility(item.visibility),
         } satisfies Types.EveryMember<Types.EntityConfig>;
       }
       return null;

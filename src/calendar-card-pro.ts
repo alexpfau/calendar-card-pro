@@ -57,11 +57,13 @@ import * as Menu from './rendering/menu';
 import * as Render from './rendering/render';
 import * as SearchPanel from './rendering/search-panel';
 import * as Styles from './rendering/styles';
+import * as TextScale from './rendering/text-scale';
 import * as Toolbar from './rendering/toolbar';
-import { loadIntlLocaleData } from './translations/intl-locale-data';
+import { type IntlServiceName, loadIntlLocaleData } from './translations/intl-locale-data';
 import * as Localize from './translations/localize';
 import * as CalendarNames from './utils/calendar-names';
 import { inlineContentWidth } from './utils/content-box';
+import { CoreConditions } from './utils/core-conditions';
 import { editorModuleUrl } from './utils/editor-url';
 import * as EntityColors from './utils/entity-colors';
 import * as EventUtils from './utils/events';
@@ -88,6 +90,7 @@ import {
 } from './utils/title-motion-controller';
 import * as ToolbarFold from './utils/toolbar-fold';
 import * as ViewChoice from './utils/view-choice';
+import * as Visibility from './utils/visibility';
 import * as Weather from './utils/weather';
 import * as WeatherI18n from './utils/weather-i18n';
 
@@ -235,6 +238,21 @@ function originOf(node: EventTarget | null): Feedback.PressOrigin | undefined {
 /** Whether the person asked for less motion, which turns a swipe's nudge and arrival off. */
 function prefersReducedMotion(): boolean {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false;
+}
+
+/**
+ * Whether a media query matches now, for `screen` visibility conditions; false where the
+ * browser cannot say, as Home Assistant's own check comes out when it cannot.
+ *
+ * @param query - The media query
+ * @returns True when it matches
+ */
+function mediaMatches(query: string): boolean {
+  try {
+    return window.matchMedia?.(query)?.matches ?? false;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -609,7 +627,10 @@ class CalendarCardPro extends LitElement {
   private _partialTimer: number | null = null;
 
   private _language = '';
-  /** The language Home Assistant's `Intl` polyfill was last asked for (`_loadIntlLocaleData`). */
+  /**
+   * The language Home Assistant's `Intl` polyfill was last asked for, and whether with durations
+   * (`_loadIntlLocaleData`).
+   */
   private _intlLanguage = '';
   private _refreshTimerId?: number;
   private _lastUpdateTime = 0;
@@ -655,12 +676,8 @@ class CalendarCardPro extends LitElement {
    */
   private _titleSubscription?: Templates.TemplateSubscription;
   /**
-   * True when the most recent load could not read at least one calendar.
-   */
-  private _hasFetchError = false;
-  /**
    * Calendars that failed on the most recent load, named in the notice at the bottom of
-   * the card.
+   * the card unless their visibility conditions hide them (`_shownFailures`).
    */
   private _failedEntities: string[] = [];
   private _visibleCountCache?: {
@@ -905,7 +922,10 @@ class CalendarCardPro extends LitElement {
 
   /** The card's calendars a new event can be written to now, in configuration order. */
   private get _writableCalendars(): string[] {
-    return AddEvent.writableCalendarIds(this.safeHass, this.config.entities, this._failedEntities);
+    const unwritable = this._visibility.calendars.size
+      ? [...this._failedEntities, ...this._visibility.calendars]
+      : this._failedEntities;
+    return AddEvent.writableCalendarIds(this.safeHass, this.config.entities, unwritable);
   }
 
   /**
@@ -1472,12 +1492,39 @@ class CalendarCardPro extends LitElement {
    */
   private _refreshAwaitsLoad: { ticket: number; startedAt: number } | null = null;
 
-  /** `events` without the hidden calendars', and what it was filtered from. */
+  /** `events` without the hidden calendars' and hidden entries', and what it was filtered from. */
   private _shownEventsCache: {
     events: Types.CalendarEventData[];
     hidden: ReadonlySet<string>;
+    visibility: Visibility.EntryVerdicts;
     shown: Types.CalendarEventData[];
   } | null = null;
+
+  /**
+   * What the entries' visibility conditions decide now (`_refreshVisibility`): the entries they
+   * hide, and the calendars all of whose entries they hide, which the card treats as though they
+   * were not on it. Judged again before every update, and replaced only when the answer changes,
+   * so the memos keyed on it keep their hits.
+   */
+  private _visibility: Visibility.EntryVerdicts = Visibility.NO_VERDICTS;
+
+  /** Whether the update under way judged the conditions differently from the one before. */
+  private _visibilityChanged = false;
+
+  /** A `screen` condition's media query, and how to stop listening to it. */
+  private _visibilityQueries = new Map<string, () => void>();
+
+  /** The timer for the next moment a `time` condition can change its answer. */
+  private _visibilityTimerId: number | null = null;
+
+  /** The moment `_visibilityTimerId` is set for. */
+  private _visibilityTimerAt: number | null = null;
+
+  /** Core's answers to the conditions only it can judge; an answer asks for an update. */
+  private readonly _coreConditions = new CoreConditions(() => {
+    Logger.debug('Visibility: Home Assistant answered a condition');
+    this.requestUpdate();
+  });
 
   /**
    * Set once the legend's chips did not all fit in the heading row: what they were drawn with,
@@ -1678,10 +1725,12 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Minutes a later event must start below an earlier one for the grid's cascade to draw
-   * it on top, for the scale this card is drawn at. The floor until a render has been
-   * measured; see `_syncCascadeThreshold`.
+   * it on top, for the scale this card is drawn at, by the `text_scale` of the event drawn
+   * over. The floor until a render has been measured; see `_syncCascadeThreshold`.
    */
-  private _cascadeThresholdMin = CascadeThreshold.CASCADE_THRESHOLD_FLOOR_MIN;
+  private _cascadeThresholds: CascadeThreshold.CascadeThresholds = new Map([
+    [1, CascadeThreshold.CASCADE_THRESHOLD_FLOOR_MIN],
+  ]);
 
   /**
    * Share of a day column the grid's `+N` strip prefers, as a percentage. `Infinity` until a
@@ -1889,7 +1938,8 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * The events the card draws: `events` without those of the calendars the legend hides.
+   * The events the card draws: `events` without those of the calendars the legend hides, and
+   * without those of the entries their visibility conditions hide.
    *
    * `events` itself while nothing is hidden, so every memo keyed on it keeps its hits. Taken
    * before anything else is decided, so expiry, `days_of_week`, which copy of a duplicate wins,
@@ -1898,14 +1948,124 @@ class CalendarCardPro extends LitElement {
    */
   private get _shownEvents(): Types.CalendarEventData[] {
     const hidden = this._activeHiddenCalendars;
-    if (hidden.size === 0) return this.events;
+    const visibility = this._visibility;
+    if (hidden.size === 0 && visibility.hidden.size === 0) return this.events;
 
     const cache = this._shownEventsCache;
-    if (cache && cache.events === this.events && cache.hidden === hidden) return cache.shown;
+    if (
+      cache &&
+      cache.events === this.events &&
+      cache.hidden === hidden &&
+      cache.visibility === visibility
+    ) {
+      return cache.shown;
+    }
 
-    const shown = this.events.filter((event) => !hidden.has(event._entityId ?? ''));
-    this._shownEventsCache = { events: this.events, hidden, shown };
+    const shown = this.events.filter((event) => this._eventShown(event, hidden));
+    this._shownEventsCache = { events: this.events, hidden, visibility, shown };
     return shown;
+  }
+
+  /**
+   * Whether the card draws an event: neither its calendar hidden by the legend nor its entry
+   * hidden by its visibility conditions.
+   *
+   * @param event - An event, matched to the entry that admitted it
+   * @param hidden - The calendars the legend hides now
+   * @returns True to draw it
+   */
+  private _eventShown(
+    event: Types.CalendarEventData,
+    hidden: ReadonlySet<string> = this._activeHiddenCalendars,
+  ): boolean {
+    return !hidden.has(event._entityId ?? '') && !Visibility.entryHidden(event, this._visibility);
+  }
+
+  /**
+   * Judges the entries' visibility conditions again, before an update: none while the card is
+   * being edited, which shows every calendar, as Home Assistant's own preview shows a card its
+   * conditions hide.
+   *
+   * The answer is kept where it did not change, so `_shownEvents` and every memo after it keep
+   * their hits; `_visibilityChanged` says whether this update changed it.
+   */
+  private _refreshVisibility(): void {
+    const next = this._isBeingEdited
+      ? Visibility.NO_VERDICTS
+      : Visibility.judgeEntries(this.config.entities ?? [], {
+          hass: this.hass,
+          now: Date.now(),
+          matches: mediaMatches,
+          core: (key) => this._coreConditions.answer(key, this.hass),
+        });
+    this._visibilityChanged = !Visibility.sameVerdicts(next, this._visibility);
+    if (this._visibilityChanged) {
+      this._visibility = next;
+      Logger.debug(
+        `Visibility: ${next.hidden.size} entr${next.hidden.size === 1 ? 'y' : 'ies'} hidden`,
+      );
+    }
+  }
+
+  /**
+   * The calendars the card shows: every one on it, without those whose every entry its
+   * visibility conditions hide.
+   *
+   * @returns Their entries, in the configured order
+   */
+  private get _shownEntries(): Array<string | Types.EntityConfig> {
+    const hidden = this._visibility.calendars;
+    if (hidden.size === 0) return this.config.entities;
+    return this.config.entities.filter(
+      (entry) => !hidden.has(typeof entry === 'string' ? entry : entry.entity),
+    );
+  }
+
+  /**
+   * The calendars that could not be loaded and that the card shows: the failures a viewer is
+   * told about, and the only ones that keep the card from hiding or from drawing its empty days.
+   * Fetching, the cache and the next attempt read every failure (`_failedEntities`).
+   */
+  private get _shownFailures(): string[] {
+    const hidden = this._visibility.calendars;
+    if (hidden.size === 0) return this._failedEntities;
+    return this._failedEntities.filter((id) => !hidden.has(id));
+  }
+
+  /**
+   * Whether the card holds an event of an entry its visibility conditions show, whatever the
+   * legend hides: what keeps an empty day drawn where a calendar failed. Holding none, the
+   * card draws nothing but the notice naming what failed, since an empty calendar would claim
+   * there was nothing to show.
+   */
+  private get _holdsShownEvent(): boolean {
+    const visibility = this._visibility;
+    if (visibility.hidden.size === 0) return this.events.length > 0;
+    return this.events.some((event) => !Visibility.entryHidden(event, visibility));
+  }
+
+  /**
+   * Whether the legend hides a calendar the card would otherwise show. A calendar the legend
+   * hid stays remembered as hidden while its conditions hide it, and counts again once they
+   * show it.
+   */
+  private get _legendHidesAShownCalendar(): boolean {
+    const hidden = this._activeHiddenCalendars;
+    if (hidden.size === 0) return false;
+    const gone = this._visibility.calendars;
+    return gone.size === 0 || [...hidden].some((id) => !gone.has(id));
+  }
+
+  /**
+   * The calendars the legend lists now: those the configuration lists in it, without those the
+   * visibility conditions hide.
+   *
+   * @returns Entity ids
+   */
+  private _legendCalendarIds(): string[] {
+    const ids = Legend.legendCalendarIds(this.config.entities);
+    const gone = this._visibility.calendars;
+    return gone.size === 0 ? ids : ids.filter((id) => !gone.has(id));
   }
 
   /**
@@ -2139,6 +2299,14 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * Whether the view on screen lists its days latest first. The toolbar then names a page by
+   * its top day, the most recent, rather than its first; paging itself stays in time order.
+   */
+  private get _listsLatestFirst(): boolean {
+    return ViewConfig.listsLatestFirst(this.effectiveConfig, this.effectiveView);
+  }
+
+  /**
    * The days a page covers as drawn now: as many as the view on screen shows, so switching
    * views keeps a page's first day and changes how far it runs.
    *
@@ -2301,6 +2469,12 @@ class CalendarCardPro extends LitElement {
     window.addEventListener('storage', this._handleStorageChanged);
     this._resyncHiddenCalendars();
 
+    // Judged again on return, its listeners and timer taken up again by that update: a condition
+    // may have turned while the card was away, and nothing listened while it was.
+    if (this.config?.entities?.some((entry) => typeof entry !== 'string' && entry.visibility)) {
+      this.requestUpdate();
+    }
+
     this._syncEntityColors();
 
     this._startWidthObserver();
@@ -2369,6 +2543,7 @@ class CalendarCardPro extends LitElement {
     this._stopMidnightTimer();
     this._stopNowBoundaryTimer();
     this._stopClockTimer();
+    this._stopVisibilityWatch();
     this._cancelPartialCommit();
     this._releaseLive();
 
@@ -2771,10 +2946,11 @@ class CalendarCardPro extends LitElement {
    * When the card next draws something different with nothing else changing, other than at
    * an event's start or end, which `_syncNowBoundaryTimer` covers.
    *
-   * A minute from now while a countdown that names minutes or hours, or a progress bar, is on
-   * screen. Otherwise the next local midnight, which moves the mark of today, "Today" and
-   * "Tomorrow", a countdown that names days, and the dimming of a past all-day event or empty
-   * day, on every card. Null where the now line's own tick repaints every minute anyway.
+   * A minute from now while a countdown or count-up that names minutes or hours, or a progress
+   * bar, is on screen. Otherwise the next local midnight, which moves the mark of today, "Today"
+   * and "Tomorrow", a countdown or count-up that names days, the day counter, and the dimming of
+   * a past all-day event or empty day, on every card. Null where the now line's own tick repaints
+   * every minute anyway.
    *
    * @param now - Epoch milliseconds
    * @returns Epoch milliseconds, or null
@@ -2800,10 +2976,14 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Whether a countdown or a progress bar on screen changes within the next minute or so.
+   * Whether a countdown, a count-up or a progress bar on screen changes within the next minute
+   * or so.
    *
-   * A countdown to a start later today reads in minutes or hours; one to a later day reads in
-   * days, and moves only at midnight. A progress bar moves while its event runs.
+   * A countdown to a start later today reads in minutes or hours, as a count-up from an end
+   * earlier today does; one to or from another day reads in days, and moves only at midnight. A
+   * progress bar moves while its event runs. The day counter, which takes a bar's place, moves
+   * only at midnight. An event's end, where its count-up begins, is a boundary
+   * `_syncNowBoundaryTimer` already renders at.
    *
    * @param now - Epoch milliseconds
    * @param midnight - The next local midnight, in epoch milliseconds
@@ -2814,13 +2994,29 @@ class CalendarCardPro extends LitElement {
     const countdown = config.show_countdown;
     const progress = config.show_progress_bar;
     if (!countdown && !progress) return false;
+    // A row the day counter counts draws no bar (`buildEventPresentation`), so it has nothing
+    // that moves by the minute. Grid draws no counter and keeps its bars (`groupEventsByDay`).
+    const counted = this.effectiveView !== 'grid';
+
+    // A finished event is drawn, and so counts up, only where past events are shown. The
+    // events here are the loaded ones, which still hold those `show_past_events: false` hides.
+    const countsUp = config.show_past_events;
 
     return this._shownEvents.some((event) => {
       if (event._isEmptyDay) return false;
-      if (progress && EventUtils.calculateEventProgress(event) !== null) return true;
+      if (
+        progress &&
+        !(counted && EventUtils.countsDays(event)) &&
+        EventUtils.calculateEventProgress(event) !== null
+      ) {
+        return true;
+      }
       if (!countdown || !event.start?.dateTime) return false;
       const start = new Date(event.start.dateTime).getTime();
-      return start > now && start < midnight;
+      return (
+        (start > now && start < midnight) ||
+        (countsUp && FormatUtils.countsUpTheClock(event, new Date(now)))
+      );
     });
   }
 
@@ -2855,6 +3051,98 @@ class CalendarCardPro extends LitElement {
       this._clockTimerId = null;
     }
     this._clockTimerAt = null;
+  }
+
+  /**
+   * Listens for what can change a visibility condition's answer with nothing else changing: each
+   * `screen` condition's media query, the next moment a `time` condition turns, and core's answer
+   * to each condition only it can judge. Every other condition reads a `hass` the card already
+   * renders for (`HassRelevance`).
+   *
+   * Reconciled from `updated()` like the other timers, kept while the card hides itself for
+   * `hide_when_empty`, which leaves it connected, and dropped while it is detached or edited.
+   * Each only requests an update; the update judges the conditions again
+   * (`_refreshVisibility`).
+   */
+  private _syncVisibilityWatch(): void {
+    const entities = this.isConnected && !this._isBeingEdited ? (this.config?.entities ?? []) : [];
+
+    this._coreConditions.sync(this.hass, Visibility.entriesCoreConditions(entities));
+
+    const queries = new Set(Visibility.entriesMediaQueries(entities));
+    for (const [query, stop] of this._visibilityQueries) {
+      if (queries.has(query)) continue;
+      stop();
+      this._visibilityQueries.delete(query);
+    }
+    for (const query of queries) {
+      if (this._visibilityQueries.has(query)) continue;
+      this._visibilityQueries.set(query, this._listenToMediaQuery(query));
+    }
+
+    const next = Visibility.entriesNextChange(entities, this.hass, Date.now());
+    if (next === null) {
+      this._stopVisibilityTimer();
+      return;
+    }
+    if (this._visibilityTimerId !== null && this._visibilityTimerAt === next) return;
+
+    this._stopVisibilityTimer();
+    this._visibilityTimerAt = next;
+    // A second past the moment, so the update reads the new answer even if the timer fires a
+    // little early, and capped as the event boundary's timer is; a capped timer simply re-arms.
+    const delay = Math.min(next - Date.now() + 1000, Constants.TIMING.NOW_BOUNDARY_MAX_DELAY);
+    this._visibilityTimerId = window.setTimeout(
+      () => {
+        this._visibilityTimerId = null;
+        this._visibilityTimerAt = null;
+        Logger.debug('Visibility: a time condition may have turned');
+        this.requestUpdate();
+      },
+      Math.max(0, delay),
+    );
+  }
+
+  /**
+   * Starts listening to one media query, asking for an update whenever it starts or stops
+   * matching.
+   *
+   * @param query - The media query
+   * @returns How to stop listening
+   */
+  private _listenToMediaQuery(query: string): () => void {
+    let list: MediaQueryList | undefined;
+    try {
+      list = window.matchMedia?.(query);
+    } catch {
+      list = undefined;
+    }
+    if (!list?.addEventListener) return () => undefined;
+    const changed = () => {
+      Logger.debug(`Visibility: ${query} now ${list?.matches ? 'matches' : 'does not match'}`);
+      this.requestUpdate();
+    };
+    list.addEventListener('change', changed);
+    return () => list?.removeEventListener('change', changed);
+  }
+
+  private _stopVisibilityTimer(): void {
+    if (this._visibilityTimerId !== null) {
+      clearTimeout(this._visibilityTimerId);
+      this._visibilityTimerId = null;
+    }
+    this._visibilityTimerAt = null;
+  }
+
+  /**
+   * Stops every listener, timer and subscription the visibility conditions hold, as the card
+   * detaches.
+   */
+  private _stopVisibilityWatch(): void {
+    for (const stop of this._visibilityQueries.values()) stop();
+    this._visibilityQueries.clear();
+    this._stopVisibilityTimer();
+    this._coreConditions.stop();
   }
 
   /**
@@ -2907,7 +3195,7 @@ class CalendarCardPro extends LitElement {
     return HassRelevance.hassChangeIsVisible(
       changedProps.get('hass') as Types.Hass | undefined,
       this.hass,
-      HassRelevance.configEntityIds(this.config),
+      HassRelevance.watchedEntityIds(this.config, this.hass),
     );
   }
 
@@ -2968,15 +3256,30 @@ class CalendarCardPro extends LitElement {
       ViewConfig.resolveTimeGridOption(this.effectiveConfig, 'start_time'),
       ViewConfig.resolveTimeGridOption(this.effectiveConfig, 'end_time'),
     );
-    const next = CascadeThreshold.cascadeThresholdMin(
+    const previous = this._cascadeThresholds;
+    const next = CascadeThreshold.cascadeThresholdsMin(
       CascadeThreshold.measureCascadeThreshold(this.renderRoot),
       band.endMin - band.startMin,
-      this._cascadeThresholdMin,
+      TextScale.textScalesIn(this.effectiveConfig),
+      previous,
+    );
+    // Against what the last render laid out with, which for a scale it had not seen yet was
+    // the threshold at 1.
+    const moved = [...next].filter(
+      ([scale, min]) => min !== CascadeThreshold.thresholdForScale(previous, scale),
     );
 
-    if (next !== this._cascadeThresholdMin) {
-      Logger.debug(`Cascade threshold ${this._cascadeThresholdMin} -> ${next} minutes`);
-      this._cascadeThresholdMin = next;
+    this._cascadeThresholds = next;
+
+    if (moved.length > 0) {
+      Logger.debug(
+        `Cascade threshold ${moved
+          .map(([scale, min]) => {
+            const from = CascadeThreshold.thresholdForScale(previous, scale);
+            return `${scale === 1 ? '' : `at ${scale}x `}${from} -> ${min}`;
+          })
+          .join(', ')} minutes`,
+      );
       this.requestUpdate();
     }
   }
@@ -3205,15 +3508,7 @@ class CalendarCardPro extends LitElement {
       }
       GridTitleFit.centerGridTitles(centered);
       GridTitleFit.fitCompactGridTitles(compact);
-      const resumed = titles
-        .filter(
-          (target) =>
-            (target.previousMode === 'compact' || target.previousMode === 'blank') &&
-            target.block.dataset.gridTitleFit !== 'compact' &&
-            target.block.dataset.gridTitleFit !== 'blank' &&
-            target.title.classList.contains('title-scrollable'),
-        )
-        .map((target) => target.title);
+      const resumed = GridTitleFit.gridTitlesToRemeasure(titles);
       if (resumed.length) this._measureTitleScroll(resumed);
       this._titleMotion?.refresh();
     } finally {
@@ -3554,6 +3849,8 @@ class CalendarCardPro extends LitElement {
    * own (`_reconcileGridStructure`).
    */
   private _gridDisclosureChanged(changedProps: PropertyValues): boolean {
+    // A visibility condition answered differently, which adds or takes away a calendar's events.
+    if (this._visibilityChanged) return true;
     if (changedProps.size === 0) {
       return this._bareUpdateRequests !== this._bareUpdateRequestsSeen;
     }
@@ -3631,6 +3928,9 @@ class CalendarCardPro extends LitElement {
 
   /** Resolve language before rendering so the current update uses the new strings. */
   protected willUpdate(changedProps: PropertyValues): void {
+    // First, so the menus, the legend and everything drawn below read this update's answer.
+    this._refreshVisibility();
+
     // A modal menu outliving its button would leave the page inert, so it closes before a
     // render that takes the button away: the legend unfolding or going, every control of the
     // start group coming back into the row, or editing starting.
@@ -3652,20 +3952,30 @@ class CalendarCardPro extends LitElement {
       (changedProps.has('config') && changedProps.get('config')?.language !== this.config.language)
     ) {
       this._language = Localize.getEffectiveLanguage(this.config.language, this.hass?.locale);
-      this._loadIntlLocaleData();
     }
+    if (changedProps.has('hass') || changedProps.has('config')) this._loadIntlLocaleData();
   }
 
   /**
    * Teach Home Assistant's `Intl` polyfill the card's language where it has installed one that
    * lacks it, and draw again, an open search panel included, as each service has it
    * (`intl-locale-data.ts`). Asked once per language; without the polyfill it does nothing.
+   *
+   * Where a view shows durations (`show_duration`), number and list formats are asked for too,
+   * since those write them (`formatEventDuration`). Only then, so a card without durations
+   * fetches what it always did.
    */
   private _loadIntlLocaleData(): void {
     const language = this._language;
-    if (language === this._intlLanguage) return;
-    this._intlLanguage = language;
-    void loadIntlLocaleData(language, ['DateTimeFormat', 'RelativeTimeFormat'], () => {
+    const durations = ViewConfig.VIEWS.some(
+      (view) => ViewConfig.resolveEffectiveConfig(this.config, view).show_duration,
+    );
+    const asked = durations ? `${language}:durations` : language;
+    if (asked === this._intlLanguage) return;
+    this._intlLanguage = asked;
+    const services: IntlServiceName[] = ['DateTimeFormat', 'RelativeTimeFormat'];
+    if (durations) services.push('NumberFormat', 'ListFormat');
+    void loadIntlLocaleData(language, services, () => {
       this.requestUpdate();
       this._search?.wordsChanged();
     });
@@ -3674,6 +3984,7 @@ class CalendarCardPro extends LitElement {
   updated(changedProps: PropertyValues) {
     this._syncNewShown();
     this._keepTapFocus();
+    if (this._visibilityChanged) this._search?.visibilityChanged();
 
     // Editing shows the card as configured: a page the date navigation reached gives way to
     // home, and the controls do nothing until editing ends.
@@ -3694,6 +4005,7 @@ class CalendarCardPro extends LitElement {
     this._syncReplacedRefresh();
     this._syncNowBoundaryTimer();
     this._syncClockTimer();
+    this._syncVisibilityWatch();
     this._syncSwipeArrival();
     // The same gate as the disclosure pass: a hass refresh that changed nothing this card
     // draws re-measures neither, and neither does a clock repaint. A resize reaches
@@ -3831,16 +4143,18 @@ class CalendarCardPro extends LitElement {
     // Home only, and only with every calendar shown: a card paged to an empty week, or emptied
     // by the legend, that hid itself would take with it the only way back. And only when no
     // view the card can show has an event: a seven-day view can be empty where a fourteen-day
-    // one is not, and hiding for it would take the view switcher with it.
+    // one is not, and hiding for it would take the view switcher with it. A calendar its
+    // visibility conditions hide is not on the card for this viewer: neither its events nor its
+    // failure keep the card, and the legend hiding it changes nothing.
     const shouldHide =
       this.config.hide_when_empty === true &&
       this._pageRequested === null &&
       this._pageShown === null &&
-      this._activeHiddenCalendars.size === 0 &&
+      !this._legendHidesAShownCalendar &&
       !this.preview &&
       !this.editMode &&
       !isErrorState &&
-      !this._hasFetchError &&
+      this._shownFailures.length === 0 &&
       !this._anyReachableViewHasEvents();
 
     if (this.hidden === shouldHide) {
@@ -4013,8 +4327,10 @@ class CalendarCardPro extends LitElement {
     const current = Array.from(titles);
     GridTitleFit.reserveScrollingLabelWidths(current);
     const candidates = current.flatMap((title) => {
+      // A fitted (compact) title is one readable line and scrolls like any other. A blank
+      // block shows no title, and one being measured is about to be laid out again.
       const fit = title.closest<HTMLElement>('.grid-event')?.dataset.gridTitleFit;
-      if (fit === 'compact' || fit === 'blank' || fit === 'measuring') return [];
+      if (fit === 'blank' || fit === 'measuring') return [];
       const content = title.querySelector<HTMLElement>('.event-title-scroll');
       // A title with no moving text is kept still; _syncTitleScroll has cleared its state.
       return content ? [{ title, content }] : [];
@@ -4922,10 +5238,12 @@ class CalendarCardPro extends LitElement {
         return slot?.kind === kind ? [{ element, slot, day: GridDraft.dayOf(slot.timestamp) }] : [];
       });
     const wanted = new Map<Element, unknown>();
-    if (shown.times.allDay) {
-      const headers = daysOn('.grid-day-header', 'day');
-      const dayStarts = headers.map(({ day }) => day);
-      const byDay = this._newEventByDay(shown, dayStarts);
+    const dayStarts = daysOn('.grid-day-header', 'day').map(({ day }) => day);
+    const byHeaderDay = this._newEventByDay(shown, dayStarts);
+    // A timed event a full day or longer is drawn as the banner it will be once saved
+    // (`multiday_banners`), so drawing or editing it across that length moves it to the band.
+    if (shown.times.allDay || [...byHeaderDay.values()].some((event) => event._gridBanner)) {
+      const byDay = byHeaderDay;
       const columns = dayStarts.flatMap((day, column) => (byDay.has(day) ? [column] : []));
       const shownAs = byDay.values().next().value;
       const banners: unknown[] = [];
@@ -5331,11 +5649,12 @@ class CalendarCardPro extends LitElement {
     const first = new Date(Math.min(...dayStarts));
     const last = new Date(Math.max(...dayStarts));
     const end = new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1);
+    const asBanner = EventUtils.drawsAsGridBanner(asItStands, config);
     for (const piece of GridUtils.splitGridEventByDay(asItStands, first, end)) {
       const day = piece.start.dateTime
         ? new Date(piece.start.dateTime)
         : FormatUtils.parseAllDayDate(piece.start.date ?? '');
-      byDay.set(GridDraft.dayOf(day.getTime()), piece);
+      byDay.set(GridDraft.dayOf(day.getTime()), asBanner ? { ...piece, _gridBanner: true } : piece);
     }
     return byDay;
   }
@@ -5913,7 +6232,7 @@ class CalendarCardPro extends LitElement {
       } else if (this._hasHoldAction) {
         Logger.debug('Executing hold action');
         this._releasePressFocus();
-        Actions.handleAction(this, this.config, 'hold', actions);
+        Actions.handleAction(this, this.config, 'hold', actions, this._shownEntries);
       }
     } else if (!this._pointerMoved) {
       if (this._pointerOnLink) {
@@ -5929,7 +6248,7 @@ class CalendarCardPro extends LitElement {
       } else if (this._hasTapAction) {
         Logger.debug('Executing tap action');
         this._releasePressFocus();
-        Actions.handleAction(this, this.config, 'tap', actions);
+        Actions.handleAction(this, this.config, 'tap', actions, this._shownEntries);
         ranOffEvents = true;
       }
     } else if (this._pointerSwipeable) {
@@ -6271,7 +6590,13 @@ class CalendarCardPro extends LitElement {
         return;
       }
       ev.preventDefault();
-      Actions.handleAction(this, this.config, 'tap', this._cardActions(null, originOf(ev.target)));
+      Actions.handleAction(
+        this,
+        this.config,
+        'tap',
+        this._cardActions(null, originOf(ev.target)),
+        this._shownEntries,
+      );
     }
   }
 
@@ -6429,6 +6754,19 @@ class CalendarCardPro extends LitElement {
       Logger.warn(
         `Toolbar button left out, as it cannot be drawn as written: ${JSON.stringify(entry)}. ` +
           'Each needs an icon; a name and an entity are text, and a tap_action is an action.',
+      );
+    }
+    for (const entry of this.config.entities) {
+      const unjudged =
+        typeof entry === 'string' || !entry.visibility
+          ? []
+          : Visibility.unjudgedConditions(entry.visibility);
+      if (typeof entry === 'string' || unjudged.length === 0) continue;
+      Logger.warn(
+        `${entry.entity}: some of its visibility conditions cannot be judged ` +
+          `(${unjudged.join(', ')}) and hide it wherever they would decide. A state or ` +
+          'numeric_state condition that waits (for) or templates (value_template) needs ' +
+          "entity_id, as Home Assistant's own Visibility editor writes it.",
       );
     }
     if (this.config.time_grid) {
@@ -7028,8 +7366,7 @@ class CalendarCardPro extends LitElement {
    * @returns True when drawing them shows an event
    */
   private _partialDrawsAnEvent(events: Types.CalendarEventData[], page: string | null): boolean {
-    const hidden = this._activeHiddenCalendars;
-    const shown = hidden.size ? events.filter((e) => !hidden.has(e._entityId ?? '')) : events;
+    const shown = events.filter((event) => this._eventShown(event));
     const config = ViewConfig.resolveEffectiveConfig(this._configForPage(page), this.effectiveView);
     const days = EventUtils.groupEventsByDay(
       shown,
@@ -7057,7 +7394,7 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Record which calendars failed, and whether anything failed at all.
+   * Record which calendars failed.
    *
    * @param failedEntities Calendar entity ids that could not be loaded
    */
@@ -7067,7 +7404,6 @@ class CalendarCardPro extends LitElement {
       failedEntities.some((id, i) => id !== this._failedEntities[i]);
 
     this._failedEntities = [...failedEntities];
-    this._hasFetchError = failedEntities.length > 0;
 
     if (changed) {
       this.requestUpdate();
@@ -7125,9 +7461,13 @@ class CalendarCardPro extends LitElement {
       return true;
     }
 
+    // An entry its visibility conditions hide limits nothing on screen.
     return (config.entities ?? []).some(
       (entity) =>
-        typeof entity === 'object' && entity !== null && isLimit(entity.compact_events_to_show),
+        typeof entity === 'object' &&
+        entity !== null &&
+        isLimit(entity.compact_events_to_show) &&
+        !Visibility.configEntryHidden(entity, this._visibility),
     );
   }
 
@@ -7145,7 +7485,7 @@ class CalendarCardPro extends LitElement {
    */
   handleAction(actionConfig: Types.ActionConfig): void {
     const action = actionConfig === this.config.hold_action ? 'hold' : 'tap';
-    Actions.handleAction(this, this.config, action, this._cardActions());
+    Actions.handleAction(this, this.config, action, this._cardActions(), this._shownEntries);
   }
 
   //-----------------------------------------------------------------------------
@@ -7192,7 +7532,7 @@ class CalendarCardPro extends LitElement {
           this.weatherForecasts,
           this.safeHass,
           undefined,
-          this._cascadeThresholdMin,
+          this._cascadeThresholds,
           this._overflowStripPct,
           this._eventsActivatable,
           dayAdd,
@@ -7225,7 +7565,7 @@ class CalendarCardPro extends LitElement {
       content = Render.renderCardContent('loading', this.effectiveLanguage, this.hass);
     } else if (!this.safeHass || !this.config.entities.length) {
       content = Render.renderCardContent('error', this.effectiveLanguage, this.hass);
-    } else if (this.events.length === 0 && this._hasFetchError) {
+    } else if (this._shownFailures.length > 0 && !this._holdsShownEvent) {
       // Nothing loaded and nothing kept: the notice below names what failed, and an empty
       // calendar here would claim there was nothing to show.
       content = html``;
@@ -7322,10 +7662,16 @@ class CalendarCardPro extends LitElement {
     if (!this._hasTapAction) return undefined;
     const action = this.config.tap_action?.action;
     const activate = (control: HTMLElement) =>
-      Actions.handleAction(this, this.config, 'tap', this._cardActions(null, originOf(control)));
+      Actions.handleAction(
+        this,
+        this.config,
+        'tap',
+        this._cardActions(null, originOf(control)),
+        this._shownEntries,
+      );
     const command = this._commandName(action);
     if (command) return { label: command.word ?? command.fallback, activate };
-    const first = this.config.entities[0];
+    const first = this._shownEntries[0];
     const firstId = typeof first === 'string' ? first : first?.entity;
     const label = this.effectiveTitle?.trim() || (firstId ? this._calendarName(firstId) : '');
     const expanded =
@@ -7516,11 +7862,12 @@ class CalendarCardPro extends LitElement {
    * @returns The notice, or `nothing`
    */
   private _renderFetchErrorNotice(): TemplateResult | typeof nothing {
-    if (this.isInitialLoad || this._failedEntities.length === 0) {
+    const failed = this._shownFailures;
+    if (this.isInitialLoad || failed.length === 0) {
       return nothing;
     }
 
-    const names = this._failedEntities.map((entityId) =>
+    const names = failed.map((entityId) =>
       CalendarNames.failedCalendarName(entityId, this.config, this.hass),
     );
 
@@ -7712,7 +8059,8 @@ class CalendarCardPro extends LitElement {
    *
    * It names the page asked for, so a press on the arrows answers at once; the days below stay
    * those of the page whose events have arrived, dimmed, until the new page's land. The month is
-   * the one the page's first day falls in, in full while every month in full fits beside the
+   * that of the day the page's list starts from (its first day, or its last for a list read
+   * latest first; `Paging.leadingDay`), in full while every month in full fits beside the
    * arrows and in the language's short form while it does not (`_syncMonthFit`), and always in
    * full while the chips show, since they are drawn only where the full month leaves them room.
    * Everything comes from `Intl` in the card's language, so no card string is needed.
@@ -7730,7 +8078,11 @@ class CalendarCardPro extends LitElement {
     const form: Paging.MonthForm = short ? 'short' : 'long';
 
     return {
-      text: Paging.monthHeadingParts(page.start, language, form),
+      text: Paging.monthHeadingParts(
+        Paging.leadingDay(page, this._listsLatestFirst),
+        language,
+        form,
+      ),
       reserve: Paging.monthHeadings(language, form),
       full: Paging.monthHeadings(language, 'long'),
       short,
@@ -7877,13 +8229,15 @@ class CalendarCardPro extends LitElement {
     const language = this.effectiveLanguage;
     const page = this._pageRange(this._pageRequested, now);
 
+    const latestFirst = this._listsLatestFirst;
+
     return {
-      homeName: Paging.homeButtonName(this._homeRange(now), language, now),
+      homeName: Paging.homeButtonName(this._homeRange(now), language, now, latestFirst),
       languageMark: TextDirection.languageMark(language, this.hass),
       previousName: this._haString('ui.common.previous'),
       nextName: this._haString('ui.common.next'),
       inert: this._isBeingEdited,
-      pickerValue: Paging.pageKey(page.start),
+      pickerValue: Paging.pageKey(Paging.leadingDay(page, latestFirst)),
       // Only while the card is still home: paging away ends it at once.
       homeConfirming: this._homeConfirming && this._pageRequested === null,
       onPrevious: () => this._stepPage(-1),
@@ -8081,7 +8435,7 @@ class CalendarCardPro extends LitElement {
           this._refreshAwaitsLoad = { ticket, startedAt };
           return;
         }
-        this._showRefreshOutcome(startedAt, rejected || this._hasFetchError);
+        this._showRefreshOutcome(startedAt, rejected || this._shownFailures.length > 0);
       });
   }
 
@@ -8109,7 +8463,7 @@ class CalendarCardPro extends LitElement {
     if (!awaiting || this.isLoading) return;
     this._refreshAwaitsLoad = null;
     if (awaiting.ticket !== this._refreshTicket) return;
-    this._showRefreshOutcome(awaiting.startedAt, this._hasFetchError);
+    this._showRefreshOutcome(awaiting.startedAt, this._shownFailures.length > 0);
   }
 
   /**
@@ -8205,8 +8559,8 @@ class CalendarCardPro extends LitElement {
 
   /**
    * What a search reads of the card: its calendars and how it matches events to them, the view
-   * on screen's configuration, the events it holds, the calendars the filter hides, and how it
-   * names and colors a calendar.
+   * on screen's configuration, the events it holds, the calendars the filter hides and the
+   * entries the visibility conditions hide, and how it names and colors a calendar.
    *
    * @returns What the search reads now
    */
@@ -8218,6 +8572,7 @@ class CalendarCardPro extends LitElement {
       view: this.effectiveView,
       language: this.effectiveLanguage,
       hidden: this._activeHiddenCalendars,
+      visibility: this._visibility,
       held: this.events,
       today: this._haString('ui.components.calendar.today'),
       colorOf: (event) =>
@@ -8361,7 +8716,9 @@ class CalendarCardPro extends LitElement {
   private _legend(): Legend.CalendarLegend | undefined {
     if (!this._wantsLegend) return undefined;
 
-    const ids = Legend.legendCalendarIds(this.config.entities);
+    // Without the calendars the visibility conditions hide: no chip, no row, and nothing the
+    // legend could show again.
+    const ids = this._legendCalendarIds();
     if (ids.length === 0) return undefined;
 
     const hidden = this._activeHiddenCalendars;
@@ -8458,13 +8815,17 @@ class CalendarCardPro extends LitElement {
   /**
    * Shows every calendar the legend lists on this device, or hides every one, and remembers it
    * there: the menu's Show all and Hide all. A calendar the legend leaves out with
-   * `show_in_legend: false` is not among them, so it stays shown either way. The menu offers
-   * neither while it would change nothing (`renderLegendButton`).
+   * `show_in_legend: false` is not among them, so it stays shown either way, and one its
+   * visibility conditions hide keeps what it was set to for when they show it again. The menu
+   * offers neither while it would change nothing (`renderLegendButton`).
    *
    * @param shown - True to show every calendar, false to hide every one
    */
   private _setAllCalendars(shown: boolean): void {
-    const next = new Set(shown ? [] : Legend.legendCalendarIds(this.config.entities));
+    const listed = this._legendCalendarIds();
+    // A calendar the legend does not list now, its conditions hiding it, keeps what it was set to.
+    const kept = [...this._hiddenCalendars].filter((id) => !listed.includes(id));
+    const next = new Set(shown ? kept : [...kept, ...listed]);
     this._hideCalendars(next, shown ? 'Showed every calendar' : 'Hid every calendar');
   }
 
@@ -8783,7 +9144,7 @@ class CalendarCardPro extends LitElement {
       ...(pressed && { pointerType: pressed.pointerType }),
       below: true,
     };
-    Actions.handleButtonAction(this, button, this.config.entities, this._cardActions(null, origin));
+    Actions.handleButtonAction(this, button, this._shownEntries, this._cardActions(null, origin));
   }
 
   //-----------------------------------------------------------------------------
@@ -9151,7 +9512,7 @@ class CalendarCardPro extends LitElement {
     return (
       this._pageRequested !== null ||
       this._viewChoiceShows ||
-      this._activeHiddenCalendars.size > 0 ||
+      this._legendHidesAShownCalendar ||
       (this.isExpanded && this.hasCompactModeLimits())
     );
   }

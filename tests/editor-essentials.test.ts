@@ -1,13 +1,16 @@
 /**
- * Essentials Only (backlog item 188): the editor cut down to the settings most cards need.
+ * Essentials Only (backlog item 188): the editor cut down to the settings most cards need, plus
+ * every setting the card sets (backlog item 315).
  *
- * Three things are pinned here. The two field sets, by value, so a field that drops out of
+ * Four things are pinned here. The two field sets, by value, so a field that drops out of
  * either fails rather than quietly leaving the switch shorter. The sets against the schemas the
  * editor builds, so a field renamed or moved off its surface fails even while an option of the
  * same name lives on elsewhere (`accent_color`, `entity` and `tap_action` each exist on more than
- * one surface). And the behavior on the mounted editor, across search, Customized Only, the
+ * one surface). The behavior on the mounted editor, across search, Customized Only, the
  * per-calendar forms and the toolbar's own buttons: in particular that an empty query lets no
- * whole panel through, which is the shortcut that would have shown every field.
+ * whole panel through, which is the shortcut that would have shown every field. And that what the
+ * card sets always stays: a line held at the root, one at its default, one a layout holds, a
+ * calendar's filter and a button's own fields, each of which an earlier version hid.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -19,11 +22,12 @@ import {
   ESSENTIAL_CALENDAR_FIELDS,
   ESSENTIAL_CARD_FIELDS,
 } from '../src/rendering/editor/essentials';
+import * as Filter from '../src/rendering/editor/filter';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { PANELS, type SchemaCtx } from '../src/rendering/editor/panels';
 import { workspaceFields } from '../src/rendering/editor/routing';
 import { buildEntitySchema } from '../src/rendering/editor/schemas/entity';
-import type { EditorWorkspace } from '../src/rendering/editor/workspace';
+import { type EditorWorkspace, WORKSPACES } from '../src/rendering/editor/workspace';
 
 customElements.define('editor-essentials-test', CalendarCardProEditor);
 
@@ -163,6 +167,12 @@ function calendarFieldCount(editor: CalendarCardProEditor): number {
   return calendarFields(editor).length;
 }
 
+function buttonFields(editor: CalendarCardProEditor): string[] {
+  return [...root(editor).querySelectorAll<Form>('ha-form.button-form')].flatMap((form) =>
+    ids(form.schema),
+  );
+}
+
 const LIST_ESSENTIALS = [
   'calendars',
   'days_to_show',
@@ -224,7 +234,7 @@ describe('Essentials Only on the editor', () => {
     ]);
   });
 
-  it('cuts each calendar’s form to its essentials and hides the toolbar’s own buttons', async () => {
+  it('cuts each calendar’s form to its essentials and keeps what each toolbar button sets', async () => {
     const editor = await mount({
       entities: [{ entity: 'calendar.anna', name: 'Anna', label: '🎂', accent_color: '#ff6c92' }],
     });
@@ -237,8 +247,60 @@ describe('Essentials Only on the editor', () => {
     expect(fields).toContain('name');
     expect(fields).toContain('accent_color');
     expect(fields.filter((name) => !ESSENTIAL_CALENDAR_FIELDS.has(name))).toEqual([]);
-    expect(root(editor).querySelectorAll('.button-panel')).toHaveLength(0);
+    // A button the card has is part of what the card does: its own fields stay, the rest go.
+    expect(root(editor).querySelectorAll('.button-panel')).toHaveLength(1);
+    expect(buttonFields(editor).sort()).toEqual(['icon', 'name']);
     expect(root(editor).querySelector('.add-button')).toBeNull();
+  });
+
+  it('keeps every setting the card’s YAML holds, on the card and in each calendar', async () => {
+    const editor = await mount({
+      // Held at the root, which the List workspace inherits rather than owns.
+      event_font_size: '30px',
+      // Held at the value the card would use anyway, so only the YAML says it is set.
+      refresh_interval: 30,
+      entities: [{ entity: 'calendar.anna', blocklist: 'Birthday' }],
+    });
+    await filter(editor, { essentials_only: true });
+
+    expect(panelFields(editor)).toEqual(
+      expect.arrayContaining(['event_font_size', 'refresh_interval']),
+    );
+    expect(panelFields(editor)).not.toContain('time_font_size');
+    expect(calendarFields(editor)).toContain('blocklist');
+    expect(calendarFields(editor)).not.toContain('allowlist');
+  });
+
+  it('keeps a value the selected layout’s block holds, even at its default', async () => {
+    // Written unitless, so each normalizes to the layout's default and Customized Only does not
+    // count it; only the YAML says it is set.
+    for (const { config, field } of [
+      { config: { view: 'column', column: { event_font_size: 14 } }, field: 'event_font_size' },
+      { config: { view: 'grid', time_grid: { time_font_size: 12 } }, field: 'time_font_size' },
+      {
+        config: { view: 'grid', time_grid: { event_font_size: '12px' } },
+        field: 'event_font_size',
+      },
+    ]) {
+      document.body.replaceChildren();
+      const editor = await mount(config);
+      await filter(editor, { essentials_only: true });
+
+      expect(panelFields(editor), JSON.stringify(config)).toContain(field);
+    }
+  });
+
+  it('opens nothing it keeps, as it opens no panel', async () => {
+    const editor = await mount({ time_color: '#ff0000' });
+    await filter(editor, { essentials_only: true });
+
+    const form = [...root(editor).querySelectorAll<Form>('ha-form.panel-form')].find((candidate) =>
+      ids(candidate.schema).includes('time_color'),
+    )!;
+    const group = form.schema.find(
+      (node) => 'schema' in node && ids(node.schema).includes('time_color'),
+    ) as { expanded?: boolean };
+    expect(group.expanded).not.toBe(true);
   });
 
   it('steps aside for a search, which reaches every setting', async () => {
@@ -248,42 +310,41 @@ describe('Essentials Only on the editor', () => {
     expect(panelFields(editor)).toContain('day_separator_width');
   });
 
-  it('combines with Customized Only', async () => {
-    const editor = await mount({ title: 'Family', day_separator_width: '2px' });
+  it('beside Customized Only, shows what Customized Only shows', async () => {
+    const editor = await mount({ title: 'Family', refresh_interval: 60 });
+    await filter(editor, { customized_only: true });
+    const customized = panelFields(editor);
+    expect(customized).toEqual(expect.arrayContaining(['title', 'refresh_interval']));
+    expect(customized).not.toContain('days_to_show');
+
     await filter(editor, { essentials_only: true, customized_only: true });
 
-    const fields = panelFields(editor);
-    expect(fields).toContain('title');
-    expect(fields).not.toContain('day_separator_width');
-    expect(fields).not.toContain('days_to_show');
+    expect(panelFields(editor)).toEqual(customized);
     // What is missing is no longer what Essentials hides, so no count.
     expect(root(editor).querySelector('[data-essentials-note]')).toBeNull();
   });
 
   it('says how many settings it hides, counting every form it shortens', async () => {
     const editor = await mount();
-    const everything = panelFields(editor).length + calendarFieldCount(editor) + 4;
+    const everything =
+      panelFields(editor).length + calendarFieldCount(editor) + buttonFields(editor).length;
     expect(root(editor).querySelector('[data-essentials-note]')).toBeNull();
 
     await filter(editor, { essentials_only: true });
 
-    const kept = panelFields(editor).length + calendarFieldCount(editor);
+    const kept =
+      panelFields(editor).length + calendarFieldCount(editor) + buttonFields(editor).length;
     expect(root(editor).querySelector('[data-essentials-note]')!.textContent!.trim()).toBe(
       `Other settings hidden: ${everything - kept}.`,
     );
   });
 
-  it('says what is true when none of the essentials is customized', async () => {
-    const editor = await mount({
-      entities: [],
-      weather: undefined,
-      toolbar: undefined,
-      day_separator_width: '2px',
-    });
+  it('says nothing is customized when, beside Customized Only, nothing is', async () => {
+    const editor = await mount({ entities: [], weather: undefined, toolbar: undefined });
     await filter(editor, { essentials_only: true, customized_only: true });
 
     expect(root(editor).querySelector('.filter-empty')!.textContent!.trim()).toBe(
-      'None of the essential settings is customized. Switch off Essentials Only to see the rest.',
+      'Nothing is customized — every setting is at the card default.',
     );
   });
 
@@ -312,4 +373,71 @@ describe('Essentials Only in Columns', () => {
 
     expect(root(editor).querySelector('.width-table')).toBeNull();
   });
+});
+
+describe('Essentials Only beside Customized Only, on every workspace', () => {
+  /** Cards that set something at the root, in a layout's block, in a nested block, or nowhere. */
+  const CARDS: ReadonlyArray<Record<string, unknown>> = [
+    {},
+    { title: 'Family', event_font_size: '30px', refresh_interval: 30 },
+    { list: { event_font_size: '20px' }, day_separator_width: '2px' },
+    { view: 'grid', time_grid: { start_time: '07:00', event_font_size: '12px' } },
+    { column: { day_separator_width: '3px' }, show_past_events: true },
+    { view: 'column', column: { event_font_size: 14 } },
+    { weather: { entity: 'weather.home', position: 'event' }, time_24h: false },
+    { start_date: 'today+1', time_color: '#ff0000' },
+  ];
+
+  function shown(
+    raw: Record<string, unknown>,
+    workspace: EditorWorkspace,
+    criteria: Partial<Filter.FilterCriteria>,
+    withStored = true,
+  ): string[] {
+    const config = {
+      ...Config.DEFAULT_CONFIG,
+      entities: ['calendar.anna'],
+      ...raw,
+    } as unknown as Types.Config;
+    const ctx: Filter.FilterCtx = {
+      view: workspace === 'shared' ? 'list' : workspace,
+      workspace,
+      config,
+      rawConfig: config,
+      language: 'en',
+      stored: withStored ? { entities: ['calendar.anna'], ...raw } : undefined,
+      criteria: { ...Filter.NO_FILTER, ...criteria },
+    };
+    return PANELS.flatMap((panel) =>
+      ids(Filter.filterSchema(Filter.withholdInertFields(panel.build(ctx), workspace), ctx)),
+    );
+  }
+
+  // Without the stored YAML, as outside the mounted editor, only the comparison with the defaults
+  // can tell what the card sets, and the two switches must still agree.
+  it.each(WORKSPACES.flatMap((workspace) => [true, false].map((stored) => [workspace, stored])))(
+    'shows exactly what Customized Only shows in %s (stored YAML: %s)',
+    (workspace, withStored) => {
+      let customizedSomewhere = 0;
+      for (const raw of CARDS) {
+        const customized = shown(
+          raw,
+          workspace as EditorWorkspace,
+          { customizedOnly: true },
+          withStored as boolean,
+        );
+        customizedSomewhere += customized.length;
+        expect(
+          shown(
+            raw,
+            workspace as EditorWorkspace,
+            { customizedOnly: true, essentialsOnly: true },
+            withStored as boolean,
+          ),
+        ).toEqual(customized);
+      }
+      // The denominator: the cards do customize something here, so the equality can fail.
+      expect(customizedSomewhere).toBeGreaterThan(0);
+    },
+  );
 });

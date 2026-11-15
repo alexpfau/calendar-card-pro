@@ -6,6 +6,8 @@
   "multiDay": "עד",
   "endsToday": "מסתיים היום",
   "endsTomorrow": "מסתיים מחר",
+  "dayOfEvent": "יום {day} מתוך {days}",
+  "durationTotal": "{duration} בסך הכול",
   "at": "בשעה",
   "separator": ", ",
   "viewList": "רשימה",

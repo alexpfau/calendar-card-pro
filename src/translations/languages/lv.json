@@ -19,6 +19,8 @@
   "viewGrid": "Laika režģis",
   "endsToday": "beidzas šodien",
   "endsTomorrow": "beidzas rīt",
+  "dayOfEvent": "Diena {day} no {days}",
+  "durationTotal": "kopā {duration}",
   "noEvents": "Nav notikumu",
   "loading": "Ielādē kalendāra notikumus...",
   "error": "Kļūda: Kalendāra entitīja nav atrasta vai nav pareizi konfigurēta",

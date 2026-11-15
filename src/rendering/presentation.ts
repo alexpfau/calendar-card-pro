@@ -6,6 +6,8 @@
 
 import * as AccentText from './accent-text';
 import type { EventContentParts } from './leaves';
+import * as TextScale from './text-scale';
+import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import * as EventActions from '../interaction/event-actions';
 import { getNowString } from '../translations/dayjs';
@@ -24,9 +26,9 @@ interface EventPresentation {
   isPastEvent: boolean;
 
   /**
-   * Whether the event is under way and the card marks it as "now": a timed event between its
-   * start and its end, with `show_now_indicator` on. Drives the `event-now` class, which
-   * colors the time row; the label itself travels in `contentParts.nowLabel`.
+   * Whether the event is under way and the card marks it as "now": a timed event shorter than a
+   * full day, between its start and its end, with `show_now_indicator` on. Drives the `event-now`
+   * class, which colors the time row; the label itself travels in `contentParts.nowLabel`.
    */
   isNow: boolean;
 
@@ -42,24 +44,27 @@ interface EventPresentation {
    */
   accentTextProperties: Readonly<Record<string, string>>;
 
+  /**
+   * Custom properties the event element sets so its text draws at its calendar's `text_scale`.
+   *
+   * Empty unless its block carries a scale other than 1, and always empty for an empty-day row,
+   * which belongs to no calendar. See `text-scale.ts`.
+   */
+  textScaleProperties: Readonly<Record<string, string>>;
+
+  /** Whether the event carries `TextScale.TEXT_SCALED_CLASS`: its scale is not 1. */
+  textScaled: boolean;
+
   contentParts: EventContentParts;
 }
 
 /**
- * Compute the view-independent presentation of a single event.
+ * Whether an event, or an empty-day notice, is over and drawn as past.
  *
- * @param event - Event data to describe
- * @param config - Card configuration
- * @param language - Language code for translations
- * @param hass - Home Assistant instance, used for locale-aware time formatting
- * @returns The event's view-independent presentation
+ * @param event - Event data, or an empty-day placeholder
+ * @returns True once the event has ended, or the notice's date has
  */
-export function buildEventPresentation(
-  event: Types.CalendarEventData,
-  config: Types.Config,
-  language: string,
-  hass?: Types.Hass | null,
-): EventPresentation {
+export function isEventPast(event: Types.CalendarEventData): boolean {
   const isEmptyDay = Boolean(event._isEmptyDay);
 
   const now = new Date();
@@ -108,6 +113,138 @@ export function buildEventPresentation(
       isPastEvent = endDateTime !== null && now > endDateTime;
     }
   }
+
+  return isPastEvent;
+}
+
+/**
+ * The countdown an event carries, or null for none: the one gate every view draws through.
+ *
+ * A finished event counts up instead, "13 days ago" for "in 13 days", under the same switches:
+ * `show_countdown`, `show_countdown_allday`, `countdown_exact_days` and `countdown_max_days`
+ * read the same either way. An event under way has neither.
+ *
+ * @param event - Event data
+ * @param config - Card configuration, resolved for the view
+ * @param language - Language code
+ * @param isPastEvent - Whether the event is over, when the caller already knows
+ * @returns The countdown or count-up text, or null
+ */
+export function eventCountdown(
+  event: Types.CalendarEventData,
+  config: Types.Config,
+  language: string,
+  isPastEvent: boolean = isEventPast(event),
+): string | null {
+  const isAllDayEvent = !event.start.dateTime;
+  if (
+    !config.show_countdown ||
+    (isAllDayEvent && !config.show_countdown_allday) ||
+    event._isEmptyDay
+  ) {
+    return null;
+  }
+
+  // An event a day or more long trades its bar for the day counter once it has started, so a
+  // later day of a trip under way names its day rather than counting down to its own start. The
+  // counter takes the countdown's place then, as the bar would have taken a row, and keeps it once
+  // the event has ended, where a count-up would otherwise go. Decided here rather than where the
+  // counter is drawn, so `repeatedCountdowns` passes such a row over instead of taking a countdown
+  // nobody sees for the one above.
+  if (
+    config.show_progress_bar &&
+    event._dayOfEvent &&
+    EventUtils.eventHasStarted(event, new Date())
+  ) {
+    return null;
+  }
+
+  const options = {
+    exactDays: Boolean(config.countdown_exact_days),
+    maxDays: config.countdown_max_days,
+  };
+  return isPastEvent
+    ? FormatUtils.getCountUpString(event, language, options)
+    : FormatUtils.getCountdownString(event, language, options);
+}
+
+/**
+ * Which of a day's events leave their countdown out under `show_countdown: once_per_day`.
+ *
+ * A countdown is left out when it reads exactly as the nearest countdown above it on the same
+ * day, so a day of bins counts down once, and a day of finished ones counts up once. Two kinds
+ * are never left out. A countdown or count-up in clock units, to a start later today or from an
+ * end earlier today ("in 5 hours", "5 hours ago"), can read alike for two different times, which
+ * would make one come and go as the minutes round. And a countdown that differs stays: an event
+ * already under way when the window opens is drawn on its first day but counts to its own
+ * start, so that day can read "tomorrow" above "in 7 days".
+ *
+ * Rows without a countdown are passed over, so an all-day row with `show_countdown_allday`
+ * off, or one beyond `countdown_max_days`, never takes the first one's place. Read from the
+ * day's events as drawn, after compact limits and merged duplicates, so the first drawn
+ * countdown is the one kept. List and column view call this; a grid's blocks sit side by side
+ * and are fitted one by one, so the grid draws every countdown.
+ *
+ * @param events - The day's events, in drawn order
+ * @param config - Card configuration, resolved for the view
+ * @param language - Language code
+ * @returns The indexes of the events whose countdown is left out
+ */
+export function repeatedCountdowns(
+  events: ReadonlyArray<Types.CalendarEventData>,
+  config: Types.Config,
+  language: string,
+): ReadonlySet<number> {
+  const repeated = new Set<number>();
+  if (config.show_countdown !== Constants.COUNTDOWN_ONCE_PER_DAY) return repeated;
+
+  const now = new Date();
+  let above: string | null = null;
+  events.forEach((event, index) => {
+    const countdown = eventCountdown(event, config, language);
+    if (countdown === null) return;
+
+    const countsTheClock =
+      (event.start.dateTime !== undefined &&
+        FormatUtils.getCalendarDayDiff(now, new Date(event.start.dateTime)) === 0) ||
+      FormatUtils.countsUpTheClock(event, now);
+    if (countdown === above && !countsTheClock) repeated.add(index);
+    above = countdown;
+  });
+  return repeated;
+}
+
+/**
+ * A presentation with its countdown left out.
+ *
+ * @param presentation - The event's presentation
+ * @returns The same presentation, drawing no countdown
+ */
+export function withoutCountdown(presentation: EventPresentation): EventPresentation {
+  return {
+    ...presentation,
+    contentParts: { ...presentation.contentParts, countdownStr: null, countUp: false },
+  };
+}
+
+/**
+ * Compute the view-independent presentation of a single event.
+ *
+ * @param event - Event data to describe
+ * @param config - Card configuration
+ * @param language - Language code for translations
+ * @param hass - Home Assistant instance, used for locale-aware time formatting
+ * @returns The event's view-independent presentation
+ */
+export function buildEventPresentation(
+  event: Types.CalendarEventData,
+  config: Types.Config,
+  language: string,
+  hass?: Types.Hass | null,
+): EventPresentation {
+  const isEmptyDay = Boolean(event._isEmptyDay);
+
+  const isPastEvent = isEventPast(event);
 
   const registryColors = EntityColors.entityColors();
 
@@ -176,28 +313,48 @@ export function buildEventPresentation(
     !(isMultiDayAllDayEvent && !config.show_multiday_allday_time) &&
     !isEmptyDay;
 
-  let countdownStr: string | null = null;
-  if (
-    config.show_countdown &&
-    !(isAllDayEvent && !config.show_countdown_allday) &&
-    !isEmptyDay &&
-    !isPastEvent
-  ) {
-    countdownStr = FormatUtils.getCountdownString(event, language);
-  }
+  const countdownStr = eventCountdown(event, config, language, isPastEvent);
+
+  // The day counter: "Day 2 of 3" on a row of an event a day or more long, which is the progress
+  // bar's form on such an event and comes with `show_progress_bar`. It goes in the place the
+  // countdown and the bar take, drawn wherever the row has no countdown. The two hand the place
+  // over in the order an event lives through them: the countdown has it until the event starts,
+  // as it has today, and the counter from then on (`eventCountdown` gives way), where the bar
+  // would have been. A row with no countdown to show before then, because it is off, out of range
+  // or left out as a repeat, names its day too. `groupEventsByDay` stamps the day only in the
+  // views that draw it.
+  const dayOfEvent = config.show_progress_bar && !isEmptyDay ? event._dayOfEvent : undefined;
+  const dayCounter =
+    dayOfEvent?.day != null
+      ? FormatUtils.formatDayOfEvent(dayOfEvent.day, dayOfEvent.days, language)
+      : null;
 
   const isRunning = EventUtils.isEventCurrentlyRunning(event);
-  // Not gated on `isRunning`: a middle day of a split timed event reads as all-day, so it is
-  // not "running" for the Now label below, but its day is part of an event under way and
-  // carries the bar. `calculateEventProgress` answers null for every row that has none.
-  const progressPercentage = config.show_progress_bar
-    ? EventUtils.calculateEventProgress(event)
-    : null;
+  // Not gated on `isRunning`, which asks the row: `calculateEventProgress` asks the whole event,
+  // and answers null for every row that has no bar. A middle day of a split timed event, which
+  // reads as all-day and is never "running", belongs to an event a day or more long, so it
+  // draws the day counter below rather than a bar.
+  //
+  // No row of an event the day counter counts draws a bar: over a long event a bar barely moves,
+  // and the counter says how far along it is instead. Asked of the event, through the stamp,
+  // rather than of whether this row draws the counter, because the clock repaint asks the same
+  // question of the event (`_drawsMovingClockText`): a row naming no day that still drew a bar
+  // would have a bar nothing repaints.
+  const progressPercentage =
+    config.show_progress_bar && !dayOfEvent ? EventUtils.calculateEventProgress(event) : null;
 
   // All-day events never run in this sense — `isEventCurrentlyRunning` answers false for
   // them — so a day full of all-day entries does not turn into a column of "Now" labels.
+  //
+  // Nor does an event a full day or longer, on any of its rows, whatever `show_progress_bar`
+  // says: over a 45-day course "Now" is true on every day and says nothing, and its time would
+  // stay green for weeks. Asked of the whole event (`countsDays` reads the source span), so a
+  // split row of one is never marked either. Grid never draws the label, and its now line marks
+  // the clock rather than the event.
   const nowLabel =
-    isRunning && config.show_now_indicator && !isEmptyDay ? getNowString(language) : null;
+    isRunning && config.show_now_indicator && !isEmptyDay && !EventUtils.countsDays(event)
+      ? getNowString(language)
+      : null;
 
   const eventTimeParts = FormatUtils.formatEventTimeParts(event, config, language, hass);
 
@@ -259,7 +416,7 @@ export function buildEventPresentation(
       : undefined;
 
   const eventTime = allDayBadge
-    ? eventTimeParts.text
+    ? FormatUtils.timeTextWithDuration(eventTimeParts)
     : FormatUtils.joinEventTimeParts(eventTimeParts, language);
   // `show_location_allday` and `show_description_allday` decide these; see `shownRowText`.
   const { location: eventLocation, description: eventDescription } = shownRowText(event, config);
@@ -272,9 +429,12 @@ export function buildEventPresentation(
     EventUtils.getEntitySetting(event._entityId, 'location_icon', config, event),
   );
 
+  const textScale = TextScale.textScaleOf(event, config);
+
   const contentParts: EventContentParts = {
     eventTime,
-    eventTimeEnd: eventTimeParts.end,
+    eventTimeEnd: FormatUtils.droppableTimeEnd(eventTimeParts),
+    eventTimeDuration: FormatUtils.durationSuffix(eventTimeParts),
     allDayBadge,
     titlePill,
     eventLocation,
@@ -285,6 +445,8 @@ export function buildEventPresentation(
     mergedLabels: EventUtils.resolveMergedLabels(event, config, hass),
     shouldShowTime,
     countdownStr,
+    dayCounter,
+    countUp: countdownStr !== null && isPastEvent,
     progressPercentage,
     nowLabel,
     languageMark: TextDirection.languageMark(language, hass),
@@ -297,6 +459,8 @@ export function buildEventPresentation(
     entityAccentColor,
     entityAccentBackgroundColor,
     accentTextProperties: AccentText.accentTextProperties(config, entityAccentColor, isEmptyDay),
+    textScaleProperties: TextScale.textScaleProperties(config, textScale),
+    textScaled: textScale !== 1,
     contentParts,
   };
 }

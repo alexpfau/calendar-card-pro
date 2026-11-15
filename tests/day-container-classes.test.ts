@@ -437,6 +437,37 @@ describe('theming.md card-mod selectors', () => {
       litRender(Render.renderGroupedEvents(days, config, 'en', undefined, null, true), container);
       collect(container);
     }
+    // Every other render starts on the frozen day, so none draws a day before it. The class is
+    // the same on every day container, so one list render that starts two days earlier draws it.
+    {
+      const config = buildConfig({ ...base, start_date: '2026-06-15', show_empty_days: true });
+      const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', 'list');
+      const container = document.createElement('div');
+      litRender(Render.renderGroupedEvents(days, config, 'en', undefined, null, true), container);
+      collect(container);
+    }
+    // A calendar's text_scale marks each of its events, and no calendar carries one by default.
+    // The class is the same in every view, so one list render draws it.
+    {
+      const config = buildConfig({
+        ...base,
+        entities: [{ entity: 'calendar.personal', text_scale: 0.8 }],
+      } as Partial<Types.Config>);
+      const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', 'list');
+      const container = document.createElement('div');
+      litRender(Render.renderGroupedEvents(days, config, 'en', undefined, null, true), container);
+      collect(container);
+    }
+    // Countdowns are off by default, and a finished event's count-up is drawn only while they are
+    // on. EVENTS holds events that have ended at the frozen 10:00, so one list render draws both
+    // classes, in the same element every view draws.
+    {
+      const config = buildConfig({ ...base, show_countdown: true });
+      const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', 'list');
+      const container = document.createElement('div');
+      litRender(Render.renderGroupedEvents(days, config, 'en', undefined, null, true), container);
+      collect(container);
+    }
     // Today's tint is off by default, and grid view draws its stripe only while it is set, so
     // one grid render with it on is what draws `.grid-today`. The clock is frozen inside the
     // window these events fill, so today is on screen.

@@ -536,7 +536,10 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
         declarations: { '--calendar-card-inline-room': 'round(up, 0.125em, 1px)' },
       },
       {
-        selectors: 'ha-card',
+        // A scaled event computes these again from its own sizes, which its calendar's
+        // text_scale writes on it; inherited from ha-card they would keep the card's
+        // (text-scale.ts). Every other event inherits them, a theme's value included.
+        selectors: 'ha-card, .event-text-scaled',
         declarations: {
           '--calendar-card-event-row-room':
             'round(up, var(--calendar-card-event-inline-room, 0.125em), 1px)',

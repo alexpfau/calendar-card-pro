@@ -63,10 +63,12 @@ const PER_CALENDAR_OPTIONS: ReadonlyArray<[string, unknown, unknown]> = [
   ['color', 'red', 'blue'],
   ['accent_color', 'red', 'blue'],
   ['label_icon_color', 'red', 'blue'],
+  ['text_scale', 0.75, 1.25],
   ['show_time', true, false],
   ['show_location', true, false],
   ['location_icon', 'mdi:map-marker-outline', 'mdi:microsoft-teams'],
   ['show_description', false, true],
+  ['show_weather', true, false],
   ['compact_events_to_show', 1, 2],
   ['blocklist', 'standup', 'retro'],
   ['allowlist', 'standup', 'retro'],
@@ -75,9 +77,11 @@ const PER_CALENDAR_OPTIONS: ReadonlyArray<[string, unknown, unknown]> = [
   ['replace_pattern', 'standup', 'retro'],
   ['replace_with', 'Busy', 'Elsewhere'],
   ['split_multiday_events', true, false],
+  ['multiday_banners', false, true],
   ['event_type', 'all_day', 'timed'],
   ['days_of_week', 'weekdays', 'weekends'],
   ['allday_expires_at', '10:00', '18:00'],
+  ['visibility', [{ condition: 'user', users: ['anna'] }], [{ condition: 'user', users: ['ben'] }]],
 ];
 
 /**

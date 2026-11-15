@@ -15,8 +15,9 @@
  *   1. clock icon, start and end, on one line
  *   2. start and end, on one line
  *   3. start and end, across two lines
- *   4. start
- *   5. nothing
+ *   4. start and the event's duration, where the end carries one (`show_duration`)
+ *   5. start
+ *   6. nothing
  *
  * Truncation is not a rung. An ellipsis is an honest mark on a title and a false statement
  * inside a clock reading -- "10:00 - 1..." for an event that ends at 12:00 reads as ending
@@ -115,6 +116,12 @@ export interface GridTimeCosts {
   /** Width the end time and its separator take out of `full`, or 0 where none is drawn. */
   end: number;
   /**
+   * Width the event's duration takes out of `end`, where the end carries one after its time
+   * (`show_duration`), 0 otherwise. The end time goes before it: the block's bottom edge says
+   * when it ends, and nothing else on it says how long it lasts.
+   */
+  duration?: number;
+  /**
    * Width the row needs with the end time on a second line, or 0 where none is drawn.
    *
    * Measured rather than derived. It is `max(start, end - the separator's leading space)`,
@@ -146,6 +153,11 @@ export interface GridTimeFit {
   wrap: boolean;
   /** `false` where a folded countdown is left out so the time can stay; absent otherwise. */
   countdown?: false;
+  /**
+   * `true` where the end time is given up and the duration after it kept, rung 4. Absent
+   * otherwise: with `end`, the duration goes with it.
+   */
+  duration?: true;
 }
 
 const HIDDEN: GridTimeFit = { time: false, icon: false, end: false, wrap: false };
@@ -162,6 +174,8 @@ export interface GridTimeTarget {
   icon: HTMLElement | null;
   /** The end time and its separator, absent unless this shape has a droppable one. */
   end: HTMLElement | null;
+  /** The duration inside the end, where the end has a time before it to give up first. */
+  duration?: HTMLElement | null;
   /** A countdown folded into the time text, whose words are left out of the widths. */
   countdown: HTMLElement | null;
 }
@@ -171,6 +185,7 @@ const FIT_CLASSES = [
   'grid-time-fits',
   'grid-time-no-icon',
   'grid-time-no-end',
+  'grid-time-no-end-reading',
   'grid-time-wrap',
   'grid-time-no-countdown',
 ] as const;
@@ -191,6 +206,7 @@ export function gridTimeTarget(block: HTMLElement): GridTimeTarget | null {
     time,
     icon: time.querySelector<HTMLElement>('.time-actual > ha-icon'),
     end: time.querySelector<HTMLElement>('.time-end'),
+    duration: time.querySelector<HTMLElement>('.time-end > .time-duration'),
     countdown: time.querySelector<HTMLElement>('.time-text > .time-countdown'),
   };
 }
@@ -310,6 +326,7 @@ export function measureGridTimeCosts(
     full: inlineContentBox(target.time).width,
     icon: target.icon ? outerInlineWidth(target.icon) : 0,
     end: target.end ? outerInlineWidth(target.end) : 0,
+    duration: target.duration ? outerInlineWidth(target.duration) : 0,
     wrapped,
     words,
     // The countdown is one unbroken line here, so its box is its separator and its words.
@@ -415,7 +432,9 @@ export function applyGridTimeFit(target: GridTimeTarget, fit: GridTimeFit): void
 
   target.disclosure.classList.add('grid-time-fits');
   if (!fit.icon) target.disclosure.classList.add('grid-time-no-icon');
-  if (!fit.end) target.disclosure.classList.add('grid-time-no-end');
+  if (!fit.end) {
+    target.disclosure.classList.add(fit.duration ? 'grid-time-no-end-reading' : 'grid-time-no-end');
+  }
   if (fit.wrap) target.disclosure.classList.add('grid-time-wrap');
   if (fit.countdown === false) target.disclosure.classList.add('grid-time-no-countdown');
 }
@@ -458,9 +477,11 @@ export function gridTimeFit(costs: GridTimeCosts): GridTimeFit {
  * @returns The pieces to draw
  */
 function gridTimeLadder(costs: GridTimeCosts): GridTimeFit {
-  const { available, full, icon, end, wrapped, words = 0 } = costs;
+  const { available, full, icon, end, wrapped, words = 0, duration = 0 } = costs;
 
-  if (![available, full, icon, end, wrapped, words].every(Number.isFinite)) return HIDDEN;
+  if (![available, full, icon, end, wrapped, words, duration].every(Number.isFinite)) {
+    return HIDDEN;
+  }
   if (available <= 0 || full <= 0) return HIDDEN;
 
   const budget = available + PRECISION;
@@ -487,6 +508,11 @@ function gridTimeLadder(costs: GridTimeCosts): GridTimeFit {
   const start = bare - end;
   if (end > 0 && wrapped > 0 && Math.max(wrapped, start) <= budget) {
     return { time: true, icon: false, end: true, wrap: true };
+  }
+  // The duration outlasts the end time before it, on the start's line. Only where the end holds
+  // more than the duration: one that is the duration alone has nothing to give up first.
+  if (duration > 0 && duration < end && start + duration <= budget) {
+    return { time: true, icon: false, end: false, wrap: false, duration: true };
   }
   if (start <= budget) return START_ONLY;
 
@@ -560,19 +586,26 @@ function withoutCountdownFit(
  * @returns The decision that saves the line, or `null` where none would
  */
 export function gridTimeFallback(costs: GridTimeCosts, fit: GridTimeFit): GridTimeFit | null {
-  if (fit.countdown === false) return fit.wrap ? { ...START_ONLY, countdown: false } : null;
+  if (fit.countdown === false) {
+    if (!fit.wrap) return null;
+    // The widest one-line rung of the row without its countdown, which keeps a duration where it
+    // fits beside the start.
+    const oneLine = gridTimeLadder({ ...withoutCountdown(costs), wrapped: 0 });
+    return { ...(oneLine.time ? oneLine : START_ONLY), icon: false, countdown: false };
+  }
   if (!fit.time) return null;
   const oneLine = gridTimeLadder({ ...costs, wrapped: 0, words: 0 });
   if (fit.wrap) {
-    return oneLine.time || !foldsCountdown(costs)
-      ? START_ONLY
-      : withoutCountdownFit(costs, fit, true);
+    // The widest rung on one line, which keeps the duration where it fits beside the start.
+    if (oneLine.time) return oneLine;
+    return foldsCountdown(costs) ? withoutCountdownFit(costs, fit, true) : START_ONLY;
   }
   const same =
     oneLine.time === fit.time &&
     oneLine.icon === fit.icon &&
     oneLine.end === fit.end &&
-    oneLine.wrap === fit.wrap;
+    oneLine.wrap === fit.wrap &&
+    oneLine.duration === fit.duration;
   if (same) return null;
   if (oneLine.time) return oneLine;
   return withoutCountdownFit(costs, fit, true);

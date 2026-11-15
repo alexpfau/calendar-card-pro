@@ -146,7 +146,18 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 
 **➡️ View the [Full Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) for a complete list of features.**
 
-### Latest Release: v5.2
+### Latest Release: v5.3
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_house_log.png" alt="A list card titled House Log with a month of household jobs, the newest at the top, from Dishwasher descaled 27 minutes ago and Water filter changed yesterday down to Smoke alarms tested a month ago" width="400">
+
+- 👥 **Each Calendar for the Right People**: [`visibility` on a calendar](https://calendar-card-pro.alexpfau.com/features/core-settings#showing-a-calendar-under-conditions) shows it only while Home Assistant's own conditions hold, so one card can show each person their own calendars
+- 📜 **Calendars Kept as Logs**: With `show_countdown` on, a finished event says [how long ago it ended](https://calendar-card-pro.alexpfau.com/features/event-content#counting-up-from-past-events), [`event_order: latest_first`](https://calendar-card-pro.alexpfau.com/features/core-settings#event-order) puts the newest entry on top, and the [House Log](https://calendar-card-pro.alexpfau.com/guide/house-log) story puts the two together
+- ⏳ **Countdowns That Say What You Need**: Count [in days](https://calendar-card-pro.alexpfau.com/features/event-content#counting-in-days), only [as an event draws near](https://calendar-card-pro.alexpfau.com/features/event-content#countdown-range) and [once per day](https://calendar-card-pro.alexpfau.com/features/event-content#repeated-countdowns), and [`show_duration`](https://calendar-card-pro.alexpfau.com/features/event-content#event-duration) says how long each event lasts
+- 🔉 **A Quieter Calendar**: [`text_scale`](https://calendar-card-pro.alexpfau.com/features/core-settings#scaling-one-calendars-text) draws one calendar's events smaller, and [`show_weather: false`](https://calendar-card-pro.alexpfau.com/features/weather#turning-weather-off-for-one-calendar) leaves the weather out beside them
+- ⚠️ **Long Events Drawn for How Long They Are**: An event that runs a full day or longer into a second date [no longer shows "Now"](https://calendar-card-pro.alexpfau.com/features/multi-day-events#day-counter) and reads "Day 2 of 3" with `show_progress_bar` on, and grid view draws a long timed one as [one banner above the hours](https://calendar-card-pro.alexpfau.com/features/grid-view#long-timed-events-as-banners) by default; the [release notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) list every change to existing cards
+- 🐛 **A Restart No Longer Freezes the Dashboard**: A card taking its colors from Home Assistant could freeze the browser tab for good when it appeared while Home Assistant was restarting; it now waits and tries again
+
+### v5.2
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_quick_setup.png" alt="Home Assistant's card editor with Quick Setup open on its first step: four stories to start from, Family Hub picked, and the preview beside it already drawing the Hub card" width="600">
 
@@ -175,11 +186,6 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 - 📚 **Example Stories**: [Six complete cards](https://calendar-card-pro.alexpfau.com/reference/examples) to copy, from a family's wall tablet to a bin-day tile
 - ⚡ **Your Events the Moment the Dashboard Opens**: Cached events draw straight away, and a calendar that fails to load is [named on the card](https://calendar-card-pro.alexpfau.com/features/performance#when-a-calendar-fails-to-load)
 - 🐛 **Back on iOS 15 and 16, and Serbian**: v5.0.1 stops the card from crashing the Home Assistant app on iOS 16, lets it load again on iOS 15, and adds Serbian in Cyrillic and Latin script; the [installation guide](https://calendar-card-pro.alexpfau.com/guide/installation#browser-support) says which devices can run it
-
-### v4.2
-
-- 🧑 **Shared Events, Clearly Marked**: Merged duplicates show [every calendar's label](https://calendar-card-pro.alexpfau.com/features/core-settings#labeling-coloring-shared-events), and `duplicate_accent_color` gives them a color of their own
-- 🐛 **Countdowns Follow Calendar Dates**: [Countdowns](https://calendar-card-pro.alexpfau.com/features/event-content#countdown-display) say "tomorrow" for the next date and no longer skip days
 
 _Older releases are covered in the [Full Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES)._
 

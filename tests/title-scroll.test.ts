@@ -253,24 +253,46 @@ describe('scroll_long_titles measurement', () => {
     expect(measure).toHaveBeenLastCalledWith([expect.objectContaining({ distance: 200 })]);
   });
 
-  it('skips compact Grid titles and measures them again after normal disclosure returns', () => {
+  it('measures a fitted Grid title like any other, so a short block can scroll it', () => {
+    // Bug #820: a one-hour block at a compressed hour_height is too short for the normal
+    // title row and takes the fitted (compact) line. That line used to be skipped here, so it
+    // never moved however far it overflowed.
     const { card, title, content } = cardWithTitle(300, 100);
     const block = document.createElement('div');
     block.className = 'grid-event';
+    block.dataset.gridTitleFit = 'compact';
     title.replaceWith(block);
     block.append(title);
     card._measureTitleScroll();
+    expect(title.classList.contains('title-overflowing')).toBe(true);
     expect(title.style.getPropertyValue('--calendar-card-title-scroll-distance')).toBe('200px');
 
-    block.dataset.gridTitleFit = 'compact';
     Object.defineProperty(content, 'offsetWidth', { value: 500, configurable: true });
-    card._measureTitleScroll();
-    expect(title.style.getPropertyValue('--calendar-card-title-scroll-distance')).toBe('200px');
-
-    delete block.dataset.gridTitleFit;
     card._measureTitleScroll();
     expect(title.style.getPropertyValue('--calendar-card-title-scroll-distance')).toBe('400px');
   });
+
+  it.each(['blank', 'measuring'])(
+    'skips %s Grid titles and measures them again once the block shows its title',
+    (mode) => {
+      const { card, title, content } = cardWithTitle(300, 100);
+      const block = document.createElement('div');
+      block.className = 'grid-event';
+      title.replaceWith(block);
+      block.append(title);
+      card._measureTitleScroll();
+      expect(title.style.getPropertyValue('--calendar-card-title-scroll-distance')).toBe('200px');
+
+      block.dataset.gridTitleFit = mode;
+      Object.defineProperty(content, 'offsetWidth', { value: 500, configurable: true });
+      card._measureTitleScroll();
+      expect(title.style.getPropertyValue('--calendar-card-title-scroll-distance')).toBe('200px');
+
+      delete block.dataset.gridTitleFit;
+      card._measureTitleScroll();
+      expect(title.style.getPropertyValue('--calendar-card-title-scroll-distance')).toBe('400px');
+    },
+  );
 
   it.each([
     ['ltr', '-1'],

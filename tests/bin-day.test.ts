@@ -5,7 +5,8 @@
  * "which bin goes out tonight?". Its promises: each block's `allowlist` keeps one bin and its
  * `compact_events_to_show: 1` leaves only that bin's next pickup, nearest first, a month ahead
  * so a monthly bin still shows; `replace_pattern` strips the feed's prefix while the event the
- * popover opens on keeps it; the bin's name sits in a pill of its color with "tomorrow" where "All day" would be;
+ * popover opens on keeps it; the bin's name sits in a pill of its color with "tomorrow" where "All day" would be,
+ * once on a day two bins go out together;
  * `allday_expires_at: '10:00'` has today's pickup gone at 10:00 on its day, without waiting for
  * a refresh; and with
  * no pickups there is no card. Nothing ran this card before this file.
@@ -125,7 +126,7 @@ describe('the Bin Day card behaves as its page describes', () => {
     }
     expect(CARD).toMatchObject({
       days_to_show: 31,
-      show_countdown: true,
+      show_countdown: 'once_per_day',
       show_single_allday_time: false,
       allday_badge: 'title',
       allday_badge_style: 'tinted',
@@ -220,6 +221,36 @@ describe('the Bin Day card behaves as its page describes', () => {
     expect([rowTitled(wordy, 'Recycling').time, rowTitled(wordy, 'Recycling').countdown]).toEqual([
       'All day',
       'tomorrow',
+    ]);
+  });
+
+  it('says "tomorrow" once on a day two bins go out together', async () => {
+    // "Once on a day two bins go out together": organic moves onto recycling's day.
+    const shared: StoryHass = {
+      payload: {
+        'calendar.trash_pickup': [
+          pickup('Trash', '2026-06-24'),
+          pickup('Recycling', '2026-06-18'),
+          pickup('Organic', '2026-06-18'),
+          pickup('Paper', '2026-07-10'),
+        ],
+      },
+    };
+    const card = await mountStory(CARD, shared);
+    expect(listRows(card).map((row) => [row.date, row.title, row.countdown])).toEqual([
+      ['Jun 18', 'Organic', 'tomorrow'],
+      ['Jun 18', 'Recycling', null],
+      ['Jun 24', 'Trash', 'in 7 days'],
+      ['Jul 10', 'Paper', 'in 23 days'],
+    ]);
+
+    // Control: with `show_countdown: true` both bins on that day say "tomorrow".
+    const every = await mountStory(withOptions(CARD, { show_countdown: true }), shared);
+    expect(listRows(every).map((row) => row.countdown)).toEqual([
+      'tomorrow',
+      'tomorrow',
+      'in 7 days',
+      'in 23 days',
     ]);
   });
 

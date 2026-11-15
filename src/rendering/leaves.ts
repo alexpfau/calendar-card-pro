@@ -9,10 +9,13 @@ import { TemplateResult, html, nothing } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
+import * as Config from '../config/config';
 import * as Types from '../config/types';
+import * as ViewConfig from '../config/view';
 import * as Localize from '../translations/localize';
 import * as ColorMix from '../utils/color-mix';
 import * as EntityColors from '../utils/entity-colors';
+import * as EventUtils from '../utils/events';
 import * as FormatUtils from '../utils/format';
 import * as Helpers from '../utils/helpers';
 import * as Links from '../utils/links';
@@ -84,15 +87,23 @@ export function renderDateWeather(
 }
 
 /**
- * Classify a day's start-of-day timestamp as today and/or tomorrow.
+ * Classify a day's start-of-day timestamp as today, tomorrow or past.
+ *
+ * Past is decided on the local calendar date, so a day becomes past at local midnight
+ * whatever its length; the clock repaint (`_nextClockRepaint`) redraws every view then.
  *
  * @param timestamp Start-of-day timestamp for the day
- * @returns Whether the day is today, and whether it is tomorrow
+ * @returns Whether the day is today, whether it is tomorrow, and whether it is before today
  */
-export function classifyDay(timestamp: number): { isToday: boolean; isTomorrow: boolean } {
+export function classifyDay(timestamp: number): {
+  isToday: boolean;
+  isTomorrow: boolean;
+  isPast: boolean;
+} {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const dayDateString = new Date(timestamp).toDateString();
+  const day = new Date(timestamp);
+  const dayDateString = day.toDateString();
 
   const tomorrowStart = new Date(todayStart);
   tomorrowStart.setDate(tomorrowStart.getDate() + 1);
@@ -100,7 +111,52 @@ export function classifyDay(timestamp: number): { isToday: boolean; isTomorrow: 
   return {
     isToday: dayDateString === todayStart.toDateString(),
     isTomorrow: dayDateString === tomorrowStart.toDateString(),
+    isPast: new Date(day.getFullYear(), day.getMonth(), day.getDate()) < todayStart,
   };
+}
+
+/**
+ * The scale a day's date is drawn at: `today_date_scale` for today, `past_date_scale` for a
+ * past day, and 1 for every other day.
+ *
+ * @param config Card configuration, already resolved for the view
+ * @param isToday Whether the day is today
+ * @param isPast Whether the day is before today
+ * @returns The multiplier
+ */
+export function dateScale(config: Types.Config, isToday: boolean, isPast: boolean): number {
+  const scale = isToday ? config.today_date_scale : isPast ? config.past_date_scale : 1;
+  // A configuration that skipped normalization draws at the card's size rather than at NaN.
+  return typeof scale === 'number' && scale > 0 ? scale : 1;
+}
+
+/**
+ * A date size multiplied by a scale, for a size the card writes inline on the date.
+ *
+ * `scaleTextSize` takes a CSS-wide keyword as the size the text inherits, which is what one
+ * means in a custom property. Written inline, `initial` is the browser's initial size, `medium`,
+ * so it is read as that first; every other CSS-wide keyword still means the inherited size.
+ *
+ * @param value A date's font size option, as `toValidFontSize` leaves it
+ * @param scale The multiplier
+ * @returns The scaled size, flagged `!important` where the option was
+ */
+export function scaleDateSize(value: string, scale: number): string {
+  return ViewConfig.scaleTextSize(
+    value.replace(/^\s*initial(?=\s*(?:!\s*important\s*)?$)/i, 'medium'),
+    scale,
+  );
+}
+
+/**
+ * The largest scale any day's date is drawn at, never below 1: what the list's date column
+ * and the column and grid headers are sized for, so every day lines up with the largest.
+ *
+ * @param config Card configuration, already resolved for the view
+ * @returns The multiplier
+ */
+export function maxDateScale(config: Types.Config): number {
+  return Math.max(1, dateScale(config, true, false), dateScale(config, false, true));
 }
 
 //-----------------------------------------------------------------------------
@@ -246,6 +302,20 @@ export function renderDateContent(
   hass?: Types.Hass | null,
 ): TemplateResult {
   const isWeekendDay = FormatUtils.isWeekendDate(date, hass);
+  const { isPast } = classifyDay(date.getTime());
+
+  // Today's and past days' own size, weight and fade. Sizes are scaled as text, as a calendar's
+  // `text_scale` scales its events, so a keyword size scales from the size it is drawn at.
+  const scale = dateScale(config, isToday, isPast);
+  const size = (value: string): string => (scale === 1 ? value : scaleDateSize(value, scale));
+  const weight =
+    Config.toFontWeightCss(
+      isToday ? config.today_date_font_weight : isPast ? config.past_date_font_weight : 'default',
+    ) || undefined;
+  const opacity =
+    isPast && config.past_date_opacity >= 0 && config.past_date_opacity < 100
+      ? String(config.past_date_opacity / 100)
+      : undefined;
 
   let weekdayColor = config.weekday_color;
   let dayColor = config.day_color;
@@ -287,8 +357,10 @@ export function renderDateContent(
     <div
       class="weekday"
       style=${styleMap({
-        'font-size': config.weekday_font_size,
+        'font-size': size(config.weekday_font_size),
         color: weekdayColor,
+        'font-weight': weight,
+        opacity,
       })}
     >
       ${weekday}
@@ -296,8 +368,10 @@ export function renderDateContent(
     <div
       class=${todayTile ? 'day today-tile' : 'day'}
       style=${styleMap({
-        'font-size': config.day_font_size,
+        'font-size': size(config.day_font_size),
         color: dayColor,
+        'font-weight': weight,
+        opacity,
       })}
     >
       ${day}
@@ -307,8 +381,10 @@ export function renderDateContent(
           <div
             class="month"
             style=${styleMap({
-              'font-size': config.month_font_size,
+              'font-size': size(config.month_font_size),
               color: monthColor,
+              'font-weight': weight,
+              opacity,
             })}
           >
             ${month}
@@ -662,11 +738,15 @@ function renderEventTitle(
 }
 
 /**
- * Whether the card is configured to show a weather badge on individual events.
+ * Whether this event gets a weather badge: the card draws weather beside events, and the
+ * calendar the event came from has not turned it off with `show_weather: false`. A merged
+ * duplicate answers for the calendar listed first among its sources, whose block it carries.
  */
-function hasEventWeather(config: Types.Config): boolean {
-  const position = Weather.resolveWeatherPosition(config.weather);
-  return !!(config.weather?.entity && (position === 'event' || position === 'both'));
+function hasEventWeather(config: Types.Config, event: Types.CalendarEventData): boolean {
+  return (
+    Weather.showsEventWeather(config.weather) &&
+    EventUtils.getEntitySetting(event._entityId, 'show_weather', config, event) !== false
+  );
 }
 
 /**
@@ -720,7 +800,7 @@ export function eventWeatherContent(
   placement: 'title' | 'row' = 'title',
   hass?: Types.Hass | null,
 ) {
-  const showEventWeather = hasEventWeather(config);
+  const showEventWeather = hasEventWeather(config, event);
 
   if (!showEventWeather || !weatherForecasts?.hourly) {
     return null;
@@ -777,6 +857,13 @@ export interface EventContentParts {
    * Rendered as its own element only where a view asks for it via `splitTimeEnd`.
    */
   eventTimeEnd?: string;
+
+  /**
+   * The duration that ends `eventTimeEnd` (`show_duration`), where grid keeps it after giving up
+   * the end time before it (`grid-time-fit.ts`). Drawn as a span of its own inside the end only
+   * where the end holds more than the duration.
+   */
+  eventTimeDuration?: string;
 
   /**
    * The all-day label to draw as its own badge, present only when `allday_badge` names a
@@ -869,6 +956,19 @@ export interface EventContentParts {
   shouldShowTime: boolean;
 
   countdownStr: string | null;
+
+  /**
+   * "Day 2 of 3", the progress bar's form on an event a day or more long, drawn in the
+   * countdown's place wherever the row has no countdown, and exactly as the countdown is, in
+   * every placement it has. Absent everywhere the card draws no counter, grid included.
+   */
+  dayCounter?: string | null;
+  /**
+   * Whether `countdownStr` counts up from a finished event, "13 days ago", rather than down to
+   * one still to come. Drawn exactly as a countdown is, in every placement, with `count-up`
+   * beside `time-countdown` so a theme can tell the two apart.
+   */
+  countUp?: boolean;
 
   progressPercentage: number | null;
 
@@ -1000,13 +1100,16 @@ export function renderEventContent(
   const {
     eventTime,
     eventTimeEnd,
+    eventTimeDuration,
     allDayBadge,
     titlePill,
     eventLocation,
     locationIcon,
     eventDescription,
     shouldShowTime,
-    countdownStr,
+    countdownStr: countdownOnly,
+    dayCounter = null,
+    countUp = false,
     progressPercentage,
     entityLabel,
     entityLabelAlt,
@@ -1017,6 +1120,17 @@ export function renderEventContent(
 
   // The row's own words, in their language's direction where the dashboard runs the other way.
   const own = (text: string): string => TextDirection.inLanguageDirection(text, languageMark);
+
+  // The day counter takes the countdown's place where the row has none, so from here on it is
+  // the countdown, and every placement below draws it as one. A count-up is drawn as a countdown
+  // is. Their own classes are what tell the three apart, for a theme.
+  const countdownStr = countdownOnly ?? dayCounter;
+  const countdownClass =
+    countdownOnly === null && dayCounter !== null
+      ? 'time-countdown day-counter'
+      : countUp
+        ? 'time-countdown count-up'
+        : 'time-countdown';
 
   // Pieces only where a field holds a link, so every other row binds its plain string as before.
   const linked = links
@@ -1042,7 +1156,7 @@ export function renderEventContent(
   const titleForecasts = weatherPlacement === 'title' ? weatherForecasts : undefined;
 
   const weatherRow =
-    weatherPlacement === 'row' && hasEventWeather(config)
+    weatherPlacement === 'row' && hasEventWeather(config, event)
       ? renderEventWeather(event, config, weatherForecasts, 'row', hass)
       : nothing;
 
@@ -1070,6 +1184,18 @@ export function renderEventContent(
   // The text before a droppable end, which the end's own layout depends on (see below).
   const timeHead = splitEnd ? eventTime.slice(0, -splitEnd.length) : eventTime;
 
+  // A duration ending the end is a piece grid keeps after the end time before it, so the two
+  // are spans of their own inside the end. Only where both are there: an end that is the
+  // duration alone, as under `show_end_time: false`, stays one span, as does every end without.
+  const splitDuration =
+    splitEnd &&
+    eventTimeDuration &&
+    splitEnd.endsWith(eventTimeDuration) &&
+    splitEnd !== eventTimeDuration
+      ? eventTimeDuration
+      : null;
+  const endReading = splitDuration && splitEnd ? splitEnd.slice(0, -splitDuration.length) : null;
+
   // No whitespace inside the split: a text node between the two spans would put a second
   // space in the middle of "10:00 - 12:00".
   //
@@ -1087,7 +1213,9 @@ export function renderEventContent(
   // the grid hides leaves a whole start behind.
   // prettier-ignore
   const timeValue = eventTime
-    ? splitEnd
+    ? splitDuration && endReading !== null
+      ? html`<span>${own(FormatUtils.isolateClockReadings(timeHead))}<span class="time-end"><span class="time-end-reading">${own(FormatUtils.isolateClockReadings(endReading, timeHead))}</span><span class="time-duration">${own(splitDuration)}</span></span></span>`
+      : splitEnd
       ? html`<span>${own(FormatUtils.isolateClockReadings(timeHead))}<span class="time-end">${own(FormatUtils.isolateClockReadings(splitEnd, timeHead))}</span></span>`
       : html`<span>${own(FormatUtils.isolateClockReadings(eventTime))}</span>`
     : nothing;
@@ -1119,7 +1247,7 @@ export function renderEventContent(
   // Keep folded time/countdown spans adjacent; whitespace would render before the separator.
   // prettier-ignore
   const timeText = foldCountdown
-    ? html`<span class="time-text">${timeValue}<span class="time-countdown">${countdownText}</span></span>`
+    ? html`<span class="time-text">${timeValue}<span class=${countdownClass}>${countdownText}</span></span>`
     : timeValue;
 
   // A running event's row keeps its clock where every row has it, filled rather than outlined,
@@ -1154,6 +1282,7 @@ export function renderEventContent(
       allDayBadgeEl,
       timeContent,
       countdownStr: countdownText,
+      countdownClass,
       progressRow,
       weatherRow,
       eventLocation,
@@ -1181,7 +1310,7 @@ export function renderEventContent(
                   ${allDayBadgeEl}${timeContent}
                 </div>
                 ${trailingCountdown
-                  ? html`<div class="time-countdown">${trailingCountdown}</div>`
+                  ? html`<div class=${countdownClass}>${trailingCountdown}</div>`
                   : showInlineProgress
                     ? html`
                         <div class="progress-bar">
@@ -1200,7 +1329,7 @@ export function renderEventContent(
             ? html`
                 <div class="time">
                   <div class="time-actual"></div>
-                  <div class="time-countdown">${countdownText}</div>
+                  <div class=${countdownClass}>${countdownText}</div>
                 </div>
               `
             : showInlineProgress
@@ -1246,6 +1375,7 @@ interface TimeBesideTitlePieces {
   allDayBadgeEl: TemplateResult | typeof nothing;
   timeContent: TemplateResult | typeof nothing;
   countdownStr: string | null;
+  countdownClass: string;
   progressRow: TemplateResult | typeof nothing;
   weatherRow: TemplateResult | typeof nothing;
   eventLocation: string;
@@ -1281,11 +1411,11 @@ interface TimeBesideTitlePieces {
  * @returns Rendered event body
  */
 function renderTimeBesideTitle(pieces: TimeBesideTitlePieces): TemplateResult {
-  const { shouldShowTime, allDayBadgeEl, timeContent, countdownStr } = pieces;
+  const { shouldShowTime, allDayBadgeEl, timeContent, countdownStr, countdownClass } = pieces;
 
   const timeRow = shouldShowTime
     ? html`<div class="time"><div class="time-actual">${allDayBadgeEl}${timeContent}</div></div>`
-    : html`<div class="time"><div class="time-countdown">${countdownStr}</div></div>`;
+    : html`<div class="time"><div class=${countdownClass}>${countdownStr}</div></div>`;
 
   return html`
     <div class="event-content time-beside-title">

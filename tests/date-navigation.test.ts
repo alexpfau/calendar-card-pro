@@ -734,6 +734,24 @@ describe('the date navigation', () => {
     expect(month(card)).toBe('November 2026');
   });
 
+  it('names a latest-first list by its top day, and still pages forward in time', async () => {
+    const latest = { list: { event_order: 'latest_first' as const } };
+    const card = await mount(latest);
+    const picker = () => root(card).querySelector<HTMLInputElement>('.toolbar-date-input')!.value;
+    // Home is June 15 to 21, drawn from the 21st down.
+    expect(picker()).toBe('2026-06-21');
+
+    await press(card, 'next');
+    await press(card, 'next');
+    expect(range(card)).toBe(`Jun 29${TO}Jul 5`);
+    expect(month(card)).toBe('July 2026');
+    expect(picker()).toBe('2026-07-05');
+
+    document.body.innerHTML = '';
+    const later = await mount({ ...latest, start_date: 'today+7' });
+    expect(segments(later)[1].getAttribute('aria-label')).toBe('Tue, Jun 30');
+  });
+
   it('names the page asked for at once, over the days still dimmed below it', async () => {
     const card = await mount();
     await press(card, 'next');

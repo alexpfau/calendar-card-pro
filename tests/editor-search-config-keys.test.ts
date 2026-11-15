@@ -66,6 +66,7 @@ const CARD_CONFIGS: ReadonlyArray<Partial<Types.Config>> = [
   { allday_badge: 'title' },
   { allday_badge: 'time', allday_badge_color: '#ff0000' },
   { language: 'de' },
+  { show_countdown: true },
 ];
 
 /** The context a panel is built and searched in, for one editing workspace. */

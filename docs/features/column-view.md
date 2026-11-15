@@ -228,10 +228,22 @@ belong to compact mode, which caps the whole card rather than each column. Colum
 controlled by [`min_days_to_show` and `min_days_fallback`](#showing-fewer-columns-instead)
 instead.
 
+**`event_order`** turns a list upside down for a calendar used as a log. Columns keep time
+running forward, left to right and down each day.
+
+**`skip_first_events`** lets a second list card continue where a first one stops. Every
+column is drawn whatever its events, so leaving events out would leave gaps rather than
+continue anything.
+
+**`multiday_banners`** draws a long timed event as a banner in grid view's all-day band. A
+column has no such band: each day of the event is a row in its column, as
+`split_multiday_events` decides. It does nothing in list view either.
+
 ::: tip Hidden When Editing Column View
 The editor omits these controls in the Columns workspace, including the per-calendar compact
-limit. Stored values are preserved and still apply when the card falls back to List. To
-change them, select List under Editing Settings For; Card Displays stays unchanged.
+limit and grid banner setting. Stored values are preserved and still apply where they are read:
+in List, which the card falls back to, and the banner setting in Grid. To change them, select
+that layout under Editing Settings For; Card Displays stays unchanged.
 See [Options for the Selected View](/features/editor#options-for-the-selected-view).
 :::
 
@@ -239,7 +251,7 @@ See [Options for the Selected View](/features/editor#options-for-the-selected-vi
 
 ## 📊 Progress Bar & Countdown
 
-A [countdown](/features/event-content#countdown-display) and a [progress bar](/features/event-content#progress-bar-display) never appear on the same event — a countdown means the event has not started, a bar means it is running now — so column view places each one differently.
+A [countdown](/features/event-content#countdown-display) and a [progress bar](/features/event-content#progress-bar-display) never appear on the same event — a countdown means the event has not started or, [counting up](/features/event-content#counting-up-from-past-events), has ended, a bar means it is running now — so column view places each one differently.
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_complete.png" alt="A column card showing countdowns, a progress bar and weather"><br>
 
@@ -357,5 +369,5 @@ The `column:` block and every option inside it are listed under [Column-Only Opt
 configuration reference](/reference/configuration#column-only-options).
 
 For card-mod styling, note that the day container is `.day-column` here rather than list
-view's `.day-table`; both carry the same `today` / `tomorrow` / `future-day` / `weekend`
-state classes. See [Day Container Classes](/features/theming#day-container-classes).
+view's `.day-table`; both carry the same `today` / `tomorrow` / `past-day` / `future-day` /
+`weekend` state classes. See [Day Container Classes](/features/theming#day-container-classes).

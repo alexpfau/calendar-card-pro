@@ -56,11 +56,17 @@ const relativeUnitFormatters = intlCache<string, Intl.RelativeTimeFormat>();
  * @param value Number of whole units until the event
  * @param unit Calendar days or elapsed hours
  * @param locale Language code
+ * @param numeric `auto` writes one day as the word for tomorrow, `always` as "in 1 day"; by
+ *   default only one day is written as the word
  * @returns Localized relative-unit string
  */
-export function getRelativeUnitString(value: number, unit: 'day' | 'hour', locale: string): string {
+export function getRelativeUnitString(
+  value: number,
+  unit: 'day' | 'hour',
+  locale: string,
+  numeric: 'auto' | 'always' = unit === 'day' && value === 1 ? 'auto' : 'always',
+): string {
   const mappedLocale = mapLocale(locale);
-  const numeric = unit === 'day' && value === 1 ? 'auto' : 'always';
   const cacheKey = `${mappedLocale}:${numeric}`;
   let formatter = relativeUnitFormatters.get(cacheKey);
   if (!formatter) {

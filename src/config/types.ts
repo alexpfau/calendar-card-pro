@@ -4,6 +4,7 @@
 
 // Type-only, so this module keeps zero runtime dependencies.
 import type { LabelType } from '../utils/helpers';
+import type { VisibilityCondition } from '../utils/visibility';
 
 // -----------------------------------------------------------------------------
 // CORE CONFIGURATION
@@ -20,6 +21,14 @@ export interface Config {
   compact_days_to_show?: number;
   compact_events_to_show?: number;
   compact_events_complete_days?: boolean;
+  /** Which end of the list comes first. List view only; see {@link EventOrder}. */
+  event_order: EventOrder;
+  /**
+   * Rows left out from the top of a list, so a second card can continue where a first one
+   * stopped. Counted in display order after every filter, duplicates and each calendar's cap,
+   * and in force expanded too. List view only.
+   */
+  skip_first_events?: number;
   show_empty_days: boolean;
   show_empty_today: boolean;
   hide_when_empty: boolean;
@@ -41,6 +50,12 @@ export interface Config {
    */
   duplicate_accent_color?: string;
   split_multiday_events: boolean;
+  /**
+   * Whether grid view draws a timed event a full day or longer as one banner in its all-day
+   * band, rather than as a block in every column it touches. The event stays timed: its times
+   * sit at the banner's ends and in the popover. Grid view only; on by default.
+   */
+  multiday_banners: boolean;
   event_type: EventType;
   language?: string;
 
@@ -95,13 +110,32 @@ export interface Config {
   today_weekday_color?: string;
   today_day_color?: string;
   today_month_color?: string;
+  /** Multiplies the size of today's whole date, the date tile with it. 1 leaves it as it is. */
+  today_date_scale: number;
+  /** Weight of today's whole date: a name the editor offers, a number, or `default`. */
+  today_date_font_weight: string | number;
+  /** Multiplies the size of every past day's date. */
+  past_date_scale: number;
+  /** Weight of every past day's date, as `today_date_font_weight`. */
+  past_date_font_weight: string | number;
+  /** Opacity, from 0 to 100, of every past day's date. 100 leaves it as it is. */
+  past_date_opacity: number;
 
   // Event column
   event_background_opacity: number;
   past_event_opacity: number;
   show_past_events: boolean;
-  show_countdown: boolean;
+  /** `once_per_day` is on, leaving out repeats of the countdown above on the same day. */
+  show_countdown: boolean | 'once_per_day';
   show_countdown_allday: boolean;
+  /** Count every date after tomorrow in days, rather than in months and years. */
+  countdown_exact_days: boolean;
+  /** Count down only to events starting within this many calendar days; unset is no limit. */
+  countdown_max_days?: number;
+  /**
+   * A bar filled as an event runs. In list and column view an event a day or more long draws
+   * "Day 2 of 3" on each row instead, in the countdown's place.
+   */
   show_progress_bar: boolean;
   show_now_indicator: boolean;
   now_color: string;
@@ -123,6 +157,8 @@ export interface Config {
   time_24h: boolean | 'system';
   time_two_digit_hours: boolean;
   show_end_time: boolean;
+  /** Write how long each event lasts after its time, "(1 hr, 45 min)". */
+  show_duration: boolean;
   time_font_size: string;
   time_color: string;
   time_icon_size: string;
@@ -229,6 +265,16 @@ export type TimeGridOverlapLayout = 'cascade' | 'columns';
  * the two classes differently requires.
  */
 export type EventType = 'all' | 'timed' | 'all_day';
+
+/**
+ * Which end of a list card comes first.
+ *
+ * `latest_first` is the `earliest_first` list read from the bottom up, ties included, and
+ * every list limit then keeps from the top: the event limit keeps the most recent events,
+ * for a calendar used as a log. It reverses the order only; the dates the card covers stay
+ * those `start_date` and `days_to_show` name. Column and grid view keep earliest first.
+ */
+export type EventOrder = 'earliest_first' | 'latest_first';
 
 /**
  * Which days of the week a calendar's events are allowed to land on.
@@ -344,14 +390,21 @@ export interface SharedViewOverrides {
   day_font_size?: string;
   show_month?: boolean;
   month_font_size?: string;
+  today_date_scale?: number;
+  today_date_font_weight?: string | number;
+  past_date_scale?: number;
+  past_date_font_weight?: string | number;
+  past_date_opacity?: number;
 
   // Event column
   event_background_opacity?: number;
   past_event_opacity?: number;
   event_color?: string;
   event_font_size?: string;
-  show_countdown?: boolean;
+  show_countdown?: boolean | 'once_per_day';
   show_countdown_allday?: boolean;
+  countdown_exact_days?: boolean;
+  countdown_max_days?: number;
   show_progress_bar?: boolean;
   show_now_indicator?: boolean;
   now_color?: string;
@@ -368,6 +421,7 @@ export interface SharedViewOverrides {
   allday_badge_color?: string;
   time_two_digit_hours?: boolean;
   show_end_time?: boolean;
+  show_duration?: boolean;
   time_color?: string;
   time_font_size?: string;
   time_icon_size?: string;
@@ -407,7 +461,7 @@ export interface SharedViewOverrides {
  *
  * List has no key of its own without a top-level counterpart, so unlike the other two
  * views it declares no view-only members: everything here is an override of a card-level
- * key. The five below are list-only in `VIEW_SCOPE`, which is why no other view can
+ * key. The seven below are list-only in `VIEW_SCOPE`, which is why no other view can
  * override them and why they never entered the shared set.
  */
 export interface ListOverrides extends SharedViewOverrides {
@@ -415,6 +469,10 @@ export interface ListOverrides extends SharedViewOverrides {
   compact_days_to_show?: number;
   compact_events_to_show?: number;
   compact_events_complete_days?: boolean;
+
+  // Order and offset. Read at render, after every filter and before the card's limits.
+  event_order?: EventOrder;
+  skip_first_events?: number;
 
   // List-row layout.
   date_vertical_alignment?: string;
@@ -579,6 +637,13 @@ export interface TimeGridOverrides extends SharedViewOverrides {
   allday_band_max_rows?: number;
 
   /**
+   * Whether a timed event a full day or longer is drawn as a banner in the all-day band.
+   * The one grid override with a top-level counterpart that column view has no use for, which
+   * is why `TIME_GRID_OVERRIDE_KEYS` spreads column's list rather than aliasing it.
+   */
+  multiday_banners?: boolean;
+
+  /**
    * The horizontal rules across the time body, as a CSS length and a CSS color.
    *
    * Grid-only, and deliberately not `day_separator_*`. Those have meant one thing since
@@ -649,6 +714,17 @@ export interface EntityConfig {
   color?: string;
   accent_color?: string;
   label_icon_color?: string;
+  /**
+   * How large this block's events draw their text, as a multiple of the card's: `0.75` draws
+   * them at three quarters of every size the card would, `1.25` at a quarter more. Unset, or
+   * anything that is not a number above 0, draws them as the card does.
+   *
+   * It multiplies the sizes of the text in an event and of the icons beside it, and nothing
+   * else: an event's padding, its gaps and a grid block's height stay as they are. Read at
+   * render time from the event's matched block, so a calendar listed twice can draw its two
+   * blocks at two scales (`rendering/text-scale.ts`).
+   */
+  text_scale?: number;
   show_time?: boolean;
   show_location?: boolean;
   /**
@@ -664,6 +740,18 @@ export interface EntityConfig {
    */
   location_icon?: string;
   show_description?: boolean;
+  /**
+   * `false` leaves the weather out beside this block's events: the list view's badge, the
+   * weather row of column and grid view, and the grid's screen-reader name. Unset or `true`
+   * follows the card, so the option can only take weather away; `weather.position` still
+   * decides whether events get any.
+   *
+   * The day header's forecast is not this block's to hide: it describes the day for every
+   * calendar on the card, on days with no events too. Read at render time from the event's
+   * matched block (`eventWeatherContent` in `rendering/leaves.ts`), so a calendar listed twice
+   * can keep it on one block, and the forecast subscriptions stay as `weather` asks.
+   */
+  show_weather?: boolean;
   compact_events_to_show?: number;
   blocklist?: string;
   allowlist?: string;
@@ -736,6 +824,8 @@ export interface EntityConfig {
    */
   replace_with?: string;
   split_multiday_events?: boolean;
+  /** This calendar's `multiday_banners`, over the card's. Grid view only. */
+  multiday_banners?: boolean;
   event_type?: EventType;
   days_of_week?: DaysOfWeekFilter;
   /**
@@ -748,6 +838,16 @@ export interface EntityConfig {
    * event becomes past, not whether past events show.
    */
   allday_expires_at?: string;
+  /**
+   * Home Assistant's visibility conditions for this entry, in the shapes its card-level
+   * `visibility:` takes (`utils/visibility.ts`). The entry's events show only while every one
+   * holds; a calendar every entry of which is hidden is treated as though it were not on the
+   * card. Unset, the entry always shows. Not applied while the card is edited.
+   *
+   * Per entry rather than per calendar, as the filters are: a calendar listed twice can show one
+   * entry and hide the other.
+   */
+  visibility?: VisibilityCondition[];
 }
 
 /** Weather position-specific styling configuration. */
@@ -950,6 +1050,12 @@ export interface CalendarEventData {
    */
   _gridSource?: Pick<CalendarEventData, 'start' | 'end'>;
   /**
+   * Set on every daily grid occurrence of a timed event that grid view draws as one banner in
+   * its all-day band (`multiday_banners`), so the renderer routes it there rather than into the
+   * hours. The occurrence keeps its timed shape; only where it is drawn changes.
+   */
+  _gridBanner?: boolean;
+  /**
    * Set on every segment produced by splitting a **timed** multi-day event, recording the
    * class of the event the segment came from rather than the shape the segment now has.
    *
@@ -973,6 +1079,14 @@ export interface CalendarEventData {
    * only the expiry filter reads it today — that filter runs before the copies are built.
    */
   _splitFromTimedEvent?: boolean;
+  /**
+   * Which of its event's days a list or column row stands for, "Day 2 of 3", set by
+   * `groupEventsByDay` while `show_progress_bar` is on, on every row of an event a day or more
+   * long. Its presence is what takes the row's progress bar away, so it is there on a row
+   * drawn under a date the event takes up no time on as well, naming no day. See
+   * `resolveDayOfEvent`.
+   */
+  _dayOfEvent?: DayOfEvent;
   _matchedConfig?: EntityConfig;
   /**
    * Every calendar that contributed a copy of this event, in `entities` order, set only
@@ -996,6 +1110,15 @@ export interface CalendarEventData {
    * by the template and no element comes or goes for it.
    */
   _searchRing?: boolean;
+}
+
+/**
+ * Where a row falls in a multi-day event: the `day`th of its `days` calendar days, counted from
+ * 1, or `null` on a row drawn under a date the event takes up no time on.
+ */
+export interface DayOfEvent {
+  day: number | null;
+  days: number;
 }
 
 /**
@@ -1154,7 +1277,28 @@ export interface Hass {
     time_format?: string;
     /** Home Assistant's first-weekday profile setting: a weekday name, or 'language'. */
     first_weekday?: string;
+    /**
+     * The profile's time zone setting: `server` for Home Assistant's own zone, `local` for the
+     * browser's. Read by `time` visibility conditions alone (`conditionTimeZone`).
+     */
+    time_zone?: string;
   };
+  /** The person viewing the dashboard; `user` visibility conditions compare its id. */
+  user?: { id: string; name?: string; is_admin?: boolean };
+  /**
+   * Home Assistant's entity, device and area registries, as its frontend holds them. Read by
+   * `location` visibility conditions alone: to find the viewer's person, and the zones a target
+   * names through a device, area, floor or label (`utils/visibility.ts`).
+   */
+  entities?: Record<
+    string,
+    { entity_id: string; device_id?: string | null; area_id?: string | null; labels?: string[] }
+  >;
+  devices?: Record<
+    string,
+    { id: string; area_id?: string | null; parent_device_id?: string | null; labels?: string[] }
+  >;
+  areas?: Record<string, { area_id: string; floor_id?: string | null; labels?: string[] }>;
   /**
    * The language Home Assistant's own interface is drawn in. With `translationMetadata`, it
    * decides which way the dashboard runs: Home Assistant sets the document's `dir` from
@@ -1398,6 +1542,19 @@ export interface Translations {
    */
   endsToday: string;
   endsTomorrow: string;
+  /**
+   * Which day of a multi-day event a row stands for (`show_progress_bar`), with `{day}` and
+   * `{days}` where the two numbers go: "Day {day} of {days}", "Day 2 of 3". A language whose
+   * words would have to agree with the sound of a number writes a form that leaves both bare,
+   * as Finnish does with "Päivä {day}/{days}".
+   */
+  dayOfEvent: string;
+  /**
+   * An event's whole length on a row that shows only part of it (`show_duration`), with
+   * `{duration}` where the browser's words for it go: "{duration} total", "8 hr total". The
+   * parentheses around it are the card's.
+   */
+  durationTotal: string;
   /** The header toolbar's view switcher, one name per view. */
   viewList: string;
   viewColumns: string;

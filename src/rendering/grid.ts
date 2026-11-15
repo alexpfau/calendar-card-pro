@@ -19,9 +19,10 @@ import { repeat } from 'lit/directives/repeat.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
 import * as Activation from './activation';
-import { gridEventAccessibleName } from './grid-accessibility';
+import { gridBannerAccessibleName, gridEventAccessibleName } from './grid-accessibility';
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
+import * as TextScale from './text-scale';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
 import * as Localize from '../translations/localize';
@@ -69,6 +70,9 @@ interface GridSeparator {
  * A placeholder for an empty day is dropped outright: the grid already shows an empty
  * day as an empty column of axis, which says the same thing without occupying a row.
  *
+ * `allDay` holds everything drawn in the band: all-day events, and a timed event's days
+ * where `multiday_banners` draws it as a banner (`_gridBanner`).
+ *
  * @param day - Grouped day whose events to sort
  * @returns The day's events, separated
  */
@@ -81,7 +85,7 @@ function sortDayEvents(day: Types.EventsByDay): DayParts {
       continue;
     }
 
-    if (!event.start.dateTime) {
+    if (!event.start.dateTime || event._gridBanner) {
       allDay.push(event);
       continue;
     }
@@ -895,7 +899,13 @@ function renderTimedEvent(
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
-  const contentParts = gridTimedEventContentParts(event, presentation.contentParts, config, hass);
+  const contentParts = gridTimedEventContentParts(
+    event,
+    presentation.contentParts,
+    config,
+    language,
+    hass,
+  );
   const tint = presentation.entityAccentBackgroundColor;
   // By its time span, not its drawn box: the 14px floor can stretch a block that has ended or
   // not yet begun across the line, and marking one of those as under way would say something
@@ -947,6 +957,7 @@ function renderTimedEvent(
         'grid-event-now': underWay,
         'event-interactive': tap !== undefined,
         'search-ring': event._searchRing === true,
+        [TextScale.TEXT_SCALED_CLASS]: presentation.textScaled,
       })}
       style=${styleMap({
         ...verticalGeometry(placement, edges),
@@ -958,6 +969,7 @@ function renderTimedEvent(
         '--calendar-card-event-accent-bar-color': presentation.entityAccentColor,
         backgroundColor: tint,
         ...presentation.accentTextProperties,
+        ...presentation.textScaleProperties,
       })}
       role=${tap ? 'button' : nothing}
       tabindex=${tap ? '0' : nothing}
@@ -1028,9 +1040,19 @@ function renderTimedEvent(
  * isolate, because a right-to-left line would otherwise draw "(+1)" as "(1+)"; the no-break
  * space before it keeps it on the end's line.
  *
+ * That block's count-up counts from the event's end too, as its time reads, rather than from
+ * the midnight its segment ends at: an event still under way past midnight has none, and one
+ * that ended days later counts from that day. Its countdown is the same either way, since the
+ * block starts where the event does.
+ *
+ * Under `show_duration` that block's whole length follows its end, "- 1:35 (+1) (3 hr, 30 min)",
+ * the last piece of the droppable end, which the fit ladder keeps after the end time before it.
+ * The later blocks draw no time, and carry the length alone, "(3 hr, 30 min total)".
+ *
  * @param event - Timed grid event segment
  * @param presented - Shared presentation content
  * @param config - Card configuration
+ * @param language - Language code
  * @param hass - Home Assistant instance
  * @returns Content parts with grid-specific time text
  */
@@ -1038,6 +1060,7 @@ function gridTimedEventContentParts(
   event: Types.CalendarEventData,
   presented: Leaves.EventContentParts,
   config: Types.Config,
+  language: string,
   hass?: Types.Hass | null,
 ): Leaves.EventContentParts {
   // Grid marks the present with its now line, which runs straight through the block that
@@ -1047,12 +1070,21 @@ function gridTimedEventContentParts(
     ...parts,
     eventTime: '',
     eventTimeEnd: undefined,
+    eventTimeDuration: undefined,
     shouldShowTime: false,
     countdownStr: null,
+    countUp: false,
   };
 
   if (event._isMultiDaySegment && !event._gridSegmentStartsEvent) {
-    return untimed;
+    // A later block draws no time, since it starts at midnight rather than where the event does,
+    // but it carries the whole event's length, marked as such, so it is there whichever of the
+    // event's days is on screen.
+    const lasts =
+      config.show_duration && presented.shouldShowTime
+        ? FormatUtils.formatEventDuration(event, language)
+        : null;
+    return lasts ? { ...untimed, eventTime: lasts, shouldShowTime: true } : untimed;
   }
 
   // The event's own times. A split segment ends at midnight; `_gridSource` is what it was
@@ -1061,6 +1093,7 @@ function gridTimedEventContentParts(
   const start = source?.start.dateTime ? new Date(source.start.dateTime) : undefined;
   const end = source?.end.dateTime ? new Date(source.end.dateTime) : undefined;
   const spansDays =
+    source !== undefined &&
     start !== undefined &&
     end !== undefined &&
     end.getTime() > start.getTime() &&
@@ -1081,11 +1114,25 @@ function gridTimedEventContentParts(
     };
   }
 
+  const whole = { ...event, start: source.start, end: source.end };
+  const wholePast = Presentation.isEventPast(whole);
+  const countdownStr = Presentation.eventCountdown(whole, config, language, wholePast);
+  const counted = { ...parts, countdownStr, countUp: countdownStr !== null && wholePast };
+
   const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
   const startText = FormatUtils.formatTime(start, use24h, config.time_two_digit_hours);
+  const duration = config.show_duration
+    ? FormatUtils.formatEventDuration({ ...event, start: source.start, end: source.end }, language)
+    : null;
+  const lasts = duration ? `\u00a0${duration}` : '';
 
   if (!config.show_end_time) {
-    return { ...parts, eventTime: startText, eventTimeEnd: undefined };
+    return {
+      ...counted,
+      eventTime: `${startText}${lasts}`,
+      eventTimeEnd: lasts || undefined,
+      eventTimeDuration: lasts || undefined,
+    };
   }
 
   const readsMidnight = (date: Date) => date.getHours() === 0 && date.getMinutes() === 0;
@@ -1096,9 +1143,14 @@ function gridTimedEventContentParts(
     readsMidnight(end) &&
     !readsMidnight(start);
   const count = untilMidnight ? '' : `\u00a0\u2066(+${days})\u2069`;
-  const endText = ` - ${FormatUtils.formatTime(end, use24h, config.time_two_digit_hours)}${count}`;
+  const endText = ` - ${FormatUtils.formatTime(end, use24h, config.time_two_digit_hours)}${count}${lasts}`;
 
-  return { ...parts, eventTime: `${startText}${endText}`, eventTimeEnd: endText };
+  return {
+    ...counted,
+    eventTime: `${startText}${endText}`,
+    eventTimeEnd: endText,
+    eventTimeDuration: lasts || undefined,
+  };
 }
 
 /**
@@ -1184,23 +1236,38 @@ function renderBanner(
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
+  const timed = event.start.dateTime !== undefined;
+  const times = timed
+    ? bannerTimes(event, placement, presentation.contentParts, config, hass)
+    : null;
+  // The whole event's length, after the title, marked as such where the banner shows only part
+  // of it. It goes with the time, as on every row.
+  const lasts =
+    config.show_duration && presentation.contentParts.shouldShowTime
+      ? FormatUtils.formatEventDuration(event, language, bannerShowsPart(event, placement))
+      : null;
+  const duration = lasts ? html`<span class="grid-banner-duration">${lasts}</span>` : nothing;
 
   return html`
     <div
       class=${classMap({
         event: true,
         'grid-banner': true,
+        'grid-banner-timed': timed,
+        'grid-banner-lasts': lasts !== null,
         'past-event': presentation.isPastEvent,
         'continues-before': placement.continuesBefore,
         'continues-after': placement.continuesAfter,
         'event-interactive': tap !== undefined,
         'search-ring': event._searchRing === true,
+        [TextScale.TEXT_SCALED_CLASS]: presentation.textScaled,
       })}
       style=${styleMap({
         gridColumn: `${placement.columnIndex + 2} / span ${placement.span}`,
         ...(row === undefined ? {} : { gridRow: String(row) }),
         backgroundColor: presentation.entityAccentBackgroundColor,
         ...presentation.accentTextProperties,
+        ...presentation.textScaleProperties,
       })}
       role=${tap ? 'button' : nothing}
       tabindex=${tap ? '0' : nothing}
@@ -1208,9 +1275,142 @@ function renderBanner(
       .calendarCardEventTap=${tap}
       .calendarCardDaySlot=${Activation.COVERED}
     >
-      <span class="grid-banner-title">${event.summary ?? ''}</span>
+      ${
+        times
+          ? renderTimedBannerContent(
+              event,
+              times,
+              presentation.contentParts,
+              config,
+              language,
+              hass,
+              duration,
+            )
+          : lasts
+            ? html`<span class="grid-banner-title">${event.summary ?? ''}</span>${duration}`
+            : html`<span class="grid-banner-title">${event.summary ?? ''}</span>`
+      }
     </div>
   `;
+}
+
+/**
+ * Whether a banner covers fewer of its event's days than the event takes up: where it runs past
+ * the window's edge, and as well where days the card does not draw, or a column the event's
+ * calendar leaves out, take days out of its middle without cutting it at either end.
+ *
+ * @param event - The banner's event
+ * @param placement - The columns it spans
+ * @returns True where the banner shows only part of its event
+ */
+function bannerShowsPart(event: Types.CalendarEventData, placement: Grid.BannerPlacement): boolean {
+  if (placement.continuesBefore || placement.continuesAfter) return true;
+  const source = event._gridSource ?? event;
+  const days =
+    source.start.date && source.end.date
+      ? FormatUtils.getCalendarDayDiff(
+          FormatUtils.parseAllDayDate(source.start.date),
+          FormatUtils.parseAllDayDate(source.end.date),
+        )
+      : (FormatUtils.fullDaySpan(source.start, source.end)?.days ?? 1);
+  return placement.span < days;
+}
+
+/** The times a timed banner draws at its ends, and whether they are 12-hour readings. */
+interface BannerTimes {
+  start: string | null;
+  end: string | null;
+  long: boolean;
+}
+
+/**
+ * The times a timed banner draws at its ends, each `null` where it draws none.
+ *
+ * A time sits at an end only where that end is on screen; past the window's edge, or past a
+ * day the banner skips, the continuation mark takes its place. An end at a day's first moment
+ * draws no time, because the banner's edge already says it: that is 0:00 in most zones and 1:00
+ * on a day the clocks go forward at midnight, while the second 0:00 of a day they go back at
+ * midnight is an hour into that day and keeps its time. `show_time` off draws neither, and
+ * `show_end_time` off draws the start alone.
+ *
+ * @param event - The banner's event, with its own start and end
+ * @param placement - The days it spans on screen
+ * @param parts - Its shared content, for whether it shows a time at all
+ * @param config - Card configuration
+ * @param hass - Home Assistant instance
+ * @returns The start and end texts, and whether they are 12-hour readings
+ */
+function bannerTimes(
+  event: Types.CalendarEventData,
+  placement: Grid.BannerPlacement,
+  parts: Leaves.EventContentParts,
+  config: Types.Config,
+  hass?: Types.Hass | null,
+): BannerTimes {
+  const none = { start: null, end: null, long: false };
+  if (!parts.shouldShowTime || !event.start.dateTime || !event.end.dateTime) return none;
+  const start = new Date(event.start.dateTime);
+  const end = new Date(event.end.dateTime);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return none;
+
+  const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
+  const reading = (date: Date) =>
+    date.getTime() === Grid.startOfDay(date).getTime()
+      ? null
+      : FormatUtils.isolateClockReadings(
+          FormatUtils.formatTime(date, use24h, config.time_two_digit_hours),
+        );
+  return {
+    start: placement.continuesBefore ? null : reading(start),
+    end: placement.continuesAfter || !config.show_end_time ? null : reading(end),
+    long: !use24h,
+  };
+}
+
+/**
+ * A timed banner's content: its start time, its title and its end time, drawn for the eye,
+ * and a name of its own for assistive technology, as a timed block has (`grid-accessibility.ts`).
+ *
+ * @param event - The banner's event
+ * @param times - The times at its ends
+ * @param parts - Its shared content
+ * @param config - Card configuration
+ * @param language - Language code for translations
+ * @param hass - Home Assistant instance
+ * @param duration - The event's length, drawn after the title (`show_duration`)
+ * @returns The content
+ */
+function renderTimedBannerContent(
+  event: Types.CalendarEventData,
+  times: BannerTimes,
+  parts: Leaves.EventContentParts,
+  config: Types.Config,
+  language: string,
+  hass?: Types.Hass | null,
+  duration: TemplateResult | typeof nothing = nothing,
+): TemplateResult {
+  return html`<div
+      class="grid-event-accessible"
+      role="group"
+      lang=${language}
+      aria-label=${gridBannerAccessibleName(event, parts, config, hass)}
+    ></div>
+    <div
+      class=${classMap({
+        'grid-banner-content': true,
+        'grid-banner-two-times': times.start !== null && times.end !== null,
+        'grid-banner-long-times': times.long,
+      })}
+      aria-hidden="true"
+    >
+      ${times.start === null ? nothing : html`<span class="grid-banner-time">${times.start}</span>`}
+      <span class="grid-banner-title">${event.summary ?? ''}</span>${duration}
+      ${
+        times.end === null
+          ? nothing
+          : html`<span class="grid-banner-time grid-banner-time-end">${times.end}</span>`
+      }
+    </div>`;
 }
 
 /**
@@ -1452,7 +1652,9 @@ export function gridDrawsEvent(gridDays: Types.EventsByDay[], config: Types.Conf
  *   evaluated against one clock reading
  * @param cascadeThresholdMin - Minutes a later event must start below an earlier one to be
  *   drawn over it, measured by the host for the scale the card is drawn at; the floor until
- *   a first measurement exists. See `grid-cascade-threshold.ts`
+ *   a first measurement exists. Either one for every event, or one for each `text_scale`
+ *   the card's calendars draw at, which each event drawn over takes by its own. See
+ *   `grid-cascade-threshold.ts`
  * @param overflowStripPct - Width the `+N` strip prefers, as a percentage of a day column,
  *   measured by the host off a rendered label; `Infinity` until then, which leaves the strip
  *   as wide as its bounds allow. See `grid-overflow-strip.ts`
@@ -1472,7 +1674,8 @@ export function renderGridGroupedEvents(
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
   now: Date = new Date(),
-  cascadeThresholdMin: number = CascadeThreshold.CASCADE_THRESHOLD_FLOOR_MIN,
+  cascadeThresholdMin:
+    number | CascadeThreshold.CascadeThresholds = CascadeThreshold.CASCADE_THRESHOLD_FLOOR_MIN,
   overflowStripPct = Infinity,
   eventsTappable = false,
   dayAdd?: Activation.DayAddButtons,
@@ -1819,7 +2022,7 @@ function renderDayHeader(
   dayAdd?: Activation.DayAddButtons,
 ): TemplateResult {
   const dayDate = new Date(day.timestamp);
-  const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
+  const { isToday, isTomorrow, isPast } = Leaves.classifyDay(day.timestamp);
   const weatherContent = Leaves.renderDateWeather(dayDate, config, weatherForecasts);
 
   return html`
@@ -1829,6 +2032,7 @@ function renderDayHeader(
         today: isToday,
         tomorrow: isTomorrow,
         'future-day': !isToday,
+        'past-day': isPast,
         weekend: FormatUtils.isWeekendDate(dayDate, hass),
       })}
       style=${styleMap({ gridColumn: String(columnIndex + 2), gridRow: '2' })}
@@ -1859,7 +2063,7 @@ function renderDayHeader(
  * @param columnIndex - Zero-based day track
  * @param maxLanes - Overlap cap
  * @param cascadeThresholdMin - Minutes below an earlier event a later one must start to be
- *   drawn over it, under the cascade
+ *   drawn over it, under the cascade: one for every event, or one per `text_scale`
  * @param overflowStripPct - Width the `+N` strip prefers, as a percentage of the column
  * @param showNowLine - Whether the now line is enabled
  * @param now - Instant to draw the now line at
@@ -1876,7 +2080,7 @@ function renderDayBody(
   language: string,
   columnIndex: number,
   maxLanes: number,
-  cascadeThresholdMin: number,
+  cascadeThresholdMin: number | CascadeThreshold.CascadeThresholds,
   overflowStripPct: number,
   showNowLine: boolean,
   now: Date,
@@ -1886,7 +2090,7 @@ function renderDayBody(
   dayLabelId?: string,
 ): TemplateResult {
   const dayDate = new Date(day.timestamp);
-  const { isToday } = Leaves.classifyDay(day.timestamp);
+  const { isToday, isPast } = Leaves.classifyDay(day.timestamp);
   const { timed } = sortDayEvents(day);
   // Lanes are shared out among events that overlap, so the set they are computed over
   // decides how wide each drawn block is. Handing `layoutLanes` the whole day let an event
@@ -1909,7 +2113,12 @@ function renderDayBody(
 
   if (cascade) {
     const layout = Grid.layoutCascade(visible, band, {
-      thresholdMin: cascadeThresholdMin,
+      thresholdMin: CascadeThreshold.thresholdForScale(cascadeThresholdMin, 1),
+      hostThresholdMin: (host) =>
+        CascadeThreshold.thresholdForScale(
+          cascadeThresholdMin,
+          TextScale.textScaleOf(host, config),
+        ),
       indentPct: Grid.CASCADE_INDENT_PCT,
       maxDepth: Grid.CASCADE_MAX_DEPTH,
       maxLanes,
@@ -1977,6 +2186,7 @@ function renderDayBody(
       class=${classMap({
         'grid-day-body': true,
         today: isToday,
+        'past-day': isPast,
         weekend: FormatUtils.isWeekendDate(dayDate, hass),
       })}
       style=${styleMap({ gridColumn: String(columnIndex + 2), gridRow: '4' })}

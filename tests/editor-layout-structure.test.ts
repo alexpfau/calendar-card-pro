@@ -184,6 +184,100 @@ describe('Layout panel structure', () => {
   });
 });
 
+/**
+ * The Day Header panel as each workspace shows it.
+ *
+ * What every date shares first, then the header's geometry and week numbering, then the
+ * exceptions by the kind of day: today visible, with its indicator right after it, and past
+ * days and weekends collapsed. Today's colors were in a collapsed group at the panel's foot,
+ * with Week Numbers between them and the indicator, so restyling today meant two places.
+ */
+describe('Day Header panel structure', () => {
+  function dayHeader(workspace: EditorWorkspace, options: Partial<Types.Config> = {}): string[] {
+    const panel = PANELS.find((candidate) => candidate.id === 'day_header');
+    if (panel === undefined) throw new Error('Day Header panel not found');
+    const ctx = ctxFor(workspace);
+    return outline(renderedPanel(panel, { ...ctx, config: { ...ctx.config, ...options } }));
+  }
+
+  /** The fields of one collapsible, which `outline` deliberately does not open. */
+  function group(workspace: EditorWorkspace, name: string, options: Partial<Types.Config> = {}) {
+    const panel = PANELS.find((candidate) => candidate.id === 'day_header')!;
+    const ctx = ctxFor(workspace);
+    const node = renderedPanel(panel, { ...ctx, config: { ...ctx.config, ...options } }).find(
+      (candidate) =>
+        'type' in candidate && candidate.type === 'expandable' && candidate.name === name,
+    );
+    if (node === undefined || !('schema' in node)) throw new Error(`no ${name} group`);
+    return node.schema
+      .flatMap((child) => ('schema' in child ? child.schema : [child]))
+      .map((child) => child.name);
+  }
+
+  const SHARED_START = [
+    'Weekday Font Size',
+    'Weekday Color',
+    'Day Number Font Size',
+    'Day Number Color',
+    'Show Month',
+    'Month Font Size',
+    'Month Color',
+  ];
+  const BY_DAY = [
+    '— Week Numbers —',
+    'Numbering',
+    '— Today —',
+    "Today's Date Scale",
+    "Today's Font Weight",
+    "Today's Weekday Color",
+    "Today's Day Number Color",
+    "Today's Month Color",
+    '— Today Indicator —',
+    'Style',
+    'Indicator Color',
+    '[Past Days]',
+    '[Weekend Colors]',
+  ];
+  const GAP_AND_RULE = [
+    '— Gap & Rule —',
+    'Day Header Gap',
+    'Day Header Rule Width',
+    'Day Header Rule Color',
+  ];
+
+  it('shows the list workspace its alignment, and no gap or rule', () => {
+    expect(dayHeader('list')).toEqual(['Vertical Alignment', ...SHARED_START, ...BY_DAY]);
+  });
+
+  it.each(['column', 'grid'] as const)('shows the %s workspace its gap and rule', (workspace) => {
+    expect(dayHeader(workspace)).toEqual([...SHARED_START, ...GAP_AND_RULE, ...BY_DAY]);
+  });
+
+  it('shows the shared workspace only what every view shares', () => {
+    expect(dayHeader('shared')).toEqual([...SHARED_START, ...BY_DAY]);
+  });
+
+  it('puts the fade first among the past-day fields', () => {
+    expect(group('list', 'past_days')).toEqual([
+      'past_date_opacity',
+      'past_date_scale',
+      'past_date_font_weight',
+    ]);
+  });
+
+  it('hides every month color while the month is hidden', () => {
+    const outline = dayHeader('list', { show_month: false });
+
+    expect(outline).not.toContain('Month Color');
+    expect(outline).not.toContain("Today's Month Color");
+    expect(group('list', 'weekend_colors', { show_month: false })).toEqual([
+      'weekend_weekday_color',
+      'weekend_day_color',
+    ]);
+    expect(group('list', 'weekend_colors')).toContain('weekend_month_color');
+  });
+});
+
 describe('Collapsibles come last in every panel', () => {
   // Alex's complaint, generalized. A "Gap & Rule" run was appended *below* Day Header's
   // four collapsibles, so the panel opened on a disclosure and then produced two more

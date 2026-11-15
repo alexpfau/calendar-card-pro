@@ -15,6 +15,7 @@ import { styleMap } from 'lit/directives/style-map.js';
 import * as Activation from './activation';
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
+import * as TextScale from './text-scale';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
 import * as ColorMix from '../utils/color-mix';
@@ -153,6 +154,7 @@ function renderColumnSeparator(
  * @param hass - Home Assistant instance, for locale-aware formatting
  * @param eventsTappable - Whether the event is a tap target of its own
  * @param dayLabelId - The id of the day's header, which describes a tappable event
+ * @param countdownRepeated - Whether the countdown repeats the one above it and is left out
  * @returns Rendered event
  */
 function renderColumnEvent(
@@ -165,8 +167,10 @@ function renderColumnEvent(
   hass?: Types.Hass | null,
   eventsTappable = false,
   dayLabelId?: string,
+  countdownRepeated = false,
 ): TemplateResult {
-  const presentation = Presentation.buildEventPresentation(event, config, language, hass);
+  const presented = Presentation.buildEventPresentation(event, config, language, hass);
+  const presentation = countdownRepeated ? Presentation.withoutCountdown(presented) : presented;
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
 
   const isFirst = index === 0;
@@ -181,6 +185,7 @@ function renderColumnEvent(
     'event-interactive': tap !== undefined,
     'event-now': presentation.isNow,
     'search-ring': event._searchRing === true,
+    [TextScale.TEXT_SCALED_CLASS]: presentation.textScaled,
   };
 
   // Column view places two of these differently from list view: the countdown rides the
@@ -190,7 +195,7 @@ function renderColumnEvent(
     <div
       class=${classMap(eventClasses)}
       style="--calendar-card-event-accent-bar-color: ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};${Helpers.styleDeclarations(
-        presentation.accentTextProperties,
+        { ...presentation.accentTextProperties, ...presentation.textScaleProperties },
       )}"
       role=${tap ? 'button' : nothing}
       tabindex=${tap ? '0' : nothing}
@@ -240,7 +245,7 @@ function renderDayColumn(
   dayAdd?: Activation.DayAddButtons,
 ): TemplateResult {
   const dayDate = new Date(day.timestamp);
-  const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
+  const { isToday, isTomorrow, isPast } = Leaves.classifyDay(day.timestamp);
   const isWeekendDay = FormatUtils.isWeekendDate(dayDate, hass);
 
   const weatherContent = Leaves.renderDateWeather(dayDate, config, weatherForecasts);
@@ -251,6 +256,7 @@ function renderDayColumn(
   const headerSeparator = ViewConfig.isZeroLength(separatorWidth)
     ? null
     : { width: separatorWidth, color: separatorColor };
+  const repeatedCountdowns = Presentation.repeatedCountdowns(day.events, config, language);
 
   return html`
     <div
@@ -259,6 +265,7 @@ function renderDayColumn(
         today: isToday,
         tomorrow: isTomorrow,
         'future-day': !isToday,
+        'past-day': isPast,
         weekend: isWeekendDay,
       })}
       style=${styleMap({ gridColumn: String(columnIndex + 1), gridRow: '2' })}
@@ -292,6 +299,7 @@ function renderDayColumn(
               hass,
               eventsTappable,
               dayLabelId,
+              repeatedCountdowns.has(index),
             ),
         )}
       </div>

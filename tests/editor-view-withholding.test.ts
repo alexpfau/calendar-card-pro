@@ -21,6 +21,7 @@ import { configKeysForField } from '../src/rendering/editor/synthetic';
 import * as Grid from '../src/rendering/grid';
 import * as List from '../src/rendering/render';
 import * as EventUtils from '../src/utils/events';
+import { showsEventWeather } from '../src/utils/weather-position';
 
 customElements.define('editor-view-withholding-test', CalendarCardProEditor);
 
@@ -319,6 +320,7 @@ describe('view withholding reconciles both directions', () => {
         true,
         'custom',
         toolbar.show && toolbar.legend !== false,
+        showsEventWeather(config.weather),
       );
       const expected = expectedFields(raw, view, true);
       expect(fields(raw).length).toBeGreaterThan(10);

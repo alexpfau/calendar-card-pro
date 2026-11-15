@@ -171,7 +171,7 @@ function dayjsName(tag, dayjsNames) {
  * The schema is the field registry, so panels are built and walked instead of parsed from
  * source. Each node has both group-qualified and bare label candidates.
  */
-async function readEditorSchemaKeys() {
+export async function readEditorSchemaKeys() {
   const editor = await loadEditor();
   const {
     PANELS,
@@ -196,6 +196,8 @@ async function readEditorSchemaKeys() {
   const titles = new Set();
   /** Every key a `.helper` string could actually be looked up under. */
   const helpers = new Set();
+  /** Every key an `.aliases` string could be looked up under: a field's, never a group's. */
+  const aliasKeys = new Set();
   /** Every key that is legitimately the root of a table entry. */
   const roots = new Set();
 
@@ -205,11 +207,21 @@ async function readEditorSchemaKeys() {
    * @param schema - Schema to walk
    * @param path - Label path it is rendered under
    * @param bareHelper - Whether an unqualified `.helper` can be reached from it
+   * @param searched - Whether the editor's search reads it: the panels and their forms are
+   *   searched, the controls around them (the view picker, the filter bar, Quick Setup) are not
    */
-  const collect = (schema, path, bareHelper) => {
+  const collect = (schema, path, bareHelper, searched = true) => {
     for (const { node, path: nodePath } of walkSchema(schema, path)) {
       // A grid is layout, not a label scope.
       if (node.type === 'grid' || !node.name) continue;
+
+      // Mirrors `computeAliases`: the key the label resolves under, then the bare name. Only a
+      // field the search reads is found by its own words; a group, a sub-heading or a control
+      // outside the panels never is.
+      if (searched && 'selector' in node) {
+        aliasKeys.add(node.titleKey ?? [...nodePath, node.name].join('.'));
+        aliasKeys.add(node.name);
+      }
 
       // A group uses `titleKey` for its heading and helper.
       if (node.titleKey !== undefined) {
@@ -247,7 +259,7 @@ async function readEditorSchemaKeys() {
   }
 
   // The chassis declares schema and text outside the panels.
-  for (const subform of chassisSubforms()) collect(subform.schema, subform.path, true);
+  for (const subform of chassisSubforms()) collect(subform.schema, subform.path, true, false);
   for (const prefix of CHASSIS_STRINGS) roots.add(prefix);
 
   for (const config of probeConfigs(DEFAULT_CONFIG, VIEWS)) {
@@ -267,6 +279,7 @@ async function readEditorSchemaKeys() {
     labels,
     titles,
     helpers,
+    aliasKeys,
     roots,
     strings: EDITOR_STRINGS,
     // Both scope tables make the same promise on different surfaces, but a key may
@@ -775,8 +788,16 @@ function checkDayjsWiring(entries, { imports, supported, specialCased, dayjsName
  * that label nothing. Helper text remains optional.
  */
 async function checkEditorStrings() {
-  const { labels, titles, helpers, roots, strings, viewScopeEntries, defaultOverridesByView } =
-    await readEditorSchemaKeys();
+  const {
+    labels,
+    titles,
+    helpers,
+    aliasKeys,
+    roots,
+    strings,
+    viewScopeEntries,
+    defaultOverridesByView,
+  } = await readEditorSchemaKeys();
   const { LABELED_ACTIONS, cardActionLabelKey } = await loadEditor();
 
   assertFound([...labels.keys()], 'any labeled fields in the editor panels', PANELS_TS);
@@ -859,6 +880,18 @@ async function checkEditorStrings() {
           'strings.ts',
           `\`${key}\` can never be looked up — no field or heading resolves its helper ` +
             `under that key`,
+        );
+      }
+      continue;
+    }
+
+    // Exact for the same reason: a prefix test would accept aliases filed under a group's
+    // name or a heading's, which search never reads, so the words would silently find nothing.
+    if (key.endsWith('.aliases')) {
+      if (!aliasKeys.has(key.slice(0, -'.aliases'.length))) {
+        error(
+          'strings.ts',
+          `\`${key}\` can never be searched — no field resolves its aliases under that key`,
         );
       }
       continue;
@@ -1214,6 +1247,16 @@ const placeholders = (text) => (text.match(/\{\w+\}/g) ?? []).sort();
 export const isOverlongLabel = ({ value, english }) => value > 24 && value > english * 2.2;
 
 /**
+ * Whether a key is a label, the short name a control or option is shown by. A helper is a
+ * sentence, and an alias list is words for search that is never shown, so neither is held to
+ * the rules written for what a control is called.
+ *
+ * @param key - String key
+ * @returns `true` for a label
+ */
+export const isLabelKey = (key) => !key.endsWith('.helper') && !key.endsWith('.aliases');
+
+/**
  * A label's length for the length advisory, net of a term it shares with a shorter label.
  *
  * The advisory compares a translation with its English, and the ratio between them is a
@@ -1249,7 +1292,7 @@ export function labelLengthBasis(key, value, english, translated, locale) {
   let term;
   for (const [other, otherEnglish] of Object.entries(english)) {
     const otherValue = translated[other];
-    if (other === key || other.endsWith('.helper')) continue;
+    if (other === key || !isLabelKey(other)) continue;
     if (typeof otherEnglish !== 'string' || typeof otherValue !== 'string') continue;
     if (otherEnglish.length >= own.length || !otherValue.trim()) continue;
     if (!words(own).includes(words(otherEnglish))) continue;
@@ -1351,7 +1394,7 @@ async function checkTranslationQuality(languages, glossary) {
       }
 
       // --- length ceiling (advisory) --------------------------------------
-      const length = key.endsWith('.helper')
+      const length = !isLabelKey(key)
         ? null
         : labelLengthBasis(key, value, EDITOR_STRINGS, data, code);
       if (length && isOverlongLabel(length)) {
@@ -1365,7 +1408,7 @@ async function checkTranslationQuality(languages, glossary) {
       }
 
       // --- orthography: the Title Case calque ------------------------------
-      if (!key.endsWith('.helper') && value.trim().split(/\s+/).length > 1) {
+      if (isLabelKey(key) && value.trim().split(/\s+/).length > 1) {
         multiWordLabels.push(key);
         const rest = value.trim().split(/\s+/).slice(1);
         const capitalised = rest.filter((word) => {
@@ -1406,7 +1449,7 @@ async function checkTranslationQuality(languages, glossary) {
 function checkCollapsedLabels(where, data, strings) {
   const byValue = new Map();
   for (const key of Object.keys(data)) {
-    if (key.endsWith('.helper') || !(key in strings)) continue;
+    if (!isLabelKey(key) || !(key in strings)) continue;
     const list = byValue.get(data[key]) ?? [];
     list.push(key);
     byValue.set(data[key], list);
@@ -1433,11 +1476,17 @@ function checkCollapsedLabels(where, data, strings) {
  * Rejected forms are matched case-insensitively at a word start, including compounds, and
  * only inside keys governed by the term. Missing decided forms are warnings because
  * inflection makes exact equality too strict.
+ *
+ * Alias lists are governed by neither. They hold the words people search for a setting by,
+ * which are often the very forms the termbase rejected for the interface: a German user may
+ * well type "Ereignis" for what the editor calls a "Termin", and the search should find it.
  */
 function checkGlossaryAdherence(where, code, data, strings, glossary) {
   for (const term of glossary.terms) {
-    const governed = Object.keys(strings).filter((k) =>
-      new RegExp(`\\b${term.name.replace(/\s+/g, '\\s+')}`, 'i').test(strings[k]),
+    const governed = Object.keys(strings).filter(
+      (k) =>
+        !k.endsWith('.aliases') &&
+        new RegExp(`\\b${term.name.replace(/\s+/g, '\\s+')}`, 'i').test(strings[k]),
     );
 
     for (const form of term.rejected[code] ?? []) {
