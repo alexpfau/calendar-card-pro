@@ -23,8 +23,8 @@ export const AGENDA_GUIDE = join(__dirname, '..', 'docs', 'guide', 'one-calendar
 export const STORY_GUIDES = [
   HUB_GUIDE,
   AGENDA_GUIDE,
-  ...['now-and-next', 'today-and-tomorrow', 'birthdays-and-holidays', 'bin-day'].map((page) =>
-    join(__dirname, '..', 'docs', 'guide', `${page}.md`),
+  ...['now-and-next', 'today-and-tomorrow', 'birthdays-and-holidays', 'bin-day', 'house-log'].map(
+    (page) => join(__dirname, '..', 'docs', 'guide', `${page}.md`),
   ),
 ];
 

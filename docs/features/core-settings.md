@@ -1300,7 +1300,8 @@ list:
   [date navigation](/features/layout-appearance#paging-through-dates) still moves back and
   forward in time.
 - **How long ago,** such as "13 days ago", shows on each entry with `show_countdown: true`; see
-  [Counting Up From Past Events](/features/event-content#counting-up-from-past-events).
+  [Counting Up From Past Events](/features/event-content#counting-up-from-past-events). The
+  [House Log](/guide/house-log) story is a complete card built this way.
 
 ::: details Empty Days in a Latest-First List
 With `show_empty_days` the days run from the window's last day back. A card with nothing to

@@ -15,7 +15,7 @@ what a story cannot know about your home: the title, your calendars, your weathe
 card should answer a tap. Use it on a new card to get a finished-looking one in a few steps, or
 on an existing card to try a different look without retyping anything.
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_quick_setup.png" alt="Home Assistant's card editor with Quick Setup open on its first step, Starting Point: four stories to start from with Family Hub picked, beside a preview already drawing the Family Hub card"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_quick_setup.png" alt="Home Assistant's card editor with Quick Setup open on its first step, Starting Point: five stories to start from with Family Hub picked, beside a preview already drawing the Family Hub card"><br>
 
 Pick a story and the preview draws it at once, on your own calendars as soon as you name them.
 
@@ -48,13 +48,13 @@ entities:
     accent_color: '#26a69a'
 ```
 
-| Step                  | What it asks                                                                                                                                                                    |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Starting Point**    | [Family Hub](/guide/family-calendar), [Now & Next](/guide/now-and-next), [Today & Tomorrow](/guide/today-and-tomorrow) or [Birthdays & Holidays](/guide/birthdays-and-holidays) |
-| **Title & Calendars** | The card's title, and its calendars; at least one                                                                                                                               |
-| **Weather**           | A weather entity, or none                                                                                                                                                       |
-| **Taps & Toolbar**    | Whether to show the toolbar, open an event on a tap, and add an event on a tap on a day                                                                                         |
-| **Review**            | What Apply will change, then **Apply**                                                                                                                                          |
+| Step                  | What it asks                                                                                                                                                                                                   |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Starting Point**    | [Family Hub](/guide/family-calendar), [Now & Next](/guide/now-and-next), [Today & Tomorrow](/guide/today-and-tomorrow), [Birthdays & Holidays](/guide/birthdays-and-holidays) or [House Log](/guide/house-log) |
+| **Title & Calendars** | The card's title, and its calendars; at least one                                                                                                                                                              |
+| **Weather**           | A weather entity, or none                                                                                                                                                                                      |
+| **Taps & Toolbar**    | Whether to show the toolbar, open an event on a tap, and add an event on a tap on a day                                                                                                                        |
+| **Review**            | What Apply will change, then **Apply**                                                                                                                                                                         |
 
 - **The preview follows every answer.** **Cancel** puts the card back exactly as it was.
 - **The story replaces the card's look**: its layout, spacing, toolbar settings and actions, and
@@ -67,7 +67,7 @@ entities:
 
 ::: details When Quick Setup Behaves Differently
 
-- Two of the six stories are not offered. [Bin Day](/guide/bin-day) and
+- Two of the seven stories are not offered. [Bin Day](/guide/bin-day) and
   [Family Agenda](/guide/one-calendar-many-purposes) sort events by words in their titles and
   descriptions, which no question can guess for your calendars; copy them from their pages.
 - A story's names and labels for each calendar are not carried over: they belong to the

@@ -822,7 +822,8 @@ show_past_events: true # Keep finished events on the card
 - With the [progress bar](#progress-bar-display) on, an event a day or longer keeps its
   [day counter](/features/multi-day-events#day-counter) after it ends, such as "Day 1 of 3",
   rather than counting up.
-- For a log with the newest entry first, see [Event Order](/features/core-settings#event-order).
+- For a log with the newest entry first, see [Event Order](/features/core-settings#event-order),
+  and the [House Log](/guide/house-log) story for a complete card.
 - In the visual editor it comes with **Show Countdown**.
 
 ### Countdown Range
