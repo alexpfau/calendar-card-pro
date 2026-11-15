@@ -98,7 +98,7 @@ The visual editor's search matched only what is on screen and the option names, 
 - [#299](https://github.com/alexpfau/calendar-card-pro/issues/299) - Show an event's duration alongside its time by @Soundistor
 - [#150](https://github.com/alexpfau/calendar-card-pro/issues/150) - Scale a calendar's event text, to make some calendars less prominent, by @BSkando
 - [#247](https://github.com/alexpfau/calendar-card-pro/issues/247) - Turn weather off for an individual calendar by @cromelex
-- [#619](https://github.com/alexpfau/calendar-card-pro/issues/619) - Style past, today and future day headings separately, including weight and size, by @codetalker78. Today's and past days' size and weight shipped, and past days fade; italic and a color of their own for past days are left to card-mod through the new `past-day` class, so it **stays open**
+- [#619](https://github.com/alexpfau/calendar-card-pro/issues/619) - Style past, today and future day headings separately, including weight and size, by @codetalker78. Today's and past days' size and weight shipped, and past days fade; italic and a color of their own for past days are possible with card-mod through the new `past-day` class
 - [#222](https://github.com/alexpfau/calendar-card-pro/issues/222) - Skip the first N events, so a second card can continue the list, by @loryanstrant
 - [#820](https://github.com/alexpfau/calendar-card-pro/issues/820) - 1 hour event wont scroll title text by @kaikri31
 
