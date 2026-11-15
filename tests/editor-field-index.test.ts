@@ -94,11 +94,26 @@ function withValue(
 }
 
 /**
+ * Text fields that write only what a rule of their own accepts and hold the rest as pending
+ * text, with values from both sides of that rule. An offset is written once
+ * `synthetic.ts` › `isCommittableOffset` resolves it, as `-3` and `+2` are, and a sign typed on
+ * its own is held. A custom today indicator is written when it reads as its own characters or as
+ * an image address, and an icon, which belongs to another style, is held. Every other text field
+ * writes whatever is typed, `13px` included. A field that never writes in some workspace fails
+ * the lift test, so a rule added later cannot pass on held text alone.
+ */
+const RULED_TEXT: Readonly<Record<string, ReadonlyArray<string>>> = {
+  start_date_offset: ['-3', '+2', '-'],
+  today_indicator_custom: ['🎂', '/local/today.png', 'mdi:star'],
+};
+
+/**
  * The values a control can be set to besides the one it shows, read from its own bounds and
  * options: both answers of a switch, every option of a select, every action its dropdown
- * offers, and for a number one step either side, its bounds and their midpoint, kept within the
- * bounds. Normalization can still carry a value back to the current one, which is why a trial
- * counts only once it changes something.
+ * offers, for a number one step either side, its bounds and their midpoint, kept within the
+ * bounds, and for text a field's own rule where it has one (`RULED_TEXT`). Normalization can
+ * still carry a value back to the current one, which is why a trial counts only once it changes
+ * something.
  *
  * @param node - The field
  * @param current - Its form value
@@ -106,7 +121,7 @@ function withValue(
  */
 function candidateValues(node: SelectorSchema, current: unknown): unknown[] {
   const selector = node.selector;
-  let values: unknown[] = [];
+  let values: ReadonlyArray<unknown> = [];
   if ('boolean' in selector) {
     values = [true, false];
   } else if ('number' in selector) {
@@ -130,7 +145,7 @@ function candidateValues(node: SelectorSchema, current: unknown): unknown[] {
         ? ['2026-02-03', '2026-03-04']
         : type === 'time'
           ? ['08:00', '09:30']
-          : ['13px', '14px'];
+          : (RULED_TEXT[node.name] ?? ['13px', '14px']);
   } else if ('ui_action' in selector) {
     values = (selector.ui_action?.actions ?? ['none', 'more-info']).map((action) => ({ action }));
   } else if ('entity' in selector) {
@@ -317,14 +332,17 @@ describe('indexed fields', () => {
 
 describe('a lifted field routes as it does from its panel', () => {
   it('writes the same from its one-field form in every workspace and corpus state', () => {
-    let compared = 0;
+    let storedWrites = 0;
+    let heldEdits = 0;
     let controlCompared = 0;
     let controlDiffer = 0;
-    let unchanged = 0;
+    let unwritten = 0;
     let turn = 0;
     const differ: string[] = [];
-    /** Edits that changed something, by workspace and field; zero where every one was undone. */
-    const effective = new Map<string, number>();
+    /** Edits that changed the stored configuration, by workspace and field. */
+    const stored = new Map<string, number>();
+    /** Edits held as pending text and stored nowhere; every field with a rule of its own holds. */
+    const held = new Map<string, number>();
     const same = (
       config: Types.Config,
       a: ReturnType<typeof Routing.applyWorkspaceChange>,
@@ -354,20 +372,24 @@ describe('a lifted field routes as it does from its panel', () => {
           if (!('selector' in node)) continue;
           const id = fieldId(panel.id, dataPath, node.name);
           const key = `${workspace} ${id}`;
-          effective.set(key, effective.get(key) ?? 0);
+          const ruled = 'text' in node.selector && node.name in RULED_TEXT;
+          stored.set(key, stored.get(key) ?? 0);
+          if (ruled) held.set(key, held.get(key) ?? 0);
           let current: unknown = data;
           for (const part of [...dataPath, node.name]) {
             current = (current as Record<string, unknown> | undefined)?.[part];
           }
 
           // An edit normalized back to the value it replaced writes nothing from either form, so
-          // two no-ops would compare equal however the lift had gone. Each state starts one
-          // candidate further on, and the first that changes the stored configuration is the
-          // one compared, so a field is written to different values across the corpus.
+          // two no-ops would compare equal however the lift had gone, and text held while it is
+          // typed writes nothing either. Each state starts one candidate further on; the first
+          // edit that changes the stored configuration is compared, and for a field with a rule
+          // of its own the first that is only held as well, each counted apart.
           const candidates = candidateValues(node, current);
           const start = candidates.length > 0 ? turn++ % candidates.length : 0;
-          let found = false;
-          for (let step = 0; step < candidates.length && !found; step += 1) {
+          let wrote = false;
+          let kept = false;
+          for (let step = 0; step < candidates.length && !(wrote && (kept || !ruled)); step += 1) {
             const value = candidates[(start + step) % candidates.length];
             const incoming = withValue(data, dataPath, node.name, value);
             const wide = Routing.applyWorkspaceChange(
@@ -376,11 +398,21 @@ describe('a lifted field routes as it does from its panel', () => {
               incoming,
               {},
             );
-            found =
-              !deepEqual(wide.pending, {}) ||
-              !deepEqual(toStoredConfig(wide.config, new Set(), authored), before);
-            if (!found) continue;
-            effective.set(key, effective.get(key)! + 1);
+            const outcome = !deepEqual(toStoredConfig(wide.config, new Set(), authored), before)
+              ? 'stored'
+              : deepEqual(wide.pending, {})
+                ? 'nothing'
+                : 'held';
+            if (outcome === 'nothing' || (outcome === 'stored' ? wrote : kept)) continue;
+            if (outcome === 'stored') {
+              wrote = true;
+              storedWrites += 1;
+              stored.set(key, stored.get(key)! + 1);
+            } else {
+              kept = true;
+              heldEdits += 1;
+              held.set(key, (held.get(key) ?? 0) + 1);
+            }
 
             const field = index.get(id)!;
             expect(field.dataPath).toEqual(dataPath);
@@ -390,7 +422,6 @@ describe('a lifted field routes as it does from its panel', () => {
               incoming,
               {},
             );
-            compared += 1;
             if (!same(config, wide, one)) {
               differ.push(`${workspace} ${state.gate ?? 'fresh'} ${id} = ${JSON.stringify(value)}`);
             }
@@ -407,7 +438,7 @@ describe('a lifted field routes as it does from its panel', () => {
               if (!same(config, wide, bare)) controlDiffer += 1;
             }
           }
-          if (!found) unchanged += 1;
+          if (!wrote) unwritten += 1;
         }
       }
     }
@@ -418,18 +449,21 @@ describe('a lifted field routes as it does from its panel', () => {
         .filter((id) => parseFieldId(id).scope !== 'calendar')
         .map((id) => `${workspace} ${id}`),
     );
-    const neverChanged = [...effective].filter(([, count]) => count === 0).map(([key]) => key);
+    const never = (counts: ReadonlyMap<string, number>): string[] =>
+      [...counts].filter(([, count]) => count === 0).map(([key]) => key);
     console.info(
-      `Lift: ${compared} edits compared over ${DISTINCT.length} distinct states, each the first ` +
-        `that changed the stored configuration; ${effective.size} fields across the workspaces, ` +
-        `${neverChanged.length} never changed; ${unchanged} field and state pairs with no ` +
-        `changing edit; ${differ.length} differ. Control without the data-path wrapper: ` +
+      `Lift: ${storedWrites} stored writes and ${heldEdits} held edits compared over ` +
+        `${DISTINCT.length} distinct states; ${stored.size} fields across the workspaces, ` +
+        `${never(stored).length} never stored; ${held.size} that hold text, ` +
+        `${never(held).length} never held; ${unwritten} field and state pairs with no stored ` +
+        `write; ${differ.length} differ. Control without the data-path wrapper: ` +
         `${controlDiffer} of ${controlCompared} differ.`,
     );
-    expect([...effective.keys()].sort()).toEqual(universe.sort());
-    expect(neverChanged).toEqual([]);
+    expect([...stored.keys()].sort()).toEqual(universe.sort());
+    expect(never(stored)).toEqual([]);
+    expect(never(held)).toEqual([]);
     expect(differ).toEqual([]);
-    expect(compared).toBeGreaterThan(1000);
+    expect(storedWrites).toBeGreaterThan(1000);
     expect(controlDiffer).toBeGreaterThan(0);
     // Tens of thousands of routed writes, about 4 s alone and past Vitest's 5 s default in a full
     // parallel run; the limit is set for a loaded machine rather than for a hang.
