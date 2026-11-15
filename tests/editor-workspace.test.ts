@@ -1,9 +1,21 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  CARD,
+  CHASSIS,
+  type FormElement,
+  changeField,
+  changeFields,
+  entry,
+  formOf,
+  formsOf,
+  labelOf,
+  mountEditor,
+  valueOf,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { VIEWS, VIEW_SCOPE } from '../src/config/view';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { lookupForView } from '../src/rendering/editor/localize';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
@@ -31,19 +43,11 @@ vi.mock('../src/rendering/editor/translations/index', async (importOriginal) => 
   };
 });
 
-customElements.define('editor-workspace-test', CalendarCardProEditor);
-
 /** Home Assistant passes sparse configs, including unchanged save echoes. */
 interface EditorHost extends HTMLElement {
   hass: unknown;
   setConfig(config: unknown): void;
   readonly updateComplete: Promise<unknown>;
-}
-
-interface Form extends HTMLElement {
-  schema: ReadonlyArray<HaFormSchema>;
-  data: Record<string, unknown>;
-  computeLabel(node: HaFormSchema): string;
 }
 
 // Written out rather than aliased to `WORKSPACES`, so the picker and the constant are two
@@ -60,38 +64,29 @@ function names(schema: ReadonlyArray<HaFormSchema>): string[] {
     .map(({ node }) => node.name);
 }
 
-function forms(editor: EditorHost, selector: string): Form[] {
-  return Array.from(editor.shadowRoot!.querySelectorAll<Form>(selector));
-}
-
-function onlyForm(editor: EditorHost, selector: string): Form {
-  const matches = forms(editor, selector);
+function onlyForm(matches: FormElement[]): FormElement {
   expect(matches).toHaveLength(1);
   return matches[0];
 }
 
-function owner(editor: EditorHost, key: string, selector = 'ha-form.panel-form'): Form {
-  const found = forms(editor, selector).filter((form) => names(form.schema).includes(key));
-  expect(found, `owner of ${key}`).toHaveLength(1);
-  return found[0];
+/** The forms directly inside the view controls, in order. */
+function viewControls(editor: EditorHost): FormElement[] {
+  return formsOf(editor, CHASSIS).filter((form) =>
+    form.parentElement?.classList.contains('view-controls'),
+  );
 }
 
 async function mount(overrides: Partial<Types.Config> = {}): Promise<EditorHost> {
-  const editor = document.createElement('editor-workspace-test') as EditorHost;
-  editor.hass = { states: {}, locale: { language: 'en' } };
-  editor.setConfig({
+  return mountEditor({
     config_version: Config.CURRENT_CONFIG_VERSION,
     entities: [{ entity: 'calendar.anna' }],
     ...overrides,
   });
-  document.body.appendChild(editor);
-  await editor.updateComplete;
-  return editor;
 }
 
 async function change(
   editor: EditorHost,
-  form: Form,
+  form: FormElement,
   values: Record<string, unknown>,
 ): Promise<void> {
   form.dispatchEvent(
@@ -105,15 +100,15 @@ async function change(
 }
 
 function workspace(editor: EditorHost): unknown {
-  return onlyForm(editor, 'ha-form.workspace-form').data[WORKSPACE_FIELD];
+  return valueOf(editor, `workspace:${WORKSPACE_FIELD}`);
 }
 
 async function choose(editor: EditorHost, value: EditorWorkspace): Promise<void> {
-  await change(editor, onlyForm(editor, 'ha-form.workspace-form'), { [WORKSPACE_FIELD]: value });
+  await changeField(editor, `workspace:${WORKSPACE_FIELD}`, value);
 }
 
 async function display(editor: EditorHost, view: Types.EffectiveView): Promise<void> {
-  await change(editor, onlyForm(editor, 'ha-form.display-view-form'), { view });
+  await changeField(editor, 'display:view', view);
 }
 
 function reports(editor: EditorHost): Array<Record<string, unknown>> {
@@ -159,7 +154,7 @@ function enabled(view: Types.EffectiveView): Partial<Types.Config> {
 }
 
 function assertWorkspaceFields(editor: EditorHost, current: EditorWorkspace): void {
-  const namesInForms = forms(editor, 'ha-form.panel-form').flatMap((form) => names(form.schema));
+  const namesInForms = formsOf(editor, CARD).flatMap((form) => names(form.schema));
   expect(namesInForms.length).toBeGreaterThan(50);
   const main = namesInForms.flatMap((name) => configKeysForField(name));
   for (const [key, scope] of Object.entries(VIEW_SCOPE)) {
@@ -170,10 +165,10 @@ function assertWorkspaceFields(editor: EditorHost, current: EditorWorkspace): vo
   }
   expect(main.includes('hour_height')).toBe(current === 'grid');
   expect(main.includes('min_day_width')).toBe(current === 'grid' || current === 'column');
-  const entity = names(onlyForm(editor, 'ha-form.entity-form').schema);
+  const entity = names(onlyForm(formsOf(editor, entry())).schema);
   expect(entity.includes('compact_events_to_show')).toBe(current === 'list');
   expect(entity.includes('split_multiday_events')).toBe(current !== 'grid');
-  expect(forms(editor, 'ha-form.exception-picker')).toHaveLength(0);
+  expect(editor.shadowRoot!.querySelectorAll('ha-form.exception-picker')).toHaveLength(0);
   if (current === 'list') {
     expect(editor.shadowRoot!.querySelectorAll('.width-table')).toHaveLength(0);
   }
@@ -192,20 +187,21 @@ describe('the chassis draws exactly the forms subforms.ts declares', () => {
   it('renders every form outside the panels from chassisSubforms, in order', async () => {
     for (const view of VIEWS) {
       const editor = await mount({ view });
-      const outside = forms(editor, 'ha-form').filter(
-        (form) => !form.closest('ha-expansion-panel'),
-      );
+      const outside = formsOf(editor).filter((form) => !form.closest('ha-expansion-panel'));
 
       // Quick Setup's forms are drawn only while it is open, one step at a time; the test below
       // walks them.
+      const chassis = chassisSubforms()
+        .filter((subform) => subform.path.length === 0)
+        .map((subform) => subform.schema);
       expect(
         outside.map((form) => form.schema),
         view,
-      ).toEqual(
-        chassisSubforms()
-          .filter((subform) => subform.path.length === 0)
-          .map((subform) => subform.schema),
-      );
+      ).toEqual(chassis);
+      expect(
+        formsOf(editor, CHASSIS).map((form) => form.schema),
+        view,
+      ).toEqual(chassis);
       editor.remove();
     }
   });
@@ -214,10 +210,10 @@ describe('the chassis draws exactly the forms subforms.ts declares', () => {
 describe('displayed view and editing workspace are separate controls', () => {
   it('renders both controls above search and declares both to the translation checker', async () => {
     const editor = await mount({ view: 'grid' });
-    const controls = forms(editor, '.view-controls > ha-form');
+    const controls = viewControls(editor);
     expect(controls.map((form) => form.className)).toEqual(['display-view-form', 'workspace-form']);
-    expect(controls[0].computeLabel(controls[0].schema[0])).toBe('Card Displays');
-    expect(controls[1].computeLabel(controls[1].schema[0])).toBe('Editing Settings For');
+    expect(labelOf(editor, 'display:view')).toBe('Card Displays');
+    expect(labelOf(editor, `workspace:${WORKSPACE_FIELD}`)).toBe('Editing Settings For');
     expect(
       [...editor.shadowRoot!.querySelector('.card-config')!.children]
         .slice(0, 3)
@@ -236,11 +232,11 @@ describe('displayed view and editing workspace are separate controls', () => {
       'event_details',
       'day_adds',
     ]);
-    expect(forms(editor, 'ha-form.panel-form').flatMap((form) => names(form.schema))).not.toContain(
-      'view',
-    );
+    expect(formsOf(editor, CARD).flatMap((form) => names(form.schema))).not.toContain('view');
 
-    const node = controls[1].schema[0];
+    const node = formOf(editor, `workspace:${WORKSPACE_FIELD}`)!.schema.find(
+      (candidate) => candidate.name === WORKSPACE_FIELD,
+    )!;
     expect(node).toHaveProperty('required', true);
     if (!('selector' in node) || !('select' in node.selector))
       throw new Error('Workspace is not a select');
@@ -261,7 +257,7 @@ describe('displayed view and editing workspace are separate controls', () => {
       const other = VIEWS.find((candidate) => candidate !== view)!;
       await choose(editor, other);
       expect(workspace(editor)).toBe(other);
-      expect(onlyForm(editor, 'ha-form.display-view-form').data.view).toBe(view);
+      expect(valueOf(editor, 'display:view')).toBe(view);
       expect(seen).toEqual([]);
     },
   );
@@ -312,7 +308,7 @@ describe('workspace transitions do not configure the card', () => {
         await choose(editor, to);
         assertWorkspaceFields(editor, to);
         expect(workspace(editor)).toBe(to);
-        expect(onlyForm(editor, 'ha-form.display-view-form').data.view).toBe(view);
+        expect(valueOf(editor, 'display:view')).toBe(view);
         expect(seen).toEqual([]);
         editor.remove();
       }
@@ -325,7 +321,7 @@ describe('workspace transitions do not configure the card', () => {
     await choose(editor, 'grid');
     await choose(editor, 'list');
     expect(seen).toEqual([]);
-    await change(editor, owner(editor, 'title'), { title: 'Example' });
+    await changeField(editor, 'card:title', 'Example');
     expect(seen).toEqual([{ entities: [{ entity: 'calendar.anna' }], title: 'Example' }]);
   });
 
@@ -333,7 +329,7 @@ describe('workspace transitions do not configure the card', () => {
     const editor = await mount();
     const seen = reports(editor);
     await choose(editor, 'grid');
-    await change(editor, owner(editor, 'event_font_size'), { event_font_size: '27px' });
+    await changeField(editor, 'events:event_font_size', '27px');
     expect(seen).toEqual([
       { entities: [{ entity: 'calendar.anna' }], time_grid: { event_font_size: '27px' } },
     ]);
@@ -345,13 +341,14 @@ describe('workspace transitions do not configure the card', () => {
     const seen = reports(editor);
     const escaped = vi.fn();
     editor.addEventListener('value-changed', escaped);
-    await change(editor, onlyForm(editor, 'ha-form.workspace-form'), {
+    // Keys the form does not draw, so the event is built by hand from the form the harness finds.
+    await change(editor, formOf(editor, `workspace:${WORKSPACE_FIELD}`)!, {
       [WORKSPACE_FIELD]: 'grid',
       view: 'column',
       title: 'Not a config edit',
     });
     expect(workspace(editor)).toBe('grid');
-    expect(onlyForm(editor, 'ha-form.display-view-form').data.view).toBe('list');
+    expect(valueOf(editor, 'display:view')).toBe('list');
     expect(escaped).not.toHaveBeenCalled();
     expect(seen).toEqual([]);
   });
@@ -360,9 +357,7 @@ describe('workspace transitions do not configure the card', () => {
     const editor = await mount();
     const warning = vi.spyOn(Logger, 'warn').mockImplementation(() => {});
     const seen = reports(editor);
-    await change(editor, onlyForm(editor, 'ha-form.workspace-form'), {
-      [WORKSPACE_FIELD]: 'not-a-workspace',
-    });
+    await changeField(editor, `workspace:${WORKSPACE_FIELD}`, 'not-a-workspace');
     expect(workspace(editor)).toBe('list');
     expect(warning).toHaveBeenCalledOnce();
     expect(seen).toEqual([]);
@@ -371,12 +366,9 @@ describe('workspace transitions do not configure the card', () => {
   it('leaves the controls available when search empties the editor', async () => {
     const editor = await mount();
     const seen = reports(editor);
-    await change(editor, onlyForm(editor, 'ha-form.filter-form'), {
-      search: 'zzznomatch',
-      customized_only: false,
-    });
-    expect(forms(editor, 'ha-form.panel-form')).toHaveLength(0);
-    expect(forms(editor, '.view-controls > ha-form')).toHaveLength(2);
+    await changeFields(editor, { 'filter:search': 'zzznomatch', 'filter:customized_only': false });
+    expect(formsOf(editor, CARD)).toHaveLength(0);
+    expect(viewControls(editor)).toHaveLength(2);
     await choose(editor, 'grid');
     expect(workspace(editor)).toBe('grid');
     expect(seen).toEqual([]);
@@ -388,7 +380,7 @@ describe('workspace state survives echoes and pending edits', () => {
     const editor = await mount(enabled('column'));
     const seen = reports(editor);
     await choose(editor, 'grid');
-    await change(editor, owner(editor, 'title'), { title: 'Example' });
+    await changeField(editor, 'card:title', 'Example');
     expect(seen).toHaveLength(1);
     editor.setConfig({ config_version: Config.CURRENT_CONFIG_VERSION, ...seen[0] });
     await editor.updateComplete;
@@ -408,10 +400,10 @@ describe('workspace state survives echoes and pending edits', () => {
   it('retains invalid-in-progress text while its workspace is away', async () => {
     const editor = await mount({ start_date: 'today+2' });
     const seen = reports(editor);
-    await change(editor, owner(editor, 'start_date_offset'), { start_date_offset: '-' });
+    await changeField(editor, 'content:start_date_offset', '-');
     await choose(editor, 'grid');
     await choose(editor, 'list');
-    expect(owner(editor, 'start_date_offset').data.start_date_offset).toBe('-');
+    expect(valueOf(editor, 'content:start_date_offset')).toBe('-');
     expect(seen).toEqual([]);
   });
 
@@ -419,19 +411,19 @@ describe('workspace state survives echoes and pending edits', () => {
     const editor = await mount(enabled('list'));
     const seen = reports(editor);
     await choose(editor, 'grid');
-    await change(editor, owner(editor, 'title_max_lines'), { title_max_lines: 3 });
-    expect(owner(editor, 'title_max_lines').data.title_max_lines).toBe(3);
+    await changeField(editor, 'events:title_max_lines', 3);
+    expect(valueOf(editor, 'events:title_max_lines')).toBe(3);
     await choose(editor, 'column');
-    expect(owner(editor, 'title_max_lines').data.title_max_lines).toBe(0);
+    expect(valueOf(editor, 'events:title_max_lines')).toBe(0);
     await choose(editor, 'grid');
-    expect(owner(editor, 'title_max_lines').data.title_max_lines).toBe(3);
+    expect(valueOf(editor, 'events:title_max_lines')).toBe(3);
     editor.setConfig({
       config_version: Config.CURRENT_CONFIG_VERSION,
       entities: ['calendar.ben'],
       view: 'grid',
     });
     await editor.updateComplete;
-    expect(owner(editor, 'title_max_lines').data.title_max_lines).toBe(0);
+    expect(valueOf(editor, 'events:title_max_lines')).toBe(0);
     expect(seen).toHaveLength(1);
   });
 
@@ -440,9 +432,7 @@ describe('workspace state survives echoes and pending edits', () => {
     const seen = reports(editor);
     await choose(editor, 'grid');
     expect(seen).toEqual([]);
-    await change(editor, owner(editor, 'event_font_size'), {
-      event_font_size: '24px',
-    });
+    await changeField(editor, 'events:event_font_size', '24px');
     expect(seen).toEqual([
       {
         entities: [{ entity: 'calendar.anna' }],
@@ -471,9 +461,7 @@ describe('the shared workspace', () => {
     const editor = await mount();
     const seen = reports(editor);
 
-    await change(editor, onlyForm(editor, 'ha-form.workspace-form'), {
-      [WORKSPACE_FIELD]: 'shared',
-    });
+    await changeField(editor, `workspace:${WORKSPACE_FIELD}`, 'shared');
 
     expect(workspace(editor)).toBe('shared');
     expect(seen).toEqual([]);
@@ -485,10 +473,8 @@ describe('the shared workspace', () => {
     const editor = await mount({ view: 'list' });
     const seen = reports(editor);
 
-    await change(editor, onlyForm(editor, 'ha-form.workspace-form'), {
-      [WORKSPACE_FIELD]: 'shared',
-    });
-    await change(editor, owner(editor, 'event_font_size'), { event_font_size: '24px' });
+    await changeField(editor, `workspace:${WORKSPACE_FIELD}`, 'shared');
+    await changeField(editor, 'events:event_font_size', '24px');
 
     expect(seen).toEqual([
       { entities: [{ entity: 'calendar.anna' }], view: 'list', event_font_size: '24px' },
@@ -499,7 +485,7 @@ describe('the shared workspace', () => {
     const editor = await mount({ view: 'list' });
     const seen = reports(editor);
 
-    await change(editor, owner(editor, 'event_font_size'), { event_font_size: '24px' });
+    await changeField(editor, 'events:event_font_size', '24px');
 
     expect(seen).toEqual([
       { entities: [{ entity: 'calendar.anna' }], view: 'list', list: { event_font_size: '24px' } },
@@ -620,7 +606,9 @@ describe('a panel retitles itself for the workspace it configures', () => {
   it('renders the retitled panel', async () => {
     const editor = await mount();
     const header = (): { header: string; secondary: string } =>
-      owner(editor, 'day_separator_width').closest('ha-expansion-panel') as unknown as {
+      formOf(editor, 'separators:day_separator_width')!.closest(
+        'ha-expansion-panel',
+      ) as unknown as {
         header: string;
         secondary: string;
       };

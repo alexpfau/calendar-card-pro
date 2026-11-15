@@ -1,58 +1,19 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { changeField, mountEditor, valueOf } from './helpers/editor-host';
 import * as Config from '../src/config/config';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
-import type { HaFormSchema } from '../src/rendering/editor/ha-form';
-import { workspaceFields } from '../src/rendering/editor/routing';
-
-customElements.define('editor-serialization-state-test', CalendarCardProEditor);
-
-interface Editor extends HTMLElement {
-  hass: unknown;
-  setConfig(config: Record<string, unknown>): void;
-  readonly updateComplete: Promise<boolean>;
-}
-
-interface Form extends HTMLElement {
-  schema: ReadonlyArray<HaFormSchema>;
-  data: Record<string, unknown>;
-}
 
 async function mount(config: Record<string, unknown>) {
-  const editor = document.createElement('editor-serialization-state-test') as Editor;
-  editor.hass = { states: {}, locale: { language: 'en' } };
-  editor.setConfig({
+  const editor = await mountEditor({
     config_version: Config.CURRENT_CONFIG_VERSION,
     entities: ['calendar.anna'],
     ...config,
   });
-  document.body.appendChild(editor);
-  await editor.updateComplete;
   const reports: Record<string, unknown>[] = [];
   editor.addEventListener('config-changed', (event) => {
     reports.push(structuredClone((event as CustomEvent).detail.config));
   });
   return { editor, reports };
-}
-
-function formFor(editor: Editor, key: string): Form {
-  const forms = [...editor.shadowRoot!.querySelectorAll<Form>('ha-form:not(.entity-form)')].filter(
-    (form) => [...workspaceFields(form.schema)].some(({ node }) => node.name === key),
-  );
-  expect(forms, `form for ${key}`).toHaveLength(1);
-  return forms[0];
-}
-
-async function change(editor: Editor, key: string, value: unknown): Promise<void> {
-  const form = formFor(editor, key);
-  form.dispatchEvent(
-    new CustomEvent('value-changed', {
-      detail: { value: { ...form.data, [key]: value } },
-      bubbles: true,
-      composed: true,
-    }),
-  );
-  await editor.updateComplete;
 }
 
 afterEach(() => document.body.replaceChildren());
@@ -66,7 +27,7 @@ describe.each(['list', 'column', 'grid'] as const)('%s serialized editor state',
         view,
         [block]: { show_description: true },
       });
-      await change(editor, 'show_description', false);
+      await changeField(editor, 'events:show_description', false);
       const saved = reports.slice(-1)[0]!;
       if (view === 'list') expect(saved).toHaveProperty('list.show_description', false);
       else expect(saved).not.toHaveProperty(block);
@@ -75,19 +36,19 @@ describe.each(['list', 'column', 'grid'] as const)('%s serialized editor state',
         editor.setConfig(saved);
         await editor.updateComplete;
       }
-      await change(editor, 'editing_workspace', 'shared');
-      await change(editor, 'show_description', true);
-      await change(editor, 'editing_workspace', view);
+      await changeField(editor, 'workspace:editing_workspace', 'shared');
+      await changeField(editor, 'events:show_description', true);
+      await changeField(editor, 'workspace:editing_workspace', view);
 
       const stored = reports.slice(-1)[0]!;
       expect(stored).toHaveProperty('show_description', true);
       if (view === 'list') expect(stored).toHaveProperty('list.show_description', false);
       else expect(stored).not.toHaveProperty(block);
-      expect(formFor(editor, 'show_description').data.show_description).toBe(view !== 'list');
+      expect(valueOf(editor, 'events:show_description')).toBe(view !== 'list');
 
       const reopened = await mount(stored);
-      expect(formFor(reopened.editor, 'show_description').data.show_description).toBe(
-        formFor(editor, 'show_description').data.show_description,
+      expect(valueOf(reopened.editor, 'events:show_description')).toBe(
+        valueOf(editor, 'events:show_description'),
       );
     },
   );
@@ -98,18 +59,18 @@ it.each([false, true])('retains an explicit divergent Grid default (echo=%s)', a
     view: 'grid',
     time_grid: { event_font_size: '18px' },
   });
-  await change(editor, 'event_font_size', '12px');
+  await changeField(editor, 'events:event_font_size', '12px');
   expect(reports.slice(-1)[0]).toHaveProperty('time_grid.event_font_size', '12px');
   if (echo) {
     editor.setConfig(reports.slice(-1)[0]!);
     await editor.updateComplete;
   }
-  await change(editor, 'editing_workspace', 'shared');
-  await change(editor, 'event_font_size', '20px');
-  await change(editor, 'editing_workspace', 'grid');
+  await changeField(editor, 'workspace:editing_workspace', 'shared');
+  await changeField(editor, 'events:event_font_size', '20px');
+  await changeField(editor, 'workspace:editing_workspace', 'grid');
   expect(reports.slice(-1)[0]).toHaveProperty('event_font_size', '20px');
   expect(reports.slice(-1)[0]).toHaveProperty('time_grid.event_font_size', '12px');
-  expect(formFor(editor, 'event_font_size').data.event_font_size).toBe('12px');
+  expect(valueOf(editor, 'events:event_font_size')).toBe('12px');
 });
 
 it('keeps incomplete scoped text through a save and an echo', async () => {
@@ -117,12 +78,12 @@ it('keeps incomplete scoped text through a save and an echo', async () => {
     view: 'grid',
     time_grid: { height: '400px' },
   });
-  await change(editor, 'card_height', '');
+  await changeField(editor, 'layout:card_height', '');
   expect(reports).toHaveLength(0);
-  await change(editor, 'show_description', true);
+  await changeField(editor, 'events:show_description', true);
   expect(reports.slice(-1)[0]).toHaveProperty('time_grid.height', '400px');
-  expect(formFor(editor, 'card_height').data.card_height).toBe('');
+  expect(valueOf(editor, 'layout:card_height')).toBe('');
   editor.setConfig(reports.slice(-1)[0]!);
   await editor.updateComplete;
-  expect(formFor(editor, 'card_height').data.card_height).toBe('');
+  expect(valueOf(editor, 'layout:card_height')).toBe('');
 });

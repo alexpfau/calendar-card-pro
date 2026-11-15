@@ -14,9 +14,18 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import {
+  CARD,
+  button,
+  changeFields,
+  entry,
+  formOf,
+  formsOf,
+  mountEditor,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import * as Types from '../src/config/types';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
+import type { CalendarCardProEditor } from '../src/rendering/editor/element';
 import {
   ESSENTIALS_STORAGE_KEY,
   ESSENTIAL_CALENDAR_FIELDS,
@@ -28,13 +37,6 @@ import { PANELS, type SchemaCtx } from '../src/rendering/editor/panels';
 import { workspaceFields } from '../src/rendering/editor/routing';
 import { buildEntitySchema } from '../src/rendering/editor/schemas/entity';
 import { type EditorWorkspace, WORKSPACES } from '../src/rendering/editor/workspace';
-
-customElements.define('editor-essentials-test', CalendarCardProEditor);
-
-interface Form extends HTMLElement {
-  schema: ReadonlyArray<HaFormSchema>;
-  data: Record<string, unknown>;
-}
 
 function ids(schema: ReadonlyArray<HaFormSchema>): string[] {
   return [...workspaceFields(schema)].map(({ node, path }) => [...path, node.name].join('.'));
@@ -118,49 +120,25 @@ describe('the essential fields', () => {
 });
 
 async function mount(config: Record<string, unknown> = {}) {
-  const editor = document.createElement('editor-essentials-test') as CalendarCardProEditor;
-  editor.hass = { states: {}, locale: { language: 'en' } } as unknown as Types.Hass;
-  editor.setConfig({
+  return mountEditor({
     config_version: Config.CURRENT_CONFIG_VERSION,
     entities: ['calendar.anna'],
     weather: { entity: 'weather.home' },
     toolbar: { show: true, buttons: [{ icon: 'mdi:home', name: 'Home' }] },
     ...config,
-  } as unknown as Types.Config);
-  document.body.appendChild(editor);
-  await editor.updateComplete;
-  return editor;
+  });
 }
 
 function root(editor: CalendarCardProEditor): ShadowRoot {
   return editor.shadowRoot!;
 }
 
-async function filter(
-  editor: CalendarCardProEditor,
-  values: { search?: string; customized_only?: boolean; essentials_only?: boolean },
-): Promise<void> {
-  const form = root(editor).querySelector<Form>('.filter-form')!;
-  form.dispatchEvent(
-    new CustomEvent('value-changed', {
-      detail: { value: { ...form.data, ...values } },
-      bubbles: true,
-      composed: true,
-    }),
-  );
-  await editor.updateComplete;
-}
-
 function panelFields(editor: CalendarCardProEditor): string[] {
-  return [...root(editor).querySelectorAll<Form>('ha-form.panel-form')].flatMap((form) =>
-    ids(form.schema),
-  );
+  return formsOf(editor, CARD).flatMap((form) => ids(form.schema));
 }
 
 function calendarFields(editor: CalendarCardProEditor): string[] {
-  return [...root(editor).querySelectorAll<Form>('ha-form.entity-form')].flatMap((form) =>
-    ids(form.schema),
-  );
+  return formsOf(editor, entry()).flatMap((form) => ids(form.schema));
 }
 
 function calendarFieldCount(editor: CalendarCardProEditor): number {
@@ -168,9 +146,7 @@ function calendarFieldCount(editor: CalendarCardProEditor): number {
 }
 
 function buttonFields(editor: CalendarCardProEditor): string[] {
-  return [...root(editor).querySelectorAll<Form>('ha-form.button-form')].flatMap((form) =>
-    ids(form.schema),
-  );
+  return formsOf(editor, button()).flatMap((form) => ids(form.schema));
 }
 
 const LIST_ESSENTIALS = [
@@ -210,7 +186,7 @@ describe('Essentials Only on the editor', () => {
 
   it('cuts the panels to the essential fields, with no panel let through whole', async () => {
     const editor = await mount();
-    await filter(editor, { essentials_only: true });
+    await changeFields(editor, { 'filter:essentials_only': true });
 
     expect(panelFields(editor)).toEqual(LIST_ESSENTIALS);
     // Panels with no essential field go; the rest stay closed, as they do without it.
@@ -225,7 +201,7 @@ describe('Essentials Only on the editor', () => {
 
   it('adds the hours of the grid in the Grid workspace', async () => {
     const editor = await mount({ view: 'grid' });
-    await filter(editor, { essentials_only: true });
+    await changeFields(editor, { 'filter:essentials_only': true });
 
     expect(panelFields(editor).slice(0, 3)).toEqual([
       'calendars',
@@ -241,7 +217,7 @@ describe('Essentials Only on the editor', () => {
     expect(root(editor).querySelectorAll('.button-panel')).toHaveLength(1);
     expect(root(editor).querySelector('.add-button')).not.toBeNull();
 
-    await filter(editor, { essentials_only: true });
+    await changeFields(editor, { 'filter:essentials_only': true });
 
     const fields = calendarFields(editor);
     expect(fields).toContain('name');
@@ -261,7 +237,7 @@ describe('Essentials Only on the editor', () => {
       refresh_interval: 30,
       entities: [{ entity: 'calendar.anna', blocklist: 'Birthday' }],
     });
-    await filter(editor, { essentials_only: true });
+    await changeFields(editor, { 'filter:essentials_only': true });
 
     expect(panelFields(editor)).toEqual(
       expect.arrayContaining(['event_font_size', 'refresh_interval']),
@@ -284,7 +260,7 @@ describe('Essentials Only on the editor', () => {
     ]) {
       document.body.replaceChildren();
       const editor = await mount(config);
-      await filter(editor, { essentials_only: true });
+      await changeFields(editor, { 'filter:essentials_only': true });
 
       expect(panelFields(editor), JSON.stringify(config)).toContain(field);
     }
@@ -292,11 +268,9 @@ describe('Essentials Only on the editor', () => {
 
   it('opens nothing it keeps, as it opens no panel', async () => {
     const editor = await mount({ time_color: '#ff0000' });
-    await filter(editor, { essentials_only: true });
+    await changeFields(editor, { 'filter:essentials_only': true });
 
-    const form = [...root(editor).querySelectorAll<Form>('ha-form.panel-form')].find((candidate) =>
-      ids(candidate.schema).includes('time_color'),
-    )!;
+    const form = formOf(editor, 'events:time_color')!;
     const group = form.schema.find(
       (node) => 'schema' in node && ids(node.schema).includes('time_color'),
     ) as { expanded?: boolean };
@@ -305,19 +279,19 @@ describe('Essentials Only on the editor', () => {
 
   it('steps aside for a search, which reaches every setting', async () => {
     const editor = await mount();
-    await filter(editor, { essentials_only: true, search: 'separator' });
+    await changeFields(editor, { 'filter:essentials_only': true, 'filter:search': 'separator' });
 
     expect(panelFields(editor)).toContain('day_separator_width');
   });
 
   it('beside Customized Only, shows what Customized Only shows', async () => {
     const editor = await mount({ title: 'Family', refresh_interval: 60 });
-    await filter(editor, { customized_only: true });
+    await changeFields(editor, { 'filter:customized_only': true });
     const customized = panelFields(editor);
     expect(customized).toEqual(expect.arrayContaining(['title', 'refresh_interval']));
     expect(customized).not.toContain('days_to_show');
 
-    await filter(editor, { essentials_only: true, customized_only: true });
+    await changeFields(editor, { 'filter:essentials_only': true, 'filter:customized_only': true });
 
     expect(panelFields(editor)).toEqual(customized);
     // What is missing is no longer what Essentials hides, so no count.
@@ -330,7 +304,7 @@ describe('Essentials Only on the editor', () => {
       panelFields(editor).length + calendarFieldCount(editor) + buttonFields(editor).length;
     expect(root(editor).querySelector('[data-essentials-note]')).toBeNull();
 
-    await filter(editor, { essentials_only: true });
+    await changeFields(editor, { 'filter:essentials_only': true });
 
     const kept =
       panelFields(editor).length + calendarFieldCount(editor) + buttonFields(editor).length;
@@ -341,7 +315,7 @@ describe('Essentials Only on the editor', () => {
 
   it('says nothing is customized when, beside Customized Only, nothing is', async () => {
     const editor = await mount({ entities: [], weather: undefined, toolbar: undefined });
-    await filter(editor, { essentials_only: true, customized_only: true });
+    await changeFields(editor, { 'filter:essentials_only': true, 'filter:customized_only': true });
 
     expect(root(editor).querySelector('.filter-empty')!.textContent!.trim()).toBe(
       'Nothing is customized — every setting is at the card default.',
@@ -350,14 +324,14 @@ describe('Essentials Only on the editor', () => {
 
   it('is remembered in this browser, and forgotten when switched off', async () => {
     const first = await mount();
-    await filter(first, { essentials_only: true });
+    await changeFields(first, { 'filter:essentials_only': true });
     expect(localStorage.getItem(ESSENTIALS_STORAGE_KEY)).toBe('on');
 
     document.body.replaceChildren();
     const second = await mount();
     expect(panelFields(second)).toEqual(LIST_ESSENTIALS);
 
-    await filter(second, { essentials_only: false });
+    await changeFields(second, { 'filter:essentials_only': false });
     expect(localStorage.getItem(ESSENTIALS_STORAGE_KEY)).toBeNull();
   });
 });
@@ -369,7 +343,7 @@ describe('Essentials Only in Columns', () => {
     const editor = await mount({ view: 'column' });
     expect(root(editor).querySelector('.width-table')).not.toBeNull();
 
-    await filter(editor, { essentials_only: true });
+    await changeFields(editor, { 'filter:essentials_only': true });
 
     expect(root(editor).querySelector('.width-table')).toBeNull();
   });

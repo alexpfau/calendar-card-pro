@@ -2,11 +2,21 @@ import { render as litRender } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW, buildConfig } from './fixtures';
+import {
+  CARD,
+  changeField,
+  changeFields,
+  entry,
+  fakeHass,
+  formsOf,
+  mountEditor,
+  valueOf,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
+import type { CalendarCardProEditor } from '../src/rendering/editor/element';
 import * as Filter from '../src/rendering/editor/filter';
 import type { HaFormSchema, SelectorSchema } from '../src/rendering/editor/ha-form';
 import { PANELS, type SchemaCtx } from '../src/rendering/editor/panels';
@@ -22,13 +32,6 @@ import * as Grid from '../src/rendering/grid';
 import * as List from '../src/rendering/render';
 import * as EventUtils from '../src/utils/events';
 import { showsEventWeather } from '../src/utils/weather-position';
-
-customElements.define('editor-view-withholding-test', CalendarCardProEditor);
-
-interface FormElement extends HTMLElement {
-  schema: ReadonlyArray<HaFormSchema>;
-  data: Record<string, unknown>;
-}
 
 interface Field {
   key: string;
@@ -143,47 +146,10 @@ function reconcile(actual: Field[], expected: Field[]): void {
 }
 
 async function mount(config: Types.Config, current = true): Promise<CalendarCardProEditor> {
-  const editor = new CalendarCardProEditor();
-  editor.hass = {
-    states: {},
-    locale: { language: 'en' },
-    callApi: async () => [],
-    callService: () => {},
-  };
   const raw = { ...config };
   if (current) raw.config_version = Config.CURRENT_CONFIG_VERSION;
   else delete raw.config_version;
-  editor.setConfig(raw);
-  document.body.appendChild(editor);
-  await editor.updateComplete;
-  return editor;
-}
-
-function forms(editor: CalendarCardProEditor, selector = 'ha-form.panel-form'): FormElement[] {
-  return Array.from(editor.shadowRoot!.querySelectorAll<FormElement>(selector));
-}
-
-function formOwning(editor: CalendarCardProEditor, key: string): FormElement {
-  const found = forms(editor, 'ha-form.panel-form, ha-form.display-view-form').find((form) =>
-    fields(form.schema).some((field) => field.key === key),
-  );
-  if (!found) throw new Error(`No rendered form owns ${key}`);
-  return found;
-}
-
-async function change(
-  editor: CalendarCardProEditor,
-  form: FormElement,
-  patch: Record<string, unknown>,
-): Promise<void> {
-  form.dispatchEvent(
-    new CustomEvent('value-changed', {
-      detail: { value: { ...form.data, ...patch } },
-      bubbles: true,
-      composed: true,
-    }),
-  );
-  await editor.updateComplete;
+  return mountEditor(raw, { hass: fakeHass() });
 }
 
 beforeEach(() => {
@@ -211,7 +177,7 @@ describe('view withholding reconciles both directions', () => {
       reconcile(fields(Filter.withholdInertFields(raw, view)), expected);
       const editor = await mount(config);
       reconcile(
-        forms(editor).flatMap((form) => fields(form.schema)),
+        formsOf(editor, CARD).flatMap((form) => fields(form.schema)),
         expected,
       );
       expect(schemas).toEqual(before);
@@ -297,7 +263,7 @@ describe('view withholding reconciles both directions', () => {
 
   it('drops a panel emptied by withholding even without a search', async () => {
     const config = configFor('grid');
-    const before = forms(await mount(config)).length;
+    const before = formsOf(await mount(config), CARD).length;
     expect(before).toBeGreaterThan(1);
     const panel = PANELS.find((candidate) => candidate.id === 'card');
     if (!panel) throw new Error('Card panel not found');
@@ -305,7 +271,7 @@ describe('view withholding reconciles both directions', () => {
       heading('empty_heading'),
       text('compact_events_to_show'),
     ]);
-    expect(forms(await mount(config))).toHaveLength(before - 1);
+    expect(formsOf(await mount(config), CARD)).toHaveLength(before - 1);
   });
 
   it('reconciles per-calendar forms, including the newly supported column split control', async () => {
@@ -333,7 +299,7 @@ describe('view withholding reconciles both directions', () => {
         ),
         expected,
       );
-      const entityForms = forms(await mount(config), 'ha-form.entity-form');
+      const entityForms = formsOf(await mount(config), entry());
       expect(entityForms).toHaveLength(1);
       reconcile(fields(entityForms[0].schema), expected);
     }
@@ -378,16 +344,16 @@ describe('withholding is not a search filter or a config edit', () => {
     });
     const before = PANELS.flatMap((panel) => panel.build(context(config)));
     reconcile(
-      forms(editor).flatMap((form) => fields(form.schema)),
+      formsOf(editor, CARD).flatMap((form) => fields(form.schema)),
       expectedFields(before, from),
     );
 
-    await change(editor, formOwning(editor, 'view'), { view: to });
+    await changeField(editor, 'display:view', to);
     expect(seen).toHaveLength(1);
     expect(seen[0].view).toBe(to);
     const after = PANELS.flatMap((panel) => panel.build(context(seen[0])));
     reconcile(
-      forms(editor).flatMap((form) => fields(form.schema)),
+      formsOf(editor, CARD).flatMap((form) => fields(form.schema)),
       expectedFields(after, to),
     );
   });
@@ -395,8 +361,7 @@ describe('withholding is not a search filter or a config edit', () => {
   it('cannot be bypassed by panel, group, field, or customized-only searches', async () => {
     const config = configFor('grid');
     const editor = await mount(config);
-    const search = forms(editor, 'ha-form.filter-form')[0];
-    expect(forms(editor).length).toBeGreaterThan(1);
+    expect(formsOf(editor, CARD).length).toBeGreaterThan(1);
 
     for (const criteria of [
       { search: '', customized_only: false },
@@ -408,20 +373,18 @@ describe('withholding is not a search filter or a config edit', () => {
       { search: 'Anna', customized_only: false },
       { search: '', customized_only: true },
     ]) {
-      await change(editor, search, criteria);
-      for (const form of forms(
-        editor,
-        'ha-form.panel-form, ha-form.entity-form, ha-form.exception-form',
-      )) {
+      await changeFields(editor, {
+        'filter:search': criteria.search,
+        'filter:customized_only': criteria.customized_only,
+      });
+      const calendars = formsOf(editor, entry());
+      for (const form of [...formsOf(editor, CARD), ...calendars]) {
         const actual = fields(form.schema);
-        reconcile(
-          actual,
-          expectedFields(form.schema, 'grid', form.classList.contains('entity-form')),
-        );
+        reconcile(actual, expectedFields(form.schema, 'grid', calendars.includes(form)));
       }
       if (criteria.search === 'content') {
         expect(
-          forms(editor)
+          formsOf(editor, CARD)
             .flatMap((form) => fields(form.schema))
             .map((f) => f.key),
         ).toContain('show_empty_days');
@@ -455,21 +418,21 @@ describe('withholding is not a search filter or a config edit', () => {
     });
 
     expect(
-      forms(editor)
+      formsOf(editor, CARD)
         .flatMap((form) => fields(form.schema))
         .map((f) => f.key),
     ).not.toContain('empty_day_color');
     expect(
-      forms(editor, 'ha-form.entity-form')
+      formsOf(editor, entry())
         .flatMap((form) => fields(form.schema))
         .map((f) => f.key),
     ).not.toContain('split_multiday_events');
 
-    await change(editor, formOwning(editor, 'days_to_show'), { days_to_show: 7 });
-    await change(editor, forms(editor, 'ha-form.entity-form')[0], { label: 'Ben' });
-    await change(editor, formOwning(editor, 'view'), { view: 'list' });
-    expect(formOwning(editor, 'empty_day_color').data.empty_day_color).toBe('#607d8b');
-    await change(editor, formOwning(editor, 'view'), { view: 'grid' });
+    await changeField(editor, 'content:days_to_show', 7);
+    await changeField(editor, 'calendar:label', 'Ben', entry(0));
+    await changeField(editor, 'display:view', 'list');
+    expect(valueOf(editor, 'content:empty_day_color')).toBe('#607d8b');
+    await changeField(editor, 'display:view', 'grid');
 
     expect(seen).toHaveLength(4);
     for (const saved of seen) {
@@ -487,7 +450,7 @@ describe('withholding is not a search filter or a config edit', () => {
     expect(seen[3].time_grid).toMatchObject({ days_to_show: 7 });
     expect(seen[3].entities).toEqual([expect.objectContaining({ label: 'Ben' })]);
     expect(
-      forms(editor)
+      formsOf(editor, CARD)
         .flatMap((form) => fields(form.schema))
         .map((f) => f.key),
     ).not.toContain('empty_day_color');

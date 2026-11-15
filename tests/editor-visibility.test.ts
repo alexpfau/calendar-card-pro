@@ -18,16 +18,20 @@ import { LitElement } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import {
+  type FormElement,
+  entry,
+  fakeHass,
+  formsOf,
+  mountEditor,
+  valueOf,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import * as Entities from '../src/rendering/editor/entities';
-import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { lookup } from '../src/rendering/editor/localize';
 import { buildEntitySchema, splitAtVisibility } from '../src/rendering/editor/schemas/entity';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { EDITOR_LANGUAGE_STRINGS } from '../src/rendering/editor/translations';
-
-customElements.define('editor-visibility-probe', CalendarCardProEditor);
 
 const ANNA = 'calendar.anna';
 const BEN = 'calendar.ben';
@@ -127,31 +131,19 @@ describe('splitting the panel around the conditions', () => {
 });
 
 describe('which editor a calendar panel shows', () => {
-  interface EditorHost extends HTMLElement {
-    hass: unknown;
-    setConfig(config: unknown): void;
-    updateComplete: Promise<unknown>;
-  }
-
-  interface Form extends HTMLElement {
-    data: Record<string, unknown>;
-    schema: HaFormSchema[];
-  }
-
   interface ConditionsEditor extends HTMLElement {
     hass: unknown;
     conditions: unknown;
   }
 
   // With its own localize, which the forms get wrapped and Home Assistant's editor must not.
-  const HASS = { states: {}, locale: { language: 'en' }, localize: (key: string) => key };
+  const HASS = fakeHass({ localize: (key: string) => key });
 
   async function render(entities: ReadonlyArray<unknown>) {
-    const element = document.createElement('editor-visibility-probe') as EditorHost;
-    element.hass = HASS;
-    document.body.appendChild(element);
-    element.setConfig({ config_version: Config.CURRENT_CONFIG_VERSION, entities });
-    await element.updateComplete;
+    const element = await mountEditor(
+      { config_version: Config.CURRENT_CONFIG_VERSION, entities },
+      { hass: HASS },
+    );
 
     const emitted: Array<Record<string, unknown>> = [];
     element.addEventListener('config-changed', (event) => {
@@ -161,7 +153,7 @@ describe('which editor a calendar panel shows', () => {
     return {
       element,
       emitted,
-      forms: () => Array.from(root.querySelectorAll<Form>('ha-form.entity-form')),
+      forms: () => formsOf(element, entry()),
       editors: () =>
         Array.from(root.querySelectorAll<ConditionsEditor>('ha-card-conditions-editor')),
       helpers: () =>
@@ -172,7 +164,7 @@ describe('which editor a calendar panel shows', () => {
   }
 
   /** Whether a form offers the YAML box for the conditions. */
-  const offersYaml = (form: Form): boolean =>
+  const offersYaml = (form: FormElement): boolean =>
     form.schema.some((node) => node.name === 'visibility');
 
   beforeEach(() => {
@@ -188,7 +180,7 @@ describe('which editor a calendar panel shows', () => {
 
     expect(editor.editors()).toEqual([]);
     expect(editor.forms().map(offersYaml)).toEqual([true]);
-    expect(editor.forms()[0].data.visibility).toEqual(CONDITIONS);
+    expect(valueOf(editor.element, 'calendar:visibility', entry(0))).toEqual(CONDITIONS);
   });
 
   it('shows the YAML box where an element of that name lacks the conditions property', async () => {

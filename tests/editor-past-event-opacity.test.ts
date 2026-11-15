@@ -1,14 +1,21 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import {
+  type EditorElement,
+  type FormElement,
+  changeField,
+  emitChange,
+  fakeHass,
+  formOf,
+  valueOf,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as View from '../src/config/view';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import { removeException } from '../src/rendering/editor/exceptions';
-import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { normalizeFieldValue, normalizeRootValue } from '../src/rendering/editor/normalize';
-import { walkSchema } from '../src/rendering/editor/panels';
 import * as Routing from '../src/rendering/editor/routing';
 import { buildEventsSchema } from '../src/rendering/editor/schemas/events';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
@@ -19,22 +26,8 @@ import * as Logger from '../src/utils/logger';
 
 customElements.define('editor-opacity-probe', CalendarCardProEditor);
 
-interface Form extends HTMLElement {
-  data: Record<string, unknown>;
-  schema: HaFormSchema[];
-}
-
-function change(form: Form, value: Record<string, unknown>): void {
-  form.dispatchEvent(
-    new CustomEvent('value-changed', { bubbles: true, composed: true, detail: { value } }),
-  );
-}
-
-function opacityForm(editor: CalendarCardProEditor): Form {
-  const form = [...editor.shadowRoot!.querySelectorAll<Form>('ha-form.panel-form')].find(
-    (candidate) =>
-      [...walkSchema(candidate.schema)].some(({ node }) => node.name === 'past_event_opacity'),
-  );
+function opacityForm(editor: EditorElement): FormElement {
+  const form = formOf(editor, 'events:past_event_opacity');
   if (!form) throw new Error('Past Event Opacity is missing from the rendered editor');
   return form;
 }
@@ -143,7 +136,7 @@ describe('past-event opacity editor contract', () => {
     'saves, clears, reopens and routes delayed %s number edits',
     async (workspace) => {
       const editor = document.createElement('editor-opacity-probe') as CalendarCardProEditor;
-      editor.hass = { states: {}, locale: { language: 'en' } } as Types.Hass;
+      editor.hass = fakeHass();
       const reports: Record<string, unknown>[] = [];
       editor.addEventListener('config-changed', (event) =>
         reports.push((event as CustomEvent).detail.config),
@@ -157,20 +150,14 @@ describe('past-event opacity editor contract', () => {
       document.body.appendChild(editor);
       await editor.updateComplete;
       expect(reports).toHaveLength(0);
-      change(editor.shadowRoot!.querySelector<Form>('.workspace-form')!, {
-        editing_workspace: workspace,
-      });
-      await editor.updateComplete;
+      await changeField(editor, 'workspace:editing_workspace', workspace);
       expect(reports).toHaveLength(0);
 
       const origin = opacityForm(editor);
-      expect(origin.data.past_event_opacity).toBe(75.25);
+      expect(valueOf(editor, 'events:past_event_opacity')).toBe(75.25);
       const other = workspace === 'grid' ? 'list' : 'grid';
-      change(editor.shadowRoot!.querySelector<Form>('.workspace-form')!, {
-        editing_workspace: other,
-      });
-      await editor.updateComplete;
-      change(origin, { ...origin.data, past_event_opacity: '0' });
+      await changeField(editor, 'workspace:editing_workspace', other);
+      emitChange(origin, { 'events:past_event_opacity': '0' });
       await editor.updateComplete;
       const block = Routing.destination('past_event_opacity', workspace);
       const saved = reports.slice(-1)[0]!;
@@ -184,24 +171,17 @@ describe('past-event opacity editor contract', () => {
 
       editor.setConfig(saved as unknown as Types.Config);
       await editor.updateComplete;
-      change(editor.shadowRoot!.querySelector<Form>('.workspace-form')!, {
-        editing_workspace: workspace,
-      });
-      await editor.updateComplete;
-      expect(opacityForm(editor).data.past_event_opacity).toBe(0);
+      await changeField(editor, 'workspace:editing_workspace', workspace);
+      expect(valueOf(editor, 'events:past_event_opacity')).toBe(0);
       for (const input of ['1', '12', '12.5', 100]) {
-        const form = opacityForm(editor);
-        change(form, { ...form.data, past_event_opacity: input });
-        await editor.updateComplete;
-        expect(opacityForm(editor).data.past_event_opacity).toBe(Number(input));
+        await changeField(editor, 'events:past_event_opacity', input);
+        expect(valueOf(editor, 'events:past_event_opacity')).toBe(Number(input));
       }
-      const form = opacityForm(editor);
-      change(form, { ...form.data, past_event_opacity: null });
-      await editor.updateComplete;
+      await changeField(editor, 'events:past_event_opacity', null);
       const cleared = reports.slice(-1)[0]!;
       if (block) expect(cleared).not.toHaveProperty(block);
       else expect(cleared).not.toHaveProperty('past_event_opacity');
-      expect(opacityForm(editor).data.past_event_opacity).toBe(block ? 75.25 : 60);
+      expect(valueOf(editor, 'events:past_event_opacity')).toBe(block ? 75.25 : 60);
       const before = reports.length;
       editor.setConfig(cleared as unknown as Types.Config);
       await editor.updateComplete;

@@ -1,51 +1,19 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { CARD, type EditorElement, changeField, formsOf, mountEditor } from './helpers/editor-host';
 import * as Config from '../src/config/config';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
-import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { walkSchema } from '../src/rendering/editor/panels';
 import { workspaceFields } from '../src/rendering/editor/routing';
 import type { EditorWorkspace } from '../src/rendering/editor/workspace';
 
-customElements.define('editor-grid-badge-scope-test', CalendarCardProEditor);
-
-interface Editor extends HTMLElement {
-  hass: unknown;
-  setConfig(config: Record<string, unknown>): void;
-  readonly updateComplete: Promise<boolean>;
-}
-
-interface Form extends HTMLElement {
-  schema: ReadonlyArray<HaFormSchema>;
-  data: Record<string, unknown>;
-}
-
-function fields(editor: Editor): string[] {
-  return [...editor.shadowRoot!.querySelectorAll<Form>('ha-form.panel-form')].flatMap((form) =>
+function fields(editor: EditorElement): string[] {
+  return formsOf(editor, CARD).flatMap((form) =>
     [...workspaceFields(form.schema)].map(({ node }) => node.name),
   );
 }
 
-async function change(editor: Editor, key: string, value: unknown): Promise<void> {
-  const forms = [...editor.shadowRoot!.querySelectorAll<Form>('ha-form:not(.entity-form)')].filter(
-    (form) => [...workspaceFields(form.schema)].some(({ node }) => node.name === key),
-  );
-  expect(forms).toHaveLength(1);
-  const form = forms[0];
-  form.dispatchEvent(
-    new CustomEvent('value-changed', {
-      detail: { value: { ...form.data, [key]: value } },
-      bubbles: true,
-      composed: true,
-    }),
-  );
-  await editor.updateComplete;
-}
-
 async function mount() {
-  const editor = document.createElement('editor-grid-badge-scope-test') as Editor;
-  editor.hass = { states: {}, locale: { language: 'en' } };
-  editor.setConfig({
+  const editor = await mountEditor({
     config_version: Config.CURRENT_CONFIG_VERSION,
     entities: ['calendar.anna'],
     view: 'grid',
@@ -53,8 +21,6 @@ async function mount() {
     allday_badge_color: '#123456',
     time_grid: { allday_badge: 'time', allday_badge_color: '#abcdef' },
   });
-  document.body.appendChild(editor);
-  await editor.updateComplete;
   const reports: Record<string, unknown>[] = [];
   editor.addEventListener('config-changed', (event) => {
     reports.push(structuredClone((event as CustomEvent).detail.config));
@@ -76,13 +42,13 @@ describe('all-day badge controls follow the layouts that render badges', () => {
     'offers only effective controls in %s',
     async (workspace) => {
       const { editor } = await mount();
-      await change(editor, 'editing_workspace', workspace);
+      await changeField(editor, 'workspace:editing_workspace', workspace);
       const names = fields(editor);
       expect(names).toContain('event_icon_vertical_alignment');
       for (const key of BADGE_FIELDS) {
         expect(names.includes(key), key).toBe(workspace !== 'grid');
       }
-      const headings = [...editor.shadowRoot!.querySelectorAll<Form>('ha-form.panel-form')]
+      const headings = formsOf(editor, CARD)
         .flatMap((form) => [...walkSchema(form.schema)])
         .filter(({ node }) => 'type' in node && node.type === 'constant')
         .map(({ node }) => node.name);
@@ -97,7 +63,7 @@ describe('all-day badge controls follow the layouts that render badges', () => {
     'search for %s cannot restore inert controls or resets',
     async (query) => {
       const { editor } = await mount();
-      await change(editor, 'search', query);
+      await changeField(editor, 'filter:search', query);
       expect(fields(editor).some((key) => BADGE_FIELDS.includes(key))).toBe(false);
       expect(editor.shadowRoot!.querySelector('[data-reset-keys^="allday_badge"]')).toBeNull();
     },
@@ -105,7 +71,7 @@ describe('all-day badge controls follow the layouts that render badges', () => {
 
   it('does not drop inactive YAML when an unrelated Grid value changes', async () => {
     const { editor, reports } = await mount();
-    await change(editor, 'show_description', true);
+    await changeField(editor, 'events:show_description', true);
     expect(reports.slice(-1)[0]).toHaveProperty('allday_badge', 'title');
     expect(reports.slice(-1)[0]).toHaveProperty('allday_badge_color', '#123456');
     expect(reports.slice(-1)[0]).toHaveProperty('time_grid.allday_badge', 'time');

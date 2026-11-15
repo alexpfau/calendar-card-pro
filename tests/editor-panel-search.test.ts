@@ -1,15 +1,15 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
+import {
+  type FormElement,
+  changeFields,
+  fakeHass,
+  formOf,
+  mountEditor,
+} from './helpers/editor-host';
 import type * as Types from '../src/config/types';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
+import type { CalendarCardProEditor } from '../src/rendering/editor/element';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
-
-customElements.define('editor-panel-search-test', CalendarCardProEditor);
-
-interface Form extends HTMLElement {
-  schema: ReadonlyArray<HaFormSchema>;
-  data: Record<string, unknown>;
-}
 
 interface Panel extends HTMLElement {
   header: string;
@@ -23,34 +23,25 @@ function fieldNames(schema: ReadonlyArray<HaFormSchema>): string[] {
 }
 
 async function mount(language: string, view: Types.EffectiveView = 'grid') {
-  const editor = document.createElement('editor-panel-search-test') as CalendarCardProEditor;
-  editor.hass = { states: {}, locale: { language } } as Types.Hass;
-  editor.setConfig({
-    config_version: 5,
-    entities: ['calendar.anna'],
-    view,
-  } as Types.Config);
-  document.body.appendChild(editor);
-  await editor.updateComplete;
-  return editor;
+  return mountEditor(
+    {
+      config_version: 5,
+      entities: ['calendar.anna'],
+      view,
+    },
+    { hass: fakeHass({ language }) },
+  );
 }
 
-function rulesForm(editor: CalendarCardProEditor): Form | undefined {
-  return [...editor.shadowRoot!.querySelectorAll<Form>('.panel-form')].find((form) =>
-    fieldNames(form.schema).includes('day_separator_width'),
-  );
+function rulesForm(editor: CalendarCardProEditor): FormElement | undefined {
+  return formOf(editor, 'separators:day_separator_width');
 }
 
 async function search(editor: CalendarCardProEditor, query: string, customizedOnly = false) {
-  const form = editor.shadowRoot!.querySelector<Form>('.filter-form')!;
-  form.dispatchEvent(
-    new CustomEvent('value-changed', {
-      detail: { value: { ...form.data, search: query, customized_only: customizedOnly } },
-      bubbles: true,
-      composed: true,
-    }),
-  );
-  await editor.updateComplete;
+  await changeFields(editor, {
+    'filter:search': query,
+    'filter:customized_only': customizedOnly,
+  });
 }
 
 afterEach(() => document.body.replaceChildren());

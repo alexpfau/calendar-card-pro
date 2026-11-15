@@ -25,9 +25,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import { changeField, entry, fakeHass, mountEditor, valueOf } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import * as Entities from '../src/rendering/editor/entities';
 import { type FilterCtx, NO_FILTER, filterEntitySchema } from '../src/rendering/editor/filter';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
@@ -36,8 +36,6 @@ import { walkSchema } from '../src/rendering/editor/panels';
 import { buildEntitySchema, entitySchemaFor } from '../src/rendering/editor/schemas/entity';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { EDITOR_LANGUAGE_STRINGS } from '../src/rendering/editor/translations';
-
-customElements.define('editor-calendar-name-probe', CalendarCardProEditor);
 
 const ANNA = 'calendar.anna';
 const BEN = 'calendar.ben';
@@ -363,16 +361,6 @@ describe('copying and pasting a calendar’s settings', () => {
 });
 
 describe('the Name field in the rendered editor', () => {
-  interface EditorHost extends HTMLElement {
-    hass: unknown;
-    setConfig(config: unknown): void;
-    updateComplete: Promise<unknown>;
-  }
-
-  interface Form extends HTMLElement {
-    data: Record<string, unknown>;
-  }
-
   interface Panel extends HTMLElement {
     header?: string;
   }
@@ -384,16 +372,20 @@ describe('the Name field in the rendered editor', () => {
    * @returns The editor and every configuration it reports
    */
   async function render(entities: ReadonlyArray<unknown>) {
-    const element = document.createElement('editor-calendar-name-probe') as EditorHost;
-    element.hass = {
-      states: {
-        [ANNA]: { entity_id: ANNA, state: 'off', attributes: { friendly_name: 'Anna calendar' } },
+    const element = await mountEditor(
+      { config_version: Config.CURRENT_CONFIG_VERSION, entities },
+      {
+        hass: fakeHass({
+          states: {
+            [ANNA]: {
+              entity_id: ANNA,
+              state: 'off',
+              attributes: { friendly_name: 'Anna calendar' },
+            },
+          },
+        }),
       },
-      locale: { language: 'en' },
-    };
-    document.body.appendChild(element);
-    element.setConfig({ config_version: Config.CURRENT_CONFIG_VERSION, entities });
-    await element.updateComplete;
+    );
 
     const emitted: Array<Record<string, unknown>> = [];
     element.addEventListener('config-changed', (event) => {
@@ -404,7 +396,6 @@ describe('the Name field in the rendered editor', () => {
     return {
       element,
       emitted,
-      forms: () => Array.from(root.querySelectorAll<Form>('ha-form.entity-form')),
       headers: () =>
         Array.from(root.querySelectorAll<Panel>('ha-expansion-panel.entity-panel')).map(
           (panel) => panel.header,
@@ -425,7 +416,7 @@ describe('the Name field in the rendered editor', () => {
     const editor = await render([{ entity: ANNA, name: 'Anna at work' }]);
 
     expect(editor.headers()).toEqual(['Anna calendar']);
-    expect(editor.forms()[0].data.name).toBe('Anna at work');
+    expect(valueOf(editor.element, 'calendar:name', entry(0))).toBe('Anna at work');
   });
 
   it('offers Copy only for a calendar carrying more than its name', async () => {
@@ -442,15 +433,9 @@ describe('the Name field in the rendered editor', () => {
       { entity: ANNA, name: 'Anna at work' },
       { entity: ANNA, event_type: 'all_day' },
     ]);
-    const second = editor.forms()[1];
-    expect(second.data.name).toBe('Anna at work');
+    expect(valueOf(editor.element, 'calendar:name', entry(1))).toBe('Anna at work');
 
-    second.dispatchEvent(
-      new CustomEvent('value-changed', {
-        detail: { value: { ...second.data, name: 'Anna at home' } },
-      }),
-    );
-    await editor.element.updateComplete;
+    await changeField(editor.element, 'calendar:name', 'Anna at home', entry(1));
 
     expect(editor.emitted).toHaveLength(1);
     expect(editor.emitted[0].entities).toEqual([

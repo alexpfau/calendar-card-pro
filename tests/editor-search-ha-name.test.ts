@@ -14,9 +14,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import { fakeHass, formOf, mountEditor } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import {
   type FilterCtx,
   NO_FILTER,
@@ -27,8 +27,6 @@ import {
 import { buildCalendarsSchema } from '../src/rendering/editor/schemas/calendars';
 import { buildEntitySchema } from '../src/rendering/editor/schemas/entity';
 
-customElements.define('editor-search-ha-name-probe', CalendarCardProEditor);
-
 const FAMILY = 'calendar.f123';
 const SCHOOL = 'calendar.s456';
 
@@ -37,7 +35,7 @@ const STATES = {
   [SCHOOL]: { entity_id: SCHOOL, state: 'off', attributes: { friendly_name: 'School Run' } },
 };
 
-const HASS = { states: STATES, locale: { language: 'en' } } as unknown as Types.Hass;
+const HASS = fakeHass({ states: STATES });
 
 const ENTITIES = [FAMILY, { entity: SCHOOL, name: 'Ben at school' }];
 
@@ -109,15 +107,10 @@ describe('the calendar picker', () => {
 
 describe('the editor as rendered', () => {
   it("keeps a calendar's panel and the picker when searching Home Assistant's name", async () => {
-    const editor = document.createElement('editor-search-ha-name-probe') as HTMLElement & {
-      hass: unknown;
-      setConfig(config: Record<string, unknown>): void;
-      readonly updateComplete: Promise<unknown>;
-    };
-    editor.hass = HASS;
-    document.body.appendChild(editor);
-    editor.setConfig({ config_version: Config.CURRENT_CONFIG_VERSION, entities: ENTITIES });
-    await editor.updateComplete;
+    const editor = await mountEditor(
+      { config_version: Config.CURRENT_CONFIG_VERSION, entities: ENTITIES },
+      { hass: HASS },
+    );
 
     (editor as unknown as { _filter: unknown })._filter = { ...NO_FILTER, query: 'family' };
     await editor.updateComplete;
@@ -126,11 +119,7 @@ describe('the editor as rendered', () => {
     const headers = [
       ...root.querySelectorAll<HTMLElement & { header: string }>('ha-expansion-panel.entity-panel'),
     ].map((panel) => panel.header);
-    const picker = [
-      ...root.querySelectorAll<HTMLElement & { schema: { name: string }[] }>('ha-form'),
-    ]
-      .flatMap((form) => form.schema ?? [])
-      .some((node) => node.name === 'calendars');
+    const picker = formOf(editor, 'calendars:calendars') !== undefined;
 
     expect({ headers, picker }).toEqual({ headers: ['Family Events'], picker: true });
   });

@@ -11,6 +11,16 @@
 
 import { afterAll, describe, expect, it } from 'vitest';
 
+import {
+  CARD,
+  type Owner,
+  button,
+  changeField,
+  entry,
+  fakeHass,
+  formsOf,
+  valueOf,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
@@ -523,7 +533,7 @@ interface Form extends HTMLElement {
 
 describe('the index builds what the editor draws today', () => {
   const host = document.createElement('editor-field-index-probe') as Host;
-  host.hass = { states: {}, locale: { language: 'en' } };
+  host.hass = fakeHass();
 
   afterAll(() => host.remove());
 
@@ -545,31 +555,19 @@ describe('the index builds what the editor draws today', () => {
     if (!host.isConnected) document.body.appendChild(host);
     await host.updateComplete;
 
-    const scope = host.shadowRoot!.querySelector<Form>('ha-form.workspace-form')!;
-    if (scope.data[WORKSPACE_FIELD] !== workspace) {
-      scope.dispatchEvent(
-        new CustomEvent('value-changed', {
-          detail: { value: { ...scope.data, [WORKSPACE_FIELD]: workspace } },
-          bubbles: true,
-          composed: true,
-        }),
-      );
-      await host.updateComplete;
+    if (valueOf(host, `workspace:${WORKSPACE_FIELD}`) !== workspace) {
+      await changeField(host, `workspace:${WORKSPACE_FIELD}`, workspace);
     }
-    expect(
-      host.shadowRoot!.querySelector<Form>('ha-form.workspace-form')!.data[WORKSPACE_FIELD],
-    ).toBe(workspace);
+    expect(valueOf(host, `workspace:${WORKSPACE_FIELD}`)).toBe(workspace);
   };
 
   /**
-   * The rendered forms matching a selector.
+   * The rendered forms an owner draws.
    *
-   * @param selector - Form class
+   * @param owner - Whose forms
    * @returns The forms
    */
-  const forms = (selector: string): Form[] => [
-    ...host.shadowRoot!.querySelectorAll<Form>(selector),
-  ];
+  const forms = (owner: Owner): Form[] => formsOf(host, owner) as Form[];
 
   /**
    * Field names, data path included, in a set of rendered forms.
@@ -698,8 +696,8 @@ describe('the index builds what the editor draws today', () => {
         names.push({
           at: `${workspace} ${state.gate ?? 'fresh'}`,
           drawn: {
-            panel: drawn(forms('ha-form.panel-form')),
-            entity: drawn(forms('ha-form.entity-form')),
+            panel: drawn(forms(CARD)),
+            entity: drawn(forms(entry())),
           },
           indexed: {
             panel: [...card.keys()].map(strip).sort(),
@@ -715,14 +713,18 @@ describe('the index builds what the editor draws today', () => {
         field: IndexedField;
         reads: string;
       }> = [];
-      const indexes: ReadonlyArray<readonly [string, Iterable<IndexedField>]> = [
-        ['ha-form.panel-form', card.values()],
-        ['ha-form.entity-form', entries.values()],
-        ['ha-form.button-form', buttonFieldIndex(buildToolbarButtonSchema()).fields.values()],
+      const indexes: ReadonlyArray<readonly [string, Owner, Iterable<IndexedField>]> = [
+        ['ha-form.panel-form', CARD, card.values()],
+        ['ha-form.entity-form', entry(), entries.values()],
+        [
+          'ha-form.button-form',
+          button(),
+          buttonFieldIndex(buildToolbarButtonSchema()).fields.values(),
+        ],
       ];
-      for (const [selector, fields] of indexes) {
+      for (const [selector, owner, fields] of indexes) {
         const byKey = new Map([...fields].map((field) => [strip(field.id), field]));
-        for (const form of forms(selector)) {
+        for (const form of forms(owner)) {
           for (const { node, path, key } of asDrawn(form.schema)) {
             labels.drawnFields += 1;
             const field = byKey.get(key);
