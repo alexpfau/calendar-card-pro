@@ -73,6 +73,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'gate.needs.events_limit': 'an Events limit under Compact Mode',
   'gate.needs.calendar_filter': 'a calendar filter in the toolbar',
 
+  // --- Search ---------------------------------------------------------------
+  //
+  // The tag search gives a setting a gate withholds, around one of the phrases above or the
+  // label of the control it waits on (`plan.ts` › `needsTag`): "Needs Show Description".
+  'search.needs': 'Needs {needs}',
+
   // --- View -----------------------------------------------------------------
   view: 'Card Displays',
   'view.option.list.label': 'List',

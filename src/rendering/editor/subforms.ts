@@ -67,6 +67,7 @@ export const CHASSIS_STRINGS: ReadonlyArray<string> = [
   'config_migration',
   'misplaced',
   'quick_setup',
+  'search',
 ];
 
 /**
