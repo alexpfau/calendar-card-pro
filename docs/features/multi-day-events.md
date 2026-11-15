@@ -52,8 +52,13 @@ Each row stands for its day, which changes what other features show on it:
 
 With the [progress bar](/features/event-content#progress-bar-display) on, an event a day or
 longer says which of its days it is on, such as "Day 12 of 45", in place of its bar, so a course,
-a trip or a vacation shows how far along it is at a glance. It goes where the countdown and the
-bar go:
+a trip or a vacation shows how far along it is at a glance.
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_now_and_next.png" alt="Two phone screenshots of a list card in dark mode, collapsed and tapped open: a daycare closure over today and tomorrow reads Day 1 of 2 at the end of its time line, while the two shorter events under way below it fill their progress bars"><br>
+
+A daycare closure over two days reads "Day 1 of 2"; the shorter events under way keep their bars.
+
+The counter goes where the countdown and the bar go:
 
 ```yaml
 show_progress_bar: true

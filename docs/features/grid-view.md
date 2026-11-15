@@ -413,8 +413,13 @@ time_grid:
 A timed event that lasts a full day or longer, such as an on-call week from Monday 10:00 to
 Friday 16:00, is drawn as one banner in the all-day band rather than as a block filling every
 day's hours, so the hours stay clear for appointments. It keeps its times: the start is written
-at the banner's start, the end at its end, and the popover shows both. `multiday_banners` turns
-this off:
+at the banner's start, the end at its end, and the popover shows both.
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_week_medium.png" alt="A grid card showing Monday to Friday: a conference from Thursday 07:00 to Friday 16:00 drawn as one banner in the all-day band, 7:00 at its start and 16:00 at its end, with Thursday's and Friday's appointments in the hours below it"><br>
+
+A two-day conference above the hours, its times at its ends.
+
+`multiday_banners` turns this off:
 
 ```yaml
 time_grid:
