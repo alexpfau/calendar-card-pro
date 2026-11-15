@@ -168,7 +168,7 @@ The [Family Agenda](/guide/one-calendar-many-purposes#a-reminder-that-retires-it
 
 ### The Next Seven Days on an Hour Axis
 
-`view: grid` gives each day a column and puts every event shorter than a day at the time it starts, as tall as it is long. With no `start_date`, the seven days start today and move on at midnight; a wall that shows Monday to Sunday is the [first variation](#a-fixed-week-on-a-dedicated-wall). See [Grid View](/features/grid-view).
+`view: grid` gives each day a column and puts every timed event at the time it starts, as tall as it is long, unless it lasts a full day or longer and runs into a second date, which makes it a banner in the all-day band. With no `start_date`, the seven days start today and move on at midnight; a wall that shows Monday to Sunday is the [first variation](#a-fixed-week-on-a-dedicated-wall). See [Grid View](/features/grid-view).
 
 Grid view keeps today's finished events on screen, and an emerald line marks the current time. `weather` puts each day's forecast in its date header, as far ahead as the forecast reaches. See [The Now Line](/features/grid-view#the-now-line) and [Weather in the Grid Layout](/features/weather#weather-in-the-grid-layout).
 

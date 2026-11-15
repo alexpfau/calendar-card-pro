@@ -10,7 +10,7 @@ A phone, a dashboard section and an 800px portrait tablet, with a bar filling on
 
 ## 📋 Copy the Card
 
-Replace the `calendar.*` ids, the `person.*` labels and `weather.home` with your own, and set `start_time` and `end_time` to your own day. They are hard bounds for a timed event shorter than a day: one wholly outside them is not drawn at all, and one that runs past them is cut off at the edge. An event a full day or longer is a [banner above the hours](/features/grid-view#long-timed-events-as-banners) instead, whatever its times.
+Replace the `calendar.*` ids, the `person.*` labels and `weather.home` with your own, and set `start_time` and `end_time` to your own day. They are hard bounds for a block in the hours: an event wholly outside them is not drawn at all, and one that runs past them is cut off at the edge. A timed event that lasts a full day or longer and runs into a second date is a [banner above the hours](/features/grid-view#long-timed-events-as-banners) instead, whatever its times.
 
 ```yaml
 type: custom:calendar-card-pro
