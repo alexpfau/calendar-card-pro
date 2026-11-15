@@ -279,7 +279,7 @@ describe('Day Header panel structure', () => {
 });
 
 describe('Collapsibles come last in every panel', () => {
-  // Alex's complaint, generalized. A "Gap & Rule" run was appended *below* Day Header's
+  // A reported problem, generalized. A "Gap & Rule" run was appended *below* Day Header's
   // four collapsibles, so the panel opened on a disclosure and then produced two more
   // fields underneath it — a reader who has stopped scanning at the first collapsed row
   // never sees them. That is a convention rather than a mechanism, which is why it broke
@@ -524,7 +524,7 @@ describe('No two adjacent fields share a label', () => {
   // why no English-only rename fixes it. Reusing the already-translated
   // `accent_color_mode.option.custom.label` looks free and is not: the dropdown's own
   // *value* is that string, so the swatch below would read `Custom color / Custom color`.
-  // A real fix needs a new string translated nine times. Alex's call.
+  // A real fix needs a new string translated nine times, which is a product decision.
   const KNOWN = [
     'calendars/subform: "Accent Color" = accent_color_mode + accent_color',
     'events: "Accent Color" = accent_color_mode + accent_color',

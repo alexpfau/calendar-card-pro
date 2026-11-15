@@ -30,7 +30,7 @@ const buttons = (count: number): StartControl[] =>
 
 /**
  * A list card's row as a shown toolbar draws it by default with four buttons: the filter folded
- * into its button, add, the four, the switcher, and refresh. The same row Alex's dashboard holds.
+ * into its button, add, the four, the switcher, and refresh. The same row a real dashboard holds.
  */
 const ROW: ActionRow = {
   start: [FILTER, ADD, ...buttons(4)],
@@ -76,7 +76,7 @@ describe('the widths the plan rests on', () => {
   });
 
   it('needs 274px for the narrowest row beside refresh, 318px beside two and 362px beside three', () => {
-    // The filter and the menu button, the switcher, and the end group: Alex's three cases, the
+    // The filter and the menu button, the switcher, and the end group: the three real cases, the
     // search control counted wherever it is drawn.
     expect(cardWidthFor(withEnd(['refresh']), 2)).toBe(274);
     expect(cardWidthFor(withEnd(['refresh', 'search']), 2)).toBe(318);
