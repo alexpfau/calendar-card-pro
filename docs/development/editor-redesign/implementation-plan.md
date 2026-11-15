@@ -2719,6 +2719,52 @@ Behavior-preserving.
     entry and on a button counts as stored; a blank or `null` does not.
 - **Strings.** About 1, the Needs tag of search. The gate line's templates and clauses arrive with
   the PR that first draws them, PR 15.
+- **As built.** Where PR 14 departs from section 4.1's contracts and sections 5.1 and 5.3:
+  - **`PlanCtx` gains three optional members.** `pending`, the held text, so a field being typed
+    counts as stored (section 5.1 reads `_pending`; the contract had no way in); `entryKeys`, so the
+    "Set on Calendars" line names entries by key; and `entry`, the key of the entry whose
+    `calendar:` ids a state is asked for. `planEntry` sets `entry` and swaps in the entry's own
+    present index, so `fieldState`, `stateOf` and `resetOutcome` read one entry the same way they
+    read the card. `planEntry` takes an entry as stored, a bare id included.
+  - **`FieldState` gains `{ kind: 'none' }`**: drawn and named nowhere on the page. A mode value
+    whose mode is not live, an option this workspace offers under another id (`layout:day_spacing`
+    in Grid, `separators:day_spacing` elsewhere), and a field no gate explains here.
+  - **The plan's results are data, not words.** `HeadingPlan` (live fields with their reason, Add
+    items with a family as one item, gated fields of `kind: 'gate'` gates only, stored-but-not-in-use
+    fields), `OtherLayoutLine` (layouts and ids), `StateWords` (one of the table's eight words, plus
+    the layouts and the calendars storing their own) and `ResetOutcome` (the five rows, the beaten
+    All Layouts value as `ignored`). PR 15 words them with its templates.
+  - **Two more exports.** `plan.ts` › `resetAction(id, appearance, ctx, state)` decides Reset or
+    Remove by running `reset.ts` › `reset` on the editor's `WriteState`, storing the result through
+    `toStoredConfig` and asking `fieldState` again; it needs the state, so it is not `stateOf`'s
+    job. A field still live afterwards gets Reset, which with Show Every Setting on is every stored
+    field, where the prototype gave Remove: the plan's rule is built. `needsTag` wraps `needsText`
+    in `search.needs`, "Needs {needs}", the one string; `subforms.ts` › `CHASSIS_STRINGS` gains
+    `search` for it.
+  - **`days_of_week` has no card setting**, so seven of the eight entry tri-states can follow a card
+    value that differs; the test pins the eighth as never inheriting one.
+  - **Families.** A family is live by its members that apply here; a stored member a gate withholds
+    is listed as not in use and does not open the family. A member added alone, as search will add
+    one, brings its family, since its members are shown together.
+  - **"Same as the Default"** compares against what the field shows once its line is gone here and
+    at the top level, the prototype's base, worked out from this card: Columns' minimum days follow
+    the card's own day count, so a blank card's default would be wrong.
+  - **Other layouts** are read from each layout's universe built in English; ids do not depend on the
+    language.
+  - **`reset.ts`.** A reset deletes lines and never writes a default, which `toStoredConfig` would
+    keep where the YAML held it. Each line's reset forgets the text held for it, a synthetic field's
+    included (a cleared Card Height is held as `card_height`). A Grid reset of a key Grid defaults
+    differently is remembered whether or not the block stored it yet, as `_resetViewValues`
+    remembers it; a path naming a whole block resets it as Reset All does; a root reset forgets a
+    Grid reset it outlives, as a Shared write does; a block or root key that leaves the
+    configuration leaves the authored root keys. `entities.ts` gains `resetEntry` and exports
+    `isCalendarOption`; an entry reduced to its id stays an object. `reset.ts` also exports
+    `cardFamilyMembers` and `entryFamilyMembers`, which `plan.ts` reads.
+  - **Tests and bytes.** 57 cases in the two files; 45 planted defects in `plan.ts`, `reset.ts` and
+    `entities.ts` each fail a named case against a green control. Neither module is imported by the
+    editor yet, so both are tree-shaken until PR 15: the editor chunk moves by the string and the
+    chassis prefix alone, +86 B raw and +57 B gzip -9 over PR 4's head, and the card's sha256 is
+    unchanged.
 
 ### PR 15 · Show What Applies
 
