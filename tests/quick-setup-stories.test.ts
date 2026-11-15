@@ -64,11 +64,12 @@ function documentedShell(documented: Record<string, unknown>): Record<string, un
   return shell;
 }
 
-it('offers the four stories that work without per-calendar filters, in this order', () => {
+it('offers the five stories that work without per-calendar filters, in this order', () => {
   expect(STORIES.map((story) => story.id)).toEqual([
     'family_hub',
     'now_and_next',
     'today_and_tomorrow',
     'birthdays_and_holidays',
+    'house_log',
   ]);
 });

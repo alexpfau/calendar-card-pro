@@ -6,7 +6,7 @@
  * story. Each calendar's colors survive as a palette, given in order to the user's calendars
  * that have no color of their own. Its names and labels do not: they name the story's people.
  *
- * Only the four stories that work without per-calendar filters are here. Bin Day splits one
+ * Only the five stories that work without per-calendar filters are here. Bin Day splits one
  * calendar four ways by words in event titles, and Family Agenda separates work events by a tag
  * in their descriptions; neither can be guessed for someone else's calendars (Alex, Nov 9).
  *
@@ -18,7 +18,7 @@
 
 /** A story's id, which is also the stem of its editor strings: `quick_setup.story.<id>`. */
 export type StoryId =
-  'family_hub' | 'now_and_next' | 'today_and_tomorrow' | 'birthdays_and_holidays';
+  'family_hub' | 'now_and_next' | 'today_and_tomorrow' | 'birthdays_and_holidays' | 'house_log';
 
 /** One story Quick Setup can start from. */
 export interface Story {
@@ -50,7 +50,7 @@ function story(
   return { id, page, palette, shell: () => structuredClone(shell) as Record<string, unknown> };
 }
 
-/** The four stories, in the order Quick Setup offers them. */
+/** The five stories, in the order Quick Setup offers them. */
 export const STORIES: ReadonlyArray<Story> = [
   story(
     'family_hub',
@@ -126,6 +126,18 @@ export const STORIES: ReadonlyArray<Story> = [
     vertical_line_width: '4px',
     toolbar: { show: true, legend: false, add_event: false, refresh: false, view_switcher: false },
     event_tap_action: { action: 'details' },
+  }),
+  story('house_log', '/guide/house-log', ['#8d6e63'], {
+    title: 'House Log',
+    start_date: 'today-29',
+    days_to_show: 30,
+    show_past_events: true,
+    past_event_opacity: 100,
+    show_countdown: true,
+    show_time: false,
+    time_position: 'title',
+    event_tap_action: { action: 'details' },
+    list: { event_order: 'latest_first' },
   }),
 ];
 
