@@ -90,6 +90,7 @@ function viewOfBlock(blockKey: string): Types.EffectiveView | undefined {
  */
 function removeRoot(draft: Draft, key: string): void {
   delete draft.pending[key];
+  forgetSyntheticText(draft, key, 'shared');
   if (!Object.prototype.hasOwnProperty.call(draft.config, key)) return;
   const config = { ...draft.config };
   delete config[key];
@@ -99,9 +100,31 @@ function removeRoot(draft: Draft, key: string): void {
 }
 
 /**
- * Deletes one line from a layout's block, and the block once it is empty. A key Grid defaults
- * differently is remembered as reset, so switching the card to Grid later does not copy the root
- * value over the default that just came back (`value.ts` › `reconcileTimeGridValues`).
+ * Forgets the text a synthetic field holds for a key at one destination: a cleared Card Height is
+ * held under `card_height`, not under `height`, and would otherwise stay on screen once the line
+ * it stood for is gone.
+ *
+ * @param draft - What the reset builds
+ * @param key - The key whose line goes
+ * @param workspace - The workspace whose destination it is
+ */
+function forgetSyntheticText(draft: Draft, key: string, workspace: EditorWorkspace): void {
+  const block = Routing.destination(key, workspace);
+  for (const name of Object.keys(Synthetic.SYNTHETIC_FIELDS)) {
+    if (!Synthetic.configKeysForField(name).includes(key)) continue;
+    const held = Routing.pendingKey(name, workspace);
+    if (block === undefined ? !held.includes('.') : held.startsWith(`${block}.`)) {
+      delete draft.pending[held];
+    }
+  }
+}
+
+/**
+ * Deletes one line from a layout's block, and the block once it is empty, with the text held for
+ * it. A key Grid defaults differently is remembered as reset whether or not the block stored it
+ * yet, as `element.ts` › `_resetViewValues` remembers it, so switching the card to Grid later does
+ * not copy the root value over the default that Reset asked for
+ * (`value.ts` › `reconcileTimeGridValues`).
  *
  * @param draft - What the reset builds
  * @param blockKey - The block
@@ -109,13 +132,14 @@ function removeRoot(draft: Draft, key: string): void {
  */
 function removeInBlock(draft: Draft, blockKey: string, key: string): void {
   delete draft.pending[`${blockKey}.${key}`];
-  const block = draft.config[blockKey];
-  if (!Helpers.isConfigBlock(block) || !Object.prototype.hasOwnProperty.call(block, key)) return;
-
   const view = viewOfBlock(blockKey);
+  if (view !== undefined) forgetSyntheticText(draft, key, view);
   if (blockKey === GRID_BLOCK && view !== undefined && ViewConfig.hasDivergentDefault(key, view)) {
     draft.gridResetKeys.add(key);
   }
+
+  const block = draft.config[blockKey];
+  if (!Helpers.isConfigBlock(block) || !Object.prototype.hasOwnProperty.call(block, key)) return;
   const next = { ...block };
   delete next[key];
   const config = { ...draft.config };
@@ -128,6 +152,31 @@ function removeInBlock(draft: Draft, blockKey: string, key: string): void {
 }
 
 /**
+ * Deletes a layout's whole block: every line it holds and every key it holds text for, each as
+ * one line's reset, which forgets the text held for it (a synthetic field's included), then the
+ * block.
+ *
+ * @param draft - What the reset builds
+ * @param blockKey - The block
+ */
+function removeBlock(draft: Draft, blockKey: string): void {
+  const block = draft.config[blockKey];
+  const held = Object.keys(draft.pending).flatMap((key) =>
+    key.startsWith(`${blockKey}.`)
+      ? Synthetic.configKeysForField(key.slice(blockKey.length + 1))
+      : [],
+  );
+  const keys = new Set([...(Helpers.isConfigBlock(block) ? Object.keys(block) : []), ...held]);
+  for (const key of keys) removeInBlock(draft, blockKey, key);
+  if (Object.prototype.hasOwnProperty.call(draft.config, blockKey)) {
+    const config = { ...draft.config };
+    delete config[blockKey];
+    draft.config = config;
+    draft.authoredRootKeys.delete(blockKey);
+  }
+}
+
+/**
  * Deletes one line by its path: at the root, in a layout's block, or nested in another block.
  *
  * @param draft - What the reset builds
@@ -136,7 +185,8 @@ function removeInBlock(draft: Draft, blockKey: string, key: string): void {
 function removePath(draft: Draft, path: ReadonlyArray<string>): void {
   if (path.length === 0) return;
   if (path.length === 1) {
-    removeRoot(draft, path[0]);
+    if (BLOCK_KEYS.has(path[0])) removeBlock(draft, path[0]);
+    else removeRoot(draft, path[0]);
     return;
   }
   if (path.length === 2 && BLOCK_KEYS.has(path[0])) {
@@ -162,14 +212,12 @@ function removePath(draft: Draft, path: ReadonlyArray<string>): void {
  *
  * @param draft - What the reset builds
  * @param dataPath - The field's enclosing data keys
- * @param name - The field's name
  * @param keys - The keys it writes
  * @param workspace - The workspace whose lines go
  */
 function removeField(
   draft: Draft,
   dataPath: ReadonlyArray<string>,
-  name: string,
   keys: ReadonlyArray<string>,
   workspace: EditorWorkspace,
 ): void {
@@ -178,12 +226,7 @@ function removeField(
     return;
   }
 
-  delete draft.pending[Routing.pendingKey(name, workspace)];
-  for (const held of Object.keys(Synthetic.SYNTHETIC_FIELDS)) {
-    if (Synthetic.configKeysForField(held).some((key) => keys.includes(key))) {
-      delete draft.pending[Routing.pendingKey(held, workspace)];
-    }
-  }
+  // Each line's reset forgets the text held for it, this field's and every synthetic sibling's.
   for (const key of keys) {
     const block = Routing.destination(key, workspace);
     if (block === undefined) removeRoot(draft, key);
@@ -236,19 +279,11 @@ export function entryFamilyMembers(family: FamilyId): FieldId[] {
  * holds for one.
  *
  * @param id - Card field id
- * @returns Its enclosing data keys, its name and the keys it writes
+ * @returns Its enclosing data keys and the keys it writes
  */
-function cardField(id: FieldId): {
-  dataPath: ReadonlyArray<string>;
-  name: string;
-  keys: ReadonlyArray<string>;
-} {
+function cardField(id: FieldId): { dataPath: ReadonlyArray<string>; keys: ReadonlyArray<string> } {
   const { dataPath, name } = parseFieldId(id);
-  return {
-    dataPath,
-    name,
-    keys: dataPath.length === 0 ? Synthetic.configKeysForField(name) : [name],
-  };
+  return { dataPath, keys: dataPath.length === 0 ? Synthetic.configKeysForField(name) : [name] };
 }
 
 /**
@@ -306,15 +341,15 @@ export function reset(state: WriteState, target: ResetTarget): ResetResult {
   switch (target.kind) {
     case 'field': {
       const { field, workspace } = target;
-      removeField(draft, field.dataPath, field.node.name, field.configKeys, workspace);
+      removeField(draft, field.dataPath, field.configKeys, workspace);
       clearAdded = [field.id];
       break;
     }
     case 'family': {
       const members = cardFamilyMembers(target.family);
       for (const id of members) {
-        const { dataPath, name, keys } = cardField(id);
-        removeField(draft, dataPath, name, keys, target.workspace);
+        const { dataPath, keys } = cardField(id);
+        removeField(draft, dataPath, keys, target.workspace);
       }
       clearAdded = [`family:${target.family}`, ...members];
       break;
@@ -336,24 +371,9 @@ export function reset(state: WriteState, target: ResetTarget): ResetResult {
       ];
       break;
     }
-    case 'block': {
-      const { blockKey } = target;
-      const block = draft.config[blockKey];
-      for (const key of Helpers.isConfigBlock(block) ? Object.keys(block) : []) {
-        removeInBlock(draft, blockKey, key);
-      }
-      // Text held for the block, a synthetic field's included (`routing.ts` › `pendingKey`).
-      for (const held of Object.keys(draft.pending)) {
-        if (held.startsWith(`${blockKey}.`)) delete draft.pending[held];
-      }
-      if (Object.prototype.hasOwnProperty.call(draft.config, blockKey)) {
-        const config = { ...draft.config };
-        delete config[blockKey];
-        draft.config = config;
-        draft.authoredRootKeys.delete(blockKey);
-      }
+    case 'block':
+      removeBlock(draft, target.blockKey);
       break;
-    }
   }
 
   return {

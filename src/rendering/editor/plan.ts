@@ -538,7 +538,9 @@ function familyWhy(
   const members = familyMembers(family, ctx).flatMap((id) => ctx.present.fields.get(id) ?? []);
   if (members.some((field) => storedHere(field, ctx))) return 'stored';
   if (members.some((field) => inheritedDifferent(field, ctx))) return 'inherited';
-  if (ctx.added.has(addedKey(`family:${family}`, ctx))) return 'added';
+  // A member added alone, as search adds one, brings its family: they are shown together.
+  const ids = [`family:${family}`, ...familyMembers(family, ctx)];
+  if (ids.some((id) => ctx.added.has(addedKey(id, ctx)))) return 'added';
   return ctx.showEverySetting ? 'every' : undefined;
 }
 
@@ -877,13 +879,13 @@ export function stateOf(field: IndexedField, ctx: PlanCtx): StateWords | undefin
       view,
       sameAsDefault: deepEqual(
         shownValue(ctx.config, ctx.workspace, field, ctx.pending),
-        shownValue(defaultConfig(), ctx.workspace, field),
+        defaultHere(field, ctx),
       ),
     };
   } else if (divergent(field, view)) {
     const top = shownValue(ctx.config, 'shared', field);
     words =
-      topStored(field, ctx) && !deepEqual(top, shownValue(defaultConfig(), ctx.workspace, field))
+      topStored(field, ctx) && !deepEqual(top, defaultHere(field, ctx))
         ? { kind: 'layout-default', view, ignored: top }
         : { kind: 'layout-default', view };
   } else if (topStored(field, ctx)) {
@@ -915,6 +917,22 @@ function impliedState(ctx: PlanCtx): WriteState {
     entryKeys: ctx.entryKeys ?? entities.map((_, at) => at),
     buttonKeys: [],
   };
+}
+
+/**
+ * The default a field has here: what it shows once its line is gone both here and at the top
+ * level, the prototype's base for "Same as the Default". That is the layout's own default where it
+ * has one, else the card's, worked out from this card, since some defaults follow other options
+ * (Columns' minimum days follow the card's day count).
+ *
+ * @param field - A card field
+ * @param ctx - Plan context
+ * @returns The value its form would show
+ */
+function defaultHere(field: IndexedField, ctx: PlanCtx): unknown {
+  const here = Reset.reset(impliedState(ctx), { kind: 'field', field, workspace: ctx.workspace });
+  const bare = Reset.reset(here.state, { kind: 'field', field, workspace: 'shared' });
+  return shownValue(bare.state.config, ctx.workspace, field, bare.state.pending);
 }
 
 /**

@@ -273,6 +273,14 @@ describe('the shown set: each state of section 5.1', () => {
     ]);
     expect(stored.add).toEqual([]);
 
+    // A member added alone, as search adds one, brings its family with it.
+    const one = planPage(page, cardCtx({}, 'list', { added: ['content:compact_events_to_show'] }))
+      .headings[page.headings.indexOf(compact)];
+    expect(one.live.map(({ id, why }) => [id, why])).toEqual([
+      ['content:compact_days_to_show', 'added'],
+      ['content:compact_events_to_show', 'added'],
+    ]);
+
     const added = planPage(page, cardCtx({}, 'list', { added: ['family:compact_mode'] })).headings[
       page.headings.indexOf(compact)
     ];
@@ -442,6 +450,23 @@ describe('state words: every row of the stateOf table', () => {
     expect(words({ time_grid: { event_font_size: 12 } }, 'grid', 'events:event_font_size')).toEqual(
       { words: { kind: 'set-layout', view: 'grid', sameAsDefault: true } },
     );
+  });
+
+  it('“Same as the Default” against the default that applies here, worked out from the card', () => {
+    // Columns' floor defaults to the card's own day count, so the default is the card's, not a
+    // blank card's.
+    const raw = { view: 'column', days_to_show: 5 };
+    const ctx = cardCtx({ ...raw, column: { min_days_to_show: 3 } }, 'column');
+    const field = fieldIn(ctx, 'layout:column.min_days_to_show');
+    const restored = resetOutcome(field, ctx)!.value;
+    expect(restored).not.toEqual(3);
+    expect(stateOf(field, ctx)).toEqual({
+      words: { kind: 'set-layout', view: 'column', sameAsDefault: false },
+    });
+    const same = cardCtx({ ...raw, column: { min_days_to_show: restored } }, 'column');
+    expect(stateOf(fieldIn(same, 'layout:column.min_days_to_show'), same)).toEqual({
+      words: { kind: 'set-layout', view: 'column', sameAsDefault: true },
+    });
   });
 
   it('“Grid’s Default”, with nothing stored anywhere, and its note when the top level differs', () => {

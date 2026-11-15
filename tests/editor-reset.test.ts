@@ -147,6 +147,28 @@ describe('a field', () => {
     expect(switched.time_grid).toBeUndefined();
   });
 
+  it('in Grid’s block, a reset of text still being typed is a Grid reset too', () => {
+    // Nothing stored in the block yet, only held text: the switch to Grid must still not copy
+    // the root value over the default Reset asked for, as `_resetViewValues` never let it.
+    const { state } = run(
+      { event_font_size: '16px' },
+      (s) => ({
+        kind: 'field',
+        field: fieldOf(s, 'grid', 'events:event_font_size'),
+        workspace: 'grid',
+      }),
+      { pending: { 'time_grid.event_font_size': '2r' } },
+    );
+    expect(state.pending).toEqual({});
+    expect(state.gridResetKeys).toEqual(new Set(['event_font_size']));
+    const switched = reconcileTimeGridValues(
+      { ...state.config, view: 'grid' },
+      state.gridResetKeys,
+      state.authoredRootKeys,
+    );
+    expect(switched.time_grid).toBeUndefined();
+  });
+
   it('in a layout’s block, a key no layout defaults differently is not a Grid reset', () => {
     const { state, stored } = run(
       { list: { time_font_size: '20px', event_font_size: '16px' } },
@@ -322,6 +344,32 @@ describe('a path and a whole block', () => {
     }));
     expect(root.stored).toEqual({ title: 'Family' });
     expect(root.state.authoredRootKeys.has('refresh_interval')).toBe(false);
+  });
+
+  it('a path naming a whole block resets it as Reset All does', () => {
+    const { state, stored } = run(
+      { event_font_size: '16px', time_grid: { event_font_size: '20px' } },
+      () => ({ kind: 'path', path: ['time_grid'] }),
+      { pending: { 'time_grid.end_time': '2' } },
+    );
+    expect(stored).toEqual({ event_font_size: '16px' });
+    expect(state.gridResetKeys).toEqual(new Set(['event_font_size']));
+    expect(state.pending).toEqual({});
+  });
+
+  it('a path clears the text a synthetic field holds for the same line', () => {
+    // A cleared Card Height is held as text under its synthetic name, not under `height`.
+    const { state, stored } = run(
+      { height: '400px', list: { height: '300px' } },
+      () => ({ kind: 'path', path: ['list', 'height'] }),
+      { pending: { 'list.card_height': '', card_height: '4' } },
+    );
+    expect(stored).toEqual({ height: '400px' });
+    expect(state.pending).toEqual({ card_height: '4' });
+    const root = run({ height: '400px' }, () => ({ kind: 'path', path: ['height'] }), {
+      pending: { card_height: '', 'list.card_height': '3' },
+    });
+    expect(root.state.pending).toEqual({ 'list.card_height': '3' });
   });
 
   it('Reset All in Grid: the block, its held text, and every divergent key it held', () => {
