@@ -92,6 +92,13 @@ export interface FilterCtx extends SchemaCtx {
    * that name, so a search for it has to find the panel. Absent before the editor has one.
    */
   hass?: Types.Hass;
+  /**
+   * The configuration as its YAML holds it, before any default is merged in: what tells a line
+   * the card sets from one it only inherits, which Essentials Only keeps. `rawConfig` cannot
+   * answer that, because its root already holds every default. Absent outside the editor, where
+   * nothing counts as written.
+   */
+  stored?: Readonly<Record<string, unknown>>;
 }
 
 /**
@@ -388,6 +395,58 @@ export function isCustomized(
   return !deepEqual(value, valueAt(Config.DEFAULT_CONFIG, dataPath, name));
 }
 
+/**
+ * Whether a value counts as written: blanks and nulls are how a cleared field is left.
+ *
+ * @param value - Value as stored
+ * @returns `true` when the value is there
+ */
+function holdsValue(value: unknown): boolean {
+  return value !== undefined && value !== null && value !== '';
+}
+
+/**
+ * Whether the card's YAML holds a value for a field: at the field's own nested path, or, for a
+ * field on the card's root, at the root or in the selected layout's block, both of which it shows.
+ *
+ * Read from the YAML as stored. The view blocks the editor re-serializes for labeling drop a
+ * line that normalizes to its default, such as a unitless `event_font_size: 14`, so asking them
+ * would hide exactly the lines the YAML holds and Customized Only does not count.
+ *
+ * @param node - Schema node
+ * @param dataPath - Enclosing object keys in the configuration, outermost first
+ * @param ctx - Matching context
+ * @returns `true` when the YAML holds a value for it
+ */
+function isStored(node: HaFormSchema, dataPath: ReadonlyArray<string>, ctx: FilterCtx): boolean {
+  const stored = ctx.stored;
+  if (stored === undefined) return false;
+  if (dataPath.length > 0) return holdsValue(valueAt(stored, dataPath, node.name));
+
+  const workspace = ctx.workspace;
+  return configKeysForField(node.name).some((key) => {
+    if (holdsValue(stored[key])) return true;
+    const block = workspace === undefined ? undefined : Routing.destination(key, workspace);
+    return block !== undefined && holdsValue(valueAt(stored, [block], key));
+  });
+}
+
+/**
+ * Whether the card sets a field: its YAML holds a value for it, or the value differs from what
+ * the card would use untouched.
+ *
+ * Asking `isCustomized` as well makes Customized Only and Essentials Only together show exactly
+ * what Customized Only shows alone, rather than resting that on the two readings agreeing.
+ *
+ * @param node - Schema node
+ * @param dataPath - Enclosing object keys in the configuration, outermost first
+ * @param ctx - Matching context
+ * @returns `true` when the card sets it
+ */
+function isSetByCard(node: HaFormSchema, dataPath: ReadonlyArray<string>, ctx: FilterCtx): boolean {
+  return isStored(node, dataPath, ctx) || isCustomized(node, dataPath, ctx);
+}
+
 type LeafPredicate = (
   node: HaFormSchema,
   path: ReadonlyArray<string>,
@@ -676,7 +735,9 @@ export function filterSchema(
         ((matchesQuery(node, nodePath, ctx, nodeDataPath) ||
           (nodeDataPath.length === 0 && listsCalendars(node) && namesACalendar(ctx))) &&
           (!ctx.criteria.customizedOnly || isCustomized(node, nodeDataPath, ctx)) &&
-          (!essentials || isEssentialCardField(node, nodeDataPath))),
+          (!essentials ||
+            isEssentialCardField(node, nodeDataPath) ||
+            isSetByCard(node, nodeDataPath, ctx))),
       path,
       dataPath,
     ),
@@ -835,7 +896,7 @@ export function filterEntitySchema(
         isHeading(node) ||
         ((named || matchesQuery(node, nodePath, entityCtx)) &&
           (!ctx.criteria.customizedOnly || isEntityFieldCustomized(entry, node)) &&
-          (!essentials || isEssentialCalendarField(node))),
+          (!essentials || isEssentialCalendarField(node) || isEntityFieldCustomized(entry, node))),
       path,
       [],
     ),
@@ -884,7 +945,8 @@ function isButtonFieldCustomized(entry: unknown, node: HaFormSchema): boolean {
 /**
  * Filters one toolbar button's fields, as `filterEntitySchema` does a calendar's: a field shows
  * where it answers the query, or where the button's own name, icon or entity does, and, under
- * "customized only", only where the button sets it.
+ * "customized only", only where the button sets it. Essentials Only names no button field, so
+ * it keeps the fields the button sets: a button the card has is part of what the card does.
  *
  * @param schema - A button's fields
  * @param entry - The button as written
@@ -899,10 +961,9 @@ export function filterButtonSchema(
   ctx: FilterCtx,
 ): HaFormSchema[] {
   if (!isFiltering(ctx.criteria)) return [...schema];
-  // A button of one's own is an addition to the card, not something most cards need.
-  if (appliesEssentials(ctx.criteria)) return [];
 
   const named = queryOf(ctx) !== '' && matchesButton(entry, ctx);
+  const essentials = appliesEssentials(ctx.criteria);
 
   return pruneLoneHeadings(
     filterNodes(
@@ -911,7 +972,8 @@ export function filterButtonSchema(
       (node, nodePath) =>
         isHeading(node) ||
         ((named || matchesQuery(node, nodePath, ctx)) &&
-          (!ctx.criteria.customizedOnly || isButtonFieldCustomized(entry, node))),
+          (!ctx.criteria.customizedOnly || isButtonFieldCustomized(entry, node)) &&
+          (!essentials || isButtonFieldCustomized(entry, node))),
       path,
       [],
     ),

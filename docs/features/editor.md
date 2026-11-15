@@ -343,7 +343,7 @@ Column's two substitutions are listed in
 - **Context-Aware Options** — settings appear only when they are relevant, so a panel shows what applies rather than everything that exists
 - **Search** — find any option by name or by what it does, without knowing which panel holds it
 - **Customized Only** — hide everything left at its default, to see what a card actually changes
-- **Essentials Only** — show only the settings most cards need
+- **Essentials Only** — show the settings most cards need, plus any your card sets
 - **Direct Per-View Editing** — choose a workspace and edit its effective values without adding a second control
 
 ::: info Editor Language Support
@@ -379,10 +379,11 @@ Some searches bring back a whole group rather than one control:
 ### Essentials Only
 
 **Essentials Only** cuts the editor down to about twenty settings most cards need, so a first
-setup is not a walk through nine panels. It is off until you switch it on, and your browser
+setup is not a walk through nine panels. Every setting your card already sets stays as well, so
+the switch never hides what a card does. It is off until you switch it on, and your browser
 remembers it for every card.
 
-It keeps these, and hides the rest:
+It keeps these, plus anything the card's YAML holds:
 
 - **Calendars**: the calendar picker, and each calendar's name, label and accent color
 - **Time Range & Content**: Days to Show, Start Date, Show Past Events and Show Empty Days
@@ -392,10 +393,13 @@ It keeps these, and hides the rest:
 - **Actions & Refresh**: Tap Action, Day Tap Action and Event Tap Action
 - **Layout**, in Grid only: the hours the grid starts and ends
 
+What the card sets counts on the card, in each calendar and on each of your toolbar's own
+buttons. A line written at its default value counts too, and in a layout, so does a value it
+takes from the shared base.
+
 Typing a search sets Essentials Only aside, so a search still reaches every setting. With
-**Customized Only** also on, it shows the essentials this card has changed. Your toolbar's own
-buttons are hidden while it is on, and a line under the switches says how many settings it is
-hiding.
+**Customized Only** also on, the editor shows what Customized Only shows. A line under the
+switches says how many settings Essentials Only is hiding.
 
 ::: tip Not Everything Is There To Be Found
 The editor only offers the settings your current configuration calls for: a fixed calendar content height appears once the height mode is fixed, the compact-mode modifier appears once there is an event limit for it to modify, Allow Editing Events and Allow Deleting Events appear once Event Tap Action is Show Event Details, a calendar's Event Weather appears once the forecast is shown beside events, and Open Links in Events only while Event Tap Action and Event Hold Action are both Nothing. A search cannot turn up a control that is not on screen, so if nothing matches, check whether the option it depends on is switched on.
