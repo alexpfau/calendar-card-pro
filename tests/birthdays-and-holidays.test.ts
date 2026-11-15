@@ -4,7 +4,7 @@
  * `docs/guide/birthdays-and-holidays.md` prints a two-month list for "whose birthday is next,
  * how old they turn, and when the next break starts and ends", and promises it with nothing set
  * up on the card beyond the page's yaml: `YEAR=1990` in a description adds the age to the title
- * and counts up each year, every event still to come carries a countdown, a one-day event has no
+ * and counts up each year, every event still to come carries a countdown in days, a one-day event has no
  * "All day" line while a holiday of several days still says when it ends, two months are shown
  * with empty days hidden, a rule marks where a month ends, and a tap opens the entry as the
  * calendar stores it. Nothing ran this card before this file.
@@ -108,6 +108,7 @@ describe('the Birthdays & Holidays card behaves as its page describes', () => {
     expect(CARD).toMatchObject({
       days_to_show: 60,
       show_countdown: true,
+      countdown_exact_days: true,
       show_single_allday_time: false,
       month_separator_width: '1px',
       toolbar: {
@@ -159,18 +160,28 @@ describe('the Birthdays & Holidays card behaves as its page describes', () => {
     ]);
   });
 
-  it('counts down to every event still to come, and not to one under way', async () => {
+  it('counts down to every event still to come in days, and not to one under way', async () => {
     const card = await mountStory(CARD, SEASON);
     expect(listRows(card).map((row) => [row.title, row.countdown])).toEqual([
       ['Midsummer fair', null],
       ['Mia (36)', 'in 3 days'],
       ['Bank holiday', 'in 12 days'],
       ['Noah', 'in 15 days'],
-      ['Summer break', 'in a month'],
-      ['Clara (7)', 'in 2 months'],
+      ['Summer break', 'in 33 days'],
+      ['Clara (7)', 'in 59 days'],
     ]);
 
-    // Control: `show_countdown` out, and no row counts down.
+    // Controls: `countdown_exact_days` out, and the waits past 25 days round to months again;
+    // `show_countdown` out, and no row counts down.
+    const rounded = await mountStory(dropOption(CARD, 'countdown_exact_days'), SEASON);
+    expect(listRows(rounded).map((row) => row.countdown)).toEqual([
+      null,
+      'in 3 days',
+      'in 12 days',
+      'in 15 days',
+      'in a month',
+      'in 2 months',
+    ]);
     const quiet = await mountStory(dropOption(CARD, 'show_countdown'), SEASON);
     expect(listRows(quiet).map((row) => row.countdown)).toEqual(Array(DRAWN.length).fill(null));
   });

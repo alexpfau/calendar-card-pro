@@ -92,6 +92,13 @@ export interface FilterCtx extends SchemaCtx {
    * that name, so a search for it has to find the panel. Absent before the editor has one.
    */
   hass?: Types.Hass;
+  /**
+   * The configuration as its YAML holds it, before any default is merged in: what tells a line
+   * the card sets from one it only inherits, which Essentials Only keeps. `rawConfig` cannot
+   * answer that, because its root already holds every default. Absent outside the editor, where
+   * nothing counts as written.
+   */
+  stored?: Readonly<Record<string, unknown>>;
 }
 
 /**
@@ -237,6 +244,7 @@ function searchableText(
   text.push(
     EditorLocalize.computeLabel(ctx.language, node, path),
     EditorLocalize.computeHelper(ctx.language, ctx.view, node, path, ctx.workspace !== undefined),
+    EditorLocalize.computeAliases(ctx.language, node, path),
   );
   if (ctx.workspace !== undefined && 'selector' in node) {
     const source = Routing.valueSource(ctx.rawConfig ?? ctx.config, ctx.workspace, node.name);
@@ -388,14 +396,153 @@ export function isCustomized(
   return !deepEqual(value, valueAt(Config.DEFAULT_CONFIG, dataPath, name));
 }
 
+/**
+ * Whether a value counts as written: blanks and nulls are how a cleared field is left.
+ *
+ * @param value - Value as stored
+ * @returns `true` when the value is there
+ */
+function holdsValue(value: unknown): boolean {
+  return value !== undefined && value !== null && value !== '';
+}
+
+/**
+ * Whether the card's YAML holds a value for a field: at the field's own nested path, or, for a
+ * field on the card's root, at the root or in the selected layout's block, both of which it shows.
+ *
+ * Read from the YAML as stored. The view blocks the editor re-serializes for labeling drop a
+ * line that normalizes to its default, such as a unitless `event_font_size: 14`, so asking them
+ * would hide exactly the lines the YAML holds and Customized Only does not count.
+ *
+ * @param node - Schema node
+ * @param dataPath - Enclosing object keys in the configuration, outermost first
+ * @param ctx - Matching context
+ * @returns `true` when the YAML holds a value for it
+ */
+function isStored(node: HaFormSchema, dataPath: ReadonlyArray<string>, ctx: FilterCtx): boolean {
+  const stored = ctx.stored;
+  if (stored === undefined) return false;
+  if (dataPath.length > 0) return holdsValue(valueAt(stored, dataPath, node.name));
+
+  const workspace = ctx.workspace;
+  return configKeysForField(node.name).some((key) => {
+    if (holdsValue(stored[key])) return true;
+    const block = workspace === undefined ? undefined : Routing.destination(key, workspace);
+    return block !== undefined && holdsValue(valueAt(stored, [block], key));
+  });
+}
+
+/**
+ * Whether the card sets a field: its YAML holds a value for it, or the value differs from what
+ * the card would use untouched.
+ *
+ * Asking `isCustomized` as well makes Customized Only and Essentials Only together show exactly
+ * what Customized Only shows alone, rather than resting that on the two readings agreeing.
+ *
+ * @param node - Schema node
+ * @param dataPath - Enclosing object keys in the configuration, outermost first
+ * @param ctx - Matching context
+ * @returns `true` when the card sets it
+ */
+function isSetByCard(node: HaFormSchema, dataPath: ReadonlyArray<string>, ctx: FilterCtx): boolean {
+  return isStored(node, dataPath, ctx) || isCustomized(node, dataPath, ctx);
+}
+
 type LeafPredicate = (
   node: HaFormSchema,
   path: ReadonlyArray<string>,
   dataPath: ReadonlyArray<string>,
 ) => boolean;
 
+type GroupSchema = Extract<HaFormSchema, { schema: ReadonlyArray<HaFormSchema> }>;
+
+/**
+ * The label path a group's children are rendered under: Home Assistant qualifies labels only
+ * inside a named collapsible.
+ *
+ * @param node - Group
+ * @param path - Label path the group itself is under
+ * @returns Its children's label path
+ */
+function childLabelPath(node: GroupSchema, path: ReadonlyArray<string>): ReadonlyArray<string> {
+  return node.type === 'expandable' && node.name !== '' ? [...path, node.name] : path;
+}
+
+/**
+ * The configuration path a group's children write under: a named group nests its data unless
+ * it is flattened.
+ *
+ * @param node - Group
+ * @param dataPath - Configuration path the group itself is under
+ * @returns Its children's configuration path
+ */
+function childDataPath(node: GroupSchema, dataPath: ReadonlyArray<string>): ReadonlyArray<string> {
+  return node.name !== '' && node.flatten !== true ? [...dataPath, node.name] : dataPath;
+}
+
+/**
+ * Opens the collapsible groups that hold a match, at any depth, and leaves the rest as declared.
+ *
+ * A group holds a match when one of its fields answers the query, or its own heading does. A
+ * sub-heading never counts, as it never counts as a hit.
+ *
+ * @param schema - Schema to open
+ * @param ctx - Matching context
+ * @param path - Enclosing group names, outermost first
+ * @param dataPath - Enclosing configuration keys, outermost first
+ * @returns The schema with its matching groups open, and whether it held a match at all
+ */
+function openMatching(
+  schema: ReadonlyArray<HaFormSchema>,
+  ctx: FilterCtx,
+  path: ReadonlyArray<string>,
+  dataPath: ReadonlyArray<string>,
+): { schema: HaFormSchema[]; matched: boolean } {
+  let matched = false;
+
+  const opened = schema.map((node): HaFormSchema => {
+    if (!isGroupSchema(node)) {
+      if (!isHeading(node) && matchesQuery(node, path, ctx, dataPath)) matched = true;
+      return node;
+    }
+
+    const inner = openMatching(
+      node.schema,
+      ctx,
+      childLabelPath(node, path),
+      childDataPath(node, dataPath),
+    );
+    const open =
+      inner.matched || (node.type === 'expandable' && matchesQuery(node, path, ctx, dataPath));
+    if (open) matched = true;
+
+    return node.type === 'expandable' && open
+      ? { ...node, schema: inner.schema, expanded: true }
+      : { ...node, schema: inner.schema };
+  });
+
+  return { schema: opened, matched };
+}
+
+/**
+ * Opens the groups of a schema let through whole, because a panel's own heading matched, that
+ * hold a match of their own: a field the query names is then never left behind a closed heading.
+ *
+ * @param schema - Schema shown whole
+ * @param ctx - Matching context
+ * @returns The schema, with the groups holding a match open; unchanged when nothing was typed
+ */
+export function openMatches(schema: ReadonlyArray<HaFormSchema>, ctx: FilterCtx): HaFormSchema[] {
+  if (!hasQuery(ctx.criteria)) return [...schema];
+  return openMatching(schema, ctx, [], []).schema;
+}
+
 /**
  * Filters a schema to the nodes a predicate keeps, groups and all.
+ *
+ * While a search or Customized Only narrows the editor, every collapsible group it keeps opens,
+ * as the panels around it do, so nothing it found is left behind a closed heading. A group let
+ * through whole by its own heading opens the groups inside it that hold a match.
  *
  * @param schema - Schema to filter
  * @param ctx - Search context, or undefined when no group may bypass the predicate
@@ -412,6 +559,7 @@ function filterNodes(
   dataPath: ReadonlyArray<string>,
 ): HaFormSchema[] {
   const kept: HaFormSchema[] = [];
+  const opens = ctx !== undefined && isSearching(ctx.criteria);
 
   for (const node of schema) {
     if (!isGroupSchema(node)) {
@@ -419,8 +567,8 @@ function filterNodes(
       continue;
     }
 
-    const nestsLabels = node.type === 'expandable' && node.name !== '';
-    const nestsData = node.name !== '' && node.flatten !== true;
+    const labelPath = childLabelPath(node, path);
+    const nodeDataPath = childDataPath(node, dataPath);
 
     const wholeGroup =
       ctx !== undefined &&
@@ -429,18 +577,16 @@ function filterNodes(
       matchesQuery(node, path, ctx, dataPath);
 
     const children = wholeGroup
-      ? [...node.schema]
-      : filterNodes(
-          node.schema,
-          ctx,
-          keeps,
-          nestsLabels ? [...path, node.name] : path,
-          nestsData ? [...dataPath, node.name] : dataPath,
-        );
+      ? openMatching(node.schema, ctx, labelPath, nodeDataPath).schema
+      : filterNodes(node.schema, ctx, keeps, labelPath, nodeDataPath);
 
     if (!hasFields(children)) continue;
 
-    kept.push({ ...node, schema: children });
+    kept.push(
+      opens && node.type === 'expandable'
+        ? { ...node, schema: children, expanded: true }
+        : { ...node, schema: children },
+    );
   }
 
   return kept;
@@ -590,7 +736,9 @@ export function filterSchema(
         ((matchesQuery(node, nodePath, ctx, nodeDataPath) ||
           (nodeDataPath.length === 0 && listsCalendars(node) && namesACalendar(ctx))) &&
           (!ctx.criteria.customizedOnly || isCustomized(node, nodeDataPath, ctx)) &&
-          (!essentials || isEssentialCardField(node, nodeDataPath))),
+          (!essentials ||
+            isEssentialCardField(node, nodeDataPath) ||
+            isSetByCard(node, nodeDataPath, ctx))),
       path,
       dataPath,
     ),
@@ -749,7 +897,7 @@ export function filterEntitySchema(
         isHeading(node) ||
         ((named || matchesQuery(node, nodePath, entityCtx)) &&
           (!ctx.criteria.customizedOnly || isEntityFieldCustomized(entry, node)) &&
-          (!essentials || isEssentialCalendarField(node))),
+          (!essentials || isEssentialCalendarField(node) || isEntityFieldCustomized(entry, node))),
       path,
       [],
     ),
@@ -798,7 +946,8 @@ function isButtonFieldCustomized(entry: unknown, node: HaFormSchema): boolean {
 /**
  * Filters one toolbar button's fields, as `filterEntitySchema` does a calendar's: a field shows
  * where it answers the query, or where the button's own name, icon or entity does, and, under
- * "customized only", only where the button sets it.
+ * "customized only", only where the button sets it. Essentials Only names no button field, so
+ * it keeps the fields the button sets: a button the card has is part of what the card does.
  *
  * @param schema - A button's fields
  * @param entry - The button as written
@@ -813,10 +962,9 @@ export function filterButtonSchema(
   ctx: FilterCtx,
 ): HaFormSchema[] {
   if (!isFiltering(ctx.criteria)) return [...schema];
-  // A button of one's own is an addition to the card, not something most cards need.
-  if (appliesEssentials(ctx.criteria)) return [];
 
   const named = queryOf(ctx) !== '' && matchesButton(entry, ctx);
+  const essentials = appliesEssentials(ctx.criteria);
 
   return pruneLoneHeadings(
     filterNodes(
@@ -825,7 +973,8 @@ export function filterButtonSchema(
       (node, nodePath) =>
         isHeading(node) ||
         ((named || matchesQuery(node, nodePath, ctx)) &&
-          (!ctx.criteria.customizedOnly || isButtonFieldCustomized(entry, node))),
+          (!ctx.criteria.customizedOnly || isButtonFieldCustomized(entry, node)) &&
+          (!essentials || isButtonFieldCustomized(entry, node))),
       path,
       [],
     ),

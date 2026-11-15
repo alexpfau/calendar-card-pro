@@ -130,7 +130,7 @@ A calendar is a source, not a category. The four calendars that already mean one
 
 ### The Same Week, Laid Out as a List
 
-The card shows three days, today first, in the default list layout. Finished timed events drop off as they end, and the one under way has a green "Now ·" before its time. Late in the evening the list starts at tomorrow; add [`show_empty_today: true`](/features/event-content#showing-today-when-it-is-empty) to keep today's row.
+The card shows three days, today first, in the default list layout. Finished timed events drop off as they end, and one under way has a green "Now ·" before its time, unless it lasts a full day or longer and runs into a second date. Late in the evening the list starts at tomorrow; add [`show_empty_today: true`](/features/event-content#showing-today-when-it-is-empty) to keep today's row.
 
 Every list row has a label, so the 🎂 and the 🗑️ that the Family Hub's all-day banners need in their titles become labels here, taken out of the titles. The visit keeps its 🧳: its label says whose it is, and the 🧳 says what.
 

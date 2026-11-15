@@ -132,6 +132,30 @@ export function computeLabel(
   return lookup(language, qualified) ?? lookup(language, schema.name) ?? humanize(schema.name);
 }
 
+/**
+ * The other words a setting is found by: what people call it where its label says something
+ * else, such as "12h" for Time Format. Never shown, only searched.
+ *
+ * Resolved the way its label is, the qualified key first, so a calendar's field shares the card's
+ * words for the same option unless it has words of its own. `check:i18n` requires every
+ * `.aliases` string to sit on one of those two keys of a field.
+ *
+ * @param language - Effective language code
+ * @param schema - The node being searched
+ * @param path - Enclosing group names, outermost first
+ * @returns The words, comma-separated, or `undefined` when the setting has none
+ */
+export function computeAliases(
+  language: string,
+  schema: HaFormSchema,
+  path: ReadonlyArray<string> = [],
+): string | undefined {
+  return (
+    lookup(language, `${stringKey(schema, path)}.aliases`) ??
+    lookup(language, `${schema.name}.aliases`)
+  );
+}
+
 const GROUP_SCOPE: Readonly<Record<string, string>> = {
   compact_mode: 'compact_events_to_show',
 };
