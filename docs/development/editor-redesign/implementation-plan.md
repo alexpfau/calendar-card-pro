@@ -2545,6 +2545,36 @@ Behavior-preserving.
 - **Done when.** No builder emits a heading or row; the form-input comparison is equal; `check:i18n`
   reports no orphan after the deletions.
 - **Must not regress.** Gating for all 223 ids, by the registry and gate tests' universe walks.
+- **As built.** On PR 5's head `b52713bd`. Departures, each decided here:
+  - **A calendar's panel keeps its headings and rows.** It is still one `ha-form` per entry until
+    PR 10, so stripping `schemas/entity.ts` would change what it draws; `heading()` and `row()`
+    move into that module and go with the panel. "No builder" reads as the nine `PANELS` builders
+    of section 3.1. The toolbar button sub-form's heading goes: nothing drew it.
+  - **Search.** `filter.ts` › `matchesPanel` goes with the panel titles, so a query no longer
+    finds a builder's fields by the retired titles or panel helpers; a page's title still does
+    (PR 5). The group titles were searchable, and those fields keep being found the same way: a
+    query naming a registry heading's title or helper line lets that heading's fields through, as
+    a page title lets its page through (`element.ts` › `_filtered`). Layout's width table follows
+    the Size & Spacing page's title (`filterExtras` takes the place's words). PR 8 replaces both.
+  - **`localize.ts`**, unchanged in section 4.2, loses `lookupForView`, which only the per-layout
+    panel title (`panel.separators.grid`) and `matchesPanel` read, and the compact-mode group's
+    scope note (`GROUP_SCOPE`), which no node carries once the group is gone; the comparison is
+    equal without it, the three compact fields being List-only.
+  - **Strings: 32 retired**, all reported by `check:i18n` but one: the ten panel helper lines,
+    four panel titles and Grid's Rules title, `heading_time_range`, `locale` and `week_numbers`,
+    `scope.list_only.compact_mode` (reachable by prefix, so read off the removed note by hand), and
+    13 `column.*` and `time_grid.*` labels of an earlier exceptions surface that only the density
+    group's prefix kept reachable. Removed from `strings.ts` and the ten translation files, en-GB
+    regenerated (67 overrides).
+  - **Proof.** The one-off comparison (`tests/editor-form-inputs.test.ts`, fixture at
+    `b52713bd`) walks 372 corpus states over 3,066 places and 37,713 controls (410 distinct
+    records) and is equal at the stripping commit; a planted titleKey drop on Weather's
+    `date.show_conditions` fails it. Heading assertions moved to the registry test, named in the
+    PR body; a property test fails on any heading, row or collapsible a builder emits over 549
+    corpus states. Suite 13,318 → 13,286.
+  - **Bytes.** Editor 646,945 → 628,055 B raw (−18,890), 197,152 → 191,493 B gzip -9 (−5,659)
+    over `b52713bd`, the card's sha256 `fbce536bd288…` unchanged; `docs/guide/installation.md`
+    moves from 646 KB and 197 KB to 628 KB and 191 KB.
 
 ### PR 7 · Undo & Redo
 
