@@ -1,6 +1,11 @@
 /**
  * English editor strings; keep keys aligned with schemas and translations.
  * `en-GB` is override-only: it carries spelling differences and otherwise falls back to `en`.
+ *
+ * A `<label key>.aliases` string is never shown. It holds, comma-separated, the words people use
+ * for a setting where its label says something else, so the search finds it by them ("12h" for
+ * Time Format). Add one only for a word users have used and the search misses; a translation
+ * carries its own only where the words differ, and otherwise searches by these.
  */
 export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // --- Filter bar -----------------------------------------------------------
@@ -17,14 +22,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'what this card changes.',
   essentials_only: 'Essentials Only',
   'essentials_only.helper':
-    'Shows only the settings most cards need. Search still finds every setting, and the ' +
-    'switch is remembered in this browser.',
+    'Shows the settings most cards need, plus any this card already sets. Search still finds ' +
+    'every setting, and the switch is remembered in this browser.',
   // Worded as a label and a number, so no language has to inflect for the count.
   'essentials_only.hidden': 'Other settings hidden: {count}.',
   'filter.no_matches': 'Nothing matches “{query}”.',
   'filter.nothing_customized': 'Nothing is customized — every setting is at the card default.',
-  'filter.nothing_customized_essential':
-    'None of the essential settings is customized. Switch off Essentials Only to see the rest.',
   'filter.gated_note':
     'Settings that depend on another one appear only once that one is switched on.',
 
@@ -303,6 +306,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // "Scale" and not "Size": a size reads as a pixel value, and this is a multiplier. The
   // translations keep that distinction, using each language's word for a display scale.
   'entity.text_scale': 'Text Scale',
+  'entity.text_scale.aliases': 'text size, font size, bigger text, smaller text',
   'entity.text_scale.helper':
     'Multiplies the size of the text and icons in this calendar\u2019s events: below 1 draws ' +
     'them smaller, above 1 larger. Left empty, they match the card.',
@@ -391,6 +395,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // helper serves both editors: above Home Assistant's own Visibility editor, which carries no
   // label, and under the YAML box where that editor is missing.
   'entity.visibility': 'Conditions',
+  'entity.visibility.aliases': 'who sees it, specific users, per user, person',
   'entity.visibility.helper':
     'Shows this calendar\u2019s events only while all of these conditions hold, the same ' +
     'conditions a card\u2019s Visibility tab sets. With none, they always show. Not applied ' +
@@ -410,10 +415,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'How many of this calendar\u2019s events compact mode keeps. Left empty, the card ' +
     'limit applies.',
   'entity.blocklist': 'Blocklist',
+  'entity.blocklist.aliases': 'filter out, exclude, keywords',
   'entity.blocklist.helper':
     'Hide events where the field above contains any of these terms, separated by | ' +
     '\u2014 for example Private|Tentative.',
   'entity.allowlist': 'Allowlist',
+  'entity.allowlist.aliases': 'filter, include only, keywords',
   'entity.allowlist.helper':
     'Show only events where the field above contains one of these terms, separated by ' +
     '| . Left empty, every event is shown.',
@@ -590,11 +597,13 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'panel.content': 'Time Range & Content',
   'panel.content.helper': 'Which days the card covers, and what it puts in them.',
   days_to_show: 'Days To Show',
+  'days_to_show.aliases': 'how many days, number of days, weeks ahead, future weeks, date range',
   'days_to_show.helper':
     'How many days the card covers from its start date. Each layout can set its own, such ' +
     'as 14 in List and 7 in Grid. The card loads the longest of them once, so switching ' +
     'layouts never reloads.',
   start_date_mode: 'Start Date',
+  'start_date_mode.aliases': 'tomorrow, yesterday, begin on, first day shown',
   'start_date_mode.option.default.label': 'Today',
   'start_date_mode.option.fixed.label': 'A Fixed Date',
   'start_date_mode.option.offset.label': 'Relative to Today',
@@ -609,6 +618,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'first_day_of_week.option.monday.label': 'Monday',
   'first_day_of_week.option.sunday.label': 'Sunday',
   event_order: 'Event Order',
+  'event_order.aliases': 'newest first, oldest first, reverse order, sort, descending',
   'event_order.option.earliest_first.label': 'Earliest first',
   'event_order.option.latest_first.label': 'Latest first',
   'event_order.helper':
@@ -621,11 +631,14 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'means compact mode changes nothing.',
   compact_days_to_show: 'Days',
   compact_events_to_show: 'Events',
+  // Also a calendar's own limit, which has no words of its own and resolves to these.
+  'compact_events_to_show.aliases': 'limit events, maximum events, max events, number of events',
   compact_events_complete_days: 'Finish The Last Day',
   'compact_events_complete_days.helper':
     'Rather than stopping mid-day at the event limit, show the rest of that day too.',
 
   show_past_events: 'Show Past Events',
+  'show_past_events.aliases': 'hide past events, finished events, ended events',
   skip_first_events: 'Skip First Events',
   'skip_first_events.helper':
     'Leaves this many events off the top of the list, so this card can continue where another ' +
@@ -678,6 +691,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   language: 'Language Code',
   'language.helper': 'A two-letter code such as de, or a regional one such as en-GB.',
   time_format: 'Time Format',
+  'time_format.aliases': '12h, 24h, 12-hour clock, 24-hour clock, AM/PM',
   'time_format.option.system.label': 'Follow Home Assistant',
   'time_format.option.24.label': '24 Hour',
   'time_format.option.12.label': '12 Hour',

@@ -489,6 +489,7 @@ export class CalendarCardProEditor extends LitElement {
       ...ctx,
       criteria: this._filter,
       hass: this.hass,
+      stored: this._rawConfig,
     };
   }
 
@@ -656,7 +657,9 @@ export class CalendarCardProEditor extends LitElement {
       Filter.hasQuery(this._filter) &&
       !this._filter.customizedOnly &&
       Filter.matchesPanel(panel, filterCtx);
-    const schema = wholePanel ? built : Filter.filterSchema(built, filterCtx);
+    const schema = wholePanel
+      ? Filter.openMatches(built, filterCtx)
+      : Filter.filterSchema(built, filterCtx);
 
     const data = this._formData();
     // Key the form node as well as its callback: reusing a node would redirect its
@@ -2295,11 +2298,12 @@ export class CalendarCardProEditor extends LitElement {
     const query = this._filter.query.trim();
 
     if (query === '') {
-      // With Essentials Only on too, the rest may well be customized: say only what is true.
-      const key = Filter.appliesEssentials(this._filter)
-        ? 'filter.nothing_customized_essential'
-        : 'filter.nothing_customized';
-      return html` <div class="filter-empty">${this._string(ctx, key)}</div> `;
+      // Only Customized Only can empty the editor without a query: Essentials Only keeps the
+      // calendar picker, and beside Customized Only it keeps everything the card sets, which is
+      // everything Customized Only keeps.
+      return html`
+        <div class="filter-empty">${this._string(ctx, 'filter.nothing_customized')}</div>
+      `;
     }
 
     return html`
