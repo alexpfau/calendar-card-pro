@@ -1821,6 +1821,33 @@ Four things are easy to get wrong:
   cards pass through `computeCssColor()`; this card writes colors straight into CSS
   custom properties and has no such step. See the note in `ha-form.ts`.
 
+### The editor renders only what it draws
+
+Home Assistant hands an open editor a new `hass` several times a second, so the editor follows
+the card's rule above, with four consequences for new code and tests:
+
+- **`shouldUpdate` skips a `hass` whose `editorHassKey` (`hass-key.ts`) is unchanged**: the
+  members in `EDITOR_HASS_MEMBERS` and the states of `editorEntityIds`. A test that sets
+  `editor.hass = { ...editor.hass }` to force a render now renders nothing; call
+  `requestUpdate()`, which the editor carries through a batched `hass` as the card does.
+- **Two feeds.** Forms whose schema uses a selector in `LIVE_SELECTORS` get a fresh `hass` on
+  every update (`data-hass="live"`); every other form gets `steadyHass`, whose states are stale
+  by design. A selector found reading `states` belongs in `LIVE_SELECTORS`.
+  `tests/editor-hass-read-set.test.ts` records every `hass` read the editor makes from its first
+  render on, through both feeds, and fails on one outside the key.
+- **A panel mounts its forms the first time it opens**, on `expanded-will-change`, before Home
+  Assistant measures its height, and keeps them when it closes, so the groups inside it keep
+  their state. A test reading a form inside a panel opens it first, with `openPageOf` or
+  `openPanels` from `tests/helpers/editor-host.ts`, the harness editor tests reach forms
+  through, by field id and owner.
+- **The warm-up form is load-bearing.** `ha-form` and `ha-selector` import an element the first
+  time a form needs it, so a panel mounting its forms as it opens would be measured while those
+  modules still load, and open short. The editor therefore draws one hidden form
+  (`ha-form.ts` › `warmSchema`) holding a node for each element its schemas need that is not
+  defined yet, and draws it away once they all are. It reads that set from the schemas, so a new
+  selector type needs nothing here. Removing it as dead code brings the short first opens back,
+  and only Home Assistant shows them: the test suite cannot measure a panel's height.
+
 ### The picker shows calendars; the panel list shows blocks
 
 `SYNTHETIC_FIELDS.calendars` derives **one row per calendar**, not one per entry in
