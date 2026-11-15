@@ -64,9 +64,11 @@ show_progress_bar: true
 | `show_progress_bar` | boolean | `false` | Show a progress bar on events under way. In list and column view, an event a day or longer shows "Day 2 of 3" on each row instead |
 
 - **Which events count.** An all-day event over two or more dates, and a timed event at least a
-  full day long, ending no earlier than its start time on the next date. Days are calendar
-  dates, so Monday 18:00 to Wednesday 10:00 runs three days, while a night from 22:00 to 06:00
-  counts none.
+  full day long that takes up two or more dates: it ends at least two dates after it starts, or
+  on the next date no earlier than its start time. An end at 0:00 takes up none of the date it
+  opens, so a single day from midnight to midnight takes up one date and counts none, like a
+  night from 22:00 to 06:00. Days are calendar dates, so Monday 18:00 to Wednesday 10:00 runs
+  three days.
 - **Which day a row names.** The day it is drawn on. Split, each day's row names its own; left
   unsplit, a row names the day it stands under, so a course that began before the card's first
   day reads "Day 12 of 45" there.
