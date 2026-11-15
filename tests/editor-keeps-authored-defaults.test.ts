@@ -11,7 +11,7 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { changeField, mountEditor } from './helpers/editor-host';
+import { changeField, mountEditor, openPanels } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { valueSource } from '../src/rendering/editor/routing';
@@ -30,6 +30,8 @@ interface EditorHost extends HTMLElement {
 
 async function mount(config: Record<string, unknown>) {
   const editor = await mountEditor(structuredClone(config));
+  // A closed panel mounts no form: open every panel, as these tests read forms across the editor.
+  await openPanels(editor);
   const reports: Record<string, unknown>[] = [];
   editor.addEventListener('config-changed', (event) => {
     reports.push(
@@ -45,6 +47,8 @@ async function choose(editor: EditorHost, choice: 'keep-list' | 'shared-root'): 
   expect(buttons).toHaveLength(2);
   buttons[choice === 'keep-list' ? 0 : 1].click();
   await editor.updateComplete;
+  // The panels arrive with the answer, each closed and mounting no form until opened.
+  await openPanels(editor);
 }
 
 function resetButton(editor: EditorHost, key: string): HTMLButtonElement | null {

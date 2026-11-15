@@ -11,6 +11,7 @@ import {
   formsOf,
   labelOf,
   mountEditor,
+  openPanels,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -77,11 +78,14 @@ function viewControls(editor: EditorHost): FormElement[] {
 }
 
 async function mount(overrides: Partial<Types.Config> = {}): Promise<EditorHost> {
-  return mountEditor({
+  const editor = await mountEditor({
     config_version: Config.CURRENT_CONFIG_VERSION,
     entities: [{ entity: 'calendar.anna' }],
     ...overrides,
   });
+  // A closed panel mounts no form: open every panel, as these tests read forms across the editor.
+  await openPanels(editor);
+  return editor;
 }
 
 async function change(

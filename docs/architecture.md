@@ -66,7 +66,7 @@ src/
 │   │   ├── element.ts            # The Lit element: lifecycle, forms, editor state
 │   │   ├── panels.ts             # Panel registry and schema context
 │   │   ├── schemas/              # One module per panel, plus their shared vocabulary
-│   │   ├── ha-form.ts            # Our declaration of Home Assistant's schema shape
+│   │   ├── ha-form.ts            # Home Assistant's schema shape, and the element each node needs
 │   │   ├── value.ts              # Serialization, legacy migration, authored-value retention
 │   │   ├── entities.ts           # Write path for the per-calendar list
 │   │   ├── buttons.ts            # Write path for the toolbar's own buttons
@@ -79,6 +79,7 @@ src/
 │   │   ├── synthetic.ts          # UI-only fields, and values invalid while typed
 │   │   ├── localize.ts           # The string hooks `ha-form` calls
 │   │   ├── hass-localize.ts      # Wraps hass.localize to name `expand` in HA's action editor
+│   │   ├── hass-key.ts           # Which hass each form is handed, and which hass redraws it
 │   │   ├── strings.ts            # English editor strings
 │   │   ├── version.ts            # Build-stamped version the editor reports
 │   │   ├── translations/         # The same keys per language, partial by design

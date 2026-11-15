@@ -8,6 +8,7 @@ import {
   emitChange,
   fakeHass,
   formOf,
+  openPageOf,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -149,6 +150,8 @@ describe('past-event opacity editor contract', () => {
       } as Types.Config);
       document.body.appendChild(editor);
       await editor.updateComplete;
+      // The Events panel, opened as a user would to edit it: a closed panel mounts no form.
+      await openPageOf(editor, 'events:past_event_opacity');
       expect(reports).toHaveLength(0);
       await changeField(editor, 'workspace:editing_workspace', workspace);
       expect(reports).toHaveLength(0);

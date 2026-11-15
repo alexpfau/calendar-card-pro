@@ -33,6 +33,7 @@ import {
   formOf,
   formsOf,
   mountEditor,
+  openPanels,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -257,6 +258,8 @@ describe('editor wiring', () => {
         }),
       },
     );
+    // A closed panel mounts no form: open every panel, so every form's hass is checked.
+    await openPanels(element);
 
     const forms = formsOf(element);
     expect(forms.length).toBeGreaterThan(0);
@@ -321,6 +324,8 @@ describe('the event tap action in the editor', () => {
       entities: ['calendar.anna'],
       ...config,
     });
+    // A closed panel mounts no form: open every panel, as these tests read forms behind them.
+    await openPanels(element);
 
     const reported: Array<Record<string, unknown>> = [];
     element.addEventListener('config-changed', (event) => {

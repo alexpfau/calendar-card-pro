@@ -10,6 +10,7 @@ import {
   formOf,
   formsOf,
   mountEditor,
+  openPanels,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -454,6 +455,8 @@ async function mount(extra: Record<string, unknown> = {}) {
     }),
     { hass: fakeHass() },
   );
+  // A closed panel mounts no form: open every panel, as these tests read forms across the editor.
+  await openPanels(editor);
   const seen: Record<string, unknown>[] = [];
   editor.addEventListener('config-changed', (event) =>
     seen.push(

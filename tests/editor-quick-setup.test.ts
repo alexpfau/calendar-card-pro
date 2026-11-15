@@ -21,6 +21,7 @@ import {
   formsOf,
   lastConfig,
   mountEditor,
+  openPanels,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
@@ -93,6 +94,8 @@ describe('Quick Setup', () => {
 
   it('opens on the starting point without writing anything', async () => {
     const { editor, reports } = await mount();
+    // A closed panel mounts no form: open every panel, so the forms Quick Setup hides are there.
+    await openPanels(editor);
     expect(formsOf(editor, CARD)).not.toHaveLength(0);
 
     await click(editor, '[data-quick-setup-open]');
@@ -190,6 +193,8 @@ describe('Quick Setup', () => {
     expect(lastConfig(editor)).toEqual(OPENING);
 
     // `show_empty_days: false` equals the default; it stays because the YAML holds it.
+    // The panels come back closed, each mounting no form until it is opened.
+    await openPanels(editor);
     await changeField(editor, 'card:title', 'After');
     expect(lastConfig(editor)).toEqual({ ...OPENING, title: 'After' });
   });
@@ -200,6 +205,8 @@ describe('Quick Setup', () => {
     await click(editor, '[data-quick-setup-cancel]');
 
     expect(reports).toEqual([]);
+    // The panels come back closed, each mounting no form until it is opened.
+    await openPanels(editor);
     expect(formsOf(editor, CARD)).not.toHaveLength(0);
   });
 
@@ -219,6 +226,8 @@ describe('Quick Setup', () => {
     expect(reports).toHaveLength(written);
     expect(step(editor)).toBeUndefined();
 
+    // The panels come back closed, each mounting no form until it is opened.
+    await openPanels(editor);
     await changeField(editor, 'card:title', 'Kitchen');
     const after = lastConfig(editor)!;
     expect(after.title).toBe('Kitchen');
@@ -274,6 +283,8 @@ describe('Quick Setup', () => {
 
     expect(step(editor)).toBeUndefined();
     expect(reports).toHaveLength(1);
+    // The panels come back closed, each mounting no form until it is opened.
+    await openPanels(editor);
     expect(formsOf(editor, CARD)).not.toHaveLength(0);
   });
 
@@ -336,6 +347,8 @@ describe('Quick Setup against Home Assistant’s echo', () => {
     expect(step(editor)).toBeUndefined();
     expect(current()).toMatchObject({ days_to_show: 2, tap_action: { action: 'expand' } });
     expect(current()).not.toHaveProperty('view');
+    // The panels come back closed, each mounting no form until it is opened.
+    await openPanels(editor);
     await changeField(editor, 'card:title', 'Hall');
     expect(lastConfig(editor)).toMatchObject({ title: 'Hall', days_to_show: 2 });
   });
@@ -350,6 +363,8 @@ describe('Quick Setup against Home Assistant’s echo', () => {
     await editor.updateComplete;
 
     expect(current()).toEqual(OPENING);
+    // The panels come back closed, each mounting no form until it is opened.
+    await openPanels(editor);
     expect(formsOf(editor, CARD)).not.toHaveLength(0);
     await changeField(editor, 'card:title', 'After');
     expect(current()).toEqual({ ...OPENING, title: 'After' });

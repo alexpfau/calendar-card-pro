@@ -231,6 +231,33 @@ export function workspaceFormData(
   return data;
 }
 
+/**
+ * The part of a workspace's form data one form reads, as `ha-form` reads it (`getValue` in its
+ * frontend): the value under each name its schema draws, a whole block for a named group, and
+ * through an unnamed or flattened group the names inside it. Handed this, a panel's form
+ * receives new data only when something it draws moves, rather than whenever any field
+ * anywhere does. `applyWorkspaceChange` reads a form's data and what it emits at its own fields'
+ * paths alone, so nothing it routes is lost.
+ *
+ * @param data - The workspace's form data (`workspaceFormData`)
+ * @param schema - The form's schema
+ * @returns The form's data
+ */
+export function formDataFor(
+  data: Readonly<Record<string, unknown>>,
+  schema: ReadonlyArray<HaFormSchema>,
+): Record<string, unknown> {
+  const part: Record<string, unknown> = {};
+  for (const node of schema) {
+    if ('schema' in node && (node.name === '' || node.flatten)) {
+      Object.assign(part, formDataFor(data, node.schema));
+    } else if (node.name in data) {
+      part[node.name] = data[node.name];
+    }
+  }
+  return part;
+}
+
 function atPath(data: unknown, path: ReadonlyArray<string>, key: string): unknown {
   let value = data;
   for (const part of [...path, key]) {

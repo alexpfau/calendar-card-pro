@@ -9,7 +9,13 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { changeField, changeFields, fakeHass, mountEditor } from './helpers/editor-host';
+import {
+  changeField,
+  changeFields,
+  fakeHass,
+  mountEditor,
+  openPanels,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
 
 interface EditorHost extends HTMLElement {
@@ -27,6 +33,8 @@ async function mount(config: Record<string, unknown>, language = 'en') {
     },
     { hass: fakeHass({ language }) },
   );
+  // A closed panel mounts no form: open every panel, as these tests read forms across the editor.
+  await openPanels(editor);
   const reports: Record<string, unknown>[] = [];
   editor.addEventListener('config-changed', (event) => {
     const reported = (event as CustomEvent<{ config: Record<string, unknown> }>).detail.config;

@@ -6,6 +6,7 @@ import {
   fakeHass,
   formOf,
   mountEditor,
+  openPageOf,
 } from './helpers/editor-host';
 import type * as Types from '../src/config/types';
 import type { CalendarCardProEditor } from '../src/rendering/editor/element';
@@ -23,7 +24,7 @@ function fieldNames(schema: ReadonlyArray<HaFormSchema>): string[] {
 }
 
 async function mount(language: string, view: Types.EffectiveView = 'grid') {
-  return mountEditor(
+  const editor = await mountEditor(
     {
       config_version: 5,
       entities: ['calendar.anna'],
@@ -31,6 +32,9 @@ async function mount(language: string, view: Types.EffectiveView = 'grid') {
     },
     { hass: fakeHass({ language }) },
   );
+  // The rules' panel, opened as a user would to read it: a closed panel mounts no form.
+  await openPageOf(editor, 'separators:day_separator_width');
+  return editor;
 }
 
 function rulesForm(editor: CalendarCardProEditor): FormElement | undefined {

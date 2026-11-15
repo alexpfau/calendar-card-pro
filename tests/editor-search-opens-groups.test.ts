@@ -12,7 +12,13 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { type FormElement, changeField, formOf, mountEditor } from './helpers/editor-host';
+import {
+  type FormElement,
+  changeField,
+  formOf,
+  mountEditor,
+  openPageOf,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import type { CalendarCardProEditor } from '../src/rendering/editor/element';
@@ -140,10 +146,13 @@ describe('opening what a search finds', () => {
 });
 
 async function mount() {
-  return mountEditor({
+  const editor = await mountEditor({
     config_version: Config.CURRENT_CONFIG_VERSION,
     entities: ['calendar.anna'],
   });
+  // The Day Header panel, opened as a user would to read it: a closed panel mounts no form.
+  await openPageOf(editor, 'day_header:past_date_opacity');
+  return editor;
 }
 
 async function search(editor: CalendarCardProEditor, query: string) {
@@ -178,6 +187,8 @@ describe('the mounted editor', () => {
     expect(groups(dayHeaderForm(editor)!.schema)).toEqual({ past_days: true });
 
     await search(editor, '');
+    // Clearing the search closes every panel, and one the search left out comes back closed.
+    await openPageOf(editor, 'day_header:past_date_opacity');
     expect(groups(dayHeaderForm(editor)!.schema)).toEqual({
       weekend_colors: false,
       past_days: false,

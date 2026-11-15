@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { CARD, type EditorElement, changeField, formsOf, mountEditor } from './helpers/editor-host';
+import {
+  CARD,
+  type EditorElement,
+  changeField,
+  formsOf,
+  mountEditor,
+  openPanels,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import { walkSchema } from '../src/rendering/editor/panels';
 import { workspaceFields } from '../src/rendering/editor/routing';
@@ -21,6 +28,8 @@ async function mount() {
     allday_badge_color: '#123456',
     time_grid: { allday_badge: 'time', allday_badge_color: '#abcdef' },
   });
+  // A closed panel mounts no form: open every panel, as these tests read forms across the editor.
+  await openPanels(editor);
   const reports: Record<string, unknown>[] = [];
   editor.addEventListener('config-changed', (event) => {
     reports.push(structuredClone((event as CustomEvent).detail.config));

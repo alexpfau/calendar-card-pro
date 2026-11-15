@@ -22,6 +22,8 @@ import {
   formOf,
   formsOf,
   mountEditor,
+  openPageOf,
+  openPanels,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import * as Types from '../src/config/types';
@@ -179,6 +181,8 @@ afterEach(() => {
 describe('Essentials Only on the editor', () => {
   it('is off until switched on, and the editor shows everything', async () => {
     const editor = await mount();
+    // A closed panel mounts no form: open every panel to read what the editor shows.
+    await openPanels(editor);
 
     expect(panelFields(editor).length).toBeGreaterThan(LIST_ESSENTIALS.length * 3);
     expect(localStorage.getItem(ESSENTIALS_STORAGE_KEY)).toBeNull();
@@ -188,7 +192,6 @@ describe('Essentials Only on the editor', () => {
     const editor = await mount();
     await changeFields(editor, { 'filter:essentials_only': true });
 
-    expect(panelFields(editor)).toEqual(LIST_ESSENTIALS);
     // Panels with no essential field go; the rest stay closed, as they do without it.
     const panels = [
       ...root(editor).querySelectorAll<HTMLElement & { expanded: boolean }>(
@@ -197,11 +200,15 @@ describe('Essentials Only on the editor', () => {
     ];
     expect(panels).toHaveLength(6);
     expect(panels.every((panel) => !panel.expanded)).toBe(true);
+    // Read once they are seen closed: a closed panel mounts no form, so each is opened to read.
+    await openPanels(editor);
+    expect(panelFields(editor)).toEqual(LIST_ESSENTIALS);
   });
 
   it('adds the hours of the grid in the Grid workspace', async () => {
     const editor = await mount({ view: 'grid' });
     await changeFields(editor, { 'filter:essentials_only': true });
+    await openPanels(editor);
 
     expect(panelFields(editor).slice(0, 3)).toEqual([
       'calendars',
@@ -218,6 +225,7 @@ describe('Essentials Only on the editor', () => {
     expect(root(editor).querySelector('.add-button')).not.toBeNull();
 
     await changeFields(editor, { 'filter:essentials_only': true });
+    await openPanels(editor);
 
     const fields = calendarFields(editor);
     expect(fields).toContain('name');
@@ -238,6 +246,7 @@ describe('Essentials Only on the editor', () => {
       entities: [{ entity: 'calendar.anna', blocklist: 'Birthday' }],
     });
     await changeFields(editor, { 'filter:essentials_only': true });
+    await openPanels(editor);
 
     expect(panelFields(editor)).toEqual(
       expect.arrayContaining(['event_font_size', 'refresh_interval']),
@@ -261,6 +270,7 @@ describe('Essentials Only on the editor', () => {
       document.body.replaceChildren();
       const editor = await mount(config);
       await changeFields(editor, { 'filter:essentials_only': true });
+      await openPanels(editor);
 
       expect(panelFields(editor), JSON.stringify(config)).toContain(field);
     }
@@ -269,6 +279,8 @@ describe('Essentials Only on the editor', () => {
   it('opens nothing it keeps, as it opens no panel', async () => {
     const editor = await mount({ time_color: '#ff0000' });
     await changeFields(editor, { 'filter:essentials_only': true });
+    // The Events panel, opened as a user would: its group must still be closed inside it.
+    await openPageOf(editor, 'events:time_color');
 
     const form = formOf(editor, 'events:time_color')!;
     const group = form.schema.find(
@@ -300,11 +312,15 @@ describe('Essentials Only on the editor', () => {
 
   it('says how many settings it hides, counting every form it shortens', async () => {
     const editor = await mount();
+    // Every panel open, so every form it shortens is there to be counted.
+    await openPanels(editor);
     const everything =
       panelFields(editor).length + calendarFieldCount(editor) + buttonFields(editor).length;
     expect(root(editor).querySelector('[data-essentials-note]')).toBeNull();
 
     await changeFields(editor, { 'filter:essentials_only': true });
+    // A panel that now lands in another's place comes with closed panels of its own.
+    await openPanels(editor);
 
     const kept =
       panelFields(editor).length + calendarFieldCount(editor) + buttonFields(editor).length;
@@ -329,6 +345,7 @@ describe('Essentials Only on the editor', () => {
 
     document.body.replaceChildren();
     const second = await mount();
+    await openPanels(second);
     expect(panelFields(second)).toEqual(LIST_ESSENTIALS);
 
     await changeFields(second, { 'filter:essentials_only': false });

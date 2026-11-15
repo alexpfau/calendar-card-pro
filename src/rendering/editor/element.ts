@@ -4,8 +4,17 @@
  */
 
 import { mdiChevronRight, mdiCreation } from '@mdi/js';
-import { LitElement, TemplateResult, html, nothing } from 'lit';
+import {
+  type ChildPart,
+  LitElement,
+  type PropertyValues,
+  TemplateResult,
+  html,
+  nothing,
+  render as renderInto,
+} from 'lit';
 import { property, state } from 'lit/decorators.js';
+import { Directive, directive } from 'lit/directive.js';
 import { keyed } from 'lit/directives/keyed.js';
 import { repeat } from 'lit/directives/repeat.js';
 
@@ -14,7 +23,8 @@ import * as Entities from './entities';
 import * as Essentials from './essentials';
 import * as Exceptions from './exceptions';
 import * as Filter from './filter';
-import type { HaFormSchema } from './ha-form';
+import { type HaFormSchema, elementOf, warmSchema } from './ha-form';
+import * as HassKey from './hass-key';
 import { withCardActionLabels } from './hass-localize';
 import * as EditorLocalize from './localize';
 import * as Misplaced from './misplaced';
@@ -162,6 +172,66 @@ function provideCalendar(event: Event, entityId: string): void {
   request.callback({ mode: 'current', entityId }, request.subscribe ? () => undefined : undefined);
 }
 
+/**
+ * Panels that have begun to open. A panel mounts its forms the first time it opens and keeps them
+ * while it is drawn, so a panel nobody has opened holds no form at all: today's dialog used to
+ * build every panel's forms, 124 of them, behind closed panels (backlog item 307).
+ */
+const openedPanels = new WeakSet<object>();
+
+/**
+ * Draws what a panel holds only once the panel has begun to open (`openedPanels`).
+ *
+ * Read off the panel element rather than off a key, because Lit hands a drawn panel to whichever
+ * panel lands in its place, as it always has: an element that was open stays open for what it
+ * holds now, and must draw it. A panel opens on a click, announcing `expanded-will-change` before
+ * it measures what it holds (`_panelWillChange` marks it then, so the forms are there to be
+ * measured), or because the editor binds its `expanded`, as a search does, which Lit sets before
+ * it reaches this part.
+ */
+class WhenOpened extends Directive {
+  render(content: () => unknown): unknown {
+    return content();
+  }
+
+  override update(part: ChildPart, [content]: [() => unknown]): unknown {
+    let panel = part.parentNode as (Node & { localName?: string; expanded?: boolean }) | null;
+    while (panel && panel.localName !== 'ha-expansion-panel') panel = panel.parentNode;
+    if (panel?.expanded) openedPanels.add(panel);
+    return !panel || openedPanels.has(panel) ? content() : nothing;
+  }
+}
+
+const whenOpened = directive(WhenOpened);
+
+/** Each panel's built schema, inert fields withheld, by the context it was built from. */
+const builtPanels = new WeakMap<SchemaCtx, Map<string, HaFormSchema[]>>();
+
+/** The data of a form that draws no field, the one object every render hands it. */
+const NO_DATA: Readonly<Record<string, unknown>> = {};
+
+/** Keeps an event from going any further than where it started. */
+const stopEvent = (event: Event): void => event.stopPropagation();
+
+/**
+ * A panel's schema as its builder makes it for a context, inert fields withheld, built once per
+ * context: `_ctx` is made again only when the configuration, the workspace or the language moves.
+ *
+ * @param panel - Panel definition
+ * @param ctx - Schema context
+ * @returns The schema
+ */
+function builtPanel(panel: PanelDef, ctx: SchemaCtx): HaFormSchema[] {
+  let built = builtPanels.get(ctx);
+  if (!built) builtPanels.set(ctx, (built = new Map()));
+  let schema = built.get(panel.id);
+  if (!schema) {
+    schema = Filter.withholdInertFields(panel.build(ctx), ctx.workspace ?? ctx.view);
+    built.set(panel.id, schema);
+  }
+  return schema;
+}
+
 type MigrationState =
   | { readonly kind: 'current' }
   | { readonly kind: 'automatic' }
@@ -211,6 +281,87 @@ export class CalendarCardProEditor extends LitElement {
     awaitingConditionsEditor.delete(this);
   }
 
+  /**
+   * Marks a bare `requestUpdate()` as pending for `shouldUpdate`, as the card does: a draft
+   * committing or a panel opening can land in the same update as a `hass` that changed nothing
+   * drawn, and that update then names only `hass` as changed.
+   *
+   * Lit calls this from its own constructor, before the flag's initializer has run.
+   */
+  override requestUpdate(...args: Parameters<LitElement['requestUpdate']>): void {
+    if (args[0] === undefined) this._bareUpdatePending = true;
+    super.requestUpdate(...args);
+  }
+
+  /**
+   * Skips an update whose only cause is a `hass` that moved nothing the editor draws
+   * (`hass-key.ts` › `editorHassKey`), which Home Assistant hands it several times a second. The
+   * forms on the live feed get that `hass` all the same, straight from here; the steady ones read
+   * nothing it changed. An update a bare `requestUpdate()` also asked for always renders.
+   *
+   * @param changed - Properties changed since the last update
+   * @returns False to skip the update
+   */
+  protected override shouldUpdate(changed: PropertyValues): boolean {
+    const bare = this._bareUpdatePending;
+    this._bareUpdatePending = false;
+    if (bare || changed.size !== 1 || !changed.has('hass') || !this._config) return true;
+    const ids = HassKey.editorEntityIds(this._config, this._quickSetup?.answers?.calendars);
+    if (HassKey.editorHassKey(changed.get('hass') as Types.Hass | undefined, this.hass, ids)) {
+      return true;
+    }
+
+    const live = withCardActionLabels(this.hass, this._ctx.language);
+    for (const element of this.renderRoot.querySelectorAll<HTMLElement & { hass?: unknown }>(
+      '[data-hass="live"]',
+    )) {
+      element.hass = element.localName === CONDITIONS_EDITOR ? this.hass : live;
+    }
+    return false;
+  }
+
+  /**
+   * Has Home Assistant load every element the editor's forms draw before a panel first opens.
+   *
+   * `ha-form` and `ha-selector` import an element the first time a form holds a node that needs
+   * it (`LOAD_ELEMENTS` in its frontend), and a panel now mounts its forms only as it opens, one
+   * render before Home Assistant measures it: an element still loading then has drawn nothing,
+   * and the panel opens short. Every form used to be drawn as the editor opened, which loaded them
+   * all before any click. So once a render has named the schemas its forms are handed (`_drawn`),
+   * one form holding a node for each element not defined yet (`warmSchema`) is drawn, and drawn
+   * away once `customElements.whenDefined` has answered for each. A later render warms whatever a
+   * switched layout, an opened gate or a cleared filter newly needs.
+   *
+   * The form is a child of the editor's own element, which its shadow root never slots, so it is
+   * never laid out, painted or exposed; it is inert and `aria-hidden` besides, takes the steady
+   * `hass`, and no `value-changed` of its goes further.
+   */
+  protected override updated(): void {
+    if (!this._drawn) return;
+    const schema = warmSchema(this._drawn, (tag) => !customElements.get(tag));
+    const tags = schema.map(elementOf);
+    if (`${tags}` === this._warmTags) return;
+    this._warmTags = `${tags}`;
+    renderInto(
+      tags.length > 0
+        ? html`<ha-form
+            inert
+            aria-hidden="true"
+            .hass=${HassKey.steadyHass(this.hass, this._ctx.language)}
+            .schema=${schema}
+            .data=${NO_DATA}
+            @value-changed=${stopEvent}
+          ></ha-form>`
+        : nothing,
+      this,
+    );
+    if (tags.length > 0) {
+      void Promise.all(tags.map((tag) => customElements.whenDefined(tag))).then(() =>
+        this.requestUpdate(),
+      );
+    }
+  }
+
   @property({ attribute: false }) hass?: Types.Hass;
 
   @state() private _config?: Types.Config;
@@ -251,6 +402,18 @@ export class CalendarCardProEditor extends LitElement {
   private _addedButtons = new Set<number>();
 
   private _rawConfig: Record<string, unknown> = {};
+
+  /** Whether a bare `requestUpdate()` is waiting in the current batch (`shouldUpdate`). */
+  private _bareUpdatePending = false;
+
+  /** What each form input was last handed, by slot, with what it was made from (`_keep`). */
+  private _kept = new Map<string, { readonly from: unknown; readonly value: unknown }>();
+
+  /** The schemas the last render of the panels handed its forms, drawn or not (`updated`). */
+  private _drawn?: ReadonlyArray<HaFormSchema>[];
+
+  /** The elements the warm-up form is loading, as a list of tags (`updated`). */
+  private _warmTags = '';
 
   /**
    * How many settings Essentials Only is hiding, counted as this render draws the panels and read
@@ -446,35 +609,55 @@ export class CalendarCardProEditor extends LitElement {
    * @returns Schema context for the current configuration
    */
   private get _ctx(): SchemaCtx {
-    const rawConfig = this._config!;
-    const workspace = this._workspace;
-    const config = Routing.workspaceConfig(rawConfig, workspace);
-    // Shared has no layout of its own, so its panels are built as list — the base every
-    // other view widens. `config.view` stays the card's real displayed view, because that
-    // is the value the Card Displays control edits; see `baseViewForWorkspace`.
-    const view = Workspace.baseViewForWorkspace(workspace);
-
-    return {
-      view,
-      workspace,
-      config,
-      rawConfig,
-      language: LanguageCodes.getEffectiveLanguage(config.language, this.hass?.locale),
-    };
+    return this._ctxFor(this._config!, this._workspace, this.hass?.locale);
   }
 
   /**
-   * The `hass` every form in this editor is given.
-   *
-   * Home Assistant's action dropdown labels each option from its own string table, so the
-   * card's `expand` action would otherwise render as a raw lowercase key. The wrapper
-   * answers for card actions and delegates everything else; it is memoized on the `hass`
-   * identity, so forms downstream see a stable object.
-   *
-   * @returns A `hass` that can name this card's actions
+   * The schema context, made again only when the configuration, the workspace or Home
+   * Assistant's locale moves, so a render that changed none of them hands every builder the same
+   * context and reuses what it built (`builtPanel`).
    */
-  private get _formHass(): Types.Hass | undefined {
-    return withCardActionLabels(this.hass, this._ctx.language);
+  private _ctxFor = Helpers.memoizeLast(
+    (
+      rawConfig: Types.Config,
+      workspace: Workspace.EditorWorkspace,
+      locale: Types.Hass['locale'],
+    ): SchemaCtx => {
+      const config = Routing.workspaceConfig(rawConfig, workspace);
+      // Shared has no layout of its own, so its panels are built as list — the base every
+      // other view widens. `config.view` stays the card's real displayed view, because that
+      // is the value the Card Displays control edits; see `baseViewForWorkspace`.
+      const view = Workspace.baseViewForWorkspace(workspace);
+
+      return {
+        view,
+        workspace,
+        config,
+        rawConfig,
+        language: LanguageCodes.getEffectiveLanguage(config.language, locale),
+      };
+    },
+  );
+
+  /**
+   * The `hass` a form is handed, and the feed it comes from (`hass-key.ts`).
+   *
+   * A form whose selectors read states or name the card's actions gets the live feed: Home
+   * Assistant's action dropdown labels each option from its own string table, so the card's
+   * `expand` action would otherwise render as a raw lowercase key, and `withCardActionLabels`
+   * answers for it. Every other form gets the steady feed, which a new `hass` leaves as it was.
+   *
+   * @param schema - The form's schema
+   * @param language - The editor's language
+   * @returns The `hass`, and `live` or `steady` for the form's `data-hass`
+   */
+  private _feed(
+    schema: ReadonlyArray<HaFormSchema>,
+    language: string,
+  ): readonly [Types.Hass | undefined, 'live' | 'steady'] {
+    return HassKey.needsLiveHass(schema)
+      ? [withCardActionLabels(this.hass, language), 'live']
+      : [HassKey.steadyHass(this.hass, language), 'steady'];
   }
 
   /**
@@ -499,7 +682,123 @@ export class CalendarCardProEditor extends LitElement {
    * @returns Form data
    */
   private _formData(): Record<string, unknown> {
-    return Routing.workspaceFormData(this._config!, this._workspace, this._pending);
+    return this._formDataFor(this._config!, this._workspace, this._pending);
+  }
+
+  /** `Routing.workspaceFormData`, made again only when one of its three inputs moves. */
+  private _formDataFor = Helpers.memoizeLast(Routing.workspaceFormData);
+
+  /**
+   * What a form input was last handed under a slot, for as long as what it is made from stays
+   * equal; otherwise a new one, made and kept. Every render builds a form's schema, data and
+   * callbacks afresh, and `ha-form` updates for every new object it is handed, so kept this way a
+   * render updates only the forms whose inputs changed (backlog item 307).
+   *
+   * @param slot - Which form, and which of its inputs
+   * @param from - What the input is made from, compared by value
+   * @param make - Makes the input anew
+   * @returns The input
+   */
+  private _keep<T>(slot: string, from: unknown, make: () => T): T {
+    const kept = this._kept.get(slot);
+    if (kept && Value.deepEqual(kept.from, from)) return kept.value as T;
+    const value = make();
+    this._kept.set(slot, { from, value });
+    return value;
+  }
+
+  /**
+   * `_keep` for a value made from nothing but itself: a value equal to the one kept under its
+   * slot hands back the kept object.
+   *
+   * @param slot - Which form, and which of its inputs
+   * @param value - The value as this render made it
+   * @returns The kept value, or this one
+   */
+  private _intern<T>(slot: string, value: T): T {
+    return this._keep(slot, value, () => value);
+  }
+
+  /**
+   * A label callback, kept per language and path.
+   *
+   * @param language - The editor's language
+   * @param path - The label path every field takes; else the one `ha-form` hands down
+   * @returns The callback
+   */
+  private _labeler(language: string, path?: ReadonlyArray<string>) {
+    return this._keep(
+      `label.${path}`,
+      language,
+      () =>
+        (schema: HaFormSchema, _data?: unknown, options?: { path?: string[] }): string =>
+          EditorLocalize.computeLabel(language, schema, path ?? options?.path ?? []),
+    );
+  }
+
+  /**
+   * A helper callback for a panel's form or a form above the panels: each field's helper, after
+   * the note on where its value comes from. Kept while nothing it reads moves: the language, the
+   * layout, and that note for each field the form draws, by the field's name. The callback reads
+   * the notes from that same record rather than from the configuration, so a kept one cannot
+   * answer from an older configuration, even where another form's notes happen to line up.
+   *
+   * @param slot - Which form
+   * @param schema - The form's schema
+   * @param ctx - Schema context
+   * @returns The callback
+   */
+  private _helper(slot: string, schema: ReadonlyArray<HaFormSchema>, ctx: SchemaCtx) {
+    const workspace = ctx.workspace ?? ctx.view;
+    const sources: Record<string, string | undefined> = {};
+    for (const { node } of Routing.workspaceFields(schema)) {
+      sources[node.name] = Routing.valueSource(this._config!, workspace, node.name);
+    }
+    return this._keep(
+      `${slot}.helper`,
+      [ctx.language, ctx.view, sources],
+      () =>
+        (node: HaFormSchema, options?: { path?: string[] }): string | undefined => {
+          const helper = EditorLocalize.computeHelper(
+            ctx.language,
+            ctx.view,
+            node,
+            options?.path ?? [],
+            true,
+          );
+          const from = 'selector' in node ? sources[node.name] : undefined;
+          const note = from
+            ? EditorLocalize.lookup(ctx.language, `value_source.${from}`)
+            : undefined;
+          return [note, helper].filter((value) => value !== undefined).join(' ') || undefined;
+        },
+    );
+  }
+
+  /**
+   * A helper callback for a calendar's or a toolbar button's form, kept per label path,
+   * language, layout and kind of form.
+   *
+   * @param ctx - Schema context
+   * @param path - The form's label path
+   * @param entity - Whether it is a calendar's, whose helpers name the layouts a field applies to
+   * @returns The callback
+   */
+  private _subformHelper(ctx: SchemaCtx, path: ReadonlyArray<string>, entity: boolean) {
+    const { language, view } = ctx;
+    return this._keep(
+      `helper.${path}`,
+      [language, view, entity],
+      () =>
+        (schema: HaFormSchema): string | undefined =>
+          EditorLocalize.computeSubformHelper(
+            language,
+            view,
+            schema,
+            path,
+            entity ? ViewConfig.entityScopeFor(schema.name) : undefined,
+          ),
+    );
   }
 
   /**
@@ -588,47 +887,6 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Resolves a label for any field in any panel.
-   *
-   * @param schema - Node being labeled
-   * @param _data - Form data, unused
-   * @param options - Descent options supplied by `ha-form`
-   * @returns Label text
-   */
-  private _computeLabel = (
-    schema: HaFormSchema,
-    _data?: unknown,
-    options?: { path?: string[] },
-  ): string => EditorLocalize.computeLabel(this._ctx.language, schema, options?.path ?? []);
-
-  /**
-   * Resolves helper text, including the applicability note.
-   *
-   * @param schema - Node being described
-   * @param options - Descent options supplied by `ha-form`
-   * @returns Helper text, or `undefined`
-   */
-  private _computeHelper = (
-    schema: HaFormSchema,
-    options?: { path?: string[] },
-  ): string | undefined => {
-    const ctx = this._ctx;
-    const helper = EditorLocalize.computeHelper(
-      ctx.language,
-      ctx.view,
-      schema,
-      options?.path ?? [],
-      true,
-    );
-    const source =
-      'selector' in schema
-        ? Routing.valueSource(this._config!, ctx.workspace ?? ctx.view, schema.name)
-        : undefined;
-    const note = source ? EditorLocalize.lookup(ctx.language, `value_source.${source}`) : undefined;
-    return [note, helper].filter((value) => value !== undefined).join(' ') || undefined;
-  };
-
-  /**
    * Resolves option labels that a selector asks Home Assistant to translate.
    *
    * @param key - Translation key the selector asked for
@@ -650,7 +908,7 @@ export class CalendarCardProEditor extends LitElement {
 
     // Keep panel.build complete for translation reconciliation; only rendered forms
     // withhold fields. Search and exceptions both receive this same reduced schema.
-    const built = Filter.withholdInertFields(panel.build(ctx), ctx.workspace ?? ctx.view);
+    const built = builtPanel(panel, ctx);
     // Only a typed query may let a whole panel through by its name: on an empty one every panel
     // matches, and Essentials Only would show all it hides.
     const wholePanel =
@@ -660,15 +918,6 @@ export class CalendarCardProEditor extends LitElement {
     const schema = wholePanel
       ? Filter.openMatches(built, filterCtx)
       : Filter.filterSchema(built, filterCtx);
-
-    const data = this._formData();
-    // Key the form node as well as its callback: reusing a node would redirect its
-    // pending events into the next workspace's frame.
-    const frame: Routing.FormFrame = {
-      workspace: ctx.workspace ?? ctx.view,
-      schema,
-      data,
-    };
 
     const resets = this._renderResetControls(schema, ctx);
     this._countHidden(built, schema);
@@ -686,6 +935,7 @@ export class CalendarCardProEditor extends LitElement {
     if (empty) {
       return nothing;
     }
+    this._drawn?.push(schema);
 
     return html`
       <ha-expansion-panel
@@ -697,25 +947,55 @@ export class CalendarCardProEditor extends LitElement {
       >
         <ha-svg-icon slot="leading-icon" .path=${panel.iconPath}></ha-svg-icon>
         <div class="panel-body">
-          ${keyed(
-            frame.workspace,
-            html`
-              <ha-form
-                class="panel-form"
-                .hass=${this._formHass}
-                .data=${data}
-                .schema=${schema}
-                .computeLabel=${this._computeLabel}
-                .computeHelper=${this._computeHelper}
-                .localizeValue=${this._localizeValue}
-                @value-changed=${(event: CustomEvent) => this._valueChanged(frame, event)}
-              ></ha-form>
-            `,
-          )}
+          ${whenOpened(() => this._renderPanelForm(panel.id, schema, ctx))}
           ${extras.map((extra) => this._renderExtra(extra))} ${entities} ${buttons} ${resets}
         </div>
       </ha-expansion-panel>
     `;
+  }
+
+  /**
+   * One panel's form, drawn once its panel has opened. Handed only the part of the workspace's
+   * data its own fields read (`Routing.formDataFor`), so a write elsewhere leaves it untouched.
+   *
+   * @param id - Panel id
+   * @param shown - The panel's schema, as the filter left it
+   * @param ctx - Schema context
+   * @returns The form
+   */
+  private _renderPanelForm(
+    id: string,
+    shown: ReadonlyArray<HaFormSchema>,
+    ctx: SchemaCtx,
+  ): unknown {
+    const slot = `panel.${id}`;
+    const schema = this._intern(slot, shown);
+    const data = this._intern(`${slot}.data`, Routing.formDataFor(this._formData(), schema));
+    const [hass, feed] = this._feed(schema, ctx.language);
+    // Key the form node as well as its callback: reusing a node would redirect its
+    // pending events into the next workspace's frame.
+    const frame: Routing.FormFrame = {
+      workspace: ctx.workspace ?? ctx.view,
+      schema,
+      data,
+    };
+
+    return keyed(
+      frame.workspace,
+      html`
+        <ha-form
+          class="panel-form"
+          data-hass=${feed}
+          .hass=${hass}
+          .data=${data}
+          .schema=${schema}
+          .computeLabel=${this._labeler(ctx.language)}
+          .computeHelper=${this._helper(slot, schema, ctx)}
+          .localizeValue=${this._localizeValue}
+          @value-changed=${(event: CustomEvent) => this._valueChanged(frame, event)}
+        ></ha-form>
+      `,
+    );
   }
 
   /**
@@ -821,38 +1101,17 @@ export class CalendarCardProEditor extends LitElement {
 
     if (shown.length === 0) return nothing;
 
-    const computeLabel = (schema: HaFormSchema): string =>
-      EditorLocalize.computeLabel(ctx.language, schema, subform.path);
-
-    const computeHelper = (schema: HaFormSchema): string | undefined =>
-      EditorLocalize.computeSubformHelper(
-        ctx.language,
-        ctx.view,
-        schema,
-        subform.path,
-        ViewConfig.entityScopeFor(schema.name),
-      );
+    const computeLabel = this._labeler(ctx.language, subform.path);
+    const computeHelper = this._subformHelper(ctx, subform.path, true);
 
     return html`
       ${shown.map(({ entry, index, schema }) => {
         const entityId = Synthetic.entityIdOf(entry);
-        const data = Entities.toEntityFormData(entry, entries);
         const conditions = conditionsEditor
           ? this._conditionsFor(index, entityId, Entities.asEntityConfig(entry).visibility)
           : undefined;
         const split = conditions ? splitAtVisibility(schema) : undefined;
-        const form = (part: ReadonlyArray<HaFormSchema>) => html`
-          <ha-form
-            class="entity-form"
-            .hass=${this._formHass}
-            .data=${data}
-            .schema=${part}
-            .computeLabel=${computeLabel}
-            .computeHelper=${computeHelper}
-            .localizeValue=${this._localizeValue}
-            @value-changed=${(event: CustomEvent) => this._entityChanged(index, event)}
-          ></ha-form>
-        `;
+        this._drawn?.push(...(split ? [split.before, split.after] : [schema]));
 
         return html`
           <ha-expansion-panel
@@ -899,10 +1158,30 @@ export class CalendarCardProEditor extends LitElement {
                   ${this._string(ctx, 'entity.remove')}
                 </button>
               </div>
-              ${
-                split
+              ${whenOpened(() => {
+                const slot = `entry.${index}`;
+                const data = this._intern(slot, Entities.toEntityFormData(entry, entries));
+                const form = (part: ReadonlyArray<HaFormSchema>, name: string) => {
+                  const kept = this._intern(`${slot}.${name}`, part);
+                  const [hass, feed] = this._feed(kept, ctx.language);
+                  return html`
+                    <ha-form
+                      class="entity-form"
+                      data-hass=${feed}
+                      .hass=${hass}
+                      .data=${data}
+                      .schema=${kept}
+                      .computeLabel=${computeLabel}
+                      .computeHelper=${computeHelper}
+                      .localizeValue=${this._localizeValue}
+                      @value-changed=${(event: CustomEvent) => this._entityChanged(index, event)}
+                    ></ha-form>
+                  `;
+                };
+
+                return split
                   ? html`
-                      ${split.before.length > 0 ? form(split.before) : nothing}
+                      ${split.before.length > 0 ? form(split.before, 'before') : nothing}
                       <div
                         class="entity-visibility"
                         @context-request=${(event: Event) => provideCalendar(event, entityId)}
@@ -913,6 +1192,7 @@ export class CalendarCardProEditor extends LitElement {
                         ${keyed(
                           entityId,
                           html`<ha-card-conditions-editor
+                            data-hass="live"
                             .hass=${this.hass}
                             .conditions=${conditions}
                             @value-changed=${(event: CustomEvent) =>
@@ -920,10 +1200,10 @@ export class CalendarCardProEditor extends LitElement {
                           ></ha-card-conditions-editor>`,
                         )}
                       </div>
-                      ${split.after.length > 0 ? form(split.after) : nothing}
+                      ${split.after.length > 0 ? form(split.after, 'after') : nothing}
                     `
-                  : form(schema)
-              }
+                  : form(schema, 'all');
+              })}
             </div>
           </ha-expansion-panel>
         `;
@@ -1196,23 +1476,28 @@ export class CalendarCardProEditor extends LitElement {
       .filter((candidate) => Filter.hasFields(candidate.schema));
 
     if (filtering && shown.length === 0) return nothing;
+    this._drawn?.push(headings, ...shown.map(({ schema }) => schema));
 
-    const computeLabel = (schema: HaFormSchema): string =>
-      EditorLocalize.computeLabel(ctx.language, schema, subform.path);
-
-    const computeHelper = (schema: HaFormSchema): string | undefined =>
-      EditorLocalize.computeSubformHelper(ctx.language, ctx.view, schema, subform.path);
+    const computeLabel = this._labeler(ctx.language, subform.path);
+    const computeHelper = this._subformHelper(ctx, subform.path, false);
 
     const untitled = this._string(ctx, 'toolbar.buttons.untitled');
 
     return html`
-      <ha-form
-        class="buttons-heading"
-        .hass=${this._formHass}
-        .data=${{}}
-        .schema=${headings}
-        .computeLabel=${computeLabel}
-      ></ha-form>
+      ${whenOpened(() => {
+        const schema = this._intern('buttons.heading', headings);
+        const [hass, feed] = this._feed(schema, ctx.language);
+        return html`
+          <ha-form
+            class="buttons-heading"
+            data-hass=${feed}
+            .hass=${hass}
+            .data=${NO_DATA}
+            .schema=${schema}
+            .computeLabel=${computeLabel}
+          ></ha-form>
+        `;
+      })}
       ${repeat(
         shown,
         ({ key }) => key,
@@ -1256,16 +1541,24 @@ export class CalendarCardProEditor extends LitElement {
                   ${this._string(ctx, 'toolbar.buttons.remove')}
                 </button>
               </div>
-              <ha-form
-                class="button-form"
-                .hass=${this._formHass}
-                .data=${Buttons.toButtonFormData(entry)}
-                .schema=${schema}
-                .computeLabel=${computeLabel}
-                .computeHelper=${computeHelper}
-                .localizeValue=${this._localizeValue}
-                @value-changed=${(event: CustomEvent) => this._buttonChanged(index, event)}
-              ></ha-form>
+              ${whenOpened(() => {
+                const slot = `button.${key}`;
+                const kept = this._intern(slot, schema);
+                const [hass, feed] = this._feed(kept, ctx.language);
+                return html`
+                  <ha-form
+                    class="button-form"
+                    data-hass=${feed}
+                    .hass=${hass}
+                    .data=${this._intern(`${slot}.data`, Buttons.toButtonFormData(entry))}
+                    .schema=${kept}
+                    .computeLabel=${computeLabel}
+                    .computeHelper=${computeHelper}
+                    .localizeValue=${this._localizeValue}
+                    @value-changed=${(event: CustomEvent) => this._buttonChanged(index, event)}
+                  ></ha-form>
+                `;
+              })}
             </div>
           </ha-expansion-panel>
         `,
@@ -1565,22 +1858,48 @@ export class CalendarCardProEditor extends LitElement {
       return this._renderQuickSetup(ctx, this._quickSetup);
     }
     this._essentialsHidden = 0;
+    this._drawn = [];
     const panels = PANELS.map((panel) => this._renderPanel(panel, ctx)).filter(
       (panel) => panel !== nothing,
     );
 
     const empty = panels.length === 0 && Filter.isFiltering(this._filter);
-    const chassis = Subforms.chassisSchemas(ctx.language);
+    const chassis = this._keep('chassis', ctx.language, () =>
+      Subforms.chassisSchemas(ctx.language),
+    );
+    this._drawn.push(chassis.displayView, chassis.workspace, chassis.filter);
 
     return html`
-      <div class="card-config">
+      <div class="card-config" @expanded-will-change=${this._panelWillChange}>
         ${this._renderQuickSetupEntry(ctx)} ${this._renderViewControls(ctx, chassis)}
         ${this._renderGridReconciliation(ctx)} ${this._renderMisplaced(ctx)}
-        ${this._renderFilterBar(chassis)} ${this._renderEssentialsNote(ctx)} ${panels}
+        ${this._renderFilterBar(ctx, chassis)} ${this._renderEssentialsNote(ctx)} ${panels}
         ${empty ? this._renderNoMatches(ctx) : nothing}
       </div>
     `;
   }
+
+  /**
+   * Marks a panel as opening, so that the render this asks for mounts its forms
+   * (`whenOpened`). Home Assistant's panel announces `expanded-will-change` on a click, then
+   * waits a render before it measures what it holds and announces `expanded-changed`
+   * (`_toggleContainer` in its frontend): forms mounted on `expanded-changed` would arrive
+   * after the measuring, and the panel would open to the height of an empty one.
+   *
+   * @param event - An `expanded-will-change` from any panel under the editor
+   */
+  private _panelWillChange = (event: Event): void => {
+    const panel = event.target as Element;
+    if (
+      panel.localName !== 'ha-expansion-panel' ||
+      (event as CustomEvent<{ expanded?: boolean }>).detail?.expanded !== true ||
+      openedPanels.has(panel)
+    ) {
+      return;
+    }
+    openedPanels.add(panel);
+    this.requestUpdate();
+  };
 
   /**
    * Renders the one-time interpretation choice for ambiguous legacy values.
@@ -1866,21 +2185,27 @@ export class CalendarCardProEditor extends LitElement {
       },
     }[session.step];
 
+    const [hass, feed] = this._feed(step.schema, ctx.language);
+
     return html`
       ${keyed(
         session.step,
         html`<ha-form
           class="quick-setup-form"
-          .hass=${this._formHass}
-          .data=${step.data}
+          data-hass=${feed}
+          .hass=${hass}
+          .data=${this._intern(`quick_setup.${session.step}`, step.data)}
           .schema=${step.schema}
-          .computeLabel=${(schema: HaFormSchema) =>
-            EditorLocalize.computeLabel(ctx.language, schema, QUICK_SETUP_PATH)}
-          .computeHelper=${(schema: HaFormSchema) =>
-            EditorLocalize.lookup(
-              ctx.language,
-              `${EditorLocalize.qualifiedKey(schema.name, QUICK_SETUP_PATH)}.helper`,
-            )}
+          .computeLabel=${this._labeler(ctx.language, QUICK_SETUP_PATH)}
+          .computeHelper=${this._keep(
+            'helper.quick_setup',
+            ctx.language,
+            () => (schema: HaFormSchema) =>
+              EditorLocalize.lookup(
+                ctx.language,
+                `${EditorLocalize.qualifiedKey(schema.name, QUICK_SETUP_PATH)}.helper`,
+              ),
+          )}
           @value-changed=${this._quickSetupFormChanged}
         ></ha-form>`,
       )}
@@ -2178,30 +2503,35 @@ export class CalendarCardProEditor extends LitElement {
    * @returns The two adjacent controls, outside the searchable panels
    */
   private _renderViewControls(ctx: SchemaCtx, chassis: Subforms.ChassisSchemas): TemplateResult {
-    const data = { view: this._viewForConfig(this._config!) };
+    const data = this._intern('view', { view: this._viewForConfig(this._config!) });
     const schema = chassis.displayView;
     const frame: Routing.FormFrame = { workspace: 'list', schema, data };
     const note = Workspace.workspaceNote(ctx.workspace ?? ctx.view);
+    const [hass, feed] = this._feed(schema, ctx.language);
+    const [workspaceHass, workspaceFeed] = this._feed(chassis.workspace, ctx.language);
+    const computeLabel = this._labeler(ctx.language);
 
     return html`
       <div class="view-controls">
         <ha-form
           class="display-view-form"
-          .hass=${this._formHass}
+          data-hass=${feed}
+          .hass=${hass}
           .data=${data}
           .schema=${schema}
-          .computeLabel=${this._computeLabel}
-          .computeHelper=${this._computeHelper}
+          .computeLabel=${computeLabel}
+          .computeHelper=${this._helper('view', schema, ctx)}
           .localizeValue=${this._localizeValue}
           @value-changed=${(event: CustomEvent) => this._valueChanged(frame, event)}
         ></ha-form>
         <ha-form
           class="workspace-form"
-          .hass=${this._formHass}
-          .data=${{ [Workspace.WORKSPACE_FIELD]: this._workspace }}
+          data-hass=${workspaceFeed}
+          .hass=${workspaceHass}
+          .data=${this._intern('workspace', { [Workspace.WORKSPACE_FIELD]: this._workspace })}
           .schema=${chassis.workspace}
-          .computeLabel=${this._computeLabel}
-          .computeHelper=${this._computeHelper}
+          .computeLabel=${computeLabel}
+          .computeHelper=${this._helper('workspace', chassis.workspace, ctx)}
           .localizeValue=${this._localizeValue}
           @value-changed=${this._workspaceChanged}
         ></ha-form>
@@ -2233,19 +2563,22 @@ export class CalendarCardProEditor extends LitElement {
   /**
    * Renders the filter bar above the panels.
    *
+   * @param ctx - Current editor context
    * @param chassis - The chassis schemas this render draws
    * @returns The filter bar
    */
-  private _renderFilterBar(chassis: Subforms.ChassisSchemas): TemplateResult {
+  private _renderFilterBar(ctx: SchemaCtx, chassis: Subforms.ChassisSchemas): TemplateResult {
+    const [hass, feed] = this._feed(chassis.filter, ctx.language);
     return html`
       <div class="filter-bar">
         <ha-form
           class="filter-form"
-          .hass=${this._formHass}
-          .data=${Filter.filterFormData(this._filter)}
+          data-hass=${feed}
+          .hass=${hass}
+          .data=${this._intern('filter', Filter.filterFormData(this._filter))}
           .schema=${chassis.filter}
-          .computeLabel=${this._computeLabel}
-          .computeHelper=${this._computeHelper}
+          .computeLabel=${this._labeler(ctx.language)}
+          .computeHelper=${this._helper('filter', chassis.filter, ctx)}
           .localizeValue=${this._localizeValue}
           @value-changed=${this._filterChanged}
         ></ha-form>

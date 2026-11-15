@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { changeField, mountEditor, valueOf } from './helpers/editor-host';
+import { changeField, mountEditor, openPanels, valueOf } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 
 async function mount(config: Record<string, unknown>) {
@@ -9,6 +9,8 @@ async function mount(config: Record<string, unknown>) {
     entities: ['calendar.anna'],
     ...config,
   });
+  // A closed panel mounts no form: open every panel, as these tests read forms across the editor.
+  await openPanels(editor);
   const reports: Record<string, unknown>[] = [];
   editor.addEventListener('config-changed', (event) => {
     reports.push(structuredClone((event as CustomEvent).detail.config));

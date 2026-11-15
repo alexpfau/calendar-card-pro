@@ -26,6 +26,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { openPanels } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import * as Types from '../src/config/types';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
@@ -407,6 +408,8 @@ describe('duplicate and remove buttons', () => {
 
   it('puts the actions above the settings, with Remove apart from the rest', async () => {
     const harness = await renderEditor(['calendar.a']);
+    // A closed panel mounts no form: open the calendar's panel, whose settings this places.
+    await openPanels(harness.element);
 
     // `.panel-body` is used by every panel, so this must be scoped to the per-calendar
     // one — the first match in the shadow root is the Calendars panel wrapping them all.

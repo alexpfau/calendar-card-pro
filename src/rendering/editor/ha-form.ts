@@ -129,3 +129,43 @@ export type HaFormSchema = SelectorSchema | ConstantSchema | GridSchema | Expand
 export function isGroupSchema(node: HaFormSchema): node is GridSchema | ExpandableSchema {
   return 'schema' in node;
 }
+
+/**
+ * The element Home Assistant draws a node with, which it imports the first time a form holds such
+ * a node (`LOAD_ELEMENTS` in `ha-form` and `ha-selector`, frontend 20261028.5): `ha-selector-`
+ * and the selector's key for a field, `ha-form-` and the node's type for anything else.
+ *
+ * @param node - Schema node
+ * @returns The element's tag
+ */
+export function elementOf(node: HaFormSchema): string {
+  return 'selector' in node
+    ? `ha-selector-${Object.keys(node.selector)[0]}`
+    : `ha-form-${node.type}`;
+}
+
+/**
+ * One node for each element the schemas draw, a group without its children, in the order first
+ * met: a form holding them has Home Assistant import every element those schemas need.
+ *
+ * @param schemas - Schemas the editor's forms are handed
+ * @param keep - Which elements to include, by tag
+ * @returns The nodes
+ */
+export function warmSchema(
+  schemas: Iterable<ReadonlyArray<HaFormSchema>>,
+  keep: (tag: string) => boolean = () => true,
+): HaFormSchema[] {
+  const nodes = new Map<string, HaFormSchema>();
+  const walk = (schema: ReadonlyArray<HaFormSchema>): void => {
+    for (const node of schema) {
+      const tag = elementOf(node);
+      if (!nodes.has(tag) && keep(tag)) {
+        nodes.set(tag, isGroupSchema(node) ? { ...node, schema: [] } : node);
+      }
+      if (isGroupSchema(node)) walk(node.schema);
+    }
+  };
+  for (const schema of schemas) walk(schema);
+  return [...nodes.values()];
+}
