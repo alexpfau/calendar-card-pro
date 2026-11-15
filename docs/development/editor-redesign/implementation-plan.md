@@ -2138,7 +2138,7 @@ sha256 never changes.
 | --- | ---------------------------------------- | ---- | ------------------------------------------ | ---------------------------------- | --------------------------------------------------------------------------------------------- |
 | 1   | Field Index, Page Registry & Gate Corpus | 1    | 1,600; built at 4,084, 2,098 of them tests | 19, ten gate phrases among them    | +0.43 KB, measured                                                                            |
 | 2   | Test Harness by Field Id                 | 1    | 1,700                                      | 0                                  | 0                                                                                             |
-| 3   | Render Cost & Identity                   | 1    | 1,100                                      | 0                                  | +2.3 KB proposed; was 0.8 KB; measured +2.24 KB                                               |
+| 3   | Render Cost & Identity                   | 1    | 1,100                                      | 0                                  | +2.3 KB proposed; was 0.8 KB; measured +2.28 KB                                               |
 | 4   | Write Owners & Frames                    | 1    | 1,200; built at 2,018, 1,011 of them tests | 0                                  | +1.2 KB, raised from +0.5 KB; measured +1.42 KB; a proposed cap of +1.4 KB, awaiting approval |
 | 5   | Overview, Pages & Navigation             | 1    | 2,000                                      | about 32; 16 changed               | +4.0 KB                                                                                       |
 | 6   | Builders Hand Presentation to Pages      | 1    | 900                                        | minus 25 to 43                     | below 0                                                                                       |
@@ -2373,8 +2373,9 @@ Behavior-preserving, on today's panels.
     stand-ins that draw as Home Assistant's do, it stays until what an event's action, a button's
     action and a `state` condition pick is defined; it warms a service against its target as it
     is when the action is configured, and again once that target's attributes or the services
-    move, not for a state alone; its search and time bounds draw it away regardless, and an
-    earlier warm-up's search does not end a later one holding the same.
+    move, not for a state alone, and forgets one no drawn form holds any more; its search and time
+    bounds draw it away regardless, and an earlier warm-up's search does not end a later one holding
+    the same.
 - **Done when.** The tests pass; the step 0 probe's idle measurement, re-run on this PR's dev build
   in Home Assistant, shows the editor rendering only for changes it draws (renders and milliseconds
   per idle 10 s, before and after, in the PR body); first-open geometry is checked in Home Assistant
@@ -3327,6 +3328,15 @@ point was settled.
     behavior, Back closing the dialog behind Home Assistant's unsaved-changes prompt after an edit,
     and the first live review on a phone, PR 5's, runs the check.
 12. **The stray branch that broke `git fetch` here is gone**; fetching works again in this worktree.
+13. **Two first opens stay short after PR 3, recorded with no code.** At 400 px a panel holding an
+    `assist` action opens 56 px short, 1,109 px against 1,165: the assist pipeline picker asks for
+    its pipeline list once per instance and draws nothing until it has it, about 20 ms after Home
+    Assistant has measured the panel, and the warm-up's own picker cannot lend it the list
+    [measured, PR 3]. Beside it, the warm-up watches only the entities a value names: one a
+    `perform-action` target reaches only through an area, a device or a label is not watched, so a
+    field such an entity comes to support, a color once its light reports `rgb`, loads on the
+    panel's first open [probe]. Same symptom, rarer still. PR 5 turns Actions & Refresh, where both
+    show, into a page with no measured open; a toolbar button's action keeps its panel until PR 18.
 
 ### Differences From the Approved Design, Decided
 
