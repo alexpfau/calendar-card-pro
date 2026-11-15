@@ -5,8 +5,8 @@
  * whatever language the editor speaks. A field keeps the label and helper it has today once it
  * leaves its panel, because the index carries the label path the lifted form loses; every one
  * is held to what the forms the editor draws today say. And a field lifted into a form of its
- * own writes exactly what it wrote from its panel's form, in every workspace and every corpus
- * state, for an edit that changes something, with a control that must differ.
+ * own writes exactly what it wrote from its panel's form, in every workspace and every panel
+ * frame the corpus builds, for an edit that changes something, with a control that must differ.
  */
 
 import { afterAll, describe, expect, it } from 'vitest';
@@ -331,14 +331,20 @@ describe('indexed fields', () => {
 });
 
 describe('a lifted field routes as it does from its panel', () => {
-  it('writes the same from its one-field form in every workspace and corpus state', () => {
+  it('writes the same from its one-field form in every workspace and panel frame', () => {
     let storedWrites = 0;
     let heldEdits = 0;
     let controlCompared = 0;
     let controlDiffer = 0;
     let unwritten = 0;
+    let framesTried = 0;
+    let framesSeen = 0;
     let turn = 0;
     const differ: string[] = [];
+    /** Each workspace's panel frames already tried, by structure. */
+    const frames = new Set<string>();
+    /** Nested fields whose control has run, by workspace. */
+    const controlled = new Set<string>();
     /** Edits that changed the stored configuration, by workspace and field. */
     const stored = new Map<string, number>();
     /** Edits held as pending text and stored nowhere; every field with a rule of its own holds. */
@@ -362,12 +368,31 @@ describe('a lifted field routes as it does from its panel', () => {
     for (const state of DISTINCT) {
       const { config, workspace } = state;
       const ctx = schemaCtx(config, workspace, 'en');
-      const index = buildFieldIndex(ctx).fields;
-      const data = Routing.workspaceFormData(config, workspace, {});
       const authored = config as unknown as Record<string, unknown>;
-      const before = toStoredConfig(config, new Set(), authored);
+      let base:
+        | {
+            index: ReadonlyMap<FieldId, IndexedField>;
+            data: Record<string, unknown>;
+            before: unknown;
+          }
+        | undefined;
+      const derive = () =>
+        (base ??= {
+          index: buildFieldIndex(ctx).fields,
+          data: Routing.workspaceFormData(config, workspace, {}),
+          before: toStoredConfig(config, new Set(), authored),
+        });
       for (const panel of PANELS) {
         const built = Filter.withholdInertFields(panel.build(ctx), workspace);
+        // Routing reads a frame's schema only to list its nodes, and in a panel's frame every node
+        // but the edited one reads the same value before and after and is skipped, so a state can
+        // change what the two frames do only through the panel's structure. A frame already tried
+        // in this workspace is tried again only for a field that has yet to store, or to hold.
+        const frame = `${workspace} ${panel.id} ${JSON.stringify(built)}`;
+        const seen = frames.has(frame);
+        frames.add(frame);
+        framesSeen += 1;
+        if (!seen) framesTried += 1;
         for (const { node, dataPath } of walkSchema(built)) {
           if (!('selector' in node)) continue;
           const id = fieldId(panel.id, dataPath, node.name);
@@ -375,6 +400,9 @@ describe('a lifted field routes as it does from its panel', () => {
           const ruled = 'text' in node.selector && node.name in RULED_TEXT;
           stored.set(key, stored.get(key) ?? 0);
           if (ruled) held.set(key, held.get(key) ?? 0);
+          if (seen && stored.get(key)! > 0 && (!ruled || held.get(key)! > 0)) continue;
+
+          const { index, data, before } = derive();
           let current: unknown = data;
           for (const part of [...dataPath, node.name]) {
             current = (current as Record<string, unknown> | undefined)?.[part];
@@ -426,8 +454,10 @@ describe('a lifted field routes as it does from its panel', () => {
               differ.push(`${workspace} ${state.gate ?? 'fresh'} ${id} = ${JSON.stringify(value)}`);
             }
 
-            // The control: the node alone, without the grids that carry its data path.
-            if (dataPath.length > 0) {
+            // The control, once per nested field and workspace: the node alone, without the grids
+            // that carry its data path, which must write somewhere else.
+            if (dataPath.length > 0 && !controlled.has(key)) {
+              controlled.add(key);
               const bare = Routing.applyWorkspaceChange(
                 config,
                 { workspace, schema: [node], data },
@@ -453,7 +483,8 @@ describe('a lifted field routes as it does from its panel', () => {
       [...counts].filter(([, count]) => count === 0).map(([key]) => key);
     console.info(
       `Lift: ${storedWrites} stored writes and ${heldEdits} held edits compared over ` +
-        `${DISTINCT.length} distinct states; ${stored.size} fields across the workspaces, ` +
+        `${DISTINCT.length} distinct states, ${framesTried} of ${framesSeen} panel frames new in ` +
+        `their workspace; ${stored.size} fields across the workspaces, ` +
         `${never(stored).length} never stored; ${held.size} that hold text, ` +
         `${never(held).length} never held; ${unwritten} field and state pairs with no stored ` +
         `write; ${differ.length} differ. Control without the data-path wrapper: ` +
@@ -465,8 +496,8 @@ describe('a lifted field routes as it does from its panel', () => {
     expect(differ).toEqual([]);
     expect(storedWrites).toBeGreaterThan(1000);
     expect(controlDiffer).toBeGreaterThan(0);
-    // Tens of thousands of routed writes, about 4 s alone and past Vitest's 5 s default in a full
-    // parallel run; the limit is set for a loaded machine rather than for a hang.
+    // A few thousand routed writes, well under a second alone; the limit is set for a loaded
+    // machine rather than for a hang.
   }, 60_000);
 });
 
@@ -550,138 +581,222 @@ describe('the index builds what the editor draws today', () => {
       )
       .sort();
 
-  it('for the card and every calendar entry, in every workspace', async () => {
-    let compared = 0;
-    for (const state of DRAWN_STATES) {
-      const { workspace } = state;
-      await draw(state.config, workspace);
-
-      const at = `${workspace} ${state.gate ?? 'fresh'}`;
-      const ctx = schemaCtx(state.config, workspace, 'en');
-      const strip = (id: FieldId): string => id.slice(id.indexOf(':') + 1);
-      expect(drawn(forms('ha-form.panel-form')), at).toEqual(
-        [...buildFieldIndex(ctx).fields.keys()].map(strip).sort(),
-      );
-      expect(drawn(forms('ha-form.entity-form')), at).toEqual(
-        (state.config.entities ?? [])
-          .flatMap((entry) => [...entityFieldIndex(entrySchema(entry, ctx)).fields.keys()])
-          .map(strip)
-          .sort(),
-      );
-      compared += 1;
-    }
-    console.info(`Index against the editor: ${compared} states drawn and compared.`);
-    expect(compared).toBeGreaterThan(WORKSPACES.length * 10);
-    // Draws the editor once per corpus state, about half a second alone; the limit is set for a
-    // loaded machine rather than for a hang.
-  }, 30_000);
-
-  it('labels and explains every field as the form drawing it does today', async () => {
-    /**
-     * A form's selector nodes, each with the path `ha-form` hands its label and helper callbacks:
-     * an expandable appends its name and a grid passes its own on unchanged. The data path
-     * names the field.
-     *
-     * @param schema - The form's schema
-     * @param path - Label path so far
-     * @param dataPath - Data path so far
-     * @yields Each node with its two paths
-     */
-    function* asDrawn(
-      schema: ReadonlyArray<HaFormSchema>,
-      path: ReadonlyArray<string> = [],
-      dataPath: ReadonlyArray<string> = [],
-    ): Generator<{ node: SelectorSchema; path: string[]; key: string }> {
-      for (const node of schema) {
-        if ('selector' in node) {
-          yield { node, path: [...path], key: [...dataPath, node.name].join('.') };
-        }
-        if ('schema' in node) {
-          yield* asDrawn(
-            node.schema,
-            node.type === 'expandable' ? [...path, node.name] : path,
-            node.name !== '' && node.flatten !== true ? [...dataPath, node.name] : dataPath,
-          );
-        }
+  /**
+   * A form's selector nodes, each with the path `ha-form` hands its label and helper callbacks:
+   * an expandable appends its name and a grid passes its own on unchanged. The data path names
+   * the field.
+   *
+   * @param schema - The form's schema
+   * @param path - Label path so far
+   * @param dataPath - Data path so far
+   * @yields Each node with its two paths
+   */
+  function* asDrawn(
+    schema: ReadonlyArray<HaFormSchema>,
+    path: ReadonlyArray<string> = [],
+    dataPath: ReadonlyArray<string> = [],
+  ): Generator<{ node: SelectorSchema; path: string[]; key: string }> {
+    for (const node of schema) {
+      if ('selector' in node) {
+        yield { node, path: [...path], key: [...dataPath, node.name].join('.') };
+      }
+      if ('schema' in node) {
+        yield* asDrawn(
+          node.schema,
+          node.type === 'expandable' ? [...path, node.name] : path,
+          node.name !== '' && node.flatten !== true ? [...dataPath, node.name] : dataPath,
+        );
       }
     }
+  }
 
-    // The corpus writes no toolbar buttons, so each workspace draws one more card that has one.
-    const withButton = (workspace: EditorWorkspace): Types.Config => {
-      const config = freshConfig(baseViewForWorkspace(workspace));
-      return {
-        ...config,
-        toolbar: { ...config.toolbar, show: true, buttons: [{ name: 'Lights' }] },
-      };
+  /**
+   * A field's id without its scope, as a rendered form's data path and name spell it.
+   *
+   * @param id - Field id
+   * @returns The id after its colon
+   */
+  const strip = (id: FieldId): string => id.slice(id.indexOf(':') + 1);
+
+  // The corpus writes no toolbar buttons, so each workspace draws one more card that has one.
+  const withButton = (workspace: EditorWorkspace): Types.Config => {
+    const config = freshConfig(baseViewForWorkspace(workspace));
+    return {
+      ...config,
+      toolbar: { ...config.toolbar, show: true, buttons: [{ name: 'Lights' }] },
     };
-    const runs = [
-      ...DRAWN_STATES.map((state) => ({ workspace: state.workspace, config: state.config })),
-      ...WORKSPACES.map((workspace) => ({ workspace, config: withButton(workspace) })),
-    ];
+  };
+  const RUNS = [
+    ...DRAWN_STATES.map((state) => ({ workspace: state.workspace, config: state.config, state })),
+    ...WORKSPACES.map((workspace) => ({
+      workspace,
+      config: withButton(workspace),
+      state: undefined,
+    })),
+  ];
 
-    const differ: string[] = [];
-    const reached = new Set<string>();
-    let pairs = 0;
-    let nested = 0;
-    let nestedDiffer = 0;
-    for (const { workspace, config } of runs) {
+  /** What the drawn editor showed, against the index: names per state, labels per field. */
+  interface Observed {
+    readonly names: ReadonlyArray<{
+      at: string;
+      drawn: { panel: string[]; entity: string[] };
+      indexed: { panel: string[]; entity: string[] };
+    }>;
+    readonly labels: {
+      differ: string[];
+      reached: Set<string>;
+      drawnFields: number;
+      compared: number;
+      nested: number;
+      nestedDiffer: number;
+    };
+  }
+
+  /**
+   * Draws every configuration once, for both checks below, and compares what it draws with the
+   * index: the field names in each corpus state, and each field's label and helper as the form
+   * drawing it resolves them, through that form's own `computeLabel` and `computeHelper`.
+   *
+   * A label and a helper depend on the node, the path `ha-form` hands over, the editor's language
+   * and the workspace's layout, and a panel form's helper on where the value comes from as well.
+   * A combination already compared would compare the same again, so it is compared once. The
+   * form's callbacks and the index's resolvers are each called in one batch per drawing, because
+   * the two read different copies of the configuration and a cache of one entry sits under both.
+   *
+   * @returns The observations
+   */
+  async function observe(): Promise<Observed> {
+    const names: Array<Observed['names'][number]> = [];
+    const labels: Observed['labels'] = {
+      differ: [],
+      reached: new Set(),
+      drawnFields: 0,
+      compared: 0,
+      nested: 0,
+      nestedDiffer: 0,
+    };
+    const compared = new Set<string>();
+
+    for (const { workspace, config, state } of RUNS) {
       await draw(config, workspace);
       const ctx = schemaCtx(config, workspace, 'en');
-      const byKey = (fields: Iterable<IndexedField>) =>
-        new Map([...fields].map((field) => [field.id.slice(field.id.indexOf(':') + 1), field]));
-      const indexes: ReadonlyArray<readonly [string, ReadonlyMap<string, IndexedField>]> = [
-        ['ha-form.panel-form', byKey(buildFieldIndex(ctx).fields.values())],
-        [
-          'ha-form.entity-form',
-          byKey(
-            (config.entities ?? []).flatMap((entry) => [
-              ...entityFieldIndex(entrySchema(entry, ctx)).fields.values(),
-            ]),
-          ),
-        ],
-        [
-          'ha-form.button-form',
-          byKey(buttonFieldIndex(buildToolbarButtonSchema()).fields.values()),
-        ],
-      ];
+      const card = buildFieldIndex(ctx).fields;
+      const entries = new Map(
+        (config.entities ?? []).flatMap((entry) => [
+          ...entityFieldIndex(entrySchema(entry, ctx)).fields,
+        ]),
+      );
+      if (state) {
+        names.push({
+          at: `${workspace} ${state.gate ?? 'fresh'}`,
+          drawn: {
+            panel: drawn(forms('ha-form.panel-form')),
+            entity: drawn(forms('ha-form.entity-form')),
+          },
+          indexed: {
+            panel: [...card.keys()].map(strip).sort(),
+            entity: [...entries.keys()].map(strip).sort(),
+          },
+        });
+      }
 
-      for (const [selector, index] of indexes) {
+      const fresh: Array<{
+        form: Form;
+        node: SelectorSchema;
+        path: string[];
+        field: IndexedField;
+      }> = [];
+      const indexes: ReadonlyArray<readonly [string, Iterable<IndexedField>]> = [
+        ['ha-form.panel-form', card.values()],
+        ['ha-form.entity-form', entries.values()],
+        ['ha-form.button-form', buttonFieldIndex(buildToolbarButtonSchema()).fields.values()],
+      ];
+      for (const [selector, fields] of indexes) {
+        const byKey = new Map([...fields].map((field) => [strip(field.id), field]));
         for (const form of forms(selector)) {
           for (const { node, path, key } of asDrawn(form.schema)) {
-            const field = index.get(key);
+            labels.drawnFields += 1;
+            const field = byKey.get(key);
             if (field === undefined) {
-              differ.push(`${workspace} ${selector} ${key}: drawn, not indexed`);
+              labels.differ.push(`${workspace} ${selector} ${key}: drawn, not indexed`);
               continue;
             }
-            reached.add(`${workspace} ${field.id}`);
-            pairs += 1;
-            const today = {
-              label: form.computeLabel(node, form.data, { path }),
-              helper: form.computeHelper(node, { path }),
-            };
-            const indexed = {
-              label: fieldLabel(field, ctx.language),
-              helper: fieldHelper(field, ctx),
-            };
-            if (!deepEqual(indexed, today)) {
-              differ.push(
-                `${workspace} ${field.id}: index ${JSON.stringify(indexed)}, form ${JSON.stringify(today)}`,
-              );
-            }
-
-            // The control: the same callbacks without the path `ha-form` hands them.
-            if (path.length > 0) {
-              nested += 1;
-              const pathless = {
-                label: form.computeLabel(node, form.data, { path: [] }),
-                helper: form.computeHelper(node, { path: [] }),
-              };
-              if (!deepEqual(pathless, today)) nestedDiffer += 1;
-            }
+            labels.reached.add(`${workspace} ${field.id}`);
+            const source =
+              selector === 'ha-form.panel-form'
+                ? Routing.valueSource(config, workspace, node.name)
+                : undefined;
+            const combination = [
+              workspace,
+              field.id,
+              ctx.language,
+              path.join('.'),
+              source,
+              JSON.stringify(node),
+            ].join(' ');
+            if (compared.has(combination)) continue;
+            compared.add(combination);
+            fresh.push({ form, node, path, field });
           }
         }
       }
+
+      const today = fresh.map(({ form, node, path }) => ({
+        label: form.computeLabel(node, form.data, { path }),
+        helper: form.computeHelper(node, { path }),
+        // The control: the same callbacks without the path `ha-form` hands them.
+        pathless:
+          path.length > 0
+            ? {
+                label: form.computeLabel(node, form.data, { path: [] }),
+                helper: form.computeHelper(node, { path: [] }),
+              }
+            : undefined,
+      }));
+      const indexed = fresh.map(({ field }) => ({
+        label: fieldLabel(field, ctx.language),
+        helper: fieldHelper(field, ctx),
+      }));
+      fresh.forEach(({ field }, at) => {
+        const { label, helper, pathless } = today[at];
+        labels.compared += 1;
+        if (!deepEqual(indexed[at], { label, helper })) {
+          labels.differ.push(
+            `${workspace} ${field.id}: index ${JSON.stringify(indexed[at])}, form ` +
+              JSON.stringify({ label, helper }),
+          );
+        }
+        if (pathless !== undefined) {
+          labels.nested += 1;
+          if (!deepEqual(pathless, { label, helper })) labels.nestedDiffer += 1;
+        }
+      });
     }
+    return { names, labels };
+  }
+
+  let observation: Promise<Observed> | undefined;
+  /**
+   * The observations, made on first use and shared by both checks.
+   *
+   * @returns The observations
+   */
+  const observed = (): Promise<Observed> => (observation ??= observe());
+
+  it('for the card and every calendar entry, in every workspace', async () => {
+    const { names } = await observed();
+    for (const { at, drawn: shown, indexed } of names) {
+      expect(shown.panel, at).toEqual(indexed.panel);
+      expect(shown.entity, at).toEqual(indexed.entity);
+    }
+    console.info(`Index against the editor: ${names.length} states drawn and compared.`);
+    expect(names.length).toBeGreaterThan(WORKSPACES.length * 10);
+    // Draws the editor once per corpus state for this check and the next, under a second alone;
+    // the limit is set for a loaded machine rather than for a hang.
+  }, 30_000);
+
+  it('labels and explains every field as the form drawing it does today', async () => {
+    const { labels } = await observed();
 
     // Every field of every workspace's universe, and each toolbar button field, was reached.
     const expected = WORKSPACES.flatMap((workspace) =>
@@ -691,14 +806,16 @@ describe('the index builds what the editor draws today', () => {
       ].map((id) => `${workspace} ${id}`),
     );
     console.info(
-      `Labels and helpers against the editor: ${pairs} drawn fields over ${runs.length} ` +
-        `configurations, ${reached.size} fields across the workspaces; ${differ.length} differ. ` +
-        `Control without the path: ${nestedDiffer} of ${nested} fields under an expandable differ.`,
+      `Labels and helpers against the editor: ${labels.drawnFields} drawn fields over ` +
+        `${RUNS.length} configurations, ${labels.compared} distinct ones compared, ` +
+        `${labels.reached.size} fields across the workspaces; ${labels.differ.length} differ. ` +
+        `Control without the path: ${labels.nestedDiffer} of ${labels.nested} fields under an ` +
+        `expandable differ.`,
     );
-    expect(differ).toEqual([]);
-    expect([...reached].sort()).toEqual(expected.sort());
-    expect(nestedDiffer).toBeGreaterThan(0);
-    // Draws the editor once per corpus state and calls every form's own callbacks; the limit is
-    // set for a loaded machine rather than for a hang.
+    expect(labels.differ).toEqual([]);
+    expect([...labels.reached].sort()).toEqual(expected.sort());
+    expect(labels.nestedDiffer).toBeGreaterThan(0);
+    // Reads what the check above drew; the limit is set for a loaded machine rather than for a
+    // hang.
   }, 30_000);
 });

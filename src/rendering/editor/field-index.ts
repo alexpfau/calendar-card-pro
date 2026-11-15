@@ -22,7 +22,7 @@ import * as Filter from './filter';
 import { corpus } from './gates';
 import type { HaFormSchema, SelectorSchema } from './ha-form';
 import { computeHelper, computeLabel, computeSubformHelper, lookup } from './localize';
-import { PANELS, type SchemaCtx, walkSchema } from './panels';
+import { PANELS, type PanelDef, type SchemaCtx, walkSchema } from './panels';
 import * as Routing from './routing';
 import { ENTITY_PATH } from './schemas/calendars';
 import { TOOLBAR_BUTTON_PATH } from './schemas/card';
@@ -155,6 +155,41 @@ export function liftField(
 }
 
 /**
+ * One indexed field. What only some readers need, its lifted schema, its label path and the keys
+ * it writes, is worked out on first read and kept: most indexes are built only to learn which
+ * fields are present, and interning a lifted schema serializes its node.
+ */
+class Leaf implements IndexedField {
+  private liftedSchema: HaFormSchema[] | undefined;
+  private boundPath: ReadonlyArray<string> | undefined;
+  private writes: ReadonlyArray<string> | undefined;
+
+  constructor(
+    readonly id: FieldId,
+    readonly node: SelectorSchema,
+    readonly dataPath: ReadonlyArray<string>,
+    private readonly labelPrefix: ReadonlyArray<string>,
+    private readonly path: ReadonlyArray<string>,
+    private readonly keysOf: KeysOf,
+  ) {}
+
+  get labelPath(): ReadonlyArray<string> {
+    return (this.boundPath ??= [...this.labelPrefix, ...this.path]);
+  }
+
+  get lifted(): ReadonlyArray<HaFormSchema> {
+    return (this.liftedSchema ??= liftField(this.id, this.node, this.dataPath));
+  }
+
+  get configKeys(): ReadonlyArray<string> {
+    return (this.writes ??= this.keysOf(this.node.name, this.dataPath));
+  }
+}
+
+/** The configuration keys a leaf writes, from its name and data path. */
+type KeysOf = (name: string, dataPath: ReadonlyArray<string>) => ReadonlyArray<string>;
+
+/**
  * Indexes the leaves of one schema.
  *
  * @param target - Index being filled; the first leaf to claim an id keeps it
@@ -168,22 +203,13 @@ function indexLeaves(
   scope: string,
   schema: ReadonlyArray<HaFormSchema>,
   labelPrefix: ReadonlyArray<string>,
-  keysOf: (name: string, dataPath: ReadonlyArray<string>) => ReadonlyArray<string>,
+  keysOf: KeysOf,
 ): void {
   for (const { node, path, dataPath } of walkSchema(schema)) {
     if (!('selector' in node)) continue;
 
     const id = fieldId(scope, dataPath, node.name);
-    if (target.has(id)) continue;
-
-    target.set(id, {
-      id,
-      node,
-      dataPath,
-      labelPath: [...labelPrefix, ...path],
-      lifted: liftField(id, node, dataPath),
-      configKeys: keysOf(node.name, dataPath),
-    });
+    if (!target.has(id)) target.set(id, new Leaf(id, node, dataPath, labelPrefix, path, keysOf));
   }
 }
 
@@ -209,13 +235,22 @@ const presentIndex = Helpers.memoizeLast(
   ): FieldIndex => {
     const ctx: SchemaCtx = { view, workspace, config, rawConfig, language };
     const fields = new Map<FieldId, IndexedField>();
-    for (const panel of PANELS) {
-      const built = Filter.withholdInertFields(panel.build(ctx), workspace ?? view);
-      indexLeaves(fields, panel.id, built, [], cardConfigKeys);
-    }
+    for (const panel of PANELS) indexPanel(fields, panel, ctx);
     return { fields };
   },
 );
+
+/**
+ * Indexes one panel's fields as built for a context, after `filter.ts` › `withholdInertFields`.
+ *
+ * @param target - Index being filled
+ * @param panel - The panel
+ * @param ctx - Schema context
+ */
+function indexPanel(target: Map<FieldId, IndexedField>, panel: PanelDef, ctx: SchemaCtx): void {
+  const built = Filter.withholdInertFields(panel.build(ctx), ctx.workspace ?? ctx.view);
+  indexLeaves(target, panel.id, built, [], cardConfigKeys);
+}
 
 /**
  * The present index: every card field the nine panel builders build for this context, after
@@ -228,6 +263,21 @@ const presentIndex = Helpers.memoizeLast(
  */
 export function buildFieldIndex(ctx: SchemaCtx): FieldIndex {
   return presentIndex(ctx.language, ctx.workspace, ctx.view, ctx.config, ctx.rawConfig);
+}
+
+/**
+ * One panel's part of the present index, built alone: a card field's id names its panel, so a
+ * lookup by id needs no other panel built. Not memoized.
+ *
+ * @param ctx - Schema context
+ * @param panelId - Panel id, the scope of the fields wanted
+ * @returns That panel's fields by id; none for an id no panel has
+ */
+export function panelFieldIndex(ctx: SchemaCtx, panelId: string): FieldIndex {
+  const fields = new Map<FieldId, IndexedField>();
+  const panel = PANELS.find((candidate) => candidate.id === panelId);
+  if (panel) indexPanel(fields, panel, ctx);
+  return { fields };
 }
 
 /**

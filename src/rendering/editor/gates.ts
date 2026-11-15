@@ -13,9 +13,10 @@
 import * as Entities from './entities';
 import {
   type FieldId,
-  buildFieldIndex,
+  type FieldIndex,
   entityFieldIndex,
   entrySchema,
+  panelFieldIndex,
   parseFieldId,
   schemaCtx,
 } from './field-index';
@@ -654,23 +655,23 @@ export function applyFieldEdit(
   id: FieldId,
   value: unknown,
 ): Types.Config | undefined {
-  const ctx = schemaCtx(config, workspace, 'en');
+  const from = editedFrom(config, workspace);
   const { scope, name } = parseFieldId(id);
 
   if (scope === 'calendar') {
     const entities = config.entities ?? [];
     const entry = entities[0];
-    if (entry === undefined || !entityFieldIndex(entrySchema(entry, ctx)).fields.has(id)) {
+    if (entry === undefined || !entityFieldIndex(entrySchema(entry, from.ctx)).fields.has(id)) {
       return undefined;
     }
     const data = { ...Entities.toEntityFormData(entry, entities), [name]: value };
     return { ...config, entities: Entities.writeEntity(entities, 0, data, config.accent_color) };
   }
 
-  const field = buildFieldIndex(ctx).fields.get(id);
+  const field = from.panel(scope).fields.get(id);
   if (field === undefined) return undefined;
 
-  const data = Routing.workspaceFormData(config, workspace, {});
+  const data = from.data();
   const incoming = withValue(data, field.dataPath, name, value);
   return Routing.applyWorkspaceChange(
     config,
@@ -679,6 +680,29 @@ export function applyFieldEdit(
     {},
   ).config;
 }
+
+/**
+ * What every edit of one configuration in one workspace starts from: its schema context, its
+ * form data and the panels built so far, each derived once. Kept for the configuration last
+ * edited, by identity, since a configuration is never changed in place; edits made one after
+ * another from the same state, as a sweep of a control's values makes them, share it.
+ */
+const editedFrom = Helpers.memoizeLast(
+  (config: Types.Config, workspace: Workspace.EditorWorkspace) => {
+    const ctx = schemaCtx(config, workspace, 'en');
+    const panels = new Map<string, FieldIndex>();
+    let data: Record<string, unknown> | undefined;
+    return {
+      ctx,
+      data: () => (data ??= Routing.workspaceFormData(config, workspace, {})),
+      panel: (scope: string): FieldIndex => {
+        let index = panels.get(scope);
+        if (index === undefined) panels.set(scope, (index = panelFieldIndex(ctx, scope)));
+        return index;
+      },
+    };
+  },
+);
 
 let built: ReadonlyArray<CorpusState> | undefined;
 

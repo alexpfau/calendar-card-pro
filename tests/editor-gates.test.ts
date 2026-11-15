@@ -32,6 +32,7 @@ import {
   buildFieldIndex,
   entityFieldIndex,
   entrySchema,
+  panelFieldIndex,
   parseFieldId,
   schemaCtx,
   universeIndex,
@@ -57,6 +58,7 @@ import * as Routing from '../src/rendering/editor/routing';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { deepEqual } from '../src/rendering/editor/value';
 import { type EditorWorkspace, WORKSPACES } from '../src/rendering/editor/workspace';
+import * as Helpers from '../src/utils/helpers';
 
 const STATES = corpus();
 const ALL_GATES: ReadonlyArray<readonly [string, Gate]> = [
@@ -291,26 +293,43 @@ function writeLegal(
   path: string,
   value: unknown,
 ): Types.Config {
-  const next = structuredClone(config) as unknown as Record<string, unknown>;
   let parts = path.split('.');
-  let target: Record<string, unknown> = next;
-
-  if (parts[0] === 'entity') {
-    const entities = next.entities as Array<string | Types.EntityConfig>;
-    entities[0] = { ...Entities.asEntityConfig(entities[0]) };
-    target = entities[0] as unknown as Record<string, unknown>;
-    parts = parts.slice(1);
-  } else if (parts.length === 1) {
+  const entity = parts[0] === 'entity';
+  if (entity) parts = parts.slice(1);
+  else if (parts.length === 1) {
     const block = Routing.destination(parts[0], workspace);
     if (block !== undefined) parts = [block, ...parts];
   }
+  const last = parts[parts.length - 1];
 
+  // Writing what is already there, into objects that already exist, would copy the
+  // configuration into its own equal; it is handed back as it is instead.
+  const entry = (config.entities ?? [])[0];
+  let holder: unknown = entity ? entry : config;
+  for (const part of parts.slice(0, -1)) {
+    holder = Helpers.isConfigBlock(holder) ? holder[part] : undefined;
+  }
+  if (Helpers.isConfigBlock(holder)) {
+    const has = Object.prototype.hasOwnProperty.call(holder, last);
+    if (value === undefined ? !has : has && deepEqual(holder[last], value)) return config;
+  }
+
+  // Copied along the path it writes and nowhere else, so the configuration it was given, and
+  // every other one sharing its parts, stays as it was.
+  const next: Record<string, unknown> = { ...config };
+  let target: Record<string, unknown> = next;
+  if (entity) {
+    const entities = [...(config.entities ?? [])];
+    next.entities = entities;
+    entities[0] = { ...Entities.asEntityConfig(entities[0]) };
+    target = entities[0] as unknown as Record<string, unknown>;
+  }
   for (const part of parts.slice(0, -1)) {
     target[part] = { ...((target[part] as Record<string, unknown> | undefined) ?? {}) };
     target = target[part] as Record<string, unknown>;
   }
-  if (value === undefined) delete target[parts[parts.length - 1]];
-  else target[parts[parts.length - 1]] = value;
+  if (value === undefined) delete target[last];
+  else target[last] = value;
   return next as unknown as Types.Config;
 }
 
@@ -348,7 +367,37 @@ function presentFields(
 }
 
 /**
- * The form data a gate's conditions are read from.
+ * The fields present among the panels, and the calendar entries, that some ids belong to: what
+ * `presentFields` would say about those ids, without building any other panel. A card field's
+ * id names its panel, so no other panel can build it.
+ *
+ * @param config - Configuration as the editor holds it
+ * @param workspace - Workspace
+ * @param ids - The fields asked about
+ * @returns Present fields of their panels and entries, by id
+ */
+function presentAmong(
+  config: Types.Config,
+  workspace: EditorWorkspace,
+  ids: ReadonlyArray<FieldId>,
+): Map<FieldId, IndexedField> {
+  const ctx = schemaCtx(config, workspace, 'en');
+  const fields = new Map<FieldId, IndexedField>();
+  for (const scope of new Set(ids.map((id) => parseFieldId(id).scope))) {
+    const found =
+      scope === 'calendar'
+        ? (config.entities ?? []).flatMap((entry) => [
+            ...entityFieldIndex(entrySchema(entry, ctx)).fields,
+          ])
+        : [...panelFieldIndex(ctx, scope).fields];
+    for (const [id, field] of found) fields.set(id, field);
+  }
+  return fields;
+}
+
+/**
+ * The form data a gate's conditions are read from. The card's is derived on first read, since a
+ * gate whose conditions are all a calendar entry's never reads it.
  *
  * @param config - Configuration as the editor holds it
  * @param workspace - Workspace
@@ -356,8 +405,11 @@ function presentFields(
  */
 function formData(config: Types.Config, workspace: EditorWorkspace): GateData {
   const entities = config.entities ?? [];
+  let card: Readonly<Record<string, unknown>> | undefined;
   return {
-    card: Routing.workspaceFormData(config, workspace, {}),
+    get card() {
+      return (card ??= Routing.workspaceFormData(config, workspace, {}));
+    },
     entry: Entities.toEntityFormData(entities[0], entities),
   };
 }
@@ -462,6 +514,41 @@ const replays = once(() =>
 );
 
 /**
+ * What a gate's conditions say about a configuration, and which of its fields are present.
+ *
+ * @param opening - The opening
+ * @param config - Configuration
+ * @returns Whether the conditions hold, whether `firstUnmet` agrees, and the present fields
+ */
+function outcome(
+  opening: ReturnType<typeof replays>[number],
+  config: Types.Config,
+): { expected: boolean; agrees: boolean; after: ReadonlyMap<FieldId, IndexedField> } {
+  const data = formData(config, opening.workspace);
+  const expected = opensWith(opening.gate, data);
+  return {
+    expected,
+    agrees: (firstUnmet(opening.gate, data) === undefined) === expected,
+    after: presentAmong(config, opening.workspace, opening.here),
+  };
+}
+
+const openedOutcomes = new WeakMap<object, ReturnType<typeof outcome>>();
+
+/**
+ * The outcome for an opened state itself, worked out once: a change that writes what the state
+ * already holds hands it back unchanged.
+ *
+ * @param opening - The opening
+ * @returns Its outcome
+ */
+function openedOutcome(opening: ReturnType<typeof replays>[number]): ReturnType<typeof outcome> {
+  let known = openedOutcomes.get(opening);
+  if (known === undefined) openedOutcomes.set(opening, (known = outcome(opening, opening.config!)));
+  return known;
+}
+
+/**
  * Compares the gate's fields with what its conditions say, after one change to an opened state.
  *
  * @param opening - The opening and its replayed state
@@ -475,12 +562,11 @@ function compare(
   change: string,
   into: { failures: string[]; absent: Set<FieldId>; holding: number; closing: number },
 ): void {
-  const data = formData(edited, opening.workspace);
-  const expected = opensWith(opening.gate, data);
-  if ((firstUnmet(opening.gate, data) === undefined) !== expected) {
+  const { expected, agrees, after } =
+    edited === opening.config ? openedOutcome(opening) : outcome(opening, edited);
+  if (!agrees) {
     into.failures.push(`${opening.at}: firstUnmet disagrees with the conditions after ${change}`);
   }
-  const after = presentFields(edited, opening.workspace);
   for (const id of opening.here) {
     if (expected) into.holding += 1;
     else into.closing += 1;
@@ -497,8 +583,13 @@ const offeredSweep = once(() => {
   let notOffered = 0;
   for (const opening of replays()) {
     if (opening.config === undefined || opening.here.length === 0) continue;
-    const controls = presentFields(opening.config, opening.workspace);
-    for (const prereq of conditionsOf(opening.gate, opening.branch)) {
+    const conditions = conditionsOf(opening.gate, opening.branch);
+    const controls = presentAmong(
+      opening.config,
+      opening.workspace,
+      conditions.map((prereq) => prereq.field),
+    );
+    for (const prereq of conditions) {
       const control = controls.get(prereq.field);
       if (control === undefined) {
         into.failures.push(`${opening.at}: ${prereq.field} is not offered once opened`);
@@ -745,7 +836,7 @@ describe('the gate table against the builders', () => {
     expect(failures).toEqual([]);
     expect(closing).toBeGreaterThan(1000);
     expect(holding).toBeGreaterThan(0);
-    // About 1.5 s alone; the limit is set for a loaded machine rather than for a hang.
+    // Under a second alone; the limit is set for a loaded machine rather than for a hang.
   }, 30_000);
 
   it('reads every legal value of the options behind each condition as the builders do', () => {
@@ -766,7 +857,7 @@ describe('the gate table against the builders', () => {
     expect(failures).toEqual([]);
     expect(closing).toBeGreaterThan(0);
     expect(holding).toBeGreaterThan(0);
-    // About 2 s alone; the limit is set for a loaded machine rather than for a hang.
+    // Under a second alone; the limit is set for a loaded machine rather than for a hang.
   }, 30_000);
 
   it('needs routed edits: a raw top-level value cannot open Grid’s location fields', () => {
@@ -1274,7 +1365,7 @@ describe('the universe against the gate table', () => {
       ),
     ).toEqual([]);
     expect(withheld.length).toBeGreaterThan(0);
-    // About 1 s alone; the limit is set for a loaded machine rather than for a hang.
+    // Under a second alone; the limit is set for a loaded machine rather than for a hang.
   }, 30_000);
 
   it('withholds every gated field somewhere, and offers it somewhere', () => {
