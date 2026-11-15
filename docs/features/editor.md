@@ -28,6 +28,7 @@ config_version: 5
 title: Coming Up
 days_to_show: 60
 show_countdown: true
+countdown_exact_days: true
 show_single_allday_time: false
 month_separator_width: 1px
 day_spacing: 4px
