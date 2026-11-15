@@ -3453,17 +3453,32 @@ describe('editor: the weather block', () => {
   }
 
   it('binds every defaulted option a minimal weather block leaves out', async () => {
-    const bound = await weatherFormData({ entity: 'weather.home', position: 'both' });
-    const defaults = DEFAULT_CONFIG.weather as unknown as Record<string, Record<string, unknown>>;
-
-    const unbound = ['date', 'event'].flatMap((group) => {
-      const group_bound = (bound[group] ?? {}) as Record<string, unknown>;
-
-      return Object.keys(defaults[group])
-        .filter((option) => group_bound[option] === undefined)
-        .map((option) => `${group}.${option}`);
+    const element = await mountEditor({
+      entities: ['calendar.a'],
+      weather: { entity: 'weather.home', position: 'both' },
     });
+    await openPanels(element);
+    const bound = valueOf(element, 'weather:weather') as Record<string, unknown>;
+    const defaults = DEFAULT_CONFIG.weather as unknown as Record<string, Record<string, unknown>>;
+    const options = ['date', 'event'].flatMap((group) =>
+      Object.keys(defaults[group]).map((option) => [group, option] as const),
+    );
+    // Each field's form holds its own value alone, so an option drawn nowhere is bound nowhere:
+    // only the thresholds, which wait for Show UV Index.
+    const drawn = options.filter(
+      ([group, option]) => formOf(element, `weather:weather.${group}.${option}`) !== undefined,
+    );
+    expect(
+      options
+        .filter((each) => !drawn.includes(each))
+        .map(([group, option]) => `${group}.${option}`),
+    ).toEqual(['date.uv_index_threshold', 'event.uv_index_threshold']);
 
+    const unbound = drawn
+      .filter(
+        ([group, option]) => (bound[group] as Record<string, unknown>)?.[option] === undefined,
+      )
+      .map(([group, option]) => `${group}.${option}`);
     expect(unbound).toEqual([]);
   });
 

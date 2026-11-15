@@ -956,11 +956,11 @@ export function valueOf(editor: EditorElement, id: FieldId, owner?: Owner): unkn
   if (id in RADIO_GROUPS) return chosen(editor, id);
   const found = located(editor, id, owner);
   if (found.all !== undefined) {
-    return Object.assign(
+    // Each field's form holds only its own part of the block, so the parts are merged deeply.
+    return found.all.reduce<unknown>(
+      (merged, { form, visit }) =>
+        mergeDeep(merged, atPath(form.data, [...visit.dataPath, visit.node.name])),
       {},
-      ...found.all.map(({ form, visit }) =>
-        atPath(form.data, [...visit.dataPath, visit.node.name]),
-      ),
     );
   }
   const { form, visit } = found;
@@ -1068,6 +1068,23 @@ function chosen(editor: EditorElement, id: FieldId): unknown {
     return (editor as unknown as { _workspace: string })._workspace;
   }
   return outOfStep(`The editor draws no ${id} to read`);
+}
+
+/**
+ * Two values merged as `ha-form` data nests them: plain objects key by key, at every depth;
+ * anything else, the second.
+ *
+ * @param a - The first value
+ * @param b - The second value
+ * @returns The merged value
+ */
+function mergeDeep(a: unknown, b: unknown): unknown {
+  const plain = (value: unknown): value is Record<string, unknown> =>
+    typeof value === 'object' && value !== null && !Array.isArray(value);
+  if (!plain(a) || !plain(b)) return b === undefined ? a : b;
+  const merged: Record<string, unknown> = { ...a };
+  for (const [key, value] of Object.entries(b)) merged[key] = mergeDeep(a[key], value);
+  return merged;
 }
 
 /**

@@ -431,17 +431,8 @@ describe('the event tap action in the editor', () => {
         .filter((id) => id.startsWith('card:'));
     expect(cardIds()).toEqual(expect.arrayContaining(['card:title', 'card:toolbar.show']));
     expect(cardIds()).not.toContain('card:toolbar.add_event');
-    expect(valueOf(element, 'card:toolbar')).toEqual({
-      show: false,
-      navigation: true,
-      view_switcher: true,
-      reset: false,
-      add_event: true,
-      refresh: true,
-      search: true,
-      legend: 'menu',
-      buttons: [],
-    });
+    // Off, the switch is the toolbar's only field, and its form holds its value alone.
+    expect(valueOf(element, 'card:toolbar')).toEqual({ show: false });
 
     // Every control but reset arrives switched on, as the card reads them, search included
     // (backlog item 182), the filter as a menu, and nothing but the switch is written.
@@ -470,7 +461,6 @@ describe('the event tap action in the editor', () => {
       refresh: true,
       search: true,
       legend: 'menu',
-      buttons: [],
     });
 
     // The one control off by default reads back on once it is switched on: one flip.

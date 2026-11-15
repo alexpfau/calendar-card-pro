@@ -12,12 +12,7 @@ import { buildFieldIndex, schemaCtx } from '../src/rendering/editor/field-index'
 import { PAGES, type PageDef, placementOf } from '../src/rendering/editor/pages';
 import { isFreshCard } from '../src/rendering/editor/quick-setup';
 import { workspaceFormData } from '../src/rendering/editor/routing';
-import {
-  SUMMARY_SEPARATOR,
-  pageStoredCount,
-  storedIn,
-  summaryParts,
-} from '../src/rendering/editor/summary';
+import { SUMMARY_SEPARATOR, pageStoredCount, summaryParts } from '../src/rendering/editor/summary';
 import {
   type EditorWorkspace,
   WORKSPACES,
@@ -137,10 +132,7 @@ describe('section row summaries', () => {
   ): string {
     const config = merged(raw);
     const present = buildFieldIndex(schemaCtx(config, workspace, 'en'));
-    const stored = pageStoredCount(page, (id) => {
-      const field = present.fields.get(id);
-      return field !== undefined && storedIn(raw, field, workspace);
-    });
+    const stored = pageStoredCount(page, raw, workspace);
     return summaryParts(
       page,
       present,
@@ -177,6 +169,15 @@ describe('section row summaries', () => {
     expect(
       summaryOf(page('weather'), { ...LIST_CARD, weather: { entity: 'weather.home' } }, 'shared'),
     ).toBe('Weather Entity: weather.home · Show The Forecast: In the Day Header · Set: 1');
+  });
+
+  it('counts each stored value once, and one a gate holds back as well', () => {
+    // Height Mode and Card Height both write `height`: one value.
+    const height = { ...LIST_CARD, list: { height: '300px' } };
+    expect(summaryOf(page('size_spacing'), height, 'list')).toMatch(/ · Set: 1$/);
+    // The description's size is held back while the description is off, and still stored.
+    const description = { ...LIST_CARD, show_description: false, description_font_size: '12px' };
+    expect(pageStoredCount(page('events'), description, 'shared')).toBe(2);
   });
 
   it('counts a nested value where it is stored', () => {

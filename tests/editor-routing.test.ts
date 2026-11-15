@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
 import {
+  type FormElement,
   changeField,
   emitChange,
   fakeHass,
@@ -638,6 +639,35 @@ describe('rendered form frames preserve edit intent', () => {
     expect(seen[0].time_grid).toMatchObject({ event_font_size: '24px' });
     expect(seen[0].column).toMatchObject({ event_font_size: '19px' });
     expect(valueOf(editor, 'events:event_font_size')).toBe('19px');
+  });
+
+  it('keeps a delayed edit with its own field when a gate moves the fields around it', async () => {
+    const { editor, seen } = await mount({ view: 'list', list: { event_gap: '7px' } });
+    await changeField(editor, 'layout:height_mode', 'fixed');
+    // The form the open page draws for it, not one the harness keeps from an earlier visit.
+    const spacing = editor.shadowRoot!.querySelector<FormElement>(
+      '[data-field="layout:additional_card_spacing"] ha-form',
+    )!;
+    expect(spacing.isConnected).toBe(true);
+    const drawnWith = spacing.data as Record<string, unknown>;
+    // Fit Content takes Card Height away, so every field below it moves up one place: changed
+    // on the open page, as a user changes it, with nothing reopened around it.
+    const mode = editor.shadowRoot!.querySelector<FormElement>(
+      '[data-field="layout:height_mode"] ha-form',
+    )!;
+    emitChange(mode, { 'layout:height_mode': 'auto' });
+    await editor.updateComplete;
+    // The edit arrives late, as `ha-form` sends it: the data the field was drawn with, changed.
+    spacing.dispatchEvent(
+      new CustomEvent('value-changed', {
+        detail: { value: { ...drawnWith, additional_card_spacing: '12px' } },
+      }),
+    );
+    await editor.updateComplete;
+    const last = seen.slice(-1)[0]!;
+    const written = { ...last, ...(last.list as object) } as Record<string, unknown>;
+    expect(written.additional_card_spacing).toBe('12px');
+    expect(written.event_gap).toBe('7px');
   });
 
   it('does not treat re-derived synthetic values as a second user edit', async () => {

@@ -233,8 +233,8 @@ export function workspaceFormData(
 
 /**
  * The part of a workspace's form data one form reads, as `ha-form` reads it (`getValue` in its
- * frontend): the value under each name its schema draws, a whole block for a named group, and
- * through an unnamed or flattened group the names inside it. Handed this, a panel's form
+ * frontend): the value under each name its schema draws, within a named group only the names
+ * its schema draws there, and through an unnamed or flattened group the names inside it. Handed this, a panel's form
  * receives new data only when something it draws moves, rather than whenever any field
  * anywhere does. `applyWorkspaceChange` reads a form's data and what it emits at its own fields'
  * paths alone, so nothing it routes is lost.
@@ -251,7 +251,13 @@ export function formDataFor(
   for (const node of schema) {
     if ('schema' in node && (node.name === '' || node.flatten)) {
       Object.assign(part, formDataFor(data, node.schema));
-    } else if (node.name in data) {
+    } else if (!(node.name in data)) {
+      continue;
+    } else if ('schema' in node && Helpers.isConfigBlock(data[node.name])) {
+      // Into a named group only as far as its schema draws: a field lifted out of Weather or the
+      // toolbar is handed its own value, not the block's every sibling.
+      part[node.name] = formDataFor(data[node.name] as Record<string, unknown>, node.schema);
+    } else {
       part[node.name] = data[node.name];
     }
   }

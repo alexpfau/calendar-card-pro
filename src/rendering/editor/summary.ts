@@ -6,12 +6,13 @@
  */
 
 import type { FieldId, FieldIndex, IndexedField } from './field-index';
-import { fieldLabel } from './field-index';
+import { fieldLabel, parseFieldId } from './field-index';
 import type { SelectOption } from './ha-form';
 import { lookup } from './localize';
 import type { PageDef } from './pages';
 import { destination } from './routing';
 import { interpolate } from './strings';
+import { configKeysForField } from './synthetic';
 import type { EditorWorkspace } from './workspace';
 import { isConfigBlock } from '../../utils/helpers';
 
@@ -138,38 +139,51 @@ function holdsValue(value: unknown): boolean {
 }
 
 /**
- * Whether the YAML stores a value for a card field in a scope: at its own nested path, or, for
- * a field on the card's root, where the scope writes each of its keys, a layout's block or the
- * top level. A top-level value a layout inherits is not stored in that layout.
+ * Where the YAML stores a value for a card field in a scope, as configuration paths: its own
+ * nested path, or, for a field on the card's root, where the scope writes each of its keys, a
+ * layout's block or the top level. A top-level value a layout inherits is not stored in that
+ * layout. Read from the field's id, so a field a gate holds back is counted all the same.
  *
  * @param raw - Configuration as the YAML holds it
- * @param field - Indexed field
+ * @param id - The field
  * @param workspace - The scope
- * @returns `true` when the YAML stores it there
+ * @returns Each path that holds a value, dot-joined
  */
-export function storedIn(
+export function storedPaths(
   raw: Readonly<Record<string, unknown>>,
-  field: IndexedField,
+  id: FieldId,
   workspace: EditorWorkspace,
-): boolean {
-  if (field.dataPath.length > 0) return holdsValue(at(raw, [...field.dataPath, field.node.name]));
-  return field.configKeys.some((key) => {
-    const block = destination(key, workspace);
-    return holdsValue(block === undefined ? raw[key] : at(raw, [block, key]));
-  });
+): string[] {
+  const { dataPath, name } = parseFieldId(id);
+  const paths =
+    dataPath.length > 0
+      ? [[...dataPath, name]]
+      : configKeysForField(name).map((key) => {
+          const block = destination(key, workspace);
+          return block === undefined ? [key] : [block, key];
+        });
+  return paths.filter((path) => holdsValue(at(raw, path))).map((path) => path.join('.'));
 }
 
 /**
- * How many of a page's fields the YAML stores a value for, in a scope.
+ * How many values the YAML stores among a page's settings, in a scope: each stored path once,
+ * however many of the page's controls write it.
  *
  * @param page - The section page
- * @param isStored - Whether the YAML stores a value for a field in the scope
+ * @param raw - Configuration as the YAML holds it
+ * @param workspace - The scope
  * @returns The count
  */
-export function pageStoredCount(page: PageDef, isStored: (id: FieldId) => boolean): number {
-  let count = 0;
+export function pageStoredCount(
+  page: PageDef,
+  raw: Readonly<Record<string, unknown>>,
+  workspace: EditorWorkspace,
+): number {
+  const stored = new Set<string>();
   for (const heading of page.headings) {
-    for (const [id] of heading.fields) if (isStored(id)) count++;
+    for (const [id] of heading.fields) {
+      for (const path of storedPaths(raw, id, workspace)) stored.add(path);
+    }
   }
-  return count;
+  return stored.size;
 }

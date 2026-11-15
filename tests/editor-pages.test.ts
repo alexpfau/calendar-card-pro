@@ -12,6 +12,7 @@ import { declarations } from './helpers/css-declarations';
 import {
   type MountedEditor,
   changeField,
+  formOf,
   goOverview,
   goPage,
   lastConfig,
@@ -140,6 +141,53 @@ describe('the overview', () => {
   });
 });
 
+describe('the search field', () => {
+  it('stays the same element, so it keeps focus, as a query starts and clears', async () => {
+    const editor = await mountEditor(CARD);
+    const search = (): Element =>
+      editor.shadowRoot!.querySelector('[data-field="filter:search"], ha-form.filter-form') ??
+      formOf(editor, 'filter:search')!;
+    const field = search();
+    expect(field.isConnected).toBe(true);
+
+    await changeField(editor, 'filter:search', 'c');
+    expect($(editor, '[data-focus^="nav:"]')).toBeNull();
+    expect(search()).toBe(field);
+    expect(field.isConnected).toBe(true);
+
+    await changeField(editor, 'filter:search', '');
+    expect($(editor, '[data-focus^="nav:"]')).not.toBeNull();
+    expect(search()).toBe(field);
+    expect(field.isConnected).toBe(true);
+  });
+});
+
+describe('a search by a page’s title', () => {
+  it.each(['shared', 'list', 'column', 'grid'])(
+    'finds every page the overview lists, by the title it shows, in %s',
+    async (scope) => {
+      const editor = await mountEditor(CARD);
+      await changeField(editor, 'workspace:editing_workspace', scope);
+      await goOverview(editor);
+      const rows = [
+        ...editor.shadowRoot!.querySelectorAll<HTMLElement>('[data-focus^="nav:"]'),
+      ].map((row) => ({
+        page: row.dataset.focus!.slice('nav:'.length),
+        title: row.querySelector('.nav-title')!.textContent!.trim(),
+      }));
+      expect(rows.length).toBeGreaterThan(5);
+      const missed: string[] = [];
+      for (const { page, title } of rows) {
+        await changeField(editor, 'filter:search', title);
+        if ($(editor, `section.page-group[data-heading="${page}"] [data-field]`) === null) {
+          missed.push(`${page} by "${title}"`);
+        }
+      }
+      expect(missed).toEqual([]);
+    },
+  );
+});
+
 describe('Settings For', () => {
   it('stays compact after a List card’s edit lands in list:', async () => {
     const editor = await mountEditor({ ...CARD, view: 'list' });
@@ -250,12 +298,99 @@ describe('the Escape guard', () => {
     host.remove();
   });
 
+  it('clears a query on the overview, and puts focus back in the search field', async () => {
+    const editor = await mountEditor(CARD);
+    await changeField(editor, 'filter:search', 'color');
+    const search = $(editor, 'ha-form.filter-form')!;
+    expect(await escape(editor, search)).toEqual({ prevented: true, reachedHost: false });
+    expect($(editor, '[data-focus^="nav:"]')).not.toBeNull();
+    expect(editor.shadowRoot!.activeElement).toBe(search);
+  });
+
+  it('is Quick Setup’s Back, and Cancel on its first step', async () => {
+    const editor = await mountEditor(CARD);
+    await click(editor, '[data-quick-setup-open]');
+    await click(editor, '[data-story="family_hub"]');
+    await click(editor, '[data-quick-setup-next]');
+    const second = $(editor, '[data-quick-setup]')!.dataset.quickSetup;
+
+    expect(await escape(editor, $(editor, '[data-quick-setup-next]')!)).toEqual({
+      prevented: true,
+      reachedHost: false,
+    });
+    expect($(editor, '[data-quick-setup]')!.dataset.quickSetup).not.toBe(second);
+    expect($(editor, '[data-quick-setup]')!.dataset.quickSetup).toBe('story');
+
+    // On the first step, Cancel: the card as it was, the overview, focus on what opened it.
+    await escape(editor, $(editor, '[data-quick-setup-next]')!);
+    expect($(editor, '[data-quick-setup]')).toBeNull();
+    expect(lastConfig(editor) ?? CARD).toMatchObject({ title: 'Family' });
+    expect(editor.shadowRoot!.activeElement).toBe($(editor, '[data-quick-setup-open]'));
+  });
+
+  it('reaches Quick Setup when a click focused nothing, as in Safari, and leaves Next focused', async () => {
+    const editor = await mountEditor(CARD);
+    // A click focuses no button here, as in Safari: focus is on nothing in the editor.
+    await click(editor, '[data-quick-setup-open]');
+    expect(editor.shadowRoot!.activeElement).toBe($(editor, '.quick-setup-step'));
+    await click(editor, '[data-story="family_hub"]');
+    (editor.shadowRoot!.activeElement as HTMLElement | null)?.blur();
+    await click(editor, '[data-quick-setup-next]');
+    expect(editor.shadowRoot!.activeElement).toBe($(editor, '.quick-setup-step'));
+
+    // A keyboard user on Next stays on Next.
+    $(editor, '[data-quick-setup-next]')!.focus();
+    await click(editor, '[data-quick-setup-next]');
+    expect(editor.shadowRoot!.activeElement).toBe($(editor, '[data-quick-setup-next]'));
+  });
+
   it('lets the key through on the overview with nothing open', async () => {
     const editor = await mountEditor(CARD);
     expect(await escape(editor, $(editor, '[data-focus="nav:card_header"]')!)).toEqual({
       prevented: false,
       reachedHost: true,
     });
+  });
+});
+
+describe('a nested field’s own data', () => {
+  /**
+   * Each field form's data on the open page, by field id.
+   *
+   * @param editor - Editor element
+   * @param prefix - The fields' id prefix
+   * @returns Each form's data object
+   */
+  function dataOf(editor: MountedEditor, prefix: string): Map<string, unknown> {
+    return new Map(
+      [...editor.shadowRoot!.querySelectorAll<HTMLElement>(`[data-field^="${prefix}"]`)].map(
+        (frame) => [
+          frame.dataset.field!,
+          (frame.querySelector('ha-form') as { data?: unknown }).data,
+        ],
+      ),
+    );
+  }
+
+  it.each([
+    ['weather:weather.', 'weather:weather.date.font_size', '15px'],
+    ['card:toolbar.', 'card:toolbar.search', false],
+  ] as const)('leaves every other %s form its very data on a write', async (prefix, id, value) => {
+    const editor = await mountEditor({
+      ...CARD,
+      weather: { entity: 'weather.home', position: 'both' },
+      toolbar: { show: true },
+    });
+    await openPageOf(editor, id);
+    const before = dataOf(editor, prefix);
+    expect(before.size).toBeGreaterThan(3);
+
+    await changeField(editor, id, value);
+    const after = dataOf(editor, prefix);
+    const renewed = [...after]
+      .filter(([field, data]) => before.get(field) !== data)
+      .map(([f]) => f);
+    expect(renewed).toEqual([id]);
   });
 });
 

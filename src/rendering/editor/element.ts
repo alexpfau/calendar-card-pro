@@ -1324,6 +1324,14 @@ export class CalendarCardProEditor extends LitElement {
         for (const { offered, schema: kept } of forms) this._countHidden(offered, kept);
       }
     }
+    // A page is let through whole by its own title, as a panel is by its: the pages' titles are
+    // the ones the overview shows.
+    if (!this._filter.customizedOnly) {
+      for (const page of PAGES) {
+        if (!Filter.matchesText([page.id, this._pageTitle(page, ctx)], filterCtx)) continue;
+        for (const heading of page.headings) for (const [id] of heading.fields) shown.add(id);
+      }
+    }
     return { schemas, shown };
   }
 
@@ -1378,6 +1386,23 @@ export class CalendarCardProEditor extends LitElement {
         ></ha-form>`,
       )}
     </div>`;
+  }
+
+  /**
+   * A run of fields, each kept with its own frame by its id: drawn by position, a field a gate
+   * takes away would hand its form to the field after it, and an edit that form sends late would
+   * be written for the wrong field.
+   *
+   * @param fields - The fields
+   * @param ctx - Schema context
+   * @returns The fields' frames
+   */
+  private _renderFields(fields: ReadonlyArray<IndexedField>, ctx: SchemaCtx): unknown {
+    return repeat(
+      fields,
+      (field) => field.id,
+      (field) => this._renderField(field, ctx),
+    );
   }
 
   /**
@@ -1513,15 +1538,33 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _onKeydown = (event: KeyboardEvent): void => {
     if (event.key !== 'Escape' || event.defaultPrevented) return;
+    const wizard = this._quickSetup;
+    // Quick Setup is a place of its own: Escape is its Back, or Cancel on its first step.
     const action = escapeAction(event.composedPath(), this, {
-      disclosure: this._scopeOpen,
-      onPage: this._nav.route.kind !== 'overview',
+      disclosure: wizard === undefined && this._scopeOpen,
+      onPage: wizard !== undefined || this._nav.route.kind !== 'overview',
       query: Filter.hasQuery(this._filter),
     });
     if (action === 'pass') return;
     event.preventDefault();
     event.stopPropagation();
-    if (action === 'close') {
+    if (action === 'back' && wizard !== undefined) {
+      const index = QUICK_SETUP_STEPS.indexOf(wizard.step);
+      if (index > 0) {
+        this._quickSetupGo(QUICK_SETUP_STEPS[index - 1]);
+        void this.updateComplete.then(() =>
+          Focus.focusFirst(this.renderRoot, ['[data-quick-setup-back]', '[data-quick-setup-next]']),
+        );
+      } else {
+        this._cancelQuickSetup();
+        void this.updateComplete.then(() =>
+          Focus.focusFirst(this.renderRoot, [
+            '[data-focus="quick-setup"]',
+            '[data-quick-setup-open]',
+          ]),
+        );
+      }
+    } else if (action === 'close') {
       this._scopeOpen = false;
       void this.updateComplete.then(() =>
         Focus.focusFirst(this.renderRoot, [Focus.byFocusKey('scope-change')]),
@@ -1530,6 +1573,9 @@ export class CalendarCardProEditor extends LitElement {
       this._back();
     } else if (action === 'clear') {
       this._filter = { ...this._filter, query: '' };
+      void this.updateComplete.then(() =>
+        Focus.focusFirst(this.renderRoot, ['ha-form.filter-form']),
+      );
     }
   };
 
@@ -1670,10 +1716,7 @@ export class CalendarCardProEditor extends LitElement {
     present: ReadonlyMap<FieldId, IndexedField>,
   ): string {
     const workspace = ctx.workspace ?? ctx.view;
-    const stored = Summary.pageStoredCount(page, (id) => {
-      const field = present.get(id);
-      return field !== undefined && Summary.storedIn(this._rawConfig, field, workspace);
-    });
+    const stored = Summary.pageStoredCount(page, this._rawConfig, workspace);
     return Summary.summaryParts(
       page,
       { fields: present },
@@ -1704,7 +1747,7 @@ export class CalendarCardProEditor extends LitElement {
     if (picker.length === 0 && entries === nothing) return nothing;
     return html`<section class="page-group" data-heading="calendars">
       <h3 class="heading" tabindex="-1">${this._string(ctx, panel.titleKey)}</h3>
-      ${picker.map((field) => this._renderField(field, ctx))} ${entries}
+      ${this._renderFields(picker, ctx)} ${entries}
     </section>`;
   }
 
@@ -1735,11 +1778,35 @@ export class CalendarCardProEditor extends LitElement {
     }
     ${this._renderFilterBar(ctx, chassis)} ${this._renderEssentialsNote(ctx)}`;
 
+    // One template whatever the query, so the filter bar above it is never drawn anew and the
+    // search field keeps focus as the first character turns the overview into results. The
+    // scope stays in view with the results: what they write goes where it says.
+    return html`<div class="overview">
+      ${head} ${this._renderOverviewBody(ctx, chassis, present, shown, own)}
+    </div>`;
+  }
+
+  /**
+   * What the overview draws below its filter bar: what a query finds, or Settings For,
+   * Calendars, Card Displays, the overview's own fields, a row per section page and More.
+   *
+   * @param ctx - Schema context
+   * @param chassis - The chassis schemas
+   * @param present - The fields built here
+   * @param shown - The ids the filter keeps
+   * @param own - The overview's own fields it keeps
+   * @returns The body
+   */
+  private _renderOverviewBody(
+    ctx: SchemaCtx,
+    chassis: Subforms.ChassisSchemas,
+    present: ReadonlyMap<FieldId, IndexedField>,
+    shown: ReadonlySet<FieldId>,
+    own: ReadonlyArray<IndexedField>,
+  ): TemplateResult {
+    const t = this._t(ctx);
     if (Filter.hasQuery(this._filter)) {
-      // The scope stays in view: what the results write goes where it says.
-      return html`<div class="overview">
-        ${head} ${this._renderScope(ctx)} ${this._renderResults(ctx, present, shown, own)}
-      </div>`;
+      return html`${this._renderScope(ctx)} ${this._renderResults(ctx, present, shown, own)}`;
     }
     const rows = PAGES.filter(
       (page) => page.onlyIn === undefined || page.onlyIn === this._workspace,
@@ -1757,16 +1824,14 @@ export class CalendarCardProEditor extends LitElement {
     const calendars = this._renderCalendars(ctx, present, shown);
     // Only the switches can empty the editor without a query: say so, as the panels did.
     const empty = shown.size === 0 && calendars === nothing && Filter.isFiltering(this._filter);
-    return html`<div class="overview">
-      ${head} ${empty ? this._renderNoMatches(ctx) : nothing} ${this._renderScope(ctx)} ${calendars}
-      ${this._renderDisplays(ctx, chassis)} ${own.map((field) => this._renderField(field, ctx))}
-      ${this._renderResetControls(
-        own.flatMap((field) => field.lifted),
-        ctx,
-      )}
-      ${Overview.rowGroup(t('overview.settings'), rows)}
-      ${Overview.rowGroup(t('overview.more'), [Overview.exampleRow(t, this._openQuickSetup)])}
-    </div>`;
+    return html`${empty ? this._renderNoMatches(ctx) : nothing} ${this._renderScope(ctx)}
+    ${calendars} ${this._renderDisplays(ctx, chassis)} ${this._renderFields(own, ctx)}
+    ${this._renderResetControls(
+      own.flatMap((field) => field.lifted),
+      ctx,
+    )}
+    ${Overview.rowGroup(t('overview.settings'), rows)}
+    ${Overview.rowGroup(t('overview.more'), [Overview.exampleRow(t, this._openQuickSetup)])}`;
   }
 
   /**
@@ -1795,7 +1860,7 @@ export class CalendarCardProEditor extends LitElement {
     if (groups.length === 0 && own.length === 0 && calendars === nothing) {
       return this._renderNoMatches(ctx);
     }
-    return html`${own.map((field) => this._renderField(field, ctx))}
+    return html`${this._renderFields(own, ctx)}
     ${this._renderResetControls(
       own.flatMap((field) => field.lifted),
       ctx,
@@ -1835,7 +1900,7 @@ export class CalendarCardProEditor extends LitElement {
         : nothing;
       if (fields.length === 0 && buttons === nothing) continue;
       drawn.push(...fields);
-      const body = html`${fields.map((field) => this._renderField(field, ctx))} ${buttons}`;
+      const body = html`${this._renderFields(fields, ctx)} ${buttons}`;
       if (!headings) {
         parts.push(body);
         continue;
@@ -2964,7 +3029,7 @@ export class CalendarCardProEditor extends LitElement {
     const last = index === QUICK_SETUP_STEPS.length - 1;
 
     return html`
-      <div class="card-config">
+      <div class="card-config" @keydown=${this._onKeydown}>
         <div
           class="quick-setup"
           data-quick-setup=${session.step}
@@ -2972,7 +3037,7 @@ export class CalendarCardProEditor extends LitElement {
           aria-labelledby="quick-setup-title"
         >
           <strong id="quick-setup-title">${this._string(ctx, 'quick_setup.title')}</strong>
-          <div class="quick-setup-step">
+          <div class="quick-setup-step" tabindex="-1">
             ${interpolate(this._string(ctx, 'quick_setup.step'), {
               step: String(index + 1),
               steps: String(QUICK_SETUP_STEPS.length),
@@ -3185,7 +3250,20 @@ export class CalendarCardProEditor extends LitElement {
       step: 'story',
       previews: [],
     };
+    this._keepFocusInQuickSetup();
   };
+
+  /**
+   * Puts focus on Quick Setup's step line once a step renders, where focus is not in the editor:
+   * Safari does not focus a button on click, so Escape would otherwise reach no listener of the
+   * editor's. Where focus is on Next or Back, it stays there.
+   */
+  private _keepFocusInQuickSetup(): void {
+    void this.updateComplete.then(() => {
+      if ((this.renderRoot as ShadowRoot).activeElement !== null) return;
+      Focus.focusFirst(this.renderRoot, ['.quick-setup-step']);
+    });
+  }
 
   /**
    * Moves Quick Setup to another step.
@@ -3195,6 +3273,7 @@ export class CalendarCardProEditor extends LitElement {
   private _quickSetupGo(step: QuickSetupStep): void {
     if (this._quickSetup === undefined) return;
     this._quickSetup = { ...this._quickSetup, step };
+    this._keepFocusInQuickSetup();
   }
 
   /**
