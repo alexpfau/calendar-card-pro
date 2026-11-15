@@ -329,8 +329,9 @@ export class CalendarCardProEditor extends LitElement {
   /**
    * Skips an update whose only cause is a `hass` that moved nothing the editor draws
    * (`hass-key.ts` › `editorHassKey`), which Home Assistant hands it several times a second. The
-   * forms on the live feed get that `hass` all the same, straight from here; the steady ones read
-   * nothing it changed. An update a bare `requestUpdate()` also asked for always renders.
+   * forms on the live feed, and the warm-up, get that `hass` all the same, straight from here; the
+   * steady ones read nothing it changed. An update a bare `requestUpdate()` also asked for always
+   * renders, and so does one in which what a value's warm-up read has moved.
    *
    * @param changed - Properties changed since the last update
    * @returns False to skip the update
@@ -338,19 +339,38 @@ export class CalendarCardProEditor extends LitElement {
   protected override shouldUpdate(changed: PropertyValues): boolean {
     const bare = this._bareUpdatePending;
     this._bareUpdatePending = false;
-    if (bare || changed.size !== 1 || !changed.has('hass') || !this._config) return true;
+    // A value the warm-up held to its end is held again once what it read has moved
+    // (`_finishWarmUp`), in the render this asks for.
+    let moved = false;
+    for (const [key, stale] of this._warmed) {
+      if (stale()) moved = this._warmed.delete(key);
+    }
+    if (bare || moved || changed.size !== 1 || !changed.has('hass') || !this._config) return true;
     const ids = HassKey.editorEntityIds(this._config, this._quickSetup?.answers?.calendars);
     if (HassKey.editorHassKey(changed.get('hass') as Types.Hass | undefined, this.hass, ids)) {
       return true;
     }
 
-    const live = withCardActionLabels(this.hass, this._ctx.language);
-    for (const element of this.renderRoot.querySelectorAll<HTMLElement & { hass?: unknown }>(
-      '[data-hass="live"]',
-    )) {
-      element.hass = element.localName === CONDITIONS_EDITOR ? this.hass : live;
-    }
+    // The warm-up, the editor's own child, is fed as its forms are while it is drawn.
+    this._feedLive(this.renderRoot, this);
     return false;
+  }
+
+  /**
+   * Hands each element on the live feed below some roots the newest `hass`: wrapped with the card's
+   * action names, or as it is for Home Assistant's Visibility editor.
+   *
+   * @param roots - Where to look
+   */
+  private _feedLive(...roots: ParentNode[]): void {
+    const live = withCardActionLabels(this.hass, this._ctx.language);
+    for (const root of roots) {
+      for (const element of root.querySelectorAll<HTMLElement & { hass?: unknown }>(
+        '[data-hass="live"]',
+      )) {
+        element.hass = element.localName === CONDITIONS_EDITOR ? this.hass : live;
+      }
+    }
   }
 
   /**
@@ -364,15 +384,18 @@ export class CalendarCardProEditor extends LitElement {
    * drawn: one form holding a node for each element not defined yet, and one for each value a
    * field of a type in `HassKey.VALUE_SELECTORS` holds, with that value, so that Home Assistant
    * draws, and loads, what the value picks (`warmSchema`); and Home Assistant's Visibility editor
-   * holding every calendar's conditions, which it draws with forms of its own. A value or a
-   * condition an earlier warm-up held through to its end is not held again. It is drawn away once nothing below it waits on a definition (`_finishWarmUp`). A
-   * later render warms whatever a switched layout, an opened gate, a cleared filter or a new value
-   * newly needs.
+   * holding every calendar's conditions, which it draws with forms of its own. What an earlier
+   * warm-up held through to its end is not held again, unless what it read has moved since
+   * (`_finishWarmUp`). It is drawn away once nothing below it waits on a definition, or after ten
+   * searches or ten seconds. A later render warms whatever a switched layout, an opened gate, a
+   * cleared filter or a new value newly needs.
    *
    * It is a child of the editor's own element, which its shadow root never slots, so it is never
-   * laid out, painted or exposed; it is inert and `aria-hidden` besides, its form takes the steady
-   * `hass`, its Visibility editor the calendar it would edit against, and no `value-changed` or
-   * `config-changed` of its goes further.
+   * laid out, painted or exposed; it is inert and `aria-hidden` besides, and no `value-changed` or
+   * `config-changed` of its goes further. It takes the live feed, fresh on every update while it
+   * is drawn (`shouldUpdate`), since what a value draws can depend on states: Home Assistant's
+   * service controls draw a field only for a target that supports it. Its Visibility editor is told
+   * the calendar it would edit against.
    */
   protected override updated(): void {
     if (!this._drawn) return;
@@ -380,8 +403,15 @@ export class CalendarCardProEditor extends LitElement {
     const [keys, schema, data] = warmSchema(this._drawn, keep, HassKey.VALUE_SELECTORS);
     const held = [...this._drawnConditions.keys()].filter(keep);
     const key = [...keys, ...held].join('\n');
-    if (key === this._warmKey) return;
+    if (key === this._warmKey) {
+      // A render while it is drawn feeds it as a skipped one would.
+      this._feedLive(this);
+      return;
+    }
     this._warmKey = key;
+    this._warmData = data;
+    // Each warm-up a run of its own, so that an earlier one's search cannot end it.
+    const run = ++this._warmRun;
     // Asked for only by a condition's editor, so only while a condition is held.
     const calendar = this._drawnConditions.get(held[0]!)!;
     renderInto(
@@ -394,13 +424,15 @@ export class CalendarCardProEditor extends LitElement {
             @context-request=${(event: Event) => provideCalendar(event, calendar)}
           >
             <ha-form
-              .hass=${HassKey.steadyHass(this.hass, this._ctx.language)}
+              data-hass="live"
+              .hass=${withCardActionLabels(this.hass, this._ctx.language)}
               .schema=${schema}
               .data=${data}
             ></ha-form>
             ${
               held.length > 0
                 ? html`<ha-card-conditions-editor
+                    data-hass="live"
                     .hass=${this.hass}
                     .conditions=${held.map((each) => JSON.parse(each))}
                   ></ha-card-conditions-editor>`
@@ -410,7 +442,7 @@ export class CalendarCardProEditor extends LitElement {
         : nothing,
       this,
     );
-    if (key) void this._finishWarmUp(key);
+    if (key) void this._finishWarmUp(run);
   }
 
   /**
@@ -420,24 +452,42 @@ export class CalendarCardProEditor extends LitElement {
    * defined, so the warm-up is done when its subtree says so, not when the elements it names are:
    * after each render it is searched, through every shadow root, for elements not defined yet
    * (`undefinedBelow`), and their definitions awaited, until a search finds none. After
-   * `WARM_UP_ROUNDS` searches or `WARM_UP_MS` it is drawn away regardless. What it held is then
-   * not held again; a warm-up a later render draws in its place takes over instead.
+   * `WARM_UP_ROUNDS` searches or `WARM_UP_MS` it is drawn away regardless. A run a later warm-up
+   * has replaced stops there, whatever it held.
    *
-   * @param key - What it holds (`updated`)
+   * What it held is then not held again while what it read stays as it was: for a value, Home
+   * Assistant's services and the attributes of each entity the value names, which its service
+   * controls filter their fields by; for anything else, nothing (`shouldUpdate`).
+   *
+   * @param run - Which warm-up this is (`updated`)
    */
-  private async _finishWarmUp(key: string): Promise<void> {
+  private async _finishWarmUp(run: number): Promise<void> {
     const deadline = Date.now() + WARM_UP_MS;
     for (let round = 0; round < WARM_UP_ROUNDS; round++) {
       await new Promise((resolve) => setTimeout(resolve));
       const missing = undefinedBelow(this);
-      if (this._warmKey !== key || missing.size === 0 || Date.now() >= deadline) break;
+      if (run !== this._warmRun || missing.size === 0 || Date.now() >= deadline) break;
       await Promise.race([
         Promise.all([...missing].map((tag) => customElements.whenDefined(tag))),
         new Promise((resolve) => setTimeout(resolve, deadline - Date.now())),
       ]);
     }
-    if (this._warmKey !== key) return;
-    for (const held of key.split('\n')) this._warmed.add(held);
+    if (run !== this._warmRun) return;
+    const values = this._warmData;
+    for (const held of this._warmKey.split('\n')) {
+      // Every string the value holds, as JSON visits it, read as an entity id.
+      const named: string[] = [];
+      JSON.stringify(values[held], (_, each: unknown) => {
+        if (typeof each === 'string') named.push(each);
+        return each;
+      });
+      const read = (): unknown[] =>
+        held in values
+          ? [this.hass?.services, ...named.map((id) => this.hass?.states[id]?.attributes)]
+          : [];
+      const was = read();
+      this._warmed.set(held, () => read().some((each, at) => each !== was[at]));
+    }
     this._warmKey = '';
     renderInto(nothing, this);
   }
@@ -513,8 +563,17 @@ export class CalendarCardProEditor extends LitElement {
   /** What the warm-up holds, its keys joined by line, empty when it is not drawn (`updated`). */
   private _warmKey = '';
 
-  /** The keys of what a warm-up held through to its end, which are not held again. */
-  private _warmed = new Set<string>();
+  /** The values the warm-up holds, by key (`warmSchema`). */
+  private _warmData: Record<string, unknown> = {};
+
+  /** Which warm-up was drawn last, counted (`_finishWarmUp`). */
+  private _warmRun = 0;
+
+  /**
+   * What a warm-up held through to its end, which is not held again, each with whether what it
+   * read has moved since (`_finishWarmUp`).
+   */
+  private _warmed = new Map<string, () => boolean>();
 
   /**
    * How many settings Essentials Only is hiding, counted as this render draws the panels and read

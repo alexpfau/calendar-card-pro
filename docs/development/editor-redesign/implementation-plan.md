@@ -2138,7 +2138,7 @@ sha256 never changes.
 | --- | ---------------------------------------- | ---- | ------------------------------------------ | ---------------------------------- | --------------------------------------------------------------------------------------------- |
 | 1   | Field Index, Page Registry & Gate Corpus | 1    | 1,600; built at 4,084, 2,098 of them tests | 19, ten gate phrases among them    | +0.43 KB, measured                                                                            |
 | 2   | Test Harness by Field Id                 | 1    | 1,700                                      | 0                                  | 0                                                                                             |
-| 3   | Render Cost & Identity                   | 1    | 1,100                                      | 0                                  | +2.1 KB, raised from +0.8 KB; measured +2.08 KB                                               |
+| 3   | Render Cost & Identity                   | 1    | 1,100                                      | 0                                  | +2.3 KB proposed; was 0.8 KB; measured +2.24 KB                                               |
 | 4   | Write Owners & Frames                    | 1    | 1,200; built at 2,018, 1,011 of them tests | 0                                  | +1.2 KB, raised from +0.5 KB; measured +1.41 KB; a proposed cap of +1.4 KB, awaiting approval |
 | 5   | Overview, Pages & Navigation             | 1    | 2,000                                      | about 32; 16 changed               | +4.0 KB                                                                                       |
 | 6   | Builders Hand Presentation to Pages      | 1    | 900                                        | minus 25 to 43                     | below 0                                                                                       |
@@ -2327,14 +2327,20 @@ Behavior-preserving, on today's panels.
     its forms hold in a field of a type in `hass-key.ts` › `VALUE_SELECTORS`, holding that value
     (today `ui_action`, whose element draws a `navigate` or `assist` action's form, or a service's
     controls); and Home Assistant's Visibility editor holding every calendar's conditions, behind
-    the visible one's guard. So Home Assistant has imported what each panel draws, its configured
-    branches included, before the panel first measures itself. It is drawn away once a search of
-    everything below it, through every shadow root, finds no element still undefined, or after
-    ten searches or 10 s regardless. Without it, 12 of 18 panels of a seven-calendar Grid card
-    opened short on their first click, at full width and at 400 px [measured, PR 3]. Warming the
-    element types alone left what a configured action or a `state` condition draws loading until
-    its panel opened [measured: the frontend's own sources, their definitions delayed]; that the
-    full warm-up closes that in Home Assistant is [unverified] until measured there;
+    the visible one's guard. It is drawn away once a search of everything below it, through every
+    shadow root, finds no element still undefined, or after ten searches or 10 s regardless, so a
+    panel opened before then can still open short. It takes the live `hass`, fresh while it is
+    drawn, since a service's controls draw a field only for a target that supports it, and holds a
+    value again once the services, or the attributes of an entity the value names, move. Each
+    warm-up is a run of its own, so an earlier one's search cannot end a later one holding the
+    same. Without it, 12 of 18 panels of a seven-calendar Grid card opened short on their first
+    click, at full width and at 400 px [measured, PR 3]. Warming the element types alone left what
+    a configured action or a `state` condition draws loading until its panel opened, 3 of 12 panels
+    of a card holding both short at each width; the full warm-up opens 0 of 12 short at full width
+    and 1 at 400 px [measured, PR 3]. That one is what no warm-up reaches: what a control loads for
+    itself once drawn. The assist pipeline picker asks for its pipeline list per instance and draws
+    nothing until it has it, about 50 ms after its panel is measured; at 400 px its 56 px are a row
+    of their own [measured, PR 3];
   - each panel's `build` memoized on its inputs, and each panel schema interned by structural key;
   - each form's `data`, `computeLabel` and `computeHelper` memoized on what they read;
   - `hass-key.ts`: the live feed for forms with `entity`, `icon`, `ui_action` or `object` selectors
@@ -2363,9 +2369,12 @@ Behavior-preserving, on today's panels.
   - **The warm-up**, `tests/editor-warm-up.test.ts`: the element types it holds are those the forms
     draw with every panel open, across the corpus, and those the builders use, a planted selector
     type included; the values it holds are those the open forms hold in fields of
-    `VALUE_SELECTORS`; it writes nothing. With stand-ins that draw as Home Assistant's do, it stays
-    until what an event's action, a button's action and a `state` condition pick is defined, and
-    its search and time bounds draw it away regardless.
+    `VALUE_SELECTORS`; it writes nothing, and takes the live `hass`, fresh while it is drawn. With
+    stand-ins that draw as Home Assistant's do, it stays until what an event's action, a button's
+    action and a `state` condition pick is defined; it warms a service against its target as it
+    is when the action is configured, and again once that target's attributes or the services
+    move, not for a state alone; its search and time bounds draw it away regardless, and an
+    earlier warm-up's search does not end a later one holding the same.
 - **Done when.** The tests pass; the step 0 probe's idle measurement, re-run on this PR's dev build
   in Home Assistant, shows the editor rendering only for changes it draws (renders and milliseconds
   per idle 10 s, before and after, in the PR body); first-open geometry is checked in Home Assistant
@@ -3266,7 +3275,7 @@ and invalid colors written) are reversed above and gone from this list.
 | 45  | Gate lines and search tags each keep their approved form: PR 1's nouns stay for search's "Needs …" tags (the D05 mockup), and a clause beside each, `whenKey` next to `needsKey`, with "{label} is on" for a switch, gives the gate line's "Appears once …" (5.2; section 13, row F)                                                                    | Rewrite PR 1's nouns as clauses, which leaves search without the D05 mockup's "Needs Show Description"; or one noun form for both, the "Appears with …" that row F declines                                                                                            |
 | 46  | A chip's gate line is the clause `gate.when.pressed`, "{part} is pressed", inside the one `gate.line` template (5.2)                                                                                                                                                                                                                                    | `gate.line_pressed` and a bare twin of it, two more templates for the same sentence                                                                                                                                                                                    |
 | 47  | A panel keeps its forms after it closes (PR 3)                                                                                                                                                                                                                                                                                                          | Unmount on close, which discards the open state of the groups inside it                                                                                                                                                                                                |
-| 48  | A hidden warm-up, read from the editor's schemas and the values its forms hold, loads the elements Home Assistant imports on first use, and what each configured action and each calendar's conditions draw, before any panel first opens; drawn away once nothing below it is left undefined (PR 3)                                                    | Mount every panel's forms as the editor opens, the cost PR 3 removes; accept panels opening short on their first click; or warm element types alone, which leaves what a configured action or condition draws loading on first open                                    |
+| 48  | A hidden warm-up on the live hass loads the elements Home Assistant imports on first use, and what each configured action and each calendar's conditions draw; it is drawn away once a search finds nothing below it left undefined, or after ten searches or ten seconds, and holds a value again once the services or entities it names move (PR 3)   | Mount every panel's forms as the editor opens, the cost PR 3 removes; accept panels opening short on their first click; or warm element types alone, which leaves what a configured action or condition draws loading on first open                                    |
 | 49  | A calendar's panel keeps its own open or closed state through a removal, a duplicate or the picker, as a toolbar button's does (PR 4)                                                                                                                                                                                                                   | Draw by place, which hands a removed calendar's panel, and its listeners, to the next calendar                                                                                                                                                                         |
 | 50  | After Remove takes the focused button with its panel, focus goes to the Remove of the calendar drawn in its place, its panel opening, else to the one before it, else to the calendar picker in a focus group of the editor's own; focus held elsewhere stays (PR 4, until PR 10)                                                                       | Let focus fall where the browser drops it; or keep drawing by place, which kept focus on the next calendar's Remove only by handing it the removed one's panel                                                                                                         |
 | 51  | `_writeFieldValue` finds a card field among those its panel draws now, an entry's or a button's among those every entry or button declares (PR 4)                                                                                                                                                                                                       | Import `field-index.ts` for the universe, which brings `gates.ts` and its corpus into the editor chunk, +1.6 to +1.9 KB gzip -9 and a circular import, before PR 5 needs them                                                                                          |
