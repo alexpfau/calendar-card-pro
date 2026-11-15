@@ -5,8 +5,8 @@
  * whatever language the editor speaks. A field keeps the label and helper it has today once it
  * leaves its panel, because the index carries the label path the lifted form loses; every one
  * is held to what the forms the editor draws today say. And a field lifted into a form of its
- * own writes exactly what it wrote from its panel's form, in every workspace and every panel
- * frame the corpus builds, for an edit that changes something, with a control that must differ.
+ * own writes exactly what it wrote from its panel's form, in every workspace and every corpus
+ * state, for an edit that changes something, with a control that must differ.
  */
 
 import { afterAll, describe, expect, it } from 'vitest';
@@ -106,6 +106,23 @@ const RULED_TEXT: Readonly<Record<string, ReadonlyArray<string>>> = {
   start_date_offset: ['-3', '+2', '-'],
   today_indicator_custom: ['🎂', '/local/today.png', 'mdi:star'],
 };
+
+/**
+ * The fields that hold text, by workspace, pinned by value: the offset and the custom today
+ * indicator, in every workspace. Written out rather than read from `RULED_TEXT`, so a field
+ * dropped from that table, or one that stops holding, fails the lift test instead of shrinking
+ * what it checks.
+ */
+const HOLDS: ReadonlyArray<string> = [
+  'shared content:start_date_offset',
+  'shared day_header:today_indicator_custom',
+  'list content:start_date_offset',
+  'list day_header:today_indicator_custom',
+  'column content:start_date_offset',
+  'column day_header:today_indicator_custom',
+  'grid content:start_date_offset',
+  'grid day_header:today_indicator_custom',
+];
 
 /**
  * The values a control can be set to besides the one it shows, read from its own bounds and
@@ -331,24 +348,23 @@ describe('indexed fields', () => {
 });
 
 describe('a lifted field routes as it does from its panel', () => {
-  it('writes the same from its one-field form in every workspace and panel frame', () => {
-    let storedWrites = 0;
+  it('writes the same from its one-field form in every workspace and corpus state', () => {
+    let writes = 0;
     let heldEdits = 0;
     let controlCompared = 0;
     let controlDiffer = 0;
     let unwritten = 0;
-    let framesTried = 0;
-    let framesSeen = 0;
+    let serialized = 0;
     let turn = 0;
     const differ: string[] = [];
-    /** Each workspace's panel frames already tried, by structure. */
-    const frames = new Set<string>();
+    /** Edits that changed the configuration, by workspace and field. */
+    const written = new Map<string, number>();
+    /** Fields shown to change what is stored, by workspace. */
+    const stores = new Set<string>();
+    /** Edits held as pending text and written nowhere, by workspace and field. */
+    const held = new Map<string, number>();
     /** Nested fields whose control has run, by workspace. */
     const controlled = new Set<string>();
-    /** Edits that changed the stored configuration, by workspace and field. */
-    const stored = new Map<string, number>();
-    /** Edits held as pending text and stored nowhere; every field with a rule of its own holds. */
-    const held = new Map<string, number>();
     const same = (
       config: Types.Config,
       a: ReturnType<typeof Routing.applyWorkspaceChange>,
@@ -368,41 +384,19 @@ describe('a lifted field routes as it does from its panel', () => {
     for (const state of DISTINCT) {
       const { config, workspace } = state;
       const ctx = schemaCtx(config, workspace, 'en');
+      const index = buildFieldIndex(ctx).fields;
+      const data = Routing.workspaceFormData(config, workspace, {});
       const authored = config as unknown as Record<string, unknown>;
-      let base:
-        | {
-            index: ReadonlyMap<FieldId, IndexedField>;
-            data: Record<string, unknown>;
-            before: unknown;
-          }
-        | undefined;
-      const derive = () =>
-        (base ??= {
-          index: buildFieldIndex(ctx).fields,
-          data: Routing.workspaceFormData(config, workspace, {}),
-          before: toStoredConfig(config, new Set(), authored),
-        });
+      let before: Record<string, unknown> | undefined;
       for (const panel of PANELS) {
         const built = Filter.withholdInertFields(panel.build(ctx), workspace);
-        // Routing reads a frame's schema only to list its nodes, and in a panel's frame every node
-        // but the edited one reads the same value before and after and is skipped, so a state can
-        // change what the two frames do only through the panel's structure. A frame already tried
-        // in this workspace is tried again only for a field that has yet to store, or to hold.
-        const frame = `${workspace} ${panel.id} ${JSON.stringify(built)}`;
-        const seen = frames.has(frame);
-        frames.add(frame);
-        framesSeen += 1;
-        if (!seen) framesTried += 1;
         for (const { node, dataPath } of walkSchema(built)) {
           if (!('selector' in node)) continue;
           const id = fieldId(panel.id, dataPath, node.name);
           const key = `${workspace} ${id}`;
           const ruled = 'text' in node.selector && node.name in RULED_TEXT;
-          stored.set(key, stored.get(key) ?? 0);
+          written.set(key, written.get(key) ?? 0);
           if (ruled) held.set(key, held.get(key) ?? 0);
-          if (seen && stored.get(key)! > 0 && (!ruled || held.get(key)! > 0)) continue;
-
-          const { index, data, before } = derive();
           let current: unknown = data;
           for (const part of [...dataPath, node.name]) {
             current = (current as Record<string, unknown> | undefined)?.[part];
@@ -411,8 +405,10 @@ describe('a lifted field routes as it does from its panel', () => {
           // An edit normalized back to the value it replaced writes nothing from either form, so
           // two no-ops would compare equal however the lift had gone, and text held while it is
           // typed writes nothing either. Each state starts one candidate further on; the first
-          // edit that changes the stored configuration is compared, and for a field with a rule
-          // of its own the first that is only held as well, each counted apart.
+          // edit that changes the configuration is compared, and for a field with a rule of its
+          // own the first that is only held as well, each counted apart. Both results start from
+          // the same configuration and share every part an edit did not reach, so comparing
+          // them stops at each shared part.
           const candidates = candidateValues(node, current);
           const start = candidates.length > 0 ? turn++ % candidates.length : 0;
           let wrote = false;
@@ -426,16 +422,24 @@ describe('a lifted field routes as it does from its panel', () => {
               incoming,
               {},
             );
-            const outcome = !deepEqual(toStoredConfig(wide.config, new Set(), authored), before)
-              ? 'stored'
+            const outcome = !deepEqual(wide.config, config)
+              ? 'written'
               : deepEqual(wide.pending, {})
                 ? 'nothing'
                 : 'held';
-            if (outcome === 'nothing' || (outcome === 'stored' ? wrote : kept)) continue;
-            if (outcome === 'stored') {
+            if (outcome === 'nothing' || (outcome === 'written' ? wrote : kept)) continue;
+            if (outcome === 'written') {
               wrote = true;
-              storedWrites += 1;
-              stored.set(key, stored.get(key)! + 1);
+              writes += 1;
+              written.set(key, written.get(key)! + 1);
+              // That some write of the field changes what is stored, as YAML would hold it, is
+              // checked exactly, by serializing both, until one does in this workspace.
+              if (!stores.has(key)) {
+                before ??= toStoredConfig(config, new Set(), authored);
+                serialized += 1;
+                const after = toStoredConfig(wide.config, new Set(), authored);
+                if (!deepEqual(after, before)) stores.add(key);
+              }
             } else {
               kept = true;
               heldEdits += 1;
@@ -478,25 +482,26 @@ describe('a lifted field routes as it does from its panel', () => {
       [...universeIndex('en', workspace).fields.keys()]
         .filter((id) => parseFieldId(id).scope !== 'calendar')
         .map((id) => `${workspace} ${id}`),
-    );
+    ).sort();
     const never = (counts: ReadonlyMap<string, number>): string[] =>
       [...counts].filter(([, count]) => count === 0).map(([key]) => key);
     console.info(
-      `Lift: ${storedWrites} stored writes and ${heldEdits} held edits compared over ` +
-        `${DISTINCT.length} distinct states, ${framesTried} of ${framesSeen} panel frames new in ` +
-        `their workspace; ${stored.size} fields across the workspaces, ` +
-        `${never(stored).length} never stored; ${held.size} that hold text, ` +
-        `${never(held).length} never held; ${unwritten} field and state pairs with no stored ` +
-        `write; ${differ.length} differ. Control without the data-path wrapper: ` +
-        `${controlDiffer} of ${controlCompared} differ.`,
+      `Lift: ${writes} writes and ${heldEdits} held edits compared over ${DISTINCT.length} ` +
+        `distinct states; ${written.size} fields across the workspaces, each tried in every ` +
+        `state that builds it, ${never(written).length} never written, ` +
+        `${universe.length - universe.filter((key) => stores.has(key)).length} never stored ` +
+        `(${serialized} serialized); ${held.size} that hold text, ${never(held).length} never ` +
+        `held; ${unwritten} field and state pairs with no write; ${differ.length} differ. ` +
+        `Control without the data-path wrapper: ${controlDiffer} of ${controlCompared} differ.`,
     );
-    expect([...stored.keys()].sort()).toEqual(universe.sort());
-    expect(never(stored)).toEqual([]);
+    expect([...written.keys()].sort()).toEqual(universe);
+    expect(universe.filter((key) => !stores.has(key))).toEqual([]);
+    expect([...held.keys()].sort()).toEqual([...HOLDS].sort());
     expect(never(held)).toEqual([]);
     expect(differ).toEqual([]);
-    expect(storedWrites).toBeGreaterThan(1000);
+    expect(writes).toBeGreaterThan(1000);
     expect(controlDiffer).toBeGreaterThan(0);
-    // A few thousand routed writes, well under a second alone; the limit is set for a loaded
+    // Tens of thousands of routed writes, a few seconds alone; the limit is set for a loaded
     // machine rather than for a hang.
   }, 60_000);
 });
@@ -675,6 +680,9 @@ describe('the index builds what the editor draws today', () => {
       nested: 0,
       nestedDiffer: 0,
     };
+    /** What the forms' own callbacks gave, by everything they read. */
+    const resolved = new Map<string, { label: string; helper: string | undefined }>();
+    /** Comparisons made, by everything either side reads. */
     const compared = new Set<string>();
 
     for (const { workspace, config, state } of RUNS) {
@@ -705,6 +713,7 @@ describe('the index builds what the editor draws today', () => {
         node: SelectorSchema;
         path: string[];
         field: IndexedField;
+        reads: string;
       }> = [];
       const indexes: ReadonlyArray<readonly [string, Iterable<IndexedField>]> = [
         ['ha-form.panel-form', card.values()],
@@ -726,49 +735,55 @@ describe('the index builds what the editor draws today', () => {
               selector === 'ha-form.panel-form'
                 ? Routing.valueSource(config, workspace, node.name)
                 : undefined;
-            const combination = [
-              workspace,
-              field.id,
-              ctx.language,
-              path.join('.'),
-              source,
+            // What the form's callbacks read: the node drawn, the path `ha-form` hands over, the
+            // language and the workspace's layout, and for a panel form's helper where the value
+            // comes from. What the index reads besides: its own node and label path for the field.
+            const reads = [workspace, selector, ctx.language, path.join('.'), source].join(' ');
+            const both = [
+              reads,
               JSON.stringify(node),
+              field.id,
+              field.labelPath.join('.'),
+              JSON.stringify(field.node),
             ].join(' ');
-            if (compared.has(combination)) continue;
-            compared.add(combination);
-            fresh.push({ form, node, path, field });
+            if (compared.has(both)) continue;
+            compared.add(both);
+            fresh.push({ form, node, path, field, reads: `${reads} ${JSON.stringify(node)}` });
           }
         }
       }
 
-      const today = fresh.map(({ form, node, path }) => ({
-        label: form.computeLabel(node, form.data, { path }),
-        helper: form.computeHelper(node, { path }),
+      // The forms' callbacks are the expensive half, so each combination they read is resolved
+      // once; the index's resolvers run for every combination either side reads.
+      for (const { form, node, path, reads } of fresh) {
+        if (resolved.has(reads)) continue;
+        const answer = {
+          label: form.computeLabel(node, form.data, { path }),
+          helper: form.computeHelper(node, { path }),
+        };
+        resolved.set(reads, answer);
         // The control: the same callbacks without the path `ha-form` hands them.
-        pathless:
-          path.length > 0
-            ? {
-                label: form.computeLabel(node, form.data, { path: [] }),
-                helper: form.computeHelper(node, { path: [] }),
-              }
-            : undefined,
-      }));
+        if (path.length > 0) {
+          labels.nested += 1;
+          const pathless = {
+            label: form.computeLabel(node, form.data, { path: [] }),
+            helper: form.computeHelper(node, { path: [] }),
+          };
+          if (!deepEqual(pathless, answer)) labels.nestedDiffer += 1;
+        }
+      }
       const indexed = fresh.map(({ field }) => ({
         label: fieldLabel(field, ctx.language),
         helper: fieldHelper(field, ctx),
       }));
-      fresh.forEach(({ field }, at) => {
-        const { label, helper, pathless } = today[at];
+      fresh.forEach(({ field, reads }, at) => {
+        const today = resolved.get(reads)!;
         labels.compared += 1;
-        if (!deepEqual(indexed[at], { label, helper })) {
+        if (!deepEqual(indexed[at], today)) {
           labels.differ.push(
             `${workspace} ${field.id}: index ${JSON.stringify(indexed[at])}, form ` +
-              JSON.stringify({ label, helper }),
+              JSON.stringify(today),
           );
-        }
-        if (pathless !== undefined) {
-          labels.nested += 1;
-          if (!deepEqual(pathless, { label, helper })) labels.nestedDiffer += 1;
         }
       });
     }

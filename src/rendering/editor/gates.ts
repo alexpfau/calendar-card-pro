@@ -643,7 +643,11 @@ function withValue(
  * `routing.ts` › `applyWorkspaceChange`, a calendar field through `entities.ts` › `writeEntity`
  * on the first entry, each only where the editor offers that field.
  *
- * @param config - The configuration as the editor holds it
+ * The configuration handed in is read, never changed, and what is derived from it is kept for
+ * the next edit of the same object (`editedFrom`). So a caller replaces a configuration rather
+ * than changing one in place: a changed one is served what was derived before the change.
+ *
+ * @param config - The configuration as the editor holds it, not to be changed in place later
  * @param workspace - Workspace the edit is made in
  * @param id - Field to change
  * @param value - Its new form value
@@ -683,9 +687,12 @@ export function applyFieldEdit(
 
 /**
  * What every edit of one configuration in one workspace starts from: its schema context, its
- * form data and the panels built so far, each derived once. Kept for the configuration last
- * edited, by identity, since a configuration is never changed in place; edits made one after
- * another from the same state, as a sweep of a control's values makes them, share it.
+ * form data and the panels built so far, each derived once. Edits made one after another from
+ * the same state, as a sweep of a control's values makes them, share it.
+ *
+ * 🚨 Kept for the configuration last edited, by object identity, which relies on configurations
+ * never being changed in place. Replacing one, as every edit here does, starts afresh; one changed
+ * in place keeps the context, form data and panels derived before the change, and goes stale.
  */
 const editedFrom = Helpers.memoizeLast(
   (config: Types.Config, workspace: Workspace.EditorWorkspace) => {

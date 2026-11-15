@@ -157,7 +157,8 @@ export function liftField(
 /**
  * One indexed field. What only some readers need, its lifted schema, its label path and the keys
  * it writes, is worked out on first read and kept: most indexes are built only to learn which
- * fields are present, and interning a lifted schema serializes its node.
+ * fields are present, and interning a lifted schema serializes its node. Kept, so it relies on
+ * the node never being changed in place, as no builder's node is.
  */
 class Leaf implements IndexedField {
   private liftedSchema: HaFormSchema[] | undefined;
