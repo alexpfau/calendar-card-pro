@@ -328,6 +328,29 @@ describe('Quick Setup', () => {
     }
   });
 
+  it('lays each example out as one row, its link beside it, over the shared option style', async () => {
+    // `.wizard-option` stacks its contents and comes later in the stylesheet, so an example's row
+    // has to win on specificity, or its link drops onto a line of its own.
+    const { editor } = await mount();
+    await click(editor, '[data-quick-setup-open]');
+    const rows = [...root(editor).querySelectorAll<HTMLElement>('.story-option')];
+    expect(rows).toHaveLength(6);
+    for (const row of rows) expect(getComputedStyle(row).flexDirection).toBe('row');
+  });
+
+  it('words a replaced setting as its control does, never as true or false', async () => {
+    // `filter_duplicates: true` is a dropdown's older value; the review names the option it means.
+    const { editor } = await mount({ ...OPENING, filter_duplicates: true });
+    await click(editor, '[data-quick-setup-open]');
+    await click(editor, '[data-story="simple_agenda"]');
+    for (let i = 0; i < 4; i++) await click(editor, '[data-quick-setup-next]');
+    const items = [...root(editor).querySelectorAll('[data-quick-setup-replaced] li')].map((item) =>
+      item.textContent!.replace(/\s+/g, ' ').trim(),
+    );
+    expect(items).toContain('Filter Duplicates: Same title, start, end and location → Default');
+    expect(items.join('|')).not.toMatch(/\b(true|false)\b/);
+  });
+
   it('lists five settings Apply replaces, then all of them on Show All', async () => {
     const { editor } = await mount({
       ...OPENING,
