@@ -745,6 +745,37 @@ describe('the controls the stack below added', () => {
     );
   });
 
+  // A color whose source a mode chooses is one control on its page, so one result, worded as the
+  // closed control words it. It was two, each with its own words for one YAML key: "Accent Color ·
+  // Custom color" beside "Custom Accent Color · Home Assistant's primary color", and "All-Day Badge
+  // Color · Calendar Accent Color" beside "Badge Color · accent".
+  it('gives a color and the mode choosing its source one result, worded as its control', async () => {
+    const editor = await mount({
+      ...LIST,
+      entities: [
+        { entity: 'calendar.anna', accent_color: '#ff0000' },
+        { entity: 'calendar.ben', accent_color: '#00ff00' },
+      ],
+      list: { allday_badge_color: 'accent' },
+    });
+    await searchFor(editor, 'color');
+    const ids = resultRows(editor).map((each) => each.id);
+    for (const value of ['events:accent_color', 'events:allday_badge_color']) {
+      expect(ids).not.toContain(value);
+    }
+    expect(ids.filter((id) => id === 'calendar:accent_color')).toEqual([]);
+    expect(row(editor, 'events:accent_color_mode').meta).toMatch(/^Default · /);
+    expect(row(editor, 'events:allday_badge_color_mode').meta).toMatch(/^Calendar Accent Color · /);
+    // Found by the value's own label too, where the mode's label does not hold the words.
+    await searchFor(editor, 'custom accent');
+    expect(resultRows(editor).map((each) => each.id)).toContain('events:accent_color_mode');
+    // A stored color is named as the control names it, under the mode's row.
+    document.body.replaceChildren();
+    const custom = await mount({ ...LIST, accent_color: 'var(--pink-color)' });
+    await searchFor(custom, 'accent color');
+    expect(row(custom, 'events:accent_color_mode').meta).toMatch(/^Pink · /);
+  });
+
   it('reaches Split This Calendar on every entry, and opens one at its row', async () => {
     const editor = await stack();
     await searchFor(editor, 'split this');
