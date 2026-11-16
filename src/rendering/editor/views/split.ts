@@ -6,19 +6,13 @@
  * What a split does and refuses is `split.ts`'s; what the review lists is `split-review.ts`'s.
  */
 
-import {
-  mdiAlertOutline,
-  mdiCallSplit,
-  mdiCheckCircleOutline,
-  mdiChevronRight,
-  mdiInformationOutline,
-} from '@mdi/js';
+import { mdiAlertOutline, mdiCallSplit, mdiCheckCircleOutline, mdiChevronRight } from '@mdi/js';
 import { type TemplateResult, html, nothing } from 'lit';
 import { styleMap } from 'lit/directives/style-map.js';
 
 import { type TextButton, textButton } from './calendars';
 import { icon } from './icon';
-import { wizardHead, wizardProgress } from './wizard';
+import { wizardHead, wizardNote, wizardProgress } from './wizard';
 
 /**
  * The row under Which Events that opens the task.
@@ -95,7 +89,9 @@ export function splitTask(task: SplitTask): TemplateResult {
       iconPath: mdiCallSplit,
       title: task.title,
       titleClass: 'split-title',
+      level: 4,
       stepLine: task.stepLine,
+      stepClass: 'split-step-line',
       id: 'split',
       close: { name: task.closeName, focus: 'split-close', onPress: task.onClose },
     })}
@@ -252,9 +248,7 @@ export function partReview(
  * @returns The note
  */
 export function note(text: string): TemplateResult {
-  return html`<p class="page-line split-note">
-    ${icon(mdiInformationOutline)}<span>${text}</span>
-  </p>`;
+  return wizardNote(text, 'split-note');
 }
 
 /** One entry the split wrote, as the completion panel lists it. */

@@ -22,30 +22,6 @@ export default css`
     line-height: 1.4;
   }
 
-  .migration-choice {
-    align-self: flex-start;
-    min-height: 44px;
-    max-width: 100%;
-    padding: 8px 12px;
-    border: 1px solid var(--primary-color);
-    border-radius: 4px;
-    background: transparent;
-    color: var(--primary-color);
-    cursor: pointer;
-    font: inherit;
-    font-weight: 500;
-  }
-
-  .migration-choice:focus-visible {
-    outline: 2px solid var(--primary-color);
-    outline-offset: 3px;
-  }
-
-  .migration-choice.primary {
-    background: var(--primary-color);
-    color: var(--text-primary-color, white);
-  }
-
   .grid-reconciliation {
     display: flex;
     flex-direction: column;
@@ -185,57 +161,77 @@ export default css`
     font-size: 14px;
   }
 
-  .quick-setup {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 16px;
-    border-inline-start: 3px solid var(--primary-color);
-    border-radius: 4px;
-    background: var(--secondary-background-color);
-    line-height: 1.4;
-  }
-
-  .quick-setup-step,
-  .quick-setup-note {
-    color: var(--secondary-text-color);
-  }
-
-  .quick-setup-stories {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 12px;
+  /* Quick Setup in the step-by-step tasks' shared look: the examples as rows in one card, each a
+     toggle button with a radio mark, the example's icon and its two lines, and ↗ to its page. */
+  .quick-setup-intro {
+    margin: 0;
   }
 
   .story-option {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+    flex-direction: row;
+    align-items: center;
+    gap: 0;
+    padding: 0 4px 0 0;
   }
 
   .story-tile {
+    flex: 1;
     display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-height: 44px;
-    padding: 12px;
-    border: 1px solid var(--divider-color);
-    border-radius: 8px;
-    background: var(--card-background-color, transparent);
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    min-height: 64px;
+    padding: 10px 8px 10px 16px;
+    border: none;
+    border-radius: inherit;
+    background: none;
     color: var(--primary-text-color);
     cursor: pointer;
     font: inherit;
     text-align: start;
   }
 
-  .story-tile[aria-pressed='true'] {
-    border-color: var(--primary-color);
-    box-shadow: inset 0 0 0 1px var(--primary-color);
-  }
-
   .story-tile:focus-visible {
     outline: 2px solid var(--primary-color);
-    outline-offset: 2px;
+    outline-offset: -2px;
+  }
+
+  .story-radio {
+    flex: none;
+    box-sizing: border-box;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--secondary-text-color);
+    border-radius: 50%;
+  }
+
+  .story-tile[aria-pressed='true'] .story-radio {
+    border-color: var(--primary-color);
+    background: var(--primary-color);
+    box-shadow: inset 0 0 0 3px var(--card-background-color, #fff);
+  }
+
+  .story-icon {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+    --mdc-icon-size: 20px;
+  }
+
+  .story-icon .icon {
+    fill: var(--primary-color);
+  }
+
+  .story-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
   }
 
   .story-name {
@@ -244,72 +240,81 @@ export default css`
 
   .story-detail {
     color: var(--secondary-text-color);
-    font-size: 13px;
+    font-size: 12px;
+    line-height: 1.4;
   }
 
   .story-link {
-    color: var(--primary-color);
-    font-size: 13px;
-    padding-inline-start: 2px;
+    --mdc-icon-size: 20px;
   }
 
-  .quick-setup-title {
-    margin: 0;
-    font-size: 16px;
-    font-weight: 500;
+  .story-link .icon {
+    fill: var(--secondary-text-color);
   }
 
-  /* What Apply leaves, a term beside its value, as a two-column list. */
+  /* Step 4's switches sit in a card, inset as the preferences under More are. */
+  .quick-setup-form.boxed {
+    display: block;
+    padding: 4px 16px;
+    border: 1px solid var(--divider-color);
+    border-radius: var(--ha-card-border-radius, 12px);
+  }
+
+  /* Review: what Apply leaves, then what it replaces, each a card of rows, a name beside its
+     value; on a narrow pane a long value wraps under its name. */
   .quick-setup-review {
-    display: grid;
-    grid-template-columns: max-content 1fr;
+    gap: 0;
     margin: 0;
+    padding-block: 4px;
   }
 
-  .quick-setup-review > div {
-    display: contents;
+  .quick-setup-review > div,
+  .quick-setup-replaced li {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0 16px;
+    padding: 8px 0;
+  }
+
+  .quick-setup-review > div + div,
+  .quick-setup-replaced li + li {
+    border-top: 1px solid var(--divider-color);
   }
 
   .quick-setup-review dt,
-  .quick-setup-review dd {
-    margin: 0;
-    padding: 6px 0;
-    border-bottom: 1px solid var(--divider-color);
-  }
-
-  .quick-setup-review dt {
-    padding-inline-end: 16px;
+  .quick-setup-replaced li > :first-child {
     color: var(--secondary-text-color);
   }
 
-  .quick-setup-replaced p {
+  .quick-setup-review dd,
+  .quick-setup-change {
     margin: 0;
+    margin-inline-start: auto;
+    text-align: end;
+  }
+
+  .quick-setup-replaces {
+    margin: 0;
+    font-weight: 500;
   }
 
   .quick-setup-replaced ul {
-    margin: 4px 0;
-    padding-inline-start: 20px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
 
-  .quick-setup-actions {
+  .quick-setup-show-all {
+    align-self: flex-start;
+    margin-inline-start: -12px;
+  }
+
+  .wizard-actions-end {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-end;
     gap: 8px;
-  }
-
-  .quick-setup-actions .migration-choice {
-    align-self: auto;
-  }
-
-  .quick-setup-actions [data-quick-setup-cancel] {
-    margin-inline-end: auto;
-  }
-
-  .migration-choice:disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
+    margin-inline-start: auto;
   }
 
   .width-table {
@@ -2093,7 +2098,7 @@ export default css`
     list-style: none;
   }
 
-  .split-note {
+  .wizard-note {
     padding: 8px 12px;
     border-radius: 8px;
     background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);

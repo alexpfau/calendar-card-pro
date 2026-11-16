@@ -4,7 +4,7 @@
  * progress bar. Templates only; each task passes its own words, classes and actions.
  */
 
-import { mdiClose } from '@mdi/js';
+import { mdiClose, mdiInformationOutline } from '@mdi/js';
 import { type TemplateResult, html, nothing } from 'lit';
 
 import { icon } from './icon';
@@ -16,8 +16,15 @@ export interface WizardHead {
   readonly title: string;
   /** The heading's own class, which focus and tests find it by. */
   readonly titleClass: string;
+  /**
+   * Its level: 2 where the task takes the editor's place, as Quick Setup does, 4 where it sits
+   * among a page's headings, as Split does.
+   */
+  readonly level: 2 | 4;
   /** The step line: "Step 2 of 3 · Colors". */
   readonly stepLine: string;
+  /** The step line's own class. */
+  readonly stepClass: string;
   /** Ties the heading to its step line, so focus on the heading says which step this is. */
   readonly id: string;
   /** A ✕ at the header's end, where the task has one. */
@@ -32,17 +39,30 @@ export interface WizardHead {
  * @returns The header
  */
 export function wizardHead(head: WizardHead): TemplateResult {
+  const stepId = `${head.id}-step`;
+  const title =
+    head.level === 2
+      ? html`<h2
+          class="wizard-title ${head.titleClass}"
+          id=${`${head.id}-title`}
+          tabindex="-1"
+          aria-describedby=${stepId}
+        >
+          ${head.title}
+        </h2>`
+      : html`<h4
+          class="wizard-title ${head.titleClass}"
+          id=${`${head.id}-title`}
+          tabindex="-1"
+          aria-describedby=${stepId}
+        >
+          ${head.title}
+        </h4>`;
   return html`<div class="wizard-head">
     <span class="wizard-badge" aria-hidden="true">${icon(head.iconPath)}</span>
     <div class="wizard-titles">
-      <h4
-        class="wizard-title ${head.titleClass}"
-        tabindex="-1"
-        aria-describedby=${`${head.id}-step`}
-      >
-        ${head.title}
-      </h4>
-      <p class="wizard-step" id=${`${head.id}-step`}>${head.stepLine}</p>
+      ${title}
+      <p class="wizard-step ${head.stepClass}" id=${stepId}>${head.stepLine}</p>
     </div>
     ${
       head.close
@@ -88,4 +108,17 @@ export function wizardProgress(
         </li>`,
     )}
   </ol>`;
+}
+
+/**
+ * A note in the task's own voice, tinted, with its icon.
+ *
+ * @param text - What it says
+ * @param className - The task's own class for it
+ * @returns The note
+ */
+export function wizardNote(text: string, className = ''): TemplateResult {
+  return html`<p class="page-line wizard-note ${className}">
+    ${icon(mdiInformationOutline)}<span>${text}</span>
+  </p>`;
 }
