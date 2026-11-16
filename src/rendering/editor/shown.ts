@@ -1,6 +1,6 @@
 /**
  * The words of the shown set (backlog item 307): what a field says about where its value comes
- * from, what Reset gives, and where those words go for each kind of control. `plan.ts` decides in
+ * from, what Reset leaves, and where those words go for each kind of control. `plan.ts` decides in
  * data; this words it, with the templates in `strings.ts`.
  *
  * No DOM and no Lit here, so the tests can call it directly.
@@ -121,42 +121,32 @@ export function ignoredText(
 }
 
 /**
- * What Reset gives, beside it (section 5.3): "Reset gives Grid's Default, 12px, not the All
- * Layouts value, 14px".
+ * The Reset button under a field, named for what it leaves (section 5.3): "Reset to Off" where
+ * a value comes back, "Clear" where nothing does, and "Remove" where the control goes with it.
+ * Which default or layout gives the value is the field's state words' to say, not the button's.
  *
+ * @param action - Reset keeps the control; Remove takes it away
  * @param outcome - What `plan.ts` › `resetOutcome` found
  * @param t - The editor's strings
- * @param layout - Names a layout
  * @param word - Words a value
- * @returns The line, or `undefined`
+ * @returns The button's label
  */
-export function outcomeText(
+export function resetLabel(
+  action: 'reset' | 'remove',
   outcome: ResetOutcome | undefined,
   t: Translate,
-  layout: LayoutName,
   word: WordValue,
-): string | undefined {
-  switch (outcome?.kind) {
-    case undefined:
-      return undefined;
-    case 'layout-default':
-      return interpolate(
-        outcome.ignored === undefined
-          ? t('reset.gives_layout_default')
-          : t('reset.gives_layout_default_ignored'),
-        {
-          layout: layout(outcome.view),
-          value: word(outcome.value),
-          ignored: word(outcome.ignored),
-        },
-      );
-    case 'all-layouts':
-      return interpolate(t('reset.gives_all_layouts'), { value: word(outcome.value) });
-    case 'default':
-      return interpolate(t('reset.gives_default'), { value: word(outcome.value) });
-    case 'card':
-      return interpolate(t('reset.gives_card'), { value: word(outcome.value) });
-  }
+): string {
+  if (action === 'remove') return t('reset.remove');
+  if (outcome === undefined) return t('reset.reset');
+  const value = outcome.value;
+  const empty =
+    value === undefined ||
+    value === null ||
+    value === '' ||
+    (Array.isArray(value) && value.length === 0);
+  const worded = empty ? '' : word(value).trim();
+  return worded === '' ? t('reset.clear') : interpolate(t('reset.to'), { value: worded });
 }
 
 /** Names as an Add row draws them: the names, and what follows them where more did not fit. */

@@ -39,6 +39,7 @@ import * as CalendarList from './calendar-list';
 import * as Chips from './chips';
 import * as Colors from './colors';
 import * as Deprecated from './deprecated';
+import { docsUrl } from './docs-pages';
 import * as Entities from './entities';
 import {
   type FieldId,
@@ -2641,7 +2642,7 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Words a field's value as its control shows it, for a state line, a Reset outcome or a stored
+   * Words a field's value as its control shows it, for a state line, a Reset button or a stored
    * line.
    *
    * @param field - The field
@@ -2700,7 +2701,7 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * What a live field shows besides its control (section 5.3): its state words, and under it
-   * what they leave out, what Reset gives, and Reset or Remove.
+   * what they leave out, and Reset or Remove named for what it leaves.
    *
    * @param field - The field
    * @param appearance - How its page shows it
@@ -2747,8 +2748,6 @@ export class CalendarCardProEditor extends LitElement {
               onPress: () => this._open({ kind: 'entry', key }, `calendar-link:${field.id}:${key}`),
             })),
           };
-    const outcomeText = Shown.outcomeText(Plan.resetOutcome(field, pctx), t, layout, word);
-    const outcomeId = `outcome-${field.id.replace(/[^\w-]/g, '-')}`;
     const actions: ShownView.LineButton[] = [];
     if (state?.words?.kind === 'from-all-layouts') {
       actions.push(this._editLayout(t, layout, label, field.id, 'shared'));
@@ -2765,20 +2764,12 @@ export class CalendarCardProEditor extends LitElement {
           : undefined
         : this._resetActionOf(field.id, appearance, pctx, owner);
     if (action !== undefined) {
-      const forLayout = state?.words?.kind === 'set-layout' ? layout(state.words.view) : undefined;
+      const named = Shown.resetLabel(action, Plan.resetOutcome(field, pctx), t, word);
       actions.push({
-        label: action === 'reset' ? t('reset.reset') : t('reset.remove'),
-        name:
-          action === 'reset'
-            ? forLayout
-              ? t('reset.reset_for', { label, layout: forLayout })
-              : t('value_source.reset', { option: label })
-            : interpolate(forLayout ? t('reset.remove_for') : t('reset.remove_named'), {
-                label,
-                layout: forLayout ?? '',
-              }),
+        label: named,
+        // Its name leads with what it shows, then says which field: "Reset to Off: Show Time".
+        name: t('reset.named', { action: named, label }),
         focus: `${action}:${field.id}`,
-        describedBy: outcomeText ? outcomeId : undefined,
         kind: action,
         resetKeys: this._storedKeys(field, pctx, owner),
         onPress: () => this._resetField(field, owner, action, label, heading),
@@ -2786,13 +2777,7 @@ export class CalendarCardProEditor extends LitElement {
     }
     return {
       words,
-      line: ShownView.fieldLine({
-        stored: state?.words !== undefined && state.words.kind.startsWith('set'),
-        notes,
-        calendars,
-        outcome: outcomeText && action ? { id: outcomeId, text: outcomeText } : undefined,
-        actions,
-      }),
+      line: ShownView.fieldLine({ notes, calendars, actions }),
     };
   }
 
@@ -5029,7 +5014,7 @@ export class CalendarCardProEditor extends LitElement {
           ? html`<p class="hint chip-source">${source.join(Summary.SUMMARY_SEPARATOR)}</p>`
           : nothing
       }
-      ${ShownView.fieldLine({ stored: true, notes: [], actions })}
+      ${ShownView.fieldLine({ notes: [], actions })}
       ${
         absent.length > 0 && view !== undefined
           ? html`<p class="hint">
@@ -5045,8 +5030,8 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * Calendar Filter as a segmented radio group of its options, Off, Menu and Chips (section
-   * 5.9), its state words in its name, and under it the line every field has (section 5.3): what
-   * Reset gives and Reset. Picking writes through `_writeFieldValue`, one undo step.
+   * 5.9), its state words in its name, and under it the line every field has (section 5.3):
+   * Reset named for what it leaves. Picking writes through `_writeFieldValue`, one undo step.
    *
    * @param field - `card:toolbar.legend`
    * @param appearance - Its appearance
@@ -5160,7 +5145,7 @@ export class CalendarCardProEditor extends LitElement {
       ${PageView.pageHead(this._pageTitle(page, ctx), t, this._back, this._renderHistory(ctx))}
       ${this._renderPickBanner(ctx)} ${this._jumpDrawn() ? nothing : this._renderReturn(ctx)}
       ${scope} ${page.noteKey ? PageView.pageLine(this._string(ctx, page.noteKey)) : nothing}
-      ${this._renderPageBody(page, ctx)} ${PageView.footBack(t, this._back)}
+      ${this._renderPageBody(page, ctx)} ${PageView.footBack(t, this._back, docsUrl(page.id))}
     </div>`;
   }
 
@@ -7558,7 +7543,7 @@ export class CalendarCardProEditor extends LitElement {
           ' destructive',
         )}
       </div>
-      ${PageView.footBack(t, this._back)}
+      ${PageView.footBack(t, this._back, docsUrl('entry'))}
     </div>`;
   }
 
@@ -8731,7 +8716,7 @@ export class CalendarCardProEditor extends LitElement {
             })
           : nothing
       }
-      ${PageView.footBack(t, this._back)}
+      ${PageView.footBack(t, this._back, docsUrl('notices'))}
     </div>`;
   }
 
@@ -8869,7 +8854,7 @@ export class CalendarCardProEditor extends LitElement {
           : nothing
       }
       ${groups.filter((group) => group.kind === 'kept').map(view)}
-      ${PageView.footBack(t, this._back)}
+      ${PageView.footBack(t, this._back, docsUrl('audit'))}
     </div>`;
   }
 

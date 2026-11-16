@@ -2334,9 +2334,6 @@ describe('editor: the day-header rule', () => {
     expect(column).toBeDefined();
     expect(grid).toBeDefined();
     expect(column).not.toEqual(grid);
-    expect(helperFor(columnConfig(), 'day_header_gap')).not.toEqual(
-      helperFor(gridConfig(), 'day_header_gap'),
-    );
   });
 });
 
