@@ -358,8 +358,12 @@ describe('what the editor reads of hass while it renders', () => {
     for (let step = 0; step < 4; step++) await press('[data-quick-setup-next]');
     expect(editor.shadowRoot!.querySelector('.quick-setup-review')).not.toBeNull();
 
-    const drawn = editorEntityIds({ ...Config.DEFAULT_CONFIG, ...config } as Types.Config);
+    // The answers' weather entity, which the review names, is in the key as their calendars are.
+    const drawn = editorEntityIds({ ...Config.DEFAULT_CONFIG, ...config } as Types.Config, [
+      'weather.home',
+    ]);
     expect(recorder.states).toContain('calendar.anna');
+    expect(recorder.states).toContain('weather.home');
     expect([...recorder.members].filter((member) => member !== 'states')).toEqual(
       [...recorder.members].filter((member) =>
         (EDITOR_HASS_MEMBERS as ReadonlyArray<string>).includes(member),

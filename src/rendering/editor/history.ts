@@ -15,7 +15,11 @@ import type { EditorWorkspace } from './workspace';
 export type MigrationState =
   | { readonly kind: 'current' }
   | { readonly kind: 'automatic' }
-  | { readonly kind: 'choice'; readonly keys: ReadonlyArray<string> }
+  /**
+   * Root options whose meaning v5 split between List and every layout. The editor keeps them for
+   * List, as they were written, when it opens, and with the next change after an Undo of that.
+   */
+  | { readonly kind: 'ambiguous'; readonly keys: ReadonlyArray<string> }
   | { readonly kind: 'future'; readonly version: number }
   | { readonly kind: 'invalid'; readonly value: unknown };
 

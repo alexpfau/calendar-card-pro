@@ -10,7 +10,7 @@
   "color.theme.primary": "Home Assistant's primary colour",
   "color.name.grey": "Grey",
   "color.name.blue_grey": "Blue grey",
-  "quick_setup.review_colors": "Colours from the example for: {calendars}.",
+  "quick_setup.review.colors": "Colours From the Example",
   "split.row_helper": "Turn this entry into two, such as all-day events and events with a time, each with its own colour.",
   "split.step.colors": "Colours",
   "split.how.intro": "Two entries take this one’s place, each with its own colour. Both keep {name}’s other settings and read {entity}; nothing changes in Home Assistant.",
