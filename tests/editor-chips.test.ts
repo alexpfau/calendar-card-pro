@@ -218,12 +218,12 @@ describe('the event-part chips', () => {
   });
 
   // Grid draws no location in its blocks unless told to, so Location reads off there. The line
-  // under the chips says why, as every other field's words say "Grid’s Default".
+  // under the chips says why, as every other field's words say "Default".
   it('names the parts a layout defaults otherwise, until one is stored for it', async () => {
     const editor = await mount({ view: 'grid' });
     await goPage(editor, 'events');
     expect(read(editor, 'Event Details')[2]).toBe('Location');
-    expect(lines(editor)).toContain('Grid’s Default: Location');
+    expect(lines(editor)).toContain('Default: Location');
 
     const stored = await mount({ view: 'grid', time_grid: { show_location: true } });
     await goPage(stored, 'events');
@@ -267,21 +267,19 @@ describe('the event-part chips', () => {
     await changeField(editor, 'workspace:editing_workspace', 'shared');
     await goPage(editor, 'events');
     expect(read(editor, 'Event Details')[2]).toBe('Location');
-    expect(lines(editor)[0]).toBe('Set for All Layouts · Location: Off');
+    expect(lines(editor)[0]).toBe('Set: Location');
 
     await changeField(editor, 'workspace:editing_workspace', 'column');
     await goPage(editor, 'events');
     expect(read(editor, 'Event Details')[2]).toBe('Location ✓');
-    expect(lines(editor)[0]).toBe('Set for Columns, Same as the Default · Location: On');
+    expect(lines(editor)[0]).toBe('Set: Location');
     // A chip's name carries its state words, as any field's does.
-    expect(chips(editor, 'Event Details')[2].getAttribute('aria-label')).toBe(
-      'Location, Set for Columns, Same as the Default',
-    );
+    expect(chips(editor, 'Event Details')[2].getAttribute('aria-label')).toBe('Location, Set');
 
     await changeField(editor, 'workspace:editing_workspace', 'list');
     await goPage(editor, 'events');
     expect(read(editor, 'Event Details')[2]).toBe('Location');
-    expect(lines(editor)[0]).toBe('From All Layouts · Location: Off');
+    expect(lines(editor)[0]).toBe('From All Layouts: Location');
     expect(chips(editor, 'Event Details')[2].getAttribute('aria-label')).toBe(
       'Location, From All Layouts',
     );
@@ -298,34 +296,52 @@ describe('the event-part chips', () => {
       column: { show_location: true },
       list: { show_countdown: true },
     });
-    expect(lines(editor)[0]).toBe(
-      'From All Layouts · Location: Off · Set for List · Countdown: On',
-    );
+    expect(lines(editor)[0]).toBe('From All Layouts: Location · Set: Countdown');
     expect(
       editor.shadowRoot!.querySelector('[data-focus="undo"]')?.getAttribute('aria-label'),
     ).toBe('Undo: Change Show Countdown');
   });
 
-  it('resets a stored part from the line under the chips, for the scope it is stored for', async () => {
-    const editor = await mount({ list: { show_countdown: true, show_location: false } });
+  it('resets every part stored for the scope with one Reset Parts, in one undo step', async () => {
+    const editor = await mount({
+      show_description: false,
+      list: { show_countdown: true, show_location: false },
+    });
     await changeField(editor, 'workspace:editing_workspace', 'list');
     await goPage(editor, 'events');
-    expect(resets(editor)).toEqual([
-      'Reset Location: Reset Show Location for List',
-      'Reset Countdown: Reset Show Countdown for List',
-    ]);
+    // One button for the group, named for every part it resets; the All Layouts one is not here.
+    expect(resets(editor)).toEqual(['Reset Parts: Reset Parts: Location, Countdown']);
 
     editor
-      .shadowRoot!.querySelector<HTMLButtonElement>('[data-focus="reset:events:show_countdown"]')!
+      .shadowRoot!.querySelector<HTMLButtonElement>('[data-focus="reset-chips:parts"]')!
       .click();
+    await editor.updateComplete;
     await editor.updateComplete;
     expect(lastConfig(editor)).toEqual({
       config_version: Config.CURRENT_CONFIG_VERSION,
       entities: ['calendar.anna'],
-      list: { show_location: false },
+      show_description: false,
     });
-    expect(read(editor, 'Event Details')[4]).toBe('Countdown');
-    expect(resets(editor)).toEqual(['Reset Location: Reset Show Location for List']);
+    expect(read(editor, 'Event Details').slice(2, 5)).toEqual([
+      'Location ✓',
+      'Description',
+      'Countdown',
+    ]);
+    expect(resets(editor)).toEqual([]);
+    // Focus lands on the group's first chip, since the button is gone.
+    expect(editor.shadowRoot!.activeElement).toBe(chips(editor, 'Event Details')[0]);
+    expect(
+      editor.shadowRoot!.querySelector('[data-focus="undo"]')?.getAttribute('aria-label'),
+    ).toBe('Undo: Reset Parts');
+
+    editor.shadowRoot!.querySelector<HTMLButtonElement>('[data-focus="undo"]')!.click();
+    await editor.updateComplete;
+    expect(lastConfig(editor)).toEqual({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: ['calendar.anna'],
+      show_description: false,
+      list: { show_countdown: true, show_location: false },
+    });
   });
 
   it('puts focus back on the chip a press changed when Undo restores it', async () => {
@@ -386,7 +402,8 @@ describe('the toolbar on Card & Header', () => {
     expect(group().querySelector('legend')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
       'Calendar Filter · Set',
     );
-    expect(reset()?.getAttribute('aria-label')).toBe('Reset to Menu: Calendar Filter');
+    expect(reset()?.getAttribute('aria-label')).toBe('Reset Calendar Filter to Menu');
+    expect(reset()?.textContent?.trim()).toBe('Reset (Menu)');
     expect(radios().map((radio) => [radio.value, radio.checked])).toEqual([
       ['off', true],
       ['menu', false],
@@ -414,9 +431,7 @@ describe('the toolbar on Card & Header', () => {
     await openPageOf(editor, 'card:toolbar.legend');
 
     editor
-      .shadowRoot!.querySelector<HTMLButtonElement>(
-        '[aria-label="Reset to Menu: Calendar Filter"]',
-      )!
+      .shadowRoot!.querySelector<HTMLButtonElement>('[aria-label="Reset Calendar Filter to Menu"]')!
       .click();
     await editor.updateComplete;
 

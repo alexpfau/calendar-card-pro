@@ -638,9 +638,9 @@ describe('what each owner’s control writes', () => {
     at = control(editor, 'events:allday_badge_color_mode');
     // Its state words follow the choice in its name, as they follow any field's label.
     expect(at.querySelector('.color-toggle')?.getAttribute('aria-label')).toBe(
-      'All-Day Badge Color, Amber, Set for List',
+      'All-Day Badge Color, Amber, Set',
     );
-    expect(at.querySelector('.color-words')?.textContent).toBe('Set for List');
+    expect(at.querySelector('.color-words')?.textContent).toBe('Set');
     await pick(editor, at, '[data-color-row="calendar-accent"]');
     expect(value() ?? 'accent').toBe('accent');
   });
@@ -694,7 +694,7 @@ describe('what each owner’s control writes', () => {
     expect(lastConfig(editor)?.accent_color).toBe('#123456');
     expect(internals(editor)._history.peekUndo()?.label).toBe('Change Accent Color for Anna');
     expect(at.querySelector('.color-toggle')?.getAttribute('aria-label')).toBe(
-      'Accent Color, Pink, Set on This Calendar',
+      'Accent Color, Pink, Set',
     );
     // Its own color gets a way off, which follows the card again.
     const remove = at.querySelector<HTMLButtonElement>('.color-head .icon-button')!;
@@ -726,11 +726,11 @@ describe('a color control’s state line', () => {
     });
     await openPageOf(editor, 'events:allday_badge_color_mode');
     const at = control(editor, 'events:allday_badge_color_mode');
-    expect(at.querySelector('.color-words')?.textContent).toBe('Set for List');
+    expect(at.querySelector('.color-words')?.textContent).toBe('Set');
     const reset = at.querySelector<HTMLButtonElement>(
       '[data-focus="reset:events:allday_badge_color_mode"]',
     );
-    expect(reset?.textContent?.trim()).toBe('Reset to Calendar Accent Color');
+    expect(reset?.textContent?.trim()).toBe('Reset (Calendar Accent Color)');
     reset!.click();
     await editor.updateComplete;
     expect(lastConfig(editor)).not.toHaveProperty('list');
@@ -753,7 +753,7 @@ describe('a color control’s state line', () => {
     );
     const [anna] = keysOf(editor, 'entry');
     const at = await openEntryColor(editor, anna);
-    expect(at.querySelector('.color-words')?.textContent).toBe('Set on This Calendar');
+    expect(at.querySelector('.color-words')?.textContent).toBe('Set');
     const line = at.querySelector<HTMLButtonElement>(
       '[data-focus="reset:calendar:accent_color_mode"], [data-focus="remove:calendar:accent_color_mode"]',
     );

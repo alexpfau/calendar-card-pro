@@ -32,7 +32,7 @@ import {
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import { PANELS } from '../src/rendering/editor/panels';
-import { EDITOR_STRINGS, interpolate } from '../src/rendering/editor/strings';
+import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { WORKSPACE_FIELD } from '../src/rendering/editor/workspace';
 
 const INPUTS = ['schema', 'data', 'hass', 'computeLabel', 'computeHelper'] as const;
@@ -220,7 +220,7 @@ describe('a kept helper', () => {
     await changeField(editor, `workspace:${WORKSPACE_FIELD}`, 'list');
     await openPanels(editor);
     const helper = formOf(editor, 'events:event_font_size')!.computeHelper;
-    const own = interpolate(EDITOR_STRINGS['state.set_layout'], { layout: 'List' });
+    const own = `${EDITOR_STRINGS['state.set']}.`;
     expect(helperOf(editor, 'events:event_font_size') ?? '').not.toContain(own);
 
     await changeField(editor, 'events:event_font_size', '18px');
@@ -236,7 +236,7 @@ describe('a kept helper', () => {
     const editor = await mountEditor({ ...CONFIG, list: { height: '300px' } });
     await changeField(editor, `workspace:${WORKSPACE_FIELD}`, 'list');
     await openPanels(editor);
-    const own = interpolate(EDITOR_STRINGS['state.set_layout'], { layout: 'List' });
+    const own = `${EDITOR_STRINGS['state.set']}.`;
     expect(helperOf(editor, 'layout:card_height')).toContain(own);
 
     await changeField(editor, 'layout:height_mode', 'maximum');

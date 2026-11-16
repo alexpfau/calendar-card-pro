@@ -474,12 +474,12 @@ describe('one field of several calendars', () => {
     const rows = resultRows(editor).filter(({ id }) => id === 'calendar:color');
     expect(rows.map(({ label, meta }) => [label, meta])).toEqual([
       ['Event Color', 'Set on Calendars: 6'],
-      ['Anna', '#e91e63 · Set on This Calendar · YAML: entities[0].color'],
-      ['Ben', '#2196f3 · Set on This Calendar · YAML: entities[1].color'],
-      ['Leo', '#4caf50 · Set on This Calendar · YAML: entities[2].color'],
-      ['Family', '#ff9800 · Set on This Calendar · YAML: entities[3].color'],
-      ['Work', '#9c27b0 · Set on This Calendar · YAML: entities[4].color'],
-      ['Bin Day', '#795548 · Set on This Calendar · YAML: entities[5].color'],
+      ['Anna', '#e91e63 · Set · YAML: entities[0].color'],
+      ['Ben', '#2196f3 · Set · YAML: entities[1].color'],
+      ['Leo', '#4caf50 · Set · YAML: entities[2].color'],
+      ['Family', '#ff9800 · Set · YAML: entities[3].color'],
+      ['Work', '#9c27b0 · Set · YAML: entities[4].color'],
+      ['Bin Day', '#795548 · Set · YAML: entities[5].color'],
     ]);
     expect(text($(editor, `[data-focus="${rows[2].key}"] .result-go`))).toBe('Go to Setting');
 
@@ -814,7 +814,7 @@ describe('the controls the stack below added', () => {
     await searchFor(editor, 'blocklist');
     await openResultGroup(editor, 'calendar:blocklist');
     expect(resultRows(editor).find(({ label }) => label === 'Ben')?.meta).toBe(
-      'Dentist, Gym · Set on This Calendar · YAML: entities[1].blocklist',
+      'Dentist, Gym · Set · YAML: entities[1].blocklist',
     );
   });
 

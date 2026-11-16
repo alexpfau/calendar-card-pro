@@ -65,6 +65,10 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_pickLooks',
     '_picker',
     '_togglePick',
+    // The preview switch on Settings For, which draws the layout being edited and writes nothing.
+    '_previewScope',
+    '_scopePreview',
+    '_togglePreviewScope',
     // How the results are drawn: Edit Here, and the calendars' rows a folded result opened.
     '_editHere',
     '_openResults',
