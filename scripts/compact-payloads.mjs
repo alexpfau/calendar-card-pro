@@ -154,9 +154,40 @@ export function parseEditorTranslation(code, keys, id = 'translation.json') {
   return keys.map((key) => (Object.hasOwn(data, key) ? data[key] : null));
 }
 
+/**
+ * Front-code the sorted key vector by dot segment: each key becomes the number of leading
+ * segments it shares with the key before it (omitted when 0) followed by its remaining
+ * segments. Fails closed unless the emitted decoder returns the vector exactly.
+ */
+export function frontCodeKeys(keys) {
+  let previous = [];
+  const coded = keys.map((key) => {
+    const segments = key.split('.');
+    let shared = 0;
+    while (
+      shared < previous.length &&
+      shared < segments.length - 1 &&
+      previous[shared] === segments[shared]
+    ) {
+      shared++;
+    }
+    previous = segments;
+    return (shared || '') + segments.slice(shared).join('.');
+  });
+  const decoded = new Function(`${decodeKeys(coded)}return keys`)();
+  if (JSON.stringify(decoded) !== JSON.stringify(keys)) {
+    fail('strings.ts', 'Editor keys do not survive front-coding (a leading digit or 10+ segments)');
+  }
+  return coded;
+}
+
+function decodeKeys(coded) {
+  return `const keys=${JSON.stringify(coded)};let prefix=[];for(let i=0;i<keys.length;i++){const shared=+keys[i][0]||0;prefix=prefix.slice(0,shared).concat((shared?keys[i].slice(1):keys[i]).split("."));keys[i]=prefix.join(".")}`;
+}
+
 /** Generate one ordinary-map decoder shared by English and every translated vector. */
 export function editorDecoderSource(keys) {
-  return `const keys=${JSON.stringify(keys)};export default values=>Object.fromEntries(keys.map((key,i)=>[key,values[i]]).filter(([,value])=>value!==null));`;
+  return `${decodeKeys(frontCodeKeys(keys))};export default values=>Object.fromEntries(keys.map((key,i)=>[key,values[i]]).filter(([,value])=>value!==null));`;
 }
 
 /** Compact emitted payloads only; the on-disk English and JSON remain authoring sources. */

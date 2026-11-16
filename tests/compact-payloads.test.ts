@@ -17,6 +17,7 @@ import {
   compactDayjsLocales,
   compactEditorStrings,
   editorDecoderSource,
+  frontCodeKeys,
   parseEditorTranslation,
   parseEnglishStrings,
   trimDayjsLocaleFields,
@@ -729,5 +730,30 @@ describe('real Rollup builds and cache invalidation', () => {
   it('keeps the JSON exclusion narrow and never wraps another plugin by generated-code sniffing', () => {
     expect(EDITOR_TRANSLATION_GLOB).toBe('**/src/rendering/editor/translations/*.json');
     expect(dirname(require.resolve('@rollup/plugin-json'))).toContain('@rollup/plugin-json');
+  });
+});
+
+describe('front-coded key vector', () => {
+  it('round-trips nested, numeric and single-segment keys through the emitted decoder', () => {
+    const keys = [
+      'a',
+      'grid.slot_minutes.option.15.label',
+      'grid.slot_minutes.option.20.label',
+      'grid.title',
+      'z.y',
+    ];
+    expect(frontCodeKeys(keys)).toEqual([
+      'a',
+      'grid.slot_minutes.option.15.label',
+      '320.label',
+      '1title',
+      'z.y',
+    ]);
+    const decode = runInNewContext(editorDecoderSource(keys).replace('export default', 'decode='));
+    expect(Object.keys(decode(keys.map((_, i) => String(i))))).toEqual(keys);
+  });
+
+  it('fails closed on a key the one-digit prefix cannot carry', () => {
+    expect(() => frontCodeKeys(['1st.label'])).toThrow(/front-coding/);
   });
 });
