@@ -335,7 +335,10 @@ describe('what the editor reads of hass while it renders', () => {
       expect(recorder.states).toContain('calendar.anna');
       expect([...recorder.members].filter((member) => !allowed.has(member))).toEqual([]);
       expect([...recorder.states].filter((id) => !drawn.has(id))).toEqual([]);
+      // Over a second in a full local run; the limit is set for CI's slower runner under load
+      // rather than for a hang.
     },
+    30_000,
   );
 
   it('is in its key while Quick Setup reviews the calendars it was given', async () => {

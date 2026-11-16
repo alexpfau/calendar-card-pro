@@ -497,7 +497,9 @@ describe('rendered form frames preserve edit intent', () => {
     expect(seen[0].column).toEqual({ event_font_size: '19px' });
     expect(seen[0].time_grid).toEqual({ event_font_size: '23px' });
     expect(valueOf(editor, 'events:event_font_size')).toBe('14px');
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   /**
    * The other half, and the one that is new. Clearing from List drops the *list* override
@@ -516,7 +518,9 @@ describe('rendered form frames preserve edit intent', () => {
     expect(seen[0]).not.toHaveProperty('list');
     expect(seen[0].event_font_size).toBe('17px');
     expect(valueOf(editor, 'events:event_font_size')).toBe('17px');
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('clears root values written by a synthetic mode control', async () => {
     const { editor, seen } = await mount();
@@ -543,7 +547,10 @@ describe('rendered form frames preserve edit intent', () => {
       expect(seen[0]).not.toHaveProperty(`${View.OVERRIDE_BLOCK_BY_VIEW[view]}.event_font_size`);
       expect(seen[0].event_font_size).toBe('17px');
       expect(valueOf(editor, 'events:event_font_size')).toBe(view === 'grid' ? '12px' : '17px');
+      // Over a second in a full local run; the limit is set for CI's slower runner under load
+      // rather than for a hang.
     },
+    30_000,
   );
 
   it.each(View.VIEWS)(
@@ -562,7 +569,10 @@ describe('rendered form frames preserve edit intent', () => {
       expect(block ? seen.slice(-1)[0]?.[block] : seen.slice(-1)[0]).toMatchObject({
         event_font_size: '24px',
       });
+      // Over a second in a full local run; the limit is set for CI's slower runner under load
+      // rather than for a hang.
     },
+    30_000,
   );
 
   it('preserves nested Grid length input, not only top-level overrides', async () => {
@@ -572,7 +582,9 @@ describe('rendered form frames preserve edit intent', () => {
       expect(valueOf(editor, 'layout:time_grid')).toHaveProperty('hour_height', text);
     }
     expect(seen.slice(-1)[0]?.time_grid).toHaveProperty('hour_height', '60px');
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('preserves synthetic height input using the same scoped pending text', async () => {
     const { editor, seen } = await mount();
@@ -582,7 +594,9 @@ describe('rendered form frames preserve edit intent', () => {
       expect(valueOf(editor, 'layout:card_height')).toBe(text);
     }
     expect(seen.slice(-1)[0]?.time_grid).toHaveProperty('height', '24em');
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('keeps format-only edits without writing an equivalent override again', async () => {
     const { editor, seen } = await mount();
@@ -592,7 +606,9 @@ describe('rendered form frames preserve edit intent', () => {
     await changeField(editor, 'events:event_font_size', '2px');
     expect(valueOf(editor, 'events:event_font_size')).toBe('2px');
     expect(seen).toHaveLength(0);
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('clears raw length text on reset even when it equals the view default', async () => {
     const { editor } = await mount();
@@ -601,7 +617,9 @@ describe('rendered form frames preserve edit intent', () => {
     (await resetButton(editor, 'event_font_size'))!.click();
     await editor.updateComplete;
     expect(valueOf(editor, 'events:event_font_size')).toBe('12px');
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('keeps raw text in its storage scope and clears it on external config', async () => {
     const { editor } = await mount();
@@ -620,7 +638,9 @@ describe('rendered form frames preserve edit intent', () => {
     );
     await editor.updateComplete;
     expect(valueOf(editor, 'events:event_font_size')).toBe('2px');
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('routes a delayed edit to the workspace that rendered its form', async () => {
     const { editor, seen } = await mount();
@@ -814,5 +834,7 @@ describe('entity subforms resolve show_location against the layer being edited',
     });
     await openWorkspace(shown, 'grid');
     expect(hasLocationIcon(shown)).toBe(true);
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 });

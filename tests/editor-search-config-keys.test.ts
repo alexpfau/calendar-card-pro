@@ -89,7 +89,9 @@ describe('editor search finds the control that writes a key', () => {
     // would pass vacuously for any synthetic field the configurations above never reveal.
     const unseen = Object.keys(SYNTHETIC_FIELDS).filter((name) => !seen.has(name));
     expect(unseen, 'synthetic fields no configuration above reveals').toEqual([]);
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('for every per-calendar control, in every shape it takes', () => {
     const config = buildConfig({ entities: ['calendar.anna'] });
@@ -142,7 +144,9 @@ describe('editor search finds the control that writes a key', () => {
     for (const derived of [LABEL_TYPE, ACCENT_COLOR_MODE, LABEL_IMAGE_SOURCE]) {
       expect(seen, `${derived} was never built`).toContain(derived);
     }
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it.each([
     ['time_24h', 'time_format'],

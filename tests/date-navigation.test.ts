@@ -919,7 +919,9 @@ describe('the date navigation', () => {
     // A page back holds today's week: it is still drawn from its own first day.
     await press(card, 'previous');
     expect(drawnDays()).toEqual(Array.from({ length: columns }, (_, i) => 17 - columns + i));
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('draws a page by its dates where empty days are not drawn, so a press never repeats one', async () => {
     // Events only on some days, and a grid that draws only those: a slice by index would hold

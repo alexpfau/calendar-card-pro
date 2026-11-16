@@ -272,5 +272,7 @@ describe('null-valued config options', () => {
     // config, so the block never depends on `normalizeLengthOptions` the way the card
     // level does. The `time_grid.*` sweep above is what covers that path.
     expect(crashIn('block')).toEqual([]);
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 });

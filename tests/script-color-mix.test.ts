@@ -477,7 +477,9 @@ describe('color-mix() the card writes from script, where Safari before 16.2 has 
       'grid:today_background_color': ['grid | grid-container | --calendar-card-grid-today'],
       'grid:weekend_background_color': ['grid | grid-container | --calendar-card-grid-weekend'],
     });
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('writes, where color-mix() is known, exactly the mixes whose floors are listed', () => {
     const written = new Set(
@@ -534,7 +536,9 @@ describe('color-mix() the card writes from script, where Safari before 16.2 has 
     }
     expect(wrong).toEqual([]);
     expect(checked).toBeGreaterThan(COLOR_OPTIONS.length);
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it.each([true, false])('asks the browser once, when it answers %s', (answer) => {
     const supports = vi.fn(() => answer);

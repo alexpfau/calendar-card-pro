@@ -204,22 +204,28 @@ afterEach(() => {
 });
 
 describe('view withholding reconciles both directions', () => {
-  it.each([false, true])('matches every built and rendered field, enabled=%s', async (enabled) => {
-    for (const view of ViewConfig.VIEWS) {
-      const config = configFor(view, enabled);
-      const schemas = PANELS.map((panel) => panel.build(context(config)));
-      const before = structuredClone(schemas);
-      const raw = schemas.flat();
-      const expected = expectedFields(raw, view);
-      expect(fields(raw).length).toBeGreaterThan(50);
-      expect(expected.length).toBeGreaterThan(50);
+  it.each([false, true])(
+    'matches every built and rendered field, enabled=%s',
+    async (enabled) => {
+      for (const view of ViewConfig.VIEWS) {
+        const config = configFor(view, enabled);
+        const schemas = PANELS.map((panel) => panel.build(context(config)));
+        const before = structuredClone(schemas);
+        const raw = schemas.flat();
+        const expected = expectedFields(raw, view);
+        expect(fields(raw).length).toBeGreaterThan(50);
+        expect(expected.length).toBeGreaterThan(50);
 
-      reconcile(fields(Filter.withholdInertFields(raw, view)), expected);
-      const editor = await mount(config);
-      reconcile(drawnInBuiltOrder(editor, expected), expected);
-      expect(schemas).toEqual(before);
-    }
-  });
+        reconcile(fields(Filter.withholdInertFields(raw, view)), expected);
+        const editor = await mount(config);
+        reconcile(drawnInBuiltOrder(editor, expected), expected);
+        expect(schemas).toEqual(before);
+      }
+      // Over a second in a full local run; the limit is set for CI's slower runner under load
+      // rather than for a hang.
+    },
+    30_000,
+  );
 
   it('opens every condition needed to exercise all recorded scopes', () => {
     const encountered = new Set(
@@ -358,7 +364,9 @@ describe('view withholding reconciles both directions', () => {
         expected,
       );
     }
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('uses a calendar-specific verdict and keeps a derived control if any key is relevant', () => {
     vi.spyOn(ViewConfig, 'entityScopeFor').mockImplementation((key) =>
@@ -475,7 +483,9 @@ describe('withholding is not a search filter or a config edit', () => {
       fields(panel.build(context(config))).map((field) => field.key),
     );
     expect(built.filter((key) => !cardKeys.includes(key)).length).toBeGreaterThan(0);
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('preserves hidden root, calendar, and block values through edits and a view round trip', async () => {
     // Split because the v5 migration relocates list-only keys into `list:` on save, on a
@@ -539,7 +549,9 @@ describe('withholding is not a search filter or a config edit', () => {
         .flatMap((form) => fields(form.schema))
         .map((f) => f.key),
     ).not.toContain('empty_day_color');
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 });
 
 describe('empty-day reachability is reconciled across the config partition', () => {
