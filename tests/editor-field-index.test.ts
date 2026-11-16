@@ -242,7 +242,7 @@ describe('field ids', () => {
       `Field ids: ${leaves} leaves over ${DISTINCT.length} distinct corpus states, ` +
         `${EVERY_FIELD.size} ids in all.`,
     );
-    expect(EVERY_FIELD.size).toBe(222);
+    expect(EVERY_FIELD.size).toBe(223);
   });
 
   it('do not depend on the editor language', () => {

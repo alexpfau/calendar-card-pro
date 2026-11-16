@@ -109,17 +109,96 @@ function isCommittableIndicator(value: string): boolean {
   return type === 'image' || type === 'emoji';
 }
 
+/** The start-date choices, in the order the overview's chips offer them. */
+export const START_DATE_MODES = [
+  'default',
+  'tomorrow',
+  'start_of_week',
+  'fixed',
+  'offset',
+] as const;
+
+export type StartDateMode = (typeof START_DATE_MODES)[number];
+
+/** What Tomorrow writes; `+1` reads back as Tomorrow too. */
+const TOMORROW = 'today+1';
+
+/** What Start of Week writes: the anchor the card resolves (`start-date.ts` › `ANCHOR_START_OF_WEEK`). */
+const START_OF_WEEK = 'start_of_week';
+
+/**
+ * The shortcut a stored expression reads as: `today+1` and `+1` as Tomorrow, `start_of_week` as
+ * Start of Week, each exactly as written apart from surrounding space.
+ *
+ * @param value - Stored `start_date`
+ * @returns The shortcut, or undefined for any other value
+ */
+function startDateShortcut(value: string): 'tomorrow' | 'start_of_week' | undefined {
+  const text = value.trim();
+  if (text === TOMORROW || text === '+1') return 'tomorrow';
+  if (text === START_OF_WEEK) return 'start_of_week';
+  return undefined;
+}
+
 /**
  * Derives the start-date mode from the shape of the stored value.
  *
  * @param config - Current configuration
- * @returns Which of the three start-date controls applies
+ * @returns Which of the start-date choices applies
  */
-export function startDateMode(config: Readonly<Types.Config>): 'default' | 'fixed' | 'offset' {
+export function startDateMode(config: Readonly<Types.Config>): StartDateMode {
   const value = config.start_date;
 
   if (!isSet(value)) return 'default';
-  return FIXED_DATE_PATTERN.test(String(value).trim()) ? 'fixed' : 'offset';
+  const text = String(value);
+  if (FIXED_DATE_PATTERN.test(text.trim())) return 'fixed';
+  return startDateShortcut(text) ?? 'offset';
+}
+
+/**
+ * The synthetic mode fields: those a choice of presentation can be held for (section 3.9), as
+ * `start_date_mode` holds Relative to Today over a value that reads as a shortcut.
+ */
+export const MODE_FIELDS: ReadonlyArray<string> = ['start_date_mode'];
+
+/** What a mode reads from: the configuration, and the mode choices held for its scope. */
+export interface ModeCtx {
+  readonly config: Readonly<Types.Config>;
+  /** Held mode choices by mode field name, for the context's scope (`SchemaCtx.presentation`). */
+  readonly presentation?: Readonly<Record<string, string>>;
+}
+
+/**
+ * A mode as the editor presents it: the choice held for it where there is one, which a value
+ * readable as two modes needs, else the mode the stored value reads as. Builders read a mode
+ * through this so the field a held mode reveals is built while the form shows that mode.
+ *
+ * @param ctx - The configuration and the held choices
+ * @param name - The mode field's name
+ * @param derive - How the stored value reads
+ * @returns The mode
+ */
+export function modeFor<T extends string>(
+  ctx: ModeCtx,
+  name: string,
+  derive: (config: Readonly<Types.Config>) => T,
+): T {
+  return (ctx.presentation?.[name] as T | undefined) ?? derive(ctx.config);
+}
+
+/**
+ * What a tap on an event does, as the overview's switch reads it: `on` for exactly the details
+ * action, `off` for none or nothing stored, `other` for anything else, which the switch gives
+ * way to rather than rewrite.
+ *
+ * @param config - Current configuration
+ * @returns Which of the three readings applies
+ */
+export function eventTapReading(config: Readonly<Types.Config>): 'on' | 'off' | 'other' {
+  const tap: Types.ActionConfig | null | undefined = config.event_tap_action;
+  const action = tap?.action;
+  if (action === EVENT_DETAILS_ACTION) return 'on';
+  return action === undefined || action === 'none' ? 'off' : 'other';
 }
 
 /**
@@ -347,22 +426,45 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
     },
   },
 
+  /**
+   * Start Date's five choices. Tomorrow and Start of Week write their expressions, and a value
+   * already reading as the chosen shortcut is kept as written (`+1` stays `+1`). Relative to Today
+   * over a shortcut writes nothing, since the expression is already there to edit; it holds
+   * `offset` as the presentation mode instead, or the shortcut it reads as would press its own
+   * chip again and the Expression field would never appear (section 3.9).
+   */
   start_date_mode: {
     configKeys: ['start_date'],
     derive: (config) => startDateMode(config),
     apply: (value, config) => {
-      const discardDates = { start_date_offset: null, start_date_fixed: null };
+      const discardDates = {
+        start_date_offset: null,
+        start_date_fixed: null,
+        start_date_mode: null,
+      };
+      const current = String(config.start_date ?? '').trim();
+
+      if (value === 'tomorrow' || value === 'start_of_week') {
+        const kept = startDateShortcut(current) === value;
+        const written = value === 'tomorrow' ? TOMORROW : START_OF_WEEK;
+        return {
+          changes: { start_date: kept ? config.start_date : written },
+          pending: discardDates,
+        };
+      }
 
       if (value === 'fixed') {
-        const current = String(config.start_date ?? '');
-        const match = FIXED_DATE_PATTERN.exec(current.trim());
+        const match = FIXED_DATE_PATTERN.exec(current);
         return { changes: { start_date: match ? match[1] : todayIso() }, pending: discardDates };
       }
 
       if (value === 'offset') {
-        const current = String(config.start_date ?? '').trim();
         const carried = current !== '' && !FIXED_DATE_PATTERN.test(current) ? current : null;
-        return { changes: { start_date: carried ?? INITIAL_OFFSET }, pending: discardDates };
+        const held = carried !== null && startDateShortcut(carried) !== undefined;
+        return {
+          changes: { start_date: carried ?? INITIAL_OFFSET },
+          pending: { ...discardDates, start_date_mode: held ? 'offset' : null },
+        };
       }
 
       return { changes: { start_date: undefined }, pending: discardDates };
@@ -388,7 +490,11 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
 
   start_date_offset: {
     configKeys: ['start_date'],
-    derive: (config) => (startDateMode(config) === 'offset' ? String(config.start_date) : ''),
+    // A shortcut is an expression too: shown here while Relative to Today is held over it.
+    derive: (config) => {
+      const mode = startDateMode(config);
+      return mode === 'default' || mode === 'fixed' ? '' : String(config.start_date);
+    },
     apply: (value) => {
       const text = String(value ?? '');
 
@@ -641,6 +747,22 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
         ? { changes: { today_indicator: text }, pending: { today_indicator_custom: null } }
         : { changes: {}, pending: { today_indicator_custom: text } };
     },
+  },
+
+  /**
+   * Tapping an Event Opens It: on stores `{ action: details }`, off removes the line, since the
+   * default is `{ action: none }`. It reads on for the details action alone; any other stored
+   * action is shown as a line instead of the switch (`eventTapReading`), so the switch never
+   * rewrites an action it did not write.
+   */
+  event_opens_details: {
+    configKeys: ['event_tap_action'],
+    derive: (config) => eventTapReading(config) === 'on',
+    apply: (value) => ({
+      changes: {
+        event_tap_action: value === true ? { action: EVENT_DETAILS_ACTION } : undefined,
+      },
+    }),
   },
 
   /**

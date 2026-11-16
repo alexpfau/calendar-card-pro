@@ -815,6 +815,7 @@ describe('editor: change detection', () => {
       'card_max_height',
       'countdown_once_per_day',
       'day_tap_action_mode',
+      'event_opens_details',
       'filter_duplicates_mode',
       'height_mode',
       'language_mode',
@@ -2774,7 +2775,8 @@ describe('editor: the Actions & Refresh panel', () => {
     }) as unknown as Types.Config;
 
   /**
-   * Pinned by value, both states. The event tap follows the hold rather than the tap it is
+   * Pinned by value, both states. The overview's Tapping an Event Opens It is built here, before
+   * the action it is the shortcut for. The event tap follows the hold rather than the tap it is
    * named after, the dialog's two switches sit directly under the dropdown that reveals
    * them, and the refresh pair closes the panel. No headings: a split between card and
    * event taps would misfile the hold, which runs on events too.
@@ -2784,6 +2786,7 @@ describe('editor: the Actions & Refresh panel', () => {
       'tap_action',
       'hold_action',
       'day_tap_action_mode',
+      'event_opens_details',
       'event_tap_action',
       'event_hold_action',
       'open_links',
@@ -2825,6 +2828,7 @@ describe('editor: the Actions & Refresh panel', () => {
       'tap_action',
       'hold_action',
       'day_tap_action_mode',
+      'event_opens_details',
       'event_tap_action',
       'event_hold_action',
       'allow_event_edit',
@@ -2840,6 +2844,7 @@ describe('editor: the Actions & Refresh panel', () => {
       'tap_action',
       'hold_action',
       'day_tap_action_mode',
+      'event_opens_details',
       'event_tap_action',
       'event_hold_action',
       'allow_event_edit',

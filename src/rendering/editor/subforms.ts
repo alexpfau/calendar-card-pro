@@ -107,6 +107,7 @@ export const REFERENCED_STRINGS: ReadonlyArray<string> = [
   'search',
   'split',
   'word_list',
+  'tap',
 ];
 
 export const CHASSIS_STRINGS: ReadonlyArray<string> = [

@@ -54,6 +54,7 @@ import {
   OVERVIEW_FIELDS,
   PAGES,
   type PageDef,
+  type PageId,
   isWholeCard,
   placementOf,
 } from './pages';
@@ -365,6 +366,19 @@ interface SplitSession extends Preview.PreviewSession {
 /** What a color control writes for one of its rows or swatches (`colors.ts` › `ColorSpec`). */
 type ColorWrite = Colors.ColorSpec['sources'][number]['write'];
 
+/** Start Date's mode, drawn as the overview's chips (section 5.9). */
+const START_DATE_FIELD: FieldId = 'content:start_date_mode';
+
+/** Tapping an Event Opens It, which gives way to a line while another action is stored. */
+const OPENS_DETAILS_FIELD: FieldId = 'actions:event_opens_details';
+
+/** The word lists, drawn as one term at a time while their pattern reads as terms. */
+const WORD_LIST_FIELDS: ReadonlySet<FieldId> = new Set([
+  'calendar:blocklist',
+  'calendar:allowlist',
+  'events:location_country_pattern',
+]);
+
 /** What a color control is drawn for (`element.ts` › `_renderColor`). */
 interface ColorArgs {
   readonly owner: WriteFrames.WriteOwner;
@@ -621,6 +635,15 @@ export class CalendarCardProEditor extends LitElement {
   @state() private _config?: Types.Config;
 
   @state() private _pending: Record<string, string> = {};
+
+  /** The word lists shown as a pattern by choice, by owner and field (`_wordKey`). */
+  @state() private _wordModes: ReadonlyMap<string, 'pattern'> = new Map();
+
+  /**
+   * The terms a word list's form last sent, by owner and field, shown while they still write the
+   * stored pattern: a term just added is empty, and writes nothing until it is typed.
+   */
+  @state() private _wordDrafts: ReadonlyMap<string, ReadonlyArray<string>> = new Map();
 
   // Essentials Only is remembered in this browser; search and Customized Only start clear.
   @state() private _filter: Filter.FilterCriteria = {
@@ -1313,8 +1336,28 @@ export class CalendarCardProEditor extends LitElement {
    * @returns Schema context for the current configuration
    */
   private get _ctx(): SchemaCtx {
-    return this._ctxFor(this._config!, this._workspace, this.hass?.locale);
+    return this._ctxFor(
+      this._config!,
+      this._workspace,
+      this.hass?.locale,
+      this._heldModes(this._pending, this._workspace),
+    );
   }
+
+  /**
+   * The mode choices held for a scope, by mode field name (`SchemaCtx.presentation`), kept while
+   * equal so held text elsewhere leaves the context as it was.
+   */
+  private _heldModes = Helpers.memoizeLast(
+    (pending: Readonly<Record<string, string>>, workspace: Workspace.EditorWorkspace): string => {
+      const held: Record<string, string> = {};
+      for (const name of Synthetic.MODE_FIELDS) {
+        const value = pending[Routing.pendingKey(name, workspace)];
+        if (value !== undefined) held[name] = value;
+      }
+      return JSON.stringify(held);
+    },
+  );
 
   /**
    * The schema context, made again only when the configuration, the workspace or Home
@@ -1326,6 +1369,7 @@ export class CalendarCardProEditor extends LitElement {
       rawConfig: Types.Config,
       workspace: Workspace.EditorWorkspace,
       locale: Types.Hass['locale'],
+      held: string,
     ): SchemaCtx => {
       const config = Routing.workspaceConfig(rawConfig, workspace);
       // Shared has no layout of its own, so its panels are built as list — the base every
@@ -1339,6 +1383,7 @@ export class CalendarCardProEditor extends LitElement {
         config,
         rawConfig,
         language: LanguageCodes.getEffectiveLanguage(config.language, locale),
+        presentation: JSON.parse(held) as Record<string, string>,
       };
     },
   );
@@ -1880,7 +1925,16 @@ export class CalendarCardProEditor extends LitElement {
         this._drawing.shown.has(spec.mode);
       return absorbed ? html`` : this._renderColorField(field, spec, colors, ctx);
     }
+    const composed =
+      field.id === START_DATE_FIELD
+        ? this._renderStartDate(field, ctx)
+        : field.id === OPENS_DETAILS_FIELD && Synthetic.eventTapReading(ctx.config) === 'other'
+          ? this._renderTapLine(field, ctx)
+          : undefined;
+    if (composed !== undefined) return this._jumpedCardField(field, ctx, composed);
     const slot = `field.${field.id}`;
+    const words = this._renderWords(WriteFrames.CARD_OWNER, field, this._formData(), ctx, slot);
+    if (words !== undefined) return this._jumpedCardField(field, ctx, words);
     const schema = this._intern(slot, field.lifted);
     const data = this._intern(`${slot}.data`, Routing.formDataFor(this._formData(), schema));
     const [hass, feed] = this._feed(schema, ctx.language);
@@ -1917,11 +1971,294 @@ export class CalendarCardProEditor extends LitElement {
             this._valueChanged(frame, event, field.labelPath, `field:${field.id}`)}
         ></ha-form>`,
       )}
+      ${this._wordToggle(WriteFrames.CARD_OWNER, field, data, ctx)}
     </div>`;
+    return this._jumpedCardField(field, ctx, wrapper);
+  }
+
+  /**
+   * A card field as drawn, inside the group a search result opened it with where it is that one.
+   *
+   * @param field - The field
+   * @param ctx - Schema context
+   * @param wrapper - The field as drawn
+   * @returns The field, inside the group where a result opened it
+   */
+  private _jumpedCardField(
+    field: IndexedField,
+    ctx: SchemaCtx,
+    wrapper: TemplateResult,
+  ): TemplateResult {
     const jump = this._jump;
     return jump?.target.kind === 'field' && jump.target.id === field.id
       ? this._jumpTo(ctx, wrapper)
       : wrapper;
+  }
+
+  /**
+   * Start Date as the overview's radio chips: Today, Tomorrow, Start of Week, A Fixed Date and
+   * Relative to Today, the last two revealing their field below. The chosen chip is the mode as
+   * presented, so Relative to Today held over a shortcut stays chosen (`synthetic.ts` ›
+   * `start_date_mode`). Each choice writes through the field, one undo step.
+   *
+   * @param field - The mode field
+   * @param ctx - Schema context
+   * @returns The chips
+   */
+  private _renderStartDate(field: IndexedField, ctx: SchemaCtx): TemplateResult {
+    const name = field.node.name;
+    const value = String(Routing.formDataFor(this._formData(), field.lifted)[name] ?? '');
+    const selector = field.node.selector;
+    const options = 'select' in selector ? (selector.select?.options ?? []) : [];
+    const label = fieldLabel(field, ctx.language);
+    const workspace = ctx.workspace ?? ctx.view;
+    return Overview.radioChips(
+      field.id,
+      name,
+      label,
+      options.map((option) =>
+        typeof option === 'string' ? { value: option, label: option } : option,
+      ),
+      value,
+      (mode) =>
+        this._commit(
+          interpolate(this._string(ctx, 'history.change'), { setting: label }),
+          undefined,
+          () => this._writeFieldValue(WriteFrames.CARD_OWNER, field.id, mode, workspace),
+          `field:${field.id}`,
+        ),
+    );
+  }
+
+  /**
+   * The line Tapping an Event Opens It gives way to while another action is stored, "Tapping an
+   * Event: Navigate", and Change, which opens Taps & Refresh at Event Tap Action. The switch would
+   * read that action as off, and turning it on or off would replace an action it never wrote.
+   *
+   * @param field - The switch's field
+   * @param ctx - Schema context
+   * @returns The line
+   */
+  private _renderTapLine(field: IndexedField, ctx: SchemaCtx): TemplateResult {
+    const stored = ctx.config.event_tap_action;
+    const action =
+      this._describe({ node: { name: 'event_tap_action', selector: { ui_action: {} } } }, stored) ??
+      String(stored?.action ?? '');
+    return Overview.tapLine(field.id, this._t(ctx), action, () =>
+      this._openField('taps_refresh', 'actions:event_tap_action', 'tap:change'),
+    );
+  }
+
+  /**
+   * Opens a page at one of its fields: the page as a row opens it, then the field brought to the
+   * top and focused on its wrapper.
+   *
+   * @param page - The page
+   * @param id - The field
+   * @param focusKey - The `data-focus` key of the control that opened it, which Back restores
+   */
+  private _openField(page: PageId, id: FieldId, focusKey: string): void {
+    this._open({ kind: 'page', page }, focusKey);
+    void this.updateComplete.then(() => {
+      const target = this.renderRoot.querySelector<HTMLElement>(`[data-field="${CSS.escape(id)}"]`);
+      if (target === null) return;
+      Focus.scrollToTop(this, target);
+      target.focus();
+    });
+  }
+
+  /**
+   * Which word list a choice or a draft is kept for: its owner and its field.
+   *
+   * @param owner - Whose list
+   * @param field - The field
+   * @returns The key
+   */
+  private _wordKey(owner: WriteFrames.WriteOwner, field: IndexedField): string {
+    return `${WriteFrames.ownerKey(owner)}|${field.id}`;
+  }
+
+  /**
+   * The terms a word list's stored value reads as, as its form shows them.
+   *
+   * @param value - The stored value
+   * @returns The terms; undefined for a pattern, which stays one
+   */
+  private _wordsOf(value: unknown): ReadonlyArray<string> | undefined {
+    if (value === undefined || value === null) return [];
+    return typeof value === 'string' ? WordLists.fromPattern(value) : undefined;
+  }
+
+  /**
+   * A word list as one term at a time (section 5.9): Home Assistant's text selector with
+   * `multiple`, while the stored value is empty or reads as plain terms and Use a Pattern has not
+   * been chosen. Terms are written as one pattern (`word-lists.ts` › `toPattern`), so an empty list
+   * writes an empty one, which deletes a calendar's line.
+   *
+   * @param owner - Whose list
+   * @param field - The field
+   * @param data - The owner's form data
+   * @param ctx - Schema context
+   * @param slot - The field's form slot
+   * @param ownerName - The calendar's name, for the undo label
+   * @returns The field; undefined where it is drawn as a pattern
+   */
+  private _renderWords(
+    owner: WriteFrames.WriteOwner,
+    field: IndexedField,
+    data: Readonly<Record<string, unknown>>,
+    ctx: SchemaCtx,
+    slot: string,
+    ownerName?: string,
+  ): TemplateResult | undefined {
+    if (!WORD_LIST_FIELDS.has(field.id) || field.dataPath.length > 0) return undefined;
+    const key = this._wordKey(owner, field);
+    const name = field.node.name;
+    const stored = data[name];
+    const terms = this._wordsOf(stored);
+    if (terms === undefined || this._wordModes.has(key)) return undefined;
+    const draft = this._wordDrafts.get(key);
+    const pattern = typeof stored === 'string' ? stored : '';
+    const shown = draft !== undefined && WordLists.toPattern(draft) === pattern ? draft : terms;
+    const schema = this._intern(`${slot}.words`, [
+      { name, selector: { text: { multiple: true } } },
+    ] satisfies HaFormSchema[]);
+    const own = this._intern(`${slot}.words.data`, { [name]: [...shown] });
+    const [hass, feed] = this._feed(schema, ctx.language);
+    const label = fieldLabel(field, ctx.language);
+    const workspace = ctx.workspace ?? ctx.view;
+    return html`<div
+      class="field"
+      data-field=${field.id}
+      data-composed="words"
+      tabindex="-1"
+      role="group"
+      aria-label=${label}
+    >
+      ${keyed(
+        workspace,
+        html`<ha-form
+          class=${owner.kind === 'card' ? 'field-form' : 'entity-form'}
+          data-hass=${feed}
+          .hass=${hass}
+          .data=${own}
+          .schema=${schema}
+          .computeLabel=${this._labeler(ctx.language, field.labelPath)}
+          .computeHelper=${
+            owner.kind === 'card'
+              ? this._helper(slot, schema, ctx, field.labelPath)
+              : this._subformHelper(ctx, field.labelPath, true)
+          }
+          .localizeValue=${this._localizeValue}
+          @value-changed=${(event: CustomEvent) =>
+            this._wordsChanged(owner, field, event, workspace, label, ownerName)}
+        ></ha-form>`,
+      )}
+      ${this._wordButton(key, 'pattern', this._string(ctx, 'word_list.use_pattern'))}
+    </div>`;
+  }
+
+  /**
+   * Use Words under a word list drawn as a pattern, offered only while that pattern reads as
+   * plain terms.
+   *
+   * @param owner - Whose list
+   * @param field - The field
+   * @param data - Its form's data
+   * @param ctx - Schema context
+   * @returns The button, or nothing
+   */
+  private _wordToggle(
+    owner: WriteFrames.WriteOwner,
+    field: IndexedField,
+    data: Readonly<Record<string, unknown>>,
+    ctx: SchemaCtx,
+  ): TemplateResult | typeof nothing {
+    if (!WORD_LIST_FIELDS.has(field.id)) return nothing;
+    if (this._wordsOf(data[field.node.name]) === undefined) return nothing;
+    return this._wordButton(
+      this._wordKey(owner, field),
+      'words',
+      this._string(ctx, 'word_list.use_words'),
+    );
+  }
+
+  /**
+   * Use a Pattern or Use Words: switches a word list's presentation for the session, writing
+   * nothing, and keeps focus on the button that takes its place.
+   *
+   * @param key - The list (`_wordKey`)
+   * @param to - The presentation it switches to
+   * @param text - Its label
+   * @returns The button
+   */
+  private _wordButton(key: string, to: 'pattern' | 'words', text: string): TemplateResult {
+    const focus = `words:${key}`;
+    return html`<button
+      type="button"
+      class="text-button word-mode"
+      data-focus=${focus}
+      @click=${() => {
+        const modes = new Map(this._wordModes);
+        if (to === 'pattern') modes.set(key, 'pattern');
+        else modes.delete(key);
+        this._wordModes = modes;
+        void this.updateComplete.then(() =>
+          this.renderRoot.querySelector<HTMLElement>(Focus.byFocusKey(focus))?.focus(),
+        );
+      }}
+    >
+      ${text}
+    </button>`;
+  }
+
+  /**
+   * A word list's terms, written as one pattern: coalesced like typing, so a word typed is one
+   * undo step. The terms are kept as sent, so a term just added stays shown while it is empty.
+   * A plain value, as a text field without `multiple` would send, is written as the pattern it is.
+   *
+   * @param owner - Whose list
+   * @param field - The field
+   * @param event - The form's `value-changed`
+   * @param workspace - The scope the form was drawn for
+   * @param setting - The field's label, for the undo label
+   * @param ownerName - The calendar's name, for the undo label
+   */
+  private _wordsChanged(
+    owner: WriteFrames.WriteOwner,
+    field: IndexedField,
+    event: CustomEvent,
+    workspace: Workspace.EditorWorkspace,
+    setting: string,
+    ownerName?: string,
+  ): void {
+    event.stopPropagation();
+    const incoming = event.detail?.value as Record<string, unknown> | undefined;
+    if (!incoming) return;
+    const value = incoming[field.node.name];
+    const key = this._wordKey(owner, field);
+    const drafts = new Map(this._wordDrafts);
+    let pattern: string;
+    if (Array.isArray(value)) {
+      const terms = value.map((term) => (typeof term === 'string' ? term : String(term ?? '')));
+      drafts.set(key, terms);
+      pattern = WordLists.toPattern(terms);
+    } else {
+      drafts.delete(key);
+      pattern = typeof value === 'string' ? value : '';
+    }
+    this._wordDrafts = drafts;
+    const ctx = this._ctx;
+    const label =
+      ownerName === undefined
+        ? interpolate(this._string(ctx, 'history.change'), { setting })
+        : interpolate(this._string(ctx, 'history.change_for'), { setting, name: ownerName });
+    this._commit(
+      label,
+      `${key}|words|${workspace}`,
+      () => this._writeFieldValue(owner, field.id, pattern, workspace),
+      `field:${field.id}`,
+    );
   }
 
   /**
@@ -4210,6 +4547,15 @@ export class CalendarCardProEditor extends LitElement {
       );
     }
     const slot = `entry.${key}.${field.id}`;
+    const words = this._renderWords(
+      { kind: 'entry', key },
+      field,
+      data,
+      ctx,
+      slot,
+      this._calendarName(Synthetic.entityIdOf(this._entryOf(key) ?? '')),
+    );
+    if (words !== undefined) return this._jumpedEntryField(ctx, key, field, words);
     const schema = this._intern(slot, field.lifted);
     // The field's own projection of the entry's data, as a card field gets, so a write to one
     // field hands no other form a new object.
@@ -4251,6 +4597,7 @@ export class CalendarCardProEditor extends LitElement {
             )}
         ></ha-form>`,
       )}
+      ${this._wordToggle({ kind: 'entry', key }, field, own, ctx)}
     </div>`;
     return this._jumpedEntryField(ctx, key, field, wrapper);
   }

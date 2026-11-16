@@ -88,6 +88,7 @@ import {
 } from '../../src/rendering/editor/schemas/quick-setup';
 import { chassisSchemas } from '../../src/rendering/editor/subforms';
 import * as Value from '../../src/rendering/editor/value';
+import * as WordLists from '../../src/rendering/editor/word-lists';
 import { WORKSPACES } from '../../src/rendering/editor/workspace';
 import * as Helpers from '../../src/utils/helpers';
 
@@ -281,12 +282,40 @@ function entryIndexes(editor: EditorElement, root: ShadowRoot): Map<Element, num
   }
   const data = Entities.toEntityFormData(entries[index], entries);
   for (const form of page.querySelectorAll<FormElement>('ha-form.entity-form')) {
-    if (!Value.deepEqual(form.data, Routing.formDataFor(data, form.schema))) {
+    if (
+      !Value.deepEqual(asWritten(form), asWritten(form, Routing.formDataFor(data, form.schema)))
+    ) {
       outOfStep(`The page of entry ${index} holds another entry's data`);
     }
   }
   indexes.set(page, index);
   return indexes;
+}
+
+/**
+ * A form's data as it writes it: a word list drawn one term at a time (`text` with `multiple`)
+ * holds its terms, and writes them as one pattern (`word-lists.ts` › `toPattern`), where an empty
+ * list writes no line at all, as an absent value is none.
+ *
+ * @param form - The form
+ * @param data - Data in its shape, its own when omitted
+ * @returns The data, each list of terms as the pattern it writes and no line where it writes none
+ */
+function asWritten(
+  form: FormElement,
+  data: Readonly<Record<string, unknown>> = form.data,
+): Record<string, unknown> {
+  const written = { ...data };
+  for (const node of form.schema) {
+    const selector = 'selector' in node ? node.selector : undefined;
+    if (selector === undefined || !('text' in selector) || selector.text?.multiple !== true)
+      continue;
+    const value = written[node.name];
+    const pattern = Array.isArray(value) ? WordLists.toPattern(value.map(String)) : value;
+    if (pattern === '' || pattern === undefined) delete written[node.name];
+    else written[node.name] = pattern;
+  }
+  return written;
 }
 
 /**
@@ -350,7 +379,7 @@ function placeForm(
   buttons: ReadonlyMap<Element, number>,
 ): Drawn {
   const classes = form.classList;
-  const control = colorControls.get(form);
+  const control = colorControls.get(form) ?? composedControls.get(form);
   if (control !== undefined) {
     const id = control.getAttribute('data-field')!;
     const page = control.closest('.entry-page');
@@ -430,15 +459,18 @@ function drawnForms(editor: EditorElement): Drawn[] {
 function liveForms(editor: EditorElement, root: ShadowRoot, page?: string): Drawn[] {
   const entries = entryIndexes(editor, root);
   const buttons = buttonIndexes(editor, root);
-  // A color control stands for the fields it edits, Custom's text field among them.
-  return [...root.querySelectorAll<HTMLElement>('ha-form, .color-field')]
+  // A color control stands for the fields it edits, Custom's text field among them, and any other
+  // control the editor composes for its field (`composedForm`).
+  return [...root.querySelectorAll<HTMLElement>('ha-form, .color-field, [data-composed]')]
     .filter((form) => form.closest('[inert]') === null)
     .flatMap((node) =>
       node.classList.contains('color-field')
         ? [colorForm(editor, node)]
-        : node.closest('.color-field') === null
-          ? [node as FormElement]
-          : [],
+        : node.hasAttribute('data-composed')
+          ? [composedForm(editor, node)]
+          : node.closest('.color-field, [data-composed]') === null
+            ? [node as FormElement]
+            : [],
     )
     .map((form, at) => {
       const drawn = { ...placeForm(form, at + 1, entries, buttons), page };
@@ -619,6 +651,131 @@ function driveColor(
       draw();
     }
   }
+}
+
+/** The control each composed control's stand-in form stands for, by stand-in. */
+const composedControls = new WeakMap<Element, Element>();
+
+/** The stand-in form for each composed control, by the control's wrapper. */
+const composedForms = new WeakMap<Element, FormElement>();
+
+/**
+ * The field a composed control is drawn for, and the data its owner's forms hold, as now.
+ *
+ * @param editor - Editor element
+ * @param control - The control's wrapper, `[data-composed]`
+ * @returns The field and the owner's data
+ */
+function composedFieldOf(
+  editor: EditorElement,
+  control: Element,
+): { readonly field: IndexedField; readonly data: Record<string, unknown> } {
+  const id = control.getAttribute('data-field')!;
+  const ctx = stateOf(editor)._ctx;
+  const entities = heldConfig(editor)?.entities ?? [];
+  const key = keyOf(control.closest('.entry-page'));
+  const entry = key === undefined ? undefined : entities[keysOf(editor, 'entry').indexOf(key)];
+  if (key !== undefined && entry === undefined) outOfStep(`No entry is keyed ${key}`);
+  const field = (
+    entry === undefined
+      ? buildFieldIndex(ctx).fields
+      : entityFieldIndex(entrySchema(entry, ctx)).fields
+  ).get(id);
+  if (field === undefined) outOfStep(`'${id}' is drawn as a composed control but is not built`);
+  const data =
+    entry === undefined
+      ? (editor as unknown as { _formData(): Record<string, unknown> })._formData()
+      : Entities.toEntityFormData(entry, entities);
+  return { field, data };
+}
+
+/**
+ * A control the editor composes for one field, as a form standing for that field, as a color
+ * control's stand-in does: its schema is the field's, its data the editor's own value for it, its
+ * label and helper the field's. Three are composed:
+ *
+ * - `chips`, Start Date's radio chips: a change is made by choosing the chip;
+ * - `line`, the line Tapping an Event Opens It gives way to while another action is stored, which
+ *   takes no change;
+ * - `words`, a word list one term at a time: its value is the pattern the terms write, and a change
+ *   to it is sent to its form as the terms that pattern reads as.
+ *
+ * @param editor - Editor element
+ * @param control - The control's wrapper, `[data-composed]`
+ * @returns The stand-in
+ */
+function composedForm(editor: EditorElement, control: Element): FormElement {
+  const known = composedForms.get(control);
+  if (known !== undefined) return known;
+  const kind = control.getAttribute('data-composed');
+  const id = control.getAttribute('data-field')!;
+  const form = document.createElement('div') as unknown as FormElement;
+  form.className = 'composed-form';
+  const words = kind === 'words' ? control.querySelector<FormElement>('ha-form') : null;
+  if (kind === 'words' && words === null) outOfStep(`The word list '${id}' draws no form`);
+  Object.defineProperties(form, {
+    schema: { get: () => composedFieldOf(editor, control).field.lifted },
+    data: {
+      get: () => {
+        const { data } = composedFieldOf(editor, control);
+        return Routing.formDataFor(data, form.schema);
+      },
+    },
+    // As the form it draws is handed it, or as a form of the field's would be (`element.ts` › `_feed`).
+    hass: {
+      get: () => {
+        if (words !== null) return words.hass;
+        const hass = (editor as unknown as { hass?: Types.Hass }).hass;
+        const language = stateOf(editor)._ctx.language;
+        return HassKey.needsLiveHass(form.schema)
+          ? withCardActionLabels(hass, language)
+          : HassKey.steadyHass(hass, language);
+      },
+    },
+    computeLabel: {
+      value: () =>
+        fieldLabel(composedFieldOf(editor, control).field, stateOf(editor)._ctx.language),
+    },
+    computeHelper: {
+      value: () =>
+        words !== null
+          ? words.computeHelper?.(words.schema[0])
+          : fieldHelper(composedFieldOf(editor, control).field, stateOf(editor)._ctx),
+    },
+  });
+  form.closest = ((selector: string) => control.closest(selector)) as typeof form.closest;
+  form.dispatchEvent = (event: Event): boolean => {
+    const { field } = composedFieldOf(editor, control);
+    const value = atPath((event as CustomEvent).detail?.value ?? {}, [
+      ...field.dataPath,
+      field.node.name,
+    ]);
+    if (kind === 'chips') {
+      const input = control.querySelector<HTMLInputElement>(
+        `input[type="radio"][value="${String(value)}"]`,
+      );
+      if (!input) outOfStep(`'${id}' offers no ${String(value)}`);
+      input.checked = true;
+      return input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    if (kind === 'words' && words !== null) {
+      const terms = WordLists.fromPattern(typeof value === 'string' ? value : '');
+      if (terms === undefined) {
+        outOfStep(`'${id}' is drawn as words, which cannot hold ${String(value)}: Use a Pattern`);
+      }
+      return words.dispatchEvent(
+        new CustomEvent('value-changed', {
+          detail: { value: { [field.node.name]: [...terms] } },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+    }
+    return outOfStep(`'${id}' is drawn as a line, which takes no change`);
+  };
+  composedControls.set(form, control);
+  composedForms.set(control, form);
+  return form;
 }
 
 /** What `openPanels` kept from every page it visited, and what the editor held then. */

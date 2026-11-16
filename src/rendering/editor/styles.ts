@@ -479,7 +479,8 @@ export default css`
   .icon-button:hover,
   .nav-row:hover,
   .display-choice:hover,
-  .scope-choice:hover {
+  .scope-choice:hover,
+  .chip-choice:hover {
     background: var(--secondary-background-color);
   }
 
@@ -491,7 +492,8 @@ export default css`
   .heading:focus-visible,
   .page-title:focus-visible,
   .display-choice:focus-within,
-  .scope-choice:focus-within {
+  .scope-choice:focus-within,
+  .chip-choice:focus-within {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
   }
@@ -524,7 +526,9 @@ export default css`
   }
 
   .scope,
-  .displays {
+  .displays,
+  .chips,
+  .tap-line {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -534,7 +538,8 @@ export default css`
     border: none;
   }
 
-  .scope-compact {
+  .scope-compact,
+  .tap-line {
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
@@ -545,18 +550,21 @@ export default css`
     color: var(--secondary-text-color);
   }
 
-  .scope-line b {
+  .scope-line b,
+  .tap-line b {
     color: var(--primary-text-color);
     font-weight: 500;
   }
 
-  .scope-choices {
+  .scope-choices,
+  .chip-choices {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
   }
 
-  .scope-choice {
+  .scope-choice,
+  .chip-choice {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -568,6 +576,7 @@ export default css`
   }
 
   .scope-choice:has(input:checked),
+  .chip-choice:has(input:checked),
   .display-choice:has(input:checked) {
     border-color: var(--primary-color);
   }
@@ -784,6 +793,11 @@ export default css`
     flex-direction: column;
     gap: 4px;
     border-radius: 4px;
+  }
+
+  /* Use a Pattern and Use Words sit under their list at their own width. */
+  .word-mode {
+    align-self: flex-start;
   }
 
   /* --- The calendar list and entry pages ------------------------------------

@@ -131,6 +131,100 @@ export function scopeControl(
   </fieldset>`;
 }
 
+/** One chip of a group of radio chips. */
+export interface ChipChoice {
+  readonly value: string;
+  readonly label: string;
+}
+
+/**
+ * A field drawn as radio chips, as Start Date is on the overview: native radios inside the
+ * field's own wrapper, so arrow keys move within the group, drawn as Settings For's choices are.
+ *
+ * @param id - The field's id, which its wrapper names
+ * @param name - The radios' name
+ * @param label - The group's name
+ * @param choices - The chips, in order
+ * @param value - The chosen one
+ * @param onPick - A chip was chosen
+ * @returns The group
+ */
+export function radioChips(
+  id: string,
+  name: string,
+  label: string,
+  choices: ReadonlyArray<ChipChoice>,
+  value: string,
+  onPick: (value: string) => void,
+): TemplateResult {
+  return html`<fieldset
+    class="field chips"
+    data-field=${id}
+    data-composed="chips"
+    tabindex="-1"
+    aria-label=${label}
+  >
+    <legend class="label">${label}</legend>
+    <div class="chip-choices">
+      ${choices.map(
+        (choice) =>
+          html`<label class="chip-choice">
+            <input
+              type="radio"
+              name=${name}
+              value=${choice.value}
+              data-focus=${`${name}:${choice.value}`}
+              .checked=${choice.value === value}
+              @change=${() => onPick(choice.value)}
+            />
+            <span>${choice.label}</span>
+          </label>`,
+      )}
+    </div>
+  </fieldset>`;
+}
+
+/**
+ * The line a switch over an action gives way to while another action is stored, "Tapping an
+ * Event: **Navigate**", with Change, laid out as Settings For's compact line.
+ *
+ * @param id - The field's id, which its wrapper names
+ * @param t - The editor's strings
+ * @param action - The stored action's name
+ * @param onChange - Change was pressed
+ * @returns The line
+ */
+export function tapLine(
+  id: string,
+  t: Translate,
+  action: string,
+  onChange: () => void,
+): TemplateResult {
+  const line = interpolate(t('tap.line'), { action });
+  const [before, after = ''] = t('tap.line').split('{action}');
+  return html`<div
+    class="field"
+    data-field=${id}
+    data-composed="line"
+    tabindex="-1"
+    role="group"
+    aria-label=${line}
+  >
+    <div class="tap-line">
+      <span>${before}<b>${action}</b>${after}</span>
+      <button
+        type="button"
+        class="text-button"
+        data-focus="tap:change"
+        aria-label=${interpolate(t('tap.change_named'), { action })}
+        @click=${onChange}
+      >
+        ${t('settings_for.change')}
+      </button>
+    </div>
+  </div>`;
+}
+
 /** One illustrated choice of Card Displays. */
 export interface DisplayChoice {
   readonly value: string;

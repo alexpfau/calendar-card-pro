@@ -72,6 +72,7 @@ describe('the essential fields', () => {
       'weather.position',
       'tap_action',
       'day_tap_action_mode',
+      'event_opens_details',
       'event_tap_action',
     ]);
     expect([...ESSENTIAL_CALENDAR_FIELDS]).toEqual([
@@ -90,7 +91,8 @@ describe('the essential fields', () => {
     // start-date mode for the field it reveals.
     const variants: Record<string, unknown>[] = [
       { start_date: '2026-01-05' },
-      { start_date: 'today+1' },
+      // Not `today+1`, which reads as Tomorrow and reveals no field.
+      { start_date: 'today+2' },
     ].map((extra) => ({
       ...Config.DEFAULT_CONFIG,
       entities: ['calendar.anna'],
@@ -158,6 +160,7 @@ function buttonFields(editor: CalendarCardProEditor): string[] {
 const LIST_ESSENTIALS = [
   'days_to_show',
   'start_date_mode',
+  'event_opens_details',
   'show_past_events',
   'show_empty_days',
   'title',

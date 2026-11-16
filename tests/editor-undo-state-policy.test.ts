@@ -48,6 +48,9 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     // A color draft is never written, and Undo leaves it as it does the text in any field.
     '_colorDrafts',
     '_openColor',
+    // A word list's presentation, and the terms its form last sent, as a color draft is kept.
+    '_wordModes',
+    '_wordDrafts',
     '_registryHeld',
     // The field a search result showed, and the results it left.
     '_jump',
@@ -89,6 +92,7 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_undo',
     '_redo',
     '_ctxFor',
+    '_heldModes',
     '_formDataFor',
     '_mintEntryKey',
     '_localizeValue',

@@ -765,10 +765,10 @@ describe('the universe', () => {
       );
     }
     expect(sizes).toEqual({
-      shared: { card: 151, calendar: 27 },
-      list: { card: 158, calendar: 28 },
-      column: { card: 157, calendar: 27 },
-      grid: { card: 156, calendar: 27 },
+      shared: { card: 152, calendar: 27 },
+      list: { card: 159, calendar: 28 },
+      column: { card: 158, calendar: 27 },
+      grid: { card: 157, calendar: 27 },
     });
   });
 
@@ -1133,6 +1133,7 @@ describe('the gate table', () => {
         requires: [
           p('actions:event_tap_action', NOTHING[0], NOTHING),
           p('actions:event_hold_action', NOTHING[0], NOTHING),
+          p('actions:event_opens_details', false, [false]),
         ],
         needsKey: 'gate.needs.no_event_actions',
       },

@@ -543,6 +543,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'split.new': 'New',
   // Under a Blocklist, an Allowlist or Countries To Remove the card cannot compile.
   'word_list.invalid': 'This pattern cannot be read, so the card ignores it.',
+  'word_list.use_pattern': 'Use a Pattern',
+  'word_list.use_words': 'Use Words',
+  'tap.line': 'Tapping an Event: {action}',
+  'tap.change_named': 'Change: Tapping an Event, {action}',
 
   // --- Calendar list rows ---------------------------------------------------
   //
@@ -730,14 +734,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'limit applies.',
   'entity.blocklist': 'Blocklist',
   'entity.blocklist.aliases': 'filter out, exclude, keywords',
-  'entity.blocklist.helper':
-    'Hide events where the field above contains any of these terms, separated by | ' +
-    '\u2014 for example Private|Tentative.',
+  'entity.blocklist.helper': 'Hide events where the field above contains any of these terms.',
   'entity.allowlist': 'Allowlist',
   'entity.allowlist.aliases': 'filter, include only, keywords',
   'entity.allowlist.helper':
-    'Show only events where the field above contains one of these terms, separated by ' +
-    '| . Left empty, every event is shown.',
+    'Show only events where the field above contains one of these terms. Left empty, every ' +
+    'event is shown.',
   'entity.filter_field': 'Match Against',
   'entity.filter_field.option.title.label': 'Event title',
   'entity.filter_field.option.location.label': 'Location',
@@ -903,6 +905,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   start_date_mode: 'Start Date',
   'start_date_mode.aliases': 'tomorrow, yesterday, begin on, first day shown',
   'start_date_mode.option.default.label': 'Today',
+  'start_date_mode.option.tomorrow.label': 'Tomorrow',
+  'start_date_mode.option.start_of_week.label': 'Start of Week',
   'start_date_mode.option.fixed.label': 'A Fixed Date',
   'start_date_mode.option.offset.label': 'Relative to Today',
   start_date_fixed: 'Date',
@@ -1269,9 +1273,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'location_country_mode.option.builtin.label': 'Remove Well-Known Ones',
   'location_country_mode.option.custom.label': 'Remove Ones I Name',
   location_country_pattern: 'Countries To Remove',
-  'location_country_pattern.helper':
-    'Names separated by | — for example USA | United States | Canada. Only a name at ' +
-    'the end of the location is removed.',
+  'location_country_pattern.helper': 'Only a name at the end of the location is removed.',
   location_font_size: 'Location Font Size',
   location_color: 'Location Color',
   location_icon_size: 'Location Icon Size',
@@ -1436,6 +1438,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // event takes, labeled as the dropdown's other card actions are; "Show Event Details" is the
   // wording the event's own two-choice dropdown carried before, in every language.
   'card_action.option.details.label': 'Show Event Details',
+  event_opens_details: 'Tapping an Event Opens It',
+  'event_opens_details.helper':
+    'Shows the event\u2019s details, where it can be changed or deleted. The preview does not ' +
+    'open events, so try it on the dashboard. Other tap actions are on Taps & Refresh.',
   event_tap_action: 'Event Tap Action',
   'event_tap_action.helper':
     'Show Event Details opens the event beside it, where you can change or delete it if its ' +

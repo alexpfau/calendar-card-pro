@@ -54,6 +54,7 @@ export const ESSENTIAL_CARD_FIELDS: ReadonlySet<string> = new Set([
   // Actions & Refresh
   'tap_action',
   'day_tap_action_mode',
+  'event_opens_details',
   'event_tap_action',
 ]);
 
