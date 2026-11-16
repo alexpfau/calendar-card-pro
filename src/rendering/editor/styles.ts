@@ -133,7 +133,8 @@ export default css`
     gap: 16px;
     min-width: 0;
     min-height: 76px;
-    padding: 14px 4px 14px 16px;
+    padding-block: 14px;
+    padding-inline: 16px 4px;
     border: none;
     border-radius: inherit;
     background: none;
