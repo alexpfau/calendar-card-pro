@@ -334,7 +334,7 @@ The rules a change is judged against in review, alongside the shared pipeline de
   Home Assistant input elements, which it renames without notice; the popover and the search panel
   use only the public dialog contract (`show-dialog`); words come from `hass.localize`, and colors
   from theme variables. The card does render a few Home Assistant elements (`ha-card`, `ha-icon`,
-  `ha-ripple`, and `ha-form`, `ha-expansion-panel` and `ha-svg-icon` in the editor), and adding
+  `ha-ripple`, and `ha-form` and `ha-svg-icon` in the editor), and adding
   another needs a reason.
 
 ## 🧹 Maintenance Guidelines

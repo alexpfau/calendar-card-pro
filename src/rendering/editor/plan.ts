@@ -558,6 +558,7 @@ function liveWhy(
   ctx: PlanCtx,
 ): Extract<FieldState, { kind: 'live' }>['why'] | undefined {
   if (appearance === 'essential' || appearance === 'button-rows') return 'essential';
+  if (appearance === 'segmented') return 'essential';
   if (typeof appearance === 'object' && 'chips' in appearance) return 'essential';
   if (typeof appearance === 'object' && 'family' in appearance) {
     return familyWhy(appearance.family, ctx);
@@ -1066,8 +1067,8 @@ export function resetAction(
 }
 
 /**
- * Whether a setting stays live whatever is stored, while it applies: an essential one, a chip or
- * a toolbar button's row.
+ * Whether a setting stays live whatever is stored, while it applies: an essential one, a chip,
+ * Calendar Filter's radio group or a toolbar button's row.
  *
  * @param appearance - How its page shows it
  * @returns `true` when it does
@@ -1076,6 +1077,7 @@ export function keepsControl(appearance: Appearance): boolean {
   return (
     appearance === 'essential' ||
     appearance === 'button-rows' ||
+    appearance === 'segmented' ||
     (typeof appearance === 'object' && 'chips' in appearance)
   );
 }

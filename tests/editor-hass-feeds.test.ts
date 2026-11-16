@@ -246,11 +246,12 @@ describe('the feeds in the rendered editor', () => {
       );
     const live = (): string[] => feeds().filter((each) => each.endsWith(' live'));
 
-    // The overview: the filter bar, Days to Show and Start Date; its calendars are rows.
+    // The overview: the filter bar, Days to Show and Tapping an Event Opens It; Start Date is the
+    // editor's own chips, and its calendars are rows.
     expect(feeds()).toEqual([
       'filter-form steady',
       'content:days_to_show steady',
-      'content:start_date_mode steady',
+      'actions:event_opens_details steady',
     ]);
 
     // An entry's page: its Calendar picker, each field in a form of its own, and the Visibility
@@ -292,7 +293,8 @@ describe('the feeds in the rendered editor', () => {
     const live = fed(editor, 'live');
     const steady = fed(editor, 'steady');
     const before = new Map([...live, ...steady].map((element) => [element, element.hass]));
-    expect([live.length, steady.length]).toEqual([4, 22]);
+    // Event Color and Accent Color are color controls, which draw no form while closed.
+    expect([live.length, steady.length]).toEqual([4, 20]);
 
     const next = later(hass, 'sensor.porch');
     editor.hass = next;
@@ -409,20 +411,14 @@ describe('an update that carries an irrelevant hass and a bare request together'
     expect(render).toHaveBeenCalledTimes(2);
   });
 
-  it('opens a panel whose opening lands beside an irrelevant hass', async () => {
+  it('opens a button row whose opening lands beside an irrelevant hass', async () => {
     const hass = haWith();
     const editor = await mountEditor(CONFIG, { hass });
     await goPage(editor, 'card_header');
-    const hall = editor.shadowRoot!.querySelector<HTMLElement>('ha-expansion-panel.button-panel')!;
+    const hall = editor.shadowRoot!.querySelector<HTMLElement>('.button-row')!;
     expect(hall.querySelector('ha-form')).toBeNull();
 
-    hall.dispatchEvent(
-      new CustomEvent('expanded-will-change', {
-        detail: { expanded: true },
-        bubbles: true,
-        composed: true,
-      }),
-    );
+    hall.querySelector<HTMLElement>('[aria-expanded]')!.click();
     editor.hass = later(hass, 'sensor.porch');
     await editor.updateComplete;
 

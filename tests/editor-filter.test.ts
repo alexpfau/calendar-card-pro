@@ -390,13 +390,13 @@ describe('editor filter: section headings', () => {
     // last, as a match in its help alone.
     expect(panelHits(config, 'card', 'toolbar')).toEqual([
       'show',
-      'legend',
       'add_event',
       'view_switcher',
       'reset',
       'refresh',
       'search',
       'navigation',
+      'legend',
       'title',
     ]);
   });

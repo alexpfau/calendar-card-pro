@@ -27,10 +27,18 @@
  * | `quick-setup-form`                | chassis | `quick_setup`                                  |
  * | `add-calendar-form`               | chassis | `add_calendar` (Add Calendar's picker)         |
  * | `entry-calendar-form`             | chassis | `entry_calendar` (an entry page's Calendar)    |
+ * | `split-form`                      | chassis | `split` (Split This Calendar's own fields)     |
  *
  * Card Displays and Settings For are the editor's own radio groups rather than forms. The ids
  * `display:view` and `workspace:editing_workspace` still name them, for `changeField` and
- * `valueOf`, which choose and read them as a user does.
+ * `valueOf`, which choose and read them as a user does. A toolbar button's fields sit in its row,
+ * which a helper opens as a user does.
+ *
+ * A color field is the editor's own control too (`colors.ts`), drawn for the color, or for the
+ * mode it absorbs (`events:accent_color_mode`), with the color's value inside. It stands in as a
+ * form for those ids (`colorForm`): its schema and data are theirs, so every helper reads it as it
+ * reads any field, and a change sent to it is made in the control as a user makes it, by its rows,
+ * its swatches, or Custom and the text typed there (`driveColor`).
  *
  * The chassis scopes are this module's own: `field-index.ts` indexes the nine panels, calendar
  * entries and toolbar buttons, and the chassis draws forms that belong to none of them. They
@@ -46,16 +54,25 @@ import { setImmediate as nodeImmediate, setTimeout as nodeTimeout } from 'node:t
 import * as Config from '../../src/config/config';
 import type * as Types from '../../src/config/types';
 import * as Buttons from '../../src/rendering/editor/buttons';
+import * as Colors from '../../src/rendering/editor/colors';
 import { CalendarCardProEditor } from '../../src/rendering/editor/element';
 import * as Entities from '../../src/rendering/editor/entities';
 import {
   type FieldId,
+  type IndexedField,
+  buildFieldIndex,
   buttonFieldIndex,
+  entityFieldIndex,
+  entrySchema,
+  fieldHelper,
   fieldId,
+  fieldLabel,
   parseFieldId,
   universeIndex,
 } from '../../src/rendering/editor/field-index';
 import type { HaFormSchema } from '../../src/rendering/editor/ha-form';
+import * as HassKey from '../../src/rendering/editor/hass-key';
+import { withCardActionLabels } from '../../src/rendering/editor/hass-localize';
 import { ENTRY_GROUPS, PAGES, placementOf } from '../../src/rendering/editor/pages';
 import { type SchemaCtx, walkSchema } from '../../src/rendering/editor/panels';
 import { PREFS_KEY } from '../../src/rendering/editor/prefs';
@@ -72,6 +89,7 @@ import {
 } from '../../src/rendering/editor/schemas/quick-setup';
 import { chassisSchemas } from '../../src/rendering/editor/subforms';
 import * as Value from '../../src/rendering/editor/value';
+import * as WordLists from '../../src/rendering/editor/word-lists';
 import { WORKSPACES } from '../../src/rendering/editor/workspace';
 import * as Helpers from '../../src/utils/helpers';
 
@@ -141,6 +159,7 @@ const CHASSIS_FORMS: Readonly<Record<string, string>> = {
   'quick-setup-form': 'quick_setup',
   'add-calendar-form': 'add_calendar',
   'entry-calendar-form': 'entry_calendar',
+  'split-form': 'split',
 };
 
 /** The editor's own radio groups, by the id a test names them with, with each input's name. */
@@ -262,7 +281,9 @@ function entryIndexes(editor: EditorElement, root: ShadowRoot): Map<Element, num
   }
   const data = Entities.toEntityFormData(entries[index], entries);
   for (const form of page.querySelectorAll<FormElement>('ha-form.entity-form')) {
-    if (!Value.deepEqual(form.data, Routing.formDataFor(data, form.schema))) {
+    if (
+      !Value.deepEqual(asWritten(form), asWritten(form, Routing.formDataFor(data, form.schema)))
+    ) {
       outOfStep(`The page of entry ${index} holds another entry's data`);
     }
   }
@@ -271,17 +292,44 @@ function entryIndexes(editor: EditorElement, root: ShadowRoot): Map<Element, num
 }
 
 /**
- * Which toolbar button each drawn button panel belongs to, by the key the editor gives each
- * button's panel (`data-button-key`) and keeps in list order. Each panel's form must hold that
- * button's data; where it does not, the helper fails rather than guess.
+ * A form's data as it writes it: a word list drawn one term at a time (`text` with `multiple`)
+ * holds its terms, and writes them as one pattern (`word-lists.ts` › `toPattern`), where an empty
+ * list writes no line at all, as an absent value is none.
+ *
+ * @param form - The form
+ * @param data - Data in its shape, its own when omitted
+ * @returns The data, each list of terms as the pattern it writes and no line where it writes none
+ */
+function asWritten(
+  form: FormElement,
+  data: Readonly<Record<string, unknown>> = form.data,
+): Record<string, unknown> {
+  const written = { ...data };
+  for (const node of form.schema) {
+    const selector = 'selector' in node ? node.selector : undefined;
+    if (selector === undefined || !('text' in selector) || selector.text?.multiple !== true)
+      continue;
+    const value = written[node.name];
+    const pattern = Array.isArray(value) ? WordLists.toPattern(value.map(String)) : value;
+    if (pattern === '' || pattern === undefined) delete written[node.name];
+    else written[node.name] = pattern;
+  }
+  return written;
+}
+
+/**
+ * Which toolbar button each drawn button row belongs to, by the key the editor gives each
+ * button's row (`data-button-key`) and keeps in list order. Each of the row's forms must hold
+ * that button's data, narrowed to its own field; where one does not, the helper fails rather
+ * than guess.
  *
  * @param editor - Editor element
  * @param root - Its shadow root
- * @returns Position in `toolbar.buttons` by panel
+ * @returns Position in `toolbar.buttons` by row
  */
 function buttonIndexes(editor: EditorElement, root: ShadowRoot): Map<Element, number> {
   const indexes = new Map<Element, number>();
-  const panels = [...root.querySelectorAll('ha-expansion-panel.button-panel')];
+  const panels = [...root.querySelectorAll('.button-row')];
   if (panels.length === 0) return indexes;
 
   const { _config: config, _buttonKeys: keys = [] } = stateOf(editor);
@@ -290,11 +338,13 @@ function buttonIndexes(editor: EditorElement, root: ShadowRoot): Map<Element, nu
     const key = panel.getAttribute('data-button-key');
     const index = key === null ? -1 : keys.indexOf(Number(key));
     if (index < 0 || index >= written.length) {
-      outOfStep(`A toolbar button panel keyed ${key ?? 'nothing'} matches no button`);
+      outOfStep(`A toolbar button row keyed ${key ?? 'nothing'} matches no button`);
     }
-    const form = panel.querySelector<FormElement>('ha-form.button-form');
-    if (form !== null && !Value.deepEqual(form.data, Buttons.toButtonFormData(written[index]))) {
-      outOfStep(`The panel of toolbar button ${index} holds another button's data`);
+    const data = Buttons.toButtonFormData(written[index]);
+    for (const form of panel.querySelectorAll<FormElement>('ha-form.button-form')) {
+      if (!Value.deepEqual(form.data, Routing.formDataFor(data, form.schema))) {
+        outOfStep(`The row of toolbar button ${index} holds another button's data`);
+      }
     }
     indexes.set(panel, index);
   }
@@ -331,6 +381,22 @@ function placeForm(
   buttons: ReadonlyMap<Element, number>,
 ): Drawn {
   const classes = form.classList;
+  const control = colorControls.get(form) ?? composedControls.get(form);
+  if (control !== undefined) {
+    const id = control.getAttribute('data-field')!;
+    const page = control.closest('.entry-page');
+    if (page !== null) {
+      return {
+        form,
+        kind: 'entry',
+        index: entries.get(page),
+        key: keyOf(page),
+        scope: 'calendar',
+        place,
+      };
+    }
+    return { form, kind: 'card', scope: parseFieldId(id).scope, place };
+  }
   if (classes.contains('field-form')) {
     const id = form.closest('[data-field]')?.getAttribute('data-field');
     if (!id) outOfStep('A field form outside a field wrapper');
@@ -342,7 +408,7 @@ function placeForm(
     return { form, kind: 'entry', index, key: keyOf(page), scope: 'calendar', place };
   }
   if (classes.contains('button-form')) {
-    const panel = form.closest('ha-expansion-panel.button-panel');
+    const panel = form.closest('.button-row');
     const index = panel === null ? undefined : buttons.get(panel);
     return { form, kind: 'button', index, key: keyOf(panel), scope: 'button', place };
   }
@@ -395,13 +461,368 @@ function drawnForms(editor: EditorElement): Drawn[] {
 function liveForms(editor: EditorElement, root: ShadowRoot, page?: string): Drawn[] {
   const entries = entryIndexes(editor, root);
   const buttons = buttonIndexes(editor, root);
-  return [...root.querySelectorAll<FormElement>('ha-form')]
+  // A color control stands for the fields it edits, Custom's text field among them, and any other
+  // control the editor composes for its field (`composedForm`).
+  return [...root.querySelectorAll<HTMLElement>('ha-form, .color-field, [data-composed]')]
     .filter((form) => form.closest('[inert]') === null)
+    .flatMap((node) =>
+      node.classList.contains('color-field')
+        ? [colorForm(editor, node)]
+        : node.hasAttribute('data-composed')
+          ? [composedForm(editor, node)]
+          : node.closest('.color-field, [data-composed]') === null
+            ? [node as FormElement]
+            : [],
+    )
     .map((form, at) => {
       const drawn = { ...placeForm(form, at + 1, entries, buttons), page };
       formScopes.set(form, drawn.scope);
       return drawn;
     });
+}
+
+/** The control each color control's stand-in form stands for, by stand-in. */
+const colorControls = new WeakMap<Element, Element>();
+
+/** The stand-in form for each color control, by the control's wrapper. */
+const colorForms = new WeakMap<Element, FormElement>();
+
+/**
+ * A color control's spec and the fields it edits as drawn now: the field it is drawn for, and the
+ * value of a mode it absorbs while its gate draws it (`colors.ts` › `cardColorFields`).
+ *
+ * @param editor - Editor element
+ * @param anchor - The id the control's wrapper names
+ * @returns The spec and the fields, in order
+ */
+function colorFieldsOf(
+  editor: EditorElement,
+  control: Element,
+  anchor: FieldId,
+): {
+  readonly spec: Colors.ColorSpec;
+  readonly fields: ReadonlyArray<IndexedField>;
+  readonly data: Record<string, unknown>;
+} {
+  const ctx = stateOf(editor)._ctx;
+  const config = heldConfig(editor);
+  const key = keyOf(control.closest('.entry-page'));
+  const entities = config?.entities ?? [];
+  const entry = key === undefined ? undefined : entities[keysOf(editor, 'entry').indexOf(key)];
+  const colors = key === undefined ? Colors.cardColorFields(ctx) : Colors.entryColorFields(ctx);
+  const spec = colors.specs.get(anchor);
+  if (spec === undefined) outOfStep(`'${anchor}' is drawn as a color control but is no color`);
+  if (key !== undefined && entry === undefined) outOfStep(`No entry is keyed ${key}`);
+  const present =
+    entry === undefined
+      ? buildFieldIndex(ctx).fields
+      : entityFieldIndex(entrySchema(entry, ctx)).fields;
+  const data =
+    entry === undefined
+      ? (editor as unknown as { _formData(): Record<string, unknown> })._formData()
+      : Entities.toEntityFormData(entry, entities);
+  const ids = spec.mode === anchor ? [anchor, spec.value] : [anchor];
+  return { spec, data, fields: ids.flatMap((id) => (present.has(id) ? [present.get(id)!] : [])) };
+}
+
+/**
+ * A color control as a form standing for the fields it edits, so a test names them by id as it
+ * names any field: its schema is theirs, its data the editor's own for them, its labels and
+ * helpers theirs. A change it is sent is made in the control as a user makes it: a row, a swatch,
+ * or Custom and the text typed there (`driveColor`).
+ *
+ * @param editor - Editor element
+ * @param control - The control's wrapper, `.color-field`
+ * @returns The stand-in
+ */
+function colorForm(editor: EditorElement, control: Element): FormElement {
+  const known = colorForms.get(control);
+  if (known !== undefined) return known;
+  const anchor = control.getAttribute('data-field')!;
+  const form = document.createElement('div') as unknown as FormElement;
+  form.className = 'color-form';
+  const fieldOf = (node: HaFormSchema): IndexedField | undefined =>
+    colorFieldsOf(editor, control, anchor).fields.find((field) => field.node.name === node.name);
+  Object.defineProperties(form, {
+    schema: {
+      get: () => colorFieldsOf(editor, control, anchor).fields.flatMap((field) => field.lifted),
+    },
+    data: {
+      get: () => Routing.formDataFor(colorFieldsOf(editor, control, anchor).data, form.schema),
+    },
+    // As Custom's text field is handed it (`element.ts` › `_feed`).
+    hass: {
+      get: () => {
+        const hass = (editor as unknown as { hass?: Types.Hass }).hass;
+        const language = stateOf(editor)._ctx.language;
+        return HassKey.needsLiveHass(form.schema)
+          ? withCardActionLabels(hass, language)
+          : HassKey.steadyHass(hass, language);
+      },
+    },
+    computeLabel: {
+      value: (node: HaFormSchema) => {
+        const field = fieldOf(node);
+        return field === undefined ? '' : fieldLabel(field, stateOf(editor)._ctx.language);
+      },
+    },
+    // The state words the control shows under it lead its helper, as a text field's do.
+    computeHelper: {
+      value: (node: HaFormSchema) => {
+        const field = fieldOf(node);
+        if (field === undefined) return undefined;
+        const words = control.querySelector('.color-words')?.textContent?.trim();
+        return (
+          [words ? `${words}.` : undefined, fieldHelper(field, stateOf(editor)._ctx)]
+            .filter((part) => part !== undefined)
+            .join(' ') || undefined
+        );
+      },
+    },
+  });
+  // Where it sits is where its control sits.
+  form.closest = ((selector: string) => control.closest(selector)) as typeof form.closest;
+  form.dispatchEvent = (event: Event): boolean => {
+    driveColor(editor, control, anchor, (event as CustomEvent).detail?.value ?? {});
+    return true;
+  };
+  colorControls.set(form, control);
+  colorForms.set(control, form);
+  return form;
+}
+
+/**
+ * Makes a change sent to a color control's stand-in in the control itself, as a user would:
+ * opens it, then for each field that moved, a mode before its value, chooses the row that writes
+ * the value, the swatch that is it, Default for none, or Custom and types it. Rendered
+ * synchronously between steps (Lit's `performUpdate`), as `emitChange` is synchronous.
+ *
+ * @param editor - Editor element
+ * @param control - The control's wrapper
+ * @param anchor - The id it is drawn for
+ * @param incoming - The stand-in's whole data, as a form sends it
+ */
+function driveColor(
+  editor: EditorElement,
+  control: Element,
+  anchor: FieldId,
+  incoming: Record<string, unknown>,
+): void {
+  const element = editor as unknown as { requestUpdate(): void; performUpdate(): void };
+  const draw = (): void => {
+    element.requestUpdate();
+    element.performUpdate();
+  };
+  const choose = (selector: string, what: string): void => {
+    const input = control.querySelector<HTMLInputElement>(`${selector} input`);
+    if (!input) outOfStep(`The color control for '${anchor}' offers no ${what}`);
+    input.checked = true;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    draw();
+  };
+  const toggle = control.querySelector<HTMLButtonElement>('.color-toggle');
+  if (!toggle) outOfStep(`The color control for '${anchor}' draws no button`);
+  if (toggle.getAttribute('aria-expanded') !== 'true') {
+    toggle.click();
+    draw();
+  }
+  const { spec, fields } = colorFieldsOf(editor, control, anchor);
+  const before = colorForm(editor, control).data;
+  for (const field of fields) {
+    const was = atPath(before, [...field.dataPath, field.node.name]);
+    const value = atPath(incoming, [...field.dataPath, field.node.name]);
+    if (Value.deepEqual(was, value)) continue;
+    if (field.id === spec.mode) {
+      const source = spec.sources.find(
+        ({ write }) => write !== 'reset' && write[spec.mode!] === value,
+      );
+      if (source !== undefined) choose(`[data-color-row="${source.source}"]`, String(value));
+      else if (spec.custom[spec.mode] === value) choose('[data-color-row="custom"]', 'Custom');
+      else outOfStep(`The color control for '${anchor}' offers no ${String(value)}`);
+      continue;
+    }
+    const token = Colors.SWATCH_TOKENS.find((each) => Colors.swatchValue(each) === value);
+    if (value === undefined || value === '') {
+      choose('[data-color-row="default"]', 'Default');
+    } else if (token !== undefined) {
+      choose(`[data-swatch="${token}"]`, `the ${token} swatch`);
+    } else {
+      choose('[data-color-row="custom"]', 'Custom');
+      const text = control.querySelector<FormElement>('.color-text-field ha-form');
+      if (!text) outOfStep(`The color control for '${anchor}' draws no Custom text field`);
+      text.dispatchEvent(
+        new CustomEvent('value-changed', {
+          detail: { value: withValue(text.data, field.dataPath, field.node.name, value) },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      draw();
+    }
+  }
+}
+
+/** The control each composed control's stand-in form stands for, by stand-in. */
+const composedControls = new WeakMap<Element, Element>();
+
+/** The stand-in form for each composed control, by the control's wrapper. */
+const composedForms = new WeakMap<Element, FormElement>();
+
+/**
+ * The field a composed control is drawn for, and the data its owner's forms hold, as now.
+ *
+ * @param editor - Editor element
+ * @param control - The control's wrapper, `[data-composed]`
+ * @returns The field and the owner's data
+ */
+function composedFieldOf(
+  editor: EditorElement,
+  control: Element,
+): { readonly field: IndexedField; readonly data: Record<string, unknown> } {
+  const id = control.getAttribute('data-field')!;
+  const ctx = stateOf(editor)._ctx;
+  const entities = heldConfig(editor)?.entities ?? [];
+  const key = keyOf(control.closest('.entry-page'));
+  const entry = key === undefined ? undefined : entities[keysOf(editor, 'entry').indexOf(key)];
+  if (key !== undefined && entry === undefined) outOfStep(`No entry is keyed ${key}`);
+  const field = (
+    entry === undefined
+      ? buildFieldIndex(ctx).fields
+      : entityFieldIndex(entrySchema(entry, ctx)).fields
+  ).get(id);
+  if (field === undefined) outOfStep(`'${id}' is drawn as a composed control but is not built`);
+  const data =
+    entry === undefined
+      ? (editor as unknown as { _formData(): Record<string, unknown> })._formData()
+      : Entities.toEntityFormData(entry, entities);
+  return { field, data };
+}
+
+/**
+ * A control the editor composes for one field, as a form standing for that field, as a color
+ * control's stand-in does: its schema is the field's, its data the editor's own value for it, its
+ * label and helper the field's. Four kinds are composed:
+ *
+ * - `chips`, a radio group of the editor's own (Start Date's radio chips, Calendar Filter's Off,
+ *   Menu and Chips): a change is made by choosing the option;
+ * - `toggle`, an event part's or a toolbar control's toggle chip: its value is the editor's own,
+ *   and a change to on or off is made by pressing the chip where it shows the other; a chip a gate
+ *   withholds is not composed, as its field is not built;
+ * - `line`, the line Tapping an Event Opens It gives way to while another action is stored, which
+ *   takes no change;
+ * - `words`, a word list one term at a time: its value is the pattern the terms write, and a change
+ *   to it is sent to its form as the terms that pattern reads as.
+ *
+ * @param editor - Editor element
+ * @param control - The control's wrapper, `[data-composed]`
+ * @returns The stand-in
+ */
+function composedForm(editor: EditorElement, control: Element): FormElement {
+  const known = composedForms.get(control);
+  if (known !== undefined) return known;
+  const kind = control.getAttribute('data-composed');
+  const id = control.getAttribute('data-field')!;
+  const form = document.createElement('div') as unknown as FormElement;
+  form.className = 'composed-form';
+  // The word list's form as drawn now: a scope change draws it again.
+  const wordsForm = (): FormElement | null =>
+    kind === 'words' ? control.querySelector<FormElement>('ha-form') : null;
+  if (kind === 'words' && wordsForm() === null) outOfStep(`The word list '${id}' draws no form`);
+  Object.defineProperties(form, {
+    schema: { get: () => composedFieldOf(editor, control).field.lifted },
+    // What the control shows, read off it: the chip that is checked, the pattern the terms its
+    // form holds write. Only the line shows no value of its own, so it reads the editor's.
+    data: {
+      get: () => {
+        const { data, field } = composedFieldOf(editor, control);
+        const name = field.node.name;
+        if (kind === 'chips') {
+          const checked = control.querySelector<HTMLInputElement>('input[type="radio"]:checked');
+          return withValue({}, field.dataPath, name, checked?.value);
+        }
+        const drawn = wordsForm();
+        if (drawn !== null) {
+          const terms = drawn.data[name];
+          return withValue(
+            {},
+            field.dataPath,
+            name,
+            Array.isArray(terms) ? WordLists.toPattern(terms.map(String)) : terms,
+          );
+        }
+        return Routing.formDataFor(data, form.schema);
+      },
+    },
+    // As the form it draws is handed it, or as a form of the field's would be (`element.ts` › `_feed`).
+    hass: {
+      get: () => {
+        const words = wordsForm();
+        if (words !== null) return words.hass;
+        const hass = (editor as unknown as { hass?: Types.Hass }).hass;
+        const language = stateOf(editor)._ctx.language;
+        return HassKey.needsLiveHass(form.schema)
+          ? withCardActionLabels(hass, language)
+          : HassKey.steadyHass(hass, language);
+      },
+    },
+    computeLabel: {
+      value: () =>
+        fieldLabel(composedFieldOf(editor, control).field, stateOf(editor)._ctx.language),
+    },
+    computeHelper: {
+      value: () => {
+        // A toggle chip shows its YAML option name, while that preference is on, as its title.
+        const yaml = kind === 'toggle' ? control.getAttribute('title') : null;
+        if (yaml) return yaml;
+        const words = wordsForm();
+        return words !== null
+          ? words.computeHelper?.(words.schema[0])
+          : fieldHelper(composedFieldOf(editor, control).field, stateOf(editor)._ctx);
+      },
+    },
+  });
+  form.closest = ((selector: string) => control.closest(selector)) as typeof form.closest;
+  form.dispatchEvent = (event: Event): boolean => {
+    const { field } = composedFieldOf(editor, control);
+    const value = atPath((event as CustomEvent).detail?.value ?? {}, [
+      ...field.dataPath,
+      field.node.name,
+    ]);
+    if (kind === 'chips') {
+      const input = control.querySelector<HTMLInputElement>(
+        `input[type="radio"][value="${String(value)}"]`,
+      );
+      if (!input) outOfStep(`'${id}' offers no ${String(value)}`);
+      input.checked = true;
+      return input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    if (kind === 'toggle') {
+      if (typeof value !== 'boolean') {
+        outOfStep(`'${id}' is a toggle chip: it is pressed or not, so ask it for true or false`);
+      }
+      const chip = control as HTMLButtonElement;
+      if ((chip.getAttribute('aria-pressed') === 'true') !== value) chip.click();
+      return true;
+    }
+    const words = wordsForm();
+    if (kind === 'words' && words !== null) {
+      const terms = WordLists.fromPattern(typeof value === 'string' ? value : '');
+      if (terms === undefined) {
+        outOfStep(`'${id}' is drawn as words, which cannot hold ${String(value)}: Use a Pattern`);
+      }
+      return words.dispatchEvent(
+        new CustomEvent('value-changed', {
+          detail: { value: { [field.node.name]: [...terms] } },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+    }
+    return outOfStep(`'${id}' is drawn as a line, which takes no change`);
+  };
+  composedControls.set(form, control);
+  composedForms.set(control, form);
+  return form;
 }
 
 /** What `openPanels` kept from every page it visited, and what the editor held then. */
@@ -472,13 +893,13 @@ function keptForms(editor: EditorElement): Drawn[] {
     element._nav = { route: { kind: 'page', page }, trail: [], fromResults: false };
     draw();
     if (root.querySelector(`.page[data-page="${page}"]`) === null) continue;
-    for (const panel of root.querySelectorAll<Element & { expanded?: boolean }>(
-      'ha-expansion-panel',
-    )) {
-      panel.expanded = true;
-    }
+    // Every toolbar button's row open, as a user opens each one.
+    const rows = element as unknown as { _openButtons: Set<number> };
+    const open = rows._openButtons;
+    rows._openButtons = new Set(keysOf(editor, 'button'));
     draw();
     forms.push(...liveForms(editor, root, page));
+    rows._openButtons = open;
   }
   for (const key of keysOf(editor, 'entry')) {
     element._nav = { route: { kind: 'entry', key }, trail: [], fromResults: false };
@@ -1146,11 +1567,8 @@ async function choose(editor: EditorElement, id: FieldId, value: unknown): Promi
 /**
  * Goes to a field as a user would before editing it: to the page it is placed on, or the
  * overview, from the overview's row for that page; a calendar entry's page from its row, a
- * toolbar button's panel on Card & Header; then opens every collapsed panel around its form,
- * outermost first. A panel opens as Home Assistant's does: it announces `expanded-will-change`,
- * lets a render pass (`nextRender`), expands and announces `expanded-changed`. A closed panel
- * draws no form, so a button's field not drawn yet is found by its own panel, by its place or
- * key. An entry named by neither place nor key is looked for on every entry's page, as
+ * toolbar button's row on Card & Header, opened by its toggle. A closed row draws no form, so a
+ * button's field not drawn yet is found by its own row, by its place or key. An entry named by neither place nor key is looked for on every entry's page, as
  * `openPanels` visits them, so a field two entries draw fails as drawn twice.
  *
  * Where a query holds the overview's results, the field is reached as a user reaches it there:
@@ -1303,16 +1721,16 @@ export async function chooseResult(editor: EditorElement, key: string): Promise<
 }
 
 /**
- * Opens every panel the place open draws, closed ones all together, each as Home Assistant's
- * opens on a click (`expand`).
+ * Opens every toolbar button's row the place open draws, as a user does, by its toggle.
  *
  * @param editor - Editor element
  */
 async function expandAll(editor: EditorElement): Promise<void> {
-  const closed = [...(editor.shadowRoot?.querySelectorAll('ha-expansion-panel') ?? [])].filter(
-    (panel) => (panel as Element & { expanded?: boolean }).expanded !== true,
-  );
-  await Promise.all(closed.map((panel) => expand(panel)));
+  for (const toggle of editor.shadowRoot?.querySelectorAll<HTMLElement>(
+    '.button-row [aria-expanded="false"]',
+  ) ?? []) {
+    toggle.click();
+  }
   await editor.updateComplete;
 }
 
@@ -1521,12 +1939,12 @@ export async function resetButton(
 }
 
 /**
- * The panels an owner's forms belong in, drawn or not: each matching toolbar button's own panel,
- * found by its place or key. The card's fields and an entry's sit in no panel.
+ * The rows an owner's forms belong in, drawn or not: each matching toolbar button's own row,
+ * found by its place or key. The card's fields and an entry's sit in no row.
  *
  * @param editor - Editor element
  * @param owner - The owner
- * @returns The panels, outermost first
+ * @returns The rows
  */
 function holdersOf(editor: EditorElement, owner: Owner): Element[] {
   const root = editor.shadowRoot;
@@ -1543,23 +1961,23 @@ function holdersOf(editor: EditorElement, owner: Owner): Element[] {
 }
 
 /**
- * Opens every collapsed panel around a node, the node itself included, outermost first.
+ * Opens the toolbar button's row around a node, the row itself included, by its toggle.
  *
- * @param node - A panel, or anything inside one
+ * @param node - A row, or anything inside one
  */
 async function openAround(node: Element): Promise<void> {
-  const panels: Element[] = [];
-  for (let at: Element | null = node; at !== null; at = at.parentElement) {
-    if (at.localName === 'ha-expansion-panel') panels.unshift(at);
-  }
-  for (const panel of panels) await expand(panel);
+  const row = node.closest('.button-row');
+  const toggle = row?.querySelector<HTMLElement>(':scope > .cal-row [aria-expanded="false"]');
+  if (!toggle) return;
+  toggle.click();
+  await (row!.getRootNode() as ShadowRoot & { host: EditorElement }).host.updateComplete;
 }
 
 /**
  * Waits as Home Assistant's `nextRender` does (`common/util/render-status.ts` in its frontend):
  * an animation frame, then a timeout. The frame is a Node immediate, which is how happy-dom
  * schedules one, and both come from `node:timers`, which fake timers leave in place whenever
- * they were installed, so a panel opens across a real render in a test that holds time still,
+ * they were installed, so a real render passes in a test that holds time still,
  * and no fake clock moves.
  *
  * @returns A promise settled once the render has passed
@@ -1570,26 +1988,6 @@ function nextRender(): Promise<void> {
       nodeTimeout(() => resolve(), 0);
     });
   });
-}
-
-/**
- * Expands a panel the way Home Assistant's `ha-expansion-panel` does on a click
- * (`_toggleContainer`), if it is collapsed: it announces `expanded-will-change`, waits for a
- * render, expands and announces `expanded-changed`.
- *
- * @param panel - The panel
- */
-async function expand(panel: Element): Promise<void> {
-  const expansion = panel as Element & { expanded?: boolean };
-  if (expansion.expanded === true) return;
-  const announce = (type: string) =>
-    panel.dispatchEvent(
-      new CustomEvent(type, { detail: { expanded: true }, bubbles: true, composed: true }),
-    );
-  announce('expanded-will-change');
-  await nextRender();
-  expansion.expanded = true;
-  announce('expanded-changed');
 }
 
 /** What each editor `mountEditor` mounted has reported, oldest first. */

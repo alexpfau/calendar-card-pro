@@ -268,7 +268,7 @@ describe('the strip', () => {
 });
 
 describe('focus and announcements', () => {
-  it('keeps focus on a move, says where the calendar went, and the strip travels with it', async () => {
+  it('puts focus on the moved calendar’s handle, says where it went, and the strip travels with it', async () => {
     const editor = await mount([ANNA, BEN, LEO]);
     const [, , leo] = keysOf(editor, 'entry');
     await press(editor, `more:entry:${leo}`);
@@ -277,7 +277,8 @@ describe('focus and announcements', () => {
 
     expect(lastConfig(editor)?.entities).toEqual([ANNA, LEO, BEN]);
     expect(said(editor)).toBe('Moved Leo to position 2 of 3.');
-    expect(focused(editor)).toBe(`strip:entry:${leo}:up`);
+    // The moved row's handle (ia-final §9), never Anna's or Ben's.
+    expect(focused(editor)).toBe(`handle:${LEO}`);
     // The strip stays open under its row, which now stands second.
     const strip = editor.shadowRoot!.querySelector('.strip')!;
     expect(strip.previousElementSibling?.getAttribute('data-entry-row')).toBe(String(leo));
@@ -285,7 +286,7 @@ describe('focus and announcements', () => {
 
     await press(editor, `strip:entry:${leo}:up`);
     expect(said(editor)).toBe('Moved Leo to position 1 of 3.');
-    // Move Up is off at the top: focus goes to the row itself.
+    // Move Up is off at the top: focus goes to the row itself (ia-final §9).
     expect(control(editor, `strip:entry:${leo}:up`)?.disabled).toBe(true);
     expect(focused(editor)).toBe(`row:${leo}`);
 
@@ -296,7 +297,7 @@ describe('focus and announcements', () => {
     expect(focused(editor)).toBe(`row:${leo}`);
   });
 
-  it('moves a focused row with Alt+Arrow keys, and keeps focus on it', async () => {
+  it('moves a focused row with Alt+Arrow keys, focus then on its handle', async () => {
     const editor = await mount([ANNA, BEN]);
     const [anna] = keysOf(editor, 'entry');
     const row = control(editor, `row:${anna}`)!;
@@ -315,7 +316,7 @@ describe('focus and announcements', () => {
 
     expect(lastConfig(editor)?.entities).toEqual([BEN, ANNA]);
     expect(said(editor)).toBe('Moved Anna to position 2 of 2.');
-    expect(focused(editor)).toBe(`row:${anna}`);
+    expect(focused(editor)).toBe(`handle:${ANNA}`);
 
     // Without Alt, the key is the browser's.
     control(editor, `row:${anna}`)!.dispatchEvent(

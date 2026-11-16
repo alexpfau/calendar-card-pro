@@ -120,8 +120,12 @@ export interface EntryRowModel {
   readonly badge?: string;
   /** Whether Home Assistant no longer has its calendar. */
   readonly missing: boolean;
+  /** A tag beside the title: "New", for an entry a split wrote this session. */
+  readonly tag?: string;
   /** The calendar Alt+Arrow moves from the row, where it can move. */
   readonly moves?: string;
+  /** Its calendar's drag handle, on the row of a calendar with one entry. */
+  readonly handle?: TemplateResult;
   readonly more: MoreButton;
   /** Its strip, while open. */
   readonly strip?: TemplateResult;
@@ -131,8 +135,17 @@ export interface EntryRowModel {
 /** One calendar and its entries, as the list draws them. */
 export interface CalendarModel {
   readonly entityId: string;
+  /** Whether the keyboard grab holds it, which marks it. */
+  readonly grabbed?: boolean;
+  /**
+   * Its place in the keyboard grab's preview order, while there is one. The list shows that order
+   * by CSS `order` rather than by moving its rows, so the handle keeps focus throughout.
+   */
+  readonly place?: number;
   /** Its calendar row, drawn above its entries when it has several. */
   readonly head?: {
+    /** The calendar's drag handle, which moves all its entries. */
+    readonly handle?: TemplateResult;
     readonly name: string;
     readonly count: string;
     readonly missing: boolean;
@@ -151,6 +164,7 @@ export interface CalendarModel {
  */
 function entryRow(row: EntryRowModel, grouped: boolean): TemplateResult {
   return html`<div class="cal-row${grouped ? ' cal-row-entry' : ''}" data-entry-row=${row.key}>
+      ${row.handle ?? nothing}
       <button
         type="button"
         class="cal-body"
@@ -166,7 +180,9 @@ function entryRow(row: EntryRowModel, grouped: boolean): TemplateResult {
         ></span>
         ${row.badge ? html`<span class="cal-badge" aria-hidden="true">${row.badge}</span>` : nothing}
         <span class="cal-text">
-          <span class="cal-title">${row.title}</span>
+          <span class="cal-title"
+            >${row.title}${row.tag ? html` <span class="tag">${row.tag}</span>` : nothing}</span
+          >
           <span class="cal-summary"
             >${row.missing ? icon(mdiAlertOutline, 'cal-missing') : nothing}${row.summary}</span
           >
@@ -191,17 +207,26 @@ export function calendarList(
   status?: { readonly at: number; readonly bar: TemplateResult },
 ): TemplateResult {
   const at = status === undefined ? -1 : Math.min(status.at, calendars.length);
-  return html`<div class="cal-list">
+  // While the grab previews an order, the rows take odd places and the removal line the even one
+  // before the row it was drawn before.
+  const previewing = calendars.some((calendar) => calendar.place !== undefined);
+  return html`<div class="cal-list" style=${previewing ? `--bar: ${2 * at}` : nothing}>
     ${repeat(
       calendars,
       (calendar) => calendar.entityId,
       (calendar, index) => {
         const head = calendar.head;
         return html`${index === at ? status!.bar : nothing}
-          <div class="cal-group" data-calendar=${calendar.entityId}>
+          <div
+            class="cal-group${calendar.grabbed ? ' grabbed' : ''}"
+            style=${calendar.place === undefined ? nothing : `order: ${2 * calendar.place + 1}`}
+            data-calendar=${calendar.entityId}
+            data-reorder=${calendar.entityId}
+          >
             ${
               head
                 ? html`<div class="cal-row cal-row-head">
+                      ${head.handle ?? nothing}
                       <span class="cal-text">
                         <span class="cal-title">${head.name}</span>
                         <span class="cal-summary"

@@ -85,9 +85,27 @@ const live = (editor: MountedEditor): FieldId[] =>
     (frame) => frame.dataset.field!,
   );
 
-/** The words a field gives Home Assistant: its label, then its helper. */
+/**
+ * The words a field gives Home Assistant: its label, then its helper; for a chip the editor draws
+ * in its place (PR 18), the chip's own name, which carries them.
+ */
 const words = (editor: MountedEditor, id: FieldId): string =>
-  `${labelOf(editor, id)} | ${helperOf(editor, id) ?? ''}`;
+  chipName(editor, id) ?? `${labelOf(editor, id)} | ${helperOf(editor, id) ?? ''}`;
+
+/**
+ * A toggle chip's accessible name, where the open place draws the field as one.
+ *
+ * @param editor - The editor
+ * @param id - The field
+ * @returns The name, or `undefined` where the field is no chip here
+ */
+function chipName(editor: MountedEditor, id: FieldId): string | undefined {
+  return (
+    editor
+      .shadowRoot!.querySelector(`button.chip[data-field="${id}"]`)
+      ?.getAttribute('aria-label') ?? undefined
+  );
+}
 
 /**
  * Clicks one of the editor's own controls and waits for the render.
@@ -110,20 +128,25 @@ describe('what a page shows of a fresh card', () => {
   it('draws exactly the essentials that apply on Events, and names the rest', async () => {
     const editor = await mount();
     await goPage(editor, 'events');
+    // The eight event parts as chips (PR 18), then the essential fields under them.
     expect(live(editor)).toEqual([
       'events:show_time',
+      'events:show_end_time',
       'events:show_location',
       'events:show_description',
       'events:show_countdown',
+      'events:show_progress_bar',
+      'events:show_duration',
+      'events:show_now_indicator',
       'content:time_format',
-      'events:show_end_time',
     ]);
-    // Reconciled against the registry, read the other way: every essential present here.
+    // Reconciled against the registry, read the other way: every setting that keeps its control
+    // (an essential one, a chip) present here.
     const held = (editor as unknown as { _config: Types.Config })._config;
     const present = buildFieldIndex(schemaCtx(held, 'list', 'en')).fields;
     const essentials = PAGES.find((page) => page.id === 'events')!
       .headings.flatMap((heading) => heading.fields)
-      .filter(([id, appearance]) => appearance === 'essential' && present.has(id))
+      .filter(([id, appearance]) => keepsControl(appearance) && present.has(id))
       .map(([id]) => id);
     expect([...live(editor)].sort()).toEqual([...essentials].sort());
     expect(editor.shadowRoot!.querySelectorAll('.add-row').length).toBeGreaterThan(4);
@@ -138,12 +161,13 @@ describe('what a page shows of a fresh card', () => {
       .headings.find((heading) => heading.key === 'time')!
       .fields.filter(([, appearance]) => appearance === 'add')
       .map(([id]) => fieldLabel(EVERY.get(id)!, 'en'));
-    expect(names).toHaveLength(8);
+    // Seven since End Time and Duration became chips under Event Details (PR 18).
+    expect(names).toHaveLength(7);
     expect(row.querySelector('.add-names')!.textContent).toBe(
-      `${names.slice(0, 4).join(' · ')}, +4`,
+      `${names.slice(0, 4).join(' · ')}, +3`,
     );
-    expect(row.querySelector('.add-count')!.textContent).toBe('Settings: 8');
-    expect(row.getAttribute('aria-label')).toBe('Add Setting under Time, Settings: 8');
+    expect(row.querySelector('.add-count')!.textContent).toBe('Settings: 7');
+    expect(row.getAttribute('aria-label')).toBe('Add Setting under Time, Settings: 7');
     expect(row.getAttribute('aria-expanded')).toBe('false');
   });
 
@@ -277,10 +301,10 @@ describe('what the card sets stays on its page', () => {
 });
 
 describe('state words, by where they are drawn', () => {
-  it('carry “From All Layouts” on a switch’s label and a text field’s helper', async () => {
+  it('carry “From All Layouts” on a chip’s name and a text field’s helper', async () => {
     const editor = await mount({ show_location: false, event_font_size: '30px' });
     await goPage(editor, 'events');
-    expect(labelOf(editor, 'events:show_location')).toBe('Show Location · From All Layouts');
+    expect(chipName(editor, 'events:show_location')).toBe('Location, From All Layouts');
     expect(helperOf(editor, 'events:event_font_size')).toMatch(/^From All Layouts\./);
   });
 
@@ -298,10 +322,10 @@ describe('state words, by where they are drawn', () => {
       'Fewest Day Columns · Set for Grid',
     );
     expect(group('layout:time_grid.min_days_to_show')).toBe('Fewest Day Columns · Set for Grid');
-    // A switch is named by its label, words and all, so its group keeps the bare label.
+    // An event part is a chip (PR 18), named by its label and its words.
     await openPageOf(editor, 'events:show_location');
-    expect(labelOf(editor, 'events:show_location')).toBe('Show Location · Set for Grid');
-    expect(group('events:show_location')).toBe('Show Location');
+    expect(chipName(editor, 'events:show_location')).toBe('Location, Set for Grid');
+    expect(group('events:show_location')).toBe('Location, Set for Grid');
   });
 
   it('carry “Set for All Layouts” on a dropdown’s label', async () => {
@@ -451,7 +475,8 @@ describe('gate lines and stored values not in use', () => {
     const lines = [
       ...editor.shadowRoot!.querySelectorAll('.page-group[data-heading="description"] .gate-line'),
     ].map((line) => line.textContent!.replace(/\s+/g, ' ').trim());
-    expect(lines[0]).toBe('Appears once Show Description is on.');
+    // Show Description is drawn as the Description chip, so the line says it is pressed (PR 18).
+    expect(lines[0]).toBe('Appears once Description is pressed.');
     expect(lines.slice(1)).toEqual([
       'Stored but not in use: Show Description For All-Day Events (On) Reset',
       'Stored but not in use: Description Font Size (20px) Reset',
@@ -468,7 +493,7 @@ describe('gate lines and stored values not in use', () => {
       ...editor.shadowRoot!.querySelectorAll('.page-group[data-heading="description"] .gate-line'),
     ].map((line) => line.textContent!.replace(/\s+/g, ' ').trim());
     expect(lines[0]).toMatch(
-      /^Appears once Show Description is on: Show Description For All-Day Events, /,
+      /^Appears once Description is pressed: Show Description For All-Day Events, /,
     );
     expect(lines).toContain(
       'Stored but not in use: Description Font Size (20px), from All Layouts Edit All Layouts',

@@ -32,7 +32,8 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
   where: ['_selectedWorkspace', '_nav'],
   // Session UI state, outside Undo.
   session: [
-    '_addedButtons',
+    // The toolbar buttons' rows open, Add Button's among them.
+    '_openButtons',
     '_quickSetup',
     '_filter',
     '_banner',
@@ -43,8 +44,18 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_openStrip',
     '_adding',
     '_calendarQuery',
+    // The keyboard grab, and the click a Space or a drag also makes, which nothing writes.
+    '_grab',
+    '_swallowClick',
     '_announcer',
     '_spoken',
+    // A color draft is never written, and Undo leaves it as it does the text in any field.
+    '_colorDrafts',
+    '_openColor',
+    // A word list's presentation, and the terms its form last sent, as a color draft is kept.
+    '_wordModes',
+    '_wordDrafts',
+    '_registryHeld',
     // The field a search result showed, and the results it left.
     '_jump',
     '_resultsLeft',
@@ -58,9 +69,14 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_prefs',
     // The line What This Card Changes is editing in place.
     '_auditEdit',
+    // Split This Calendar: Undo cancels an open run first, closes the panel a split left, and
+    // leaves the New tags for the session, on keys a restored list no longer holds.
+    '_split',
+    '_splitDone',
+    '_newEntries',
   ],
   // Keys never go back, so a restored entry's key is never handed to another.
-  counters: ['_nextEntryKey', '_nextButtonKey'],
+  counters: ['_nextEntryKey', '_nextButtonKey', '_reads'],
   // Caches, compared by value or rebuilt as they are read.
   caches: [
     '_emittedConditions',
@@ -78,14 +94,22 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_audit',
   ],
   // Derived from what is snapshotted, or from the render in progress.
-  derived: ['_config', '_lastDispatched', '_drawing', '_bareUpdatePending', '_resultStatus'],
+  derived: [
+    '_config',
+    '_lastDispatched',
+    '_drawing',
+    '_bareUpdatePending',
+    '_registryWanted',
+    '_resultStatus',
+  ],
   // The history itself, and whether a change is being recorded.
-  history: ['_history', '_committing'],
+  history: ['_history', '_committing', '_splitting'],
   // Bound handlers and memoized builders: no state Undo could miss.
   handlers: [
     '_undo',
     '_redo',
     '_ctxFor',
+    '_heldModes',
     '_formDataFor',
     '_mintEntryKey',
     '_localizeValue',
@@ -95,7 +119,6 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_pickScope',
     '_describe',
     '_addButton',
-    '_panelWillChange',
     '_openQuickSetup',
     '_quickSetupFormChanged',
     '_cancelQuickSetup',
@@ -103,6 +126,11 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_filterChanged',
     '_compositionStart',
     '_compositionEnd',
+    '_cardColors',
+    '_entryColors',
+    '_defaultData',
+    '_haColorName',
+    '_registryChanged',
     '_cancelAdd',
     '_addCalendarChosen',
   ],

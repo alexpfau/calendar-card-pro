@@ -22,6 +22,7 @@ import {
   formOf,
   formsOf,
   keysOf,
+  labelOf,
   lastConfig,
   mountEditor,
   openPageOf,
@@ -145,8 +146,8 @@ describe('the harness refuses to guess', () => {
 
   it('fails on one owner drawing an id in two forms, naming both forms', async () => {
     const editor = await mount([ANNA]);
-    await openPageOf(editor, 'events:show_time');
-    const events = formOf(editor, 'events:show_time')!;
+    await openPageOf(editor, 'content:time_format');
+    const events = formOf(editor, 'content:time_format')!;
     // Planted: a second form in the same field's wrapper, holding the same field.
     const twin = document.createElement('ha-form') as FormElement;
     twin.className = 'field-form';
@@ -155,8 +156,8 @@ describe('the harness refuses to guess', () => {
     events.after(twin);
     const place = formsOf(editor).indexOf(events) + 1;
 
-    expect(() => formOf(editor, 'events:show_time')).toThrow(
-      `'events:show_time' is drawn twice by the card, in form ${place} (ha-form.field-form) ` +
+    expect(() => formOf(editor, 'content:time_format')).toThrow(
+      `'content:time_format' is drawn twice by the card, in form ${place} (ha-form.field-form) ` +
         `and form ${place + 1} (ha-form.field-form): one owner's field belongs in one form.`,
     );
   });
@@ -226,26 +227,57 @@ describe('the harness refuses to guess', () => {
 
 describe('a change', () => {
   it('is the event ha-form emits: its whole data, the value at its data path', async () => {
-    const editor = await mount([ANNA], { toolbar: { show: true } });
-    await openPageOf(editor, 'card:toolbar.reset');
-    const form = formOf(editor, 'card:toolbar.reset')!;
+    const editor = await mount([ANNA]);
+    await openPageOf(editor, 'card:toolbar.show');
+    const form = formOf(editor, 'card:toolbar.show')!;
     const before = form.data;
     const seen: CustomEvent[] = [];
     form.addEventListener('value-changed', (event) => seen.push(event as CustomEvent));
 
-    await changeField(editor, 'card:toolbar.reset', true);
+    await changeField(editor, 'card:toolbar.show', true);
 
     expect(seen).toHaveLength(1);
     expect(seen[0].detail.value).toEqual({
       ...before,
-      toolbar: { ...(before.toolbar as Record<string, unknown>), reset: true },
+      toolbar: { ...(before.toolbar as Record<string, unknown>), show: true },
     });
     expect([seen[0].bubbles, seen[0].composed]).toEqual([true, true]);
     expect(lastConfig(editor)).toEqual({
       config_version: Config.CURRENT_CONFIG_VERSION,
       entities: [ANNA],
-      toolbar: { show: true, reset: true },
+      toolbar: { show: true },
     });
+  });
+
+  it('presses a toggle chip as a user does, through the form standing in for it', async () => {
+    const editor = await mount([ANNA]);
+    // The event parts are the editor's own toggle chips, each composed for its field.
+    await changeField(editor, 'events:show_location', false);
+    expect(lastConfig(editor)).toEqual({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: [ANNA],
+      // A List card is edited for List, whose own block the part is written in.
+      list: { show_location: false },
+    });
+    expect(valueOf(editor, 'events:show_location')).toBe(false);
+    expect(formOf(editor, 'events:show_location')!.className).toBe('composed-form');
+    expect(labelOf(editor, 'events:show_location')).toBe('Show Location');
+
+    // Asked for what it already shows, it is not pressed, and nothing more is written.
+    await changeField(editor, 'events:show_location', false);
+    expect(lastConfig(editor)).toEqual({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: [ANNA],
+      list: { show_location: false },
+    });
+    expect(() =>
+      emitChange(formOf(editor, 'events:show_countdown')!, {
+        'events:show_countdown': 'once_per_day',
+      }),
+    ).toThrow("'events:show_countdown' is a toggle chip");
+    // A part its gate withholds is drawn, unpressable, and stands for no field built here.
+    await changeField(editor, 'events:show_time', false);
+    expect(formOf(editor, 'events:show_end_time')).toBeUndefined();
   });
 
   it('comes only from an id the form draws, scope and all, even once the form is gone', async () => {
@@ -269,11 +301,11 @@ describe('a change', () => {
 describe('opening a page', () => {
   it('goes to a card field’s page from the overview’s row, and back for an overview field', async () => {
     const editor = await mount([ANNA]);
-    expect(formOf(editor, 'events:show_time')).toBeUndefined();
+    expect(formOf(editor, 'content:time_format')).toBeUndefined();
 
-    await openPageOf(editor, 'events:show_time');
+    await openPageOf(editor, 'content:time_format');
     expect(editor.shadowRoot!.querySelector('.page')!.getAttribute('data-page')).toBe('events');
-    expect(formOf(editor, 'events:show_time')).toBeDefined();
+    expect(formOf(editor, 'content:time_format')).toBeDefined();
 
     await openPageOf(editor, 'content:days_to_show');
     expect(editor.shadowRoot!.querySelector('.page')).toBeNull();
@@ -298,65 +330,37 @@ describe('opening a page', () => {
     expect(formOf(editor, 'calendar:name', entry(0))).toBeUndefined();
   });
 
-  it('opens every panel around the field, outermost first, as Home Assistant’s does', async () => {
+  it('opens the button’s row around the field by its toggle, and no other row', async () => {
     const editor = await mount([ANNA], { toolbar: { show: true, buttons: [BACK, LEFT] } });
-    const announced: string[] = [];
-    for (const type of ['expanded-will-change', 'expanded-changed']) {
-      editor.shadowRoot!.addEventListener(type, (event) =>
-        announced.push(`${type} ${(event.target as HTMLElement & { header: string }).header}`),
-      );
-    }
 
     await openPageOf(editor, 'button:icon', button(1));
 
-    // The toolbar's buttons sit on Card & Header, each in a panel of its own.
-    expect(announced).toEqual(['expanded-will-change Left', 'expanded-changed Left']);
-    const panel = formOf(editor, 'button:icon', button(1))!.closest('ha-expansion-panel');
-    expect((panel as HTMLElement & { expanded: boolean }).expanded).toBe(true);
+    // The toolbar's buttons sit on Card & Header, each in a row of its own.
+    const rows = [...editor.shadowRoot!.querySelectorAll('.button-row')];
+    expect(
+      rows.map((row) => row.querySelector('[aria-expanded]')!.getAttribute('aria-expanded')),
+    ).toEqual(['false', 'true']);
+    expect(formOf(editor, 'button:icon', button(1))!.closest('.button-row')).toBe(rows[1]);
   });
 
-  it('lets a frame pass between announcing a panel and opening it, as Home Assistant’s does', async () => {
-    const editor = await mount([ANNA], { toolbar: { show: true, buttons: [BACK] } });
-    const seen: string[] = [];
-    const state = (event: Event) =>
-      (event.target as HTMLElement & { expanded?: boolean }).expanded === true ? 'open' : 'closed';
-    editor.shadowRoot!.addEventListener('expanded-will-change', (event) => {
-      seen.push(`will change while ${state(event)}`);
-      queueMicrotask(() => seen.push('a microtask queued then'));
-      requestAnimationFrame(() => seen.push('a frame asked for then'));
-    });
-    editor.shadowRoot!.addEventListener('expanded-changed', (event) =>
-      seen.push(`changed, now ${state(event)}`),
-    );
-
-    await openPageOf(editor, 'button:icon', button(0));
-
-    expect(seen).toEqual([
-      'will change while closed',
-      'a microtask queued then',
-      'a frame asked for then',
-      'changed, now open',
-    ]);
-  });
-
-  it('opens a panel in a test that holds time still, moving no clock', async () => {
+  it('opens a row in a test that holds time still, moving no clock', async () => {
     const editor = await mount([ANNA], { toolbar: { show: true, buttons: [BACK] } });
     vi.useFakeTimers();
     try {
       const now = Date.now();
-      await openPageOf(editor, 'events:show_time');
+      await openPageOf(editor, 'content:time_format');
       await openPageOf(editor, 'calendar:name', entry(0));
       await openPageOf(editor, 'button:icon', button(0));
 
       expect(Date.now()).toBe(now);
-      const panel = formOf(editor, 'button:icon', button(0))!.closest('ha-expansion-panel');
-      expect((panel as HTMLElement & { expanded: boolean }).expanded).toBe(true);
+      const row = formOf(editor, 'button:icon', button(0))!.closest('.button-row');
+      expect(row?.querySelector('[aria-expanded]')?.getAttribute('aria-expanded')).toBe('true');
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it('opens a panel when time was faked before the harness was imported', async () => {
+  it('opens a row when time was faked before the harness was imported', async () => {
     const editor = await mount([ANNA], { toolbar: { show: true, buttons: [BACK] } });
     vi.useFakeTimers();
     try {
@@ -366,8 +370,8 @@ describe('opening a page', () => {
       await fresh.openPageOf(editor, 'button:icon', fresh.button(0));
 
       expect(Date.now()).toBe(now);
-      const panel = formOf(editor, 'button:icon', button(0))!.closest('ha-expansion-panel');
-      expect((panel as HTMLElement & { expanded: boolean }).expanded).toBe(true);
+      const row = formOf(editor, 'button:icon', button(0))!.closest('.button-row');
+      expect(row?.querySelector('[aria-expanded]')?.getAttribute('aria-expanded')).toBe('true');
     } finally {
       vi.useRealTimers();
     }

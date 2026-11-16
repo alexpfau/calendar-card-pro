@@ -1,6 +1,7 @@
 /**
- * Write path for the toolbar's own buttons, as the editor edits them: a panel per button, with
- * Move Up, Move Down and Remove, a form of four fields, and Add Button after the last.
+ * Write path for the toolbar's own buttons, as the editor edits them: a row per button that
+ * opens in place to Move Up, Move Down, Remove and a form per field, and Add Button after the
+ * last.
  *
  * Every function here takes the list as the configuration writes it and returns a new one, so the
  * editor writes `toolbar.buttons` and nothing else. The list is read as written rather than as
@@ -8,6 +9,7 @@
  * cleared, is one somebody is still setting up, and must stay in the editor to be finished.
  */
 
+import { HA_ACTION_LABEL_PREFIX } from './hass-localize';
 import { NEW_TOOLBAR_BUTTON } from './schemas/card';
 import { interpolate } from './strings';
 import { deepEqual } from './value';
@@ -105,18 +107,22 @@ export function writeButton(
 }
 
 /**
- * The list with one button moved a place up or down, past its neighbor.
+ * The list with one button moved to another place, the others keeping their order: a step past
+ * its neighbor from its strip or Alt+Arrow, any distance from its handle.
  *
  * @param buttons - The list as written
  * @param index - Which button moves
- * @param by - `-1` to move it toward the start, `1` toward the end
- * @returns The new list, unchanged where the button is already at that end
+ * @param to - Its new place, counting from zero
+ * @returns The new list, unchanged where either place is outside it
  */
-export function moveButton(buttons: ReadonlyArray<unknown>, index: number, by: -1 | 1): unknown[] {
+export function moveButtonTo(
+  buttons: ReadonlyArray<unknown>,
+  index: number,
+  to: number,
+): unknown[] {
   const next = [...buttons];
-  const to = index + by;
   if (index < 0 || index >= buttons.length || to < 0 || to >= buttons.length) return next;
-  [next[index], next[to]] = [next[to], next[index]];
+  next.splice(to, 0, ...next.splice(index, 1));
   return next;
 }
 
@@ -158,4 +164,32 @@ export function buttonTitle(entry: unknown, index: number, untitled: string): st
   const words = typeof button.icon === 'string' ? Helpers.iconWords(button.icon.trim()) : '';
   if (words !== '') return words.charAt(0).toUpperCase() + words.slice(1);
   return interpolate(untitled, { number: index + 1 });
+}
+
+/**
+ * The line under a button's name in its row: what a press does, by Home Assistant's own name for
+ * the action, then what it acts on or goes to, as "Toggle · light.kitchen" or "Navigate ·
+ * /lovelace/shopping". A button with no action runs nothing, and is named so.
+ *
+ * @param entry - The entry as written
+ * @param localize - The live `hass`'s `localize`, which names the card's own actions too
+ *   (`hass-localize.ts` › `withCardActionLabels`)
+ * @param template - "{action} · {target}"
+ * @returns The line
+ */
+export function buttonSummary(
+  entry: unknown,
+  localize: ((key: string) => string) | undefined,
+  template: string,
+): string {
+  const button = toButtonFormData(entry);
+  const tap = Helpers.isConfigBlock(button.tap_action) ? button.tap_action : {};
+  const action = typeof tap.action === 'string' ? tap.action : NO_ACTION.action;
+  const key = `${HA_ACTION_LABEL_PREFIX}${action}`;
+  const named = localize?.(key);
+  const label = typeof named === 'string' && named !== '' && named !== key ? named : action;
+  const target = [button.entity, tap.navigation_path, tap.url_path, tap.perform_action].find(
+    (each): each is string => typeof each === 'string' && each !== '',
+  );
+  return target === undefined ? label : interpolate(template, { action: label, target });
 }

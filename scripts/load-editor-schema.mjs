@@ -26,6 +26,7 @@ export async function loadEditorModule(root) {
         export { schemaCtx } from './src/rendering/editor/field-index.js';
         export { HA_TAB_KEYS } from './src/rendering/editor/search.js';
         export { EDITOR_STRINGS } from './src/rendering/editor/strings.js';
+        export { COLOR_THEME_NAMES, SWATCH_TOKENS, swatchNameKey } from './src/rendering/editor/colors.js';
         export { LABELED_ACTIONS, cardActionLabelKey } from './src/rendering/editor/schemas/actions.js';
         export { EDITOR_LANGUAGE_STRINGS } from './src/rendering/editor/translations/index.js';
         export { humanize, lookup, qualifiedKey } from './src/rendering/editor/localize.js';

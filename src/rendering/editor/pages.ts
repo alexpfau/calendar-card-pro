@@ -46,7 +46,9 @@ export type FamilyId =
  * - `with`: a mode control's value field, live with its mode. Match Against serves two lists,
  *   so it names both, and either asks for it.
  * - `family`: shown, added and removed with its family.
- * - `chips`: drawn as a toggle chip.
+ * - `chips`: drawn as a toggle chip (`chips.ts`), with the other chips of its kind on its page.
+ * - `segmented`: drawn as a card-built radio group of its options, Calendar Filter's Off, Menu
+ *   and Chips.
  * - `button-rows`: one of the toolbar's own buttons' fields, drawn in each button's row.
  */
 export type Appearance =
@@ -55,6 +57,7 @@ export type Appearance =
   | { readonly with: FieldId | ReadonlyArray<FieldId> }
   | { readonly family: FamilyId }
   | { readonly chips: 'parts' | 'toolbar' }
+  | 'segmented'
   | 'button-rows';
 
 /** What a page draws besides its fields, at one heading. */
@@ -99,6 +102,8 @@ export interface PageDef {
 
 const E = 'essential';
 const A = 'add';
+const PART: Appearance = { chips: 'parts' };
+const CONTROL: Appearance = { chips: 'toolbar' };
 
 /**
  * A mode value.
@@ -128,6 +133,7 @@ export const OVERVIEW_FIELDS: ReadonlyArray<readonly [FieldId, Appearance]> = [
   ['content:start_date_mode', E],
   ['content:start_date_fixed', withMode('content:start_date_mode')],
   ['content:start_date_offset', withMode('content:start_date_mode')],
+  ['actions:event_opens_details', E],
 ];
 
 export const PAGES: ReadonlyArray<PageDef> = [
@@ -206,13 +212,13 @@ export const PAGES: ReadonlyArray<PageDef> = [
         key: 'heading_toolbar',
         fields: [
           ['card:toolbar.show', E],
-          ['card:toolbar.legend', E],
-          ['card:toolbar.add_event', E],
-          ['card:toolbar.view_switcher', E],
-          ['card:toolbar.reset', E],
-          ['card:toolbar.refresh', E],
-          ['card:toolbar.search', E],
-          ['card:toolbar.navigation', E],
+          ['card:toolbar.add_event', CONTROL],
+          ['card:toolbar.view_switcher', CONTROL],
+          ['card:toolbar.reset', CONTROL],
+          ['card:toolbar.refresh', CONTROL],
+          ['card:toolbar.search', CONTROL],
+          ['card:toolbar.navigation', CONTROL],
+          ['card:toolbar.legend', 'segmented'],
         ],
       },
       {
@@ -319,22 +325,23 @@ export const PAGES: ReadonlyArray<PageDef> = [
     headings: [
       {
         key: 'heading_details',
+        // The eight parts each event shows, in the order an event shows them (D08).
         fields: [
-          ['events:show_time', E],
-          ['events:show_location', E],
-          ['events:show_description', E],
-          ['events:show_countdown', E],
-          ['events:show_progress_bar', A],
+          ['events:show_time', PART],
+          ['events:show_end_time', PART],
+          ['events:show_location', PART],
+          ['events:show_description', PART],
+          ['events:show_countdown', PART],
+          ['events:show_progress_bar', PART],
+          ['events:show_duration', PART],
+          ['events:show_now_indicator', PART],
           ['content:time_format', E],
           ['events:time_position', A],
         ],
       },
       {
         key: 'heading_event_state',
-        fields: [
-          ['events:show_now_indicator', A],
-          ['events:now_color', A],
-        ],
+        fields: [['events:now_color', A]],
       },
       {
         key: 'heading_accent',
@@ -369,8 +376,6 @@ export const PAGES: ReadonlyArray<PageDef> = [
       {
         key: 'time',
         fields: [
-          ['events:show_end_time', E],
-          ['events:show_duration', A],
           ['events:show_single_allday_time', A],
           ['events:show_multiday_allday_time', A],
           ['events:time_two_digit_hours', A],

@@ -10,6 +10,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
+import { chipFields } from '../src/rendering/editor/chips';
 import {
   type FieldId,
   type IndexedField,
@@ -72,11 +73,12 @@ const labelOf = (id: FieldId): string => fieldLabel(FIELDS.get(id)!, 'en');
 describe('the gate lines’ clauses', () => {
   it('are pinned by value, each condition’s own, its gate’s or a switch’s', () => {
     expect(clauses(ALL)).toEqual({
-      'time events:show_time': 'gate.when.on',
-      'location events:show_location': 'gate.when.on',
-      'description events:show_description': 'gate.when.on',
-      'countdown events:show_countdown': 'gate.when.on',
-      'progress_bar events:show_progress_bar': 'gate.when.on',
+      // The event parts are drawn as chips (PR 18): "Time is pressed".
+      'time events:show_time': 'gate.when.pressed',
+      'location events:show_location': 'gate.when.pressed',
+      'description events:show_description': 'gate.when.pressed',
+      'countdown events:show_countdown': 'gate.when.pressed',
+      'progress_bar events:show_progress_bar': 'gate.when.pressed',
       'month day_header:show_month': 'gate.when.on',
       'week_numbers day_header:week_number_mode': 'gate.when.week_numbers',
       'indicator_color day_header:today_indicator_style': 'gate.when.indicator_shown',
@@ -97,6 +99,7 @@ describe('the gate lines’ clauses', () => {
       'compact_days content:compact_events_to_show': 'gate.when.events_limit',
       'open_links actions:event_tap_action': 'gate.when.no_event_actions',
       'open_links actions:event_hold_action': 'gate.when.no_event_actions',
+      'open_links actions:event_opens_details': 'gate.when.no_event_actions',
       'empty_days content:show_empty_days': 'gate.when.empty_or_today',
       'empty_days content:show_empty_today': 'gate.when.empty_or_today',
       'label_icon_color calendar:label_type': 'gate.when.label_icon',
@@ -126,11 +129,13 @@ describe('the gate lines’ clauses', () => {
       'gate.when.location_shown': 'this calendar shows locations',
       'gate.when.no_event_actions': 'both event actions are set to Nothing',
       'gate.when.on': '{label} is on',
+      'gate.when.pressed': '{part} is pressed',
       'gate.when.weather_entity': 'a Weather Entity is chosen',
       'gate.when.week_numbers': 'week numbers are shown',
     });
-    // The fifteen clauses and the switch's template, and the two whole lines around them.
-    expect(keys).toHaveLength(16);
+    // The fifteen clauses, the switch's template and the chip's, and the two whole lines around
+    // them.
+    expect(keys).toHaveLength(17);
     expect(EDITOR_STRINGS['gate.line']).toBe('Appears once {when}: {names}.');
     expect(EDITOR_STRINGS['gate.line_bare']).toBe('Appears once {when}.');
   });
@@ -140,8 +145,25 @@ describe('the gate lines’ clauses', () => {
     const switches = conditions.filter((where) => clauses(ALL)[where] === 'gate.when.on');
     // The denominators, so an empty answer below is a check that ran.
     expect(conditions.length).toBeGreaterThan(30);
-    expect(switches.length).toBeGreaterThan(5);
+    // Three since the event parts became chips (PR 18): Show Month, Show Toolbar and Show
+    // Conditions Beside Events.
+    expect(switches.length).toBe(3);
     expect(unclaused(ALL)).toEqual([]);
+  });
+
+  it('give “is pressed” to the chips alone, reconciled against the page registry', () => {
+    const pressed = Object.keys(clauses(ALL))
+      .filter((where) => clauses(ALL)[where] === 'gate.when.pressed')
+      .map((where) => where.slice(where.indexOf(' ') + 1));
+    const chips = new Set([...chipFields('parts'), ...chipFields('toolbar')]);
+    expect(pressed.length).toBeGreaterThan(3);
+    expect(pressed.filter((id) => !chips.has(id))).toEqual([]);
+    // Every condition on a chip that falls to a switch's template says pressed instead.
+    const onChips = Object.keys(clauses(ALL)).filter(
+      (where) =>
+        chips.has(where.slice(where.indexOf(' ') + 1)) && clauses(ALL)[where] === 'gate.when.on',
+    );
+    expect(onChips).toEqual([]);
   });
 
   it('fail on a dropdown condition that loses its clause (a planted removal)', () => {
@@ -183,9 +205,9 @@ describe('a gate explains itself by the condition it waits on', () => {
     ).toBeUndefined();
   });
 
-  it('reads Show Countdown as on for once a day too', () => {
+  it('reads Countdown as pressed for once a day too, by its chip’s label', () => {
     const data = (value: unknown): GateData => ({ card: { show_countdown: value } });
-    expect(whenText(GATES.countdown, data(false), 'en', labelOf)).toBe('Show Countdown is on');
+    expect(whenText(GATES.countdown, data(false), 'en', labelOf)).toBe('Countdown is pressed');
     expect(whenText(GATES.countdown, data('once_per_day'), 'en', labelOf)).toBeUndefined();
   });
 });

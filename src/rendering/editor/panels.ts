@@ -55,6 +55,12 @@ export interface SchemaCtx {
   /** Authored values before workspace projection, when supplied by the live editor. */
   rawConfig?: Types.Config;
   language: string;
+  /**
+   * Mode choices held for this scope, by mode field name (`synthetic.ts` › `MODE_FIELDS`): what a
+   * mode control shows where its value reads as another mode. Builders read a mode through
+   * `synthetic.ts` › `modeFor`, so the field a held mode reveals is built.
+   */
+  presentation?: Readonly<Record<string, string>>;
 }
 
 /**
@@ -133,8 +139,9 @@ export const PANELS: ReadonlyArray<PanelDef> = [
   },
   {
     id: 'card',
-    // The words on the toolbar buttons' own panels: Add Button, Move Up and the rest.
-    strings: ['toolbar.buttons'],
+    // The words on the toolbar buttons' own rows (Add Button, Move Up and the rest), and the
+    // toolbar's controls drawn as chips.
+    strings: ['toolbar.buttons', 'toolbar.controls'],
     build: buildCardSchema,
     subforms: cardSubforms,
   },
