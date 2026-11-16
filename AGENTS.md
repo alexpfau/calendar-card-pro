@@ -1931,6 +1931,16 @@ calendars already on the card as `exclude_entities`; where a Home Assistant does
 choosing one already on the card shows "Anna is already on the card." with Open Anna instead of
 enabling Add. A second entry of one calendar comes only from Duplicate.
 
+**Reordering never moves a row in the DOM until it writes.** A calendar has one drag handle, on its
+own row (`reorder.ts` decides the order; `views/reorder.ts` draws the handle and follows the
+pointer). While the keyboard grab holds a calendar, the list shows the preview order by CSS `order`
+on each `[data-reorder]` row, so the focused handle is never detached: a keyed `repeat` moving it
+would blur it, and a blur during the grab means focus left the handle, which puts the calendar back.
+A pointer drag moves the rows by `transform` for the same reason, and to keep the handle's pointer
+capture. Both write once, on the drop, through `_moveCalendar`, which puts focus on the moved
+calendar's handle on the overview. Anything else drawn inside `.cal-list` takes the removal line's
+`order` (`--bar`), so it does not jump to the top during a grab.
+
 **The entry schema stays declared as the Calendars panel's sub-form** (`schemas/calendars.ts` ›
 `calendarsSubforms`), although the panel draws no field of its own now. That is what keeps
 `check:i18n` reading the entry schema as searched (`readEditorSchemaKeys` › `collect`): moved into
