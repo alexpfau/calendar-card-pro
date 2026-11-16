@@ -365,6 +365,29 @@ describe('Quick Setup', () => {
     expect(items().join('|')).not.toContain('Title');
   });
 
+  it('names whole-card settings Apply replaces, each value in words', async () => {
+    const { editor } = await mount({
+      ...OPENING,
+      view: 'grid',
+      filter_duplicates: true,
+      day_tap_action: { action: 'add-event' },
+    });
+    await click(editor, '[data-quick-setup-open]');
+    await click(editor, '[data-story="simple_agenda"]');
+    for (let i = 0; i < 4; i++) await click(editor, '[data-quick-setup-next]');
+    const items = [...root(editor).querySelectorAll('[data-quick-setup-replaced] li')].map((item) =>
+      item.textContent!.trim(),
+    );
+
+    // Whole-card settings first, then those every layout shares, as What This Card Changes groups.
+    expect(items).toEqual([
+      'Card Displays: Grid → Default',
+      'Day Tap Action: Add Event → Default',
+      'Show Empty Days: Off → Default',
+      'Filter Duplicates: Same title, start, end and location → Default',
+    ]);
+  });
+
   it('starts a fresh card with no calendar chosen, rather than the one it was started with', async () => {
     const fresh = {
       type: 'custom:calendar-card-pro',

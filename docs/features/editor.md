@@ -67,7 +67,7 @@ position and focus where you left them. Nothing goes deeper than a page.
 - **Which Events** and **Day Header** link to each other: whether past events show is one, and
   how the dates of past days look is the other.
 - The editor adds nothing to the browser's history, so the browser's Back closes the dialog as
-  it does for any card, behind Home Assistant's question about unsaved changes.
+  it does for any card.
 - The line under a setting says only what its name does not: a default, a format, or how it
   works with another setting. **Documentation**, at the foot of every page, opens the part of
   this site that covers the page's settings in full, in a new tab.
@@ -245,8 +245,9 @@ is unchanged.
 Column cards are not upgraded on opening, and their columns do not change: the first editor
 edit keeps the top-level values shared, as Column read them before v5.
 
-The upgrade is a change to the card like any other: Home Assistant asks before closing without
-saving, and a card you never open in the editor keeps working as it is; see
+The upgrade is a change to the card like any other: it is kept only when you press **Save**, so
+**Cancel** leaves the card as it was, and a card you never open in the editor keeps working as it
+is; see
 [Per-View Options](/features/core-settings#per-view-options). Once it is saved, the editor has
 written the `config_version` option for you, as it does on every card it creates. You do not
 need to add it by hand; see

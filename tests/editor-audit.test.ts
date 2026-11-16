@@ -293,6 +293,22 @@ describe('What This Card Changes, its groups', () => {
     expect(shown['entities[2].glitter'].meta).toBe('entities[2].glitter');
   });
 
+  it('words a value a dropdown stands in for as that dropdown words it', async () => {
+    // Each option is stored as a value its dropdown never offers: `true`, an action object.
+    const editor = await mountEditor({
+      config_version: VERSION,
+      entities: ['calendar.anna'],
+      filter_duplicates: true,
+      remove_location_country: true,
+      day_tap_action: { action: 'add-event' },
+    });
+    await openAudit(editor);
+    const all = rows(editor);
+    expect(all.filter_duplicates.value).toBe('Same title, start, end and location');
+    expect(all.remove_location_country.value).toBe('Remove Well-Known Ones');
+    expect(all.day_tap_action.value).toBe('Add Event');
+  });
+
   it('says under All Layouts which layouts have their own value, a line each', async () => {
     const editor = await mountEditor({
       config_version: VERSION,
