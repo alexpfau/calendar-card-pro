@@ -44,6 +44,14 @@ interface SyntheticField {
    * @returns Config changes, and any text to hold uncommitted
    */
   apply(value: unknown, config: Readonly<Types.Config>): SyntheticApplyResult;
+  /**
+   * A switch that refines another control's option rather than owning it: Leave Out Repeated
+   * Countdowns reads `show_countdown`, which the Countdown chip writes. The line belongs to that
+   * control, so the switch holds a value of its own only where the line derives it on
+   * (`refinementHolds`), and its reset writes its off value instead of deleting the line, which
+   * would turn the refined control off too (`reset.ts` › `resetRefinement`).
+   */
+  readonly refines?: true;
 }
 
 const FIXED_DATE_PATTERN = /^(\d{4}-\d{2}-\d{2})(?:[T\s].*)?$/;
@@ -589,6 +597,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
    */
   countdown_once_per_day: {
     configKeys: ['show_countdown'],
+    refines: true,
     derive: (config) => config.show_countdown === COUNTDOWN_ONCE_PER_DAY,
     apply: (value) => ({ changes: { show_countdown: value ? COUNTDOWN_ONCE_PER_DAY : true } }),
   },
@@ -810,6 +819,24 @@ export function isSyntheticKey(key: string): boolean {
  */
 export function configKeysForField(name: string): ReadonlyArray<string> {
   return isSyntheticKey(name) ? SYNTHETIC_FIELDS[name].configKeys : [name];
+}
+
+/**
+ * Whether a stored value gives a refinement (`SyntheticField.refines`) a value of its own: it
+ * derives otherwise than the card's default does. `show_countdown: true` is the Countdown chip's
+ * line, and leaves Leave Out Repeated Countdowns off; only `once_per_day` turns it on.
+ *
+ * @param name - Schema field name
+ * @param key - The option the value is stored for
+ * @param value - The stored value
+ * @returns Whether it holds a value of its own; `undefined` for a field that refines nothing
+ */
+export function refinementHolds(name: string, key: string, value: unknown): boolean | undefined {
+  if (!isSyntheticKey(name)) return undefined;
+  const field = SYNTHETIC_FIELDS[name];
+  if (!field.refines) return undefined;
+  const stored = { ...Config.DEFAULT_CONFIG, [key]: value } as Types.Config;
+  return field.derive(stored) !== field.derive(Config.DEFAULT_CONFIG);
 }
 
 /**

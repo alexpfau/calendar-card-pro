@@ -10,7 +10,9 @@
  * aliases (`localize.ts` › `computeAliases`, #834's: there is no second alias table), its
  * options, its helper, and the words that brought it on screen before results were rows: its
  * page's title, its heading's title and the line under it, a calendar's names for its fields, a
- * button's name, icon and entity for its fields.
+ * button's name, icon and entity for its fields. A color whose source a mode field chooses is one
+ * row, as its page draws one control for both (`colors.ts` › `ColorSpec`): the mode's, found by
+ * the value field's words too, and worded as the closed control words it.
  *
  * Both sides are folded (`fold`), the query's words match in any order, and a query no row holds
  * falls back to the letters of a label in order. Rows rank by tier (card settings, then a
@@ -22,6 +24,7 @@
  */
 
 import * as Buttons from './buttons';
+import * as Colors from './colors';
 import * as Entities from './entities';
 import {
   type FieldId,
@@ -590,6 +593,80 @@ function standing(
 }
 
 /**
+ * The color controls that absorb a mode field, by the mode's id and by the value's: one control
+ * on the page, so one row in search.
+ *
+ * @param ctx - The index's context
+ * @returns The specs
+ */
+function absorbingColors(ctx: SearchCtx): ReadonlyMap<FieldId, Colors.ColorSpec> {
+  const specs = new Map<FieldId, Colors.ColorSpec>();
+  const universe = universeIndex(ctx.language, ctx.plan.workspace);
+  for (const [id, spec] of Colors.colorSpecs(universe))
+    if (spec.mode !== undefined) specs.set(id, spec);
+  return specs;
+}
+
+/** Per index build, the absorbing specs, worked out once. */
+const absorbing = new WeakMap<SearchCtx, ReadonlyMap<FieldId, Colors.ColorSpec>>();
+
+/**
+ * The spec of the color control a field is the mode of, or the absorbed value of.
+ *
+ * @param id - Field id
+ * @param ctx - The index's context
+ * @returns The spec, or `undefined` for a field no control absorbs
+ */
+function absorbingSpec(id: FieldId, ctx: SearchCtx): Colors.ColorSpec | undefined {
+  let specs = absorbing.get(ctx);
+  if (!specs) absorbing.set(ctx, (specs = absorbingColors(ctx)));
+  return specs.get(id);
+}
+
+/** What a scope shows for each color with nothing stored, which reads as Default. */
+const defaultData = new Map<string, Readonly<Record<string, unknown>>>();
+
+/**
+ * A color control's row, under its mode's id: the value field, its words as the closed control
+ * shows them ("Default", "Follow Home Assistant", "Calendar Accent Color", "Pink"), and its texts.
+ *
+ * @param spec - The control's spec
+ * @param data - The form data its value is read from
+ * @param ctx - The index's context
+ * @param owner - Whose field
+ * @param scope - The scope the value is read in; none for a calendar's, which has no default
+ * @returns The value's words and texts; nothing where the value field is unknown here
+ */
+function colorRow(
+  spec: Colors.ColorSpec,
+  data: unknown,
+  ctx: SearchCtx,
+  owner: 'card' | 'entry',
+  scope?: EditorWorkspace,
+): { value: string; texts: Texts } | undefined {
+  const field =
+    ctx.present.get(spec.value) ??
+    universeIndex(ctx.language, ctx.plan.workspace).fields.get(spec.value);
+  if (field === undefined) return undefined;
+  const value = Routing.atPath(data, field.dataPath, field.node.name);
+  let fallback: unknown;
+  if (scope !== undefined) {
+    let defaults = defaultData.get(scope);
+    if (!defaults) {
+      const config = { ...Config.DEFAULT_CONFIG, entities: [] } as unknown as Types.Config;
+      defaultData.set(scope, (defaults = Routing.workspaceFormData(config, scope)));
+    }
+    fallback = Routing.atPath(defaults, field.dataPath, field.node.name);
+  }
+  const choice = Colors.choiceOf(value, spec, fallback);
+  const words =
+    choice.kind === 'source'
+      ? Colors.sourceLabel(choice.source, spec, ctx.language)
+      : (ctx.describe?.(field, value) ?? Colors.describeColor(value, spec, ctx.language));
+  return { value: words, texts: fieldTexts(field, ctx, owner) };
+}
+
+/**
  * One card field's row: found by its own text, its page's title, and its heading's title and the
  * line under it (a family's, for a family).
  *
@@ -621,6 +698,12 @@ function cardRow(place: Placed, ctx: SearchCtx): SearchEntry | undefined {
       : undefined;
   const yamlPath = [...(block ? [block] : field.dataPath), written].join('.');
   const texts: Texts = [...fieldTexts(field, ctx, 'card'), [yamlPath, 'key']];
+  const spec = absorbingSpec(place.id, ctx);
+  const color =
+    spec?.mode === place.id
+      ? colorRow(spec, data, ctx, 'card', scope as EditorWorkspace)
+      : undefined;
+  if (color) texts.push(...color.texts);
   if (page) {
     texts.push(
       [page.id, 'heading'],
@@ -639,7 +722,8 @@ function cardRow(place: Placed, ctx: SearchCtx): SearchEntry | undefined {
     label: EditorLocalize.computeLabel(ctx.language, field.node, field.labelPath),
     yamlPath,
     crumbs,
-    value: valueWords(field, Routing.atPath(data, field.dataPath, field.node.name), ctx),
+    value:
+      color?.value ?? valueWords(field, Routing.atPath(data, field.dataPath, field.node.name), ctx),
     get words() {
       return words();
     },
@@ -737,6 +821,8 @@ function entryRows(owner: SearchOwner, ctx: SearchCtx): SearchEntry[] {
   const rows: SearchEntry[] = [];
   for (const group of ENTRY_GROUPS) {
     for (const [id, appearance] of group.fields) {
+      const spec = absorbingSpec(id, ctx);
+      if (spec?.value === id) continue;
       const found = standing({ id, appearance }, ctx, plan, present.fields, {
         card: ctx.data,
         entry: data,
@@ -746,13 +832,14 @@ function entryRows(owner: SearchOwner, ctx: SearchCtx): SearchEntry[] {
       const { name: key } = { name: field.node.name };
       const words = once(() => Plan.stateOf(field, plan));
       const live = status.kind === 'live' || status.kind === 'add';
+      const color = spec?.mode === id ? colorRow(spec, data, ctx, 'entry') : undefined;
       rows.push({
         target: { kind: 'entry-field', id, key: owner.key },
         label: EditorLocalize.computeLabel(ctx.language, field.node, field.labelPath),
         // A label's source decides `label`, which its keys list last.
         yamlPath: `entities[${owner.index}].${keyOf(key, [...field.configKeys].reverse())}`,
         crumbs: group.key ? [name, ctx.t(group.key)] : [name],
-        value: valueWords(field, Routing.atPath(data, field.dataPath, key), ctx),
+        value: color?.value ?? valueWords(field, Routing.atPath(data, field.dataPath, key), ctx),
         get words() {
           return live ? stateWords(field, plan, ctx, words()) : undefined;
         },
@@ -763,7 +850,7 @@ function entryRows(owner: SearchOwner, ctx: SearchCtx): SearchEntry[] {
         get stored() {
           return words()?.words?.kind === 'set-entry';
         },
-        text: folded([...fieldTexts(field, ctx, 'entry'), ...identity]),
+        text: folded([...fieldTexts(field, ctx, 'entry'), ...(color?.texts ?? []), ...identity]),
       });
     }
   }
@@ -870,6 +957,7 @@ export function buildSearchIndex(ctx: SearchCtx): ReadonlyArray<SearchEntry> {
   const take = (place: Placed): void => {
     if (seen.has(place.id)) return;
     seen.add(place.id);
+    if (absorbingSpec(place.id, ctx)?.value === place.id) return;
     const row = cardRow(place, ctx);
     if (row) rows.push(row);
   };

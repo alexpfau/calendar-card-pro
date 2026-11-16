@@ -217,6 +217,20 @@ describe('the event-part chips', () => {
     expect(lines(editor).some((line) => line.startsWith('Not in'))).toBe(false);
   });
 
+  // Grid draws no location in its blocks unless told to, so Location reads off there. The line
+  // under the chips says why, as every other field's words say "Grid’s Default".
+  it('names the parts a layout defaults otherwise, until one is stored for it', async () => {
+    const editor = await mount({ view: 'grid' });
+    await goPage(editor, 'events');
+    expect(read(editor, 'Event Details')[2]).toBe('Location');
+    expect(lines(editor)).toContain('Grid’s Default: Location');
+
+    const stored = await mount({ view: 'grid', time_grid: { show_location: true } });
+    await goPage(stored, 'events');
+    expect(read(stored, 'Event Details')[2]).toBe('Location ✓');
+    expect(lines(stored).some((line) => line.includes('Default:'))).toBe(false);
+  });
+
   it('wraps the chips in rows, never stacked one per line by another control’s rule', async () => {
     const editor = await mount();
     await goPage(editor, 'events');

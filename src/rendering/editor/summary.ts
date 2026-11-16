@@ -2,9 +2,11 @@
  * The one line under each section row on the overview: label-and-value pairs of the page's main
  * settings, then "Set: N" where the page stores values in this scope ("Show Past Events: On ·
  * Show Empty Days: Off · Set: 1"). Composed from the fields' own labels and values, never a
- * sentence per page, and never an assembled plural.
+ * sentence per page, and never an assembled plural. A toggle chip stands for its group, which
+ * reads as the names of the chips pressed ("Time · End Time · Location · Countdown").
  */
 
+import { CHIP_LABELS, isPressed } from './chips';
 import type { FieldId, FieldIndex, IndexedField } from './field-index';
 import { fieldLabel, parseFieldId } from './field-index';
 import type { SelectOption } from './ha-form';
@@ -88,7 +90,14 @@ export function summaryParts(
   describe?: Describe,
 ): string[] {
   const parts: string[] = [];
+  const chipsDone = new Set<string>();
   for (const id of page.summary) {
+    const kind = chipKind(page, id);
+    if (kind !== undefined) {
+      if (!chipsDone.has(kind)) parts.push(...pressedChips(page, kind, present, data, language));
+      chipsDone.add(kind);
+      continue;
+    }
     const field = present.fields.get(id);
     if (field === undefined) continue;
     const value = wordValue(
@@ -107,6 +116,54 @@ export function summaryParts(
   }
   if (stored > 0) parts.push(setCount(stored, language));
   return parts;
+}
+
+/**
+ * The chip group a page draws a field in, if it draws it as a chip.
+ *
+ * @param page - The page
+ * @param id - The field
+ * @returns The group's kind, or `undefined`
+ */
+function chipKind(page: PageDef, id: FieldId): string | undefined {
+  for (const heading of page.headings) {
+    for (const [each, appearance] of heading.fields) {
+      if (each === id && typeof appearance === 'object' && 'chips' in appearance) {
+        return appearance.chips;
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
+ * The names of a chip group's pressed chips present here, in the page's order.
+ *
+ * @param page - The page
+ * @param kind - The group
+ * @param present - The fields built for this configuration and scope
+ * @param data - The scope's form data
+ * @param language - Editor language
+ * @returns The names
+ */
+function pressedChips(
+  page: PageDef,
+  kind: string,
+  present: FieldIndex,
+  data: Readonly<Record<string, unknown>>,
+  language: string,
+): string[] {
+  return page.headings.flatMap((heading) =>
+    heading.fields.flatMap(([id, appearance]) => {
+      if (typeof appearance !== 'object' || !('chips' in appearance)) return [];
+      if (appearance.chips !== kind) return [];
+      const field = present.fields.get(id);
+      if (field === undefined || !isPressed(atPath(data, field.dataPath, field.node.name))) {
+        return [];
+      }
+      return [lookup(language, CHIP_LABELS[id]) ?? CHIP_LABELS[id]];
+    }),
+  );
 }
 
 /**

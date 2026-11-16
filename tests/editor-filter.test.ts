@@ -226,9 +226,10 @@ describe('editor filter: the per-calendar settings', () => {
     const config = buildConfig({ entities: ['calendar.birthdays'] });
     const schema = entitySchema(config);
 
-    // Whole as a list card's editor draws it, which withholds the time grid's own control.
+    // Whole as a list card's editor draws it, which withholds the time grid's own control. The
+    // accent color is one control with the mode choosing its source, so one row, the mode's.
     expect(calendarHits(config, 'birthdays', schema)).toEqual(
-      fieldNames(schema).filter((name) => name !== 'multiday_banners'),
+      fieldNames(schema).filter((name) => name !== 'multiday_banners' && name !== 'accent_color'),
     );
   });
 
