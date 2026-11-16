@@ -193,7 +193,9 @@ describe('What This Card Changes, its groups', () => {
     }
     expect(configs).toBeGreaterThan(20);
     expect(leaves).toBeGreaterThan(configs * 3);
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('gives a line the field holding its value, not the mode choosing which', () => {
     const raw = {

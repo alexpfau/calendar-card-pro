@@ -330,7 +330,9 @@ describe('the filter switch in the rendered editor', () => {
       menu: [true],
       chips: [true],
     });
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it("heads a calendar's row with its name, and counts the switch as a setting of its own", async () => {
     // The name heads the row in place of Home Assistant's; the switch is a setting of its own,

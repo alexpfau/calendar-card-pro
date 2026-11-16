@@ -295,7 +295,9 @@ describe('the gate itself', () => {
     expect(run.stdout).toContain(`${count} languages, `);
     expect(run.stdout).toContain(`${count} of ${count} languages compared with CLDR`);
     expect(run.stdout).toContain(`list punctuation in ${count} of ${count} languages`);
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 });
 
 describe('the keys an alias string may sit on', () => {
@@ -322,7 +324,9 @@ describe('the keys an alias string may sit on', () => {
     expect(chassis).toEqual(expect.arrayContaining(['view', 'editing_workspace', 'search']));
     expect(aliasKeys.has('toolbar.search')).toBe(true);
     expect(chassis.filter((name) => name !== 'search' && aliasKeys.has(name))).toEqual([]);
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('take a page’s title key and a Home Assistant tab’s name, and nothing filed beside them', async () => {
     const { aliasKeys, registry } = await readEditorSchemaKeys();

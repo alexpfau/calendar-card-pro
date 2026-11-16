@@ -950,7 +950,9 @@ describe('the matcher', () => {
         .reduce((total, run) => total + run.boxes.length, 0);
       expect(boxes, view).toBeGreaterThan(100);
     }
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('puts every family option at its sentinel in every pass', () => {
     // Otherwise an inline font size could not be traced to its option and would be judged as
@@ -1206,7 +1208,9 @@ describe('the check can fail', () => {
         (entry) => entry.includes('span.event-title inside'),
       ),
     ).toBe(true);
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('notices text an option no longer reaches', () => {
     // The axis label's own declaration, outranked by a plant that sizes it from nothing,
@@ -1229,5 +1233,7 @@ describe('the check can fail', () => {
       'time-countdown in time': ['fixed 12px'],
       'time-countdown in time-text': ['fixed 12px'],
     });
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 });

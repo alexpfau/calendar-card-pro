@@ -494,7 +494,9 @@ describe('real Rollup builds and cache invalidation', () => {
     await expect(rollup({ input: entry, plugins, cache })).rejects.toThrow(
       'Unsupported Day.js instance API format',
     );
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   function setup() {
     const root = fixtures();
