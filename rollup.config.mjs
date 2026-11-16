@@ -233,6 +233,27 @@ function editorPrivateMembers() {
 }
 
 /**
+ * Rechecks the renamed members on every build, `--watch` rebuilds included. Terser is built once
+ * with the list read when the build started, so a member decorated, added or quoted since then
+ * would be renamed by a stale list; the build stops and asks for a restart instead.
+ *
+ * @param renamed - The pattern terser was built with
+ * @returns The plugin
+ */
+function keepRenamedMembers(renamed) {
+  return {
+    name: 'keep-renamed-members',
+    buildStart() {
+      if (editorPrivateMembers().source !== renamed.source) {
+        this.error(
+          'The private members of element.ts changed since this build started; restart it so terser renames the current set',
+        );
+      }
+    },
+  };
+}
+
+/**
  * The plugin chain, built fresh for each output.
  *
  * A factory rather than a shared array: a Rollup plugin instance carries per-build state,
@@ -244,7 +265,9 @@ function editorPrivateMembers() {
  * @returns The plugins, in order
  */
 export function createBuildPlugins({ compactPayloads = true, editor = false } = {}) {
+  const renamed = editor ? editorPrivateMembers() : undefined;
   return [
+    ...(editor ? [keepRenamedMembers(renamed)] : []),
     ...(compactPayloads ? [compactDayjsLocales(), compactEditorStrings()] : []),
     stripCssComments,
     ...(editor ? [collapseEditorTemplateWhitespace] : []),
@@ -318,7 +341,7 @@ export function createBuildPlugins({ compactPayloads = true, editor = false } = 
         // The card keeps the options above exactly.
         ...(editor ? { reduce_funcs: false, inline: 1, hoist_funs: true } : {}),
       },
-      ...(editor ? { mangle: { properties: { regex: editorPrivateMembers() } } } : {}),
+      ...(editor ? { mangle: { properties: { regex: renamed } } } : {}),
       format: {
         // Remove comments in production
         comments: false,
