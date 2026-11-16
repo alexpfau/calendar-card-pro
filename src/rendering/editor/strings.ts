@@ -113,6 +113,57 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'status.removed': 'Removed {name}',
   'status.applied': 'Applied {story}',
 
+  // --- Colors ---------------------------------------------------------------
+  //
+  // The composed color control (`colors.ts`, `views/color.ts`). The rows Follow the card, Follow
+  // Home Assistant, Calendar Accent Color and Row Text Color reuse their dropdown options' words.
+  // A placeholder is never `{color}`: the en-GB derivation would spell it `{colour}`.
+  'color.default': 'Default',
+  'color.calendar_color': 'Calendar Color',
+  'color.follow_card.description': "The card's Accent Color, {value}",
+  'color.follow_ha.card': "Each calendar's color in Home Assistant, where it holds one",
+  'color.follow_ha.none': 'None set for {name} there, so it falls back to the card',
+  'color.follow_ha.found': "Home Assistant's color for {name}: {value}",
+  'color.swatches': 'Home Assistant colors',
+  'color.custom': 'Custom…',
+  'color.custom.description':
+    'Any color the card can draw: #e91e63, a CSS name, or a theme variable',
+  'color.custom_field': 'Custom {setting}',
+  'color.invalid': 'Not a color the card can draw',
+  'color.kept': 'Kept until the text above is a color',
+  'color.yaml_none': 'Not in the YAML',
+  'color.not_set': 'Not Set',
+  'color.named': '{setting}, {value}',
+  'color.remove': "Remove {name}'s {setting}",
+  'color.mix': '{value}, {percent}%',
+  // Theme colors the card's defaults are written in, as a value reads.
+  'color.theme.primary': "Home Assistant's primary color",
+  'color.theme.primary_text': 'Primary Text',
+  'color.theme.secondary_text': 'Secondary Text',
+  'color.theme.divider': 'Divider',
+  'color.theme.card_background': 'Card Background',
+  // The swatches' names, English only: Home Assistant's own (`ui.components.color-picker.colors.*`)
+  // are read first, in its language, so these show only where it has none.
+  'color.name.red': 'Red',
+  'color.name.pink': 'Pink',
+  'color.name.purple': 'Purple',
+  'color.name.deep_purple': 'Deep purple',
+  'color.name.indigo': 'Indigo',
+  'color.name.blue': 'Blue',
+  'color.name.light_blue': 'Light blue',
+  'color.name.cyan': 'Cyan',
+  'color.name.teal': 'Teal',
+  'color.name.green': 'Green',
+  'color.name.light_green': 'Light green',
+  'color.name.lime': 'Lime',
+  'color.name.yellow': 'Yellow',
+  'color.name.amber': 'Amber',
+  'color.name.orange': 'Orange',
+  'color.name.deep_orange': 'Deep orange',
+  'color.name.brown': 'Brown',
+  'color.name.grey': 'Gray',
+  'color.name.blue_grey': 'Blue gray',
+
   // --- Gates ----------------------------------------------------------------
   //
   // What a withheld setting waits for, where the control's own label does not say it. Read from
@@ -406,7 +457,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.accent_color.helper':
     'The vertical line beside each event, and its background where the background ' +
     'opacity is above zero.',
-  'entity.accent_color_mode': 'Accent Color Source',
+  'entity.accent_color_mode': 'Accent Color',
   'entity.accent_color_mode.helper':
     'Home Assistant can hold a color for each calendar, under Settings, Devices & ' +
     'Services, Entities. Calendars it has no color for fall back to the card.',
@@ -994,7 +1045,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   accent_color: 'Custom Accent Color',
   'accent_color.helper':
     'The bar beside each event. A calendar can override it for its own events.',
-  accent_color_mode: 'Accent Color Source',
+  accent_color_mode: 'Accent Color',
   'accent_color_mode.helper':
     'Home Assistant can hold a color for each calendar, under Settings, Devices & ' +
     'Services, Entities. Calendars it has no color for keep the card default.',

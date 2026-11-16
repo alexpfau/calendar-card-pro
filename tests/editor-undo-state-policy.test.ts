@@ -41,6 +41,10 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_status',
     '_announcer',
     '_spoken',
+    // A color draft is never written, and Undo leaves it as it does the text in any field.
+    '_colorDrafts',
+    '_openColor',
+    '_registryHeld',
   ],
   // Keys never go back, so a restored entry's key is never handed to another.
   counters: ['_nextEntryKey', '_nextButtonKey'],
@@ -57,7 +61,14 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_warmed',
   ],
   // Derived from what is snapshotted, or from the render in progress.
-  derived: ['_config', '_lastDispatched', '_essentialsHidden', '_drawing', '_bareUpdatePending'],
+  derived: [
+    '_config',
+    '_lastDispatched',
+    '_essentialsHidden',
+    '_drawing',
+    '_bareUpdatePending',
+    '_registryWanted',
+  ],
   // The history itself, and whether a change is being recorded.
   history: ['_history', '_committing'],
   // Bound handlers and memoized builders: no state Undo could miss.
@@ -80,6 +91,11 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_cancelQuickSetup',
     '_applyQuickSetup',
     '_filterChanged',
+    '_cardColors',
+    '_entryColors',
+    '_defaultData',
+    '_haColorName',
+    '_registryChanged',
   ],
 };
 

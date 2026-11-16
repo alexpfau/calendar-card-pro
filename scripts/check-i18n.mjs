@@ -1140,7 +1140,10 @@ async function checkEditorTranslations(languages) {
   assertFound(Object.keys(EDITOR_STRINGS), 'any editor strings', STRINGS_TS);
 
   const imported = new Set(imports.values());
-  const total = Object.keys(EDITOR_STRINGS).length;
+  // The swatches' names are English only by design: Home Assistant's own are read first, in its
+  // language, so no translation file holds them and the coverage line leaves them out.
+  const englishOnly = new Set(colorNameKeys(await loadEditor()));
+  const total = Object.keys(EDITOR_STRINGS).filter((key) => !englishOnly.has(key)).length;
 
   for (const file of files.sort()) {
     const code = basename(file, '.json').toLowerCase();
@@ -1226,9 +1229,10 @@ async function checkEditorTranslations(languages) {
       }
     }
 
+    const counted = keys.filter((key) => !englishOnly.has(key)).length;
     notes.push(
-      `  ${code.padEnd(6)} ${String(keys.length).padStart(3)} / ${total} strings ` +
-        `(${String(Math.round((keys.length / total) * 100)).padStart(2)}%)`,
+      `  ${code.padEnd(6)} ${String(counted).padStart(3)} / ${total} strings ` +
+        `(${String(Math.round((counted / total) * 100)).padStart(2)}%)`,
     );
   }
 
@@ -2165,6 +2169,16 @@ export function checkSeparators(
  * Only fully-literal keys are collected. A composed key — `` `${blockKey}.density` `` —
  * has no single spelling to look up, and those are already covered by the schema walk.
  */
+/**
+ * The keys of the swatches' English names (`colors.ts` › `swatchNameKey`), one per swatch.
+ *
+ * @param editor - The bundled editor modules
+ * @returns The keys
+ */
+function colorNameKeys(editor) {
+  return editor.SWATCH_TOKENS.map((token) => editor.swatchNameKey(token));
+}
+
 async function checkEditorKeysUsedInCode() {
   const { EDITOR_STRINGS } = await loadEditor();
 
@@ -2206,9 +2220,18 @@ async function checkEditorKeysUsedInCode() {
 
   assertFound([...found.keys()], 'any literal translation keys', dir);
 
+  // The color control names a swatch by its token and a theme color by its variable, through
+  // tables rather than literals: those tables are its readers (`colors.ts`).
+  const editor = await loadEditor();
+  for (const key of colorNameKeys(editor)) {
+    if (!found.has(key)) found.set(key, 'editor/colors.ts');
+  }
+  for (const key of Object.values(editor.COLOR_THEME_NAMES)) {
+    if (!found.has(key)) found.set(key, 'editor/colors.ts');
+  }
+
   // Keys under a prefix held to its readers are used only where a literal or the registry names
   // them; the prefix alone, which makes every other chassis key reachable, does not vouch here.
-  const editor = await loadEditor();
   const registry = readRegistryKeys(editor);
   const held = Object.keys(EDITOR_STRINGS).filter((key) =>
     editor.REFERENCED_STRINGS.some((prefix) => key.startsWith(`${prefix}.`)),

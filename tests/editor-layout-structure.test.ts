@@ -520,8 +520,9 @@ describe('No two adjacent fields share a label', () => {
   }
 
   // The accent mode and the color it governs were both `Accent Color`, on the card and again
-  // on the per-calendar subform. They now read "Accent Color Source" and "Custom Accent Color",
-  // so every name on a page is its own (`tests/editor-unique-names.test.ts`).
+  // on the per-calendar subform. The color now reads "Custom Accent Color", and the mode, which
+  // the color control draws as one "Accent Color", keeps that name, so every name on a page is
+  // its own (`tests/editor-unique-names.test.ts`).
   const KNOWN: string[] = [];
 
   for (const workspace of WORKSPACES) {

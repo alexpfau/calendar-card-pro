@@ -355,20 +355,23 @@ describe('the Escape guard', () => {
 
 describe('a nested field’s own data', () => {
   /**
-   * Each field form's data on the open page, by field id.
+   * Each field form's data on the open page, by field id; the color controls draw none.
    *
    * @param editor - Editor element
    * @param prefix - The fields' id prefix
    * @returns Each form's data object
    */
   function dataOf(editor: MountedEditor, prefix: string): Map<string, unknown> {
+    // A color control draws no form until its Custom text is open (`tests/editor-colors.test.ts`).
     return new Map(
-      [...editor.shadowRoot!.querySelectorAll<HTMLElement>(`[data-field^="${prefix}"]`)].map(
-        (frame) => [
-          frame.dataset.field!,
-          (frame.querySelector('ha-form') as { data?: unknown }).data,
-        ],
-      ),
+      [
+        ...editor.shadowRoot!.querySelectorAll<HTMLElement>(
+          `[data-field^="${prefix}"]:not(.color-field)`,
+        ),
+      ].map((frame) => [
+        frame.dataset.field!,
+        (frame.querySelector('ha-form') as { data?: unknown }).data,
+      ]),
     );
   }
 

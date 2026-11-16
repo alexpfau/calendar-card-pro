@@ -23,6 +23,7 @@ import { repeat } from 'lit/directives/repeat.js';
 
 import { Announcer } from './announce';
 import * as Buttons from './buttons';
+import * as Colors from './colors';
 import * as Entities from './entities';
 import * as Essentials from './essentials';
 import * as Exceptions from './exceptions';
@@ -31,6 +32,7 @@ import {
   type IndexedField,
   buildFieldIndex,
   builtSchema,
+  fieldHelper,
   fieldId,
   fieldLabel,
 } from './field-index';
@@ -77,6 +79,7 @@ import * as Subforms from './subforms';
 import * as Summary from './summary';
 import * as Synthetic from './synthetic';
 import * as Value from './value';
+import * as ColorView from './views/color';
 import * as Focus from './views/focus';
 import * as HistoryView from './views/history';
 import { icon } from './views/icon';
@@ -91,6 +94,7 @@ import * as ViewConfig from '../../config/view';
 import { loadIntlLocaleData } from '../../translations/intl-locale-data';
 import * as LanguageCodes from '../../translations/language-codes';
 import { configuredCalendarName } from '../../utils/calendar-names';
+import * as EntityColors from '../../utils/entity-colors';
 import * as Helpers from '../../utils/helpers';
 import * as Logger from '../../utils/logger';
 import { showsEventWeather } from '../../utils/weather-position';
@@ -302,6 +306,36 @@ interface QuickSetupSession {
   readonly previews: ReadonlyArray<Record<string, unknown>>;
 }
 
+/** What a color control writes for one of its rows or swatches (`colors.ts` › `ColorSpec`). */
+type ColorWrite = Colors.ColorSpec['sources'][number]['write'];
+
+/** What a color control is drawn for (`element.ts` › `_renderColor`). */
+interface ColorArgs {
+  readonly owner: WriteFrames.WriteOwner;
+  readonly spec: Colors.ColorSpec;
+  readonly ctx: SchemaCtx;
+  /** The control's name: the absorbed mode's label, else the field's. */
+  readonly name: string;
+  /** The field that stores the color, drawn or not. */
+  readonly valueField: IndexedField;
+  /** The owner's form data, where the value is read. */
+  readonly data: Readonly<Record<string, unknown>>;
+  /** What the field shows with nothing stored, for the card's fields. */
+  readonly fallback?: unknown;
+  /** The value as the YAML holds it at the place it would be written, if any. */
+  readonly stored: unknown;
+  /** Where the value would be stored, for its draft's key (`colors.ts` › `draftKey`). */
+  readonly destination: string;
+  /** The field the control is drawn for: the absorbed mode, else the color. */
+  readonly anchor: FieldId;
+  /** What Undo and Redo focus. */
+  readonly focusKey: string;
+  /** The field's helper: the color's own, else the mode's. */
+  readonly helper?: string;
+  /** The calendar, for an entry's control. */
+  readonly entity?: { readonly id: string; readonly name: string };
+}
+
 /** The line a removal or an applied story leaves under its list ("Removed Ben · Undo"). */
 interface StatusLine {
   readonly kind: 'entry' | 'button' | 'story';
@@ -321,6 +355,10 @@ export class CalendarCardProEditor extends LitElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     awaitingConditionsEditor.delete(this);
+    // The last editor or card out closes the registry subscription (`entity-colors.ts`).
+    if (this._registryHeld) EntityColors.releaseEntityColors(this._registryChanged);
+    this._registryHeld = false;
+    this._registryWanted = false;
   }
 
   /**
@@ -407,6 +445,12 @@ export class CalendarCardProEditor extends LitElement {
    * the calendar it would edit against.
    */
   protected override updated(): void {
+    // Home Assistant's calendar colors, read through the card's own module once an entry's color
+    // control describes one, and watched while this editor is open.
+    if (this._registryWanted && !this._registryHeld && this.hass) {
+      this._registryHeld = true;
+      EntityColors.ensureEntityColors(this.hass, this._registryChanged);
+    }
     if (!this._drawn) return;
     // Every key the drawn forms hold, held or not: `warmSchema` asks about each one it meets.
     const drawn = new Set<string>();
@@ -554,6 +598,26 @@ export class CalendarCardProEditor extends LitElement {
 
   /** The line a removal or an applied story leaves, until the next change. */
   @state() private _status?: StatusLine;
+
+  /**
+   * The color controls' state outside the configuration, by `colors.ts` › `draftKey`: Custom
+   * chosen, and the text typed there that the card cannot draw, which is kept here and never
+   * written. Kept across closing a control and changing pages; cleared by another choice in the
+   * control and by a configuration the editor did not send.
+   */
+  @state() private _colorDrafts: ReadonlyMap<string, { readonly text?: string }> = new Map();
+
+  /** The color control open, by owner and field (`_colorKey`). */
+  @state() private _openColor?: string;
+
+  /** Whether an entry's color control has described Home Assistant's color for its calendar. */
+  private _registryWanted = false;
+
+  /** Whether this editor is subscribed to Home Assistant's calendar colors. */
+  private _registryHeld = false;
+
+  /** Draws again once Home Assistant's calendar colors move. */
+  private _registryChanged = (): void => this.requestUpdate();
 
   /** Whether `_commit` is running a change, so a write inside it joins that change's step. */
   private _committing = false;
@@ -738,6 +802,7 @@ export class CalendarCardProEditor extends LitElement {
       // A configuration the editor did not send ends what Undo could reach.
       this._history.clear();
       this._status = undefined;
+      this._colorDrafts = new Map();
       this._selectedWorkspace = undefined;
       this._pending = {};
       this._gridReconciliation = [];
@@ -1690,6 +1755,17 @@ export class CalendarCardProEditor extends LitElement {
    * @returns The wrapper and its form
    */
   private _renderField(field: IndexedField, ctx: SchemaCtx): TemplateResult {
+    const colors = this._cardColors(ctx);
+    const spec = colors.specs.get(field.id);
+    if (spec !== undefined) {
+      // A mode's value is drawn inside its mode's control, wherever both are drawn.
+      const absorbed =
+        spec.mode !== undefined &&
+        field.id === spec.value &&
+        this._drawing?.present.has(spec.mode) === true &&
+        this._drawing.shown.has(spec.mode);
+      return absorbed ? html`` : this._renderColorField(field, spec, colors, ctx);
+    }
     const slot = `field.${field.id}`;
     const schema = this._intern(slot, field.lifted);
     const data = this._intern(`${slot}.data`, Routing.formDataFor(this._formData(), schema));
@@ -1745,6 +1821,361 @@ export class CalendarCardProEditor extends LitElement {
       (field) => field.id,
       (field) => this._renderField(field, ctx),
     );
+  }
+
+  /** The card's color specs for a context (`colors.ts` › `cardColorFields`). */
+  private _cardColors = Helpers.memoizeLast(Colors.cardColorFields);
+
+  /** An entry's color specs for a context (`colors.ts` › `entryColorFields`). */
+  private _entryColors = Helpers.memoizeLast(Colors.entryColorFields);
+
+  /** The card's form data with nothing stored, for what a color field falls back to. */
+  private _defaultData = Helpers.memoizeLast((workspace: Workspace.EditorWorkspace) =>
+    Routing.workspaceFormData({ ...Config.DEFAULT_CONFIG } as Types.Config, workspace),
+  );
+
+  /**
+   * Home Assistant's own name for a theme color, from its color picker's strings.
+   *
+   * @param token - A theme color token, `deep-purple`
+   * @returns The name, or undefined where it has none
+   */
+  private _haColorName = (token: string): string | undefined => {
+    const key = `${Colors.HA_COLOR_NAME_PREFIX}${token}`;
+    const name = this.hass?.localize?.(key);
+    return typeof name === 'string' && name !== '' && name !== key ? name : undefined;
+  };
+
+  /**
+   * A card color field: its wrapper, the one place focus lands on it, and the composed control.
+   *
+   * @param field - The field drawn: the mode a control absorbs, else the color itself
+   * @param spec - Its spec
+   * @param colors - The card's color fields
+   * @param ctx - Schema context
+   * @returns The field
+   */
+  private _renderColorField(
+    field: IndexedField,
+    spec: Colors.ColorSpec,
+    colors: Colors.ColorFields,
+    ctx: SchemaCtx,
+  ): TemplateResult {
+    const valueField = colors.fields.get(spec.value)!;
+    const workspace = ctx.workspace ?? ctx.view;
+    const configKey = valueField.configKeys[0] ?? valueField.node.name;
+    const block =
+      valueField.dataPath.length === 0 ? Routing.destination(configKey, workspace) : undefined;
+    const name = fieldLabel(field, ctx.language);
+    return html`<div
+      class="field color-field"
+      data-field=${field.id}
+      tabindex="-1"
+      role="group"
+      aria-label=${name}
+    >
+      ${this._renderColor({
+        owner: WriteFrames.CARD_OWNER,
+        spec,
+        ctx,
+        name,
+        valueField,
+        data: this._formData(),
+        fallback: Routing.atPath(
+          this._defaultData(workspace),
+          valueField.dataPath,
+          valueField.node.name,
+        ),
+        stored: Routing.atPath(
+          this._rawConfig,
+          [...(block === undefined ? [] : [block]), ...valueField.dataPath],
+          valueField.node.name,
+        ),
+        destination: block ?? '',
+        anchor: field.id,
+        focusKey: `field:${field.id}`,
+        helper: fieldHelper(valueField, ctx) ?? fieldHelper(field, ctx),
+      })}
+    </div>`;
+  }
+
+  /**
+   * An entry's color control, as its page draws it, writing to that entry alone. Protected, not
+   * private: entry pages arrive with the calendar list's pull request, and until they draw it the
+   * entry's path is held by the tests alone (`tests/editor-colors.test.ts`).
+   *
+   * @param key - The entry's key
+   * @param id - The color field, or the mode it absorbs (`calendar:accent_color`)
+   * @param ctx - Schema context
+   * @returns The control; nothing for an entry that has left, or a field that is no color
+   */
+  protected _renderEntryColor(
+    key: number,
+    id: FieldId,
+    ctx: SchemaCtx,
+  ): TemplateResult | typeof nothing {
+    const entry = this._entryOf(key);
+    const colors = this._entryColors(ctx);
+    const spec = colors.specs.get(id);
+    if (entry === undefined || spec === undefined) return nothing;
+    const owner: WriteFrames.WriteOwner = { kind: 'entry', key };
+    const anchor = spec.mode ?? spec.value;
+    const valueField = colors.fields.get(spec.value)!;
+    const entityId = Synthetic.entityIdOf(entry);
+    return this._renderColor({
+      owner,
+      spec,
+      ctx,
+      name: fieldLabel(colors.fields.get(anchor)!, ctx.language),
+      valueField,
+      data: WriteFrames.projectionFor(owner, this._writeState(), ctx.workspace ?? ctx.view) ?? {},
+      stored: Entities.asEntityConfig(entry)[valueField.node.name as keyof Types.EntityConfig],
+      destination: String(key),
+      anchor,
+      focusKey: `entry:${key}`,
+      helper: fieldHelper(valueField, ctx) ?? fieldHelper(colors.fields.get(anchor)!, ctx),
+      entity: { id: entityId, name: Entities.entityDisplayName(entityId, this.hass) },
+    });
+  }
+
+  /**
+   * The composed color control for any owner (section 5.9, D13). Every row and swatch writes
+   * through `_writeFieldValue` for the owner, one undo step each; Custom's text is written only
+   * once it is a color the card can draw, and held as a draft until then.
+   *
+   * @param c - What the control is drawn for
+   * @returns The control
+   */
+  private _renderColor(c: ColorArgs): TemplateResult {
+    const { spec, ctx } = c;
+    const language = ctx.language;
+    const haName = this._haColorName;
+    const t = (key: string): string => this._string(ctx, key);
+    const value = Routing.atPath(c.data, c.valueField.dataPath, c.valueField.node.name);
+    const text = typeof value === 'string' ? value : '';
+    const draftKey = Colors.draftKey(c.owner, spec.value, c.destination);
+    const draft = this._colorDrafts.get(draftKey);
+    const typing = draft?.text !== undefined;
+    const choice = Colors.choiceOf(value, spec, c.fallback);
+    const customChosen = draft !== undefined || choice.kind === 'custom';
+    const storedInvalid = choice.kind === 'custom' && !Colors.validColor(text, spec);
+    const cardAccent = EntityColors.isEntityColorSentinel(this._config!.accent_color)
+      ? 'var(--primary-color)'
+      : (this._config!.accent_color ?? Config.DEFAULT_CONFIG.accent_color);
+    let registry: string | undefined;
+    if (c.entity !== undefined) {
+      this._registryWanted = true;
+      registry = EntityColors.entityColors().get(c.entity.id);
+    }
+    const paint = (source: Colors.ColorSource): string =>
+      source === 'default'
+        ? typeof c.fallback === 'string' && c.fallback !== ''
+          ? c.fallback
+          : 'transparent'
+        : source === 'row-text'
+          ? 'var(--primary-text-color)'
+          : source === 'follow-ha'
+            ? (registry ?? cardAccent)
+            : cardAccent;
+    const valueWords =
+      choice.kind === 'source'
+        ? Colors.sourceLabel(choice.source, spec, language)
+        : Colors.describeColor(value, spec, language, { haName });
+    const describe = (source: Colors.ColorSource): string | undefined => {
+      if (source === 'default') {
+        return typeof c.fallback === 'string' && c.fallback !== ''
+          ? Colors.describeColor(c.fallback, spec, language, { haName })
+          : undefined;
+      }
+      if (source === 'follow-card') {
+        return interpolate(t('color.follow_card.description'), {
+          value: Colors.describeColor(cardAccent, spec, language, { haName }),
+        });
+      }
+      if (source !== 'follow-ha') return undefined;
+      if (c.entity === undefined) return t('color.follow_ha.card');
+      return registry === undefined
+        ? interpolate(t('color.follow_ha.none'), { name: c.entity.name })
+        : interpolate(t('color.follow_ha.found'), {
+            name: c.entity.name,
+            value: Colors.describeColor(registry, spec, language, { haName }),
+          });
+    };
+    const pick = (write: ColorWrite): void => {
+      const drafts = new Map(this._colorDrafts);
+      drafts.delete(draftKey);
+      this._colorDrafts = drafts;
+      this._writeColor(c, write);
+    };
+    const key = this._colorKey(c);
+    const open = this._openColor === key;
+    const customLabel = interpolate(t('color.custom_field'), { setting: c.name });
+    const remove =
+      c.entity !== undefined && c.stored !== undefined && c.stored !== null && c.stored !== ''
+        ? {
+            label: interpolate(t('color.remove'), { name: c.entity.name, setting: c.name }),
+            onRemove: () => pick(spec.sources[0].write),
+          }
+        : undefined;
+    return ColorView.colorControl({
+      id: `color:${key}`,
+      focusKey: `color:${key}`,
+      name: c.name,
+      value: valueWords,
+      accessibleName: interpolate(t('color.named'), { setting: c.name, value: valueWords }),
+      color: storedInvalid ? undefined : choice.kind === 'source' ? paint(choice.source) : text,
+      open,
+      onToggle: () => {
+        this._openColor = open ? undefined : key;
+      },
+      remove,
+      helper: c.helper,
+      rows: spec.sources.map(({ source, write }) => ({
+        key: source,
+        label: Colors.sourceLabel(source, spec, language),
+        description: describe(source),
+        checked: !customChosen && choice.kind === 'source' && choice.source === source,
+        color: source === 'follow-ha' ? undefined : paint(source),
+        onPick: () => pick(write),
+      })),
+      swatchesLabel: t('color.swatches'),
+      swatches: Colors.SWATCH_TOKENS.map((token) => ({
+        token,
+        name: Colors.swatchName(token, language, haName),
+        color: Colors.swatchValue(token),
+        checked: !customChosen && choice.kind === 'swatch' && choice.token === token,
+        onPick: () => pick({ ...spec.custom, [spec.value]: Colors.swatchValue(token) }),
+      })),
+      custom: {
+        label: t('color.custom'),
+        description: t('color.custom.description'),
+        checked: customChosen,
+        onPick: () => {
+          if (!this._colorDrafts.has(draftKey)) {
+            this._colorDrafts = new Map(this._colorDrafts).set(draftKey, {});
+          }
+        },
+      },
+      field:
+        open && customChosen
+          ? {
+              form: this._renderColorText(c, draftKey, draft?.text ?? text, customLabel),
+              color: typing || storedInvalid || text === '' ? undefined : text,
+              invalid: typing || storedInvalid ? t('color.invalid') : undefined,
+            }
+          : undefined,
+      yaml: {
+        line:
+          c.stored === undefined || c.stored === null
+            ? undefined
+            : `${c.valueField.node.name}: ${String(c.stored)}`,
+        none: t('color.yaml_none'),
+        kept: typing ? t('color.kept') : undefined,
+      },
+    });
+  }
+
+  /**
+   * Custom's text field: the value field in a form of its own, showing a draft over the stored
+   * value, its changes taken by the control (`_colorTyped`) rather than written as typed.
+   *
+   * @param c - What the control is drawn for
+   * @param draftKey - Where its draft is kept
+   * @param shown - The text it shows
+   * @param label - Its label, "Custom Accent Color"
+   * @returns The field
+   */
+  private _renderColorText(
+    c: ColorArgs,
+    draftKey: string,
+    shown: string,
+    label: string,
+  ): TemplateResult {
+    const slot = `color.${draftKey}`;
+    const schema = this._intern(`${slot}.schema`, c.valueField.lifted);
+    const data = this._intern(`${slot}.data`, WriteFrames.withValue({}, c.valueField, shown));
+    const [hass, feed] = this._feed(schema, c.ctx.language);
+    const card = c.owner.kind === 'card';
+    return html`<div class="color-text-field">
+      <ha-form
+        class=${card ? 'field-form' : 'entity-form'}
+        data-hass=${feed}
+        .hass=${hass}
+        .data=${data}
+        .schema=${schema}
+        .computeLabel=${this._keep(`${slot}.label`, label, () => () => label)}
+        .localizeValue=${this._localizeValue}
+        @value-changed=${(event: CustomEvent) => this._colorTyped(c, draftKey, event)}
+      ></ha-form>
+    </div>`;
+  }
+
+  /**
+   * Which control a color control is, by owner and the field it is drawn for.
+   *
+   * @param c - What the control is drawn for
+   * @returns The key, `card|events:accent_color_mode`
+   */
+  private _colorKey(c: ColorArgs): string {
+    return `${c.owner.kind === 'card' ? 'card' : `${c.owner.kind}:${c.owner.key}`}|${c.anchor}`;
+  }
+
+  /**
+   * Writes a color control's choice for its owner, one undo step: a source's values, or for
+   * `reset` the color taken off (an absorbed mode set to its custom value first, so its value
+   * field is drawn to clear). Fields are written in the order given, a mode before its value.
+   *
+   * @param c - What the control is drawn for
+   * @param write - What to write
+   * @param coalesceKey - The typing a write joins, for Custom's text
+   */
+  private _writeColor(c: ColorArgs, write: ColorWrite, coalesceKey?: string): void {
+    const { spec, ctx } = c;
+    const steps: ReadonlyArray<readonly [FieldId, unknown]> =
+      write === 'reset'
+        ? [
+            ...(spec.mode === undefined ? [] : [[spec.mode, spec.custom[spec.mode]] as const]),
+            [spec.value, undefined] as const,
+          ]
+        : Object.entries(write);
+    const label =
+      c.entity === undefined
+        ? interpolate(this._string(ctx, 'history.change'), { setting: c.name })
+        : interpolate(this._string(ctx, 'history.change_for'), {
+            setting: c.name,
+            name: c.entity.name,
+          });
+    this._commit(
+      label,
+      coalesceKey,
+      () => {
+        for (const [id, value] of steps) this._writeFieldValue(c.owner, id, value);
+      },
+      c.focusKey,
+    );
+  }
+
+  /**
+   * Custom's text: written the moment it is a color the card can draw, coalesced like any typing;
+   * until then held as a draft, and the last color written stays in the configuration.
+   *
+   * @param c - What the control is drawn for
+   * @param draftKey - Where its draft is kept
+   * @param event - The text field's `value-changed`
+   */
+  private _colorTyped(c: ColorArgs, draftKey: string, event: CustomEvent): void {
+    event.stopPropagation();
+    const incoming = event.detail?.value as Record<string, unknown> | undefined;
+    if (!incoming) return;
+    const typed = Routing.atPath(incoming, c.valueField.dataPath, c.valueField.node.name);
+    const text = typeof typed === 'string' ? typed : '';
+    const drafts = new Map(this._colorDrafts);
+    if (!Colors.validColor(text, c.spec)) {
+      this._colorDrafts = drafts.set(draftKey, { text });
+      return;
+    }
+    this._colorDrafts = drafts.set(draftKey, {});
+    this._writeColor(c, { ...c.spec.custom, [c.spec.value]: text }, `${c.focusKey}|${draftKey}`);
   }
 
   /**
@@ -1892,7 +2323,7 @@ export class CalendarCardProEditor extends LitElement {
     const wizard = this._quickSetup;
     // Quick Setup is a place of its own: Escape is its Back, or Cancel on its first step.
     const action = escapeAction(event.composedPath(), this, {
-      disclosure: wizard === undefined && this._scopeOpen,
+      disclosure: wizard === undefined && (this._openColor !== undefined || this._scopeOpen),
       onPage: wizard !== undefined || this._nav.route.kind !== 'overview',
       query: Filter.hasQuery(this._filter),
     });
@@ -1915,6 +2346,12 @@ export class CalendarCardProEditor extends LitElement {
           ]),
         );
       }
+    } else if (action === 'close' && this._openColor !== undefined) {
+      const open = this._openColor;
+      this._openColor = undefined;
+      void this.updateComplete.then(() =>
+        Focus.focusFirst(this.renderRoot, [Focus.byFocusKey(`color:${open}`)]),
+      );
     } else if (action === 'close') {
       this._scopeOpen = false;
       void this.updateComplete.then(() =>
@@ -2051,6 +2488,13 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _describe = (field: IndexedField, value: unknown): string | undefined => {
     const selector = field.node.selector;
+    const ctx = this._ctx;
+    const spec = Colors.isColorNode(field.node)
+      ? this._cardColors(ctx).specs.get(field.id)
+      : undefined;
+    if (spec !== undefined) {
+      return Colors.describeColor(value, spec, ctx.language, { haName: this._haColorName });
+    }
     if ('ui_action' in selector) {
       const action = Helpers.isConfigBlock(value) ? value.action : undefined;
       if (typeof action !== 'string') return undefined;

@@ -28,6 +28,12 @@
  * `display:view` and `workspace:editing_workspace` still name them, for `changeField` and
  * `valueOf`, which choose and read them as a user does.
  *
+ * A color field is the editor's own control too (`colors.ts`), drawn for the color, or for the
+ * mode it absorbs (`events:accent_color_mode`), with the color's value inside. It stands in as a
+ * form for those ids (`colorForm`): its schema and data are theirs, so every helper reads it as it
+ * reads any field, and a change sent to it is made in the control as a user makes it, by its rows,
+ * its swatches, or Custom and the text typed there (`driveColor`).
+ *
  * The chassis scopes are this module's own: `field-index.ts` indexes the nine panels, calendar
  * entries and toolbar buttons, and the chassis draws forms that belong to none of them. They
  * follow the same pattern, `filter:search`. An `ha-form` of any other class fails every helper,
@@ -42,20 +48,28 @@ import { setImmediate as nodeImmediate, setTimeout as nodeTimeout } from 'node:t
 import * as Config from '../../src/config/config';
 import type * as Types from '../../src/config/types';
 import * as Buttons from '../../src/rendering/editor/buttons';
+import * as Colors from '../../src/rendering/editor/colors';
 import { CalendarCardProEditor } from '../../src/rendering/editor/element';
 import * as Entities from '../../src/rendering/editor/entities';
 import {
   type FieldId,
+  type IndexedField,
+  buildFieldIndex,
   buttonFieldIndex,
   entrySchema,
+  fieldHelper,
   fieldId,
+  fieldLabel,
   parseFieldId,
   universeIndex,
 } from '../../src/rendering/editor/field-index';
 import * as Filter from '../../src/rendering/editor/filter';
 import type { HaFormSchema } from '../../src/rendering/editor/ha-form';
+import * as HassKey from '../../src/rendering/editor/hass-key';
+import { withCardActionLabels } from '../../src/rendering/editor/hass-localize';
 import { PAGES, placementOf } from '../../src/rendering/editor/pages';
 import { type SchemaCtx, walkSchema } from '../../src/rendering/editor/panels';
+import * as Routing from '../../src/rendering/editor/routing';
 import { ENTITY_PATH } from '../../src/rendering/editor/schemas/calendars';
 import {
   TOOLBAR_BUTTON_PATH,
@@ -358,6 +372,11 @@ function placeForm(
   buttons: ReadonlyMap<Element, number>,
 ): Drawn {
   const classes = form.classList;
+  const control = colorControls.get(form);
+  if (control !== undefined) {
+    const id = control.getAttribute('data-field')!;
+    return { form, kind: 'card', scope: parseFieldId(id).scope, place };
+  }
   if (classes.contains('field-form')) {
     const id = form.closest('[data-field]')?.getAttribute('data-field');
     if (!id) outOfStep('A field form outside a field wrapper');
@@ -416,13 +435,180 @@ function drawnForms(editor: EditorElement): Drawn[] {
 function liveForms(editor: EditorElement, root: ShadowRoot, page?: string): Drawn[] {
   const entries = entryIndexes(editor, root);
   const buttons = buttonIndexes(editor, root);
-  return [...root.querySelectorAll<FormElement>('ha-form')]
+  // A color control stands for the fields it edits, Custom's text field among them.
+  return [...root.querySelectorAll<HTMLElement>('ha-form, .color-field')]
     .filter((form) => form.closest('[inert]') === null)
+    .flatMap((node) =>
+      node.classList.contains('color-field')
+        ? [colorForm(editor, node)]
+        : node.closest('.color-field') === null
+          ? [node as FormElement]
+          : [],
+    )
     .map((form, at) => {
       const drawn = { ...placeForm(form, at + 1, entries, buttons), page };
       formScopes.set(form, drawn.scope);
       return drawn;
     });
+}
+
+/** The control each color control's stand-in form stands for, by stand-in. */
+const colorControls = new WeakMap<Element, Element>();
+
+/** The stand-in form for each color control, by the control's wrapper. */
+const colorForms = new WeakMap<Element, FormElement>();
+
+/**
+ * A color control's spec and the fields it edits as drawn now: the field it is drawn for, and the
+ * value of a mode it absorbs while its gate draws it (`colors.ts` › `cardColorFields`).
+ *
+ * @param editor - Editor element
+ * @param anchor - The id the control's wrapper names
+ * @returns The spec and the fields, in order
+ */
+function colorFieldsOf(
+  editor: EditorElement,
+  anchor: FieldId,
+): { readonly spec: Colors.ColorSpec; readonly fields: ReadonlyArray<IndexedField> } {
+  const ctx = stateOf(editor)._ctx;
+  const colors = Colors.cardColorFields(ctx);
+  const spec = colors.specs.get(anchor);
+  if (spec === undefined) outOfStep(`'${anchor}' is drawn as a color control but is no color`);
+  const present = buildFieldIndex(ctx).fields;
+  const ids = spec.mode === anchor ? [anchor, spec.value] : [anchor];
+  return { spec, fields: ids.flatMap((id) => (present.has(id) ? [present.get(id)!] : [])) };
+}
+
+/**
+ * A color control as a form standing for the fields it edits, so a test names them by id as it
+ * names any field: its schema is theirs, its data the editor's own for them, its labels and
+ * helpers theirs. A change it is sent is made in the control as a user makes it: a row, a swatch,
+ * or Custom and the text typed there (`driveColor`).
+ *
+ * @param editor - Editor element
+ * @param control - The control's wrapper, `.color-field`
+ * @returns The stand-in
+ */
+function colorForm(editor: EditorElement, control: Element): FormElement {
+  const known = colorForms.get(control);
+  if (known !== undefined) return known;
+  const anchor = control.getAttribute('data-field')!;
+  const form = document.createElement('div') as unknown as FormElement;
+  form.className = 'color-form';
+  const fieldOf = (node: HaFormSchema): IndexedField | undefined =>
+    colorFieldsOf(editor, anchor).fields.find((field) => field.node.name === node.name);
+  Object.defineProperties(form, {
+    schema: { get: () => colorFieldsOf(editor, anchor).fields.flatMap((field) => field.lifted) },
+    data: {
+      get: () =>
+        Routing.formDataFor(
+          (editor as unknown as { _formData(): Record<string, unknown> })._formData(),
+          form.schema,
+        ),
+    },
+    // As Custom's text field is handed it (`element.ts` › `_feed`).
+    hass: {
+      get: () => {
+        const hass = (editor as unknown as { hass?: Types.Hass }).hass;
+        const language = stateOf(editor)._ctx.language;
+        return HassKey.needsLiveHass(form.schema)
+          ? withCardActionLabels(hass, language)
+          : HassKey.steadyHass(hass, language);
+      },
+    },
+    computeLabel: {
+      value: (node: HaFormSchema) => {
+        const field = fieldOf(node);
+        return field === undefined ? '' : fieldLabel(field, stateOf(editor)._ctx.language);
+      },
+    },
+    computeHelper: {
+      value: (node: HaFormSchema) => {
+        const field = fieldOf(node);
+        return field === undefined ? undefined : fieldHelper(field, stateOf(editor)._ctx);
+      },
+    },
+  });
+  // Where it sits is where its control sits.
+  form.closest = ((selector: string) => control.closest(selector)) as typeof form.closest;
+  form.dispatchEvent = (event: Event): boolean => {
+    driveColor(editor, control, anchor, (event as CustomEvent).detail?.value ?? {});
+    return true;
+  };
+  colorControls.set(form, control);
+  colorForms.set(control, form);
+  return form;
+}
+
+/**
+ * Makes a change sent to a color control's stand-in in the control itself, as a user would:
+ * opens it, then for each field that moved, a mode before its value, chooses the row that writes
+ * the value, the swatch that is it, Default for none, or Custom and types it. Rendered
+ * synchronously between steps (Lit's `performUpdate`), as `emitChange` is synchronous.
+ *
+ * @param editor - Editor element
+ * @param control - The control's wrapper
+ * @param anchor - The id it is drawn for
+ * @param incoming - The stand-in's whole data, as a form sends it
+ */
+function driveColor(
+  editor: EditorElement,
+  control: Element,
+  anchor: FieldId,
+  incoming: Record<string, unknown>,
+): void {
+  const element = editor as unknown as { requestUpdate(): void; performUpdate(): void };
+  const draw = (): void => {
+    element.requestUpdate();
+    element.performUpdate();
+  };
+  const choose = (selector: string, what: string): void => {
+    const input = control.querySelector<HTMLInputElement>(`${selector} input`);
+    if (!input) outOfStep(`The color control for '${anchor}' offers no ${what}`);
+    input.checked = true;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    draw();
+  };
+  const toggle = control.querySelector<HTMLButtonElement>('.color-toggle');
+  if (!toggle) outOfStep(`The color control for '${anchor}' draws no button`);
+  if (toggle.getAttribute('aria-expanded') !== 'true') {
+    toggle.click();
+    draw();
+  }
+  const { spec, fields } = colorFieldsOf(editor, anchor);
+  const before = colorForm(editor, control).data;
+  for (const field of fields) {
+    const was = atPath(before, [...field.dataPath, field.node.name]);
+    const value = atPath(incoming, [...field.dataPath, field.node.name]);
+    if (Value.deepEqual(was, value)) continue;
+    if (field.id === spec.mode) {
+      const source = spec.sources.find(
+        ({ write }) => write !== 'reset' && write[spec.mode!] === value,
+      );
+      if (source !== undefined) choose(`[data-color-row="${source.source}"]`, String(value));
+      else if (spec.custom[spec.mode] === value) choose('[data-color-row="custom"]', 'Custom');
+      else outOfStep(`The color control for '${anchor}' offers no ${String(value)}`);
+      continue;
+    }
+    const token = Colors.SWATCH_TOKENS.find((each) => Colors.swatchValue(each) === value);
+    if (value === undefined || value === '') {
+      choose('[data-color-row="default"]', 'Default');
+    } else if (token !== undefined) {
+      choose(`[data-swatch="${token}"]`, `the ${token} swatch`);
+    } else {
+      choose('[data-color-row="custom"]', 'Custom');
+      const text = control.querySelector<FormElement>('.color-text-field ha-form');
+      if (!text) outOfStep(`The color control for '${anchor}' draws no Custom text field`);
+      text.dispatchEvent(
+        new CustomEvent('value-changed', {
+          detail: { value: withValue(text.data, field.dataPath, field.node.name, value) },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      draw();
+    }
+  }
 }
 
 /** What `openPanels` kept from every page it visited, and what the editor held then. */

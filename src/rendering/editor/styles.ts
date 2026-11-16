@@ -791,6 +791,213 @@ export default css`
     border-radius: 4px;
   }
 
+  .color-head {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .color-toggle {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    min-height: 56px;
+    padding: 0 8px 0 12px;
+    border: none;
+    border-bottom: 1px solid var(--divider-color);
+    border-radius: 4px 4px 0 0;
+    background: var(--secondary-background-color);
+    color: var(--primary-text-color);
+    cursor: pointer;
+    font: inherit;
+    text-align: start;
+  }
+
+  .color-control.open .color-toggle {
+    border-bottom-color: var(--primary-color);
+  }
+
+  .color-toggle:focus-visible,
+  .color-row:focus-within,
+  .color-swatch:has(input:focus-visible) {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+
+  .color-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .color-name {
+    color: var(--secondary-text-color);
+    font-size: 12px;
+  }
+
+  .color-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .color-dot {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--divider-color);
+    border-radius: 50%;
+    box-sizing: border-box;
+    background: var(--dot);
+    color: #fff;
+    --mdc-icon-size: 20px;
+  }
+
+  .color-dot.crossed {
+    background: linear-gradient(
+      135deg,
+      transparent 46%,
+      var(--secondary-text-color) 46% 54%,
+      transparent 54%
+    );
+  }
+
+  .color-dot .icon {
+    filter: drop-shadow(0 0 1px #000);
+  }
+
+  .color-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 4px 0 0;
+    padding: 8px;
+    border: 1px solid var(--divider-color);
+    border-radius: 12px;
+  }
+
+  .color-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .color-row:has(input:checked) {
+    background: var(--secondary-background-color);
+  }
+
+  .color-row input,
+  .color-swatch input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .color-row-label {
+    font-weight: 500;
+  }
+
+  .color-mark {
+    display: inline-grid;
+    place-items: center;
+    width: 32px;
+  }
+
+  .color-swatches {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 44px);
+    gap: 4px;
+    margin: 4px 0;
+    padding: 8px 0;
+    border: none;
+    border-top: 1px solid var(--divider-color);
+  }
+
+  .color-swatch {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+
+  .color-swatch .color-dot {
+    width: 36px;
+    height: 36px;
+  }
+
+  .color-swatch:has(input:checked) .color-dot {
+    outline: 2px solid var(--primary-text-color);
+    outline-offset: 2px;
+  }
+
+  .color-tip {
+    position: absolute;
+    bottom: calc(100% + 2px);
+    z-index: 1;
+    display: none;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--primary-text-color);
+    color: var(--card-background-color, #fff);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .color-swatch:hover .color-tip,
+  .color-swatch:active .color-tip,
+  .color-swatch:has(input:focus-visible) .color-tip {
+    display: block;
+  }
+
+  .color-custom {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 4px 12px;
+    padding-inline-start: 8px;
+  }
+
+  .color-invalid {
+    grid-column: 2;
+    margin: 0;
+    color: var(--error-color);
+    font-size: 12px;
+  }
+
+  .color-yaml {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 8px;
+    margin: 4px 0 0;
+    padding: 8px 8px 0;
+    border-top: 1px solid var(--divider-color);
+    color: var(--secondary-text-color);
+    font-size: 12px;
+  }
+
+  .color-yaml code {
+    color: var(--primary-text-color);
+    overflow-wrap: anywhere;
+  }
+
+  .color-kept {
+    flex-basis: 100%;
+  }
+
   .live-region {
     position: absolute;
     width: 1px;
