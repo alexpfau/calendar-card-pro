@@ -27,6 +27,7 @@
  * | `quick-setup-form`                | chassis | `quick_setup`                                  |
  * | `add-calendar-form`               | chassis | `add_calendar` (Add Calendar's picker)         |
  * | `entry-calendar-form`             | chassis | `entry_calendar` (an entry page's Calendar)    |
+ * | `split-form`                      | chassis | `split` (Split This Calendar's own fields)     |
  *
  * Card Displays and Settings For are the editor's own radio groups rather than forms. The ids
  * `display:view` and `workspace:editing_workspace` still name them, for `changeField` and
@@ -156,6 +157,7 @@ const CHASSIS_FORMS: Readonly<Record<string, string>> = {
   'quick-setup-form': 'quick_setup',
   'add-calendar-form': 'add_calendar',
   'entry-calendar-form': 'entry_calendar',
+  'split-form': 'split',
 };
 
 /** The editor's own radio groups, by the id a test names them with, with each input's name. */

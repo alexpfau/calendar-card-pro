@@ -539,6 +539,105 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     '{name} now reads {calendar}, so it uses that calendar’s name and calendar filter setting.',
   'entry.remove': 'Remove {name}',
 
+  // --- Split This Calendar --------------------------------------------------
+  //
+  // The task on an entry's page that turns it into two (section 5.7, D12). Every refusal is a
+  // whole sentence naming the entry, and the event type's four are four sentences rather than one
+  // with a clause added, so a translator writes each in its own word order. Counts are a label
+  // and a number ("Days Ahead: 7 · Events: 1"), never an assembled plural.
+  'split.title': 'Split This Calendar',
+  'split.row_helper':
+    'Turn this entry into two, such as all-day events and events with a time, each with its own color.',
+  'split.named': 'Split {name}',
+  'split.step.how': 'How',
+  'split.step.colors': 'Colors',
+  'split.step.review': 'Review',
+  'split.step_of': 'Step {step} of {total}',
+  'split.how.intro':
+    'Two entries take this one’s place, each with its own color. Both keep {name}’s other ' +
+    'settings and read {entity}; nothing changes in Home Assistant.',
+  'split.how.type': 'All-Day vs. With a Time',
+  'split.how.type.description': 'One entry for all-day events, one for events with a time.',
+  'split.how.words': 'By Words',
+  'split.how.words.description':
+    'Events whose title, location or description contains certain words get one entry; every ' +
+    'other event gets the other.',
+  'split.match_against_note': 'Where to look for the words: Event title, Location or Description.',
+  'split.word': 'Word',
+  'split.words_note':
+    'Events whose {field} contains any of these words or phrases go to the first part; every ' +
+    'other event goes to the second. One word or phrase per field.',
+  'split.field.title': 'event title',
+  'split.field.location': 'location',
+  'split.field.description': 'description',
+  'split.locked': 'Locked to {field}, where this entry’s Blocklist looks.',
+  'split.refused.all_day':
+    'Can’t split {name} into all-day and timed events: it already shows only all-day events. ' +
+    'Duplicate it to add an entry for events with a time.',
+  'split.refused.all_day_card':
+    'Can’t split {name} into all-day and timed events: it already shows only all-day events, ' +
+    'following the card’s Event Type. Duplicate it to add an entry for events with a time.',
+  'split.refused.timed':
+    'Can’t split {name} into all-day and timed events: it already shows only events with a ' +
+    'time. Duplicate it to add an entry for all-day events.',
+  'split.refused.timed_card':
+    'Can’t split {name} into all-day and timed events: it already shows only events with a ' +
+    'time, following the card’s Event Type. Duplicate it to add an entry for all-day events.',
+  'split.refused.words':
+    'Can’t split {name} by words: it already shows only events containing “{words}”. One entry ' +
+    'keeps one set of words, so the two parts could not show exactly what {name} shows now. ' +
+    'Split All-Day vs. With a Time instead, or change the Allowlist first.',
+  'split.refused.blocklist':
+    'Can’t split {name} by words: its Blocklist cannot be read, so the card ignores it, and the ' +
+    'two parts would show some events twice. Fix the Blocklist first, or split All-Day vs. With ' +
+    'a Time.',
+  'split.refused.allowlist':
+    'Can’t split {name} by words: its Allowlist cannot be read, so the card ignores it, and the ' +
+    'two parts would show some events twice. Fix the Allowlist first, or split All-Day vs. With ' +
+    'a Time.',
+  'split.refused.budget':
+    'Can’t split {name}: it has its own Compact Events to Show, which two entries would double. ' +
+    'Clear it first.',
+  'split.edit_allowlist': 'Edit Allowlist',
+  'split.edit_blocklist': 'Edit Blocklist',
+  'split.go_budget': 'Go to Compact Events to Show',
+  'split.colors.title': 'Colors and Labels',
+  'split.colors.intro':
+    'Both parts keep the name {name}, which every entry of a calendar shares. The calendar list ' +
+    'and the card tell them apart by what they show and by these.',
+  'split.part_of': 'Part {part} of {total}',
+  'split.color_now': '{name}’s color now.',
+  'split.color_free': 'Not used by another calendar on this card.',
+  'split.review.intro':
+    'Where {name}’s upcoming events land. Splitting writes both entries in one step, and Undo ' +
+    'takes it back.',
+  'split.review.counts': 'Days Ahead: {days} · Events: {count}',
+  'split.review.day': '{weekday} {day}',
+  'split.review.event': '{day} · {title}',
+  'split.review.event_time': '{day} · {time} · {title}',
+  'split.review.more': '+{count}',
+  'split.review.none': 'No events in the days this card shows.',
+  'split.review.loading': 'Reading {name}’s upcoming events…',
+  'split.review.failed':
+    '{name}’s upcoming events could not be read. The preview shows where they land.',
+  'split.review.conditions': 'Both parts keep {name}’s visibility conditions.',
+  'split.review.note':
+    'Every event {name} shows now lands in exactly one part: none shows twice, none goes missing.',
+  'split.rule.all_day': 'Only all-day events',
+  'split.rule.timed': 'Only events with a time',
+  'split.rule.words.title': 'Event title contains {words}',
+  'split.rule.words.location': 'Location contains {words}',
+  'split.rule.words.description': 'Description contains {words}',
+  'split.rule.other': 'Every other event',
+  'split.writes.allowlist': 'Writes Allowlist: {words}, matching the {field}',
+  'split.writes.blocklist': 'Writes Blocklist: {words}, matching the {field}',
+  'split.apply': 'Split',
+  'split.done': 'Split {name} into 2 entries. This page now edits the first.',
+  'split.done_button': 'Done',
+  'split.new': 'New',
+  // Under a Blocklist, an Allowlist or Countries To Remove the card cannot compile.
+  'word_list.invalid': 'This pattern cannot be read, so the card ignores it.',
+
   // --- Calendar list rows ---------------------------------------------------
   //
   // What tells one entry from its calendar's others on the list (`calendar-list.ts` ›
