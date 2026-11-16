@@ -288,17 +288,6 @@ export default css`
     opacity: 0.5;
   }
 
-  ha-expansion-panel {
-    margin: 8px 0;
-  }
-
-  .panel-body {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    padding: 8px 0 4px;
-  }
-
   .width-table {
     border: 1px solid var(--divider-color);
     border-radius: var(--ha-card-border-radius, 12px);
@@ -352,17 +341,11 @@ export default css`
     text-align: center;
   }
 
-  ha-expansion-panel.button-panel {
-    margin: 0;
-  }
-
   /* The action row sits above the settings rather than below them, so it is visible when
-     the panel opens instead of after a scroll. That puts the one destructive action where
-     the user lands, so Remove is separated from the three that can be undone by simply
-     doing them again: an auto start margin holds it against the far edge, and on a narrow
-     panel — where the four buttons no longer fit on one line — it wraps onto a line of its
-     own rather than sitting next to Duplicate. A toolbar button's panel lays out Move Up,
-     Move Down and Remove this way. */
+     the row opens instead of after a scroll. That puts the one destructive action where the
+     user lands, so Remove is held against the far edge by an auto start margin, apart from the
+     two moves, and on a narrow row it wraps onto a line of its own. A toolbar button's row lays
+     out Move Up, Move Down and Remove this way. */
   .button-actions {
     border-bottom: 1px solid var(--divider-color);
     display: flex;
@@ -1151,6 +1134,151 @@ export default css`
 
   .drag-handle[aria-pressed='true'] {
     color: var(--primary-color);
+  }
+
+  /* --- Chips and the toolbar (section 5.9) ------------------------------------
+     Toggle chips: native buttons, pressed with a check and the primary color, so the state never
+     rests on color alone. An unpressable chip stays focusable and shows its reason inside it.
+     Calendar Filter is a segmented row of native radios. The toolbar's own buttons are the
+     calendar list's rows, each bordered as one card that opens in place. The group is not .chips,
+     which Start Date's radio chips use as a column. */
+  .chip-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 40px;
+    padding: 0 14px;
+    border: 1px solid var(--divider-color);
+    border-radius: 20px;
+    background: none;
+    color: var(--primary-text-color);
+    cursor: pointer;
+    font: inherit;
+    font-size: 14px;
+    --mdc-icon-size: 18px;
+  }
+
+  .chip[aria-pressed='true'] {
+    border-color: transparent;
+    background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.18);
+    color: var(--primary-color);
+  }
+
+  .chip[aria-pressed='true'] .icon {
+    fill: currentcolor;
+  }
+
+  .chip[aria-disabled='true'] {
+    color: var(--disabled-text-color, #bdbdbd);
+    cursor: default;
+  }
+
+  .chip-needs,
+  .chip-yaml {
+    font-size: 12px;
+  }
+
+  .chip:hover:not([aria-disabled='true']),
+  .segment:hover {
+    background: var(--secondary-background-color);
+  }
+
+  .chip:focus-visible,
+  .chip-group:focus-visible,
+  .segmented:focus-visible,
+  .segment:focus-within {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+
+  .chip-group:focus:not(:focus-visible),
+  .segmented:focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  .chip-source {
+    color: var(--primary-color);
+  }
+
+  .segmented {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+  }
+
+  .segmented-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .segments {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    border: 1px solid var(--divider-color);
+    border-radius: 22px;
+  }
+
+  .segment {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 8px;
+    color: var(--primary-color);
+    cursor: pointer;
+    text-align: center;
+  }
+
+  .segment + .segment {
+    border-inline-start: 1px solid var(--divider-color);
+  }
+
+  .segment input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .segment:has(input:checked) {
+    background: var(--primary-color);
+    color: var(--text-primary-color, #fff);
+  }
+
+  .button-row {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--divider-color);
+    border-radius: 12px;
+  }
+
+  .button-row > .cal-row {
+    border: none;
+  }
+
+  .button-row.grabbed {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 1px var(--primary-color);
+  }
+
+  .button-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 0 12px 12px;
   }
 
   .cal-list > :not([data-reorder]) {

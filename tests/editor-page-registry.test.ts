@@ -136,7 +136,7 @@ function familyOf(appearance: Appearance): FamilyId | undefined {
 /**
  * The approved page map, heading by heading: page, heading, family, and each field in order
  * with its marker (E essential, A Add, W a mode value, F a family member, B a toolbar button's
- * row) and the workspaces that offer it (S All Layouts, L List, C Columns, G Grid; none means
+ * row, P an event part's chip, T a toolbar control's chip, R Calendar Filter's radio group) and the workspaces that offer it (S All Layouts, L List, C Columns, G Grid; none means
  * all four). Typed out from the approved map, never read from `pages.ts`, so a field moved to
  * another page, heading or marker fails here even where every count still agrees. The
  * overview's two blocks are one run, as the registry keeps them.
@@ -222,13 +222,13 @@ const APPROVED_MAP: ReadonlyArray<
     '',
     [
       'card:toolbar.show E',
-      'card:toolbar.legend E',
-      'card:toolbar.add_event E',
-      'card:toolbar.view_switcher E',
-      'card:toolbar.reset E',
-      'card:toolbar.refresh E',
-      'card:toolbar.search E',
-      'card:toolbar.navigation E',
+      'card:toolbar.add_event T',
+      'card:toolbar.view_switcher T',
+      'card:toolbar.reset T',
+      'card:toolbar.refresh T',
+      'card:toolbar.search T',
+      'card:toolbar.navigation T',
+      'card:toolbar.legend R',
     ],
   ],
   [
@@ -328,16 +328,19 @@ const APPROVED_MAP: ReadonlyArray<
     'Event Details',
     '',
     [
-      'events:show_time E',
-      'events:show_location E',
-      'events:show_description E',
-      'events:show_countdown E',
-      'events:show_progress_bar A',
+      'events:show_time P',
+      'events:show_end_time P',
+      'events:show_location P',
+      'events:show_description P',
+      'events:show_countdown P',
+      'events:show_progress_bar P',
+      'events:show_duration P',
+      'events:show_now_indicator P SLC',
       'content:time_format E',
       'events:time_position A SLC',
     ],
   ],
-  ['Events', 'Event State', '', ['events:show_now_indicator A SLC', 'events:now_color A']],
+  ['Events', 'Event State', '', ['events:now_color A']],
   [
     'Events',
     'Accent',
@@ -378,8 +381,6 @@ const APPROVED_MAP: ReadonlyArray<
     'Time',
     '',
     [
-      'events:show_end_time E',
-      'events:show_duration A',
       'events:show_single_allday_time A SLC',
       'events:show_multiday_allday_time A SLC',
       'events:time_two_digit_hours A',
@@ -694,8 +695,12 @@ describe('the page registry places every built field exactly once', () => {
       if (appearance === 'essential') return 'E';
       if (appearance === 'add') return 'A';
       if (appearance === 'button-rows') return 'B';
+      // Calendar Filter's Off, Menu and Chips.
+      if (appearance === 'segmented') return 'R';
       if ('with' in appearance) return 'W';
-      return 'family' in appearance ? 'F' : 'chips';
+      if ('family' in appearance) return 'F';
+      // A chip: an event part (P) or a toolbar control (T).
+      return appearance.chips === 'parts' ? 'P' : 'T';
     };
     const words = (key: string | undefined): string =>
       key === undefined ? '' : (EDITOR_STRINGS[key] ?? key);
@@ -925,16 +930,16 @@ describe('the registry heads what the builders used to', () => {
     expect(under('events', 'heading_title')).not.toContain('events:event_background_opacity');
   });
 
-  it("captions only the toolbar's switches with the toolbar heading", () => {
+  it("captions only the toolbar's own settings with the toolbar heading, as D09 orders them", () => {
     expect(under('card_header', 'heading_toolbar')).toEqual([
       'card:toolbar.show',
-      'card:toolbar.legend',
       'card:toolbar.add_event',
       'card:toolbar.view_switcher',
       'card:toolbar.reset',
       'card:toolbar.refresh',
       'card:toolbar.search',
       'card:toolbar.navigation',
+      'card:toolbar.legend',
     ]);
   });
 

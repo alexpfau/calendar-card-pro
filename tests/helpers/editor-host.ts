@@ -31,7 +31,8 @@
  *
  * Card Displays and Settings For are the editor's own radio groups rather than forms. The ids
  * `display:view` and `workspace:editing_workspace` still name them, for `changeField` and
- * `valueOf`, which choose and read them as a user does.
+ * `valueOf`, which choose and read them as a user does. A toolbar button's fields sit in its row,
+ * which a helper opens as a user does.
  *
  * A color field is the editor's own control too (`colors.ts`), drawn for the color, or for the
  * mode it absorbs (`events:accent_color_mode`), with the color's value inside. It stands in as a
@@ -317,17 +318,18 @@ function asWritten(
 }
 
 /**
- * Which toolbar button each drawn button panel belongs to, by the key the editor gives each
- * button's panel (`data-button-key`) and keeps in list order. Each panel's form must hold that
- * button's data; where it does not, the helper fails rather than guess.
+ * Which toolbar button each drawn button row belongs to, by the key the editor gives each
+ * button's row (`data-button-key`) and keeps in list order. Each of the row's forms must hold
+ * that button's data, narrowed to its own field; where one does not, the helper fails rather
+ * than guess.
  *
  * @param editor - Editor element
  * @param root - Its shadow root
- * @returns Position in `toolbar.buttons` by panel
+ * @returns Position in `toolbar.buttons` by row
  */
 function buttonIndexes(editor: EditorElement, root: ShadowRoot): Map<Element, number> {
   const indexes = new Map<Element, number>();
-  const panels = [...root.querySelectorAll('ha-expansion-panel.button-panel')];
+  const panels = [...root.querySelectorAll('.button-row')];
   if (panels.length === 0) return indexes;
 
   const { _config: config, _buttonKeys: keys = [] } = stateOf(editor);
@@ -336,11 +338,13 @@ function buttonIndexes(editor: EditorElement, root: ShadowRoot): Map<Element, nu
     const key = panel.getAttribute('data-button-key');
     const index = key === null ? -1 : keys.indexOf(Number(key));
     if (index < 0 || index >= written.length) {
-      outOfStep(`A toolbar button panel keyed ${key ?? 'nothing'} matches no button`);
+      outOfStep(`A toolbar button row keyed ${key ?? 'nothing'} matches no button`);
     }
-    const form = panel.querySelector<FormElement>('ha-form.button-form');
-    if (form !== null && !Value.deepEqual(form.data, Buttons.toButtonFormData(written[index]))) {
-      outOfStep(`The panel of toolbar button ${index} holds another button's data`);
+    const data = Buttons.toButtonFormData(written[index]);
+    for (const form of panel.querySelectorAll<FormElement>('ha-form.button-form')) {
+      if (!Value.deepEqual(form.data, Routing.formDataFor(data, form.schema))) {
+        outOfStep(`The row of toolbar button ${index} holds another button's data`);
+      }
     }
     indexes.set(panel, index);
   }
@@ -404,7 +408,7 @@ function placeForm(
     return { form, kind: 'entry', index, key: keyOf(page), scope: 'calendar', place };
   }
   if (classes.contains('button-form')) {
-    const panel = form.closest('ha-expansion-panel.button-panel');
+    const panel = form.closest('.button-row');
     const index = panel === null ? undefined : buttons.get(panel);
     return { form, kind: 'button', index, key: keyOf(panel), scope: 'button', place };
   }
@@ -697,9 +701,13 @@ function composedFieldOf(
 /**
  * A control the editor composes for one field, as a form standing for that field, as a color
  * control's stand-in does: its schema is the field's, its data the editor's own value for it, its
- * label and helper the field's. Three are composed:
+ * label and helper the field's. Four kinds are composed:
  *
- * - `chips`, Start Date's radio chips: a change is made by choosing the chip;
+ * - `chips`, a radio group of the editor's own (Start Date's radio chips, Calendar Filter's Off,
+ *   Menu and Chips): a change is made by choosing the option;
+ * - `toggle`, an event part's or a toolbar control's toggle chip: its value is the editor's own,
+ *   and a change to on or off is made by pressing the chip where it shows the other; a chip a gate
+ *   withholds is not composed, as its field is not built;
  * - `line`, the line Tapping an Event Opens It gives way to while another action is stored, which
  *   takes no change;
  * - `words`, a word list one term at a time: its value is the pattern the terms write, and a change
@@ -763,6 +771,9 @@ function composedForm(editor: EditorElement, control: Element): FormElement {
     },
     computeHelper: {
       value: () => {
+        // A toggle chip shows its YAML option name, while that preference is on, as its title.
+        const yaml = kind === 'toggle' ? control.getAttribute('title') : null;
+        if (yaml) return yaml;
         const words = wordsForm();
         return words !== null
           ? words.computeHelper?.(words.schema[0])
@@ -784,6 +795,14 @@ function composedForm(editor: EditorElement, control: Element): FormElement {
       if (!input) outOfStep(`'${id}' offers no ${String(value)}`);
       input.checked = true;
       return input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    if (kind === 'toggle') {
+      if (typeof value !== 'boolean') {
+        outOfStep(`'${id}' is a toggle chip: it is pressed or not, so ask it for true or false`);
+      }
+      const chip = control as HTMLButtonElement;
+      if ((chip.getAttribute('aria-pressed') === 'true') !== value) chip.click();
+      return true;
     }
     const words = wordsForm();
     if (kind === 'words' && words !== null) {
@@ -874,13 +893,13 @@ function keptForms(editor: EditorElement): Drawn[] {
     element._nav = { route: { kind: 'page', page }, trail: [], fromResults: false };
     draw();
     if (root.querySelector(`.page[data-page="${page}"]`) === null) continue;
-    for (const panel of root.querySelectorAll<Element & { expanded?: boolean }>(
-      'ha-expansion-panel',
-    )) {
-      panel.expanded = true;
-    }
+    // Every toolbar button's row open, as a user opens each one.
+    const rows = element as unknown as { _openButtons: Set<number> };
+    const open = rows._openButtons;
+    rows._openButtons = new Set(keysOf(editor, 'button'));
     draw();
     forms.push(...liveForms(editor, root, page));
+    rows._openButtons = open;
   }
   for (const key of keysOf(editor, 'entry')) {
     element._nav = { route: { kind: 'entry', key }, trail: [], fromResults: false };
@@ -1548,11 +1567,8 @@ async function choose(editor: EditorElement, id: FieldId, value: unknown): Promi
 /**
  * Goes to a field as a user would before editing it: to the page it is placed on, or the
  * overview, from the overview's row for that page; a calendar entry's page from its row, a
- * toolbar button's panel on Card & Header; then opens every collapsed panel around its form,
- * outermost first. A panel opens as Home Assistant's does: it announces `expanded-will-change`,
- * lets a render pass (`nextRender`), expands and announces `expanded-changed`. A closed panel
- * draws no form, so a button's field not drawn yet is found by its own panel, by its place or
- * key. An entry named by neither place nor key is looked for on every entry's page, as
+ * toolbar button's row on Card & Header, opened by its toggle. A closed row draws no form, so a
+ * button's field not drawn yet is found by its own row, by its place or key. An entry named by neither place nor key is looked for on every entry's page, as
  * `openPanels` visits them, so a field two entries draw fails as drawn twice.
  *
  * Where a query holds the overview's results, the field is reached as a user reaches it there:
@@ -1683,16 +1699,16 @@ export async function chooseResult(editor: EditorElement, key: string): Promise<
 }
 
 /**
- * Opens every panel the place open draws, closed ones all together, each as Home Assistant's
- * opens on a click (`expand`).
+ * Opens every toolbar button's row the place open draws, as a user does, by its toggle.
  *
  * @param editor - Editor element
  */
 async function expandAll(editor: EditorElement): Promise<void> {
-  const closed = [...(editor.shadowRoot?.querySelectorAll('ha-expansion-panel') ?? [])].filter(
-    (panel) => (panel as Element & { expanded?: boolean }).expanded !== true,
-  );
-  await Promise.all(closed.map((panel) => expand(panel)));
+  for (const toggle of editor.shadowRoot?.querySelectorAll<HTMLElement>(
+    '.button-row [aria-expanded="false"]',
+  ) ?? []) {
+    toggle.click();
+  }
   await editor.updateComplete;
 }
 
@@ -1901,12 +1917,12 @@ export async function resetButton(
 }
 
 /**
- * The panels an owner's forms belong in, drawn or not: each matching toolbar button's own panel,
- * found by its place or key. The card's fields and an entry's sit in no panel.
+ * The rows an owner's forms belong in, drawn or not: each matching toolbar button's own row,
+ * found by its place or key. The card's fields and an entry's sit in no row.
  *
  * @param editor - Editor element
  * @param owner - The owner
- * @returns The panels, outermost first
+ * @returns The rows
  */
 function holdersOf(editor: EditorElement, owner: Owner): Element[] {
   const root = editor.shadowRoot;
@@ -1923,23 +1939,23 @@ function holdersOf(editor: EditorElement, owner: Owner): Element[] {
 }
 
 /**
- * Opens every collapsed panel around a node, the node itself included, outermost first.
+ * Opens the toolbar button's row around a node, the row itself included, by its toggle.
  *
- * @param node - A panel, or anything inside one
+ * @param node - A row, or anything inside one
  */
 async function openAround(node: Element): Promise<void> {
-  const panels: Element[] = [];
-  for (let at: Element | null = node; at !== null; at = at.parentElement) {
-    if (at.localName === 'ha-expansion-panel') panels.unshift(at);
-  }
-  for (const panel of panels) await expand(panel);
+  const row = node.closest('.button-row');
+  const toggle = row?.querySelector<HTMLElement>(':scope > .cal-row [aria-expanded="false"]');
+  if (!toggle) return;
+  toggle.click();
+  await (row!.getRootNode() as ShadowRoot & { host: EditorElement }).host.updateComplete;
 }
 
 /**
  * Waits as Home Assistant's `nextRender` does (`common/util/render-status.ts` in its frontend):
  * an animation frame, then a timeout. The frame is a Node immediate, which is how happy-dom
  * schedules one, and both come from `node:timers`, which fake timers leave in place whenever
- * they were installed, so a panel opens across a real render in a test that holds time still,
+ * they were installed, so a real render passes in a test that holds time still,
  * and no fake clock moves.
  *
  * @returns A promise settled once the render has passed
@@ -1950,26 +1966,6 @@ function nextRender(): Promise<void> {
       nodeTimeout(() => resolve(), 0);
     });
   });
-}
-
-/**
- * Expands a panel the way Home Assistant's `ha-expansion-panel` does on a click
- * (`_toggleContainer`), if it is collapsed: it announces `expanded-will-change`, waits for a
- * render, expands and announces `expanded-changed`.
- *
- * @param panel - The panel
- */
-async function expand(panel: Element): Promise<void> {
-  const expansion = panel as Element & { expanded?: boolean };
-  if (expansion.expanded === true) return;
-  const announce = (type: string) =>
-    panel.dispatchEvent(
-      new CustomEvent(type, { detail: { expanded: true }, bubbles: true, composed: true }),
-    );
-  announce('expanded-will-change');
-  await nextRender();
-  expansion.expanded = true;
-  announce('expanded-changed');
 }
 
 /** What each editor `mountEditor` mounted has reported, oldest first. */

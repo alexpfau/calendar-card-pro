@@ -232,7 +232,8 @@ describe('What This Card Changes, its groups', () => {
       'time_grid.start_time · Set for Grid, Same as the Default',
     );
     expect(all['list.description_font_size'].meta).toBe(
-      'list.description_font_size · Set for List Not in Use until Show Description is on',
+      // Show Description is the Description chip, so its clause says pressed (PR 18).
+      'list.description_font_size · Set for List Not in Use until Description is pressed',
     );
     expect(all['entities[2].event_type'].meta).toBe(
       'entities[2].event_type · Set on This Calendar',
@@ -330,6 +331,68 @@ describe('What This Card Changes, its actions', () => {
       'edit:time_grid.end_time',
     );
     expect(rows(editor)['time_grid.end_time'].value).toBe('20:00');
+  });
+
+  it('edits a chip’s line and Calendar Filter’s where they live, from another scope', async () => {
+    const editor = await mountEditor({
+      config_version: VERSION,
+      view: 'list',
+      entities: ['calendar.anna'],
+      toolbar: { show: true, legend: 'chips' },
+      time_grid: { show_location: false },
+    });
+    await openAudit(editor);
+    expect(rows(editor)['time_grid.show_location'].buttons[0]).toBe(
+      'Edit Show Location in Grid, Off',
+    );
+
+    // A part drawn as a chip on its page: Edit mounts its chip, pressed as the line stores it.
+    await click(editor, '[data-focus="edit:time_grid.show_location"]');
+    const chip = $(editor, '[data-audit="time_grid.show_location"] button.chip')!;
+    expect(chip.getAttribute('data-field')).toBe('events:show_location');
+    expect(chip.getAttribute('aria-pressed')).toBe('false');
+    expect(editor.shadowRoot!.activeElement).toBe(chip);
+    chip.click();
+    await editor.updateComplete;
+    expect(lastConfig(editor)!.time_grid).toEqual({ show_location: true });
+    expect(lastConfig(editor)).not.toHaveProperty('show_location');
+    expect(lastConfig(editor)).not.toHaveProperty('list');
+
+    expect(
+      $(editor, '[data-audit="time_grid.show_location"] button.chip')!.getAttribute('aria-pressed'),
+    ).toBe('true');
+
+    // Calendar Filter, a radio group on its page, mounts as that group and picks in place.
+    await click(editor, '[data-focus="edit:toolbar.legend"]');
+    const off = $(
+      editor,
+      '[data-audit="toolbar.legend"] fieldset.segmented input[type="radio"][value="off"]',
+    ) as HTMLInputElement;
+    expect(off.checked).toBe(false);
+    off.checked = true;
+    off.dispatchEvent(new Event('change', { bubbles: true }));
+    await editor.updateComplete;
+    expect(lastConfig(editor)!.toolbar).toEqual({ show: true, legend: false });
+  });
+
+  it('goes from a chip’s line to its chip, in the line’s scope', async () => {
+    const editor = await mountEditor({
+      config_version: VERSION,
+      view: 'list',
+      entities: ['calendar.anna'],
+      time_grid: { show_location: false },
+    });
+    await openAudit(editor);
+    await click(editor, '[data-focus="audit-go:time_grid.show_location"]');
+    await editor.updateComplete;
+    expect(
+      editor.shadowRoot!.activeElement?.closest('[data-field]')?.getAttribute('data-field'),
+    ).toBe('events:show_location');
+    expect(
+      editor
+        .shadowRoot!.querySelector('[data-field="events:show_location"]')
+        ?.getAttribute('aria-pressed'),
+    ).toBe('false');
   });
 
   it('edits a top-level line at the top level from Grid', async () => {

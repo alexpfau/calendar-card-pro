@@ -258,6 +258,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'gate.line': 'Appears once {when}: {names}.',
   'gate.line_bare': 'Appears once {when}.',
   'gate.when.on': '{label} is on',
+  'gate.when.pressed': '{part} is pressed',
   'gate.when.indicator_shown': 'a Style other than None is chosen',
   'gate.when.indicator_marker': 'the Style is a dot, an icon or an emoji',
   'gate.when.empty_days_off': 'Show Empty Days is off',
@@ -530,6 +531,18 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'reorder.space': 'Space',
   'reorder.esc': 'Esc',
   'reorder.put_back': 'Put {name} back at position {position} of {total}.',
+  // The event-part chips at the top of Events (section 5.9, D08). Time, Location and Description
+  // are their headings' words. The stored parts are grouped under the chips by their state words
+  // (`state.*`): "Set for List · Countdown: On · End Time: Off".
+  'chip.end_time': 'End Time',
+  'chip.countdown': 'Countdown',
+  'chip.progress_bar': 'Progress Bar',
+  'chip.duration': 'Duration',
+  'chip.now': 'Now',
+  'chip.hint':
+    "Each event shows the parts that are pressed. A pressed part's settings follow below.",
+  'chip.needs': 'Needs {part}',
+  'chip.not_in': 'Not in {layout}: {names}.',
   // A calendar entry's page.
   'entry.back': 'Back to the overview',
   'entry.previous': 'Previous Calendar',
@@ -1139,9 +1152,18 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'toolbar.legend.option.off.label': 'Off',
   'toolbar.legend.option.menu.label': 'Menu',
   'toolbar.legend.option.chips.label': 'Chips',
-  // The toolbar's own buttons: a panel each under this sub-heading, after the toolbar's
-  // switches and only while the toolbar is shown. The words on the panels themselves, Add
-  // Button and the rest, are drawn by the editor rather than by a form.
+  // The toolbar's built-in controls, drawn as chips (D09): shorter than their fields' labels,
+  // which the search still finds them by. View Switcher and Date Navigation keep theirs.
+  'toolbar.controls': 'Controls',
+  'toolbar.controls.hint': 'Pressed controls show in the toolbar. Search needs Date Navigation.',
+  'toolbar.controls.add_event': 'Add Event',
+  'toolbar.controls.reset': 'Reset',
+  'toolbar.controls.refresh': 'Refresh',
+  'toolbar.controls.search': 'Search',
+  // The toolbar's own buttons: a row each under this sub-heading, after the toolbar's controls
+  // and only while the toolbar is shown, which opens in place. The words on the rows themselves,
+  // Add Button and the rest, are drawn by the editor rather than by a form; `button.summary` is
+  // the line under a row's name, the action by Home Assistant's own name, then its target.
   'toolbar.buttons.heading': 'Your Own Buttons',
   'toolbar.buttons.icon': 'Icon',
   'toolbar.buttons.icon.helper':
@@ -1165,6 +1187,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'toolbar.buttons.move_up': 'Move Up',
   'toolbar.buttons.move_down': 'Move Down',
   'toolbar.buttons.remove': 'Remove',
+  'button.summary': '{action} · {target}',
 
   // --- Day Header -----------------------------------------------------------
   'panel.day_header': 'Day Header',

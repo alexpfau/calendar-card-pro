@@ -10,6 +10,7 @@
  * 🚨 This module and `field-index.ts` import each other; see the note at the top of that one.
  */
 
+import { CHIP_LABELS } from './chip-labels';
 import * as Entities from './entities';
 import {
   type FieldId,
@@ -641,15 +642,20 @@ export function needsText(
 
 /**
  * The clause key a gate line gives for one of its conditions: the condition's own, else its
- * gate's, else `gate.when.on`, "{label} is on", which only a switch may fall to
- * (`tests/editor-gate-lines.test.ts` holds every other condition to a clause).
+ * gate's, else, for a switch, `gate.when.pressed`, "{part} is pressed", where the editor draws it
+ * as a toggle chip (`chip-labels.ts`), and `gate.when.on`, "{label} is on", where it draws a
+ * switch (`tests/editor-gate-lines.test.ts` holds every other condition to a clause).
  *
  * @param gate - Gate
  * @param prereq - One of its conditions
  * @returns The string key
  */
 export function whenKeyOf(gate: Gate, prereq: Prereq): string {
-  return prereq.whenKey ?? gate.whenKey ?? 'gate.when.on';
+  return (
+    prereq.whenKey ??
+    gate.whenKey ??
+    (prereq.field in CHIP_LABELS ? 'gate.when.pressed' : 'gate.when.on')
+  );
 }
 
 /**
@@ -673,7 +679,11 @@ export function whenText(
   const unmet = firstUnmet(gate, data);
   if (unmet === undefined) return undefined;
   const key = whenKeyOf(gate, unmet);
-  return interpolate(lookup(language, key) ?? humanize(key), { label: labelOf(unmet.field) });
+  const chip = CHIP_LABELS[unmet.field];
+  return interpolate(lookup(language, key) ?? humanize(key), {
+    label: labelOf(unmet.field),
+    part: chip === undefined ? '' : (lookup(language, chip) ?? humanize(chip)),
+  });
 }
 
 /** One configuration of the corpus. */

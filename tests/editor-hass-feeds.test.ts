@@ -411,20 +411,14 @@ describe('an update that carries an irrelevant hass and a bare request together'
     expect(render).toHaveBeenCalledTimes(2);
   });
 
-  it('opens a panel whose opening lands beside an irrelevant hass', async () => {
+  it('opens a button row whose opening lands beside an irrelevant hass', async () => {
     const hass = haWith();
     const editor = await mountEditor(CONFIG, { hass });
     await goPage(editor, 'card_header');
-    const hall = editor.shadowRoot!.querySelector<HTMLElement>('ha-expansion-panel.button-panel')!;
+    const hall = editor.shadowRoot!.querySelector<HTMLElement>('.button-row')!;
     expect(hall.querySelector('ha-form')).toBeNull();
 
-    hall.dispatchEvent(
-      new CustomEvent('expanded-will-change', {
-        detail: { expanded: true },
-        bubbles: true,
-        composed: true,
-      }),
-    );
+    hall.querySelector<HTMLElement>('[aria-expanded]')!.click();
     editor.hass = later(hass, 'sensor.porch');
     await editor.updateComplete;
 

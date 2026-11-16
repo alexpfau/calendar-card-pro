@@ -368,7 +368,8 @@ describe('the Escape guard', () => {
 
 describe('a nested field’s own data', () => {
   /**
-   * Each field form's data on the open page, by field id; the color controls draw none.
+   * Each field form’s data on the open page, by field id; the color controls and the controls the
+   * editor composes, chips among them, draw none.
    *
    * @param editor - Editor element
    * @param prefix - The fields' id prefix
@@ -379,7 +380,7 @@ describe('a nested field’s own data', () => {
     return new Map(
       [
         ...editor.shadowRoot!.querySelectorAll<HTMLElement>(
-          `[data-field^="${prefix}"]:not(.color-field)`,
+          `[data-field^="${prefix}"]:not(.color-field):not([data-composed])`,
         ),
       ].map((frame) => [
         frame.dataset.field!,
@@ -390,7 +391,8 @@ describe('a nested field’s own data', () => {
 
   it.each([
     ['weather:weather.', 'weather:weather.date.font_size', '15px'],
-    ['card:toolbar.', 'card:toolbar.search', false],
+    // The toolbar's controls, once a second case here, are chips that hold no form (PR 18).
+    ['weather:weather.', 'weather:weather.event.font_size', '13px'],
   ] as const)('leaves every other %s form its very data on a write', async (prefix, id, value) => {
     const editor = await mountEditor({
       ...CARD,

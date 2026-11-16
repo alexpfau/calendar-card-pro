@@ -119,6 +119,7 @@ export const REFERENCED_STRINGS: ReadonlyArray<string> = [
   'word_list',
   'tap',
   'reorder',
+  'button',
 ];
 
 export const CHASSIS_STRINGS: ReadonlyArray<string> = [
@@ -131,6 +132,8 @@ export const CHASSIS_STRINGS: ReadonlyArray<string> = [
   'misplaced',
   'quick_setup',
   'row',
+  // Chip labels are looked up through `chips.ts` › `CHIP_LABELS`, a table, not by literal.
+  'chip',
   ...REFERENCED_STRINGS,
 ];
 

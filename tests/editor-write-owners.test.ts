@@ -83,10 +83,10 @@ async function mount(config: Record<string, unknown>) {
 }
 
 /**
- * One of a toolbar button's action buttons, by the key its panel names and the words on it.
+ * One of a toolbar button’s action buttons, by the key its row names and the words on it.
  *
  * @param editor - Editor element
- * @param kind - A button's panel
+ * @param kind - A button’s row
  * @param key - The owner's key
  * @param label - The words on the button
  * @returns The button
@@ -97,9 +97,7 @@ function action(
   key: number,
   label: string,
 ): HTMLButtonElement {
-  const panel = editor.shadowRoot?.querySelector(
-    `ha-expansion-panel.button-panel[data-button-key="${key}"]`,
-  );
+  const panel = editor.shadowRoot?.querySelector(`.button-row[data-button-key="${key}"]`);
   const found = [...(panel?.querySelectorAll<HTMLButtonElement>('button') ?? [])].find(
     (candidate) => candidate.textContent?.trim() === label,
   );

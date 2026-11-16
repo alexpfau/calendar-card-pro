@@ -375,13 +375,13 @@ describe('editor filter: section headings', () => {
     expect(panelHits(config, 'card', 'toolbar')).toEqual([
       'title',
       'show',
-      'legend',
       'add_event',
       'view_switcher',
       'reset',
       'refresh',
       'search',
       'navigation',
+      'legend',
     ]);
   });
 

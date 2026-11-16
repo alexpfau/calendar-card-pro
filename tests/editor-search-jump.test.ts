@@ -265,14 +265,14 @@ describe('choosing a result', () => {
     expect(spoken(editor)).toBe('Showing Blocklist.');
   });
 
-  it('opens a toolbar button’s field on its panel, on Card & Header', async () => {
+  it('opens a toolbar button’s field in its row, on Card & Header', async () => {
     const editor = await mount();
     await jump(editor, 'lights', 'button:entity');
 
-    const panel = $(editor, '.button-panel') as HTMLElement & { expanded: boolean };
-    const wrapper = panel.querySelector('.jump [role="group"]');
+    const row = $(editor, '.button-row')!;
+    const wrapper = row.querySelector('.jump [role="group"]');
     expect($(editor, '.page')?.dataset.page).toBe('card_header');
-    expect(panel.expanded).toBe(true);
+    expect(row.querySelector('[aria-expanded]')?.getAttribute('aria-expanded')).toBe('true');
     expect(editor.shadowRoot!.activeElement).toBe(wrapper);
     expect(
       JSON.stringify((wrapper!.querySelector('ha-form') as unknown as { schema: unknown }).schema),
