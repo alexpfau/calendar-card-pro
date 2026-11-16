@@ -430,7 +430,6 @@
   "split.edit_allowlist": "„Nur Termine zeigen, die Folgendes enthalten“ bearbeiten",
   "split.edit_blocklist": "„Termine ausblenden, die Folgendes enthalten“ bearbeiten",
   "split.go_budget": "Zu „Termine im Kompaktmodus“ wechseln",
-  "split.colors.title": "Farben und Labels",
   "split.colors.intro": "Beide Teile behalten den Namen {name}, den alle Einträge eines Kalenders teilen. Die Kalenderliste und die Karte unterscheiden sie an dem, was sie zeigen, und an diesen Einstellungen.",
   "split.part_of": "Teil {part} von {total}",
   "split.color_now": "Aktuelle Farbe von {name}.",

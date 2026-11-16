@@ -6,20 +6,13 @@
  * What a split does and refuses is `split.ts`'s; what the review lists is `split-review.ts`'s.
  */
 
-import {
-  mdiAlertOutline,
-  mdiCallSplit,
-  mdiCheck,
-  mdiCheckCircleOutline,
-  mdiChevronRight,
-  mdiClose,
-  mdiInformationOutline,
-} from '@mdi/js';
+import { mdiAlertOutline, mdiCallSplit, mdiCheckCircleOutline, mdiChevronRight } from '@mdi/js';
 import { type TemplateResult, html, nothing } from 'lit';
 import { styleMap } from 'lit/directives/style-map.js';
 
 import { type TextButton, textButton } from './calendars';
 import { icon } from './icon';
+import { wizardHead, wizardNote, wizardProgress } from './wizard';
 
 /**
  * The row under Which Events that opens the task.
@@ -65,8 +58,10 @@ export interface SplitTask {
   /** Cancel's name, for the close button. */
   readonly closeName: string;
   readonly onClose: () => void;
-  /** "Split Ben", "Colors and Labels", "Review". */
+  /** "Split Ben", on every step. */
   readonly title: string;
+  /** "Step 2 of 3 · Colors", under the title. */
+  readonly stepLine: string;
   readonly intro: string;
   readonly body: unknown;
   /** Cancel on the first step, else Back. */
@@ -76,7 +71,8 @@ export interface SplitTask {
 }
 
 /**
- * The task: its stepper, the step's title and intro, its body, and Back and Next.
+ * The task in the wizards' shared look (`wizard.ts`): its header with the ✕, the progress bar, the
+ * step's intro and body, and Back and Next above a divider.
  *
  * @param task - What it shows
  * @returns The task
@@ -84,41 +80,25 @@ export interface SplitTask {
 export function splitTask(task: SplitTask): TemplateResult {
   const last = task.step === task.steps.length - 1;
   return html`<div
-    class="split-task"
+    class="split-task wizard framed"
     role="group"
     aria-label=${task.name}
     data-split-step=${task.step}
   >
-    <div class="split-stepper">
-      <ol class="split-steps" aria-label=${task.stepOf}>
-        ${task.steps.map(
-          (step, at) =>
-            html`<li
-              class="split-step${at === task.step ? ' current' : at < task.step ? ' done' : ''}"
-              aria-current=${at === task.step ? 'step' : nothing}
-            >
-              <span class="split-step-dot" aria-hidden="true"
-                >${at < task.step ? icon(mdiCheck) : String(at + 1)}</span
-              >
-              <span>${step}</span>
-            </li>`,
-        )}
-      </ol>
-      <button
-        type="button"
-        class="icon-button"
-        data-focus="split-close"
-        aria-label=${task.closeName}
-        title=${task.closeName}
-        @click=${task.onClose}
-      >
-        ${icon(mdiClose)}
-      </button>
-    </div>
-    <h4 class="split-title" tabindex="-1">${task.title}</h4>
+    ${wizardHead({
+      iconPath: mdiCallSplit,
+      title: task.title,
+      titleClass: 'split-title',
+      level: 4,
+      stepLine: task.stepLine,
+      stepClass: 'split-step-line',
+      id: 'split',
+      close: { name: task.closeName, focus: 'split-close', onPress: task.onClose },
+    })}
+    ${wizardProgress(task.steps, task.step, task.stepOf, 'split-steps')}
     <p class="hint">${task.intro}</p>
     ${task.body}
-    <div class="split-actions">
+    <div class="split-actions wizard-actions">
       ${textButton(task.back)}
       <button
         type="button"
@@ -179,11 +159,11 @@ export interface Method {
  * @returns The group
  */
 export function methods(name: string, methods: ReadonlyArray<Method>): TemplateResult {
-  return html`<div class="split-methods" role="radiogroup" aria-label=${name}>
+  return html`<div class="split-methods wizard-options" role="radiogroup" aria-label=${name}>
     ${methods.map(
       (method) =>
         html`<div
-          class="split-method${method.checked ? ' checked' : ''}${method.refusal ? ' refused' : ''}"
+          class="split-method wizard-option${method.checked ? ' checked' : ''}${method.refusal ? ' refused' : ''}"
         >
           <label>
             <input
@@ -223,7 +203,7 @@ export interface PartHead {
  * @returns The card
  */
 export function partCard(head: PartHead, body: unknown): TemplateResult {
-  return html`<div class="split-part">
+  return html`<div class="split-part wizard-card">
     <div class="split-part-head">
       <span
         class="cal-dot"
@@ -268,9 +248,7 @@ export function partReview(
  * @returns The note
  */
 export function note(text: string): TemplateResult {
-  return html`<p class="page-line split-note">
-    ${icon(mdiInformationOutline)}<span>${text}</span>
-  </p>`;
+  return wizardNote(text, 'split-note');
 }
 
 /** One entry the split wrote, as the completion panel lists it. */

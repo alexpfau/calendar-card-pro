@@ -430,7 +430,6 @@
   "split.edit_allowlist": "Redigera ”Visa bara händelser som innehåller”",
   "split.edit_blocklist": "Redigera ”Dölj händelser som innehåller”",
   "split.go_budget": "Gå till ”Kompakta händelser att visa”",
-  "split.colors.title": "Färger och etiketter",
   "split.colors.intro": "Båda delarna behåller namnet {name}, som alla poster för en kalender delar. Kalenderlistan och kortet skiljer dem åt genom vad de visar och genom dessa.",
   "split.part_of": "Del {part} av {total}",
   "split.color_now": "Nuvarande färg för {name}.",
