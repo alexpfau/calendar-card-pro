@@ -32,7 +32,8 @@ export function toPattern(terms: ReadonlyArray<string>): string {
  * @returns The terms, none for an empty pattern; undefined for an expression, which stays one
  */
 export function fromPattern(pattern: string): ReadonlyArray<string> | undefined {
-  if (pattern.trim() === '') return [];
+  // Only an empty pattern is no list: a space is a pattern, and the card applies it.
+  if (pattern === '') return [];
   const terms: string[] = [];
   let term = '';
   for (let at = 0; at < pattern.length; at++) {
@@ -66,8 +67,8 @@ export function fromPattern(pattern: string): ReadonlyArray<string> | undefined 
  * @returns The pattern matching either
  */
 export function orPatterns(a: string, b: string): string {
-  if (a.trim() === '') return b;
-  if (b.trim() === '') return a;
+  if (a === '') return b;
+  if (b === '') return a;
   const first = fromPattern(a);
   const second = fromPattern(b);
   if (first !== undefined && second !== undefined) {

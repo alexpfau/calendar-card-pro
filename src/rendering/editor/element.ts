@@ -412,6 +412,9 @@ export class CalendarCardProEditor extends LitElement {
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
+    // Leaving the visual editor, for the code editor or by closing the dialog, cancels a split
+    // that has not been made, so the preview is never what is kept.
+    this._cancelSplit(false);
     awaitingConditionsEditor.delete(this);
     // The last editor or card out closes the registry subscription (`entity-colors.ts`).
     if (this._registryHeld) EntityColors.releaseEntityColors(this._registryChanged);
@@ -4642,7 +4645,9 @@ export class CalendarCardProEditor extends LitElement {
               : spec.mode !== undefined && write[spec.mode] === 'inherit'
                 ? undefined
                 : (write[spec.value] as string | undefined);
-        const parts = [...session.parts] as [Split.SplitPart, Split.SplitPart];
+        const current = this._split;
+        if (current?.newKey !== session.newKey) return;
+        const parts = [...current.parts] as [Split.SplitPart, Split.SplitPart];
         parts[part] = { ...parts[part], color: next };
         this._splitChange({ parts });
       },
@@ -4672,7 +4677,10 @@ export class CalendarCardProEditor extends LitElement {
       @value-changed=${(event: CustomEvent) => {
         event.stopPropagation();
         const value = (event.detail?.value as { label?: unknown } | undefined)?.label;
-        const parts = [...this._split!.parts] as [Split.SplitPart, Split.SplitPart];
+        // A form a canceled run left behind may still send a change; it is not this run's.
+        const current = this._split;
+        if (current?.newKey !== session.newKey) return;
+        const parts = [...current.parts] as [Split.SplitPart, Split.SplitPart];
         parts[part] = { ...parts[part], label: typeof value === 'string' ? value : '' };
         this._splitChange({ parts });
       }}
@@ -5018,6 +5026,7 @@ export class CalendarCardProEditor extends LitElement {
       .computeHelper=${this._keep('split.words.helper', helpers, () => (item: { name: string }) => helpers[item.name])}
       @value-changed=${(event: CustomEvent) => {
         event.stopPropagation();
+        if (this._split?.newKey !== session.newKey) return;
         const value = event.detail?.value as
           { filter_field?: unknown; words?: unknown } | undefined;
         const field = locked ?? Split.filterFieldOf(value?.filter_field);

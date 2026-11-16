@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
   PLANTED,
@@ -8,6 +8,7 @@ import {
   reviewCases,
   reviewEvents,
   reviewNow,
+  transitionReviews,
 } from './helpers/split-review-cases';
 
 /**
@@ -47,7 +48,7 @@ describe("Split's review names what the card shows, in a zone that changes its c
     const named = card.reduce((sum, days) => sum + days.size, 0);
 
     expect({ cases: cases.length, named: named > cases.length * 5 }).toEqual({
-      cases: 2020,
+      cases: 2044,
       named: true,
     });
     expect(found).toEqual([]);
@@ -60,5 +61,32 @@ describe("Split's review names what the card shows, in a zone that changes its c
     );
 
     expect(found.length).toBeGreaterThan(0);
+  });
+});
+
+describe("Split's review names what the card shows, on the days the clocks change", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('agrees with the card around both of the zone’s changes', () => {
+    const reviews = transitionReviews();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    let named = 0;
+    const found = reviews.flatMap(({ name, now, each, events }) => {
+      vi.setSystemTime(now);
+      const card = cardFirstDays(each, events);
+      named += card.size;
+      return disagreements(card, mirrorFirstDays(each, events, undefined, now)).map(
+        (line) => `${name}: ${line}`,
+      );
+    });
+
+    // Two changes, four moments around each, 24 configurations at each moment.
+    expect({ reviews: reviews.length, named: named > reviews.length * 3 }).toEqual({
+      reviews: 192,
+      named: true,
+    });
+    expect(found).toEqual([]);
   });
 });

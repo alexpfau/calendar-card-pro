@@ -524,6 +524,45 @@ describe('Split This Calendar on an entry’s page', () => {
   });
 });
 
+describe('Split This Calendar when the editor goes away or a run is left behind', () => {
+  it('takes the preview back when the editor is detached before Split', async () => {
+    const { editor } = await onBensPage();
+    await press(editor, 'split-row');
+    await press(editor, 'split-next');
+    expect((lastConfig(editor)!.entities as unknown[]).length).toBe(3);
+
+    editor.remove();
+
+    expect(lastConfig(editor)!.entities).toEqual([
+      { entity: 'calendar.ben', accent_color: 'var(--blue-color)' },
+      'calendar.anna',
+    ]);
+  });
+
+  it('ignores a change sent late by a form of a canceled run', async () => {
+    const { editor } = await onBensPage();
+    await press(editor, 'split-row');
+    await press(editor, 'split-next');
+    const stale = root(editor).querySelector<HTMLElement>(
+      'ha-form.split-form[data-split-label="0"]',
+    )!;
+    await press(editor, 'split-close');
+    await press(editor, 'split-row');
+    await press(editor, 'split-next');
+    const sent = (): unknown => (lastConfig(editor)!.entities as Types.EntityConfig[])[0].label;
+    const before = sent();
+
+    stale.dispatchEvent(new CustomEvent('value-changed', { detail: { value: { label: 'Old' } } }));
+    await editor.updateComplete;
+
+    expect(sent()).toBe(before);
+    const fresh = root(editor).querySelector<HTMLElement & { data: Record<string, unknown> }>(
+      'ha-form.split-form[data-split-label="0"]',
+    )!;
+    expect(fresh.data.label).toBe('');
+  });
+});
+
 describe('a word list the card cannot read', () => {
   it('is flagged at its field, through the form’s error map', async () => {
     const { editor } = await onBensPage({ entity: 'calendar.ben', blocklist: '[' });

@@ -23,7 +23,11 @@ import { interpolate } from './strings';
 import { compiles } from './word-lists';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
-import { multidaySplitPolicy, resolveEffectiveConfig } from '../../config/view';
+import {
+  multidaySplitPolicy,
+  resolveEffectiveConfig,
+  resolveTimeGridOption,
+} from '../../config/view';
 import { intlLocales } from '../../translations/intl-locales';
 import { parseStartDateExpression } from '../../utils/start-date';
 
@@ -289,9 +293,67 @@ function listRows(event: Types.CalendarEventData, split: boolean): Row[] {
 }
 
 /**
+ * The hours Grid draws (`grid.ts` › `resolveBand`), in minutes from midnight: its `start_time`
+ * and `end_time`, both falling back to 07:00 and 22:00 where either cannot be read.
+ *
+ * @param config - The configuration, resolved for Grid
+ * @returns The first minute and the minute after the last
+ */
+function gridBand(config: Types.Config): readonly [number, number] {
+  const minutes = (value: unknown): number | null => {
+    const shape = typeof value === 'string' ? /^(\d{2}):(\d{2})$/.exec(value) : null;
+    if (!shape || Number(shape[2]) > 59) return null;
+    const hours = Number(shape[1]);
+    if (hours === 24) return shape[2] === '00' ? 1440 : null;
+    return hours < 24 ? hours * 60 + Number(shape[2]) : null;
+  };
+  const from = minutes(resolveTimeGridOption(config, 'start_time'));
+  const to = minutes(resolveTimeGridOption(config, 'end_time'));
+  return from === null || to === null || from >= to ? [420, 1320] : [from, to];
+}
+
+/**
+ * Whether one day of a timed event reaches into the hours Grid draws, by Grid's own measure
+ * (`grid.ts` › `segmentMinutes` and `intersectsBand`, as `search.ts` › `drawnIn` applies them):
+ * a day carried over from the one before starts at the top of its column, and a day running to
+ * midnight ends at its foot.
+ *
+ * @param from - The day's start
+ * @param to - Its end
+ * @param startsEvent - Whether the event starts on it
+ * @param band - The hours drawn
+ * @returns True where the day is drawn
+ */
+function inBand(
+  from: Date,
+  to: Date,
+  startsEvent: boolean,
+  band: readonly [number, number],
+): boolean {
+  const ofDay = (date: Date): number =>
+    date.getHours() * 60 +
+    date.getMinutes() +
+    date.getSeconds() / 60 +
+    date.getMilliseconds() / 60000;
+  const startMin = !startsEvent && from.getTime() === day(from).getTime() ? 0 : ofDay(from);
+  let endMin = day(to).getTime() > day(from).getTime() ? 1440 : ofDay(to);
+  if (
+    Math.floor(endMin) <= Math.floor(startMin) &&
+    to.getTimezoneOffset() > from.getTimezoneOffset()
+  ) {
+    endMin = startMin + (to.getTime() - from.getTime()) / 60000;
+  }
+  if (!Number.isFinite(startMin) || !Number.isFinite(endMin) || endMin < startMin) return false;
+  return endMin === startMin
+    ? startMin >= band[0] && startMin < band[1]
+    : endMin > band[0] && startMin < band[1];
+}
+
+/**
  * The rows Grid draws for an event (`grid.ts` › `splitGridEventByDay`): one per day inside the
  * window, timed days staying timed, and a timed event a full day or longer drawn as a banner
- * where the entry's or the card's `multiday_banners` is on.
+ * where the entry's or the card's `multiday_banners` is on. A timed day that is no banner is
+ * drawn only where it reaches into the hours Grid shows.
  *
  * @param event - A well-formed event
  * @param window - The window
@@ -303,11 +365,14 @@ function gridRows(event: Types.CalendarEventData, window: ReviewWindow, banners:
   const rows: Row[] = [];
   if (event.start.dateTime) {
     const banner = banners === true && Days.spansFullDays(event.start, event.end);
+    const band = gridBand(window.config);
     const start = new Date(event.start.dateTime);
     const end = new Date(event.end.dateTime!);
     if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) return [];
     if (end.getTime() === start.getTime()) {
-      return start >= window.start && start < window.end
+      return start >= window.start &&
+        start < window.end &&
+        (banner || inBand(start, end, true, band))
         ? [
             {
               start: { dateTime: start.toISOString() },
@@ -327,7 +392,9 @@ function gridRows(event: Types.CalendarEventData, window: ReviewWindow, banners:
       const next = addDays(date, 1);
       const from = start > date ? start : date;
       const to = end < next ? end : next;
-      if (to <= from) continue;
+      if (to <= from || (!banner && !inBand(from, to, from.getTime() === start.getTime(), band))) {
+        continue;
+      }
       rows.push({
         start: { dateTime: from.toISOString() },
         end: { dateTime: to.toISOString() },

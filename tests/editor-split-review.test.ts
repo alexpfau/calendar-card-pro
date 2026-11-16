@@ -183,7 +183,7 @@ describe("Split's review names what the card shows, under UTC", () => {
 
     // The denominators beside the verdict: a table that names nothing would agree trivially.
     expect({ cases: cases.length, named: named > cases.length * 5 }).toEqual({
-      cases: 2020,
+      cases: 2044,
       named: true,
     });
     expect(found).toEqual([]);

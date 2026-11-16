@@ -13,6 +13,7 @@ import type * as Types from '../../src/config/types';
 import { reviewWindow, shownOn } from '../../src/rendering/editor/split-review';
 import * as EventUtils from '../../src/utils/events';
 import { getLocalDateKey } from '../../src/utils/format';
+import { drawnIn } from '../../src/utils/search';
 import { buildConfig } from '../fixtures';
 
 /** The moment every case is judged at. */
@@ -66,6 +67,8 @@ export function reviewEvents(): Types.CalendarEventData[] {
     timed('Two whole days', at(19, 9), at(21, 9)),
     allDay('Weekend away', 17, 19),
     timed('Friday at midnight', at(16, 0), at(17, 0)),
+    timed('Early hours', at(15, 3), at(15, 4)),
+    timed('Night shift', at(15, 23), at(16, 8)),
   ];
 }
 
@@ -161,11 +164,40 @@ export function reviewCases(): ReviewCase[] {
                     first_day_of_week: week.card,
                     show_past_events: past,
                     split_multiday_events: split,
+                    // Grid shows past events by its own default, which the top level does not
+                    // reach, so its block says it too.
+                    ...(view === 'grid' ? { time_grid: { show_past_events: past } } : {}),
                   } as Partial<Types.Config>),
                 });
               }
             }
           }
+        }
+      }
+    }
+  }
+  for (const start of [undefined, 'today+1'] as const) {
+    for (const [hours, band] of [
+      ['Grid 07:00 to 22:00', {}],
+      ['Grid 09:00 to 18:00', { start_time: '09:00', end_time: '18:00' }],
+      ['Grid 00:00 to 24:00', { start_time: '00:00', end_time: '24:00' }],
+    ] as const) {
+      for (const banners of [true, false]) {
+        for (const past of [false, true]) {
+          cases.push({
+            name: `grid · ${start ?? 'today'} · ${hours} · banners ${banners} · past ${past}`,
+            view: 'grid',
+            hass: hassFor(undefined, undefined),
+            config: buildConfig({
+              view: 'grid',
+              entities: [{ entity: CALENDAR }],
+              days_to_show: 7,
+              ...(start === undefined ? {} : { start_date: start }),
+              multiday_banners: banners,
+              show_past_events: past,
+              time_grid: { ...band, show_past_events: past },
+            } as Partial<Types.Config>),
+          });
         }
       }
     }
@@ -202,13 +234,18 @@ export type FirstDays = ReadonlyMap<string, string>;
  * @returns Each event's first day
  */
 export function cardFirstDays(each: ReviewCase, events: Types.CalendarEventData[]): FirstDays {
-  const days = EventUtils.groupEventsByDay(
-    EventUtils.processEvents(events, each.config),
+  // As the layout draws them: Grid leaves out a day outside the hours it shows.
+  const days = drawnIn(
+    EventUtils.groupEventsByDay(
+      EventUtils.processEvents(events, each.config),
+      each.config,
+      false,
+      'en',
+      each.view,
+      each.hass,
+    ),
     each.config,
-    false,
-    'en',
     each.view,
-    each.hass,
   );
   const first = new Map<string, string>();
   for (const bucket of days) {
@@ -243,13 +280,14 @@ export function mirrorFirstDays(
   each: ReviewCase,
   events: Types.CalendarEventData[],
   plant: (inputs: MirrorInputs) => MirrorInputs = (inputs) => inputs,
+  now: Date = reviewNow(),
 ): FirstDays {
   const inputs = plant({
     config: each.config,
     view: each.view,
     entry: each.config.entities[0],
     hass: each.hass,
-    now: reviewNow(),
+    now,
   });
   const window = reviewWindow(inputs.config, inputs.view, inputs.hass, inputs.now);
   const first = new Map<string, string>();
@@ -304,8 +342,109 @@ export const PLANTED: Readonly<Record<string, (inputs: MirrorInputs) => MirrorIn
     ...inputs,
     entry: { ...(inputs.entry as Types.EntityConfig), allday_expires_at: undefined },
   }),
+  'the hours Grid draws ignored': (inputs) => ({
+    ...inputs,
+    config: { ...inputs.config, time_grid: { start_time: '00:00', end_time: '24:00' } },
+  }),
   'no splitting across days': (inputs) => ({
     ...inputs,
     config: { ...inputs.config, split_multiday_events: false },
   }),
 };
+
+/**
+ * Every local day of 2026 that is not 24 hours long in the zone the suite runs in: none under
+ * UTC, two in each zone that changes its clocks.
+ *
+ * @returns The days, at local midnight or the day's first moment
+ */
+export function transitionDays(): Date[] {
+  const days: Date[] = [];
+  for (let day = 0; day < 365; day++) {
+    const start = new Date(2026, 0, 1 + day);
+    if (new Date(2026, 0, 2 + day).getTime() - start.getTime() !== 86_400_000) days.push(start);
+  }
+  return days;
+}
+
+/** One configuration and moment around a change of clocks, and the events it is judged on. */
+export interface TransitionReview {
+  readonly name: string;
+  readonly now: Date;
+  readonly each: ReviewCase;
+  readonly events: Types.CalendarEventData[];
+}
+
+/**
+ * Cases around each change of clocks: just before the night it happens, just after, and at noon
+ * of the changed day; events crossing that night, on its hours, and all-day and timed events
+ * spanning it; three layouts, past events shown and hidden, split across days or not, and a
+ * window opening on the day or the day before.
+ *
+ * @returns The cases
+ */
+export function transitionReviews(): TransitionReview[] {
+  const reviews: TransitionReview[] = [];
+  for (const changed of transitionDays()) {
+    const [y, m, d] = [changed.getFullYear(), changed.getMonth(), changed.getDate()];
+    const local = (offset: number, hour: number, minute = 0): string =>
+      new Date(y, m, d + offset, hour, minute).toISOString();
+    const key = (offset: number): string => getLocalDateKey(new Date(y, m, d + offset));
+    const events: Types.CalendarEventData[] = [
+      timed('Across the night', local(-1, 22), local(0, 9)),
+      timed('Half past midnight', local(0, 0, 30), local(0, 1, 30)),
+      timed('Through the change', local(0, 1, 30), local(0, 3, 30)),
+      timed('Three in the morning', local(0, 3), local(0, 4)),
+      timed('Two whole days', local(-1, 12), local(1, 12)),
+      timed('Next morning', local(1, 8), local(1, 9)),
+      timed('After the change', local(0, 23), local(1, 8)),
+      {
+        summary: 'Three days',
+        start: { date: key(-1) },
+        end: { date: key(2) },
+        _entityId: CALENDAR,
+      },
+      {
+        summary: 'The day itself',
+        start: { date: key(0) },
+        end: { date: key(1) },
+        _entityId: CALENDAR,
+      },
+    ];
+    for (const now of [
+      new Date(y, m, d - 1, 23, 30),
+      new Date(y, m, d, 0, 15),
+      new Date(y, m, d, 12),
+      new Date(y, m, d + 1, 0, 15),
+    ]) {
+      for (const view of ['list', 'column', 'grid'] as const) {
+        for (const past of [false, true]) {
+          for (const split of [false, true]) {
+            for (const start of [undefined, 'today-1'] as const) {
+              reviews.push({
+                name: `${key(0)} at ${now.toString()} · ${view} · past ${past} · split ${split} · ${start ?? 'today'}`,
+                now,
+                events,
+                each: {
+                  name: '',
+                  view,
+                  hass: hassFor(undefined, undefined),
+                  config: buildConfig({
+                    view,
+                    entities: [{ entity: CALENDAR }],
+                    days_to_show: 4,
+                    ...(start === undefined ? {} : { start_date: start }),
+                    show_past_events: past,
+                    split_multiday_events: split,
+                    time_grid: { start_time: '00:00', end_time: '24:00', show_past_events: past },
+                  } as Partial<Types.Config>),
+                },
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+  return reviews;
+}

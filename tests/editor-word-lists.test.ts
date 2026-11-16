@@ -68,6 +68,9 @@ describe('word lists, written from terms', () => {
     expect(orPatterns('Soccer|School', 'School|C\\+\\+')).toBe('Soccer|School|C\\+\\+');
     expect(orPatterns('^Bin', 'School')).toBe('(?:^Bin)|(?:School)');
     expect(orPatterns('', 'School')).toBe('School');
+    // A space is a pattern the card applies, not an empty list.
+    expect(fromPattern(' ')).toBeUndefined();
+    expect(orPatterns(' ', 'School')).toBe('(?: )|(?:School)');
 
     const either = new RegExp(orPatterns('^Bin', 'School'), 'i');
     expect(['Bin Day', 'school run'].map((text) => either.test(text))).toEqual([true, true]);

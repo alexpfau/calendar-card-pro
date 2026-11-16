@@ -179,6 +179,11 @@ const SPLITS: ReadonlyArray<
   ['by metacharacters', { entity: CALENDAR }, words(['Piano (2.5h)', 'C++'])],
   ['by a location word', { entity: CALENDAR }, words(['field'], 'location')],
   ['by a description word', { entity: CALENDAR }, words(['SCHOOL'], 'description')],
+  [
+    'by words over a blocklist of one space',
+    { entity: CALENDAR, blocklist: ' ' },
+    words(['school']),
+  ],
   ['by words over its own blocklist', { entity: CALENDAR, blocklist: 'Soccer' }, words(['school'])],
   [
     'by words over its own location blocklist',
@@ -240,9 +245,21 @@ describe('Split This Calendar keeps every row the entry draws, in exactly one pa
           const { before, after } = beforeAndAfter(
             entry,
             how,
-            { ...layout, show_past_events: past, days_to_show: 7 },
+            {
+              ...card,
+              ...layout,
+              show_past_events: past,
+              // Grid shows past events by its own default, so its block says it too.
+              ...(view === 'grid' ? { time_grid: { show_past_events: past } } : {}),
+              days_to_show: 7,
+            },
             view,
           );
+          // The card's own options reach the pipeline: a card keeping timed events draws no
+          // all-day row on either side.
+          if (card.event_type === 'timed') {
+            expect(before.rows.some((row) => /Holiday|Bin Day|Fair/.test(row.key))).toBe(false);
+          }
 
           expect(compare(before, after)).toEqual({ twice: [], missing: [], extra: [] });
           expect(before.rows.length).toBeGreaterThan(0);
