@@ -30,7 +30,7 @@ import {
   toFilterCriteria,
 } from '../src/rendering/editor/filter';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
-import { PAGES } from '../src/rendering/editor/pages';
+import { ENTRY_GROUPS, type HeadingDef, PAGES } from '../src/rendering/editor/pages';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 import { buildEntitySchema, entitySchemaFor } from '../src/rendering/editor/schemas/entity';
 import { search } from '../src/rendering/editor/search';
@@ -421,7 +421,7 @@ describe('editor filter: the per-calendar settings', () => {
     // `color` sits inside a grid row, so this also pins that the per-calendar filter
     // recurses rather than looking only at the top level of the schema.
     expect(fieldNames(configured)).toEqual(['color']);
-    // Nothing left, so the chassis renders no panel for this calendar at all.
+    // Nothing left, so the calendar list draws no row for this calendar at all.
     expect(fieldNames(untouched)).toEqual([]);
   });
 
@@ -465,7 +465,7 @@ describe('editor filter: the per-calendar settings', () => {
     );
     expect(fieldNames(configured)).toEqual(['label_type', 'label_icon_source', 'label']);
 
-    // A calendar with no label of its own keeps neither, so its panel drops out whole.
+    // A calendar with no label of its own keeps neither, so its row drops out whole.
     const untouched = filterEntitySchema(
       entitySchemaFor(entitySchema(config), 'none'),
       config.entities[1],
@@ -481,10 +481,10 @@ describe('editor filter: the per-calendar settings', () => {
    *
    * Following Home Assistant, `entitySchemaFor` drops `accent_color` — so the mode dropdown
    * is the *only* accent control left, and hiding it left the calendar with nothing at all.
-   * `hasFields` then answered false and the chassis dropped the whole panel: a calendar the
+   * `hasFields` then answered false and the chassis dropped the calendar whole: a calendar the
    * user had configured disappeared from the filter that promises to show exactly that.
    *
-   * With a custom color the panel survives, but the color field arrives with no control
+   * With a custom color the calendar survives, but the color field arrives with no control
    * saying where it comes from and no way back to following the card.
    */
   it('keeps the accent mode dropdown wherever the calendar has set an accent color', () => {
@@ -508,7 +508,7 @@ describe('editor filter: the per-calendar settings', () => {
     expect(kept(custom, 'custom')).toEqual(['accent_color_mode', 'accent_color']);
 
     // The control still stores nothing of its own, so a calendar that has set no color
-    // keeps neither and its panel drops out whole — as it did before.
+    // keeps neither and its row drops out whole — as it did before.
     expect(kept(untouched, 'inherit')).toEqual([]);
   });
 
@@ -522,7 +522,7 @@ describe('editor filter: the per-calendar settings', () => {
    * `pruneLoneHeadings` exists to stop and what a heading is incapable of doing honestly.
    *
    * `hasFields` is the third rule and the one with teeth, because the chassis calls it to
-   * decide whether to render a calendar's panel at all.
+   * decide whether the calendar list draws a calendar's row at all.
    */
   it('never returns a heading as a search hit of its own', () => {
     const config = buildConfig({ entities: ['calendar.a'] });
@@ -699,11 +699,20 @@ describe('editor filter: the chassis', () => {
       entities: [{ entity: 'calendar.a', color: '#ff0000' }, 'calendar.b'],
     });
 
-    expect(element.shadowRoot!.querySelectorAll('ha-expansion-panel.entity-panel')).toHaveLength(2);
+    // The calendar list's rows, each named by the calendar it belongs to.
+    const rows = () =>
+      [...element.shadowRoot!.querySelectorAll('.cal-group')].map((group) => [
+        group.getAttribute('data-calendar'),
+        group.querySelectorAll('.cal-row').length,
+      ]);
+    expect(rows()).toEqual([
+      ['calendar.a', 1],
+      ['calendar.b', 1],
+    ]);
 
     await changeField(element, `filter:${CUSTOMIZED_ONLY_FIELD}`, true);
 
-    expect(element.shadowRoot!.querySelectorAll('ha-expansion-panel.entity-panel')).toHaveLength(1);
+    expect(rows()).toEqual([['calendar.a', 1]]);
   });
 
   it('offers no reset until a view has an explicit value', async () => {
@@ -785,24 +794,26 @@ describe('editor filter: the chassis', () => {
  * can be actively misleading when the filter runs: one whose fields were all filtered out is
  * left stranded above whatever section happens to follow, silently relabeling someone else's
  * options. Headings never keep themselves; they ride along with their section, and one whose
- * section came back empty is pruned. A query no longer narrows a form, so Customized Only is
+ * section came back empty is pruned. No builder emits a heading any more (the registry heads
+ * every page, a calendar entry's included), so these read a schema written here. A query no longer narrows a form, so Customized Only is
  * what empties sections now; a query's results are rows, and a heading is never one
  * (the per-calendar "replacement" case above).
  */
 describe('editor filter: section headings', () => {
-  const entitySchema = () =>
-    buildEntitySchema({ view: 'list' as const, config: buildConfig(), language: 'en' });
-
   const customized = (config: Types.Config) => ctxFor(config, { customizedOnly: true });
+
+  /** Two sections of a calendar's fields, each under a heading. */
+  const sectioned = (): HaFormSchema[] => [
+    { name: 'heading_multiday', type: 'constant' },
+    { name: 'split_multiday_events', selector: { boolean: {} } },
+    { name: 'heading_details', type: 'constant' },
+    { name: 'color', selector: { text: {} } },
+  ];
 
   it('renders its headings when nothing is filtered (denominator)', () => {
     // Without this, every assertion below could pass against a schema that has no
     // headings at all.
-    expect(headingNames(entitySchema())).toEqual([
-      'heading_appearance',
-      'heading_visibility',
-      'heading_filters',
-      'heading_replace',
+    expect(headingNames(filterSchema(sectioned(), ctxFor(buildConfig())))).toEqual([
       'heading_multiday',
       'heading_details',
     ]);
@@ -819,28 +830,28 @@ describe('editor filter: section headings', () => {
 
   it('keeps a heading when a field under it is kept', () => {
     const schema: HaFormSchema[] = [
-      { name: 'heading_filters', type: 'constant' },
+      { name: 'heading_details', type: 'constant' },
       { name: 'days_to_show', selector: { number: { min: 1 } } },
     ];
     const kept = filterSchema(schema, customized(buildConfig({ days_to_show: 7 })));
 
     expect(fieldNames(kept)).toEqual(['days_to_show']);
-    expect(headingNames(kept)).toEqual(['heading_filters']);
+    expect(headingNames(kept)).toEqual(['heading_details']);
   });
 
   it('keeps a heading whose section still has an option, and drops the rest', () => {
-    // A calendar color is an appearance field, so exactly one heading survives: the one that
-    // still has something under it.
+    // Only the color is set, so exactly one heading survives: the one that still has something
+    // under it.
     const entry = { entity: 'calendar.a', color: '#ff0000' };
     const filtered = filterEntitySchema(
-      entitySchema(),
+      sectioned(),
       entry,
       ['entity'],
       customized(buildConfig({ entities: [entry] })),
     );
 
     expect(fieldNames(filtered)).toEqual(['color']);
-    expect(headingNames(filtered)).toEqual(['heading_appearance']);
+    expect(headingNames(filtered)).toEqual(['heading_details']);
   });
 
   it("finds the toolbar's switches by the word, and the background apart from them", () => {
@@ -866,10 +877,10 @@ describe('editor filter: section headings', () => {
   it('does not count a heading as a field when deciding a panel is empty', () => {
     // `hasFields` gates whether a panel renders at all. Counting a heading as content
     // would show a panel containing nothing but section labels.
-    expect(hasFields([{ name: 'heading_filters', type: 'constant' }])).toBe(false);
+    expect(hasFields([{ name: 'heading_details', type: 'constant' }])).toBe(false);
     expect(
       hasFields([
-        { name: 'heading_filters', type: 'constant' },
+        { name: 'heading_details', type: 'constant' },
         { name: 'days_to_show', selector: { number: { min: 1 } } },
       ]),
     ).toBe(true);
@@ -877,9 +888,8 @@ describe('editor filter: section headings', () => {
 });
 
 /**
- * The field and heading order of the two panels, pinned: the per-calendar panel as its builder
- * draws it, the card-level one as its builder orders its fields and as the page registry heads
- * them.
+ * The field and heading order of a calendar entry and the card, pinned: each as its builder
+ * orders its fields and as the page registry heads them.
  *
  * Order was incidental once and nothing asserted it: reordering both panels passed the entire
  * suite. It is *designed* — the two share a spine, which users see — so it needs a gate, or
@@ -909,9 +919,20 @@ describe('editor: the order of the two panels', () => {
         'type' in node && node.type === 'constant' ? `# ${node.name}` : node.name,
       );
 
-  it('pins the per-calendar panel', () => {
-    expect(sequence(entitySchema())).toEqual([
-      '# heading_appearance',
+  /** A registry's headings and fields, in render order, the way `sequence` reads a schema. */
+  const headed = (headings: ReadonlyArray<HeadingDef>): string[] =>
+    headings.flatMap((heading) => [
+      ...(heading.key === undefined ? [] : [`# ${heading.key}`]),
+      ...heading.fields.map(([id]) => id.slice(id.indexOf(':') + 1)),
+    ]);
+
+  it('pins a calendar entry', () => {
+    // Its builder emits fields alone, in the order the entry page's groups head them.
+    expect(sequence(entitySchema())).toEqual(
+      headed(ENTRY_GROUPS).filter((name) => !name.startsWith('# ')),
+    );
+    expect(headed(ENTRY_GROUPS)).toEqual([
+      '# heading.name_and_look',
       'name',
       'show_in_legend',
       'label_type',
@@ -923,9 +944,9 @@ describe('editor: the order of the two panels', () => {
       'accent_color_mode',
       'accent_color',
       'text_scale',
-      '# heading_visibility',
+      '# heading.who_sees_it',
       'visibility',
-      '# heading_filters',
+      '# page.which_events',
       'days_of_week',
       'event_type',
       'allday_expires_at',
@@ -984,14 +1005,9 @@ describe('editor: the order of the two panels', () => {
    * the invariant is.
    */
   it('orders every shared category the same way in both panels', () => {
-    const headingsOf = (schema: ReadonlyArray<HaFormSchema>) =>
-      [...walkSchema(schema)]
-        .filter(({ node }) => 'type' in node && node.type === 'constant')
-        .map(({ node }) => node.name);
-
     // The card's categories are the headings of the page drawing its content options.
     const whichEvents = PAGES.find((page) => page.id === 'which_events')!;
-    const entity = headingsOf(entitySchema());
+    const entity = ENTRY_GROUPS.flatMap((heading) => heading.key ?? []);
     const content = whichEvents.headings.flatMap((heading) => heading.key ?? []);
     const shared = entity.filter((name) => content.includes(name));
 
@@ -1002,34 +1018,26 @@ describe('editor: the order of the two panels', () => {
     expect(content.filter((name) => shared.includes(name))).toEqual(shared);
 
     /**
-     * The options a calendar's panel lists under one heading, in render order.
+     * The options a calendar entry's page lists under one heading, in render order.
      *
-     * @param schema - Panel schema
      * @param name - Heading key to read under
-     * @returns The option names between that heading and the next one
+     * @returns The option names the entry page draws under it
      */
-    const optionsUnder = (schema: ReadonlyArray<HaFormSchema>, name: string) => {
-      const seq = sequence(schema);
-      const from = seq.indexOf(`# ${name}`) + 1;
-      const rest = seq.slice(from);
-      const until = rest.findIndex((entry) => entry.startsWith('# '));
-
-      return (until === -1 ? rest : rest.slice(0, until)).filter(Boolean);
-    };
+    const optionsUnder = (name: string) =>
+      (ENTRY_GROUPS.find((heading) => heading.key === name)?.fields ?? []).map(([id]) =>
+        id.slice(id.indexOf(':') + 1),
+      );
     const cardUnder = (key: string | undefined) =>
       (whichEvents.headings.find((heading) => heading.key === key)?.fields ?? []).map(([id]) =>
         id.slice(id.indexOf(':') + 1),
       );
 
     // Both sides of the shared category, pinned by value.
-    expect(optionsUnder(entitySchema(), 'heading_multiday')).toEqual([
-      'split_multiday_events',
-      'multiday_banners',
-    ]);
+    expect(optionsUnder('heading_multiday')).toEqual(['split_multiday_events', 'multiday_banners']);
     expect(cardUnder('heading_multiday')).toEqual(['split_multiday_events', 'multiday_banners']);
 
     // The calendar's filters, and the card's filters in the page's unheaded opening run.
-    const entityFilters = optionsUnder(entitySchema(), 'heading_filters');
+    const entityFilters = optionsUnder('page.which_events');
     const contentFilters = cardUnder(undefined);
 
     expect(entityFilters).toEqual([

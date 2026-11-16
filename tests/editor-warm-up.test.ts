@@ -45,8 +45,8 @@ import {
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
-import { buildFieldIndex, schemaCtx } from '../src/rendering/editor/field-index';
-import { NO_FILTER } from '../src/rendering/editor/filter';
+import { buildFieldIndex, entityFieldIndex, schemaCtx } from '../src/rendering/editor/field-index';
+import { NO_FILTER, isHeading } from '../src/rendering/editor/filter';
 import { corpus } from '../src/rendering/editor/gates';
 import { type HaFormSchema, warmSchema } from '../src/rendering/editor/ha-form';
 import { VALUE_SELECTORS } from '../src/rendering/editor/hass-key';
@@ -55,6 +55,7 @@ import {
   withCardActionLabels,
 } from '../src/rendering/editor/hass-localize';
 import { PANELS } from '../src/rendering/editor/panels';
+import { ENTITY_PATH } from '../src/rendering/editor/schemas/calendars';
 import { chassisSchemas } from '../src/rendering/editor/subforms';
 import { WORKSPACE_FIELD } from '../src/rendering/editor/workspace';
 
@@ -67,9 +68,11 @@ const plant = vi.hoisted(() => ({ on: false, action: false, many: 0, extra: '' }
 // adds that many further selector types to a panel, used nowhere else, and `plant.extra` the one
 // it names.
 // Pages draw only the fields the registry places, so the planted panel fields are placed on Size &
-// Spacing, as a builder's new field must be before any page draws it.
+// Spacing, and the planted calendar fields in a group of an entry's page of their own, as a
+// builder's new field must be before any page draws it.
 vi.mock('../src/rendering/editor/pages', async (importOriginal) => {
   const original = await importOriginal<typeof import('../src/rendering/editor/pages')>();
+  const entryIds = ['calendar:planted_calendar', 'calendar:planted_action'];
   const ids = [
     'layout:planted_panel',
     'layout:planted_nested',
@@ -88,10 +91,16 @@ vi.mock('../src/rendering/editor/pages', async (importOriginal) => {
           }
         : candidate,
     ),
+    ENTRY_GROUPS: [
+      ...original.ENTRY_GROUPS,
+      { fields: entryIds.map((id) => [id, 'add'] as const) },
+    ],
     placementOf: (id: string) =>
       ids.includes(id)
         ? { page: 'size_spacing', heading: page.headings.length }
-        : original.placementOf(id),
+        : entryIds.includes(id)
+          ? { page: 'entry', heading: original.ENTRY_GROUPS.length }
+          : original.placementOf(id),
   };
 });
 
@@ -539,14 +548,17 @@ describe('the warm-up form', () => {
       values += held.length;
 
       const ctx = schemaCtx(state.config, state.workspace, 'en');
-      // Each field is drawn lifted out of its panel, in a form of its own; calendars and
-      // buttons keep their sub-forms.
+      // Each field is drawn lifted out of its panel, in a form of its own, and so is each of a
+      // calendar entry's on its page; buttons keep their sub-forms, less the sub-heading their
+      // panels caption.
       const lifted = [...buildFieldIndex(ctx).fields.values()].map((field) => field.lifted);
       for (const panel of PANELS) {
-        const subforms = panel.subforms?.(ctx) ?? [];
-        for (const tag of elements([...lifted, ...subforms.map((s) => s.schema)])) {
-          builtAll.add(tag);
-        }
+        const subforms = (panel.subforms?.(ctx) ?? []).flatMap((subform) =>
+          subform.path.join() === ENTITY_PATH.join()
+            ? [...entityFieldIndex(subform.schema).fields.values()].map((field) => field.lifted)
+            : [subform.schema.filter((node) => !isHeading(node))],
+        );
+        for (const tag of elements([...lifted, ...subforms])) builtAll.add(tag);
       }
     }
     for (const tag of elements(Object.values(chassisSchemas('en')))) builtAll.add(tag);
@@ -1117,15 +1129,17 @@ describe('once Home Assistant draws what it holds', () => {
     expect(warmConditions(editor)!.conditions).toEqual([screen]);
     await gone(editor);
 
-    // A search that matches nothing draws no calendar, and is then cleared: the conditions it held
-    // to the end are not held again.
+    // A search that matches nothing draws no calendar's row, and is then cleared: the conditions it
+    // held to the end are not held again.
     const search = editor as unknown as { _filter: unknown };
+    const row = () => editor.shadowRoot!.querySelector('.cal-row [data-focus^="row:"]');
+    expect(row()).not.toBeNull();
     search._filter = { ...NO_FILTER, query: 'nothing matches this' };
     await editor.updateComplete;
-    expect(editor.shadowRoot!.querySelector('ha-expansion-panel.entity-panel')).toBeNull();
+    expect(row()).toBeNull();
     search._filter = NO_FILTER;
     await editor.updateComplete;
-    expect(editor.shadowRoot!.querySelector('ha-expansion-panel.entity-panel')).not.toBeNull();
+    expect(row()).not.toBeNull();
     expect(warmConditions(editor)).toBeNull();
     await gone(editor);
   });

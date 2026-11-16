@@ -4,7 +4,7 @@
 
 import type { HaFormSchema } from './ha-form';
 import { buildActionsSchema } from './schemas/actions';
-import { buildCalendarsSchema, calendarsSubforms } from './schemas/calendars';
+import { calendarsSubforms } from './schemas/calendars';
 import { buildCardSchema, cardSubforms } from './schemas/card';
 import { buildContentSchema } from './schemas/content';
 import { buildDayHeaderSchema } from './schemas/day-header';
@@ -117,7 +117,8 @@ export interface PanelDef {
 export const PANELS: ReadonlyArray<PanelDef> = [
   {
     id: 'calendars',
-    build: buildCalendarsSchema,
+    // No field of its own: the overview's calendar list stands where the picker was.
+    build: () => [],
     subforms: calendarsSubforms,
   },
   {

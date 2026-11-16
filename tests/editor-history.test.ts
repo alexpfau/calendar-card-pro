@@ -567,19 +567,24 @@ describe('the line a removal leaves', () => {
     { entity: 'calendar.ben', label: 'B' },
   ];
 
-  /** A calendar's Remove, by its key. */
-  const removeOf = (editor: MountedEditor, key: number) =>
-    [
-      ...editor.shadowRoot!.querySelectorAll<HTMLButtonElement>(
-        `.entity-panel[data-entry-key="${key}"] button`,
-      ),
-    ].find((button) => button.textContent?.trim() === 'Remove')!;
+  /**
+   * Removes a calendar of one entry as a user does from the overview: its row's ⋮, then Remove on
+   * the strip that opens.
+   *
+   * @param editor - The editor, on the overview
+   * @param key - The entry's key
+   */
+  const remove = async (editor: MountedEditor, key: number): Promise<void> => {
+    $(editor, `[data-focus="more:entry:${key}"]`)!.click();
+    await settle(editor);
+    $(editor, `[data-focus="strip:entry:${key}:remove"]`)!.click();
+    await settle(editor);
+  };
 
   it('says what went, holds focus on its Undo, and its Undo brings the calendar back', async () => {
     const { editor, sent, last } = await mount({ config_version: VERSION, entities: ENTRIES });
     const [anna] = keysOf(editor, 'entry');
-    removeOf(editor, anna!).click();
-    await settle(editor);
+    await remove(editor, anna!);
 
     const line = $(editor, '[data-status-bar]')!;
     expect(line.querySelector('.status-text')!.textContent!.trim()).toMatch(/^Removed /);
@@ -594,16 +599,13 @@ describe('the line a removal leaves', () => {
     );
     expect($(editor, '[data-status-bar]')).toBeNull();
     expect(keysOf(editor, 'entry')[0]).toBe(anna);
-    expect(editor.shadowRoot!.activeElement).toBe(
-      $(editor, `.entity-panel[data-entry-key="${anna}"]`),
-    );
+    expect(editor.shadowRoot!.activeElement).toBe($(editor, `[data-focus="row:${anna}"]`));
   });
 
   it('stays until the next change', async () => {
     const { editor } = await mount({ config_version: VERSION, entities: ENTRIES });
     const [anna] = keysOf(editor, 'entry');
-    removeOf(editor, anna!).click();
-    await settle(editor);
+    await remove(editor, anna!);
     expect($(editor, '[data-status-bar]')).not.toBeNull();
     emitChange(formOf(editor, 'content:days_to_show')!, { 'content:days_to_show': 9 });
     await settle(editor);

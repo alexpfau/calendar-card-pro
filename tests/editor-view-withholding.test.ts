@@ -343,9 +343,20 @@ describe('view withholding reconciles both directions', () => {
         ),
         expected,
       );
-      const entityForms = formsOf(await mount(config), entry());
-      expect(entityForms).toHaveLength(1);
-      reconcile(fields(entityForms[0].schema), expected);
+      // The one calendar's entry page draws each of its fields in a form of its own, grouped
+      // under the page's headings, so its fields are compared in the order the builder builds
+      // them.
+      const editor = await mount(config);
+      const entityForms = formsOf(editor, entry());
+      expect(entityForms.length).toBeGreaterThan(0);
+      expect(entityForms).toEqual(formsOf(editor, entry(0)));
+      const order = expected.map((field) => field.key);
+      reconcile(
+        entityForms
+          .flatMap((form) => fields(form.schema))
+          .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key)),
+        expected,
+      );
     }
   });
 

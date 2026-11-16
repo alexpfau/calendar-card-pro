@@ -3,10 +3,10 @@
  *
  * Every editor test finds its forms through the harness, so a harness that quietly picked the
  * wrong form would let those tests pass on the wrong field. These pin the ways it must refuse to
- * guess, calendar panels that are not the blocks the editor's filter keeps among them; the owner
- * it must pick when a filter draws some of a calendar's blocks and not others; the event it must
- * emit for a test to stand in for `ha-form`, from a field the form draws and nothing else; and a
- * panel opening across a render, as Home Assistant's does.
+ * guess, an entry page that is not the entry it names among them; the owner it must pick when a
+ * filter draws some of a calendar's entries and not others; the event it must emit for a test to
+ * stand in for `ha-form`, from a field the form draws and nothing else; a calendar entry's page
+ * opened from its row; and a panel opening across a render, as Home Assistant's does.
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -37,6 +37,7 @@ const ANNA = 'calendar.anna';
 const BEN = 'calendar.ben';
 const LEO = 'calendar.leo';
 const BACK = { icon: 'mdi:arrow-left', name: 'Back', tap_action: { action: 'back' } };
+const LEFT = { icon: 'mdi:chevron-left', name: 'Left', tap_action: { action: 'back' } };
 
 /**
  * Mounts the editor over calendars, at the current configuration version.
@@ -49,6 +50,18 @@ function mount(entities: ReadonlyArray<unknown>, extra: Record<string, unknown> 
   return mountEditor({ config_version: Config.CURRENT_CONFIG_VERSION, entities, ...extra });
 }
 
+/**
+ * Which entries draw a form now, by place: each entry's page draws a form per field, so the forms
+ * are counted by the entry that draws them.
+ *
+ * @param editor - Editor element
+ * @param count - How many entries the card holds
+ * @returns Whether each entry draws any form
+ */
+function drawing(editor: HTMLElement & { updateComplete: Promise<unknown> }, count: number) {
+  return Array.from({ length: count }, (_, index) => formsOf(editor, entry(index)).length > 0);
+}
+
 afterEach(() => {
   document.body.replaceChildren();
   localStorage.removeItem(ESSENTIALS_STORAGE_KEY);
@@ -57,14 +70,14 @@ afterEach(() => {
 describe('the owner of a form', () => {
   it('is a calendar block by its place in entities, whatever a filter leaves out', async () => {
     const editor = await mount([ANNA, BEN, { entity: LEO, name: 'Leo' }]);
-    // A closed panel mounts no form: open the calendars' panels, as a user would to read them.
+    // Only the page open draws its forms: visit every entry's page, as a user would to read them.
     await openPanels(editor);
-    expect(formsOf(editor, entry())).toHaveLength(3);
+    expect(drawing(editor, 3)).toEqual([true, true, true]);
 
-    // Only Leo's block sets anything, so the first calendar form drawn is the third block's.
+    // Only Leo's block sets anything, so only the third entry's page keeps a field.
     await changeField(editor, 'filter:customized_only', true);
 
-    expect(formsOf(editor, entry())).toHaveLength(1);
+    expect(drawing(editor, 3)).toEqual([false, false, true]);
     expect(formOf(editor, 'calendar:name', entry(0))).toBeUndefined();
     expect(valueOf(editor, 'calendar:name', entry(2))).toBe('Leo');
   });
@@ -72,16 +85,15 @@ describe('the owner of a form', () => {
   it('is the block a search result opens, by its place in entities', async () => {
     const editor = await mount([{ entity: ANNA, label: 'Kids' }, ANNA]);
     await changeField(editor, 'filter:search', 'kids');
-    // The search lists the first block's fields only, the one whose label answers (and the
-    // calendar picker, which lists it).
+    // The search lists the first entry's fields only, the one whose label answers.
     const keys = keysOf(editor, 'entry');
     const owners = resultRows(editor).flatMap((row) => row.ownerKey ?? []);
     expect(new Set(owners)).toEqual(new Set([keys[0]]));
 
     await changeField(editor, 'calendar:label', 'Kids at home', entry(0));
-    // Only the first block's panel opens: its label alone above the rest of its form.
+    // Only the first entry's page opens, with its label among its fields.
     expect(formsOf(editor, entry())).toEqual(formsOf(editor, entry(0)));
-    expect(formsOf(editor, entry(0))).toHaveLength(2);
+    expect(formOf(editor, 'calendar:label', entry(0))).toBeDefined();
     expect(lastConfig(editor)?.entities).toEqual([{ entity: ANNA, label: 'Kids at home' }, ANNA]);
   });
 
@@ -90,8 +102,10 @@ describe('the owner of a form', () => {
     // Only reads what each block wrote, so it keeps the second and leaves out the first.
     const editor = await mount([ANNA, { entity: ANNA, label_type: 'none' }]);
     await changeField(editor, 'filter:customized_only', true);
+    await openPanels(editor);
 
-    expect(formsOf(editor, entry())).toHaveLength(1);
+    expect(drawing(editor, 2)).toEqual([false, true]);
+    expect(formsOf(editor, entry(1))).toHaveLength(1);
     expect(formOf(editor, 'calendar:label_type', entry(0))).toBeUndefined();
     await expect(changeField(editor, 'calendar:label_type', 'text', entry(0))).rejects.toThrow(
       "'calendar:label_type' is not drawn: entry 0 draws no form holding it.",
@@ -123,12 +137,14 @@ describe('the owner of a form', () => {
     },
   ])('is each repeated block’s own under $filter', async (row) => {
     const editor = await mount(row.entities);
-    // Essentials Only opens no panel by itself, and a closed panel mounts no form.
+    // Only the page open draws its forms: visit every entry's page first.
     await openPanels(editor);
     await changeFields(editor, row.criteria);
 
     const drawn = row.shown.flatMap((value, index) => (value === undefined ? [] : [index]));
-    expect(formsOf(editor, entry())).toHaveLength(drawn.length);
+    expect(drawing(editor, row.shown.length)).toEqual(
+      row.shown.map((value) => value !== undefined),
+    );
     expect(
       row.shown.map((_, index) => formOf(editor, row.field, entry(index)) !== undefined),
     ).toEqual(row.shown.map((value) => value !== undefined));
@@ -190,47 +206,44 @@ describe('the harness refuses to guess', () => {
     expect(formOf(editor, 'calendar:name', entry(0))).toBeDefined();
   });
 
-  describe('fails on calendar panels that are not the blocks the filter keeps', () => {
+  describe('fails on an entry page that is not the entry it names', () => {
     /**
-     * The calendar panels the editor draws, in document order.
+     * The entry page the editor draws.
      *
      * @param editor - Editor element
-     * @returns The panels
+     * @returns The page
      */
-    const panels = (editor: HTMLElement) => [
-      ...editor.shadowRoot!.querySelectorAll('ha-expansion-panel.entity-panel'),
-    ];
+    const page = (editor: HTMLElement) => editor.shadowRoot!.querySelector('.entry-page')!;
 
-    it('one short, rather than reading the block as drawing no form', async () => {
+    it('keyed for no entry the card holds, rather than reading it as drawing no form', async () => {
       const editor = await mount([ANNA, BEN]);
-      await openPanels(editor);
-      // Planted: the second block's panel gone, as an editor drawing a panel short leaves it.
-      panels(editor)[1].remove();
+      await openPageOf(editor, 'calendar:name', entry(1));
+      // Planted: the page keyed for an entry that is not on the card.
+      page(editor).setAttribute('data-entry-key', '99');
 
-      expect(() => formsOf(editor, entry(1))).toThrow(
-        'The editor draws 1 calendar panels where its filter keeps 2',
-      );
+      expect(() => formsOf(editor, entry(1))).toThrow('An entry page keyed 99 matches no entry');
     });
 
-    it('keyed alike, though both blocks show the same data', async () => {
-      const editor = await mount([ANNA, ANNA]);
-      await openPanels(editor);
-      const [first, second] = panels(editor);
-      const key = first.getAttribute('data-entry-key')!;
-      second.setAttribute('data-entry-key', key);
-
-      expect(() => formsOf(editor, entry(1))).toThrow(`Two calendar panels are keyed ${key}`);
-    });
-
-    it('out of list order, though each holds its own block', async () => {
-      const editor = await mount([ANNA, BEN]);
-      await openPanels(editor);
-      const [first, second] = panels(editor);
-      second.after(first);
+    it('keyed for another entry than the one whose data its forms hold', async () => {
+      const editor = await mount([
+        { entity: ANNA, name: 'Anna' },
+        { entity: BEN, name: 'Ben' },
+      ]);
+      await openPageOf(editor, 'calendar:name', entry(1));
+      // Planted: Ben's page keyed as Anna's.
+      page(editor).setAttribute('data-entry-key', String(keysOf(editor, 'entry')[0]));
 
       expect(() => formsOf(editor, entry(0))).toThrow(
-        'Calendar panel 1 is keyed for entry 1, where the filter keeps entry 0 in its place',
+        "The page of entry 0 holds another entry's data",
       );
+    });
+
+    it('drawn twice at once', async () => {
+      const editor = await mount([ANNA]);
+      await openPageOf(editor, 'calendar:name', entry(0));
+      page(editor).after(page(editor).cloneNode(true));
+
+      expect(() => formsOf(editor, entry(0))).toThrow('The editor draws 2 entry pages at once');
     });
   });
 
@@ -302,8 +315,26 @@ describe('opening a page', () => {
     expect(formOf(editor, 'content:days_to_show')).toBeDefined();
   });
 
-  it('opens every panel around the field, outermost first, as Home Assistant’s does', async () => {
+  it('goes to a calendar entry’s page from its row, opening no panel', async () => {
     const editor = await mount([ANNA, BEN]);
+    const announced: string[] = [];
+    editor.shadowRoot!.addEventListener('expanded-will-change', (event) =>
+      announced.push((event.target as Element).localName),
+    );
+
+    await openPageOf(editor, 'calendar:name', entry(1));
+
+    const key = keysOf(editor, 'entry')[1];
+    expect(editor.shadowRoot!.querySelector('.page')!.getAttribute('data-page')).toBe(
+      `entry:${key}`,
+    );
+    expect(announced).toEqual([]);
+    expect(formOf(editor, 'calendar:name', entry(1))).toBeDefined();
+    expect(formOf(editor, 'calendar:name', entry(0))).toBeUndefined();
+  });
+
+  it('opens every panel around the field, outermost first, as Home Assistant’s does', async () => {
+    const editor = await mount([ANNA], { toolbar: { show: true, buttons: [BACK, LEFT] } });
     const announced: string[] = [];
     for (const type of ['expanded-will-change', 'expanded-changed']) {
       editor.shadowRoot!.addEventListener(type, (event) =>
@@ -311,19 +342,16 @@ describe('opening a page', () => {
       );
     }
 
-    await openPageOf(editor, 'calendar:name', entry(1));
+    await openPageOf(editor, 'button:icon', button(1));
 
-    // The calendars sit on the overview, in no panel of their own.
-    expect(announced).toEqual([
-      'expanded-will-change calendar.ben',
-      'expanded-changed calendar.ben',
-    ]);
-    const panel = formOf(editor, 'calendar:name', entry(1))!.closest('ha-expansion-panel');
+    // The toolbar's buttons sit on Card & Header, each in a panel of its own.
+    expect(announced).toEqual(['expanded-will-change Left', 'expanded-changed Left']);
+    const panel = formOf(editor, 'button:icon', button(1))!.closest('ha-expansion-panel');
     expect((panel as HTMLElement & { expanded: boolean }).expanded).toBe(true);
   });
 
   it('lets a frame pass between announcing a panel and opening it, as Home Assistant’s does', async () => {
-    const editor = await mount([ANNA]);
+    const editor = await mount([ANNA], { toolbar: { show: true, buttons: [BACK] } });
     const seen: string[] = [];
     const state = (event: Event) =>
       (event.target as HTMLElement & { expanded?: boolean }).expanded === true ? 'open' : 'closed';
@@ -336,7 +364,7 @@ describe('opening a page', () => {
       seen.push(`changed, now ${state(event)}`),
     );
 
-    await openPageOf(editor, 'calendar:name', entry(0));
+    await openPageOf(editor, 'button:icon', button(0));
 
     expect(seen).toEqual([
       'will change while closed',
@@ -347,15 +375,16 @@ describe('opening a page', () => {
   });
 
   it('opens a panel in a test that holds time still, moving no clock', async () => {
-    const editor = await mount([ANNA]);
+    const editor = await mount([ANNA], { toolbar: { show: true, buttons: [BACK] } });
     vi.useFakeTimers();
     try {
       const now = Date.now();
       await openPageOf(editor, 'events:show_time');
       await openPageOf(editor, 'calendar:name', entry(0));
+      await openPageOf(editor, 'button:icon', button(0));
 
       expect(Date.now()).toBe(now);
-      const panel = formOf(editor, 'calendar:name', entry(0))!.closest('ha-expansion-panel');
+      const panel = formOf(editor, 'button:icon', button(0))!.closest('ha-expansion-panel');
       expect((panel as HTMLElement & { expanded: boolean }).expanded).toBe(true);
     } finally {
       vi.useRealTimers();
@@ -363,16 +392,16 @@ describe('opening a page', () => {
   });
 
   it('opens a panel when time was faked before the harness was imported', async () => {
-    const editor = await mount([ANNA]);
+    const editor = await mount([ANNA], { toolbar: { show: true, buttons: [BACK] } });
     vi.useFakeTimers();
     try {
       vi.resetModules();
       const fresh = await import('./helpers/editor-host');
       const now = Date.now();
-      await fresh.openPageOf(editor, 'calendar:name', fresh.entry(0));
+      await fresh.openPageOf(editor, 'button:icon', fresh.button(0));
 
       expect(Date.now()).toBe(now);
-      const panel = formOf(editor, 'calendar:name', entry(0))!.closest('ha-expansion-panel');
+      const panel = formOf(editor, 'button:icon', button(0))!.closest('ha-expansion-panel');
       expect((panel as HTMLElement & { expanded: boolean }).expanded).toBe(true);
     } finally {
       vi.useRealTimers();

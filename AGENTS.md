@@ -1782,12 +1782,12 @@ signal to stop, not to reach for `static-html`.
 visibility conditions are edited in Home Assistant's own Visibility editor, the element under
 every card's Visibility tab, because no selector reaches it: the `condition` selector edits an
 automation's conditions, which have no `user`, `screen`, `time` or `location`. It is named in
-`element.ts` alone, outside every schema, between two halves of the calendar's form
-(`splitAtVisibility`), and only where `customElements.get()` finds it **and** Lit's
+`element.ts` alone, outside every schema, in an entry page's Who Sees It in place of the
+`calendar:visibility` field, and only where `customElements.get()` finds it **and** Lit's
 `elementProperties` on it declare the `hass` and `conditions` the editor sets. Anywhere else,
-including a Home Assistant that renames or removes it, the panel keeps the `object` selector, a
+including a Home Assistant that renames or removes it, the page keeps the `object` selector, a
 YAML box, which is how the conditions were edited before. So a rename costs the nicer editor and
-never a dead panel; `tests/editor-visibility.test.ts` pins both sides. The panel also tells the
+never a dead page; `tests/editor-visibility.test.ts` pins both sides. The page also tells the
 element which calendar it edits against, answering Lit's `context-request` for Home Assistant's
 key `conditions-entity-context` as Home Assistant's own card dialog does for a card with one
 entity; should that key be renamed, nothing answers and the element works without an entity, as
@@ -1827,16 +1827,18 @@ Five things are easy to get wrong:
   custom properties and has no such step. See the note in `ha-form.ts`.
 - **A calendar's or a toolbar button's write names its owner by key, never by place.** Each
   entry and button carries a key the editor keeps beside its list (`_entryKeys`,
-  `_buttonKeys`), and its panel is drawn with Lit's keyed `repeat` by that key, so a removal
-  above it cannot hand it another's panel and listeners. Its forms write through a frame
+  `_buttonKeys`). An entry's page is keyed by its key, and a button's panel is drawn with Lit's
+  keyed `repeat` by it, so a removal above either cannot hand it another's forms and listeners.
+  What Home Assistant's Visibility editor last sent is kept by entry key too
+  (`_emittedConditions`), so a move keeps an open condition open. Its forms write through a frame
   (`write-frames.ts` › `OwnedFrame`) that resolves the key when the change arrives, re-reads the
   owner whole and lays over it only what that form changed. A control the editor draws itself
   writes the same way, through `_writeFieldValue(owner, fieldId, value)`: never through the
   card's write path, which would put a calendar's color at the card's root, and never through
   `writeEntity` or `writeButton` with partial data, which keeps only the keys it is handed.
-  A panel drawn by key also takes its focused control with it when its owner leaves, so Remove
-  puts focus back itself (`_focusAfterRemove`). `tests/editor-write-owners.test.ts` pins each of
-  these.
+  A row or panel drawn by key also takes its focused control with it when its owner leaves, so
+  Remove puts focus back itself: on the line the removal left, then on the row now in its place
+  (`_focusAfterRemove`). `tests/editor-write-owners.test.ts` pins each of these.
 
 ### The editor renders only what it draws
 
@@ -1856,8 +1858,8 @@ the card's rule above, with four consequences for new code and tests:
   `expanded-will-change`, before Home Assistant measures its height, and keeps them when it
   closes, so the groups inside it keep their state. A test reaches a form as a user does, through
   `tests/helpers/editor-host.ts` by field id and owner: `openPageOf` clicks the overview's row for
-  the field's page (and opens a calendar's or a button's panel), `openPanels` visits every page,
-  and `changeField` does the first for you. A form read off a page the editor has since left is
+  the field's page, or an entry's row for a calendar field (and opens a button's panel),
+  `openPanels` visits every page and every entry's, and `changeField` does the first for you. A form read off a page the editor has since left is
   kept by the harness and redrawn when the editor changes, so a test may still read it.
   `tests/editor-reachability.test.ts` walks every present field to its page over the gate corpus
   in every scope, which is what proves no field was lost to a page.
@@ -1880,51 +1882,60 @@ the card's rule above, with four consequences for new code and tests:
   Assistant shows them: the test suite cannot measure a panel's height, and its stand-ins draw only
   what they are written to draw.
 
-### The picker shows calendars; the panel list shows blocks
+### The calendar list shows entries, grouped by calendar
 
-`SYNTHETIC_FIELDS.calendars` derives **one row per calendar**, not one per entry in
-`config.entities`. A calendar listed twice — the pattern `event_type` needs, and what
-**Duplicate** creates — is one picker row and two panels. That split is deliberate: the
-picker decides _which calendars are on this card_, the panels decide _how many blocks each
-has and what is on them_. Deriving 1:1 made the picker answer both and agree with itself on
-neither, because Home Assistant's picker refuses to hold one entity twice — so a duplicate
-could be **seen** there and **cleared** there, but never **added** there.
+The overview's Calendars block is the editor's own list (`views/calendars.ts`), drawn from
+`calendar-list.ts`, which is DOM-free and tested on its own. It took over both jobs Home
+Assistant's calendar picker and the per-calendar panels used to split: **which calendars are on
+this card** and **how many entries each has, and what is on them**. A calendar listed once is one
+row; a calendar listed twice — the pattern `event_type` needs, and what **Duplicate** creates —
+gets a calendar row of its own with its entries indented under it, even where the YAML has another
+calendar between them. Each entry opens a page of its own (route `{ kind: 'entry', key }`).
 
-**`derive` and `apply` cannot be changed apart.** `apply` used to shift one block off a
-per-id queue per row, which is correct only when rows and blocks are 1:1. Deduplicating
-`derive` alone therefore loses every block after the first, silently, on the next thing the
-user touches in the picker. Each row emits its calendar's **whole** queue.
+**Every list operation writes `entities` grouped, and nothing reorders the entries of one
+calendar.** `groups`, `moveCalendar`, `duplicateEntry`, `removeEntry`, `removeCalendar`,
+`addCalendar` and `repointEntry` all return each calendar's entries together, the calendars in
+first-occurrence order, and one calendar's entries in their relative order. The two halves of that
+rule rest on different facts:
 
-**The entries' keys move with `apply`, too.** A picker write carries each entry's key onto the
-list `apply` returns (`write-frames.ts` › `carryEntryKeys`), reading it as `apply` builds it:
-every calendar's whole queue, in its order, so the n-th block of a calendar keeps the n-th key
-it had. An `apply` that emitted a calendar's blocks in any other order would hand one block's
-key, and with it its panel and any late edit, to another. Quick Setup rebuilds the list the
-same way and carries the keys through the same function.
+- **Order across calendars is invisible.** `deduplicateEvents`, `fetchEvents`
+  (`uniqueEntityIds`) and `getPrimaryEntityId` read each calendar's first occurrence only, so
+  `[a, b, c, b]` grouped to `[a, b, b, c]` changes nothing they see. That is why the list may group
+  a YAML list that interleaves, and why a move acts on a whole calendar.
+- **Order inside one calendar is not.** When two entries of one calendar keep the same event,
+  `processEvents` stamps one copy per entry, and with Filter Duplicates on the first entry's copy is
+  the one drawn, its color and label included (`groupEventsByDay`'s `firstEligible`). So no
+  operation swaps two entries of one calendar, there is no entry-level move, and a re-pointed entry
+  joins the **end** of its new calendar's entries. `tests/editor-calendar-list.test.ts` runs the
+  card's own pipeline over that case and fails on a planted reversal. An older version of this
+  section called within-calendar order invisible too; it was wrong.
 
-**Collapsing duplicates costs no ordering, and this is provable rather than probable** —
-worth knowing before anyone "restores" interleaving. Only three things read the order of
-`config.entities`, and none can see block multiplicity:
+**Keys move with their entries.** Every operation takes `{ entities, keys }` and returns both, so an
+entry page, which holds a key rather than a place, opens the right entry after a move, a removal
+above it or an undo. `_writeList` stores the keys **before** `_report`, because Home Assistant's echo
+can arrive before it returns. Quick Setup still rebuilds the list a calendar at a time and carries
+the keys through `write-frames.ts` › `carryEntryKeys`, which relies on the same rule: each
+calendar's entries keep their order, so the n-th entry of a calendar keeps the n-th key it had.
 
-- `deduplicateEvents` walks `config.entities` and matches `event._entityId === entityId`.
-  A second block of the same id finds every signature already in `seen` and contributes
-  nothing, **whatever its `event_type`** — so priority under `filter_duplicates` is fixed
-  by where an id **first** appears, and multiplicity is structurally invisible to it.
-- `fetchEvents` requests each id once (`uniqueEntityIds`), in first-occurrence order.
-- `getPrimaryEntityId` reads `entities[0]`.
+**Two options belong to the calendar, not the entry**: `name` and `show_in_legend`
+(`entities.ts` › `CALENDAR_OPTIONS`), which the card reads from a calendar's first entry. So
+Remove leaves them on the entries that remain, Copy Settings does not carry them, and a re-pointed
+entry takes the new calendar's where that calendar already has entries, saying so on its page.
 
-First-occurrence order preserves all three, so `[a, b, c, b]` collapsing to `[a, b, b, c]`
-changes nothing observable. Note the trap in the weaker version of this argument, which is
-the one that comes to mind first: _"two blocks split by complementary `event_type` never
-carry the same event"_ is true but far narrower, and it would stop holding the moment
-someone duplicated a calendar without differentiating it. The id-matching argument does not
-depend on the blocks differing at all.
+**Removal splits along the same seam.** **Remove** on an entry, from its strip or its page's foot,
+drops that entry alone; **Remove** on a calendar row drops every entry the calendar has. Neither
+asks for confirmation: the line it leaves where the row was carries Undo, and takes focus.
 
-**Removal splits along the same seam.** Clearing a picker row drops every block for that
-calendar, because the row stands for the calendar; **Remove** on a panel drops one block,
-and is the only control that can. Its earlier justification — that `_entityChanged`
-upstream filters by value, so clearing one of two identical rows took both — described a
-picker that no longer exists here, and should not be restored as the reason.
+**Add Calendar adds a calendar only once.** Home Assistant's entity selector is handed the
+calendars already on the card as `exclude_entities`; where a Home Assistant does not honor it,
+choosing one already on the card shows "Anna is already on the card." with Open Anna instead of
+enabling Add. A second entry of one calendar comes only from Duplicate.
+
+**The entry schema stays declared as the Calendars panel's sub-form** (`schemas/calendars.ts` ›
+`calendarsSubforms`), although the panel draws no field of its own now. That is what keeps
+`check:i18n` reading the entry schema as searched (`readEditorSchemaKeys` › `collect`): moved into
+the chassis, whose sub-forms are not searched, every `entity.*.aliases` string would fail as
+unsearchable.
 
 ### Headings are the registry's, and they can lie
 
@@ -1941,18 +1952,19 @@ A field whose value nests (`time_grid:`, `weather.date:`) goes in `schemas/commo
 stamps the `titleKey` that keeps the field's string key, and with it every translation, where it
 was.
 
-The one place a `constant` heading is still drawn is a calendar's panel, one `ha-form` per entry
-until calendars get pages of their own (`schemas/entity.ts`). There, a `constant` node **with no
+No builder draws a `constant` heading any more. A calendar's panel was the last; since each entry
+has a page of its own, its headings are the registry's `ENTRY_GROUPS` like every other page's, and
+`schemas/entity.ts` emits fields only. Where a form does hold one, a `constant` node **with no
 `value`** renders as a bare bold label, and given a `value` it becomes a `Label: value` data row
-instead, which is not a heading. And there the panel filter holds three rules, each preventing a
-distinct false statement:
+instead, which is not a heading, and the filter holds three rules, each preventing a distinct false
+statement:
 
 1. **A heading must never be a search hit of its own.** Its text matches like any field's,
    so searching a word that appears only in a heading returned the heading alone,
    captioning an empty section.
 2. **A heading whose section the filter emptied must be pruned**, or it strands above the
    next section and relabels someone else's options.
-3. **`hasFields` must not count a heading**, or a panel reduced to nothing but labels is
+3. **`hasFields` must not count a heading**, or a form reduced to nothing but labels is
    still offered as having content.
 
 On a page, a query naming a heading's title or the line under it brings every field under that

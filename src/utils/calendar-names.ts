@@ -13,9 +13,9 @@
  * calendar. The editor keeps every block of a calendar holding the same name; for
  * hand-written YAML that names it twice, the first non-blank name wins.
  *
- * Two surfaces deliberately do not read it. The editor's panel heading keeps Home Assistant's
- * name, matching the calendar picker directly above it, which the card cannot rename. And a
- * person's name, which an image label can draw on, is the person's own and not the calendar's.
+ * One surface deliberately does not read it: a person's name, which an image label can draw on,
+ * is the person's own and not the calendar's. The editor's calendar rows and entry pages do: they
+ * name a calendar as the card does.
  */
 
 import type * as Types from '../config/types';

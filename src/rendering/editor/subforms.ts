@@ -22,7 +22,30 @@ export interface ChassisSchemas {
   workspace: ReadonlyArray<HaFormSchema>;
   /** The filter bar's search and customized-only switch; never written */
   filter: ReadonlyArray<HaFormSchema>;
+  /** Add Calendar's picker; what it chooses joins the card only once Add is pressed */
+  addCalendar: ReadonlyArray<HaFormSchema>;
+  /** An entry page's Calendar, which points the entry at another calendar */
+  entryCalendar: ReadonlyArray<HaFormSchema>;
 }
+
+/** The label path of Add Calendar's picker: `calendars.pick`. */
+export const ADD_CALENDAR_PATH: ReadonlyArray<string> = ['calendars'];
+
+/** The label path of an entry page's Calendar: `entry.calendar`. */
+export const ENTRY_CALENDAR_PATH: ReadonlyArray<string> = ['entry'];
+
+/**
+ * Add Calendar's picker. The element adds the calendars already on the card as
+ * `exclude_entities` as it draws it, so a calendar is added a second time only by Duplicate.
+ */
+const ADD_CALENDAR_SCHEMA: ReadonlyArray<HaFormSchema> = [
+  { name: 'pick', selector: { entity: { filter: { domain: 'calendar' } } } },
+];
+
+/** An entry page's Calendar: required, since an entry reads some calendar. */
+const ENTRY_CALENDAR_SCHEMA: ReadonlyArray<HaFormSchema> = [
+  { name: 'calendar', required: true, selector: { entity: { filter: { domain: 'calendar' } } } },
+];
 
 /**
  * Schemas the chassis renders itself, belonging to no panel.
@@ -38,6 +61,8 @@ export function chassisSchemas(language = 'en'): ChassisSchemas {
     displayView: buildDisplayViewSchema(language),
     workspace: buildWorkspaceSchema(language),
     filter: FILTER_SCHEMA,
+    addCalendar: ADD_CALENDAR_SCHEMA,
+    entryCalendar: ENTRY_CALENDAR_SCHEMA,
   };
 }
 
@@ -48,9 +73,11 @@ export function chassisSchemas(language = 'en'): ChassisSchemas {
  * @returns Sub-forms the chassis renders above the panels, in render order
  */
 export function chassisSubforms(language = 'en'): SubformDef[] {
-  const { displayView, workspace, filter } = chassisSchemas(language);
+  const { displayView, workspace, filter, addCalendar, entryCalendar } = chassisSchemas(language);
   return [
     ...[displayView, workspace, filter].map((schema) => ({ path: [], schema })),
+    { path: [...ADD_CALENDAR_PATH], schema: addCalendar },
+    { path: [...ENTRY_CALENDAR_PATH], schema: entryCalendar },
     // Quick Setup, which takes the place of the panels while it is open.
     ...[QUICK_SETUP_CALENDARS_SCHEMA, QUICK_SETUP_WEATHER_SCHEMA, QUICK_SETUP_TAPS_SCHEMA].map(
       (schema) => ({ path: [...QUICK_SETUP_PATH], schema }),
@@ -73,6 +100,9 @@ export const REFERENCED_STRINGS: ReadonlyArray<string> = [
   'summary',
   'history',
   'status',
+  'calendars',
+  'strip',
+  'entry',
   'search',
 ];
 

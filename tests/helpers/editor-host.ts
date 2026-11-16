@@ -11,10 +11,12 @@
  * panels became pages. Each of those changes this module and leaves the tests that go through it
  * alone.
  *
- * Today the card's fields sit one to a form on the overview and on one page per section, and only
- * the open place draws its forms. A helper that needs a field elsewhere goes there as a user would
- * (`openPageOf`), and `openPanels` visits every page, keeping what each drew for the synchronous
- * helpers to read. Every form is an `ha-form`, told apart by the class the editor gives it:
+ * Today the card's fields sit one to a form on the overview and on one page per section, a calendar
+ * entry's one to a form on that entry's own page, and only the open place draws its forms. A helper
+ * that needs a field elsewhere goes there as a user would (`openPageOf`): to a section page from
+ * its row on the overview, to an entry's page from the entry's row. `openPanels` visits every
+ * page and every entry's, keeping what each drew for the synchronous helpers to read. Every form
+ * is an `ha-form`, told apart by the class the editor gives it:
  *
  * | Class                             | Owner   | Scope                                          |
  * | --------------------------------- | ------- | ---------------------------------------------- |
@@ -23,6 +25,8 @@
  * | `button-form`                     | button  | `button`                                       |
  * | `filter-form`                     | chassis | `filter` (the search bar and its switches)     |
  * | `quick-setup-form`                | chassis | `quick_setup`                                  |
+ * | `add-calendar-form`               | chassis | `add_calendar` (Add Calendar's picker)         |
+ * | `entry-calendar-form`             | chassis | `entry_calendar` (an entry page's Calendar)    |
  *
  * Card Displays and Settings For are the editor's own radio groups rather than forms. The ids
  * `display:view` and `workspace:editing_workspace` still name them, for `changeField` and
@@ -47,7 +51,6 @@ import * as Entities from '../../src/rendering/editor/entities';
 import {
   type FieldId,
   buttonFieldIndex,
-  entrySchema,
   fieldId,
   parseFieldId,
   universeIndex,
@@ -56,7 +59,7 @@ import * as Filter from '../../src/rendering/editor/filter';
 import type { HaFormSchema } from '../../src/rendering/editor/ha-form';
 import { PAGES, placementOf } from '../../src/rendering/editor/pages';
 import { type SchemaCtx, walkSchema } from '../../src/rendering/editor/panels';
-import { ENTITY_PATH } from '../../src/rendering/editor/schemas/calendars';
+import * as Routing from '../../src/rendering/editor/routing';
 import {
   TOOLBAR_BUTTON_PATH,
   buildToolbarButtonSchema,
@@ -136,6 +139,8 @@ export function button(at?: number | { readonly key: number }): Owner {
 const CHASSIS_FORMS: Readonly<Record<string, string>> = {
   'filter-form': 'filter',
   'quick-setup-form': 'quick_setup',
+  'add-calendar-form': 'add_calendar',
+  'entry-calendar-form': 'entry_calendar',
 };
 
 /** The editor's own radio groups, by the id a test names them with, with each input's name. */
@@ -229,71 +234,41 @@ function outOfStep(what: string): never {
 }
 
 /**
- * Which calendar block each drawn calendar panel belongs to, by the key the editor gives each
- * block's panel (`data-entry-key`) and keeps in list order. Two blocks of one calendar can hold the
- * same form data, so the key is what tells them apart.
+ * Which calendar entry the entry page open belongs to, by the key the editor gives each entry
+ * (`data-entry-key`) and keeps in list order. Two entries of one calendar can hold the same form
+ * data, so the key is what tells them apart.
  *
- * The key is the editor's own word for it, so the panels are also held to what the harness works
- * out on its own: the blocks `element.ts` › `_renderEntities` must draw, each keeping a field under
- * the filter, as the schema `field-index.ts` › `entrySchema` builds and the editor's own filter
- * context reads it. Customized Only and Essentials Only read what each block wrote, so this keeps
- * apart two blocks showing the same data. The panels must be those blocks', as many, one each and
- * in list order, and each panel's forms must hold its block's data. Where any of that fails, the
- * helper fails rather than guess: a panel the editor stopped drawing would otherwise read as an
- * entry drawing no form.
+ * The key is the editor's own word for it, so the page is also held to what the harness works
+ * out on its own: an entry the configuration holds, whose forms each hold that entry's data, as
+ * `entities.ts` › `toEntityFormData` projects it, narrowed to the form's own field
+ * (`routing.ts` › `formDataFor`). Where any of that fails, the helper fails rather
+ * than guess: a page the editor drew for the wrong entry would otherwise read as that entry's.
  *
  * @param editor - Editor element
  * @param root - Its shadow root
- * @returns Position in `entities` by panel
+ * @returns Position in `entities` by the entry page open, empty when none is
  */
 function entryIndexes(editor: EditorElement, root: ShadowRoot): Map<Element, number> {
   const indexes = new Map<Element, number>();
-  const panels = [...root.querySelectorAll('ha-expansion-panel.entity-panel')];
-  if (panels.length === 0) return indexes;
+  const pages = [...root.querySelectorAll('.entry-page')];
+  if (pages.length === 0) return indexes;
+  if (pages.length > 1) outOfStep(`The editor draws ${pages.length} entry pages at once`);
 
-  const {
-    _config: config,
-    _ctx: ctx,
-    _filterCtx: filterCtx,
-    _entryKeys: keys = [],
-  } = stateOf(editor);
+  const { _config: config, _entryKeys: keys = [] } = stateOf(editor);
   const entries = config?.entities ?? [];
-  const kept = entries.flatMap((item, index) =>
-    Filter.hasFields(
-      Filter.filterEntitySchema(entrySchema(item, ctx), item, ENTITY_PATH, filterCtx),
-    )
-      ? [index]
-      : [],
-  );
-  if (kept.length !== panels.length) {
-    outOfStep(
-      `The editor draws ${panels.length} calendar panels where its filter keeps ${kept.length}`,
-    );
+  const page = pages[0];
+  const key = page.getAttribute('data-entry-key');
+  const index = key === null ? -1 : keys.indexOf(Number(key));
+  if (index < 0 || index >= entries.length) {
+    outOfStep(`An entry page keyed ${key ?? 'nothing'} matches no entry`);
   }
-  const drawn = panels.map((panel) => panel.getAttribute('data-entry-key'));
-  const twice = drawn.find((key, at) => drawn.indexOf(key) !== at);
-  if (twice !== undefined) outOfStep(`Two calendar panels are keyed ${twice ?? 'nothing'}`);
-
-  panels.forEach((panel, at) => {
-    const key = drawn[at];
-    const index = key === null ? -1 : keys.indexOf(Number(key));
-    if (index < 0 || index >= entries.length) {
-      outOfStep(`A calendar panel keyed ${key ?? 'nothing'} matches no entry`);
+  const data = Entities.toEntityFormData(entries[index], entries);
+  for (const form of page.querySelectorAll<FormElement>('ha-form.entity-form')) {
+    if (!Value.deepEqual(form.data, Routing.formDataFor(data, form.schema))) {
+      outOfStep(`The page of entry ${index} holds another entry's data`);
     }
-    if (index !== kept[at]) {
-      outOfStep(
-        `Calendar panel ${at + 1} is keyed for entry ${index}, where the filter keeps entry ` +
-          `${kept[at]} in its place`,
-      );
-    }
-    const data = Entities.toEntityFormData(entries[index], entries);
-    for (const form of panel.querySelectorAll<FormElement>('ha-form.entity-form')) {
-      if (!Value.deepEqual(form.data, data)) {
-        outOfStep(`The panel of entry ${index} holds another entry's data`);
-      }
-    }
-    indexes.set(panel, index);
-  });
+  }
+  indexes.set(page, index);
   return indexes;
 }
 
@@ -329,9 +304,9 @@ function buttonIndexes(editor: EditorElement, root: ShadowRoot): Map<Element, nu
 }
 
 /**
- * The key an entry's or a button's panel names.
+ * The key an entry's page or a button's panel names.
  *
- * @param panel - The panel, if any
+ * @param panel - The page or panel, if any
  * @returns Its key, or undefined where it names none
  */
 function keyOf(panel: Element | null): number | undefined {
@@ -347,7 +322,7 @@ const formScopes = new WeakMap<Element, string>();
  *
  * @param form - The form
  * @param place - Its place among every form drawn, counted from 1
- * @param entries - Position in `entities` by calendar panel
+ * @param entries - Position in `entities` by entry page
  * @param buttons - Position in `toolbar.buttons` by button panel
  * @returns The form, placed
  */
@@ -364,9 +339,9 @@ function placeForm(
     return { form, kind: 'card', scope: parseFieldId(id).scope, place };
   }
   if (classes.contains('entity-form')) {
-    const panel = form.closest('ha-expansion-panel.entity-panel');
-    const index = panel === null ? undefined : entries.get(panel);
-    return { form, kind: 'entry', index, key: keyOf(panel), scope: 'calendar', place };
+    const page = form.closest('.entry-page');
+    const index = page === null ? undefined : entries.get(page);
+    return { form, kind: 'entry', index, key: keyOf(page), scope: 'calendar', place };
   }
   if (classes.contains('button-form')) {
     const panel = form.closest('ha-expansion-panel.button-panel');
@@ -401,7 +376,13 @@ function drawnForms(editor: EditorElement): Drawn[] {
   const results =
     root.querySelector('.overview') !== null && root.querySelector('[data-focus^="nav:"]') === null;
   const paged = root.querySelector('.overview, .page') !== null && !results;
-  const kept = paged ? keptForms(editor).filter((drawn) => drawn.page !== open) : [];
+  // Search results draw the card's fields themselves, and calendar entries as rows: an entry's
+  // fields are still on its page.
+  const kept = paged
+    ? keptForms(editor).filter((drawn) => drawn.page !== open)
+    : results
+      ? keptForms(editor).filter((drawn) => drawn.page?.startsWith('entry:'))
+      : [];
   return [...live, ...kept.map((drawn, at) => ({ ...drawn, place: live.length + at + 1 }))];
 }
 
@@ -449,8 +430,8 @@ function stampOf(editor: EditorElement): unknown[] {
 
 /**
  * The forms kept from the pages `openPanels` visited, drawn again first where the editor has
- * moved since: each page is drawn in turn, at once, with every panel on it open, and the place
- * open drawn back. Rendered synchronously (Lit's `performUpdate`), so a synchronous helper reads
+ * moved since: each page, then each entry's page, is drawn in turn, at once, with every panel on
+ * it open, and the place open drawn back. Rendered synchronously (Lit's `performUpdate`), so a synchronous helper reads
  * forms as the editor would draw them now, and a kept form still writes through its own listener.
  *
  * @param editor - Editor element
@@ -488,6 +469,12 @@ function keptForms(editor: EditorElement): Drawn[] {
     }
     draw();
     forms.push(...liveForms(editor, root, page));
+  }
+  for (const key of keysOf(editor, 'entry')) {
+    element._nav = { route: { kind: 'entry', key }, trail: [], fromResults: false };
+    draw();
+    if (root.querySelector(`.entry-page[data-entry-key="${key}"]`) === null) continue;
+    forms.push(...liveForms(editor, root, `entry:${key}`));
   }
   element._nav = saved;
   draw();
@@ -541,6 +528,34 @@ export async function goPage(editor: EditorElement, page: string): Promise<void>
   if (openPage(editor) === page) return;
   await goOverview(editor);
   await press(editor, `[data-focus="nav:${page}"]`, `row for the ${page} page`);
+}
+
+/**
+ * Opens a calendar entry's page from the entry's row on the overview, unless it is open.
+ *
+ * @param editor - Editor element
+ * @param key - The entry's key
+ */
+export async function goEntry(editor: EditorElement, key: number): Promise<void> {
+  if (openPage(editor) === `entry:${key}`) return;
+  await goOverview(editor);
+  await press(editor, `[data-focus="row:${key}"]`, `row for the entry keyed ${key}`);
+}
+
+/**
+ * The keys of the entries an owner names: one for an entry named by place or key, every entry's
+ * for an entry named by neither.
+ *
+ * @param editor - Editor element
+ * @param owner - An entry
+ * @returns The keys
+ */
+function entryKeysFor(editor: EditorElement, owner: Owner): number[] {
+  if (owner.kind !== 'entry') return [];
+  checkOwner(editor, owner);
+  const keys = keysOf(editor, 'entry');
+  if (owner.key !== undefined) return [owner.key];
+  return owner.index === undefined ? keys : [keys[owner.index]];
 }
 
 /**
@@ -619,6 +634,8 @@ function knownIds(): ReadonlySet<FieldId> {
     ['quick_setup', QUICK_SETUP_CALENDARS_SCHEMA],
     ['quick_setup', QUICK_SETUP_WEATHER_SCHEMA],
     ['quick_setup', QUICK_SETUP_TAPS_SCHEMA],
+    ['add_calendar', chassis.addCalendar],
+    ['entry_calendar', chassis.entryCalendar],
     ...cardSubforms(ctx)
       .filter((subform) => subform.path.join('.') === TOOLBAR_BUTTON_PATH.join('.'))
       .map((subform) => ['button', subform.schema] as const),
@@ -1117,12 +1134,13 @@ async function choose(editor: EditorElement, id: FieldId, value: unknown): Promi
 
 /**
  * Goes to a field as a user would before editing it: to the page it is placed on, or the
- * overview, from the overview's row for that page; a calendar block's panel on the overview, a
- * toolbar button's on Card & Header; then opens every collapsed panel around its form, outermost
- * first. A panel opens as Home Assistant's does: it announces `expanded-will-change`, lets a
- * render pass (`nextRender`), expands and announces `expanded-changed`. A closed panel draws no
- * form, so a calendar's or a button's field not drawn yet is found by its owner's own panel, by
- * its place or key.
+ * overview, from the overview's row for that page; a calendar entry's page from its row, a
+ * toolbar button's panel on Card & Header; then opens every collapsed panel around its form,
+ * outermost first. A panel opens as Home Assistant's does: it announces `expanded-will-change`,
+ * lets a render pass (`nextRender`), expands and announces `expanded-changed`. A closed panel
+ * draws no form, so a button's field not drawn yet is found by its own panel, by its place or
+ * key. An entry named by neither place nor key is looked for on every entry's page, as
+ * `openPanels` visits them, so a field two entries draw fails as drawn twice.
  *
  * Where a query holds the overview's results, the field is reached as a user reaches it there:
  * through its result row, which opens it where it is drawn.
@@ -1146,7 +1164,16 @@ export async function openPageOf(editor: EditorElement, id: FieldId, owner?: Own
     );
     if (row !== undefined) await chooseResult(editor, row.key);
     else if (wanted.kind === 'button') await goPage(editor, 'card_header');
-    else if (page === undefined || page === 'overview' || page === 'entry')
+    else if (wanted.kind === 'entry') {
+      const keys = entryKeysFor(editor, wanted);
+      if (keys.length !== 1) await keepEntries(editor);
+      else if (openPage(editor) !== `entry:${keys[0]}`) {
+        await goOverview(editor);
+        // A filter can leave the entry's row out, and with it every form of the entry.
+        const listed = editor.shadowRoot?.querySelector(`[data-focus="row:${keys[0]}"]`);
+        if (listed) await goEntry(editor, keys[0]);
+      }
+    } else if (page === undefined || page === 'overview' || page === 'entry')
       await goOverview(editor);
     else {
       await goOverview(editor);
@@ -1275,8 +1302,41 @@ export async function openPanels(editor: EditorElement): Promise<void> {
     await expandAll(editor);
     kept.push(...liveForms(editor, root, page));
   }
+  for (const key of keysOf(editor, 'entry')) {
+    await goOverview(editor);
+    // A search or Filter Calendars can leave an entry's row out, and its page with it.
+    if (root.querySelector(`[data-focus="row:${key}"]`) === null) continue;
+    await goEntry(editor, key);
+    kept.push(...liveForms(editor, root, `entry:${key}`));
+  }
   await goOverview(editor);
   await expandAll(editor);
+  visited.set(editor, { forms: kept, stamp: stampOf(editor) });
+}
+
+/**
+ * Visits every entry's page the overview offers a row for, keeping the forms each draws, and
+ * comes back to the overview, as `openPanels` does for the entries alone.
+ *
+ * @param editor - Editor element
+ */
+async function keepEntries(editor: EditorElement): Promise<void> {
+  const root = editor.shadowRoot!;
+  await goOverview(editor);
+  // The pages' forms `openPanels` kept stay, while what they were drawn from has not moved.
+  const before = visited.get(editor);
+  const stamp = stampOf(editor);
+  const current = before !== undefined && stamp.every((value, at) => value === before.stamp[at]);
+  const kept: Drawn[] = current
+    ? before.forms.filter((drawn) => !drawn.page?.startsWith('entry:'))
+    : [];
+  for (const key of keysOf(editor, 'entry')) {
+    await goOverview(editor);
+    if (root.querySelector(`[data-focus="row:${key}"]`) === null) continue;
+    await goEntry(editor, key);
+    kept.push(...liveForms(editor, root, `entry:${key}`));
+  }
+  await goOverview(editor);
   visited.set(editor, { forms: kept, stamp: stampOf(editor) });
 }
 
@@ -1319,8 +1379,8 @@ export async function resetButton(
 }
 
 /**
- * The panels an owner's forms belong in, drawn or not: each matching calendar block's or toolbar
- * button's own panel, found by its place or key. The card's fields sit in no panel.
+ * The panels an owner's forms belong in, drawn or not: each matching toolbar button's own panel,
+ * found by its place or key. The card's fields and an entry's sit in no panel.
  *
  * @param editor - Editor element
  * @param owner - The owner
@@ -1328,9 +1388,9 @@ export async function resetButton(
  */
 function holdersOf(editor: EditorElement, owner: Owner): Element[] {
   const root = editor.shadowRoot;
-  if (root === null || owner.kind === 'card' || owner.kind === 'chassis') return [];
+  if (root === null || owner.kind !== 'button') return [];
   checkOwner(editor, owner);
-  const places = owner.kind === 'entry' ? entryIndexes(editor, root) : buttonIndexes(editor, root);
+  const places = buttonIndexes(editor, root);
   return [...places]
     .filter(([panel, index]) =>
       owner.key !== undefined

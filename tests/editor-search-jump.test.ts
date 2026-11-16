@@ -164,8 +164,6 @@ describe('the results', () => {
       },
       { hass: fakeHass({ states: STATES }) },
     );
-    await searchFor(editor, 'calendars');
-    expect(row(editor, 'calendars:calendars').meta).toBe('Anna, Ben · YAML: entities');
     await searchFor(editor, 'kids');
     expect(row(editor, 'calendar:label', 0).meta).toBe('Kids · YAML: entities[0].label');
     expect(row(editor, 'calendar:label_type', 0).meta).toBe(
@@ -250,26 +248,20 @@ describe('choosing a result', () => {
     expect($(editor, '.jump [data-focus="return"]')).not.toBeNull();
   });
 
-  it('opens a calendar’s field on its panel, on the overview, the panel open', async () => {
+  it('opens a calendar’s field on the entry’s own page', async () => {
     const editor = await mount();
     await jump(editor, 'exclude', 'calendar:blocklist', 1);
 
     const keys = (editor as unknown as { _entryKeys: number[] })._entryKeys;
-    const panel = $(editor, `[data-entry-key="${keys[1]}"]`) as HTMLElement & { expanded: boolean };
-    const wrapper = panel.querySelector<HTMLElement>('.jump [role="group"]');
-    expect($(editor, '.page')).toBeNull();
-    expect(panel.expanded).toBe(true);
+    const page = $(editor, '.entry-page')!;
+    const wrapper = page.querySelector<HTMLElement>('.jump [data-field="calendar:blocklist"]');
+    expect(page.dataset.page).toBe(`entry:${keys[1]}`);
     expect(wrapper?.getAttribute('aria-label')).toBe('Blocklist');
     expect(editor.shadowRoot!.activeElement).toBe(wrapper);
-    // The field alone in its wrapper, above the rest of the calendar's form, which no longer
-    // draws it, so the panel holds it once.
-    const names = (form: Element) =>
-      JSON.stringify((form as unknown as { schema: unknown }).schema).match(/"name":"\w+"/g) ?? [];
-    const forms = [...panel.querySelectorAll('ha-form.entity-form')];
-    expect(names(wrapper!.querySelector('ha-form.entity-form')!)).toEqual(['"name":"blocklist"']);
-    expect(forms.flatMap(names).filter((name) => name === '"name":"blocklist"')).toHaveLength(1);
-    expect(forms.length).toBeGreaterThan(1);
-    expect($(editor, `[data-entry-key="${keys[0]}"] .jump`)).toBeNull();
+    // The field once, where the page draws it, with the page's other fields around it.
+    expect(page.querySelectorAll('[data-field="calendar:blocklist"]')).toHaveLength(1);
+    expect(page.querySelectorAll('.jump')).toHaveLength(1);
+    expect(page.querySelectorAll('ha-form.entity-form').length).toBeGreaterThan(1);
     expect(spoken(editor)).toBe('Showing Blocklist.');
   });
 
@@ -339,8 +331,11 @@ describe('Return to Results', () => {
 
   it('moves to the top when a switch takes away the field it was above', async () => {
     const editor = await mount();
-    await jump(editor, 'exclude', 'calendar:blocklist', 0);
-    // Anna sets nothing, so Customized Only takes her panel away.
+    // A field the overview draws itself, where the switches are: a calendar's field opens on its
+    // entry's page, which draws no switch.
+    await jump(editor, 'days to show', 'content:days_to_show');
+    expect($(editor, '.overview .jump')).not.toBeNull();
+    // The card sets no Days to Show, so Customized Only takes the field away.
     await changeField(editor, 'filter:customized_only', true);
     expect($(editor, '.jump')).toBeNull();
     expect($(editor, '.overview > [data-focus="return"]')).not.toBeNull();
@@ -356,7 +351,7 @@ describe('Return to Results', () => {
     // A label type of None leaves the calendar no Label.
     await changeField(editor, 'calendar:label_type', 'none', entry(0));
     expect($(editor, '.jump')).toBeNull();
-    expect($(editor, '.overview > [data-focus="return"]')).not.toBeNull();
+    expect($(editor, '.entry-page > [data-focus="return"]')).not.toBeNull();
   });
 
   it('goes, with the field it showed, once the query is typed again', async () => {

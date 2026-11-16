@@ -56,10 +56,9 @@ describe('editor strings resolve in the requested language', () => {
       // English until the editor's translation pass.
       CALENDARS_BLOCK.titleKey,
       ...PAGES.map((page) => page.titleKey).filter((key) => key.startsWith('panel.')),
-      'calendars',
-      'calendars.helper',
-      'entity.customised',
-      'entity.unconfigured',
+      'entity.occurrence',
+      'entity.duplicate',
+      'entity.remove',
       'entity.copy',
       'entity.paste',
     ];

@@ -243,7 +243,11 @@ describe('Quick Setup’s banner', () => {
 
   it('stays once a calendar is added, and goes on Dismiss', async () => {
     const editor = await mountEditor(FRESH);
-    await changeField(editor, 'calendars:calendars', ['calendar.anna']);
+    // Added as a user adds one: Add Calendar, a calendar chosen, Add; Add opens its page.
+    await click(editor, '[data-focus="add-calendar"]');
+    await changeField(editor, 'add_calendar:pick', 'calendar.anna');
+    await click(editor, '[data-focus="add-confirm"]');
+    expect(lastConfig(editor)?.entities).toEqual(['calendar.anna']);
     await goOverview(editor);
     expect($(editor, '.quick-setup-banner')).not.toBeNull();
 

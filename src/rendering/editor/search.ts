@@ -6,7 +6,7 @@
  * A field is found by its label, helper, aliases (`localize.ts` › `computeAliases`, #834's: there
  * is no second alias table), key and option text, and by the words that brought it on screen
  * before results were rows: its page's title, its heading's title and the line under it (a
- * family's, for a family), a calendar's names for its fields and the calendar picker, a button's
+ * family's, for a family), a calendar's names for its fields, a button's
  * name, icon and entity for its fields. Under Customized Only a title finds nothing by itself.
  * Case and surrounding space are ignored; folding, ranking and tags come with the full search.
  *
@@ -298,10 +298,6 @@ function cardRows(ctx: SearchCtx): Map<FieldId, SearchEntry> {
           [headingKey && ctx.t(headingKey), 'heading'],
           [helperKey && ctx.t(helperKey), 'heading'],
         );
-      }
-      // The picker lists the calendars, so a search for one keeps it beside their rows.
-      if (configKeysForField(leaf.node.name).includes('entities') && leaf.dataPath.length === 0) {
-        for (const entry of ctx.config.entities ?? []) text.push(...calendarTexts(entry, ctx));
       }
       const written = keyOf(leaf.node.name, field.configKeys);
       const block = leaf.dataPath.length === 0 ? Routing.destination(written, scope) : undefined;

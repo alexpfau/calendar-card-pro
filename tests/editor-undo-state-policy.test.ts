@@ -39,6 +39,10 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_scopeChanged',
     '_scopeOpen',
     '_status',
+    '_entryNotice',
+    '_openStrip',
+    '_adding',
+    '_calendarQuery',
     '_announcer',
     '_spoken',
     // The field a search result showed, and the results it left.
@@ -90,6 +94,8 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_cancelQuickSetup',
     '_applyQuickSetup',
     '_filterChanged',
+    '_cancelAdd',
+    '_addCalendarChosen',
   ],
 };
 

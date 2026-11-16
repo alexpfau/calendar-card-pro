@@ -87,6 +87,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'summary.off': 'Off',
   'announce.removed': 'Removed {name}.',
   'announce.applied': 'Applied {story}.',
+  'announce.moved': 'Moved {name} to position {position} of {total}.',
+  'announce.pasted': 'Pasted settings into {name}.',
 
   // --- Undo & Redo ----------------------------------------------------------
   //
@@ -107,8 +109,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'history.paste': 'Paste Settings Into {name}',
   'history.move': 'Move {name}',
   'history.apply': 'Apply {story}',
+  'history.add': 'Add {name}',
   // The line a removal or an applied story leaves, beside its Undo, until the next change.
   'status.removed': 'Removed {name}',
+  'status.removed_calendar': 'Removed {name} · Entries: {count}',
   'status.applied': 'Applied {story}',
   // The jump list: its count line, the scope it shows values for, and what a row and a jump say.
   'search.results': 'Results for “{query}”: {count}',
@@ -331,14 +335,64 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // not: it is not only *which* calendars, it is where each one's label, colors and
   // filters live. "The calendars this card shows" was *Calendars* with more words in it.
   'panel.calendars': 'Calendars',
-  calendars: 'Calendars',
-  // "Entries" rather than "calendars": with Duplicate, the two entries carrying the same
-  // event are often two blocks of *one* calendar, and `deduplicateEvents` keeps whichever
-  // is listed first in `entities` either way. Naming calendars made the true case — the
-  // keyword-icon mapping, which is one calendar listed several times — read as impossible.
-  'calendars.helper':
-    'Order matters, and can be dragged. When two entries carry the same event and ' +
-    'duplicates are filtered, the copy from the one listed first is the one kept.',
+  // --- Calendar list --------------------------------------------------------
+  //
+  // The overview's list of calendars (`views/calendars.ts`): a row per entry, a calendar row
+  // above the entries of a calendar listed more than once, the action strip under a row, and
+  // Add Calendar. Every key is looked up by a literal in code. A row's control is named with its
+  // summary, so "Edit {row}" receives "Anna, Without: Homework, Set: 4", already joined.
+  'calendars.entries': 'Entries: {count}',
+  'calendars.missing': 'Not found in Home Assistant',
+  'calendars.edit': 'Edit {row}',
+  'calendars.position': 'entry {position} of {total}',
+  'calendars.actions': 'Actions for {name}',
+  'calendars.add': 'Add Calendar',
+  'calendars.pick': 'Calendar',
+  'calendars.pick.helper':
+    'Choose a calendar, then press Add: it joins the card and its page opens.',
+  'calendars.add_confirm': 'Add',
+  'calendars.cancel': 'Cancel',
+  'calendars.chose': 'Chose {name}. Add puts it on the card and opens its page.',
+  'calendars.already': '{name} is already on the card.',
+  'calendars.open': 'Open {name}',
+  'calendars.empty': 'No Calendars Yet',
+  'calendars.empty_note': 'Add the calendars this card shows.',
+  'calendars.filter': 'Filter Calendars',
+  'calendars.no_match': 'No calendars match.',
+  // The strip of actions under a row. Moves act on a whole calendar; the names say whose.
+  'strip.move_up': 'Move {name} up',
+  'strip.move_down': 'Move {name} down',
+  'strip.move_top': 'Move {name} to the top',
+  'strip.move_top_label': 'Move to Top',
+  'strip.duplicate': 'Duplicate {name}',
+  'strip.copy': 'Copy settings from {name}',
+  'strip.paste': 'Paste settings into {name}',
+  'strip.paste_empty': 'Copy settings first',
+  'strip.paste_from': 'From {name}',
+  'strip.remove': 'Remove {name}',
+  'strip.remove_calendar': 'Remove {name}, Entries: {count}',
+  'strip.remove_entry': 'Remove This Entry',
+  // The keys beside a move in an entry page's menu.
+  'strip.key_up': 'Alt ↑',
+  'strip.key_down': 'Alt ↓',
+  // A calendar entry's page.
+  'entry.back': 'Back to the overview',
+  'entry.previous': 'Previous Calendar',
+  'entry.next': 'Next Calendar',
+  'entry.previous_named': 'Previous calendar: {name}',
+  'entry.next_named': 'Next calendar: {name}',
+  'entry.showing': 'Showing {name}.',
+  'entry.calendar': 'Calendar',
+  'entry.calendar.helper':
+    'The calendar this entry reads. Picking another keeps this entry’s settings.',
+  'entry.duplicate_warning':
+    'Both entries show the same events until one sets Event Type or a word list, so each ' +
+    'event shows twice for now.',
+  'entry.duplicated': 'Duplicated {name}.',
+  'entry.repointed': '{name} now reads {calendar}.',
+  'entry.repointed_adopted':
+    '{name} now reads {calendar}, so it uses that calendar’s name and calendar filter setting.',
+  'entry.remove': 'Remove {name}',
 
   // --- Calendar list rows ---------------------------------------------------
   //
@@ -359,11 +413,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   // --- Per-calendar settings ------------------------------------------------
   //
-  // Each calendar gets its own collapsible form below the picker. Four of these are
+  // Each calendar entry gets a page of its own, opened from its row. Four of these are
   // three-way rather than switches, because the card reads them presence-first — an
   // absent key means "follow the card", which no checkbox can say.
-  'entity.customised': 'Configured',
-  'entity.unconfigured': 'Using the card settings',
   // Not "Copy 2 of 2": neither block is the copy once both exist, and which one was
   // duplicated stops being interesting the moment their settings diverge. What the user
   // needs is only which of the two panels they are looking at.
@@ -376,9 +428,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.name': 'Name',
   'entity.name.helper':
     'Names this calendar in the calendar filter, when you open one of its events, and in ' +
-    'notices. Every entry for this calendar shares it. Left empty, the card uses Home ' +
-    'Assistant\u2019s name for it, which the calendar picker and this panel\u2019s heading ' +
-    'keep either way.',
+    'notices, and heads its row and its page here. Every entry for this calendar shares it. ' +
+    'Left empty, the card uses Home Assistant\u2019s name for it.',
   'entity.show_in_legend': 'Show in Calendar Filter',
   'entity.show_in_legend.helper':
     'Off leaves this calendar out of the calendar filter, as a chip and in the menu, so its ' +
@@ -472,8 +523,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   // --- Sub-headings ---------------------------------------------------------
   //
-  // Named by the page registry (`pages.ts`), which draws them as the pages' own headings, and
-  // by a calendar's panel, which still draws them as `constant` nodes. The same key serves both
+  // Named by the page registry (`pages.ts`), which draws them as the pages' own headings, a
+  // calendar entry's page among them. The same key serves the card's pages and an entry's
   // wherever they name the same category, so the two read with one vocabulary rather than two.
   //
   // Terse noun phrases, and deliberately so. The earlier set were sentence fragments —
@@ -497,12 +548,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   heading_icons: 'Icons',
   heading_between_days: 'Between Days',
   heading_across_the_grid: 'Across the Grid',
-  heading_visibility: 'Visibility',
-  heading_filters: 'Event Filtering',
   heading_replace: 'Text Replacement',
   heading_multiday: 'Multi-Day Events',
   heading_nothing: 'Empty Days',
-  heading_appearance: 'Name & Appearance',
   heading_details: 'Event Details',
   heading_event_state: 'Event State',
   heading_toolbar: 'Toolbar',

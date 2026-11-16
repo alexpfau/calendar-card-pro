@@ -5,8 +5,8 @@
  * `ha-form` updates for every new `schema`, `data`, `hass`, `computeLabel` or `computeHelper` it
  * is handed. Today's editor handed each of its forms new ones on every render, so every form
  * updated on every render: about 20 ms in Home Assistant, two to four times a second while the
- * dialog sat idle. Now each input is kept while what it is made from is equal, and a panel's form
- * is handed only the data its own fields read.
+ * dialog sat idle. Now each input is kept while what it is made from is equal, and a field's form,
+ * on a section page or on a calendar entry's page, is handed only the data its own field reads.
  *
  * Proved by two genuine renders, never one render compared with itself: a real write through
  * `value-changed`, then a bare `requestUpdate()`. Every other form must hold the very objects it
@@ -84,8 +84,8 @@ afterEach(() => {
 });
 
 /**
- * Every form the place open draws, live: the field forms of the overview or of one page, and the
- * calendars' and buttons' forms in their panels there.
+ * Every form the place open draws, live: the field forms of the overview or of one page, the
+ * buttons' forms in their panels there, and an entry page's forms.
  *
  * @param editor - The editor
  * @returns The forms, in document order
@@ -115,7 +115,7 @@ describe.each<{
     id: 'calendar:name',
     value: 'Ben at school',
     owner: entry(1),
-    // The overview, with both calendars' panels open.
+    // The first calendar's page, then the second's, where the write is made.
     open: [
       ['calendar:name', entry(0)],
       ['calendar:name', entry(1)],
@@ -173,12 +173,18 @@ describe.each<{
 
 describe('a visit to a page', () => {
   it('leaves the overview’s forms as they were, the very elements with the very inputs', async () => {
-    const editor = await mountEditor(CONFIG);
-    await openPageOf(editor, 'calendar:name', entry(0));
+    // A start offset draws a fourth form on the overview, beside the search bar and the first two.
+    const editor = await mountEditor({
+      ...CONFIG,
+      start_date: '+1',
+    });
     const forms = drawnHere(editor);
     const before = inputsOf(forms);
     expect(forms.length).toBeGreaterThan(3);
 
+    // A calendar's page, then a section's.
+    await openPageOf(editor, 'calendar:name', entry(0));
+    expect(drawnHere(editor).some((form) => forms.includes(form))).toBe(false);
     await openPageOf(editor, 'events:show_time');
     expect(drawnHere(editor).some((form) => forms.includes(form))).toBe(false);
     await openPageOf(editor, 'content:days_to_show');

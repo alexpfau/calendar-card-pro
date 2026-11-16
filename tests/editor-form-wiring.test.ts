@@ -246,7 +246,12 @@ describe('editor per-calendar forms', () => {
     });
     const seen = reported(element);
 
-    expect(formsOf(element, entry())).toHaveLength(2);
+    // Each calendar draws its own forms on its entry page, one per field, and no other entry's.
+    expect([0, 1].map((index) => formsOf(element, entry(index)).length > 0)).toEqual([true, true]);
+    expect(formsOf(element, entry())).toEqual([
+      ...formsOf(element, entry(0)),
+      ...formsOf(element, entry(1)),
+    ]);
 
     await changeField(element, 'calendar:label', 'CHANGED', entry(1));
 

@@ -3,11 +3,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   CARD,
   CHASSIS,
-  type FormElement,
   changeField,
   changeFields,
   entry,
   formsOf,
+  goEntry,
+  goOverview,
+  keysOf,
   mountEditor,
   openPanels,
   valueOf,
@@ -18,7 +20,11 @@ import { VIEWS, VIEW_SCOPE } from '../src/config/view';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { walkSchema } from '../src/rendering/editor/panels';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
-import { chassisSubforms } from '../src/rendering/editor/subforms';
+import {
+  ADD_CALENDAR_PATH,
+  ENTRY_CALENDAR_PATH,
+  chassisSubforms,
+} from '../src/rendering/editor/subforms';
 import { configKeysForField } from '../src/rendering/editor/synthetic';
 import {
   type EditorWorkspace,
@@ -58,11 +64,6 @@ function names(schema: ReadonlyArray<HaFormSchema>): string[] {
   return [...walkSchema(schema)]
     .filter(({ node }) => 'selector' in node)
     .map(({ node }) => node.name);
-}
-
-function onlyForm(matches: FormElement[]): FormElement {
-  expect(matches).toHaveLength(1);
-  return matches[0];
 }
 
 /** The forms directly inside the view controls, in order. */
@@ -172,7 +173,11 @@ function assertWorkspaceFields(editor: EditorHost, current: EditorWorkspace): vo
   }
   expect(main.includes('hour_height')).toBe(current === 'grid');
   expect(main.includes('min_day_width')).toBe(current === 'grid' || current === 'column');
-  const entity = names(onlyForm(formsOf(editor, entry())).schema);
+  // Each of the calendar's fields is a form of its own on its entry page, so the calendar's
+  // options are what all of its forms draw together.
+  const entityForms = formsOf(editor, entry(0));
+  expect(entityForms.length).toBeGreaterThan(0);
+  const entity = entityForms.flatMap((form) => names(form.schema));
   expect(entity.includes('compact_events_to_show')).toBe(current === 'list');
   expect(entity.includes('split_multiday_events')).toBe(current !== 'grid');
   expect(editor.shadowRoot!.querySelectorAll('ha-form.exception-picker')).toHaveLength(0);
@@ -192,19 +197,58 @@ afterEach(() => {
  */
 describe('the chassis draws exactly the forms subforms.ts declares', () => {
   it('draws every chassis control from what chassisSubforms declares, in order', async () => {
+    const at = (path: ReadonlyArray<string>): Array<ReadonlyArray<HaFormSchema>> =>
+      chassisSubforms()
+        .filter((subform) => subform.path.join('.') === path.join('.'))
+        .map((subform) => subform.schema);
+    // Add Calendar's picker leaves out the calendars already on the card as it draws, so what it
+    // draws is the declared schema with that list added.
+    const withoutExcluded = (schema: ReadonlyArray<HaFormSchema>): unknown =>
+      schema.map((node) => {
+        if (!('selector' in node) || !('entity' in node.selector)) return node;
+        const { exclude_entities: excluded, ...picker } = node.selector.entity as Record<
+          string,
+          unknown
+        >;
+        expect(excluded).toEqual(['calendar.anna']);
+        return { ...node, selector: { ...node.selector, entity: picker } };
+      });
     for (const view of VIEWS) {
-      const editor = await mount({ view });
+      // Mounted without `openPanels`, so the chassis forms read are only the ones drawn where the
+      // editor is.
+      const editor = (await mountEditor({
+        config_version: Config.CURRENT_CONFIG_VERSION,
+        entities: [{ entity: 'calendar.anna' }],
+        view,
+      })) as unknown as EditorHost;
       // Quick Setup's forms are drawn only while it is open, one step at a time; the test below
       // walks them.
-      const [display, scope, filter] = chassisSubforms()
-        .filter((subform) => subform.path.length === 0)
-        .map((subform) => subform.schema);
+      const [display, scope, filter] = at([]);
+      const [addCalendar] = at(ADD_CALENDAR_PATH);
+      const [entryCalendar] = at(ENTRY_CALENDAR_PATH);
       // The filter bar is a form; Card Displays and Settings For are the editor's own radio
       // groups, drawn from the options their declared schemas hold.
       expect(
         formsOf(editor, CHASSIS).map((form) => form.schema),
         view,
       ).toEqual([filter]);
+      // Add Calendar's picker is drawn only while Add Calendar is open, below the filter bar.
+      editor.shadowRoot!.querySelector<HTMLElement>('[data-focus="add-calendar"]')!.click();
+      await editor.updateComplete;
+      const adding = formsOf(editor, CHASSIS).map((form) => form.schema);
+      expect(adding, view).toHaveLength(2);
+      expect(adding[0], view).toBe(filter);
+      expect(withoutExcluded(adding[1]), view).toEqual(addCalendar);
+      editor.shadowRoot!.querySelector<HTMLElement>('[data-focus="add-cancel"]')!.click();
+      await editor.updateComplete;
+      expect(formsOf(editor, CHASSIS), view).toHaveLength(1);
+      // An entry page draws its Calendar, and no filter bar.
+      await goEntry(editor, keysOf(editor, 'entry')[0]);
+      expect(
+        formsOf(editor, CHASSIS).map((form) => form.schema),
+        view,
+      ).toEqual([entryCalendar]);
+      await goOverview(editor);
       const values = (schema: ReadonlyArray<HaFormSchema>): string[] => {
         const node = schema[0] as unknown as { selector: { select: { options: unknown[] } } };
         return node.selector.select.options.map((option) =>
@@ -243,6 +287,8 @@ describe('displayed view and editing workspace are separate controls', () => {
       'search',
       'customized_only',
       'essentials_only',
+      'pick',
+      'calendar',
       'card_title',
       'card_calendars',
       'weather_entity',

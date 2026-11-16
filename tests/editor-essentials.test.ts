@@ -22,6 +22,7 @@ import {
   entry,
   formOf,
   formsOf,
+  keysOf,
   mountEditor,
   openPageOf,
   openPanels,
@@ -48,8 +49,9 @@ function ids(schema: ReadonlyArray<HaFormSchema>): string[] {
 
 describe('the essential fields', () => {
   it('are pinned by value', () => {
+    // No `calendars`: the calendar list is no field, and keeps a row for every calendar whose
+    // page keeps one, which each calendar's essentials see to (pinned on the editor below).
     expect([...ESSENTIAL_CARD_FIELDS]).toEqual([
-      'calendars',
       'time_grid.start_time',
       'time_grid.end_time',
       'days_to_show',
@@ -154,7 +156,6 @@ function buttonFields(editor: CalendarCardProEditor): string[] {
 }
 
 const LIST_ESSENTIALS = [
-  'calendars',
   'days_to_show',
   'start_date_mode',
   'show_past_events',
@@ -196,6 +197,9 @@ describe('Essentials Only on the editor', () => {
 
     // Every page keeps its row; each page draws its essential fields alone.
     expect(root(editor).querySelectorAll('[data-focus^="nav:"]')).toHaveLength(7);
+    // The calendar list keeps Anna's row, so her page and its essentials stay reachable.
+    const [anna] = keysOf(editor, 'entry');
+    expect(root(editor).querySelector(`[data-focus="row:${anna}"]`)).not.toBeNull();
     await openPanels(editor);
     expect(panelFields(editor)).toEqual(LIST_ESSENTIALS);
   });
@@ -206,7 +210,7 @@ describe('Essentials Only on the editor', () => {
     await openPanels(editor);
 
     // The Grid page draws them, after the overview's own.
-    expect(panelFields(editor)[0]).toBe('calendars');
+    expect(panelFields(editor)[0]).toBe('days_to_show');
     expect(panelFields(editor)).toEqual(
       expect.arrayContaining(['time_grid.start_time', 'time_grid.end_time']),
     );

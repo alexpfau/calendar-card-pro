@@ -28,8 +28,6 @@ import { deviceStorage } from '../../utils/view-choice';
  * entity is chosen.
  */
 export const ESSENTIAL_CARD_FIELDS: ReadonlySet<string> = new Set([
-  // Calendars
-  'calendars',
   // Layout: the hours a grid covers
   'time_grid.start_time',
   'time_grid.end_time',
