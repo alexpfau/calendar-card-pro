@@ -27,8 +27,6 @@ export type Translate = (key: string) => string;
 export interface ScopeChoice {
   readonly value: EditorWorkspace;
   readonly label: string;
-  /** Values the YAML stores there, shown as "Set: N" when there are any. */
-  readonly set: number;
 }
 
 /** What Settings For shows. */
@@ -40,6 +38,11 @@ export interface ScopeModel {
   readonly displayedLabel: string;
   /** Whether the scope is not the layout the card displays (All Layouts or another layout). */
   readonly previewDiffers: boolean;
+  /**
+   * The preview switch, pressed or not, where the scope is a layout the preview can draw;
+   * `undefined` under All Layouts.
+   */
+  readonly previewSwitch?: boolean;
 }
 
 /**
@@ -55,15 +58,17 @@ function withBold(template: string, value: string): TemplateResult {
 }
 
 /**
- * Settings For: one compact line, "Settings for List · Change", or the four choices with what
- * each stores, a line on what the chosen one means, and the preview line where the card shows
- * another layout. Native radios, so arrow keys move within the group and focus stays on the
- * chosen one; choosing writes nothing.
+ * Settings For: one compact line, "Settings for List · Change", or the four choices, a line on what
+ * the chosen one means, and the preview line where the card shows another layout, with the switch
+ * that draws the layout being edited in the preview instead. Native radios, so arrow keys move
+ * within the group and focus stays on the chosen one; choosing writes nothing, and nor does the
+ * switch.
  *
  * @param model - What it shows
  * @param t - The editor's strings
  * @param onChange - Change was pressed
  * @param onPick - A scope was chosen
+ * @param onPreview - The preview switch was pressed
  * @returns The control
  */
 export function scopeControl(
@@ -71,6 +76,7 @@ export function scopeControl(
   t: Translate,
   onChange: () => void,
   onPick: (workspace: EditorWorkspace) => void,
+  onPreview?: () => void,
 ): TemplateResult {
   const current = model.choices.find((choice) => choice.value === model.workspace);
   const name = current?.label ?? '';
@@ -108,25 +114,10 @@ export function scopeControl(
               value=${choice.value}
               data-focus=${`scope:${choice.value}`}
               .checked=${choice.value === model.workspace}
-              aria-label=${
-                choice.set > 0
-                  ? interpolate(t('settings_for.option_set'), {
-                      layout: choice.label,
-                      count: String(choice.set),
-                    })
-                  : choice.label
-              }
               @change=${() => onPick(choice.value)}
             />
             ${choice.value === model.workspace ? icon(mdiCheck) : nothing}
             <span>${choice.label}</span>
-            ${
-              choice.set > 0
-                ? html`<span class="scope-count" aria-hidden="true"
-                    >${interpolate(t('summary.set'), { count: String(choice.set) })}</span
-                  >`
-                : nothing
-            }
           </label>`,
       )}
     </div>
@@ -134,10 +125,27 @@ export function scopeControl(
     ${
       model.previewDiffers
         ? html`<p class="hint scope-preview">
-            ${icon(mdiEyeOutline)}${interpolate(t('settings_for.preview'), {
-              layout: name,
-              displayed: model.displayedLabel,
-            })}
+            ${icon(mdiEyeOutline)}<span class="scope-preview-text"
+              >${interpolate(
+                model.previewSwitch ? t('settings_for.previewing') : t('settings_for.preview'),
+                { layout: name, displayed: model.displayedLabel },
+              )}</span
+            >${
+              model.previewSwitch === undefined
+                ? nothing
+                : html`<button
+                    type="button"
+                    class="text-button scope-preview-switch"
+                    data-focus="scope-preview"
+                    aria-pressed=${model.previewSwitch ? 'true' : 'false'}
+                    @click=${onPreview}
+                  >
+                    ${model.previewSwitch ? icon(mdiCheck) : nothing}${interpolate(
+                      t('settings_for.preview_switch'),
+                      { layout: name },
+                    )}
+                  </button>`
+            }
           </p>`
         : nothing
     }
