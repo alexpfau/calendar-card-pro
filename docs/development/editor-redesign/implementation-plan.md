@@ -27,7 +27,8 @@ merges #862 in and is the top of the stack. Each open PR awaits the maintainer's
 byte budget: several measured above the caps in section 6, and nothing here implies those figures,
 or section 10's estimate, are accepted. The editor chunk at the top of the stack is 970,570 B raw
 and 282,976 B gzip -9 (production build, Node 24), against 592,390 B and 182,013 B at `9a1253b3`;
-the card's sha256 is unchanged. This file is
+the card's sha256 was unchanged through PR 21 and changes only with PR 12's tie order (its as-built
+note). This file is
 working state: it lives on the feature branch and is deleted, with the rest of
 `docs/development/editor-redesign/`, before the one pull request into `dev` (AGENTS.md,
 _Documenting a change_), which opens only on the maintainer's decision.
@@ -1712,7 +1713,9 @@ closes the step, with **Back** and **Split**.
   An event is listed once, on its first day that passes. Filters that act on the card's whole list,
   Filter Duplicates against other calendars, a card-wide compact budget and Skip First Events, act
   alike before and after a split and are not applied; an entry with its own compact budget is
-  refused anyway.
+  refused anyway. Events sharing a start are included, since the card draws a calendar listed
+  more than once in the order it sent its events, whichever entry kept them (PR 12's as-built
+  note).
 - **The assignment**: an event the original shows goes to the first part that keeps it
   (`entryKeeps`). Both parts keep every other option of the original, so a shown event lands in
   exactly one of them.
@@ -2740,6 +2743,42 @@ Behavior-preserving.
   in YAML: By Words is refused and the field is flagged. An entry with its own compact budget: the
   warning.
 - **Must not regress.** Quick Setup's preview and echo handling.
+- **As built, tie order under a card-wide limit.** #856 left one case open: the card drew events
+  sharing a start in the order `processEvents` lists them, one entry after the other, so a split
+  by words drew the worded part's events ahead of the rest's, and a card-wide
+  `compact_events_to_show` or `skip_first_events` could keep the other of two tied events. No
+  refusal was added. `processEvents` now stamps each event with where it came in the list Home
+  Assistant sent (`_arrival`), and before `groupEventsByDay` sorts a day, it puts the events of a
+  calendar listed more than once back in that order, in the places they hold. The sort itself is
+  unchanged, so a split draws tied events as the calendar listed once does and either limit keeps
+  the same ones, while a calendar listed once reaches the sort exactly as before, whatever order a
+  caller passes. `latest_first` still reverses the result, and which copy of a duplicate wins is
+  untouched; where a split keeps a later copy than the calendar listed once would, Filter
+  Duplicates draws it where its calendar's earliest copy arrived (`deduplicateEvents`), so it
+  does not change which events a limit keeps. Blind reviews caught four earlier attempts: reordering `processEvents` moved
+  duplicate winners (now pinned in `tests/editor-calendar-list.test.ts`), and two that changed
+  the sort's tie-break reordered once-listed cards for callers such as search, which hands
+  grouping held events ahead of newly answered ones (pinned in `tests/event-sort-order.test.ts`),
+  and one that drew such a later copy where it arrived (pinned in the membership suite).
+  Measured by a probe outside the repository under UTC, over 5,000 generated configurations (one
+  to three calendars, own filters, field and budgets, the card's limits, Filter Duplicates with
+  and without location, latest first, splitting and banners, all three layouts): of 2,500 that
+  list each calendar once, none changed at all; of 1,234 that list a calendar twice with no
+  limit, none draws another event, only the order of tied events moves; of 1,266 with a limit,
+  14 keep other events. Tests: `tests/split-membership.dst.test.ts` adds pairs sharing a start,
+  one in reverse alphabetical arrival, and asserts the parts' rows in the entry's order with and
+  without each limit; `tests/editor-split-review.test.ts` and `.dst.test.ts` run List's 674
+  review cases under both limits and both methods, with tied pairs, and check each drawn event
+  lands in the part `entryKeeps` names, the rule `reviewParts` assigns by (the review itself
+  applies no limit). At the base commit, 150 of the tests in those files,
+  `tests/event-sort-order.test.ts` and `tests/editor-calendar-list.test.ts` fail across the five
+  projects. Card +532 B raw, +190 B gzip -9 (644,751 B, 179,545 B); the editor's sha256 is
+  unchanged.
+  - **Still open:** with Filter Duplicates on, two events of one calendar alike in title, start,
+    end and location but told apart by the field a split by words reads keep different copies:
+    the calendar listed once keeps the first to arrive, the split keeps the worded part's, drawn
+    in the same place. That follows the documented rule that the first entry's copy wins and
+    predates this change.
 
 ### PR 13 · Reordering: Drag & Keyboard Grab
 

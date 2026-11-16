@@ -1929,7 +1929,12 @@ rule rest on different facts:
   operation swaps two entries of one calendar, there is no entry-level move, and a re-pointed entry
   joins the **end** of its new calendar's entries. `tests/editor-calendar-list.test.ts` runs the
   card's own pipeline over that case and fails on a planted reversal. An older version of this
-  section called within-calendar order invisible too; it was wrong.
+  section called within-calendar order invisible too; it was wrong. For drawing order alone,
+  `groupEventsByDay` puts a calendar listed more than once back in the order it sent its events
+  (`_arrival`) before sorting, so its tied events are drawn as if it were listed once (after the
+  title for all-day ones), and Split This Calendar keeps what a card-wide event limit or Skip
+  First Events keeps (`tests/split-membership.dst.test.ts`). Which copy of a duplicate wins still
+  follows the entries.
 
 **Keys move with their entries.** Every operation takes `{ entities, keys }` and returns both, so an
 entry page, which holds a key rather than a place, opens the right entry after a move, a removal
