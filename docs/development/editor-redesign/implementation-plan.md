@@ -1206,14 +1206,11 @@ mockup).
 **The Add row** is a card-built disclosure (`button aria-expanded`), following the prototype's
 `addRowHTML` and D02 A:
 
-- **Closed**: "Add Setting", then as many of the hidden settings' names as fit in two lines (D02 A),
-  joined with " · ", then, when some did not fit, the localized template `add.names_more`,
-  "{names}, +{count}", which a translator can reorder and which inflects nothing (adopted over the
-  D02 mockup's "· and 4 more", section 13, row B); and "Settings: 8".
-  The names are fitted by measurement after render (`views/add-row.ts` measures each name's line
-  with a `ResizeObserver` on the row and re-fits on resize); before the first measurement, and where
-  layout is absent (happy-dom), the first four names show. Accessible name: "Add Setting under Time,
-  Settings: 8".
+- **Closed**: "Add Setting", then every hidden setting's name joined with " · ", clamped to two
+  lines (D02 A) and cut with an ellipsis; and "Settings: 8", which carries the total. No "+N"
+  follows the names: drawn after a clamp, it was stranded at the far end of the second line
+  whenever the names wrapped, beside a count that already says how many there are. Accessible
+  name: "Add Setting under Time, Settings: 8".
 - **Open**: a group named "Settings to Add under Time" holding **Show All** with "Settings: 8"
   (when there are two or more), a native filter box past seven items (never focused automatically),
   then one button per item: its label, the first sentence of its helper, its current value.

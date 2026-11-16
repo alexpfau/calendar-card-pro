@@ -1114,25 +1114,14 @@ export default css`
     line-height: 1.45;
   }
 
-  /* The names wrap to two lines at most; "+N" stands outside the clamp, so a long name is cut
-     rather than the count of the names that did not fit. */
+  /* The names wrap to two lines at most and end in an ellipsis where they are cut; the count
+     beside them carries the total. */
   .add-names {
-    display: flex;
-    align-items: flex-end;
-    min-width: 0;
-  }
-
-  .add-names-list {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
     min-width: 0;
     overflow: hidden;
-  }
-
-  .add-more {
-    flex: none;
-    white-space: nowrap;
   }
 
   .add-toggle .add-plus {

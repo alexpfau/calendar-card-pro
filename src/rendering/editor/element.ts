@@ -3117,17 +3117,16 @@ export class CalendarCardProEditor extends LitElement {
         named,
         // A family is one item named by the family, but the closed row names its members: under a
         // heading named as the family, its name alone would only repeat the heading.
-        names: Shown.namesParts(
-          plan.add.flatMap((item) =>
+        names: plan.add
+          .flatMap((item) =>
             item.kind === 'family'
               ? item.ids.flatMap((id) => {
                   const field = known(id);
                   return field === undefined ? [] : [fieldLabel(field, ctx.language)];
                 })
               : items.filter((each) => each.key === item.id).map((each) => each.label),
-          ),
-          t,
-        ),
+          )
+          .join(' · '),
         items,
         open,
         query: open ? this._addOpen!.query : '',

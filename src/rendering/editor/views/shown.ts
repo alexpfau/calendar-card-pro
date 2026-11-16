@@ -10,7 +10,6 @@ import { type TemplateResult, html, nothing } from 'lit';
 
 import { icon } from './icon';
 import type { Translate } from './overview';
-import type { NamesParts } from '../shown';
 import { interpolate } from '../strings';
 
 /** A button of the editor's own, in a field's line or a heading's. */
@@ -109,10 +108,10 @@ export interface AddRow {
   /** Whether nothing under the heading is live, so the row carries the heading's name. */
   readonly named: boolean;
   /**
-   * The settings' names as the closed row shows them, and the "+N" for those that did not fit,
-   * which is drawn outside the names' two-line clamp so a long name cannot hide it.
+   * Every setting's name, as the closed row shows them: clamped to two lines and cut with an
+   * ellipsis, while the count beside them carries the total.
    */
-  readonly names: NamesParts;
+  readonly names: string;
   readonly items: ReadonlyArray<AddItem>;
   readonly open: boolean;
   readonly query: string;
@@ -157,11 +156,7 @@ export function addRow(row: AddRow, t: Translate): TemplateResult {
               : t('add.setting')
           }</span
         >
-        <span class="add-names"
-          ><span class="add-names-list">${row.names.names}</span>${
-            row.names.more ? html`<span class="add-more">${row.names.more}</span>` : nothing
-          }</span
-        >
+        <span class="add-names">${row.names}</span>
       </span>
       <span class="add-count">${counted}</span>
       ${icon(row.open ? mdiChevronUp : mdiChevronDown, 'nav-chevron')}

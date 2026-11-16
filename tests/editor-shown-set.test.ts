@@ -163,7 +163,7 @@ describe('what a page shows of a fresh card', () => {
     expect(lastConfig(editor)).toBeUndefined();
   });
 
-  it('names the settings of an Add row, four and a count past that', async () => {
+  it('names every setting of an Add row, and counts them beside the names', async () => {
     const editor = await mount();
     await goPage(editor, 'events');
     const row = $(editor, '.page-group[data-heading="time"] .add-toggle')!;
@@ -173,12 +173,10 @@ describe('what a page shows of a fresh card', () => {
       .map(([id]) => fieldLabel(EVERY.get(id)!, 'en'));
     // Seven since End Time and Duration became chips under Event Details (PR 18).
     expect(names).toHaveLength(7);
-    expect(row.querySelector('.add-names')!.textContent).toBe(
-      `${names.slice(0, 4).join(' · ')}, +3`,
-    );
-    // The count stands outside the two-line clamp, which a long name on a phone would cut.
-    expect(row.querySelector('.add-names-list')!.textContent).toBe(names.slice(0, 4).join(' · '));
-    expect(row.querySelector('.add-more')!.textContent).toBe(', +3');
+    // Every name, which the two-line clamp cuts with an ellipsis; the count carries the total, so
+    // no "+N" follows them to be stranded where they wrap.
+    expect(row.querySelector('.add-names')!.textContent).toBe(names.join(' · '));
+    expect(row.querySelector('.add-names')!.children).toHaveLength(0);
     expect(row.querySelector('.add-count')!.textContent).toBe('Settings: 7');
     expect(row.getAttribute('aria-label')).toBe('Add Setting under Time, Settings: 7');
     expect(row.getAttribute('aria-expanded')).toBe('false');
