@@ -30,6 +30,7 @@ import {
   CARD,
   type FormElement,
   changeField,
+  controlsOf,
   fakeHass,
   formOf,
   formsOf,
@@ -424,15 +425,28 @@ describe('the event tap action in the editor', () => {
   it('offers the toolbar switch beside the title, and its controls only while it is on', async () => {
     const { element, reported, names } = await mount({});
 
-    // The card's own fields, each in a form of its own, by the ids their wrappers name.
+    // The card's own fields, each in a form of its own, by the ids their wrappers name, and the
+    // toolbar's controls and Calendar Filter, which the editor draws as chips and a radio group.
     const cardIds = () =>
-      formsOf(element, CARD)
-        .map((form) => form.closest('[data-field]')?.getAttribute('data-field') ?? '')
-        .filter((id) => id.startsWith('card:'));
+      [
+        ...formsOf(element, CARD).map(
+          (form) => form.closest('[data-field]')?.getAttribute('data-field') ?? '',
+        ),
+        ...controlsOf(element),
+      ].filter((id) => id.startsWith('card:'));
+    // What the toolbar's switch, chips and radio group show, as one block.
+    const toolbar = (): Record<string, unknown> => ({
+      ...(valueOf(element, 'card:toolbar') as Record<string, unknown>),
+      ...Object.fromEntries(
+        controlsOf(element)
+          .filter((id) => id.startsWith('card:toolbar.'))
+          .map((id) => [id.slice('card:toolbar.'.length), valueOf(element, id)]),
+      ),
+    });
     expect(cardIds()).toEqual(expect.arrayContaining(['card:title', 'card:toolbar.show']));
     expect(cardIds()).not.toContain('card:toolbar.add_event');
     // Off, the switch is the toolbar's only field, and its form holds its value alone.
-    expect(valueOf(element, 'card:toolbar')).toEqual({ show: false });
+    expect(toolbar()).toEqual({ show: false });
 
     // Every control but reset arrives switched on, as the card reads them, search included
     // (backlog item 182), the filter as a menu, and nothing but the switch is written.
@@ -452,7 +466,7 @@ describe('the event tap action in the editor', () => {
         ].map((name) => `card:toolbar.${name}`),
       ),
     );
-    expect(valueOf(element, 'card:toolbar')).toEqual({
+    expect(toolbar()).toEqual({
       show: true,
       navigation: true,
       view_switcher: true,
@@ -469,7 +483,7 @@ describe('the event tap action in the editor', () => {
       entities: ['calendar.anna'],
       toolbar: { show: true, reset: true },
     });
-    expect((valueOf(element, 'card:toolbar') as Record<string, unknown>).reset).toBe(true);
+    expect(toolbar().reset).toBe(true);
     await changeField(element, 'card:toolbar.reset', false);
     expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
 
@@ -479,7 +493,7 @@ describe('the event tap action in the editor', () => {
       entities: ['calendar.anna'],
       toolbar: { show: true, search: false },
     });
-    expect((valueOf(element, 'card:toolbar') as Record<string, unknown>).search).toBe(false);
+    expect(toolbar().search).toBe(false);
     await changeField(element, 'card:toolbar.search', true);
     expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
 
@@ -499,13 +513,13 @@ describe('the event tap action in the editor', () => {
       entities: ['calendar.anna'],
       toolbar: { show: true, legend: false },
     });
-    expect((valueOf(element, 'card:toolbar') as Record<string, unknown>).legend).toBe('off');
+    expect(toolbar().legend).toBe('off');
     await changeField(element, 'card:toolbar.legend', 'chips');
     expect(last(reported)).toEqual({
       entities: ['calendar.anna'],
       toolbar: { show: true, legend: 'chips' },
     });
-    expect((valueOf(element, 'card:toolbar') as Record<string, unknown>).legend).toBe('chips');
+    expect(toolbar().legend).toBe('chips');
     // The default, a menu, is not written.
     await changeField(element, 'card:toolbar.legend', 'menu');
     expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });

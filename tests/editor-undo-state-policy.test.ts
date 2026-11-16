@@ -32,7 +32,8 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
   where: ['_selectedWorkspace', '_nav'],
   // Session UI state, outside Undo.
   session: [
-    '_addedButtons',
+    // The toolbar buttons' rows open, Add Button's among them.
+    '_openButtons',
     '_quickSetup',
     '_filter',
     '_banner',
@@ -91,7 +92,6 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_pickScope',
     '_describe',
     '_addButton',
-    '_panelWillChange',
     '_openQuickSetup',
     '_quickSetupFormChanged',
     '_cancelQuickSetup',

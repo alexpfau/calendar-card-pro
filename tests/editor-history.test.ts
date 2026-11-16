@@ -623,7 +623,7 @@ describe('the line a removal leaves', () => {
     const [key] = keysOf(editor, 'button');
     const remove = [
       ...editor.shadowRoot!.querySelectorAll<HTMLButtonElement>(
-        `.button-panel[data-button-key="${key}"] button`,
+        `.button-row[data-button-key="${key}"] button`,
       ),
     ].find((button) => button.textContent?.trim() === 'Remove')!;
     remove.click();

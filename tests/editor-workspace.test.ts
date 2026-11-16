@@ -5,6 +5,7 @@ import {
   CHASSIS,
   changeField,
   changeFields,
+  controlsOf,
   entry,
   formsOf,
   goEntry,
@@ -17,6 +18,7 @@ import {
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { VIEWS, VIEW_SCOPE } from '../src/config/view';
+import { parseFieldId } from '../src/rendering/editor/field-index';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { walkSchema } from '../src/rendering/editor/panels';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
@@ -164,7 +166,11 @@ function enabled(view: Types.EffectiveView): Partial<Types.Config> {
 function assertWorkspaceFields(editor: EditorHost, current: EditorWorkspace): void {
   const namesInForms = formsOf(editor, CARD).flatMap((form) => names(form.schema));
   expect(namesInForms.length).toBeGreaterThan(50);
-  const main = namesInForms.flatMap((name) => configKeysForField(name));
+  // The event parts and the toolbar's controls are chips, and Calendar Filter a radio group,
+  // rather than forms: what they write counts as drawn all the same.
+  const main = [...namesInForms, ...controlsOf(editor).map((id) => parseFieldId(id).name)].flatMap(
+    (name) => configKeysForField(name),
+  );
   for (const [key, scope] of Object.entries(VIEW_SCOPE)) {
     // Shared offers a key when more than one layout reads it; a view offers it when that
     // view reads it. Asking `scope.has('shared')` would be false for every scoped key.

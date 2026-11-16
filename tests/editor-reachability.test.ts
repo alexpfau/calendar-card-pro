@@ -43,7 +43,8 @@ function holds(schema: ReadonlyArray<HaFormSchema>, node: unknown): boolean {
 
 /**
  * The fields reached on the open place: each frame's id, where its form holds the node the
- * index built for that id.
+ * index built for that id, or where the editor draws the field as its own control instead: a
+ * chip that can be pressed, or Calendar Filter's radio group (`chips.ts`, PR 18).
  *
  * @param editor - Editor element
  * @param nodes - The present fields' nodes by id
@@ -53,6 +54,9 @@ function reached(editor: MountedEditor, nodes: ReadonlyMap<FieldId, unknown>): F
   const frames = editor.shadowRoot!.querySelectorAll<HTMLElement>('[data-field]');
   return [...frames].flatMap((frame) => {
     const id = frame.dataset.field as FieldId;
+    if (frame.matches('button.chip:not([aria-disabled="true"]), fieldset.segmented')) {
+      return nodes.has(id) ? [id] : [];
+    }
     const form = frame.querySelector('ha-form') as { schema?: ReadonlyArray<HaFormSchema> } | null;
     return form?.schema && nodes.has(id) && holds(form.schema, nodes.get(id)) ? [id] : [];
   });

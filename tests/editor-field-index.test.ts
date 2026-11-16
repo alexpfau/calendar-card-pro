@@ -16,6 +16,7 @@ import {
   type Owner,
   button,
   changeField,
+  controlsOf,
   entry,
   fakeHass,
   formsOf,
@@ -699,7 +700,9 @@ describe('the index builds what the editor draws today', () => {
         names.push({
           at: `${workspace} ${state.gate ?? 'fresh'}`,
           drawn: {
-            panel: drawn(forms(CARD)),
+            // The event parts and the toolbar's controls are chips, and Calendar Filter a radio
+            // group, each drawn in place of its field's form.
+            panel: [...drawn(forms(CARD)), ...controlsOf(host).map(strip)].sort(),
             entity: drawn(forms(entry())),
           },
           indexed: {
@@ -725,6 +728,11 @@ describe('the index builds what the editor draws today', () => {
           buttonFieldIndex(buildToolbarButtonSchema()).fields.values(),
         ],
       ];
+      // A chip or a radio group of the editor's own reaches its field with a label of its own
+      // (`chips.ts` › `CHIP_LABELS`, the radio group's legend), which no form resolves.
+      for (const id of controlsOf(host)) {
+        if (card.has(id)) labels.reached.add(`${workspace} ${id}`);
+      }
       for (const [selector, owner, fields] of indexes) {
         const byKey = new Map([...fields].map((field) => [strip(field.id), field]));
         for (const form of forms(owner)) {

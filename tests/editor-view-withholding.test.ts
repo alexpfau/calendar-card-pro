@@ -6,6 +6,7 @@ import {
   CARD,
   changeField,
   changeFields,
+  controlsOf,
   entry,
   fakeHass,
   formsOf,
@@ -19,6 +20,7 @@ import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
 import type { CalendarCardProEditor } from '../src/rendering/editor/element';
+import { parseFieldId } from '../src/rendering/editor/field-index';
 import * as Filter from '../src/rendering/editor/filter';
 import type { HaFormSchema, SelectorSchema } from '../src/rendering/editor/ha-form';
 import { PANELS, type SchemaCtx } from '../src/rendering/editor/panels';
@@ -168,9 +170,17 @@ function expectedFields(
  */
 function drawnInBuiltOrder(editor: CalendarCardProEditor, built: Field[]): Field[] {
   const order = built.map((field) => field.key);
-  return formsOf(editor, CARD)
-    .flatMap((form) => fields(form.schema))
-    .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
+  // The event parts and the toolbar's controls are chips, and Calendar Filter a radio group: each
+  // writes its field as its form would, so it counts as that field drawn. A chip drawn unpressable
+  // with its reason stands for a field withheld, which the builders build no node for.
+  const controls = controlsOf(editor).map((id) => {
+    const { dataPath, name } = parseFieldId(id);
+    return [...dataPath, name].join('.');
+  });
+  return [
+    ...formsOf(editor, CARD).flatMap((form) => fields(form.schema)),
+    ...built.filter((field) => controls.includes(field.key)),
+  ].sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
 }
 
 function reconcile(actual: Field[], expected: Field[]): void {

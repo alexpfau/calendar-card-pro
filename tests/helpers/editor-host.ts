@@ -28,9 +28,12 @@
  * | `add-calendar-form`               | chassis | `add_calendar` (Add Calendar's picker)         |
  * | `entry-calendar-form`             | chassis | `entry_calendar` (an entry page's Calendar)    |
  *
- * Card Displays and Settings For are the editor's own radio groups rather than forms. The ids
- * `display:view` and `workspace:editing_workspace` still name them, for `changeField` and
- * `valueOf`, which choose and read them as a user does.
+ * Card Displays, Settings For and Calendar Filter are the editor's own radio groups rather than
+ * forms. The ids `display:view`, `workspace:editing_workspace` and `card:toolbar.legend` still name
+ * them, for `changeField` and `valueOf`, which choose and read them as a user does. The event parts
+ * and the toolbar's controls are its own toggle chips (`chips.ts`): `changeField` presses one as a
+ * user does, where its state is not already the value asked for, and `valueOf` reads it pressed or
+ * not. A toolbar button's fields sit in its row, which a helper opens as a user does.
  *
  * The chassis scopes are this module's own: `field-index.ts` indexes the nine panels, calendar
  * entries and toolbar buttons, and the chassis draws forms that belong to none of them. They
@@ -41,11 +44,10 @@
  * whose value is the object the form holds for it, or a heading a form draws (`button:heading`).
  */
 
-import { setImmediate as nodeImmediate, setTimeout as nodeTimeout } from 'node:timers';
-
 import * as Config from '../../src/config/config';
 import type * as Types from '../../src/config/types';
 import * as Buttons from '../../src/rendering/editor/buttons';
+import { CHIP_LABELS, isPressed } from '../../src/rendering/editor/chips';
 import { CalendarCardProEditor } from '../../src/rendering/editor/element';
 import * as Entities from '../../src/rendering/editor/entities';
 import {
@@ -147,6 +149,7 @@ const CHASSIS_FORMS: Readonly<Record<string, string>> = {
 const RADIO_GROUPS: Readonly<Record<string, string>> = {
   'display:view': 'view',
   'workspace:editing_workspace': 'scope',
+  'card:toolbar.legend': 'card:toolbar.legend',
 };
 
 const CHASSIS_SCOPES: ReadonlySet<string> = new Set([
@@ -273,17 +276,18 @@ function entryIndexes(editor: EditorElement, root: ShadowRoot): Map<Element, num
 }
 
 /**
- * Which toolbar button each drawn button panel belongs to, by the key the editor gives each
- * button's panel (`data-button-key`) and keeps in list order. Each panel's form must hold that
- * button's data; where it does not, the helper fails rather than guess.
+ * Which toolbar button each drawn button row belongs to, by the key the editor gives each
+ * button's row (`data-button-key`) and keeps in list order. Each of the row's forms must hold
+ * that button's data, narrowed to its own field; where one does not, the helper fails rather
+ * than guess.
  *
  * @param editor - Editor element
  * @param root - Its shadow root
- * @returns Position in `toolbar.buttons` by panel
+ * @returns Position in `toolbar.buttons` by row
  */
 function buttonIndexes(editor: EditorElement, root: ShadowRoot): Map<Element, number> {
   const indexes = new Map<Element, number>();
-  const panels = [...root.querySelectorAll('ha-expansion-panel.button-panel')];
+  const panels = [...root.querySelectorAll('.button-row')];
   if (panels.length === 0) return indexes;
 
   const { _config: config, _buttonKeys: keys = [] } = stateOf(editor);
@@ -292,11 +296,13 @@ function buttonIndexes(editor: EditorElement, root: ShadowRoot): Map<Element, nu
     const key = panel.getAttribute('data-button-key');
     const index = key === null ? -1 : keys.indexOf(Number(key));
     if (index < 0 || index >= written.length) {
-      outOfStep(`A toolbar button panel keyed ${key ?? 'nothing'} matches no button`);
+      outOfStep(`A toolbar button row keyed ${key ?? 'nothing'} matches no button`);
     }
-    const form = panel.querySelector<FormElement>('ha-form.button-form');
-    if (form !== null && !Value.deepEqual(form.data, Buttons.toButtonFormData(written[index]))) {
-      outOfStep(`The panel of toolbar button ${index} holds another button's data`);
+    const data = Buttons.toButtonFormData(written[index]);
+    for (const form of panel.querySelectorAll<FormElement>('ha-form.button-form')) {
+      if (!Value.deepEqual(form.data, Routing.formDataFor(data, form.schema))) {
+        outOfStep(`The row of toolbar button ${index} holds another button's data`);
+      }
     }
     indexes.set(panel, index);
   }
@@ -344,7 +350,7 @@ function placeForm(
     return { form, kind: 'entry', index, key: keyOf(page), scope: 'calendar', place };
   }
   if (classes.contains('button-form')) {
-    const panel = form.closest('ha-expansion-panel.button-panel');
+    const panel = form.closest('.button-row');
     const index = panel === null ? undefined : buttons.get(panel);
     return { form, kind: 'button', index, key: keyOf(panel), scope: 'button', place };
   }
@@ -409,7 +415,39 @@ function liveForms(editor: EditorElement, root: ShadowRoot, page?: string): Draw
 /** What `openPanels` kept from every page it visited, and what the editor held then. */
 interface Kept {
   forms: Drawn[];
+  /** The chips and radio groups of the editor's own each page drew, by id. */
+  controls: FieldId[];
   stamp: ReadonlyArray<unknown>;
+}
+
+/**
+ * The ids of the chips and segmented radio groups of the editor's own drawn under a root, each
+ * standing for its field drawn. A chip drawn unpressable, with its reason, stands for a field the
+ * builders withhold, and is left out, as a withheld field's form would be.
+ *
+ * @param root - Where to look
+ * @returns The ids, in document order
+ */
+function controlIds(root: ParentNode): FieldId[] {
+  return [
+    ...root.querySelectorAll(
+      'button.chip[data-field]:not([aria-disabled="true"]), fieldset.segmented[data-field]',
+    ),
+  ].map((control) => control.getAttribute('data-field')!);
+}
+
+/**
+ * Every chip and segmented radio group the editor draws in place of a field's form, by id: on
+ * the place open, and on every page `openPanels` visited, as the editor would draw them now.
+ *
+ * @param editor - Editor element
+ * @returns The ids
+ */
+export function controlsOf(editor: EditorElement): FieldId[] {
+  keptForms(editor);
+  return [
+    ...new Set([...controlIds(editor.shadowRoot!), ...(visited.get(editor)?.controls ?? [])]),
+  ];
 }
 
 /** What `openPanels` kept, by editor. */
@@ -455,6 +493,7 @@ function keptForms(editor: EditorElement): Drawn[] {
   };
   const saved = element._nav;
   const forms: Drawn[] = [];
+  const controls: FieldId[] = [];
   // The pages the overview offers now: the Grid page only while Grid is the scope.
   const scope = (editor as unknown as { _workspace: string })._workspace;
   const pages = PAGES.filter((page) => page.onlyIn === undefined || page.onlyIn === scope);
@@ -462,13 +501,14 @@ function keptForms(editor: EditorElement): Drawn[] {
     element._nav = { route: { kind: 'page', page }, trail: [], fromResults: false };
     draw();
     if (root.querySelector(`.page[data-page="${page}"]`) === null) continue;
-    for (const panel of root.querySelectorAll<Element & { expanded?: boolean }>(
-      'ha-expansion-panel',
-    )) {
-      panel.expanded = true;
-    }
+    // Every toolbar button's row open, as a user opens each one.
+    const rows = element as unknown as { _openButtons: Set<number> };
+    const open = rows._openButtons;
+    rows._openButtons = new Set(keysOf(editor, 'button'));
     draw();
     forms.push(...liveForms(editor, root, page));
+    controls.push(...controlIds(root));
+    rows._openButtons = open;
   }
   for (const key of keysOf(editor, 'entry')) {
     element._nav = { route: { kind: 'entry', key }, trail: [], fromResults: false };
@@ -479,6 +519,7 @@ function keptForms(editor: EditorElement): Drawn[] {
   element._nav = saved;
   draw();
   kept.forms = forms;
+  kept.controls = controls;
   kept.stamp = stampOf(editor);
   return forms;
 }
@@ -971,6 +1012,7 @@ export function helperOf(editor: EditorElement, id: FieldId, owner?: Owner): str
  */
 export function valueOf(editor: EditorElement, id: FieldId, owner?: Owner): unknown {
   if (id in RADIO_GROUPS) return chosen(editor, id);
+  if (id in CHIP_LABELS) return pressedOf(editor, id);
   const found = located(editor, id, owner);
   if (found.all !== undefined) {
     // Each field's form holds only its own part of the block, so the parts are merged deeply.
@@ -1051,9 +1093,13 @@ export async function changeFields(
   const ids = Object.keys(values);
   if (ids.length === 0) throw new Error('changeFields needs a field to change.');
   const radio = ids.find((id) => id in RADIO_GROUPS);
+  const chip = ids.find((id) => id in CHIP_LABELS);
   if (radio !== undefined) {
     if (ids.length > 1) throw new Error(`${radio} is a radio group: change it on its own.`);
     await choose(editor, radio, values[radio]);
+  } else if (chip !== undefined) {
+    if (ids.length > 1) throw new Error(`${chip} is a toggle chip: change it on its own.`);
+    await pressChip(editor, chip, values[chip]);
   } else {
     for (const id of ids) {
       const found = find(editor, id, owner);
@@ -1081,10 +1127,77 @@ function chosen(editor: EditorElement, id: FieldId): unknown {
     `input[name="${RADIO_GROUPS[id]}"]:checked`,
   );
   if (input) return input.value;
+  if (id === 'card:toolbar.legend')
+    return outOfStep(`Calendar Filter is not drawn: go to it first`);
   if (id === 'workspace:editing_workspace') {
     return (editor as unknown as { _workspace: string })._workspace;
   }
   return outOfStep(`The editor draws no ${id} to read`);
+}
+
+/**
+ * Goes where a control of the editor's own is drawn, as a user would: to the page its id is placed
+ * on, unless that page is open; Card Displays and Settings For to the overview.
+ *
+ * @param editor - Editor element
+ * @param id - A chip's id, or a radio group's
+ */
+async function goToControl(editor: EditorElement, id: FieldId): Promise<void> {
+  const page = pageOf(id);
+  if (page === undefined || page === 'overview' || page === 'entry') await goOverview(editor);
+  else await goPage(editor, page);
+}
+
+/**
+ * A toggle chip, where the open place draws it.
+ *
+ * @param editor - Editor element
+ * @param id - Its field's id
+ * @returns The chip, or null
+ */
+function chipOf(editor: EditorElement, id: FieldId): HTMLButtonElement | null {
+  return (
+    editor.shadowRoot?.querySelector<HTMLButtonElement>(`button.chip[data-field="${id}"]`) ?? null
+  );
+}
+
+/**
+ * Whether a toggle chip is pressed: as drawn where the open place draws it, else as the editor's
+ * form data holds its value, which is what the chip shows once drawn.
+ *
+ * @param editor - Editor element
+ * @param id - Its field's id
+ * @returns Pressed or not
+ */
+function pressedOf(editor: EditorElement, id: FieldId): boolean {
+  const chip = chipOf(editor, id);
+  if (chip) return chip.getAttribute('aria-pressed') === 'true';
+  const { dataPath, name } = parseFieldId(id);
+  const data = (editor as unknown as { _formData(): Record<string, unknown> })._formData();
+  return isPressed(atPath(data, [...dataPath, name]));
+}
+
+/**
+ * Presses a toggle chip as a user does, on its page, where it is not already as asked: a chip
+ * is on or off, so only a boolean can be asked of it, and one that cannot be pressed fails with
+ * the reason it shows.
+ *
+ * @param editor - Editor element
+ * @param id - Its field's id
+ * @param value - On or off
+ */
+async function pressChip(editor: EditorElement, id: FieldId, value: unknown): Promise<void> {
+  if (typeof value !== 'boolean') {
+    throw new Error(`${id} is a toggle chip: it is pressed or not, so ask it for true or false.`);
+  }
+  if (chipOf(editor, id) === null) await goToControl(editor, id);
+  const chip = chipOf(editor, id);
+  if (chip === null) outOfStep(`The editor draws no chip for ${id}`);
+  if (chip.getAttribute('aria-disabled') === 'true') {
+    throw new Error(`${id} cannot be pressed: ${chip.textContent?.trim()}`);
+  }
+  if ((chip.getAttribute('aria-pressed') === 'true') !== value) chip.click();
+  await editor.updateComplete;
 }
 
 /**
@@ -1118,8 +1231,9 @@ async function choose(editor: EditorElement, id: FieldId, value: unknown): Promi
   const drawn = (): boolean =>
     root?.querySelector(`input[name="${name}"]`) !== null ||
     (name === 'scope' && root?.querySelector('[data-focus="scope-change"]') !== null);
-  // Settings For sits on every page the scope matters to as well; Card Displays only here.
-  if (!drawn()) await goOverview(editor);
+  // Settings For sits on every page the scope matters to as well; Card Displays only here, and
+  // Calendar Filter on Card & Header.
+  if (!drawn()) await goToControl(editor, id);
   if (name === 'scope' && root?.querySelector('input[name="scope"]') === null) {
     await press(editor, '[data-focus="scope-change"]', 'Change for Settings For');
   }
@@ -1135,11 +1249,9 @@ async function choose(editor: EditorElement, id: FieldId, value: unknown): Promi
 /**
  * Goes to a field as a user would before editing it: to the page it is placed on, or the
  * overview, from the overview's row for that page; a calendar entry's page from its row, a
- * toolbar button's panel on Card & Header; then opens every collapsed panel around its form,
- * outermost first. A panel opens as Home Assistant's does: it announces `expanded-will-change`,
- * lets a render pass (`nextRender`), expands and announces `expanded-changed`. A closed panel
- * draws no form, so a button's field not drawn yet is found by its own panel, by its place or
- * key. An entry named by neither place nor key is looked for on every entry's page, as
+ * toolbar button's row on Card & Header, opened by its toggle. A closed row draws no form, so a
+ * button's field not drawn yet is found by its own row, by its place or key. A chip or a radio
+ * group of the editor's own is gone to on its page, and draws no form to open. An entry named by neither place nor key is looked for on every entry's page, as
  * `openPanels` visits them, so a field two entries draw fails as drawn twice.
  *
  * Where a query holds the overview's results, the field is reached as a user reaches it there:
@@ -1150,6 +1262,10 @@ async function choose(editor: EditorElement, id: FieldId, value: unknown): Promi
  * @param owner - Owner, else the one the id's scope implies
  */
 export async function openPageOf(editor: EditorElement, id: FieldId, owner?: Owner): Promise<void> {
+  if (id in CHIP_LABELS || id in RADIO_GROUPS) {
+    await goToControl(editor, id);
+    return;
+  }
   let found = find(editor, id, owner);
   if (found === undefined || found.page !== undefined) {
     const { scope } = parseFieldId(id);
@@ -1268,16 +1384,16 @@ export async function chooseResult(editor: EditorElement, key: string): Promise<
 }
 
 /**
- * Opens every panel the place open draws, closed ones all together, each as Home Assistant's
- * opens on a click (`expand`).
+ * Opens every toolbar button's row the place open draws, as a user does, by its toggle.
  *
  * @param editor - Editor element
  */
 async function expandAll(editor: EditorElement): Promise<void> {
-  const closed = [...(editor.shadowRoot?.querySelectorAll('ha-expansion-panel') ?? [])].filter(
-    (panel) => (panel as Element & { expanded?: boolean }).expanded !== true,
-  );
-  await Promise.all(closed.map((panel) => expand(panel)));
+  for (const toggle of editor.shadowRoot?.querySelectorAll<HTMLElement>(
+    '.button-row [aria-expanded="false"]',
+  ) ?? []) {
+    toggle.click();
+  }
   await editor.updateComplete;
 }
 
@@ -1294,6 +1410,7 @@ export async function openPanels(editor: EditorElement): Promise<void> {
   if (root === null) throw new Error('The editor has not rendered: mount it, and await it.');
   await goOverview(editor);
   const kept: Drawn[] = [];
+  const controls: FieldId[] = [];
   const pages = [...root.querySelectorAll('[data-focus^="nav:"]')].map((row) =>
     row.getAttribute('data-focus')!.slice('nav:'.length),
   );
@@ -1301,6 +1418,7 @@ export async function openPanels(editor: EditorElement): Promise<void> {
     await goPage(editor, page);
     await expandAll(editor);
     kept.push(...liveForms(editor, root, page));
+    controls.push(...controlIds(root));
   }
   for (const key of keysOf(editor, 'entry')) {
     await goOverview(editor);
@@ -1311,7 +1429,7 @@ export async function openPanels(editor: EditorElement): Promise<void> {
   }
   await goOverview(editor);
   await expandAll(editor);
-  visited.set(editor, { forms: kept, stamp: stampOf(editor) });
+  visited.set(editor, { forms: kept, controls, stamp: stampOf(editor) });
 }
 
 /**
@@ -1337,7 +1455,11 @@ async function keepEntries(editor: EditorElement): Promise<void> {
     kept.push(...liveForms(editor, root, `entry:${key}`));
   }
   await goOverview(editor);
-  visited.set(editor, { forms: kept, stamp: stampOf(editor) });
+  visited.set(editor, {
+    forms: kept,
+    controls: current ? before.controls : [],
+    stamp: stampOf(editor),
+  });
 }
 
 /**
@@ -1379,12 +1501,12 @@ export async function resetButton(
 }
 
 /**
- * The panels an owner's forms belong in, drawn or not: each matching toolbar button's own panel,
- * found by its place or key. The card's fields and an entry's sit in no panel.
+ * The rows an owner's forms belong in, drawn or not: each matching toolbar button's own row,
+ * found by its place or key. The card's fields and an entry's sit in no row.
  *
  * @param editor - Editor element
  * @param owner - The owner
- * @returns The panels, outermost first
+ * @returns The rows
  */
 function holdersOf(editor: EditorElement, owner: Owner): Element[] {
   const root = editor.shadowRoot;
@@ -1401,53 +1523,16 @@ function holdersOf(editor: EditorElement, owner: Owner): Element[] {
 }
 
 /**
- * Opens every collapsed panel around a node, the node itself included, outermost first.
+ * Opens the toolbar button's row around a node, the row itself included, by its toggle.
  *
- * @param node - A panel, or anything inside one
+ * @param node - A row, or anything inside one
  */
 async function openAround(node: Element): Promise<void> {
-  const panels: Element[] = [];
-  for (let at: Element | null = node; at !== null; at = at.parentElement) {
-    if (at.localName === 'ha-expansion-panel') panels.unshift(at);
-  }
-  for (const panel of panels) await expand(panel);
-}
-
-/**
- * Waits as Home Assistant's `nextRender` does (`common/util/render-status.ts` in its frontend):
- * an animation frame, then a timeout. The frame is a Node immediate, which is how happy-dom
- * schedules one, and both come from `node:timers`, which fake timers leave in place whenever
- * they were installed, so a panel opens across a real render in a test that holds time still,
- * and no fake clock moves.
- *
- * @returns A promise settled once the render has passed
- */
-function nextRender(): Promise<void> {
-  return new Promise((resolve) => {
-    nodeImmediate(() => {
-      nodeTimeout(() => resolve(), 0);
-    });
-  });
-}
-
-/**
- * Expands a panel the way Home Assistant's `ha-expansion-panel` does on a click
- * (`_toggleContainer`), if it is collapsed: it announces `expanded-will-change`, waits for a
- * render, expands and announces `expanded-changed`.
- *
- * @param panel - The panel
- */
-async function expand(panel: Element): Promise<void> {
-  const expansion = panel as Element & { expanded?: boolean };
-  if (expansion.expanded === true) return;
-  const announce = (type: string) =>
-    panel.dispatchEvent(
-      new CustomEvent(type, { detail: { expanded: true }, bubbles: true, composed: true }),
-    );
-  announce('expanded-will-change');
-  await nextRender();
-  expansion.expanded = true;
-  announce('expanded-changed');
+  const row = node.closest('.button-row');
+  const toggle = row?.querySelector<HTMLElement>(':scope > .cal-row [aria-expanded="false"]');
+  if (!toggle) return;
+  toggle.click();
+  await (row!.getRootNode() as ShadowRoot & { host: EditorElement }).host.updateComplete;
 }
 
 /** What each editor `mountEditor` mounted has reported, oldest first. */

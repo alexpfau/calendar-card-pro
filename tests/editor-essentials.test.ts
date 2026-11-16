@@ -19,6 +19,7 @@ import {
   button,
   changeFields,
   chooseResult,
+  controlsOf,
   entry,
   formOf,
   formsOf,
@@ -36,6 +37,7 @@ import {
   ESSENTIAL_CALENDAR_FIELDS,
   ESSENTIAL_CARD_FIELDS,
 } from '../src/rendering/editor/essentials';
+import { parseFieldId } from '../src/rendering/editor/field-index';
 import * as Filter from '../src/rendering/editor/filter';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { PANELS, type SchemaCtx } from '../src/rendering/editor/panels';
@@ -139,8 +141,32 @@ function root(editor: CalendarCardProEditor): ShadowRoot {
   return editor.shadowRoot!;
 }
 
+/**
+ * The card's fields the editor draws: each form's, then the event parts and the toolbar's
+ * controls it draws as chips and Calendar Filter as a radio group. In page order for the forms;
+ * where the order matters, the registry pins it (`tests/editor-page-registry.test.ts`).
+ *
+ * @param editor - Editor
+ * @returns The fields, by data path
+ */
 function panelFields(editor: CalendarCardProEditor): string[] {
-  return formsOf(editor, CARD).flatMap((form) => ids(form.schema));
+  return [
+    ...formsOf(editor, CARD).flatMap((form) => ids(form.schema)),
+    ...controlsOf(editor).map((id) => {
+      const { dataPath, name } = parseFieldId(id);
+      return [...dataPath, name].join('.');
+    }),
+  ];
+}
+
+/**
+ * A list of fields in a fixed order, for comparing what is drawn regardless of where.
+ *
+ * @param fields - The fields
+ * @returns A sorted copy
+ */
+function sorted(fields: ReadonlyArray<string>): string[] {
+  return [...fields].sort();
 }
 
 function calendarFields(editor: CalendarCardProEditor): string[] {
@@ -201,7 +227,7 @@ describe('Essentials Only on the editor', () => {
     const [anna] = keysOf(editor, 'entry');
     expect(root(editor).querySelector(`[data-focus="row:${anna}"]`)).not.toBeNull();
     await openPanels(editor);
-    expect(panelFields(editor)).toEqual(LIST_ESSENTIALS);
+    expect(sorted(panelFields(editor))).toEqual(sorted(LIST_ESSENTIALS));
   });
 
   it('adds the hours of the grid in the Grid workspace', async () => {
@@ -222,7 +248,7 @@ describe('Essentials Only on the editor', () => {
     });
     // The toolbar's own buttons sit on Card & Header.
     await openPageOf(editor, 'card:title');
-    expect(root(editor).querySelectorAll('.button-panel')).toHaveLength(1);
+    expect(root(editor).querySelectorAll('.button-row')).toHaveLength(1);
     expect(root(editor).querySelector('.add-button')).not.toBeNull();
 
     await changeFields(editor, { 'filter:essentials_only': true });
@@ -235,7 +261,7 @@ describe('Essentials Only on the editor', () => {
     // A button the card has is part of what the card does: its own fields stay, the rest go.
     expect(buttonFields(editor).sort()).toEqual(['icon', 'name']);
     await openPageOf(editor, 'card:title');
-    expect(root(editor).querySelectorAll('.button-panel')).toHaveLength(1);
+    expect(root(editor).querySelectorAll('.button-row')).toHaveLength(1);
     expect(root(editor).querySelector('.add-button')).toBeNull();
   });
 
@@ -353,7 +379,7 @@ describe('Essentials Only on the editor', () => {
     document.body.replaceChildren();
     const second = await mount();
     await openPanels(second);
-    expect(panelFields(second)).toEqual(LIST_ESSENTIALS);
+    expect(sorted(panelFields(second))).toEqual(sorted(LIST_ESSENTIALS));
 
     await changeFields(second, { 'filter:essentials_only': false });
     expect(localStorage.getItem(ESSENTIALS_STORAGE_KEY)).toBeNull();

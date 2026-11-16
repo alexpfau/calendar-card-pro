@@ -367,14 +367,15 @@ describe('the feeds in the rendered editor', () => {
     const hass = haWith();
     const editor = await mountOpen(hass);
     const steady = new Map(fed(editor, 'steady').map((form) => [form, form.hass]));
-    expect(labelOf(editor, 'events:show_time')).toBe(EDITOR_STRINGS.show_time);
+    // Time Format, a dropdown the Events page draws in a form of its own; Show Time is a chip.
+    expect(labelOf(editor, 'content:time_format')).toBe(EDITOR_STRINGS.time_format);
 
     editor.hass = { ...hass, locale: { language: 'de' } };
     await editor.updateComplete;
 
     for (const [form, before] of steady) expect(form.hass).not.toBe(before);
-    expect(labelOf(editor, 'events:show_time')).toBe(lookup('de', 'show_time'));
-    expect(lookup('de', 'show_time')).not.toBe(EDITOR_STRINGS.show_time);
+    expect(labelOf(editor, 'content:time_format')).toBe(lookup('de', 'time_format'));
+    expect(lookup('de', 'time_format')).not.toBe(EDITOR_STRINGS.time_format);
   });
 });
 
@@ -407,20 +408,14 @@ describe('an update that carries an irrelevant hass and a bare request together'
     expect(render).toHaveBeenCalledTimes(2);
   });
 
-  it('opens a panel whose opening lands beside an irrelevant hass', async () => {
+  it('opens a button row whose opening lands beside an irrelevant hass', async () => {
     const hass = haWith();
     const editor = await mountEditor(CONFIG, { hass });
     await goPage(editor, 'card_header');
-    const hall = editor.shadowRoot!.querySelector<HTMLElement>('ha-expansion-panel.button-panel')!;
+    const hall = editor.shadowRoot!.querySelector<HTMLElement>('.button-row')!;
     expect(hall.querySelector('ha-form')).toBeNull();
 
-    hall.dispatchEvent(
-      new CustomEvent('expanded-will-change', {
-        detail: { expanded: true },
-        bubbles: true,
-        composed: true,
-      }),
-    );
+    hall.querySelector<HTMLElement>('[aria-expanded]')!.click();
     editor.hass = later(hass, 'sensor.porch');
     await editor.updateComplete;
 

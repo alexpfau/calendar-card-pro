@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   CARD,
   changeField,
+  controlsOf,
   formOf,
   formsOf,
   mountEditor,
@@ -111,7 +112,7 @@ const CASES = Object.entries(View.TIME_GRID_DEFAULT_OVERRIDES).map(([key, gridDe
 const GATED = ['description_color', 'location_color', 'progress_bar_color', 'progress_bar_width'];
 
 /**
- * Every top-level value the editor's forms hold, each from the first form drawing it.
+ * Every top-level value the editor's forms and chips hold, each from the first drawing it.
  *
  * @param editor - Mounted editor
  * @returns Values by option
@@ -122,6 +123,11 @@ function shownValues(editor: EditorHost): Map<string, unknown> {
     for (const { node, path } of workspaceFields(form.schema)) {
       if (path.length === 0 && !shown.has(node.name)) shown.set(node.name, form.data[node.name]);
     }
+  }
+  // The event parts are chips, pressed or not, rather than forms.
+  for (const id of controlsOf(editor)) {
+    const { dataPath, name } = parseFieldId(id);
+    if (dataPath.length === 0 && !shown.has(name)) shown.set(name, valueOf(editor, id));
   }
   return shown;
 }
