@@ -95,7 +95,7 @@ export function searchIndex(
  */
 export function hitIds(index: ReadonlyArray<SearchEntry>, query: string): string[] {
   return search(index, query).flatMap(({ entry: { target } }) => {
-    if (target.kind === 'page' || target.kind === 'ha-tab') return [];
+    if (!('id' in target)) return [];
     return [target.kind === 'field' ? target.id : `${target.id}@${target.key}`];
   });
 }

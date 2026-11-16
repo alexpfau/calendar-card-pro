@@ -105,9 +105,12 @@ describe('the results', () => {
     let checked = 0;
     for (const query of ['time', 'color', 'lights', 'exclude', 'ben']) {
       await searchFor(editor, query);
-      // A page's row and a row folding one field of several calendars are not one setting.
+      // A page's row, a row folding one field of several calendars, Split This Calendar and the
+      // calendar list are not one setting.
       for (const each of resultRows(editor)) {
-        if (each.id.startsWith('page:') || each.expanded !== undefined) continue;
+        if (/^(page|overview):|^calendar:split$/.test(each.id) || each.expanded !== undefined) {
+          continue;
+        }
         checked++;
         expect(each.crumbs, `${query}: ${each.key}`).not.toBe('');
         expect(each.meta, `${query}: ${each.key}`).toMatch(/(^|. · )YAML: [\w.[\]]+$/);

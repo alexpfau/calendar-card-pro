@@ -712,3 +712,102 @@ describe('the review’s findings', () => {
     expect(row(editor, 'actions:event_tap_action').meta).toMatch(/^Gehe zu · /);
   });
 });
+
+/** What the layers under this one draw, each reached with its value and where it stands. */
+describe('the controls the stack below added', () => {
+  const STACK = {
+    config_version: Config.CURRENT_CONFIG_VERSION,
+    entities: [
+      { entity: 'calendar.anna', color: '#e91e63' },
+      { entity: 'calendar.ben', blocklist: 'Dentist|Gym' },
+    ],
+    toolbar: { show: true },
+    start_date: 'today+1',
+    event_tap_action: { action: 'navigate', navigation_path: '/lovelace/0' },
+    background_color: 'var(--primary-color)',
+  };
+
+  async function stack(): Promise<MountedEditor> {
+    const localize = (key: string) => (key.endsWith('.navigate') ? 'Navigate' : '');
+    return mountEditor(STACK, { hass: { ...fakeHass({ states: STATES }), localize } });
+  }
+
+  it('words a color as the color control names it, shown or held back', async () => {
+    const editor = await stack();
+    await searchFor(editor, 'background color');
+    expect(row(editor, 'card:background_color').meta).toMatch(/^Home Assistant's primary color · /);
+    // A color a gate holds back, and another layout's, are worded the same way, never as CSS.
+    expect(row(editor, 'day_header:week_number_background_color').meta).toMatch(
+      /^Home Assistant's primary color, 31% · /,
+    );
+    expect(row(editor, 'layout:time_grid.weekend_background_color').meta).toMatch(
+      /^Primary Text, 4% · /,
+    );
+  });
+
+  it('reaches Split This Calendar on every entry, and opens one at its row', async () => {
+    const editor = await stack();
+    await searchFor(editor, 'split this');
+    expect(row(editor, 'calendar:split')).toMatchObject({
+      label: 'Split This Calendar',
+      crumbs: 'Calendars › Which Events',
+      meta: 'Entries: 2',
+      expanded: false,
+    });
+    await openResultGroup(editor, 'calendar:split');
+    const ben = resultRows(editor).find(({ label }) => label === 'Ben')!;
+    await chooseResult(editor, ben.key);
+    const keys = (editor as unknown as { _entryKeys: number[] })._entryKeys;
+    expect($(editor, '.entry-page')?.dataset.page).toBe(`entry:${keys[1]}`);
+    await editor.updateComplete;
+    expect(editor.shadowRoot!.activeElement).toBe($(editor, '[data-focus="split-row"]'));
+  });
+
+  it('reaches the calendar list, where calendars are reordered, by its name and by dragging', async () => {
+    const editor = await stack();
+    for (const query of ['calendars', 'drag', 'move']) {
+      await searchFor(editor, query);
+      expect(row(editor, 'overview:calendars'), query).toMatchObject({
+        label: 'Calendars',
+        meta: 'Entries: 2 · YAML: entities',
+      });
+    }
+    await chooseResult(editor, 'result:overview:calendars');
+    await editor.updateComplete;
+    expect(editor.shadowRoot!.activeElement?.textContent?.trim()).toBe('Calendars');
+    expect($(editor, '[data-focus="return"]')).not.toBeNull();
+  });
+
+  it('words a word list as its terms', async () => {
+    const editor = await stack();
+    await searchFor(editor, 'blocklist');
+    await openResultGroup(editor, 'calendar:blocklist');
+    expect(resultRows(editor).find(({ label }) => label === 'Ben')?.meta).toBe(
+      'Dentist, Gym · Set on This Calendar · YAML: entities[1].blocklist',
+    );
+  });
+
+  it('words Start Date’s shortcut and Tapping an Event as the overview shows them', async () => {
+    const editor = await stack();
+    await searchFor(editor, 'tomorrow');
+    expect(row(editor, 'content:start_date_mode').meta).toMatch(/^Tomorrow · /);
+    await searchFor(editor, 'tapping');
+    // Another action stored in its place: the switch gives way to it, and so does its value.
+    expect(row(editor, 'actions:event_opens_details').meta).toMatch(/^Navigate · /);
+  });
+
+  it('reaches the event-part chips and the toolbar’s controls, and opens at the chip', async () => {
+    const editor = await stack();
+    await searchFor(editor, 'end time');
+    expect(row(editor, 'events:show_end_time').meta).toMatch(/^On · /);
+    await searchFor(editor, 'refresh button');
+    expect(row(editor, 'card:toolbar.refresh').meta).toMatch(/^On · /);
+    await searchFor(editor, 'calendar filter');
+    expect(row(editor, 'card:toolbar.legend').meta).toMatch(/^Menu · /);
+    await searchFor(editor, 'end time');
+    await chooseResult(editor, 'result:events:show_end_time');
+    expect(editor.shadowRoot!.activeElement).toBe(
+      $(editor, 'button.chip[data-field="events:show_end_time"]'),
+    );
+  });
+});

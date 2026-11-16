@@ -106,6 +106,7 @@ function rows(language: string, query: string): Record<Family['scope'], string[]
     const { target } = entry;
     if (target.kind === 'page') found.page.push(target.page);
     else if (target.kind === 'ha-tab') found['ha-tab'].push(target.tab);
+    else if (target.kind === 'split' || target.kind === 'overview') continue;
     else {
       found[target.kind === 'field' ? 'card' : 'calendar'].push(parseFieldId(target.id).name);
     }

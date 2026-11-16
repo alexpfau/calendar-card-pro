@@ -334,12 +334,7 @@ const OPENS_DETAILS_FIELD: FieldId = 'actions:event_opens_details';
 /** Calendar Filter, drawn as a radio group of its options (section 5.9). */
 const LEGEND_FIELD: FieldId = 'card:toolbar.legend';
 
-/** The word lists, drawn as one term at a time while their pattern reads as terms. */
-const WORD_LIST_FIELDS: ReadonlySet<FieldId> = new Set([
-  'calendar:blocklist',
-  'calendar:allowlist',
-  'events:location_country_pattern',
-]);
+const { WORD_LIST_FIELDS } = WordLists;
 
 /** What a color control is drawn for (`element.ts` › `_renderColor`). */
 interface ColorArgs {
@@ -3990,7 +3985,8 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * A color field's spec, for describing its value: by the field's id where it has one, else by
-   * its node, the card's before an entry's, else by its name.
+   * its node, the card's before an entry's, else by its name, else, for an indexed field no owner
+   * draws here (a search result a gate or another layout holds back), its own.
    *
    * @param field - The field
    * @param ctx - Schema context
@@ -4016,7 +4012,12 @@ export class CalendarCardProEditor extends LitElement {
       }
       return undefined;
     };
-    return find((node) => node === field.node) ?? find((node) => node.name === field.node.name);
+    const found =
+      find((node) => node === field.node) ?? find((node) => node.name === field.node.name);
+    if (found !== undefined || field.id === undefined || !('dataPath' in field)) return found;
+    // A color a gate or another layout withholds here, which search still words: its own spec.
+    const own = field as IndexedField;
+    return Colors.colorSpecs({ fields: new Map([[own.id, own]]) }).get(own.id);
   }
 
   /**
@@ -4322,6 +4323,10 @@ export class CalendarCardProEditor extends LitElement {
         return `result:page:${target.page}`;
       case 'ha-tab':
         return `result:ha:${target.tab}`;
+      case 'split':
+        return `result:${Search.SPLIT_GROUP}:${target.key}`;
+      case 'overview':
+        return `result:overview:${target.block}`;
       default:
         return `result:${target.id}:${target.key}`;
     }
@@ -4413,9 +4418,11 @@ export class CalendarCardProEditor extends LitElement {
         marks: Search.highlight(first.entry.label, query),
         crumbs: [this._string(ctx, 'panel.calendars'), ...first.entry.crumbs.slice(1)],
         meta:
-          set === 0
-            ? t('search.calendars_none')
-            : interpolate(t('search.calendars_set'), { count: String(set) }),
+          first.entry.target.kind === 'split'
+            ? interpolate(t('calendars.entries'), { count: String(item.hits.length) })
+            : set === 0
+              ? t('search.calendars_none')
+              : interpolate(t('search.calendars_set'), { count: String(set) }),
         phrase: first.phrase ? { template: t('search.help_phrase'), ...first.phrase } : undefined,
         onOpen: () => {
           const next = new Set(this._openResults);
@@ -4446,7 +4453,8 @@ export class CalendarCardProEditor extends LitElement {
    * Chooses a result (section 5.8): a setting shown or waiting in an Add row opens at the field,
    * added where it waited; one a gate withholds opens at the setting that allows it; one stored
    * but not in use opens at its gate line's Reset; another layout's switches the scope first; a
-   * page opens. Home Assistant's tabs open nothing.
+   * page opens; Split This Calendar opens its entry's page at its row, and the calendar list the
+   * overview at the list. Home Assistant's tabs open nothing.
    *
    * @param entry - The result
    * @param focusKey - Its row's `data-focus` key, which Back restores focus to
@@ -4458,6 +4466,32 @@ export class CalendarCardProEditor extends LitElement {
     if (target.kind === 'page') {
       this._leaveResults({ kind: 'page', page: target.page }, focusKey);
       void this._afterMove();
+      return;
+    }
+    if (target.kind === 'split' || target.kind === 'overview') {
+      if (target.kind === 'split') this._leaveResults({ kind: 'entry', key: target.key }, focusKey);
+      else {
+        // The overview draws its list in place of the results, which Return to Results restores.
+        this._resultsLeft = {
+          route: this._nav.route,
+          scrollTop: Focus.scrollPosition(this),
+          focusKey,
+          search: { query: this._filter.query, editHere: this._editHere },
+        };
+        this._jump = undefined;
+      }
+      void this.updateComplete.then(() => {
+        const root = this.renderRoot;
+        const place =
+          target.kind === 'split'
+            ? root.querySelector<HTMLElement>(Focus.byFocusKey('split-row'))
+            : root.querySelector<HTMLElement>('[data-heading="calendars"] > .heading');
+        if (place) {
+          Focus.scrollToTopSettled(this, place);
+          place.focus({ preventScroll: true });
+        }
+        this._say(interpolate(this._string(ctx, 'search.showing'), { label: entry.label }));
+      });
       return;
     }
     switch (status.kind) {

@@ -32,6 +32,7 @@ import {
 } from './field-index';
 import { needsText } from './gates';
 import * as EditorLocalize from './localize';
+import { CALENDARS_BLOCK } from './pages';
 import {
   type Appearance,
   ENTRY_GROUPS,
@@ -47,6 +48,8 @@ import * as Routing from './routing';
 import * as Shown from './shown';
 import { interpolate } from './strings';
 import { type Describe, wordValue } from './summary';
+import { eventTapReading } from './synthetic';
+import { WORD_LIST_FIELDS, fromPattern } from './word-lists';
 import type { EditorWorkspace } from './workspace';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
@@ -68,10 +71,17 @@ export type SearchTarget =
   | { readonly kind: 'entry-field'; readonly id: FieldId; readonly key: number }
   | { readonly kind: 'button-field'; readonly id: FieldId; readonly key: number }
   | { readonly kind: 'page'; readonly page: PageId }
-  | { readonly kind: 'ha-tab'; readonly tab: HaTab };
+  | { readonly kind: 'ha-tab'; readonly tab: HaTab }
+  /** Split This Calendar, at the top of an entry's Which Events. */
+  | { readonly kind: 'split'; readonly key: number }
+  /** A block of the overview's own: the calendar list, where calendars are also reordered. */
+  | { readonly kind: 'overview'; readonly block: 'calendars' };
 
 /** A result that opens a field. */
-export type FieldTarget = Exclude<SearchTarget, { kind: 'page' } | { kind: 'ha-tab' }>;
+export type FieldTarget = Extract<
+  SearchTarget,
+  { kind: 'field' } | { kind: 'entry-field' } | { kind: 'button-field' }
+>;
 
 /** Where a field stands here, which its row's tag and what choosing it does follow. */
 export type ResultStatus =
@@ -155,6 +165,9 @@ export interface SearchCtx extends SchemaCtx {
   readonly t: (key: string) => string;
   readonly describe?: Describe;
 }
+
+/** Tapping an Event Opens It, which reads as the action stored in its place. */
+const OPENS_DETAILS: FieldId = 'actions:event_opens_details';
 
 /** Letters NFD leaves whole, as they fold. */
 const FOLD_TABLE: Readonly<Record<string, string>> = {
@@ -361,6 +374,19 @@ function folded(texts: Texts): SearchEntry['text'] {
  * @returns The words, or `undefined` to show none
  */
 function valueWords(field: IndexedField, value: unknown, ctx: SearchCtx): string | undefined {
+  // A word list reads as its terms, as its control shows them, while its pattern reads as terms.
+  if (WORD_LIST_FIELDS.has(field.id) && typeof value === 'string' && value !== '') {
+    const terms = fromPattern(value);
+    if (terms !== undefined) return terms.join(', ');
+  }
+  // Tapping an Event Opens It gives way to the action stored in its place.
+  if (field.id === OPENS_DETAILS && eventTapReading(ctx.config) === 'other') {
+    const action = ctx.config.event_tap_action;
+    return (
+      ctx.describe?.({ node: { name: 'event_tap_action', selector: { ui_action: {} } } }, action) ??
+      String(action?.action)
+    );
+  }
   const empty =
     value === undefined ||
     value === null ||
@@ -772,6 +798,66 @@ function entryRows(owner: SearchOwner, ctx: SearchCtx): SearchEntry[] {
 }
 
 /**
+ * Split This Calendar on one entry: found by its name, the line under it and the entry's identity,
+ * under the heading it opens at the top of.
+ *
+ * @param owner - The entry
+ * @param ctx - The index's context
+ * @returns Its row
+ */
+function splitRow(owner: SearchOwner, ctx: SearchCtx): SearchEntry {
+  const config = Entities.asEntityConfig(owner.entry as Types.EntityConfig);
+  const label = ctx.t('split.title');
+  const group = ENTRY_GROUPS.find((each) =>
+    each.fields.some(([id]) => id === 'calendar:blocklist'),
+  )?.key;
+  return {
+    target: { kind: 'split', key: owner.key },
+    label,
+    yamlPath: '',
+    crumbs: [Entities.entityDisplayName(config.entity, ctx.hass), ...(group ? [ctx.t(group)] : [])],
+    status: { kind: 'info' },
+    tier: 1,
+    text: folded([
+      [label, 'label'],
+      [EditorLocalize.lookup('en', 'split.title'), 'label'],
+      [ctx.t('split.row_helper'), 'helper'],
+      ...calendarTexts(owner.entry, ctx),
+    ]),
+  };
+}
+
+/**
+ * The overview's calendar list: found by its title and by the words of reordering it, with the
+ * number of entries as its value.
+ *
+ * @param ctx - The index's context
+ * @returns Its row
+ */
+function calendarsRow(ctx: SearchCtx): SearchEntry {
+  const label = ctx.t(CALENDARS_BLOCK.titleKey);
+  // "Drag to move {name}, or press Space", without the calendar it names.
+  const reorder = ctx.t('reorder.tooltip').replace(/\{\w+\}/g, '');
+  return {
+    target: { kind: 'overview', block: 'calendars' },
+    label,
+    yamlPath: 'entities',
+    crumbs: [ctx.t('search.overview')],
+    value: interpolate(ctx.t('calendars.entries'), {
+      count: String((ctx.config.entities ?? []).length),
+    }),
+    status: { kind: 'live' },
+    tier: 0,
+    text: folded([
+      [label, 'label'],
+      [EditorLocalize.lookup('en', CALENDARS_BLOCK.titleKey), 'label'],
+      ['entities', 'key'],
+      [reorder, 'helper'],
+    ]),
+  };
+}
+
+/**
  * Rows for each field of one toolbar button, found by its own text and by the button's identity.
  *
  * @param owner - The button
@@ -814,6 +900,7 @@ export function buildSearchIndex(ctx: SearchCtx): ReadonlyArray<SearchEntry> {
     const row = cardRow(place, ctx);
     if (row) rows.push(row);
   };
+  rows.push(calendarsRow(ctx));
   for (const [id, appearance] of OVERVIEW_FIELDS) take({ id, appearance });
   const workspace = ctx.workspace ?? ctx.view;
   for (const page of PAGES) {
@@ -832,7 +919,7 @@ export function buildSearchIndex(ctx: SearchCtx): ReadonlyArray<SearchEntry> {
       }
     }
   }
-  for (const owner of ctx.entries) rows.push(...entryRows(owner, ctx));
+  for (const owner of ctx.entries) rows.push(...entryRows(owner, ctx), splitRow(owner, ctx));
   rows.push(...haTabRows(ctx));
   return rows;
 }
@@ -1092,23 +1179,30 @@ export type ResultItem =
  * @returns The items, in the same order
  */
 export function collapse(hits: ReadonlyArray<SearchHit>): ResultItem[] {
+  // Split This Calendar folds as a field of every entry does.
+  const groupOf = (target: SearchTarget): FieldId | undefined =>
+    target.kind === 'entry-field' ? target.id : target.kind === 'split' ? SPLIT_GROUP : undefined;
   const byField = new Map<FieldId, SearchHit[]>();
   for (const hit of hits) {
-    if (hit.entry.target.kind !== 'entry-field') continue;
-    const list = byField.get(hit.entry.target.id) ?? [];
+    const id = groupOf(hit.entry.target);
+    if (id === undefined) continue;
+    const list = byField.get(id) ?? [];
     list.push(hit);
-    byField.set(hit.entry.target.id, list);
+    byField.set(id, list);
   }
   const items: ResultItem[] = [];
   for (const hit of hits) {
-    const target = hit.entry.target;
-    const group = target.kind === 'entry-field' ? byField.get(target.id) : undefined;
-    if (target.kind !== 'entry-field' || group === undefined || group.length < 2) {
+    const id = groupOf(hit.entry.target);
+    const group = id === undefined ? undefined : byField.get(id);
+    if (id === undefined || group === undefined || group.length < 2) {
       items.push({ kind: 'hit', hit });
-    } else if (group[0] === hit) items.push({ kind: 'calendars', id: target.id, hits: group });
+    } else if (group[0] === hit) items.push({ kind: 'calendars', id, hits: group });
   }
   return items;
 }
+
+/** The id Split This Calendar's rows fold under. */
+export const SPLIT_GROUP: FieldId = 'calendar:split';
 
 /**
  * Where a label shows the query's words, to mark them: the first place each word occurs, in the
