@@ -228,8 +228,14 @@ describe('the keyboard grab', () => {
     expect(said(editor)).toBe(
       'Anna, position 1 of 5. ↑ ↓ move it, Space drops it, Esc puts it back.',
     );
+    const scrolled = vi.spyOn(HTMLElement.prototype, 'scrollIntoView');
     await key(editor, anna, 'ArrowDown');
     expect(said(editor)).toBe('Anna, position 2 of 5.');
+    // The held row is kept in sight.
+    expect(scrolled).toHaveBeenLastCalledWith({ block: 'nearest' });
+    expect(scrolled.mock.contexts[scrolled.mock.contexts.length - 1]).toBe(
+      anna.closest('.cal-group'),
+    );
     await key(editor, anna, 'ArrowDown');
     expect(said(editor)).toBe('Anna, position 3 of 5.');
     // The list shows the preview order; nothing is written while Anna is held.

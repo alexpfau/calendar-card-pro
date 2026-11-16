@@ -3192,6 +3192,9 @@ export class CalendarCardProEditor extends LitElement {
     } else if (grab?.key === key && arrow !== 0) {
       this._grab = Reorder.moveBy(grab, arrow);
       this._sayGrab(this._grab, false);
+      // The held row stays in sight as it moves past the edge of what scrolls the editor.
+      const row = (event.currentTarget as Element).closest('[data-reorder]');
+      void this.updateComplete.then(() => row?.scrollIntoView?.({ block: 'nearest' }));
     } else {
       return;
     }
