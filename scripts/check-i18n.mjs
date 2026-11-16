@@ -1308,6 +1308,9 @@ const IDENTICAL_TO_ENGLISH_ANY_LANGUAGE = new Set([
  * Keyed `lang:key`. Each entry is a loanword the language genuinely uses, not a gap.
  */
 const IDENTICAL_TO_ENGLISH_OK = new Set([
+  // Korean quotes typed words with the same curly double quotes as English.
+  'ko:summary.quoted',
+
   // `Label` is a German loanword in Home Assistant's own UI.
   'de:entity.label',
   'de:view',

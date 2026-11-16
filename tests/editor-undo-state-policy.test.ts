@@ -37,6 +37,8 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_quickSetup',
     '_filter',
     '_banner',
+    // Whether a fresh card's first focus was placed.
+    '_greeted',
     '_scopeChanged',
     '_scopeOpen',
     '_status',

@@ -1710,12 +1710,26 @@ export default css`
     background: var(--cal-dot, var(--primary-color));
   }
 
+  /* One slot on every row of a list where any calendar has a label, so the names align. A text
+     label wider than it is cut. */
   .cal-badge {
     flex: none;
-    max-width: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
     overflow: hidden;
     font-size: 18px;
     line-height: 1;
+    white-space: nowrap;
+    --mdc-icon-size: 22px;
+  }
+
+  .cal-badge img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
   }
 
   .cal-text {

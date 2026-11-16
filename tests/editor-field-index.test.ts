@@ -25,6 +25,7 @@ import {
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
+import { HELPER_FOR_VALUE } from '../src/rendering/editor/entities';
 import {
   type FieldId,
   type IndexedField,
@@ -242,7 +243,7 @@ describe('field ids', () => {
       `Field ids: ${leaves} leaves over ${DISTINCT.length} distinct corpus states, ` +
         `${EVERY_FIELD.size} ids in all.`,
     );
-    expect(EVERY_FIELD.size).toBe(223);
+    expect(EVERY_FIELD.size).toBe(222);
   });
 
   it('do not depend on the editor language', () => {
@@ -778,10 +779,19 @@ describe('the index builds what the editor draws today', () => {
           if (computeLabel(ctx.language, node, []) !== answer.label) labels.nestedDiffer += 1;
         }
       }
-      const indexed = fresh.map(({ field }) => ({
-        label: fieldLabel(field, ctx.language),
-        helper: fieldHelper(field, ctx),
-      }));
+      // A calendar's field whose helper speaks of one value shows it only while it holds it.
+      const indexed = fresh.map(({ form, field }) => {
+        const helped = field.id.startsWith('calendar:')
+          ? HELPER_FOR_VALUE[field.node.name]
+          : undefined;
+        return {
+          label: fieldLabel(field, ctx.language),
+          helper:
+            helped === undefined || form.data[field.node.name] === helped
+              ? fieldHelper(field, ctx)
+              : undefined,
+        };
+      });
       fresh.forEach(({ field, reads }, at) => {
         const today = resolved.get(reads)!;
         labels.compared += 1;

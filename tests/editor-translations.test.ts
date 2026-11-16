@@ -181,13 +181,12 @@ describe('the mined translations carry meaning, not just key names', () => {
     expect(lookup('de', 'entity')).toBe('Wetter-Entität');
   });
 
-  it('does not swap the two language options', () => {
-    // The pair that proves name-matching is unsafe rather than merely imprecise. Across
-    // the namespaces these two keys exchanged meanings: old `language` is new
-    // `language_mode`, and old `language_code` is new `language`. Mined by name, both
-    // labels would be wrong, and wrong in a way that reads as plausible.
+  it('does not swap the language options', () => {
+    // The pair that proved name-matching unsafe rather than merely imprecise: old `language`
+    // was new `language_mode`, and old `language_code` new `language`. Language is now one
+    // dropdown, and its label is still the mode's.
     expect(lookup('de', 'language_mode')).toBe('Sprache');
-    expect(lookup('de', 'language')).toBe('Sprachcode');
+    expect(lookup('de', 'language')).toBeUndefined();
   });
 
   it('translates no key the editor cannot look up', () => {

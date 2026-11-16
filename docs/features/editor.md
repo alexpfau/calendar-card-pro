@@ -18,7 +18,7 @@ rest. Top to bottom:
 | Part                           | What it does                                                                                                             |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
 | **Notices**                    | Only when the YAML holds [options the card ignores](#options-the-card-ignores) or [removed options](#deprecated-options) |
-| **Quick Setup**                | On a fresh card, a banner offering [Quick Setup](#quick-setup)                                                           |
+| **Quick Setup**                | On a fresh card, a banner offering [Quick Setup](#quick-setup), which takes focus as the editor opens                    |
 | **Search**, **Undo**, **Redo** | [Search](#search) every setting; [Undo and Redo](#undo-redo) the last change                                             |
 | **⋯ Editor Preferences**       | [Show Every Setting](#show-every-setting) and Show YAML Option Names, at the end of the search row                       |
 | **Settings For**               | Which layout's settings the pages edit; see [Options for the Selected View](#options-for-the-selected-view)              |
@@ -355,26 +355,31 @@ Column's two substitutions are listed in
 ## 📅 Calendars
 
 The overview's **Calendars** block lists the calendars on the card, a row each, and opens a page
-for each one. A row shows the calendar's color, its name and what it shows, such as **All-day
-events** or **Events with a time · Without: Private**, then how many of its settings it sets.
-From eight calendars on, **Filter Calendars** above the list narrows it by name.
+for each one. A row shows the calendar's color, [its label](#per-calendar-labels), its name and
+what it shows, such as **All-day events** or **Events with a time · Without: Private**, then how
+many of its settings it sets. Every kind of label shows, text, emoji, icon and picture alike, as
+the card draws it, and once any calendar has one, every row keeps room for it so the names line
+up. From eight calendars on, **Filter Calendars** above the list narrows it by name.
 
-**+ Add Calendar** offers Home Assistant's calendar picker. Choosing a calendar does nothing yet;
+**+ Add Calendar** offers Home Assistant's calendar picker, with focus in it, ready to type a
+calendar's name. Choosing a calendar does nothing yet;
 **Add** puts it on the card and opens its page. The picker leaves out the calendars already on
 the card; where a Home Assistant release still offers one, the editor says **Anna is already on
 the card.** and offers **Open Anna** instead.
 
 A calendar listed more than once in `entities:` is one calendar with several **entries**, each
 with its own settings. Its calendar row heads the group, counting its entries, with a row for each
-entry indented under it, told apart by what each one shows. That is how one calendar can show its all-day
+entry indented under it, numbered and told apart by what each one shows, as in **2 · Events with
+a time**. An entry that keeps exactly the events an earlier one keeps says so, as in **Same events
+as entry 1**: each of those events then shows twice. That is how one calendar can show its all-day
 events in one color and its timed events in another; [Split This Calendar](#split-this-calendar)
 builds it in one step.
 
 ### Entry Pages
 
 A calendar's row opens its page; for a calendar with several entries, each entry's row opens
-that entry's page. Its header names the calendar and,
-where there are several, which entry it is, as in **Entry 2 of 3**. **Previous Calendar** and
+that entry's page. Its heading names the calendar and,
+where there are several, which entry it is, as in **Anna · Entry 2 of 3**. **Previous Calendar** and
 **Next Calendar** step through the list without going Back. The page holds these headings:
 
 | Heading              | What it holds                                                                                                                                                                       |
@@ -407,13 +412,13 @@ Each row's ⋮ opens its actions, and an entry page's ⋮ holds that entry's. A 
 entry offers them all on its row. A calendar with several splits them: its calendar row moves or
 removes the whole calendar, and each entry row duplicates, copies, pastes or removes that entry.
 
-| Action                                      | What it does                                                                                    |
-| ------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| **Move Up**, **Move Down**, **Move to Top** | Moves the calendar, with all its entries; see [Reordering](#reordering)                         |
-| **Duplicate**                               | Adds a second entry for the calendar, carrying this one's settings                              |
-| **Copy Settings**                           | Takes this entry's settings, without the calendar itself, its name or Show in Calendar Filter   |
-| **Paste Settings**                          | Applies them to this entry, keeping the calendar it reads, its name and Show in Calendar Filter |
-| **Remove**                                  | On an entry, drops that entry; on a calendar's own row, removes the calendar with every entry   |
+| Action                                      | What it does                                                                                                                       |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **Move Up**, **Move Down**, **Move to Top** | Moves the calendar, with all its entries; see [Reordering](#reordering)                                                            |
+| **Duplicate**                               | Adds a second entry for the calendar, carrying this one's settings                                                                 |
+| **Copy Settings**                           | Takes this entry's settings, without the calendar itself, its name or Show in Calendar Filter                                      |
+| **Paste Settings**                          | Applies them to this entry, keeping the calendar it reads, its name and Show in Calendar Filter                                    |
+| **Remove**                                  | On an entry, drops that entry; on a calendar's own row, removes the calendar with every entry, as **Remove Anna (2 entries)** says |
 
 - **Remove asks nothing.** A line takes the row's place, such as **Removed Ben · Undo**, and
   **Undo** puts it back exactly.
@@ -526,9 +531,9 @@ Each page shows its essential settings, plus every setting this card holds a val
 it is stored here or inherited. The rest of a heading's settings wait in its **Add Setting**
 row, which names them and counts them, as in **Accent · Add Setting** over **Use Calendar
 Colors For Event Text · Accent Color · Accent Bar Width · Event Background Opacity**, **Settings:
-4**; a long list names the first few and ends **+3**. Opening it lists every one, with
+4**; a long list names the first few and ends **+3**. The count counts the settings it names. Opening it lists every one, with
 **Show All** to add them together; choosing one adds its control with
-focus on it, and writes nothing until you change it.
+focus in it, ready to type into, and writes nothing until you change it.
 
 - **Removing** a setting you added, or one that holds a value, resets it: its line leaves the
   YAML, and it goes back to its Add Setting row. Its control offers **Remove Setting** where
@@ -633,7 +638,8 @@ that step, so an option written at its default or a line the editor would otherw
 comes back as it was.
 
 Outside a text field, Ctrl+Z (⌘Z on a Mac) undoes, and Ctrl+Y or Ctrl+Shift+Z (⌘⇧Z) redoes.
-Inside one, those keys stay the text field's own. Undo opens the page the change was made on.
+Inside one, those keys stay the text field's own. Undo opens the page the change was made on,
+and says so, as in **Undid: Change Description. Showing Events.**
 
 The history lasts while the editor is open. A change made outside it, such as an edit in Home
 Assistant's code editor, ends what Undo can reach.

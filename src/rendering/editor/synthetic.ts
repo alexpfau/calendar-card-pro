@@ -11,6 +11,7 @@ import {
 } from '../../config/constants';
 import * as Types from '../../config/types';
 import { eventActionKind } from '../../interaction/event-action-kind';
+import { CARD_LANGUAGES } from '../../translations/language-codes';
 import * as EntityColors from '../../utils/entity-colors';
 import * as Helpers from '../../utils/helpers';
 import * as StartDate from '../../utils/start-date';
@@ -59,8 +60,6 @@ const FIXED_DATE_PATTERN = /^(\d{4}-\d{2}-\d{2})(?:[T\s].*)?$/;
 const FALLBACK_BOUNDED_HEIGHT = '300px';
 
 const INITIAL_OFFSET = '+0';
-
-const INITIAL_LANGUAGE = 'en';
 
 const INITIAL_INDICATOR_ICON = 'mdi:calendar-today';
 
@@ -221,14 +220,20 @@ export function heightMode(config: Readonly<Types.Config>): 'auto' | 'fixed' | '
   return 'auto';
 }
 
+/** Language's one dropdown: Follow Home Assistant, then every language the card speaks. */
+export const LANGUAGE_CHOICES: ReadonlyArray<string> = ['system', ...CARD_LANGUAGES];
+
 /**
- * Derives whether the card follows Home Assistant's language or names its own.
+ * Derives the language the card names, as Language's dropdown offers it: a language the card
+ * speaks, in any case, else Home Assistant's, which is what the card falls back to for a code
+ * it does not speak.
  *
  * @param config - Current configuration
- * @returns Which language control applies
+ * @returns `system`, or a card language's code
  */
-export function languageMode(config: Readonly<Types.Config>): 'system' | 'custom' {
-  return config.language !== undefined && config.language !== null ? 'custom' : 'system';
+export function languageMode(config: Readonly<Types.Config>): string {
+  const code = typeof config.language === 'string' ? config.language.trim().toLowerCase() : '';
+  return (CARD_LANGUAGES as ReadonlyArray<string>).includes(code) ? code : 'system';
 }
 
 /**
@@ -523,11 +528,9 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   language_mode: {
     configKeys: ['language'],
     derive: (config) => languageMode(config),
-    apply: (value, config) =>
-      value === 'custom'
-        ? {
-            changes: { language: isSet(config.language) ? config.language : INITIAL_LANGUAGE },
-          }
+    apply: (value) =>
+      typeof value === 'string' && value !== 'system'
+        ? { changes: { language: value } }
         : { changes: { language: undefined } },
   },
 

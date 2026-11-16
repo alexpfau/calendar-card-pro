@@ -213,7 +213,6 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['card:title_color', A],
           ['card:background_color', A],
           ['content:language_mode', A],
-          ['content:language', withMode('content:language_mode')],
         ],
       },
       {

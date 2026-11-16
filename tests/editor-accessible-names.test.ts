@@ -116,7 +116,7 @@ describe('a row action is named by the words it shows, then whose it is', () => 
     }
     expect(checked).toContain('Move Up: Ben');
     expect(checked).toContain('Move to Top: Ben');
-    expect(checked).toContain('Remove This Entry: Family, All-day events');
+    expect(checked).toContain('Remove This Entry: Family, entry 1, All-day events');
   });
 
   it('at the foot of an entry page', async () => {
@@ -124,7 +124,9 @@ describe('a row action is named by the words it shows, then whose it is', () => 
     await goEntry(editor, keysOf(editor, 'entry')[3]);
     const remove = control(editor, 'entry-remove');
     expect(words(remove.textContent)).toBe('Remove This Entry');
-    expect(remove.getAttribute('aria-label')).toBe('Remove This Entry: Family, Events with a time');
+    expect(remove.getAttribute('aria-label')).toBe(
+      'Remove This Entry: Family, entry 2, Events with a time',
+    );
   });
 });
 
