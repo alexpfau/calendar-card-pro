@@ -62,7 +62,7 @@ const weatherSchema = Helpers.memoizeLast(
       if (position === 'date' || position === 'both') {
         inside.push(
           blockScope('date', [
-            { ...bool('show_conditions'), titleKey: 'show_conditions' },
+            bool('show_conditions'),
             bool('show_high_temp'),
             bool('show_low_temp'),
             ...uvIndexFields(dateUvIndex),
