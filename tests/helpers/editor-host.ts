@@ -4,10 +4,12 @@
  * A test names a field by its id, as `src/rendering/editor/field-index.ts` builds it:
  * `events:show_time`, `layout:time_grid.start_time`, `calendar:name`, `button:icon`. It names
  * an owner where the id repeats, because two calendars, two blocks of one calendar and two
- * toolbar buttons each draw the same ids. This module is the one place that knows how today's
- * editor draws its forms. The redesign changes that several times: closed panels stop mounting
- * their forms, entries and buttons gain stable keys, panels become pages. Each of those changes
- * this module and leaves the tests that go through it alone.
+ * toolbar buttons each draw the same ids. An entry or a button is named by its place in the list,
+ * or by the key the editor gives it, which stays with it wherever the list moves it. This module is
+ * the one place that knows how today's editor draws its forms. The redesign changes that several
+ * times: closed panels stopped mounting their forms, entries and buttons gained stable keys,
+ * panels become pages. Each of those changes this module and leaves the tests that go through it
+ * alone.
  *
  * Today every form is an `ha-form`, told apart by the class the editor gives it:
  *
@@ -84,14 +86,16 @@ export type MountedEditor = CalendarCardProEditor & {
 };
 
 /**
- * Who draws a form. An entry is a calendar block by its position in `entities`, and a button
- * by its position in `toolbar.buttons`; with no index, either means any of them.
+ * Who draws a form. An entry is a calendar block, and a button a toolbar button, by its position
+ * in `entities` or `toolbar.buttons`, or by the key the editor gives it (`keysOf`), which stays with
+ * it wherever the list moves it; with neither, either means any of them. Named by its key, an entry
+ * or a button is also an owner as the editor writes for one (`write-frames.ts` › `WriteOwner`).
  */
 export type Owner =
   | { readonly kind: 'card' }
   | { readonly kind: 'chassis' }
-  | { readonly kind: 'entry'; readonly index?: number }
-  | { readonly kind: 'button'; readonly index?: number };
+  | { readonly kind: 'entry'; readonly index?: number; readonly key?: number }
+  | { readonly kind: 'button'; readonly index?: number; readonly key?: number };
 
 /** The card's own settings: the panels' forms and the toolbar buttons' caption. */
 export const CARD: Owner = { kind: 'card' };
@@ -101,23 +105,26 @@ export const CHASSIS: Owner = { kind: 'chassis' };
 
 /**
  * A calendar block, by its position in the configuration's `entities`, not among the panels
- * drawn: a search can leave out the panels before it.
+ * drawn: a search can leave out the panels before it. Or by its key, which a removal above it, a
+ * duplicate or the calendar picker does not move.
  *
- * @param index - Position in `entities`; every block when omitted
+ * @param at - Position in `entities`, or `{ key }`; every block when omitted
  * @returns The owner
  */
-export function entry(index?: number): Owner {
-  return index === undefined ? { kind: 'entry' } : { kind: 'entry', index };
+export function entry(at?: number | { readonly key: number }): Owner {
+  if (at === undefined) return { kind: 'entry' };
+  return typeof at === 'number' ? { kind: 'entry', index: at } : { kind: 'entry', key: at.key };
 }
 
 /**
- * A toolbar button, by its position in `toolbar.buttons`.
+ * A toolbar button, by its position in `toolbar.buttons`, or by its key.
  *
- * @param index - Position in the list; every button when omitted
+ * @param at - Position in the list, or `{ key }`; every button when omitted
  * @returns The owner
  */
-export function button(index?: number): Owner {
-  return index === undefined ? { kind: 'button' } : { kind: 'button', index };
+export function button(at?: number | { readonly key: number }): Owner {
+  if (at === undefined) return { kind: 'button' };
+  return typeof at === 'number' ? { kind: 'button', index: at } : { kind: 'button', key: at.key };
 }
 
 /** Chassis forms, by class, with the scope their ids take. */
@@ -136,6 +143,8 @@ interface Drawn {
   readonly kind: Owner['kind'];
   /** Position in `entities` or `toolbar.buttons`, for an entry's or a button's form. */
   readonly index?: number;
+  /** The key the editor gives that entry or button. */
+  readonly key?: number;
   readonly scope: string;
   /** Place among every form the editor draws, counted from 1, to tell two forms apart. */
   readonly place: number;
@@ -153,9 +162,9 @@ interface Found extends Drawn {
 }
 
 /**
- * The editor's private state the harness reads, until entries carry keys of their own (PR 4):
- * nothing on a drawn calendar panel says which block it is, and a filter can leave any of them
- * out.
+ * The editor's private state the harness reads: the configuration it holds, the contexts its
+ * builders and its filter read, and the key it gives each entry and each button, which a drawn
+ * panel names (`data-entry-key`, `data-button-key`).
  */
 interface EditorState {
   readonly _config?: Types.Config;
@@ -163,6 +172,8 @@ interface EditorState {
   readonly _ctx: SchemaCtx;
   /** The context the filter matches against (`element.ts` › `_filterCtx`). */
   readonly _filterCtx: Filter.FilterCtx;
+  /** A key per calendar entry, in list order (`element.ts` › `_entryKeysFor`). */
+  readonly _entryKeys?: ReadonlyArray<number>;
   /** A key per toolbar button, in list order (`element.ts` › `_buttonKeysFor`). */
   readonly _buttonKeys?: ReadonlyArray<number>;
 }
@@ -201,15 +212,18 @@ function outOfStep(what: string): never {
 }
 
 /**
- * Which calendar block each drawn calendar panel belongs to.
+ * Which calendar block each drawn calendar panel belongs to, by the key the editor gives each
+ * block's panel (`data-entry-key`) and keeps in list order. Two blocks of one calendar can hold the
+ * same form data, so the key is what tells them apart.
  *
- * Two blocks of one calendar can hold the same form data, a block's form showing the calendar's
- * shared settings and the defaults it never wrote, while a filter keeps only one of them:
- * Customized Only and Essentials Only read what each block wrote. So this first asks what
- * `element.ts` › `_renderEntities` asks, which blocks keep a field under the filter, with the
- * schema it builds (`field-index.ts` › `entrySchema`) and the editor's own filter context, and
- * pairs the n-th panel with the n-th block kept. Each panel's forms must then hold that block's
- * data; where they do not, the helper fails rather than guess.
+ * The key is the editor's own word for it, so the panels are also held to what the harness works
+ * out on its own: the blocks `element.ts` › `_renderEntities` must draw, each keeping a field under
+ * the filter, as the schema `field-index.ts` › `entrySchema` builds and the editor's own filter
+ * context reads it. Customized Only and Essentials Only read what each block wrote, so this keeps
+ * apart two blocks showing the same data. The panels must be those blocks', as many, one each and
+ * in list order, and each panel's forms must hold its block's data. Where any of that fails, the
+ * helper fails rather than guess: a panel the editor stopped drawing would otherwise read as an
+ * entry drawing no form.
  *
  * @param editor - Editor element
  * @param root - Its shadow root
@@ -220,7 +234,12 @@ function entryIndexes(editor: EditorElement, root: ShadowRoot): Map<Element, num
   const panels = [...root.querySelectorAll('ha-expansion-panel.entity-panel')];
   if (panels.length === 0) return indexes;
 
-  const { _config: config, _ctx: ctx, _filterCtx: filterCtx } = stateOf(editor);
+  const {
+    _config: config,
+    _ctx: ctx,
+    _filterCtx: filterCtx,
+    _entryKeys: keys = [],
+  } = stateOf(editor);
   const entries = config?.entities ?? [];
   const kept = entries.flatMap((item, index) =>
     Filter.hasFields(
@@ -234,15 +253,26 @@ function entryIndexes(editor: EditorElement, root: ShadowRoot): Map<Element, num
       `The editor draws ${panels.length} calendar panels where its filter keeps ${kept.length}`,
     );
   }
+  const drawn = panels.map((panel) => panel.getAttribute('data-entry-key'));
+  const twice = drawn.find((key, at) => drawn.indexOf(key) !== at);
+  if (twice !== undefined) outOfStep(`Two calendar panels are keyed ${twice ?? 'nothing'}`);
 
   panels.forEach((panel, at) => {
-    const index = kept[at];
+    const key = drawn[at];
+    const index = key === null ? -1 : keys.indexOf(Number(key));
+    if (index < 0 || index >= entries.length) {
+      outOfStep(`A calendar panel keyed ${key ?? 'nothing'} matches no entry`);
+    }
+    if (index !== kept[at]) {
+      outOfStep(
+        `Calendar panel ${at + 1} is keyed for entry ${index}, where the filter keeps entry ` +
+          `${kept[at]} in its place`,
+      );
+    }
     const data = Entities.toEntityFormData(entries[index], entries);
     for (const form of panel.querySelectorAll<FormElement>('ha-form.entity-form')) {
       if (!Value.deepEqual(form.data, data)) {
-        outOfStep(
-          `Calendar panel ${at + 1} should be entry ${index}, yet its form holds other data`,
-        );
+        outOfStep(`The panel of entry ${index} holds another entry's data`);
       }
     }
     indexes.set(panel, index);
@@ -303,6 +333,17 @@ function panelScope(form: FormElement): string {
   return named[0].id;
 }
 
+/**
+ * The key an entry's or a button's panel names.
+ *
+ * @param panel - The panel, if any
+ * @returns Its key, or undefined where it names none
+ */
+function keyOf(panel: Element | null): number | undefined {
+  const key = panel?.getAttribute('data-entry-key') ?? panel?.getAttribute('data-button-key');
+  return key === null || key === undefined ? undefined : Number(key);
+}
+
 /** The scope of every form a helper has placed, kept for one a render has since replaced. */
 const formScopes = new WeakMap<Element, string>();
 
@@ -329,12 +370,12 @@ function placeForm(
   if (classes.contains('entity-form')) {
     const panel = form.closest('ha-expansion-panel.entity-panel');
     const index = panel === null ? undefined : entries.get(panel);
-    return { form, kind: 'entry', index, scope: 'calendar', place };
+    return { form, kind: 'entry', index, key: keyOf(panel), scope: 'calendar', place };
   }
   if (classes.contains('button-form')) {
     const panel = form.closest('ha-expansion-panel.button-panel');
     const index = panel === null ? undefined : buttons.get(panel);
-    return { form, kind: 'button', index, scope: 'button', place };
+    return { form, kind: 'button', index, key: keyOf(panel), scope: 'button', place };
   }
   const chassis = Object.keys(CHASSIS_FORMS).find((name) => classes.contains(name));
   if (chassis !== undefined) {
@@ -463,10 +504,12 @@ function impliedOwner(scope: string): Owner {
  *
  * @param kind - Owner kind
  * @param index - Its position, where it has one
+ * @param key - Its key, where it is named by one
  * @returns The name
  */
-function ownerName(kind: Owner['kind'], index?: number): string {
+function ownerName(kind: Owner['kind'], index?: number, key?: number): string {
   if (kind === 'card' || kind === 'chassis') return `the ${kind}`;
+  if (key !== undefined) return `the ${kind} keyed ${key}`;
   return index === undefined ? `any ${kind}` : `${kind} ${index}`;
 }
 
@@ -504,18 +547,27 @@ function listed(names: ReadonlyArray<string>): string {
 function belongsTo(drawn: Drawn, owner: Owner): boolean {
   if (drawn.kind !== owner.kind) return false;
   if (owner.kind !== 'entry' && owner.kind !== 'button') return true;
+  if (owner.key !== undefined) return drawn.key === owner.key;
   return owner.index === undefined || drawn.index === owner.index;
 }
 
 /**
- * Fails on an entry or a button the configuration does not hold, so a mistyped position is
- * not read as one drawing nothing.
+ * Fails on an entry or a button the configuration does not hold, so a mistyped position or key
+ * is not read as one drawing nothing.
  *
  * @param editor - Editor element
  * @param owner - The owner asked for
  */
 function checkOwner(editor: EditorElement, owner: Owner): void {
-  if ((owner.kind !== 'entry' && owner.kind !== 'button') || owner.index === undefined) return;
+  if (owner.kind !== 'entry' && owner.kind !== 'button') return;
+  if (owner.key !== undefined) {
+    const keys = keysOf(editor, owner.kind);
+    if (!keys.includes(owner.key)) {
+      throw new Error(`No ${owner.kind} is keyed ${owner.key}: the keys are ${keys.join(', ')}.`);
+    }
+    return;
+  }
+  if (owner.index === undefined) return;
   const config = heldConfig(editor);
   const count =
     owner.kind === 'entry'
@@ -623,7 +675,10 @@ function located(editor: EditorElement, id: FieldId, owner: Owner | undefined): 
   const found = find(editor, id, owner);
   if (found === undefined) {
     const wanted = owner ?? impliedOwner(parseFieldId(id).scope);
-    const who = ownerName(wanted.kind, 'index' in wanted ? wanted.index : undefined);
+    const who =
+      wanted.kind === 'entry' || wanted.kind === 'button'
+        ? ownerName(wanted.kind, wanted.index, wanted.key)
+        : ownerName(wanted.kind);
     throw new Error(`'${id}' is not drawn: ${who} draws no form holding it.`);
   }
   return found;
@@ -863,7 +918,7 @@ export async function openPanels(editor: EditorElement): Promise<void> {
 
 /**
  * The panels an owner's forms belong in, drawn or not: one of the nine for the card, found by its
- * icon; each matching calendar block's or toolbar button's own panel, found by its place.
+ * icon; each matching calendar block's or toolbar button's own panel, found by its place or key.
  *
  * @param editor - Editor element
  * @param owner - The owner
@@ -881,7 +936,11 @@ function holdersOf(editor: EditorElement, owner: Owner, scope: string): Element[
   checkOwner(editor, owner);
   const places = owner.kind === 'entry' ? entryIndexes(editor, root) : buttonIndexes(editor, root);
   return [...places]
-    .filter(([, index]) => owner.index === undefined || index === owner.index)
+    .filter(([panel, index]) =>
+      owner.key !== undefined
+        ? keyOf(panel) === owner.key
+        : owner.index === undefined || index === owner.index,
+    )
     .map(([panel]) => panel);
 }
 
@@ -971,6 +1030,19 @@ export function lastConfig(editor: EditorElement): Record<string, unknown> | und
     throw new Error('lastConfig reads what an editor reported since mountEditor mounted it.');
   }
   return reported[reported.length - 1];
+}
+
+/**
+ * The key the editor gives each calendar entry or each toolbar button, in list order: what
+ * `entry({ key })` and `button({ key })` name an owner by.
+ *
+ * @param editor - Editor element
+ * @param kind - Entries or buttons
+ * @returns The keys, a copy
+ */
+export function keysOf(editor: EditorElement, kind: 'entry' | 'button'): number[] {
+  const { _entryKeys: entries = [], _buttonKeys: buttons = [] } = stateOf(editor);
+  return [...(kind === 'entry' ? entries : buttons)];
 }
 
 /** What `fakeHass` puts on the `hass` it builds. */

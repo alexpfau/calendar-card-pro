@@ -123,8 +123,9 @@ function structuralKey(value: unknown): string {
 const interned = new Map<FieldId, { key: string; lifted: HaFormSchema[] }>();
 
 /**
- * Re-wraps a field in named grids for its data path, so a one-field form nests its data
- * exactly as `schemas/common.ts` › `blockScope` and the panel's own groups did.
+ * Re-wraps a field in named grids for its data path (`routing.ts` › `nestedSchema`), so a
+ * one-field form nests its data exactly as `schemas/common.ts` › `blockScope` and the panel's own
+ * groups did.
  *
  * A named `grid` nests data and not labels, so the lifted form loses the label path the field
  * had under an expandable. That is what `IndexedField.labelPath` is kept for.
@@ -146,10 +147,7 @@ export function liftField(
   const known = interned.get(id);
   if (known?.key === key) return known.lifted;
 
-  const lifted = dataPath.reduceRight<HaFormSchema[]>(
-    (child, name) => [{ type: 'grid', name, column_min_width: '100%', schema: child }],
-    [node],
-  );
+  const lifted = Routing.nestedSchema(node, dataPath);
   interned.set(id, { key, lifted });
   return lifted;
 }

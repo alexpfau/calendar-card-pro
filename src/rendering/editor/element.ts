@@ -22,6 +22,7 @@ import * as Buttons from './buttons';
 import * as Entities from './entities';
 import * as Essentials from './essentials';
 import * as Exceptions from './exceptions';
+import type { FieldId } from './field-index';
 import * as Filter from './filter';
 import { type HaFormSchema, warmSchema } from './ha-form';
 import * as HassKey from './hass-key';
@@ -32,9 +33,11 @@ import { PANELS, type PanelDef, type PanelExtra, type SchemaCtx } from './panels
 import * as QuickSetup from './quick-setup';
 import * as Routing from './routing';
 import { ENTITY_PATH } from './schemas/calendars';
-import { TOOLBAR_BUTTON_ICON, TOOLBAR_BUTTON_PATH } from './schemas/card';
+import { TOOLBAR_BUTTON_ICON, TOOLBAR_BUTTON_PATH, buildToolbarButtonSchema } from './schemas/card';
 import {
+  VISIBILITY,
   accentColorModeOf,
+  buildEntitySchema,
   entitySchemaFor,
   labelIconSourceOf,
   labelImageSourceOf,
@@ -53,6 +56,7 @@ import * as Subforms from './subforms';
 import * as Synthetic from './synthetic';
 import * as Value from './value';
 import * as Workspace from './workspace';
+import * as WriteFrames from './write-frames';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
@@ -527,6 +531,15 @@ export class CalendarCardProEditor extends LitElement {
   private _authoredRootKeys = new Set<string>();
 
   /**
+   * A key per calendar entry, in the order of `entities`, so each entry keeps its own panel and
+   * its forms' writes reach it, wherever a removal, a duplicate or the calendar picker moves it
+   * (`write-frames.ts`). The editor's own: never written to the configuration.
+   */
+  private _entryKeys: number[] = [];
+
+  private _nextEntryKey = 0;
+
+  /**
    * A key per toolbar button, in the list's order, so each button keeps its own panel, open or
    * closed, through a move and through the removal of another.
    */
@@ -653,6 +666,19 @@ export class CalendarCardProEditor extends LitElement {
 
     // Anything else means the YAML changed under Quick Setup, which then has nothing to restore.
     if (session !== undefined && !isEcho) this._quickSetup = undefined;
+
+    // An echo of the editor's own write holds the entries its keys were moved with, or a Quick
+    // Setup preview, which rebuilds the list a calendar at a time. What a change from outside did
+    // to the entries cannot be known, so their places are all there is to go by.
+    const entities = Array.isArray(config.entities) ? config.entities : [];
+    if (isEcho) this._carryEntryKeys(entities);
+    else {
+      this._entryKeys = WriteFrames.keysByPosition(
+        this._entryKeys,
+        entities.length,
+        this._mintEntryKey,
+      );
+    }
 
     if (!isEcho) this._authoredRootKeys = new Set(Object.keys(rawConfig));
     this._rawConfig = structuredClone(rawConfig);
@@ -959,29 +985,60 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Folds a form change into the configuration and reports it.
+   * Folds a form change into the configuration, for the owner the form was drawn for.
    *
-   * @param frame - Scope, schema, and data captured when this form was rendered
+   * @param frame - Owner, workspace, schema and baseline captured when this form was rendered
    * @param event - The form's `value-changed`
    */
-  private _valueChanged(frame: Routing.FormFrame, event: CustomEvent): void {
+  private _valueChanged(frame: WriteFrames.OwnedFrame, event: CustomEvent): void {
     event.stopPropagation();
 
+    const incoming = event.detail?.value as Record<string, unknown> | undefined;
+    if (incoming) this._writeOwned(frame, incoming);
+  }
+
+  /**
+   * Writes a change for the owner its frame names, as every form and every control the editor
+   * draws itself does: the card's through the frame's workspace, an entry's or a button's over
+   * that owner as it stands now (`write-frames.ts`). An entry or a button that has left the card
+   * since the frame was drawn writes nothing.
+   *
+   * @param frame - The frame of what sent the change
+   * @param incoming - Its whole data, as it sent it
+   */
+  private _writeOwned(frame: WriteFrames.OwnedFrame, incoming: Record<string, unknown>): void {
     if (!this._config) return;
+    if (frame.owner.kind === 'card') {
+      this._writeCard(frame, incoming);
+      return;
+    }
 
-    const nextData = event.detail?.value as Record<string, unknown> | undefined;
-    if (!nextData) return;
-
-    if (!this._prepareForWrite()) return;
-    const previousConfig = this._config;
-    const applied = Routing.applyWorkspaceChange(
-      previousConfig,
+    const result = WriteFrames.applyOwnedChange(
+      this._writeState(),
       frame,
-      nextData,
-      this._pending,
-      this._gridResetKeys,
-      this._authoredRootKeys,
+      incoming,
+      this.hass ?? undefined,
     );
+    if (result === undefined) return;
+    if (frame.owner.kind === 'button') {
+      this._writeButtons(Buttons.writtenButtons(result.config));
+      return;
+    }
+    if (!this._prepareForWrite()) return;
+    this._config = { ...this._config, entities: result.config.entities };
+    this._report(this._config);
+  }
+
+  /**
+   * Folds a change to the card's own settings into the configuration and reports it.
+   *
+   * @param frame - Workspace, schema and baseline captured when the form was rendered
+   * @param incoming - The form's whole data, as it sent it
+   */
+  private _writeCard(frame: WriteFrames.OwnedFrame, incoming: Record<string, unknown>): void {
+    if (!this._prepareForWrite()) return;
+    const previousConfig = this._config!;
+    const applied = WriteFrames.applyOwnedChange(this._writeState(), frame, incoming)!;
 
     const changed = new Set(
       Value.changedKeys(
@@ -1010,15 +1067,156 @@ export class CalendarCardProEditor extends LitElement {
             )
           : [];
     }
+    // The calendar picker rebuilds the list a calendar at a time, and the keys go with them.
+    if (applied.config.entities !== previousConfig.entities) {
+      this._carryEntryKeys(applied.config.entities ?? []);
+    }
 
     this._config = applied.config;
     this._pending = applied.pending;
 
-    // Keep what ha-form emitted, not newly derived synthetic values it has not seen yet.
-    frame.data = structuredClone(nextData);
-
     if (changed.size === 0) return;
     this._report(applied.config);
+  }
+
+  /**
+   * Writes one field of an owner as a control the editor draws itself writes it: from the owner's
+   * data as it stands now, through the writer the owner's own forms use, so routing, synthetic
+   * fields, held text and authorship stay one mechanism per owner, and a calendar's or a button's
+   * control writes to that calendar or button, never to the card.
+   *
+   * @param owner - Whose field
+   * @param fieldId - The field's id (`field-index.ts`), as the owner draws it now
+   * @param value - Its new value
+   */
+  private _writeFieldValue(owner: WriteFrames.WriteOwner, fieldId: FieldId, value: unknown): void {
+    this._writeFieldValues(owner, { [fieldId]: value });
+  }
+
+  /**
+   * Writes several fields of one owner as one change, in the order given (`_writeFieldValue`).
+   * Writes nothing for an entry or a button that has left, or for a field it has none of.
+   *
+   * @param owner - Whose fields
+   * @param values - New values, by field id
+   */
+  private _writeFieldValues(
+    owner: WriteFrames.WriteOwner,
+    values: Readonly<Record<FieldId, unknown>>,
+  ): void {
+    if (!this._config) return;
+    const ctx = this._ctx;
+    const ids = Object.keys(values);
+    const fields = ids.map((id) => this._fieldOf(owner, id, ctx));
+    if (!fields.every((field): field is WriteFrames.WrittenField => field !== undefined)) return;
+    const frame = WriteFrames.frameFor(
+      owner,
+      fields,
+      this._writeState(),
+      ctx.workspace ?? ctx.view,
+    );
+    if (frame === undefined) return;
+    this._writeOwned(
+      frame,
+      fields.reduce(
+        (data, field, at) => WriteFrames.withValue(data, field, values[ids[at]]),
+        frame.data,
+      ),
+    );
+  }
+
+  /**
+   * One of an owner's fields, by id: for the card, as its panel draws it now, so a field the
+   * configuration gates off cannot be written; for an entry or a button, as every one of them
+   * declares it, whatever the entry's own choices leave drawn.
+   *
+   * @param owner - Whose field
+   * @param id - The field's id
+   * @param ctx - Schema context
+   * @returns The field; undefined where the owner has none by that id
+   */
+  private _fieldOf(
+    owner: WriteFrames.WriteOwner,
+    id: FieldId,
+    ctx: SchemaCtx,
+  ): WriteFrames.WrittenField | undefined {
+    // An id's scope names the kind of owner that draws it: a panel's id for the card.
+    const scope = id.slice(0, id.indexOf(':'));
+    const panel = owner.kind === 'card' ? PANELS.find((each) => each.id === scope) : undefined;
+    const schema =
+      panel !== undefined
+        ? builtPanel(panel, ctx)
+        : owner.kind === 'entry' && scope === 'calendar'
+          ? buildEntitySchema(ctx)
+          : owner.kind === 'button' && scope === 'button'
+            ? buildToolbarButtonSchema()
+            : [];
+    for (const { node, path } of Routing.workspaceFields(schema)) {
+      if (`${scope}:${[...path, node.name].join('.')}` === id) {
+        return { node, dataPath: path, lifted: Routing.nestedSchema(node, path) };
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * An entry, by its key.
+   *
+   * @param key - The entry's key
+   * @returns The entry as stored; undefined once it has left the card
+   */
+  private _entryOf(key: number): string | Types.EntityConfig | undefined {
+    const entities = this._config?.entities ?? [];
+    return entities[this._entryKeysFor(entities.length).indexOf(key)];
+  }
+
+  /** Makes a key for an entry the list did not hold. */
+  private _mintEntryKey = (): number => this._nextEntryKey++;
+
+  /**
+   * The entries' keys, kept by place for a list whose length moved without the editor moving
+   * them: every way the editor itself writes the list moves the keys with it.
+   *
+   * @param length - How many entries the list holds
+   * @returns A key per entry, in order
+   */
+  private _entryKeysFor(length: number): number[] {
+    if (this._entryKeys.length !== length) {
+      this._entryKeys = WriteFrames.keysByPosition(this._entryKeys, length, this._mintEntryKey);
+    }
+    return this._entryKeys;
+  }
+
+  /**
+   * Moves the entries' keys onto a list rebuilt from the one held now a calendar at a time, as
+   * the calendar picker and Quick Setup rebuild it (`write-frames.ts` › `carryEntryKeys`).
+   *
+   * @param next - The list as it will be
+   */
+  private _carryEntryKeys(next: ReadonlyArray<string | Types.EntityConfig>): void {
+    this._entryKeys = WriteFrames.carryEntryKeys(
+      this._config?.entities ?? [],
+      this._entryKeys,
+      next,
+      this._mintEntryKey,
+    );
+  }
+
+  /**
+   * What a write reads of the editor (`write-frames.ts`).
+   *
+   * @returns The state
+   */
+  private _writeState(): WriteFrames.WriteState {
+    const config = this._config!;
+    return {
+      config,
+      pending: this._pending,
+      authoredRootKeys: this._authoredRootKeys,
+      gridResetKeys: this._gridResetKeys,
+      entryKeys: this._entryKeysFor((config.entities ?? []).length),
+      buttonKeys: this._buttonKeysFor(Buttons.writtenButtons(config).length),
+    };
   }
 
   /**
@@ -1131,27 +1329,42 @@ export class CalendarCardProEditor extends LitElement {
     const [hass, feed] = this._feed(schema, ctx.language);
     // Key the form node as well as its callback: reusing a node would redirect its
     // pending events into the next workspace's frame.
-    const frame: Routing.FormFrame = {
+    const frame: WriteFrames.OwnedFrame = {
+      owner: WriteFrames.CARD_OWNER,
       workspace: ctx.workspace ?? ctx.view,
       schema,
       data,
     };
 
+    const form = html`
+      <ha-form
+        class="panel-form"
+        data-hass=${feed}
+        .hass=${hass}
+        .data=${data}
+        .schema=${schema}
+        .computeLabel=${this._labeler(ctx.language)}
+        .computeHelper=${this._helper(slot, schema, ctx)}
+        .localizeValue=${this._localizeValue}
+        @value-changed=${(event: CustomEvent) => this._valueChanged(frame, event)}
+      ></ha-form>
+    `;
+    // Focus goes to the calendar picker once Remove has taken the last calendar
+    // (`_focusAfterRemove`). `ha-form` focuses nothing it draws, so the picker's form sits in a
+    // group of the editor's own, named after the field.
+    const picker = schema.find((node) => node.name === 'calendars');
     return keyed(
       frame.workspace,
-      html`
-        <ha-form
-          class="panel-form"
-          data-hass=${feed}
-          .hass=${hass}
-          .data=${data}
-          .schema=${schema}
-          .computeLabel=${this._labeler(ctx.language)}
-          .computeHelper=${this._helper(slot, schema, ctx)}
-          .localizeValue=${this._localizeValue}
-          @value-changed=${(event: CustomEvent) => this._valueChanged(frame, event)}
-        ></ha-form>
-      `,
+      picker === undefined
+        ? form
+        : html`<div
+            class="calendar-picker"
+            tabindex="-1"
+            role="group"
+            aria-label=${this._labeler(ctx.language)(picker)}
+          >
+            ${form}
+          </div>`,
     );
   }
 
@@ -1235,6 +1448,7 @@ export class CalendarCardProEditor extends LitElement {
     // later, it takes over the YAML box then.
     if (!conditionsEditor) awaitConditionsEditor(this);
 
+    const keys = this._entryKeysFor(entries.length);
     const shown = entries
       .map((entry, index) => {
         const declared = entitySchemaFor(
@@ -1252,7 +1466,7 @@ export class CalendarCardProEditor extends LitElement {
           Filter.withholdInertFields(declared, ctx.workspace ?? ctx.view, 'entity'),
           schema,
         );
-        return { entry, index, schema };
+        return { entry, index, key: keys[index], schema };
       })
       .filter((candidate) => Filter.hasFields(candidate.schema));
 
@@ -1260,117 +1474,129 @@ export class CalendarCardProEditor extends LitElement {
 
     const computeLabel = this._labeler(ctx.language, subform.path);
     const computeHelper = this._subformHelper(ctx, subform.path, true);
+    const workspace = ctx.workspace ?? ctx.view;
 
+    // Keyed by each entry's own key, so an entry's panel and forms are only ever its own: drawn by
+    // place, a removal above an entry would hand it the panel, and the listeners, of the one before.
     return html`
-      ${shown.map(({ entry, index, schema }) => {
-        const entityId = Synthetic.entityIdOf(entry);
-        const conditions = conditionsEditor
-          ? this._conditionsFor(index, entityId, Entities.asEntityConfig(entry).visibility)
-          : undefined;
-        const split = conditions ? splitAtVisibility(schema) : undefined;
-        const values = Entities.toEntityFormData(entry, entries);
-        for (const part of split ? [split.before, split.after] : [schema]) {
-          this._drawn?.push([part, values]);
-        }
-        if (split) {
-          for (const each of conditions!) this._drawnConditions.set(JSON.stringify(each), entityId);
-        }
+      ${repeat(
+        shown,
+        ({ key }) => key,
+        ({ entry, index, key, schema }) => {
+          const entityId = Synthetic.entityIdOf(entry);
+          const conditions = conditionsEditor
+            ? this._conditionsFor(index, entityId, Entities.asEntityConfig(entry).visibility)
+            : undefined;
+          const split = conditions ? splitAtVisibility(schema) : undefined;
+          const values = Entities.toEntityFormData(entry, entries);
+          for (const part of split ? [split.before, split.after] : [schema]) {
+            this._drawn?.push([part, values]);
+          }
+          if (split) {
+            for (const each of conditions!) {
+              this._drawnConditions.set(JSON.stringify(each), entityId);
+            }
+          }
 
-        return html`
-          <ha-expansion-panel
-            outlined
-            class="entity-panel"
-            .header=${Entities.entityDisplayName(entityId, this.hass)}
-            .secondary=${this._entitySummary(entries, index, ctx)}
-            .leftChevron=${false}
-            .expanded=${searching}
-          >
-            <ha-svg-icon slot="leading-icon" .path=${ENTITY_ICON}></ha-svg-icon>
-            <div class="panel-body">
-              <div class="entity-actions">
-                <div class="entity-actions-safe">
+          return html`
+            <ha-expansion-panel
+              outlined
+              class="entity-panel"
+              data-entry-key=${key}
+              .header=${Entities.entityDisplayName(entityId, this.hass)}
+              .secondary=${this._entitySummary(entries, index, ctx)}
+              .leftChevron=${false}
+              .expanded=${searching}
+            >
+              <ha-svg-icon slot="leading-icon" .path=${ENTITY_ICON}></ha-svg-icon>
+              <div class="panel-body">
+                <div class="entity-actions">
+                  <div class="entity-actions-safe">
+                    <button
+                      type="button"
+                      class="text-button"
+                      ?disabled=${!Entities.hasTransferableSettings(entry)}
+                      @click=${() => this._copyEntitySettings(entry)}
+                    >
+                      ${this._string(ctx, 'entity.copy')}
+                    </button>
+                    <button
+                      type="button"
+                      class="text-button"
+                      ?disabled=${Entities.copiedSettings() === undefined}
+                      @click=${() => this._pasteEntitySettings(index)}
+                    >
+                      ${this._string(ctx, 'entity.paste')}
+                    </button>
+                    <button
+                      type="button"
+                      class="text-button"
+                      @click=${() => this._duplicateEntity(index)}
+                    >
+                      ${this._string(ctx, 'entity.duplicate')}
+                    </button>
+                  </div>
                   <button
                     type="button"
-                    class="text-button"
-                    ?disabled=${!Entities.hasTransferableSettings(entry)}
-                    @click=${() => this._copyEntitySettings(entry)}
+                    class="text-button destructive"
+                    @click=${() => this._removeEntity(index)}
                   >
-                    ${this._string(ctx, 'entity.copy')}
-                  </button>
-                  <button
-                    type="button"
-                    class="text-button"
-                    ?disabled=${Entities.copiedSettings() === undefined}
-                    @click=${() => this._pasteEntitySettings(index)}
-                  >
-                    ${this._string(ctx, 'entity.paste')}
-                  </button>
-                  <button
-                    type="button"
-                    class="text-button"
-                    @click=${() => this._duplicateEntity(index)}
-                  >
-                    ${this._string(ctx, 'entity.duplicate')}
+                    ${this._string(ctx, 'entity.remove')}
                   </button>
                 </div>
-                <button
-                  type="button"
-                  class="text-button destructive"
-                  @click=${() => this._removeEntity(index)}
-                >
-                  ${this._string(ctx, 'entity.remove')}
-                </button>
-              </div>
-              ${whenOpened(() => {
-                const slot = `entry.${index}`;
-                const data = this._intern(slot, values);
-                const form = (part: ReadonlyArray<HaFormSchema>, name: string) => {
-                  const kept = this._intern(`${slot}.${name}`, part);
-                  const [hass, feed] = this._feed(kept, ctx.language);
-                  return html`
-                    <ha-form
-                      class="entity-form"
-                      data-hass=${feed}
-                      .hass=${hass}
-                      .data=${data}
-                      .schema=${kept}
-                      .computeLabel=${computeLabel}
-                      .computeHelper=${computeHelper}
-                      .localizeValue=${this._localizeValue}
-                      @value-changed=${(event: CustomEvent) => this._entityChanged(index, event)}
-                    ></ha-form>
-                  `;
-                };
+                ${whenOpened(() => {
+                  const slot = `entry.${key}`;
+                  const data = this._intern(slot, values);
+                  const owner: WriteFrames.WriteOwner = { kind: 'entry', key };
+                  const form = (part: ReadonlyArray<HaFormSchema>, name: string) => {
+                    const kept = this._intern(`${slot}.${name}`, part);
+                    const [hass, feed] = this._feed(kept, ctx.language);
+                    const frame: WriteFrames.OwnedFrame = { owner, workspace, schema: kept, data };
+                    return html`
+                      <ha-form
+                        class="entity-form"
+                        data-hass=${feed}
+                        .hass=${hass}
+                        .data=${data}
+                        .schema=${kept}
+                        .computeLabel=${computeLabel}
+                        .computeHelper=${computeHelper}
+                        .localizeValue=${this._localizeValue}
+                        @value-changed=${(event: CustomEvent) => this._valueChanged(frame, event)}
+                      ></ha-form>
+                    `;
+                  };
 
-                return split
-                  ? html`
-                      ${split.before.length > 0 ? form(split.before, 'before') : nothing}
-                      <div
-                        class="entity-visibility"
-                        @context-request=${(event: Event) => provideCalendar(event, entityId)}
-                      >
-                        <div class="entity-visibility-helper">
-                          ${this._string(ctx, 'entity.visibility.helper')}
+                  return split
+                    ? html`
+                        ${split.before.length > 0 ? form(split.before, 'before') : nothing}
+                        <div
+                          class="entity-visibility"
+                          @context-request=${(event: Event) => provideCalendar(event, entityId)}
+                        >
+                          <div class="entity-visibility-helper">
+                            ${this._string(ctx, 'entity.visibility.helper')}
+                          </div>
+                          ${keyed(
+                            entityId,
+                            html`<ha-card-conditions-editor
+                              data-hass="live"
+                              .hass=${this.hass}
+                              .conditions=${conditions}
+                              @value-changed=${(event: CustomEvent) =>
+                                this._visibilityChanged(key, event)}
+                            ></ha-card-conditions-editor>`,
+                          )}
                         </div>
-                        ${keyed(
-                          entityId,
-                          html`<ha-card-conditions-editor
-                            data-hass="live"
-                            .hass=${this.hass}
-                            .conditions=${conditions}
-                            @value-changed=${(event: CustomEvent) =>
-                              this._visibilityChanged(index, event)}
-                          ></ha-card-conditions-editor>`,
-                        )}
-                      </div>
-                      ${split.after.length > 0 ? form(split.after, 'after') : nothing}
-                    `
-                  : form(schema, 'all');
-              })}
-            </div>
-          </ha-expansion-panel>
-        `;
-      })}
+                        ${split.after.length > 0 ? form(split.after, 'after') : nothing}
+                      `
+                    : form(schema, 'all');
+                })}
+              </div>
+            </ha-expansion-panel>
+          `;
+        },
+      )}
     `;
   }
 
@@ -1446,41 +1672,24 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Folds one calendar's form change into the configuration.
-   *
-   * @param index - Position of the calendar in the list
-   * @param event - The form's `value-changed`
-   */
-  private _entityChanged(index: number, event: CustomEvent): void {
-    event.stopPropagation();
-
-    const next = event.detail?.value as Record<string, unknown> | undefined;
-    if (next) this._writeEntity(index, next);
-  }
-
-  /**
    * Folds a change from Home Assistant's Visibility editor into one calendar's conditions. It
    * sends the whole list, empty once the last condition is removed, which stores nothing.
    *
-   * @param index - Position of the calendar in the list
+   * @param key - The entry's key
    * @param event - The editor's `value-changed`
    */
-  private _visibilityChanged(index: number, event: CustomEvent): void {
+  private _visibilityChanged(key: number, event: CustomEvent): void {
     event.stopPropagation();
 
     const conditions: unknown = event.detail?.value;
-    const entries = this._config?.entities ?? [];
-    const entry = entries[index];
+    const entry = this._entryOf(key);
     if (!Array.isArray(conditions) || entry === undefined) return;
 
-    this._emittedConditions.set(index, {
+    this._emittedConditions.set(this._entryKeys.indexOf(key), {
       entityId: Synthetic.entityIdOf(entry),
       conditions,
     });
-    this._writeEntity(index, {
-      ...Entities.toEntityFormData(entry, entries),
-      visibility: conditions,
-    });
+    this._writeFieldValue({ kind: 'entry', key }, `calendar:${VISIBILITY}`, conditions);
   }
 
   /**
@@ -1517,32 +1726,6 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Writes one calendar's form data into the configuration, as every per-calendar control does.
-   *
-   * @param index - Position of the calendar in the list
-   * @param next - The calendar's whole form data
-   */
-  private _writeEntity(index: number, next: Record<string, unknown>): void {
-    if (!this._config) return;
-
-    const entities = Entities.writeEntity(
-      this._config.entities ?? [],
-      index,
-      next,
-      this._config.accent_color,
-      this.hass ?? undefined,
-    );
-    if (Value.deepEqual(entities, this._config.entities)) return;
-    if (!this._prepareForWrite()) return;
-    this._config = {
-      ...this._config,
-      entities,
-    };
-
-    this._report(this._config);
-  }
-
-  /**
    * Copies one calendar's settings, for pasting into another.
    *
    * @param entry - Entry as stored
@@ -1571,7 +1754,8 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Lists one calendar a second time, with the same settings.
+   * Lists one calendar a second time, with the same settings, right after it: a new entry, with
+   * a key of its own.
    *
    * @param index - Position of the calendar in the list
    */
@@ -1579,16 +1763,21 @@ export class CalendarCardProEditor extends LitElement {
     if (!this._config) return;
 
     if (!this._prepareForWrite()) return;
+    const keys = this._entryKeysFor(this._config.entities?.length ?? 0);
     this._config = {
       ...this._config,
       entities: Entities.duplicateEntity(this._config.entities ?? [], index),
     };
+    // Moved before the report, whose echo can arrive before it returns.
+    this._entryKeys = [...keys.slice(0, index + 1), this._mintEntryKey(), ...keys.slice(index + 1)];
 
     this._report(this._config);
   }
 
   /**
-   * Drops one calendar from the list.
+   * Drops one calendar from the list, its key with it. Where focus was inside the calendar's
+   * panel, as on a keyboard's Remove, it moves on (`_focusAfterRemove`), since the panel takes the
+   * focused button with it.
    *
    * @param index - Position of the calendar in the list
    */
@@ -1596,12 +1785,46 @@ export class CalendarCardProEditor extends LitElement {
     if (!this._config) return;
 
     if (!this._prepareForWrite()) return;
+    const keys = this._entryKeysFor(this._config.entities?.length ?? 0);
+    const panels = [...this.renderRoot.querySelectorAll('.entity-panel')];
+    const panel = panels.find((each) => each.getAttribute('data-entry-key') === `${keys[index]}`);
+    const focused = panel?.contains((this.renderRoot as ShadowRoot).activeElement);
     this._config = {
       ...this._config,
       entities: Entities.removeEntity(this._config.entities ?? [], index),
     };
+    // Moved before the report, whose echo can arrive before it returns.
+    this._entryKeys = keys.filter((_key, at) => at !== index);
 
     this._report(this._config);
+    if (focused) void this._focusAfterRemove(panels.indexOf(panel!));
+  }
+
+  /**
+   * Puts focus where a removed calendar's panel took it from, as a keyboard user expects: on the
+   * Remove of the calendar drawn in its place now, else of the one drawn before it, else on the
+   * calendar picker. Drawn by place, the panels used to keep focus there by handing the next
+   * calendar the removed one's panel; drawn by key, each panel is its owner's own. A closed panel
+   * draws nothing to focus, so the calendar's panel opens first.
+   *
+   * @param at - The removed calendar's place among the panels drawn
+   */
+  private async _focusAfterRemove(at: number): Promise<void> {
+    await this.updateComplete;
+    const panels = this.renderRoot.querySelectorAll<
+      HTMLElement & { expanded?: boolean; updateComplete?: Promise<unknown> }
+    >('.entity-panel');
+    const panel = panels[Math.min(at, panels.length - 1)];
+    if (panel && !panel.expanded) {
+      openedPanels.add(panel);
+      panel.expanded = true;
+      this.requestUpdate();
+      await this.updateComplete;
+      await panel.updateComplete;
+    }
+    (panel ?? this.renderRoot)
+      .querySelector<HTMLElement>(panel ? '.destructive' : '.calendar-picker')
+      ?.focus();
   }
 
   /**
@@ -1647,6 +1870,7 @@ export class CalendarCardProEditor extends LitElement {
 
     const computeLabel = this._labeler(ctx.language, subform.path);
     const computeHelper = this._subformHelper(ctx, subform.path, false);
+    const workspace = ctx.workspace ?? ctx.view;
 
     const untitled = this._string(ctx, 'toolbar.buttons.untitled');
 
@@ -1668,7 +1892,7 @@ export class CalendarCardProEditor extends LitElement {
       ${repeat(
         shown,
         ({ key }) => key,
-        ({ entry, index, key, schema, data }) => html`
+        ({ entry, index, key, schema, data: values }) => html`
           <ha-expansion-panel
             outlined
             class="button-panel"
@@ -1711,18 +1935,25 @@ export class CalendarCardProEditor extends LitElement {
               ${whenOpened(() => {
                 const slot = `button.${key}`;
                 const kept = this._intern(slot, schema);
+                const data = this._intern(`${slot}.data`, values);
                 const [hass, feed] = this._feed(kept, ctx.language);
+                const frame: WriteFrames.OwnedFrame = {
+                  owner: { kind: 'button', key },
+                  workspace,
+                  schema: kept,
+                  data,
+                };
                 return html`
                   <ha-form
                     class="button-form"
                     data-hass=${feed}
                     .hass=${hass}
-                    .data=${this._intern(`${slot}.data`, data)}
+                    .data=${data}
                     .schema=${kept}
                     .computeLabel=${computeLabel}
                     .computeHelper=${computeHelper}
                     .localizeValue=${this._localizeValue}
-                    @value-changed=${(event: CustomEvent) => this._buttonChanged(index, event)}
+                    @value-changed=${(event: CustomEvent) => this._valueChanged(frame, event)}
                   ></ha-form>
                 `;
               })}
@@ -1773,24 +2004,6 @@ export class CalendarCardProEditor extends LitElement {
 
     this._report(this._config);
     return true;
-  }
-
-  /**
-   * Folds one button's form change into the list.
-   *
-   * @param index - Position of the button in the list
-   * @param event - The form's `value-changed`
-   */
-  private _buttonChanged(index: number, event: CustomEvent): void {
-    event.stopPropagation();
-
-    const next = event.detail?.value as Record<string, unknown> | undefined;
-    if (!next || !this._config) return;
-
-    const written = Buttons.writtenButtons(this._config);
-    const buttons = Buttons.writeButton(written, index, next);
-    if (Value.deepEqual(buttons, written)) return;
-    this._writeButtons(buttons);
   }
 
   /**
@@ -2538,6 +2751,7 @@ export class CalendarCardProEditor extends LitElement {
     if (session.previews.length === 0) return;
 
     const opening = structuredClone(session.opening) as Record<string, unknown>;
+    this._carryEntryKeys(Array.isArray(opening.entities) ? opening.entities : []);
     this._rawConfig = structuredClone(opening);
     this._config = { ...Config.DEFAULT_CONFIG, ...(opening as unknown as Types.Config) };
     if (!Array.isArray(this._config.entities)) this._config.entities = [];
@@ -2560,6 +2774,8 @@ export class CalendarCardProEditor extends LitElement {
     const stored = QuickSetup.buildQuickSetupConfig(session.opening, session.answers);
     const shown = session.previews[session.previews.length - 1] ?? session.opening;
     this._quickSetup = undefined;
+    // Quick Setup keeps every block of each calendar it keeps, in order, as the picker does.
+    this._carryEntryKeys(Array.isArray(stored.entities) ? stored.entities : []);
     this._rawConfig = structuredClone(stored);
     this._config = { ...Config.DEFAULT_CONFIG, ...(stored as unknown as Types.Config) };
     if (!Array.isArray(this._config.entities)) this._config.entities = [];
@@ -2676,7 +2892,12 @@ export class CalendarCardProEditor extends LitElement {
   private _renderViewControls(ctx: SchemaCtx, chassis: Subforms.ChassisSchemas): TemplateResult {
     const data = this._intern('view', { view: this._viewForConfig(this._config!) });
     const schema = chassis.displayView;
-    const frame: Routing.FormFrame = { workspace: 'list', schema, data };
+    const frame: WriteFrames.OwnedFrame = {
+      owner: WriteFrames.CARD_OWNER,
+      workspace: 'list',
+      schema,
+      data,
+    };
     const note = Workspace.workspaceNote(ctx.workspace ?? ctx.view);
     const [hass, feed] = this._feed(schema, ctx.language);
     const [workspaceHass, workspaceFeed] = this._feed(chassis.workspace, ctx.language);

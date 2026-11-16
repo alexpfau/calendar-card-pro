@@ -2,10 +2,11 @@
  * The test harness in `tests/helpers/editor-host.ts`, held to what the editor tests lean on.
  *
  * Every editor test finds its forms through the harness, so a harness that quietly picked the
- * wrong form would let those tests pass on the wrong field. These pin the four ways it must
- * refuse to guess; the owner it must pick when a filter draws some of a calendar's blocks and
- * not others; the event it must emit for a test to stand in for `ha-form`, from a field the
- * form draws and nothing else; and a panel opening across a render, as Home Assistant's does.
+ * wrong form would let those tests pass on the wrong field. These pin the ways it must refuse to
+ * guess, calendar panels that are not the blocks the editor's filter keeps among them; the owner
+ * it must pick when a filter draws some of a calendar's blocks and not others; the event it must
+ * emit for a test to stand in for `ha-form`, from a field the form draws and nothing else; and a
+ * panel opening across a render, as Home Assistant's does.
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -189,6 +190,50 @@ describe('the harness refuses to guess', () => {
       "'button:heading' is drawn by the card, not by any button: pass CARD.",
     );
     expect(formOf(editor, 'button:heading', CARD)).toBeDefined();
+  });
+
+  describe('fails on calendar panels that are not the blocks the filter keeps', () => {
+    /**
+     * The calendar panels the editor draws, in document order.
+     *
+     * @param editor - Editor element
+     * @returns The panels
+     */
+    const panels = (editor: HTMLElement) => [
+      ...editor.shadowRoot!.querySelectorAll('ha-expansion-panel.entity-panel'),
+    ];
+
+    it('one short, rather than reading the block as drawing no form', async () => {
+      const editor = await mount([ANNA, BEN]);
+      await openPanels(editor);
+      // Planted: the second block's panel gone, as an editor drawing a panel short leaves it.
+      panels(editor)[1].remove();
+
+      expect(() => formsOf(editor, entry(1))).toThrow(
+        'The editor draws 1 calendar panels where its filter keeps 2',
+      );
+    });
+
+    it('keyed alike, though both blocks show the same data', async () => {
+      const editor = await mount([ANNA, ANNA]);
+      await openPanels(editor);
+      const [first, second] = panels(editor);
+      const key = first.getAttribute('data-entry-key')!;
+      second.setAttribute('data-entry-key', key);
+
+      expect(() => formsOf(editor, entry(1))).toThrow(`Two calendar panels are keyed ${key}`);
+    });
+
+    it('out of list order, though each holds its own block', async () => {
+      const editor = await mount([ANNA, BEN]);
+      await openPanels(editor);
+      const [first, second] = panels(editor);
+      second.after(first);
+
+      expect(() => formsOf(editor, entry(0))).toThrow(
+        'Calendar panel 1 is keyed for entry 1, where the filter keeps entry 0 in its place',
+      );
+    });
   });
 
   it('fails on a form it cannot place', async () => {

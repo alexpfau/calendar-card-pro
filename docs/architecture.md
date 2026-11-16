@@ -75,6 +75,7 @@ src/
 │   │   ├── filter.ts             # Search and "customized only"
 │   │   ├── workspace.ts          # Editor-only All Layouts/List/Columns/Grid selection
 │   │   ├── routing.ts            # Workspace projections and scope-captured writes
+│   │   ├── write-frames.ts       # What each write belongs to, and the part of a change it writes
 │   │   ├── normalize.ts          # Comparable root and nested form values
 │   │   ├── synthetic.ts          # UI-only fields, and values invalid while typed
 │   │   ├── localize.ts           # The string hooks `ha-form` calls
