@@ -508,6 +508,7 @@ export default css`
   .field:focus-visible,
   .heading:focus-visible,
   .page-title:focus-visible,
+  .wizard-title:focus-visible,
   .display-choice:has(input:focus-visible),
   .scope-choice:has(input:focus-visible),
   .chip-choice:has(input:focus-visible) {
@@ -517,6 +518,7 @@ export default css`
 
   .heading:focus:not(:focus-visible),
   .page-title:focus:not(:focus-visible),
+  .wizard-title:focus:not(:focus-visible),
   .field:focus:not(:focus-visible) {
     outline: none;
   }
