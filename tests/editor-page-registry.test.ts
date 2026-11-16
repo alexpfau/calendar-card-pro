@@ -213,7 +213,6 @@ const APPROVED_MAP: ReadonlyArray<
       'card:title_color A',
       'card:background_color A',
       'content:language_mode A',
-      'content:language W',
     ],
   ],
   [
@@ -644,14 +643,14 @@ const HEADINGS: ReadonlyArray<HeadingDef> = [
 describe('the page registry places every built field exactly once', () => {
   it('walks the whole corpus', () => {
     // The denominators, beside the verdicts below. A short walk shows here first: the approved
-    // map places 223 ids, and every one of them is built under some workspace and state.
+    // map places 222 ids, and every one of them is built under some workspace and state.
     console.info(
       `Page registry: ${BUILT.size} ids built over ${STATES.length} corpus states in ` +
         `${WORKSPACES.length} workspaces; ${PLACED.length} placements.`,
     );
     expect(WORKSPACES).toHaveLength(4);
-    expect(BUILT.size).toBe(223);
-    expect(PLACED).toHaveLength(223);
+    expect(BUILT.size).toBe(222);
+    expect(PLACED).toHaveLength(222);
   });
 
   it('has no field built but unplaced', () => {
@@ -753,7 +752,7 @@ describe('the page registry is consistent with itself', () => {
 
   it('names a mode control on the same page for every mode value', () => {
     const modes = PLACED.filter(({ appearance }) => modeControls(appearance).length > 0);
-    expect(modes).toHaveLength(19);
+    expect(modes).toHaveLength(18);
     for (const { id, appearance, page } of modes) {
       for (const control of modeControls(appearance)) {
         expect(PLACED.find((placed) => placed.id === control)?.page, `${id} with ${control}`).toBe(

@@ -327,7 +327,8 @@ export function rowParts(entry: Entry, language: string): ReadonlyArray<string> 
 
 /**
  * What one entry is called in the names of its row's controls: its calendar's name, and inside
- * a calendar with several entries its first part as well ("Family, All-day events").
+ * a calendar with several entries its number and first part as well ("Family, entry 2, All-day
+ * events"), so two entries that keep the same events still have names of their own.
  *
  * The calendar's name is the one this card gives it, else Home Assistant's, else its id.
  *
@@ -351,7 +352,60 @@ export function rowName(
   const total = state.entities.filter((other) => entityIdOf(other) === id).length;
   if (total < 2) return name;
 
-  return interpolate(lookup(language, 'row.name')!, { name, part: rowParts(entry, language)[0] });
+  const position = entities(state, id).indexOf(index) + 1;
+  return interpolate(lookup(language, 'row.name')!, {
+    name,
+    position: String(position),
+    part: rowParts(entry, language)[0],
+  });
+}
+
+/**
+ * The positions of one calendar's entries in `entities`.
+ *
+ * @param state - The list
+ * @param entityId - The calendar
+ * @returns Its entries' indices, in list order
+ */
+function entities(state: ListState, entityId: string): number[] {
+  return state.entities.flatMap((entry, index) => (entityIdOf(entry) === entityId ? [index] : []));
+}
+
+/** The options that decide which of a calendar's events an entry keeps. */
+const WHICH_EVENTS: ReadonlyArray<keyof Types.EntityConfig> = [
+  'event_type',
+  'allowlist',
+  'blocklist',
+  'filter_field',
+  'days_of_week',
+  'allday_expires_at',
+  'visibility',
+  'compact_events_to_show',
+];
+
+/**
+ * The earlier entry of the same calendar that keeps exactly the events this one keeps, so each
+ * of them is listed twice: the two differ in no option that decides which events an entry keeps.
+ *
+ * @param state - The list
+ * @param index - Position of the entry in `entities`
+ * @returns The earlier entry's place among its calendar's entries, counting from one; or
+ *   `undefined` where no earlier entry keeps the same events
+ */
+export function sameEventsAs(state: ListState, index: number): number | undefined {
+  if (index < 0 || index >= state.entities.length) return undefined;
+  const settings = (entry: Entry): Partial<Types.EntityConfig> =>
+    entry !== null && typeof entry === 'object' ? entry : {};
+  const own = settings(state.entities[index]);
+  const siblings = entities(state, entityIdOf(state.entities[index]));
+  const at = siblings
+    .slice(0, siblings.indexOf(index))
+    .findIndex((other) =>
+      WHICH_EVENTS.every(
+        (key) => JSON.stringify(settings(state.entities[other])[key]) === JSON.stringify(own[key]),
+      ),
+    );
+  return at < 0 ? undefined : at + 1;
 }
 
 /**
