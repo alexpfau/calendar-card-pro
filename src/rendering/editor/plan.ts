@@ -54,7 +54,13 @@ import {
 import * as Reset from './reset';
 import * as Routing from './routing';
 import { interpolate } from './strings';
-import { SYNTHETIC_FIELDS, entityIdOf, isSet as holdsValue } from './synthetic';
+import {
+  SYNTHETIC_FIELDS,
+  entityIdOf,
+  isSet as holdsValue,
+  isSyntheticKey,
+  refinementHolds,
+} from './synthetic';
 import { deepEqual, toStoredConfig } from './value';
 import { BLOCK_KEYS, type EditorWorkspace, viewForWorkspace } from './workspace';
 import type { WriteState } from './write-frames';
@@ -224,6 +230,22 @@ function holdsRoot(key: string, value: unknown): boolean {
   return means;
 }
 
+/**
+ * Whether a root option's stored value counts as stored for one field: `holdsRoot`, and for a
+ * switch that refines another control's option, only where the value turns it on
+ * (`synthetic.ts` › `refinementHolds`). `show_countdown: true` is the Countdown chip's line, not
+ * Leave Out Repeated Countdowns'.
+ *
+ * @param field - The field
+ * @param key - Root option
+ * @param value - Its stored value
+ * @returns `true` when it holds something for the field
+ */
+function holdsFor(field: Pick<IndexedField, 'id'>, key: string, value: unknown): boolean {
+  if (!holdsRoot(key, value)) return false;
+  return refinementHolds(parseFieldId(field.id).name, key, value) ?? true;
+}
+
 let appearances: ReadonlyMap<FieldId, Appearance> | undefined;
 
 /**
@@ -356,7 +378,7 @@ export function storedAt(
   }
   return field.configKeys.some((key) => {
     const block = Routing.destination(key, workspace);
-    return holdsRoot(key, block === undefined ? raw[key] : Routing.atPath(raw, [block], key));
+    return holdsFor(field, key, block === undefined ? raw[key] : Routing.atPath(raw, [block], key));
   });
 }
 
@@ -460,7 +482,8 @@ function holdsOwnValue(field: IndexedField, ctx: PlanCtx): boolean {
  */
 function topStored(field: IndexedField, ctx: PlanCtx): boolean {
   return (
-    field.dataPath.length === 0 && field.configKeys.some((key) => holdsRoot(key, ctx.raw[key]))
+    field.dataPath.length === 0 &&
+    field.configKeys.some((key) => holdsFor(field, key, ctx.raw[key]))
   );
 }
 
@@ -516,7 +539,7 @@ function cardCounterpart(
  * Whether a field inherits a value that differs from the default (rule 1).
  *
  * On the card, only in a layout's scope: the field takes the top level's value, and the top level
- * stores one different from the card's default. A top-level value the layout ignores because it
+ * stores one different from the card's default, compared as a derived control shows it. A top-level value the layout ignores because it
  * defaults differently does not apply, so it does not count. On a calendar entry, for the options
  * that override a card setting: the entry follows the card, and the card's value here differs
  * from what it is with nothing stored.
@@ -539,6 +562,17 @@ function inheritedDifferent(field: IndexedField, ctx: PlanCtx): boolean {
   if (viewForWorkspace(ctx.workspace) === undefined || field.dataPath.length > 0) return false;
   if (Routing.valueSource(ctx.config, ctx.workspace, field.node.name) !== 'inherited') return false;
   const fallback = Config.DEFAULT_CONFIG as unknown as Record<string, unknown>;
+  const name = field.node.name;
+  if (isSyntheticKey(name)) {
+    // A derived control differs by what it shows, not by its option's raw value: Leave Out
+    // Repeated Countdowns reads `show_countdown: true` as off, which is its default.
+    const stored = field.configKeys.filter((key) => holdsFor(field, key, ctx.raw[key]));
+    if (stored.length === 0) return false;
+    const top = { ...Config.DEFAULT_CONFIG } as Record<string, unknown>;
+    for (const key of stored) top[key] = ctx.raw[key];
+    const { derive } = SYNTHETIC_FIELDS[name];
+    return !deepEqual(derive(top as unknown as Types.Config), derive(Config.DEFAULT_CONFIG));
+  }
   return field.configKeys.some(
     (key) =>
       holdsValue(ctx.raw[key]) &&
@@ -724,7 +758,7 @@ export function fieldState(id: FieldId, appearance: Appearance, ctx: PlanCtx): F
         (key) =>
           Routing.destination(key, ctx.workspace) !== undefined &&
           !ViewConfig.hasDivergentDefault(key, view) &&
-          holdsRoot(key, ctx.raw[key]),
+          holdsFor(field, key, ctx.raw[key]),
       )
     ) {
       return { kind: 'inactive', gate, unmet, source: 'all-layouts' };

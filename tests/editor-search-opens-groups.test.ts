@@ -19,7 +19,8 @@ import { chooseResult, formOf, mountEditor, resultRows, searchFor } from './help
 import { hitIds, searchIndex } from './helpers/search-index';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
-import { fieldId } from '../src/rendering/editor/field-index';
+import { colorSpecs } from '../src/rendering/editor/colors';
+import { fieldId, universeIndex } from '../src/rendering/editor/field-index';
 import { withholdInertFields } from '../src/rendering/editor/filter';
 import { type HaFormSchema, isGroupSchema } from '../src/rendering/editor/ha-form';
 import { computeLabel } from '../src/rendering/editor/localize';
@@ -108,7 +109,10 @@ describe.each(WORKSPACES)('a search in the %s workspace', (workspace) => {
       // The denominator: the query names something, so "every one is listed" can fail.
       expect(named.length).toBeGreaterThan(0);
       const listed = hitIds(index(workspace), query);
-      expect(named.filter((id) => !listed.includes(id))).toEqual([]);
+      // A color whose source a mode chooses is one control, so one row under the mode's id.
+      const specs = colorSpecs(universeIndex('en', workspace));
+      const rowOf = (id: string): string => specs.get(id)?.mode ?? id;
+      expect(named.map(rowOf).filter((id) => !listed.includes(id))).toEqual([]);
       // The builders emit no collapsible for a field to hide behind.
       expect(filtered(ctxFor(workspace)).filter((leaf) => leaf.depth > 0)).toEqual([]);
     },
