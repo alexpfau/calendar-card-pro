@@ -167,7 +167,8 @@ export default css`
     margin: 0;
   }
 
-  .story-option {
+  /* Two classes, so the row wins over the shared .wizard-option, which comes later. */
+  .wizard-option.story-option {
     flex-direction: row;
     align-items: center;
     gap: 0;
