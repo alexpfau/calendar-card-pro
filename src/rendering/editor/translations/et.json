@@ -88,7 +88,6 @@
   "state.layout_own": "Paigutus {layout} määrab oma: {value}",
   "state.set_on_calendars": "Määratud kalendrites:",
   "state.edit_layout": "Muuda paigutust {layout}",
-  "state.edit_named": "Muuda paigutust {layout}: {label}",
   "reset.to": "Lähtesta väärtusele {value}",
   "reset.clear": "Tühjenda",
   "reset.reset": "Lähtesta",

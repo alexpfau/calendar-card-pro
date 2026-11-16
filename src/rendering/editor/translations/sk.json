@@ -88,7 +88,6 @@
   "state.layout_own": "Rozloženie {layout} má vlastnú hodnotu: {value}",
   "state.set_on_calendars": "Nastavené v kalendároch:",
   "state.edit_layout": "Upraviť rozloženie {layout}",
-  "state.edit_named": "Upraviť rozloženie {layout}: {label}",
   "reset.to": "Resetovať na {value}",
   "reset.clear": "Vymazať",
   "reset.reset": "Resetovať",

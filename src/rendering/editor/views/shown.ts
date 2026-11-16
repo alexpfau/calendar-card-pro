@@ -48,11 +48,11 @@ export function lineButton(button: LineButton): TemplateResult {
 
 /** What the line under a live field shows. */
 export interface FieldLine {
-  /** Lines of their own: "Grid Sets Its Own: 20" with Edit Grid, the ignored All Layouts value. */
-  readonly notes: ReadonlyArray<{ readonly text: string; readonly button?: LineButton }>;
+  /** Lines of their own: "Grid Sets Its Own: 20", the ignored All Layouts value. */
+  readonly notes: ReadonlyArray<{ readonly text: string }>;
   /** "Set on Calendars:" with a link per entry. */
   readonly calendars?: { readonly label: string; readonly links: ReadonlyArray<LineButton> };
-  /** Reset or Remove, named for what it leaves, and any Edit for another layout. */
+  /** Reset or Remove, named for what it leaves. */
   readonly actions: ReadonlyArray<LineButton>;
 }
 
@@ -71,7 +71,7 @@ export function fieldLine(line: FieldLine): TemplateResult | typeof nothing {
       ${line.notes.map(
         (note) =>
           html`<p class="field-note">
-            <span>${note.text}</span>${note.button ? lineButton(note.button) : nothing}
+            <span>${note.text}</span>
           </p>`,
       )}
       ${
@@ -220,7 +220,7 @@ export function addRow(row: AddRow, t: Translate): TemplateResult {
 
 /**
  * A heading's gate line, "Appears once Show Description is on: Description Color.", and the
- * values stored for settings that are not in use, each with its action.
+ * values stored for settings that are not in use, each with its Reset where one reaches it.
  *
  * @param gateLines - The gate lines, one per condition waited on
  * @param inactive - The stored lines
@@ -228,14 +228,23 @@ export function addRow(row: AddRow, t: Translate): TemplateResult {
  */
 export function gateLines(
   gateLines: ReadonlyArray<string>,
-  inactive: ReadonlyArray<{ readonly text: string; readonly button: LineButton }>,
+  inactive: ReadonlyArray<{
+    readonly text: string;
+    readonly button?: LineButton;
+    /** A line without a button: the `data-focus` key a search lands on. */
+    readonly focus?: string;
+  }>,
 ): TemplateResult | typeof nothing {
   if (gateLines.length === 0 && inactive.length === 0) return nothing;
   return html`${gateLines.map((line) => html`<p class="gate-line">${line}</p>`)}
   ${inactive.map(
     (line) =>
-      html`<p class="gate-line inactive-line">
-        <span>${line.text}</span>${lineButton(line.button)}
+      html`<p
+        class="gate-line inactive-line"
+        data-focus=${line.focus ?? nothing}
+        tabindex=${line.focus ? '-1' : nothing}
+      >
+        <span>${line.text}</span>${line.button ? lineButton(line.button) : nothing}
       </p>`,
   )}`;
 }

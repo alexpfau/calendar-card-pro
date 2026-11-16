@@ -2781,7 +2781,7 @@ export class CalendarCardProEditor extends LitElement {
     const state = Plan.stateOf(field, pctx);
     const words = Shown.stateText(state, t, layout, word);
     const label = fieldLabel(field, ctx.language);
-    const notes: Array<{ text: string; button?: ShownView.LineButton }> = [];
+    const notes: Array<{ text: string }> = [];
     const ignored = Shown.ignoredText(state, t, layout, word);
     if (ignored) notes.push({ text: ignored });
     for (const own of state?.layoutsOwn ?? []) {
@@ -2790,7 +2790,6 @@ export class CalendarCardProEditor extends LitElement {
           layout: layout(own.view),
           value: word(own.value),
         }),
-        button: this._editLayout(t, layout, label, field.id, own.view),
       });
     }
     const calendars =
@@ -2805,9 +2804,6 @@ export class CalendarCardProEditor extends LitElement {
             })),
           };
     const actions: ShownView.LineButton[] = [];
-    if (state?.words?.kind === 'from-all-layouts') {
-      actions.push(this._editLayout(t, layout, label, field.id, 'shared'));
-    }
     // A family member keeps its control while the family shows; its heading's ✕ removes them all.
     const storedHere =
       owner.kind === 'entry'
@@ -2834,31 +2830,6 @@ export class CalendarCardProEditor extends LitElement {
     return {
       words,
       line: ShownView.fieldLine({ notes, calendars, actions }),
-    };
-  }
-
-  /**
-   * A field's line button that edits it in another scope: "Edit for Grid".
-   *
-   * @param t - The editor's strings
-   * @param layout - Names a layout
-   * @param label - The field's label
-   * @param id - The field
-   * @param view - The scope to edit it in
-   * @returns The button
-   */
-  private _editLayout(
-    t: Translate,
-    layout: Shown.LayoutName,
-    label: string,
-    id: FieldId,
-    view: Workspace.EditorWorkspace,
-  ): ShownView.LineButton {
-    return {
-      label: t('state.edit_layout', { layout: layout(view) }),
-      name: t('state.edit_named', { label, layout: layout(view) }),
-      focus: `edit:${id}:${view}`,
-      onPress: () => this._pickScope(view),
     };
   }
 
@@ -3014,8 +2985,11 @@ export class CalendarCardProEditor extends LitElement {
         return [
           {
             text: interpolate(top ? t('inactive.line_top') : t('inactive.line'), { label, value }),
+            // A value from All Layouts is reset there, under Settings For; a reset here cannot
+            // reach it, so the line carries no button and is itself where a search lands.
+            focus: top ? `inactive:${field.id}` : undefined,
             button: top
-              ? this._editLayout(t, this._layoutName(ctx), label, field.id, 'shared')
+              ? undefined
               : {
                   label: t('reset.reset'),
                   name: t('value_source.reset', { option: label }),
@@ -4856,7 +4830,7 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * Opens a value stored but not in use at its gate line, on its page, focused on the line's
-   * Reset, or its Edit where the value is All Layouts'.
+   * Reset, or on the line itself where the value is All Layouts'.
    *
    * @param entry - The result
    * @param target - What it opens: a field on a page, or an entry's field
@@ -4876,7 +4850,7 @@ export class CalendarCardProEditor extends LitElement {
     void this.updateComplete.then(() => {
       const line = Focus.focusFirst(this.renderRoot, [
         Focus.byFocusKey(`reset:${target.id}`),
-        Focus.byFocusKey(`edit:${target.id}:shared`),
+        Focus.byFocusKey(`inactive:${target.id}`),
         '.page-title',
       ]);
       if (line) Focus.scrollToTopSettled(this, line);

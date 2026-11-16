@@ -139,7 +139,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'state.layout_own': '{layout} Sets Its Own: {value}',
   'state.set_on_calendars': 'Set on Calendars:',
   'state.edit_layout': 'Edit {layout}',
-  'state.edit_named': 'Edit {layout}: {label}',
   // The button under a stored field, named for what it leaves: "Reset to Off", "Clear" where
   // nothing comes back, "Remove" where the control goes; the rest name it for screen readers.
   'reset.to': 'Reset to {value}',

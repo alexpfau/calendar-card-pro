@@ -88,7 +88,6 @@
   "state.layout_own": "{layout} ha un valore proprio: {value}",
   "state.set_on_calendars": "Impostato nei calendari:",
   "state.edit_layout": "Modifica {layout}",
-  "state.edit_named": "Modifica {layout}: {label}",
   "reset.to": "Ripristina {value}",
   "reset.clear": "Svuota",
   "reset.reset": "Ripristina",

@@ -126,13 +126,6 @@ describe('a row action is named by the words it shows, then whose it is', () => 
     expect(words(remove.textContent)).toBe('Remove This Entry');
     expect(remove.getAttribute('aria-label')).toBe('Remove This Entry: Family, Events with a time');
   });
-
-  it('beside a value a layout takes from All Layouts', async () => {
-    const editor = await mount({ view: 'grid', days_to_show: 4, entities: [ANNA] });
-    const edit = control(editor, 'edit:content:days_to_show:shared');
-    expect(words(edit.textContent)).toBe('Edit All Layouts');
-    expect(edit.getAttribute('aria-label')).toBe('Edit All Layouts: Days To Show');
-  });
 });
 
 describe('a settings row', () => {
