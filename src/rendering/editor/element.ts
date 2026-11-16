@@ -42,6 +42,7 @@ import * as Misplaced from './misplaced';
 import * as Navigation from './navigation';
 import {
   CALENDARS_BLOCK,
+  FAMILIES,
   type HeadingDef,
   OVERVIEW_FIELDS,
   PAGES,
@@ -1333,13 +1334,17 @@ export class CalendarCardProEditor extends LitElement {
       for (const page of PAGES) {
         const wholePage = Filter.matchesText([page.id, this._pageTitle(page, ctx)], filterCtx);
         for (const heading of page.headings) {
+          // A family's helper line is the family's, not the heading's (`pages.ts` › `FAMILIES`).
+          const helperKey =
+            heading.helperKey ??
+            Object.values(FAMILIES).find((family) => family.titleKey === heading.key)?.helperKey;
           const named =
             wholePage ||
             Filter.matchesText(
               [
                 heading.key,
                 this._headingTitle(heading, ctx),
-                heading.helperKey === undefined ? undefined : this._string(ctx, heading.helperKey),
+                helperKey === undefined ? undefined : this._string(ctx, helperKey),
               ],
               filterCtx,
             );

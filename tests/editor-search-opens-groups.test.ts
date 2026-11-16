@@ -191,6 +191,18 @@ describe('the mounted editor', () => {
     );
   });
 
+  // The family's helper line, as the collapsible's helper was: words from no field under it.
+  it.each([
+    ['country set in home assistant', 'list', 'day_header:weekend_day_color'],
+    ['compact dashboard slot', 'list', 'content:compact_days_to_show'],
+    ['when it runs out', 'grid', 'layout:time_grid.min_day_width'],
+  ] as const)('draws the fields a family helper names, for "%s"', async (query, scope, id) => {
+    const editor = await mount();
+    await changeField(editor, 'workspace:editing_workspace', scope);
+    await search(editor, query);
+    expect(drawn(editor, [id])).toEqual({ [id]: { results: true, open: true } });
+  });
+
   it('draws them on their page, none closed, once the search is cleared', async () => {
     const editor = await mount();
     await search(editor, 'opacity');
