@@ -791,6 +791,10 @@ export class CalendarCardProEditor extends LitElement {
         entities.length,
         this._mintEntryKey,
       );
+      // What the entries became cannot be known, so what was added to one is not carried over.
+      if ([...this._added].some((key) => key.startsWith('entry:'))) {
+        this._added = new Set([...this._added].filter((key) => !key.startsWith('entry:')));
+      }
     }
 
     if (!isEcho) this._authoredRootKeys = new Set(Object.keys(rawConfig));
@@ -2435,13 +2439,6 @@ export class CalendarCardProEditor extends LitElement {
       undefined,
       () => this._applyReset(target, []),
     );
-    // A family added and holding nothing leaves no step, but still leaves the page.
-    this._added = new Set(
-      [...this._added].filter(
-        (key) =>
-          key !== this._addedKey(`family:${family}`, owner) && !key.endsWith(`:family:${family}`),
-      ),
-    );
     this._say(interpolate(this._string(ctx, 'announce.removed_setting'), { label: name }));
     this._focusAfterReset(undefined, heading);
   }
@@ -2482,6 +2479,9 @@ export class CalendarCardProEditor extends LitElement {
         `${group} .add-toggle`,
         `${group} .heading`,
         '.page-title',
+        // On the overview, which has no page headings: its own fields, then its first heading.
+        '.overview [data-field]',
+        '.overview .heading',
       ]);
     });
   }
@@ -2593,6 +2593,7 @@ export class CalendarCardProEditor extends LitElement {
   private _closeDisclosures(): void {
     this._openStrip = undefined;
     this._adding = undefined;
+    this._addOpen = undefined;
   }
 
   /**
@@ -2710,7 +2711,10 @@ export class CalendarCardProEditor extends LitElement {
     const action = escapeAction(event.composedPath(), this, {
       disclosure:
         wizard === undefined &&
-        (this._scopeOpen || this._openStrip !== undefined || this._adding !== undefined),
+        (this._scopeOpen ||
+          this._openStrip !== undefined ||
+          this._adding !== undefined ||
+          this._addOpen !== undefined),
       onPage:
         wizard !== undefined ||
         this._nav.route.kind !== 'overview' ||
@@ -2739,14 +2743,18 @@ export class CalendarCardProEditor extends LitElement {
     } else if (action === 'close') {
       // The disclosure opened last closes, focus back on what opened it.
       const strip = this._openStrip;
+      const addRow = this._addOpen?.key;
       const opener =
         strip !== undefined
           ? `more:${strip}`
           : this._adding !== undefined
             ? 'add-calendar'
-            : 'scope-change';
+            : addRow !== undefined
+              ? addRow
+              : 'scope-change';
       if (strip !== undefined) this._openStrip = undefined;
       else if (this._adding !== undefined) this._adding = undefined;
+      else if (addRow !== undefined) this._addOpen = undefined;
       else this._scopeOpen = false;
       void this.updateComplete.then(() =>
         Focus.focusFirst(this.renderRoot, [Focus.byFocusKey(opener)]),

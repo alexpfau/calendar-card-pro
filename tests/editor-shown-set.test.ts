@@ -456,3 +456,72 @@ describe('the preferences under More', () => {
     expect(helperOf(editor, 'events:show_time')).toMatch(/^YAML: list\.show_time/);
   });
 });
+
+describe('the review’s findings', () => {
+  it('keeps focus in the editor after a Remove on the overview', async () => {
+    const editor = await mount({ start_date: '2026-11-15' });
+    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    expect(live(editor)).toContain('content:start_date_fixed');
+    $(editor, '[data-focus="remove:content:start_date_fixed"]')!.focus();
+    await click(editor, '[data-focus="remove:content:start_date_fixed"]');
+    await editor.updateComplete;
+    expect(live(editor)).not.toContain('content:start_date_fixed');
+    const focused = editor.shadowRoot!.activeElement;
+    expect(focused?.isConnected).toBe(true);
+    expect(focused?.hasAttribute('data-field')).toBe(true);
+  });
+
+  it('removes one calendar’s family, and leaves another calendar’s added one', async () => {
+    const editor = await mount({ entities: ['calendar.anna', 'calendar.ben'] });
+    const [anna, ben] = keysOf(editor, 'entry');
+    for (const key of [anna, ben]) {
+      await goEntry(editor, key);
+      await click(editor, '.page-group[data-heading="heading_replace"] .add-toggle');
+      await click(editor, '[data-focus="add:heading_replace:family:replace"]');
+      expect(live(editor)).toContain('calendar:replace_pattern');
+    }
+    await click(editor, '[data-focus="remove-family:replace"]');
+    expect(live(editor)).not.toContain('calendar:replace_pattern');
+    await goEntry(editor, anna);
+    expect(live(editor)).toContain('calendar:replace_pattern');
+  });
+
+  it('forgets what was added to a calendar once the YAML replaces it from outside', async () => {
+    const editor = await mount();
+    await goEntry(editor, keysOf(editor, 'entry')[0]);
+    await click(editor, '.page-group[data-heading="heading_details"] .add-toggle');
+    await click(editor, '[data-focus="add:heading_details:calendar:show_description"]');
+    expect(live(editor)).toContain('calendar:show_description');
+    editor.setConfig({ config_version: VERSION, entities: ['calendar.ben'] });
+    await editor.updateComplete;
+    await goEntry(editor, keysOf(editor, 'entry')[0]);
+    expect(live(editor)).not.toContain('calendar:show_description');
+  });
+});
+
+describe('an open Add row', () => {
+  it('closes on Escape, focus back on its row, and does not stay open on the next page', async () => {
+    const editor = await mount();
+    await goPage(editor, 'events');
+    await click(editor, '.page-group[data-heading="time"] .add-toggle');
+    const item = $(editor, '[data-focus="add:time:events:time_font_size"]')!;
+    item.focus();
+    item.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Escape',
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+      }),
+    );
+    await editor.updateComplete;
+    await editor.updateComplete;
+    expect($(editor, '.add-row.open')).toBeNull();
+    expect(editor.shadowRoot!.activeElement?.getAttribute('data-focus')).toBe('add:time');
+    expect($(editor, '.page[data-page="events"]')).not.toBeNull();
+
+    await click(editor, '.page-group[data-heading="time"] .add-toggle');
+    await goPage(editor, 'day_header');
+    expect($(editor, '.add-row.open')).toBeNull();
+  });
+});
