@@ -65,7 +65,7 @@ function mount(extra: Record<string, unknown> = {}): Promise<Editor> {
  * @returns The chips, in order
  */
 function chips(editor: Editor, group: string): HTMLButtonElement[] {
-  const found = editor.shadowRoot!.querySelector(`.chips[aria-label="${group}"]`);
+  const found = editor.shadowRoot!.querySelector(`.chip-group[aria-label="${group}"]`);
   return [...(found?.querySelectorAll<HTMLButtonElement>('button.chip') ?? [])];
 }
 
@@ -215,6 +215,16 @@ describe('the event-part chips', () => {
     await goPage(editor, 'events');
     expect(chips(editor, 'Event Details')).toHaveLength(8);
     expect(lines(editor).some((line) => line.startsWith('Not in'))).toBe(false);
+  });
+
+  it('wraps the chips in rows, never stacked one per line by another control’s rule', async () => {
+    const editor = await mount();
+    await goPage(editor, 'events');
+    const group = editor.shadowRoot!.querySelector('.chip-group[aria-label="Event Details"]')!;
+    const style = getComputedStyle(group);
+    // Start Date's radio chips are a column (.chips); a shared class stacked these one per line.
+    expect([style.display, style.flexWrap]).toEqual(['flex', 'wrap']);
+    expect(style.flexDirection).not.toBe('column');
   });
 
   it('keeps End Time and Duration in sight while Time is off, unpressable, with the reason', async () => {
