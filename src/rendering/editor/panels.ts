@@ -133,8 +133,9 @@ export const PANELS: ReadonlyArray<PanelDef> = [
   },
   {
     id: 'card',
-    // The words on the toolbar buttons' own panels: Add Button, Move Up and the rest.
-    strings: ['toolbar.buttons'],
+    // The words on the toolbar buttons' own rows (Add Button, Move Up and the rest), and the
+    // toolbar's controls drawn as chips.
+    strings: ['toolbar.buttons', 'toolbar.controls'],
     build: buildCardSchema,
     subforms: cardSubforms,
   },

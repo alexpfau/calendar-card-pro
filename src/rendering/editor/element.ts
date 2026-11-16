@@ -7,7 +7,6 @@
 
 import { mdiCheck, mdiDeleteOutline } from '@mdi/js';
 import {
-  type ChildPart,
   LitElement,
   type PropertyValues,
   TemplateResult,
@@ -16,7 +15,6 @@ import {
   render as renderInto,
 } from 'lit';
 import { property, state } from 'lit/decorators.js';
-import { Directive, directive } from 'lit/directive.js';
 import { cache } from 'lit/directives/cache.js';
 import { keyed } from 'lit/directives/keyed.js';
 import { repeat } from 'lit/directives/repeat.js';
@@ -24,6 +22,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { Announcer } from './announce';
 import * as Buttons from './buttons';
 import * as CalendarList from './calendar-list';
+import * as Chips from './chips';
 import * as Entities from './entities';
 import * as Essentials from './essentials';
 import * as Exceptions from './exceptions';
@@ -36,6 +35,7 @@ import {
   entityFieldIndex,
   fieldId,
   fieldLabel,
+  parseFieldId,
 } from './field-index';
 import * as Filter from './filter';
 import { type HaFormSchema, warmSchema } from './ha-form';
@@ -45,6 +45,7 @@ import { History, type MigrationState, type Snapshot } from './history';
 import * as EditorLocalize from './localize';
 import * as Misplaced from './misplaced';
 import * as Navigation from './navigation';
+import { LEGEND_EDITOR_VALUES, LEGEND_OFF } from './normalize';
 import {
   CALENDARS_BLOCK,
   ENTRY_GROUPS,
@@ -67,7 +68,7 @@ import * as QuickSetup from './quick-setup';
 import * as Reorder from './reorder';
 import * as Routing from './routing';
 import { ENTITY_PATH } from './schemas/calendars';
-import { TOOLBAR_BUTTON_ICON, TOOLBAR_BUTTON_PATH, buildToolbarButtonSchema } from './schemas/card';
+import { TOOLBAR_BUTTON_PATH, buildToolbarButtonSchema } from './schemas/card';
 import {
   VISIBILITY,
   accentColorModeOf,
@@ -91,9 +92,9 @@ import * as Summary from './summary';
 import * as Synthetic from './synthetic';
 import * as Value from './value';
 import * as CalendarView from './views/calendars';
+import * as ChipsView from './views/chips';
 import * as Focus from './views/focus';
 import * as HistoryView from './views/history';
-import { icon } from './views/icon';
 import { escapeAction, historyKey, inTextField } from './views/keys';
 import * as Overview from './views/overview';
 import * as PageView from './views/page';
@@ -222,55 +223,6 @@ function provideCalendar(event: Event, entityId: string): void {
   request.callback({ mode: 'current', entityId }, request.subscribe ? () => undefined : undefined);
 }
 
-/**
- * Panels that have begun to open. A panel mounts its forms the first time it opens and keeps them
- * while it is drawn, so a panel nobody has opened holds no form at all: today's dialog used to
- * build every panel's forms, 124 of them, behind closed panels (backlog item 307).
- */
-const openedPanels = new WeakSet<object>();
-
-/**
- * Draws what a panel holds only once the panel has begun to open (`openedPanels`).
- *
- * Read off the panel element rather than off a key, because Lit hands a drawn panel to whichever
- * panel lands in its place, as it always has: an element that was open stays open for what it
- * holds now, and must draw it. A panel opens on a click, announcing `expanded-will-change` before
- * it measures what it holds (`_panelWillChange` marks it then, so the forms are there to be
- * measured), or because the editor binds its `expanded`, as a search does, which Lit sets before
- * it reaches this part.
- */
-class WhenOpened extends Directive {
-  render(content: () => unknown): unknown {
-    return content();
-  }
-
-  override update(part: ChildPart, [content]: [() => unknown]): unknown {
-    let panel = part.parentNode as (Node & { localName?: string; expanded?: boolean }) | null;
-    while (panel && panel.localName !== 'ha-expansion-panel') panel = panel.parentNode;
-    if (panel?.expanded) openedPanels.add(panel);
-    return !panel || openedPanels.has(panel) ? content() : nothing;
-  }
-}
-
-const whenOpened = directive(WhenOpened);
-
-/**
- * A schema without one of its nodes, at any depth.
- *
- * @param schema - The schema
- * @param node - The node to leave out
- * @returns The rest
- */
-function withoutNode(schema: ReadonlyArray<HaFormSchema>, node: HaFormSchema): HaFormSchema[] {
-  return schema.flatMap((each) =>
-    each === node
-      ? []
-      : 'schema' in each
-        ? [{ ...each, schema: withoutNode(each.schema, node) } as HaFormSchema]
-        : [each],
-  );
-}
-
 /** The data of a form that draws no field, the one object every render hands it. */
 const NO_DATA: Readonly<Record<string, unknown>> = {};
 
@@ -335,6 +287,24 @@ interface QuickSetupSession {
   /** Unset until a story is picked; nothing is previewed before that. */
   readonly answers?: QuickSetup.QuickSetupAnswers;
   readonly previews: ReadonlyArray<Record<string, unknown>>;
+}
+
+/** A list whose rows reorder (section 5.11): the calendars, or the toolbar's own buttons. */
+type ReorderList = 'calendar' | 'button';
+
+/** The keyboard grab, and the list it holds a row of. */
+type Grab = Reorder.GrabState & { readonly list: ReorderList };
+
+/**
+ * A handle's `data-focus` key: `handle:calendar.anna` for a calendar, `handle:button:3` for a
+ * toolbar button.
+ *
+ * @param list - Which list
+ * @param id - The calendar's entity id, or the button's key
+ * @returns The key
+ */
+function handleFocus(list: ReorderList, id: string | number): string {
+  return list === 'calendar' ? `handle:${id}` : `handle:button:${id}`;
 }
 
 /** The line a removal or an applied story leaves under its list ("Removed Ben · Undo"). */
@@ -620,7 +590,7 @@ export class CalendarCardProEditor extends LitElement {
    * The calendar the keyboard grab holds, and where (`reorder.ts`): session state, outside undo,
    * written only when it drops.
    */
-  @state() private _grab?: Reorder.GrabState;
+  @state() private _grab?: Grab;
 
   /** The pointer drag under way on a handle, which Escape cancels. */
   private _drag?: { readonly cancel: () => void };
@@ -665,15 +635,15 @@ export class CalendarCardProEditor extends LitElement {
   private _nextEntryKey = 0;
 
   /**
-   * A key per toolbar button, in the list's order, so each button keeps its own panel, open or
+   * A key per toolbar button, in the list's order, so each button keeps its own row, open or
    * closed, through a move and through the removal of another.
    */
   private _buttonKeys: number[] = [];
 
   private _nextButtonKey = 0;
 
-  /** The keys of the buttons Add Button created, whose panels open as they arrive. */
-  private _addedButtons = new Set<number>();
+  /** The buttons whose rows are open: session state, outside undo. Add Button opens its own. */
+  @state() private _openButtons = new Set<number>();
 
   private _rawConfig: Record<string, unknown> = {};
 
@@ -1065,7 +1035,7 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * Puts focus on what Undo or Redo restored: a field's wrapper, a calendar entry's row, a
-   * button's panel, else the heading of the place shown, or the migration choice's title.
+   * button's row, else the heading of the place shown, or the migration choice's title.
    *
    * @param focusKey - What the step's change was made with
    */
@@ -1075,20 +1045,17 @@ export class CalendarCardProEditor extends LitElement {
       focusKey === undefined
         ? []
         : [focusKey.slice(0, focusKey.indexOf(':')), focusKey.slice(focusKey.indexOf(':') + 1)];
+    // A field's wrapper, or the chip or radio group the editor draws in its place.
     const target =
       kind === 'field'
-        ? root.querySelector<HTMLElement>(`.field[data-field="${CSS.escape(key!)}"]`)
-        : kind === 'entry'
-          ? root.querySelector<HTMLElement>(Focus.byFocusKey(`row:${key}`))
-          : kind === 'button'
-            ? root.querySelector<HTMLElement>(
-                `.button-panel[data-button-key="${CSS.escape(key!)}"]`,
-              )
-            : null;
+        ? root.querySelector<HTMLElement>(`[data-field="${CSS.escape(key!)}"]`)
+        : kind === 'entry' || kind === 'button'
+          ? root.querySelector<HTMLElement>(
+              Focus.byFocusKey(`${kind === 'entry' ? 'row' : 'button'}:${key}`),
+            )
+          : null;
     if (target) {
-      // A panel's own header is the row's control; Home Assistant draws it as a button.
-      const summary = target.shadowRoot?.querySelector<HTMLElement>('#summary');
-      (summary ?? target).focus({ preventScroll: true });
+      target.focus({ preventScroll: true });
       target.scrollIntoView?.({ block: 'nearest' });
       if (root.activeElement === target) return;
     }
@@ -1852,41 +1819,6 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * The field of one calendar entry or toolbar button a result opened, as its form builds it.
-   *
-   * @param kind - Whose field
-   * @param key - The entry's or button's key
-   * @param schema - Its form's fields
-   * @returns The field, or `undefined` where no result opened one of this owner's
-   */
-  private _jumpField(
-    kind: 'entry-field' | 'button-field',
-    key: number,
-    schema: ReadonlyArray<HaFormSchema>,
-  ): IndexedField | undefined {
-    if (!this._jumpsTo(kind, key)) return undefined;
-    const index = kind === 'entry-field' ? entityFieldIndex(schema) : buttonFieldIndex(schema);
-    return index.fields.get(this._jump!.target.id);
-  }
-
-  /**
-   * A field of an entry or a button a result opened, drawn alone, in a wrapper named after it
-   * that takes focus for it, as a card field's does.
-   *
-   * @param ctx - Schema context
-   * @param forms - The forms
-   * @returns The group
-   */
-  private _jumpToOwned(ctx: SchemaCtx, forms: unknown): TemplateResult {
-    return this._jumpTo(
-      ctx,
-      html`<div class="field" tabindex="-1" role="group" aria-label=${this._jump!.label}>
-        ${forms}
-      </div>`,
-    );
-  }
-
-  /**
    * Return to Results, wherever a result left them: Back from a page reached from the results,
    * or the overview's own Back while a result shows a field there.
    *
@@ -2193,11 +2125,12 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * Alt+ArrowUp and Alt+ArrowDown move the calendar of a focused row, or of the entry page open
-   * where it is its calendar's only entry: wherever the editor's own controls carry
-   * `data-move-calendar`, never inside a field's form or a text field.
+   * where it is its calendar's only entry, or a toolbar button from its row's head: wherever the
+   * editor's own controls carry `data-move-calendar` or `data-move-button`, never inside a field's
+   * form or a text field.
    *
    * @param event - A `keydown`
-   * @returns Whether it moved a calendar, the key then taken
+   * @returns Whether it moved a row, the key then taken
    */
   private _moveByKey(event: KeyboardEvent): boolean {
     if (
@@ -2219,11 +2152,18 @@ export class CalendarCardProEditor extends LitElement {
     }
     const mover = path.find(
       (each): each is HTMLElement =>
-        each instanceof HTMLElement && each.dataset.moveCalendar !== undefined,
+        each instanceof HTMLElement &&
+        (each.dataset.moveCalendar !== undefined || each.dataset.moveButton !== undefined),
     );
     if (mover === undefined) return false;
     event.preventDefault();
     event.stopPropagation();
+    const button = mover.dataset.moveButton;
+    if (button !== undefined) {
+      const at = this._buttonKeys.indexOf(Number(button));
+      this._moveButton(at, at + (event.key === 'ArrowUp' ? -1 : 1), handleFocus('button', button));
+      return true;
+    }
     const entityId = mover.dataset.moveCalendar!;
     const place = this._calendarPlace(entityId);
     const focused = path.find(
@@ -2580,7 +2520,7 @@ export class CalendarCardProEditor extends LitElement {
         : nothing;
       if (fields.length === 0 && buttons === nothing) continue;
       drawn.push(...fields);
-      const body = html`${this._renderFields(fields, ctx)} ${buttons}`;
+      const body = html`${this._renderHeadingFields(heading, fields, ctx)} ${buttons}`;
       const link = heading.crossLink;
       const target = link && PAGES.find((candidate) => candidate.id === link.page);
       const targetHeading = target?.headings.find((each) => each.key === link!.heading);
@@ -2621,6 +2561,228 @@ export class CalendarCardProEditor extends LitElement {
     if (drawn.length === 0 && resets === nothing && parts.length === 0) return undefined;
     parts.push(resets);
     return parts;
+  }
+
+  /**
+   * A heading's fields as its page draws them: each in a form of its own, but the chips of one
+   * kind gathered into one group where the first of them is placed, and Calendar Filter as its
+   * segmented control (section 5.9).
+   *
+   * @param heading - The heading
+   * @param fields - Its fields drawn here (`_fieldsOf`)
+   * @param ctx - Schema context
+   * @returns What it draws
+   */
+  private _renderHeadingFields(
+    heading: HeadingDef,
+    fields: ReadonlyArray<IndexedField>,
+    ctx: SchemaCtx,
+  ): unknown[] {
+    const parts: unknown[] = [];
+    let run: IndexedField[] = [];
+    const flush = (): void => {
+      if (run.length > 0) parts.push(this._renderFields(run, ctx));
+      run = [];
+    };
+    const grouped = new Set<string>();
+    for (const [id, appearance] of heading.fields) {
+      if (typeof appearance === 'object' && 'chips' in appearance) {
+        if (grouped.has(appearance.chips)) continue;
+        grouped.add(appearance.chips);
+        flush();
+        parts.push(this._renderChips(appearance.chips, heading, ctx));
+        continue;
+      }
+      const field = fields.find((each) => each.id === id);
+      if (field === undefined) continue;
+      if (appearance === 'segmented') {
+        flush();
+        parts.push(this._renderSegmented(field, ctx));
+      } else {
+        run.push(field);
+      }
+    }
+    flush();
+    return parts;
+  }
+
+  /**
+   * A heading's chips of one kind (section 5.9): the event parts, or the toolbar's controls.
+   *
+   * A chip is drawn where its field is offered in the scope at all (`chips.ts` › `inScope`), so
+   * Now is absent in Grid and a line says so. A part offered but withheld by its gate is drawn
+   * unpressable with its reason, so End Time and Duration stay in sight while Time is off; a
+   * toolbar control is drawn only while the toolbar is. Pressed is the field's effective value
+   * in the scope, and a press writes the other value through `_writeFieldValue`, one undo step.
+   * Under the parts, the stored ones by where they are stored, then the hint; under the
+   * controls, their helper.
+   *
+   * @param kind - Which chips
+   * @param heading - The heading they are placed under
+   * @param ctx - Schema context
+   * @returns The group and its lines, or nothing where no chip is drawn
+   */
+  private _renderChips(
+    kind: Chips.ChipKind,
+    heading: HeadingDef,
+    ctx: SchemaCtx,
+  ): TemplateResult | typeof nothing {
+    const { present, shown } = this._drawing!;
+    const filtering = Filter.isFiltering(this._filter);
+    const workspace = ctx.workspace ?? ctx.view;
+    const data = this._formData();
+    const raw = this._rawConfig;
+    const label = (id: FieldId): string => this._string(ctx, Chips.CHIP_LABELS[id]);
+    const layout = (each: Workspace.EditorWorkspace): string =>
+      this._string(ctx, `editing_workspace.option.${each}.label`);
+    const words = (id: FieldId): string | undefined => {
+      const at = kind === 'parts' ? Chips.storedAt(id, raw, workspace) : undefined;
+      if (at === undefined) return undefined;
+      return at === 'inherited'
+        ? this._string(ctx, 'chip.from_all')
+        : interpolate(this._string(ctx, 'chip.set_for'), {
+            layout: layout(at === 'own' ? workspace : 'shared'),
+          });
+    };
+    const ids = heading.fields.flatMap(([id, appearance]) =>
+      typeof appearance === 'object' && 'chips' in appearance && appearance.chips === kind
+        ? [id]
+        : [],
+    );
+    const sources = new Map<string, string[]>();
+    const chips = ids.flatMap((id): ChipsView.ChipModel[] => {
+      if (!Chips.inScope(id, workspace) || (filtering && !shown.has(id))) return [];
+      const field = present.get(id);
+      if (field === undefined && kind === 'toolbar') return [];
+      const pressed =
+        field !== undefined &&
+        Chips.isPressed(Routing.atPath(data, field.dataPath, field.node.name));
+      const needs =
+        field === undefined
+          ? Chips.needsPart(
+              id,
+              { card: data },
+              ctx.language,
+              (each) => this._string(ctx, parseFieldId(each).name),
+              label,
+            )
+          : undefined;
+      const stored = words(id);
+      if (stored !== undefined) {
+        const pairs = sources.get(stored) ?? [];
+        pairs.push(
+          interpolate(this._string(ctx, 'summary.pair'), {
+            label: label(id),
+            value: this._string(ctx, pressed ? 'summary.on' : 'summary.off'),
+          }),
+        );
+        sources.set(stored, pairs);
+      }
+      return [
+        {
+          id,
+          label: label(id),
+          name: stored === undefined ? label(id) : `${label(id)}, ${stored}`,
+          pressed,
+          needs:
+            field === undefined
+              ? interpolate(this._string(ctx, 'chip.needs'), { part: needs ?? '' })
+              : undefined,
+          onPress: () =>
+            this._commit(
+              interpolate(this._string(ctx, 'history.change'), {
+                setting: fieldLabel(field!, ctx.language),
+              }),
+              undefined,
+              () => this._writeFieldValue(WriteFrames.CARD_OWNER, id, !pressed),
+              `field:${id}`,
+            ),
+        },
+      ];
+    });
+    if (chips.length === 0) return nothing;
+    const absent = ids.filter((id) => !Chips.inScope(id, workspace));
+    const view = Workspace.viewForWorkspace(workspace);
+    const source = [...sources].flatMap(([where, pairs]) => [where, ...pairs]);
+    const group = ChipsView.chipGroup(
+      kind === 'parts'
+        ? (this._headingTitle(heading, ctx) ?? '')
+        : this._string(ctx, 'toolbar.controls'),
+      chips,
+      kind === 'toolbar',
+    );
+    const jumped = chips.some(
+      ({ id }) => this._jump?.target.kind === 'field' && this._jump.target.id === id,
+    );
+    return html`${jumped ? this._jumpTo(ctx, group) : group}
+      ${
+        source.length > 0
+          ? html`<p class="hint chip-source">${source.join(Summary.SUMMARY_SEPARATOR)}</p>`
+          : nothing
+      }
+      ${
+        absent.length > 0 && view !== undefined
+          ? html`<p class="hint">
+              ${interpolate(this._string(ctx, 'chip.not_in'), {
+                layout: layout(view),
+                names: absent.map(label).join(', '),
+              })}
+            </p>`
+          : nothing
+      }
+      <p class="hint">
+        ${this._string(ctx, kind === 'parts' ? 'chip.hint' : 'toolbar.controls.hint')}
+      </p>`;
+  }
+
+  /**
+   * Calendar Filter as a segmented radio group of its options, Off, Menu and Chips (section
+   * 5.9), with Reset beside it while `toolbar.legend` is stored. Picking writes through
+   * `_writeFieldValue`, one undo step; Reset removes the line, and focus goes to the group.
+   *
+   * @param field - `card:toolbar.legend`
+   * @param ctx - Schema context
+   * @returns The group
+   */
+  private _renderSegmented(field: IndexedField, ctx: SchemaCtx): TemplateResult {
+    const id = field.id;
+    const name = fieldLabel(field, ctx.language);
+    const value = Routing.atPath(this._formData(), field.dataPath, field.node.name);
+    const write = (label: string, next: unknown): void => {
+      this._commit(
+        interpolate(this._string(ctx, label), { setting: name }),
+        undefined,
+        () => this._writeFieldValue(WriteFrames.CARD_OWNER, id, next),
+        `field:${id}`,
+      );
+    };
+    const toolbar = this._rawConfig.toolbar;
+    const stored = Helpers.isConfigBlock(toolbar) && toolbar[field.node.name] !== undefined;
+    const control = ChipsView.segmented({
+      id,
+      label: name,
+      helper: this._string(ctx, 'toolbar.legend.helper'),
+      value: String(value ?? LEGEND_OFF),
+      options: LEGEND_EDITOR_VALUES.map((option) => ({
+        value: option,
+        label: this._string(ctx, `toolbar.legend.option.${option}.label`),
+      })),
+      onPick: (next) => write('history.change', next),
+      reset: stored
+        ? {
+            name: interpolate(this._string(ctx, 'value_source.reset'), { option: name }),
+            onPress: () => {
+              write('history.reset', undefined);
+              void this.updateComplete.then(() =>
+                Focus.focusFirst(this.renderRoot, [`[data-field="${id}"]`]),
+              );
+            },
+          }
+        : undefined,
+    });
+    return this._jump?.target.kind === 'field' && this._jump.target.id === id
+      ? this._jumpTo(ctx, control)
+      : control;
   }
 
   /**
@@ -3018,7 +3180,7 @@ export class CalendarCardProEditor extends LitElement {
       interpolate(this._string(ctx, 'summary.set'), {
         count: String(CalendarList.setCount(entry)),
       });
-    const grab = this._grabbed();
+    const grab = this._grabbed('calendar');
     const calendars = CalendarList.groups(state);
     const preview =
       grab === undefined ? undefined : Reorder.order(this._calendarKeys(calendars), grab);
@@ -3027,7 +3189,7 @@ export class CalendarCardProEditor extends LitElement {
       const grouped = calendar.rows.length > 1;
       const missing = this._missing(calendar.entityId);
       const key = calendar.rows[0].key;
-      const handle = this._handle(calendar.entityId, key, name, ctx);
+      const handle = this._handle('calendar', calendar.entityId, key, name, ctx);
       const rows = calendar.rows.flatMap((row): CalendarView.EntryRowModel[] => {
         if (kept !== undefined && !kept.has(row.index)) return [];
         const entry = entities[row.index];
@@ -3123,64 +3285,87 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * The keyboard grab, while the list still holds its calendar where it was picked up; a grab the
-   * list has moved under (another editor's write, an undo) holds nothing.
+   * The keys of a list that reorders: each calendar's (its first entry's), or each button's.
    *
-   * @returns The grab, or undefined
+   * @param list - Which list
+   * @returns The keys, in list order
    */
-  private _grabbed(): Reorder.GrabState | undefined {
-    const grab = this._grab;
-    const keys = this._calendarKeys();
-    return grab !== undefined && keys.length === grab.total && keys[grab.from] === grab.key
-      ? grab
-      : undefined;
+  private _reorderKeys(list: ReorderList): number[] {
+    return list === 'calendar'
+      ? this._calendarKeys()
+      : [...this._buttonKeysFor(Buttons.writtenButtons(this._config!).length)];
   }
 
   /**
-   * A calendar's drag handle (section 5.11): Space picks it up and drops it, the arrow keys move
-   * it while held, Alt+Arrow moves it at once, and a pointer drags it.
+   * The keyboard grab on a list, while the list still holds its row where it was picked up; a
+   * grab the list has moved under (another editor's write, an undo) holds nothing.
    *
-   * @param entityId - The calendar
+   * @param list - Which list, else either
+   * @returns The grab, or undefined
+   */
+  private _grabbed(list?: ReorderList): Grab | undefined {
+    const grab = this._grab;
+    if (grab === undefined || (list !== undefined && grab.list !== list) || !this._config) {
+      return undefined;
+    }
+    const keys = this._reorderKeys(grab.list);
+    return keys.length === grab.total && keys[grab.from] === grab.key ? grab : undefined;
+  }
+
+  /**
+   * A row's drag handle (section 5.11), a calendar's or a toolbar button's: Space picks it up and
+   * drops it, the arrow keys move it while held, Alt+Arrow moves it at once, and a pointer drags
+   * it.
+   *
+   * @param list - Which list
+   * @param id - The calendar's entity id, or the button's key
    * @param key - Its key for reordering
    * @param name - Its name
    * @param ctx - Schema context
    * @returns The handle
    */
-  private _handle(entityId: string, key: number, name: string, ctx: SchemaCtx): TemplateResult {
+  private _handle(
+    list: ReorderList,
+    id: string,
+    key: number,
+    name: string,
+    ctx: SchemaCtx,
+  ): TemplateResult {
     return ReorderView.dragHandle({
-      focus: `handle:${entityId}`,
-      moves: entityId,
+      focus: handleFocus(list, id),
+      moves: list === 'calendar' ? id : undefined,
       name: interpolate(this._string(ctx, 'reorder.handle'), { name }),
       tooltip: interpolate(this._string(ctx, 'reorder.tooltip'), { name }),
-      pressed: this._grabbed()?.key === key,
-      onKeydown: (event) => this._handleKeydown(event, key),
+      pressed: this._grabbed(list)?.key === key,
+      onKeydown: (event) => this._handleKeydown(event, list, key),
       onClick: () => {
         // A Space the keydown already took, or the end of a drag, also clicks.
         if (this._swallowClick) this._swallowClick = false;
-        else this._toggleGrab(key);
+        else this._toggleGrab(list, key);
       },
       onPointerdown: (event) => {
         this._swallowClick = false;
-        this._dragStart(event);
+        this._dragStart(event, list);
       },
       onBlur: () => {
         this._swallowClick = false;
-        const grab = this._grabbed();
+        const grab = this._grabbed(list);
         if (grab?.key === key) this._putBack(grab, false);
       },
     });
   }
 
   /**
-   * A key on a handle: Space picks its calendar up or drops it; while it is held, the arrow keys
-   * move it one place, focus staying on the handle. Escape reaches the editor's own rule
-   * (`_onKeydown`), and Alt+Arrow without a grab moves the calendar at once (`_moveByKey`).
+   * A key on a handle: Space picks its row up or drops it; while it is held, the arrow keys move
+   * it one place, focus staying on the handle. Escape reaches the editor's own rule
+   * (`_onKeydown`), and Alt+Arrow without a grab moves the row at once (`_moveByKey`).
    *
    * @param event - The `keydown`
-   * @param key - The handle's calendar key
+   * @param list - Which list
+   * @param key - The handle's row key
    */
-  private _handleKeydown(event: KeyboardEvent, key: number): void {
-    const grab = this._grabbed();
+  private _handleKeydown(event: KeyboardEvent, list: ReorderList, key: number): void {
+    const grab = this._grabbed(list);
     const arrow = event.key === 'ArrowUp' ? -1 : event.key === 'ArrowDown' ? 1 : 0;
     const space =
       event.key === ' ' && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey;
@@ -3188,9 +3373,9 @@ export class CalendarCardProEditor extends LitElement {
     // among them, clicks for itself.
     this._swallowClick = space;
     if (space) {
-      if (!event.repeat) this._toggleGrab(key);
+      if (!event.repeat) this._toggleGrab(list, key);
     } else if (grab?.key === key && arrow !== 0) {
-      this._grab = Reorder.moveBy(grab, arrow);
+      this._grab = { ...Reorder.moveBy(grab, arrow), list };
       this._sayGrab(this._grab, false);
       // The held row stays in sight as it moves past the edge of what scrolls the editor.
       const row = (event.currentTarget as Element).closest('[data-reorder]');
@@ -3203,22 +3388,26 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Picks a calendar up, or drops the one held: the drop writes once, where it moved.
+   * Picks a row up, or drops the one held: the drop writes once, where it moved.
    *
-   * @param key - The calendar's key
+   * @param list - Which list
+   * @param key - The row's key
    */
-  private _toggleGrab(key: number): void {
-    const grab = this._grabbed();
+  private _toggleGrab(list: ReorderList, key: number): void {
+    const grab = this._grabbed(list);
     if (grab !== undefined) {
       if (grab.key !== key) return;
       this._grab = undefined;
-      const entityId = this._grabbedCalendar(grab);
       if (grab.at === grab.from) this._putBack(grab, true);
-      else this._moveCalendar(entityId, grab.at, `handle:${entityId}`);
+      else if (list === 'button') this._moveButton(grab.from, grab.at, handleFocus(list, key));
+      else {
+        const entityId = this._grabbedCalendar(grab);
+        this._moveCalendar(entityId, grab.at, handleFocus(list, entityId));
+      }
       return;
     }
     if (this._drag !== undefined) return;
-    this._grab = Reorder.grab(this._calendarKeys(), key);
+    this._grab = { ...Reorder.grab(this._reorderKeys(list), key), list };
     this._sayGrab(this._grab, true);
   }
 
@@ -3233,13 +3422,28 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * The grab's words: where the held calendar stands, and as it is picked up the keys, the same
-   * words the line under the list shows.
+   * The name of the row a grab holds: its calendar's, or its button's.
+   *
+   * @param grab - The grab, still valid
+   * @returns The name
+   */
+  private _grabbedName(grab: Grab): string {
+    if (grab.list === 'calendar') return this._calendarName(this._grabbedCalendar(grab));
+    return Buttons.buttonTitle(
+      Buttons.writtenButtons(this._config!)[grab.from],
+      grab.from,
+      this._string(this._ctx, 'toolbar.buttons.untitled'),
+    );
+  }
+
+  /**
+   * The grab's words: where the held row stands, and as it is picked up the keys, the same words
+   * the line under the list shows.
    *
    * @param grab - The grab
    * @param keys - Whether to say the keys too
    */
-  private _sayGrab(grab: Reorder.GrabState, keys: boolean): void {
+  private _sayGrab(grab: Grab, keys: boolean): void {
     const ctx = this._ctx;
     const position = this._grabPosition(grab, ctx);
     this._say(
@@ -3256,9 +3460,9 @@ export class CalendarCardProEditor extends LitElement {
    * @param ctx - Schema context
    * @returns The sentence
    */
-  private _grabPosition(grab: Reorder.GrabState, ctx: SchemaCtx): string {
+  private _grabPosition(grab: Grab, ctx: SchemaCtx): string {
     return interpolate(this._string(ctx, 'reorder.status'), {
-      name: this._calendarName(this._grabbedCalendar(grab)),
+      name: this._grabbedName(grab),
       position: String(grab.at + 1),
       total: String(grab.total),
     });
@@ -3280,63 +3484,87 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Puts the held calendar back where it was picked up, writing nothing, and says so.
+   * Puts the held row back where it was picked up, writing nothing, and says so.
    *
    * @param grab - The grab
    * @param refocus - Whether focus returns to its handle: after Escape, not after focus left it
    */
-  private _putBack(grab: Reorder.GrabState, refocus: boolean): void {
-    const entityId = this._grabbedCalendar(grab);
+  private _putBack(grab: Grab, refocus: boolean): void {
+    const name = this._grabbedName(grab);
+    const id = grab.list === 'calendar' ? this._grabbedCalendar(grab) : String(grab.key);
     this._grab = undefined;
-    this._sayPutBack(entityId);
+    this._sayPutBack(name, grab.from, grab.total);
     if (refocus) {
       void this.updateComplete.then(() =>
-        Focus.focusFirst(this.renderRoot, [Focus.byFocusKey(`handle:${entityId}`)]),
+        Focus.focusFirst(this.renderRoot, [Focus.byFocusKey(handleFocus(grab.list, id))]),
       );
     }
   }
 
   /**
-   * Says a calendar is back where it was: "Put Anna back at position 2 of 5."
+   * Says a row is back where it was: "Put Anna back at position 2 of 5."
    *
-   * @param entityId - The calendar, which nothing has moved
+   * @param name - The row's name
+   * @param at - Its place, which nothing has moved, counting from zero
+   * @param total - How many rows the list has
    */
-  private _sayPutBack(entityId: string): void {
-    const calendars = this._calendarKeys();
+  private _sayPutBack(name: string, at: number, total: number): void {
     this._say(
       interpolate(this._string(this._ctx, 'reorder.put_back'), {
-        name: this._calendarName(entityId),
-        position: String(this._calendarPlace(entityId) + 1),
-        total: String(calendars.length),
+        name,
+        position: String(at + 1),
+        total: String(total),
       }),
     );
   }
 
   /**
-   * A pointer pressed on a handle: once it travels, the calendar follows it, and letting go drops
-   * it where it is shown, as one write; a cancel puts it back.
+   * A pointer pressed on a handle: once it travels, the row follows it, and letting go drops it
+   * where it is shown, as one write; a cancel puts it back.
    *
    * @param event - The `pointerdown`
+   * @param list - Which list
    */
-  private _dragStart(event: PointerEvent): void {
+  private _dragStart(event: PointerEvent, list: ReorderList): void {
     if (this._drag !== undefined || this._grabbed() !== undefined) return;
     this._drag = ReorderView.pointerDrag(event, scrollContainer(this), (outcome) => {
       this._drag = undefined;
-      if (outcome === undefined) return;
+      if (outcome === undefined || !this._config) return;
       // The click a mouse makes on letting go; a touch makes none, and the next press clears it.
       this._swallowClick = true;
-      const entityId = outcome.ids[outcome.from];
+      const id = outcome.ids[outcome.from];
+      if (list === 'button') {
+        const keys = this._reorderKeys(list).map(String);
+        const from = keys.indexOf(id);
+        // A button a change from outside took away goes nowhere to be put back.
+        if (from < 0) return;
+        if (!outcome.dropped) {
+          const name = Buttons.buttonTitle(
+            Buttons.writtenButtons(this._config)[from],
+            from,
+            this._string(this._ctx, 'toolbar.buttons.untitled'),
+          );
+          this._sayPutBack(name, from, keys.length);
+        } else if (outcome.at !== outcome.from) {
+          this._moveButton(
+            from,
+            Reorder.placeIn(keys, outcome.ids, id, outcome.at),
+            handleFocus(list, id),
+          );
+        }
+        return;
+      }
+      const all = CalendarList.groups(this._listState()).map((calendar) => calendar.entityId);
       if (!outcome.dropped) {
         // A calendar a change from outside took off the card goes nowhere to be put back.
-        if (this._config?.entities?.some((each) => Synthetic.entityIdOf(each) === entityId)) {
-          this._sayPutBack(entityId);
+        if (all.includes(id)) {
+          this._sayPutBack(this._calendarName(id), all.indexOf(id), all.length);
         }
       } else if (outcome.at !== outcome.from) {
-        const all = CalendarList.groups(this._listState()).map((calendar) => calendar.entityId);
         this._moveCalendar(
-          entityId,
-          Reorder.placeIn(all, outcome.ids, entityId, outcome.at),
-          `handle:${entityId}`,
+          id,
+          Reorder.placeIn(all, outcome.ids, id, outcome.at),
+          handleFocus(list, id),
         );
       }
     });
@@ -3386,19 +3614,20 @@ export class CalendarCardProEditor extends LitElement {
             )
           : nothing
       }
-      ${list} ${this._renderGrabStatus(ctx)} ${this._renderAddCalendar(ctx)}
+      ${list} ${this._renderGrabStatus(ctx, 'calendar')} ${this._renderAddCalendar(ctx)}
     </section>`;
   }
 
   /**
-   * The keyboard grab's line under the list, while a calendar is held: where it stands and the
+   * The keyboard grab's line under a list, while a row of it is held: where it stands and the
    * keys (the D10 mockup), plain text whose words the queue speaks.
    *
    * @param ctx - Schema context
+   * @param list - Which list
    * @returns The line, or nothing
    */
-  private _renderGrabStatus(ctx: SchemaCtx): TemplateResult | typeof nothing {
-    const grab = this._grabbed();
+  private _renderGrabStatus(ctx: SchemaCtx, list: ReorderList): TemplateResult | typeof nothing {
+    const grab = this._grabbed(list);
     return grab === undefined
       ? nothing
       : ReorderView.grabStatus(
@@ -4256,8 +4485,10 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Renders the toolbar's own buttons, under the heading Card & Header draws for them: a
-   * collapsible form per button headed by its name, and Add Button after the last.
+   * Renders the toolbar's own buttons, under the heading Card & Header draws for them (D09 A): a
+   * list of rows, each with its drag handle, its name and what a press does, which opens in place
+   * to Move Up, Move Down, Remove and a form per field; the keyboard grab's line, the line a
+   * removal left, and Add Button after the last.
    *
    * Only while the toolbar is shown, as the card draws the buttons only then. The list is read
    * as written, so an entry the card cannot draw yet, such as one whose icon was just cleared,
@@ -4279,108 +4510,55 @@ export class CalendarCardProEditor extends LitElement {
     const shown = this._buttonSchemas(subform).filter((candidate) =>
       Filter.hasFields(candidate.schema),
     );
-
     if (filtering && shown.length === 0) return nothing;
-    this._drawn?.push(...shown.map(({ schema, data }) => [schema, data] as const));
-
-    const computeLabel = this._labeler(ctx.language, subform.path);
-    const computeHelper = this._subformHelper(ctx, subform.path, false);
-    const workspace = ctx.workspace ?? ctx.view;
 
     const untitled = this._string(ctx, 'toolbar.buttons.untitled');
+    const grab = this._grabbed('button');
+    const preview = grab === undefined ? undefined : Reorder.order(this._buttonKeys, grab);
+    const localize = withCardActionLabels(this.hass, ctx.language)?.localize;
+    const rows = shown.map(({ entry, index, key, schema, data }): ChipsView.ButtonRowModel => {
+      const title = Buttons.buttonTitle(entry, index, untitled);
+      return {
+        key,
+        title,
+        summary: Buttons.buttonSummary(entry, localize, this._string(ctx, 'button.summary')),
+        open:
+          this._filter.customizedOnly ||
+          this._openButtons.has(key) ||
+          this._jumpsTo('button-field', key),
+        place: preview?.indexOf(key),
+        grabbed: grab?.key === key,
+        handle: this._handle('button', String(key), key, title, ctx),
+        onToggle: () => {
+          const open = new Set(this._openButtons);
+          if (!open.delete(key)) open.add(key);
+          this._openButtons = open;
+        },
+        actions: [
+          {
+            label: this._string(ctx, 'toolbar.buttons.move_up'),
+            move: 'up',
+            enabled: index > 0,
+            onPress: () => this._moveButton(index, index - 1),
+          },
+          {
+            label: this._string(ctx, 'toolbar.buttons.move_down'),
+            move: 'down',
+            enabled: index < written.length - 1,
+            onPress: () => this._moveButton(index, index + 1),
+          },
+          {
+            label: this._string(ctx, 'toolbar.buttons.remove'),
+            enabled: true,
+            onPress: () => this._removeButton(index),
+          },
+        ],
+        body: () => this._renderButtonFields(key, title, schema, data, ctx),
+      };
+    });
 
     return html`
-      ${repeat(
-        shown,
-        ({ key }) => key,
-        ({ entry, index, key, schema, data: values }) => html`
-          <ha-expansion-panel
-            outlined
-            class="button-panel"
-            data-button-key=${key}
-            .header=${Buttons.buttonTitle(entry, index, untitled)}
-            .leftChevron=${false}
-            .expanded=${
-              this._filter.customizedOnly ||
-              this._addedButtons.has(key) ||
-              this._jumpsTo('button-field', key)
-            }
-          >
-            <span slot="leading-icon" class="leading-icon">${icon(TOOLBAR_BUTTON_ICON)}</span>
-            <div class="panel-body">
-              <div class="button-actions">
-                <div class="button-actions-safe">
-                  <button
-                    type="button"
-                    class="text-button"
-                    data-move="up"
-                    ?disabled=${index === 0}
-                    @click=${() => this._moveButton(index, -1)}
-                  >
-                    ${this._string(ctx, 'toolbar.buttons.move_up')}
-                  </button>
-                  <button
-                    type="button"
-                    class="text-button"
-                    data-move="down"
-                    ?disabled=${index === written.length - 1}
-                    @click=${() => this._moveButton(index, 1)}
-                  >
-                    ${this._string(ctx, 'toolbar.buttons.move_down')}
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  class="text-button destructive"
-                  @click=${() => this._removeButton(index)}
-                >
-                  ${this._string(ctx, 'toolbar.buttons.remove')}
-                </button>
-              </div>
-              ${whenOpened(() => {
-                const slot = `button.${key}`;
-                const data = this._intern(`${slot}.data`, values);
-                // The field a result opened, drawn alone above the rest.
-                const lifted = this._jumpField('button-field', key, schema);
-                const form = (part: ReadonlyArray<HaFormSchema>, name: string) => {
-                  const kept = this._intern(`${slot}${name}`, part);
-                  const [hass, feed] = this._feed(kept, ctx.language);
-                  const frame: WriteFrames.OwnedFrame = {
-                    owner: { kind: 'button', key },
-                    workspace,
-                    schema: kept,
-                    data,
-                  };
-                  return html`
-                    <ha-form
-                      class="button-form"
-                      data-hass=${feed}
-                      .hass=${hass}
-                      .data=${data}
-                      .schema=${kept}
-                      .computeLabel=${computeLabel}
-                      .computeHelper=${computeHelper}
-                      .localizeValue=${this._localizeValue}
-                      @value-changed=${(event: CustomEvent) =>
-                        this._valueChanged(
-                          frame,
-                          event,
-                          subform.path,
-                          `button:${key}`,
-                          Buttons.buttonTitle(entry, index, untitled),
-                        )}
-                    ></ha-form>
-                  `;
-                };
-                return lifted
-                  ? html`${this._jumpToOwned(ctx, form(lifted.lifted, '.jump'))}
-                    ${form(withoutNode(schema, lifted.node), '')}`
-                  : form(schema, '');
-              })}
-            </div>
-          </ha-expansion-panel>
-        `,
-      )}
+      ${ChipsView.buttonList(rows)} ${this._renderGrabStatus(ctx, 'button')}
       ${this._renderStatus(ctx, ['button'])}
       ${
         filtering
@@ -4395,6 +4573,67 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * An open button row's fields, each in a form of its own inside the editor's wrapper named
+   * after it, as an entry's fields are drawn (`_renderEntryField`). Each form's frame names the
+   * button by key, so a change it sends late still reaches this button wherever it has moved.
+   *
+   * @param key - The button's key
+   * @param title - Its name, which names an undo step
+   * @param schema - Its fields as the filter bar leaves them
+   * @param values - Its form data
+   * @param ctx - Schema context
+   * @returns The fields
+   */
+  private _renderButtonFields(
+    key: number,
+    title: string,
+    schema: ReadonlyArray<HaFormSchema>,
+    values: Record<string, unknown>,
+    ctx: SchemaCtx,
+  ): unknown {
+    const workspace = ctx.workspace ?? ctx.view;
+    return repeat(
+      buttonFieldIndex(schema).fields.values(),
+      (field) => field.id,
+      (field) => {
+        const slot = `button.${key}.${field.id}`;
+        const lifted = this._intern(slot, field.lifted);
+        const data = this._intern(`${slot}.data`, Routing.formDataFor(values, lifted));
+        const [hass, feed] = this._feed(lifted, ctx.language);
+        const frame: WriteFrames.OwnedFrame = {
+          owner: { kind: 'button', key },
+          workspace,
+          schema: lifted,
+          data,
+        };
+        const wrapper = html`<div
+          class="field"
+          data-field=${field.id}
+          tabindex="-1"
+          role="group"
+          aria-label=${fieldLabel(field, ctx.language)}
+        >
+          <ha-form
+            class="button-form"
+            data-hass=${feed}
+            .hass=${hass}
+            .data=${data}
+            .schema=${lifted}
+            .computeLabel=${this._labeler(ctx.language, field.labelPath)}
+            .computeHelper=${this._subformHelper(ctx, field.labelPath, false)}
+            .localizeValue=${this._localizeValue}
+            @value-changed=${(event: CustomEvent) =>
+              this._valueChanged(frame, event, field.labelPath, `button:${key}`, title)}
+          ></ha-form>
+        </div>`;
+        return this._jumpsTo('button-field', key) && this._jump!.target.id === field.id
+          ? this._jumpTo(ctx, wrapper)
+          : wrapper;
+      },
+    );
+  }
+
+  /**
    * The buttons' keys, made afresh for a list whose length the editor did not change itself,
    * such as one edited in YAML.
    *
@@ -4404,7 +4643,7 @@ export class CalendarCardProEditor extends LitElement {
   private _buttonKeysFor(length: number): number[] {
     if (this._buttonKeys.length !== length) {
       this._buttonKeys = Array.from({ length }, () => this._nextButtonKey++);
-      this._addedButtons.clear();
+      this._openButtons = new Set();
     }
     return this._buttonKeys;
   }
@@ -4428,56 +4667,63 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Moves one button a place toward the start or the end, its panel with it.
-   *
-   * Focus stays on the control that moved it, or passes to its other move control once the
-   * button reaches an end, so a keyboard can keep moving it.
+   * Moves one button to another place, its row with it, as one undo step, and says where it went.
+   * From its strip, focus stays on the control that moved it, or passes to its other move control
+   * once the button reaches an end, so a keyboard can keep moving it; from its handle or Alt+Arrow
+   * (`focusKey`), it stays on the moved button's handle.
    *
    * @param index - Position of the button in the list
-   * @param by - `-1` toward the start, `1` toward the end
+   * @param to - Its new position
+   * @param focusKey - The `data-focus` key of the handle that moved it
    */
-  private _moveButton(index: number, by: -1 | 1): void {
+  private _moveButton(index: number, to: number, focusKey?: string): void {
     if (!this._config) return;
     const written = Buttons.writtenButtons(this._config);
-    const to = index + by;
-    if (to < 0 || to >= written.length) return;
+    if (to < 0 || to >= written.length || to === index) return;
 
     const keys = this._buttonKeysFor(written.length);
+    const moved = keys[index];
     const name = Buttons.buttonTitle(
       written[index],
       index,
       this._string(this._ctx, 'toolbar.buttons.untitled'),
     );
+    let done = false;
+    // Two identical buttons swap places without the configuration moving, so no undo step is
+    // recorded; their rows and keys still move, and focus and the words follow them.
     this._commit(
       interpolate(this._string(this._ctx, 'history.move'), { name }),
       undefined,
       () => {
-        if (!this._writeButtons(Buttons.moveButton(written, index, by))) return;
-        [keys[index], keys[to]] = [keys[to], keys[index]];
-
-        const moved = keys[to];
-        void this.updateComplete.then(() => this._focusMoveControl(moved, by));
+        if (!this._writeButtons(Buttons.moveButtonTo(written, index, to))) return;
+        keys.splice(to, 0, ...keys.splice(index, 1));
+        done = true;
       },
-      `button:${keys[index]}`,
+      `button:${moved}`,
     );
-  }
-
-  /**
-   * Returns focus to a moved button's move controls, where the move took it away.
-   *
-   * @param key - The moved button's key
-   * @param by - The way it moved
-   */
-  private _focusMoveControl(key: number, by: -1 | 1): void {
-    const active = (this.renderRoot as ShadowRoot).activeElement as HTMLButtonElement | null;
-    if (active !== null && !active.disabled) return;
-
-    const panel = this.renderRoot.querySelector(`.button-panel[data-button-key="${key}"]`);
-    const same = panel?.querySelector<HTMLButtonElement>(`[data-move="${by < 0 ? 'up' : 'down'}"]`);
-    const other = panel?.querySelector<HTMLButtonElement>(
-      `[data-move="${by < 0 ? 'down' : 'up'}"]`,
+    if (!done) return;
+    this._say(
+      interpolate(this._string(this._ctx, 'announce.moved'), {
+        name,
+        position: String(to + 1),
+        total: String(written.length),
+      }),
     );
-    (same && !same.disabled ? same : other)?.focus();
+    void this.updateComplete.then(() => {
+      if (focusKey !== undefined) {
+        Focus.focusFirst(this.renderRoot, [Focus.byFocusKey(focusKey)]);
+        return;
+      }
+      const active = (this.renderRoot as ShadowRoot).activeElement as HTMLButtonElement | null;
+      if (active !== null && !active.disabled) return;
+      const row = this.renderRoot.querySelector(`.button-row[data-button-key="${moved}"]`);
+      const by = to < index ? 'up' : 'down';
+      const same = row?.querySelector<HTMLButtonElement>(`[data-move="${by}"]`);
+      const other = row?.querySelector<HTMLButtonElement>(
+        `[data-move="${by === 'up' ? 'down' : 'up'}"]`,
+      );
+      (same && !same.disabled ? same : other)?.focus();
+    });
   }
 
   /**
@@ -4502,8 +4748,7 @@ export class CalendarCardProEditor extends LitElement {
       () => {
         if (!this._writeButtons(Buttons.removeButton(written, index))) return;
 
-        const [removed] = keys.splice(index, 1);
-        this._addedButtons.delete(removed);
+        keys.splice(index, 1);
         this._showStatus(
           {
             kind: 'button',
@@ -4518,23 +4763,30 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Adds a button after the last, and opens its panel to be filled in.
+   * Adds a button after the last, its row open to be filled in, and puts focus on its Icon
+   * field's wrapper, never inside its form (R15).
    */
   private _addButton = (): void => {
     if (!this._config) return;
     const written = Buttons.writtenButtons(this._config);
     const keys = this._buttonKeysFor(written.length);
     const key = this._nextButtonKey++;
-    this._commit(
+    const added = this._commit(
       this._string(this._ctx, 'toolbar.buttons.add'),
       undefined,
       () => {
         if (!this._writeButtons(Buttons.addButton(written))) return;
 
         keys.push(key);
-        this._addedButtons.add(key);
+        this._openButtons = new Set([...this._openButtons, key]);
       },
       `button:${key}`,
+    );
+    if (!added) return;
+    void this.updateComplete.then(() =>
+      Focus.focusFirst(this.renderRoot, [
+        `.button-row[data-button-key="${key}"] [data-field="button:icon"]`,
+      ]),
     );
   };
 
@@ -4792,11 +5044,7 @@ export class CalendarCardProEditor extends LitElement {
     if (spoken !== undefined) this._spoken = spoken;
 
     return html`
-      <div
-        class="card-config"
-        @expanded-will-change=${this._panelWillChange}
-        @keydown=${this._onKeydown}
-      >
+      <div class="card-config" @keydown=${this._onKeydown}>
         ${cache(
           !this._exists(route) || (page === undefined && route.kind !== 'entry')
             ? this._renderOverview(ctx, chassis)
@@ -4811,28 +5059,6 @@ export class CalendarCardProEditor extends LitElement {
       </div>
     `;
   }
-
-  /**
-   * Marks a panel as opening, so that the render this asks for mounts its forms
-   * (`whenOpened`). Home Assistant's panel announces `expanded-will-change` on a click, then
-   * waits a render before it measures what it holds and announces `expanded-changed`
-   * (`_toggleContainer` in its frontend): forms mounted on `expanded-changed` would arrive
-   * after the measuring, and the panel would open to the height of an empty one.
-   *
-   * @param event - An `expanded-will-change` from any panel under the editor
-   */
-  private _panelWillChange = (event: Event): void => {
-    const panel = event.target as Element;
-    if (
-      panel.localName !== 'ha-expansion-panel' ||
-      (event as CustomEvent<{ expanded?: boolean }>).detail?.expanded !== true ||
-      openedPanels.has(panel)
-    ) {
-      return;
-    }
-    openedPanels.add(panel);
-    this.requestUpdate();
-  };
 
   /**
    * Renders the one-time interpretation choice for ambiguous legacy values.
