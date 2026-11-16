@@ -810,8 +810,10 @@ export default css`
     gap: 0 8px;
   }
 
+  /* A basis of its own, so a long "Go to {name}" moves to a line of its own on a phone rather
+     than squeezing the calendar's name into a narrow column beside it. */
   .audit-head .heading {
-    flex: 1;
+    flex: 1 1 12em;
   }
 
   .audit-count,
@@ -1482,12 +1484,46 @@ export default css`
     align-items: center;
   }
 
+  /* Add takes a column of its own, so every row's chevron ends the first column at the same x
+     whether or not the row has Add. A plain result row lends its two buttons to the grid; an
+     opened field, an info row and a calendar's row span both columns. */
+  .results {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .results > * {
+    grid-column: 1 / -1;
+  }
+
+  .results > .result:not(.result--edit, .result--info) {
+    display: contents;
+  }
+
+  .results > .result > .nav-row {
+    grid-column: 1;
+  }
+
+  .results > .result > .result-add {
+    grid-column: 2;
+    align-self: center;
+  }
+
   .result-add {
     display: inline-flex;
     align-items: center;
     flex-shrink: 0;
     min-height: 44px;
     margin-inline-end: 8px;
+  }
+
+  /* The query's words in a label, tinted rather than the browser's yellow, which ignores the
+     theme. The text keeps its own color, so its contrast is the label's. */
+  .results mark {
+    border-radius: 2px;
+    background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
+    color: inherit;
+    font-weight: 500;
   }
 
   .result-tag,

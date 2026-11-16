@@ -61,7 +61,8 @@ function iconAction(action: RowAction | undefined, glyph: string): TemplateResul
 
 /**
  * One line's row: its label and value, which as a whole is Edit and gives way to the field's own
- * control while edited, then its path, state words and tags, then Reset and Go to Setting.
+ * control while edited, then its path, state words and tags, then Reset and Go to Setting. The
+ * separator ends the path's span, so a wrapped meta line never starts with it.
  *
  * @param row - What it shows
  * @returns The row
@@ -87,8 +88,8 @@ export function auditRow(row: AuditRow): TemplateResult {
           : text)
       }
       <span class="audit-meta"
-        ><code>${row.path}</code> ·
-        ${row.words}${row.tags.map(
+        ><span class="audit-path"><code>${row.path}</code> ·</span>
+        <span>${row.words}</span>${row.tags.map(
           (tag) => html` <span class="tag">${tag}</span>`,
         )}${row.warning ? html` <span class="tag warning">${row.warning}</span>` : nothing}</span
       >
