@@ -1317,7 +1317,7 @@ describe('editor: displayed view and the Layout panel', () => {
       ({ node }) => node.name === 'min_day_width',
     );
 
-    expect(found?.path).toEqual(['column']);
+    expect(found?.dataPath).toEqual(['column']);
   });
 
   it('bounds the column floor by the number of days shown', () => {
@@ -1737,15 +1737,6 @@ describe('editor: the panel set', () => {
     ]);
   });
 
-  it('gives every panel a heading and a sentence saying what it is for', () => {
-    for (const panel of PANELS) {
-      expect(computeLabel('en', { name: panel.titleKey, selector: { text: {} } })).not.toBe(
-        panel.titleKey,
-      );
-      expect(EDITOR_STRINGS[`${panel.titleKey}.helper`]).toBeTypeOf('string');
-    }
-  });
-
   /**
    * A helper that repeats its label is worse than no helper: it costs a line of vertical
    * space and teaches the reader that helpers are not worth reading. Two shipped that
@@ -1910,9 +1901,8 @@ describe('editor: the panel set', () => {
    *
    * The members are reconciled against the source that defines each one rather than
    * against a list written here, so a new column or weather option is covered the day
-   * it is added. The paths are the ones `walkSchema` yields: an expandable group adds
-   * its own name, so a weather member arrives as `date.icon_size`, not
-   * `weather.date.icon_size`.
+   * it is added. The paths are the ones `walkSchema` yields, by where each member is
+   * stored: a weather member arrives as `weather.date.icon_size`.
    */
   it('covers every member of the options it offers as a container', () => {
     const weather = DEFAULT_CONFIG.weather as unknown as Record<string, unknown>;
@@ -1922,8 +1912,8 @@ describe('editor: the panel set', () => {
       // `entity` and `position` sit directly on the Weather panel, outside either group.
       'entity',
       'position',
-      ...group('date').map((key) => `date.${key}`),
-      ...group('event').map((key) => `event.${key}`),
+      ...group('date').map((key) => `weather.date.${key}`),
+      ...group('event').map((key) => `weather.event.${key}`),
       ...COLUMN_ONLY_KEYS.map((key) => `column.${key}`),
       // Grid's own keys are reconciled the same way column's are. Listing only column's
       // would leave the grid block in exactly the position this test was written to fix:
@@ -1950,12 +1940,11 @@ describe('editor: the panel set', () => {
       }),
     ];
 
-    // Both paths, because the expectations above are written in both languages and a node
-    // can be qualified by one and not the other. Weather's members are named by their
-    // label path (`date.show_conditions`), while a block's members are named as they are
-    // written in YAML (`column.day_header_gap`) — and the day-header rule is qualified by
-    // the data path alone, since a named `grid` nests storage without nesting labels.
-    // Asking only one question missed three of the six the day it moved.
+    // Both paths, because a node can be qualified by one and not the other: `entity` and
+    // `position` by their label path, the members of a block by where they are written in
+    // YAML (`weather.date.show_conditions`, `column.day_header_gap`), since a named `grid`
+    // nests storage without nesting labels. Asking only one question once missed three of
+    // the six day-header rule members the day they moved.
     for (const config of configs) {
       for (const { node, path, dataPath } of everyNode(config)) {
         if (!node.name) continue;
@@ -2246,18 +2235,6 @@ describe('editor: the Weather panel', () => {
     });
     expect(namesIn(on)).toContain('uv_index_threshold');
   });
-
-  it('labels the two positions after where the forecast appears', () => {
-    const config = buildConfig({ weather: { entity: 'weather.home', position: 'both' } });
-    const groups = [...walkSchema(weatherSchemaFor(config))]
-      .map((entry) => entry.node)
-      .filter((node) => 'titleKey' in node);
-
-    expect(groups.map((node) => (node as { titleKey?: string }).titleKey)).toEqual([
-      'weather.date',
-      'weather.event',
-    ]);
-  });
 });
 
 describe('editor: the day-header rule', () => {
@@ -2289,15 +2266,12 @@ describe('editor: the day-header rule', () => {
   });
 
   /**
-   * Captioned by a bare heading rather than wrapped in a collapsible, which is the whole
-   * point of the move — three fields behind a disclosure nobody opened.
+   * In no collapsible, which is the whole point of the move — three fields behind a
+   * disclosure nobody opened. The heading over them is the registry's.
    */
-  it('captions them with a heading and no collapsible', () => {
+  it('wraps them in no collapsible', () => {
     for (const config of [columnConfig(), gridConfig()]) {
       const nodes = panelNodes(config);
-      const heading = nodes.find((entry) => entry.node.name === 'heading_gap_and_rule');
-
-      expect(heading?.node).toEqual({ name: 'heading_gap_and_rule', type: 'constant' });
 
       for (const key of RULE_KEYS) {
         const entry = nodes.find((item) => item.node.name === key)!;
@@ -2380,13 +2354,10 @@ describe('editor: the Separators panel', () => {
   it('offers only day, week and month rules in the views ruled one way', () => {
     for (const config of [buildConfig(), columnConfig()]) {
       expect(namesIn(config)).toEqual([
-        '',
         'day_separator_width',
         'day_separator_color',
-        '',
         'week_separator_width',
         'week_separator_color',
-        '',
         'month_separator_width',
         'month_separator_color',
       ]);
@@ -2402,29 +2373,21 @@ describe('editor: the Separators panel', () => {
    * grid defaults a 1px rule in a 1px gutter fills it exactly — so gutter and rule are one
    * visual decision, the same argument that moved the day-header gap to sit with its rule.
    *
-   * Pinned by value, in order, because the headings are the point: each has to caption the
-   * run that follows it, and a key appended to the wrong run would be captioned wrongly
-   * while every `toContain` still passed.
+   * Pinned by value, in order, so a key arriving fails as loudly as one leaving. The split by
+   * direction, under a heading for each, is the registry's.
    */
-  it('gathers every rule the grid draws, split by direction', () => {
+  it('gathers every rule the grid draws', () => {
     expect(namesIn(gridConfig())).toEqual([
-      'heading_between_days',
       'day_spacing',
-      '',
       'day_separator_width',
       'day_separator_color',
-      '',
       'week_separator_width',
       'week_separator_color',
-      '',
       'month_separator_width',
       'month_separator_color',
-      'heading_across_the_grid',
       'time_grid',
-      '',
       'hour_line_width',
       'hour_line_color',
-      '',
       'allday_band_line_width',
       'allday_band_line_color',
     ]);
@@ -2526,12 +2489,9 @@ describe('editor: what Layout no longer holds', () => {
 });
 
 /**
- * The Events panel's opening run, which nothing captioned until now.
- *
- * Its four field groups — Time, Location, Description, Countdown & Progress — were already
- * collapsibles with titles of their own. The eleven options above them were not: they ran
- * unbroken from a color switch to an all-day badge, mixing three subjects, with the
- * title's four options split in two by the accent's four.
+ * The Events panel's opening run: the switches deciding which lines an event is made of, then
+ * its state, its accent, its title and its markers, ahead of the styling of each line. Which
+ * heading each sits under on a page is the registry's (`tests/editor-page-registry.test.ts`).
  */
 describe('editor: the Events panel opening run', () => {
   function namesIn(config: Types.Config): string[] {
@@ -2539,19 +2499,18 @@ describe('editor: the Events panel opening run', () => {
     const names: string[] = [];
 
     for (const entry of walkSchema(panel.build({ view: config.view, config, language: 'en' }))) {
-      // Stop at the first group: those carry their own titles and are not what moved.
-      if ('type' in entry.node && entry.node.type === 'expandable') break;
-      if (entry.node.name !== '') names.push(entry.node.name);
+      // Stop at the first line's styling: what follows styles one line each.
+      if (entry.node.name === 'show_end_time') break;
+      names.push(entry.node.name);
     }
 
     return names;
   }
 
   /**
-   * Pinned by value and in order, because the order is the change. Every field is under a
-   * heading — a bare option above the first one would be captioned by nothing.
+   * Pinned by value and in order, so a field arriving in or leaving the run fails here.
    */
-  it('captions each subject, with state before accent and the title kept together', () => {
+  it('keeps state before accent and the title together', () => {
     // The default config resolves the accent mode to `custom`, so the conditional color
     // field is present — which is the shape the row was designed around.
     //
@@ -2563,29 +2522,24 @@ describe('editor: the Events panel opening run', () => {
     // because that group is withheld while times are off and the choice still moves a
     // countdown-only row then.
     expect(namesIn(buildConfig())).toEqual([
-      'heading_details',
       'show_time',
       'time_position',
       'show_location',
       'show_description',
       'show_countdown',
       'show_progress_bar',
-      'heading_event_state',
       'show_now_indicator',
       'now_color',
       'past_event_opacity',
-      'heading_accent',
       'accent_event_text',
       'accent_color_mode',
       'accent_color',
       'vertical_line_width',
       'event_background_opacity',
-      'heading_title',
       'event_font_size',
       'event_color',
       'title_max_lines',
       'scroll_long_titles',
-      'heading_icon_and_badge',
       'event_icon_vertical_alignment',
       'allday_badge_position',
     ]);
@@ -2603,20 +2557,6 @@ describe('editor: the Events panel opening run', () => {
 
       expect(names.indexOf('accent_event_text')).toBeLessThan(names.indexOf('event_color'));
     }
-  });
-
-  /**
-   * The tint is mixed from the resolved accent in `presentation.ts`, so it is the third
-   * place the accent appears rather than a property of the event box. Sitting beside a
-   * font size is what made it read as the latter.
-   */
-  it('keeps the background tint with the accent it is mixed from', () => {
-    const names = namesIn(buildConfig());
-    const accent = names.indexOf('heading_accent');
-    const title = names.indexOf('heading_title');
-
-    expect(names.indexOf('event_background_opacity')).toBeGreaterThan(accent);
-    expect(names.indexOf('event_background_opacity')).toBeLessThan(title);
   });
 });
 
@@ -2773,29 +2713,20 @@ describe('editor: the Card & Header panel', () => {
   }
 
   /**
-   * Pinned by value and in order, because the position is the decision. The toolbar's
-   * switches close the panel under a sub-heading of their own, and a heading claims every
-   * field that follows it, so the background has to come before that heading rather than
-   * after the switches; a `toContain` would pass with it stranded under "Toolbar". Under it,
-   * the bar's own switch, then the controls in the order the toolbar is read: the top row from
-   * start to end, the filter leading as its default button does, then the date navigation in
-   * the row under it.
+   * Pinned by value and in order. The toolbar's switches close the panel: the bar's own switch,
+   * then the controls in the order the toolbar is read: the top row from start to end, the
+   * filter leading as its default button does, then the date navigation in the row under it.
+   * The heading over them is the registry's.
    */
-  it('closes the panel with the toolbar under its own heading', () => {
-    const head = ['title', '', 'title_font_size', 'title_color', 'background_color'];
+  it('closes the panel with the toolbar', () => {
+    const head = ['title', 'title_font_size', 'title_color', 'background_color'];
     for (const view of VIEWS) {
-      expect(namesIn(buildConfig({ view })), `${view} view`).toEqual([
-        ...head,
-        'heading_toolbar',
-        'toolbar',
-        'show',
-      ]);
+      expect(namesIn(buildConfig({ view })), `${view} view`).toEqual([...head, 'toolbar', 'show']);
       expect(
         namesIn(buildConfig({ view, toolbar: { show: true } })),
         `${view} view, toolbar on`,
       ).toEqual([
         ...head,
-        'heading_toolbar',
         'toolbar',
         'show',
         'legend',
@@ -2943,57 +2874,11 @@ describe('editor: the Actions & Refresh panel', () => {
   });
 });
 
-describe('editor: a group states its family applicability once', () => {
-  /**
-   * All three compact fields are list-only, so each carried the same sentence and the
-   * group read as three separate problems rather than one scoped family.
-   *
-   * Asserted through `computeHelper` rather than against the string table, because the
-   * question is what a user reads. The note has to appear once, on the group, and not
-   * again on the fields inside it.
-   */
-  function contentNodes(view: Types.EffectiveView) {
-    const panel = PANELS.find((entry) => entry.id === 'content')!;
-    const config = buildConfig({ view, compact_events_to_show: 3 });
-    return [...walkSchema(panel.build({ view, config, language: 'en' }))];
-  }
-
-  it('states it on the group', () => {
-    const group = contentNodes('column').find((entry) => entry.node.name === 'compact_mode')!;
-
-    expect(computeHelper('en', 'column', group.node, group.path)).toMatch(/list layout/i);
-  });
-
-  it('does not repeat it on the fields inside', () => {
-    for (const { node, path } of contentNodes('column')) {
-      if (!path.includes('compact_mode')) continue;
-      if ('schema' in node || node.name === '') continue;
-
-      expect(computeHelper('en', 'column', node, path) ?? '', node.name).not.toMatch(
-        /list layout/i,
-      );
-    }
-  });
-
-  it('says nothing at all on a list card', () => {
-    for (const { node, path } of contentNodes('list')) {
-      if (node.name !== 'compact_mode' && !path.includes('compact_mode')) continue;
-
-      expect(computeHelper('en', 'list', node, path) ?? '', node.name).not.toMatch(/list layout/i);
-    }
-  });
-
-  /**
-   * The silencing is keyed on the enclosing group's path, so the same option outside
-   * that group still carries its own note.
-   *
-   * This is the half of the rule that can be exercised today: every entry in
-   * `VIEW_SCOPE` currently states the same scope, so a field whose scope *differs* from
-   * its group's cannot be built from real keys. `sameScope` is what will keep that case
-   * annotated when a differently-scoped option, or a third view, arrives — the group
-   * speaks only for children that share its statement.
-   */
-  it('still annotates the same option outside the group', () => {
+/**
+ * A list-only option says where it applies, beside the control, in the layouts it does not.
+ */
+describe('editor: a list-only option states its applicability', () => {
+  it('annotates the compact event limit outside List', () => {
     const note = computeHelper('en', 'column', {
       name: 'compact_events_to_show',
       selector: { number: { min: 1 } },
@@ -3379,34 +3264,6 @@ describe('editor: group headings resolve their own strings', () => {
         `${titleKey} resolved "${helper}"`,
       ).toBe(true);
     }
-  });
-
-  /**
-   * The compact-mode group states one scope on behalf of its three fields, and the two
-   * sentences have to read as one paragraph. They did not: the note was prefixed, so the
-   * group opened with "These apply to the list layout…" above the sentence that said
-   * what "these" were, and both halves used the word "apply".
-   */
-  it('reads a group and its scope note as one paragraph', () => {
-    const group = [
-      ...walkSchema(
-        PANELS.find((panel) => panel.id === 'content')!.build({
-          view: 'column',
-          config: buildConfig({ view: 'column' }),
-          language: 'en',
-        }),
-      ),
-    ].find((entry) => (entry.node as { titleKey?: string }).titleKey === 'compact_mode')!;
-
-    const helper = computeHelper('en', 'column', group.node, group.path)!;
-
-    expect(helper.startsWith(EDITOR_STRINGS['compact_mode.helper'])).toBe(true);
-    expect(helper.endsWith(EDITOR_STRINGS['scope.list_only.compact_mode'])).toBe(true);
-
-    // In the layout it applies to there is no note at all, so the helper stands alone.
-    expect(computeHelper('en', 'list', group.node, group.path)).toBe(
-      EDITOR_STRINGS['compact_mode.helper'],
-    );
   });
 
   it('does not fall back to a bare key that belongs to the old namespace', () => {

@@ -109,7 +109,7 @@ export const TERMS = [
   ['all day', 'ui.components.calendar.event.all_day', []],
   ['today', 'ui.components.calendar.today', []],
   // --- view and layout ------------------------------------------------------
-  ['layout', 'ui.panel.lovelace.editor.edit_view.type', ['panel.layout']],
+  ['layout', 'ui.panel.lovelace.editor.edit_view.type', []],
   ['columns', 'ui.panel.lovelace.editor.card.grid.columns', []],
   ['list', 'ui.components.media-browser.list', []],
   ['compact', 'ui.panel.lovelace.editor.card.area.display_type_options.compact', []],

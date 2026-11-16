@@ -2,13 +2,9 @@
  * Calendar schema rows.
  */
 
-import { mdiCalendarMultiple } from '@mdi/js';
-
 import { buildEntitySchema } from './entity';
 import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx, SubformDef } from '../panels';
-
-export const CALENDARS_ICON = mdiCalendarMultiple;
 
 export const ENTITY_PATH: ReadonlyArray<string> = ['entity'];
 
