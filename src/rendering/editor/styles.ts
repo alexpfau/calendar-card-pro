@@ -652,9 +652,28 @@ export default css`
     font-size: 12px;
   }
 
-  /* Secondary text, as every 12px line: the warning color is under 2:1 on a light theme. */
+  /* Orange, as the mockup draws it, so the line stands out: the warning color mixed toward the
+     text color, as the card's today tile mixes its digits, since the warning color alone is under
+     2:1 on a light theme. At 55% the 12px text measures 4.8 to 5.0 to 1 on stock HA light (#fff,
+     #fafafa), 10.6 to 11.7 on stock HA dark (#1c1c1c, #111) and 4.9 to 5.3 on a Material light
+     theme warning in #ff9800. The eye takes the same color, the plain warning color being under
+     3:1 on a light theme. Without color-mix() the line keeps the hint's secondary text color. */
   .scope-preview {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-weight: 500;
+    --mdc-icon-size: 18px;
+  }
+
+  .scope-preview .icon {
+    fill: currentcolor;
+  }
+
+  @supports (color: color-mix(in oklab, red, blue)) {
+    .scope-preview {
+      color: color-mix(in oklab, var(--warning-color, #ffa600) 55%, var(--primary-text-color));
+    }
   }
 
   /* Three across at every width, as Home Assistant's box select draws its options. */
