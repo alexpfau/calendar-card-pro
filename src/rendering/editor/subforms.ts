@@ -105,6 +105,8 @@ export const REFERENCED_STRINGS: ReadonlyArray<string> = [
   'strip',
   'entry',
   'search',
+  'split',
+  'word_list',
 ];
 
 export const CHASSIS_STRINGS: ReadonlyArray<string> = [

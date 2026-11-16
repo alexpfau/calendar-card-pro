@@ -52,9 +52,14 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     // The field a search result showed, and the results it left.
     '_jump',
     '_resultsLeft',
+    // Split This Calendar: Undo cancels an open run first, closes the panel a split left, and
+    // leaves the New tags for the session, on keys a restored list no longer holds.
+    '_split',
+    '_splitDone',
+    '_newEntries',
   ],
   // Keys never go back, so a restored entry's key is never handed to another.
-  counters: ['_nextEntryKey', '_nextButtonKey'],
+  counters: ['_nextEntryKey', '_nextButtonKey', '_reads'],
   // Caches, compared by value or rebuilt as they are read.
   caches: [
     '_emittedConditions',
@@ -78,7 +83,7 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_resultStatus',
   ],
   // The history itself, and whether a change is being recorded.
-  history: ['_history', '_committing'],
+  history: ['_history', '_committing', '_splitting'],
   // Bound handlers and memoized builders: no state Undo could miss.
   handlers: [
     '_undo',

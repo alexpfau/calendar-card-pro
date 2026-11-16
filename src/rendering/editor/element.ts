@@ -65,6 +65,7 @@ import {
   type SubformDef,
   walkSchema,
 } from './panels';
+import * as Preview from './preview';
 import * as QuickSetup from './quick-setup';
 import * as Routing from './routing';
 import { ENTITY_PATH } from './schemas/calendars';
@@ -84,6 +85,8 @@ import {
   QUICK_SETUP_WEATHER_SCHEMA,
 } from './schemas/quick-setup';
 import * as Search from './search';
+import * as Split from './split';
+import * as SplitReview from './split-review';
 import { DOCS_SITE, STORIES, type StoryId } from './stories';
 import { interpolate } from './strings';
 import styles from './styles';
@@ -100,6 +103,8 @@ import { escapeAction, historyKey, inTextField } from './views/keys';
 import * as Overview from './views/overview';
 import * as PageView from './views/page';
 import * as SearchView from './views/search';
+import * as SplitView from './views/split';
+import * as WordLists from './word-lists';
 import * as Workspace from './workspace';
 import * as WriteFrames from './write-frames';
 import * as Config from '../../config/config';
@@ -318,23 +323,43 @@ const QUICK_SETUP_STEPS: ReadonlyArray<QuickSetupStep> = [
 ];
 
 /**
- * One run of Quick Setup, from opening it to Apply or Cancel (backlog item 188).
- *
- * 🚨 A transaction, not a cursor. Every preview is rebuilt from `opening`, never from a config
- * Home Assistant echoed back, and `previews` holds every one dispatched, so that an echo of an
- * earlier preview arriving after a later one is still known for what it is. Cancel dispatches
- * `opening` and restores the authorship it was opened with.
+ * One run of Quick Setup, from opening it to Apply or Cancel (backlog item 188): a preview
+ * transaction (`preview.ts`) and the wizard's own state.
  */
-interface QuickSetupSession {
-  /** The configuration as the YAML held it when Quick Setup opened. */
-  readonly opening: Readonly<Record<string, unknown>>;
-  readonly openingAuthoredRootKeys: ReadonlySet<string>;
+interface QuickSetupSession extends Preview.PreviewSession {
   /** Everything the editor held as Quick Setup opened: the `before` of Apply's undo step. */
   readonly openingSnapshot: Snapshot;
   readonly step: QuickSetupStep;
   /** Unset until a story is picked; nothing is previewed before that. */
   readonly answers?: QuickSetup.QuickSetupAnswers;
-  readonly previews: ReadonlyArray<Record<string, unknown>>;
+}
+
+/**
+ * One run of Split This Calendar on an entry's page (section 5.7), from opening it to Split or
+ * Cancel. From Colors on it previews both parts on the card (`preview.ts`); the editor itself
+ * keeps the configuration it opened on until Split writes, so any other change, Undo, or leaving
+ * the page cancels the run first.
+ */
+interface SplitSession extends Preview.PreviewSession {
+  /** The entry's key, which part 1 keeps. */
+  readonly key: number;
+  /** Part 2's key. */
+  readonly newKey: number;
+  /** 0 How, 1 Colors and Labels, 2 Review. */
+  readonly step: number;
+  readonly how?: 'type' | 'words';
+  readonly field: Types.FilterField;
+  /** The Word fields, as typed. */
+  readonly terms: ReadonlyArray<string>;
+  readonly parts: readonly [Split.SplitPart, Split.SplitPart];
+  /** The entry as it was opened on. */
+  readonly original: string | Types.EntityConfig;
+  /** Part 2's first color, the swatch no calendar uses. */
+  readonly free?: string;
+  /** The review's read: absent until Review opens, `null` once it failed. */
+  readonly events?: Types.CalendarEventData[] | null;
+  /** Which read the review waits for. */
+  readonly reading?: number;
 }
 
 /** What a color control writes for one of its rows or swatches (`colors.ts` › `ColorSpec`). */
@@ -365,6 +390,8 @@ interface ColorArgs {
   readonly helper?: string;
   /** The calendar, for an entry's control. */
   readonly entity?: { readonly id: string; readonly name: string };
+  /** Where its choice goes instead of the owner, for a control editing nothing stored yet. */
+  readonly write?: (write: ColorWrite) => void;
 }
 
 /** The line a removal or an applied story leaves under its list ("Removed Ben · Undo"). */
@@ -606,6 +633,21 @@ export class CalendarCardProEditor extends LitElement {
 
   @state() private _quickSetup?: QuickSetupSession;
 
+  /** Split This Calendar, while it is open on an entry's page. */
+  @state() private _split?: SplitSession;
+
+  /** The panel a split leaves, until the next change or until the page is left. */
+  @state() private _splitDone?: { readonly key: number; readonly newKey: number };
+
+  /** Entries a split wrote this session, which the overview tags "New". */
+  @state() private _newEntries: ReadonlySet<number> = new Set();
+
+  /** Set while Split writes, so its own change does not cancel it. */
+  private _splitting = false;
+
+  /** Counts the review's reads, so a late answer to an older one is dropped. */
+  private _reads = 0;
+
   /** Where the editor is, and where Back goes (`navigation.ts`). */
   @state() private _nav: Navigation.NavState = Navigation.OVERVIEW;
 
@@ -811,6 +853,11 @@ export class CalendarCardProEditor extends LitElement {
    */
   protected override willUpdate(): void {
     if (!this._config) return;
+    // Leaving the entry's page, by Back, Previous or Next Calendar or a result, cancels a split.
+    const route = this._nav.route;
+    const here = (key: number): boolean => route.kind === 'entry' && route.key === key;
+    if (this._split !== undefined && !here(this._split.key)) this._cancelSplit(false);
+    if (this._splitDone !== undefined && !here(this._splitDone.key)) this._splitDone = undefined;
     const language = this._ctx.language;
     if (language === this._intlLanguage) return;
     this._intlLanguage = language;
@@ -825,13 +872,10 @@ export class CalendarCardProEditor extends LitElement {
   setConfig(config: Types.Config): void {
     const rawConfig = config as unknown as Record<string, unknown>;
 
+    // Split previews on the card alone; the editor keeps what it opened on until Split writes.
+    if (Preview.isPreviewEcho(this._split, rawConfig)) return;
     const session = this._quickSetup;
-    // Home Assistant answers each write with its editor's current value, read after an await
-    // (`_updateConfigElement` in its `hui-element-editor`), so echoes carry the newest preview.
-    // Recognizing every preview costs nothing and holds for a host that echoes in send order.
-    const isPreviewEcho =
-      session !== undefined &&
-      session.previews.some((preview) => Value.equalConfigs(rawConfig, preview));
+    const isPreviewEcho = Preview.isPreviewEcho(session, rawConfig);
     const isEcho =
       isPreviewEcho ||
       (this._lastDispatched !== undefined && Value.equalConfigs(rawConfig, this._lastDispatched));
@@ -865,6 +909,9 @@ export class CalendarCardProEditor extends LitElement {
       // A configuration the editor did not send ends what Undo could reach.
       this._history.clear();
       this._status = undefined;
+      // The YAML changed under the split, which then has nothing to put back.
+      this._split = this._splitDone = undefined;
+      this._newEntries = new Set();
       this._colorDrafts = new Map();
       this._entryNotice = undefined;
       this._selectedWorkspace = undefined;
@@ -1019,6 +1066,10 @@ export class CalendarCardProEditor extends LitElement {
       run();
       return false;
     }
+    if (!this._splitting) {
+      this._cancelSplit(false);
+      this._splitDone = undefined;
+    }
     before ??= this._snapshot();
     const where = { route: this._nav.route, workspace: this._selectedWorkspace, focusKey };
     const status = this._status;
@@ -1063,6 +1114,7 @@ export class CalendarCardProEditor extends LitElement {
     this._buttonKeys = [...snapshot.buttonKeys];
     this._status = undefined;
     this._entryNotice = undefined;
+    this._splitDone = undefined;
     const config = structuredClone(snapshot.raw) as Record<string, unknown>;
     this._lastDispatched = config;
     this.dispatchEvent(
@@ -1085,6 +1137,7 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _step(way: 'undo' | 'redo'): void {
     if (this._quickSetup !== undefined) return;
+    this._cancelSplit(false);
     const entry = way === 'undo' ? this._history.undo() : this._history.redo();
     if (entry === undefined) return;
     this._restore(way === 'undo' ? entry.before : entry.after);
@@ -1851,6 +1904,7 @@ export class CalendarCardProEditor extends LitElement {
           class="field-form"
           data-hass=${feed}
           .hass=${hass}
+          .error=${this._patternError(slot, field, data, ctx)}
           .data=${data}
           .schema=${schema}
           .computeLabel=${this._labeler(ctx.language, field.labelPath)}
@@ -2260,7 +2314,7 @@ export class CalendarCardProEditor extends LitElement {
       ${keyed(
         draftKey,
         html`<ha-form
-          class=${card ? 'field-form' : 'entity-form'}
+          class=${card ? 'field-form' : c.write !== undefined ? 'split-form' : 'entity-form'}
           data-hass=${feed}
           .hass=${hass}
           .data=${data}
@@ -2293,6 +2347,10 @@ export class CalendarCardProEditor extends LitElement {
    * @param coalesceKey - The typing a write joins, for Custom's text
    */
   private _writeColor(c: ColorArgs, write: ColorWrite, coalesceKey?: string): void {
+    if (c.write !== undefined) {
+      c.write(write);
+      return;
+    }
     const { spec, ctx } = c;
     const steps: ReadonlyArray<readonly [FieldId, unknown]> =
       write === 'reset'
@@ -2566,7 +2624,8 @@ export class CalendarCardProEditor extends LitElement {
         (this._colorOpenHere() ||
           this._scopeOpen ||
           this._openStrip !== undefined ||
-          this._adding !== undefined),
+          this._adding !== undefined ||
+          this._split !== undefined),
       onPage:
         wizard !== undefined ||
         this._nav.route.kind !== 'overview' ||
@@ -2598,6 +2657,15 @@ export class CalendarCardProEditor extends LitElement {
       void this.updateComplete.then(() =>
         Focus.focusFirst(this.renderRoot, [Focus.byFocusKey(`color:${open}`)]),
       );
+    } else if (
+      action === 'close' &&
+      this._split !== undefined &&
+      this._openStrip === undefined &&
+      this._adding === undefined &&
+      !this._scopeOpen
+    ) {
+      // Escape cancels Split This Calendar from any of its steps, as Cancel does.
+      this._cancelSplit(true);
     } else if (action === 'close') {
       // The disclosure opened last closes, focus back on what opened it.
       const strip = this._openStrip;
@@ -3391,6 +3459,15 @@ export class CalendarCardProEditor extends LitElement {
     }
     const entry = this._entryOf(entryKey)!;
     const entryName = this._entryName(entryKey);
+    if (onPage) {
+      // First in the page's ⋮, as the row under Which Events opens it too (D12).
+      actions.unshift({
+        id: 'split',
+        label: this._string(ctx, 'split.title'),
+        name: interpolate(this._string(ctx, 'split.named'), { name: entryName }),
+        onPress: () => this._openSplit(entryKey),
+      });
+    }
     const from = Entities.copiedFrom();
     const copied = Entities.copiedSettings() !== undefined;
     actions.push(
@@ -3552,6 +3629,7 @@ export class CalendarCardProEditor extends LitElement {
                 ? label
                 : undefined,
             missing,
+            tag: this._newEntries.has(row.key) ? this._string(ctx, 'split.new') : undefined,
             moves: grouped ? undefined : calendar.entityId,
             more,
             strip,
@@ -4154,6 +4232,7 @@ export class CalendarCardProEditor extends LitElement {
           class="entity-form"
           data-hass=${feed}
           .hass=${hass}
+          .error=${this._patternError(slot, field, own, ctx)}
           .data=${own}
           .schema=${schema}
           .computeLabel=${this._labeler(ctx.language, field.labelPath)}
@@ -4245,6 +4324,759 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * The line under a word list the card cannot read (section 5.9): Blocklist and Allowlist, built
+   * as the card builds them, and Countries To Remove, which the card wraps (`formatLocation`).
+   * Drawn through `ha-form`'s own error map, above the field.
+   *
+   * @param slot - The form's slot, where the map is kept
+   * @param field - The field
+   * @param data - Its form's data
+   * @param ctx - Schema context
+   * @returns The map; undefined where the pattern reads, or the field is no word list
+   */
+  private _patternError(
+    slot: string,
+    field: IndexedField,
+    data: Readonly<Record<string, unknown>>,
+    ctx: SchemaCtx,
+  ): Record<string, string> | undefined {
+    const name = field.node.name;
+    const wrapped = field.id === 'events:location_country_pattern';
+    if (!wrapped && field.id !== 'calendar:blocklist' && field.id !== 'calendar:allowlist') {
+      return undefined;
+    }
+    const value = data[name];
+    if (typeof value !== 'string' || value === '') return undefined;
+    if (WordLists.compiles(wrapped ? `(${value})\\s*$` : value)) return undefined;
+    return this._intern(`${slot}.error`, { [name]: this._string(ctx, 'word_list.invalid') });
+  }
+
+  /**
+   * Opens Split This Calendar on an entry's page, from the row under Which Events or from the
+   * page's ⋮: All-Day vs. With a Time chosen unless it is refused, part 1 in the entry's color and
+   * part 2 in the first swatch no calendar uses (`colors.ts` › `freeSwatch`).
+   *
+   * @param key - The entry's key
+   */
+  private _openSplit(key: number): void {
+    const entry = this._entryOf(key);
+    if (!this._config || entry === undefined) return;
+    this._openStrip = undefined;
+    this._splitDone = undefined;
+    if (this._split?.key !== key) {
+      const own = Entities.asEntityConfig(entry);
+      const refused = Split.refusals(entry, this._config);
+      const free = Colors.freeSwatch(this._config.entities ?? [], this._config);
+      this._split = {
+        opening: structuredClone(this._rawConfig),
+        openingAuthoredRootKeys: new Set(this._authoredRootKeys),
+        previews: [],
+        key,
+        newKey: this._mintEntryKey(),
+        step: 0,
+        how:
+          refused.type === undefined
+            ? 'type'
+            : refused.words === undefined && refused.pattern === undefined
+              ? 'words'
+              : undefined,
+        field: refused.field ?? 'title',
+        terms: [''],
+        parts: [
+          { label: own.label, color: own.accent_color },
+          { label: own.label, color: free },
+        ],
+        original: structuredClone(entry),
+        free,
+      };
+    }
+    this._focusSplit();
+  }
+
+  /** Puts focus on the task's step title once it renders, the task scrolled into view. */
+  private _focusSplit(): void {
+    void this.updateComplete.then(() => {
+      const title = Focus.focusFirst(this.renderRoot, ['.split-title']);
+      title?.closest('.split-task')?.scrollIntoView?.({ block: 'nearest' });
+    });
+  }
+
+  /**
+   * Closes Split This Calendar and, where it previewed, sends the card the configuration it opened
+   * on, so the card shows the entry as it was.
+   *
+   * @param focus - Whether focus returns to the row that opens it
+   */
+  private _cancelSplit(focus: boolean): void {
+    const session = this._split;
+    if (session === undefined) return;
+    this._split = undefined;
+    if (session.previews.length > 0) {
+      const opening = structuredClone(this._rawConfig);
+      this._lastDispatched = opening;
+      this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: opening } }));
+    }
+    if (focus) {
+      void this.updateComplete.then(() =>
+        Focus.focusFirst(this.renderRoot, [Focus.byFocusKey('split-row'), '.page-title']),
+      );
+    }
+  }
+
+  /**
+   * The split as it would be written now.
+   *
+   * @param session - The run
+   * @returns How, and the two parts
+   */
+  private _splitPair(
+    session: SplitSession,
+  ): readonly [Types.EntityConfig, Types.EntityConfig] | undefined {
+    if (session.how === undefined) return undefined;
+    const how: Split.SplitHow =
+      session.how === 'type'
+        ? { kind: 'type' }
+        : { kind: 'words', terms: session.terms, field: session.field };
+    return Split.splitEntry(session.original, how, session.parts);
+  }
+
+  /**
+   * Changes the run and, from Colors on, shows both parts on the card: a preview rebuilt from the
+   * configuration it opened on, never from an echo. Back to How shows the entry as it was.
+   *
+   * @param patch - What changed
+   */
+  private _splitChange(patch: Partial<SplitSession>): void {
+    const current = this._split;
+    if (current === undefined) return;
+    let session: SplitSession = { ...current, ...patch };
+    const pair = this._splitPair(session);
+    const entities = (session.opening.entities ?? []) as Array<string | Types.EntityConfig>;
+    const keys = this._entryKeysFor(entities.length);
+    const index = keys.indexOf(session.key);
+    const preview =
+      session.step === 0 || pair === undefined || index < 0
+        ? session.previews.length > 0
+          ? structuredClone(session.opening)
+          : undefined
+        : {
+            ...structuredClone(session.opening),
+            entities: Split.splitInList({ entities, keys }, index, pair, session.newKey).entities,
+          };
+    if (preview !== undefined) {
+      const next = Preview.withPreview(session, preview as Record<string, unknown>);
+      if (next !== session) {
+        session = { ...session, ...next };
+        this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: preview } }));
+      }
+    }
+    this._split = session;
+  }
+
+  /**
+   * Moves the task to another step, reading the calendar's upcoming events as Review opens.
+   *
+   * @param step - The step to show
+   */
+  private _splitGo(step: number): void {
+    const session = this._split;
+    if (session === undefined) return;
+    const read = step === 2 && session.events === undefined && session.reading === undefined;
+    const reading = read ? ++this._reads : session.reading;
+    this._splitChange({ step, reading });
+    this._focusSplit();
+    if (!read) return;
+    const hass = this.hass;
+    const window = SplitReview.reviewWindow(
+      this._config!,
+      this._viewForConfig(this._config!),
+      hass ?? undefined,
+    );
+    const entityId = Synthetic.entityIdOf(session.original);
+    const done = (events: Types.CalendarEventData[] | null): void => {
+      const current = this._split;
+      if (current === undefined || current.reading !== reading) return;
+      this._split = { ...current, events };
+    };
+    if (!hass?.callApi) done(null);
+    else void SplitReview.readUpcoming(hass, entityId, window).then(done);
+  }
+
+  /**
+   * Splits the entry, as one undo step: part 1 in its place under its key, part 2 after it, both
+   * tagged New on the overview; then the panel saying so, focused, on the page that now edits
+   * part 1.
+   */
+  private _applySplit(): void {
+    const session = this._split;
+    const pair = session === undefined ? undefined : this._splitPair(session);
+    if (session === undefined || pair === undefined || !this._config) return;
+    const ctx = this._ctx;
+    const name = this._calendarName(Synthetic.entityIdOf(session.original));
+    this._splitting = true;
+    let done = false;
+    try {
+      done = this._commit(
+        interpolate(this._string(ctx, 'split.named'), { name }),
+        undefined,
+        () => {
+          if (!this._prepareForWrite()) return;
+          const state = this._listState();
+          const index = state.keys.indexOf(session.key);
+          if (index >= 0) this._writeList(Split.splitInList(state, index, pair, session.newKey));
+        },
+        `entry:${session.key}`,
+      );
+    } finally {
+      this._splitting = false;
+    }
+    if (!done) {
+      this._cancelSplit(true);
+      return;
+    }
+    this._split = undefined;
+    this._newEntries = new Set([...this._newEntries, session.key, session.newKey]);
+    this._splitDone = { key: session.key, newKey: session.newKey };
+    this._say(interpolate(this._string(ctx, 'split.done'), { name }));
+    void this.updateComplete.then(() =>
+      Focus.focusFirst(this.renderRoot, [Focus.byFocusKey('split-done')]),
+    );
+  }
+
+  /**
+   * A refusal's way out: Cancel, then the field the refusal names, highlighted, as a search
+   * result opens it.
+   *
+   * @param key - The entry's key
+   * @param id - The field
+   */
+  private _splitWayOut(key: number, id: FieldId): void {
+    this._cancelSplit(false);
+    const jump = {
+      target: { kind: 'entry-field' as const, id, key },
+      label: this._string(this._ctx, `entity.${id.slice(id.indexOf(':') + 1)}`),
+      lit: true,
+    };
+    this._jump = jump;
+    void this.updateComplete.then(() => {
+      const field = this.renderRoot.querySelector<HTMLElement>('.jump');
+      if (field) Focus.scrollToTopSettled(this, field);
+      Focus.focusFirst(field ?? this.renderRoot, ['[tabindex="-1"]', '.page-title']);
+      setTimeout(() => {
+        if (this._jump === jump) this._jump = { ...jump, lit: false };
+      }, 2000);
+    });
+  }
+
+  /**
+   * What a part shows in its title: "All-day events", or "Only: Training" and "Without:
+   * Training".
+   *
+   * @param session - The run
+   * @param part - Which part, 0 or 1
+   * @param ctx - Schema context
+   * @returns The words
+   */
+  private _splitPartTitle(session: SplitSession, part: number, ctx: SchemaCtx): string {
+    if (session.how === 'type') {
+      return this._string(ctx, part === 0 ? 'row.all_day' : 'row.timed');
+    }
+    return interpolate(this._string(ctx, part === 0 ? 'row.only' : 'row.without'), {
+      words: this._splitWords(session),
+    });
+  }
+
+  /**
+   * The words a split by words uses, as a list.
+   *
+   * @param session - The run
+   * @returns "Training, Piano"
+   */
+  private _splitWords(session: SplitSession): string {
+    return session.terms
+      .map((term) => term.trim())
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  /**
+   * One part's color control: the composed Accent Color control, writing to the part rather than
+   * to any entry, which the preview then shows.
+   *
+   * @param session - The run
+   * @param part - Which part, 0 or 1
+   * @param ctx - Schema context
+   * @returns The control
+   */
+  private _renderSplitColor(session: SplitSession, part: number, ctx: SchemaCtx): TemplateResult {
+    const colors = this._entryColors(ctx);
+    const spec = colors.specs.get('calendar:accent_color')!;
+    const color = session.parts[part].color;
+    const entityId = Synthetic.entityIdOf(session.original);
+    const name = this._calendarName(entityId);
+    const helper =
+      part === 0 && color === Entities.asEntityConfig(session.original).accent_color
+        ? interpolate(this._string(ctx, 'split.color_now'), { name })
+        : part === 1 && color === session.free
+          ? this._string(ctx, 'split.color_free')
+          : undefined;
+    return this._renderColor({
+      owner: { kind: 'entry', key: -1 - part },
+      spec,
+      ctx,
+      name: fieldLabel(colors.fields.get(spec.mode ?? spec.value)!, ctx.language),
+      valueField: colors.fields.get(spec.value)!,
+      data: { accent_color: color },
+      stored: color,
+      destination: 'split',
+      anchor: spec.mode ?? spec.value,
+      focusKey: `split-color:${part}`,
+      helper,
+      entity: { id: entityId, name: Entities.entityDisplayName(entityId, this.hass) },
+      write: (write) => {
+        const next =
+          write === 'reset'
+            ? undefined
+            : spec.mode !== undefined && write[spec.mode] === 'home_assistant'
+              ? EntityColors.ENTITY_COLOR_SENTINEL
+              : spec.mode !== undefined && write[spec.mode] === 'inherit'
+                ? undefined
+                : (write[spec.value] as string | undefined);
+        const parts = [...session.parts] as [Split.SplitPart, Split.SplitPart];
+        parts[part] = { ...parts[part], color: next };
+        this._splitChange({ parts });
+      },
+    });
+  }
+
+  /**
+   * One part's Label field, prefilled with the entry's label.
+   *
+   * @param session - The run
+   * @param part - Which part, 0 or 1
+   * @param ctx - Schema context
+   * @returns The field
+   */
+  private _renderSplitLabel(session: SplitSession, part: number, ctx: SchemaCtx): TemplateResult {
+    const schema = this._intern('split.label.schema', [
+      { name: 'label', selector: { text: {} } },
+    ] as unknown as HaFormSchema[]);
+    const label = this._string(ctx, 'entity.label');
+    return html`<ha-form
+      class="split-form"
+      data-split-label=${part}
+      .hass=${this.hass}
+      .data=${this._intern(`split.label.${part}`, { label: session.parts[part].label ?? '' })}
+      .schema=${schema}
+      .computeLabel=${this._keep('split.label.label', label, () => () => label)}
+      @value-changed=${(event: CustomEvent) => {
+        event.stopPropagation();
+        const value = (event.detail?.value as { label?: unknown } | undefined)?.label;
+        const parts = [...this._split!.parts] as [Split.SplitPart, Split.SplitPart];
+        parts[part] = { ...parts[part], label: typeof value === 'string' ? value : '' };
+        this._splitChange({ parts });
+      }}
+    ></ha-form>`;
+  }
+
+  /**
+   * Split This Calendar at the top of Which Events: the row that opens it, or the task while it
+   * is open on this entry.
+   *
+   * @param key - The entry's key
+   * @param ctx - Schema context
+   * @returns The row or the task; nothing while searching
+   */
+  private _renderSplit(key: number, ctx: SchemaCtx): TemplateResult | typeof nothing {
+    const session = this._split;
+    if (session?.key === key) return this._renderSplitTask(session, ctx);
+    if (Filter.isFiltering(this._filter)) return nothing;
+    const entry = this._entryOf(key);
+    if (entry === undefined) return nothing;
+    return SplitView.splitRow(
+      this._string(ctx, 'split.title'),
+      this._string(ctx, 'split.row_helper'),
+      interpolate(this._string(ctx, 'split.named'), { name: this._entryName(key) }),
+      () => this._openSplit(key),
+    );
+  }
+
+  /**
+   * The task, at its step.
+   *
+   * @param session - The run
+   * @param ctx - Schema context
+   * @returns The task
+   */
+  private _renderSplitTask(session: SplitSession, ctx: SchemaCtx): TemplateResult {
+    const t = (key: string): string => this._string(ctx, key);
+    const entityId = Synthetic.entityIdOf(session.original);
+    const name = this._calendarName(entityId);
+    const own = Entities.asEntityConfig(session.original);
+    const refused = Split.refusals(session.original, this._config!);
+    const terms = session.terms.map((term) => term.trim()).filter(Boolean);
+    const steps = [t('split.step.how'), t('split.step.colors'), t('split.step.review')];
+    // Whole sentences, one per refusal, looked up by the key `split.ts` › `refusals` names.
+    const refusalText: Readonly<Record<string, string>> = {
+      'split.refused.all_day': t('split.refused.all_day'),
+      'split.refused.all_day_card': t('split.refused.all_day_card'),
+      'split.refused.timed': t('split.refused.timed'),
+      'split.refused.timed_card': t('split.refused.timed_card'),
+      'split.refused.words': t('split.refused.words'),
+      'split.refused.blocklist': t('split.refused.blocklist'),
+      'split.refused.allowlist': t('split.refused.allowlist'),
+      'split.refused.budget': t('split.refused.budget'),
+    };
+    const cancel = {
+      label: t('quick_setup.cancel'),
+      focus: 'split-cancel',
+      onPress: () => this._cancelSplit(true),
+    };
+    const back = {
+      label: t('quick_setup.back'),
+      focus: 'split-back',
+      onPress: () => this._splitGo(session.step - 1),
+    };
+    let title: string;
+    let intro: string;
+    let body: unknown;
+    let next: CalendarView.TextButton;
+    if (session.step === 0) {
+      title = interpolate(t('split.named'), { name });
+      intro = interpolate(t('split.how.intro'), { name, entity: entityId });
+      const way = (id: FieldId, label: string): CalendarView.TextButton => ({
+        label,
+        focus: `split-way:${id}`,
+        onPress: () => this._splitWayOut(session.key, id),
+      });
+      const words = refused.pattern ?? refused.words;
+      const typeRefusal: SplitView.Refusal | undefined =
+        refused.type === undefined
+          ? undefined
+          : {
+              text: interpolate(refusalText[refused.type], { name }),
+              action: {
+                label: t('entity.duplicate'),
+                focus: 'split-way:duplicate',
+                onPress: () => {
+                  this._cancelSplit(false);
+                  this._duplicateEntry(session.key);
+                },
+              },
+            };
+      const wordsRefusal: SplitView.Refusal | undefined =
+        words === undefined
+          ? undefined
+          : {
+              text: interpolate(refusalText[words], {
+                name,
+                words:
+                  WordLists.fromPattern(String(own.allowlist ?? ''))?.join(', ') ??
+                  String(own.allowlist ?? ''),
+              }),
+              action:
+                refused.pattern === 'split.refused.blocklist'
+                  ? way('calendar:blocklist', t('split.edit_blocklist'))
+                  : way('calendar:allowlist', t('split.edit_allowlist')),
+            };
+      const chosen =
+        session.how === 'words'
+          ? wordsRefusal === undefined
+          : session.how === 'type' && typeRefusal === undefined;
+      body = html`${
+        refused.budget === undefined
+          ? nothing
+          : SplitView.refusal(
+              {
+                text: interpolate(refusalText[refused.budget], { name }),
+                action: way('calendar:compact_events_to_show', t('split.go_budget')),
+              },
+              true,
+            )
+      }
+      ${SplitView.methods(t('split.step.how'), [
+        {
+          id: 'type',
+          label: t('split.how.type'),
+          description: t('split.how.type.description'),
+          checked: session.how === 'type' && typeRefusal === undefined,
+          refusal: typeRefusal,
+          onPick: () => this._splitChange({ how: 'type' }),
+        },
+        {
+          id: 'words',
+          label: t('split.how.words'),
+          description: t('split.how.words.description'),
+          checked: session.how === 'words' && wordsRefusal === undefined,
+          refusal: wordsRefusal,
+          onPick: () => this._splitChange({ how: 'words' }),
+        },
+      ])}
+      ${session.how === 'words' && wordsRefusal === undefined ? this._renderSplitWords(session, refused.field, ctx) : nothing}`;
+      next = {
+        label: t('quick_setup.next'),
+        focus: 'split-next',
+        disabled:
+          !chosen ||
+          refused.budget !== undefined ||
+          (session.how === 'words' && terms.length === 0),
+        onPress: () => this._splitGo(1),
+      };
+    } else {
+      const spec = this._entryColors(ctx).specs.get('calendar:accent_color')!;
+      const colorWords = (color: string | undefined): string => {
+        const choice = Colors.choiceOf(color, spec);
+        return choice.kind === 'source'
+          ? Colors.sourceLabel(choice.source, spec, ctx.language)
+          : Colors.describeColor(color, spec, ctx.language, { haName: this._haColorName });
+      };
+      const head = (part: number, sub: string): SplitView.PartHead => {
+        const given = session.parts[part];
+        return {
+          title: `${name}${Summary.SUMMARY_SEPARATOR}${this._splitPartTitle(session, part, ctx)}`,
+          sub,
+          color: this._rowColor({ entity: entityId, accent_color: given.color }),
+          badge:
+            Entities.labelTypeOf(session.original) === 'text' && given.label
+              ? given.label
+              : undefined,
+        };
+      };
+      if (session.step === 1) {
+        title = t('split.colors.title');
+        intro = interpolate(t('split.colors.intro'), { name });
+        body = [0, 1].map((part) =>
+          SplitView.partCard(
+            head(part, interpolate(t('split.part_of'), { part: String(part + 1), total: '2' })),
+            html`${this._renderSplitColor(session, part, ctx)}
+            ${this._renderSplitLabel(session, part, ctx)}`,
+          ),
+        );
+        next = {
+          label: t('quick_setup.next'),
+          focus: 'split-next',
+          onPress: () => this._splitGo(2),
+        };
+      } else {
+        title = t('split.step.review');
+        intro = interpolate(t('split.review.intro'), { name });
+        const pair = this._splitPair(session)!;
+        const window = SplitReview.reviewWindow(
+          this._config!,
+          this._viewForConfig(this._config!),
+          this.hass ?? undefined,
+        );
+        const reviewed =
+          session.events === undefined || session.events === null
+            ? undefined
+            : SplitReview.reviewParts(
+                session.events,
+                session.original,
+                pair,
+                window,
+                this._viewForConfig(this._config!),
+                this.hass,
+                ctx.language,
+              );
+        const days = String(window.config.days_to_show);
+        const wordRules: Readonly<Record<Types.FilterField, string>> = {
+          title: t('split.rule.words.title'),
+          location: t('split.rule.words.location'),
+          description: t('split.rule.words.description'),
+        };
+        body = html`${[0, 1].map((part) => {
+          const rule =
+            session.how === 'type'
+              ? part === 0
+                ? t('split.rule.all_day')
+                : t('split.rule.timed')
+              : part === 0
+                ? interpolate(wordRules[session.field], {
+                    words: this._splitWords(session),
+                  })
+                : t('split.rule.other');
+          const result = reviewed?.[part];
+          const lines =
+            session.events === undefined
+              ? [interpolate(t('split.review.loading'), { name })]
+              : result === undefined
+                ? [interpolate(t('split.review.failed'), { name })]
+                : result.count === 0
+                  ? [t('split.review.none')]
+                  : result.lines;
+          const writes =
+            session.how === 'words'
+              ? interpolate(
+                  part === 0 ? t('split.writes.allowlist') : t('split.writes.blocklist'),
+                  {
+                    words: this._splitWords(session),
+                    field: this._splitFieldWords(ctx)[session.field],
+                  },
+                )
+              : undefined;
+          return SplitView.partCard(
+            head(
+              part,
+              `${rule}${Summary.SUMMARY_SEPARATOR}${colorWords(session.parts[part].color)}`,
+            ),
+            SplitView.partReview(
+              result === undefined
+                ? undefined
+                : interpolate(t('split.review.counts'), { days, count: String(result.count) }),
+              lines,
+              writes,
+            ),
+          );
+        })}
+        ${
+          Array.isArray(own.visibility) && own.visibility.length > 0
+            ? SplitView.note(interpolate(t('split.review.conditions'), { name }))
+            : nothing
+        }
+        ${SplitView.note(interpolate(t('split.review.note'), { name }))}`;
+        next = {
+          label: t('split.apply'),
+          focus: 'split-apply',
+          name: interpolate(t('split.named'), { name }),
+          onPress: () => this._applySplit(),
+        };
+      }
+    }
+    return SplitView.splitTask({
+      name: t('split.title'),
+      steps,
+      step: session.step,
+      stepOf: interpolate(t('split.step_of'), { step: String(session.step + 1), total: '3' }),
+      closeName: t('quick_setup.cancel'),
+      onClose: () => this._cancelSplit(true),
+      title,
+      intro,
+      body,
+      back: session.step === 0 ? cancel : back,
+      next,
+    });
+  }
+
+  /**
+   * What each field is called inside a sentence: "event title", "location", "description".
+   *
+   * @param ctx - Schema context
+   * @returns The words, by field
+   */
+  private _splitFieldWords(ctx: SchemaCtx): Readonly<Record<Types.FilterField, string>> {
+    return {
+      title: this._string(ctx, 'split.field.title'),
+      location: this._string(ctx, 'split.field.location'),
+      description: this._string(ctx, 'split.field.description'),
+    };
+  }
+
+  /**
+   * By Words' fields: Match Against, held to the field the entry's Blocklist looks in where it has
+   * one, and the words, one per field, in Home Assistant's own list of text fields.
+   *
+   * @param session - The run
+   * @param locked - The field Match Against is held to
+   * @param ctx - Schema context
+   * @returns The fields
+   */
+  private _renderSplitWords(
+    session: SplitSession,
+    locked: Types.FilterField | undefined,
+    ctx: SchemaCtx,
+  ): TemplateResult {
+    const t = (key: string): string => this._string(ctx, key);
+    const options = (['title', 'location', 'description'] as const).map((value) => ({
+      value,
+      label: t(`entity.filter_field.option.${value}.label`),
+    }));
+    const schema = this._keep('split.words.schema', ctx.language, () => [
+      { name: 'filter_field', selector: { select: { mode: 'dropdown', options } } },
+      { name: 'words', selector: { text: { multiple: true } } },
+    ]) as unknown as HaFormSchema[];
+    const labels: Readonly<Record<string, string>> = {
+      filter_field: t('entity.filter_field'),
+      words: t('split.word'),
+    };
+    const helpers: Readonly<Record<string, string>> = {
+      filter_field:
+        locked === undefined
+          ? t('split.match_against_note')
+          : interpolate(t('split.locked'), {
+              field: t(`entity.filter_field.option.${locked}.label`),
+            }),
+      words: interpolate(t('split.words_note'), {
+        field: this._splitFieldWords(ctx)[session.field],
+      }),
+    };
+    return html`<ha-form
+      class="split-form split-words"
+      .hass=${this.hass}
+      .data=${this._intern('split.words.data', { filter_field: session.field, words: [...session.terms] })}
+      .schema=${schema}
+      .computeLabel=${this._keep('split.words.label', labels, () => (item: { name: string }) => labels[item.name])}
+      .computeHelper=${this._keep('split.words.helper', helpers, () => (item: { name: string }) => helpers[item.name])}
+      @value-changed=${(event: CustomEvent) => {
+        event.stopPropagation();
+        const value = event.detail?.value as
+          { filter_field?: unknown; words?: unknown } | undefined;
+        const field = locked ?? Split.filterFieldOf(value?.filter_field);
+        const words = Array.isArray(value?.words)
+          ? value.words.map((word) => (typeof word === 'string' ? word : ''))
+          : [];
+        this._splitChange({ field, terms: words });
+      }}
+    ></ha-form>`;
+  }
+
+  /**
+   * The panel a split leaves: both entries as rows, tagged New, then Undo and Done. The first row
+   * only closes it, as this page already edits that entry.
+   *
+   * @param key - The page's entry
+   * @param ctx - Schema context
+   * @returns The panel; nothing once either entry has left
+   */
+  private _renderSplitDone(key: number, ctx: SchemaCtx): TemplateResult | typeof nothing {
+    const done = this._splitDone;
+    if (done?.key !== key) return nothing;
+    const first = this._entryOf(done.key);
+    const second = this._entryOf(done.newKey);
+    if (first === undefined || second === undefined) return nothing;
+    const t = (each: string): string => this._string(ctx, each);
+    const name = this._calendarName(Synthetic.entityIdOf(first));
+    const close = (): void => {
+      this._splitDone = undefined;
+      void this.updateComplete.then(() => Focus.focusFirst(this.renderRoot, ['.page-title']));
+    };
+    const row = (entryKey: number, entry: string | Types.EntityConfig): SplitView.DoneRow => {
+      const parts = CalendarList.rowParts(entry, ctx.language);
+      const label = Entities.asEntityConfig(entry).label;
+      return {
+        key: entryKey,
+        title: `${name}${Summary.SUMMARY_SEPARATOR}${parts[0]}`,
+        summary: [
+          ...parts.slice(1),
+          interpolate(t('summary.set'), { count: String(CalendarList.setCount(entry)) }),
+        ].join(Summary.SUMMARY_SEPARATOR),
+        tag: t('split.new'),
+        color: this._rowColor(entry),
+        badge:
+          Entities.labelTypeOf(entry) === 'text' && typeof label === 'string' && label !== ''
+            ? label
+            : undefined,
+        onOpen: entryKey === done.key ? close : () => this._showEntry(entryKey),
+      };
+    };
+    return SplitView.done(
+      interpolate(t('split.done'), { name }),
+      [row(done.key, first), row(done.newKey, second)],
+      { label: t('history.undo'), focus: 'split-undo', onPress: this._undo },
+      { label: t('split.done_button'), focus: 'split-done-button', onPress: close },
+    );
+  }
+
+  /**
    * A calendar entry's page: its header with Back, the calendar's name and id, Undo, Redo and the
    * entry's ⋮; Previous and Next Calendar; the warnings and notices that concern it; Settings For;
    * its Calendar; its groups; and Remove and Back at its foot.
@@ -4302,14 +5134,15 @@ export class CalendarCardProEditor extends LitElement {
     const groups = ENTRY_GROUPS.flatMap((heading) => {
       const fields = this._fieldsOf(heading.fields, present, new Set(present.keys()));
       if (fields.length === 0) return [];
-      const body = repeat(
+      const body = html`${heading.extras?.includes('split') ? this._renderSplit(key, ctx) : nothing}
+      ${repeat(
         fields,
         (field) => field.id,
         (field) =>
           field.id === `calendar:${VISIBILITY}`
             ? this._renderVisibility(field, key, entry, data, ctx)
             : this._renderEntryField(field, key, data, ctx, present),
-      );
+      )}`;
       return [
         PageView.headingBlock({
           title: this._headingTitle(heading, ctx),
@@ -4364,7 +5197,7 @@ export class CalendarCardProEditor extends LitElement {
           : nothing
       }
       ${notice ? CalendarView.entryNotice(notice.text, notice.warning) : nothing}
-      ${this._renderScope(ctx)}
+      ${this._renderSplitDone(key, ctx)} ${this._renderScope(ctx)}
       <div
         class="field"
         data-focus="entry-calendar"
@@ -5410,6 +6243,7 @@ export class CalendarCardProEditor extends LitElement {
 
   /** Opens Quick Setup on the card as it is now. */
   private _openQuickSetup = (): void => {
+    this._cancelSplit(false);
     this._quickSetup = {
       opening: structuredClone(this._rawConfig),
       openingAuthoredRootKeys: new Set(this._authoredRootKeys),
@@ -5504,14 +6338,9 @@ export class CalendarCardProEditor extends LitElement {
     const preview = QuickSetup.buildQuickSetupConfig(session.opening, answers);
     // Compared with Quick Setup's own last write, not `_lastDispatched`: an echo recomputes that
     // under the authorship Quick Setup opened with, so it no longer reads as the preview.
-    const shown = session.previews[session.previews.length - 1] ?? session.opening;
-    const changed = !Value.equalConfigs(preview, shown);
-    this._quickSetup = {
-      ...session,
-      answers,
-      previews: changed ? [...session.previews, preview] : session.previews,
-    };
-    if (!changed) return;
+    const next = Preview.withPreview(session, preview);
+    this._quickSetup = { ...session, ...next, answers };
+    if (next === session) return;
 
     this._lastDispatched = preview;
     this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: preview } }));

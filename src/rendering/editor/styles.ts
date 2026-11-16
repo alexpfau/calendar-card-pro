@@ -996,6 +996,167 @@ export default css`
     --mdc-icon-size: 20px;
   }
 
+  /*
+   * Split This Calendar (D12): the row under Which Events, the task in place of it with its
+   * stepper, a refusal inside its method's card, a part's card, and the panel a split leaves.
+   * The task and the panel are outlined in the primary color, the way the mockups frame them.
+   */
+  .split-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 56px;
+    padding: 8px 4px 8px 16px;
+    border: 1px solid var(--divider-color);
+    border-radius: 12px;
+    background: none;
+    color: var(--primary-text-color);
+    cursor: pointer;
+    font: inherit;
+    text-align: start;
+  }
+
+  .split-task,
+  .split-done {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 16px;
+    border: 2px solid var(--primary-color);
+    border-radius: 12px;
+  }
+
+  .split-stepper,
+  .split-steps,
+  .split-step,
+  .split-actions,
+  .split-part-head,
+  .split-done-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .split-steps {
+    flex: 1;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--secondary-text-color);
+    font-size: 14px;
+  }
+
+  .split-step {
+    flex: 1;
+  }
+
+  .split-step.current {
+    color: var(--primary-text-color);
+    font-weight: 500;
+  }
+
+  .split-step-dot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    font-size: 12px;
+    --mdc-icon-size: 16px;
+  }
+
+  .split-step.current .split-step-dot,
+  .split-step.done .split-step-dot {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+  }
+
+  .split-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  .split-actions {
+    justify-content: space-between;
+  }
+
+  .split-methods,
+  .split-part,
+  .split-method {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .split-method,
+  .split-part {
+    padding: 12px;
+    border: 1px solid var(--divider-color);
+    border-radius: 12px;
+  }
+
+  .split-method.checked {
+    border-color: var(--primary-color);
+  }
+
+  .split-method label {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    cursor: pointer;
+  }
+
+  .split-method.refused label {
+    cursor: default;
+    opacity: 0.6;
+  }
+
+  .split-refusal {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: var(--secondary-background-color);
+    font-size: 14px;
+    --mdc-icon-size: 20px;
+  }
+
+  .split-refusal p,
+  .split-counts,
+  .split-writes,
+  .split-events {
+    margin: 0;
+  }
+
+  .split-refusal .icon {
+    fill: var(--warning-color);
+  }
+
+  .split-counts,
+  .split-writes,
+  .split-events {
+    color: var(--secondary-text-color);
+    font-size: 14px;
+  }
+
+  .split-events {
+    padding-inline-start: 0;
+    list-style: none;
+  }
+
+  .tag {
+    padding: 0 6px;
+    border-radius: 8px;
+    background: var(--primary-color);
+    color: var(--text-primary-color, #fff);
+    font-size: 11px;
+  }
+
   /* The field a search result opened, Return to Results above it, highlighted for 2 s. */
   .jump {
     display: flex;
