@@ -1132,7 +1132,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   'weather.date': 'In the Day Header',
   'weather.date.helper': "The day's forecast, shown once per day.",
-  'date.show_conditions': 'Show Conditions By Day',
+  'date.show_conditions': 'Show Conditions Beside Days',
   'date.show_high_temp': 'Show High Temperature',
   'date.show_low_temp': 'Show Low Temperature',
   'date.show_low_temp.helper': 'The UV index takes this place on days it is shown.',
