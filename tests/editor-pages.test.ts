@@ -121,9 +121,10 @@ describe('the overview', () => {
     });
   });
 
-  it('names its two radio groups, each option with a value', async () => {
+  it('names its three radio groups, each option with a value', async () => {
     const editor = await mountEditor({ ...CARD, toolbar: { show: true } });
-    for (const name of ['scope', 'view']) {
+    // Settings For, Card Displays, and Start Date's chips.
+    for (const name of ['scope', 'view', 'start_date_mode']) {
       const radios = [
         ...editor.shadowRoot!.querySelectorAll<HTMLInputElement>(`input[type="radio"]`),
       ].filter((radio) => radio.name === name);
@@ -136,7 +137,7 @@ describe('the overview', () => {
     }
     expect(
       [...editor.shadowRoot!.querySelectorAll<HTMLInputElement>('input[type="radio"]')].every(
-        (radio) => radio.name === 'scope' || radio.name === 'view',
+        (radio) => ['scope', 'view', 'start_date_mode'].includes(radio.name),
       ),
     ).toBe(true);
   });
@@ -367,20 +368,24 @@ describe('the Escape guard', () => {
 
 describe('a nested field’s own data', () => {
   /**
-   * Each field form's data on the open page, by field id.
+   * Each field form’s data on the open page, by field id; the color controls and the controls the
+   * editor composes, chips among them, draw none.
    *
    * @param editor - Editor element
    * @param prefix - The fields' id prefix
    * @returns Each form's data object
    */
   function dataOf(editor: MountedEditor, prefix: string): Map<string, unknown> {
+    // A color control draws no form until its Custom text is open (`tests/editor-colors.test.ts`).
     return new Map(
-      [...editor.shadowRoot!.querySelectorAll<HTMLElement>(`.field[data-field^="${prefix}"]`)].map(
-        (frame) => [
-          frame.dataset.field!,
-          (frame.querySelector('ha-form') as { data?: unknown }).data,
-        ],
-      ),
+      [
+        ...editor.shadowRoot!.querySelectorAll<HTMLElement>(
+          `[data-field^="${prefix}"]:not(.color-field):not([data-composed])`,
+        ),
+      ].map((frame) => [
+        frame.dataset.field!,
+        (frame.querySelector('ha-form') as { data?: unknown }).data,
+      ]),
     );
   }
 

@@ -2762,6 +2762,56 @@ Behavior-preserving.
     entry and on a button counts as stored; a blank or `null` does not.
 - **Strings.** About 1, the Needs tag of search. The gate line's templates and clauses arrive with
   the PR that first draws them, PR 15.
+- **As built.** Where PR 14 departs from section 4.1's contracts and sections 5.1 and 5.3:
+  - **`PlanCtx` gains three optional members.** `pending`, the held text, so a field being typed
+    counts as stored (section 5.1 reads `_pending`; the contract had no way in); `entryKeys`, so the
+    "Set on Calendars" line names entries by key; and `entry`, the key of the entry whose
+    `calendar:` ids a state is asked for. `planEntry` sets `entry` and swaps in the entry's own
+    present index, so `fieldState`, `stateOf` and `resetOutcome` read one entry the same way they
+    read the card. `planEntry` takes an entry as stored, a bare id included.
+  - **`FieldState` gains `{ kind: 'none' }`**: drawn and named nowhere on the page. A mode value
+    whose mode is not live, an option this workspace offers under another id (`layout:day_spacing`
+    in Grid, `separators:day_spacing` elsewhere), and a field no gate explains here.
+  - **The plan's results are data, not words.** `HeadingPlan` (live fields with their reason, Add
+    items with a family as one item, gated fields of `kind: 'gate'` gates only, stored-but-not-in-use
+    fields), `OtherLayoutLine` (layouts and ids), `StateWords` (one of the table's eight words, plus
+    the layouts and the calendars storing their own) and `ResetOutcome` (the five rows, the beaten
+    All Layouts value as `ignored`). PR 15 words them with its templates.
+  - **Two more exports.** `plan.ts` › `resetAction(id, appearance, ctx, state)` decides Reset or
+    Remove by running `reset.ts` › `reset` on the editor's `WriteState`, storing the result through
+    `toStoredConfig` and asking `fieldState` again; it needs the state, so it is not `stateOf`'s
+    job. A field still live afterwards gets Reset, which with Show Every Setting on is every stored
+    field, where the prototype gave Remove: the plan's rule is built. `needsTag` wraps `needsText`
+    in `search.needs`, "Needs {needs}", the one string, held to its reader under PR 8's `search`
+    prefix (`subforms.ts` › `REFERENCED_STRINGS`).
+  - **`days_of_week` has no card setting**, so seven of the eight entry tri-states can follow a card
+    value that differs; the test pins the eighth as never inheriting one.
+  - **Families.** A family is live by its members that apply here; a stored member a gate withholds
+    is listed as not in use and does not open the family. A member added alone, as search will add
+    one, brings its family, since its members are shown together.
+  - **"Same as the Default"** compares against what the field shows once its line is gone here and
+    at the top level, the prototype's base, worked out from this card: Columns' minimum days follow
+    the card's own day count, so a blank card's default would be wrong.
+  - **Other layouts** are read from each layout's universe built in English; ids do not depend on the
+    language.
+  - **`reset.ts`.** A reset deletes lines and never writes a default, which `toStoredConfig` would
+    keep where the YAML held it. On the stack through PR 10, each of the editor's per-field Reset
+    buttons leaves the same stored YAML, Grid reset keys and held text as `reset.ts` does, and
+    PR 7's undo snapshot holds all four, so a reset through `_commit` undoes whole. Each line's reset forgets the text held for it, a synthetic field's
+    included (a cleared Card Height is held as `card_height`). A Grid reset of a key Grid defaults
+    differently is remembered whether or not the block stored it yet, as `_resetViewValues`
+    remembers it; a path naming a whole block resets it as Reset All does; a root reset forgets a
+    Grid reset it outlives, as a Shared write does; a block or root key that leaves the
+    configuration leaves the authored root keys. `entities.ts` gains `resetEntry` and exports
+    `isCalendarOption`; an entry reduced to its id stays an object. `reset.ts` also exports
+    `cardFamilyMembers` and `entryFamilyMembers`, which `plan.ts` reads. `planEntry` builds an
+    entry's fields as PR 10's entry page withholds them, in every scope; its added-set keys extend
+    `write-frames.ts` › `ownerKey`, `entry:<key>:<id>`.
+  - **Tests and bytes.** 57 cases in the two files; 45 planted defects in `plan.ts`, `reset.ts` and
+    `entities.ts` each fail a named case against a green control. Neither module is imported by the
+    editor yet, so both are tree-shaken until PR 15: the editor chunk moves by the string alone,
+    +86 B raw and +11 B gzip -9 over PR 10's head `7b3fe6bd` (+57 B over PR 4's at first), and the
+    card's sha256 is unchanged.
 
 ### PR 15 · Show What Applies
 
@@ -3314,6 +3364,13 @@ and invalid colors written) are reversed above and gone from this list.
 | 50  | After Remove takes the focused button with its panel, focus goes to the Remove of the calendar drawn in its place, its panel opening, else to the one before it, else to the calendar picker in a focus group of the editor's own; focus held elsewhere stays (PR 4, until PR 10)                                                                       | Let focus fall where the browser drops it; or keep drawing by place, which kept focus on the next calendar's Remove only by handing it the removed one's panel                                                                                                         |
 | 51  | `_writeFieldValue` finds a card field among those its panel draws now, an entry's or a button's among those every entry or button declares (PR 4)                                                                                                                                                                                                       | Import `field-index.ts` for the universe, which brings `gates.ts` and its corpus into the editor chunk, +1.6 to +1.9 KB gzip -9 and a circular import, before PR 5 needs them                                                                                          |
 | 52  | Click actions (Copy, Paste, Duplicate, Remove, a button's moves) keep the index bound at render until PR 10; forms and the Visibility editor resolve their key when a change arrives (PR 4)                                                                                                                                                             | Resolve every click by key, which a keyed panel makes moot: a click cannot outlive the render that bound it                                                                                                                                                            |
+| 53  | The editor derives the color specs from the fields built for its context and the same fields built with every mode that offers `custom` set to it, cached by which modes are drawn (PR 11)                                                                                                                                                              | The gate corpus's universe: 72 ms for the corpus and about 15 ms a scope in the test runner, and the corpus in the editor chunk                                                                                                                                        |
+| 54  | A color control writes through the scope it was drawn for, and Custom's text field is keyed by its draft's destination (PR 11)                                                                                                                                                                                                                          | Write through the scope chosen now, which hands a late change from Grid's field to List                                                                                                                                                                                |
+| 55  | A word the card honors in a field (`accent`, `home-assistant`, the badge's `text`), typed in Custom, is written as its row writes it, trimmed (PR 11)                                                                                                                                                                                                   | Write it as a custom color, which forces an entry's mode to `custom` and stores the card's color in its place                                                                                                                                                          |
+| 56  | Default describes the value it falls back to, and the card's primary color reads "Home Assistant's primary color", so Follow the card reads "The card's Accent Color, Home Assistant's primary color" as the D13 mockup draws it (PR 11)                                                                                                                | A fixed sentence per row                                                                                                                                                                                                                                               |
+| 57  | The swatches' English fallbacks follow Home Assistant's sentence case in American spelling ("Gray", "Blue gray"); Home Assistant's own names, which its English spells "Grey", are read first and verified on 2026.11.1 (PR 11)                                                                                                                         | Title Case fallbacks                                                                                                                                                                                                                                                   |
+| 58  | Entry pages draw an entry's color controls (Event Color, Label Icon Color, Accent Color) through the entry's owner, a mode's value inside its control; the registry subscription's one read of `connection` and `callWS` is left out of the `hass` read-set test, counted, since nothing drawn comes from it through `hass` (PR 11)                     | Put `connection` and `callWS` in the editor's `hass` key, which would render for a change nothing draws                                                                                                                                                                |
+| 59  | PR 11 adds about 7.6 KB gzip -9 to the editor against its 2.6 KB cap; the approved scope is kept and the overrun recorded rather than trimmed (PR 11)                                                                                                                                                                                                   | Cut rows, descriptions, the registry read or the YAML line to meet the cap                                                                                                                                                                                             |
 
 ## 13. Findings
 

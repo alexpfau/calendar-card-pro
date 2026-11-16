@@ -23,17 +23,22 @@
  * | `field-form`                      | card    | its wrapper's `data-field` id                  |
  * | `entity-form`                     | entry   | `calendar`                                     |
  * | `button-form`                     | button  | `button`                                       |
- * | `filter-form`                     | chassis | `filter` (the search bar and its switches)     |
+ * | `filter-form`                     | chassis | `filter` (the search field)                    |
  * | `quick-setup-form`                | chassis | `quick_setup`                                  |
  * | `add-calendar-form`               | chassis | `add_calendar` (Add Calendar's picker)         |
  * | `entry-calendar-form`             | chassis | `entry_calendar` (an entry page's Calendar)    |
+ * | `split-form`                      | chassis | `split` (Split This Calendar's own fields)     |
  *
- * Card Displays, Settings For and Calendar Filter are the editor's own radio groups rather than
- * forms. The ids `display:view`, `workspace:editing_workspace` and `card:toolbar.legend` still name
- * them, for `changeField` and `valueOf`, which choose and read them as a user does. The event parts
- * and the toolbar's controls are its own toggle chips (`chips.ts`): `changeField` presses one as a
- * user does, where its state is not already the value asked for, and `valueOf` reads it pressed or
- * not. A toolbar button's fields sit in its row, which a helper opens as a user does.
+ * Card Displays and Settings For are the editor's own radio groups rather than forms. The ids
+ * `display:view` and `workspace:editing_workspace` still name them, for `changeField` and
+ * `valueOf`, which choose and read them as a user does. A toolbar button's fields sit in its row,
+ * which a helper opens as a user does.
+ *
+ * A color field is the editor's own control too (`colors.ts`), drawn for the color, or for the
+ * mode it absorbs (`events:accent_color_mode`), with the color's value inside. It stands in as a
+ * form for those ids (`colorForm`): its schema and data are theirs, so every helper reads it as it
+ * reads any field, and a change sent to it is made in the control as a user makes it, by its rows,
+ * its swatches, or Custom and the text typed there (`driveColor`).
  *
  * The chassis scopes are this module's own: `field-index.ts` indexes the nine panels, calendar
  * entries and toolbar buttons, and the chassis draws forms that belong to none of them. They
@@ -44,23 +49,33 @@
  * whose value is the object the form holds for it, or a heading a form draws (`button:heading`).
  */
 
+import { setImmediate as nodeImmediate, setTimeout as nodeTimeout } from 'node:timers';
+
 import * as Config from '../../src/config/config';
 import type * as Types from '../../src/config/types';
 import * as Buttons from '../../src/rendering/editor/buttons';
-import { CHIP_LABELS, isPressed } from '../../src/rendering/editor/chips';
+import * as Colors from '../../src/rendering/editor/colors';
 import { CalendarCardProEditor } from '../../src/rendering/editor/element';
 import * as Entities from '../../src/rendering/editor/entities';
 import {
   type FieldId,
+  type IndexedField,
+  buildFieldIndex,
   buttonFieldIndex,
+  entityFieldIndex,
+  entrySchema,
+  fieldHelper,
   fieldId,
+  fieldLabel,
   parseFieldId,
   universeIndex,
 } from '../../src/rendering/editor/field-index';
-import * as Filter from '../../src/rendering/editor/filter';
 import type { HaFormSchema } from '../../src/rendering/editor/ha-form';
-import { PAGES, placementOf } from '../../src/rendering/editor/pages';
+import * as HassKey from '../../src/rendering/editor/hass-key';
+import { withCardActionLabels } from '../../src/rendering/editor/hass-localize';
+import { ENTRY_GROUPS, PAGES, placementOf } from '../../src/rendering/editor/pages';
 import { type SchemaCtx, walkSchema } from '../../src/rendering/editor/panels';
+import { PREFS_KEY } from '../../src/rendering/editor/prefs';
 import * as Routing from '../../src/rendering/editor/routing';
 import {
   TOOLBAR_BUTTON_PATH,
@@ -74,6 +89,7 @@ import {
 } from '../../src/rendering/editor/schemas/quick-setup';
 import { chassisSchemas } from '../../src/rendering/editor/subforms';
 import * as Value from '../../src/rendering/editor/value';
+import * as WordLists from '../../src/rendering/editor/word-lists';
 import { WORKSPACES } from '../../src/rendering/editor/workspace';
 import * as Helpers from '../../src/utils/helpers';
 
@@ -143,13 +159,13 @@ const CHASSIS_FORMS: Readonly<Record<string, string>> = {
   'quick-setup-form': 'quick_setup',
   'add-calendar-form': 'add_calendar',
   'entry-calendar-form': 'entry_calendar',
+  'split-form': 'split',
 };
 
 /** The editor's own radio groups, by the id a test names them with, with each input's name. */
 const RADIO_GROUPS: Readonly<Record<string, string>> = {
   'display:view': 'view',
   'workspace:editing_workspace': 'scope',
-  'card:toolbar.legend': 'card:toolbar.legend',
 };
 
 const CHASSIS_SCOPES: ReadonlySet<string> = new Set([
@@ -195,8 +211,6 @@ interface EditorState {
   readonly _config?: Types.Config;
   /** The context every builder reads (`element.ts` › `_ctx`). */
   readonly _ctx: SchemaCtx;
-  /** The context the filter matches against (`element.ts` › `_filterCtx`). */
-  readonly _filterCtx: Filter.FilterCtx;
   /** A key per calendar entry, in list order (`element.ts` › `_entryKeysFor`). */
   readonly _entryKeys?: ReadonlyArray<number>;
   /** A key per toolbar button, in list order (`element.ts` › `_buttonKeysFor`). */
@@ -267,12 +281,40 @@ function entryIndexes(editor: EditorElement, root: ShadowRoot): Map<Element, num
   }
   const data = Entities.toEntityFormData(entries[index], entries);
   for (const form of page.querySelectorAll<FormElement>('ha-form.entity-form')) {
-    if (!Value.deepEqual(form.data, Routing.formDataFor(data, form.schema))) {
+    if (
+      !Value.deepEqual(asWritten(form), asWritten(form, Routing.formDataFor(data, form.schema)))
+    ) {
       outOfStep(`The page of entry ${index} holds another entry's data`);
     }
   }
   indexes.set(page, index);
   return indexes;
+}
+
+/**
+ * A form's data as it writes it: a word list drawn one term at a time (`text` with `multiple`)
+ * holds its terms, and writes them as one pattern (`word-lists.ts` › `toPattern`), where an empty
+ * list writes no line at all, as an absent value is none.
+ *
+ * @param form - The form
+ * @param data - Data in its shape, its own when omitted
+ * @returns The data, each list of terms as the pattern it writes and no line where it writes none
+ */
+function asWritten(
+  form: FormElement,
+  data: Readonly<Record<string, unknown>> = form.data,
+): Record<string, unknown> {
+  const written = { ...data };
+  for (const node of form.schema) {
+    const selector = 'selector' in node ? node.selector : undefined;
+    if (selector === undefined || !('text' in selector) || selector.text?.multiple !== true)
+      continue;
+    const value = written[node.name];
+    const pattern = Array.isArray(value) ? WordLists.toPattern(value.map(String)) : value;
+    if (pattern === '' || pattern === undefined) delete written[node.name];
+    else written[node.name] = pattern;
+  }
+  return written;
 }
 
 /**
@@ -339,6 +381,22 @@ function placeForm(
   buttons: ReadonlyMap<Element, number>,
 ): Drawn {
   const classes = form.classList;
+  const control = colorControls.get(form) ?? composedControls.get(form);
+  if (control !== undefined) {
+    const id = control.getAttribute('data-field')!;
+    const page = control.closest('.entry-page');
+    if (page !== null) {
+      return {
+        form,
+        kind: 'entry',
+        index: entries.get(page),
+        key: keyOf(page),
+        scope: 'calendar',
+        place,
+      };
+    }
+    return { form, kind: 'card', scope: parseFieldId(id).scope, place };
+  }
   if (classes.contains('field-form')) {
     const id = form.closest('[data-field]')?.getAttribute('data-field');
     if (!id) outOfStep('A field form outside a field wrapper');
@@ -403,8 +461,19 @@ function drawnForms(editor: EditorElement): Drawn[] {
 function liveForms(editor: EditorElement, root: ShadowRoot, page?: string): Drawn[] {
   const entries = entryIndexes(editor, root);
   const buttons = buttonIndexes(editor, root);
-  return [...root.querySelectorAll<FormElement>('ha-form')]
+  // A color control stands for the fields it edits, Custom's text field among them, and any other
+  // control the editor composes for its field (`composedForm`).
+  return [...root.querySelectorAll<HTMLElement>('ha-form, .color-field, [data-composed]')]
     .filter((form) => form.closest('[inert]') === null)
+    .flatMap((node) =>
+      node.classList.contains('color-field')
+        ? [colorForm(editor, node)]
+        : node.hasAttribute('data-composed')
+          ? [composedForm(editor, node)]
+          : node.closest('.color-field, [data-composed]') === null
+            ? [node as FormElement]
+            : [],
+    )
     .map((form, at) => {
       const drawn = { ...placeForm(form, at + 1, entries, buttons), page };
       formScopes.set(form, drawn.scope);
@@ -412,42 +481,354 @@ function liveForms(editor: EditorElement, root: ShadowRoot, page?: string): Draw
     });
 }
 
+/** The control each color control's stand-in form stands for, by stand-in. */
+const colorControls = new WeakMap<Element, Element>();
+
+/** The stand-in form for each color control, by the control's wrapper. */
+const colorForms = new WeakMap<Element, FormElement>();
+
+/**
+ * A color control's spec and the fields it edits as drawn now: the field it is drawn for, and the
+ * value of a mode it absorbs while its gate draws it (`colors.ts` › `cardColorFields`).
+ *
+ * @param editor - Editor element
+ * @param anchor - The id the control's wrapper names
+ * @returns The spec and the fields, in order
+ */
+function colorFieldsOf(
+  editor: EditorElement,
+  control: Element,
+  anchor: FieldId,
+): {
+  readonly spec: Colors.ColorSpec;
+  readonly fields: ReadonlyArray<IndexedField>;
+  readonly data: Record<string, unknown>;
+} {
+  const ctx = stateOf(editor)._ctx;
+  const config = heldConfig(editor);
+  const key = keyOf(control.closest('.entry-page'));
+  const entities = config?.entities ?? [];
+  const entry = key === undefined ? undefined : entities[keysOf(editor, 'entry').indexOf(key)];
+  const colors = key === undefined ? Colors.cardColorFields(ctx) : Colors.entryColorFields(ctx);
+  const spec = colors.specs.get(anchor);
+  if (spec === undefined) outOfStep(`'${anchor}' is drawn as a color control but is no color`);
+  if (key !== undefined && entry === undefined) outOfStep(`No entry is keyed ${key}`);
+  const present =
+    entry === undefined
+      ? buildFieldIndex(ctx).fields
+      : entityFieldIndex(entrySchema(entry, ctx)).fields;
+  const data =
+    entry === undefined
+      ? (editor as unknown as { _formData(): Record<string, unknown> })._formData()
+      : Entities.toEntityFormData(entry, entities);
+  const ids = spec.mode === anchor ? [anchor, spec.value] : [anchor];
+  return { spec, data, fields: ids.flatMap((id) => (present.has(id) ? [present.get(id)!] : [])) };
+}
+
+/**
+ * A color control as a form standing for the fields it edits, so a test names them by id as it
+ * names any field: its schema is theirs, its data the editor's own for them, its labels and
+ * helpers theirs. A change it is sent is made in the control as a user makes it: a row, a swatch,
+ * or Custom and the text typed there (`driveColor`).
+ *
+ * @param editor - Editor element
+ * @param control - The control's wrapper, `.color-field`
+ * @returns The stand-in
+ */
+function colorForm(editor: EditorElement, control: Element): FormElement {
+  const known = colorForms.get(control);
+  if (known !== undefined) return known;
+  const anchor = control.getAttribute('data-field')!;
+  const form = document.createElement('div') as unknown as FormElement;
+  form.className = 'color-form';
+  const fieldOf = (node: HaFormSchema): IndexedField | undefined =>
+    colorFieldsOf(editor, control, anchor).fields.find((field) => field.node.name === node.name);
+  Object.defineProperties(form, {
+    schema: {
+      get: () => colorFieldsOf(editor, control, anchor).fields.flatMap((field) => field.lifted),
+    },
+    data: {
+      get: () => Routing.formDataFor(colorFieldsOf(editor, control, anchor).data, form.schema),
+    },
+    // As Custom's text field is handed it (`element.ts` › `_feed`).
+    hass: {
+      get: () => {
+        const hass = (editor as unknown as { hass?: Types.Hass }).hass;
+        const language = stateOf(editor)._ctx.language;
+        return HassKey.needsLiveHass(form.schema)
+          ? withCardActionLabels(hass, language)
+          : HassKey.steadyHass(hass, language);
+      },
+    },
+    computeLabel: {
+      value: (node: HaFormSchema) => {
+        const field = fieldOf(node);
+        return field === undefined ? '' : fieldLabel(field, stateOf(editor)._ctx.language);
+      },
+    },
+    // The state words the control shows under it lead its helper, as a text field's do.
+    computeHelper: {
+      value: (node: HaFormSchema) => {
+        const field = fieldOf(node);
+        if (field === undefined) return undefined;
+        const words = control.querySelector('.color-words')?.textContent?.trim();
+        return (
+          [words ? `${words}.` : undefined, fieldHelper(field, stateOf(editor)._ctx)]
+            .filter((part) => part !== undefined)
+            .join(' ') || undefined
+        );
+      },
+    },
+  });
+  // Where it sits is where its control sits.
+  form.closest = ((selector: string) => control.closest(selector)) as typeof form.closest;
+  form.dispatchEvent = (event: Event): boolean => {
+    driveColor(editor, control, anchor, (event as CustomEvent).detail?.value ?? {});
+    return true;
+  };
+  colorControls.set(form, control);
+  colorForms.set(control, form);
+  return form;
+}
+
+/**
+ * Makes a change sent to a color control's stand-in in the control itself, as a user would:
+ * opens it, then for each field that moved, a mode before its value, chooses the row that writes
+ * the value, the swatch that is it, Default for none, or Custom and types it. Rendered
+ * synchronously between steps (Lit's `performUpdate`), as `emitChange` is synchronous.
+ *
+ * @param editor - Editor element
+ * @param control - The control's wrapper
+ * @param anchor - The id it is drawn for
+ * @param incoming - The stand-in's whole data, as a form sends it
+ */
+function driveColor(
+  editor: EditorElement,
+  control: Element,
+  anchor: FieldId,
+  incoming: Record<string, unknown>,
+): void {
+  const element = editor as unknown as { requestUpdate(): void; performUpdate(): void };
+  const draw = (): void => {
+    element.requestUpdate();
+    element.performUpdate();
+  };
+  const choose = (selector: string, what: string): void => {
+    const input = control.querySelector<HTMLInputElement>(`${selector} input`);
+    if (!input) outOfStep(`The color control for '${anchor}' offers no ${what}`);
+    input.checked = true;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    draw();
+  };
+  const toggle = control.querySelector<HTMLButtonElement>('.color-toggle');
+  if (!toggle) outOfStep(`The color control for '${anchor}' draws no button`);
+  if (toggle.getAttribute('aria-expanded') !== 'true') {
+    toggle.click();
+    draw();
+  }
+  const { spec, fields } = colorFieldsOf(editor, control, anchor);
+  const before = colorForm(editor, control).data;
+  for (const field of fields) {
+    const was = atPath(before, [...field.dataPath, field.node.name]);
+    const value = atPath(incoming, [...field.dataPath, field.node.name]);
+    if (Value.deepEqual(was, value)) continue;
+    if (field.id === spec.mode) {
+      const source = spec.sources.find(
+        ({ write }) => write !== 'reset' && write[spec.mode!] === value,
+      );
+      if (source !== undefined) choose(`[data-color-row="${source.source}"]`, String(value));
+      else if (spec.custom[spec.mode] === value) choose('[data-color-row="custom"]', 'Custom');
+      else outOfStep(`The color control for '${anchor}' offers no ${String(value)}`);
+      continue;
+    }
+    const token = Colors.SWATCH_TOKENS.find((each) => Colors.swatchValue(each) === value);
+    if (value === undefined || value === '') {
+      choose('[data-color-row="default"]', 'Default');
+    } else if (token !== undefined) {
+      choose(`[data-swatch="${token}"]`, `the ${token} swatch`);
+    } else {
+      choose('[data-color-row="custom"]', 'Custom');
+      const text = control.querySelector<FormElement>('.color-text-field ha-form');
+      if (!text) outOfStep(`The color control for '${anchor}' draws no Custom text field`);
+      text.dispatchEvent(
+        new CustomEvent('value-changed', {
+          detail: { value: withValue(text.data, field.dataPath, field.node.name, value) },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      draw();
+    }
+  }
+}
+
+/** The control each composed control's stand-in form stands for, by stand-in. */
+const composedControls = new WeakMap<Element, Element>();
+
+/** The stand-in form for each composed control, by the control's wrapper. */
+const composedForms = new WeakMap<Element, FormElement>();
+
+/**
+ * The field a composed control is drawn for, and the data its owner's forms hold, as now.
+ *
+ * @param editor - Editor element
+ * @param control - The control's wrapper, `[data-composed]`
+ * @returns The field and the owner's data
+ */
+function composedFieldOf(
+  editor: EditorElement,
+  control: Element,
+): { readonly field: IndexedField; readonly data: Record<string, unknown> } {
+  const id = control.getAttribute('data-field')!;
+  const ctx = stateOf(editor)._ctx;
+  const entities = heldConfig(editor)?.entities ?? [];
+  const key = keyOf(control.closest('.entry-page'));
+  const entry = key === undefined ? undefined : entities[keysOf(editor, 'entry').indexOf(key)];
+  if (key !== undefined && entry === undefined) outOfStep(`No entry is keyed ${key}`);
+  const field = (
+    entry === undefined
+      ? buildFieldIndex(ctx).fields
+      : entityFieldIndex(entrySchema(entry, ctx)).fields
+  ).get(id);
+  if (field === undefined) outOfStep(`'${id}' is drawn as a composed control but is not built`);
+  const data =
+    entry === undefined
+      ? (editor as unknown as { _formData(): Record<string, unknown> })._formData()
+      : Entities.toEntityFormData(entry, entities);
+  return { field, data };
+}
+
+/**
+ * A control the editor composes for one field, as a form standing for that field, as a color
+ * control's stand-in does: its schema is the field's, its data the editor's own value for it, its
+ * label and helper the field's. Four kinds are composed:
+ *
+ * - `chips`, a radio group of the editor's own (Start Date's radio chips, Calendar Filter's Off,
+ *   Menu and Chips): a change is made by choosing the option;
+ * - `toggle`, an event part's or a toolbar control's toggle chip: its value is the editor's own,
+ *   and a change to on or off is made by pressing the chip where it shows the other; a chip a gate
+ *   withholds is not composed, as its field is not built;
+ * - `line`, the line Tapping an Event Opens It gives way to while another action is stored, which
+ *   takes no change;
+ * - `words`, a word list one term at a time: its value is the pattern the terms write, and a change
+ *   to it is sent to its form as the terms that pattern reads as.
+ *
+ * @param editor - Editor element
+ * @param control - The control's wrapper, `[data-composed]`
+ * @returns The stand-in
+ */
+function composedForm(editor: EditorElement, control: Element): FormElement {
+  const known = composedForms.get(control);
+  if (known !== undefined) return known;
+  const kind = control.getAttribute('data-composed');
+  const id = control.getAttribute('data-field')!;
+  const form = document.createElement('div') as unknown as FormElement;
+  form.className = 'composed-form';
+  // The word list's form as drawn now: a scope change draws it again.
+  const wordsForm = (): FormElement | null =>
+    kind === 'words' ? control.querySelector<FormElement>('ha-form') : null;
+  if (kind === 'words' && wordsForm() === null) outOfStep(`The word list '${id}' draws no form`);
+  Object.defineProperties(form, {
+    schema: { get: () => composedFieldOf(editor, control).field.lifted },
+    // What the control shows, read off it: the chip that is checked, the pattern the terms its
+    // form holds write. Only the line shows no value of its own, so it reads the editor's.
+    data: {
+      get: () => {
+        const { data, field } = composedFieldOf(editor, control);
+        const name = field.node.name;
+        if (kind === 'chips') {
+          const checked = control.querySelector<HTMLInputElement>('input[type="radio"]:checked');
+          return withValue({}, field.dataPath, name, checked?.value);
+        }
+        const drawn = wordsForm();
+        if (drawn !== null) {
+          const terms = drawn.data[name];
+          return withValue(
+            {},
+            field.dataPath,
+            name,
+            Array.isArray(terms) ? WordLists.toPattern(terms.map(String)) : terms,
+          );
+        }
+        return Routing.formDataFor(data, form.schema);
+      },
+    },
+    // As the form it draws is handed it, or as a form of the field's would be (`element.ts` › `_feed`).
+    hass: {
+      get: () => {
+        const words = wordsForm();
+        if (words !== null) return words.hass;
+        const hass = (editor as unknown as { hass?: Types.Hass }).hass;
+        const language = stateOf(editor)._ctx.language;
+        return HassKey.needsLiveHass(form.schema)
+          ? withCardActionLabels(hass, language)
+          : HassKey.steadyHass(hass, language);
+      },
+    },
+    computeLabel: {
+      value: () =>
+        fieldLabel(composedFieldOf(editor, control).field, stateOf(editor)._ctx.language),
+    },
+    computeHelper: {
+      value: () => {
+        // A toggle chip shows its YAML option name, while that preference is on, as its title.
+        const yaml = kind === 'toggle' ? control.getAttribute('title') : null;
+        if (yaml) return yaml;
+        const words = wordsForm();
+        return words !== null
+          ? words.computeHelper?.(words.schema[0])
+          : fieldHelper(composedFieldOf(editor, control).field, stateOf(editor)._ctx);
+      },
+    },
+  });
+  form.closest = ((selector: string) => control.closest(selector)) as typeof form.closest;
+  form.dispatchEvent = (event: Event): boolean => {
+    const { field } = composedFieldOf(editor, control);
+    const value = atPath((event as CustomEvent).detail?.value ?? {}, [
+      ...field.dataPath,
+      field.node.name,
+    ]);
+    if (kind === 'chips') {
+      const input = control.querySelector<HTMLInputElement>(
+        `input[type="radio"][value="${String(value)}"]`,
+      );
+      if (!input) outOfStep(`'${id}' offers no ${String(value)}`);
+      input.checked = true;
+      return input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    if (kind === 'toggle') {
+      if (typeof value !== 'boolean') {
+        outOfStep(`'${id}' is a toggle chip: it is pressed or not, so ask it for true or false`);
+      }
+      const chip = control as HTMLButtonElement;
+      if ((chip.getAttribute('aria-pressed') === 'true') !== value) chip.click();
+      return true;
+    }
+    const words = wordsForm();
+    if (kind === 'words' && words !== null) {
+      const terms = WordLists.fromPattern(typeof value === 'string' ? value : '');
+      if (terms === undefined) {
+        outOfStep(`'${id}' is drawn as words, which cannot hold ${String(value)}: Use a Pattern`);
+      }
+      return words.dispatchEvent(
+        new CustomEvent('value-changed', {
+          detail: { value: { [field.node.name]: [...terms] } },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+    }
+    return outOfStep(`'${id}' is drawn as a line, which takes no change`);
+  };
+  composedControls.set(form, control);
+  composedForms.set(control, form);
+  return form;
+}
+
 /** What `openPanels` kept from every page it visited, and what the editor held then. */
 interface Kept {
   forms: Drawn[];
-  /** The chips and radio groups of the editor's own each page drew, by id. */
-  controls: FieldId[];
   stamp: ReadonlyArray<unknown>;
-}
-
-/**
- * The ids of the chips and segmented radio groups of the editor's own drawn under a root, each
- * standing for its field drawn. A chip drawn unpressable, with its reason, stands for a field the
- * builders withhold, and is left out, as a withheld field's form would be.
- *
- * @param root - Where to look
- * @returns The ids, in document order
- */
-function controlIds(root: ParentNode): FieldId[] {
-  return [
-    ...root.querySelectorAll(
-      'button.chip[data-field]:not([aria-disabled="true"]), fieldset.segmented[data-field]',
-    ),
-  ].map((control) => control.getAttribute('data-field')!);
-}
-
-/**
- * Every chip and segmented radio group the editor draws in place of a field's form, by id: on
- * the place open, and on every page `openPanels` visited, as the editor would draw them now.
- *
- * @param editor - Editor element
- * @returns The ids
- */
-export function controlsOf(editor: EditorElement): FieldId[] {
-  keptForms(editor);
-  return [
-    ...new Set([...controlIds(editor.shadowRoot!), ...(visited.get(editor)?.controls ?? [])]),
-  ];
 }
 
 /** What `openPanels` kept, by editor. */
@@ -461,9 +842,16 @@ const visited = new WeakMap<EditorElement, Kept>();
  */
 function stampOf(editor: EditorElement): unknown[] {
   const state = editor as unknown as Record<string, unknown>;
-  return ['_config', '_pending', '_filter', '_workspace', '_rawConfig', 'hass'].map(
-    (member) => state[member],
-  );
+  return [
+    '_config',
+    '_pending',
+    '_filter',
+    '_workspace',
+    '_rawConfig',
+    'hass',
+    '_added',
+    '_prefs',
+  ].map((member) => state[member]);
 }
 
 /**
@@ -483,6 +871,7 @@ function keptForms(editor: EditorElement): Drawn[] {
 
   const element = editor as unknown as {
     _nav: unknown;
+    _prefs: { readonly every: boolean };
     requestUpdate(): void;
     performUpdate(): void;
   };
@@ -492,8 +881,11 @@ function keptForms(editor: EditorElement): Drawn[] {
     element.performUpdate();
   };
   const saved = element._nav;
+  const prefs = element._prefs;
+  // Every setting that applies, as Show Every Setting draws it: a change since the visit can
+  // bring settings a page names in its Add rows, and `openPanels` added what it found.
+  element._prefs = { ...prefs, every: true };
   const forms: Drawn[] = [];
-  const controls: FieldId[] = [];
   // The pages the overview offers now: the Grid page only while Grid is the scope.
   const scope = (editor as unknown as { _workspace: string })._workspace;
   const pages = PAGES.filter((page) => page.onlyIn === undefined || page.onlyIn === scope);
@@ -507,7 +899,6 @@ function keptForms(editor: EditorElement): Drawn[] {
     rows._openButtons = new Set(keysOf(editor, 'button'));
     draw();
     forms.push(...liveForms(editor, root, page));
-    controls.push(...controlIds(root));
     rows._openButtons = open;
   }
   for (const key of keysOf(editor, 'entry')) {
@@ -517,9 +908,9 @@ function keptForms(editor: EditorElement): Drawn[] {
     forms.push(...liveForms(editor, root, `entry:${key}`));
   }
   element._nav = saved;
+  element._prefs = prefs;
   draw();
   kept.forms = forms;
-  kept.controls = controls;
   kept.stamp = stampOf(editor);
   return forms;
 }
@@ -1012,7 +1403,6 @@ export function helperOf(editor: EditorElement, id: FieldId, owner?: Owner): str
  */
 export function valueOf(editor: EditorElement, id: FieldId, owner?: Owner): unknown {
   if (id in RADIO_GROUPS) return chosen(editor, id);
-  if (id in CHIP_LABELS) return pressedOf(editor, id);
   const found = located(editor, id, owner);
   if (found.all !== undefined) {
     // Each field's form holds only its own part of the block, so the parts are merged deeply.
@@ -1093,13 +1483,9 @@ export async function changeFields(
   const ids = Object.keys(values);
   if (ids.length === 0) throw new Error('changeFields needs a field to change.');
   const radio = ids.find((id) => id in RADIO_GROUPS);
-  const chip = ids.find((id) => id in CHIP_LABELS);
   if (radio !== undefined) {
     if (ids.length > 1) throw new Error(`${radio} is a radio group: change it on its own.`);
     await choose(editor, radio, values[radio]);
-  } else if (chip !== undefined) {
-    if (ids.length > 1) throw new Error(`${chip} is a toggle chip: change it on its own.`);
-    await pressChip(editor, chip, values[chip]);
   } else {
     for (const id of ids) {
       const found = find(editor, id, owner);
@@ -1127,77 +1513,10 @@ function chosen(editor: EditorElement, id: FieldId): unknown {
     `input[name="${RADIO_GROUPS[id]}"]:checked`,
   );
   if (input) return input.value;
-  if (id === 'card:toolbar.legend')
-    return outOfStep(`Calendar Filter is not drawn: go to it first`);
   if (id === 'workspace:editing_workspace') {
     return (editor as unknown as { _workspace: string })._workspace;
   }
   return outOfStep(`The editor draws no ${id} to read`);
-}
-
-/**
- * Goes where a control of the editor's own is drawn, as a user would: to the page its id is placed
- * on, unless that page is open; Card Displays and Settings For to the overview.
- *
- * @param editor - Editor element
- * @param id - A chip's id, or a radio group's
- */
-async function goToControl(editor: EditorElement, id: FieldId): Promise<void> {
-  const page = pageOf(id);
-  if (page === undefined || page === 'overview' || page === 'entry') await goOverview(editor);
-  else await goPage(editor, page);
-}
-
-/**
- * A toggle chip, where the open place draws it.
- *
- * @param editor - Editor element
- * @param id - Its field's id
- * @returns The chip, or null
- */
-function chipOf(editor: EditorElement, id: FieldId): HTMLButtonElement | null {
-  return (
-    editor.shadowRoot?.querySelector<HTMLButtonElement>(`button.chip[data-field="${id}"]`) ?? null
-  );
-}
-
-/**
- * Whether a toggle chip is pressed: as drawn where the open place draws it, else as the editor's
- * form data holds its value, which is what the chip shows once drawn.
- *
- * @param editor - Editor element
- * @param id - Its field's id
- * @returns Pressed or not
- */
-function pressedOf(editor: EditorElement, id: FieldId): boolean {
-  const chip = chipOf(editor, id);
-  if (chip) return chip.getAttribute('aria-pressed') === 'true';
-  const { dataPath, name } = parseFieldId(id);
-  const data = (editor as unknown as { _formData(): Record<string, unknown> })._formData();
-  return isPressed(atPath(data, [...dataPath, name]));
-}
-
-/**
- * Presses a toggle chip as a user does, on its page, where it is not already as asked: a chip
- * is on or off, so only a boolean can be asked of it, and one that cannot be pressed fails with
- * the reason it shows.
- *
- * @param editor - Editor element
- * @param id - Its field's id
- * @param value - On or off
- */
-async function pressChip(editor: EditorElement, id: FieldId, value: unknown): Promise<void> {
-  if (typeof value !== 'boolean') {
-    throw new Error(`${id} is a toggle chip: it is pressed or not, so ask it for true or false.`);
-  }
-  if (chipOf(editor, id) === null) await goToControl(editor, id);
-  const chip = chipOf(editor, id);
-  if (chip === null) outOfStep(`The editor draws no chip for ${id}`);
-  if (chip.getAttribute('aria-disabled') === 'true') {
-    throw new Error(`${id} cannot be pressed: ${chip.textContent?.trim()}`);
-  }
-  if ((chip.getAttribute('aria-pressed') === 'true') !== value) chip.click();
-  await editor.updateComplete;
 }
 
 /**
@@ -1231,9 +1550,8 @@ async function choose(editor: EditorElement, id: FieldId, value: unknown): Promi
   const drawn = (): boolean =>
     root?.querySelector(`input[name="${name}"]`) !== null ||
     (name === 'scope' && root?.querySelector('[data-focus="scope-change"]') !== null);
-  // Settings For sits on every page the scope matters to as well; Card Displays only here, and
-  // Calendar Filter on Card & Header.
-  if (!drawn()) await goToControl(editor, id);
+  // Settings For sits on every page the scope matters to as well; Card Displays only here.
+  if (!drawn()) await goOverview(editor);
   if (name === 'scope' && root?.querySelector('input[name="scope"]') === null) {
     await press(editor, '[data-focus="scope-change"]', 'Change for Settings For');
   }
@@ -1250,8 +1568,7 @@ async function choose(editor: EditorElement, id: FieldId, value: unknown): Promi
  * Goes to a field as a user would before editing it: to the page it is placed on, or the
  * overview, from the overview's row for that page; a calendar entry's page from its row, a
  * toolbar button's row on Card & Header, opened by its toggle. A closed row draws no form, so a
- * button's field not drawn yet is found by its own row, by its place or key. A chip or a radio
- * group of the editor's own is gone to on its page, and draws no form to open. An entry named by neither place nor key is looked for on every entry's page, as
+ * button's field not drawn yet is found by its own row, by its place or key. An entry named by neither place nor key is looked for on every entry's page, as
  * `openPanels` visits them, so a field two entries draw fails as drawn twice.
  *
  * Where a query holds the overview's results, the field is reached as a user reaches it there:
@@ -1262,10 +1579,6 @@ async function choose(editor: EditorElement, id: FieldId, value: unknown): Promi
  * @param owner - Owner, else the one the id's scope implies
  */
 export async function openPageOf(editor: EditorElement, id: FieldId, owner?: Owner): Promise<void> {
-  if (id in CHIP_LABELS || id in RADIO_GROUPS) {
-    await goToControl(editor, id);
-    return;
-  }
   let found = find(editor, id, owner);
   if (found === undefined || found.page !== undefined) {
     const { scope } = parseFieldId(id);
@@ -1299,6 +1612,8 @@ export async function openPageOf(editor: EditorElement, id: FieldId, owner?: Own
     for (const panel of holders) await openAround(panel);
     await editor.updateComplete;
     found = find(editor, id, owner);
+    // A setting that applies but is not shown waits in its heading's Add row: add it there.
+    if (found === undefined && (await addFromRow(editor, id))) found = find(editor, id, owner);
   }
   if (found === undefined) found = located(editor, id, owner);
 
@@ -1408,9 +1723,13 @@ async function expandAll(editor: EditorElement): Promise<void> {
 export async function openPanels(editor: EditorElement): Promise<void> {
   const root = editor.shadowRoot;
   if (root === null) throw new Error('The editor has not rendered: mount it, and await it.');
+  // A macrotask first: the nodes earlier renders let go of are held until the job they were
+  // reached in ends (`WeakRef` targets are kept for the job), and a long run of awaits that are
+  // all microtasks is one job, which visiting every page would otherwise grow without bound.
+  await nextRender();
   await goOverview(editor);
+  const restore = await showEverySetting(editor);
   const kept: Drawn[] = [];
-  const controls: FieldId[] = [];
   const pages = [...root.querySelectorAll('[data-focus^="nav:"]')].map((row) =>
     row.getAttribute('data-focus')!.slice('nav:'.length),
   );
@@ -1418,7 +1737,6 @@ export async function openPanels(editor: EditorElement): Promise<void> {
     await goPage(editor, page);
     await expandAll(editor);
     kept.push(...liveForms(editor, root, page));
-    controls.push(...controlIds(root));
   }
   for (const key of keysOf(editor, 'entry')) {
     await goOverview(editor);
@@ -1428,8 +1746,9 @@ export async function openPanels(editor: EditorElement): Promise<void> {
     kept.push(...liveForms(editor, root, `entry:${key}`));
   }
   await goOverview(editor);
+  await restore();
   await expandAll(editor);
-  visited.set(editor, { forms: kept, controls, stamp: stampOf(editor) });
+  visited.set(editor, { forms: kept, stamp: stampOf(editor) });
 }
 
 /**
@@ -1448,6 +1767,7 @@ async function keepEntries(editor: EditorElement): Promise<void> {
   const kept: Drawn[] = current
     ? before.forms.filter((drawn) => !drawn.page?.startsWith('entry:'))
     : [];
+  const restore = await showEverySetting(editor);
   for (const key of keysOf(editor, 'entry')) {
     await goOverview(editor);
     if (root.querySelector(`[data-focus="row:${key}"]`) === null) continue;
@@ -1455,11 +1775,107 @@ async function keepEntries(editor: EditorElement): Promise<void> {
     kept.push(...liveForms(editor, root, `entry:${key}`));
   }
   await goOverview(editor);
-  visited.set(editor, {
-    forms: kept,
-    controls: current ? before.controls : [],
-    stamp: stampOf(editor),
-  });
+  await restore();
+  visited.set(editor, { forms: kept, stamp: stampOf(editor) });
+}
+
+/**
+ * Turns on Show Every Setting from the overview, as a user would, so every page draws every
+ * setting that applies; a test reading every form visits them so. Its switch is pressed again
+ * afterwards, so what the browser remembers is left as it was.
+ *
+ * @param editor - Editor element, on the overview
+ * @returns Puts the preference back, from the overview
+ */
+async function showEverySetting(editor: EditorElement): Promise<() => Promise<void>> {
+  const control = editor.shadowRoot?.querySelector<HTMLElement>('[data-focus="pref:every"]');
+  if (
+    control === null ||
+    control === undefined ||
+    control.getAttribute('aria-checked') === 'true'
+  ) {
+    return async () => undefined;
+  }
+  control.click();
+  await editor.updateComplete;
+  return async () => {
+    await goOverview(editor);
+    await press(editor, '[data-focus="pref:every"]', 'Show Every Setting');
+  };
+}
+
+/**
+ * Adds every setting the open page names in its Add rows, as a user would through each row's
+ * Show All, or its one item. Adding writes nothing.
+ *
+ * @param editor - Editor element
+ */
+export async function addEverything(editor: EditorElement): Promise<void> {
+  const root = editor.shadowRoot!;
+  for (let guard = 0; guard < 80; guard++) {
+    const toggle = root.querySelector<HTMLElement>('.add-toggle');
+    if (toggle === null) return;
+    if (toggle.getAttribute('aria-expanded') !== 'true') {
+      toggle.click();
+      await editor.updateComplete;
+    }
+    const item =
+      root.querySelector<HTMLElement>('.add-row.open .add-all') ??
+      root.querySelector<HTMLElement>('.add-row.open .add-item');
+    if (item === null) return;
+    item.click();
+    await editor.updateComplete;
+  }
+}
+
+/**
+ * The family a setting is shown with, where it has one.
+ *
+ * @param id - Field id
+ * @returns The family
+ */
+function familyOf(id: FieldId): string | undefined {
+  for (const heading of [...PAGES.flatMap((page) => page.headings), ...ENTRY_GROUPS]) {
+    for (const [field, appearance] of heading.fields) {
+      if (field === id && typeof appearance === 'object' && 'family' in appearance) {
+        return appearance.family;
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Adds one setting through the Add row that names it on the open page, as a user would: the
+ * row opened, then its item, or its family's.
+ *
+ * @param editor - Editor element
+ * @param id - Field id
+ * @returns Whether a row named it
+ */
+export async function addFromRow(editor: EditorElement, id: FieldId): Promise<boolean> {
+  const root = editor.shadowRoot!;
+  const family = familyOf(id);
+  const keys = [...root.querySelectorAll<HTMLElement>('.add-toggle')].map(
+    (toggle) => toggle.dataset.focus!,
+  );
+  for (const key of keys) {
+    const toggle = root.querySelector<HTMLElement>(`.add-toggle[data-focus="${CSS.escape(key)}"]`);
+    if (toggle === null) continue;
+    if (toggle.getAttribute('aria-expanded') !== 'true') {
+      toggle.click();
+      await editor.updateComplete;
+    }
+    const item = root.querySelector<HTMLElement>(
+      `[data-focus="${CSS.escape(`${key}:${family === undefined ? id : `family:${family}`}`)}"]`,
+    );
+    if (item !== null) {
+      item.click();
+      await editor.updateComplete;
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -1533,6 +1949,23 @@ async function openAround(node: Element): Promise<void> {
   if (!toggle) return;
   toggle.click();
   await (row!.getRootNode() as ShadowRoot & { host: EditorElement }).host.updateComplete;
+}
+
+/**
+ * Waits as Home Assistant's `nextRender` does (`common/util/render-status.ts` in its frontend):
+ * an animation frame, then a timeout. The frame is a Node immediate, which is how happy-dom
+ * schedules one, and both come from `node:timers`, which fake timers leave in place whenever
+ * they were installed, so a real render passes in a test that holds time still,
+ * and no fake clock moves.
+ *
+ * @returns A promise settled once the render has passed
+ */
+function nextRender(): Promise<void> {
+  return new Promise((resolve) => {
+    nodeImmediate(() => {
+      nodeTimeout(() => resolve(), 0);
+    });
+  });
 }
 
 /** What each editor `mountEditor` mounted has reported, oldest first. */
@@ -1609,6 +2042,11 @@ const HOST_TAG = 'calendar-card-pro-editor-host';
 export interface MountOptions {
   /** The `hass` it is handed, `fakeHass()` unless given. */
   readonly hass?: unknown;
+  /**
+   * Show Every Setting, switched on from the overview as a user would, for a test about what
+   * every page can draw rather than about what it shows by default. Not remembered after it.
+   */
+  readonly every?: boolean;
 }
 
 /**
@@ -1639,5 +2077,10 @@ export async function mountEditor(
   editor.setConfig(config);
   document.body.appendChild(editor);
   await editor.updateComplete;
+  if (options.every === true) {
+    await press(editor, '[data-focus="pref:every"]', 'Show Every Setting');
+    // What the browser remembers stays as the test found it.
+    localStorage.removeItem(PREFS_KEY);
+  }
   return editor;
 }

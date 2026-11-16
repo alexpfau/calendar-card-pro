@@ -153,6 +153,8 @@ const APPROVED_MAP: ReadonlyArray<
       'content:start_date_mode E',
       'content:start_date_fixed W',
       'content:start_date_offset W',
+      // Outside candidate A's 223 (Appendix A): the synthetic shortcut over the event's tap.
+      'actions:event_opens_details E',
     ],
   ],
   [
@@ -638,14 +640,14 @@ const HEADINGS: ReadonlyArray<HeadingDef> = [
 describe('the page registry places every built field exactly once', () => {
   it('walks the whole corpus', () => {
     // The denominators, beside the verdicts below. A short walk shows here first: the approved
-    // map places 222 ids, and every one of them is built under some workspace and state.
+    // map places 223 ids, and every one of them is built under some workspace and state.
     console.info(
       `Page registry: ${BUILT.size} ids built over ${STATES.length} corpus states in ` +
         `${WORKSPACES.length} workspaces; ${PLACED.length} placements.`,
     );
     expect(WORKSPACES).toHaveLength(4);
-    expect(BUILT.size).toBe(222);
-    expect(PLACED).toHaveLength(222);
+    expect(BUILT.size).toBe(223);
+    expect(PLACED).toHaveLength(223);
   });
 
   it('has no field built but unplaced', () => {

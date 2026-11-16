@@ -5,41 +5,21 @@
  * `_writeFieldValue`, as the field's own form would.
  *
  * Which fields are chips is the page registry's (`{ chips: 'parts' | 'toolbar' }`); this module
- * only names each one's short label, a table `tests/editor-chips.test.ts` pins by value and
- * reconciles against the registry in both directions.
+ * only names each one's short label (`chip-labels.ts`), a table `tests/editor-chips.test.ts` pins
+ * by value and reconciles against the registry in both directions.
  */
 
+import { CHIP_LABELS } from './chip-labels';
 import { type FieldId, parseFieldId } from './field-index';
 import { GATES, type GateData, firstUnmet, needsText } from './gates';
 import { PAGES } from './pages';
-import { destination } from './routing';
 import { configKeysForField } from './synthetic';
 import { type EditorWorkspace, viewForWorkspace } from './workspace';
 import { appliesToView } from '../../config/view';
-import * as Helpers from '../../utils/helpers';
+
+export { CHIP_LABELS };
 
 export type ChipKind = 'parts' | 'toolbar';
-
-/**
- * Each chip's label: a short word where the field's own label reads as a sentence ("Show End
- * Time"). Time, Location and Description are their headings' words, so they cost no string.
- */
-export const CHIP_LABELS: Readonly<Record<FieldId, string>> = {
-  'events:show_time': 'time',
-  'events:show_end_time': 'chip.end_time',
-  'events:show_location': 'location',
-  'events:show_description': 'description',
-  'events:show_countdown': 'chip.countdown',
-  'events:show_progress_bar': 'chip.progress_bar',
-  'events:show_duration': 'chip.duration',
-  'events:show_now_indicator': 'chip.now',
-  'card:toolbar.add_event': 'toolbar.controls.add_event',
-  'card:toolbar.view_switcher': 'toolbar.view_switcher',
-  'card:toolbar.reset': 'toolbar.controls.reset',
-  'card:toolbar.refresh': 'toolbar.controls.refresh',
-  'card:toolbar.search': 'toolbar.controls.search',
-  'card:toolbar.navigation': 'toolbar.navigation',
-};
 
 /**
  * The fields the registry draws as chips of one kind, in its order.
@@ -86,30 +66,6 @@ export function inScope(id: FieldId, workspace: EditorWorkspace): boolean {
  */
 export function isPressed(value: unknown): boolean {
   return value !== undefined && value !== null && value !== false && value !== 'false';
-}
-
-/**
- * Where a part's value is stored, as the state words name it: in the scope's own layout block
- * (`own`), at the top level for every layout (`shared`), or at the top level while a layout is
- * edited, which the layout follows (`inherited`).
- *
- * @param id - The chip's field
- * @param raw - The configuration as stored
- * @param workspace - Editing scope
- * @returns The place, or `undefined` where nothing is stored
- */
-export function storedAt(
-  id: FieldId,
-  raw: Readonly<Record<string, unknown>>,
-  workspace: EditorWorkspace,
-): 'own' | 'shared' | 'inherited' | undefined {
-  const keys = configKeysForField(parseFieldId(id).name);
-  const has = (block: unknown, key: string): boolean =>
-    Helpers.isConfigBlock(block) && block[key] !== undefined && block[key] !== null;
-  const block = keys.map((key) => destination(key, workspace)).find((each) => each !== undefined);
-  if (block !== undefined && keys.some((key) => has(raw[block], key))) return 'own';
-  if (!keys.some((key) => has(raw, key))) return undefined;
-  return block === undefined ? 'shared' : 'inherited';
 }
 
 /**

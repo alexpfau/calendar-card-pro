@@ -111,7 +111,8 @@ async function mountOpen(hass: Types.Hass = haWith()) {
  * @returns The editor
  */
 async function mountEntry(hass: Types.Hass = haWith()) {
-  const editor = await mountEditor(CONFIG, { hass });
+  // Every setting a page can draw, so each kind of selector is fed.
+  const editor = await mountEditor(CONFIG, { hass, every: true });
   await openPageOf(editor, 'calendar:name', entry(1));
   await openPageOf(editor, 'calendar:name', entry(0));
   return editor;
@@ -230,7 +231,8 @@ describe('hass-key.ts', () => {
 
 describe('the feeds in the rendered editor', () => {
   it('feeds each form by the selectors it draws, and Home Assistant’s Visibility editor live', async () => {
-    const editor = await mountEditor(CONFIG, { hass: haWith() });
+    // Every setting a page can draw, so each kind of selector is fed.
+    const editor = await mountEditor(CONFIG, { hass: haWith(), every: true });
     const feed = (selector: string) =>
       editor.shadowRoot!.querySelector<HTMLElement>(selector)?.dataset.hass;
     const field = (id: string) => feed(`[data-field="${id}"] > ha-form`);
@@ -244,11 +246,12 @@ describe('the feeds in the rendered editor', () => {
       );
     const live = (): string[] => feeds().filter((each) => each.endsWith(' live'));
 
-    // The overview: the filter bar, Days to Show and Start Date; its calendars are rows.
+    // The overview: the filter bar, Days to Show and Tapping an Event Opens It; Start Date is the
+    // editor's own chips, and its calendars are rows.
     expect(feeds()).toEqual([
       'filter-form steady',
       'content:days_to_show steady',
-      'content:start_date_mode steady',
+      'actions:event_opens_details steady',
     ]);
 
     // An entry's page: its Calendar picker, each field in a form of its own, and the Visibility
@@ -290,7 +293,8 @@ describe('the feeds in the rendered editor', () => {
     const live = fed(editor, 'live');
     const steady = fed(editor, 'steady');
     const before = new Map([...live, ...steady].map((element) => [element, element.hass]));
-    expect([live.length, steady.length]).toEqual([4, 22]);
+    // Event Color and Accent Color are color controls, which draw no form while closed.
+    expect([live.length, steady.length]).toEqual([4, 20]);
 
     const next = later(hass, 'sensor.porch');
     editor.hass = next;
@@ -367,15 +371,14 @@ describe('the feeds in the rendered editor', () => {
     const hass = haWith();
     const editor = await mountOpen(hass);
     const steady = new Map(fed(editor, 'steady').map((form) => [form, form.hass]));
-    // Time Format, a dropdown the Events page draws in a form of its own; Show Time is a chip.
-    expect(labelOf(editor, 'content:time_format')).toBe(EDITOR_STRINGS.time_format);
+    expect(labelOf(editor, 'events:show_time')).toBe(EDITOR_STRINGS.show_time);
 
     editor.hass = { ...hass, locale: { language: 'de' } };
     await editor.updateComplete;
 
     for (const [form, before] of steady) expect(form.hass).not.toBe(before);
-    expect(labelOf(editor, 'content:time_format')).toBe(lookup('de', 'time_format'));
-    expect(lookup('de', 'time_format')).not.toBe(EDITOR_STRINGS.time_format);
+    expect(labelOf(editor, 'events:show_time')).toBe(lookup('de', 'show_time'));
+    expect(lookup('de', 'show_time')).not.toBe(EDITOR_STRINGS.show_time);
   });
 });
 

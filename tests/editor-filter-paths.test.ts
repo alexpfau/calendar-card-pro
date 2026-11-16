@@ -4,34 +4,15 @@ import { buildConfig } from './fixtures';
 import { hitIds, searchIndex } from './helpers/search-index';
 import type * as Types from '../src/config/types';
 import { parseFieldId } from '../src/rendering/editor/field-index';
-import {
-  type FilterCriteria,
-  type FilterCtx,
-  NO_FILTER,
-  isCustomized,
-} from '../src/rendering/editor/filter';
-import type { HaFormSchema } from '../src/rendering/editor/ha-form';
-import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 import { stripColumnDefaults } from '../src/rendering/editor/value';
 
 /**
  * The editor's search index (`search.ts`) and its translation keys are both built from a node's
  * enclosing path, but those two paths are not the same path. A `scope()` group extends the
  * configuration path without extending the label path, so its fields must stay findable by
- * their real configuration key without their translation keys moving. A partially written
- * nested block, meanwhile, leaves its remaining keys absent rather than defaulted. A column
- * value the block already holds counts as the layout's own however it is written, while one an
- * edit writes is stored only when it does not coerce to the default.
+ * their real configuration key without their translation keys moving. A column value an edit
+ * writes is stored only when it does not coerce to the default.
  */
-
-function ctxFor(config: Types.Config, criteria: Partial<FilterCriteria> = {}): FilterCtx {
-  return {
-    language: 'en',
-    view: config.view === 'column' ? 'column' : 'list',
-    config,
-    criteria: { ...NO_FILTER, ...criteria },
-  };
-}
 
 /** The names of a panel's fields a query lists in the jump list. */
 function searchIn(panelId: string, query: string, config: Types.Config): string[] {
@@ -40,18 +21,6 @@ function searchIn(panelId: string, query: string, config: Types.Config): string[
     .map((id) => parseFieldId(id))
     .filter(({ scope }) => scope === panelId)
     .map(({ name }) => name);
-}
-
-function nodeNamed(panelId: string, name: string, config: Types.Config): HaFormSchema {
-  const panel = PANELS.find((entry) => entry.id === panelId);
-  if (!panel) throw new Error(`no panel ${panelId}`);
-  const built = panel.build({
-    view: config.view === 'column' ? 'column' : 'list',
-    config,
-    language: 'en',
-  });
-  for (const { node } of walkSchema(built)) if (node.name === name) return node;
-  throw new Error(`no node ${name} in ${panelId}`);
 }
 
 const WITH_WEATHER = () =>
@@ -84,72 +53,12 @@ describe('editor search resolves configuration paths as well as label paths', ()
   });
 });
 
-describe('customized-only ignores keys a partial block never wrote', () => {
-  it('does not flag a weather field when only the entity was configured', () => {
-    const config = WITH_WEATHER();
-
-    expect(
-      isCustomized(
-        nodeNamed('weather', 'show_high_temp', config),
-        ['weather', 'date'],
-        ctxFor(config),
-      ),
-    ).toBe(false);
-  });
-
-  it('still flags a weather field the user did set', () => {
-    const config = buildConfig({
-      weather: {
-        entity: 'weather.home',
-        date: { show_high_temp: false },
-      } as unknown as Types.WeatherConfig,
-    });
-
-    expect(
-      isCustomized(
-        nodeNamed('weather', 'show_high_temp', config),
-        ['weather', 'date'],
-        ctxFor(config),
-      ),
-    ).toBe(true);
-  });
-
-  it('does not flag anything in an untouched configuration', () => {
-    const config = WITH_WEATHER();
-
-    expect(
-      isCustomized(
-        nodeNamed('weather', 'show_conditions', config),
-        ['weather', 'date'],
-        ctxFor(config),
-      ),
-    ).toBe(false);
-  });
-});
-
-describe('customized-only and the write path read column values the way the card does', () => {
+describe('the write path reads column values the way the card does', () => {
   const columnConfig = (min_day_width: unknown) =>
     buildConfig({
       view: 'column',
       column: { min_day_width } as unknown as Types.ColumnOverrides,
     });
-
-  // A save keeps a line the block holds, so it is the layout's own value in every spelling.
-  it.each(['140', 140])('flags the default the block holds, written as %j', (written) => {
-    const config = columnConfig(written);
-
-    expect(
-      isCustomized(nodeNamed('layout', 'min_day_width', config), ['column'], ctxFor(config)),
-    ).toBe(true);
-  });
-
-  it('still flags a genuinely different value', () => {
-    const config = columnConfig(220);
-
-    expect(
-      isCustomized(nodeNamed('layout', 'min_day_width', config), ['column'], ctxFor(config)),
-    ).toBe(true);
-  });
 
   // Not held by the YAML here, so a value that stays is stored as the card resolves it, as grid
   // always did; `tests/editor-view-block-strip.test.ts` pins the held spelling.

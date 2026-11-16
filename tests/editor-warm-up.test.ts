@@ -520,7 +520,9 @@ describe('the warm-up form', () => {
     vi.useRealTimers();
   });
 
-  // Every page is visited in every corpus state, which takes longer than the default allows.
+  // Every page is visited in every corpus state with every setting shown, each live field's Reset
+  // outcome and its Reset or Remove worked out, which takes longer than the default allows; the
+  // limit is set for CI's slower runner under load rather than for a hang.
   it('holds each element and each value the forms draw with every panel open, across the corpus and the builders', async () => {
     const editor = await mountEditor(ANNA);
     const states = [
@@ -569,7 +571,7 @@ describe('the warm-up form', () => {
     expect(warmedAll.size).toBeGreaterThan(3);
     expect(values).toBeGreaterThan(0);
     expect([...warmedAll].sort()).toEqual([...builtAll].sort());
-  }, 120_000);
+  }, 300_000);
 
   it('holds each element and each value the forms draw for calendars and buttons of every kind, in every workspace', async () => {
     const editor = await mountEditor(KINDS);

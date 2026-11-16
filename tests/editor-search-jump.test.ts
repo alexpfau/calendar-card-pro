@@ -329,18 +329,6 @@ describe('Return to Results', () => {
     },
   );
 
-  it('moves to the top when a switch takes away the field it was above', async () => {
-    const editor = await mount();
-    // A field the overview draws itself, where the switches are: a calendar's field opens on its
-    // entry's page, which draws no switch.
-    await jump(editor, 'days to show', 'content:days_to_show');
-    expect($(editor, '.overview .jump')).not.toBeNull();
-    // The card sets no Days to Show, so Customized Only takes the field away.
-    await changeField(editor, 'filter:customized_only', true);
-    expect($(editor, '.jump')).toBeNull();
-    expect($(editor, '.overview > [data-focus="return"]')).not.toBeNull();
-  });
-
   it('moves to the top when another field takes away the one it was above', async () => {
     const editor = await mountEditor(
       { ...CARD, entities: [{ entity: 'calendar.anna', label: 'Kids' }] },

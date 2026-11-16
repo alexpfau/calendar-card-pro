@@ -301,7 +301,9 @@ describe('Undo restores exactly', () => {
     await openPageOf(editor, 'events:event_font_size');
     $(editor, '[data-reset-keys="event_font_size"]')!.click();
     await settle(editor);
-    await key(editor, $(editor, '[data-field="events:event_font_size"]')!, {
+    // Grid's own default applies once the line is gone, so the field goes back to its Add row,
+    // which takes focus; Undo is pressed there.
+    await key(editor, editor.shadowRoot!.activeElement as HTMLElement, {
       key: 'z',
       ctrlKey: true,
     });
@@ -334,7 +336,8 @@ describe('Undo restores exactly', () => {
     const { editor } = await mount({
       config_version: VERSION,
       entities: ['calendar.anna'],
-      start_date: '+1',
+      // Not `+1`, which reads as Tomorrow and draws no Expression field.
+      start_date: '+2',
     });
     await changeField(editor, 'content:start_date_offset', '-');
     const held = { ...internals(editor)._pending };

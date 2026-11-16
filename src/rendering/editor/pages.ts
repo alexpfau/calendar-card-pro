@@ -133,6 +133,7 @@ export const OVERVIEW_FIELDS: ReadonlyArray<readonly [FieldId, Appearance]> = [
   ['content:start_date_mode', E],
   ['content:start_date_fixed', withMode('content:start_date_mode')],
   ['content:start_date_offset', withMode('content:start_date_mode')],
+  ['actions:event_opens_details', E],
 ];
 
 export const PAGES: ReadonlyArray<PageDef> = [

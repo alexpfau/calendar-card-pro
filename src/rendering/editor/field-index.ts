@@ -21,7 +21,7 @@ import * as Entities from './entities';
 import * as Filter from './filter';
 import { corpus } from './gates';
 import type { HaFormSchema, SelectorSchema } from './ha-form';
-import { computeHelper, computeLabel, computeSubformHelper, lookup } from './localize';
+import { computeHelper, computeLabel, computeSubformHelper } from './localize';
 import { PANELS, type PanelDef, type SchemaCtx, walkSchema } from './panels';
 import * as Routing from './routing';
 import { ENTITY_PATH } from './schemas/calendars';
@@ -231,13 +231,26 @@ const presentIndex = Helpers.memoizeLast(
     view: Types.EffectiveView,
     config: Types.Config,
     rawConfig: Types.Config | undefined,
+    held: string,
   ): FieldIndex => {
-    const ctx: SchemaCtx = { view, workspace, config, rawConfig, language };
+    const presentation = JSON.parse(held) as Record<string, string>;
+    const ctx: SchemaCtx = { view, workspace, config, rawConfig, language, presentation };
     const fields = new Map<FieldId, IndexedField>();
     for (const panel of PANELS) indexPanel(fields, panel, ctx);
     return { fields };
   },
 );
+
+/**
+ * The mode choices a context holds (`SchemaCtx.presentation`), as a key: a builder reads a mode
+ * through them, so a schema built for one is not the schema for another.
+ *
+ * @param ctx - Schema context
+ * @returns The key
+ */
+function heldKey(ctx: SchemaCtx): string {
+  return JSON.stringify(ctx.presentation ?? {});
+}
 
 /** Each panel's built schema, by the configuration it was built from, then by its other inputs. */
 const builtSchemas = new WeakMap<
@@ -257,7 +270,7 @@ const builtSchemas = new WeakMap<
 export function builtSchema(panel: PanelDef, ctx: SchemaCtx): HaFormSchema[] {
   let byInputs = builtSchemas.get(ctx.config);
   if (byInputs === undefined) builtSchemas.set(ctx.config, (byInputs = new Map()));
-  const key = `${panel.id}\u0000${ctx.language}\u0000${ctx.workspace}\u0000${ctx.view}`;
+  const key = `${panel.id}\u0000${ctx.language}\u0000${ctx.workspace}\u0000${ctx.view}\u0000${heldKey(ctx)}`;
   const kept = byInputs.get(key);
   if (kept !== undefined && kept.raw === ctx.rawConfig) return kept.schema;
   const schema = Filter.withholdInertFields(panel.build(ctx), ctx.workspace ?? ctx.view);
@@ -287,7 +300,14 @@ function indexPanel(target: Map<FieldId, IndexedField>, panel: PanelDef, ctx: Sc
  * @returns Fields by id
  */
 export function buildFieldIndex(ctx: SchemaCtx): FieldIndex {
-  return presentIndex(ctx.language, ctx.workspace, ctx.view, ctx.config, ctx.rawConfig);
+  return presentIndex(
+    ctx.language,
+    ctx.workspace,
+    ctx.view,
+    ctx.config,
+    ctx.rawConfig,
+    heldKey(ctx),
+  );
 }
 
 /**
@@ -346,8 +366,8 @@ export function fieldLabel(field: IndexedField, language: string): string {
 
 /**
  * A field's helper line, worded as the form it was built for words it today, through its label
- * path. A card field's is a panel form's (`element.ts` › `_computeHelper`), led by the note on
- * where its value comes from; a calendar field's is an entry form's, with the layouts its option
+ * path, before the state words a page puts in front of it (`shown.ts`). A card field's is a panel
+ * form's; a calendar field's is an entry form's, with the layouts its option
  * affects; a toolbar button field's is a button form's.
  *
  * @param field - Indexed field
@@ -362,14 +382,7 @@ export function fieldHelper(field: IndexedField, ctx: SchemaCtx): string | undef
   }
   if (scope === 'button') return computeSubformHelper(ctx.language, ctx.view, node, labelPath);
 
-  const helper = computeHelper(ctx.language, ctx.view, node, labelPath, true);
-  const source = Routing.valueSource(
-    ctx.rawConfig ?? ctx.config,
-    ctx.workspace ?? ctx.view,
-    node.name,
-  );
-  const note = source ? lookup(ctx.language, `value_source.${source}`) : undefined;
-  return [note, helper].filter((part) => part !== undefined).join(' ') || undefined;
+  return computeHelper(ctx.language, ctx.view, node, labelPath, true);
 }
 
 /**

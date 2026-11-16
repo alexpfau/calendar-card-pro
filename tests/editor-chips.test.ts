@@ -88,6 +88,19 @@ function read(editor: Editor, group: string): string[] {
 }
 
 /**
+ * The Reset and Remove buttons in the line under the event-part chips.
+ *
+ * @param editor - The editor
+ * @returns Each as `<visible text>: <accessible name>`
+ */
+function resets(editor: Editor): string[] {
+  const heading = editor.shadowRoot!.querySelector('[data-heading="heading_details"]')!;
+  return [...heading.querySelectorAll<HTMLButtonElement>(':scope > .field-line .line-button')].map(
+    (button) => `${button.textContent?.trim()}: ${button.getAttribute('aria-label')}`,
+  );
+}
+
+/**
  * The lines the Event Details heading draws under its chips.
  *
  * @param editor - The editor
@@ -235,15 +248,21 @@ describe('the event-part chips', () => {
     await changeField(editor, 'workspace:editing_workspace', 'column');
     await goPage(editor, 'events');
     expect(read(editor, 'Event Details')[2]).toBe('Location ✓');
-    expect(lines(editor)[0]).toBe('Set for Columns · Location: On');
+    expect(lines(editor)[0]).toBe('Set for Columns, Same as the Default · Location: On');
+    // A chip's name carries its state words, as any field's does.
     expect(chips(editor, 'Event Details')[2].getAttribute('aria-label')).toBe(
-      'Location, Set for Columns',
+      'Location, Set for Columns, Same as the Default',
     );
 
     await changeField(editor, 'workspace:editing_workspace', 'list');
     await goPage(editor, 'events');
     expect(read(editor, 'Event Details')[2]).toBe('Location');
     expect(lines(editor)[0]).toBe('From All Layouts · Location: Off');
+    expect(chips(editor, 'Event Details')[2].getAttribute('aria-label')).toBe(
+      'Location, From All Layouts',
+    );
+    // Nothing is stored for List, so nothing here resets.
+    expect(resets(editor)).toEqual([]);
 
     // A press writes the other value for the scope, in its own block: one write, one step.
     chips(editor, 'Event Details')[4].click();
@@ -261,6 +280,28 @@ describe('the event-part chips', () => {
     expect(
       editor.shadowRoot!.querySelector('[data-focus="undo"]')?.getAttribute('aria-label'),
     ).toBe('Undo: Change Show Countdown');
+  });
+
+  it('resets a stored part from the line under the chips, for the scope it is stored for', async () => {
+    const editor = await mount({ list: { show_countdown: true, show_location: false } });
+    await changeField(editor, 'workspace:editing_workspace', 'list');
+    await goPage(editor, 'events');
+    expect(resets(editor)).toEqual([
+      'Reset Location: Reset Show Location for List',
+      'Reset Countdown: Reset Show Countdown for List',
+    ]);
+
+    editor
+      .shadowRoot!.querySelector<HTMLButtonElement>('[data-focus="reset:events:show_countdown"]')!
+      .click();
+    await editor.updateComplete;
+    expect(lastConfig(editor)).toEqual({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: ['calendar.anna'],
+      list: { show_location: false },
+    });
+    expect(read(editor, 'Event Details')[4]).toBe('Countdown');
+    expect(resets(editor)).toEqual(['Reset Location: Reset Show Location for List']);
   });
 
   it('puts focus back on the chip a press changed when Undo restores it', async () => {
@@ -311,10 +352,17 @@ describe('the toolbar on Card & Header', () => {
     const group = () =>
       editor.shadowRoot!.querySelector<HTMLFieldSetElement>('fieldset.segmented')!;
     const radios = () => [...group().querySelectorAll<HTMLInputElement>('input[type="radio"]')];
+    // Reset is in the line under the group, as under any field.
     const reset = () =>
-      group().querySelector<HTMLButtonElement>('[aria-label="Reset Calendar Filter"]');
+      editor.shadowRoot!.querySelector<HTMLButtonElement>(
+        '[data-focus="reset:card:toolbar.legend"]',
+      );
 
-    expect(group().querySelector('legend')?.textContent?.trim()).toBe('Calendar Filter');
+    // Its state words follow its name, as any field's do.
+    expect(group().querySelector('legend')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Calendar Filter · Set',
+    );
+    expect(reset()?.getAttribute('aria-label')).toBe('Reset Calendar Filter');
     expect(radios().map((radio) => [radio.value, radio.checked])).toEqual([
       ['off', true],
       ['menu', false],

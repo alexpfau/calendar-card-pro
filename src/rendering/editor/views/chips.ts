@@ -6,7 +6,7 @@
  * the list's styles serve both.
  */
 
-import { mdiCheck, mdiChevronDown, mdiChevronUp, mdiRestore } from '@mdi/js';
+import { mdiCheck, mdiChevronDown, mdiChevronUp } from '@mdi/js';
 import { type TemplateResult, html, nothing } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
 
@@ -23,6 +23,8 @@ export interface ChipModel {
   readonly pressed: boolean;
   /** Why it cannot be pressed now ("Needs Time"); a chip with a reason is disabled. */
   readonly needs?: string;
+  /** "YAML: list.show_time", while Show YAML Option Names is on. */
+  readonly yaml?: string;
   readonly onPress: () => void;
 }
 
@@ -45,21 +47,25 @@ export function chipGroup(
     <div class="chips" role="group" aria-label=${label} tabindex="-1">
       ${chips.map((chip) => {
         const why = chip.needs === undefined ? undefined : `needs-${chip.id.replace(/\W/g, '-')}`;
+        // A chip that can be pressed is composed for its field; one a gate withholds stands for
+        // no field built here.
         return html`<button
           type="button"
           class="chip"
           data-field=${chip.id}
+          data-composed=${why === undefined ? 'toggle' : nothing}
           aria-label=${chip.name}
           aria-pressed=${chip.pressed ? 'true' : 'false'}
           aria-disabled=${why === undefined ? nothing : 'true'}
           aria-describedby=${why ?? nothing}
+          title=${chip.yaml ?? nothing}
           @click=${why === undefined ? chip.onPress : nothing}
         >
           ${chip.pressed ? icon(mdiCheck) : nothing}<span>${chip.label}</span>${
             why === undefined
               ? nothing
               : html`<span class="chip-needs" id=${why}>${chip.needs}</span>`
-          }
+          }${chip.yaml ? html`<code class="chip-yaml">${chip.yaml}</code>` : nothing}
         </button>`;
       })}
     </div>`;
@@ -69,24 +75,31 @@ export function chipGroup(
 export interface SegmentedModel {
   readonly id: string;
   readonly label: string;
+  /** Its state words, which its name carries (section 5.3). */
+  readonly words?: string;
   readonly helper?: string;
   readonly value: string;
   readonly options: ReadonlyArray<{ readonly value: string; readonly label: string }>;
   readonly onPick: (value: string) => void;
-  /** Reset, named "Reset Calendar Filter", while a value is stored. */
-  readonly reset?: { readonly name: string; readonly onPress: () => void };
 }
 
 /**
- * A segmented radio group: one native radio per option, with Reset beside it while a value is
- * stored, and the helper under it.
+ * A segmented radio group: one native radio per option, and the helper under it. Its legend
+ * carries its state words; its Reset is the line under it every field has.
  *
  * @param model - What it shows and does
  * @returns The group
  */
 export function segmented(model: SegmentedModel): TemplateResult {
-  return html`<fieldset class="segmented" data-field=${model.id} tabindex="-1">
-    <legend class="label">${model.label}</legend>
+  return html`<fieldset
+    class="segmented"
+    data-field=${model.id}
+    data-composed="chips"
+    tabindex="-1"
+  >
+    <legend class="label">
+      ${model.label}${model.words ? html`<span class="state-words"> · ${model.words}</span>` : nothing}
+    </legend>
     <div class="segmented-row">
       <div class="segments">
         ${model.options.map(
@@ -102,20 +115,6 @@ export function segmented(model: SegmentedModel): TemplateResult {
             </label>`,
         )}
       </div>
-      ${
-        model.reset
-          ? html`<button
-              type="button"
-              class="icon-button"
-              data-focus=${`reset:${model.id}`}
-              aria-label=${model.reset.name}
-              title=${model.reset.name}
-              @click=${model.reset.onPress}
-            >
-              ${icon(mdiRestore)}
-            </button>`
-          : nothing
-      }
     </div>
     ${model.helper ? html`<p class="hint">${model.helper}</p>` : nothing}
   </fieldset>`;

@@ -5,7 +5,6 @@ import {
   CHASSIS,
   changeField,
   changeFields,
-  controlsOf,
   entry,
   formsOf,
   goEntry,
@@ -18,7 +17,6 @@ import {
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { VIEWS, VIEW_SCOPE } from '../src/config/view';
-import { parseFieldId } from '../src/rendering/editor/field-index';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { walkSchema } from '../src/rendering/editor/panels';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
@@ -166,11 +164,7 @@ function enabled(view: Types.EffectiveView): Partial<Types.Config> {
 function assertWorkspaceFields(editor: EditorHost, current: EditorWorkspace): void {
   const namesInForms = formsOf(editor, CARD).flatMap((form) => names(form.schema));
   expect(namesInForms.length).toBeGreaterThan(50);
-  // The event parts and the toolbar's controls are chips, and Calendar Filter a radio group,
-  // rather than forms: what they write counts as drawn all the same.
-  const main = [...namesInForms, ...controlsOf(editor).map((id) => parseFieldId(id).name)].flatMap(
-    (name) => configKeysForField(name),
-  );
+  const main = namesInForms.flatMap((name) => configKeysForField(name));
   for (const [key, scope] of Object.entries(VIEW_SCOPE)) {
     // Shared offers a key when more than one layout reads it; a view offers it when that
     // view reads it. Asking `scope.has('shared')` would be false for every scoped key.
@@ -291,8 +285,6 @@ describe('displayed view and editing workspace are separate controls', () => {
       'view',
       WORKSPACE_FIELD,
       'search',
-      'customized_only',
-      'essentials_only',
       'pick',
       'calendar',
       'card_title',
@@ -418,7 +410,7 @@ describe('workspace transitions do not configure the card', () => {
   it('leaves the controls available when search empties the editor', async () => {
     const editor = await mount();
     const seen = reports(editor);
-    await changeFields(editor, { 'filter:search': 'zzznomatch', 'filter:customized_only': false });
+    await changeFields(editor, { 'filter:search': 'zzznomatch' });
     expect(formsOf(editor, CARD)).toHaveLength(0);
     // Settings For stays above what the search finds: the results write where it says.
     expect(viewControls(editor)).toHaveLength(1);
@@ -577,16 +569,22 @@ describe('the editor names each view once', () => {
    * on purpose, because it is telling a List editor who else reads these values.
    */
   it('describes provenance by layer, never by view name', () => {
-    const states = ['card', 'inherited', 'default', 'own'] as const;
+    // The state words that name no layout of their own; the rest take it as `{layout}`.
+    const states = [
+      'value_source.card',
+      'state.set_all_layouts',
+      'state.from_all_layouts',
+      'state.whole_card',
+      'state.set_layout',
+      'state.layout_default',
+    ] as const;
     const names = VIEWS.map((view) => EDITOR_STRINGS[`view.option.${view}.label`]);
 
     for (const state of states) {
-      const text = EDITOR_STRINGS[`value_source.${state}`];
-      expect(text, `value_source.${state} is missing`).toBeTypeOf('string');
+      const text = EDITOR_STRINGS[state];
+      expect(text, `${state} is missing`).toBeTypeOf('string');
       for (const name of names) {
-        expect(text, `value_source.${state} names the ${name} view`).not.toMatch(
-          new RegExp(`\\b${name}\\b`),
-        );
+        expect(text, `${state} names the ${name} view`).not.toMatch(new RegExp(`\\b${name}\\b`));
       }
     }
   });

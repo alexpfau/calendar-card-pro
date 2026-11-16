@@ -10,6 +10,7 @@
  * 🚨 This module and `field-index.ts` import each other; see the note at the top of that one.
  */
 
+import { CHIP_LABELS } from './chip-labels';
 import * as Entities from './entities';
 import {
   type FieldId,
@@ -23,6 +24,7 @@ import {
 import { humanize, lookup } from './localize';
 import { LEGEND_OFF } from './normalize';
 import * as Routing from './routing';
+import { interpolate } from './strings';
 import * as Workspace from './workspace';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
@@ -42,8 +44,13 @@ export interface Prereq {
    * once_per_day` reaches the Show Countdown switch's form as that word, and is on.
    */
   readonly holds: (value: unknown) => boolean;
-  /** What a gate line names while this condition is unmet, where the control's label does not read. */
+  /** What search's Needs tag names while this condition is unmet, where the control's label does not read. */
   readonly needsKey?: string;
+  /**
+   * The clause a gate line gives while this condition is unmet, written to follow "Appears once":
+   * "a Weather Entity is chosen". A switch needs none (`gate.when.on`).
+   */
+  readonly whenKey?: string;
 }
 
 /** A set of fields a builder withholds until its conditions hold. */
@@ -56,8 +63,10 @@ export interface Gate {
   readonly anyOf?: ReadonlyArray<ReadonlyArray<Prereq>>;
   /** A mode value never gets a gate line: its mode control already says what it waits for. */
   readonly kind: 'gate' | 'mode-value';
-  /** What a gate line names for any unmet condition without a phrase of its own. */
+  /** What search's Needs tag names for any unmet condition without a phrase of its own. */
   readonly needsKey?: string;
+  /** The gate line's clause for any unmet condition without one of its own. */
+  readonly whenKey?: string;
 }
 
 /**
@@ -73,14 +82,16 @@ function needs(field: FieldId, opens: unknown, holds: (value: unknown) => boolea
 }
 
 /**
- * The same condition, named in a gate line by a phrase rather than by its control's label.
+ * The same condition, named by a phrase rather than by its control's label: a noun phrase for
+ * search's Needs tag, and a clause for a gate line.
  *
  * @param prereq - The condition
- * @param needsKey - String key of the phrase
- * @returns The condition with its phrase
+ * @param needsKey - String key of the noun phrase, or none where the label serves
+ * @param whenKey - String key of the clause
+ * @returns The condition with its phrases
  */
-function phrased(prereq: Prereq, needsKey: string): Prereq {
-  return { ...prereq, needsKey };
+function phrased(prereq: Prereq, needsKey: string | undefined, whenKey: string): Prereq {
+  return needsKey === undefined ? { ...prereq, whenKey } : { ...prereq, needsKey, whenKey };
 }
 
 /**
@@ -173,9 +184,21 @@ function asAction(value: unknown): Types.ActionConfig | undefined {
 
 const W = 'weather:weather.';
 
-const HAS_WEATHER = filled(`${W}entity`, 'weather.home');
-const BY_DAY = phrased(oneOf(`${W}position`, 'date', 'both'), 'gate.needs.forecast_by_day');
-const BY_EVENT = phrased(oneOf(`${W}position`, 'event', 'both'), 'gate.needs.forecast_by_event');
+const HAS_WEATHER = phrased(
+  filled(`${W}entity`, 'weather.home'),
+  undefined,
+  'gate.when.weather_entity',
+);
+const BY_DAY = phrased(
+  oneOf(`${W}position`, 'date', 'both'),
+  'gate.needs.forecast_by_day',
+  'gate.when.forecast_by_day',
+);
+const BY_EVENT = phrased(
+  oneOf(`${W}position`, 'event', 'both'),
+  'gate.needs.forecast_by_event',
+  'gate.when.forecast_by_event',
+);
 
 export const GATES: Readonly<Record<string, Gate>> = {
   time: {
@@ -260,7 +283,13 @@ export const GATES: Readonly<Record<string, Gate>> = {
       'day_header:week_number_color',
       'day_header:week_number_background_color',
     ],
-    requires: [noneOf('day_header:week_number_mode', 'iso', 'none')],
+    requires: [
+      phrased(
+        noneOf('day_header:week_number_mode', 'iso', 'none'),
+        undefined,
+        'gate.when.week_numbers',
+      ),
+    ],
     kind: 'gate',
   },
   indicator_color: {
@@ -268,12 +297,14 @@ export const GATES: Readonly<Record<string, Gate>> = {
     requires: [noneOf('day_header:today_indicator_style', 'dot', 'none')],
     kind: 'gate',
     needsKey: 'gate.needs.indicator_shown',
+    whenKey: 'gate.when.indicator_shown',
   },
   indicator_size: {
     fields: ['day_header:today_indicator_size', 'day_header:today_indicator_position'],
     requires: [noneOf('day_header:today_indicator_style', 'dot', 'none', 'tile')],
     kind: 'gate',
     needsKey: 'gate.needs.indicator_marker',
+    whenKey: 'gate.when.indicator_marker',
   },
   allday_badge: {
     fields: ['events:allday_badge_style', 'events:allday_badge_color_mode'],
@@ -293,10 +324,17 @@ export const GATES: Readonly<Record<string, Gate>> = {
     requires: [off('content:show_empty_days')],
     kind: 'gate',
     needsKey: 'gate.needs.empty_days_off',
+    whenKey: 'gate.when.empty_days_off',
   },
   duplicates: {
     fields: ['content:duplicate_accent_color'],
-    requires: [noneOf('content:filter_duplicates_mode', 'exact', 'off')],
+    requires: [
+      phrased(
+        noneOf('content:filter_duplicates_mode', 'exact', 'off'),
+        undefined,
+        'gate.when.duplicates',
+      ),
+    ],
     kind: 'gate',
   },
   toolbar: {
@@ -368,6 +406,7 @@ export const GATES: Readonly<Record<string, Gate>> = {
     ],
     kind: 'gate',
     needsKey: 'gate.needs.event_details',
+    whenKey: 'gate.when.event_details',
   },
   fixed_date: {
     fields: ['content:start_date_fixed'],
@@ -420,13 +459,20 @@ export const GATES: Readonly<Record<string, Gate>> = {
     ],
     kind: 'gate',
     needsKey: 'gate.needs.events_limit',
+    whenKey: 'gate.when.events_limit',
   },
-  // Neither action may run anything, as `synthetic.ts` › `eventHasOwnAction` reads them.
+  // Neither action may run anything, as `synthetic.ts` › `eventHasOwnAction` reads them; the
+  // overview's Tapping an Event Opens It is the tap's shortcut, on only while it opens details.
   open_links: {
     fields: ['actions:open_links'],
-    requires: [runsNothing('actions:event_tap_action'), runsNothing('actions:event_hold_action')],
+    requires: [
+      runsNothing('actions:event_tap_action'),
+      runsNothing('actions:event_hold_action'),
+      off('actions:event_opens_details'),
+    ],
     kind: 'gate',
     needsKey: 'gate.needs.no_event_actions',
+    whenKey: 'gate.when.no_event_actions',
   },
   // The either-or gate: empty days shown, or today kept while they are hidden.
   empty_days: {
@@ -438,6 +484,7 @@ export const GATES: Readonly<Record<string, Gate>> = {
     ],
     kind: 'gate',
     needsKey: 'gate.needs.empty_or_today',
+    whenKey: 'gate.when.empty_or_today',
   },
 };
 
@@ -458,7 +505,7 @@ export const ENTRY_GATES: Readonly<Record<string, Gate>> = {
   },
   label_icon_color: {
     fields: ['calendar:label_icon_color'],
-    requires: [oneOf('calendar:label_type', 'icon')],
+    requires: [phrased(oneOf('calendar:label_type', 'icon'), undefined, 'gate.when.label_icon')],
     kind: 'gate',
   },
   label_image_source: {
@@ -486,18 +533,21 @@ export const ENTRY_GATES: Readonly<Record<string, Gate>> = {
       [oneOf('calendar:show_location', 'show')],
     ],
     kind: 'gate',
+    whenKey: 'gate.when.location_shown',
   },
   show_in_legend: {
     fields: ['calendar:show_in_legend'],
     requires: [on('card:toolbar.show'), noneOf('card:toolbar.legend', 'menu', LEGEND_OFF)],
     kind: 'gate',
     needsKey: 'gate.needs.calendar_filter',
+    whenKey: 'gate.when.calendar_filter',
   },
   show_weather: {
     fields: ['calendar:show_weather'],
     requires: [HAS_WEATHER, BY_EVENT],
     kind: 'gate',
     needsKey: 'gate.needs.forecast_by_event',
+    whenKey: 'gate.when.forecast_by_event',
   },
 };
 
@@ -588,6 +638,52 @@ export function needsText(
 
   const key = unmet.needsKey ?? gate.needsKey;
   return key === undefined ? labelOf(unmet.field) : (lookup(language, key) ?? humanize(key));
+}
+
+/**
+ * The clause key a gate line gives for one of its conditions: the condition's own, else its
+ * gate's, else, for a switch, `gate.when.pressed`, "{part} is pressed", where the editor draws it
+ * as a toggle chip (`chip-labels.ts`), and `gate.when.on`, "{label} is on", where it draws a
+ * switch (`tests/editor-gate-lines.test.ts` holds every other condition to a clause).
+ *
+ * @param gate - Gate
+ * @param prereq - One of its conditions
+ * @returns The string key
+ */
+export function whenKeyOf(gate: Gate, prereq: Prereq): string {
+  return (
+    prereq.whenKey ??
+    gate.whenKey ??
+    (prereq.field in CHIP_LABELS ? 'gate.when.pressed' : 'gate.when.on')
+  );
+}
+
+/**
+ * What a gate waits for, as the clause that follows "Appears once" in its gate line: "Show
+ * Description is on", "the forecast shows beside events". Named by the first unmet condition, so
+ * one gate explains itself differently as different conditions are unmet, as `needsText` does
+ * for search.
+ *
+ * @param gate - Gate
+ * @param data - Form data
+ * @param language - Editor language
+ * @param labelOf - A control's label in that language
+ * @returns The clause, or `undefined` while the gate is open
+ */
+export function whenText(
+  gate: Gate,
+  data: GateData,
+  language: string,
+  labelOf: (id: FieldId) => string,
+): string | undefined {
+  const unmet = firstUnmet(gate, data);
+  if (unmet === undefined) return undefined;
+  const key = whenKeyOf(gate, unmet);
+  const chip = CHIP_LABELS[unmet.field];
+  return interpolate(lookup(language, key) ?? humanize(key), {
+    label: labelOf(unmet.field),
+    part: chip === undefined ? '' : (lookup(language, chip) ?? humanize(chip)),
+  });
 }
 
 /** One configuration of the corpus. */

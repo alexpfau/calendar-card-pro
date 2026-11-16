@@ -6,7 +6,6 @@ import {
   CARD,
   changeField,
   changeFields,
-  controlsOf,
   entry,
   fakeHass,
   formsOf,
@@ -20,11 +19,9 @@ import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
 import type { CalendarCardProEditor } from '../src/rendering/editor/element';
-import { parseFieldId } from '../src/rendering/editor/field-index';
 import * as Filter from '../src/rendering/editor/filter';
 import type { HaFormSchema, SelectorSchema } from '../src/rendering/editor/ha-form';
 import { PANELS, type SchemaCtx } from '../src/rendering/editor/panels';
-import { ENTITY_PATH } from '../src/rendering/editor/schemas/calendars';
 import { scope, text } from '../src/rendering/editor/schemas/common';
 import {
   buildEntitySchema,
@@ -170,17 +167,9 @@ function expectedFields(
  */
 function drawnInBuiltOrder(editor: CalendarCardProEditor, built: Field[]): Field[] {
   const order = built.map((field) => field.key);
-  // The event parts and the toolbar's controls are chips, and Calendar Filter a radio group: each
-  // writes its field as its form would, so it counts as that field drawn. A chip drawn unpressable
-  // with its reason stands for a field withheld, which the builders build no node for.
-  const controls = controlsOf(editor).map((id) => {
-    const { dataPath, name } = parseFieldId(id);
-    return [...dataPath, name].join('.');
-  });
-  return [
-    ...formsOf(editor, CARD).flatMap((form) => fields(form.schema)),
-    ...built.filter((field) => controls.includes(field.key)),
-  ].sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
+  return formsOf(editor, CARD)
+    .flatMap((form) => fields(form.schema))
+    .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
 }
 
 function reconcile(actual: Field[], expected: Field[]): void {
@@ -346,10 +335,11 @@ describe('view withholding reconciles both directions', () => {
       expect(fields(raw).length).toBeGreaterThan(10);
       reconcile(
         fields(
-          Filter.filterEntitySchema(raw, config.entities[0], ENTITY_PATH, {
-            ...context(config),
-            criteria: Filter.NO_FILTER,
-          }),
+          Filter.withholdInertFields(
+            raw,
+            context(config).workspace ?? context(config).view,
+            'entity',
+          ),
         ),
         expected,
       );
@@ -420,7 +410,7 @@ describe('withholding is not a search filter or a config edit', () => {
     reconcile(drawnInBuiltOrder(editor, expectedFields(after, to)), expectedFields(after, to));
   });
 
-  it('cannot be bypassed by page, heading, field, or customized-only searches', async () => {
+  it('cannot be bypassed by page, heading or field searches', async () => {
     const config = configFor('grid');
     const editor = await mount(config);
     expect(formsOf(editor, CARD).length).toBeGreaterThan(1);
@@ -435,19 +425,15 @@ describe('withholding is not a search filter or a config edit', () => {
 
     let total = 0;
     for (const criteria of [
-      { search: '', customized_only: false },
-      { search: 'Which Events', customized_only: false },
-      { search: 'which', customized_only: false },
-      { search: 'compact', customized_only: false },
-      { search: 'Multi-Day Events', customized_only: false },
-      { search: 'empty_day_text', customized_only: false },
-      { search: 'Anna', customized_only: false },
-      { search: '', customized_only: true },
+      { search: '' },
+      { search: 'Which Events' },
+      { search: 'which' },
+      { search: 'compact' },
+      { search: 'Multi-Day Events' },
+      { search: 'empty_day_text' },
+      { search: 'Anna' },
     ]) {
-      await changeFields(editor, {
-        'filter:search': criteria.search,
-        'filter:customized_only': criteria.customized_only,
-      });
+      await changeFields(editor, { 'filter:search': criteria.search });
       if (criteria.search === '') {
         const calendars = formsOf(editor, entry());
         for (const form of [...formsOf(editor, CARD), ...calendars]) {

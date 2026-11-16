@@ -16,20 +16,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // documentation's noun would be the wrong register. Everything that names an option in
   // its own right still calls it an option.
   search: 'Search Settings',
-  customized_only: 'Customized Only',
-  'customized_only.helper':
-    'Hides everything left at the value the card would use anyway, so what is left is ' +
-    'what this card changes.',
-  essentials_only: 'Essentials Only',
-  'essentials_only.helper':
-    'Shows the settings most cards need, plus any this card already sets. Search still finds ' +
-    'every setting, and the switch is remembered in this browser.',
-  // Worded as a label and a number, so no language has to inflect for the count.
-  'essentials_only.hidden': 'Other settings hidden: {count}.',
   'filter.no_matches': 'Nothing matches “{query}”.',
-  'filter.nothing_customized': 'Nothing is customized — every setting is at the card default.',
-  'filter.gated_note':
-    'Settings that depend on another one appear only once that one is switched on.',
 
   // --- Panels ---------------------------------------------------------------
 
@@ -63,6 +50,30 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'overview.more': 'More',
   'more.example': 'Start From an Example',
   'more.example_note': 'Quick Setup: an example card and a few questions',
+  'more.audit': 'What This Card Changes',
+  'audit.intro':
+    'Every value this card stores, grouped by where it lives. Anything not listed uses its default.',
+  'audit.not_in_use': 'Not in Use: {count}',
+  'audit.card': 'Card',
+  'audit.card_note': 'Stored for the whole card. Every layout uses these unless it sets its own.',
+  'audit.reset_all': 'Reset All in {layout}',
+  'audit.reset_all_done': 'Reset every value stored for {layout}.',
+  'audit.edit': 'Edit {label}, {value}',
+  'audit.go_to': 'Go to {name}',
+  'audit.go_setting': 'Go to Setting',
+  'audit.in_layout': '{label} in {layout}',
+  'audit.on_calendar': '{label} on {name}',
+  'audit.same': 'Same as the Default',
+  'audit.inactive': 'Not in Use until {when}',
+  'audit.kept': 'Kept as Written',
+  'audit.kept_note': 'Lines this editor does not own. It keeps them exactly as written.',
+  'audit.ha_own': 'Home Assistant’s own, from the Layout tab',
+  'notices.ignored': 'Options the Card Ignores: {count}',
+  'notices.old': 'Old Options: {count}',
+  'notices.old_title': 'Old Options',
+  'notices.old_note': 'The next change removes these.',
+  'notices.replaced': 'Replaced by {label}.',
+  'value.from_yaml': '{value} (From YAML)',
   'quick_setup.dismiss': 'Dismiss Quick Setup',
   'nav.back': 'Back',
   // A link to the heading on another page that answers the neighboring question.
@@ -89,6 +100,66 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'announce.applied': 'Applied {story}.',
   'announce.moved': 'Moved {name} to position {position} of {total}.',
   'announce.pasted': 'Pasted settings into {name}.',
+  'announce.added': 'Added {label}.',
+  'announce.showing_all': 'Showing every setting under {heading}.',
+  'announce.removed_setting': 'Removed {label} and reset it.',
+
+  // --- Show What Applies ----------------------------------------------------
+  //
+  // A page draws what applies here and is essential, stored, inherited with a different value or
+  // added; the rest of a heading waits in its Add row, named. Counts are a label and a number, and
+  // a list that does not fit ends "{names}, +{count}", which inflects nothing.
+  'add.setting': 'Add Setting',
+  'add.setting_under': '{heading} · Add Setting',
+  'add.name': 'Add Setting under {heading}, Settings: {count}',
+  'add.names_more': '{names}, +{count}',
+  'add.count': 'Settings: {count}',
+  'add.group': 'Settings to Add under {heading}',
+  'add.show_all': 'Show All',
+  'add.filter': 'Filter Settings',
+  // What a field says about where its value comes from, after its label or before its helper.
+  'state.set': 'Set',
+  'state.set_all_layouts': 'Set for All Layouts',
+  'state.whole_card': 'Whole Card',
+  'state.whole_card_set': 'Whole Card · Set',
+  'state.set_layout': 'Set for {layout}',
+  'state.set_layout_same': 'Set for {layout}, Same as the Default',
+  'state.layout_default': '{layout}’s Default',
+  'state.ignored': 'The All Layouts value, {value}, does not apply in {layout}.',
+  'state.from_all_layouts': 'From All Layouts',
+  'state.set_entry': 'Set on This Calendar',
+  'state.set_entry_shared': 'Set on This Calendar · Shared by Its Entries',
+  'state.follows_card': 'Follows the Card: {value}',
+  'state.layout_own': '{layout} Sets Its Own: {value}',
+  'state.set_on_calendars': 'Set on Calendars:',
+  'state.edit_layout': 'Edit {layout}',
+  'state.edit_named': 'Edit {label} in {layout}',
+  // What Reset leaves, beside it, and the names of Reset and Remove.
+  'reset.gives_layout_default': 'Reset gives {layout}’s Default, {value}',
+  'reset.gives_layout_default_ignored':
+    'Reset gives {layout}’s Default, {value}, not the All Layouts value, {ignored}',
+  'reset.gives_all_layouts': 'Reset gives the All Layouts value, {value}',
+  'reset.gives_default': 'Reset gives the default, {value}',
+  'reset.gives_card': 'Reset follows the card: {value}',
+  'reset.reset': 'Reset',
+  'reset.reset_for': 'Reset {label} for {layout}',
+  'reset.remove': 'Remove',
+  'reset.remove_named': 'Remove {label} and Reset It',
+  'reset.remove_for': 'Remove {label} for {layout} and Reset It',
+  // A value the YAML holds for a setting a gate withholds; the gate line above it says why.
+  'inactive.line': 'Stored but not in use: {label} ({value})',
+  'inactive.line_top': 'Stored but not in use: {label} ({value}), from All Layouts',
+  // The page's foot: what the layouts this scope is not add to it.
+  'other_layouts.one': '{layout} adds here: {names}.',
+  'other_layouts.many': '{layouts} add here: {names}.',
+  // The two preferences under More, remembered in this browser (`prefs.ts`).
+  'prefs.every': 'Show Every Setting',
+  'prefs.every_note':
+    'Pages open with every setting that applies as a control, instead of naming the rest in Add ' +
+    'Setting rows. Remembered in this browser.',
+  'prefs.yaml': 'Show YAML Option Names',
+  'prefs.yaml_note':
+    'Shows each setting’s option name beside its label. Remembered in this browser.',
 
   // --- Undo & Redo ----------------------------------------------------------
   //
@@ -122,13 +193,90 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'search.yaml': 'YAML: {path}',
   'search.return': 'Return to Results',
   'search.showing': 'Showing {label}.',
+  // The tag on a setting a gate withholds, around a gate phrase below or the label of the control
+  // it waits on (`plan.ts` › `needsTag`): "Needs Show Description".
+  'search.needs': 'Needs {needs}',
+
+  // --- Colors ---------------------------------------------------------------
+  //
+  // The composed color control (`colors.ts`, `views/color.ts`). The rows Follow the card, Follow
+  // Home Assistant, Calendar Accent Color and Row Text Color reuse their dropdown options' words.
+  // A placeholder is never `{color}`: the en-GB derivation would spell it `{colour}`.
+  'color.default': 'Default',
+  'color.calendar_color': 'Calendar Color',
+  'color.follow_card.description': "The card's Accent Color, {value}",
+  'color.follow_ha.card': "Each calendar's color in Home Assistant, where it holds one",
+  'color.follow_ha.none': 'None set for {name} there, so it falls back to the card',
+  'color.follow_ha.found': "Home Assistant's color for {name}: {value}",
+  'color.swatches': 'Home Assistant colors',
+  'color.custom': 'Custom…',
+  'color.custom.description':
+    'Any color the card can draw: #e91e63, a CSS name, or a theme variable',
+  'color.custom_field': 'Custom {setting}',
+  'color.invalid': 'Not a color the card can draw',
+  'color.kept': 'Kept until the text above is a color',
+  'color.yaml_none': 'Not in the YAML',
+  'color.not_set': 'Not Set',
+  'color.named': '{setting}, {value}',
+  'color.named_state': '{setting}, {value}, {state}',
+  'color.remove': "Remove {name}'s {setting}",
+  'color.mix': '{value}, {percent}%',
+  // Theme colors the card's defaults are written in, as a value reads.
+  'color.theme.primary': "Home Assistant's primary color",
+  'color.theme.primary_text': 'Primary Text',
+  'color.theme.secondary_text': 'Secondary Text',
+  'color.theme.divider': 'Divider',
+  'color.theme.card_background': 'Card Background',
+  // The swatches' names, English only: Home Assistant's own (`ui.components.color-picker.colors.*`)
+  // are read first, in its language, so these show only where it has none.
+  'color.name.red': 'Red',
+  'color.name.pink': 'Pink',
+  'color.name.purple': 'Purple',
+  'color.name.deep_purple': 'Deep purple',
+  'color.name.indigo': 'Indigo',
+  'color.name.blue': 'Blue',
+  'color.name.light_blue': 'Light blue',
+  'color.name.cyan': 'Cyan',
+  'color.name.teal': 'Teal',
+  'color.name.green': 'Green',
+  'color.name.light_green': 'Light green',
+  'color.name.lime': 'Lime',
+  'color.name.yellow': 'Yellow',
+  'color.name.amber': 'Amber',
+  'color.name.orange': 'Orange',
+  'color.name.deep_orange': 'Deep orange',
+  'color.name.brown': 'Brown',
+  'color.name.grey': 'Gray',
+  'color.name.blue_grey': 'Blue gray',
 
   // --- Gates ----------------------------------------------------------------
   //
-  // What a withheld setting waits for, where the control's own label does not say it. Read from
-  // the gate table (`gates.ts`) by a condition, or by a gate for any of its conditions without a
-  // phrase of its own. Each completes a sentence, as in "Appears with the forecast beside each
-  // event: Size.", so it starts in lower case unless it starts with a label.
+  // What a withheld setting waits for. A gate line reads "Appears once {when}: {names}.", where
+  // `{when}` is a clause written for that one position, after "Appears once": a language whose
+  // subordinate clauses end on the verb writes it in that order. A switch reads "{label} is on";
+  // every other condition has a clause of its own, or its gate's (`gates.ts` › `whenText`).
+  'gate.line': 'Appears once {when}: {names}.',
+  'gate.line_bare': 'Appears once {when}.',
+  'gate.when.on': '{label} is on',
+  'gate.when.pressed': '{part} is pressed',
+  'gate.when.indicator_shown': 'a Style other than None is chosen',
+  'gate.when.indicator_marker': 'the Style is a dot, an icon or an emoji',
+  'gate.when.empty_days_off': 'Show Empty Days is off',
+  'gate.when.empty_or_today': 'Show Empty Days or Show Today When Empty is on',
+  'gate.when.forecast_by_day': 'the forecast shows in the day header',
+  'gate.when.forecast_by_event': 'the forecast shows beside events',
+  'gate.when.event_details': 'tapping or holding an event shows its details',
+  'gate.when.no_event_actions': 'both event actions are set to Nothing',
+  'gate.when.events_limit': 'Compact Mode limits the events',
+  'gate.when.calendar_filter': 'the toolbar shows a calendar filter',
+  'gate.when.week_numbers': 'week numbers are shown',
+  'gate.when.duplicates': 'duplicates are filtered',
+  'gate.when.weather_entity': 'a Weather Entity is chosen',
+  'gate.when.label_icon': 'the label is an icon',
+  'gate.when.location_shown': 'this calendar shows locations',
+  // The same, as noun phrases for search's Needs tag, where the control's own label does not say
+  // it. Read from the gate table by a condition, or by a gate for any of its conditions without a
+  // phrase of its own: "Needs the forecast beside each event".
   'gate.needs.indicator_shown': 'a Style other than None',
   'gate.needs.indicator_marker': 'a dot, icon or emoji Style',
   'gate.needs.empty_days_off': 'Show Empty Days off',
@@ -155,9 +303,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'editing_workspace.shared_note':
     'These are the shared starting values. A layout’s own settings or built-in defaults can take precedence.',
   'value_source.card': 'Applies to the whole card.',
-  'value_source.inherited': 'Uses the card-wide value unless you change it here.',
-  'value_source.default': 'Uses this layout’s default until you change it here.',
-  'value_source.own': 'Set for this layout.',
   'value_source.reset': 'Reset {option}',
   'editing_workspace.option.shared.label': 'All Layouts',
   'editing_workspace.option.list.label': 'List',
@@ -167,6 +312,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'grid_reconciliation.message':
     'Grid kept your existing values for: {options}. Use Reset in Grid to use its default for an option.',
   'grid_reconciliation.dismiss': 'Dismiss',
+  'grid_reconciliation.see': 'See What Grid Keeps',
 
   // --- Misplaced options (backlog item 192) -----------------------------------
   //
@@ -386,8 +532,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'reorder.esc': 'Esc',
   'reorder.put_back': 'Put {name} back at position {position} of {total}.',
   // The event-part chips at the top of Events (section 5.9, D08). Time, Location and Description
-  // are their headings' words. `chip.set_for` and `chip.from_all` group the stored parts under
-  // the chips by where they are stored: "Set for List · Countdown: On · End Time: Off".
+  // are their headings' words. The stored parts are grouped under the chips by their state words
+  // (`state.*`): "Set for List · Countdown: On · End Time: Off".
   'chip.end_time': 'End Time',
   'chip.countdown': 'Countdown',
   'chip.progress_bar': 'Progress Bar',
@@ -397,8 +543,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     "Each event shows the parts that are pressed. A pressed part's settings follow below.",
   'chip.needs': 'Needs {part}',
   'chip.not_in': 'Not in {layout}: {names}.',
-  'chip.set_for': 'Set for {layout}',
-  'chip.from_all': 'From All Layouts',
   // A calendar entry's page.
   'entry.back': 'Back to the overview',
   'entry.previous': 'Previous Calendar',
@@ -417,6 +561,109 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entry.repointed_adopted':
     '{name} now reads {calendar}, so it uses that calendar’s name and calendar filter setting.',
   'entry.remove': 'Remove {name}',
+
+  // --- Split This Calendar --------------------------------------------------
+  //
+  // The task on an entry's page that turns it into two (section 5.7, D12). Every refusal is a
+  // whole sentence naming the entry, and the event type's four are four sentences rather than one
+  // with a clause added, so a translator writes each in its own word order. Counts are a label
+  // and a number ("Days Ahead: 7 · Events: 1"), never an assembled plural.
+  'split.title': 'Split This Calendar',
+  'split.row_helper':
+    'Turn this entry into two, such as all-day events and events with a time, each with its own color.',
+  'split.named': 'Split {name}',
+  'split.step.how': 'How',
+  'split.step.colors': 'Colors',
+  'split.step.review': 'Review',
+  'split.step_of': 'Step {step} of {total}',
+  'split.how.intro':
+    'Two entries take this one’s place, each with its own color. Both keep {name}’s other ' +
+    'settings and read {entity}; nothing changes in Home Assistant.',
+  'split.how.type': 'All-Day vs. With a Time',
+  'split.how.type.description': 'One entry for all-day events, one for events with a time.',
+  'split.how.words': 'By Words',
+  'split.how.words.description':
+    'Events whose title, location or description contains certain words get one entry; every ' +
+    'other event gets the other.',
+  'split.match_against_note': 'Where to look for the words: Event title, Location or Description.',
+  'split.word': 'Word',
+  'split.words_note':
+    'Events whose {field} contains any of these words or phrases go to the first part; every ' +
+    'other event goes to the second. One word or phrase per field.',
+  'split.field.title': 'event title',
+  'split.field.location': 'location',
+  'split.field.description': 'description',
+  'split.locked': 'Locked to {field}, where this entry’s Blocklist looks.',
+  'split.refused.all_day':
+    'Can’t split {name} into all-day and timed events: it already shows only all-day events. ' +
+    'Duplicate it to add an entry for events with a time.',
+  'split.refused.all_day_card':
+    'Can’t split {name} into all-day and timed events: it already shows only all-day events, ' +
+    'following the card’s Event Type. Duplicate it to add an entry for events with a time.',
+  'split.refused.timed':
+    'Can’t split {name} into all-day and timed events: it already shows only events with a ' +
+    'time. Duplicate it to add an entry for all-day events.',
+  'split.refused.timed_card':
+    'Can’t split {name} into all-day and timed events: it already shows only events with a ' +
+    'time, following the card’s Event Type. Duplicate it to add an entry for all-day events.',
+  'split.refused.words':
+    'Can’t split {name} by words: it already shows only events containing “{words}”. One entry ' +
+    'keeps one set of words, so the two parts could not show exactly what {name} shows now. ' +
+    'Split All-Day vs. With a Time instead, or change the Allowlist first.',
+  'split.refused.blocklist':
+    'Can’t split {name} by words: its Blocklist cannot be read, so the card ignores it, and the ' +
+    'two parts would show some events twice. Fix the Blocklist first, or split All-Day vs. With ' +
+    'a Time.',
+  'split.refused.allowlist':
+    'Can’t split {name} by words: its Allowlist cannot be read, so the card ignores it, and the ' +
+    'two parts would show some events twice. Fix the Allowlist first, or split All-Day vs. With ' +
+    'a Time.',
+  'split.refused.budget':
+    'Can’t split {name}: it has its own Compact Events to Show, which two entries would double. ' +
+    'Clear it first.',
+  'split.edit_allowlist': 'Edit Allowlist',
+  'split.edit_blocklist': 'Edit Blocklist',
+  'split.go_budget': 'Go to Compact Events to Show',
+  'split.colors.title': 'Colors and Labels',
+  'split.colors.intro':
+    'Both parts keep the name {name}, which every entry of a calendar shares. The calendar list ' +
+    'and the card tell them apart by what they show and by these.',
+  'split.part_of': 'Part {part} of {total}',
+  'split.color_now': '{name}’s color now.',
+  'split.color_free': 'Not used by another calendar on this card.',
+  'split.review.intro':
+    'Where {name}’s upcoming events land. Splitting writes both entries in one step, and Undo ' +
+    'takes it back.',
+  'split.review.counts': 'Days Ahead: {days} · Events: {count}',
+  'split.review.day': '{weekday} {day}',
+  'split.review.event': '{day} · {title}',
+  'split.review.event_time': '{day} · {time} · {title}',
+  'split.review.more': '+{count}',
+  'split.review.none': 'No events in the days this card shows.',
+  'split.review.loading': 'Reading {name}’s upcoming events…',
+  'split.review.failed':
+    '{name}’s upcoming events could not be read. The preview shows where they land.',
+  'split.review.conditions': 'Both parts keep {name}’s visibility conditions.',
+  'split.review.note':
+    'Every event {name} shows now lands in exactly one part: none shows twice, none goes missing.',
+  'split.rule.all_day': 'Only all-day events',
+  'split.rule.timed': 'Only events with a time',
+  'split.rule.words.title': 'Event title contains {words}',
+  'split.rule.words.location': 'Location contains {words}',
+  'split.rule.words.description': 'Description contains {words}',
+  'split.rule.other': 'Every other event',
+  'split.writes.allowlist': 'Writes Allowlist: {words}, matching the {field}',
+  'split.writes.blocklist': 'Writes Blocklist: {words}, matching the {field}',
+  'split.apply': 'Split',
+  'split.done': 'Split {name} into 2 entries. This page now edits the first.',
+  'split.done_button': 'Done',
+  'split.new': 'New',
+  // Under a Blocklist, an Allowlist or Countries To Remove the card cannot compile.
+  'word_list.invalid': 'This pattern cannot be read, so the card ignores it.',
+  'word_list.use_pattern': 'Use a Pattern',
+  'word_list.use_words': 'Use Words',
+  'tap.line': 'Tapping an Event: {action}',
+  'tap.change_named': 'Change: Tapping an Event, {action}',
 
   // --- Calendar list rows ---------------------------------------------------
   //
@@ -486,7 +733,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.accent_color.helper':
     'The vertical line beside each event, and its background where the background ' +
     'opacity is above zero.',
-  'entity.accent_color_mode': 'Accent Color Source',
+  'entity.accent_color_mode': 'Accent Color',
   'entity.accent_color_mode.helper':
     'Home Assistant can hold a color for each calendar, under Settings, Devices & ' +
     'Services, Entities. Calendars it has no color for fall back to the card.',
@@ -604,14 +851,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'limit applies.',
   'entity.blocklist': 'Blocklist',
   'entity.blocklist.aliases': 'filter out, exclude, keywords',
-  'entity.blocklist.helper':
-    'Hide events where the field above contains any of these terms, separated by | ' +
-    '\u2014 for example Private|Tentative.',
+  'entity.blocklist.helper': 'Hide events where the field above contains any of these terms.',
   'entity.allowlist': 'Allowlist',
   'entity.allowlist.aliases': 'filter, include only, keywords',
   'entity.allowlist.helper':
-    'Show only events where the field above contains one of these terms, separated by ' +
-    '| . Left empty, every event is shown.',
+    'Show only events where the field above contains one of these terms. Left empty, every ' +
+    'event is shown.',
   'entity.filter_field': 'Match Against',
   'entity.filter_field.option.title.label': 'Event title',
   'entity.filter_field.option.location.label': 'Location',
@@ -777,6 +1022,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   start_date_mode: 'Start Date',
   'start_date_mode.aliases': 'tomorrow, yesterday, begin on, first day shown',
   'start_date_mode.option.default.label': 'Today',
+  'start_date_mode.option.tomorrow.label': 'Tomorrow',
+  'start_date_mode.option.start_of_week.label': 'Start of Week',
   'start_date_mode.option.fixed.label': 'A Fixed Date',
   'start_date_mode.option.offset.label': 'Relative to Today',
   start_date_fixed: 'Date',
@@ -1059,7 +1306,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   accent_color: 'Custom Accent Color',
   'accent_color.helper':
     'The bar beside each event. A calendar can override it for its own events.',
-  accent_color_mode: 'Accent Color Source',
+  accent_color_mode: 'Accent Color',
   'accent_color_mode.helper':
     'Home Assistant can hold a color for each calendar, under Settings, Devices & ' +
     'Services, Entities. Calendars it has no color for keep the card default.',
@@ -1153,9 +1400,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'location_country_mode.option.builtin.label': 'Remove Well-Known Ones',
   'location_country_mode.option.custom.label': 'Remove Ones I Name',
   location_country_pattern: 'Countries To Remove',
-  'location_country_pattern.helper':
-    'Names separated by | — for example USA | United States | Canada. Only a name at ' +
-    'the end of the location is removed.',
+  'location_country_pattern.helper': 'Only a name at the end of the location is removed.',
   location_font_size: 'Location Font Size',
   location_color: 'Location Color',
   location_icon_size: 'Location Icon Size',
@@ -1320,6 +1565,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // event takes, labeled as the dropdown's other card actions are; "Show Event Details" is the
   // wording the event's own two-choice dropdown carried before, in every language.
   'card_action.option.details.label': 'Show Event Details',
+  event_opens_details: 'Tapping an Event Opens It',
+  'event_opens_details.helper':
+    'Shows the event\u2019s details, where it can be changed or deleted. The preview does not ' +
+    'open events, so try it on the dashboard. Other tap actions are on Taps & Refresh.',
   event_tap_action: 'Event Tap Action',
   'event_tap_action.helper':
     'Show Event Details opens the event beside it, where you can change or delete it if its ' +

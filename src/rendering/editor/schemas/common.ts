@@ -62,14 +62,32 @@ export function text(name: string): SelectorSchema {
   return { name, selector: { text: { type: 'text' } } };
 }
 
+/** Marks a node `color()` built, on its selector, which every copy of the node shares. */
+const COLOR_MARK = 'colorControl';
+
 /**
- * A color, as text.
+ * A color, as text, marked for the composed color control (`colors.ts`), which draws it in place
+ * of a text field. The mark is a non-enumerable property of the selector, which `ha-form` never
+ * reads and a node spread for a block or a lifted form keeps by reference.
  *
  * @param name - Config key
  * @returns The field
  */
 export function color(name: string): SelectorSchema {
-  return { name, selector: { text: { type: 'text' } } };
+  const selector = { text: { type: 'text' as const } };
+  Object.defineProperty(selector, COLOR_MARK, { value: true, enumerable: false });
+  return { name, selector };
+}
+
+/**
+ * Whether `color()` built a node.
+ *
+ * @param node - A schema node
+ * @returns True for a color
+ */
+export function isColorNode(node: unknown): boolean {
+  const selector = (node as { selector?: object } | undefined)?.selector;
+  return selector !== undefined && (selector as Record<string, unknown>)[COLOR_MARK] === true;
 }
 
 /**
