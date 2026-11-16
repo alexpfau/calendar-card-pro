@@ -3,7 +3,8 @@
  * settings, then "Set: N" where the page stores values in this scope ("Show Past Events: On ·
  * Show Empty Days: Off · Set: 1"). Composed from the fields' own labels and values, never a
  * sentence per page, and never an assembled plural. A toggle chip stands for its group, which
- * reads as the names of the chips pressed ("Time · End Time · Location · Countdown").
+ * reads as the names of the chips pressed ("Time · End Time · Location · Countdown"), or for the
+ * toolbar's controls, whose names read as actions, as their count ("Controls: 5 on").
  */
 
 import { CHIP_LABELS, isPressed } from './chips';
@@ -94,7 +95,18 @@ export function summaryParts(
   for (const id of page.summary) {
     const kind = chipKind(page, id);
     if (kind !== undefined) {
-      if (!chipsDone.has(kind)) parts.push(...pressedChips(page, kind, present, data, language));
+      if (!chipsDone.has(kind)) {
+        const pressed = pressedChips(page, kind, present, data, language);
+        // A toolbar control's name reads as an action ("Reset"), so the toolbar's are counted.
+        if (kind !== 'toolbar') parts.push(...pressed);
+        else if (pressed.length > 0) {
+          parts.push(
+            interpolate(lookup(language, 'summary.controls_on') ?? '', {
+              count: String(pressed.length),
+            }),
+          );
+        }
+      }
       chipsDone.add(kind);
       continue;
     }
@@ -110,7 +122,12 @@ export function summaryParts(
     parts.push(
       interpolate(lookup(language, 'summary.pair') ?? '{label}: {value}', {
         label: fieldLabel(field, language),
-        value,
+        // Words typed into a text field are quoted, so a title holding " · " stays one value; a
+        // time or a number is not words.
+        value:
+          'text' in field.node.selector && /\p{L}/u.test(value)
+            ? interpolate(lookup(language, 'summary.quoted') ?? '{value}', { value })
+            : value,
       }),
     );
   }

@@ -49,7 +49,6 @@ function compactFields(hasEventLimit: boolean): HaFormSchema[] {
  *
  * @param language - Effective language code
  * @param startMode - Start-date mode, as presented (`synthetic.ts` › `modeFor`)
- * @param languageMode - Derived language mode
  * @param hasEventLimit - Whether a compact event limit is set, which is what the
  *   `compact_events_complete_days` toggle depends on
  * @param showEmptyDays - Whether empty days are shown, which is what the two empty-day
@@ -64,7 +63,6 @@ const contentSchema = Helpers.memoizeLast(
   (
     language: string,
     startMode: string,
-    languageMode: string,
     hasEventLimit: boolean,
     showEmptyDays: boolean,
     showEmptyToday: boolean,
@@ -99,8 +97,7 @@ const contentSchema = Helpers.memoizeLast(
       ...emptyDayFields,
       bool('hide_when_empty'),
       ...compactFields(hasEventLimit),
-      select(language, 'language_mode', ['system', 'custom']),
-      ...(languageMode === 'custom' ? [text('language')] : []),
+      select(language, 'language_mode', Synthetic.LANGUAGE_CHOICES),
       select(language, 'time_format', ['system', '24', '12']),
     ];
   },
@@ -117,7 +114,6 @@ export function buildContentSchema(ctx: SchemaCtx): HaFormSchema[] {
   return contentSchema(
     ctx.language,
     Synthetic.modeFor(ctx, 'start_date_mode', Synthetic.startDateMode),
-    Synthetic.languageMode(ctx.config),
     hasCompactEventLimit(ctx.config),
     Boolean(resolveWorkspaceOption(ctx.config, 'show_empty_days', workspace)),
     Boolean(resolveWorkspaceOption(ctx.config, 'show_empty_today', workspace)),

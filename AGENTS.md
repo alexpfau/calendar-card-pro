@@ -1784,7 +1784,7 @@ schema object, and a schema names a **selector** rather than an element. That is
 the whole point — Home Assistant renames its input components without notice (`ha-textfield`
 became `ha-input` in 2026.5 and cost us a runtime-detection shim), and a card that names
 selectors is not exposed to it. The element names one Home Assistant component, `ha-form`, plus
-one exception below; its icons are inline SVG (`views/icon.ts`), sized by the `--mdc-icon-size`
+two exceptions below; its own icons are inline SVG (`views/icon.ts`), sized by the `--mdc-icon-size`
 Home Assistant's own icons read. The last `ha-expansion-panel`, each toolbar button's, became a
 row of the editor's own in v6.
 
@@ -1806,8 +1806,18 @@ key `conditions-entity-context` as Home Assistant's own card dialog does for a c
 entity; should that key be renamed, nothing answers and the element works without an entity, as
 on a card that has none. Two facts it relies on:
 Home Assistant's card editor imports it statically to draw the Visibility tab, so it is defined
-before this editor opens, and its name and those two properties have held since 2023.11. Do not
-add a second exception without the same guard and fallback.
+before this editor opens, and its name and those two properties have held since 2023.11.
+
+**The second exception: `ha-icon`, in a calendar row's label slot only, and behind the same kind
+of guard.** A calendar's label is drawn on its overview row as the card draws it beside an event,
+and an icon label (`mdi:…`, or the `home-assistant` sentinel resolved to the calendar's icon) has
+no way to draw but Home Assistant's own icon element: the editor's inline SVG holds only the paths
+it ships, not the icon set a user picks from. `views/calendars.ts` › `rowLabel` draws `ha-icon`
+only where `customElements.get('ha-icon')` finds it, and otherwise leaves the slot empty, so a
+rename costs the icon and never the row; `tests/editor-calendar-labels.test.ts` pins both sides.
+Labels resolve through `entities.ts` › `resolvedLabel`, a mirror of the card's
+`resolveEntityLabel` held to it by the same test: importing `utils/events.ts` for it added about
+30 KB to `editor.js`. Do not add a third exception without the same guard and fallback.
 
 Everything except `element.ts`, `styles.ts` and `views/` is free of Lit and of the DOM. That is
 load-bearing, not tidiness: it is what lets both the test suite and `check:i18n` import a

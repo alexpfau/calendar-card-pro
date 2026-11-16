@@ -78,7 +78,6 @@ const SHARED: Readonly<Record<string, ReadonlyArray<ReadonlyArray<FieldId>>>> = 
   accent_color: [['events:accent_color', 'events:accent_color_mode']],
   allday_badge_color: [['events:allday_badge_color', 'events:allday_badge_color_mode']],
   height: [['layout:card_height', 'layout:height_mode']],
-  language: [['content:language', 'content:language_mode']],
   max_height: [['layout:card_max_height', 'layout:height_mode']],
   remove_location_country: [['events:location_country_mode', 'events:location_country_pattern']],
   start_date: [

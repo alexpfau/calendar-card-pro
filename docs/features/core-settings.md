@@ -1439,6 +1439,8 @@ language: de
 | ---------- | ------ | ------------------------- | ------------------------------------------------------- |
 | `language` | string | Home Assistant's, or `en` | A language code, such as `de`, `nb`, `zh-cn` or `en-gb` |
 
+- In the editor, **Language** on the **Card & Header** page is one dropdown: **Follow Home
+  Assistant**, then each language the card speaks, by its own name and code.
 - Dates, weekdays, months and words such as "Now", "Today", "tomorrow" and "in 3 hours" come
   from your browser in the card's language, so they need no translation.
 - Where your browser has no data for that language, those words follow one rule: Nynorsk reads

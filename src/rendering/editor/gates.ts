@@ -428,11 +428,6 @@ export const GATES: Readonly<Record<string, Gate>> = {
     requires: [oneOf('layout:height_mode', 'maximum')],
     kind: 'mode-value',
   },
-  language: {
-    fields: ['content:language'],
-    requires: [oneOf('content:language_mode', 'custom')],
-    kind: 'mode-value',
-  },
   accent: {
     fields: ['events:accent_color'],
     requires: [oneOf('events:accent_color_mode', 'custom')],
