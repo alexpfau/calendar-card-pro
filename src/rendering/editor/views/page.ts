@@ -96,6 +96,8 @@ export interface HeadingBlock {
   readonly key?: string;
   readonly helper?: string;
   readonly crossLink?: CrossLink;
+  /** A family's ✕ beside its title: Remove Compact Mode and Reset It. */
+  readonly action?: unknown;
   readonly body: unknown;
 }
 
@@ -109,6 +111,7 @@ export function headingBlock(block: HeadingBlock): TemplateResult {
   const link = block.crossLink;
   return html`<section class="page-group" data-heading=${block.key ?? ''}>
     ${block.title ? html`<h3 class="heading" tabindex="-1">${block.title}</h3>` : nothing}
+    ${block.action ? html`<div class="heading-action">${block.action}</div>` : nothing}
     ${block.helper ? html`<p class="hint">${block.helper}</p>` : nothing}
     ${
       link

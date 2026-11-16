@@ -25,19 +25,21 @@ import { Announcer } from './announce';
 import * as Buttons from './buttons';
 import * as CalendarList from './calendar-list';
 import * as Entities from './entities';
-import * as Essentials from './essentials';
-import * as Exceptions from './exceptions';
 import {
   type FieldId,
+  type FieldIndex,
   type IndexedField,
   buildFieldIndex,
   builtSchema,
   buttonFieldIndex,
   entityFieldIndex,
-  fieldId,
+  fieldHelper,
   fieldLabel,
+  parseFieldId,
+  universeIndex,
 } from './field-index';
 import * as Filter from './filter';
+import { whenText } from './gates';
 import { type HaFormSchema, warmSchema } from './ha-form';
 import * as HassKey from './hass-key';
 import { HA_ACTION_LABEL_PREFIX, withCardActionLabels } from './hass-localize';
@@ -46,8 +48,10 @@ import * as EditorLocalize from './localize';
 import * as Misplaced from './misplaced';
 import * as Navigation from './navigation';
 import {
+  type Appearance,
   CALENDARS_BLOCK,
-  ENTRY_GROUPS,
+  FAMILIES,
+  type FamilyId,
   type HeadingDef,
   OVERVIEW_FIELDS,
   PAGES,
@@ -55,15 +59,11 @@ import {
   isWholeCard,
   placementOf,
 } from './pages';
-import {
-  PANELS,
-  type PanelDef,
-  type PanelExtra,
-  type SchemaCtx,
-  type SubformDef,
-  walkSchema,
-} from './panels';
+import { PANELS, type PanelDef, type PanelExtra, type SchemaCtx, type SubformDef } from './panels';
+import * as Plan from './plan';
+import * as Prefs from './prefs';
 import * as QuickSetup from './quick-setup';
+import * as Reset from './reset';
 import * as Routing from './routing';
 import { ENTITY_PATH } from './schemas/calendars';
 import { TOOLBAR_BUTTON_ICON, TOOLBAR_BUTTON_PATH, buildToolbarButtonSchema } from './schemas/card';
@@ -82,6 +82,7 @@ import {
   QUICK_SETUP_WEATHER_SCHEMA,
 } from './schemas/quick-setup';
 import * as Search from './search';
+import * as Shown from './shown';
 import { DOCS_SITE, STORIES, type StoryId } from './stories';
 import { interpolate } from './strings';
 import styles from './styles';
@@ -97,6 +98,7 @@ import { escapeAction, historyKey, inTextField } from './views/keys';
 import * as Overview from './views/overview';
 import * as PageView from './views/page';
 import * as SearchView from './views/search';
+import * as ShownView from './views/shown';
 import * as Workspace from './workspace';
 import * as WriteFrames from './write-frames';
 import * as Config from '../../config/config';
@@ -342,6 +344,17 @@ interface StatusLine {
   readonly at: number;
 }
 
+/** What a live field shows besides its control: its state words, and the line under it. */
+interface FieldShow {
+  readonly words?: string;
+  readonly line: TemplateResult | typeof nothing;
+}
+
+/** Whose page a heading is planned for: the card's, or one calendar entry's, by its key. */
+type PlanOwner = { readonly kind: 'card' } | { readonly kind: 'entry'; readonly key: number };
+
+const CARD: PlanOwner = { kind: 'card' };
+
 /**
  * Schema-driven configuration editor for Calendar Card Pro.
  */
@@ -549,11 +562,21 @@ export class CalendarCardProEditor extends LitElement {
 
   @state() private _pending: Record<string, string> = {};
 
-  // Essentials Only is remembered in this browser; search and Customized Only start clear.
-  @state() private _filter: Filter.FilterCriteria = {
-    ...Filter.NO_FILTER,
-    essentialsOnly: Essentials.rememberedEssentialsOnly(),
-  };
+  @state() private _filter: Filter.FilterCriteria = { ...Filter.NO_FILTER };
+
+  /** Show Every Setting and Show YAML Option Names, remembered in this browser (`prefs.ts`). */
+  @state() private _prefs: Prefs.Prefs = Prefs.readPrefs();
+
+  /**
+   * The settings added this session, which their pages draw although nothing is stored: field
+   * ids, `family:<id>`, `entry:<key>:<id>`, `entry:<key>:family:<id>` (`plan.ts`). A choice of
+   * what to look at, so outside the undo snapshot and outside any storage; replaced, never
+   * changed in place, so a render sees it move.
+   */
+  @state() private _added: ReadonlySet<string> = new Set();
+
+  /** The Add row open, by its `data-focus` key, and what its box narrows it to. */
+  @state() private _addOpen?: { readonly key: string; readonly query: string };
 
   @state() private _selectedWorkspace?: Workspace.EditorWorkspace;
 
@@ -625,11 +648,15 @@ export class CalendarCardProEditor extends LitElement {
   /** What the live region last said. */
   private _spoken = '';
 
-  /** What this render draws from: the fields built here, and those the filter bar keeps. */
+  /** What this render draws from: the fields built here, and those search reaches. */
   private _drawing?: {
     readonly present: ReadonlyMap<FieldId, IndexedField>;
     readonly shown: ReadonlySet<FieldId>;
+    readonly index: FieldIndex;
   };
+
+  /** Each field's Reset or Remove, worked out once per state of the editor (`_resetActionOf`). */
+  private _actions?: { readonly from: ReadonlyArray<unknown>; readonly map: Map<string, unknown> };
 
   /** What Home Assistant's Visibility editor last sent for each entry, by key (`_conditionsFor`). */
   private _emittedConditions = new Map<
@@ -693,29 +720,6 @@ export class CalendarCardProEditor extends LitElement {
    * read has moved since (`_finishWarmUp`). A value's goes once no drawn form holds it (`updated`).
    */
   private _warmed = new Map<string, () => boolean>();
-
-  /**
-   * How many settings Essentials Only is hiding, counted as this render draws the panels and read
-   * by the line under the filter bar in the same render. Reset at the start of every render.
-   */
-  private _essentialsHidden = 0;
-
-  /**
-   * Adds what a filtered form leaves out to the count Essentials Only reports.
-   *
-   * Counted only while Essentials Only alone is narrowing the editor: with Customized Only on as
-   * well, what is missing is no longer what Essentials hides.
-   *
-   * @param offered - The form's fields before filtering, inert ones already withheld
-   * @param shown - The fields left after filtering
-   */
-  private _countHidden(
-    offered: ReadonlyArray<HaFormSchema>,
-    shown: ReadonlyArray<HaFormSchema>,
-  ): void {
-    if (!Filter.appliesEssentials(this._filter) || this._filter.customizedOnly) return;
-    this._essentialsHidden += Filter.countFields(offered) - Filter.countFields(shown);
-  }
 
   /**
    * Resolves the configured view to one the editor understands.
@@ -787,6 +791,10 @@ export class CalendarCardProEditor extends LitElement {
         entities.length,
         this._mintEntryKey,
       );
+      // What the entries became cannot be known, so what was added to one is not carried over.
+      if ([...this._added].some((key) => key.startsWith('entry:'))) {
+        this._added = new Set([...this._added].filter((key) => !key.startsWith('entry:')));
+      }
     }
 
     if (!isEcho) this._authoredRootKeys = new Set(Object.keys(rawConfig));
@@ -1245,21 +1253,6 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Builds the context the filter matches against.
-   *
-   * @returns Matching context for the current configuration and criteria
-   */
-  private get _filterCtx(): Filter.FilterCtx {
-    const ctx = this._ctx;
-
-    return {
-      ...ctx,
-      criteria: this._filter,
-      stored: this._rawConfig,
-    };
-  }
-
-  /**
    * Builds the data object bound to a panel's form.
    *
    * @returns Form data
@@ -1320,49 +1313,77 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * A helper callback for a panel's form or a form above the panels: each field's helper, after
-   * the note on where its value comes from. Kept while nothing it reads moves: the language, the
-   * layout, and that note for each field the form draws, by the field's name. The callback reads
-   * the notes from that same record rather than from the configuration, so a kept one cannot
-   * answer from an older configuration, even where another form's notes happen to line up.
+   * A helper callback for a form above the pages: each field's helper, kept per language and
+   * layout.
    *
    * @param slot - Which form
-   * @param schema - The form's schema
    * @param ctx - Schema context
-   * @param labelPath - The label path every field takes, for a lifted field; else the one
-   * `ha-form` hands down
    * @returns The callback
    */
-  private _helper(
-    slot: string,
-    schema: ReadonlyArray<HaFormSchema>,
-    ctx: SchemaCtx,
-    labelPath?: ReadonlyArray<string>,
-  ) {
-    const workspace = ctx.workspace ?? ctx.view;
-    const sources: Record<string, string | undefined> = {};
-    for (const { node } of Routing.workspaceFields(schema)) {
-      sources[node.name] = Routing.valueSource(this._config!, workspace, node.name);
-    }
+  private _helper(slot: string, ctx: SchemaCtx) {
     return this._keep(
       `${slot}.helper`,
-      [ctx.language, ctx.view, sources],
+      [ctx.language, ctx.view],
       () =>
-        (node: HaFormSchema, options?: { path?: string[] }): string | undefined => {
-          const helper = EditorLocalize.computeHelper(
-            ctx.language,
-            ctx.view,
-            node,
-            labelPath ?? options?.path ?? [],
-            true,
-          );
-          const from = 'selector' in node ? sources[node.name] : undefined;
-          const note = from
-            ? EditorLocalize.lookup(ctx.language, `value_source.${from}`)
-            : undefined;
-          return [note, helper].filter((value) => value !== undefined).join(' ') || undefined;
-        },
+        (node: HaFormSchema, options?: { path?: string[] }): string | undefined =>
+          EditorLocalize.computeHelper(ctx.language, ctx.view, node, options?.path ?? [], true),
     );
+  }
+
+  /**
+   * A lifted field's label and helper callbacks, with its state words where its control shows
+   * them (`shown.ts` › `wordsPlace`), and its YAML option name before its helper while Show YAML
+   * Option Names is on. Kept while what they read stays equal.
+   *
+   * @param slot - Which form
+   * @param field - The field
+   * @param ctx - Schema context
+   * @param words - Its state words
+   * @returns The two callbacks
+   */
+  private _fieldText(slot: string, field: IndexedField, ctx: SchemaCtx, words?: string) {
+    const place = Shown.wordsPlace(field.node);
+    const yaml = this._prefs.yaml
+      ? interpolate(this._string(ctx, 'search.yaml'), { path: this._yamlPath(field, ctx) })
+      : undefined;
+    const helper =
+      [yaml, words && place === 'helper' ? `${words}.` : undefined, fieldHelper(field, ctx)]
+        .filter((part) => part !== undefined)
+        .join(' ') || undefined;
+    const label =
+      words && place === 'label'
+        ? `${fieldLabel(field, ctx.language)}${Summary.SUMMARY_SEPARATOR}${words}`
+        : undefined;
+    return this._keep(`${slot}.text`, [ctx.language, label, helper, field.labelPath], () => ({
+      group:
+        label !== undefined && Shown.wordsInGroup(field.node)
+          ? label
+          : fieldLabel(field, ctx.language),
+      label: (node: HaFormSchema, _data?: unknown, options?: { path?: string[] }): string =>
+        label !== undefined && node.name === field.node.name && 'selector' in node
+          ? label
+          : EditorLocalize.computeLabel(ctx.language, node, field.labelPath ?? options?.path ?? []),
+      helper: (node: HaFormSchema): string | undefined =>
+        node.name === field.node.name && 'selector' in node ? helper : undefined,
+    }));
+  }
+
+  /**
+   * The YAML option a field writes, where this scope writes it: `time_grid.event_font_size`.
+   *
+   * @param field - The field
+   * @param ctx - Schema context
+   * @returns The path
+   */
+  private _yamlPath(field: IndexedField, ctx: SchemaCtx): string {
+    const keys = field.configKeys;
+    const key = keys.includes(field.node.name) ? field.node.name : (keys[0] ?? field.node.name);
+    const { scope } = parseFieldId(field.id);
+    const block =
+      scope === 'calendar' || scope === 'button' || field.dataPath.length > 0
+        ? undefined
+        : Routing.destination(key, ctx.workspace ?? ctx.view);
+    return [...(block ? [block] : field.dataPath), key].join('.');
   }
 
   /**
@@ -1438,6 +1459,13 @@ export class CalendarCardProEditor extends LitElement {
       () => this._writeOwned(frame, incoming),
       focusKey,
     );
+    // A setting edited this session stays where it is, even once its value is cleared: a box
+    // emptied to type anew must not leave the page under the cursor.
+    if (focusKey?.startsWith('field:') && frame.owner.kind !== 'button') {
+      const id = focusKey.slice('field:'.length);
+      const added = frame.owner.kind === 'entry' ? `entry:${frame.owner.key}:${id}` : id;
+      if (!this._added.has(added)) this._added = new Set([...this._added, added]);
+    }
   }
 
   /**
@@ -1689,44 +1717,6 @@ export class CalendarCardProEditor extends LitElement {
     EditorLocalize.lookup(this._ctx.language, key);
 
   /**
-   * What the switches leave of every panel, and the field ids that survive: Essentials Only and
-   * Customized Only narrow every page and the jump list by them. A query narrows nothing: it
-   * sets Essentials Only aside and shows results. Counts what Essentials Only hides as it goes.
-   *
-   * @param ctx - Schema context
-   * @returns Each panel's filtered schema, and the ids it holds
-   */
-  private _filtered(ctx: SchemaCtx): {
-    readonly schemas: ReadonlyMap<string, HaFormSchema[]>;
-    readonly shown: ReadonlySet<FieldId>;
-  } {
-    const filterCtx = this._filterCtx;
-    const schemas = new Map<string, HaFormSchema[]>();
-    const shown = new Set<FieldId>();
-    for (const panel of PANELS) {
-      const built = builtSchema(panel, ctx);
-      const schema = Filter.filterSchema(built, filterCtx);
-      this._countHidden(built, schema);
-      schemas.set(panel.id, schema);
-      for (const { node, dataPath } of walkSchema(schema)) {
-        if ('selector' in node) shown.add(fieldId(panel.id, dataPath, node.name));
-      }
-      // Calendars and toolbar buttons are counted here, whichever place draws them.
-      for (const subform of panel.subforms?.(ctx) ?? []) {
-        const path = subform.path.join('.');
-        const forms =
-          path === ENTITY_PATH.join('.')
-            ? this._entrySchemas(subform, ctx)
-            : path === TOOLBAR_BUTTON_PATH.join('.') && Config.resolveToolbar(ctx.config).show
-              ? this._buttonSchemas(subform)
-              : [];
-        for (const { offered, schema: kept } of forms) this._countHidden(offered, kept);
-      }
-    }
-    return { schemas, shown };
-  }
-
-  /**
    * One field in a form of its own, inside the editor's own wrapper named after it: the one
    * place focus lands on a field, since nothing inside a form takes it.
    *
@@ -1737,9 +1727,10 @@ export class CalendarCardProEditor extends LitElement {
    *
    * @param field - The field, as the index lifted it
    * @param ctx - Schema context
+   * @param show - Its state words and the line under it
    * @returns The wrapper and its form
    */
-  private _renderField(field: IndexedField, ctx: SchemaCtx): TemplateResult {
+  private _renderField(field: IndexedField, ctx: SchemaCtx, show?: FieldShow): TemplateResult {
     const slot = `field.${field.id}`;
     const schema = this._intern(slot, field.lifted);
     const data = this._intern(`${slot}.data`, Routing.formDataFor(this._formData(), schema));
@@ -1751,13 +1742,14 @@ export class CalendarCardProEditor extends LitElement {
       schema,
       data,
     };
+    const text = this._fieldText(slot, field, ctx, show?.words);
     // Focus goes to a field's wrapper, never into its form.
     const wrapper = html`<div
       class="field"
       data-field=${field.id}
       tabindex="-1"
       role="group"
-      aria-label=${fieldLabel(field, ctx.language)}
+      aria-label=${text.group}
     >
       ${keyed(
         // Keyed by scope as well: reusing a form would redirect its pending events into the
@@ -1769,13 +1761,14 @@ export class CalendarCardProEditor extends LitElement {
           .hass=${hass}
           .data=${data}
           .schema=${schema}
-          .computeLabel=${this._labeler(ctx.language, field.labelPath)}
-          .computeHelper=${this._helper(slot, schema, ctx, field.labelPath)}
+          .computeLabel=${text.label}
+          .computeHelper=${text.helper}
           .localizeValue=${this._localizeValue}
           @value-changed=${(event: CustomEvent) =>
             this._valueChanged(frame, event, field.labelPath, `field:${field.id}`)}
         ></ha-form>`,
       )}
+      ${show?.line ?? nothing}
     </div>`;
     const jump = this._jump;
     return jump?.target.kind === 'field' && jump.target.id === field.id
@@ -1882,40 +1875,654 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * A run of fields, each kept with its own frame by its id: drawn by position, a field a gate
-   * takes away would hand its form to the field after it, and an edit that form sends late would
-   * be written for the wrong field.
+   * What the shown set is computed from, for the card in this scope (`plan.ts`).
    *
-   * @param fields - The fields
    * @param ctx - Schema context
-   * @returns The fields' frames
+   * @returns The context
    */
-  private _renderFields(fields: ReadonlyArray<IndexedField>, ctx: SchemaCtx): unknown {
-    return repeat(
-      fields,
-      (field) => field.id,
-      (field) => this._renderField(field, ctx),
+  private _planCtx(ctx: SchemaCtx): Plan.PlanCtx {
+    const workspace = ctx.workspace ?? ctx.view;
+    return {
+      workspace,
+      config: this._config!,
+      raw: this._rawConfig,
+      present: this._drawing!.index,
+      // Ids and structure only; labels and values are worded from `ctx.language`'s own fields.
+      universe: universeIndex('en', workspace),
+      added: this._added,
+      showEverySetting: this._prefs.every,
+      pending: this._pending,
+      entryKeys: this._entryKeysFor((this._config!.entities ?? []).length),
+    };
+  }
+
+  /**
+   * A layout's name, as Settings For words it: "Grid", "All Layouts".
+   *
+   * @param ctx - Schema context
+   * @returns The namer
+   */
+  private _layoutName(ctx: SchemaCtx): Shown.LayoutName {
+    return (view) => this._string(ctx, `editing_workspace.option.${view}.label`);
+  }
+
+  /**
+   * Words a field's value as its control shows it, for a state line, a Reset outcome or a stored
+   * line.
+   *
+   * @param field - The field
+   * @param ctx - Schema context
+   * @returns The words
+   */
+  private _wordOf(field: IndexedField, ctx: SchemaCtx): Shown.WordValue {
+    return (value) =>
+      Summary.wordValue(field, value, ctx.language, this._describe) ??
+      (value === undefined || value === null ? this._string(ctx, 'search.not_set') : String(value));
+  }
+
+  /**
+   * The added-set key for a field or a family on a page of an owner.
+   *
+   * @param id - Field id, or `family:<id>`
+   * @param owner - The card, or a calendar entry
+   * @returns The key
+   */
+  private _addedKey(id: string, owner: PlanOwner): string {
+    return owner.kind === 'entry' ? `entry:${owner.key}:${id}` : id;
+  }
+
+  /**
+   * Reset or Remove for a live field, worked out by `plan.ts` › `resetAction` once for each state
+   * of the editor, since it builds the fields the reset would leave.
+   *
+   * @param id - Field id
+   * @param appearance - How its page shows it
+   * @param pctx - Plan context, the entry's on an entry page
+   * @param owner - The card, or a calendar entry
+   * @returns `reset`, `remove`, or `undefined`
+   */
+  private _resetActionOf(
+    id: FieldId,
+    appearance: Appearance,
+    pctx: Plan.PlanCtx,
+    owner: PlanOwner,
+  ): 'reset' | 'remove' | undefined {
+    const from = [
+      this._rawConfig,
+      this._pending,
+      pctx.workspace,
+      this._added,
+      this._prefs.every,
+      this._entryKeys.join(),
+    ];
+    if (!this._actions || this._actions.from.some((each, at) => each !== from[at])) {
+      this._actions = { from, map: new Map() };
+    }
+    const key = `${this._addedKey(id, owner)}`;
+    const map = this._actions.map;
+    if (!map.has(key)) map.set(key, Plan.resetAction(id, appearance, pctx, this._writeState()));
+    return map.get(key) as 'reset' | 'remove' | undefined;
+  }
+
+  /**
+   * What a live field shows besides its control (section 5.3): its state words, and under it
+   * what they leave out, what Reset gives, and Reset or Remove.
+   *
+   * @param field - The field
+   * @param appearance - How its page shows it
+   * @param pctx - Plan context, the entry's on an entry page
+   * @param ctx - Schema context
+   * @param owner - The card, or a calendar entry
+   * @param heading - The heading's key, whose Add row or title takes focus after a Remove
+   * @returns What it shows
+   */
+  private _fieldShow(
+    field: IndexedField,
+    appearance: Appearance,
+    pctx: Plan.PlanCtx,
+    ctx: SchemaCtx,
+    owner: PlanOwner,
+    heading?: string,
+  ): FieldShow {
+    const t = this._t(ctx);
+    const layout = this._layoutName(ctx);
+    const word = this._wordOf(field, ctx);
+    const state = Plan.stateOf(field, pctx);
+    const words = Shown.stateText(state, t, layout, word);
+    const label = fieldLabel(field, ctx.language);
+    const notes: Array<{ text: string; button?: ShownView.LineButton }> = [];
+    const ignored = Shown.ignoredText(state, t, layout, word);
+    if (ignored) notes.push({ text: ignored });
+    for (const own of state?.layoutsOwn ?? []) {
+      notes.push({
+        text: interpolate(t('state.layout_own'), {
+          layout: layout(own.view),
+          value: word(own.value),
+        }),
+        button: {
+          label: interpolate(t('state.edit_layout'), { layout: layout(own.view) }),
+          name: interpolate(t('state.edit_named'), { label, layout: layout(own.view) }),
+          focus: `edit:${field.id}:${own.view}`,
+          onPress: () => this._pickScope(own.view),
+        },
+      });
+    }
+    const calendars =
+      state?.calendars === undefined
+        ? undefined
+        : {
+            label: t('state.set_on_calendars'),
+            links: state.calendars.map((key) => ({
+              label: this._entryName(key),
+              focus: `calendar-link:${field.id}:${key}`,
+              onPress: () => this._open({ kind: 'entry', key }, `calendar-link:${field.id}:${key}`),
+            })),
+          };
+    const outcomeText = Shown.outcomeText(Plan.resetOutcome(field, pctx), t, layout, word);
+    const outcomeId = `outcome-${field.id.replace(/[^\w-]/g, '-')}`;
+    const actions: ShownView.LineButton[] = [];
+    if (state?.words?.kind === 'from-all-layouts') {
+      actions.push({
+        label: interpolate(t('state.edit_layout'), { layout: layout('shared') }),
+        name: interpolate(t('state.edit_named'), { label, layout: layout('shared') }),
+        focus: `edit:${field.id}:shared`,
+        onPress: () => this._pickScope('shared'),
+      });
+    }
+    // A family member keeps its control while the family shows; its heading's ✕ removes them all.
+    const storedHere =
+      owner.kind === 'entry'
+        ? state?.words?.kind === 'set-entry'
+        : Plan.storedAt(this._rawConfig, field, pctx.workspace);
+    const action =
+      typeof appearance === 'object' && 'family' in appearance
+        ? storedHere
+          ? 'reset'
+          : undefined
+        : this._resetActionOf(field.id, appearance, pctx, owner);
+    if (action !== undefined) {
+      const forLayout = state?.words?.kind === 'set-layout' ? layout(state.words.view) : undefined;
+      actions.push({
+        label: action === 'reset' ? t('reset.reset') : t('reset.remove'),
+        name:
+          action === 'reset'
+            ? forLayout
+              ? interpolate(t('reset.reset_for'), { label, layout: forLayout })
+              : interpolate(t('value_source.reset'), { option: label })
+            : interpolate(forLayout ? t('reset.remove_for') : t('reset.remove_named'), {
+                label,
+                layout: forLayout ?? '',
+              }),
+        focus: `${action}:${field.id}`,
+        describedBy: outcomeText ? outcomeId : undefined,
+        kind: action,
+        resetKeys: this._storedKeys(field, pctx, owner),
+        onPress: () => this._resetField(field, owner, action, label, heading),
+      });
+    }
+    return {
+      words,
+      line: ShownView.fieldLine({
+        stored: state?.words !== undefined && state.words.kind.startsWith('set'),
+        notes,
+        calendars,
+        outcome: outcomeText && action ? { id: outcomeId, text: outcomeText } : undefined,
+        actions,
+      }),
+    };
+  }
+
+  /**
+   * The options a field stores where this page writes it, which its Reset deletes.
+   *
+   * @param field - The field
+   * @param pctx - Plan context
+   * @param owner - The card, or a calendar entry
+   * @returns The options, space-separated
+   */
+  private _storedKeys(field: IndexedField, pctx: Plan.PlanCtx, owner: PlanOwner): string {
+    if (owner.kind === 'entry') return field.configKeys.join(' ');
+    return field.configKeys
+      .filter((key) =>
+        Plan.storedAt(this._rawConfig, { ...field, configKeys: [key] }, pctx.workspace),
+      )
+      .join(' ');
+  }
+
+  /**
+   * Draws the headings of a page or of a calendar entry's page from their plans: each heading's
+   * title and line, its live fields in registry order, its Add row, its gate lines and the values
+   * stored for settings that are not in use (section 5.2). A heading with none of these, and
+   * nothing else to draw, is left out.
+   *
+   * @param plans - The headings' plans
+   * @param pctx - Plan context, the entry's on an entry page
+   * @param ctx - Schema context
+   * @param owner - The card, or a calendar entry
+   * @param present - The fields built here
+   * @param data - Form data the gates read
+   * @param draw - Draws one live field
+   * @param extra - What a heading draws besides its fields
+   * @param topTitle - The name a page's unheaded top run goes by in its Add row
+   * @returns The headings
+   */
+  private _renderHeadings(
+    plans: ReadonlyArray<Plan.HeadingPlan>,
+    pctx: Plan.PlanCtx,
+    ctx: SchemaCtx,
+    owner: PlanOwner,
+    present: ReadonlyMap<FieldId, IndexedField>,
+    data: { card: Record<string, unknown>; entry?: Record<string, unknown> },
+    draw: (field: IndexedField, show: FieldShow) => unknown,
+    extra: (heading: HeadingDef) => unknown,
+    topTitle: string,
+  ): unknown[] {
+    const t = this._t(ctx);
+    // Labels resolve through `ctx.language` whichever index a field comes from.
+    const known = (id: FieldId): IndexedField | undefined =>
+      present.get(id) ?? pctx.universe.fields.get(id);
+    const labelOf = (id: FieldId): string => {
+      const field = known(id);
+      return field ? fieldLabel(field, ctx.language) : id;
+    };
+    return plans.flatMap((plan) => {
+      const { heading } = plan;
+      const title = this._headingTitle(heading, ctx);
+      const name = title ?? topTitle;
+      const more = extra(heading);
+      const live = plan.live.flatMap(({ id, appearance }) => {
+        const field = present.get(id);
+        return field
+          ? [
+              keyed(
+                `${owner.kind === 'entry' ? owner.key : ''}:${id}`,
+                draw(field, this._fieldShow(field, appearance, pctx, ctx, owner, heading.key)),
+              ),
+            ]
+          : [];
+      });
+      const addKey = `add:${heading.key ?? 'top'}`;
+      const helper =
+        heading.helperKey === undefined ? undefined : this._string(ctx, heading.helperKey);
+      const crossLink = this._crossLink(heading, ctx);
+      // Where the title and the Add row would stack with nothing between, the row carries the
+      // title in place of the heading.
+      const named =
+        live.length === 0 && more === nothing && helper === undefined && crossLink === undefined;
+      const add =
+        plan.add.length === 0 || this._prefs.every
+          ? nothing
+          : this._renderAddRow(plan, addKey, name, named, owner, ctx, known);
+      // One line per condition waited on: the names still to come, else the line alone with the
+      // stored values after it.
+      const byWhen = new Map<string, { names: string[]; held: number }>();
+      const when = (gate: Plan.HeadingPlan['gated'][number]['gate']): string =>
+        whenText(gate, data, ctx.language, labelOf) ?? '';
+      for (const each of plan.gated) {
+        const clause = when(each.gate);
+        const line = byWhen.get(clause) ?? { names: [], held: 0 };
+        line.names.push(labelOf(each.id));
+        byWhen.set(clause, line);
+      }
+      for (const each of plan.inactive) {
+        if (each.gate.kind !== 'gate') continue;
+        const clause = when(each.gate);
+        const line = byWhen.get(clause) ?? { names: [], held: 0 };
+        line.held += 1;
+        byWhen.set(clause, line);
+      }
+      const gateLines = [...byWhen].map(([clause, line]) =>
+        line.names.length > 0
+          ? interpolate(t('gate.line'), { when: clause, names: line.names.join(', ') })
+          : interpolate(t('gate.line_bare'), { when: clause }),
+      );
+      const inactive = plan.inactive.flatMap((each) => {
+        const field = known(each.id);
+        if (field === undefined) return [];
+        const label = fieldLabel(field, ctx.language);
+        // A dropdown's value in this language's words: the universe in it holds its options.
+        const worded = universeIndex(ctx.language, pctx.workspace).fields.get(each.id) ?? field;
+        const value = this._wordOf(
+          worded,
+          ctx,
+        )(
+          owner.kind === 'entry'
+            ? data.entry?.[parseFieldId(field.id).name]
+            : Routing.atPath(
+                each.source === 'here'
+                  ? data.card
+                  : Routing.workspaceFormData(this._config!, 'shared', this._pending),
+                field.dataPath,
+                field.node.name,
+              ),
+        );
+        const top = each.source === 'all-layouts';
+        return [
+          {
+            text: interpolate(top ? t('inactive.line_top') : t('inactive.line'), { label, value }),
+            button: top
+              ? {
+                  label: interpolate(t('state.edit_layout'), {
+                    layout: this._layoutName(ctx)('shared'),
+                  }),
+                  name: interpolate(t('state.edit_named'), {
+                    label,
+                    layout: this._layoutName(ctx)('shared'),
+                  }),
+                  focus: `edit:${field.id}:shared`,
+                  onPress: () => this._pickScope('shared'),
+                }
+              : {
+                  label: t('reset.reset'),
+                  name: interpolate(t('value_source.reset'), { option: label }),
+                  focus: `reset:${field.id}`,
+                  kind: 'reset' as const,
+                  resetKeys: this._storedKeys(field, pctx, owner),
+                  onPress: () => this._resetField(field, owner, 'reset', label, heading.key),
+                },
+          },
+        ];
+      });
+      if (live.length === 0 && add === nothing && gateLines.length === 0 && inactive.length === 0) {
+        if (more === nothing) return [];
+      }
+      const family = this._liveFamily(plan);
+      return [
+        PageView.headingBlock({
+          title: named && add !== nothing ? undefined : title,
+          key: heading.key,
+          helper,
+          crossLink,
+          action:
+            family === undefined
+              ? undefined
+              : ShownView.lineButton({
+                  label: t('reset.remove'),
+                  name: interpolate(t('reset.remove_named'), {
+                    label: this._string(ctx, FAMILIES[family].titleKey),
+                  }),
+                  focus: `remove-family:${family}`,
+                  kind: 'remove',
+                  onPress: () => this._removeFamily(family, owner, ctx, heading.key),
+                }),
+          body: html`${live} ${more} ${add} ${ShownView.gateLines(gateLines, inactive)}`,
+        }),
+      ];
+    });
+  }
+
+  /**
+   * The family a heading shows because it is stored or was added, which its ✕ removes.
+   *
+   * @param plan - The heading's plan
+   * @returns The family, or `undefined`
+   */
+  private _liveFamily(plan: Plan.HeadingPlan): FamilyId | undefined {
+    for (const { appearance, why } of plan.live) {
+      if (typeof appearance === 'object' && 'family' in appearance) {
+        if (why === 'stored' || why === 'added') return appearance.family;
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * A heading's Add row: closed, its settings named; open, one button per setting.
+   *
+   * @param plan - The heading's plan
+   * @param key - The row's `data-focus` key
+   * @param heading - The heading's name
+   * @param named - Whether the row stands in for the heading: nothing live, no line between
+   * @param owner - The card, or a calendar entry
+   * @param ctx - Schema context
+   * @param known - A field by id
+   * @returns The row
+   */
+  private _renderAddRow(
+    plan: Plan.HeadingPlan,
+    key: string,
+    heading: string,
+    named: boolean,
+    owner: PlanOwner,
+    ctx: SchemaCtx,
+    known: (id: FieldId) => IndexedField | undefined,
+  ): TemplateResult {
+    const t = this._t(ctx);
+    const data = owner.kind === 'entry' ? undefined : this._formData();
+    const items = plan.add.flatMap((item): ShownView.AddItem[] => {
+      if (item.kind === 'family') {
+        const family = FAMILIES[item.family];
+        const added = this._addedKey(`family:${item.family}`, owner);
+        return [
+          {
+            key: `family:${item.family}`,
+            label: this._string(ctx, family.titleKey),
+            helper: Shown.firstSentence(
+              family.helperKey === undefined ? undefined : this._string(ctx, family.helperKey),
+            ),
+            onAdd: () =>
+              this._addSettings([added], this._string(ctx, family.titleKey), item.ids[0], ctx),
+          },
+        ];
+      }
+      const field = known(item.id);
+      if (field === undefined) return [];
+      const label = fieldLabel(field, ctx.language);
+      const value =
+        data === undefined
+          ? undefined
+          : Summary.wordValue(
+              field,
+              Routing.atPath(data, field.dataPath, field.node.name),
+              ctx.language,
+              this._describe,
+            );
+      return [
+        {
+          key: item.id,
+          label,
+          helper: Shown.firstSentence(fieldHelper(field, ctx)),
+          value,
+          onAdd: () => this._addSettings([this._addedKey(item.id, owner)], label, item.id, ctx),
+        },
+      ];
+    });
+    const open = this._addOpen?.key === key;
+    return ShownView.addRow(
+      {
+        key,
+        heading,
+        named,
+        names: Shown.namesText(
+          items.map((item) => item.label),
+          t,
+        ),
+        items,
+        open,
+        query: open ? this._addOpen!.query : '',
+        onToggle: () => {
+          this._addOpen = open ? undefined : { key, query: '' };
+        },
+        onShowAll: () => {
+          this._addSettings(
+            items.map((item) => this._addedKey(item.key, owner)),
+            undefined,
+            plan.add[0].kind === 'field' ? plan.add[0].id : plan.add[0].ids[0],
+            ctx,
+            heading,
+          );
+          this._addOpen = undefined;
+        },
+        onQuery: (query) => {
+          this._addOpen = { key, query };
+        },
+      },
+      t,
     );
   }
 
   /**
-   * The fields a run of the registry draws here: each placed one present for this
-   * configuration and scope and kept by the filter bar, in the registry's order.
+   * Adds settings to the session's added set: their page draws them, and nothing is written
+   * (rule 3). Focus moves to the field's wrapper, never into its form, and the change is said.
    *
-   * @param fields - The run's placements
-   * @param present - The fields built here
-   * @param shown - The ids the filter bar keeps
-   * @returns The fields
+   * @param keys - Added-set keys
+   * @param label - The setting added, for "Added Time Font Size."; none for Show All
+   * @param focusId - The field whose wrapper takes focus
+   * @param ctx - Schema context
+   * @param heading - The heading, for "Showing every setting under Time."
    */
-  private _fieldsOf(
-    fields: HeadingDef['fields'],
-    present: ReadonlyMap<FieldId, IndexedField>,
-    shown: ReadonlySet<FieldId>,
-  ): IndexedField[] {
-    return fields.flatMap(([id]) => {
-      const field = present.get(id);
-      return field !== undefined && shown.has(id) ? [field] : [];
+  private _addSettings(
+    keys: ReadonlyArray<string>,
+    label: string | undefined,
+    focusId: FieldId,
+    ctx: SchemaCtx,
+    heading?: string,
+  ): void {
+    this._added = new Set([...this._added, ...keys]);
+    this._say(
+      label === undefined
+        ? interpolate(this._string(ctx, 'announce.showing_all'), { heading: heading ?? '' })
+        : interpolate(this._string(ctx, 'announce.added'), { label }),
+    );
+    void this.updateComplete.then(() =>
+      Focus.focusFirst(this.renderRoot, [`[data-field="${CSS.escape(focusId)}"]`]),
+    );
+  }
+
+  /**
+   * Resets a field's line where this page writes it, through `reset.ts`, as one undo step. Reset
+   * keeps the control and focuses its wrapper; Remove also takes the field from the added set,
+   * so it goes back to its Add row, which takes focus, else its heading does.
+   *
+   * @param field - The field
+   * @param owner - The card, or a calendar entry
+   * @param action - Reset or Remove
+   * @param label - The field's label, which names the step
+   * @param heading - The heading's key
+   */
+  private _resetField(
+    field: IndexedField,
+    owner: PlanOwner,
+    action: 'reset' | 'remove',
+    label: string,
+    heading?: string,
+  ): void {
+    const ctx = this._ctx;
+    const target: Reset.ResetTarget =
+      owner.kind === 'entry'
+        ? { kind: 'entry', key: owner.key, keys: field.configKeys }
+        : { kind: 'field', field, workspace: ctx.workspace ?? ctx.view };
+    this._commit(
+      interpolate(this._string(ctx, 'history.reset'), { setting: label }),
+      undefined,
+      () => this._applyReset(target, [this._addedKey(field.id, owner)]),
+      `field:${field.id}`,
+    );
+    if (action === 'remove') {
+      this._say(interpolate(this._string(ctx, 'announce.removed_setting'), { label }));
+    }
+    this._focusAfterReset(field.id, heading);
+  }
+
+  /**
+   * Removes a family shown on a page: every member's line here, and the family from the added
+   * set, in one step.
+   *
+   * @param family - The family
+   * @param owner - The card, or a calendar entry
+   * @param ctx - Schema context
+   * @param heading - The heading's key
+   */
+  private _removeFamily(
+    family: FamilyId,
+    owner: PlanOwner,
+    ctx: SchemaCtx,
+    heading?: string,
+  ): void {
+    const name = this._string(ctx, FAMILIES[family].titleKey);
+    const target: Reset.ResetTarget =
+      owner.kind === 'entry'
+        ? { kind: 'entry-family', key: owner.key, family }
+        : { kind: 'family', family, workspace: ctx.workspace ?? ctx.view };
+    this._commit(
+      interpolate(this._string(ctx, 'history.reset'), { setting: name }),
+      undefined,
+      () => this._applyReset(target, []),
+    );
+    this._say(interpolate(this._string(ctx, 'announce.removed_setting'), { label: name }));
+    this._focusAfterReset(undefined, heading);
+  }
+
+  /**
+   * Applies a reset to everything the editor holds about the configuration, together, and
+   * reports it: the YAML, the authored root keys, the Grid reset keys and the held text, as
+   * `reset.ts` hands them back, and the added set without what the reset retires.
+   *
+   * @param target - What to reset
+   * @param retire - Added-set keys to retire besides the reset's own
+   */
+  private _applyReset(target: Reset.ResetTarget, retire: ReadonlyArray<string>): void {
+    if (!this._config || !this._prepareForWrite()) return;
+    const { state, clearAdded } = Reset.reset(this._writeState(), target);
+    this._config = state.config;
+    this._pending = { ...state.pending };
+    this._authoredRootKeys = new Set(state.authoredRootKeys);
+    this._gridResetKeys = new Set(state.gridResetKeys);
+    const gone = new Set([...clearAdded, ...retire]);
+    const kept = [...this._added].filter((key) => !gone.has(key));
+    if (kept.length !== this._added.size) this._added = new Set(kept);
+    this._report(this._config);
+  }
+
+  /**
+   * Focus after a Reset or a Remove (section 5.3): the field's wrapper while it is drawn, else
+   * its heading's Add row, which now names it, else the heading.
+   *
+   * @param id - The field, or none for a family
+   * @param heading - The heading's key
+   */
+  private _focusAfterReset(id: FieldId | undefined, heading?: string): void {
+    void this.updateComplete.then(() => {
+      const group = `.page-group[data-heading="${CSS.escape(heading ?? '')}"]`;
+      Focus.focusFirst(this.renderRoot, [
+        ...(id === undefined ? [] : [`[data-field="${CSS.escape(id)}"]`]),
+        `${group} .add-toggle`,
+        `${group} .heading`,
+        '.page-title',
+        // On the overview, which has no page headings: its own fields, then its first heading.
+        '.overview [data-field]',
+        '.overview .heading',
+      ]);
     });
+  }
+
+  /**
+   * A heading's link to the heading on another page that answers the neighboring question.
+   *
+   * @param heading - The heading
+   * @param ctx - Schema context
+   * @returns The link, or `undefined`
+   */
+  private _crossLink(heading: HeadingDef, ctx: SchemaCtx): PageView.CrossLink | undefined {
+    const link = heading.crossLink;
+    const target = link && PAGES.find((candidate) => candidate.id === link.page);
+    const targetHeading = target?.headings.find((each) => each.key === link!.heading);
+    if (!link || !target || !targetHeading) return undefined;
+    return {
+      text: this._string(ctx, link.textKey),
+      label: interpolate(this._string(ctx, 'nav.crumb'), {
+        page: this._pageTitle(target, ctx),
+        heading: this._headingTitle(targetHeading, ctx) ?? '',
+      }),
+      key: `xlink:${link.heading}`,
+      onOpen: () =>
+        this._open(
+          { kind: 'page', page: link.page },
+          `xlink:${link.heading}`,
+          'cross-link',
+          link.heading,
+        ),
+    };
   }
 
   /**
@@ -1996,6 +2603,7 @@ export class CalendarCardProEditor extends LitElement {
   private _closeDisclosures(): void {
     this._openStrip = undefined;
     this._adding = undefined;
+    this._addOpen = undefined;
   }
 
   /**
@@ -2025,6 +2633,11 @@ export class CalendarCardProEditor extends LitElement {
       this._nav = Navigation.go(this._nav, { kind: 'page', page }, from);
     } else {
       this._resultsLeft = from;
+    }
+    // A result that waits in an Add row is added, as choosing it there would: it writes nothing.
+    if (target.kind !== 'button-field') {
+      const added = target.kind === 'entry-field' ? `entry:${target.key}:${target.id}` : target.id;
+      if (!this._added.has(added)) this._added = new Set([...this._added, added]);
     }
     const jump = { target, label: hit.label, lit: true };
     this._jump = jump;
@@ -2108,7 +2721,10 @@ export class CalendarCardProEditor extends LitElement {
     const action = escapeAction(event.composedPath(), this, {
       disclosure:
         wizard === undefined &&
-        (this._scopeOpen || this._openStrip !== undefined || this._adding !== undefined),
+        (this._scopeOpen ||
+          this._openStrip !== undefined ||
+          this._adding !== undefined ||
+          this._addOpen !== undefined),
       onPage:
         wizard !== undefined ||
         this._nav.route.kind !== 'overview' ||
@@ -2137,14 +2753,18 @@ export class CalendarCardProEditor extends LitElement {
     } else if (action === 'close') {
       // The disclosure opened last closes, focus back on what opened it.
       const strip = this._openStrip;
+      const addRow = this._addOpen?.key;
       const opener =
         strip !== undefined
           ? `more:${strip}`
           : this._adding !== undefined
             ? 'add-calendar'
-            : 'scope-change';
+            : addRow !== undefined
+              ? addRow
+              : 'scope-change';
       if (strip !== undefined) this._openStrip = undefined;
       else if (this._adding !== undefined) this._adding = undefined;
+      else if (addRow !== undefined) this._addOpen = undefined;
       else this._scopeOpen = false;
       void this.updateComplete.then(() =>
         Focus.focusFirst(this.renderRoot, [Focus.byFocusKey(opener)]),
@@ -2242,6 +2862,8 @@ export class CalendarCardProEditor extends LitElement {
   /** Change: Settings For opens as the four choices. */
   private _openScope = (): void => {
     this._scopeOpen = true;
+    // One disclosure at a time, so Escape closes the one just opened.
+    this._addOpen = undefined;
     void this.updateComplete.then(() =>
       Focus.focusFirst(this.renderRoot, [`input[name="scope"]:checked`, `input[name="scope"]`]),
     );
@@ -2382,7 +3004,6 @@ export class CalendarCardProEditor extends LitElement {
   private _renderOverview(ctx: SchemaCtx, chassis: Subforms.ChassisSchemas): TemplateResult {
     const t = this._t(ctx);
     const { present, shown } = this._drawing!;
-    const own = this._fieldsOf(OVERVIEW_FIELDS, present, shown);
     const head = html`${this._renderMisplaced(ctx)}
     ${
       this._banner
@@ -2391,14 +3012,14 @@ export class CalendarCardProEditor extends LitElement {
           })
         : nothing
     }
-    ${this._renderFilterBar(ctx, chassis)} ${this._renderEssentialsNote(ctx)}`;
+    ${this._renderFilterBar(ctx, chassis)}`;
 
     // One template whatever the query, so the filter bar above it is never drawn anew and the
     // search field keeps focus as the first character turns the overview into results. The
     // scope stays in view with the results: their values are the scope's.
     return html`<div class="overview">
       ${head} ${this._jumpDrawn() ? nothing : this._renderReturn(ctx)}
-      ${this._renderOverviewBody(ctx, chassis, present, shown, own)}
+      ${this._renderOverviewBody(ctx, chassis, present, shown)}
     </div>`;
   }
 
@@ -2409,8 +3030,7 @@ export class CalendarCardProEditor extends LitElement {
    * @param ctx - Schema context
    * @param chassis - The chassis schemas
    * @param present - The fields built here
-   * @param shown - The ids the filter keeps
-   * @param own - The overview's own fields it keeps
+   * @param shown - The ids search reaches
    * @returns The body
    */
   private _renderOverviewBody(
@@ -2418,7 +3038,6 @@ export class CalendarCardProEditor extends LitElement {
     chassis: Subforms.ChassisSchemas,
     present: ReadonlyMap<FieldId, IndexedField>,
     shown: ReadonlySet<FieldId>,
-    own: ReadonlyArray<IndexedField>,
   ): TemplateResult {
     const t = this._t(ctx);
     if (Filter.hasQuery(this._filter) && this._resultsLeft === undefined) {
@@ -2438,15 +3057,36 @@ export class CalendarCardProEditor extends LitElement {
       ),
     );
     const calendars = this._renderCalendars(ctx);
-    // Only the switches can empty the editor without a query: say so, as the panels did.
-    const empty =
-      shown.size === 0 &&
-      Filter.isFiltering(this._filter) &&
-      this._calendarModels(ctx).length === 0;
-    return html`${empty ? this._renderNoMatches(ctx) : nothing} ${this._renderScope(ctx)}
-    ${calendars} ${this._renderDisplays(ctx, chassis)} ${this._renderFields(own, ctx)}
-    ${this._renderResetControls(own, ctx)} ${Overview.rowGroup(t('overview.settings'), rows)}
-    ${Overview.rowGroup(t('overview.more'), [Overview.exampleRow(t, this._openQuickSetup)])}`;
+    // The overview's own fields follow the shown set too: a mode value only with its mode.
+    const pctx = this._planCtx(ctx);
+    const own = repeat(
+      OVERVIEW_FIELDS.flatMap(([id, appearance]) => {
+        const field = present.get(id);
+        const state = Plan.fieldState(id, appearance, pctx);
+        return field && state.kind === 'live' ? [[field, appearance] as const] : [];
+      }),
+      ([field]) => field.id,
+      ([field, appearance]) =>
+        this._renderField(field, ctx, this._fieldShow(field, appearance, pctx, ctx, CARD)),
+    );
+    const prefs = (['every', 'yaml'] as const).map((key) =>
+      ShownView.prefRow({
+        key,
+        label: key === 'every' ? t('prefs.every') : t('prefs.yaml'),
+        helper: key === 'every' ? t('prefs.every_note') : t('prefs.yaml_note'),
+        on: this._prefs[key],
+        onToggle: () => {
+          this._prefs = { ...this._prefs, [key]: !this._prefs[key] };
+          Prefs.writePrefs(this._prefs);
+        },
+      }),
+    );
+    return html`${this._renderScope(ctx)} ${calendars} ${this._renderDisplays(ctx, chassis)} ${own}
+    ${Overview.rowGroup(t('overview.settings'), rows)}
+    ${Overview.rowGroup(t('overview.more'), [
+      Overview.exampleRow(t, this._openQuickSetup),
+      ...prefs,
+    ])}`;
   }
 
   /**
@@ -2455,7 +3095,7 @@ export class CalendarCardProEditor extends LitElement {
    *
    * @param ctx - Schema context
    * @param present - The fields built here
-   * @param shown - The ids the switches keep
+   * @param shown - The ids search reaches
    * @returns The results, or the line saying nothing matches
    */
   private _renderResults(
@@ -2477,7 +3117,6 @@ export class CalendarCardProEditor extends LitElement {
     const index = Search.buildSearchIndex({
       ...ctx,
       hass: this.hass,
-      customizedOnly: this._filter.customizedOnly,
       present,
       shown,
       data: this._formData(),
@@ -2521,74 +3160,76 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * What a page draws under its header: each heading with its fields, and what the page holds
-   * besides them (the toolbar's own buttons, the column width table, the reset buttons of the
-   * scope's own values).
+   * What a page draws under its header: each heading planned by `plan.ts` (section 5.2), what the
+   * page holds besides its fields (the toolbar's own buttons, the column width table), and at its
+   * foot one line per set of layouts that add settings here.
    *
    * @param page - The page
    * @param ctx - Schema context
-   * @param present - The fields built here
-   * @param shown - The ids the switches keep
-   * @returns The body, or `undefined` where the switches leave nothing of it
+   * @returns The body
    */
-  private _renderPageBody(
-    page: PageDef,
-    ctx: SchemaCtx,
-    present: ReadonlyMap<FieldId, IndexedField>,
-    shown: ReadonlySet<FieldId>,
-  ): unknown[] | undefined {
-    const parts: unknown[] = [];
-    const drawn: IndexedField[] = [];
-    for (const heading of page.headings) {
-      const fields = this._fieldsOf(heading.fields, present, shown);
-      const buttons = heading.extras?.includes('own-buttons')
-        ? this._renderToolbarButtons(
-            PANELS.find((panel) => panel.id === 'card')!,
-            ctx,
-          )
-        : nothing;
-      if (fields.length === 0 && buttons === nothing) continue;
-      drawn.push(...fields);
-      const body = html`${this._renderFields(fields, ctx)} ${buttons}`;
-      const link = heading.crossLink;
-      const target = link && PAGES.find((candidate) => candidate.id === link.page);
-      const targetHeading = target?.headings.find((each) => each.key === link!.heading);
-      parts.push(
-        PageView.headingBlock({
-          title: this._headingTitle(heading, ctx),
-          key: heading.key,
-          helper:
-            heading.helperKey === undefined ? undefined : this._string(ctx, heading.helperKey),
-          crossLink:
-            link && target && targetHeading
-              ? {
-                  text: this._string(ctx, link.textKey),
-                  label: interpolate(this._string(ctx, 'nav.crumb'), {
-                    page: this._pageTitle(target, ctx),
-                    heading: this._headingTitle(targetHeading, ctx) ?? '',
-                  }),
-                  key: `xlink:${link.heading}`,
-                  onOpen: () =>
-                    this._open(
-                      { kind: 'page', page: link.page },
-                      `xlink:${link.heading}`,
-                      'cross-link',
-                      link.heading,
-                    ),
-                }
-              : undefined,
-          body,
-        }),
-      );
-    }
+  private _renderPageBody(page: PageDef, ctx: SchemaCtx): unknown[] {
+    const t = this._t(ctx);
+    const pctx = this._planCtx(ctx);
+    const plan = Plan.planPage(page, pctx);
+    const present = this._drawing!.present;
+    const parts = this._renderHeadings(
+      plan.headings,
+      pctx,
+      ctx,
+      CARD,
+      present,
+      { card: this._formData() },
+      (field, show) => this._renderField(field, ctx, show),
+      (heading) =>
+        heading.extras?.includes('own-buttons')
+          ? this._renderToolbarButtons(
+              PANELS.find((panel) => panel.id === 'card')!,
+              ctx,
+            )
+          : nothing,
+      this._pageTitle(page, ctx),
+    );
     if (page.id === 'size_spacing') {
       const layout = PANELS.find((panel) => panel.id === 'layout')!;
-      const extras = Filter.filterExtras(layout.extras?.(ctx) ?? [], this._filterCtx);
-      parts.push(...extras.map((extra) => this._renderExtra(extra)));
+      parts.push(...(layout.extras?.(ctx) ?? []).map((extra) => this._renderExtra(extra)));
     }
-    const resets = this._renderResetControls(drawn, ctx);
-    if (drawn.length === 0 && resets === nothing && parts.length === 0) return undefined;
-    parts.push(resets);
+    const layout = this._layoutName(ctx);
+    // Each line's Edit goes to a layout no line before it goes to, so no two read the same.
+    const taken = new Set<Types.EffectiveView>();
+    for (const line of plan.otherLayouts) {
+      const target = line.views.find((view) => !taken.has(view)) ?? line.views[0];
+      taken.add(target);
+      const names = line.ids.map((id) => {
+        const field = universeIndex('en', line.views[0]).fields.get(id);
+        return field ? fieldLabel(field, ctx.language) : id;
+      });
+      const text =
+        line.views.length === 1
+          ? interpolate(t('other_layouts.one'), {
+              layout: layout(line.views[0]),
+              names: Shown.namesText(names, t),
+            })
+          : interpolate(t('other_layouts.many'), {
+              layouts: EditorLocalize.formatList(
+                ctx.language,
+                line.views.map(layout),
+                'conjunction',
+              ),
+              names: Shown.namesText(names, t),
+            });
+      parts.push(
+        ShownView.otherLayoutsLine(
+          text,
+          interpolate(t('add.count'), { count: String(names.length) }),
+          {
+            label: interpolate(t('state.edit_layout'), { layout: layout(target) }),
+            focus: `edit-layout:${line.views.join('-')}`,
+            onPress: () => this._pickScope(target),
+          },
+        ),
+      );
+    }
     return parts;
   }
 
@@ -2602,20 +3243,17 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _renderPage(page: PageDef, ctx: SchemaCtx): TemplateResult {
     const t = this._t(ctx);
-    const { present, shown } = this._drawing!;
     const scope =
       page.onlyIn !== undefined
         ? PageView.pageLine(t('settings_for.grid_only'))
         : isWholeCard(page)
           ? PageView.pageLine(this._string(ctx, 'value_source.card'))
           : this._renderScope(ctx);
-    const body = this._renderPageBody(page, ctx, present, shown);
     return html`<div class="page" data-page=${page.id}>
       ${PageView.pageHead(this._pageTitle(page, ctx), t, this._back, this._renderHistory(ctx))}
       ${this._jumpDrawn() ? nothing : this._renderReturn(ctx)} ${scope}
       ${page.noteKey ? PageView.pageLine(this._string(ctx, page.noteKey)) : nothing}
-      ${body ?? (Filter.isFiltering(this._filter) ? this._renderNoMatches(ctx) : nothing)}
-      ${PageView.footBack(t, this._back)}
+      ${this._renderPageBody(page, ctx)} ${PageView.footBack(t, this._back)}
     </div>`;
   }
 
@@ -2645,17 +3283,16 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Each calendar entry's form as the filter bar leaves it, with what was declared for it.
+   * Each calendar entry's form: what is declared for it, with what its layout ignores withheld.
    *
    * @param subform - The entries' sub-form
    * @param ctx - Schema context
-   * @returns Every entry, with its key, its declared fields (inert ones withheld) and its schema
+   * @returns Every entry, with its key and its schema
    */
   private _entrySchemas(
     subform: { path: ReadonlyArray<string>; schema: ReadonlyArray<HaFormSchema> },
     ctx: SchemaCtx,
   ) {
-    const filterCtx = this._filterCtx;
     const toolbar = Config.resolveToolbar(ctx.config);
     const hasLegend = toolbar.show && toolbar.legend !== false;
     const entries = this._config?.entities ?? [];
@@ -2671,14 +3308,13 @@ export class CalendarCardProEditor extends LitElement {
         hasLegend,
         showsEventWeather(ctx.config.weather),
       );
-      const schema = Filter.filterEntitySchema(declared, entry, subform.path, filterCtx);
-      const offered = Filter.withholdInertFields(declared, ctx.workspace ?? ctx.view, 'entity');
-      return { entry, index, key: keys[index], offered, schema };
+      const schema = Filter.withholdInertFields(declared, ctx.workspace ?? ctx.view, 'entity');
+      return { entry, index, key: keys[index], schema };
     });
   }
 
   /**
-   * Each toolbar button's form as the filter bar leaves it.
+   * Each toolbar button's form.
    *
    * @param subform - The buttons' sub-form
    * @returns Every button, with its key, its fields, its schema and its data
@@ -2687,7 +3323,6 @@ export class CalendarCardProEditor extends LitElement {
     path: ReadonlyArray<string>;
     schema: ReadonlyArray<HaFormSchema>;
   }) {
-    const filterCtx = this._filterCtx;
     const written = Buttons.writtenButtons(this._config!);
     const keys = this._buttonKeysFor(written.length);
     const fields = subform.schema.filter((node) => !Filter.isHeading(node));
@@ -2695,8 +3330,7 @@ export class CalendarCardProEditor extends LitElement {
       entry,
       index,
       key: keys[index],
-      offered: fields,
-      schema: Filter.filterButtonSchema(fields, entry, subform.path, filterCtx),
+      schema: fields,
       data: Buttons.toButtonFormData(entry),
     }));
   }
@@ -2962,8 +3596,7 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * The calendars the list draws, each with its rows: every entry, or while the editor is
-   * filtered those whose page keeps a field, narrowed further by Filter Calendars.
+   * The calendars the list draws, each with its rows: every entry, narrowed by Filter Calendars.
    *
    * @param ctx - Schema context
    * @returns The calendars, in list order
@@ -2971,14 +3604,6 @@ export class CalendarCardProEditor extends LitElement {
   private _calendarModels(ctx: SchemaCtx): CalendarView.CalendarModel[] {
     const state = this._listState();
     const entities = state.entities;
-    const filtering = Filter.isFiltering(this._filter);
-    const kept = filtering
-      ? new Set(
-          this._entrySchemas(this._entrySubform(ctx), ctx)
-            .filter(({ schema }) => Filter.hasFields(schema))
-            .map(({ index }) => index),
-        )
-      : undefined;
     // Folded as search folds a query: case and surrounding space ignored (`search.ts`).
     const query = this._calendarQuery.trim().toLowerCase();
     const matches = (texts: ReadonlyArray<unknown>): boolean =>
@@ -2992,7 +3617,6 @@ export class CalendarCardProEditor extends LitElement {
       const grouped = calendar.rows.length > 1;
       const missing = this._missing(calendar.entityId);
       const rows = calendar.rows.flatMap((row): CalendarView.EntryRowModel[] => {
-        if (kept !== undefined && !kept.has(row.index)) return [];
         const entry = entities[row.index];
         const parts = this._rowParts(entry, ctx);
         const label = Entities.asEntityConfig(entry).label;
@@ -3579,6 +4203,7 @@ export class CalendarCardProEditor extends LitElement {
    * @param key - The entry's key
    * @param data - The entry's form data
    * @param ctx - Schema context
+   * @param show - Its state words and the line under it
    * @returns The wrapper and its form
    */
   private _renderEntryField(
@@ -3586,8 +4211,10 @@ export class CalendarCardProEditor extends LitElement {
     key: number,
     data: Record<string, unknown>,
     ctx: SchemaCtx,
+    show?: FieldShow,
   ): TemplateResult {
     const slot = `entry.${key}.${field.id}`;
+    const text = this._fieldText(slot, field, ctx, show?.words);
     const schema = this._intern(slot, field.lifted);
     // The field's own projection of the entry's data, as a card field gets, so a write to one
     // field hands no other form a new object.
@@ -3615,8 +4242,8 @@ export class CalendarCardProEditor extends LitElement {
           .hass=${hass}
           .data=${own}
           .schema=${schema}
-          .computeLabel=${this._labeler(ctx.language, field.labelPath)}
-          .computeHelper=${this._subformHelper(ctx, field.labelPath, true)}
+          .computeLabel=${text.label}
+          .computeHelper=${text.helper}
           .localizeValue=${this._localizeValue}
           @value-changed=${(event: CustomEvent) =>
             this._valueChanged(
@@ -3628,6 +4255,7 @@ export class CalendarCardProEditor extends LitElement {
             )}
         ></ha-form>`,
       )}
+      ${show?.line ?? nothing}
     </div>`;
     return this._jumpedEntryField(ctx, key, field, wrapper);
   }
@@ -3662,6 +4290,7 @@ export class CalendarCardProEditor extends LitElement {
    * @param entry - The entry
    * @param data - The entry's form data
    * @param ctx - Schema context
+   * @param show - Its state words and the line under it
    * @returns The control
    */
   private _renderVisibility(
@@ -3670,6 +4299,7 @@ export class CalendarCardProEditor extends LitElement {
     entry: string | Types.EntityConfig,
     data: Record<string, unknown>,
     ctx: SchemaCtx,
+    show?: FieldShow,
   ): TemplateResult {
     const entityId = Synthetic.entityIdOf(entry);
     const conditions = conditionsEditorDefined()
@@ -3679,7 +4309,7 @@ export class CalendarCardProEditor extends LitElement {
       // Defined before this editor opens wherever Home Assistant's card editor is; should it
       // arrive later, it takes over the YAML box then.
       awaitConditionsEditor(this);
-      return this._renderEntryField(field, key, data, ctx);
+      return this._renderEntryField(field, key, data, ctx, show);
     }
     const wrapper = html`<div
       class="field entity-visibility"
@@ -3699,6 +4329,7 @@ export class CalendarCardProEditor extends LitElement {
           @value-changed=${(event: CustomEvent) => this._visibilityChanged(key, event)}
         ></ha-card-conditions-editor>`,
       )}
+      ${show?.line ?? nothing}
     </div>`;
     return this._jumpedEntryField(ctx, key, field, wrapper);
   }
@@ -3758,27 +4389,25 @@ export class CalendarCardProEditor extends LitElement {
     const data = this._intern(`entry.${key}`, Entities.toEntityFormData(entry, state.entities));
     const chassis = Subforms.chassisSchemas(ctx.language);
     const [pickHass, pickFeed] = this._feed(chassis.entryCalendar, ctx.language);
-    const groups = ENTRY_GROUPS.flatMap((heading) => {
-      const fields = this._fieldsOf(heading.fields, present, new Set(present.keys()));
-      if (fields.length === 0) return [];
-      const body = repeat(
-        fields,
-        (field) => field.id,
-        (field) =>
-          field.id === `calendar:${VISIBILITY}`
-            ? this._renderVisibility(field, key, entry, data, ctx)
-            : this._renderEntryField(field, key, data, ctx),
-      );
-      return [
-        PageView.headingBlock({
-          title: this._headingTitle(heading, ctx),
-          key: heading.key,
-          helper:
-            heading.helperKey === undefined ? undefined : this._string(ctx, heading.helperKey),
-          body,
-        }),
-      ];
-    });
+    const pctx: Plan.PlanCtx = {
+      ...this._planCtx(ctx),
+      present: { fields: present },
+      entry: key,
+    };
+    const groups = this._renderHeadings(
+      Plan.planEntry(entry, key, this._planCtx(ctx), pctx.present),
+      pctx,
+      ctx,
+      { kind: 'entry', key },
+      present,
+      { card: this._formData(), entry: data },
+      (field, show) =>
+        field.id === `calendar:${VISIBILITY}`
+          ? this._renderVisibility(field, key, entry, data, ctx, show)
+          : this._renderEntryField(field, key, data, ctx, show),
+      () => nothing,
+      name,
+    );
     return html`<div
       class="page entry-page"
       data-page=${`entry:${key}`}
@@ -3850,7 +4479,7 @@ export class CalendarCardProEditor extends LitElement {
           @value-changed=${(event: CustomEvent) => this._entryCalendarChanged(key, event)}
         ></ha-form>
       </div>
-      ${groups.length > 0 ? groups : Filter.isFiltering(this._filter) ? this._renderNoMatches(ctx) : nothing}
+      ${groups}
       <div class="page-foot entry-remove">
         ${CalendarView.textButton(
           {
@@ -3973,13 +4602,8 @@ export class CalendarCardProEditor extends LitElement {
       ?.find((candidate) => candidate.path.join('.') === TOOLBAR_BUTTON_PATH.join('.'));
     if (subform === undefined || !Config.resolveToolbar(ctx.config).show) return nothing;
 
-    const filtering = Filter.isFiltering(this._filter);
     const written = Buttons.writtenButtons(this._config!);
-    const shown = this._buttonSchemas(subform).filter((candidate) =>
-      Filter.hasFields(candidate.schema),
-    );
-
-    if (filtering && shown.length === 0) return nothing;
+    const shown = this._buttonSchemas(subform);
     this._drawn?.push(...shown.map(({ schema, data }) => [schema, data] as const));
 
     const computeLabel = this._labeler(ctx.language, subform.path);
@@ -3999,11 +4623,7 @@ export class CalendarCardProEditor extends LitElement {
             data-button-key=${key}
             .header=${Buttons.buttonTitle(entry, index, untitled)}
             .leftChevron=${false}
-            .expanded=${
-              this._filter.customizedOnly ||
-              this._addedButtons.has(key) ||
-              this._jumpsTo('button-field', key)
-            }
+            .expanded=${this._addedButtons.has(key) || this._jumpsTo('button-field', key)}
           >
             <span slot="leading-icon" class="leading-icon">${icon(TOOLBAR_BUTTON_ICON)}</span>
             <div class="panel-body">
@@ -4081,15 +4701,9 @@ export class CalendarCardProEditor extends LitElement {
         `,
       )}
       ${this._renderStatus(ctx, ['button'])}
-      ${
-        filtering
-          ? nothing
-          : html`
-              <button type="button" class="text-button add-button" @click=${this._addButton}>
-                ${this._string(ctx, 'toolbar.buttons.add')}
-              </button>
-            `
-      }
+      <button type="button" class="text-button add-button" @click=${this._addButton}>
+        ${this._string(ctx, 'toolbar.buttons.add')}
+      </button>
     `;
   }
 
@@ -4255,129 +4869,6 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Offers reset actions for explicit values, without duplicating the editing controls.
-   *
-   * 🚨 Guards on where the *workspace writes*, never on `ctx.view`. Those agreed while list
-   * was blockless, so `ctx.view` read as a destination for free. It stopped being one the
-   * moment `list:` was registered: the shared workspace builds its panels as list — see
-   * {@link Workspace.baseViewForWorkspace} — so `ctx.view` is `'list'` there, and guarding on
-   * it offered Shared the reset buttons for `list:`. Clicking one deleted a List override
-   * from a workspace that cannot write to `list:` at all, leaving root untouched.
-   *
-   * Shared therefore offers none, which is the answer the reset *means* rather than a
-   * special case: {@link _resetViewValues} returns a value to what it inherits, and the
-   * shared base inherits from nothing. It is also what the root-writing workspace did
-   * before `list:` existed, so this restores that behavior rather than inventing one.
-   *
-   * @param fields - Fields currently shown
-   * @param ctx - Editing context
-   * @returns Per-option reset buttons, or nothing
-   */
-  private _renderResetControls(
-    fields: ReadonlyArray<IndexedField>,
-    ctx: SchemaCtx,
-  ): TemplateResult | typeof nothing {
-    const view = this._destinationView(ctx);
-    if (view === undefined) return nothing;
-    const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view];
-    if (blockKey === undefined) return nothing;
-    const stored = Value.storedViewBlocks(this._config!)[blockKey];
-    if (!stored || typeof stored !== 'object') return nothing;
-    const seen = new Set<string>();
-    // Each with the field it belongs to, whose wrapper Undo focuses once the value is back.
-    const shown = fields.flatMap((field) =>
-      [...Routing.workspaceFields(field.lifted)].map((each) => ({ ...each, id: field.id })),
-    );
-    const resets = shown.flatMap(({ node, path, labelPath, id }) => {
-      const keys = (
-        path.length === 1 && path[0] === blockKey
-          ? [node.name]
-          : path.length === 0
-            ? Synthetic.configKeysForField(node.name).filter(
-                (key) => Routing.destination(key, view) === blockKey,
-              )
-            : []
-      ).filter((key) => Object.prototype.hasOwnProperty.call(stored, key) && !seen.has(key));
-      if (keys.length === 0) return [];
-      keys.forEach((key) => seen.add(key));
-      return [{ keys, id, label: EditorLocalize.computeLabel(ctx.language, node, labelPath) }];
-    });
-    if (resets.length === 0) return nothing;
-    return html`
-      <div class="view-resets">
-        ${resets.map(
-          ({ keys, id, label }) => html`
-            <button
-              type="button"
-              class="text-button"
-              data-reset-keys=${keys.join(' ')}
-              @click=${() => this._resetViewValues(blockKey, view, keys, label, id)}
-            >
-              ${interpolate(this._string(ctx, 'value_source.reset'), {
-                option: label,
-              })}
-            </button>
-          `,
-        )}
-      </div>
-    `;
-  }
-
-  /**
-   * Returns one view value to its inherited or view-default value.
-   *
-   * @param blockKey - View's storage block
-   * @param view - View whose value is reset
-   * @param keys - Options controlled by the field
-   * @param label - The field's label, which names the undo step
-   * @param fieldId - The field, whose wrapper Undo and Redo focus
-   */
-  private _resetViewValues(
-    blockKey: keyof Types.Config,
-    view: Types.EffectiveView,
-    keys: ReadonlyArray<string>,
-    label: string,
-    fieldId: FieldId,
-  ): void {
-    if (!this._config) return;
-    this._commit(
-      interpolate(this._string(this._ctx, 'history.reset'), { setting: label }),
-      undefined,
-      () => this._resetValues(blockKey, view, keys),
-      `field:${fieldId}`,
-    );
-  }
-
-  /**
-   * `_resetViewValues`' change itself.
-   *
-   * @param blockKey - View's storage block
-   * @param view - View whose value is reset
-   * @param keys - Options controlled by the field
-   */
-  private _resetValues(
-    blockKey: keyof Types.Config,
-    view: Types.EffectiveView,
-    keys: ReadonlyArray<string>,
-  ): void {
-    if (!this._config || !this._prepareForWrite()) return;
-    if (blockKey === 'time_grid') {
-      for (const key of keys) {
-        if (ViewConfig.hasDivergentDefault(key, view)) this._gridResetKeys.add(key);
-      }
-    }
-    for (const key of keys) this._config = Exceptions.removeException(this._config, blockKey, key);
-    const pending = { ...this._pending };
-    for (const key of keys) delete pending[`${blockKey}.${key}`];
-    for (const name of Object.keys(Synthetic.SYNTHETIC_FIELDS)) {
-      if (Synthetic.configKeysForField(name).some((key) => keys.includes(key)))
-        delete pending[Routing.pendingKey(name, view)];
-    }
-    this._pending = pending;
-    this._report(this._config);
-  }
-
-  /**
    * Resolves a string the chassis renders itself, rather than through a schema.
    *
    * @param ctx - Schema context
@@ -4423,12 +4914,13 @@ export class CalendarCardProEditor extends LitElement {
     if (this._quickSetup !== undefined) {
       return this._renderQuickSetup(ctx, this._quickSetup);
     }
-    this._essentialsHidden = 0;
     this._drawn = [];
     this._drawnConditions = new Map();
-    const { shown } = this._filtered(ctx);
-    const present = buildFieldIndex(ctx).fields;
-    this._drawing = { present, shown };
+    const index = buildFieldIndex(ctx);
+    const present = index.fields;
+    // Search reaches every placed field built here; a page draws those the shown set keeps.
+    const shown = new Set([...present.keys()].filter((id) => placementOf(id) !== undefined));
+    this._drawing = { present, shown, index };
     // Every field's form, drawn on the open page or not, and every toolbar button's, so what a
     // page or a panel draws has loaded before it opens.
     const data = this._formData();
@@ -5175,7 +5667,7 @@ export class CalendarCardProEditor extends LitElement {
           .data=${this._intern('filter', Filter.filterFormData(this._filter))}
           .schema=${chassis.filter}
           .computeLabel=${this._labeler(ctx.language)}
-          .computeHelper=${this._helper('filter', chassis.filter, ctx)}
+          .computeHelper=${this._helper('filter', ctx)}
           .localizeValue=${this._localizeValue}
           @value-changed=${this._filterChanged}
         ></ha-form>
@@ -5195,14 +5687,9 @@ export class CalendarCardProEditor extends LitElement {
     if (!data) return;
 
     const next = Filter.toFilterCriteria(data);
-    if (next.essentialsOnly !== this._filter.essentialsOnly) {
-      Essentials.rememberEssentialsOnly(next.essentialsOnly);
-    }
-    const typed = next.query !== this._filter.query;
+    if (next.query === this._filter.query) return;
     this._filter = next;
-    // A switch can take away the field a result showed, so Return to Results goes to the top.
     this._jump = undefined;
-    if (!typed) return;
     // Typing again leaves the field a result showed for the results.
     this._resultsLeft = undefined;
     // The count, through the queue, once the render that counts it is done.
@@ -5210,44 +5697,15 @@ export class CalendarCardProEditor extends LitElement {
   };
 
   /**
-   * Says how many settings Essentials Only is hiding, so a shorter editor never reads as the
-   * whole of it.
-   *
-   * @param ctx - Schema context
-   * @returns The line, or nothing while Essentials Only is not what narrows the editor
-   */
-  private _renderEssentialsNote(ctx: SchemaCtx): TemplateResult | typeof nothing {
-    if (!Filter.appliesEssentials(this._filter) || this._filter.customizedOnly) return nothing;
-    return html`<div class="filter-note" data-essentials-note>
-      ${interpolate(this._string(ctx, 'essentials_only.hidden'), {
-        count: String(this._essentialsHidden),
-      })}
-    </div>`;
-  }
-
-  /**
-   * Says why the editor is empty.
+   * Says that a query finds nothing.
    *
    * @param ctx - Schema context
    * @returns The message
    */
   private _renderNoMatches(ctx: SchemaCtx): TemplateResult {
     const query = this._filter.query.trim();
-
-    if (query === '') {
-      // Only Customized Only can empty the editor without a query: Essentials Only keeps the
-      // overview's essentials, and beside Customized Only it keeps everything the card sets,
-      // which is everything Customized Only keeps.
-      return html`
-        <div class="filter-empty">${this._string(ctx, 'filter.nothing_customized')}</div>
-      `;
-    }
-
-    return html`
-      <div class="filter-empty">
-        ${interpolate(this._string(ctx, 'filter.no_matches'), { query })}
-        <div class="filter-empty-note">${this._string(ctx, 'filter.gated_note')}</div>
-      </div>
-    `;
+    return html`<div class="filter-empty">
+      ${interpolate(this._string(ctx, 'filter.no_matches'), { query })}
+    </div>`;
   }
 }

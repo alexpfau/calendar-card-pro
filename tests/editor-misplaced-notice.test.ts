@@ -180,10 +180,7 @@ describe('the misplaced-option notice', () => {
   it('stays in view while search hides every panel', async () => {
     const { editor } = await mount({ list: { toolbar: { show: true } } });
 
-    await changeFields(editor, {
-      'filter:search': 'zzzz-no-such-option',
-      'filter:customized_only': true,
-    });
+    await changeFields(editor, { 'filter:search': 'zzzz-no-such-option' });
 
     expect(Object.keys(rows(editor))).toEqual(['list.toolbar']);
   });

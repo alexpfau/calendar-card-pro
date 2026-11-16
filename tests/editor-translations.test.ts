@@ -50,8 +50,6 @@ describe('editor strings resolve in the requested language', () => {
   it('translates the first-screen German editor chrome', () => {
     const chromeKeys = [
       'search',
-      'customized_only',
-      'customized_only.helper',
       // The overview's titles that carry today's panel titles over; the `page.*` ones are new
       // English until the editor's translation pass.
       CALENDARS_BLOCK.titleKey,

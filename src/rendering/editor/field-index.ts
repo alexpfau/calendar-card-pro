@@ -21,7 +21,7 @@ import * as Entities from './entities';
 import * as Filter from './filter';
 import { corpus } from './gates';
 import type { HaFormSchema, SelectorSchema } from './ha-form';
-import { computeHelper, computeLabel, computeSubformHelper, lookup } from './localize';
+import { computeHelper, computeLabel, computeSubformHelper } from './localize';
 import { PANELS, type PanelDef, type SchemaCtx, walkSchema } from './panels';
 import * as Routing from './routing';
 import { ENTITY_PATH } from './schemas/calendars';
@@ -346,8 +346,8 @@ export function fieldLabel(field: IndexedField, language: string): string {
 
 /**
  * A field's helper line, worded as the form it was built for words it today, through its label
- * path. A card field's is a panel form's (`element.ts` › `_computeHelper`), led by the note on
- * where its value comes from; a calendar field's is an entry form's, with the layouts its option
+ * path, before the state words a page puts in front of it (`shown.ts`). A card field's is a panel
+ * form's; a calendar field's is an entry form's, with the layouts its option
  * affects; a toolbar button field's is a button form's.
  *
  * @param field - Indexed field
@@ -362,14 +362,7 @@ export function fieldHelper(field: IndexedField, ctx: SchemaCtx): string | undef
   }
   if (scope === 'button') return computeSubformHelper(ctx.language, ctx.view, node, labelPath);
 
-  const helper = computeHelper(ctx.language, ctx.view, node, labelPath, true);
-  const source = Routing.valueSource(
-    ctx.rawConfig ?? ctx.config,
-    ctx.workspace ?? ctx.view,
-    node.name,
-  );
-  const note = source ? lookup(ctx.language, `value_source.${source}`) : undefined;
-  return [note, helper].filter((part) => part !== undefined).join(' ') || undefined;
+  return computeHelper(ctx.language, ctx.view, node, labelPath, true);
 }
 
 /**

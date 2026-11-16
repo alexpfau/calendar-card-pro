@@ -22,7 +22,6 @@ import type { CalendarCardProEditor } from '../src/rendering/editor/element';
 import * as Filter from '../src/rendering/editor/filter';
 import type { HaFormSchema, SelectorSchema } from '../src/rendering/editor/ha-form';
 import { PANELS, type SchemaCtx } from '../src/rendering/editor/panels';
-import { ENTITY_PATH } from '../src/rendering/editor/schemas/calendars';
 import { scope, text } from '../src/rendering/editor/schemas/common';
 import {
   buildEntitySchema,
@@ -336,10 +335,11 @@ describe('view withholding reconciles both directions', () => {
       expect(fields(raw).length).toBeGreaterThan(10);
       reconcile(
         fields(
-          Filter.filterEntitySchema(raw, config.entities[0], ENTITY_PATH, {
-            ...context(config),
-            criteria: Filter.NO_FILTER,
-          }),
+          Filter.withholdInertFields(
+            raw,
+            context(config).workspace ?? context(config).view,
+            'entity',
+          ),
         ),
         expected,
       );
@@ -410,7 +410,7 @@ describe('withholding is not a search filter or a config edit', () => {
     reconcile(drawnInBuiltOrder(editor, expectedFields(after, to)), expectedFields(after, to));
   });
 
-  it('cannot be bypassed by page, heading, field, or customized-only searches', async () => {
+  it('cannot be bypassed by page, heading or field searches', async () => {
     const config = configFor('grid');
     const editor = await mount(config);
     expect(formsOf(editor, CARD).length).toBeGreaterThan(1);
@@ -425,19 +425,15 @@ describe('withholding is not a search filter or a config edit', () => {
 
     let total = 0;
     for (const criteria of [
-      { search: '', customized_only: false },
-      { search: 'Which Events', customized_only: false },
-      { search: 'which', customized_only: false },
-      { search: 'compact', customized_only: false },
-      { search: 'Multi-Day Events', customized_only: false },
-      { search: 'empty_day_text', customized_only: false },
-      { search: 'Anna', customized_only: false },
-      { search: '', customized_only: true },
+      { search: '' },
+      { search: 'Which Events' },
+      { search: 'which' },
+      { search: 'compact' },
+      { search: 'Multi-Day Events' },
+      { search: 'empty_day_text' },
+      { search: 'Anna' },
     ]) {
-      await changeFields(editor, {
-        'filter:search': criteria.search,
-        'filter:customized_only': criteria.customized_only,
-      });
+      await changeFields(editor, { 'filter:search': criteria.search });
       if (criteria.search === '') {
         const calendars = formsOf(editor, entry());
         for (const form of [...formsOf(editor, CARD), ...calendars]) {

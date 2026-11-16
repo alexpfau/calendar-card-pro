@@ -279,12 +279,6 @@ export default css`
     opacity: 0.5;
   }
 
-  .view-resets {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-
   ha-expansion-panel {
     margin: 8px 0;
   }
@@ -343,24 +337,10 @@ export default css`
     padding-bottom: 12px;
   }
 
-  .filter-note {
-    color: var(--secondary-text-color);
-    font-size: 12px;
-    line-height: 1.4;
-    padding: 8px 0 4px;
-  }
-
   .filter-empty {
     color: var(--primary-text-color);
     padding: 24px 8px;
     text-align: center;
-  }
-
-  .filter-empty-note {
-    color: var(--secondary-text-color);
-    font-size: 12px;
-    line-height: 1.4;
-    margin-top: 8px;
   }
 
   ha-expansion-panel.button-panel {
@@ -784,6 +764,215 @@ export default css`
     flex-direction: column;
     gap: 4px;
     border-radius: 4px;
+  }
+
+  /* --- Show what applies -----------------------------------------------------
+     The line under a field with what its state words leave out, what Reset gives and its
+     actions; a heading's Add row and gate lines; the preferences. The mark is decoration:
+     a filled dot for a value stored here, a ring otherwise. */
+  /* A family's Remove, under the heading it removes. */
+  .heading-action {
+    margin-top: -12px;
+  }
+
+  .field-line {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    color: var(--secondary-text-color);
+    font-size: 12px;
+    line-height: 1.45;
+    --mdc-icon-size: 16px;
+  }
+
+  .mark {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    margin-top: 16px;
+    border: 1.5px solid var(--primary-color);
+    border-radius: 50%;
+  }
+
+  .mark.stored {
+    background: var(--primary-color);
+  }
+
+  .field-line-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .field-note,
+  .gate-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 8px;
+    margin: 0;
+  }
+
+  .gate-line {
+    color: var(--secondary-text-color);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .line-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 44px;
+    font-size: 13px;
+    --mdc-icon-size: 16px;
+  }
+
+  .add-row {
+    border: 1px dashed var(--divider-color);
+    border-radius: var(--ha-card-border-radius, 12px);
+  }
+
+  .add-toggle,
+  .add-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 12px;
+    border: none;
+    border-radius: inherit;
+    background: none;
+    color: var(--primary-text-color);
+    cursor: pointer;
+    font: inherit;
+    text-align: start;
+  }
+
+  .add-toggle:hover,
+  .add-item:hover {
+    background: var(--secondary-background-color);
+  }
+
+  .add-toggle:focus-visible,
+  .add-item:focus-visible,
+  .pref-switch:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+
+  .add-text,
+  .add-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .add-text {
+    flex: 1;
+    display: flex;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .add-title {
+    color: var(--primary-color);
+    font-weight: 500;
+  }
+
+  .add-names,
+  .add-count,
+  .add-item-note,
+  .add-item-value {
+    color: var(--secondary-text-color);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .add-names {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+
+  .add-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0 8px 8px;
+    border-top: 1px solid var(--divider-color);
+  }
+
+  .add-item {
+    gap: 2px;
+  }
+
+  .add-filter {
+    margin: 8px 4px;
+    padding: 8px;
+    border: 1px solid var(--divider-color);
+    border-radius: 4px;
+    background: var(--card-background-color);
+    color: var(--primary-text-color);
+    font: inherit;
+  }
+
+  .pref-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 4px 16px 8px;
+  }
+
+  .pref-switch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 44px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--primary-text-color);
+    cursor: pointer;
+    font: inherit;
+    text-align: start;
+  }
+
+  .pref-track {
+    flex: none;
+    width: 36px;
+    height: 14px;
+    border-radius: 7px;
+    background: var(--secondary-text-color);
+    opacity: 0.5;
+    position: relative;
+  }
+
+  .pref-thumb {
+    position: absolute;
+    top: -3px;
+    inset-inline-start: 0;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--card-background-color);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  }
+
+  .pref-switch[aria-checked='true'] .pref-track {
+    background: var(--primary-color);
+  }
+
+  .pref-switch[aria-checked='true'] .pref-thumb {
+    inset-inline-start: 16px;
+    background: var(--primary-color);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .pref-thumb {
+      transition: inset-inline-start 0.15s;
+    }
   }
 
   /* --- The calendar list and entry pages ------------------------------------

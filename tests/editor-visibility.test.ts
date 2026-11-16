@@ -127,7 +127,8 @@ describe("which editor a calendar entry's page shows", () => {
   async function render(entities: ReadonlyArray<unknown>) {
     const element = await mountEditor(
       { config_version: Config.CURRENT_CONFIG_VERSION, entities },
-      { hass: HASS },
+      // Who Sees It waits in its Add row until something is stored: draw it either way.
+      { hass: HASS, every: true },
     );
     // Only the open page draws its forms: visit every entry's page, keeping what each draws.
     await openPanels(element);
