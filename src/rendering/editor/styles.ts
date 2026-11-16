@@ -994,6 +994,8 @@ export default css`
     background: var(--secondary-background-color);
     font-size: 14px;
     --mdc-icon-size: 20px;
+  }
+
   /* The field a search result opened, Return to Results above it, highlighted for 2 s. */
   .jump {
     display: flex;
