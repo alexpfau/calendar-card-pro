@@ -14,6 +14,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   EDITOR_TRANSLATION_GLOB,
+  collapseTemplateWhitespace,
   compactDayjsLocales,
   compactEditorStrings,
   editorDecoderSource,
@@ -755,5 +756,34 @@ describe('front-coded key vector', () => {
 
   it('fails closed on a key the one-digit prefix cannot carry', () => {
     expect(() => frontCodeKeys(['1st.label'])).toThrow(/front-coding/);
+  });
+});
+
+describe('editor template whitespace', () => {
+  const run = (code: string) => collapseTemplateWhitespace(code, 'probe.ts');
+
+  it('collapses line-spanning runs in html text and tags, leaving one-line spacing alone', () => {
+    const code = 'html`<div\n    class="a">\n      <b>x</b> <i>y</i>\n    ${v}\n  </div>`';
+    expect(run(code)).toBe('html`<div class="a"> <b>x</b> <i>y</i> ${v} </div>`');
+  });
+
+  it('keeps quoted attribute values and no-break spaces as written', () => {
+    const code = 'html`<p title="one\n  two" data-x=\'a\n b\'>\u00a0\n  z</p>`';
+    expect(run(code)).toBe('html`<p title="one\n  two" data-x=\'a\n b\'>\u00a0 z</p>`');
+  });
+
+  it('carries attribute state across interpolations and leaves comments alone', () => {
+    const code = 'html`<p class="${a}\n  b">\n<!-- x\n y -->\n</p>`';
+    expect(run(code)).toBe('html`<p class="${a}\n  b"> <!-- x\n y --> </p>`');
+  });
+
+  it('tightens css around braces and semicolons and keeps a combinator as one space', () => {
+    const code = "css`\n  .a\n  .b {\n    color: red;\n    content: 'x\n y';\n  }\n`";
+    expect(run(code)).toBe("css`.a .b {color: red;content: 'x\n y';}`");
+  });
+
+  it('touches nothing outside html and css tagged templates', () => {
+    expect(run('const a = `x\n  y`;')).toBeNull();
+    expect(run('svg`<g>\n  </g>`; html`<p>x</p>`')).toBeNull();
   });
 });

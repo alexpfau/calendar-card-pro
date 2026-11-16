@@ -7,6 +7,7 @@ import json from '@rollup/plugin-json';
 import { readdirSync, readFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import {
+  collapseTemplateWhitespace,
   compactDayjsLocales,
   compactEditorStrings,
   EDITOR_TRANSLATION_GLOB,
@@ -153,19 +154,42 @@ export function stripComments(css) {
 }
 
 /**
+ * Collapses the indentation inside the editor's `html` and `css` templates, the way
+ * `stripCssComments` strips the stylesheets: a template's static text is a string literal, so no
+ * minifier touches it, and the editor's templates are indented to their nesting depth. In
+ * markup, each run of whitespace that spans a line break becomes one space, which a browser
+ * renders exactly as it renders the run; in a stylesheet it goes entirely beside a brace or a
+ * semicolon (see `collapseTemplateWhitespace`).
+ *
+ * Editor only. The card's templates are left as written, because there whitespace beside a
+ * text node is part of the list view's snapshots (AGENTS.md). Safe only while no editor
+ * template renders text under `white-space: pre`, `pre-wrap`, `pre-line` or `break-spaces`.
+ */
+const collapseEditorTemplateWhitespace = {
+  name: 'collapse-editor-template-whitespace',
+  transform(code, id) {
+    if (!/[\\/]src[\\/]rendering[\\/]editor[\\/].*\.ts$/.test(id)) return null;
+    const out = collapseTemplateWhitespace(code, id);
+    return out === null ? null : { code: out, map: null };
+  },
+};
+
+/**
  * The plugin chain, built fresh for each output.
  *
  * A factory rather than a shared array: a Rollup plugin instance carries per-build state,
  * and handing one instance to two configs in the same process is a documented way to get
  * results that depend on which build ran first.
  *
- * @param options - Disable compaction only for the emitted equivalence test's control
+ * @param options - Disable compaction only for the emitted equivalence test's control; `editor`
+ *   adds the editor's own template whitespace collapse
  * @returns The plugins, in order
  */
-export function createBuildPlugins({ compactPayloads = true } = {}) {
+export function createBuildPlugins({ compactPayloads = true, editor = false } = {}) {
   return [
     ...(compactPayloads ? [compactDayjsLocales(), compactEditorStrings()] : []),
     stripCssComments,
+    ...(editor ? [collapseEditorTemplateWhitespace] : []),
     replace({
       preventAssignment: true,
       delimiters: ['', ''],
@@ -324,6 +348,6 @@ export default [
   {
     input: 'src/rendering/editor/index.ts',
     output: output(editorFile),
-    plugins: createBuildPlugins(),
+    plugins: createBuildPlugins({ editor: true }),
   },
 ];
