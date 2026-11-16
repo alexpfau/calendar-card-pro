@@ -22,11 +22,12 @@ into `feature/editor-redesign`: PR 1 (#838), PR 2 (#841) and PR 9 (#846). The re
 requests into `feature/editor-redesign`, stacked, each on the layer below it: PR 3 (#842), PR 4
 (#847), PR 5 (#849), PR 6 (#851), PR 7 (#850), PR 8 (#852), PR 10 (#854), PR 11 (#853), PR 12
 (#856), PR 13 (#855), PR 14 (#848), PR 15 (#857), PR 16 (#860), PR 17 (#861), PR 18 (#858) and PR
-19 (#859), with PR 20 (translations) and PR 21 (docs, accessibility and media) last. Each open PR
-awaits the maintainer's decision on its byte budget: several measured above the caps in section 6,
-and nothing here implies those figures, or section 10's estimate, are accepted. The editor chunk
-at PR 17's head `9eda8f7f` is 840,828 B raw and 246,903 B gzip -9 (production build, Node 24),
-against 592,390 B and 182,013 B at `9a1253b3`; the card's sha256 is unchanged. This file is
+19 (#859), then PR 20 (#862, translations) and PR 21 (#863, docs, accessibility and media), which
+merges #862 in and is the top of the stack. Each open PR awaits the maintainer's decision on its
+byte budget: several measured above the caps in section 6, and nothing here implies those figures,
+or section 10's estimate, are accepted. The editor chunk at the top of the stack is 970,570 B raw
+and 282,976 B gzip -9 (production build, Node 24), against 592,390 B and 182,013 B at `9a1253b3`;
+the card's sha256 is unchanged. This file is
 working state: it lives on the feature branch and is deleted, with the rest of
 `docs/development/editor-redesign/`, before the one pull request into `dev` (AGENTS.md,
 _Documenting a change_), which opens only on the maintainer's decision.
