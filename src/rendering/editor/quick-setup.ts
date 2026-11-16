@@ -23,7 +23,6 @@ import * as Synthetic from './synthetic';
 import * as Value from './value';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
-import * as ViewConfig from '../../config/view';
 import * as Helpers from '../../utils/helpers';
 
 /** What Quick Setup has been told. */
@@ -42,11 +41,6 @@ export interface QuickSetupAnswers {
   readonly dayAdds: boolean;
 }
 
-/** The view blocks, from the registry rather than named here. */
-const VIEW_BLOCK_KEYS: ReadonlyArray<string> = Object.values(ViewConfig.VIEW_BLOCKS).map(
-  (block) => block.blockKey as string,
-);
-
 /**
  * Whether the card owns a key, so a story replaces it rather than leaving it be.
  *
@@ -61,9 +55,9 @@ function ownedByCard(key: string): boolean {
   return (
     key.startsWith('_') ||
     key === 'config_version' ||
-    VIEW_BLOCK_KEYS.includes(key) ||
-    Object.prototype.hasOwnProperty.call(Config.DEFAULT_CONFIG, key) ||
-    Object.prototype.hasOwnProperty.call(Config.DEPRECATED_CONFIG_MAP, key)
+    Value.VIEW_BLOCK_KEYS.includes(key) ||
+    Helpers.hasOwn(Config.DEFAULT_CONFIG, key) ||
+    Helpers.hasOwn(Config.DEPRECATED_CONFIG_MAP, key)
   );
 }
 
@@ -217,7 +211,7 @@ export function buildQuickSetupConfig(
   if (title !== '') desired.title = title;
 
   for (const [key, value] of Object.entries(shell)) {
-    if (key === 'title' || VIEW_BLOCK_KEYS.includes(key)) continue;
+    if (key === 'title' || Value.VIEW_BLOCK_KEYS.includes(key)) continue;
     if (key === 'weather' || key === 'toolbar') continue;
     if (key === 'event_tap_action' || key === 'day_tap_action') continue;
     desired[key] = value;
@@ -245,7 +239,7 @@ export function buildQuickSetupConfig(
 
   desired.entities = entitiesFor(opening, answers);
 
-  for (const key of VIEW_BLOCK_KEYS) {
+  for (const key of Value.VIEW_BLOCK_KEYS) {
     if (shell[key] !== undefined) desired[key] = shell[key];
   }
 

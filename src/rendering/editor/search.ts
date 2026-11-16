@@ -30,7 +30,7 @@ import {
   entityFieldIndex,
   universeIndex,
 } from './field-index';
-import { needsText } from './gates';
+import { type GateData, needsText } from './gates';
 import * as EditorLocalize from './localize';
 import { CALENDARS_BLOCK } from './pages';
 import {
@@ -526,20 +526,26 @@ interface Placed {
  *
  * @param place - The field's placement
  * @param ctx - The index's context
+ * @param plan - The plan context, a calendar entry's for its fields
+ * @param present - The fields drawn here
+ * @param gateData - The form data its gate reads
  * @returns The field, its status and the form data its value is read from; nothing for a field
  *   this scope neither draws nor names
  */
 function standing(
   place: Placed,
   ctx: SearchCtx,
+  plan: Plan.PlanCtx = ctx.plan,
+  present: ReadonlyMap<FieldId, IndexedField> = ctx.present,
+  gateData: GateData = { card: ctx.data },
 ):
   | { field: IndexedField; status: ResultStatus; data: unknown; tag?: string; needs?: string }
   | undefined {
-  const state = Plan.fieldState(place.id, place.appearance, ctx.plan);
-  const present = ctx.present.get(place.id);
-  if (present) {
+  const state = Plan.fieldState(place.id, place.appearance, plan);
+  const own = present.get(place.id);
+  if (own) {
     return {
-      field: present,
+      field: own,
       status: { kind: state.kind === 'add' ? 'add' : 'live' },
       data: ctx.data,
     };
@@ -550,7 +556,7 @@ function standing(
     case 'inactive': {
       const field = universeIndex(ctx.language, ctx.plan.workspace).fields.get(place.id);
       if (!field) return undefined;
-      const needs = needsText(state.gate, { card: ctx.data }, ctx.language, labelNamer(ctx)) ?? '';
+      const needs = needsText(state.gate, gateData, ctx.language, labelNamer(ctx)) ?? '';
       const top = state.kind === 'inactive' && state.source === 'all-layouts';
       return {
         field,
@@ -558,7 +564,7 @@ function standing(
         data: top ? Routing.workspaceFormData(ctx.config, 'shared', ctx.plan.pending) : ctx.data,
         tag:
           state.kind === 'gated'
-            ? Plan.needsTag(state.gate, { card: ctx.data }, ctx.language, labelNamer(ctx))
+            ? Plan.needsTag(state.gate, gateData, ctx.language, labelNamer(ctx))
             : interpolate(t('search.not_in_use'), { needs }),
         needs,
       };
@@ -728,48 +734,15 @@ function entryRows(owner: SearchOwner, ctx: SearchCtx): SearchEntry[] {
   const present = entityFieldIndex(owner.schema);
   const plan: Plan.PlanCtx = { ...ctx.plan, present, entry: owner.key };
   const data = Entities.toEntityFormData(owner.entry as Types.EntityConfig, entities);
-  const universe = universeIndex(ctx.language, ctx.plan.workspace);
   const rows: SearchEntry[] = [];
   for (const group of ENTRY_GROUPS) {
     for (const [id, appearance] of group.fields) {
-      const state = Plan.fieldState(id, appearance, plan);
-      const own = present.fields.get(id);
-      // A field only other layouts offer is worded from the first of them.
-      const field =
-        own ??
-        (state.kind === 'other-layout'
-          ? universeIndex(ctx.language, state.views[0])
-          : universe
-        ).fields.get(id);
-      if (!field) continue;
-      let status: ResultStatus;
-      let tag: string | undefined;
-      let needs: string | undefined;
-      if (own) status = { kind: state.kind === 'add' ? 'add' : 'live' };
-      else if (state.kind === 'gated' || state.kind === 'inactive') {
-        status = { kind: state.kind, by: state.unmet.field };
-        needs =
-          needsText(state.gate, { card: ctx.data, entry: data }, ctx.language, labelNamer(ctx)) ??
-          '';
-        tag =
-          state.kind === 'gated'
-            ? Plan.needsTag(
-                state.gate,
-                { card: ctx.data, entry: data },
-                ctx.language,
-                labelNamer(ctx),
-              )
-            : interpolate(ctx.t('search.not_in_use'), { needs });
-      } else if (state.kind === 'other-layout') {
-        status = { kind: 'other-layout', views: state.views };
-        tag = interpolate(ctx.t('search.only_in'), {
-          layouts: EditorLocalize.formatList(
-            ctx.language,
-            state.views.map(layoutNamer(ctx)),
-            'conjunction',
-          ),
-        });
-      } else continue;
+      const found = standing({ id, appearance }, ctx, plan, present.fields, {
+        card: ctx.data,
+        entry: data,
+      });
+      if (!found) continue;
+      const { field, status, tag, needs } = found;
       const { name: key } = { name: field.node.name };
       const words = once(() => Plan.stateOf(field, plan));
       const live = status.kind === 'live' || status.kind === 'add';

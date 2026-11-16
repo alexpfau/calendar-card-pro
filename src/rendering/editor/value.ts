@@ -46,7 +46,7 @@ export function deepEqual(a: unknown, b: unknown): boolean {
 
   return aKeys.every(
     (key) =>
-      Object.prototype.hasOwnProperty.call(b, key) &&
+      Helpers.hasOwn(b, key) &&
       deepEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]),
   );
 }
@@ -88,7 +88,7 @@ export function equalConfigs(
 function unchangedFromAuthored(authored: unknown, key: string, value: unknown): boolean {
   return (
     Helpers.isConfigBlock(authored) &&
-    Object.prototype.hasOwnProperty.call(authored, key) &&
+    Helpers.hasOwn(authored, key) &&
     isSet(value) &&
     deepEqual(authored[key], value)
   );
@@ -218,10 +218,7 @@ function stripBlockDefaults(
     }
 
     if (overrideKeys.has(key)) {
-      if (
-        layout.keepsDivergentOverrides &&
-        Object.prototype.hasOwnProperty.call(layout.defaultOverrides, key)
-      ) {
+      if (layout.keepsDivergentOverrides && Helpers.hasOwn(layout.defaultOverrides, key)) {
         result[key] = value;
         continue;
       }
@@ -437,7 +434,7 @@ export function listRelocationKeys(): {
  */
 export function ambiguousRootKeys(authored: Readonly<Record<string, unknown>>): string[] {
   const { divergent } = listRelocationKeys();
-  return divergent.filter((key) => Object.prototype.hasOwnProperty.call(authored, key));
+  return divergent.filter((key) => Helpers.hasOwn(authored, key));
 }
 
 export type ListMigrationMode = 'keep-list' | 'shared-root';
@@ -487,9 +484,9 @@ export function migrateListConfig(
 
   const movedRootKeys: string[] = [];
   for (const key of moving) {
-    if (!Object.prototype.hasOwnProperty.call(authored, key)) continue;
+    if (!Helpers.hasOwn(authored, key)) continue;
     // An existing block entry is the user's newer answer; the root value is the older one.
-    if (!Object.prototype.hasOwnProperty.call(block, key)) block[key] = authored[key];
+    if (!Helpers.hasOwn(block, key)) block[key] = authored[key];
     delete migrated[key];
     movedRootKeys.push(key);
   }
@@ -557,7 +554,7 @@ export function toStoredConfig(
   // Rebuilt in the draft's order, so a kept line lands where it always would have.
   const stored: Record<string, unknown> = {};
   for (const key of Object.keys(draft)) {
-    if (Object.prototype.hasOwnProperty.call(minimized, key)) stored[key] = minimized[key];
+    if (Helpers.hasOwn(minimized, key)) stored[key] = minimized[key];
     else if (unchangedFromAuthored(authored, key, draft[key])) stored[key] = draft[key];
   }
   retainAuthoredSharedValues(stored, draft, authoredRootKeys);
@@ -595,7 +592,7 @@ export function toStoredConfig(
 }
 
 /** The storage key of every view block, from the registry rather than named here. */
-const VIEW_BLOCK_KEYS: ReadonlyArray<string> = Object.values(ViewConfig.VIEW_BLOCKS).map(
+export const VIEW_BLOCK_KEYS: ReadonlyArray<string> = Object.values(ViewConfig.VIEW_BLOCKS).map(
   (block) => block.blockKey as string,
 );
 
@@ -638,7 +635,7 @@ function gridReconciliations(
 ): Array<{ key: string; value: unknown; reconciled: boolean }> {
   const block = Helpers.isConfigBlock(config.time_grid) ? config.time_grid : {};
   return Object.entries(ViewConfig.TIME_GRID_DEFAULT_OVERRIDES).flatMap(([key, gridDefault]) => {
-    if (resetKeys.has(key) || Object.prototype.hasOwnProperty.call(block, key)) return [];
+    if (resetKeys.has(key) || Helpers.hasOwn(block, key)) return [];
     const root = config[key as keyof Types.Config];
     if (!authoredRootKeys.has(key) || root === undefined || root === null) return [];
     const value = normalizeRootValue(key, root);

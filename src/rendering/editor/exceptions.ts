@@ -22,7 +22,7 @@ export function removeException(
     return config as Types.Config;
   }
 
-  if (!Object.prototype.hasOwnProperty.call(block, key)) {
+  if (!Helpers.hasOwn(block, key)) {
     return config as Types.Config;
   }
 

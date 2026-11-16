@@ -270,7 +270,7 @@ release asset, so a third file would spare nobody its bytes.
 ### Compact Payloads, Readable Sources
 
 `scripts/compact-payloads.mjs` compacts data before compilation in both build variants, leaving the
-authored translations, template whitespace, browser requirements and the two-file layout unchanged.
+authored translations, browser requirements and the two-file layout unchanged.
 
 - **Day.js.** Locales keep their names and complete relative-time definitions, and English stays
   intact. The card uses Day.js for relative time only, and a build-time source guard rejects any
@@ -278,11 +278,26 @@ authored translations, template whitespace, browser requirements and the two-fil
 - **Editor strings.** The sorted English keys are stored once, with one aligned value array per
   language. A missing translation is `null` and an empty string stays empty, so partial
   translations, the British English delta and the fallback order use the same lookup code as
-  before. An English-key change invalidates every vector in incremental builds.
+  before. An English-key change invalidates every vector in incremental builds. The key vector
+  ships front-coded by dot segment and is rebuilt before the first lookup; the build decodes what
+  it emits and fails unless the keys come back exactly. The language vectors are emitted in the
+  import order of `translations/index.ts`, grouped by language family because gzip does better
+  that way.
+- **Editor templates.** In files under `src/rendering/editor/` only, a run of ASCII whitespace
+  spanning a line break in an `html` template becomes one space, outside quoted attributes and
+  comments, and in the stylesheet it goes beside a brace or semicolon. The card's templates keep
+  their whitespace, which its list-view snapshots depend on; the editor's are safe only while
+  none renders text under a preserving `white-space`.
 - **Guards.** The transforms reject duplicate or unknown keys, non-string values, unsupported
   source shapes and unsafe locale initializers. Tests compare unoptimized and compacted output
   across languages, thresholds and the suite's timezones; the source-only translation checks stay
   independent of compaction.
+
+The editor build also tunes terser on its own (`rollup.config.mjs`): less inlining, which gzip
+rewards, and renamed private members of the editor element (`editorPrivateMembers`). The renaming
+covers the undecorated `private` and `protected` members of `element.ts`; the build refuses to
+start if any of them appears as a whole string literal in `src/`, since a member read by its name
+would break. The card keeps its options and stays byte-identical.
 
 ## 🧩 Module Responsibilities
 

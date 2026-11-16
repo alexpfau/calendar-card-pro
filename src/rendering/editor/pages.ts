@@ -22,8 +22,9 @@ import { type FieldId, parseFieldId } from './field-index';
 import { destination } from './routing';
 import { entityConfigKeys } from './schemas/entity';
 import { configKeysForField } from './synthetic';
+import { BLOCK_KEYS } from './workspace';
 import type * as Types from '../../config/types';
-import { VIEWS, appliesToView, entityScopeFor, viewBlockFor } from '../../config/view';
+import { VIEWS, appliesToView, entityScopeFor } from '../../config/view';
 
 export type PageId =
   | 'which_events'
@@ -695,10 +696,6 @@ export function placementOf(id: FieldId): Placement | undefined {
   }
   return placements.get(id);
 }
-
-const BLOCK_KEYS: ReadonlySet<string> = new Set(
-  VIEWS.flatMap((view) => viewBlockFor(view)?.blockKey ?? []),
-);
 
 /**
  * Whether a field reads and writes the same in every scope: no per-layout copy, and offered in
