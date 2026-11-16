@@ -25,7 +25,7 @@ import { configuredCalendarName } from '../../utils/calendar-names';
 import { ENTITY_COLOR_SENTINEL, isEntityColorSentinel } from '../../utils/entity-colors';
 import { ENTITY_ICON_SENTINEL, entityIcon, isEntityIconSentinel } from '../../utils/entity-icons';
 import * as Helpers from '../../utils/helpers';
-import { firstPersonEntityId, isPersonEntityId } from '../../utils/person-pictures';
+import { firstPersonEntityId, isPersonEntityId, personPicture } from '../../utils/person-pictures';
 
 const NUMERIC_KEYS: ReadonlySet<string> = new Set(['compact_events_to_show', 'text_scale']);
 
@@ -360,6 +360,49 @@ export function showsLocation(
 export function labelTypeOf(entry: string | Types.EntityConfig): string {
   const config = asEntityConfig(entry);
   return Helpers.resolveLabelType(config.label, config.label_type);
+}
+
+/**
+ * The fields whose helper speaks of one of their values, by that value: the helper shows only
+ * while the field holds it, so Label Type's note on image paths never sits under "Text or Emoji".
+ */
+export const HELPER_FOR_VALUE: Readonly<Record<string, string>> = {
+  label_type: 'image',
+  label_icon_source: 'home_assistant',
+  label_image_source: 'person',
+};
+
+/**
+ * The label the card draws for one entry, with what Home Assistant holds substituted for the
+ * value that stands in for it: its icon for the `home-assistant` sentinel, a person's picture
+ * for a `person.…` id. A mirror of `utils/events.ts` › `resolveEntityLabel`, read from the entry
+ * itself rather than from the first entry of its calendar; importing that module would put the
+ * card's event pipeline into the editor. `tests/editor-calendar-labels.test.ts` holds the two
+ * to the same answers.
+ *
+ * @param entry - Entry as stored
+ * @param hass - Home Assistant, which holds the icon and the picture
+ * @returns The label and the shape it is drawn as, or `undefined` where the card draws none
+ */
+export function resolvedLabel(
+  entry: string | Types.EntityConfig,
+  hass?: Types.Hass | null,
+): { readonly value: string; readonly type: 'text' | 'icon' | 'image' } | undefined {
+  const config = asEntityConfig(entry);
+  const label = config.label;
+  const followsIcon = isEntityIconSentinel(label);
+  const followsPerson = isPersonEntityId(label);
+  const declared = config.label_type;
+  const value =
+    (!followsIcon && !followsPerson) ||
+    (Helpers.isLabelType(declared) && declared !== (followsIcon ? 'icon' : 'image'))
+      ? label
+      : followsPerson
+        ? personPicture(label, hass)
+        : entityIcon(config.entity, hass);
+  if (!value) return undefined;
+  const type = Helpers.resolveLabelType(value, declared);
+  return type === 'none' ? undefined : { value, type };
 }
 
 /**

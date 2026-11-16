@@ -102,6 +102,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'summary.set': 'Set: {count}',
   'summary.on': 'On',
   'summary.off': 'Off',
+  // Words typed into a text field, as a summary quotes them: Title: “Our Week”.
+  'summary.quoted': '“{value}”',
+  // The toolbar's controls pressed, a label and a number: "Controls: 5 on".
+  'summary.controls_on': 'Controls: {count} on',
   'announce.removed': 'Removed {name}.',
   'announce.applied': 'Applied {story}.',
   'announce.moved': 'Moved {name} to position {position} of {total}.',
@@ -152,6 +156,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // A value the YAML holds for a setting a gate withholds; the gate line above it says why.
   'inactive.line': 'Stored but not in use: {label} ({value})',
   'inactive.line_top': 'Stored but not in use: {label} ({value}), from All Layouts',
+  'inactive.line_bare': 'Stored but not in use: {label}',
+  'inactive.line_top_bare': 'Stored but not in use: {label}, from All Layouts',
   // The page's foot: what the layouts this scope is not add to it.
   'other_layouts.one': '{layout} adds here: {names}.',
   'other_layouts.many': '{layouts} add here: {names}.',
@@ -175,6 +181,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'history.redo_named': 'Redo: {action}',
   'history.undone': 'Undid: {action}.',
   'history.redone': 'Redid: {action}.',
+  // A step taken on another page opens it, and the announcement names it.
+  'history.undone_on': 'Undid: {action}. Showing {place}.',
+  'history.redone_on': 'Redid: {action}. Showing {place}.',
   'history.change': 'Change {setting}',
   'history.change_for': 'Change {setting} for {name}',
   'history.reset': 'Reset {setting}',
@@ -250,6 +259,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'color.named_state': '{setting}, {value}, {state}',
   'color.remove': "Remove {name}'s {setting}",
   'color.mix': '{value}, {percent}%',
+  // The Now line's default, the one written as a hex code, by name rather than spelled out.
+  'color.emerald': 'Emerald',
   // Theme colors the card's defaults are written in, as a value reads.
   'color.theme.primary': "Home Assistant's primary color",
   'color.theme.primary_text': 'Primary Text',
@@ -535,7 +546,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'strip.paste_empty': 'Copy settings first',
   'strip.paste_from': 'From {name}',
   'strip.remove': 'Remove {name}',
-  'strip.remove_calendar': 'Remove {name}, Entries: {count}',
+  'strip.remove_calendar': 'Remove {name} ({count} entries)',
   'strip.remove_entry': 'Remove This Entry',
   'strip.remove_entry_named': 'Remove This Entry: {name}',
   // The keys beside a move in an entry page's menu.
@@ -698,8 +709,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'row.expires': 'Expires at {time}',
   'row.conditions': 'Shown under conditions',
   // An entry's name inside a calendar with several, as its controls are named: "Remove Family,
-  // All-day events". A template, so a language can order the two its own way.
-  'row.name': '{name}, {part}',
+  // entry 2, All-day events". A template, so a language can order the three its own way.
+  'row.name': '{name}, entry {position}, {part}',
+  // Under an entry that keeps exactly the events an earlier entry of its calendar keeps.
+  'row.same_events': 'Same events as entry {position}',
 
   // --- Per-calendar settings ------------------------------------------------
   //
@@ -1048,9 +1061,46 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   language_mode: 'Language',
   'language_mode.option.system.label': 'Follow Home Assistant',
-  'language_mode.option.custom.label': 'Choose One',
-  language: 'Language Code',
-  'language.helper': 'A two-letter code such as de, or a regional one such as en-GB.',
+  // Each language the card speaks, by its own name and code, so no translation of this table
+  // is needed: a reader finds their language as they write it.
+  'language_mode.option.bg.label': 'Български (bg)',
+  'language_mode.option.ca.label': 'Català (ca)',
+  'language_mode.option.cs.label': 'Čeština (cs)',
+  'language_mode.option.da.label': 'Dansk (da)',
+  'language_mode.option.de.label': 'Deutsch (de)',
+  'language_mode.option.el.label': 'Ελληνικά (el)',
+  'language_mode.option.en.label': 'English (en)',
+  'language_mode.option.en-gb.label': 'British English (en-gb)',
+  'language_mode.option.es.label': 'Español (es)',
+  'language_mode.option.et.label': 'Eesti (et)',
+  'language_mode.option.fi.label': 'Suomi (fi)',
+  'language_mode.option.fr.label': 'Français (fr)',
+  'language_mode.option.he.label': 'עברית (he)',
+  'language_mode.option.hr.label': 'Hrvatski (hr)',
+  'language_mode.option.hu.label': 'Magyar (hu)',
+  'language_mode.option.is.label': 'Íslenska (is)',
+  'language_mode.option.it.label': 'Italiano (it)',
+  'language_mode.option.ko.label': '한국어 (ko)',
+  'language_mode.option.lt.label': 'Lietuvių (lt)',
+  'language_mode.option.lv.label': 'Latviešu (lv)',
+  'language_mode.option.nb.label': 'Norsk bokmål (nb)',
+  'language_mode.option.nl.label': 'Nederlands (nl)',
+  'language_mode.option.nn.label': 'Norsk nynorsk (nn)',
+  'language_mode.option.pl.label': 'Polski (pl)',
+  'language_mode.option.pt.label': 'Português (pt)',
+  'language_mode.option.ro.label': 'Română (ro)',
+  'language_mode.option.ru.label': 'Русский (ru)',
+  'language_mode.option.sk.label': 'Slovenčina (sk)',
+  'language_mode.option.sl.label': 'Slovenščina (sl)',
+  'language_mode.option.sr.label': 'Српски (sr)',
+  'language_mode.option.sr-latn.label': 'Srpski, latinica (sr-latn)',
+  'language_mode.option.sv.label': 'Svenska (sv)',
+  'language_mode.option.th.label': 'ไทย (th)',
+  'language_mode.option.tr.label': 'Türkçe (tr)',
+  'language_mode.option.uk.label': 'Українська (uk)',
+  'language_mode.option.vi.label': 'Tiếng Việt (vi)',
+  'language_mode.option.zh-cn.label': '简体中文 (zh-cn)',
+  'language_mode.option.zh-tw.label': '繁體中文 (zh-tw)',
   time_format: 'Time Format',
   'time_format.aliases': '12h, 24h, 12-hour clock, 24-hour clock, AM/PM',
   'time_format.option.system.label': 'Follow Home Assistant',

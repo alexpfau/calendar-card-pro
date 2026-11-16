@@ -409,7 +409,7 @@ describe('Split This Calendar on an entry’s page', () => {
     const tagged = [...root(editor).querySelectorAll('.cal-row')]
       .filter((row) => row.querySelector('.tag') !== null)
       .map((row) => text(row.querySelector('.cal-title')));
-    expect(tagged).toEqual(['All-day events New', 'Events with a time New']);
+    expect(tagged).toEqual(['1 · All-day events New', '2 · Events with a time New']);
   });
 
   it('splits by words over the entry’s own blocklist, Match Against held to its field', async () => {

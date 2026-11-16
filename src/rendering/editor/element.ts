@@ -523,6 +523,19 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * A fresh card opens from Home Assistant's card picker, which leaves focus on the page's body
+   * as it goes. The editor then puts it on Start From an Example, its first control, so the
+   * keyboard starts inside the dialog. Anything Home Assistant focused stays focused.
+   */
+  private _greet(): void {
+    if (this._greeted || !this._config) return;
+    this._greeted = true;
+    const active = document.activeElement;
+    if (!this._banner || (active !== null && active !== document.body)) return;
+    Focus.focusFirst(this.renderRoot, [Focus.byFocusKey('quick-setup')]);
+  }
+
+  /**
    * Has Home Assistant load every element the editor's forms draw before a panel first opens.
    *
    * `ha-form` and `ha-selector` import an element the first time a form holds a node that needs
@@ -548,6 +561,7 @@ export class CalendarCardProEditor extends LitElement {
    */
   protected override updated(): void {
     this._syncPick();
+    this._greet();
     // Home Assistant's calendar colors, read through the card's own module once an entry's color
     // control describes one, and watched while this editor is open.
     if (this._registryWanted && !this._registryHeld && this.hass) {
@@ -726,6 +740,9 @@ export class CalendarCardProEditor extends LitElement {
    * card's, and kept until Quick Setup is applied or the banner dismissed.
    */
   @state() private _banner?: boolean;
+
+  /** Whether a fresh card's first focus has been placed, which happens once per editor. */
+  private _greeted = false;
 
   /**
    * The line What This Card Changes is editing in place, and its group: kept drawn while it is
@@ -1245,6 +1262,7 @@ export class CalendarCardProEditor extends LitElement {
     this._grab = undefined;
     this._restore(way === 'undo' ? entry.before : entry.after);
     const { route, workspace, focusKey } = entry.where;
+    const before = this._nav.route;
     if (workspace !== this._selectedWorkspace) this._selectedWorkspace = workspace;
     if (!Navigation.sameRoute(route, this._nav.route)) {
       const from = { route: this._nav.route, scrollTop: Focus.scrollPosition(this) };
@@ -1252,15 +1270,34 @@ export class CalendarCardProEditor extends LitElement {
     }
     // An entry's page the step took away, or the Grid page outside Grid, gives way.
     this._nav = Navigation.validate(this._nav, (each) => this._exists(each)).nav;
-    this._say(
-      interpolate(
-        way === 'undo'
-          ? this._string(this._ctx, 'history.undone')
-          : this._string(this._ctx, 'history.redone'),
-        { action: entry.label },
-      ),
-    );
+    // A step taken on another page opens it, and says so.
+    const place = Navigation.sameRoute(before, this._nav.route)
+      ? undefined
+      : this._placeName(this._nav.route);
+    const ctx = this._ctx;
+    const template =
+      place === undefined
+        ? way === 'undo'
+          ? this._string(ctx, 'history.undone')
+          : this._string(ctx, 'history.redone')
+        : way === 'undo'
+          ? this._string(ctx, 'history.undone_on')
+          : this._string(ctx, 'history.redone_on');
+    this._say(interpolate(template, { action: entry.label, place: place ?? '' }));
     void this.updateComplete.then(() => this._focusRestored(focusKey));
+  }
+
+  /**
+   * What a page or a calendar entry's page is called, as its heading names it.
+   *
+   * @param route - The place
+   * @returns Its name, or `undefined` for a place that is not a page
+   */
+  private _placeName(route: Navigation.Route): string | undefined {
+    if (route.kind === 'entry') return this._entryName(route.key);
+    if (route.kind !== 'page') return undefined;
+    const page = PAGES.find((each) => each.id === route.page);
+    return page === undefined ? undefined : this._pageTitle(page, this._ctx);
   }
 
   /**
@@ -1724,15 +1761,26 @@ export class CalendarCardProEditor extends LitElement {
    * @param field - The field
    * @param ctx - Schema context
    * @param words - Its state words
+   * @param withHelper - Whether its own helper applies to the value it holds
    * @returns The two callbacks
    */
-  private _fieldText(slot: string, field: IndexedField, ctx: SchemaCtx, words?: string) {
+  private _fieldText(
+    slot: string,
+    field: IndexedField,
+    ctx: SchemaCtx,
+    words?: string,
+    withHelper = true,
+  ) {
     const place = Shown.wordsPlace(field.node);
     const yaml = this._prefs.yaml
       ? this._string(ctx, 'search.yaml', { path: this._yamlPath(field, ctx) })
       : undefined;
     const helper =
-      [yaml, words && place === 'helper' ? `${words}.` : undefined, fieldHelper(field, ctx)]
+      [
+        yaml,
+        words && place === 'helper' ? `${words}.` : undefined,
+        withHelper ? fieldHelper(field, ctx) : undefined,
+      ]
         .filter((part) => part !== undefined)
         .join(' ') || undefined;
     const label =
@@ -2982,9 +3030,18 @@ export class CalendarCardProEditor extends LitElement {
               ),
         );
         const top = each.source === 'all-layouts';
+        // A value stored blank has no words to put in brackets.
+        const blank = value.trim() === '';
+        const template = top
+          ? blank
+            ? t('inactive.line_top_bare')
+            : t('inactive.line_top')
+          : blank
+            ? t('inactive.line_bare')
+            : t('inactive.line');
         return [
           {
-            text: interpolate(top ? t('inactive.line_top') : t('inactive.line'), { label, value }),
+            text: interpolate(template, { label, value }),
             // A value from All Layouts is reset there, under Settings For; a reset here cannot
             // reach it, so the line carries no button and is itself where a search lands.
             focus: top ? `inactive:${field.id}` : undefined,
@@ -3110,23 +3167,24 @@ export class CalendarCardProEditor extends LitElement {
       ];
     });
     const open = this._addOpen?.key === key;
+    // A family is one item named by the family, but the closed row names its members: under a
+    // heading named as the family, its name alone would only repeat the heading. The count counts
+    // what it names.
+    const names = plan.add.flatMap((item) =>
+      item.kind === 'family'
+        ? item.ids.flatMap((id) => {
+            const field = known(id);
+            return field === undefined ? [] : [fieldLabel(field, ctx.language)];
+          })
+        : items.filter((each) => each.key === item.id).map((each) => each.label),
+    );
     return ShownView.addRow(
       {
         key,
         heading,
         named,
-        // A family is one item named by the family, but the closed row names its members: under a
-        // heading named as the family, its name alone would only repeat the heading.
-        names: plan.add
-          .flatMap((item) =>
-            item.kind === 'family'
-              ? item.ids.flatMap((id) => {
-                  const field = known(id);
-                  return field === undefined ? [] : [fieldLabel(field, ctx.language)];
-                })
-              : items.filter((each) => each.key === item.id).map((each) => each.label),
-          )
-          .join(' · '),
+        names: names.join(' · '),
+        count: names.length,
         items,
         open,
         query: open ? this._addOpen!.query : '',
@@ -3569,7 +3627,8 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * Adds settings to the session's added set: their page draws them, and nothing is written
-   * (rule 3). Focus moves to the field's wrapper, never into its form, and the change is said.
+   * (rule 3). Focus moves into the one setting added, ready to type into (`views/focus.ts` ›
+   * `focusInto`), or to the first field's wrapper after Show All, and the change is said.
    *
    * @param keys - Added-set keys
    * @param label - The setting added, for "Added Time Font Size."; none for Show All
@@ -3590,7 +3649,15 @@ export class CalendarCardProEditor extends LitElement {
         ? this._string(ctx, 'announce.showing_all', { heading: heading ?? '' })
         : this._string(ctx, 'announce.added', { label }),
     );
-    this._focusSoon([`[data-field="${CSS.escape(focusId)}"]`]);
+    void this.updateComplete.then(() => {
+      const wrapper = this.renderRoot.querySelector<HTMLElement>(
+        `[data-field="${CSS.escape(focusId)}"]`,
+      );
+      if (!wrapper) return;
+      // One setting added is one to type into; Show All lands on the first of them.
+      if (label === undefined) wrapper.focus({ preventScroll: true });
+      else Focus.focusInto(wrapper);
+    });
   }
 
   /**
@@ -3937,12 +4004,18 @@ export class CalendarCardProEditor extends LitElement {
       Focus.focusFirst(root, [...keys, '.row-group .heading', '.page-title']);
       return;
     }
-    const title = Focus.focusFirst(root, ['.page-title']);
-    const target =
-      (heading === undefined
+    const section =
+      heading === undefined
+        ? null
+        : root.querySelector<HTMLElement>(`[data-heading="${CSS.escape(heading)}"]`);
+    // A cross-link lands on the section it names, which is scrolled to the top: its heading, else
+    // its first control (a heading drawn as its Add row); the page's title sits scrolled away.
+    const landed =
+      section === null
         ? undefined
-        : root.querySelector(`[data-heading="${CSS.escape(heading)}"]`)) ??
-      title?.closest('.page-head');
+        : Focus.focusFirst(section, [':scope > .heading', ':scope [data-focus]']);
+    const title = landed ?? Focus.focusFirst(root, ['.page-title']);
+    const target = section ?? title?.closest('.page-head');
     if (target) Focus.scrollToTop(this, target);
   }
 
@@ -5440,6 +5513,21 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * What a row is labeled with, resolved as the card resolves it beside an event: Home
+   * Assistant's icon for the `home-assistant` sentinel, a person's picture for `person.…`, and
+   * the shape `label_type` names over the one the value looks like.
+   *
+   * @param entry - The entry
+   * @returns The label, or `undefined` where the card would draw none
+   */
+  private _rowLabel(entry: string | Types.EntityConfig): CalendarView.RowLabel | undefined {
+    const label = Entities.resolvedLabel(entry, this.hass);
+    if (label === undefined) return undefined;
+    const color = Entities.asEntityConfig(entry).label_icon_color;
+    return label.type === 'icon' && color ? { ...label, color } : label;
+  }
+
+  /**
    * The actions a row's strip offers, on the overview or in an entry page's menu.
    *
    * @param rowKey - The strip's key
@@ -5495,14 +5583,13 @@ export class CalendarCardProEditor extends LitElement {
       );
     }
     if (entryKey === undefined) {
+      const remove = this._string(ctx, 'strip.remove_calendar', { name, count: total });
       actions.push({
         id: 'remove',
-        label: this._string(ctx, 'entity.remove'),
+        // A calendar's row stands over several entries, and Remove takes all of them.
+        label: total > 1 ? remove : this._string(ctx, 'entity.remove'),
         icon: mdiDeleteOutline,
-        name: this._string(ctx, 'strip.remove_calendar', {
-          name,
-          count: total,
-        }),
+        name: total > 1 ? remove : interpolate(this._string(ctx, 'strip.remove'), { name }),
         danger: true,
         onPress: () => this._removeCalendar(entityId),
       });
@@ -5636,6 +5723,8 @@ export class CalendarCardProEditor extends LitElement {
       });
     const grab = this._grabbed('calendar');
     const calendars = CalendarList.groups(state);
+    // Every row keeps a label slot once any has a label, so the names align.
+    const labelSlot = entities.some((entry) => this._rowLabel(entry) !== undefined);
     const preview =
       grab === undefined ? undefined : Reorder.order(this._calendarKeys(calendars), grab);
     return calendars.flatMap((calendar) => {
@@ -5669,19 +5758,31 @@ export class CalendarCardProEditor extends LitElement {
           position: row.position,
           total: row.total,
         });
+        // Inside a calendar listed more than once, each entry is numbered and says when it keeps
+        // the very events an earlier one keeps, which shows each of them twice.
+        const same = grouped ? CalendarList.sameEventsAs(state, row.index) : undefined;
+        const tail = [
+          ...(same === undefined ? [] : [this._string(ctx, 'row.same_events', { position: same })]),
+          set(entry),
+        ];
         const described = grouped
-          ? [name, ...parts, set(entry), position]
+          ? [name, position, ...parts, ...tail]
           : [name, ...parts, set(entry)];
         return [
           {
             key: row.key,
-            title: grouped ? parts.join(Summary.SUMMARY_SEPARATOR) : name,
-            summary: grouped ? set(entry) : [...parts, set(entry)].join(Summary.SUMMARY_SEPARATOR),
+            title: grouped
+              ? [String(row.position), ...parts].join(Summary.SUMMARY_SEPARATOR)
+              : name,
+            summary: grouped
+              ? tail.join(Summary.SUMMARY_SEPARATOR)
+              : [...parts, set(entry)].join(Summary.SUMMARY_SEPARATOR),
             editName: this._string(ctx, 'calendars.edit', {
               row: described.join(', '),
             }),
             color: this._rowColor(entry),
-            badge: this._rowBadge(entry),
+            label: this._rowLabel(entry),
+            labelSlot,
             missing,
             tag: this._newEntries.has(row.key) ? this._string(ctx, 'split.new') : undefined,
             moves: grouped ? undefined : calendar.entityId,
@@ -6102,7 +6203,12 @@ export class CalendarCardProEditor extends LitElement {
           iconPath: mdiPlus,
           onPress: () => {
             this._adding = {};
-            this._focusSoon([Focus.byFocusKey('add-picker')]);
+            void this.updateComplete.then(() => {
+              const picker = this.renderRoot.querySelector<HTMLElement>(
+                Focus.byFocusKey('add-picker'),
+              );
+              if (picker) Focus.focusInto(picker);
+            });
           },
         },
         ' add-calendar-button',
@@ -6588,7 +6694,15 @@ export class CalendarCardProEditor extends LitElement {
       this._calendarName(Synthetic.entityIdOf(this._entryOf(key) ?? '')),
     );
     if (words !== undefined) return this._jumpedEntryField(ctx, key, field, words);
-    const text = this._fieldText(slot, field, ctx, show?.words);
+    const name = parseFieldId(field.id).name;
+    const helpedValue = Entities.HELPER_FOR_VALUE[name];
+    const text = this._fieldText(
+      slot,
+      field,
+      ctx,
+      show?.words,
+      helpedValue === undefined || data[name] === helpedValue,
+    );
     const schema = this._intern(slot, this._yamlSchema(field, data, ctx));
     // The field's own projection of the entry's data, as a card field gets, so a write to one
     // field hands no other form a new object.
@@ -7493,9 +7607,10 @@ export class CalendarCardProEditor extends LitElement {
       open: pageOpen,
       onToggle: () => this._toggleStrip('page'),
     });
-    const sub = single
-      ? entityId
-      : `${entityId}${Summary.SUMMARY_SEPARATOR}${this._string(ctx, 'entity.occurrence', {
+    // Inside a calendar listed more than once, the heading says which entry this is.
+    const title = single
+      ? name
+      : `${name}${Summary.SUMMARY_SEPARATOR}${this._string(ctx, 'entity.occurrence', {
           position: row.position,
           total: row.total,
         })}`;
@@ -7534,11 +7649,11 @@ export class CalendarCardProEditor extends LitElement {
       data-move-calendar=${single ? entityId : nothing}
     >
       ${PageView.pageHead(
-        name,
+        title,
         t,
         this._back,
         html`${this._renderHistory(ctx)} ${more}`,
-        sub,
+        entityId,
         this._string(ctx, 'entry.back'),
       )}
       ${this._renderPickBanner(ctx)}

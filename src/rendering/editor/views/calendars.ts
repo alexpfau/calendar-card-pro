@@ -112,6 +112,41 @@ export function moreButton(more: MoreButton): TemplateResult {
   </button>`;
 }
 
+/** A calendar's label, resolved as the card resolves it (`utils/events.ts` › `resolveEntityLabel`). */
+export interface RowLabel {
+  readonly type: 'text' | 'icon' | 'image';
+  /** The words, the icon's name or the picture's address. */
+  readonly value: string;
+  /** An icon's color, `label_icon_color`. */
+  readonly color?: string;
+}
+
+/**
+ * A row's label slot: the label as the card draws it beside an event, decorative beside the
+ * calendar's name. An icon goes through Home Assistant's `ha-icon`, the one place the list names
+ * an element of Home Assistant's, and only where it is defined; elsewhere the slot stays empty.
+ *
+ * @param label - The label, where the entry has one
+ * @param slot - Whether the list keeps a slot on every row, so names align
+ * @returns The slot, or nothing on a list where no row has a label
+ */
+export function rowLabel(
+  label: RowLabel | undefined,
+  slot: boolean,
+): TemplateResult | typeof nothing {
+  if (!slot && label === undefined) return nothing;
+  let drawn: TemplateResult | typeof nothing = nothing;
+  if (label?.type === 'text') drawn = html`${label.value}`;
+  else if (label?.type === 'image') drawn = html`<img src=${label.value} alt="" />`;
+  else if (label?.type === 'icon' && customElements.get('ha-icon') !== undefined) {
+    drawn = html`<ha-icon
+      .icon=${label.value}
+      style=${styleMap(label.color ? { color: label.color } : {})}
+    ></ha-icon>`;
+  }
+  return html`<span class="cal-badge" aria-hidden="true">${drawn}</span>`;
+}
+
 /** One entry, as its row draws it. */
 export interface EntryRowModel {
   readonly key: number;
@@ -123,8 +158,10 @@ export interface EntryRowModel {
   readonly editName: string;
   /** A CSS color for the dot, where the entry has one. */
   readonly color?: string;
-  /** Text or emoji the entry is labeled with. */
-  readonly badge?: string;
+  /** What the entry is labeled with. */
+  readonly label?: RowLabel;
+  /** Whether the list keeps a label slot on every row. */
+  readonly labelSlot: boolean;
   /** Whether Home Assistant no longer has its calendar. */
   readonly missing: boolean;
   /** A tag beside the title: "New", for an entry a split wrote this session. */
@@ -185,7 +222,7 @@ function entryRow(row: EntryRowModel, grouped: boolean): TemplateResult {
           aria-hidden="true"
           style=${styleMap(row.color ? { '--cal-dot': row.color } : {})}
         ></span>
-        ${row.badge ? html`<span class="cal-badge" aria-hidden="true">${row.badge}</span>` : nothing}
+        ${rowLabel(row.label, row.labelSlot)}
         <span class="cal-text">
           <span class="cal-title"
             >${row.title}${row.tag ? html` <span class="tag">${row.tag}</span>` : nothing}</span

@@ -395,6 +395,34 @@ describe('rowParts', () => {
   });
 });
 
+describe('sameEventsAs', () => {
+  it('names the earlier entry of a calendar that keeps exactly the same events', () => {
+    const list = state([
+      { entity: 'calendar.ben', event_type: 'all_day', accent_color: '#ff0000' },
+      'calendar.leo',
+      // Differs only in how it looks: the same events, listed twice.
+      { entity: 'calendar.ben', event_type: 'all_day', accent_color: '#0000ff' },
+      { entity: 'calendar.ben', event_type: 'timed' },
+      { entity: 'calendar.ben', event_type: 'timed', blocklist: 'Private' },
+    ]);
+
+    expect([0, 1, 2, 3, 4].map((index) => List.sameEventsAs(list, index))).toEqual([
+      undefined,
+      undefined,
+      1,
+      undefined,
+      undefined,
+    ]);
+  });
+
+  it('reads a bare id as an entry that sets nothing', () => {
+    const list = state(['calendar.ben', { entity: 'calendar.ben', label: 'B' }]);
+
+    expect(List.sameEventsAs(list, 1)).toBe(1);
+    expect(List.sameEventsAs(list, 9)).toBeUndefined();
+  });
+});
+
 describe('rowName', () => {
   const hass = {
     states: { 'calendar.ben': { attributes: { friendly_name: 'Ben (Work)' } } },
@@ -407,14 +435,14 @@ describe('rowName', () => {
     expect(List.rowName(list, 1, 'en', hass)).toBe('calendar.leo');
   });
 
-  it('adds the first part inside a calendar with several entries, and prefers the card’s name', () => {
+  it('adds the number and first part inside a calendar with several entries, and prefers the card’s name', () => {
     const list = state([
       { entity: 'calendar.ben', event_type: 'all_day' },
       { entity: 'calendar.ben', name: 'Ben', event_type: 'timed', blocklist: 'Private' },
     ]);
 
-    expect(List.rowName(list, 0, 'en', hass)).toBe('Ben, All-day events');
-    expect(List.rowName(list, 1, 'en', hass)).toBe('Ben, Events with a time');
+    expect(List.rowName(list, 0, 'en', hass)).toBe('Ben, entry 1, All-day events');
+    expect(List.rowName(list, 1, 'en', hass)).toBe('Ben, entry 2, Events with a time');
   });
 
   it('is empty for an index outside the list', () => {

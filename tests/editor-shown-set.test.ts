@@ -193,7 +193,8 @@ describe('what a page shows of a fresh card', () => {
     ].map((id) => fieldLabel(EVERY.get(id as FieldId)!, 'en'));
     // The heading is "Past Days", so naming the family there would only say it twice.
     expect(group.querySelector('.add-names')!.textContent).toBe(members.join(' · '));
-    expect(group.querySelector('.add-count')!.textContent).toBe('Settings: 1');
+    // The count counts what the row names, the family's members each.
+    expect(group.querySelector('.add-count')!.textContent).toBe('Settings: 3');
     (group.querySelector('.add-toggle') as HTMLButtonElement).click();
     await editor.updateComplete;
     const items = [...group.querySelectorAll('.add-item .add-item-label')].map(

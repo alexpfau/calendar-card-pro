@@ -28,6 +28,57 @@ export function focusFirst(
   return undefined;
 }
 
+/** What takes focus inside a control. */
+const FOCUSABLE =
+  'input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), ' +
+  'select:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * The first element that takes focus inside an element, through every shadow root below it, in
+ * document order, passing over the line under a field.
+ *
+ * @param root - Where to look
+ * @returns The element, or `undefined`
+ */
+export function firstFocusable(root: Element | ShadowRoot): HTMLElement | undefined {
+  for (const child of root.children) {
+    // The line under a field holds its Reset and Remove, never what is typed into.
+    if (child.matches('.field-line')) continue;
+    if (child.matches(FOCUSABLE)) return child as HTMLElement;
+    const inside =
+      (child.shadowRoot ? firstFocusable(child.shadowRoot) : undefined) ?? firstFocusable(child);
+    if (inside) return inside;
+  }
+  return undefined;
+}
+
+/**
+ * Puts focus on what the user asked for in order to type into it: the first control inside an
+ * element, Home Assistant's included, once its forms have drawn. The element itself takes focus
+ * first, so focus is never lost while they draw, and keeps it where no control appears within a
+ * second, or where focus has moved on meanwhile.
+ *
+ * The one exception to this module's rule that focus never goes inside a form: Add Calendar and
+ * Add Setting are asked for in order to type, and a wrapper takes no typing.
+ *
+ * @param element - The wrapper, focusable itself
+ */
+export function focusInto(element: HTMLElement): void {
+  element.focus({ preventScroll: true });
+  const until = Date.now() + 1000;
+  const root = element.getRootNode() as Document | ShadowRoot;
+  const step = (): void => {
+    if (!element.isConnected || root.activeElement !== element) return;
+    const control = firstFocusable(element);
+    if (control) {
+      control.focus({ preventScroll: true });
+      return;
+    }
+    if (Date.now() < until) requestAnimationFrame(step);
+  };
+  step();
+}
+
 /**
  * The selector for the control a `data-focus` key names.
  *

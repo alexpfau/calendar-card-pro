@@ -28,6 +28,7 @@ import { buildEntitySchema } from './schemas/entity';
 import { interpolate } from './strings';
 import * as Synthetic from './synthetic';
 import type { WriteOwner } from './write-frames';
+import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
 import {
   ACCENT_TEXT_SENTINEL,
@@ -469,6 +470,10 @@ function describeText(
     const key = COLOR_THEME_NAMES[name];
     if (key !== undefined) return lookup(language, key) ?? text;
     if (THEME_COLOR_TOKENS.has(token)) return options.haName?.(token) ?? text;
+  }
+  // The one default written as a hex code, the Now line's, read by its name rather than spelled.
+  if (text.toLowerCase() === Config.DEFAULT_CONFIG.now_color) {
+    return lookup(language, 'color.emerald') ?? text;
   }
   return text;
 }

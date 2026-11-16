@@ -14,6 +14,7 @@ import {
   mdiLayersOutline,
 } from '@mdi/js';
 import { type TemplateResult, html, nothing } from 'lit';
+import { live } from 'lit/directives/live.js';
 
 import { icon } from './icon';
 import { interpolate } from '../strings';
@@ -107,7 +108,12 @@ export function scopeControl(
               name="scope"
               value=${choice.value}
               data-focus=${`scope:${choice.value}`}
-              .checked=${choice.value === model.workspace}
+              .checked=${
+                // Compared with the radio as it is, not as Lit last set it: after Duplicate and
+                // Back, Home Assistant showed this group with nothing checked, a page's Settings
+                // For sharing its name.
+                live(choice.value === model.workspace)
+              }
               aria-label=${
                 choice.set > 0
                   ? interpolate(t('settings_for.option_set'), {

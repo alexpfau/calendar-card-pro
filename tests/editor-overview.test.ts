@@ -191,7 +191,7 @@ describe('section row summaries', () => {
   it('words a dropdown by its option label and leaves out a field not built here', () => {
     const raw = { ...LIST_CARD, title: 'Family' };
     expect(summaryOf(page('card_header'), raw, 'shared')).toBe(
-      'Title: Family · Show Toolbar: Off · Set: 1',
+      'Title: “Family” · Show Toolbar: Off · Set: 1',
     );
     expect(summaryOf(page('events'), { ...LIST_CARD, show_time: false }, 'shared')).toBe(
       'Location · Now · Time Format: Follow Home Assistant · Set: 1',
@@ -225,10 +225,18 @@ describe('section row summaries', () => {
     expect(summaryOf(page('events'), none, 'shared')).toBe(
       'Time Format: Follow Home Assistant · Set: 3',
     );
-    // The toolbar's controls only while the toolbar shows them.
+    // The toolbar's controls only while the toolbar shows them, counted: their names read as
+    // actions ("Reset").
     const toolbar = { ...LIST_CARD, toolbar: { show: true, reset: false, search: false } };
     expect(summaryOf(page('card_header'), toolbar, 'shared')).toMatch(
-      /^Show Toolbar: On · Add Event · View Switcher · Refresh · Date Navigation · Set: 3$/,
+      /^Show Toolbar: On · Controls: 4 on · Set: 3$/,
+    );
+  });
+
+  it('quotes a title, so one holding the separator stays one value', () => {
+    const raw = { ...LIST_CARD, title: 'Everything · Grid' };
+    expect(summaryOf(page('card_header'), raw, 'shared')).toBe(
+      'Title: “Everything · Grid” · Show Toolbar: Off · Set: 1',
     );
   });
 

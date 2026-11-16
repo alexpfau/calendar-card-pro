@@ -192,15 +192,15 @@ describe('a row', () => {
     const [first, , third] = keysOf(editor, 'entry');
 
     expect(rows(editor).map(([name]) => name)).toEqual([
-      'Edit Family, All-day events, Set: 1, entry 1 of 2',
-      'Edit Family, Events with a time, Without: Private, Set: 2, entry 2 of 2',
+      'Edit Family, entry 1 of 2, All-day events, Set: 1',
+      'Edit Family, entry 2 of 2, Events with a time, Without: Private, Set: 2',
       'Edit Anna, All events, Set: 0',
     ]);
     expect(control(editor, `more:entry:${first}`)?.getAttribute('aria-label')).toBe(
-      'Actions for Family, All-day events',
+      'Actions for Family, entry 1, All-day events',
     );
     expect(control(editor, `more:entry:${third}`)?.getAttribute('aria-label')).toBe(
-      'Actions for Family, Events with a time',
+      'Actions for Family, entry 2, Events with a time',
     );
     expect(control(editor, `more:calendar:${FAMILY}`)?.getAttribute('aria-label')).toBe(
       'Actions for Family',
@@ -342,7 +342,9 @@ describe('focus and announcements', () => {
       'Both entries show the same events until one sets Event Type or a word list, so each event ' +
         'shows twice for now.',
     );
-    expect(page.querySelector('.page-sub')?.textContent).toBe(`${ANNA} · Entry 2 of 2`);
+    // Which entry this is sits in the page's heading; the line under it names the calendar.
+    expect(page.querySelector('.page-title')?.textContent).toBe('Anna · Entry 2 of 2');
+    expect(page.querySelector('.page-sub')?.textContent).toBe(ANNA);
 
     await press(editor, 'back-top');
     expect(focused(editor)).toBe(`row:${anna}`);
@@ -388,6 +390,10 @@ describe('focus and announcements', () => {
       { entity: FAMILY, event_type: 'timed' },
     ]);
     await press(editor, `more:calendar:${FAMILY}`);
+    // Remove on a calendar's own row takes every entry, and says how many before it does.
+    const remove = control(editor, `strip:calendar:${FAMILY}:remove`)!;
+    expect(remove.querySelector('.strip-label')?.textContent).toBe('Remove Family (2 entries)');
+    expect(remove.getAttribute('aria-label')).toBe('Remove Family (2 entries)');
 
     await press(editor, `strip:calendar:${FAMILY}:remove`);
 
@@ -408,13 +414,13 @@ describe('focus and announcements', () => {
 
     expect(control(editor, 'entry-previous')?.disabled).toBe(true);
     expect(control(editor, 'entry-next')?.getAttribute('aria-label')).toBe(
-      'Next calendar: Family, Events with a time',
+      'Next calendar: Family, entry 2, Events with a time',
     );
     await press(editor, 'entry-next');
     expect(editor.shadowRoot!.querySelector('.entry-page')?.getAttribute('data-entry-key')).toBe(
       String(timed),
     );
-    expect(said(editor)).toBe('Showing Family, Events with a time.');
+    expect(said(editor)).toBe('Showing Family, entry 2, Events with a time.');
     await press(editor, 'entry-next');
     expect(control(editor, 'entry-next')?.disabled).toBe(true);
     expect(editor.shadowRoot!.querySelector('.entry-page')?.getAttribute('data-entry-key')).toBe(

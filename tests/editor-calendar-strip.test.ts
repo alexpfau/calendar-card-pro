@@ -180,8 +180,8 @@ describe('rows of a calendar listed more than once', () => {
     // together, where the calendar first appears, as everything downstream reads it.
     expect(rows(editor)).toEqual([
       'calendar.family / Entries: 2',
-      'All-day events / Set: 1',
-      'Events with a time / Set: 1',
+      '1 · All-day events / Set: 1',
+      '2 · Events with a time / Set: 1',
       'calendar.other / All events · Set: 0',
     ]);
   });
@@ -332,16 +332,17 @@ describe('the strip', () => {
 
     expect(rows(editor)).toEqual([
       'Family / Entries: 2',
-      'All-day events / Set: 1',
-      'All-day events / Set: 1',
+      '1 · All-day events / Set: 1',
+      // The copy keeps the very events the original does, and its row says so.
+      '2 · All-day events / Same events as entry 1 · Set: 1',
     ]);
     expect(
       [...editor.shadowRoot!.querySelectorAll('.cal-body')].map((row) =>
         row.getAttribute('aria-label'),
       ),
     ).toEqual([
-      'Edit Family, All-day events, Set: 1, entry 1 of 2',
-      'Edit Family, All-day events, Set: 1, entry 2 of 2',
+      'Edit Family, entry 1 of 2, All-day events, Set: 1',
+      'Edit Family, entry 2 of 2, All-day events, Same events as entry 1, Set: 1',
     ]);
   });
 

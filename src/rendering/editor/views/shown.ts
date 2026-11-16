@@ -108,10 +108,12 @@ export interface AddRow {
   /** Whether nothing under the heading is live, so the row carries the heading's name. */
   readonly named: boolean;
   /**
-   * Every setting's name, as the closed row shows them: clamped to two lines and cut with an
-   * ellipsis, while the count beside them carries the total.
+   * Every setting's name, a family's members each by name, as the closed row shows them: clamped
+   * to two lines and cut with an ellipsis, while the count beside them carries the total.
    */
   readonly names: string;
+  /** How many names `names` lists, which the count beside them says. */
+  readonly count: number;
   readonly items: ReadonlyArray<AddItem>;
   readonly open: boolean;
   readonly query: string;
@@ -133,7 +135,7 @@ const FILTER_PAST = 7;
  * @returns The row
  */
 export function addRow(row: AddRow, t: Translate): TemplateResult {
-  const count = String(row.items.length);
+  const count = String(row.count);
   const counted = interpolate(t('add.count'), { count });
   const query = row.query.trim().toLowerCase();
   const items =

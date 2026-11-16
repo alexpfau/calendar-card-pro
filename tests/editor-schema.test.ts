@@ -91,7 +91,6 @@ import {
   timeGridFormBlock,
   toStoredConfig,
 } from '../src/rendering/editor/value';
-import { getEffectiveLanguage } from '../src/translations/localize';
 import { memoizeLast, resolveLabelType } from '../src/utils/helpers';
 
 /**
@@ -590,39 +589,18 @@ describe('editor: a cleared field keeps its control', () => {
     expect(retyped.pending).not.toHaveProperty('start_date_fixed');
   });
 
-  /**
-   * `language` is a real config key bound straight to a text box, so it cannot be held
-   * the way a synthetic field is — naming it in `SYNTHETIC_FIELDS` would have
-   * `toStoredConfig` delete it as UI state. The mode reads presence instead, so an empty
-   * box is still *custom*.
-   *
-   * Safe because the card already agrees: `getEffectiveLanguage` tests
-   * `configLanguage.trim() !== ''`, so an empty custom language follows Home Assistant
-   * exactly as *system* does. The preview does not change while the box is empty.
-   */
-  it('keeps the language box on screen while it is cleared and retyped', () => {
-    const config = buildConfig({ language: 'de' });
-    expect(languageMode(config)).toBe('custom');
-
-    const step = clear(config, 'language');
-
-    expect(languageMode(step.config), 'the box survived').toBe('custom');
-    expect(getEffectiveLanguage(step.config.language, { language: 'fr' })).toBe('fr');
-
-    const before = { ...step.config, ...deriveSyntheticData(step.config, step.pending) };
-    const retyped = applyFormChange(
-      step.config,
-      before,
-      { ...before, language: 'nl' },
-      step.pending,
-    );
-
-    expect(retyped.config.language).toBe('nl');
-    expect(languageMode(retyped.config)).toBe('custom');
+  it('names a language the card speaks in one dropdown, and Home Assistant’s otherwise', () => {
+    expect(languageMode(buildConfig({ language: 'de' }))).toBe('de');
+    // Any case, as the card reads it.
+    expect(languageMode(buildConfig({ language: 'en-GB' }))).toBe('en-gb');
+    // The card follows Home Assistant for a code it does not speak, and so does the dropdown.
+    expect(languageMode(buildConfig({ language: 'xx' }))).toBe('system');
+    expect(languageMode(buildConfig({ language: '' }))).toBe('system');
+    expect(languageMode(buildConfig())).toBe('system');
   });
 
-  it('still returns the language to the system when the mode says so', () => {
-    const config = buildConfig({ language: '' });
+  it('still returns the language to the system when the dropdown says so', () => {
+    const config = buildConfig({ language: 'de' });
     const before = { ...config, ...deriveSyntheticData(config) };
     const switched = applyFormChange(config, before, { ...before, language_mode: 'system' }, {});
 
@@ -2112,11 +2090,11 @@ describe('editor: the fields whose stored shape no selector can emit', () => {
     expect(stored).not.toHaveProperty('language');
   });
 
-  it('seeds a language rather than leaving the field to vanish on the next render', () => {
-    const { config } = applyOne(buildConfig(), 'language_mode', 'custom');
+  it('writes the language a dropdown option names', () => {
+    const { config } = applyOne(buildConfig(), 'language_mode', 'nl');
 
-    expect(config.language).toBeTruthy();
-    expect(deriveSyntheticData(config).language_mode).toBe('custom');
+    expect(config.language).toBe('nl');
+    expect(deriveSyntheticData(config).language_mode).toBe('nl');
   });
 });
 
@@ -2607,9 +2585,10 @@ describe('editor: the Time Range & Content panel', () => {
     expect(applied.config.start_date).toBe('-7');
   });
 
-  it('holds the language field in place while its code is being retyped', () => {
+  it('offers Language as one dropdown, with no code box beside it', () => {
     const config = buildConfig({ language: 'de' });
-    expect(namesIn(config)).toContain('language');
+    expect(namesIn(config)).toContain('language_mode');
+    expect(namesIn(config)).not.toContain('language');
   });
 
   /**
