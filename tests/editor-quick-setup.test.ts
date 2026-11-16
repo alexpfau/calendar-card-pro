@@ -385,6 +385,42 @@ describe('Quick Setup', () => {
     );
   });
 
+  it('marks its progress and the example picked, and asks step 4 with Home Assistant’s own switches', async () => {
+    const { editor } = await mount();
+    await click(editor, '[data-quick-setup-open]');
+    const progress = (): string[] =>
+      [...root(editor).querySelectorAll('.quick-setup-progress > li')].map(
+        (each) => `${each.textContent!.trim()}:${each.className}`,
+      );
+    expect(progress()).toEqual([
+      'Starting Point:current',
+      'Title & Calendars:',
+      'Weather:',
+      'Taps & Toolbar:',
+      'Review:',
+    ]);
+    expect(root(editor).querySelectorAll('.story-option.checked')).toHaveLength(0);
+
+    await click(editor, '[data-story="now_and_next"]');
+    const picked = [...root(editor).querySelectorAll('.story-option.checked [data-story]')];
+    expect(picked.map((each) => each.getAttribute('data-story'))).toEqual(['now_and_next']);
+
+    for (let i = 0; i < 3; i++) await click(editor, '[data-quick-setup-next]');
+    expect(step(editor)).toBe('taps');
+    expect(progress().map((each) => each.split(':')[1])).toEqual([
+      'done',
+      'done',
+      'done',
+      'current',
+      '',
+    ]);
+    const [taps] = formsOf(editor, CHASSIS);
+    expect(taps.classList.contains('boxed')).toBe(true);
+    expect(
+      taps.schema.map((field) => ('selector' in field ? Object.keys(field.selector) : [])),
+    ).toEqual([['boolean'], ['boolean'], ['boolean']]);
+  });
+
   it('draws exactly the forms subforms.ts declares for it, one per step, in order', async () => {
     // The i18n gate reads Quick Setup's strings through `chassisSubforms`, so a form drawn here
     // and not declared there would escape it.

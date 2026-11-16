@@ -423,7 +423,6 @@
   "split.edit_allowlist": "Rediģēt „Rādīt tikai notikumus, kuros ir“",
   "split.edit_blocklist": "Rediģēt „Slēpt notikumus, kuros ir“",
   "split.go_budget": "Doties uz „Kompaktrežīmā rādāmie notikumi“",
-  "split.colors.title": "Krāsas un etiķetes",
   "split.colors.intro": "Abas daļas saglabā nosaukumu „{name}“, kas ir kopīgs visiem kalendāra ierakstiem. Kalendāru sarakstā un kartē tās atšķir pēc tā, ko tās rāda, un pēc šiem iestatījumiem.",
   "split.part_of": "{part}. daļa no {total}",
   "split.color_now": "Kalendāra „{name}“ pašreizējā krāsa.",

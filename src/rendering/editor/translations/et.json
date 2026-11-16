@@ -423,7 +423,6 @@
   "split.edit_allowlist": "Muuda seadet „Näita ainult sündmusi, mis sisaldavad“",
   "split.edit_blocklist": "Muuda seadet „Peida sündmused, mis sisaldavad“",
   "split.go_budget": "Mine seadele „Kompaktrežiimis kuvatavad sündmused“",
-  "split.colors.title": "Värvid ja sildid",
   "split.colors.intro": "Mõlemad osad säilitavad nime {name}, mis on ühine kõigile kalendri kirjetele. Kalendrite loend ja kaart eristavad neid selle järgi, mida need näitavad, ning nende värvide ja siltide järgi.",
   "split.part_of": "Osa {part}/{total}",
   "split.color_now": "Kalendri {name} praegune värv.",

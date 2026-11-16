@@ -333,7 +333,6 @@
   "split.edit_allowlist": "‘다음을 포함하는 이벤트만 표시’ 편집",
   "split.edit_blocklist": "‘다음을 포함하는 이벤트 숨기기’ 편집",
   "split.go_budget": "컴팩트 모드 표시 이벤트 수로 이동",
-  "split.colors.title": "색상 및 라벨",
   "split.colors.intro": "두 부분 모두 {name} 이름을 유지합니다. 한 캘린더의 모든 항목은 이 이름을 공유합니다. 캘린더 목록과 카드는 표시하는 내용과 이 설정들로 두 부분을 구분합니다.",
   "split.part_of": "부분 {part}/{total}",
   "split.color_now": "{name}의 현재 색상.",
