@@ -160,6 +160,7 @@ const CHASSIS_FORMS: Readonly<Record<string, string>> = {
   'add-calendar-form': 'add_calendar',
   'entry-calendar-form': 'entry_calendar',
   'split-form': 'split',
+  'pref-form': 'prefs',
 };
 
 /** The editor's own radio groups, by the id a test names them with, with each input's name. */
@@ -1802,27 +1803,53 @@ async function keepEntries(editor: EditorElement): Promise<void> {
 }
 
 /**
+ * A preference's switch under More, Home Assistant's own in a form of its own.
+ *
+ * @param editor - Editor element, on the overview
+ * @param key - The preference
+ * @returns Its form, where the overview draws it
+ */
+export function prefForm(editor: EditorElement, key: 'every' | 'yaml'): FormElement | undefined {
+  return (
+    editor.shadowRoot?.querySelector<FormElement>(`ha-form.pref-form[data-focus="pref:${key}"]`) ??
+    undefined
+  );
+}
+
+/**
+ * Flips a preference under More, as its switch does: the form reports its data with the
+ * preference turned over.
+ *
+ * @param editor - Editor element, on the overview
+ * @param key - The preference
+ */
+export async function togglePref(editor: EditorElement, key: 'every' | 'yaml'): Promise<void> {
+  const form = prefForm(editor, key);
+  if (!form) outOfStep(`The editor draws no switch for the preference ${key}`);
+  const data = form.data as Record<string, unknown>;
+  form.dispatchEvent(
+    new CustomEvent('value-changed', { detail: { value: { ...data, [key]: data[key] !== true } } }),
+  );
+  await editor.updateComplete;
+}
+
+/**
  * Turns on Show Every Setting from the overview, as a user would, so every page draws every
- * setting that applies; a test reading every form visits them so. Its switch is pressed again
- * afterwards, so what the browser remembers is left as it was.
+ * setting that applies; a test reading every form visits them so. Its switch is turned off
+ * again afterwards, so what the browser remembers is left as it was.
  *
  * @param editor - Editor element, on the overview
  * @returns Puts the preference back, from the overview
  */
 async function showEverySetting(editor: EditorElement): Promise<() => Promise<void>> {
-  const control = editor.shadowRoot?.querySelector<HTMLElement>('[data-focus="pref:every"]');
-  if (
-    control === null ||
-    control === undefined ||
-    control.getAttribute('aria-checked') === 'true'
-  ) {
+  const form = prefForm(editor, 'every');
+  if (form === undefined || (form.data as Record<string, unknown>).every === true) {
     return async () => undefined;
   }
-  control.click();
-  await editor.updateComplete;
+  await togglePref(editor, 'every');
   return async () => {
     await goOverview(editor);
-    await press(editor, '[data-focus="pref:every"]', 'Show Every Setting');
+    await togglePref(editor, 'every');
   };
 }
 
@@ -2100,7 +2127,7 @@ export async function mountEditor(
   document.body.appendChild(editor);
   await editor.updateComplete;
   if (options.every === true) {
-    await press(editor, '[data-focus="pref:every"]', 'Show Every Setting');
+    await togglePref(editor, 'every');
     // What the browser remembers stays as the test found it.
     localStorage.removeItem(PREFS_KEY);
   }

@@ -150,6 +150,7 @@ export function colorControl(view: ColorControlView): TemplateResult {
                         : nothing
                     }
                   </span>
+                  ${row.checked ? icon(mdiCheck, 'color-check') : nothing}
                 </label>`,
             )}
             <fieldset class="color-swatches">
@@ -176,6 +177,7 @@ export function colorControl(view: ColorControlView): TemplateResult {
                 <span class="color-row-label">${view.custom.label}</span>
                 <span class="display-description">${view.custom.description}</span>
               </span>
+              ${view.custom.checked ? icon(mdiCheck, 'color-check') : nothing}
             </label>
             ${
               view.field

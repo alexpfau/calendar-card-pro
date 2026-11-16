@@ -23,6 +23,7 @@ import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import {
   ADD_CALENDAR_PATH,
   ENTRY_CALENDAR_PATH,
+  PREFS_PATH,
   chassisSubforms,
 } from '../src/rendering/editor/subforms';
 import { configKeysForField } from '../src/rendering/editor/synthetic';
@@ -226,22 +227,24 @@ describe('the chassis draws exactly the forms subforms.ts declares', () => {
       const [display, scope, filter] = at([]);
       const [addCalendar] = at(ADD_CALENDAR_PATH);
       const [entryCalendar] = at(ENTRY_CALENDAR_PATH);
-      // The filter bar is a form; Card Displays and Settings For are the editor's own radio
-      // groups, drawn from the options their declared schemas hold.
+      const prefs = at(PREFS_PATH);
+      // The filter bar and the preferences under More are forms; Card Displays and Settings For
+      // are the editor's own radio groups, drawn from the options their declared schemas hold.
       expect(
         formsOf(editor, CHASSIS).map((form) => form.schema),
         view,
-      ).toEqual([filter]);
+      ).toEqual([filter, ...prefs]);
       // Add Calendar's picker is drawn only while Add Calendar is open, below the filter bar.
       editor.shadowRoot!.querySelector<HTMLElement>('[data-focus="add-calendar"]')!.click();
       await editor.updateComplete;
       const adding = formsOf(editor, CHASSIS).map((form) => form.schema);
-      expect(adding, view).toHaveLength(2);
+      expect(adding, view).toHaveLength(2 + prefs.length);
       expect(adding[0], view).toBe(filter);
       expect(withoutExcluded(adding[1]), view).toEqual(addCalendar);
+      expect(adding.slice(2), view).toEqual(prefs);
       editor.shadowRoot!.querySelector<HTMLElement>('[data-focus="add-cancel"]')!.click();
       await editor.updateComplete;
-      expect(formsOf(editor, CHASSIS), view).toHaveLength(1);
+      expect(formsOf(editor, CHASSIS), view).toHaveLength(1 + prefs.length);
       // An entry page draws its Calendar, and no filter bar.
       await goEntry(editor, keysOf(editor, 'entry')[0]);
       expect(
@@ -287,6 +290,8 @@ describe('displayed view and editing workspace are separate controls', () => {
       'search',
       'pick',
       'calendar',
+      'every',
+      'yaml',
       'card_title',
       'card_calendars',
       'weather_entity',

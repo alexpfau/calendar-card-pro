@@ -1,8 +1,8 @@
 /**
  * What a page draws around its live fields (backlog item 307): the line under a field with its
  * notes and its Reset or Remove, a heading's Add row, its gate line and the values stored for
- * settings that are not in use, the page's line naming what other layouts add, and the two
- * preferences. Templates only, as `overview.ts`.
+ * settings that are not in use, and the page's line naming what other layouts add. Templates
+ * only, as `overview.ts`.
  */
 
 import { mdiChevronDown, mdiChevronUp, mdiClose, mdiPlus, mdiRestore } from '@mdi/js';
@@ -253,38 +253,4 @@ export function otherLayoutsLine(text: string, count: string, button: LineButton
   return html`<p class="page-line other-layouts">
     <span>${text} ${count}</span>${lineButton(button)}
   </p>`;
-}
-
-/** One of the preferences under More. */
-export interface PrefRow {
-  readonly key: string;
-  readonly label: string;
-  readonly helper: string;
-  readonly on: boolean;
-  readonly onToggle: () => void;
-}
-
-/**
- * A preference, as a switch of the editor's own with its line under it.
- *
- * @param pref - What it shows
- * @returns The row
- */
-export function prefRow(pref: PrefRow): TemplateResult {
-  const helperId = `pref-${pref.key}-helper`;
-  return html`<div class="pref-row">
-    <button
-      type="button"
-      role="switch"
-      class="pref-switch"
-      data-focus=${`pref:${pref.key}`}
-      aria-checked=${pref.on ? 'true' : 'false'}
-      aria-describedby=${helperId}
-      @click=${pref.onToggle}
-    >
-      <span class="pref-label">${pref.label}</span>
-      <span class="pref-track" aria-hidden="true"><span class="pref-thumb"></span></span>
-    </button>
-    <p class="hint" id=${helperId}>${pref.helper}</p>
-  </div>`;
 }
