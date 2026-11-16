@@ -43,6 +43,9 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_openStrip',
     '_adding',
     '_calendarQuery',
+    // The keyboard grab, and the click a Space or a drag also makes, which nothing writes.
+    '_grab',
+    '_swallowClick',
     '_announcer',
     '_spoken',
     // The field a search result showed, and the results it left.
