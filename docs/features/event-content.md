@@ -824,7 +824,7 @@ show_past_events: true # Keep finished events on the card
   rather than counting up.
 - For a log with the newest entry first, see [Event Order](/features/core-settings#event-order),
   and the [House Log](/guide/house-log) story for a complete card.
-- In the visual editor it comes with **Show Countdown**.
+- In the visual editor it comes with the **Countdown** part on the **Events** page.
 
 ### Countdown Range
 
@@ -967,8 +967,8 @@ in the relevant view instead. Dimming does not restore filtered events, countdow
 progress bars.
 :::
 
-In the [editor](/features/editor), find **Past Event Opacity** under **Events → Event
-State**, in any workspace.
+In the [editor](/features/editor), find **Past Event Opacity** under **Which Events → Past
+Events**, whichever layout **Settings For** names.
 
 ::: details More About Past Events
 

@@ -130,7 +130,7 @@ into `list:` automatically.
 These describe a date cell, a compact budget, a list's order and continuation, or a grid's
 all-day band, which the column layout does not have. The first seven
 keep working in list view, including when a `view: column` card falls back to it on a
-narrow dashboard, and `multiday_banners` in grid view. The editor hides their controls in the Columns editing workspace without
+narrow dashboard, and `multiday_banners` in grid view. The editor hides their controls while **Settings For** is Columns, without
 deleting stored values; see [Options for the Selected View](/features/editor#options-for-the-selected-view).
 
 **→ [Options That Do Nothing in Column View](/features/column-view#options-that-do-nothing-in-column-view)** — why each one, and what to use instead.
@@ -147,7 +147,7 @@ deleting stored values; see [Options for the Selected View](/features/editor#opt
 
 They are inert only while the card draws a grid, and apply again when the default
 `min_days_fallback: list` drops it to the list layout; the editor hides their controls while
-Grid is the editing workspace, without deleting stored values.
+**Settings For** is Grid, without deleting stored values.
 
 **→ [Options That Do Nothing in Grid View](/features/grid-view#options-that-do-nothing-in-grid-view)** — why each one.
 
@@ -280,8 +280,8 @@ Both height options may also be set per layout, in `list:`, `column:` or `time_g
 ## 📅 Event Column
 
 Grid view uses its own values for [fourteen shared options](/features/grid-view#options-that-start-from-a-different-default),
-even where the top level sets them, so set those in `time_grid:` or in the editor's Grid
-workspace. A top-level `show_past_events: false`, for one, still hides past events in list and
+even where the top level sets them, so set those in `time_grid:` or in the editor with Grid
+chosen under **Settings For**. A top-level `show_past_events: false`, for one, still hides past events in list and
 column view, but not in grid view.
 
 | Option                          | Type              | Default                       | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |

@@ -47,7 +47,7 @@ weather:
   entity: weather.home
 ```
 
-With several weather entities they leave weather out, rather than guess which one you mean; choose one under **Weather** in the editor.
+With several weather entities they leave weather out, rather than guess which one you mean; choose one on the editor's **Weather** page.
 
 The other three differ only in `view`, so you can switch layouts later. The grid hides locations by default; `time_grid: { show_location: true }` brings them back.
 :::
@@ -78,7 +78,7 @@ Configuration snippets on the feature pages usually show **only the options bein
 Calendar Card Pro offers two ways to customize your card, and both edit the same configuration:
 
 1. **[Visual Editor](/features/editor) (Recommended)**
-   - Organized panels guide you through all available options, and a search box finds any of them by name or YAML key
+   - An overview holds the essentials and opens a page for each part of the card, and a search box finds any setting by name or YAML key
    - Changes are previewed in real time
    - Smart validation prevents configuration errors
 

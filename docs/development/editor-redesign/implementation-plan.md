@@ -14,12 +14,22 @@ sets, search aliases), #835 (the v5.3 media pass) and the release preparation. I
 finding of two blind reviews of the first revision and of their re-review of the second; Appendix
 C maps each finding to the section that answers it. Where a revision departed from the approved
 design, this one follows the design; the few wording and focus differences that remain are decided
-in section 13, and the editor's size is accepted in section 10. PR 1 is built on the feature branch,
-not yet opened as a pull request: editor +2,126 B raw and +430 B gzip -9 with the card's sha256
-unchanged [probe], and its section and module contracts below match what it built. Nothing
-else is built. This file is working state: it lives on the feature
-branch and is deleted, with the rest of `docs/development/editor-redesign/`, before the one pull
-request into `dev` (AGENTS.md, _Documenting a change_).
+in section 13. Sections 4 to 6 were written before the PRs that build them; where a PR departed
+from them, its as-built note in section 6 and its PR body say how.
+
+**Where the build stands.** Every layer is built, and none has reached `dev`. Three are merged
+into `feature/editor-redesign`: PR 1 (#838), PR 2 (#841) and PR 9 (#846). The rest are open pull
+requests into `feature/editor-redesign`, stacked, each on the layer below it: PR 3 (#842), PR 4
+(#847), PR 5 (#849), PR 6 (#851), PR 7 (#850), PR 8 (#852), PR 10 (#854), PR 11 (#853), PR 12
+(#856), PR 13 (#855), PR 14 (#848), PR 15 (#857), PR 16 (#860), PR 17 (#861), PR 18 (#858) and PR
+19 (#859), with PR 20 (translations) and PR 21 (docs, accessibility and media) last. Each open PR
+awaits the maintainer's decision on its byte budget: several measured above the caps in section 6,
+and nothing here implies those figures, or section 10's estimate, are accepted. The editor chunk
+at PR 17's head `9eda8f7f` is 840,828 B raw and 246,903 B gzip -9 (production build, Node 24),
+against 592,390 B and 182,013 B at `9a1253b3`; the card's sha256 is unchanged. This file is
+working state: it lives on the feature branch and is deleted, with the rest of
+`docs/development/editor-redesign/`, before the one pull request into `dev` (AGENTS.md,
+_Documenting a change_), which opens only on the maintainer's decision.
 
 **How claims are marked.** Every statement about today's code names a file and a symbol, never a
 line number. A claim marked **[read]** was read in source, at `9a1253b3` where it touches what #834
@@ -2940,6 +2950,17 @@ Behavior-preserving.
 - **Scope.** Section 9; a pass with VoiceOver on macOS and iOS and NVDA on Windows over the jobs in
   `applicability.md` (R1-R61), fixing what it finds; the list of screenshots and clips to recapture.
   Ends step 6. Then `docs/development/editor-redesign/` is deleted and the one PR into `dev` opens.
+- **As built.** The pass ran in Playwright's Chromium and WebKit on the live dev build: keyboard
+  walks of the overview, every page, an entry page, Split, search and the calendar list,
+  accessible names, roles and states from each engine's accessibility tree, targets, reflow at 320
+  px and reduced motion. It fixed five things, each with a test that fails without it
+  (`tests/editor-accessible-names.test.ts`): the settings rows and Quick Setup's banner are named
+  by their title and described by their summary; the strip's moves, Remove This Entry and Edit All
+  Layouts are named by the words they show, then whose they are (WCAG 2.5.3); and Escape on a
+  search result leaves focus on the overview rather than on the page body. VoiceOver on macOS and
+  iOS and NVDA on Windows did not run: no screen reader could be driven here, so those passes stay
+  with a person. The screenshots stay on the maintainer's list (section 9); the capture tool's
+  editor card reads a test calendar rather than the demo ones.
 
 ## 7. Tests
 
@@ -3209,8 +3230,9 @@ feeds.
 Only helper, and the redesign replaces what it shows) and `example_quick_setup.png` (the banner,
 `README.md` and `editor.md`), plus new pictures for the overview, a page with an open Add row, the
 calendar list with its strip, the color control and Split's review. #835 checked every clip and
-journey against v5.2.0; whether `journey_family_agenda.mp4` and the two `journey_family_hub_*`
-videos show the editor is still not checked [unverified]; any that does is recaptured. Screenshots
+journey against v5.2.0; PR 21 checked `journey_family_agenda.mp4` and the two `journey_family_hub_*`
+videos against the deploy skill's table of published videos: all three record a kiosk dashboard
+and none opens the card editor, and no clip does either, so none goes stale [read]. Screenshots
 are referenced by `main`-branch URLs, so new ones go live only at release.
 
 **Before the PR into `dev`**: delete `docs/development/editor-redesign/`, confirm with

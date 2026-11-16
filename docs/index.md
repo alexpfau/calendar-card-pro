@@ -66,7 +66,7 @@ This motivated me to create a **dedicated calendar card**.
 - 🧰 **A Toolbar on the Card** – [Page through the dates, switch layouts, show or hide each calendar and refresh](/features/layout-appearance#header-toolbar), each device remembering its layout and which calendars it shows.
 - ✏️ **Add & Edit Events** – Open, add, edit and delete events from the card in [its own popover](/features/actions#the-event-popover), as far as each calendar allows.
 - ✅ **Many Calendars, One Card** – Give each calendar its own color, label or [a person's photo](/features/core-settings#showing-a-persons-picture) and its own filters; an event on several calendars [can be merged into one](/features/core-settings#labeling-coloring-shared-events).
-- ⚙️ **Visual Editor** – Set the card up in the UI, with a [search box](/features/editor#search-customized-only) that finds any setting by name or YAML key.
+- ⚙️ **Visual Editor** – Set the card up in the UI, with a [search box](/features/editor#search) that finds any setting by name or YAML key.
 - 🌦️ **Weather** – [Forecasts](/features/weather) in the date column or beside each event.
 - 🎨 **Fits Your Theme** – Follows your Home Assistant theme and its primary color, with [custom properties](/features/theming) for finer styling.
 - ⚡ **Optimized Performance** – Cached events on screen the moment a dashboard opens, every calendar loaded in parallel, and the visual editor downloaded only when you open it.

@@ -31,7 +31,7 @@ Find the change you are making, open the files named, and read the page beside t
 
 ## 🗂️ Directory Structure
 
-Every source area and top-level module, with what it owns; the editor's panel schemas and the
+Every source area and top-level module, with what it owns; the editor's schemas and views and the
 language files are summarized. Tests live in `tests/`, the build and documentation gates in
 `scripts/`, and these pages in `docs/`.
 
@@ -63,18 +63,46 @@ src/
 ├── rendering/                    # UI rendering code
 │   ├── editor/                   # Schema-driven configuration editor (its own bundle)
 │   │   ├── index.ts              # Build entry and public surface of the editor
-│   │   ├── element.ts            # The Lit element: lifecycle, forms, editor state
-│   │   ├── panels.ts             # Panel registry and schema context
-│   │   ├── schemas/              # One module per panel, plus their shared vocabulary
+│   │   ├── element.ts            # The Lit element: overview, pages and the forms they mediate
+│   │   ├── views/                # Overview and page templates; focus, scroll and Escape helpers
+│   │   ├── pages.ts              # Page registry: each built field's page, heading and appearance
+│   │   ├── panels.ts             # Builder registry and schema walking
+│   │   ├── schemas/              # One field builder per section, plus their shared vocabulary
+│   │   ├── field-index.ts        # Every built field, by a stable id
+│   │   ├── plan.ts               # The shown set: live fields, Add Setting rows and gate lines
+│   │   ├── shown.ts              # The shown set in words: value sources, what Reset gives
+│   │   ├── gates.ts              # Why a field is withheld, and the setting that opens it
+│   │   ├── filter.ts             # Withholds the fields a layout ignores
+│   │   ├── search.ts             # The search's index, matching and ranking
+│   │   ├── navigation.ts         # The overview, the pages and the way back
+│   │   ├── summary.ts            # The line under each section row on the overview
+│   │   ├── announce.ts           # The editor's one live region
+│   │   ├── history.ts            # Undo and Redo snapshots
+│   │   ├── reset.ts              # One reset path for every destination
+│   │   ├── audit.ts              # What This Card Changes
+│   │   ├── misplaced.ts          # Moves an option the card ignores to where it works
+│   │   ├── deprecated.ts         # Removed options a card still holds, and their replacements
+│   │   ├── prefs.ts              # Show Every Setting and Show YAML Option Names
+│   │   ├── quick-setup.ts        # Quick Setup's answers and the configuration they build
+│   │   ├── stories.ts            # The Example Stories Quick Setup starts from
+│   │   ├── preview.ts            # Configurations previewed before a change is made
+│   │   ├── calendar-list.ts      # Entries grouped by calendar, and the list's operations
+│   │   ├── split.ts              # Split This Calendar: when an entry can split, and what it writes
+│   │   ├── split-review.ts       # Where an entry's upcoming events land after a split
+│   │   ├── calendar-days.ts      # The card's day arithmetic, mirrored for Split's review
+│   │   ├── word-lists.ts         # Blocklist and Allowlist read as words, and written back
+│   │   ├── reorder.ts            # Keyboard and pointer reordering as data
+│   │   ├── chips.ts              # Toggle chips: the event parts and the toolbar's controls
+│   │   ├── chip-labels.ts        # Each chip's label
+│   │   ├── colors.ts             # The composed color control's data
 │   │   ├── ha-form.ts            # Home Assistant's schema shape, and the element each node needs
 │   │   ├── value.ts              # Serialization, legacy migration, authored-value retention
-│   │   ├── entities.ts           # Write path for the per-calendar list
+│   │   ├── entities.ts           # Per-calendar schema and form helpers
 │   │   ├── buttons.ts            # Write path for the toolbar's own buttons
 │   │   ├── exceptions.ts         # Removes stored view overrides for Reset controls
-│   │   ├── subforms.ts           # Forms outside the panels: chassis and extras
-│   │   ├── filter.ts             # Search and "customized only"
-│   │   ├── workspace.ts          # Editor-only All Layouts/List/Columns/Grid selection
-│   │   ├── routing.ts            # Workspace projections and scope-captured writes
+│   │   ├── subforms.ts           # Reusable schema fragments
+│   │   ├── workspace.ts          # The Settings For scope: All Layouts, List, Columns or Grid
+│   │   ├── routing.ts            # Scope projections and scope-captured writes
 │   │   ├── write-frames.ts       # What each write belongs to, and the part of a change it writes
 │   │   ├── normalize.ts          # Comparable root and nested form values
 │   │   ├── synthetic.ts          # UI-only fields, and values invalid while typed
@@ -169,7 +197,8 @@ resolution and its hysteresis, so resizing does not flip layouts back and forth.
 
 Switching layouts never fetches, because the load spans the longest `days_to_show` among the views
 the card can show (see [View Switcher](/architecture-toolbar#view-switcher)). The editor's
-workspace is separate again: choosing List there exposes its controls without changing the layout.
+**Settings For** scope is separate again: choosing List there exposes its controls without changing
+the layout.
 
 ## 🧱 Configuration Layers & Editor Adoption
 
@@ -185,9 +214,9 @@ the legacy List-only options.
 renders through the second. A change to the rule changes both.
 :::
 
-- **Workspaces.** **All Layouts** writes roots; **List**, **Columns** and **Grid** write their
-  blocks (`workspace.ts`). `routing.ts` captures the destination with each rendered form, so a
-  delayed event cannot write into another workspace.
+- **Scopes.** Under **Settings For**, **All Layouts** writes roots; **List**, **Columns** and
+  **Grid** write their blocks (`workspace.ts`). `routing.ts` captures the destination with each
+  rendered form, so a delayed event cannot write into another scope.
 - **Format marker.** `config_version: 5` records editor adoption, not renderer precedence.
   `configVersionState` reads a missing marker or an older nonnegative integer as legacy, accepts
   the current version, and blocks visual-editor writes for a future version or any other value,
@@ -207,14 +236,14 @@ renders through the second. A change to the rule changes both.
   in the editor only, never when YAML loads.
 
 ::: warning Shared Is Not List
-All Layouts builds its panels as List (`baseViewForWorkspace`), but its conditional controls must
+All Layouts builds its fields as List (`baseViewForWorkspace`), but its conditional controls must
 read the shared value through `resolveWorkspaceOption`, never a `list:` override. Resolving them as
 List shows the wrong controls on the shared surface.
 :::
 
 ::: warning One Authorship Model
-Serialization (`toStoredConfig`), the per-view labels, Reset and Customized Only (all through
-`storedViewBlocks`) and the switch to Grid (`reconcileTimeGridValues`) must read authorship the same
+Serialization (`toStoredConfig`), the shown set and its per-view words (`plan.ts` › `storedAt`),
+Reset (`reset.ts`) and the switch to Grid (`reconcileTimeGridValues`) must read authorship the same
 way, from the stored YAML and the authored root keys, never from the merged configuration. A write
 path or label that reads the merged values shows a kept line as inherited, or loses a choice the
 switch to Grid has to copy.
@@ -272,8 +301,22 @@ pages hold the module notes for `interaction/`, `rendering/` and most of `utils/
 5. **`render.ts`, `column.ts` and `grid.ts`** arrange the shared leaves.
 6. **`interaction/`** builds actions, drafts and write commands, without touching the DOM.
 7. **`rendering/editor/`** is a separate schema-driven application in its own bundle. Its schemas
-   name selectors, never Home Assistant input elements, and everything but `element.ts` and
-   `styles.ts` is free of Lit and the DOM, so the tests and `check:i18n` can import a schema.
+   name selectors, never Home Assistant input elements, and everything but `element.ts`,
+   `styles.ts` and `views/` is free of Lit and the DOM, so the tests and `check:i18n` can import a
+   schema.
+
+The editor opens on an overview and shows each section on a page of its own. The builders in
+`schemas/` stay the authority on whether a field exists; the page registry (`pages.ts`) places each
+field they build, by its id (`field-index.ts`), on the overview, a section page or a calendar
+entry's page, under a heading and with an appearance, and `tests/editor-page-registry.test.ts`
+fails on a built field no page places. `plan.ts` decides what a page draws: a field is live when it
+applies here and is essential, stored, inherited with a value that differs from the default, added
+this session, or Show Every Setting is on, and the rest wait in their heading's Add Setting row.
+`element.ts` draws that plan and never filters a form itself, and every Reset and Remove goes
+through `reset.ts`. A calendar entry's or a toolbar button's write names its owner by key, never by
+place (`write-frames.ts`), so a removal above it cannot hand its form another owner. `hass-key.ts`
+skips a `hass` that changes nothing the editor draws, and hands a fresh `hass` only to forms whose
+selectors read states (`LIVE_SELECTORS`); every other form gets a steady one.
 
 In `translations/`, `language-codes.ts` imports nothing, so the editor can pick a language without
 the translation tables, and `dayjs.ts` owns relative time. `logger.ts` can be raised above errors

@@ -15,10 +15,10 @@ view: grid
 days_to_show: 3
 ```
 
-In the [visual editor](/features/editor), **Card Displays**, above the search controls,
-chooses the layout the card opens with. Select **Grid** under **Editing Settings For** to
-configure its time axis in **Layout** and its line styles in **Rules**, without changing
-**Card Displays**.
+In the [visual editor](/features/editor#the-overview), **Card Displays** on the overview
+chooses the layout the card opens with. Select **Grid** under **Settings For** to configure
+its time axis on the **Grid** page and its lines on **Size & Spacing**, under
+**Across the Grid**, without changing **Card Displays**.
 
 ::: tip Start With Three Days
 Seven columns need a wide card to stay readable. Three is a good default on a dashboard
@@ -835,8 +835,8 @@ time_grid:
 ```
 
 Anything the block does not mention keeps its top-level value, except for the fourteen
-options listed below. In the visual editor, choose the Grid workspace to edit these
-values directly without changing Card Displays.
+options listed below. In the visual editor, choose Grid under **Settings For** to edit these
+values directly without changing **Card Displays**.
 
 Options that decide which events the card loads, such as `start_date` and `entities`, are
 card-wide and ignored inside `time_grid:`, and so are others that act on the card as a whole,
@@ -944,7 +944,7 @@ column view; see [Grid Lines](#grid-lines) above.
 ## 🚫 Options That Do Nothing in Grid View
 
 These options have no effect while the card renders as a grid, and the visual editor leaves
-them out of its **Grid** workspace. Stored values are kept for the layouts they apply to.
+them out while **Settings For** is Grid. Stored values are kept for the layouts they apply to.
 
 | Options                                                                                                                            | In Grid View                                                                                                                                                                          |
 | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -962,7 +962,7 @@ them out of its **Grid** workspace. Stored values are kept for the layouts they 
 | `open_links`                                                                                                                       | Location and description stay text in a block; [Links in Events](/features/actions#links-in-events) has the list and column behavior                                                  |
 
 The editor also leaves out the per-calendar compact limit and multi-day splitting. To edit any
-of these, choose a layout they apply to under **Editing Settings For**, without changing
+of these, choose a layout they apply to under **Settings For**, without changing
 **Card Displays** (the all-day badge controls are in **All Layouts** too); see
 [Options for the Selected View](/features/editor#options-for-the-selected-view).
 
