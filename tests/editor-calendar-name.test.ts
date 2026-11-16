@@ -288,8 +288,11 @@ describe('searching the editor for a calendar by its name', () => {
       { entity: ANNA, event_type: 'all_day', name: 'Anna at work' },
       BEN,
     ];
-    // Everything a list card's editor draws, which withholds the time grid's own control.
-    const everything = fieldNames(entitySchema()).filter((name) => name !== 'multiday_banners');
+    // Everything a list card's editor draws, which withholds the time grid's own control. The
+    // accent color is one control with the mode choosing its source, so one row, the mode's.
+    const everything = fieldNames(entitySchema()).filter(
+      (name) => name !== 'multiday_banners' && name !== 'accent_color',
+    );
 
     expect(search(entities, 0, 'at work')).toEqual(everything);
     expect(search(entities, 1, 'at work')).toEqual(everything);
