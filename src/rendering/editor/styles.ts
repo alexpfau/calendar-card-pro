@@ -11,19 +11,6 @@ export default css`
     padding: 0 0 4px;
   }
 
-  .view-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    padding-bottom: 16px;
-  }
-
-  .workspace-note {
-    color: var(--secondary-text-color);
-    font-size: 12px;
-    line-height: 1.4;
-  }
-
   .config-migration {
     display: flex;
     flex-direction: column;
@@ -182,16 +169,6 @@ export default css`
   .quick-setup-line {
     color: var(--secondary-text-color);
     font-size: 14px;
-  }
-
-  .quick-setup-chevron {
-    flex: none;
-    color: var(--primary-color);
-  }
-
-  /* The chevron points the way the text runs. */
-  .quick-setup-chevron:dir(rtl) {
-    transform: scaleX(-1);
   }
 
   .quick-setup {
@@ -395,12 +372,6 @@ export default css`
     color: var(--secondary-text-color);
     font-size: 12px;
     line-height: 1.4;
-  }
-
-  /* The panel body spaces its children 16px apart, and a form spaces its fields 24px apart;
-     the buttons' sub-heading takes the form's spacing from the toolbar's last switch above it. */
-  .buttons-heading {
-    margin-top: 8px;
   }
 
   .add-button {

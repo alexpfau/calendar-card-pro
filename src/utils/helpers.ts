@@ -536,6 +536,17 @@ export function isConfigBlock(value: unknown): value is Record<string, unknown> 
 }
 
 /**
+ * Whether an object holds a key of its own, not one it inherits.
+ *
+ * @param object - The object
+ * @param key - The key
+ * @returns True when the key is the object's own
+ */
+export function hasOwn(object: object, key: PropertyKey): boolean {
+  return Object.prototype.hasOwnProperty.call(object, key);
+}
+
+/**
  * Filter out default values from configuration
  *
  * @param config User configuration to filter

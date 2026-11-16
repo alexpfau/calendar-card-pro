@@ -154,9 +154,40 @@ export function parseEditorTranslation(code, keys, id = 'translation.json') {
   return keys.map((key) => (Object.hasOwn(data, key) ? data[key] : null));
 }
 
+/**
+ * Front-code the sorted key vector by dot segment: each key becomes the number of leading
+ * segments it shares with the key before it (omitted when 0) followed by its remaining
+ * segments. Fails closed unless the emitted decoder returns the vector exactly.
+ */
+export function frontCodeKeys(keys) {
+  let previous = [];
+  const coded = keys.map((key) => {
+    const segments = key.split('.');
+    let shared = 0;
+    while (
+      shared < previous.length &&
+      shared < segments.length - 1 &&
+      previous[shared] === segments[shared]
+    ) {
+      shared++;
+    }
+    previous = segments;
+    return (shared || '') + segments.slice(shared).join('.');
+  });
+  const decoded = new Function(`${decodeKeys(coded)}return keys`)();
+  if (JSON.stringify(decoded) !== JSON.stringify(keys)) {
+    fail('strings.ts', 'Editor keys do not survive front-coding (a leading digit or 10+ segments)');
+  }
+  return coded;
+}
+
+function decodeKeys(coded) {
+  return `const keys=${JSON.stringify(coded)};let prefix=[];for(let i=0;i<keys.length;i++){const shared=+keys[i][0]||0;prefix=prefix.slice(0,shared).concat((shared?keys[i].slice(1):keys[i]).split("."));keys[i]=prefix.join(".")}`;
+}
+
 /** Generate one ordinary-map decoder shared by English and every translated vector. */
 export function editorDecoderSource(keys) {
-  return `const keys=${JSON.stringify(keys)};export default values=>Object.fromEntries(keys.map((key,i)=>[key,values[i]]).filter(([,value])=>value!==null));`;
+  return `${decodeKeys(frontCodeKeys(keys))};export default values=>Object.fromEntries(keys.map((key,i)=>[key,values[i]]).filter(([,value])=>value!==null));`;
 }
 
 /** Compact emitted payloads only; the on-disk English and JSON remain authoring sources. */
@@ -698,4 +729,114 @@ export function compactDayjsLocales(root = process.cwd()) {
       return { code: trimDayjsLocaleFields(code, id), map: null };
     },
   };
+}
+
+// HTML and CSS whitespace only: a no-break space is text, and collapsing one would change it.
+const ASCII_SPACE = /[ \t\n\f\r]/;
+
+/**
+ * Collapse each run of whitespace that spans a line break in an `html` template's static text
+ * to one character. Outside `white-space: pre`, which no editor template uses, a browser
+ * renders such a run exactly as it renders one space, so this changes the source's
+ * indentation and not what is drawn. Quoted attribute values are left alone, and every
+ * nested template is a template of its own.
+ */
+export function collapseTemplateWhitespace(code, id) {
+  if (!code.includes('html`') && !code.includes('css`')) return null;
+  const ast = parse(code, id);
+  const edits = [];
+  walk(ast, (node) => {
+    if (
+      !ts.isTaggedTemplateExpression(node) ||
+      !ts.isIdentifier(node.tag) ||
+      (node.tag.text !== 'html' && node.tag.text !== 'css')
+    ) {
+      return;
+    }
+    if (node.tag.text === 'css') {
+      if (!ts.isNoSubstitutionTemplateLiteral(node.template)) return;
+      cssEdits(code, node.template.getStart(ast) + 1, node.template.end - 1, edits);
+      return;
+    }
+    const template = node.template;
+    const chunks = ts.isNoSubstitutionTemplateLiteral(template)
+      ? [[template.getStart(ast) + 1, template.end - 1]]
+      : [
+          [template.head.getStart(ast) + 1, template.head.end - 2],
+          ...template.templateSpans.map((span) => [
+            span.literal.getStart(ast) + 1,
+            span.literal.end - (ts.isTemplateTail(span.literal) ? 1 : 2),
+          ]),
+        ];
+    let state = 'text';
+    for (const [start, end] of chunks) {
+      for (let i = start; i < end; i++) {
+        const ch = code[i];
+        if (state === 'comment') {
+          if (code.startsWith('-->', i)) {
+            state = 'text';
+            i += 2;
+          }
+          continue;
+        }
+        if (state === '"' || state === "'") {
+          if (ch === state) state = 'tag';
+          continue;
+        }
+        if (ASCII_SPACE.test(ch)) {
+          let j = i;
+          while (j < end && ASCII_SPACE.test(code[j])) j++;
+          if (code.slice(i, j).includes('\n') && code.slice(i, j) !== ' ') {
+            edits.push([i, j]);
+          }
+          i = j - 1;
+          continue;
+        }
+        if (state === 'text') {
+          if (code.startsWith('<!--', i)) state = 'comment';
+          else if (ch === '<' && /[a-zA-Z/]/.test(code[i + 1] ?? '')) state = 'tag';
+        } else if (ch === '"' || ch === "'") {
+          state = ch;
+        } else if (ch === '>') {
+          state = 'text';
+        }
+      }
+    }
+  });
+  if (edits.length === 0) return null;
+  let out = code;
+  for (const [start, end, text = ' '] of edits.sort((a, b) => b[0] - a[0])) {
+    out = out.slice(0, start) + text + out.slice(end);
+  }
+  return out;
+}
+
+/**
+ * In a stylesheet, a run of whitespace spanning a line break goes entirely after a brace or a
+ * semicolon or before a brace, and becomes one space elsewhere, where it may be a
+ * descendant combinator. Quoted strings are left alone.
+ */
+function cssEdits(code, start, end, edits) {
+  let quote = null;
+  for (let i = start; i < end; i++) {
+    const ch = code[i];
+    if (quote) {
+      if (ch === '\\') i++;
+      else if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    if (!ASCII_SPACE.test(ch)) continue;
+    let j = i;
+    while (j < end && ASCII_SPACE.test(code[j])) j++;
+    const run = code.slice(i, j);
+    if (run.includes('\n')) {
+      const tight = i === start || j === end || /[{};]/.test(code[i - 1]) || /[{}]/.test(code[j]);
+      if (tight || run !== ' ') edits.push([i, j, tight ? '' : ' ']);
+    }
+    i = j - 1;
+  }
 }

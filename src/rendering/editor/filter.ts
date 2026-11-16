@@ -57,67 +57,28 @@ export function hasQuery(criteria: FilterCriteria): boolean {
   return criteria.query.trim() !== '';
 }
 
-type LeafPredicate = (
-  node: HaFormSchema,
-  path: ReadonlyArray<string>,
-  dataPath: ReadonlyArray<string>,
-) => boolean;
+type LeafPredicate = (node: HaFormSchema, dataPath: ReadonlyArray<string>) => boolean;
 
 type GroupSchema = Extract<HaFormSchema, { schema: ReadonlyArray<HaFormSchema> }>;
 
-/**
- * The label path a group's children are rendered under: Home Assistant qualifies labels only
- * inside a named collapsible.
- *
- * @param node - Group
- * @param path - Label path the group itself is under
- * @returns Its children's label path
- */
-function childLabelPath(node: GroupSchema, path: ReadonlyArray<string>): ReadonlyArray<string> {
-  return node.type === 'expandable' && node.name !== '' ? [...path, node.name] : path;
-}
-
-/**
- * The configuration path a group's children write under: a named group nests its data unless
- * it is flattened.
- *
- * @param node - Group
- * @param dataPath - Configuration path the group itself is under
- * @returns Its children's configuration path
- */
 function childDataPath(node: GroupSchema, dataPath: ReadonlyArray<string>): ReadonlyArray<string> {
   return node.name !== '' && node.flatten !== true ? [...dataPath, node.name] : dataPath;
 }
 
-/**
- * Filters a schema to the nodes a predicate keeps, groups and all.
- *
- * @param schema - Schema to filter
- * @param keeps - Decides one field
- * @param path - Enclosing group names, outermost first
- * @param dataPath - Enclosing object keys in the configuration, outermost first
- * @returns The schema, reduced
- */
 function filterNodes(
   schema: ReadonlyArray<HaFormSchema>,
   keeps: LeafPredicate,
-  path: ReadonlyArray<string>,
   dataPath: ReadonlyArray<string>,
 ): HaFormSchema[] {
   const kept: HaFormSchema[] = [];
 
   for (const node of schema) {
     if (!isGroupSchema(node)) {
-      if (keeps(node, path, dataPath)) kept.push(node);
+      if (keeps(node, dataPath)) kept.push(node);
       continue;
     }
 
-    const children = filterNodes(
-      node.schema,
-      keeps,
-      childLabelPath(node, path),
-      childDataPath(node, dataPath),
-    );
+    const children = filterNodes(node.schema, keeps, childDataPath(node, dataPath));
 
     if (!hasFields(children)) continue;
 
@@ -200,7 +161,7 @@ export function withholdInertFields(
   return pruneLoneHeadings(
     filterNodes(
       schema,
-      (node, _path, dataPath) => {
+      (node, dataPath) => {
         if (isHeading(node)) return true;
 
         if (dataPath.length === 0) {
@@ -234,7 +195,6 @@ export function withholdInertFields(
           ViewConfig.appliesToView(node.name, blockView)
         );
       },
-      [],
       [],
     ),
   );

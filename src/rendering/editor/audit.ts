@@ -24,7 +24,7 @@ import type { SelectOption, SelectorSchema } from './ha-form';
 import type { PageId } from './pages';
 import { type PlanCtx, appearanceOf, fieldState } from './plan';
 import { destination } from './routing';
-import { isSyntheticKey } from './synthetic';
+import { isSet as holdsValue, isSyntheticKey } from './synthetic';
 import { type EditorWorkspace, WORKSPACES } from './workspace';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
@@ -81,16 +81,6 @@ export const HA_LAYOUT_KEYS: ReadonlySet<string> = new Set([
   'layout_options',
   'view_layout',
 ]);
-
-/**
- * Whether a value counts as written: blanks and nulls are how a cleared field is left.
- *
- * @param value - Value as stored
- * @returns `true` when the value is there
- */
-function holdsValue(value: unknown): boolean {
-  return value !== undefined && value !== null && value !== '';
-}
 
 const owners = new Map<string, Map<string, FieldId[]>>();
 

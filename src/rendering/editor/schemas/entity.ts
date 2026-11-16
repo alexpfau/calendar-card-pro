@@ -6,9 +6,8 @@ import { isEntityColorSentinel } from '../../../utils/entity-colors';
 import { isEntityIconSentinel } from '../../../utils/entity-icons';
 import { isPersonEntityId } from '../../../utils/person-pictures';
 import type { HaFormSchema, SelectorSchema } from '../ha-form';
-import { humanize, lookup } from '../localize';
 import type { SchemaCtx } from '../panels';
-import { color, text } from './common';
+import { bool, color, select, text } from './common';
 
 export const INHERIT = 'inherit';
 
@@ -103,18 +102,7 @@ export const ENTITY_TRISTATE_DEFAULT: Readonly<Record<string, string>> = {
  * @returns The field
  */
 function choice(language: string, name: string): SelectorSchema {
-  return {
-    name,
-    selector: {
-      select: {
-        mode: 'dropdown',
-        options: ENTITY_TRISTATE_VALUES[name].map((value) => ({
-          value,
-          label: lookup(language, `entity.${name}.option.${value}.label`) ?? humanize(value),
-        })),
-      },
-    },
-  };
+  return select(language, name, ENTITY_TRISTATE_VALUES[name], `entity.${name}`);
 }
 
 export const LABEL_TYPE = 'label_type';
@@ -258,18 +246,7 @@ export function entityConfigKeys(name: string): ReadonlyArray<string> {
  * @returns The field
  */
 function labelType(language: string): SelectorSchema {
-  return {
-    name: LABEL_TYPE,
-    selector: {
-      select: {
-        mode: 'dropdown',
-        options: LABEL_TYPES.map((value) => ({
-          value,
-          label: lookup(language, `entity.${LABEL_TYPE}.option.${value}.label`) ?? humanize(value),
-        })),
-      },
-    },
-  };
+  return select(language, LABEL_TYPE, LABEL_TYPES, `entity.${LABEL_TYPE}`);
 }
 
 /**
@@ -361,7 +338,7 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     // Beside `name` because both belong to the calendar rather than to this block, and both
     // are about the calendar filter's entry for it: what it says, and whether there is one.
     // Everything after them says how this calendar's events look.
-    { name: SHOW_IN_LEGEND, selector: { boolean: {} } },
+    bool(SHOW_IN_LEGEND),
     labelType(ctx.language),
     labelIconSource(ctx.language),
     labelImageSource(ctx.language),
@@ -460,20 +437,7 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
  * @returns The field
  */
 function accentColorMode(language: string): SelectorSchema {
-  return {
-    name: ACCENT_COLOR_MODE,
-    selector: {
-      select: {
-        mode: 'dropdown',
-        options: ACCENT_COLOR_MODES.map((value) => ({
-          value,
-          label:
-            lookup(language, `entity.${ACCENT_COLOR_MODE}.option.${value}.label`) ??
-            humanize(value),
-        })),
-      },
-    },
-  };
+  return select(language, ACCENT_COLOR_MODE, ACCENT_COLOR_MODES, `entity.${ACCENT_COLOR_MODE}`);
 }
 
 /**
@@ -483,20 +447,7 @@ function accentColorMode(language: string): SelectorSchema {
  * @returns The field
  */
 function labelImageSource(language: string): SelectorSchema {
-  return {
-    name: LABEL_IMAGE_SOURCE,
-    selector: {
-      select: {
-        mode: 'dropdown',
-        options: LABEL_IMAGE_SOURCES.map((value) => ({
-          value,
-          label:
-            lookup(language, `entity.${LABEL_IMAGE_SOURCE}.option.${value}.label`) ??
-            humanize(value),
-        })),
-      },
-    },
-  };
+  return select(language, LABEL_IMAGE_SOURCE, LABEL_IMAGE_SOURCES, `entity.${LABEL_IMAGE_SOURCE}`);
 }
 
 /**
@@ -506,20 +457,7 @@ function labelImageSource(language: string): SelectorSchema {
  * @returns The field
  */
 function labelIconSource(language: string): SelectorSchema {
-  return {
-    name: LABEL_ICON_SOURCE,
-    selector: {
-      select: {
-        mode: 'dropdown',
-        options: LABEL_ICON_SOURCES.map((value) => ({
-          value,
-          label:
-            lookup(language, `entity.${LABEL_ICON_SOURCE}.option.${value}.label`) ??
-            humanize(value),
-        })),
-      },
-    },
-  };
+  return select(language, LABEL_ICON_SOURCE, LABEL_ICON_SOURCES, `entity.${LABEL_ICON_SOURCE}`);
 }
 
 /**

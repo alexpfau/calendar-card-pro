@@ -64,7 +64,7 @@ import {
   isWholeCard,
   placementOf,
 } from './pages';
-import { PANELS, type PanelDef, type PanelExtra, type SchemaCtx, type SubformDef } from './panels';
+import { PANELS, type PanelExtra, type SchemaCtx, type SubformDef } from './panels';
 import * as Plan from './plan';
 import * as Prefs from './prefs';
 import * as Preview from './preview';
@@ -403,6 +403,12 @@ interface FieldShow {
 type PlanOwner = { readonly kind: 'card' } | { readonly kind: 'entry'; readonly key: number };
 
 const CARD: PlanOwner = { kind: 'card' };
+
+/** What a string's placeholders are filled with (`strings.ts` › `interpolate`). */
+type Words = Record<string, string | number>;
+
+/** The editor's own strings, by literal key, filled in where values are given. */
+type Translate = (key: string, values?: Words) => string;
 
 /**
  * Schema-driven configuration editor for Calendar Card Pro.
@@ -940,12 +946,7 @@ export class CalendarCardProEditor extends LitElement {
     }
 
     if (!isEcho) this._authoredRootKeys = new Set(Object.keys(rawConfig));
-    this._rawConfig = structuredClone(rawConfig);
-    this._config = { ...Config.DEFAULT_CONFIG, ...config };
-
-    if (!Array.isArray(this._config.entities)) {
-      this._config.entities = [];
-    }
+    this._adopt(rawConfig, config);
     this._migration = this._migrationState(rawConfig);
 
     if (!isEcho) {
@@ -977,7 +978,7 @@ export class CalendarCardProEditor extends LitElement {
     // read as a change from outside.
     if (isEcho) return;
     this._lastDispatched = Value.toStoredConfig(
-      this._config,
+      this._config!,
       this._authoredRootKeys,
       this._rawConfig,
     );
@@ -1028,12 +1029,7 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _adoptMigration(result: Value.ListMigrationResult): void {
     for (const key of result.movedRootKeys) this._authoredRootKeys.delete(key);
-    this._rawConfig = structuredClone(result.config);
-    this._config = {
-      ...Config.DEFAULT_CONFIG,
-      ...(result.config as unknown as Types.Config),
-    };
-    if (!Array.isArray(this._config.entities)) this._config.entities = [];
+    this._adopt(result.config, result.config);
     this._migration = { kind: 'current' };
   }
 
@@ -1068,8 +1064,7 @@ export class CalendarCardProEditor extends LitElement {
     this._commit(label, undefined, () => {
       const result = this._migrationResult(mode);
       this._adoptMigration(result);
-      this._lastDispatched = result.config;
-      this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: result.config } }));
+      this._send(result.config);
     });
   }
 
@@ -1148,12 +1143,7 @@ export class CalendarCardProEditor extends LitElement {
    * @param snapshot - What to put back
    */
   private _restore(snapshot: Snapshot): void {
-    this._rawConfig = structuredClone(snapshot.raw) as Record<string, unknown>;
-    this._config = {
-      ...Config.DEFAULT_CONFIG,
-      ...(structuredClone(snapshot.raw) as unknown as Types.Config),
-    };
-    if (!Array.isArray(this._config.entities)) this._config.entities = [];
+    this._adopt(snapshot.raw, structuredClone(snapshot.raw));
     this._authoredRootKeys = new Set(snapshot.authoredRootKeys);
     this._gridResetKeys = new Set(snapshot.gridResetKeys);
     this._gridReconciliation = [...snapshot.gridReconciliation];
@@ -1169,6 +1159,16 @@ export class CalendarCardProEditor extends LitElement {
     this.dispatchEvent(
       new CustomEvent('config-changed', { detail: { config: structuredClone(config) } }),
     );
+  }
+
+  /**
+   * Focuses the first element a selector finds once the update in progress has rendered
+   * (`views/focus.ts` › `focusFirst`).
+   *
+   * @param selectors - Candidates, best first
+   */
+  private _focusSoon(selectors: ReadonlyArray<string>): void {
+    void this.updateComplete.then(() => Focus.focusFirst(this.renderRoot, selectors));
   }
 
   /** Takes the last step back. */
@@ -1260,11 +1260,9 @@ export class CalendarCardProEditor extends LitElement {
       void this._focusAfterRemove(status.at);
       return;
     }
-    void this.updateComplete.then(() =>
-      Focus.focusFirst(root, [
-        status.kind === 'button' ? '.add-button' : '[data-heading="calendars"] .heading',
-      ]),
-    );
+    this._focusSoon([
+      status.kind === 'button' ? '.add-button' : '[data-heading="calendars"] .heading',
+    ]);
   }
 
   /**
@@ -1276,9 +1274,7 @@ export class CalendarCardProEditor extends LitElement {
   private _showStatus(status: StatusLine, said: string): void {
     this._status = status;
     this._say(said);
-    void this.updateComplete.then(() =>
-      Focus.focusFirst(this.renderRoot, [Focus.byFocusKey('status-undo')]),
-    );
+    this._focusSoon([Focus.byFocusKey('status-undo')]);
   }
 
   /**
@@ -1357,11 +1353,21 @@ export class CalendarCardProEditor extends LitElement {
    * @returns Schema context for the current configuration
    */
   private get _ctx(): SchemaCtx {
+    return this._ctxIn(this._workspace);
+  }
+
+  /**
+   * The schema context for a scope, as `_ctx` builds it for the scope chosen.
+   *
+   * @param workspace - The scope
+   * @returns Schema context
+   */
+  private _ctxIn(workspace: Workspace.EditorWorkspace): SchemaCtx {
     return this._ctxFor(
       this._config!,
-      this._workspace,
+      workspace,
       this.hass?.locale,
-      this._heldModes(this._pending, this._workspace),
+      this._heldModes(this._pending, workspace),
     );
   }
 
@@ -1522,7 +1528,7 @@ export class CalendarCardProEditor extends LitElement {
   private _fieldText(slot: string, field: IndexedField, ctx: SchemaCtx, words?: string) {
     const place = Shown.wordsPlace(field.node);
     const yaml = this._prefs.yaml
-      ? interpolate(this._string(ctx, 'search.yaml'), { path: this._yamlPath(field, ctx) })
+      ? this._string(ctx, 'search.yaml', { path: this._yamlPath(field, ctx) })
       : undefined;
     const helper =
       [yaml, words && place === 'helper' ? `${words}.` : undefined, fieldHelper(field, ctx)]
@@ -1625,8 +1631,8 @@ export class CalendarCardProEditor extends LitElement {
       : '';
     const label =
       owner === undefined
-        ? interpolate(this._string(ctx, 'history.change'), { setting })
-        : interpolate(this._string(ctx, 'history.change_for'), { setting, name: owner });
+        ? this._string(ctx, 'history.change', { setting })
+        : this._string(ctx, 'history.change_for', { setting, name: owner });
     const typed = moved && ('text' in moved.node.selector || 'number' in moved.node.selector);
     this._commit(
       label,
@@ -1881,17 +1887,39 @@ export class CalendarCardProEditor extends LitElement {
     const stored = Value.toStoredConfig(config, this._authoredRootKeys, this._rawConfig);
 
     // A pruned override must stop owning its value locally too, before any HA echo.
-    this._rawConfig = structuredClone(stored);
-    this._config = { ...Config.DEFAULT_CONFIG, ...this._rawConfig };
-    if (!Array.isArray(this._config.entities)) this._config.entities = [];
+    this._adopt(stored);
 
     if (Value.equalConfigs(stored, this._lastDispatched ?? {})) {
       return;
     }
 
-    this._lastDispatched = stored;
+    this._send(stored);
+  }
 
-    this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: stored } }));
+  /**
+   * Makes a configuration the editor's own: the YAML as a copy, and the configuration with every
+   * default under it, its calendars always a list.
+   *
+   * @param raw - The YAML
+   * @param merged - What the defaults are spread under; the copy of the YAML where omitted
+   */
+  private _adopt(raw: object, merged?: object): void {
+    this._rawConfig = structuredClone(raw) as Record<string, unknown>;
+    this._config = {
+      ...Config.DEFAULT_CONFIG,
+      ...((merged ?? this._rawConfig) as Types.Config),
+    };
+    if (!Array.isArray(this._config.entities)) this._config.entities = [];
+  }
+
+  /**
+   * Sends Home Assistant a configuration, remembered so its echo reads as the editor's own.
+   *
+   * @param config - The configuration
+   */
+  private _send(config: Record<string, unknown>): void {
+    this._lastDispatched = config;
+    this.dispatchEvent(new CustomEvent('config-changed', { detail: { config } }));
   }
 
   /**
@@ -1920,7 +1948,7 @@ export class CalendarCardProEditor extends LitElement {
   ): ReadonlyArray<HaFormSchema> {
     const value = Routing.atPath(data, field.dataPath, field.node.name);
     if (!Audit.outsideOptions(field.node, value)) return field.lifted;
-    const label = interpolate(this._string(ctx, 'value.from_yaml'), { value: String(value) });
+    const label = this._string(ctx, 'value.from_yaml', { value: String(value) });
     return Routing.nestedSchema(Audit.withYamlOption(field.node, value, label), field.dataPath);
   }
 
@@ -2073,7 +2101,7 @@ export class CalendarCardProEditor extends LitElement {
       reveal === undefined ? (show?.line ?? nothing) : this._renderField(reveal, ctx),
       (mode) =>
         this._commit(
-          interpolate(this._string(ctx, 'history.change'), { setting: label }),
+          this._string(ctx, 'history.change', { setting: label }),
           undefined,
           () => this._writeFieldValue(WriteFrames.CARD_OWNER, field.id, mode, workspace),
           `field:${field.id}`,
@@ -2317,8 +2345,8 @@ export class CalendarCardProEditor extends LitElement {
     const ctx = this._ctx;
     const label =
       ownerName === undefined
-        ? interpolate(this._string(ctx, 'history.change'), { setting })
-        : interpolate(this._string(ctx, 'history.change_for'), { setting, name: ownerName });
+        ? this._string(ctx, 'history.change', { setting })
+        : this._string(ctx, 'history.change_for', { setting, name: ownerName });
     this._commit(
       label,
       `${key}|words|${workspace}`,
@@ -2515,16 +2543,11 @@ export class CalendarCardProEditor extends LitElement {
     if (ignored) notes.push({ text: ignored });
     for (const own of state?.layoutsOwn ?? []) {
       notes.push({
-        text: interpolate(t('state.layout_own'), {
+        text: t('state.layout_own', {
           layout: layout(own.view),
           value: word(own.value),
         }),
-        button: {
-          label: interpolate(t('state.edit_layout'), { layout: layout(own.view) }),
-          name: interpolate(t('state.edit_named'), { label, layout: layout(own.view) }),
-          focus: `edit:${field.id}:${own.view}`,
-          onPress: () => this._pickScope(own.view),
-        },
+        button: this._editLayout(t, layout, label, field.id, own.view),
       });
     }
     const calendars =
@@ -2542,12 +2565,7 @@ export class CalendarCardProEditor extends LitElement {
     const outcomeId = `outcome-${field.id.replace(/[^\w-]/g, '-')}`;
     const actions: ShownView.LineButton[] = [];
     if (state?.words?.kind === 'from-all-layouts') {
-      actions.push({
-        label: interpolate(t('state.edit_layout'), { layout: layout('shared') }),
-        name: interpolate(t('state.edit_named'), { label, layout: layout('shared') }),
-        focus: `edit:${field.id}:shared`,
-        onPress: () => this._pickScope('shared'),
-      });
+      actions.push(this._editLayout(t, layout, label, field.id, 'shared'));
     }
     // A family member keeps its control while the family shows; its heading's ✕ removes them all.
     const storedHere =
@@ -2567,8 +2585,8 @@ export class CalendarCardProEditor extends LitElement {
         name:
           action === 'reset'
             ? forLayout
-              ? interpolate(t('reset.reset_for'), { label, layout: forLayout })
-              : interpolate(t('value_source.reset'), { option: label })
+              ? t('reset.reset_for', { label, layout: forLayout })
+              : t('value_source.reset', { option: label })
             : interpolate(forLayout ? t('reset.remove_for') : t('reset.remove_named'), {
                 label,
                 layout: forLayout ?? '',
@@ -2589,6 +2607,31 @@ export class CalendarCardProEditor extends LitElement {
         outcome: outcomeText && action ? { id: outcomeId, text: outcomeText } : undefined,
         actions,
       }),
+    };
+  }
+
+  /**
+   * A field's line button that edits it in another scope: "Edit for Grid".
+   *
+   * @param t - The editor's strings
+   * @param layout - Names a layout
+   * @param label - The field's label
+   * @param id - The field
+   * @param view - The scope to edit it in
+   * @returns The button
+   */
+  private _editLayout(
+    t: Translate,
+    layout: Shown.LayoutName,
+    label: string,
+    id: FieldId,
+    view: Workspace.EditorWorkspace,
+  ): ShownView.LineButton {
+    return {
+      label: t('state.edit_layout', { layout: layout(view) }),
+      name: t('state.edit_named', { label, layout: layout(view) }),
+      focus: `edit:${id}:${view}`,
+      onPress: () => this._pickScope(view),
     };
   }
 
@@ -2717,8 +2760,8 @@ export class CalendarCardProEditor extends LitElement {
       }
       const gateLines = [...byWhen].map(([clause, line]) =>
         line.names.length > 0
-          ? interpolate(t('gate.line'), { when: clause, names: line.names.join(', ') })
-          : interpolate(t('gate.line_bare'), { when: clause }),
+          ? t('gate.line', { when: clause, names: line.names.join(', ') })
+          : t('gate.line_bare', { when: clause }),
       );
       const inactive = plan.inactive.flatMap((each) => {
         const field = known(each.id);
@@ -2745,20 +2788,10 @@ export class CalendarCardProEditor extends LitElement {
           {
             text: interpolate(top ? t('inactive.line_top') : t('inactive.line'), { label, value }),
             button: top
-              ? {
-                  label: interpolate(t('state.edit_layout'), {
-                    layout: this._layoutName(ctx)('shared'),
-                  }),
-                  name: interpolate(t('state.edit_named'), {
-                    label,
-                    layout: this._layoutName(ctx)('shared'),
-                  }),
-                  focus: `edit:${field.id}:shared`,
-                  onPress: () => this._pickScope('shared'),
-                }
+              ? this._editLayout(t, this._layoutName(ctx), label, field.id, 'shared')
               : {
                   label: t('reset.reset'),
-                  name: interpolate(t('value_source.reset'), { option: label }),
+                  name: t('value_source.reset', { option: label }),
                   focus: `reset:${field.id}`,
                   kind: 'reset' as const,
                   resetKeys: this._storedKeys(field, pctx, owner),
@@ -2782,7 +2815,7 @@ export class CalendarCardProEditor extends LitElement {
               ? undefined
               : ShownView.lineButton({
                   label: t('reset.remove'),
-                  name: interpolate(t('reset.remove_named'), {
+                  name: t('reset.remove_named', {
                     label: this._string(ctx, FAMILIES[family].titleKey),
                   }),
                   focus: `remove-family:${family}`,
@@ -3044,7 +3077,7 @@ export class CalendarCardProEditor extends LitElement {
     const { spec, ctx } = c;
     const language = ctx.language;
     const haName = this._haColorName;
-    const t = (key: string): string => this._string(ctx, key);
+    const t: Translate = (key, values) => this._string(ctx, key, values);
     const value = Routing.atPath(c.data, c.valueField.dataPath, c.valueField.node.name);
     const text = typeof value === 'string' ? value : '';
     const draftKey = Colors.draftKey(c.owner, spec.value, c.destination);
@@ -3082,15 +3115,15 @@ export class CalendarCardProEditor extends LitElement {
           : undefined;
       }
       if (source === 'follow-card') {
-        return interpolate(t('color.follow_card.description'), {
+        return t('color.follow_card.description', {
           value: Colors.describeColor(cardAccent, spec, language, { haName }),
         });
       }
       if (source !== 'follow-ha') return undefined;
       if (c.entity === undefined) return t('color.follow_ha.card');
       return registry === undefined
-        ? interpolate(t('color.follow_ha.none'), { name: c.entity.name })
-        : interpolate(t('color.follow_ha.found'), {
+        ? t('color.follow_ha.none', { name: c.entity.name })
+        : t('color.follow_ha.found', {
             name: c.entity.name,
             value: Colors.describeColor(registry, spec, language, { haName }),
           });
@@ -3103,11 +3136,11 @@ export class CalendarCardProEditor extends LitElement {
     };
     const key = this._colorKey(c);
     const open = this._openColor === key;
-    const customLabel = interpolate(t('color.custom_field'), { setting: c.name });
+    const customLabel = t('color.custom_field', { setting: c.name });
     const remove =
       c.entity !== undefined && c.stored !== undefined && c.stored !== null && c.stored !== ''
         ? {
-            label: interpolate(t('color.remove'), { name: c.entity.name, setting: c.name }),
+            label: t('color.remove', { name: c.entity.name, setting: c.name }),
             onRemove: () => pick(spec.sources[0].write),
           }
         : undefined;
@@ -3118,8 +3151,8 @@ export class CalendarCardProEditor extends LitElement {
       value: valueWords,
       accessibleName:
         c.words === undefined
-          ? interpolate(t('color.named'), { setting: c.name, value: valueWords })
-          : interpolate(t('color.named_state'), {
+          ? t('color.named', { setting: c.name, value: valueWords })
+          : t('color.named_state', {
               setting: c.name,
               value: valueWords,
               state: c.words,
@@ -3271,8 +3304,8 @@ export class CalendarCardProEditor extends LitElement {
         : Object.entries(write);
     const label =
       c.entity === undefined
-        ? interpolate(this._string(ctx, 'history.change'), { setting: c.name })
-        : interpolate(this._string(ctx, 'history.change_for'), {
+        ? this._string(ctx, 'history.change', { setting: c.name })
+        : this._string(ctx, 'history.change_for', {
             setting: c.name,
             name: c.entity.name,
           });
@@ -3341,12 +3374,10 @@ export class CalendarCardProEditor extends LitElement {
     this._added = new Set([...this._added, ...keys]);
     this._say(
       label === undefined
-        ? interpolate(this._string(ctx, 'announce.showing_all'), { heading: heading ?? '' })
-        : interpolate(this._string(ctx, 'announce.added'), { label }),
+        ? this._string(ctx, 'announce.showing_all', { heading: heading ?? '' })
+        : this._string(ctx, 'announce.added', { label }),
     );
-    void this.updateComplete.then(() =>
-      Focus.focusFirst(this.renderRoot, [`[data-field="${CSS.escape(focusId)}"]`]),
-    );
+    this._focusSoon([`[data-field="${CSS.escape(focusId)}"]`]);
   }
 
   /**
@@ -3373,13 +3404,13 @@ export class CalendarCardProEditor extends LitElement {
         ? { kind: 'entry', key: owner.key, keys: field.configKeys }
         : { kind: 'field', field, workspace: ctx.workspace ?? ctx.view };
     this._commit(
-      interpolate(this._string(ctx, 'history.reset'), { setting: label }),
+      this._string(ctx, 'history.reset', { setting: label }),
       undefined,
       () => this._applyReset(target, [this._addedKey(field.id, owner)]),
       `field:${field.id}`,
     );
     if (action === 'remove') {
-      this._say(interpolate(this._string(ctx, 'announce.removed_setting'), { label }));
+      this._say(this._string(ctx, 'announce.removed_setting', { label }));
     }
     this._focusAfterReset(field.id, heading);
   }
@@ -3404,12 +3435,10 @@ export class CalendarCardProEditor extends LitElement {
       owner.kind === 'entry'
         ? { kind: 'entry-family', key: owner.key, family }
         : { kind: 'family', family, workspace: ctx.workspace ?? ctx.view };
-    this._commit(
-      interpolate(this._string(ctx, 'history.reset'), { setting: name }),
-      undefined,
-      () => this._applyReset(target, []),
+    this._commit(this._string(ctx, 'history.reset', { setting: name }), undefined, () =>
+      this._applyReset(target, []),
     );
-    this._say(interpolate(this._string(ctx, 'announce.removed_setting'), { label: name }));
+    this._say(this._string(ctx, 'announce.removed_setting', { label: name }));
     this._focusAfterReset(undefined, heading);
   }
 
@@ -3451,18 +3480,16 @@ export class CalendarCardProEditor extends LitElement {
    * @param heading - The heading's key
    */
   private _focusAfterReset(id: FieldId | undefined, heading?: string): void {
-    void this.updateComplete.then(() => {
-      const group = `.page-group[data-heading="${CSS.escape(heading ?? '')}"]`;
-      Focus.focusFirst(this.renderRoot, [
-        ...(id === undefined ? [] : [`[data-field="${CSS.escape(id)}"]`]),
-        `${group} .add-toggle`,
-        `${group} .heading`,
-        '.page-title',
-        // On the overview, which has no page headings: its own fields, then its first heading.
-        '.overview [data-field]',
-        '.overview .heading',
-      ]);
-    });
+    const group = `.page-group[data-heading="${CSS.escape(heading ?? '')}"]`;
+    this._focusSoon([
+      ...(id === undefined ? [] : [`[data-field="${CSS.escape(id)}"]`]),
+      `${group} .add-toggle`,
+      `${group} .heading`,
+      '.page-title',
+      // On the overview, which has no page headings: its own fields, then its first heading.
+      '.overview [data-field]',
+      '.overview .heading',
+    ]);
   }
 
   /**
@@ -3479,7 +3506,7 @@ export class CalendarCardProEditor extends LitElement {
     if (!link || !target || !targetHeading) return undefined;
     return {
       text: this._string(ctx, link.textKey),
-      label: interpolate(this._string(ctx, 'nav.crumb'), {
+      label: this._string(ctx, 'nav.crumb', {
         page: this._pageTitle(target, ctx),
         heading: this._headingTitle(targetHeading, ctx) ?? '',
       }),
@@ -3540,8 +3567,12 @@ export class CalendarCardProEditor extends LitElement {
    * @param ctx - Schema context
    * @returns The translator
    */
-  private _t(ctx: SchemaCtx): Overview.Translate {
-    return this._keep('translate', ctx.language, () => (key: string) => this._string(ctx, key));
+  private _t(ctx: SchemaCtx): Translate {
+    return this._keep(
+      'translate',
+      ctx.language,
+      () => (key: string, values?: Words) => this._string(ctx, key, values),
+    );
   }
 
   /**
@@ -3620,20 +3651,37 @@ export class CalendarCardProEditor extends LitElement {
       const added = target.kind === 'entry-field' ? `entry:${target.key}:${target.id}` : target.id;
       if (!this._added.has(added)) this._added = new Set([...this._added, added]);
     }
-    const jump = { target, label: hit.label, lit: true };
+    this._land(
+      target,
+      hit.label,
+      // A chip's group holds several fields: focus goes to the chip the result names.
+      target.kind === 'field' ? [`button.chip[data-field="${CSS.escape(target.id)}"]`] : [],
+      () => say?.() ?? this._string(this._ctx, 'search.showing', { label: hit.label }),
+    );
+  }
+
+  /**
+   * Shows a field as a result opens it, once the move renders: scrolled to the top, highlighted
+   * for 2 s, and focused on its wrapper, or on what `first` names before it.
+   *
+   * @param target - The field
+   * @param label - Its label
+   * @param first - What takes focus before the wrapper, where found
+   * @param say - What to announce, if anything
+   */
+  private _land(
+    target: Search.FieldTarget,
+    label: string,
+    first: ReadonlyArray<string>,
+    say?: () => string,
+  ): void {
+    const jump = { target, label, lit: true };
     this._jump = jump;
     void this.updateComplete.then(() => {
       const field = this.renderRoot.querySelector<HTMLElement>('.jump');
       if (field) Focus.scrollToTopSettled(this, field);
-      // A chip's group holds several fields: focus goes to the chip the result names.
-      Focus.focusFirst(field ?? this.renderRoot, [
-        ...(target.kind === 'field' ? [`button.chip[data-field="${CSS.escape(target.id)}"]`] : []),
-        '[tabindex="-1"]',
-        '.page-title',
-      ]);
-      this._say(
-        say?.() ?? interpolate(this._string(this._ctx, 'search.showing'), { label: hit.label }),
-      );
+      Focus.focusFirst(field ?? this.renderRoot, [...first, '[tabindex="-1"]', '.page-title']);
+      if (say) this._say(say());
       setTimeout(() => {
         if (this._jump === jump) this._jump = { ...jump, lit: false };
       }, 2000);
@@ -3733,17 +3781,10 @@ export class CalendarCardProEditor extends LitElement {
       const index = QUICK_SETUP_STEPS.indexOf(wizard.step);
       if (index > 0) {
         this._quickSetupGo(QUICK_SETUP_STEPS[index - 1]);
-        void this.updateComplete.then(() =>
-          Focus.focusFirst(this.renderRoot, ['[data-quick-setup-back]', '[data-quick-setup-next]']),
-        );
+        this._focusSoon(['[data-quick-setup-back]', '[data-quick-setup-next]']);
       } else {
         this._cancelQuickSetup();
-        void this.updateComplete.then(() =>
-          Focus.focusFirst(this.renderRoot, [
-            '[data-focus="quick-setup"]',
-            '[data-quick-setup-open]',
-          ]),
-        );
+        this._focusSoon(['[data-focus="quick-setup"]', '[data-quick-setup-open]']);
       }
     } else if (action === 'close' && this._drag !== undefined) {
       this._drag.cancel();
@@ -3753,9 +3794,7 @@ export class CalendarCardProEditor extends LitElement {
     } else if (action === 'close' && this._colorOpenHere()) {
       const open = this._openColor;
       this._openColor = undefined;
-      void this.updateComplete.then(() =>
-        Focus.focusFirst(this.renderRoot, [Focus.byFocusKey(`color:${open}`)]),
-      );
+      this._focusSoon([Focus.byFocusKey(`color:${open}`)]);
     } else if (
       action === 'close' &&
       this._split !== undefined &&
@@ -3787,9 +3826,7 @@ export class CalendarCardProEditor extends LitElement {
       else if (this._adding !== undefined) this._adding = undefined;
       else if (addRow !== undefined) this._addOpen = undefined;
       else this._scopeOpen = false;
-      void this.updateComplete.then(() =>
-        Focus.focusFirst(this.renderRoot, [Focus.byFocusKey(opener)]),
-      );
+      this._focusSoon([Focus.byFocusKey(opener)]);
     } else if (action === 'back') {
       this._back();
     } else if (action === 'clear') {
@@ -3801,13 +3838,10 @@ export class CalendarCardProEditor extends LitElement {
         .some((each) => each instanceof Element && each.classList.contains('filter-form'));
       this._filter = { ...this._filter, query: '' };
       this._jump = undefined;
-      void this.updateComplete.then(() =>
-        Focus.focusFirst(
-          this.renderRoot,
-          inField
-            ? ['ha-form.filter-form']
-            : ['[data-heading="calendars"] .heading', '.row-group .heading'],
-        ),
+      this._focusSoon(
+        inField
+          ? ['ha-form.filter-form']
+          : ['[data-heading="calendars"] .heading', '.row-group .heading'],
       );
     }
   };
@@ -3918,9 +3952,7 @@ export class CalendarCardProEditor extends LitElement {
     this._scopeOpen = true;
     // One disclosure at a time, so Escape closes the one just opened.
     this._addOpen = undefined;
-    void this.updateComplete.then(() =>
-      Focus.focusFirst(this.renderRoot, [`input[name="scope"]:checked`, `input[name="scope"]`]),
-    );
+    this._focusSoon([`input[name="scope"]:checked`, `input[name="scope"]`]);
   };
 
   /**
@@ -3936,7 +3968,7 @@ export class CalendarCardProEditor extends LitElement {
     this._scopeOpen = false;
     const ctx = this._ctx;
     this._say(
-      interpolate(this._string(ctx, 'announce.scope'), {
+      this._string(ctx, 'announce.scope', {
         layout: this._string(ctx, `editing_workspace.option.${workspace}.label`),
       }),
     );
@@ -3976,7 +4008,7 @@ export class CalendarCardProEditor extends LitElement {
         const data = { view: value };
         // The view and the Grid notice it brings are one step.
         this._commit(
-          interpolate(this._string(ctx, 'history.change'), { setting: this._string(ctx, 'view') }),
+          this._string(ctx, 'history.change', { setting: this._string(ctx, 'view') }),
           undefined,
           () =>
             this._writeOwned(
@@ -4222,25 +4254,16 @@ export class CalendarCardProEditor extends LitElement {
     if (kept && kept.deps.every((each, at) => each === deps[at])) return kept.index;
     const owners = (forms: ReadonlyArray<Search.SearchOwner>) =>
       forms.filter(({ schema }) => Filter.hasFields(schema));
-    const calendars = PANELS.find((panel) => panel.id === 'calendars')!;
-    const entries = calendars
-      .subforms?.(ctx)
-      ?.find((subform) => subform.path.join('.') === ENTITY_PATH.join('.'));
-    const card = PANELS.find((panel) => panel.id === 'card')!;
-    const buttons = card
-      .subforms?.(ctx)
-      ?.find((subform) => subform.path.join('.') === TOOLBAR_BUTTON_PATH.join('.'));
     const index = Search.buildSearchIndex({
       ...ctx,
       hass: this.hass,
       present,
       plan: this._planCtx(ctx),
       data: this._formData(),
-      entries: entries ? owners(this._entrySchemas(entries, ctx)) : [],
-      buttons:
-        buttons && Config.resolveToolbar(ctx.config).show
-          ? owners(this._buttonSchemas(buttons))
-          : [],
+      entries: owners(this._entrySchemas(this._entrySubform(ctx), ctx)),
+      buttons: Config.resolveToolbar(ctx.config).show
+        ? owners(this._buttonSchemas(this._buttonSubform(ctx)))
+        : [],
       t: this._t(ctx),
       describe: this._describe,
     });
@@ -4265,14 +4288,14 @@ export class CalendarCardProEditor extends LitElement {
     const t = this._t(ctx);
     const hits = Search.search(this._searchIndex(ctx, present), query);
     if (hits.length === 0) {
-      this._resultStatus = `${interpolate(t('filter.no_matches'), { query })} ${t('search.hint')}`;
+      this._resultStatus = `${t('filter.no_matches', { query })} ${t('search.hint')}`;
       return this._renderNoMatches(ctx);
     }
     // Counted as listed: one field of several calendars is one result (the D05 manifest).
     const items = Search.collapse(hits);
-    this._resultStatus = interpolate(t('search.results'), {
+    this._resultStatus = t('search.results', {
       query,
-      count: String(items.length),
+      count: items.length,
     });
     const workspace = ctx.workspace ?? ctx.view;
     const pctx = this._planCtx(ctx);
@@ -4305,7 +4328,7 @@ export class CalendarCardProEditor extends LitElement {
         values:
           workspace === 'shared'
             ? undefined
-            : interpolate(t('search.values_for'), {
+            : t('search.values_for', {
                 layout: t(`editing_workspace.option.${workspace}.label`),
               }),
         editHere: {
@@ -4370,7 +4393,7 @@ export class CalendarCardProEditor extends LitElement {
         entry.status.kind === 'add' && open
           ? {
               label: t('search.add'),
-              name: interpolate(t('search.add_named'), {
+              name: t('search.add_named', {
                 label: entry.label,
                 place: entry.crumbs.join(', '),
               }),
@@ -4396,7 +4419,7 @@ export class CalendarCardProEditor extends LitElement {
       entry.words,
       entry.yamlPath === ''
         ? undefined
-        : interpolate(this._string(ctx, 'search.yaml'), { path: entry.yamlPath }),
+        : this._string(ctx, 'search.yaml', { path: entry.yamlPath }),
     ]
       .filter((part) => part !== undefined && part !== '')
       .join(' · ');
@@ -4430,10 +4453,10 @@ export class CalendarCardProEditor extends LitElement {
         crumbs: [this._string(ctx, 'panel.calendars'), ...first.entry.crumbs.slice(1)],
         meta:
           first.entry.target.kind === 'split'
-            ? interpolate(t('calendars.entries'), { count: String(item.hits.length) })
+            ? t('calendars.entries', { count: item.hits.length })
             : set === 0
               ? t('search.calendars_none')
-              : interpolate(t('search.calendars_set'), { count: String(set) }),
+              : t('search.calendars_set', { count: set }),
         phrase: first.phrase ? { template: t('search.help_phrase'), ...first.phrase } : undefined,
         onOpen: () => {
           const next = new Set(this._openResults);
@@ -4501,7 +4524,7 @@ export class CalendarCardProEditor extends LitElement {
           Focus.scrollToTopSettled(this, place);
           place.focus({ preventScroll: true });
         }
-        this._say(interpolate(this._string(ctx, 'search.showing'), { label: entry.label }));
+        this._say(this._string(ctx, 'search.showing', { label: entry.label }));
       });
       return;
     }
@@ -4542,7 +4565,7 @@ export class CalendarCardProEditor extends LitElement {
                 page: page === 'overview' || page === 'entry' ? undefined : page,
               };
         this._openResult({ target: gateTarget, label: labelOf(by) }, focusKey, true, () =>
-          interpolate(this._string(ctx, 'search.needs_said'), {
+          this._string(ctx, 'search.needs_said', {
             label: entry.label,
             needs: entry.needs ?? '',
           }),
@@ -4555,7 +4578,7 @@ export class CalendarCardProEditor extends LitElement {
           focusKey,
           true,
           status.kind === 'add'
-            ? () => interpolate(this._string(ctx, 'announce.added'), { label: entry.label })
+            ? () => this._string(ctx, 'announce.added', { label: entry.label })
             : undefined,
         );
     }
@@ -4587,7 +4610,7 @@ export class CalendarCardProEditor extends LitElement {
         '.page-title',
       ]);
       if (line) Focus.scrollToTopSettled(this, line);
-      this._say(interpolate(this._string(ctx, 'search.showing'), { label: entry.label }));
+      this._say(this._string(ctx, 'search.showing', { label: entry.label }));
     });
   }
 
@@ -4632,12 +4655,7 @@ export class CalendarCardProEditor extends LitElement {
       { card: this._formData() },
       (field, show) => this._renderField(field, ctx, show),
       (heading) =>
-        heading.extras?.includes('own-buttons')
-          ? this._renderToolbarButtons(
-              PANELS.find((panel) => panel.id === 'card')!,
-              ctx,
-            )
-          : nothing,
+        heading.extras?.includes('own-buttons') ? this._renderToolbarButtons(ctx) : nothing,
       this._pageTitle(page, ctx),
     );
     if (page.id === 'size_spacing') {
@@ -4656,11 +4674,11 @@ export class CalendarCardProEditor extends LitElement {
       });
       const text =
         line.views.length === 1
-          ? interpolate(t('other_layouts.one'), {
+          ? t('other_layouts.one', {
               layout: layout(line.views[0]),
               names: Shown.namesText(names, t),
             })
-          : interpolate(t('other_layouts.many'), {
+          : t('other_layouts.many', {
               layouts: EditorLocalize.formatList(
                 ctx.language,
                 line.views.map(layout),
@@ -4669,15 +4687,11 @@ export class CalendarCardProEditor extends LitElement {
               names: Shown.namesText(names, t),
             });
       parts.push(
-        ShownView.otherLayoutsLine(
-          text,
-          interpolate(t('add.count'), { count: String(names.length) }),
-          {
-            label: interpolate(t('state.edit_layout'), { layout: layout(target) }),
-            focus: `edit-layout:${line.views.join('-')}`,
-            onPress: () => this._pickScope(target),
-          },
-        ),
+        ShownView.otherLayoutsLine(text, t('add.count', { count: names.length }), {
+          label: t('state.edit_layout', { layout: layout(target) }),
+          focus: `edit-layout:${line.views.join('-')}`,
+          onPress: () => this._pickScope(target),
+        }),
       );
     }
     return parts;
@@ -4737,7 +4751,7 @@ export class CalendarCardProEditor extends LitElement {
             label: label(id),
             name: label(id),
             pressed: false,
-            needs: interpolate(this._string(ctx, 'chip.needs'), { part: needs ?? '' }),
+            needs: this._string(ctx, 'chip.needs', { part: needs ?? '' }),
             onPress: () => undefined,
           },
         ];
@@ -4748,7 +4762,7 @@ export class CalendarCardProEditor extends LitElement {
       if (words !== undefined && state?.words?.kind !== 'layout-default') {
         const pairs = sources.get(words) ?? [];
         pairs.push(
-          interpolate(t('summary.pair'), {
+          t('summary.pair', {
             label: label(id),
             value: t(pressed ? 'summary.on' : 'summary.off'),
           }),
@@ -4761,12 +4775,12 @@ export class CalendarCardProEditor extends LitElement {
         const forLayout =
           state?.words?.kind === 'set-layout' ? layout(state.words.view) : undefined;
         actions.push({
-          label: interpolate(t('value_source.reset'), { option: label(id) }),
+          label: t('value_source.reset', { option: label(id) }),
           name:
             action === 'reset'
               ? forLayout
-                ? interpolate(t('reset.reset_for'), { label: name, layout: forLayout })
-                : interpolate(t('value_source.reset'), { option: name })
+                ? t('reset.reset_for', { label: name, layout: forLayout })
+                : t('value_source.reset', { option: name })
               : interpolate(forLayout ? t('reset.remove_for') : t('reset.remove_named'), {
                   label: name,
                   layout: forLayout ?? '',
@@ -4784,11 +4798,11 @@ export class CalendarCardProEditor extends LitElement {
           name: words === undefined ? label(id) : `${label(id)}, ${words}`,
           pressed,
           yaml: this._prefs.yaml
-            ? interpolate(t('search.yaml'), { path: this._yamlPath(field, ctx) })
+            ? t('search.yaml', { path: this._yamlPath(field, ctx) })
             : undefined,
           onPress: () =>
             this._commit(
-              interpolate(t('history.change'), { setting: fieldLabel(field, ctx.language) }),
+              t('history.change', { setting: fieldLabel(field, ctx.language) }),
               undefined,
               () => this._writeFieldValue(WriteFrames.CARD_OWNER, id, !pressed),
               `field:${id}`,
@@ -4818,7 +4832,7 @@ export class CalendarCardProEditor extends LitElement {
       ${
         absent.length > 0 && view !== undefined
           ? html`<p class="hint">
-              ${interpolate(t('chip.not_in'), {
+              ${t('chip.not_in', {
                 layout: layout(view),
                 names: absent.map(label).join(', '),
               })}
@@ -4881,7 +4895,7 @@ export class CalendarCardProEditor extends LitElement {
       })),
       onPick: (next) =>
         this._commit(
-          interpolate(this._string(ctx, 'history.change'), { setting: name }),
+          this._string(ctx, 'history.change', { setting: name }),
           undefined,
           () => this._writeFieldValue(WriteFrames.CARD_OWNER, id, next, workspace),
           `field:${id}`,
@@ -4914,7 +4928,7 @@ export class CalendarCardProEditor extends LitElement {
           pressed,
           onPress: () =>
             this._commit(
-              interpolate(this._string(ctx, 'history.change'), { setting: name }),
+              this._string(ctx, 'history.change', { setting: name }),
               undefined,
               () => this._writeFieldValue(WriteFrames.CARD_OWNER, id, !pressed, workspace),
               `field:${id}`,
@@ -5034,8 +5048,30 @@ export class CalendarCardProEditor extends LitElement {
    * @returns The sub-form
    */
   private _entrySubform(ctx: SchemaCtx): SubformDef {
-    return PANELS.find((panel) => panel.id === 'calendars')!.subforms!(ctx).find(
-      (candidate) => candidate.path.join('.') === ENTITY_PATH.join('.'),
+    return this._subform('calendars', ENTITY_PATH, ctx);
+  }
+
+  /**
+   * The toolbar buttons' sub-form: the schema every button's row draws.
+   *
+   * @param ctx - Schema context
+   * @returns The sub-form
+   */
+  private _buttonSubform(ctx: SchemaCtx): SubformDef {
+    return this._subform('card', TOOLBAR_BUTTON_PATH, ctx);
+  }
+
+  /**
+   * A panel's sub-form, by its path.
+   *
+   * @param id - The panel
+   * @param path - The sub-form's path
+   * @param ctx - Schema context
+   * @returns The sub-form
+   */
+  private _subform(id: string, path: ReadonlyArray<string>, ctx: SchemaCtx): SubformDef {
+    return PANELS.find((panel) => panel.id === id)!.subforms!(ctx).find(
+      (candidate) => candidate.path.join('.') === path.join('.'),
     )!;
   }
 
@@ -5166,7 +5202,7 @@ export class CalendarCardProEditor extends LitElement {
         {
           id: 'up',
           label: this._string(ctx, 'toolbar.buttons.move_up'),
-          name: interpolate(this._string(ctx, 'strip.move_up'), { name }),
+          name: this._string(ctx, 'strip.move_up', { name }),
           keys: onPage ? this._string(ctx, 'strip.key_up') : undefined,
           disabled: place === 0,
           onPress: () => this._moveCalendar(entityId, place - 1, `${focus}up`),
@@ -5174,7 +5210,7 @@ export class CalendarCardProEditor extends LitElement {
         {
           id: 'down',
           label: this._string(ctx, 'toolbar.buttons.move_down'),
-          name: interpolate(this._string(ctx, 'strip.move_down'), { name }),
+          name: this._string(ctx, 'strip.move_down', { name }),
           keys: onPage ? this._string(ctx, 'strip.key_down') : undefined,
           disabled: last,
           onPress: () => this._moveCalendar(entityId, place + 1, `${focus}down`),
@@ -5182,7 +5218,7 @@ export class CalendarCardProEditor extends LitElement {
         {
           id: 'top',
           label: this._string(ctx, 'strip.move_top_label'),
-          name: interpolate(this._string(ctx, 'strip.move_top'), { name }),
+          name: this._string(ctx, 'strip.move_top', { name }),
           disabled: place === 0,
           onPress: () => this._moveCalendar(entityId, 0, `${focus}top`),
         },
@@ -5192,9 +5228,9 @@ export class CalendarCardProEditor extends LitElement {
       actions.push({
         id: 'remove',
         label: this._string(ctx, 'entity.remove'),
-        name: interpolate(this._string(ctx, 'strip.remove_calendar'), {
+        name: this._string(ctx, 'strip.remove_calendar', {
           name,
-          count: String(total),
+          count: total,
         }),
         danger: true,
         onPress: () => this._removeCalendar(entityId),
@@ -5208,7 +5244,7 @@ export class CalendarCardProEditor extends LitElement {
       actions.unshift({
         id: 'split',
         label: this._string(ctx, 'split.title'),
-        name: interpolate(this._string(ctx, 'split.named'), { name: entryName }),
+        name: this._string(ctx, 'split.named', { name: entryName }),
         onPress: () => this._openSplit(entryKey),
       });
     }
@@ -5218,25 +5254,25 @@ export class CalendarCardProEditor extends LitElement {
       {
         id: 'duplicate',
         label: this._string(ctx, 'entity.duplicate'),
-        name: interpolate(this._string(ctx, 'strip.duplicate'), { name: entryName }),
+        name: this._string(ctx, 'strip.duplicate', { name: entryName }),
         onPress: () => this._duplicateEntry(entryKey),
       },
       {
         id: 'copy',
         label: this._string(ctx, 'entity.copy'),
-        name: interpolate(this._string(ctx, 'strip.copy'), { name: entryName }),
+        name: this._string(ctx, 'strip.copy', { name: entryName }),
         disabled: !Entities.hasTransferableSettings(entry),
         onPress: () => this._copyEntry(entryKey),
       },
       {
         id: 'paste',
         label: this._string(ctx, 'entity.paste'),
-        name: interpolate(this._string(ctx, 'strip.paste'), { name: entryName }),
+        name: this._string(ctx, 'strip.paste', { name: entryName }),
         note: !copied
           ? this._string(ctx, 'strip.paste_empty')
           : from === undefined
             ? undefined
-            : interpolate(this._string(ctx, 'strip.paste_from'), { name: from }),
+            : this._string(ctx, 'strip.paste_from', { name: from }),
         disabled: !copied,
         onPress: () => this._pasteEntry(entryKey),
       },
@@ -5286,7 +5322,7 @@ export class CalendarCardProEditor extends LitElement {
     ctx: SchemaCtx,
   ): { more: CalendarView.MoreButton; strip?: TemplateResult } {
     const open = this._openStrip === rowKey;
-    const label = interpolate(this._string(ctx, 'calendars.actions'), { name });
+    const label = this._string(ctx, 'calendars.actions', { name });
     return {
       more: {
         key: rowKey,
@@ -5319,8 +5355,8 @@ export class CalendarCardProEditor extends LitElement {
     const matches = (texts: ReadonlyArray<unknown>): boolean =>
       texts.some((text) => typeof text === 'string' && text.toLowerCase().includes(query));
     const set = (entry: string | Types.EntityConfig) =>
-      interpolate(this._string(ctx, 'summary.set'), {
-        count: String(CalendarList.setCount(entry)),
+      this._string(ctx, 'summary.set', {
+        count: CalendarList.setCount(entry),
       });
     const grab = this._grabbed('calendar');
     const calendars = CalendarList.groups(state);
@@ -5353,9 +5389,9 @@ export class CalendarCardProEditor extends LitElement {
           !grouped,
           ctx,
         );
-        const position = interpolate(this._string(ctx, 'calendars.position'), {
-          position: String(row.position),
-          total: String(row.total),
+        const position = this._string(ctx, 'calendars.position', {
+          position: row.position,
+          total: row.total,
         });
         const described = grouped
           ? [name, ...parts, set(entry), position]
@@ -5365,7 +5401,7 @@ export class CalendarCardProEditor extends LitElement {
             key: row.key,
             title: grouped ? parts.join(Summary.SUMMARY_SEPARATOR) : name,
             summary: grouped ? set(entry) : [...parts, set(entry)].join(Summary.SUMMARY_SEPARATOR),
-            editName: interpolate(this._string(ctx, 'calendars.edit'), {
+            editName: this._string(ctx, 'calendars.edit', {
               row: described.join(', '),
             }),
             color: this._rowColor(entry),
@@ -5388,8 +5424,8 @@ export class CalendarCardProEditor extends LitElement {
         ? {
             handle,
             name,
-            count: interpolate(this._string(ctx, 'calendars.entries'), {
-              count: String(calendar.rows.length),
+            count: this._string(ctx, 'calendars.entries', {
+              count: calendar.rows.length,
             }),
             missing,
             ...this._rowMore(
@@ -5476,8 +5512,8 @@ export class CalendarCardProEditor extends LitElement {
     return ReorderView.dragHandle({
       focus: handleFocus(list, id),
       moves: list === 'calendar' ? id : undefined,
-      name: interpolate(this._string(ctx, 'reorder.handle'), { name }),
-      tooltip: interpolate(this._string(ctx, 'reorder.tooltip'), { name }),
+      name: this._string(ctx, 'reorder.handle', { name }),
+      tooltip: this._string(ctx, 'reorder.tooltip', { name }),
       pressed: this._grabbed(list)?.key === key,
       onKeydown: (event) => this._handleKeydown(event, list, key),
       onClick: () => {
@@ -5589,9 +5625,7 @@ export class CalendarCardProEditor extends LitElement {
     const ctx = this._ctx;
     const position = this._grabPosition(grab, ctx);
     this._say(
-      keys
-        ? `${position} ${interpolate(this._string(ctx, 'reorder.keys'), this._keyCaps(ctx))}`
-        : position,
+      keys ? `${position} ${this._string(ctx, 'reorder.keys', this._keyCaps(ctx))}` : position,
     );
   }
 
@@ -5603,10 +5637,10 @@ export class CalendarCardProEditor extends LitElement {
    * @returns The sentence
    */
   private _grabPosition(grab: Grab, ctx: SchemaCtx): string {
-    return interpolate(this._string(ctx, 'reorder.status'), {
+    return this._string(ctx, 'reorder.status', {
       name: this._grabbedName(grab),
-      position: String(grab.at + 1),
-      total: String(grab.total),
+      position: grab.at + 1,
+      total: grab.total,
     });
   }
 
@@ -5637,9 +5671,7 @@ export class CalendarCardProEditor extends LitElement {
     this._grab = undefined;
     this._sayPutBack(name, grab.from, grab.total);
     if (refocus) {
-      void this.updateComplete.then(() =>
-        Focus.focusFirst(this.renderRoot, [Focus.byFocusKey(handleFocus(grab.list, id))]),
-      );
+      this._focusSoon([Focus.byFocusKey(handleFocus(grab.list, id))]);
     }
   }
 
@@ -5652,10 +5684,10 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _sayPutBack(name: string, at: number, total: number): void {
     this._say(
-      interpolate(this._string(this._ctx, 'reorder.put_back'), {
+      this._string(this._ctx, 'reorder.put_back', {
         name,
-        position: String(at + 1),
-        total: String(total),
+        position: at + 1,
+        total: total,
       }),
     );
   }
@@ -5796,9 +5828,7 @@ export class CalendarCardProEditor extends LitElement {
           focus: 'add-calendar',
           onPress: () => {
             this._adding = {};
-            void this.updateComplete.then(() =>
-              Focus.focusFirst(this.renderRoot, [Focus.byFocusKey('add-picker')]),
-            );
+            this._focusSoon([Focus.byFocusKey('add-picker')]);
           },
         },
         ' add-calendar-button',
@@ -5825,11 +5855,11 @@ export class CalendarCardProEditor extends LitElement {
     const already =
       chosen !== undefined && shown.includes(chosen)
         ? {
-            line: interpolate(this._string(ctx, 'calendars.already'), {
+            line: this._string(ctx, 'calendars.already', {
               name: this._calendarName(chosen),
             }),
             open: {
-              label: interpolate(this._string(ctx, 'calendars.open'), {
+              label: this._string(ctx, 'calendars.open', {
                 name: this._calendarName(chosen),
               }),
               focus: 'add-open',
@@ -5889,9 +5919,7 @@ export class CalendarCardProEditor extends LitElement {
   /** Closes Add Calendar, focus back on its button. */
   private _cancelAdd = (): void => {
     this._adding = undefined;
-    void this.updateComplete.then(() =>
-      Focus.focusFirst(this.renderRoot, [Focus.byFocusKey('add-calendar')]),
-    );
+    this._focusSoon([Focus.byFocusKey('add-calendar')]);
   };
 
   /**
@@ -5906,16 +5934,9 @@ export class CalendarCardProEditor extends LitElement {
     const chosen = typeof value === 'string' && value !== '' ? value : undefined;
     this._adding = { chosen };
     if (chosen === undefined) return;
-    this._say(
-      interpolate(this._string(this._ctx, 'calendars.chose'), { name: this._calendarName(chosen) }),
-    );
-    void this.updateComplete.then(() =>
-      // Open where the calendar is already on the card, and Add is off.
-      Focus.focusFirst(this.renderRoot, [
-        Focus.byFocusKey('add-open'),
-        Focus.byFocusKey('add-confirm'),
-      ]),
-    );
+    this._say(this._string(this._ctx, 'calendars.chose', { name: this._calendarName(chosen) }));
+    // Open where the calendar is already on the card, and Add is off.
+    this._focusSoon([Focus.byFocusKey('add-open'), Focus.byFocusKey('add-confirm')]);
   };
 
   /**
@@ -5928,7 +5949,7 @@ export class CalendarCardProEditor extends LitElement {
     const name = Entities.entityDisplayName(entityId, this.hass);
     const key = this._mintEntryKey();
     const added = this._commit(
-      interpolate(this._string(this._ctx, 'history.add'), { name }),
+      this._string(this._ctx, 'history.add', { name }),
       undefined,
       () => {
         if (!this._prepareForWrite()) return;
@@ -5958,7 +5979,7 @@ export class CalendarCardProEditor extends LitElement {
     const name = this._calendarName(entityId);
     const first = calendars[from].rows[0].key;
     const moved = this._commit(
-      interpolate(this._string(this._ctx, 'history.move'), { name }),
+      this._string(this._ctx, 'history.move', { name }),
       undefined,
       () => {
         if (!this._prepareForWrite()) return;
@@ -5968,10 +5989,10 @@ export class CalendarCardProEditor extends LitElement {
     );
     if (!moved) return;
     this._say(
-      interpolate(this._string(this._ctx, 'announce.moved'), {
+      this._string(this._ctx, 'announce.moved', {
         name,
-        position: String(to + 1),
-        total: String(calendars.length),
+        position: to + 1,
+        total: calendars.length,
       }),
     );
     void this.updateComplete.then(() => {
@@ -6016,7 +6037,7 @@ export class CalendarCardProEditor extends LitElement {
     if (!this._config) return;
     const name = this._entryName(key);
     const pasted = this._commit(
-      interpolate(this._string(this._ctx, 'history.paste'), { name }),
+      this._string(this._ctx, 'history.paste', { name }),
       undefined,
       () => {
         if (!this._prepareForWrite()) return;
@@ -6030,7 +6051,7 @@ export class CalendarCardProEditor extends LitElement {
       },
       `entry:${key}`,
     );
-    if (pasted) this._say(interpolate(this._string(this._ctx, 'announce.pasted'), { name }));
+    if (pasted) this._say(this._string(this._ctx, 'announce.pasted', { name }));
   }
 
   /**
@@ -6045,7 +6066,7 @@ export class CalendarCardProEditor extends LitElement {
     const name = this._entryName(key);
     const copy = this._mintEntryKey();
     const done = this._commit(
-      interpolate(this._string(this._ctx, 'history.duplicate'), { name }),
+      this._string(this._ctx, 'history.duplicate', { name }),
       undefined,
       () => {
         if (!this._prepareForWrite()) return;
@@ -6064,7 +6085,7 @@ export class CalendarCardProEditor extends LitElement {
       text: this._string(ctx, 'entry.duplicate_warning'),
       warning: true,
     };
-    this._say(interpolate(this._string(ctx, 'entry.duplicated'), { name }));
+    this._say(this._string(ctx, 'entry.duplicated', { name }));
     this._open(
       { kind: 'entry', key: copy },
       `row:${key}`,
@@ -6118,7 +6139,7 @@ export class CalendarCardProEditor extends LitElement {
     const name = this._entryName(key);
     const at = this._calendarPlace(Synthetic.entityIdOf(entry));
     const removed = this._commit(
-      interpolate(this._string(ctx, 'history.remove'), { name }),
+      this._string(ctx, 'history.remove', { name }),
       undefined,
       () => {
         if (!this._prepareForWrite()) return;
@@ -6130,9 +6151,9 @@ export class CalendarCardProEditor extends LitElement {
     );
     if (!removed) return;
     this._afterRemove(
-      interpolate(this._string(ctx, 'status.removed'), { name }),
+      this._string(ctx, 'status.removed', { name }),
       at,
-      interpolate(this._string(ctx, 'announce.removed'), { name }),
+      this._string(ctx, 'announce.removed', { name }),
     );
   }
 
@@ -6152,7 +6173,7 @@ export class CalendarCardProEditor extends LitElement {
     if (calendar === undefined) return;
     const at = this._calendarPlace(entityId);
     const removed = this._commit(
-      interpolate(this._string(ctx, 'history.remove'), { name }),
+      this._string(ctx, 'history.remove', { name }),
       undefined,
       () => {
         if (!this._prepareForWrite()) return;
@@ -6162,12 +6183,12 @@ export class CalendarCardProEditor extends LitElement {
     );
     if (!removed) return;
     this._afterRemove(
-      interpolate(this._string(ctx, 'status.removed_calendar'), {
+      this._string(ctx, 'status.removed_calendar', {
         name,
-        count: String(calendar.rows.length),
+        count: calendar.rows.length,
       }),
       at,
-      interpolate(this._string(ctx, 'announce.removed'), { name }),
+      this._string(ctx, 'announce.removed', { name }),
     );
   }
 
@@ -6187,7 +6208,7 @@ export class CalendarCardProEditor extends LitElement {
     const calendar = this._calendarName(entityId);
     let adopted = false;
     const done = this._commit(
-      interpolate(this._string(ctx, 'history.change_for'), {
+      this._string(ctx, 'history.change_for', {
         setting: this._string(ctx, 'entry.calendar'),
         name,
       }),
@@ -6236,9 +6257,7 @@ export class CalendarCardProEditor extends LitElement {
     };
     this._closeDisclosures();
     this._nav = Navigation.go(this._nav, { kind: 'entry', key }, from, 'replace');
-    this._say(
-      interpolate(this._string(this._ctx, 'entry.showing'), { name: this._entryName(key) }),
-    );
+    this._say(this._string(this._ctx, 'entry.showing', { name: this._entryName(key) }));
     void this._afterMove();
   }
 
@@ -6505,14 +6524,10 @@ export class CalendarCardProEditor extends LitElement {
     if (session === undefined) return;
     this._split = undefined;
     if (session.previews.length > 0) {
-      const opening = structuredClone(this._rawConfig);
-      this._lastDispatched = opening;
-      this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: opening } }));
+      this._send(structuredClone(this._rawConfig));
     }
     if (focus) {
-      void this.updateComplete.then(() =>
-        Focus.focusFirst(this.renderRoot, [Focus.byFocusKey('split-row'), '.page-title']),
-      );
+      this._focusSoon([Focus.byFocusKey('split-row'), '.page-title']);
     }
   }
 
@@ -6610,7 +6625,7 @@ export class CalendarCardProEditor extends LitElement {
     let done = false;
     try {
       done = this._commit(
-        interpolate(this._string(ctx, 'split.named'), { name }),
+        this._string(ctx, 'split.named', { name }),
         undefined,
         () => {
           if (!this._prepareForWrite()) return;
@@ -6630,10 +6645,8 @@ export class CalendarCardProEditor extends LitElement {
     this._split = undefined;
     this._newEntries = new Set([...this._newEntries, session.key, session.newKey]);
     this._splitDone = { key: session.key, newKey: session.newKey };
-    this._say(interpolate(this._string(ctx, 'split.done'), { name }));
-    void this.updateComplete.then(() =>
-      Focus.focusFirst(this.renderRoot, [Focus.byFocusKey('split-done')]),
-    );
+    this._say(this._string(ctx, 'split.done', { name }));
+    this._focusSoon([Focus.byFocusKey('split-done')]);
   }
 
   /**
@@ -6645,20 +6658,11 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _splitWayOut(key: number, id: FieldId): void {
     this._cancelSplit(false);
-    const jump = {
-      target: { kind: 'entry-field' as const, id, key },
-      label: this._string(this._ctx, `entity.${id.slice(id.indexOf(':') + 1)}`),
-      lit: true,
-    };
-    this._jump = jump;
-    void this.updateComplete.then(() => {
-      const field = this.renderRoot.querySelector<HTMLElement>('.jump');
-      if (field) Focus.scrollToTopSettled(this, field);
-      Focus.focusFirst(field ?? this.renderRoot, ['[tabindex="-1"]', '.page-title']);
-      setTimeout(() => {
-        if (this._jump === jump) this._jump = { ...jump, lit: false };
-      }, 2000);
-    });
+    this._land(
+      { kind: 'entry-field', id, key },
+      this._string(this._ctx, `entity.${id.slice(id.indexOf(':') + 1)}`),
+      [],
+    );
   }
 
   /**
@@ -6674,7 +6678,7 @@ export class CalendarCardProEditor extends LitElement {
     if (session.how === 'type') {
       return this._string(ctx, part === 0 ? 'row.all_day' : 'row.timed');
     }
-    return interpolate(this._string(ctx, part === 0 ? 'row.only' : 'row.without'), {
+    return this._string(ctx, part === 0 ? 'row.only' : 'row.without', {
       words: this._splitWords(session),
     });
   }
@@ -6709,7 +6713,7 @@ export class CalendarCardProEditor extends LitElement {
     const name = this._calendarName(entityId);
     const helper =
       part === 0 && color === Entities.asEntityConfig(session.original).accent_color
-        ? interpolate(this._string(ctx, 'split.color_now'), { name })
+        ? this._string(ctx, 'split.color_now', { name })
         : part === 1 && color === session.free
           ? this._string(ctx, 'split.color_free')
           : undefined;
@@ -6793,7 +6797,7 @@ export class CalendarCardProEditor extends LitElement {
     return SplitView.splitRow(
       this._string(ctx, 'split.title'),
       this._string(ctx, 'split.row_helper'),
-      interpolate(this._string(ctx, 'split.named'), { name: this._entryName(key) }),
+      this._string(ctx, 'split.named', { name: this._entryName(key) }),
       () => this._openSplit(key),
     );
   }
@@ -6806,7 +6810,7 @@ export class CalendarCardProEditor extends LitElement {
    * @returns The task
    */
   private _renderSplitTask(session: SplitSession, ctx: SchemaCtx): TemplateResult {
-    const t = (key: string): string => this._string(ctx, key);
+    const t: Translate = (key, values) => this._string(ctx, key, values);
     const entityId = Synthetic.entityIdOf(session.original);
     const name = this._calendarName(entityId);
     const own = Entities.asEntityConfig(session.original);
@@ -6839,8 +6843,8 @@ export class CalendarCardProEditor extends LitElement {
     let body: unknown;
     let next: CalendarView.TextButton;
     if (session.step === 0) {
-      title = interpolate(t('split.named'), { name });
-      intro = interpolate(t('split.how.intro'), { name, entity: entityId });
+      title = t('split.named', { name });
+      intro = t('split.how.intro', { name, entity: entityId });
       const way = (id: FieldId, label: string): CalendarView.TextButton => ({
         label,
         focus: `split-way:${id}`,
@@ -6941,10 +6945,10 @@ export class CalendarCardProEditor extends LitElement {
       };
       if (session.step === 1) {
         title = t('split.colors.title');
-        intro = interpolate(t('split.colors.intro'), { name });
+        intro = t('split.colors.intro', { name });
         body = [0, 1].map((part) =>
           SplitView.partCard(
-            head(part, interpolate(t('split.part_of'), { part: String(part + 1), total: '2' })),
+            head(part, t('split.part_of', { part: part + 1, total: '2' })),
             html`${this._renderSplitColor(session, part, ctx)}
             ${this._renderSplitLabel(session, part, ctx)}`,
           ),
@@ -6956,7 +6960,7 @@ export class CalendarCardProEditor extends LitElement {
         };
       } else {
         title = t('split.step.review');
-        intro = interpolate(t('split.review.intro'), { name });
+        intro = t('split.review.intro', { name });
         const pair = this._splitPair(session)!;
         const window = SplitReview.reviewWindow(
           this._config!,
@@ -6995,9 +6999,9 @@ export class CalendarCardProEditor extends LitElement {
           const result = reviewed?.[part];
           const lines =
             session.events === undefined
-              ? [interpolate(t('split.review.loading'), { name })]
+              ? [t('split.review.loading', { name })]
               : result === undefined
-                ? [interpolate(t('split.review.failed'), { name })]
+                ? [t('split.review.failed', { name })]
                 : result.count === 0
                   ? [t('split.review.none')]
                   : result.lines;
@@ -7019,7 +7023,7 @@ export class CalendarCardProEditor extends LitElement {
             SplitView.partReview(
               result === undefined
                 ? undefined
-                : interpolate(t('split.review.counts'), { days, count: String(result.count) }),
+                : t('split.review.counts', { days, count: result.count }),
               lines,
               writes,
             ),
@@ -7027,14 +7031,14 @@ export class CalendarCardProEditor extends LitElement {
         })}
         ${
           Array.isArray(own.visibility) && own.visibility.length > 0
-            ? SplitView.note(interpolate(t('split.review.conditions'), { name }))
+            ? SplitView.note(t('split.review.conditions', { name }))
             : nothing
         }
-        ${SplitView.note(interpolate(t('split.review.note'), { name }))}`;
+        ${SplitView.note(t('split.review.note', { name }))}`;
         next = {
           label: t('split.apply'),
           focus: 'split-apply',
-          name: interpolate(t('split.named'), { name }),
+          name: t('split.named', { name }),
           onPress: () => this._applySplit(),
         };
       }
@@ -7043,7 +7047,7 @@ export class CalendarCardProEditor extends LitElement {
       name: t('split.title'),
       steps,
       step: session.step,
-      stepOf: interpolate(t('split.step_of'), { step: String(session.step + 1), total: '3' }),
+      stepOf: t('split.step_of', { step: session.step + 1, total: '3' }),
       closeName: t('quick_setup.cancel'),
       onClose: () => this._cancelSplit(true),
       title,
@@ -7082,7 +7086,7 @@ export class CalendarCardProEditor extends LitElement {
     locked: Types.FilterField | undefined,
     ctx: SchemaCtx,
   ): TemplateResult {
-    const t = (key: string): string => this._string(ctx, key);
+    const t: Translate = (key, values) => this._string(ctx, key, values);
     const options = (['title', 'location', 'description'] as const).map((value) => ({
       value,
       label: t(`entity.filter_field.option.${value}.label`),
@@ -7099,10 +7103,10 @@ export class CalendarCardProEditor extends LitElement {
       filter_field:
         locked === undefined
           ? t('split.match_against_note')
-          : interpolate(t('split.locked'), {
+          : t('split.locked', {
               field: t(`entity.filter_field.option.${locked}.label`),
             }),
-      words: interpolate(t('split.words_note'), {
+      words: t('split.words_note', {
         field: this._splitFieldWords(ctx)[session.field],
       }),
     };
@@ -7141,11 +7145,11 @@ export class CalendarCardProEditor extends LitElement {
     const first = this._entryOf(done.key);
     const second = this._entryOf(done.newKey);
     if (first === undefined || second === undefined) return nothing;
-    const t = (each: string): string => this._string(ctx, each);
+    const t: Translate = (key, values) => this._string(ctx, key, values);
     const name = this._calendarName(Synthetic.entityIdOf(first));
     const close = (): void => {
       this._splitDone = undefined;
-      void this.updateComplete.then(() => Focus.focusFirst(this.renderRoot, ['.page-title']));
+      this._focusSoon(['.page-title']);
     };
     const row = (entryKey: number, entry: string | Types.EntityConfig): SplitView.DoneRow => {
       const parts = CalendarList.rowParts(entry, ctx.language);
@@ -7155,7 +7159,7 @@ export class CalendarCardProEditor extends LitElement {
         title: `${name}${Summary.SUMMARY_SEPARATOR}${parts[0]}`,
         summary: [
           ...parts.slice(1),
-          interpolate(t('summary.set'), { count: String(CalendarList.setCount(entry)) }),
+          t('summary.set', { count: CalendarList.setCount(entry) }),
         ].join(Summary.SUMMARY_SEPARATOR),
         tag: t('split.new'),
         color: this._rowColor(entry),
@@ -7167,7 +7171,7 @@ export class CalendarCardProEditor extends LitElement {
       };
     };
     return SplitView.done(
-      interpolate(t('split.done'), { name }),
+      t('split.done', { name }),
       [row(done.key, first), row(done.newKey, second)],
       { label: t('history.undo'), focus: 'split-undo', onPress: this._undo },
       { label: t('split.done_button'), focus: 'split-done-button', onPress: close },
@@ -7206,7 +7210,7 @@ export class CalendarCardProEditor extends LitElement {
       },
     });
     const pageOpen = this._openStrip === 'page';
-    const actionsName = interpolate(this._string(ctx, 'calendars.actions'), {
+    const actionsName = this._string(ctx, 'calendars.actions', {
       name: this._entryName(key),
     });
     const more = CalendarView.moreButton({
@@ -7217,10 +7221,10 @@ export class CalendarCardProEditor extends LitElement {
     });
     const sub = single
       ? entityId
-      : `${entityId}${Summary.SUMMARY_SEPARATOR}${interpolate(
-          this._string(ctx, 'entity.occurrence'),
-          { position: String(row.position), total: String(row.total) },
-        )}`;
+      : `${entityId}${Summary.SUMMARY_SEPARATOR}${this._string(ctx, 'entity.occurrence', {
+          position: row.position,
+          total: row.total,
+        })}`;
     const notice = this._entryNotice?.key === key ? this._entryNotice : undefined;
     const declared = this._entrySchemas(this._entrySubform(ctx), ctx).find(
       (each) => each.key === key,
@@ -7325,7 +7329,7 @@ export class CalendarCardProEditor extends LitElement {
         ${CalendarView.textButton(
           {
             label: single
-              ? interpolate(this._string(ctx, 'entry.remove'), { name })
+              ? this._string(ctx, 'entry.remove', { name })
               : this._string(ctx, 'strip.remove_entry'),
             focus: 'entry-remove',
             name: interpolate(
@@ -7365,7 +7369,7 @@ export class CalendarCardProEditor extends LitElement {
     });
     const ctx = this._ctx;
     this._commit(
-      interpolate(this._string(ctx, 'history.change_for'), {
+      this._string(ctx, 'history.change_for', {
         setting: this._string(ctx, `entity.${VISIBILITY}`),
         name: this._calendarName(Synthetic.entityIdOf(entry)),
       }),
@@ -7442,18 +7446,14 @@ export class CalendarCardProEditor extends LitElement {
    * stays here to be finished. Add Button is withheld while the editor is filtered, where the
    * button it adds could arrive hidden.
    *
-   * @param panel - Panel being rendered
    * @param ctx - Schema context
-   * @returns The buttons, or nothing for every other panel and while the toolbar is hidden
+   * @returns The buttons, or nothing while the toolbar is hidden
    */
-  private _renderToolbarButtons(panel: PanelDef, ctx: SchemaCtx): TemplateResult | typeof nothing {
-    const subform = panel
-      .subforms?.(ctx)
-      ?.find((candidate) => candidate.path.join('.') === TOOLBAR_BUTTON_PATH.join('.'));
-    if (subform === undefined || !Config.resolveToolbar(ctx.config).show) return nothing;
+  private _renderToolbarButtons(ctx: SchemaCtx): TemplateResult | typeof nothing {
+    if (!Config.resolveToolbar(ctx.config).show) return nothing;
 
     const written = Buttons.writtenButtons(this._config!);
-    const shown = this._buttonSchemas(subform);
+    const shown = this._buttonSchemas(this._buttonSubform(ctx));
 
     const untitled = this._string(ctx, 'toolbar.buttons.untitled');
     const grab = this._grabbed('button');
@@ -7626,7 +7626,7 @@ export class CalendarCardProEditor extends LitElement {
     // Two identical buttons swap places without the configuration moving, so no undo step is
     // recorded; their rows and keys still move, and focus and the words follow them.
     this._commit(
-      interpolate(this._string(this._ctx, 'history.move'), { name }),
+      this._string(this._ctx, 'history.move', { name }),
       undefined,
       () => {
         if (!this._writeButtons(Buttons.moveButtonTo(written, index, to))) return;
@@ -7637,10 +7637,10 @@ export class CalendarCardProEditor extends LitElement {
     );
     if (!done) return;
     this._say(
-      interpolate(this._string(this._ctx, 'announce.moved'), {
+      this._string(this._ctx, 'announce.moved', {
         name,
-        position: String(to + 1),
-        total: String(written.length),
+        position: to + 1,
+        total: written.length,
       }),
     );
     void this.updateComplete.then(() => {
@@ -7677,7 +7677,7 @@ export class CalendarCardProEditor extends LitElement {
       this._string(ctx, 'toolbar.buttons.untitled'),
     );
     this._commit(
-      interpolate(this._string(ctx, 'history.remove'), { name }),
+      this._string(ctx, 'history.remove', { name }),
       undefined,
       () => {
         if (!this._writeButtons(Buttons.removeButton(written, index))) return;
@@ -7686,10 +7686,10 @@ export class CalendarCardProEditor extends LitElement {
         this._showStatus(
           {
             kind: 'button',
-            text: interpolate(this._string(ctx, 'status.removed'), { name }),
+            text: this._string(ctx, 'status.removed', { name }),
             at: index,
           },
-          interpolate(this._string(ctx, 'announce.removed'), { name }),
+          this._string(ctx, 'announce.removed', { name }),
         );
       },
       `button:${keys[index]}`,
@@ -7717,11 +7717,7 @@ export class CalendarCardProEditor extends LitElement {
       `button:${key}`,
     );
     if (!added) return;
-    void this.updateComplete.then(() =>
-      Focus.focusFirst(this.renderRoot, [
-        `.button-row[data-button-key="${key}"] [data-field="button:icon"]`,
-      ]),
-    );
+    this._focusSoon([`.button-row[data-button-key="${key}"] [data-field="button:icon"]`]);
   };
 
   /**
@@ -7746,10 +7742,12 @@ export class CalendarCardProEditor extends LitElement {
    *
    * @param ctx - Schema context
    * @param key - String key
+   * @param values - What its placeholders are filled with, if anything
    * @returns The string, humanized as a last resort
    */
-  private _string(ctx: SchemaCtx, key: string): string {
-    return EditorLocalize.lookup(ctx.language, key) ?? EditorLocalize.humanize(key);
+  private _string(ctx: SchemaCtx, key: string, values?: Words): string {
+    const string = EditorLocalize.lookup(ctx.language, key) ?? EditorLocalize.humanize(key);
+    return values ? interpolate(string, values) : string;
   }
 
   /**
@@ -7770,7 +7768,7 @@ export class CalendarCardProEditor extends LitElement {
       return this._renderMigrationBlock(
         ctx,
         'config_migration.future_title',
-        interpolate(this._string(ctx, 'config_migration.future_message'), {
+        this._string(ctx, 'config_migration.future_message', {
           version: this._migration.version,
         }),
       );
@@ -7779,7 +7777,7 @@ export class CalendarCardProEditor extends LitElement {
       return this._renderMigrationBlock(
         ctx,
         'config_migration.invalid_title',
-        interpolate(this._string(ctx, 'config_migration.invalid_message'), {
+        this._string(ctx, 'config_migration.invalid_message', {
           value: String(this._migration.value),
         }),
       );
@@ -7804,39 +7802,29 @@ export class CalendarCardProEditor extends LitElement {
         this._drawn.push([field.lifted, data]);
       }
     }
-    const calendars = PANELS.find((panel) => panel.id === 'calendars')!;
-    const entries = calendars
-      .subforms?.(ctx)
-      ?.find((subform) => subform.path.join('.') === ENTITY_PATH.join('.'));
-    if (entries !== undefined) {
-      // Every entry's page's forms, wherever the editor is: a form per placed field, as
-      // `_renderEntryPage` draws them, but `visibility` where Home Assistant's Visibility editor
-      // holds the conditions instead.
-      const all = this._config!.entities ?? [];
-      const conditionsEditor = conditionsEditorDefined();
-      for (const { entry, key, schema } of this._entrySchemas(entries, ctx)) {
-        if (!Filter.hasFields(schema)) continue;
-        const entityId = Synthetic.entityIdOf(entry);
-        const conditions = conditionsEditor
-          ? this._conditionsFor(key, entityId, Entities.asEntityConfig(entry).visibility)
-          : undefined;
-        const values = Entities.toEntityFormData(entry, all);
-        for (const field of entityFieldIndex(schema).fields.values()) {
-          if (placementOf(field.id) === undefined) continue;
-          if (conditions !== undefined && field.id === `calendar:${VISIBILITY}`) continue;
-          this._drawn.push([field.lifted, values]);
-        }
-        for (const each of conditions ?? []) {
-          this._drawnConditions.set(JSON.stringify(each), entityId);
-        }
+    // Every entry's page's forms, wherever the editor is: a form per placed field, as
+    // `_renderEntryPage` draws them, but `visibility` where Home Assistant's Visibility editor
+    // holds the conditions instead.
+    const all = this._config!.entities ?? [];
+    const conditionsEditor = conditionsEditorDefined();
+    for (const { entry, key, schema } of this._entrySchemas(this._entrySubform(ctx), ctx)) {
+      if (!Filter.hasFields(schema)) continue;
+      const entityId = Synthetic.entityIdOf(entry);
+      const conditions = conditionsEditor
+        ? this._conditionsFor(key, entityId, Entities.asEntityConfig(entry).visibility)
+        : undefined;
+      const values = Entities.toEntityFormData(entry, all);
+      for (const field of entityFieldIndex(schema).fields.values()) {
+        if (placementOf(field.id) === undefined) continue;
+        if (conditions !== undefined && field.id === `calendar:${VISIBILITY}`) continue;
+        this._drawn.push([field.lifted, values]);
+      }
+      for (const each of conditions ?? []) {
+        this._drawnConditions.set(JSON.stringify(each), entityId);
       }
     }
-    const card = PANELS.find((panel) => panel.id === 'card')!;
-    const buttons = card
-      .subforms?.(ctx)
-      ?.find((subform) => subform.path.join('.') === TOOLBAR_BUTTON_PATH.join('.'));
-    if (buttons !== undefined && Config.resolveToolbar(ctx.config).show) {
-      for (const { schema, data: values } of this._buttonSchemas(buttons)) {
+    if (Config.resolveToolbar(ctx.config).show) {
+      for (const { schema, data: values } of this._buttonSchemas(this._buttonSubform(ctx))) {
         if (Filter.hasFields(schema)) this._drawn.push([schema, values]);
       }
     }
@@ -7909,7 +7897,7 @@ export class CalendarCardProEditor extends LitElement {
             >${this._string(ctx, 'config_migration.title')}</strong
           >
           <div>${this._string(ctx, messageKey)}</div>
-          <div>${interpolate(this._string(ctx, 'config_migration.affected'), { options })}</div>
+          <div>${this._string(ctx, 'config_migration.affected', { options })}</div>
           <button
             type="button"
             class="migration-choice primary"
@@ -7966,7 +7954,7 @@ export class CalendarCardProEditor extends LitElement {
     return html`
       <div class="grid-reconciliation" data-grid-reconciliation role="status">
         <strong>${this._string(ctx, 'grid_reconciliation.title')}</strong>
-        <div>${interpolate(this._string(ctx, 'grid_reconciliation.message'), { options })}</div>
+        <div>${this._string(ctx, 'grid_reconciliation.message', { options })}</div>
         <button
           type="button"
           class="text-button"
@@ -8014,9 +8002,9 @@ export class CalendarCardProEditor extends LitElement {
         >
           <strong id="quick-setup-title">${this._string(ctx, 'quick_setup.title')}</strong>
           <div class="quick-setup-step" tabindex="-1">
-            ${interpolate(this._string(ctx, 'quick_setup.step'), {
-              step: String(index + 1),
-              steps: String(QUICK_SETUP_STEPS.length),
+            ${this._string(ctx, 'quick_setup.step', {
+              step: index + 1,
+              steps: QUICK_SETUP_STEPS.length,
               name: this._string(ctx, `quick_setup.step.${session.step}`),
             })}
           </div>
@@ -8195,19 +8183,19 @@ export class CalendarCardProEditor extends LitElement {
     return html`
       <ul class="quick-setup-review">
         <li>
-          ${interpolate(this._string(ctx, 'quick_setup.review_story'), {
+          ${this._string(ctx, 'quick_setup.review_story', {
             story: this._string(ctx, `quick_setup.story.${answers.story}`),
           })}
         </li>
         <li>
-          ${interpolate(this._string(ctx, 'quick_setup.review_calendars'), {
+          ${this._string(ctx, 'quick_setup.review_calendars', {
             calendars: list(answers.calendars.map(name)),
           })}
         </li>
         ${
           colored.length > 0
             ? html`<li>
-                ${interpolate(this._string(ctx, 'quick_setup.review_colors'), {
+                ${this._string(ctx, 'quick_setup.review_colors', {
                   calendars: list(colored),
                 })}
               </li>`
@@ -8319,8 +8307,7 @@ export class CalendarCardProEditor extends LitElement {
     this._quickSetup = { ...session, ...next, answers };
     if (next === session) return;
 
-    this._lastDispatched = preview;
-    this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: preview } }));
+    this._send(preview);
   }
 
   /** Closes Quick Setup and puts the card back exactly as it was when Quick Setup opened. */
@@ -8332,13 +8319,10 @@ export class CalendarCardProEditor extends LitElement {
 
     const opening = structuredClone(session.opening) as Record<string, unknown>;
     this._carryEntryKeys(Array.isArray(opening.entities) ? opening.entities : []);
-    this._rawConfig = structuredClone(opening);
-    this._config = { ...Config.DEFAULT_CONFIG, ...(opening as unknown as Types.Config) };
-    if (!Array.isArray(this._config.entities)) this._config.entities = [];
+    this._adopt(opening, opening);
     this._authoredRootKeys = new Set(session.openingAuthoredRootKeys);
     this._migration = this._migrationState(opening);
-    this._lastDispatched = opening;
-    this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: opening } }));
+    this._send(opening);
   };
 
   /**
@@ -8355,7 +8339,7 @@ export class CalendarCardProEditor extends LitElement {
     const ctx = this._ctx;
     const story = this._string(ctx, `quick_setup.story.${session.answers.story}`);
     const applied = this._commit(
-      interpolate(this._string(ctx, 'history.apply'), { story }),
+      this._string(ctx, 'history.apply', { story }),
       undefined,
       () => this._applyStory(session),
       undefined,
@@ -8364,8 +8348,8 @@ export class CalendarCardProEditor extends LitElement {
     // An Apply that changed nothing is no step, and its line would offer to undo another.
     if (!applied) return;
     this._showStatus(
-      { kind: 'story', text: interpolate(this._string(ctx, 'status.applied'), { story }), at: 0 },
-      interpolate(this._string(ctx, 'announce.applied'), { story }),
+      { kind: 'story', text: this._string(ctx, 'status.applied', { story }), at: 0 },
+      this._string(ctx, 'announce.applied', { story }),
     );
   };
 
@@ -8383,9 +8367,7 @@ export class CalendarCardProEditor extends LitElement {
     this._banner = false;
     // Quick Setup keeps every block of each calendar it keeps, in order, as the picker does.
     this._carryEntryKeys(Array.isArray(stored.entities) ? stored.entities : []);
-    this._rawConfig = structuredClone(stored);
-    this._config = { ...Config.DEFAULT_CONFIG, ...(stored as unknown as Types.Config) };
-    if (!Array.isArray(this._config.entities)) this._config.entities = [];
+    this._adopt(stored, stored);
     this._authoredRootKeys = new Set(Object.keys(stored));
     this._migration = { kind: 'current' };
     this._selectedWorkspace = undefined;
@@ -8444,12 +8426,12 @@ export class CalendarCardProEditor extends LitElement {
                         class="text-button"
                         @click=${() => this._moveMisplaced(finding, to)}
                       >
-                        ${interpolate(this._string(ctx, 'misplaced.move'), {
+                        ${this._string(ctx, 'misplaced.move', {
                           place: placeName(to),
                         })}
                       </button>`
                     : html`<span class="misplaced-taken"
-                        >${interpolate(this._string(ctx, 'misplaced.taken'), {
+                        >${this._string(ctx, 'misplaced.taken', {
                           place: placeName(to),
                         })}</span
                       >`,
@@ -8477,7 +8459,7 @@ export class CalendarCardProEditor extends LitElement {
     ] as const;
     const title = parts
       .filter(([, count]) => count > 0)
-      .map(([words, count]) => interpolate(words, { count: String(count) }))
+      .map(([words, count]) => interpolate(words, { count: count }))
       .join(Summary.SUMMARY_SEPARATOR);
     return title
       ? Overview.navRow({ key: 'notices', iconPath: mdiInformationOutline, title }, () =>
@@ -8516,7 +8498,7 @@ export class CalendarCardProEditor extends LitElement {
                   const label = labelOf(option);
                   return html`<li data-old=${option.path}>
                     <code>${option.path}</code>
-                    <span>${interpolate(t('notices.replaced'), { label })}</span>
+                    <span>${t('notices.replaced', { label })}</span>
                     ${
                       Deprecated.canMove(raw, option)
                         ? html`<button
@@ -8524,10 +8506,10 @@ export class CalendarCardProEditor extends LitElement {
                             class="text-button"
                             @click=${() => this._moveOld(option)}
                           >
-                            ${interpolate(t('misplaced.move'), { place: label })}
+                            ${t('misplaced.move', { place: label })}
                           </button>`
                         : html`<span class="misplaced-taken"
-                            >${interpolate(t('misplaced.taken'), { place: label })}</span
+                            >${t('misplaced.taken', { place: label })}</span
                           >`
                     }
                   </li>`;
@@ -8572,11 +8554,11 @@ export class CalendarCardProEditor extends LitElement {
    * @param t - The editor's strings
    * @returns The words
    */
-  private _auditSummary(t: Overview.Translate): string {
+  private _auditSummary(t: Translate): string {
     const { set, inactive } = Audit.auditCounts(this._auditGroups());
     return [
-      interpolate(t('summary.set'), { count: String(set) }),
-      ...(inactive > 0 ? [interpolate(t('audit.not_in_use'), { count: String(inactive) })] : []),
+      t('summary.set', { count: set }),
+      ...(inactive > 0 ? [t('audit.not_in_use', { count: inactive })] : []),
     ].join(Summary.SUMMARY_SEPARATOR);
   }
 
@@ -8604,7 +8586,7 @@ export class CalendarCardProEditor extends LitElement {
       else groups[at] = { ...groups[at], lines: [...groups[at].lines, edit.line] };
     }
     const view = (group: Audit.AuditGroup): TemplateResult => {
-      const count = interpolate(t('summary.set'), { count: String(group.lines.length) });
+      const count = t('summary.set', { count: group.lines.length });
       const rows = group.lines.map((line) => this._auditRow(line, group, ctx));
       const key = group.key ?? 0;
       const name = this._entryName(key);
@@ -8616,7 +8598,7 @@ export class CalendarCardProEditor extends LitElement {
             count,
             sub: true,
             action: {
-              label: interpolate(t('audit.go_to'), { name }),
+              label: t('audit.go_to', { name }),
               focus: `audit-entry:${key}`,
               onPress: () => this._open({ kind: 'entry', key }, `audit-entry:${key}`),
             },
@@ -8640,23 +8622,18 @@ export class CalendarCardProEditor extends LitElement {
             action:
               group.kind === 'layout'
                 ? {
-                    label: interpolate(t('audit.reset_all'), { layout: where }),
+                    label: t('audit.reset_all', { layout: where }),
                     focus: `reset-all:${group.workspace}`,
                     onPress: () => {
-                      this._commit(
-                        interpolate(t('audit.reset_all'), { layout: where }),
-                        undefined,
-                        () =>
-                          this._applyReset(
-                            // Line by line, so a line kept as written in the block stays.
-                            group.lines.map((line) => ({ kind: 'path' as const, path: line.path })),
-                            [],
-                          ),
+                      this._commit(t('audit.reset_all', { layout: where }), undefined, () =>
+                        this._applyReset(
+                          // Line by line, so a line kept as written in the block stays.
+                          group.lines.map((line) => ({ kind: 'path' as const, path: line.path })),
+                          [],
+                        ),
                       );
-                      this._say(interpolate(t('audit.reset_all_done'), { layout: where }));
-                      void this.updateComplete.then(() =>
-                        Focus.focusFirst(this.renderRoot, ['.page-title']),
-                      );
+                      this._say(t('audit.reset_all_done', { layout: where }));
+                      this._focusSoon(['.page-title']);
                     },
                   }
                 : undefined,
@@ -8726,7 +8703,7 @@ export class CalendarCardProEditor extends LitElement {
       });
     if (line.page !== undefined) {
       const label = this._string(ctx, key === 'view' ? 'view' : 'toolbar.buttons.heading');
-      const reset = interpolate(t('value_source.reset'), { option: label });
+      const reset = t('value_source.reset', { option: label });
       return AuditView.auditRow({
         path: line.text,
         label,
@@ -8739,12 +8716,12 @@ export class CalendarCardProEditor extends LitElement {
           title: t('reset.reset'),
           focus: `audit-reset:${line.text}`,
           onPress: () =>
-            this._commit(interpolate(t('history.reset'), { setting: label }), undefined, () =>
+            this._commit(t('history.reset', { setting: label }), undefined, () =>
               this._applyReset({ kind: 'path', path: line.path }, []),
             ),
         },
         go: {
-          name: interpolate(t('audit.go_to'), { name: label }),
+          name: t('audit.go_to', { name: label }),
           title: t('audit.go_setting'),
           focus: `audit-go:${line.text}`,
           onPress: () =>
@@ -8762,15 +8739,7 @@ export class CalendarCardProEditor extends LitElement {
     if (line.field === undefined) return kept();
 
     const entry = group.kind === 'entry' ? group.key! : undefined;
-    const wctx =
-      entry === undefined
-        ? this._ctxFor(
-            this._config!,
-            group.workspace,
-            this.hass?.locale,
-            this._heldModes(this._pending, group.workspace),
-          )
-        : ctx;
+    const wctx = entry === undefined ? this._ctxIn(group.workspace) : ctx;
     const stored = entry === undefined ? undefined : this._entryOf(entry);
     const present =
       stored === undefined ? buildFieldIndex(wctx) : entityFieldIndex(entrySchema(stored, wctx));
@@ -8786,12 +8755,12 @@ export class CalendarCardProEditor extends LitElement {
     const label = fieldLabel(field, ctx.language);
     const named =
       entry !== undefined
-        ? interpolate(t('audit.on_calendar'), { label, name: this._entryName(entry) })
+        ? t('audit.on_calendar', { label, name: this._entryName(entry) })
         : group.kind === 'layout'
-          ? interpolate(t('audit.in_layout'), { label, layout: layout(group.workspace) })
+          ? t('audit.in_layout', { label, layout: layout(group.workspace) })
           : label;
     const value = Audit.outsideOptions(field.node, line.value)
-      ? interpolate(t('value.from_yaml'), { value: String(line.value) })
+      ? t('value.from_yaml', { value: String(line.value) })
       : this._auditWord(field, line.value, ctx);
     const state = Plan.stateOf(field, pctx);
     const outcome = Plan.resetOutcome(field, pctx);
@@ -8823,12 +8792,12 @@ export class CalendarCardProEditor extends LitElement {
           ? [t('audit.same')]
           : [],
       warning: line.inactive
-        ? interpolate(t('audit.inactive'), {
+        ? t('audit.inactive', {
             when: whenText(line.inactive.gate, data, ctx.language, labelOf) ?? '',
           })
         : undefined,
       edit: {
-        name: interpolate(t('audit.edit'), { label: named, value }),
+        name: t('audit.edit', { label: named, value }),
         onPress: () => {
           this._auditEdit = { line, group };
           // A color's line opens its control, as editing a dropdown's line opens no menu but
@@ -8839,11 +8808,7 @@ export class CalendarCardProEditor extends LitElement {
             entry === undefined ? wctx : ctx,
           );
           if (colorKey !== undefined) this._openColor = colorKey;
-          void this.updateComplete.then(() =>
-            Focus.focusFirst(this.renderRoot, [
-              `[data-audit="${CSS.escape(line.text)}"] [data-field]`,
-            ]),
-          );
+          this._focusSoon([`[data-audit="${CSS.escape(line.text)}"] [data-field]`]);
         },
       },
       editing: editing
@@ -8852,11 +8817,11 @@ export class CalendarCardProEditor extends LitElement {
           : this._renderEntryField(field, entry, entryData!, ctx)
         : undefined,
       reset: {
-        name: interpolate(t('value_source.reset'), { option: named }),
+        name: t('value_source.reset', { option: named }),
         title: t('reset.reset'),
         focus: `audit-reset:${line.text}`,
         onPress: () => {
-          this._commit(interpolate(t('history.reset'), { setting: named }), undefined, () =>
+          this._commit(t('history.reset', { setting: named }), undefined, () =>
             this._applyReset(
               entry === undefined
                 ? { kind: 'path', path: line.path }
@@ -8864,16 +8829,14 @@ export class CalendarCardProEditor extends LitElement {
               [],
             ),
           );
-          void this.updateComplete.then(() =>
-            Focus.focusFirst(this.renderRoot, [
-              `[data-heading="${CSS.escape(`audit:${entry === undefined ? (group.kind === 'layout' ? group.workspace : 'card') : `entry:${entry}`}`)}"] .heading`,
-              '.page-title',
-            ]),
-          );
+          this._focusSoon([
+            `[data-heading="${CSS.escape(`audit:${entry === undefined ? (group.kind === 'layout' ? group.workspace : 'card') : `entry:${entry}`}`)}"] .heading`,
+            '.page-title',
+          ]);
         },
       },
       go: {
-        name: interpolate(t('audit.go_to'), { name: named }),
+        name: t('audit.go_to', { name: named }),
         title: t('audit.go_setting'),
         focus: `audit-go:${line.text}`,
         onPress: () => {
@@ -8882,17 +8845,7 @@ export class CalendarCardProEditor extends LitElement {
             entry === undefined
               ? group.workspace
               : [this._workspace, ...Workspace.WORKSPACES].find((each) =>
-                  entityFieldIndex(
-                    entrySchema(
-                      stored!,
-                      this._ctxFor(
-                        this._config!,
-                        each,
-                        this.hass?.locale,
-                        this._heldModes(this._pending, each),
-                      ),
-                    ),
-                  ).fields.has(field.id),
+                  entityFieldIndex(entrySchema(stored!, this._ctxIn(each))).fields.has(field.id),
                 );
           if (scope !== undefined && scope !== this._workspace) {
             this._selectedWorkspace = scope;
@@ -8932,7 +8885,7 @@ export class CalendarCardProEditor extends LitElement {
   private _moveMisplaced(finding: ViewConfig.MisplacedOption, to: Misplaced.Place): void {
     if (Misplaced.moveOption(this._rawConfig, finding, to) === undefined) return;
     this._commit(
-      interpolate(this._string(this._ctx, 'history.move'), { name: Misplaced.pathOf(finding) }),
+      this._string(this._ctx, 'history.move', { name: Misplaced.pathOf(finding) }),
       undefined,
       () => this._moveOption(finding, to),
     );
@@ -8961,15 +8914,12 @@ export class CalendarCardProEditor extends LitElement {
     // A pre-v5 card's first write migrates it and removes the option before the move reads it.
     const at = old.entry === undefined ? this._rawConfig : this._config?.entities?.[old.entry];
     const held = Helpers.isConfigBlock(at) ? at[old.key] : undefined;
-    this._commit(
-      interpolate(this._string(this._ctx, 'history.move'), { name: old.path }),
-      undefined,
-      () =>
-        this._writeRaw(
-          (raw) => Deprecated.moveOld(raw, old, held),
-          old.entry === undefined ? old.key : undefined,
-          old.entry === undefined ? old.to : undefined,
-        ),
+    this._commit(this._string(this._ctx, 'history.move', { name: old.path }), undefined, () =>
+      this._writeRaw(
+        (raw) => Deprecated.moveOld(raw, old, held),
+        old.entry === undefined ? old.key : undefined,
+        old.entry === undefined ? old.to : undefined,
+      ),
     );
   }
 
@@ -8993,11 +8943,8 @@ export class CalendarCardProEditor extends LitElement {
     if (left !== undefined) this._authoredRootKeys.delete(left);
     if (added !== undefined) this._authoredRootKeys.add(added);
 
-    this._rawConfig = structuredClone(next);
-    this._config = { ...Config.DEFAULT_CONFIG, ...(next as unknown as Types.Config) };
-    if (!Array.isArray(this._config.entities)) this._config.entities = [];
-    this._lastDispatched = next;
-    this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: next } }));
+    this._adopt(next, next);
+    this._send(next);
   }
 
   /**
@@ -9090,15 +9037,13 @@ export class CalendarCardProEditor extends LitElement {
     const query = this._filter.query.trim();
     const t = this._t(ctx);
     return SearchView.noMatches(
-      interpolate(t('filter.no_matches'), { query }),
+      t('filter.no_matches', { query }),
       t('search.hint'),
       t('search.clear'),
       () => {
         this._applyFilter({ ...this._filter, query: '' });
         // Focus stays out of forms (`views/focus.ts`): the overview's first list takes it.
-        void this.updateComplete.then(() =>
-          Focus.focusFirst(this.renderRoot, ['.row-group .heading', '.page-title']),
-        );
+        this._focusSoon(['.row-group .heading', '.page-title']);
       },
     );
   }

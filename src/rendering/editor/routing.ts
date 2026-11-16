@@ -4,6 +4,7 @@
 
 import type { HaFormSchema, SelectorSchema } from './ha-form';
 import { normalizeFieldValue, normalizeRootValue, optionPath } from './normalize';
+import { walkSchema } from './panels';
 import * as Synthetic from './synthetic';
 import * as Value from './value';
 import { type EditorWorkspace, WORKSPACE_FIELD, viewForWorkspace } from './workspace';
@@ -28,23 +29,10 @@ export interface FormFrame {
  * Enumerates inputs by their configuration path rather than their label groups.
  *
  * @param schema - Rendered schema
- * @param path - Enclosing data keys
  */
-export function* workspaceFields(
-  schema: ReadonlyArray<HaFormSchema>,
-  path: ReadonlyArray<string> = [],
-  labelPath: ReadonlyArray<string> = [],
-): Generator<WorkspaceField> {
-  for (const node of schema) {
-    if ('schema' in node) {
-      yield* workspaceFields(
-        node.schema,
-        node.name !== '' && node.flatten !== true ? [...path, node.name] : path,
-        node.type === 'expandable' && node.name !== '' ? [...labelPath, node.name] : labelPath,
-      );
-    } else if ('selector' in node) {
-      yield { node, path, labelPath };
-    }
+export function* workspaceFields(schema: ReadonlyArray<HaFormSchema>): Generator<WorkspaceField> {
+  for (const { node, path, dataPath } of walkSchema(schema)) {
+    if ('selector' in node) yield { node, path: dataPath, labelPath: path };
   }
 }
 
@@ -96,10 +84,7 @@ export function valueSource(
   const keys = Synthetic.configKeysForField(name);
   if (!keys.some((key) => destination(key, workspace) === block.blockKey)) return 'card';
   const stored = storedBlocks(config)[block.blockKey];
-  if (
-    Helpers.isConfigBlock(stored) &&
-    keys.some((key) => Object.prototype.hasOwnProperty.call(stored, key))
-  )
+  if (Helpers.isConfigBlock(stored) && keys.some((key) => Helpers.hasOwn(stored, key)))
     return 'own';
   return keys.some(
     (key) => block.onlyKeys.includes(key) || ViewConfig.hasDivergentDefault(key, view),
