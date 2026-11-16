@@ -26,8 +26,8 @@ import { type EditorWorkspace, WORKSPACES } from '../src/rendering/editor/worksp
  * Searching the YAML key of an option finds the control that writes it.
  *
  * Most controls are named after the key they write, so their name was always searchable.
- * A derived control is not — `time_format` writes `time_24h`, the calendar picker writes
- * `entities` — and search used to read only the name, so a key copied out of the
+ * A derived control is not — `time_format` writes `time_24h`, `week_number_mode` writes
+ * `show_week_numbers` — and search used to read only the name, so a key copied out of the
  * configuration reference found nothing for exactly the controls whose label differs most
  * from it.
  *
@@ -180,10 +180,11 @@ describe('editor search finds the control that writes a key', () => {
     ['time_24h', 'time_format'],
     ['show_week_numbers', 'week_number_mode'],
     ['remove_location_country', 'location_country_mode'],
-    ['entities', 'calendars'],
   ])('finds the derived control for %s', (key, control) => {
-    // The four keys the editor guide used to list as unsearchable, as named cases: the
+    // Three of the four keys the editor guide used to list as unsearchable, as named cases: the
     // reconciliation above covers them too, but a failure here reads as the regression it is.
+    // The fourth, `entities`, was written by the calendar picker, which the calendar list and
+    // its entry pages replaced; no control writes the whole list any more.
     const config = buildConfig({ entities: ['calendar.anna'] });
     const ctx = searching(cardCtx(config, 'shared'), key);
     const found: string[] = [];

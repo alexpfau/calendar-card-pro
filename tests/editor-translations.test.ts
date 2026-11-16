@@ -53,10 +53,9 @@ describe('editor strings resolve in the requested language', () => {
       'customized_only',
       'customized_only.helper',
       ...PANELS.flatMap((panel) => [panel.titleKey, `${panel.titleKey}.helper`]),
-      'calendars',
-      'calendars.helper',
-      'entity.customised',
-      'entity.unconfigured',
+      'entity.occurrence',
+      'entity.duplicate',
+      'entity.remove',
       'entity.copy',
       'entity.paste',
     ];

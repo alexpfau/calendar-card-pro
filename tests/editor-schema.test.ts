@@ -10,6 +10,7 @@ import {
   entry,
   formOf,
   formsOf,
+  keysOf,
   mountEditor,
   openPanels,
   resetButton,
@@ -810,7 +811,6 @@ describe('editor: change detection', () => {
       'accent_event_text',
       'allday_badge_color_mode',
       'allday_badge_position',
-      'calendars',
       'card_height',
       'card_max_height',
       'countdown_once_per_day',
@@ -1623,12 +1623,17 @@ describe('editor: the chassis', () => {
     expect(dispatched[0].start_date).toBe('-14');
   });
 
-  it('keeps a calendar object through being reordered in the picker', async () => {
+  it('keeps a calendar object through being moved in the calendar list', async () => {
     const { element, dispatched } = await mount({
       entities: [{ entity: 'calendar.a', label: 'Home', color: '#0f0' }, 'calendar.b'],
     });
 
-    await changeField(element, 'calendars:calendars', ['calendar.b', 'calendar.a']);
+    // Moved as a user moves it: its row's ⋮, then Move Down.
+    const [a] = keysOf(element, 'entry');
+    for (const control of [`more:entry:${a}`, `strip:entry:${a}:down`]) {
+      element.shadowRoot!.querySelector<HTMLElement>(`[data-focus="${control}"]`)!.click();
+      await element.updateComplete;
+    }
 
     expect(dispatched[0].entities).toEqual([
       'calendar.b',
@@ -1783,10 +1788,23 @@ describe('editor: the panel set', () => {
     expect(offenders).toEqual([]);
   });
 
+  /**
+   * Calendars is the one panel with no field of its own: the overview's calendar list stands
+   * where its picker was, and what it offers is the entry schema each entry page draws. So it
+   * is held to that instead, and named, so a second empty panel still fails.
+   */
   it('builds every panel for every view without producing an empty one', () => {
     for (const view of VIEWS) {
       for (const panel of PANELS) {
-        const schema = panel.build({ view, config: buildConfig({ view }), language: 'en' });
+        const ctx = { view, config: buildConfig({ view }), language: 'en' };
+        const schema = panel.build(ctx);
+        if (panel.id === 'calendars') {
+          expect(schema, `${panel.id} in ${view} view`).toEqual([]);
+          const subforms = panel.subforms?.(ctx) ?? [];
+          expect(subforms.map((subform) => subform.path)).toEqual([['entity']]);
+          expect(subforms[0].schema.length, `${panel.id} in ${view} view`).toBeGreaterThan(0);
+          continue;
+        }
         expect(schema.length, `${panel.id} in ${view} view`).toBeGreaterThan(0);
       }
     }
@@ -1865,9 +1883,10 @@ describe('editor: the panel set', () => {
     }
 
     // Synthetic fields stand in for the config keys whose stored shape no selector can
-    // emit, so a key is covered when either it or its stand-in is offered.
+    // emit, so a key is covered when either it or its stand-in is offered. `entities` is
+    // offered as the calendar list, which Add Calendar's picker adds to.
     const standIns: Record<string, string> = {
-      entities: 'calendars',
+      entities: 'pick',
       start_date: 'start_date_mode',
       language: 'language_mode',
       time_24h: 'time_format',
@@ -2111,89 +2130,88 @@ describe('editor: the fields whose stored shape no selector can emit', () => {
   });
 });
 
-describe('editor: the calendars picker', () => {
-  /**
-   * A configuration as the *editor* sees one.
-   *
-   * `buildConfig` mirrors the card's `setConfig`, which normalizes every entity into an
-   * object. The editor's does not, deliberately: it edits the configuration the user
-   * wrote, and rewriting a bare `calendar.x` into an object on open would rewrite every
-   * card's YAML the moment its editor was looked at.
-   */
-  function editorConfig(overrides: Partial<Types.Config> = {}): Types.Config {
-    return { ...DEFAULT_CONFIG, ...overrides } as Types.Config;
+/**
+ * The calendar list, through the editor: what it shows for each entry and what its controls write.
+ * The list's algebra is pinned in `editor-calendar-list.test.ts`; these hold the editor's write
+ * path to it.
+ */
+describe('editor: the calendar list', () => {
+  async function mount(entities: Types.Config['entities']) {
+    const element = await mountEditor({ config_version: CURRENT_CONFIG_VERSION, entities });
+    const dispatched: Array<Record<string, unknown>> = [];
+    element.addEventListener('config-changed', (event) => {
+      const next = { ...((event as CustomEvent).detail.config as Record<string, unknown>) };
+      delete next.config_version;
+      dispatched.push(next);
+    });
+    return { element, dispatched };
   }
 
-  it('shows a per-calendar object as its entity id', () => {
-    const config = editorConfig({
-      entities: ['calendar.a', { entity: 'calendar.b', label: 'Work', color: '#f00' }],
-    });
+  /** Presses the editor's own controls in turn, by `data-focus`. */
+  async function press(element: Awaited<ReturnType<typeof mountEditor>>, ...controls: string[]) {
+    for (const control of controls) {
+      const button = element.shadowRoot!.querySelector<HTMLElement>(`[data-focus="${control}"]`);
+      expect(button, control).not.toBeNull();
+      button!.click();
+      await element.updateComplete;
+    }
+  }
 
-    expect(deriveSyntheticData(config).calendars).toEqual(['calendar.a', 'calendar.b']);
+  it('shows a per-calendar object as its entity id', async () => {
+    const { element } = await mount([
+      'calendar.a',
+      { entity: 'calendar.b', label: 'Work', color: '#f00' },
+    ]);
+
+    expect(
+      [...element.shadowRoot!.querySelectorAll('.cal-group')].map((group) =>
+        group.getAttribute('data-calendar'),
+      ),
+    ).toEqual(['calendar.a', 'calendar.b']);
   });
 
-  it('leaves a bare entity id bare rather than promoting it to an object', () => {
-    const config = editorConfig({ entities: ['calendar.a'] });
-    const previous = { ...(config as unknown as Record<string, unknown>) };
+  it('leaves a bare entity id bare rather than promoting it to an object', async () => {
+    const { element, dispatched } = await mount(['calendar.a']);
 
-    const added = applyFormChange(
-      config,
-      { ...previous, calendars: ['calendar.a'] },
-      { ...previous, calendars: ['calendar.a', 'calendar.b'] },
-      {},
-    );
+    await press(element, 'add-calendar');
+    await changeField(element, 'add_calendar:pick', 'calendar.b');
+    await press(element, 'add-confirm');
 
-    expect(added.config.entities).toEqual(['calendar.a', 'calendar.b']);
+    expect(dispatched).toHaveLength(1);
+    expect(dispatched[0].entities).toEqual(['calendar.a', 'calendar.b']);
   });
 
   /**
-   * The behavior that makes a picker safe to use at all. Home Assistant's multi-entity
-   * selector hands back a list of ids, so writing it through would replace every
-   * per-calendar object with a bare string — silently deleting the label, color and
-   * filters the user configured for it.
+   * The behavior that makes the list safe to use at all. A write that rebuilt `entities` from
+   * the calendars' ids would replace every per-calendar object with a bare string, silently
+   * deleting the label, color and filters the user configured for it. Removing a calendar and
+   * taking it back, with Undo, is the case a user hits.
    */
-  it('keeps a calendar object through being deselected and selected again', () => {
+  it('keeps a calendar object through being removed and brought back', async () => {
     const entry = { entity: 'calendar.b', label: 'Work', color: '#f00' };
-    const config = editorConfig({ entities: ['calendar.a', entry] });
-    const previous = { ...(config as unknown as Record<string, unknown>) };
+    const { element, dispatched } = await mount(['calendar.a', entry]);
+    const [, b] = keysOf(element, 'entry');
 
-    const removed = applyFormChange(
-      config,
-      { ...previous, calendars: ['calendar.a', 'calendar.b'] },
-      { ...previous, calendars: ['calendar.a'] },
-      {},
-    );
-    expect(removed.config.entities).toEqual(['calendar.a']);
+    await press(element, `more:entry:${b}`, `strip:entry:${b}:remove`);
+    expect(dispatched[dispatched.length - 1].entities).toEqual(['calendar.a']);
 
-    // Re-added from the configuration that still held it — which is the case a user
-    // hits by unticking and reticking without leaving the editor.
-    const readded = applyFormChange(
-      config,
-      { ...previous, calendars: ['calendar.a'] },
-      { ...previous, calendars: ['calendar.a', 'calendar.b'] },
-      {},
-    );
-    expect(readded.config.entities).toEqual(['calendar.a', entry]);
+    await press(element, 'status-undo');
+    expect(dispatched[dispatched.length - 1].entities).toEqual(['calendar.a', entry]);
   });
 
-  it('follows the order of the picker, because the order decides which copy wins', () => {
-    const config = editorConfig({ entities: ['calendar.a', 'calendar.b'] });
-    const previous = { ...(config as unknown as Record<string, unknown>) };
+  /**
+   * Under Filter Duplicates the calendar listed first is the one whose copy of a shared event is
+   * drawn, so the order the list shows is the order it writes. And it writes nothing of its own:
+   * the keys it holds per entry stay in the editor.
+   */
+  it('follows the order of the list, because the order decides which copy wins', async () => {
+    const { element, dispatched } = await mount(['calendar.a', 'calendar.b']);
+    const [, b] = keysOf(element, 'entry');
 
-    const reordered = applyFormChange(
-      config,
-      { ...previous, calendars: ['calendar.a', 'calendar.b'] },
-      { ...previous, calendars: ['calendar.b', 'calendar.a'] },
-      {},
-    );
+    await press(element, `more:entry:${b}`, `strip:entry:${b}:top`);
 
-    expect(reordered.config.entities).toEqual(['calendar.b', 'calendar.a']);
-  });
-
-  it('never writes the picker own key to the configuration', () => {
-    const config = editorConfig({ entities: ['calendar.a'] });
-
-    expect(toStoredConfig(config)).not.toHaveProperty('calendars');
+    expect(dispatched).toHaveLength(1);
+    expect(dispatched[0]).toEqual({ entities: ['calendar.b', 'calendar.a'] });
   });
 });
 
@@ -3528,21 +3546,40 @@ describe('editor: per-calendar settings', () => {
     return calendars.subforms!({ view: config.view, config, language: 'en' })[0];
   }
 
+  /**
+   * The names an entry's page draws: each of its fields is a form of its own there, so these
+   * are what all of that entry's forms draw together.
+   *
+   * @param element - Editor
+   * @param index - The entry's position in `entities`
+   * @returns The top-level names of every form the entry draws
+   */
+  function entryNames(element: Awaited<ReturnType<typeof mountEditor>>, index: number): string[] {
+    const forms = formsOf(element, entry(index));
+    expect(forms.length, `entry ${index} draws no form`).toBeGreaterThan(0);
+    return forms.flatMap((form) => schemaOf(form)).map((node) => node.name);
+  }
+
   beforeEach(() => {
     clearCopiedSettings();
   });
 
-  it('renders one collapsible form per configured calendar', async () => {
+  it('renders the forms of each configured calendar on its own entry page', async () => {
     const element = await mountEditor({ entities: ['calendar.a', 'calendar.b'] });
-    // A closed panel mounts no form: open every panel, as this reads forms behind them.
+    // Visits every page, each entry's included, as this reads forms across the editor.
     await openPanels(element);
 
-    expect(formsOf(element, entry())).toHaveLength(2);
+    // An entry page draws one form per field, so the count is of which entries draw forms.
+    expect([0, 1].map((index) => formsOf(element, entry(index)).length > 0)).toEqual([true, true]);
+    expect(formsOf(element, entry())).toEqual([
+      ...formsOf(element, entry(0)),
+      ...formsOf(element, entry(1)),
+    ]);
   });
 
   /**
-   * The wiring, not the pure functions. Each calendar's form is narrowed to its own
-   * label shape, which is the one place the per-calendar list renders something other
+   * The wiring, not the pure functions. Each calendar's page is narrowed to its own
+   * label shape, which is the one place an entry page renders something other
    * than the schema the panel declares — so it is worth seeing it happen through the
    * element rather than only through `entitySchemaFor`.
    */
@@ -3550,12 +3587,10 @@ describe('editor: per-calendar settings', () => {
     const element = await mountEditor({
       entities: [{ entity: 'calendar.a', label: 'mdi:home' }, 'calendar.b'],
     });
-    // A closed panel mounts no form: open every panel, as this reads forms behind them.
+    // Visits every page, each entry's included, as this reads forms across the editor.
     await openPanels(element);
 
-    const names = [0, 1].map((index) =>
-      schemaOf(formOf(element, 'calendar:label_type', entry(index))!).map((node) => node.name),
-    );
+    const names = [0, 1].map((index) => entryNames(element, index));
 
     // The calendar with an icon label gets the picker and the icon color; the one with
     // no label at all gets neither, and its shape dropdown reads *None*.
@@ -3581,13 +3616,13 @@ describe('editor: per-calendar settings', () => {
         { entity: 'calendar.b', label: '/local/work.png' },
       ],
     });
-    // A closed panel mounts no form: open every panel, as this reads forms behind them.
+    // Visits every page, each entry's included, as this reads forms across the editor.
     await openPanels(element);
 
     const first = formOf(element, 'calendar:label', entry(0))!;
 
     const person = schemaOf(first).find((node) => node.name === 'label')!;
-    expect(schemaOf(first).map((node) => node.name)).toContain('label_image_source');
+    expect(entryNames(element, 0)).toContain('label_image_source');
     expect('selector' in person && 'entity' in person.selector, 'person mode wants a picker').toBe(
       true,
     );
@@ -3604,7 +3639,7 @@ describe('editor: per-calendar settings', () => {
 
   it('stores a label chosen through the shape dropdown, through the chassis', async () => {
     const element = await mountEditor({ entities: ['calendar.a'] });
-    // A closed panel mounts no form: open every panel, as this reads forms behind them.
+    // Visits every page, each entry's included, as this reads forms across the editor.
     await openPanels(element);
 
     const dispatched: Array<Record<string, unknown>> = [];
@@ -3624,8 +3659,7 @@ describe('editor: per-calendar settings', () => {
     ]);
 
     // The picker is now on screen, empty, with the color that only applies to it.
-    const form = formOf(element, 'calendar:label_type', entry(0))!;
-    expect(schemaOf(form).map((node) => node.name)).toContain('label_icon_color');
+    expect(entryNames(element, 0)).toContain('label_icon_color');
 
     expect(valueOf(element, 'calendar:label_type', entry(0))).toBe('icon');
     expect(valueOf(element, 'calendar:label', entry(0)) ?? '').toBe('');
@@ -3648,16 +3682,15 @@ describe('editor: per-calendar settings', () => {
    */
   it('keeps the label field on screen while the text is cleared and retyped', async () => {
     const element = await mountEditor({ entities: ['calendar.a'] });
-    // A closed panel mounts no form: open every panel, as this reads forms behind them.
+    // Visits every page, each entry's included, as this reads forms across the editor.
     await openPanels(element);
 
     element.addEventListener('config-changed', (event) => {
       element.setConfig((event as CustomEvent).detail.config as Types.Config);
     });
 
-    /** The names the one calendar's form is currently rendering. */
-    const rendered = () =>
-      schemaOf(formOf(element, 'calendar:label_type', entry(0))!).map((node) => node.name);
+    /** The names the one calendar's page is currently rendering. */
+    const rendered = () => entryNames(element, 0);
 
     await changeField(element, 'calendar:label_type', 'text', entry(0));
 
@@ -3693,7 +3726,7 @@ describe('editor: per-calendar settings', () => {
     const element = await mountEditor({
       entities: [{ entity: 'calendar.a', label: 'mdi:home' }],
     });
-    // A closed panel mounts no form: open every panel, as this reads forms behind them.
+    // Visits every page, each entry's included, as this reads forms across the editor.
     await openPanels(element);
 
     element.addEventListener('config-changed', (event) => {
@@ -3702,8 +3735,7 @@ describe('editor: per-calendar settings', () => {
 
     await changeField(element, 'calendar:label', '', entry(0));
 
-    const form = formOf(element, 'calendar:label_type', entry(0))!;
-    const names = schemaOf(form).map((node) => node.name);
+    const names = entryNames(element, 0);
 
     expect(names, 'the picker survived being cleared').toContain('label');
     expect(names, 'so did the icon color').toContain('label_icon_color');
@@ -3718,8 +3750,9 @@ describe('editor: per-calendar settings', () => {
       .map((entry) => entry.node.name)
       .filter(Boolean);
 
-    // Every member of `EntityConfig` except the entity id itself, which is the
-    // picker's business rather than a setting of the calendar's — plus `label_type`,
+    // Every member of `EntityConfig` except the entity id itself, which is the business of
+    // Add Calendar and the entry page's Calendar rather than a setting of the calendar's — plus
+    // `label_type`,
     // `accent_color_mode`, `label_icon_source` and `label_image_source`, which are not config
     // keys at all. Each names which of several shapes one value holds, or where it comes
     // from, exactly as `today_indicator_style` does at card level, and none is ever written

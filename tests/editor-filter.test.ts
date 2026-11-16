@@ -418,7 +418,7 @@ describe('editor filter: the per-calendar settings', () => {
     // `color` sits inside a grid row, so this also pins that the per-calendar filter
     // recurses rather than looking only at the top level of the schema.
     expect(fieldNames(configured)).toEqual(['color']);
-    // Nothing left, so the chassis renders no panel for this calendar at all.
+    // Nothing left, so the calendar list draws no row for this calendar at all.
     expect(fieldNames(untouched)).toEqual([]);
   });
 
@@ -462,7 +462,7 @@ describe('editor filter: the per-calendar settings', () => {
     );
     expect(fieldNames(configured)).toEqual(['label_type', 'label_icon_source', 'label']);
 
-    // A calendar with no label of its own keeps neither, so its panel drops out whole.
+    // A calendar with no label of its own keeps neither, so its row drops out whole.
     const untouched = filterEntitySchema(
       entitySchemaFor(entitySchema(config), 'none'),
       config.entities[1],
@@ -478,10 +478,10 @@ describe('editor filter: the per-calendar settings', () => {
    *
    * Following Home Assistant, `entitySchemaFor` drops `accent_color` — so the mode dropdown
    * is the *only* accent control left, and hiding it left the calendar with nothing at all.
-   * `hasFields` then answered false and the chassis dropped the whole panel: a calendar the
+   * `hasFields` then answered false and the chassis dropped the calendar whole: a calendar the
    * user had configured disappeared from the filter that promises to show exactly that.
    *
-   * With a custom color the panel survives, but the color field arrives with no control
+   * With a custom color the calendar survives, but the color field arrives with no control
    * saying where it comes from and no way back to following the card.
    */
   it('keeps the accent mode dropdown wherever the calendar has set an accent color', () => {
@@ -505,7 +505,7 @@ describe('editor filter: the per-calendar settings', () => {
     expect(kept(custom, 'custom')).toEqual(['accent_color_mode', 'accent_color']);
 
     // The control still stores nothing of its own, so a calendar that has set no color
-    // keeps neither and its panel drops out whole — as it did before.
+    // keeps neither and its row drops out whole — as it did before.
     expect(kept(untouched, 'inherit')).toEqual([]);
   });
 
@@ -519,7 +519,7 @@ describe('editor filter: the per-calendar settings', () => {
    * `pruneLoneHeadings` exists to stop and what a heading is incapable of doing honestly.
    *
    * `hasFields` is the third rule and the one with teeth, because the chassis calls it to
-   * decide whether to render a calendar's panel at all.
+   * decide whether the calendar list draws a calendar's row at all.
    */
   it('never returns a heading as a search hit of its own', () => {
     const config = buildConfig({ entities: ['calendar.a'] });
@@ -732,11 +732,20 @@ describe('editor filter: the chassis', () => {
       entities: [{ entity: 'calendar.a', color: '#ff0000' }, 'calendar.b'],
     });
 
-    expect(element.shadowRoot!.querySelectorAll('ha-expansion-panel.entity-panel')).toHaveLength(2);
+    // The calendar list's rows, each named by the calendar it belongs to.
+    const rows = () =>
+      [...element.shadowRoot!.querySelectorAll('.cal-group')].map((group) => [
+        group.getAttribute('data-calendar'),
+        group.querySelectorAll('.cal-row').length,
+      ]);
+    expect(rows()).toEqual([
+      ['calendar.a', 1],
+      ['calendar.b', 1],
+    ]);
 
     await changeField(element, `filter:${CUSTOMIZED_ONLY_FIELD}`, true);
 
-    expect(element.shadowRoot!.querySelectorAll('ha-expansion-panel.entity-panel')).toHaveLength(1);
+    expect(rows()).toEqual([['calendar.a', 1]]);
   });
 
   it('offers no reset until a view has an explicit value', async () => {

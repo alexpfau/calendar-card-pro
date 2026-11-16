@@ -5,8 +5,10 @@
  * `ha-form` updates for every new `schema`, `data`, `hass`, `computeLabel` or `computeHelper` it
  * is handed. Today's editor handed each of its forms new ones on every render, so every form
  * updated on every render: about 20 ms in Home Assistant, two to four times a second while the
- * dialog sat idle. Now each input is kept while what it is made from is equal, and a panel's form
- * is handed only the data its own fields read.
+ * dialog sat idle. Now each input is kept while what it is made from is equal, and a page's field
+ * form is handed only the data its own field reads. A calendar entry's page is the one exception:
+ * each of its fields sits in a form of its own, and every one of them is handed the entry's one
+ * data object, so a write to the entry moves that object for all of them, and nothing else.
  *
  * Proved by two genuine renders, never one render compared with itself: a real write through
  * `value-changed`, then a bare `requestUpdate()`. Every other form must hold the very objects it
@@ -84,8 +86,8 @@ afterEach(() => {
 });
 
 /**
- * Every form the place open draws, live: the field forms of the overview or of one page, and the
- * calendars' and buttons' forms in their panels there.
+ * Every form the place open draws, live: the field forms of the overview or of one page, the
+ * buttons' forms in their panels there, and an entry page's forms.
  *
  * @param editor - The editor
  * @returns The forms, in document order
@@ -101,6 +103,8 @@ describe.each<{
   value: unknown;
   owner: Owner;
   open: ReadonlyArray<readonly [string, Owner]>;
+  /** Whether the written form's siblings share its data object: an entry page's. */
+  shared?: boolean;
 }>([
   {
     name: 'the card’s title',
@@ -115,11 +119,12 @@ describe.each<{
     id: 'calendar:name',
     value: 'Ben at school',
     owner: entry(1),
-    // The overview, with both calendars' panels open.
+    // The first calendar's page, then the second's, where the write is made.
     open: [
       ['calendar:name', entry(0)],
       ['calendar:name', entry(1)],
     ],
+    shared: true,
   },
   {
     name: 'a size in the List layout, which then holds it as its own',
@@ -129,7 +134,7 @@ describe.each<{
     owner: CARD,
     open: [['events:event_font_size', CARD]],
   },
-])('a write to $name', ({ workspace, id, value, owner, open }) => {
+])('a write to $name', ({ workspace, id, value, owner, open, shared = false }) => {
   it('hands every other form the objects it held before, through the write and a bare render', async () => {
     const editor = await mountEditor(CONFIG, {
       hass: fakeHass({ localize: (key: string) => key }),
@@ -145,6 +150,14 @@ describe.each<{
     // Every form the place draws, one per field, and the panels' own.
     expect(forms.length).toBeGreaterThan(5);
     expect(forms).toContain(written);
+    // An entry page's other field forms, handed the entry's one data object.
+    const siblings = shared
+      ? forms.filter((form) => form !== written && form.classList.contains('entity-form'))
+      : [];
+    if (shared) expect(siblings.length).toBeGreaterThan(5);
+    for (const sibling of siblings) {
+      expect(before.get(sibling)!.data).toBe(before.get(written)!.data);
+    }
 
     await changeField(editor, id, value, owner);
     const afterWrite = inputsOf(drawnHere(editor));
@@ -158,14 +171,21 @@ describe.each<{
     expect([...afterRender.keys()]).toEqual(forms);
     // The control: the write reached its form, which was handed new data.
     expect(afterWrite.get(written)!.data).not.toBe(before.get(written)!.data);
+    // Its siblings were handed that same new object, not one each.
+    for (const sibling of siblings) {
+      expect(afterWrite.get(sibling)!.data).toBe(afterWrite.get(written)!.data);
+    }
 
-    const others = new Map([...before].filter(([form]) => form !== written));
-    expect(moved(others, new Map([...afterWrite].filter(([form]) => form !== written)))).toEqual(
-      [],
-    );
-    expect(moved(others, new Map([...afterRender].filter(([form]) => form !== written)))).toEqual(
-      [],
-    );
+    // Every other input of every other form, and every other form's data but the shared object.
+    const rest = (inputs: Map<FormElement, Inputs>): Map<FormElement, Inputs> =>
+      new Map(
+        [...inputs]
+          .filter(([form]) => form !== written)
+          .map(([form, held]) => [form, siblings.includes(form) ? { ...held, data: null } : held]),
+      );
+    const others = rest(before);
+    expect(moved(others, rest(afterWrite))).toEqual([]);
+    expect(moved(others, rest(afterRender))).toEqual([]);
     // And the bare render hands the written form what the write left it.
     expect(moved(afterWrite, afterRender)).toEqual([]);
   });
@@ -173,12 +193,18 @@ describe.each<{
 
 describe('a visit to a page', () => {
   it('leaves the overview’s forms as they were, the very elements with the very inputs', async () => {
-    const editor = await mountEditor(CONFIG);
-    await openPageOf(editor, 'calendar:name', entry(0));
+    // A start offset draws a fourth form on the overview, beside the search bar and the first two.
+    const editor = await mountEditor({
+      ...CONFIG,
+      start_date: '+1',
+    });
     const forms = drawnHere(editor);
     const before = inputsOf(forms);
     expect(forms.length).toBeGreaterThan(3);
 
+    // A calendar's page, then a section's.
+    await openPageOf(editor, 'calendar:name', entry(0));
+    expect(drawnHere(editor).some((form) => forms.includes(form))).toBe(false);
     await openPageOf(editor, 'events:show_time');
     expect(drawnHere(editor).some((form) => forms.includes(form))).toBe(false);
     await openPageOf(editor, 'content:days_to_show');

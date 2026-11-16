@@ -19,6 +19,7 @@ import {
   changeFields,
   fakeHass,
   formsOf,
+  goOverview,
   lastConfig,
   mountEditor,
   openPanels,
@@ -97,9 +98,16 @@ describe('Quick Setup', () => {
     expect(open.querySelector('svg path')?.getAttribute('d')).toBe(mdiCreation);
     expect(dismiss.getAttribute('aria-label')).toBe('Dismiss Quick Setup');
 
-    // Kept after adding a calendar: the session started fresh.
-    await changeField(editor, 'calendars:calendars', ['calendar.anna', 'calendar.ben']);
-    expect(root(editor).querySelector('.quick-setup-entry')).not.toBeNull();
+    // Kept after adding a calendar: the session started fresh. Added as a user adds one, with
+    // Add Calendar, which opens the new calendar's page; the banner is the overview's.
+    await click(editor, '[data-focus="add-calendar"]');
+    await changeField(editor, 'add_calendar:pick', 'calendar.ben');
+    await click(editor, '[data-focus="add-confirm"]');
+    expect(lastConfig(editor)?.entities).toEqual(['calendar.anna', 'calendar.ben']);
+    await goOverview(editor);
+    const kept = root(editor).querySelector<HTMLElement>('.quick-setup-entry');
+    expect(kept).not.toBeNull();
+    expect(kept!.querySelectorAll('button')[1]).toBe(dismiss);
 
     dismiss.click();
     await editor.updateComplete;

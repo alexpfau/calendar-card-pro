@@ -6,19 +6,19 @@
  * the form was drawn, and drew the calendars' panels by place. A removal above an entry then handed
  * its panel, and the listener on it, to the entry after it, so an edit could land on the wrong
  * calendar; and a form wrote back everything it held, so one drawn before another write could undo
- * it. Now each entry and button carries a key the editor keeps beside the list, its panel is drawn
- * by that key, and a change writes only what moved in the form that sent it, over the owner as it
- * stands when the change arrives (`write-frames.ts`). A panel drawn by key takes its focused Remove
- * with it, so Remove puts focus back itself, where drawing by place used to leave it.
+ * it. Now each entry and button carries a key the editor keeps beside the list, an entry's page and
+ * a button's panel are drawn by that key, and a change writes only what moved in the form that sent
+ * it, over the owner as it stands when the change arrives (`write-frames.ts`). The calendar list's
+ * Remove takes its row, and the strip it was pressed on, with it, so Remove puts focus back itself.
  *
- * Each test fails with a defect it exists for planted, against an unmutated control: the panels
- * drawn by place, an owner resolved by the index it had when drawn (for a change sent before the
- * next render, too), one baseline shared by every change, a baseline frozen when first drawn or
+ * Each test fails with a defect it exists for planted, against an unmutated control: the pages and
+ * panels drawn by place, an owner resolved by the index it had when drawn (for a change sent before
+ * the next render, too), one baseline shared by every change, a baseline frozen when first drawn or
  * never reset by a render, an action compared as the same object rather than an equal one, a
  * changed action merged into the one it replaces, a change written alone through `writeEntity`,
- * a reordered calendar taking a new key, a key leaking into the configuration, focus left nowhere
- * after Remove, moved where it was not, or sent into a closed panel. They read what reached Home
- * Assistant whole, keys and all.
+ * a moved calendar taking a new key, a key leaking into the configuration, focus left nowhere
+ * after Remove, or moved where it was not. They read what reached Home Assistant whole, keys and
+ * all.
  */
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -82,24 +82,22 @@ async function mount(config: Record<string, unknown>) {
 }
 
 /**
- * One of an entry's or a button's action buttons, by the key its panel names and the words on it.
+ * One of a toolbar button's action buttons, by the key its panel names and the words on it.
  *
  * @param editor - Editor element
- * @param kind - An entry's panel or a button's
+ * @param kind - A button's panel
  * @param key - The owner's key
  * @param label - The words on the button
  * @returns The button
  */
 function action(
   editor: EditorElement,
-  kind: 'entry' | 'button',
+  kind: 'button',
   key: number,
   label: string,
 ): HTMLButtonElement {
   const panel = editor.shadowRoot?.querySelector(
-    kind === 'entry'
-      ? `ha-expansion-panel.entity-panel[data-entry-key="${key}"]`
-      : `ha-expansion-panel.button-panel[data-button-key="${key}"]`,
+    `ha-expansion-panel.button-panel[data-button-key="${key}"]`,
   );
   const found = [...(panel?.querySelectorAll<HTMLButtonElement>('button') ?? [])].find(
     (candidate) => candidate.textContent?.trim() === label,
@@ -117,6 +115,33 @@ function action(
 async function press(editor: EditorElement, control: HTMLButtonElement): Promise<void> {
   control.click();
   await editor.updateComplete;
+}
+
+/**
+ * One button of a calendar row's action strip, the strip opened from the row's ⋮ first where it
+ * is closed: `entry:<key>` names an entry's row, `calendar:<entity id>` the head row of a calendar
+ * with several entries, and `page` an entry page's own ⋮.
+ *
+ * @param editor - Editor element
+ * @param row - The strip's row
+ * @param id - The button: `up`, `down`, `top`, `duplicate`, `copy`, `paste` or `remove`
+ * @returns The button
+ */
+async function stripAction(
+  editor: EditorElement,
+  row: string,
+  id: string,
+): Promise<HTMLButtonElement> {
+  const root = editor.shadowRoot!;
+  const find = () => root.querySelector<HTMLButtonElement>(`[data-focus="strip:${row}:${id}"]`);
+  if (find() === null) {
+    const more = root.querySelector<HTMLButtonElement>(`[data-focus="more:${row}"]`);
+    if (more === null) throw new Error(`No ⋮ on the row ${row}`);
+    await press(editor, more);
+  }
+  const found = find();
+  if (found === null) throw new Error(`No ${id} on the strip of the row ${row}`);
+  return found;
 }
 
 /**
@@ -184,12 +209,18 @@ describe('the entry in the middle', () => {
     const benForm = formOf(editor, 'calendar:label', entry(1))!;
     const leoForm = formOf(editor, 'calendar:label', entry(2))!;
 
-    await press(editor, action(editor, 'entry', anna, 'Remove'));
+    await press(editor, await stripAction(editor, `entry:${anna}`, 'remove'));
 
+    // Each page is drawn by its entry's key, and the harness holds the forms on it to that entry's
+    // data: the first place's page is Ben's.
     expect(keysOf(editor, 'entry')).toEqual([ben, leo]);
-    expect(formOf(editor, 'calendar:label', entry({ key: ben }))).toBe(benForm);
-    expect(formOf(editor, 'calendar:label', entry({ key: leo }))).toBe(leoForm);
-    expect(formOf(editor, 'calendar:label', entry(0))).toBe(benForm);
+    expect(formOf(editor, 'calendar:label', entry(0))).toBe(
+      formOf(editor, 'calendar:label', entry({ key: ben })),
+    );
+    expect(valueOf(editor, 'calendar:label', entry({ key: ben }))).toBe('B');
+    expect(valueOf(editor, 'calendar:label', entry({ key: leo }))).toBe('L');
+
+    // The forms drawn before the removal still write to their own calendars.
 
     emitChange(benForm, { 'calendar:label': 'Ben' });
     emitChange(leoForm, { 'calendar:label': 'Leo' });
@@ -228,7 +259,7 @@ describe('the entry in the middle', () => {
 
     // Both changes arrive before the render the removal asks for, so nothing drawn since hands
     // either form a fresh listener: each finds its entry as the change arrives.
-    action(editor, 'entry', anna, 'Remove').click();
+    (await stripAction(editor, `entry:${anna}`, 'remove')).click();
     emitChange(benForm, { 'calendar:name': 'Ben' });
     emitChange(leoForm, { 'calendar:name': 'Leo' });
     await editor.updateComplete;
@@ -257,8 +288,8 @@ describe('the entry in the middle', () => {
       },
     ]);
     expect(keysOf(editor, 'entry')).toEqual([ben, leo]);
-    expect(formOf(editor, 'calendar:name', entry({ key: ben }))).toBe(benForm);
-    expect(formOf(editor, 'calendar:name', entry({ key: leo }))).toBe(leoForm);
+    expect(valueOf(editor, 'calendar:name', entry({ key: ben }))).toBe('Ben');
+    expect(valueOf(editor, 'calendar:name', entry({ key: leo }))).toBe('Leo');
   });
 });
 
@@ -298,31 +329,38 @@ describe('the button in the middle', () => {
   });
 });
 
-describe('the calendar picker', () => {
+describe('the calendar list', () => {
   it.each([
     {
-      path: 'adds a calendar, which takes a new key',
+      path: 'Add Calendar adds a calendar, which takes a new key',
       entities: [ANNA, BEN],
-      picked: [ANNA, BEN, LEO],
-      // Each place in `picked` by the place its entry had before, or -1 for a new one.
+      act: async (editor: EditorElement) => {
+        await press(editor, editor.shadowRoot!.querySelector('[data-focus="add-calendar"]')!);
+        await changeField(editor, 'add_calendar:pick', LEO);
+        await press(editor, editor.shadowRoot!.querySelector('[data-focus="add-confirm"]')!);
+      },
+      // Each place after by the place its entry had before, or -1 for a new one.
       from: [0, 1, -1],
     },
     {
-      path: 'removes a calendar, its key going with it',
+      path: 'Remove on a calendar’s row removes it, its key going with it',
       entities: [ANNA, BEN, LEO],
-      picked: [ANNA, LEO],
+      act: async (editor: EditorElement, keys: number[]) =>
+        press(editor, await stripAction(editor, `entry:${keys[1]}`, 'remove')),
       from: [0, 2],
     },
     {
-      path: 'reorders calendars, each keeping its own key',
+      path: 'Move to Top on a calendar’s row reorders calendars, each keeping its own key',
       entities: [ANNA, BEN, LEO],
-      picked: [LEO, ANNA, BEN],
+      act: async (editor: EditorElement, keys: number[]) =>
+        press(editor, await stripAction(editor, `entry:${keys[2]}`, 'top')),
       from: [2, 0, 1],
     },
     {
-      path: 'moves a calendar listed twice with both its entries, each keeping its own key',
+      path: 'Move Down on a calendar listed twice moves both its entries, each keeping its own key',
       entities: [ANNA, BEN, { entity: ANNA, event_type: 'all_day' }],
-      picked: [BEN, ANNA],
+      act: async (editor: EditorElement) =>
+        press(editor, await stripAction(editor, `calendar:${ANNA}`, 'down')),
       from: [1, 0, 2],
     },
   ])('$path, and every entry left writes to its own calendar', async (row) => {
@@ -331,7 +369,7 @@ describe('the calendar picker', () => {
     const keys = keysOf(editor, 'entry');
     const forms = keys.map((key) => formOf(editor, 'calendar:color', entry({ key }))!);
 
-    await changeField(editor, 'calendars:calendars', row.picked);
+    await row.act(editor, keys);
     await openPanels(editor);
     const after = keysOf(editor, 'entry');
     const listed = lastConfig(editor)?.entities as ReadonlyArray<unknown>;
@@ -342,12 +380,14 @@ describe('the calendar picker', () => {
       else {
         expect(after[at], `entry ${at}`).toBe(keys[before]);
         expect(listed[at], `entry ${at}`).toEqual(row.entities[before]);
-        expect(formOf(editor, 'calendar:color', entry({ key: after[at] }))).toBe(forms[before]);
+        // The page drawn for the key is that entry's: the harness holds its forms to the entry
+        // the key names, and fails where they hold another's.
+        expect(formOf(editor, 'calendar:color', entry({ key: after[at] }))).toBeDefined();
       }
     });
 
-    // An edit in every entry's form, each from the form as it was drawn before the picker moved
-    // the list, where the entry had one.
+    // An edit in every entry's form, each from the form as it was drawn before the list moved,
+    // where the entry had one.
     for (const [at, key] of after.entries()) {
       const form = forms[keys.indexOf(key)] ?? formOf(editor, 'calendar:color', entry({ key }))!;
       emitChange(form, { 'calendar:color': `#00000${at}` });
@@ -359,6 +399,30 @@ describe('the calendar picker', () => {
         ...(typeof stored === 'string' ? { entity: stored } : (stored as object)),
         color: `#00000${at}`,
       })),
+    });
+  });
+
+  it('keeps an entry’s page, its very forms, through a move made from it, and its edits its own', async () => {
+    const { editor, reports } = await mount({ entities: [ANNA, BEN, LEO] });
+    const [anna, ben, leo] = keysOf(editor, 'entry');
+    await openPageOf(editor, 'calendar:color', entry({ key: leo }));
+    const page = () => editor.shadowRoot!.querySelectorAll('.entry-page ha-form');
+    const forms = [...page()];
+    const color = formOf(editor, 'calendar:color', entry({ key: leo }))!;
+    expect(forms.length).toBeGreaterThan(5);
+
+    await press(editor, await stripAction(editor, 'page', 'top'));
+
+    expect(keysOf(editor, 'entry')).toEqual([leo, anna, ben]);
+    expect(lastConfig(editor)?.entities).toEqual([LEO, ANNA, BEN]);
+    expect([...page()]).toEqual(forms);
+    expect(formOf(editor, 'calendar:color', entry(0))).toBe(color);
+
+    emitChange(color, { 'calendar:color': '#000001' });
+    await editor.updateComplete;
+    expect(reports[reports.length - 1]).toEqual({
+      config_version: VERSION,
+      entities: [{ entity: LEO, color: '#000001' }, ANNA, BEN],
     });
   });
 });
@@ -411,16 +475,22 @@ describe('a form drawn before another write', () => {
   });
 
   it('writes the value it was drawn with once a render has handed it what another wrote', async () => {
-    const { editor, reports } = await mount({
+    const { editor, reports, writer } = await mount({
       entities: [
         { entity: ANNA, name: 'Old' },
         { entity: ANNA, label: 'Second' },
       ],
     });
-    await openPanels(editor);
+    // The first entry's page open, so a render reaches its form: the second entry renames the
+    // calendar from outside it, as a control the editor draws itself writes.
+    await openPageOf(editor, 'calendar:name', entry(0));
+    const [, second] = keysOf(editor, 'entry');
     const first = formOf(editor, 'calendar:name', entry(0))!;
 
-    await changeField(editor, 'calendar:name', 'New', entry(1));
+    writer._writeFieldValue({ kind: 'entry', key: second }, 'calendar:name', 'New');
+    await editor.updateComplete;
+    expect(formOf(editor, 'calendar:name', entry(0))).toBe(first);
+    expect(first.data.name).toBe('New');
     expect(valueOf(editor, 'calendar:name', entry(0))).toBe('New');
     emitChange(first, { 'calendar:name': 'Old' });
     await editor.updateComplete;
@@ -569,7 +639,7 @@ describe('a late change from an owner that has left', () => {
     const [anna] = keysOf(editor, 'entry');
     const annaForm = formOf(editor, 'calendar:label', entry(0))!;
 
-    await press(editor, action(editor, 'entry', anna, 'Remove'));
+    await press(editor, await stripAction(editor, `entry:${anna}`, 'remove'));
     emitChange(annaForm, { 'calendar:label': 'Late' });
     await editor.updateComplete;
 
@@ -603,26 +673,30 @@ describe("focus after a calendar's Remove", () => {
   ];
 
   /**
-   * A calendar's panel, by its key.
+   * A calendar's row on the overview, by its entry's key: the control that opens its page.
    *
    * @param editor - Editor element
    * @param key - The entry's key
-   * @returns The panel
+   * @returns The row's control
    */
-  function panelOf(editor: EditorElement, key: number): Element & { expanded?: boolean } {
-    return editor.shadowRoot!.querySelector(
-      `ha-expansion-panel.entity-panel[data-entry-key="${key}"]`,
-    )!;
+  function rowOf(editor: EditorElement, key: number): HTMLElement | null {
+    return editor.shadowRoot!.querySelector<HTMLElement>(`[data-focus="row:${key}"]`);
   }
 
   /**
-   * Presses a calendar's Remove, as a keyboard does: focused first. Waits until focus has moved.
+   * Presses a calendar's Remove, as a keyboard does: its row's ⋮ focused and pressed, then the
+   * strip's Remove focused and pressed. Waits until focus has moved.
    *
    * @param editor - Editor element
    * @param key - The entry's key
    */
   async function removeWithKeyboard(editor: EditorElement, key: number): Promise<void> {
-    const remove = action(editor, 'entry', key, 'Remove');
+    const more = editor.shadowRoot!.querySelector<HTMLButtonElement>(
+      `[data-focus="more:entry:${key}"]`,
+    )!;
+    more.focus();
+    await press(editor, more);
+    const remove = await stripAction(editor, `entry:${key}`, 'remove');
     remove.focus();
     expect(editor.shadowRoot!.activeElement).toBe(remove);
     await press(editor, remove);
@@ -665,21 +739,17 @@ describe("focus after a calendar's Remove", () => {
     ).toMatch(/^Removed /);
   });
 
-  it('goes to the Remove of the calendar now in its place once the line closes, its panel open', async () => {
+  it('goes to the row of the calendar now in its place once the line closes', async () => {
     const { editor } = await mount({ entities: ENTRIES });
-    await openPageOf(editor, 'calendar:label', entry(0));
     const [anna, ben] = keysOf(editor, 'entry');
-    expect(panelOf(editor, ben).expanded).not.toBe(true);
 
     await removeWithKeyboard(editor, anna);
     await closeLine(editor);
 
-    expect(editor.shadowRoot!.activeElement).toBe(action(editor, 'entry', ben, 'Remove'));
-    expect(panelOf(editor, ben).expanded).toBe(true);
-    expect(formOf(editor, 'calendar:label', entry({ key: ben }))).toBeDefined();
+    expect(editor.shadowRoot!.activeElement).toBe(rowOf(editor, ben));
   });
 
-  it('goes to the Remove of the calendar before it, where it was the last', async () => {
+  it('goes to the row of the calendar before it, where it was the last', async () => {
     const { editor } = await mount({ entities: ENTRIES });
     await openPanels(editor);
     const [, ben, leo] = keysOf(editor, 'entry');
@@ -687,10 +757,10 @@ describe("focus after a calendar's Remove", () => {
     await removeWithKeyboard(editor, leo);
     await closeLine(editor);
 
-    expect(editor.shadowRoot!.activeElement).toBe(action(editor, 'entry', ben, 'Remove'));
+    expect(editor.shadowRoot!.activeElement).toBe(rowOf(editor, ben));
   });
 
-  it('goes to the calendar picker, named after it, where no calendar is left', async () => {
+  it('goes to Add Calendar where no calendar is left', async () => {
     const { editor } = await mount({ entities: [ANNA] });
     await openPanels(editor);
     const [anna] = keysOf(editor, 'entry');
@@ -699,29 +769,28 @@ describe("focus after a calendar's Remove", () => {
     await closeLine(editor);
 
     const focused = editor.shadowRoot!.activeElement as HTMLElement;
-    expect(focused.contains(formOf(editor, 'calendars:calendars')!)).toBe(true);
-    expect([focused.getAttribute('role'), focused.getAttribute('aria-label')]).toEqual([
-      'group',
-      'Calendars',
+    expect(editor.shadowRoot!.querySelector('.cal-group')).toBeNull();
+    expect([focused.getAttribute('data-focus'), focused.textContent?.trim()]).toEqual([
+      'add-calendar',
+      'Add Calendar',
     ]);
   });
 
   it('leaves focus where it is when the line closes with focus elsewhere', async () => {
     const { editor } = await mount({ entities: ENTRIES });
-    await openPageOf(editor, 'calendar:label', entry(0));
     const [anna, ben] = keysOf(editor, 'entry');
 
-    await press(editor, action(editor, 'entry', anna, 'Remove'));
+    await press(editor, await stripAction(editor, `entry:${anna}`, 'remove'));
     await new Promise((resolve) => setTimeout(resolve));
-    const picker = editor.shadowRoot!.querySelector<HTMLElement>('.calendar-picker')!;
-    picker.focus();
+    const add = editor.shadowRoot!.querySelector<HTMLElement>('[data-focus="add-calendar"]')!;
+    add.focus();
     emitChange(formOf(editor, 'content:days_to_show')!, { 'content:days_to_show': 9 });
     await editor.updateComplete;
     await new Promise((resolve) => setTimeout(resolve));
 
     expect(lineUndo(editor)).toBeNull();
-    expect(editor.shadowRoot!.activeElement).toBe(picker);
-    expect(panelOf(editor, ben).expanded).not.toBe(true);
+    expect(editor.shadowRoot!.activeElement).toBe(add);
+    expect(editor.shadowRoot!.activeElement).not.toBe(rowOf(editor, ben));
   });
 });
 
