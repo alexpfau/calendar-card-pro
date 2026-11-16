@@ -1,6 +1,6 @@
 /**
  * What a page draws around its live fields (backlog item 307): the line under a field with its
- * state, Reset outcome and actions, a heading's Add row, its gate line and the values stored for
+ * notes and its Reset or Remove, a heading's Add row, its gate line and the values stored for
  * settings that are not in use, the page's line naming what other layouts add, and the two
  * preferences. Templates only, as `overview.ts`.
  */
@@ -19,8 +19,6 @@ export interface LineButton {
   /** Its accessible name, where it is not its label. */
   readonly name?: string;
   readonly focus: string;
-  /** The id of what describes it: the Reset outcome. */
-  readonly describedBy?: string;
   readonly kind?: 'reset' | 'remove';
   /** The options a Reset or Remove deletes here, space-separated. */
   readonly resetKeys?: string;
@@ -41,44 +39,34 @@ export function lineButton(button: LineButton): TemplateResult {
     class="text-button line-button"
     data-focus=${button.focus}
     aria-label=${button.name ?? nothing}
-    aria-describedby=${button.describedBy ?? nothing}
     data-reset-keys=${button.resetKeys || nothing}
     @click=${button.onPress}
   >
-    ${glyph ? icon(glyph) : nothing}${button.label}
+    ${glyph ? icon(glyph) : nothing}<span class="line-text">${button.label}</span>
   </button>`;
 }
 
 /** What the line under a live field shows. */
 export interface FieldLine {
-  /** Whether the field stores a value here: a filled dot, else a ring. */
-  readonly stored: boolean;
   /** Lines of their own: "Grid Sets Its Own: 20" with Edit Grid, the ignored All Layouts value. */
   readonly notes: ReadonlyArray<{ readonly text: string; readonly button?: LineButton }>;
   /** "Set on Calendars:" with a link per entry. */
   readonly calendars?: { readonly label: string; readonly links: ReadonlyArray<LineButton> };
-  /** What Reset gives, and the id Reset is described by. */
-  readonly outcome?: { readonly id: string; readonly text: string };
+  /** Reset or Remove, named for what it leaves, and any Edit for another layout. */
   readonly actions: ReadonlyArray<LineButton>;
 }
 
 /**
- * The line under a live field: the mark, what it adds to the words in the form, and its actions.
+ * The line under a live field: what it adds to the words in the form, and its actions.
  *
  * @param line - What it shows
  * @returns The line, or nothing where it has nothing to say
  */
 export function fieldLine(line: FieldLine): TemplateResult | typeof nothing {
-  if (
-    line.notes.length === 0 &&
-    line.calendars === undefined &&
-    line.outcome === undefined &&
-    line.actions.length === 0
-  ) {
+  if (line.notes.length === 0 && line.calendars === undefined && line.actions.length === 0) {
     return nothing;
   }
   return html`<div class="field-line">
-    <span class="mark${line.stored ? ' stored' : ''}" aria-hidden="true"></span>
     <div class="field-line-body">
       ${line.notes.map(
         (note) =>
@@ -94,14 +82,8 @@ export function fieldLine(line: FieldLine): TemplateResult | typeof nothing {
           : nothing
       }
       ${
-        line.outcome || line.actions.length > 0
-          ? html`<p class="field-note">
-              ${
-                line.outcome
-                  ? html`<span id=${line.outcome.id} class="outcome">${line.outcome.text}</span>`
-                  : nothing
-              }${line.actions.map(lineButton)}
-            </p>`
+        line.actions.length > 0
+          ? html`<p class="field-note">${line.actions.map(lineButton)}</p>`
           : nothing
       }
     </div>

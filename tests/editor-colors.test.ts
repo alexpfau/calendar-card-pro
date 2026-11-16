@@ -730,7 +730,7 @@ describe('a color control’s state line', () => {
     const reset = at.querySelector<HTMLButtonElement>(
       '[data-focus="reset:events:allday_badge_color_mode"]',
     );
-    expect(reset?.textContent?.trim()).toBe('Reset');
+    expect(reset?.textContent?.trim()).toBe('Reset to Calendar Accent Color');
     reset!.click();
     await editor.updateComplete;
     expect(lastConfig(editor)).not.toHaveProperty('list');

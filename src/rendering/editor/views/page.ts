@@ -1,12 +1,12 @@
 /**
  * A section page's frame: its header with Back and the page's own `h2`, its headings with their
- * helper lines and cross-links, and Back again at its foot. Templates only, as `overview.ts`.
+ * helper lines and cross-links, and Back again at its foot with the page's documentation. Templates only, as `overview.ts`.
  *
  * Every heading is the editor's own element, never a `constant` node inside a form: Home
  * Assistant does not expose those as headings to assistive technology (`spike/ha-probe.md` §3).
  */
 
-import { mdiArrowRight, mdiChevronLeft, mdiInformationOutline } from '@mdi/js';
+import { mdiArrowRight, mdiChevronLeft, mdiInformationOutline, mdiOpenInNew } from '@mdi/js';
 import { type TemplateResult, html, nothing } from 'lit';
 
 import { icon } from './icon';
@@ -53,17 +53,25 @@ export function pageHead(
 }
 
 /**
- * Back at the page's foot.
+ * Back at the page's foot, and the page's documentation beside it.
  *
  * @param t - The editor's strings
  * @param onBack - Back was pressed
- * @returns The button, above a rule
+ * @param docs - The page's documentation, an absolute address on the site
+ * @returns The button and the link, under a rule
  */
-export function footBack(t: Translate, onBack: () => void): TemplateResult {
+export function footBack(t: Translate, onBack: () => void, docs?: string): TemplateResult {
   return html`<div class="page-foot">
     <button type="button" class="text-button" data-focus="back-foot" @click=${onBack}>
       ${icon(mdiChevronLeft)} ${t('nav.back')}
     </button>
+    ${
+      docs
+        ? html`<a class="docs-link" href=${docs} target="_blank" rel="noopener noreferrer"
+            >${icon(mdiOpenInNew)} ${t('nav.docs')}</a
+          >`
+        : nothing
+    }
   </div>`;
 }
 
