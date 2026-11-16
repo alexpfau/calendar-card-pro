@@ -710,7 +710,7 @@ describe('What This Card Changes, list and nested values', () => {
     const all = rows(editor);
 
     expect(all['entities[0].visibility'].value).toBe(
-      '{condition: screen, media_query: (min-width: 600px)}, {condition: user, users: [a1, b2]}',
+      '{condition: screen, media_query: "(min-width: 600px)"}, {condition: user, users: [a1, b2]}',
     );
     expect(all.day_tap_action.value).toBe(
       'action: perform-action, perform_action: light.toggle, target: {entity_id: [light.hall, light.porch]}',
@@ -718,5 +718,20 @@ describe('What This Card Changes, list and nested values', () => {
     expect(all['toolbar.buttons'].value).toBe('[]');
     expect(all['time_grid.custom_thing'].value).toBe('value: keep, steps: [1, 2]');
     expect(all.card_mod.value).toBe('style: {ha-card: x}');
+  });
+
+  it('quotes a string inside a list or block only where it would read as something else', () => {
+    expect(Audit.plainValue({ only: ['a, b'], also: ['a', 'b'] })).toBe(
+      'only: ["a, b"], also: [a, b]',
+    );
+    expect(Audit.plainValue([''])).toBe('""');
+    expect(Audit.plainValue({ a: null, b: 'null', c: 12, d: '12', e: 'action: none' })).toBe(
+      'a: null, b: "null", c: 12, d: "12", e: "action: none"',
+    );
+    expect(Audit.plainValue({ nested: { empty: [], none: {} } })).toBe(
+      'nested: {empty: [], none: {}}',
+    );
+    // A top-level string is the whole line, so nothing can misread it.
+    expect(Audit.plainValue('a, b')).toBe('a, b');
   });
 });
