@@ -32,7 +32,7 @@ import {
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import { PANELS } from '../src/rendering/editor/panels';
-import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
+import { EDITOR_STRINGS, interpolate } from '../src/rendering/editor/strings';
 import { WORKSPACE_FIELD } from '../src/rendering/editor/workspace';
 
 const INPUTS = ['schema', 'data', 'hass', 'computeLabel', 'computeHelper'] as const;
@@ -131,8 +131,10 @@ describe.each<{
   },
 ])('a write to $name', ({ workspace, id, value, owner, open }) => {
   it('hands every other form the objects it held before, through the write and a bare render', async () => {
+    // Every setting a page can draw, so a write has many other forms to leave alone.
     const editor = await mountEditor(CONFIG, {
       hass: fakeHass({ localize: (key: string) => key }),
+      every: true,
     });
     if (workspace !== undefined)
       await changeField(editor, `workspace:${WORKSPACE_FIELD}`, workspace);
@@ -217,16 +219,13 @@ describe('a kept helper', () => {
     await changeField(editor, `workspace:${WORKSPACE_FIELD}`, 'list');
     await openPanels(editor);
     const helper = formOf(editor, 'events:event_font_size')!.computeHelper;
-    expect(helperOf(editor, 'events:event_font_size')).toContain(
-      EDITOR_STRINGS['value_source.inherited'],
-    );
+    const own = interpolate(EDITOR_STRINGS['state.set_layout'], { layout: 'List' });
+    expect(helperOf(editor, 'events:event_font_size') ?? '').not.toContain(own);
 
     await changeField(editor, 'events:event_font_size', '18px');
 
     expect(formOf(editor, 'events:event_font_size')!.computeHelper).not.toBe(helper);
-    expect(helperOf(editor, 'events:event_font_size')).toContain(
-      EDITOR_STRINGS['value_source.own'],
-    );
+    expect(helperOf(editor, 'events:event_font_size')).toContain(own);
   });
 
   it('answers for the fields drawn now, where the notes line up with the fields drawn before', async () => {
@@ -236,12 +235,11 @@ describe('a kept helper', () => {
     const editor = await mountEditor({ ...CONFIG, list: { height: '300px' } });
     await changeField(editor, `workspace:${WORKSPACE_FIELD}`, 'list');
     await openPanels(editor);
-    expect(helperOf(editor, 'layout:card_height')).toContain(EDITOR_STRINGS['value_source.own']);
+    const own = interpolate(EDITOR_STRINGS['state.set_layout'], { layout: 'List' });
+    expect(helperOf(editor, 'layout:card_height')).toContain(own);
 
     await changeField(editor, 'layout:height_mode', 'maximum');
 
-    expect(helperOf(editor, 'layout:card_max_height')).toContain(
-      EDITOR_STRINGS['value_source.own'],
-    );
+    expect(helperOf(editor, 'layout:card_max_height')).toContain(own);
   });
 });

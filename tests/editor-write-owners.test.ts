@@ -71,7 +71,8 @@ interface FieldWriter {
  * @returns The editor, and every configuration it reported since
  */
 async function mount(config: Record<string, unknown>) {
-  const editor = await mountEditor({ config_version: VERSION, ...config });
+  // Every setting a page can draw, so a page holds the forms these follow.
+  const editor = await mountEditor({ config_version: VERSION, ...config }, { every: true });
   const reports: Array<Record<string, unknown>> = [];
   editor.addEventListener('config-changed', (event) => {
     const reported = (event as CustomEvent<{ config: Record<string, unknown> }>).detail.config;

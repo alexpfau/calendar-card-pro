@@ -3495,7 +3495,8 @@ describe('editor: per-calendar settings', () => {
   });
 
   it('stores a label chosen through the shape dropdown, through the chassis', async () => {
-    const element = await mountEditor({ entities: ['calendar.a'] });
+    // Every setting the page can draw, so the icon color shows as the shape opens it.
+    const element = await mountEditor({ entities: ['calendar.a'] }, { every: true });
     // Visits every page, each entry's included, as this reads forms across the editor.
     await openPanels(element);
 
@@ -3580,9 +3581,11 @@ describe('editor: per-calendar settings', () => {
    * the label, re-derive the shape as *None*, and take both controls away at once.
    */
   it('keeps the icon picker and its color on screen while the icon is cleared', async () => {
-    const element = await mountEditor({
-      entities: [{ entity: 'calendar.a', label: 'mdi:home' }],
-    });
+    const element = await mountEditor(
+      { entities: [{ entity: 'calendar.a', label: 'mdi:home' }] },
+      // Every setting the page can draw, so the icon color stays drawn as the icon is cleared.
+      { every: true },
+    );
     // Visits every page, each entry's included, as this reads forms across the editor.
     await openPanels(element);
 

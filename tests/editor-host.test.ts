@@ -16,7 +16,6 @@ import {
   type FormElement,
   button,
   changeField,
-  changeFields,
   emitChange,
   entry,
   fakeHass,
@@ -31,7 +30,6 @@ import {
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
-import { ESSENTIALS_STORAGE_KEY } from '../src/rendering/editor/essentials';
 
 const ANNA = 'calendar.anna';
 const BEN = 'calendar.ben';
@@ -64,21 +62,15 @@ function drawing(editor: HTMLElement & { updateComplete: Promise<unknown> }, cou
 
 afterEach(() => {
   document.body.replaceChildren();
-  localStorage.removeItem(ESSENTIALS_STORAGE_KEY);
 });
 
 describe('the owner of a form', () => {
-  it('is a calendar block by its place in entities, whatever a filter leaves out', async () => {
+  it('is a calendar block by its place in entities', async () => {
     const editor = await mount([ANNA, BEN, { entity: LEO, name: 'Leo' }]);
     // Only the page open draws its forms: visit every entry's page, as a user would to read them.
     await openPanels(editor);
     expect(drawing(editor, 3)).toEqual([true, true, true]);
-
-    // Only Leo's block sets anything, so only the third entry's page keeps a field.
-    await changeField(editor, 'filter:customized_only', true);
-
-    expect(drawing(editor, 3)).toEqual([false, false, true]);
-    expect(formOf(editor, 'calendar:name', entry(0))).toBeUndefined();
+    expect(valueOf(editor, 'calendar:name', entry(0))).toBeUndefined();
     expect(valueOf(editor, 'calendar:name', entry(2))).toBe('Leo');
   });
 
@@ -97,36 +89,10 @@ describe('the owner of a form', () => {
     expect(lastConfig(editor)?.entities).toEqual([{ entity: ANNA, label: 'Kids at home' }, ANNA]);
   });
 
-  it('is the block a filter keeps, not the first one showing the same data', async () => {
-    // Both blocks show the same form data, the second having written the default. Customized
-    // Only reads what each block wrote, so it keeps the second and leaves out the first.
-    const editor = await mount([ANNA, { entity: ANNA, label_type: 'none' }]);
-    await changeField(editor, 'filter:customized_only', true);
-    await openPanels(editor);
-
-    expect(drawing(editor, 2)).toEqual([false, true]);
-    expect(formsOf(editor, entry(1))).toHaveLength(1);
-    expect(formOf(editor, 'calendar:label_type', entry(0))).toBeUndefined();
-    await expect(changeField(editor, 'calendar:label_type', 'text', entry(0))).rejects.toThrow(
-      "'calendar:label_type' is not drawn: entry 0 draws no form holding it.",
-    );
-    await changeField(editor, 'calendar:label_type', 'text', entry(1));
-    expect(lastConfig(editor)?.entities).toEqual([ANNA, { entity: ANNA, label_type: 'text' }]);
-  });
-
   it.each([
     {
-      filter: 'Customized Only, the name both blocks show written by the second',
-      entities: [ANNA, { entity: ANNA, name: 'Anna at home' }],
-      criteria: { 'filter:customized_only': true },
-      field: 'calendar:name',
-      shown: [undefined, 'Anna at home'],
-      write: undefined,
-    },
-    {
-      filter: 'Essentials Only',
+      filter: 'an essential setting every block draws',
       entities: [ANNA, { entity: ANNA, label_type: 'none' }, BEN],
-      criteria: { 'filter:essentials_only': true },
       field: 'calendar:label_type',
       shown: ['none', 'none', 'none'],
       write: {
@@ -139,7 +105,6 @@ describe('the owner of a form', () => {
     const editor = await mount(row.entities);
     // Only the page open draws its forms: visit every entry's page first.
     await openPanels(editor);
-    await changeFields(editor, row.criteria);
 
     const drawn = row.shown.flatMap((value, index) => (value === undefined ? [] : [index]));
     expect(drawing(editor, row.shown.length)).toEqual(

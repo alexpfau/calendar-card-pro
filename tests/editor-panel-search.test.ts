@@ -51,7 +51,8 @@ async function mount(language: string, view: Types.EffectiveView = 'grid') {
       entities: ['calendar.anna'],
       view,
     },
-    { hass: fakeHass({ language }) },
+    // Every rule the page can draw, so what a search reaches is compared with all of them.
+    { hass: fakeHass({ language }), every: true },
   );
   // The rules' page, opened as a user would to read it.
   await openPageOf(editor, 'separators:day_separator_width');
@@ -86,11 +87,8 @@ function headingRules(key: string): string[] {
     .map((id) => id.slice(id.lastIndexOf('.') + 1).replace(/^separators:/, ''));
 }
 
-async function search(editor: CalendarCardProEditor, query: string, customizedOnly = false) {
-  await changeFields(editor, {
-    'filter:search': query,
-    'filter:customized_only': customizedOnly,
-  });
+async function search(editor: CalendarCardProEditor, query: string) {
+  await changeFields(editor, { 'filter:search': query });
 }
 
 afterEach(() => document.body.replaceChildren());
@@ -134,11 +132,3 @@ describe.each(['en', 'en-GB', 'de', 'et', 'it', 'lt', 'lv', 'nb', 'pl', 'sk', 's
     });
   },
 );
-
-it('does not let a page or heading title bypass Customized Only', async () => {
-  const editor = await mount('it');
-  await search(editor, words('it', SIZE_SPACING.titleKey), true);
-  expect(ruleFields(editor)).toEqual([]);
-  await search(editor, words('it', 'heading_across_the_grid'), true);
-  expect(ruleFields(editor)).toEqual([]);
-});

@@ -20,7 +20,7 @@ export interface ChassisSchemas {
   displayView: ReadonlyArray<HaFormSchema>;
   /** Which view's options the panels show; never written */
   workspace: ReadonlyArray<HaFormSchema>;
-  /** The filter bar's search and customized-only switch; never written */
+  /** The search field; never written */
   filter: ReadonlyArray<HaFormSchema>;
   /** Add Calendar's picker; what it chooses joins the card only once Add is pressed */
   addCalendar: ReadonlyArray<HaFormSchema>;
@@ -105,6 +105,16 @@ export const REFERENCED_STRINGS: ReadonlyArray<string> = [
   'strip',
   'entry',
   'search',
+  'gate',
+  'add',
+  'state',
+  'reset',
+  'inactive',
+  'other_layouts',
+  'prefs',
+  'audit',
+  'notices',
+  'value',
   'split',
   'word_list',
 ];

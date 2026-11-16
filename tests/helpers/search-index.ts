@@ -1,22 +1,15 @@
 /**
  * The jump list's index for a configuration, built without mounting the editor: what a test of
- * what a query finds reads, as `element.ts` › `_renderResults` builds it with no switch on.
+ * what a query finds reads, as `element.ts` › `_renderResults` builds it.
  */
 
 import type * as Types from '../../src/config/types';
-import {
-  buildFieldIndex,
-  builtSchema,
-  entrySchema,
-  fieldId,
-  schemaCtx,
-} from '../../src/rendering/editor/field-index';
-import { NO_FILTER, filterEntitySchema, filterSchema } from '../../src/rendering/editor/filter';
+import { buildFieldIndex, entrySchema, schemaCtx } from '../../src/rendering/editor/field-index';
+import { withholdInertFields } from '../../src/rendering/editor/filter';
 import type { HaFormSchema } from '../../src/rendering/editor/ha-form';
 import { lookup } from '../../src/rendering/editor/localize';
-import { PANELS, walkSchema } from '../../src/rendering/editor/panels';
+import { placementOf } from '../../src/rendering/editor/pages';
 import { workspaceFormData } from '../../src/rendering/editor/routing';
-import { ENTITY_PATH } from '../../src/rendering/editor/schemas/calendars';
 import {
   type SearchEntry,
   type SearchOwner,
@@ -32,8 +25,6 @@ export interface IndexOptions {
   readonly hass?: Types.Hass;
   /** Each calendar entry's fields, where a test hands its own; else as the editor builds them. */
   readonly entrySchemas?: ReadonlyArray<ReadonlyArray<HaFormSchema>>;
-  /** Customized Only, read against the configuration as though its YAML held all of it. */
-  readonly customizedOnly?: boolean;
 }
 
 /**
@@ -50,30 +41,18 @@ export function searchIndex(
   const { workspace = 'shared', language = 'en' } = options;
   const ctx = schemaCtx(config, workspace, language);
   const present = buildFieldIndex(ctx).fields;
-  const customizedOnly = options.customizedOnly === true;
-  const filterCtx = { ...ctx, criteria: { ...NO_FILTER, customizedOnly } };
-  const shown = new Set(
-    PANELS.flatMap((panel) =>
-      [...walkSchema(filterSchema(builtSchema(panel, ctx), filterCtx))].map(({ node, dataPath }) =>
-        fieldId(panel.id, dataPath, node.name),
-      ),
-    ),
-  );
+  const shown = new Set([...present.keys()].filter((id) => placementOf(id) !== undefined));
   const entries: SearchOwner[] = (config.entities ?? []).map((entry, index) => ({
     entry,
     index,
     key: index,
-    schema: filterEntitySchema(
-      options.entrySchemas?.[index] ?? entrySchema(entry, ctx),
-      entry,
-      ENTITY_PATH,
-      filterCtx,
-    ),
+    schema: options.entrySchemas?.[index]
+      ? withholdInertFields(options.entrySchemas[index], workspace, 'entity')
+      : entrySchema(entry, ctx),
   }));
   return buildSearchIndex({
     ...ctx,
     hass: options.hass,
-    customizedOnly,
     present,
     shown,
     data: workspaceFormData(config, workspace),
