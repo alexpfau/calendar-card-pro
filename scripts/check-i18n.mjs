@@ -1311,6 +1311,9 @@ const IDENTICAL_TO_ENGLISH_OK = new Set([
   'de:entity.label',
   'de:view',
 
+  // `Countdown` is the glossary's German term, and the event-part chip is the term alone.
+  'de:chip.countdown',
+
   // `Name` is the ordinary German word for it, spelled as in English.
   'de:entity.name',
   'de:toolbar.buttons.name',
@@ -1338,6 +1341,11 @@ const GLOSSARY_QUALIFIED_OK = new Set([
   'et:today_indicator_icon',
   'lt:today_indicator_icon',
   'lv:today_indicator_icon',
+
+  // German writes Calendars as `Kalender` too, so the bare term would collide with the overview's
+  // Calendars heading; the picker and the entry's own field say which calendar they mean.
+  'de:calendars.pick',
+  'de:entry.calendar',
 
   // A toolbar button's icon, qualified as the button's own for the same collision.
   'et:toolbar.buttons.icon',
