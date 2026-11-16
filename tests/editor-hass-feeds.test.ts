@@ -292,7 +292,8 @@ describe('the feeds in the rendered editor', () => {
     const live = fed(editor, 'live');
     const steady = fed(editor, 'steady');
     const before = new Map([...live, ...steady].map((element) => [element, element.hass]));
-    expect([live.length, steady.length]).toEqual([4, 22]);
+    // Event Color and Accent Color are color controls, which draw no form while closed.
+    expect([live.length, steady.length]).toEqual([4, 20]);
 
     const next = later(hass, 'sensor.porch');
     editor.hass = next;

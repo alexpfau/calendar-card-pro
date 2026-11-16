@@ -48,6 +48,8 @@ const recorder = vi.hoisted(() => {
   const feeds = new WeakMap<object, object>();
   const recording = {
     armed: 0,
+    /** How often an editor subscribed to Home Assistant's calendar colors (`ensureEntityColors`). */
+    registry: 0,
     members: new Set<string>(),
     states: new Set<string>(),
     /** Runs a wrapper's copy with the recorder disarmed. */
@@ -115,6 +117,21 @@ vi.mock('../src/rendering/editor/hass-key', async (importOriginal) => {
     ...original,
     steadyHass: (...args: Parameters<typeof original.steadyHass>) =>
       recorder.tracked(recorder.disarmed(() => original.steadyHass(...args))),
+  };
+});
+
+// The registry subscription an entry's color control asks for reads `connection` and `callWS` once,
+// to subscribe; what the editor draws from it comes through the module's own map and its
+// `onChange`, never through `hass`, so a skipped render cannot draw it stale. Its reads are left
+// out, counted, as the feeds' copies are; every other read is still recorded.
+vi.mock('../src/utils/entity-colors', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../src/utils/entity-colors')>();
+  return {
+    ...original,
+    ensureEntityColors: (...args: Parameters<typeof original.ensureEntityColors>) => {
+      recorder.registry += 1;
+      return recorder.disarmed(() => original.ensureEntityColors(...args));
+    },
   };
 });
 
@@ -268,6 +285,7 @@ afterEach(() => {
   document.body.replaceChildren();
   recorder.members.clear();
   recorder.states.clear();
+  recorder.registry = 0;
 });
 
 describe('what the editor reads of hass while it renders', () => {
@@ -307,8 +325,11 @@ describe('what the editor reads of hass while it renders', () => {
       const drawn = editorEntityIds({ ...Config.DEFAULT_CONFIG, ...config } as Types.Config);
       console.info(
         `Read set: ${recorder.members.size} members and ${recorder.states.size} states, ` +
-          `over ${renders} renders and ${forms} forms read`,
+          `over ${renders} renders and ${forms} forms read; ` +
+          `${recorder.registry} registry subscriptions`,
       );
+      // An entry's page drew a color control, which subscribed: the exemption above was used.
+      expect(recorder.registry).toBeGreaterThan(0);
       // The recorder sees what the editor reads: the language and a calendar's name at least.
       expect(recorder.members).toContain('locale');
       expect(recorder.states).toContain('calendar.anna');

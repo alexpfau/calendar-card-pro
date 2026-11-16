@@ -368,7 +368,8 @@ describe('the calendar list', () => {
     const { editor, reports } = await mount({ entities: row.entities });
     await openPanels(editor);
     const keys = keysOf(editor, 'entry');
-    const forms = keys.map((key) => formOf(editor, 'calendar:color', entry({ key }))!);
+    // Blocklist, a text field in a form of its own: a color is the editor's own control now.
+    const forms = keys.map((key) => formOf(editor, 'calendar:blocklist', entry({ key }))!);
 
     await row.act(editor, keys);
     await openPanels(editor);
@@ -383,22 +384,23 @@ describe('the calendar list', () => {
         expect(listed[at], `entry ${at}`).toEqual(row.entities[before]);
         // The page drawn for the key is that entry's: the harness holds its forms to the entry
         // the key names, and fails where they hold another's.
-        expect(formOf(editor, 'calendar:color', entry({ key: after[at] }))).toBeDefined();
+        expect(formOf(editor, 'calendar:blocklist', entry({ key: after[at] }))).toBeDefined();
       }
     });
 
     // An edit in every entry's form, each from the form as it was drawn before the list moved,
     // where the entry had one.
     for (const [at, key] of after.entries()) {
-      const form = forms[keys.indexOf(key)] ?? formOf(editor, 'calendar:color', entry({ key }))!;
-      emitChange(form, { 'calendar:color': `#00000${at}` });
+      const form =
+        forms[keys.indexOf(key)] ?? formOf(editor, 'calendar:blocklist', entry({ key }))!;
+      emitChange(form, { 'calendar:blocklist': `Dentist ${at}` });
       await editor.updateComplete;
     }
     expect(reports[reports.length - 1]).toEqual({
       config_version: VERSION,
       entities: listed.map((stored, at) => ({
         ...(typeof stored === 'string' ? { entity: stored } : (stored as object)),
-        color: `#00000${at}`,
+        blocklist: `Dentist ${at}`,
       })),
     });
   });
@@ -432,25 +434,26 @@ describe('a form drawn before another write', () => {
   it('writes only what it changed, keeping what the other write moved since', async () => {
     const { editor, reports } = await mount({
       entities: [
-        { entity: ANNA, name: 'Old', color: 'red' },
+        { entity: ANNA, name: 'Old', blocklist: 'Dentist' },
         { entity: ANNA, label: 'Second' },
       ],
     });
     await openPanels(editor);
-    const first = formOf(editor, 'calendar:color', entry(0))!;
+    // Blocklist, a text field in a form of its own: a color is the editor's own control now.
+    const first = formOf(editor, 'calendar:blocklist', entry(0))!;
     const second = formOf(editor, 'calendar:name', entry(1))!;
     expect(valueOf(editor, 'calendar:name', entry(0))).toBe('Old');
 
     // The calendar's name is the calendar's, so the second entry's form renames the first entry
     // too. Both changes arrive before a render hands the first form the new name.
     emitChange(second, { 'calendar:name': 'New' });
-    emitChange(first, { 'calendar:color': 'blue' });
+    emitChange(first, { 'calendar:blocklist': 'Gym' });
     await editor.updateComplete;
 
     expect(reports[reports.length - 1]).toEqual({
       config_version: VERSION,
       entities: [
-        { entity: ANNA, name: 'New', color: 'blue' },
+        { entity: ANNA, name: 'New', blocklist: 'Gym' },
         { entity: ANNA, name: 'New', label: 'Second' },
       ],
     });

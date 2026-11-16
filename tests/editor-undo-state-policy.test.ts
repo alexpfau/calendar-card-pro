@@ -45,6 +45,10 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_calendarQuery',
     '_announcer',
     '_spoken',
+    // A color draft is never written, and Undo leaves it as it does the text in any field.
+    '_colorDrafts',
+    '_openColor',
+    '_registryHeld',
     // The field a search result showed, and the results it left.
     '_jump',
     '_resultsLeft',
@@ -75,7 +79,14 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_audit',
   ],
   // Derived from what is snapshotted, or from the render in progress.
-  derived: ['_config', '_lastDispatched', '_drawing', '_bareUpdatePending', '_resultStatus'],
+  derived: [
+    '_config',
+    '_lastDispatched',
+    '_drawing',
+    '_bareUpdatePending',
+    '_registryWanted',
+    '_resultStatus',
+  ],
   // The history itself, and whether a change is being recorded.
   history: ['_history', '_committing'],
   // Bound handlers and memoized builders: no state Undo could miss.
@@ -98,6 +109,11 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_cancelQuickSetup',
     '_applyQuickSetup',
     '_filterChanged',
+    '_cardColors',
+    '_entryColors',
+    '_defaultData',
+    '_haColorName',
+    '_registryChanged',
     '_cancelAdd',
     '_addCalendarChosen',
   ],

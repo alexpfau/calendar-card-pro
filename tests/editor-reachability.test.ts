@@ -21,6 +21,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { type MountedEditor, addEverything, changeField, mountEditor } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
+import { type ColorSpec, cardColorFields } from '../src/rendering/editor/colors';
 import { type FieldId, buildFieldIndex, schemaCtx } from '../src/rendering/editor/field-index';
 import { corpus } from '../src/rendering/editor/gates';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
@@ -49,16 +50,28 @@ function holds(schema: ReadonlyArray<HaFormSchema>, node: unknown): boolean {
 
 /**
  * The fields reached on the open place: each frame's id, where its form holds the node the
- * index built for that id.
+ * index built for that id, or where it draws that id's color control, which reaches the value of
+ * a mode it absorbs as well.
  *
  * @param editor - Editor element
  * @param nodes - The present fields' nodes by id
+ * @param colors - The color specs, by the ids they are drawn for (`colors.ts` › `cardColorFields`)
  * @returns The ids reached
  */
-function reached(editor: MountedEditor, nodes: ReadonlyMap<FieldId, unknown>): FieldId[] {
+function reached(
+  editor: MountedEditor,
+  nodes: ReadonlyMap<FieldId, unknown>,
+  colors: ReadonlyMap<FieldId, ColorSpec>,
+): FieldId[] {
   const frames = editor.shadowRoot!.querySelectorAll<HTMLElement>('[data-field]');
   return [...frames].flatMap((frame) => {
     const id = frame.dataset.field as FieldId;
+    // A color control is drawn for its field and edits the value of a mode it absorbs.
+    if (frame.classList.contains('color-field')) {
+      const spec = colors.get(id);
+      const edits = spec === undefined ? [] : spec.mode === id ? [id, spec.value] : [id];
+      return edits.filter((each) => nodes.has(each));
+    }
     const form = frame.querySelector('ha-form') as { schema?: ReadonlyArray<HaFormSchema> } | null;
     return form?.schema && nodes.has(id) && holds(form.schema, nodes.get(id)) ? [id] : [];
   });
@@ -134,7 +147,9 @@ describe('reachability through rendered navigation', () => {
           seen.add(key);
           states += 1;
 
-          const present = [...buildFieldIndex(schemaCtx(config, workspace, 'en')).fields.values()];
+          const ctx = schemaCtx(config, workspace, 'en');
+          const present = [...buildFieldIndex(ctx).fields.values()];
+          const colors = cardColorFields(ctx).specs;
           const nodes = new Map(present.map((field) => [field.id, field.node]));
           const byPage = new Map<string, FieldId[]>();
           for (const field of present) {
@@ -153,7 +168,7 @@ describe('reachability through rendered navigation', () => {
           await changeField(editor, 'workspace:editing_workspace', workspace);
 
           if (!every) await addEverything(editor);
-          const found = new Set<FieldId>(reached(editor, nodes));
+          const found = new Set<FieldId>(reached(editor, nodes, colors));
           for (const clash of sharedNames(editor)) clashes.add(`overview ${clash}`);
           for (const page of byPage.keys()) {
             if (page === 'overview' || page === 'unplaced') continue;
@@ -161,7 +176,7 @@ describe('reachability through rendered navigation', () => {
             visits += 1;
             for (const clash of sharedNames(editor)) clashes.add(`${page} ${clash}`);
             if (!every) await addEverything(editor);
-            for (const id of reached(editor, nodes)) found.add(id);
+            for (const id of reached(editor, nodes, colors)) found.add(id);
             for (const clash of sharedNames(editor)) clashes.add(`${page} ${clash}`);
             await click(editor, '[data-focus="back-top"]');
           }

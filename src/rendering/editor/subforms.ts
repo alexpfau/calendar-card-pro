@@ -100,6 +100,7 @@ export const REFERENCED_STRINGS: ReadonlyArray<string> = [
   'summary',
   'history',
   'status',
+  'color',
   'calendars',
   'strip',
   'entry',

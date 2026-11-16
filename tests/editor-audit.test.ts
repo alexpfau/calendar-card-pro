@@ -510,7 +510,7 @@ describe('What This Card Changes, the review’s findings', () => {
     });
   });
 
-  it('edits a calendar’s color where its mode follows Home Assistant through the mode', async () => {
+  it('edits a calendar’s color where its mode follows Home Assistant through its color control', async () => {
     const editor = await mountEditor({
       config_version: VERSION,
       entities: [{ entity: 'calendar.anna', accent_color: 'home-assistant' }],
@@ -520,15 +520,38 @@ describe('What This Card Changes, the review’s findings', () => {
       $(editor, '[data-audit="entities[0].accent_color"] [data-focus^="edit:"]')!.getAttribute(
         'aria-label',
       ),
-    ).toMatch(/^Edit Accent Color Source on /);
-    await editLine(editor, 'entities[0].accent_color', (data) => ({
-      ...data,
-      accent_color_mode: 'custom',
-    }));
+    ).toMatch(/^Edit Accent Color on /);
+    await click(editor, '[data-focus="edit:entities[0].accent_color"]');
+    // Edit opens the control the line's setting is drawn as, its swatches there to pick.
+    const row = $(editor, '[data-audit="entities[0].accent_color"]')!;
+    expect(row.querySelector('.color-toggle')?.getAttribute('aria-expanded')).toBe('true');
+    const pink = row.querySelector<HTMLInputElement>('[data-swatch="pink"] input')!;
+    pink.checked = true;
+    pink.dispatchEvent(new Event('change', { bubbles: true }));
+    await editor.updateComplete;
 
-    expect(
-      (lastConfig(editor)!.entities as Array<Record<string, unknown>>)[0].accent_color,
-    ).not.toBe('home-assistant');
+    expect((lastConfig(editor)!.entities as Array<Record<string, unknown>>)[0]).toEqual({
+      entity: 'calendar.anna',
+      accent_color: 'var(--pink-color)',
+    });
+  });
+
+  it('edits the card’s Title Color through its color control', async () => {
+    const editor = await mountEditor({
+      config_version: VERSION,
+      entities: ['calendar.anna'],
+      title: 'Family',
+      title_color: '#123456',
+    });
+    await openAudit(editor);
+    await click(editor, '[data-focus="edit:title_color"]');
+    const row = $(editor, '[data-audit="title_color"]')!;
+    expect(row.querySelector('.color-toggle')?.getAttribute('aria-expanded')).toBe('true');
+    const amber = row.querySelector<HTMLInputElement>('[data-swatch="amber"] input')!;
+    amber.checked = true;
+    amber.dispatchEvent(new Event('change', { bubbles: true }));
+    await editor.updateComplete;
+    expect(lastConfig(editor)!.title_color).toBe('var(--amber-color)');
   });
 
   it('keeps the line being edited, and its control, once its value reaches the default', async () => {

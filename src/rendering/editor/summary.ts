@@ -11,6 +11,7 @@ import type { SelectOption } from './ha-form';
 import { lookup } from './localize';
 import type { PageDef } from './pages';
 import { destination } from './routing';
+import { isColorNode } from './schemas/common';
 import { interpolate } from './strings';
 import { configKeysForField } from './synthetic';
 import type { EditorWorkspace } from './workspace';
@@ -55,6 +56,11 @@ export function wordValue(
   describe?: Describe,
 ): string | undefined {
   const selector = field.node.selector;
+  // A color reads as its control names it ("Pink", "Divider, 50%"), not as its CSS.
+  if (isColorNode(field.node)) {
+    const words = describe?.(field, value);
+    if (words !== undefined) return words;
+  }
   if ('boolean' in selector) {
     return value === true ? lookup(language, 'summary.on') : lookup(language, 'summary.off');
   }
