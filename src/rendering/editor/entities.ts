@@ -110,6 +110,9 @@ const NON_TRANSFERABLE_KEYS: ReadonlySet<string> = new Set([
  */
 let clipboard: Types.EntityConfig | undefined;
 
+/** The name of the calendar entry the clipboard was copied from, for Paste's "From Ben". */
+let copiedFromName: string | undefined;
+
 /**
  * Where one calendar sits among the blocks configuring that same calendar.
  */
@@ -190,17 +193,14 @@ export function occurrenceOf(
  * Adds a second block for one calendar, carrying the first one's settings.
  *
  * Home Assistant's entity picker will not do this: it merges the current value into its
- * own exclusions, ignores a duplicate added through it, and deletes the row outright when
- * an existing one is pointed at a calendar already in the list. There is no opt-out in the
- * selector, so the only way to reach a pattern the card documents — one calendar with two
- * sets of settings, split by `event_type` — is to write the configuration directly.
- *
- * The picker is therefore not asked to represent blocks at all: it lists each calendar
- * once and decides only which calendars the card shows. See `SYNTHETIC_FIELDS.calendars`.
+ * own exclusions, and ignores a duplicate added through it. So the only way to reach a
+ * pattern the card documents — one calendar with two sets of settings, split by
+ * `event_type` — is to write the configuration directly, which the calendar list's
+ * Duplicate does (`calendar-list.ts` › `duplicateEntry`).
  *
  * The copy is inserted next to its source rather than appended, so it appears where the
- * user was looking, and because the picker now moves a calendar's blocks as a group there
- * is nothing to be gained by separating them.
+ * user was looking, and because the list keeps a calendar's entries together there is
+ * nothing to be gained by separating them.
  *
  * A spread is a complete copy because `EntityConfig` is flat — every option on it is a
  * string, number or boolean. An option holding an array or an object would need a deeper
@@ -759,11 +759,22 @@ function transferableSettings(entry: string | Types.EntityConfig): Types.EntityC
  * clears the calendar it lands on.
  *
  * @param entry - Entry as stored
+ * @param from - What the entry is called, for Paste to say where its settings came from
  */
-export function copySettings(entry: string | Types.EntityConfig): void {
+export function copySettings(entry: string | Types.EntityConfig, from?: string): void {
   if (!hasTransferableSettings(entry)) return;
 
   clipboard = transferableSettings(entry);
+  copiedFromName = from;
+}
+
+/**
+ * What the entry the clipboard holds was called when it was copied.
+ *
+ * @returns Its name, or `undefined` when nothing has been copied or it was copied unnamed
+ */
+export function copiedFrom(): string | undefined {
+  return clipboard === undefined ? undefined : copiedFromName;
 }
 
 /**
@@ -780,6 +791,7 @@ export function copiedSettings(): Types.EntityConfig | undefined {
  */
 export function clearCopiedSettings(): void {
   clipboard = undefined;
+  copiedFromName = undefined;
 }
 
 /**

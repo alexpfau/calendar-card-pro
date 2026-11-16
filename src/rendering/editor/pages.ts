@@ -124,7 +124,6 @@ const W = 'weather:weather.';
 
 /** The fields the overview edits itself, above the section rows. */
 export const OVERVIEW_FIELDS: ReadonlyArray<readonly [FieldId, Appearance]> = [
-  ['calendars:calendars', E],
   ['content:days_to_show', E],
   ['content:start_date_mode', E],
   ['content:start_date_fixed', withMode('content:start_date_mode')],

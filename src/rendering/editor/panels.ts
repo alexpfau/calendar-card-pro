@@ -6,7 +6,7 @@ import { mdiViewDashboardOutline } from '@mdi/js';
 
 import type { HaFormSchema } from './ha-form';
 import { ACTIONS_ICON, buildActionsSchema } from './schemas/actions';
-import { CALENDARS_ICON, buildCalendarsSchema, calendarsSubforms } from './schemas/calendars';
+import { CALENDARS_ICON, calendarsSubforms } from './schemas/calendars';
 import { CARD_ICON, buildCardSchema, cardSubforms } from './schemas/card';
 import { CONTENT_ICON, buildContentSchema } from './schemas/content';
 import { DAY_HEADER_ICON, buildDayHeaderSchema } from './schemas/day-header';
@@ -121,7 +121,8 @@ export const PANELS: ReadonlyArray<PanelDef> = [
     id: 'calendars',
     titleKey: 'panel.calendars',
     iconPath: CALENDARS_ICON,
-    build: buildCalendarsSchema,
+    // No field of its own: the overview's calendar list stands where the picker was.
+    build: () => [],
     subforms: calendarsSubforms,
   },
   {

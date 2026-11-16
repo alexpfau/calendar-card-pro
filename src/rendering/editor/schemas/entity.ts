@@ -594,19 +594,3 @@ export function entitySchemaFor(
     return labelFields(type, iconSourceField, iconSource, imageSourceField, imageSource);
   });
 }
-
-/**
- * A calendar's schema split around its visibility conditions, which `element.ts` hands to Home
- * Assistant's own Visibility editor rather than to the YAML box, where that editor is available.
- *
- * @param schema - The schema the calendar renders, after filtering
- * @returns The nodes before the conditions, the Visibility heading among them, and the nodes
- *   after; undefined where filtering left the conditions out
- */
-export function splitAtVisibility(
-  schema: ReadonlyArray<HaFormSchema>,
-): { before: HaFormSchema[]; after: HaFormSchema[] } | undefined {
-  const index = schema.findIndex((node) => node.name === VISIBILITY);
-  if (index < 0) return undefined;
-  return { before: schema.slice(0, index), after: schema.slice(index + 1) };
-}

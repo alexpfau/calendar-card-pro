@@ -230,7 +230,7 @@ function searchableText(
   }
 
   // A derived control is named for the editor rather than for the YAML — `time_format`
-  // writes `time_24h`, the calendar picker writes `entities` — so a key copied out of the
+  // writes `time_24h`, `start_date_mode` writes `start_date` — so a key copied out of the
   // configuration reference has to find the control that writes it, not only one named
   // after it. Taken from the same mappings the editor writes through, so the next derived
   // control is searchable without being listed here.
@@ -745,8 +745,7 @@ export function filterSchema(
         // A heading is not a setting, so it is never a search hit of its own — it rides
         // along and is pruned above when its section came back empty.
         isHeading(node) ||
-        ((matchesQuery(node, nodePath, ctx, nodeDataPath) ||
-          (nodeDataPath.length === 0 && listsCalendars(node) && namesACalendar(ctx))) &&
+        (matchesQuery(node, nodePath, ctx, nodeDataPath) &&
           (!ctx.criteria.customizedOnly || isCustomized(node, nodeDataPath, ctx)) &&
           (!essentials ||
             isEssentialCardField(node, nodeDataPath) ||
@@ -755,27 +754,6 @@ export function filterSchema(
       dataPath,
     ),
   );
-}
-
-/**
- * Whether a field is the calendar picker: the control writing the card's `entities`.
- *
- * @param node - Schema node
- * @returns `true` for the picker
- */
-function listsCalendars(node: HaFormSchema): boolean {
-  return configKeysForField(node.name).includes('entities');
-}
-
-/**
- * Whether the query names a calendar the card lists, as its panel would be found: the picker
- * lists those calendars, so a search for one keeps it beside the calendar's panel.
- *
- * @param ctx - Matching context
- * @returns `true` when some listed calendar answers the query
- */
-function namesACalendar(ctx: FilterCtx): boolean {
-  return (ctx.config?.entities ?? []).some((entry) => matchesEntity(entry, ctx));
 }
 
 /**

@@ -1,32 +1,20 @@
 /**
- * Calendar schema rows.
+ * The calendars' schema: what one calendar entry's page draws.
+ *
+ * The Calendars panel draws no field of its own. Its calendar picker retired when the overview's
+ * calendar list took over both of its jobs, which calendars the card shows and how many entries
+ * each has (`calendar-list.ts`, `views/calendars.ts`). What stays is the entry schema, declared
+ * as the panel's sub-form, so `check:i18n` keeps reading it as searched: each entry page is.
  */
 
 import { mdiCalendarMultiple } from '@mdi/js';
 
 import { buildEntitySchema } from './entity';
-import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx, SubformDef } from '../panels';
 
 export const CALENDARS_ICON = mdiCalendarMultiple;
 
 export const ENTITY_PATH: ReadonlyArray<string> = ['entity'];
-
-/**
- * Builds the Calendars panel schema.
- *
- * @param _ctx - Schema context, unused
- * @returns The panel's schema
- */
-export function buildCalendarsSchema(_ctx: SchemaCtx): HaFormSchema[] {
-  return [
-    {
-      name: 'calendars',
-      required: true,
-      selector: { entity: { filter: { domain: 'calendar' }, multiple: true, reorder: true } },
-    },
-  ];
-}
 
 /**
  * Declares the schema the panel renders once per configured calendar.

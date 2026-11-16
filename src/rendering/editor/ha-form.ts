@@ -61,6 +61,8 @@ export type Selector =
         filter?: { domain?: string | ReadonlyArray<string> };
         multiple?: boolean;
         reorder?: boolean;
+        /** Entities the picker does not offer: Add Calendar's, the calendars already shown. */
+        exclude_entities?: ReadonlyArray<string>;
       } | null;
     };
 interface BaseSchema {

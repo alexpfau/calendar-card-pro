@@ -20,6 +20,8 @@ import type { Translate } from './overview';
  * @param t - The editor's strings
  * @param onBack - Back was pressed
  * @param actions - What the header holds at its end
+ * @param sub - The line under the title, where it is not "Settings": a calendar entry's id
+ * @param back - Back's name, where it is not "Back"
  * @returns The header
  */
 export function pageHead(
@@ -27,21 +29,24 @@ export function pageHead(
   t: Translate,
   onBack: () => void,
   actions?: unknown,
+  sub?: string,
+  back?: string,
 ): TemplateResult {
+  const backName = back ?? t('nav.back');
   return html`<div class="page-head">
     <button
       type="button"
       class="icon-button"
       data-focus="back-top"
-      aria-label=${t('nav.back')}
-      title=${t('nav.back')}
+      aria-label=${backName}
+      title=${backName}
       @click=${onBack}
     >
       ${icon(mdiChevronLeft)}
     </button>
     <div class="page-titles">
       <h2 class="page-title" tabindex="-1">${title}</h2>
-      <span class="page-sub">${t('overview.settings')}</span>
+      <span class="page-sub">${sub ?? t('overview.settings')}</span>
     </div>
     ${actions}
   </div>`;
