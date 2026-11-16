@@ -838,9 +838,10 @@ describe('the index builds what the editor draws today', () => {
     }
     console.info(`Index against the editor: ${names.length} states drawn and compared.`);
     expect(names.length).toBeGreaterThan(WORKSPACES.length * 10);
-    // Draws the editor once per corpus state for this check and the next, under a second alone;
-    // the limit is set for a loaded machine rather than for a hang.
-  }, 30_000);
+    // Draws the editor once per corpus state for this check and the next, working out each live
+    // field's Reset outcome and its Reset or Remove; the limit is set for CI's slower runner under
+    // load rather than for a hang.
+  }, 90_000);
 
   it('labels and explains every field as the form drawing it does today', async () => {
     const { labels } = await observed();
@@ -862,7 +863,7 @@ describe('the index builds what the editor draws today', () => {
     expect(labels.differ).toEqual([]);
     expect([...labels.reached].sort()).toEqual(expected.sort());
     expect(labels.nestedDiffer).toBeGreaterThan(0);
-    // Reads what the check above drew; the limit is set for a loaded machine rather than for a
-    // hang.
-  }, 30_000);
+    // Reads what the check above drew, or draws it where run alone; the limit is the check
+    // above's.
+  }, 90_000);
 });
