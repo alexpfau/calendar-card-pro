@@ -86,7 +86,9 @@ describe('editor filter bar', () => {
     // What the search finds, as rows, which mount no form.
     expect(formsOf(element, CARD)).toHaveLength(0);
     expect(resultRows(element).some((row) => row.id === 'weather:weather.entity')).toBe(true);
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('restores every form when the search is cleared', async () => {
     const element = await mount({ entities: ['calendar.a'] });

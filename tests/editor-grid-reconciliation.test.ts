@@ -181,7 +181,10 @@ describe('per-option Grid reset memory', () => {
       expect(notice(editor)!.textContent).toContain(lookup('en', 'day_spacing'));
       expect(notice(editor)!.textContent).not.toContain(lookup('en', 'event_font_size'));
       expect(reports.slice(-1)[0]).not.toHaveProperty('time_grid.time_color');
+      // Over a second in a full local run; the limit is set for CI's slower runner under load
+      // rather than for a hang.
     },
+    30_000,
   );
 
   it('preserves a previously absent Shared choice after an unrelated reset', async () => {

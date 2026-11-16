@@ -140,7 +140,9 @@ describe('under an Icelandic Home Assistant', () => {
       expect(files.asked, language).toEqual(ALL.map((name) => path(name, file)));
       expect(await intlStrings(language), language).toEqual(expected.get(language));
     }
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('a Nynorsk card loads Nynorsk, and Bokmål where Home Assistant has no Nynorsk', async () => {
     const nynorsk = await nativeStrings('nn');

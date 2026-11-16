@@ -69,7 +69,10 @@ describe('all-day badge controls follow the layouts that render badges', () => {
           : ['heading_icon_and_badge', 'heading_icons'];
       expect(headings).toContain(EDITOR_STRINGS[kept]);
       expect(headings).not.toContain(EDITOR_STRINGS[gone]);
+      // Over a second in a full local run; the limit is set for CI's slower runner under load
+      // rather than for a hang.
     },
+    30_000,
   );
 
   it.each(['badge', 'allday_badge'])(
