@@ -231,11 +231,6 @@ describe('the shown set: each state of section 5.1', () => {
     const list = cardCtx({}, 'list');
     expect(list.present.fields.has('layout:day_spacing')).toBe(true);
     expect(stateIn(list, 'separators:day_spacing')).toEqual({ kind: 'none' });
-
-    const page = PAGES.find((each) => each.id === 'size_spacing')!;
-    const named = planPage(page, grid).otherLayouts.flatMap((line) => line.ids);
-    expect(named).not.toContain('layout:day_spacing');
-    expect(named.length).toBeGreaterThan(0);
   });
 
   it('keeps a mode value live with its mode, and nowhere without it', () => {
@@ -395,18 +390,15 @@ describe('state words: every row of the stateOf table', () => {
     // On a whole-card page: "Set" when stored, nothing when not, in any scope.
     expect(words({ title: 'Family' }, 'grid', 'card:title')).toEqual({ words: { kind: 'set' } });
     expect(words({}, 'grid', 'card:title')).toBeUndefined();
-    // In All Layouts: "Set for All Layouts".
-    expect(words({ refresh_interval: 15 }, 'shared', 'actions:refresh_interval')).toEqual({
-      words: { kind: 'set-all-layouts' },
-    });
-    expect(words({}, 'shared', 'actions:refresh_interval')).toBeUndefined();
-    // In a layout: "Whole Card", or "Whole Card · Set".
-    expect(words({}, 'grid', 'actions:refresh_interval')).toEqual({
-      words: { kind: 'whole-card', stored: false },
-    });
-    expect(words({ refresh_interval: 15 }, 'grid', 'actions:refresh_interval')).toEqual({
-      words: { kind: 'whole-card', stored: true },
-    });
+    // Elsewhere "Whole Card", or "Whole Card · Set", in every scope: never "Set for All Layouts".
+    for (const workspace of ['shared', 'grid'] as const) {
+      expect(words({}, workspace, 'actions:refresh_interval'), workspace).toEqual({
+        words: { kind: 'whole-card', stored: false },
+      });
+      expect(words({ refresh_interval: 15 }, workspace, 'actions:refresh_interval')).toEqual({
+        words: { kind: 'whole-card', stored: true },
+      });
+    }
   });
 
   it('a per-layout field in All Layouts', () => {
@@ -416,6 +408,13 @@ describe('state words: every row of the stateOf table', () => {
     expect(
       words({ time_grid: { time_font_size: '20px' } }, 'shared', 'events:time_font_size'),
     ).toEqual({ layoutsOwn: [{ view: 'grid', value: '20px' }] });
+    // A layout that defaults the field otherwise has its own too, until the values agree.
+    expect(words({}, 'shared', 'events:event_font_size')).toEqual({
+      layoutsOwn: [{ view: 'grid', value: '12px' }],
+    });
+    expect(words({ event_font_size: '12px' }, 'shared', 'events:event_font_size')).toEqual({
+      words: { kind: 'set-all-layouts' },
+    });
     expect(
       words(
         {
@@ -517,6 +516,32 @@ describe('state words: every row of the stateOf table', () => {
     });
     const plain = entryCtx({ entities: [ANNA] }, 'shared');
     expect(stateOf(fieldIn(plain, 'calendar:show_time'), plain)).toBeUndefined();
+  });
+
+  it('reads the card’s value for a calendar in the layout the preview draws, not the scope', () => {
+    // The card hides times in List alone, and the preview draws Grid. A calendar's page has no
+    // Settings For, so what it says the card gives must be what the preview draws, whatever scope
+    // the card's own pages are left in.
+    const raw = {
+      view: 'grid',
+      list: { show_time: false },
+      entities: [ANNA, { entity: 'calendar.ben', show_time: true }],
+    };
+    const anna = (previewed: EditorWorkspace) => ({ ...entryCtx(raw, 'list'), previewed });
+    const ben = (previewed: EditorWorkspace) => ({ ...entryCtx(raw, 'list', {}, 1), previewed });
+    expect(stateOf(fieldIn(anna('grid'), 'calendar:show_time'), anna('grid'))).toBeUndefined();
+    expect(resetOutcome(fieldIn(ben('grid'), 'calendar:show_time'), ben('grid'))).toEqual({
+      kind: 'card',
+      value: true,
+    });
+    // With the preview switched to List, List's value is the one drawn.
+    expect(stateOf(fieldIn(anna('list'), 'calendar:show_time'), anna('list'))).toEqual({
+      words: { kind: 'follows-card', value: false },
+    });
+    expect(resetOutcome(fieldIn(ben('list'), 'calendar:show_time'), ben('list'))).toEqual({
+      kind: 'card',
+      value: false,
+    });
   });
 
   it('a card option calendars override, naming those calendars in any scope', () => {

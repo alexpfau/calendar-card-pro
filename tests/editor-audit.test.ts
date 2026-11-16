@@ -224,22 +224,18 @@ describe('What This Card Changes, its groups', () => {
       expect(code, path).toBe(path);
       expect(words.join(' · '), path).not.toBe('');
     }
-    expect(all.days_to_show.meta).toBe('days_to_show · Set for All Layouts');
+    expect(all.days_to_show.meta).toBe('days_to_show · Set');
     expect(all.refresh_interval.meta).toBe(
-      'refresh_interval · Set for All Layouts Same as the Default',
+      'refresh_interval · Whole Card · Set Same as the Default',
     );
     expect(all['toolbar.legend'].meta).toBe('toolbar.legend · Set');
-    expect(all['time_grid.end_time'].meta).toBe('time_grid.end_time · Set for Grid');
-    expect(all['time_grid.start_time'].meta).toBe(
-      'time_grid.start_time · Set for Grid, Same as the Default',
-    );
+    expect(all['time_grid.end_time'].meta).toBe('time_grid.end_time · Set');
+    expect(all['time_grid.start_time'].meta).toBe('time_grid.start_time · Set Same as the Default');
     expect(all['list.description_font_size'].meta).toBe(
       // Show Description is the Description chip, so its clause says pressed (PR 18).
-      'list.description_font_size · Set for List Not in Use until Description is pressed',
+      'list.description_font_size · Set Not in Use until Description is pressed',
     );
-    expect(all['entities[2].event_type'].meta).toBe(
-      'entities[2].event_type · Set on This Calendar',
-    );
+    expect(all['entities[2].event_type'].meta).toBe('entities[2].event_type · Set');
     expect(all.grid_options.meta).toBe(
       'grid_options · Kept as Written Home Assistant’s own, from the Layout tab',
     );
@@ -320,7 +316,7 @@ describe('What This Card Changes, its actions', () => {
     expect(stored).not.toHaveProperty('end_time');
     expect(stored.list).toEqual(WALL.list);
     // Still open, on the new value; Escape closes it, focus back on its Edit.
-    expect(rows(editor)['time_grid.end_time'].meta).toBe('time_grid.end_time · Set for Grid');
+    expect(rows(editor)['time_grid.end_time'].meta).toBe('time_grid.end_time · Set');
     row
       .querySelector('ha-form')!
       .dispatchEvent(

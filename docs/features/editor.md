@@ -153,9 +153,10 @@ entities:
 
 Two controls on the overview decide what you see and what you edit. **Card Displays** chooses
 the card's starting layout and writes the existing `view` option. **Settings For** chooses
-which settings the pages edit: **All Layouts**, **List**, **Columns** or **Grid**, each with how
-many values that layout stores, as in **Grid, Set: 3**. It starts on the layout the card
-displays and stays where you put it for the rest of the session. It is never saved to YAML.
+which settings the pages edit: **All Layouts**, **List**, **Columns** or **Grid**. It starts on the
+layout the card displays and stays where you put it for the rest of the session. It is never
+saved to YAML. A calendar's page has no Settings For, since a calendar's settings apply to every
+layout.
 
 On a card that stores values only for the layout it shows, and has no view switcher in its
 toolbar, Settings For takes one line, **Settings for List · Change**; **Change** opens the four
@@ -174,11 +175,12 @@ choices.
   chosen, and say **Whole Card**.
 
 The choice follows your selection, not the preview's width-dependent fallback. When the two
-differ, a line says so, as in **Editing List · Preview Shows Grid**. To edit a List-only option
-used by a responsive fallback, choose List under Settings For; Card Displays stays unchanged. At
-its foot a page names the settings only another layout offers there, as in **List adds here: Event Order · Skip First Events · …** on Which Events while you edit
-Grid, with **Edit List** beside
-it, and [search](#search) finds them too.
+differ, a line says so, as in **Editing List · Preview Shows Grid**, and **Preview List** beside
+it draws List in Home Assistant's preview while you edit it. The card still opens in the layout
+Card Displays names, and nothing is saved by the switch; it stays on for the session and follows
+the layout you choose. To edit a List-only option used by a responsive fallback, choose List under
+Settings For; Card Displays stays unchanged. [Search](#search) finds the settings only another
+layout offers.
 
 Hiding a control does not delete its stored value. For example, these empty-day options remain
 available to the List fallback, even though their controls are absent while editing Grid:
@@ -195,23 +197,28 @@ empty_day_color: '#607d8b'
 
 ### State in Words
 
-Every setting that holds a value says where the value comes from, in words under its label, so
-the state is never told by color alone and a screen reader reads it with the control.
+Every setting that holds a value says where the value comes from, in words beside its label, so
+the state is never told by color alone and a screen reader reads it with the control. The words
+are the same on every page; Settings For says which layout they are about.
 
-| Words                      | Means                                                        |
-| -------------------------- | ------------------------------------------------------------ |
-| **Set**                    | This card stores it, while you edit All Layouts              |
-| **Set for Grid**           | Grid stores its own value                                    |
-| **From All Layouts**       | Grid has no value of its own and uses the shared one         |
-| **Grid's Default**         | Grid uses its built-in default, whatever the shared value is |
-| **Whole Card**             | A card-wide option, the same in every layout                 |
-| **Set on This Calendar**   | A calendar's own value, on its page                          |
-| **Follows the Card: 14px** | A calendar that sets nothing uses the card's value           |
+| Words                | Means                                                               |
+| -------------------- | ------------------------------------------------------------------- |
+| **Set**              | Stored where you are editing: the layout, All Layouts or a calendar |
+| **Default**          | The layout uses its built-in default, whatever All Layouts holds    |
+| **From All Layouts** | The layout has no value of its own and uses the shared one          |
+| **Whole Card**       | A card-wide option, the same in every layout                        |
+| **From the Card**    | A calendar that sets nothing, where the card's value is not default |
 
-Where a value is stored, a button under the setting names what resetting leaves: **Reset to
-20** or **Reset to Off** brings a default or the All Layouts value back, **Clear** empties a
-setting whose default is empty, and **Remove** resets the setting and takes it off the page
-until you add it again. The words above it say which value that is.
+A setting that says nothing has its default. While you edit All Layouts, a line under a setting
+names each layout the shared value does not reach, as in **Grid Has Its Own: 12px**, whether Grid
+stores that value or defaults to it.
+
+Where a value is stored, a button under the setting resets it. **Reset (In the Day Header)** keeps
+the setting on the page and names the value it goes back to, or **Reset (Empty)** where nothing
+comes back. **Remove Setting** resets it and takes it off the page until you add it again. A group
+of chips has one button for all of its chips stored here, **Reset Parts** for an event's parts and
+**Reset Controls** for the toolbar's. A dropdown may also show Home Assistant's own ✕, which
+empties it, the same as its Reset.
 
 ### Upgrading a Card From Before v5
 
@@ -518,8 +525,9 @@ Colors For Event Text · Accent Color · Accent Bar Width · Event Background Op
 focus on it, and writes nothing until you change it.
 
 - **Removing** a setting you added, or one that holds a value, resets it: its line leaves the
-  YAML, and it goes back to its Add Setting row. Its control offers **Remove** where resetting it
-  takes it off the page, and **Reset** where the control stays, such as an essential one.
+  YAML, and it goes back to its Add Setting row. Its control offers **Remove Setting** where
+  resetting it takes it off the page, and **Reset** where the control stays, such as an essential
+  one.
 - **A setting that needs another one** is named under its heading until it applies, as in
   **Appears once Description is pressed: Description Font Size, …**. Turning the
   other setting on brings it in.

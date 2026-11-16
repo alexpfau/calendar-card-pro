@@ -126,6 +126,7 @@ import * as Overview from './views/overview';
 import * as PageView from './views/page';
 import * as PickView from './views/pick';
 import * as ReorderView from './views/reorder';
+import { ScopePreview } from './views/scope-preview';
 import { scrollContainer } from './views/scroll';
 import * as SearchView from './views/search';
 import * as ShownView from './views/shown';
@@ -469,6 +470,8 @@ export class CalendarCardProEditor extends LitElement {
     awaitingConditionsEditor.delete(this);
     this._drag?.cancel();
     this._endPick(false);
+    // The code editor keeps the preview, which goes back to the layout the card opens in.
+    this._scopePreview.sync(undefined);
     // The last editor or card out closes the registry subscription (`entity-colors.ts`).
     if (this._registryHeld) EntityColors.releaseEntityColors(this._registryChanged);
     this._registryHeld = false;
@@ -570,6 +573,7 @@ export class CalendarCardProEditor extends LitElement {
       this._upgradeOnOpen();
     }
     this._syncPick();
+    this._scopePreview.sync(this._previewedScope());
     // Home Assistant's calendar colors, read through the card's own module once an entry's color
     // control describes one, and watched while this editor is open.
     if (this._registryWanted && !this._registryHeld && this.hass) {
@@ -751,6 +755,15 @@ export class CalendarCardProEditor extends LitElement {
 
   /** Whether Change opened Settings For, a disclosure Escape closes again. */
   @state() private _scopeOpen = false;
+
+  /**
+   * The preview switch on Settings For: while on, the preview draws the layout being edited, for
+   * the rest of the session and whichever layout that becomes (`views/scope-preview.ts`).
+   */
+  @state() private _previewScope = false;
+
+  /** Draws the preview in the layout being edited while the switch is on. */
+  private _scopePreview = new ScopePreview(() => PickView.findPreviewCard(this));
 
   /**
    * Whether Quick Setup's banner shows: decided by the session's first configuration, a fresh
@@ -966,6 +979,21 @@ export class CalendarCardProEditor extends LitElement {
    */
   private get _workspace(): Workspace.EditorWorkspace {
     return this._selectedWorkspace ?? this._viewForConfig(this._config!);
+  }
+
+  /**
+   * The layout the preview draws other than the one the card opens in: the layout being edited,
+   * while the preview switch is on and nothing else is being previewed.
+   *
+   * @returns The layout and the configuration it is laid over, or `undefined`
+   */
+  private _previewedScope():
+    { view: Types.EffectiveView; config: Record<string, unknown> } | undefined {
+    if (!this._previewScope || !this._config) return undefined;
+    if (this._quickSetup !== undefined || this._split !== undefined) return undefined;
+    const view = Workspace.viewForWorkspace(this._workspace);
+    if (view === undefined || view === this._viewForConfig(this._config)) return undefined;
+    return { view, config: this._rawConfig };
   }
 
   private _lastDispatched?: Record<string, unknown>;
@@ -2794,6 +2822,7 @@ export class CalendarCardProEditor extends LitElement {
       showEverySetting: this._prefs.every,
       pending: this._pending,
       entryKeys: this._entryKeysFor((this._config!.entities ?? []).length),
+      previewed: this._previewedScope()?.view ?? this._viewForConfig(this._config!),
     };
   }
 
@@ -2855,6 +2884,8 @@ export class CalendarCardProEditor extends LitElement {
       this._added,
       this._prefs.every,
       this._entryKeys.join(),
+      // A calendar's field reads the card's value in the layout the preview draws.
+      pctx.previewed,
     ];
     if (!this._actions || this._actions.from.some((each, at) => each !== from[at])) {
       this._actions = { from, map: new Map() };
@@ -2889,7 +2920,7 @@ export class CalendarCardProEditor extends LitElement {
     const layout = this._layoutName(ctx);
     const word = this._wordOf(field, ctx);
     const state = Plan.stateOf(field, pctx);
-    const words = Shown.stateText(state, t, layout, word);
+    const words = Shown.stateText(state, t);
     const label = fieldLabel(field, ctx.language);
     const notes: Array<{ text: string }> = [];
     const ignored = Shown.ignoredText(state, t, layout, word);
@@ -2926,11 +2957,10 @@ export class CalendarCardProEditor extends LitElement {
           : undefined
         : this._resetActionOf(field.id, appearance, pctx, owner);
     if (action !== undefined) {
-      const named = Shown.resetLabel(action, Plan.resetOutcome(field, pctx), t, word);
+      const text = Shown.resetText(action, Plan.resetOutcome(field, pctx), label, t, word);
       actions.push({
-        label: named,
-        // Its name leads with what it shows, then says which field: "Reset to Off: Show Time".
-        name: t('reset.named', { action: named, label }),
+        label: text.label,
+        name: text.name,
         focus: `${action}:${field.id}`,
         kind: action,
         resetKeys: this._storedKeys(field, pctx, owner),
@@ -3747,6 +3777,31 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * Resets a group of chips: every one stored in the scope, in one step.
+   *
+   * @param fields - The chips' fields
+   * @param action - The button's words, which name the step: "Reset Parts"
+   * @param first - The group's first chip, which takes focus
+   * @param heading - The heading's key
+   */
+  private _resetChips(
+    fields: ReadonlyArray<IndexedField>,
+    action: string,
+    first: FieldId | undefined,
+    heading?: string,
+  ): void {
+    const ctx = this._ctx;
+    const workspace = ctx.workspace ?? ctx.view;
+    this._commit(action, undefined, () =>
+      this._applyReset(
+        fields.map((field) => ({ kind: 'field', field, workspace })),
+        fields.map((field) => this._addedKey(field.id, CARD)),
+      ),
+    );
+    this._focusAfterReset(first, heading);
+  }
+
+  /**
    * Removes a family shown on a page: every member's line here, and the family from the added
    * set, in one step.
    *
@@ -4270,20 +4325,26 @@ export class CalendarCardProEditor extends LitElement {
           !this._scopeOpen &&
           Workspace.isCompactScope(this._rawConfig, this._config!, displayed, this._scopeChanged),
         workspace,
-        choices: Workspace.WORKSPACES.map((value) => ({
-          value,
-          label: label(value),
-          set: Workspace.storedCount(this._rawConfig, value),
-        })),
+        choices: Workspace.WORKSPACES.map((value) => ({ value, label: label(value) })),
         displayedLabel: label(displayed),
         // All Layouts included: a value List keeps of its own never reaches the preview from there.
         previewDiffers: workspace !== displayed,
+        // Only a layout can be drawn; All Layouts is no layout of its own.
+        previewSwitch:
+          Workspace.viewForWorkspace(workspace) === undefined ? undefined : this._previewScope,
       },
       this._t(ctx),
       this._openScope,
       this._pickScope,
+      this._togglePreviewScope,
     );
   }
+
+  /** The preview switch: the preview draws the layout being edited, or the card's own again. */
+  private _togglePreviewScope = (): void => {
+    this._previewScope = !this._previewScope;
+    this._focusSoon([Focus.byFocusKey('scope-preview')]);
+  };
 
   /** Change: Settings For opens as the four choices. */
   private _openScope = (): void => {
@@ -4995,15 +5056,13 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * What a page draws under its header: each heading planned by `plan.ts` (section 5.2), what the
-   * page holds besides its fields (the toolbar's own buttons, the column width table), and at its
-   * foot one line per set of layouts that add settings here.
+   * page holds besides its fields (the toolbar's own buttons, the column width table).
    *
    * @param page - The page
    * @param ctx - Schema context
    * @returns The body
    */
   private _renderPageBody(page: PageDef, ctx: SchemaCtx): unknown[] {
-    const t = this._t(ctx);
     const pctx = this._planCtx(ctx);
     const plan = Plan.planPage(page, pctx);
     const present = this._drawing!.present;
@@ -5023,38 +5082,6 @@ export class CalendarCardProEditor extends LitElement {
       const layout = PANELS.find((panel) => panel.id === 'layout')!;
       parts.push(...(layout.extras?.(ctx) ?? []).map((extra) => this._renderExtra(extra)));
     }
-    const layout = this._layoutName(ctx);
-    // Each line's Edit goes to a layout no line before it goes to, so no two read the same.
-    const taken = new Set<Types.EffectiveView>();
-    for (const line of plan.otherLayouts) {
-      const target = line.views.find((view) => !taken.has(view)) ?? line.views[0];
-      taken.add(target);
-      const names = line.ids.map((id) => {
-        const field = universeIndex('en', line.views[0]).fields.get(id);
-        return field ? fieldLabel(field, ctx.language) : id;
-      });
-      const text =
-        line.views.length === 1
-          ? t('other_layouts.one', {
-              layout: layout(line.views[0]),
-              names: Shown.namesText(names, t),
-            })
-          : t('other_layouts.many', {
-              layouts: EditorLocalize.formatList(
-                ctx.language,
-                line.views.map(layout),
-                'conjunction',
-              ),
-              names: Shown.namesText(names, t),
-            });
-      parts.push(
-        ShownView.otherLayoutsLine(text, t('add.count', { count: names.length }), {
-          label: t('state.edit_layout', { layout: layout(target) }),
-          focus: `edit-layout:${line.views.join('-')}`,
-          onPress: () => this._pickScope(target),
-        }),
-      );
-    }
     return parts;
   }
 
@@ -5067,8 +5094,8 @@ export class CalendarCardProEditor extends LitElement {
    * toolbar control is drawn only while the toolbar is. Pressed is the field's effective value in
    * the scope, and a press writes the other value through `_writeFieldValue`, one undo step. Each
    * chip's name carries its state words, as any field's does (section 5.3); under the chips, the
-   * stored ones grouped by those words, a line with Reset or Remove for each one stored here, the
-   * not-in-scope line, and the hint.
+   * chips named by those words ("Set: Countdown, End Time · Default: Location") with one Reset for
+   * every chip stored here, the not-in-scope line, and the hint.
    *
    * @param kind - Which chips
    * @param heading - The heading they are placed under
@@ -5092,10 +5119,10 @@ export class CalendarCardProEditor extends LitElement {
       ([, appearance]) =>
         typeof appearance === 'object' && 'chips' in appearance && appearance.chips === kind,
     );
+    // The chips with state words, by those words: "Set: Countdown, End Time".
     const sources = new Map<string, string[]>();
-    // Chips that follow a layout's own default, by the words for it: "Grid’s Default".
-    const defaults = new Map<string, string[]>();
-    const actions: ShownView.LineButton[] = [];
+    // The chips stored here, which the group's one Reset resets.
+    const stored: IndexedField[] = [];
     const chips = placed.flatMap(([id, appearance]): ChipsView.ChipModel[] => {
       if (!Chips.inScope(id, workspace)) return [];
       const field = present.get(id);
@@ -5121,41 +5148,9 @@ export class CalendarCardProEditor extends LitElement {
       }
       const pressed = Chips.isPressed(Routing.atPath(data, field.dataPath, field.node.name));
       const state = Plan.stateOf(field, pctx);
-      const words = Shown.stateText(state, t, layout, this._wordOf(field, ctx));
-      if (words !== undefined && state?.words?.kind === 'layout-default') {
-        defaults.set(words, [...(defaults.get(words) ?? []), label(id)]);
-      } else if (words !== undefined) {
-        const pairs = sources.get(words) ?? [];
-        pairs.push(
-          t('summary.pair', {
-            label: label(id),
-            value: t(pressed ? 'summary.on' : 'summary.off'),
-          }),
-        );
-        sources.set(words, pairs);
-      }
-      const action = this._resetActionOf(id, appearance, pctx, CARD);
-      if (action !== undefined) {
-        const name = fieldLabel(field, ctx.language);
-        const forLayout =
-          state?.words?.kind === 'set-layout' ? layout(state.words.view) : undefined;
-        actions.push({
-          label: t('value_source.reset', { option: label(id) }),
-          name:
-            action === 'reset'
-              ? forLayout
-                ? t('reset.reset_for', { label: name, layout: forLayout })
-                : t('value_source.reset', { option: name })
-              : interpolate(forLayout ? t('reset.remove_for') : t('reset.remove_named'), {
-                  label: name,
-                  layout: forLayout ?? '',
-                }),
-          focus: `${action}:${id}`,
-          kind: action,
-          resetKeys: this._storedKeys(field, pctx, CARD),
-          onPress: () => this._resetField(field, CARD, action, name, heading.key),
-        });
-      }
+      const words = Shown.stateText(state, t);
+      if (words !== undefined) sources.set(words, [...(sources.get(words) ?? []), label(id)]);
+      if (this._resetActionOf(id, appearance, pctx, CARD) !== undefined) stored.push(field);
       return [
         {
           id,
@@ -5178,14 +5173,26 @@ export class CalendarCardProEditor extends LitElement {
     if (chips.length === 0) return nothing;
     const absent = placed.map(([id]) => id).filter((id) => !Chips.inScope(id, workspace));
     const view = Workspace.viewForWorkspace(workspace);
-    const source = [
-      ...[...sources].flatMap(([where, pairs]) => [where, ...pairs]),
-      // A chip a layout defaults otherwise reads as wrongly off without this: "Grid’s Default:
-      // Location".
-      ...[...defaults].map(([where, names]) =>
-        t('summary.pair', { label: where, value: names.join(', ') }),
-      ),
-    ];
+    // A chip a layout defaults otherwise reads as wrongly off without its words: "Default:
+    // Location".
+    const source = [...sources].map(([where, names]) =>
+      t('summary.pair', { label: where, value: names.join(', ') }),
+    );
+    const action = kind === 'parts' ? t('reset.parts') : t('reset.controls');
+    const names = stored.map((field) => label(field.id));
+    const actions: ShownView.LineButton[] =
+      stored.length === 0
+        ? []
+        : [
+            {
+              label: action,
+              name: t('reset.group_named', { action, names: names.join(', ') }),
+              focus: `reset-chips:${kind}`,
+              kind: 'reset',
+              resetKeys: stored.map((field) => this._storedKeys(field, pctx, CARD)).join(' '),
+              onPress: () => this._resetChips(stored, action, chips[0]?.id, heading.key),
+            },
+          ];
     const group = ChipsView.chipGroup(
       kind === 'parts' ? (this._headingTitle(heading, ctx) ?? '') : t('toolbar.controls'),
       chips,
@@ -7720,7 +7727,7 @@ export class CalendarCardProEditor extends LitElement {
           : nothing
       }
       ${notice ? CalendarView.entryNotice(notice.text, notice.warning) : nothing}
-      ${this._renderSplitDone(key, ctx)} ${this._renderScope(ctx)}
+      ${this._renderSplitDone(key, ctx)}
       <div
         class="field"
         data-focus="entry-calendar"
@@ -9171,7 +9178,7 @@ export class CalendarCardProEditor extends LitElement {
           key === 'view'
             ? layout(line.value as Types.EffectiveView)
             : Audit.buttonNames(line.value, this._string(ctx, 'toolbar.buttons.untitled')),
-        words: t('state.set_all_layouts'),
+        words: t('state.whole_card_set'),
         tags: [],
         reset: {
           name: reset,
@@ -9246,13 +9253,15 @@ export class CalendarCardProEditor extends LitElement {
       path: line.text,
       label,
       value,
-      words: Shown.stateText(state, t, layout, this._wordOf(field, ctx)) ?? t('state.set'),
-      tags:
-        state?.words?.kind !== 'set-layout' &&
-        (outcome?.kind === 'default' || outcome?.kind === 'layout-default') &&
-        Value.deepEqual(outcome.value, line.value)
-          ? [t('audit.same')]
-          : [],
+      words: Shown.stateText(state, t) ?? t('state.set'),
+      tags: (
+        state?.words?.kind === 'set-layout'
+          ? state.words.sameAsDefault
+          : (outcome?.kind === 'default' || outcome?.kind === 'layout-default') &&
+            Value.deepEqual(outcome.value, line.value)
+      )
+        ? [t('audit.same')]
+        : [],
       warning: line.inactive
         ? t('audit.inactive', {
             when: whenText(line.inactive.gate, data, ctx.language, labelOf) ?? '',
