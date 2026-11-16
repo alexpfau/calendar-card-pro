@@ -512,12 +512,7 @@ function stateWords(
   ctx: SearchCtx,
   state = Plan.stateOf(field, plan),
 ): string | undefined {
-  return Shown.stateText(
-    state,
-    ctx.t,
-    layoutNamer(ctx),
-    (value) => valueWords(field, value, ctx) ?? String(value),
-  );
+  return Shown.stateText(state, ctx.t);
 }
 
 /** A card field placed by the registry, where it is placed. */

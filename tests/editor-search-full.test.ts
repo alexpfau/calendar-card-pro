@@ -508,12 +508,12 @@ describe('one field of several calendars', () => {
     const rows = resultRows(editor).filter(({ id }) => id === 'calendar:color');
     expect(rows.map(({ label, meta }) => [label, meta])).toEqual([
       ['Event Color', 'Set on Calendars: 6'],
-      ['Anna', '#e91e63 · Set on This Calendar'],
-      ['Ben', '#2196f3 · Set on This Calendar'],
-      ['Leo', '#4caf50 · Set on This Calendar'],
-      ['Family', '#ff9800 · Set on This Calendar'],
-      ['Work', '#9c27b0 · Set on This Calendar'],
-      ['Bin Day', '#795548 · Set on This Calendar'],
+      ['Anna', '#e91e63 · Set'],
+      ['Ben', '#2196f3 · Set'],
+      ['Leo', '#4caf50 · Set'],
+      ['Family', '#ff9800 · Set'],
+      ['Work', '#9c27b0 · Set'],
+      ['Bin Day', '#795548 · Set'],
     ]);
     expect(text($(editor, `[data-focus="${rows[2].key}"] .result-go`))).toBe('Go to Setting');
 
@@ -852,7 +852,7 @@ describe('the controls the stack below added', () => {
     await searchFor(editor, 'blocklist');
     await openResultGroup(editor, 'calendar:blocklist');
     expect(resultRows(editor).find(({ label }) => label === 'Ben')?.meta).toBe(
-      'Dentist, Gym · Set on This Calendar',
+      'Dentist, Gym · Set',
     );
   });
 

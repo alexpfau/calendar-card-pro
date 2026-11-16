@@ -172,18 +172,14 @@ describe('the results', () => {
     );
     await searchFor(editor, 'kids');
     await openResultGroup(editor, 'calendar:label');
-    expect(row(editor, 'calendar:label', 0).meta).toBe(
-      'Kids · Set on This Calendar · YAML: entities[0].label',
-    );
+    expect(row(editor, 'calendar:label', 0).meta).toBe('Kids · Set · YAML: entities[0].label');
     expect(row(editor, 'calendar:label_type', 0).meta).toBe(
-      'Text or Emoji · Set on This Calendar · YAML: entities[0].label_type',
+      'Text or Emoji · Set · YAML: entities[0].label_type',
     );
     // Conditions have no words here, so the row says nothing of them, rather than Not Set.
     await searchFor(editor, 'who sees');
     await openResultGroup(editor, 'calendar:visibility');
-    expect(row(editor, 'calendar:visibility', 1).meta).toBe(
-      'Set on This Calendar · YAML: entities[1].visibility',
-    );
+    expect(row(editor, 'calendar:visibility', 1).meta).toBe('Set · YAML: entities[1].visibility');
     expect(row(editor, 'calendar:visibility', 0).meta).toBe(
       'Not Set · YAML: entities[0].visibility',
     );
@@ -200,7 +196,7 @@ describe('the results', () => {
     expect(resultRows(editor).map(({ crumbs, meta }) => [crumbs, meta])).toEqual([
       ['Calendars › Which Events', 'Set on Calendars: 1'],
       ['Anna › Which Events', 'Not Set · YAML: entities[0].blocklist'],
-      ['Ben › Which Events', 'Dentist · Set on This Calendar · YAML: entities[1].blocklist'],
+      ['Ben › Which Events', 'Dentist · Set · YAML: entities[1].blocklist'],
     ]);
   });
 

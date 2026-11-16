@@ -664,8 +664,9 @@ describe('implicit defaults and first-switch boundaries', () => {
     // Grid's own default, worded as one, and never as a value set for Grid.
     const words = (id: string) => `${labelOf(editor, id)} ${helperOf(editor, id) ?? ''}`;
     for (const id of ['events:event_background_opacity', 'events:event_font_size']) {
-      expect(words(id), id).toContain('Grid’s Default');
-      expect(words(id), id).not.toContain('Set for Grid');
+      // After the label, " · Default", or before the helper, "Default.".
+      expect(words(id), id).toMatch(/( · | )Default\b/);
+      expect(words(id), id).not.toMatch(/( · | )Set\b/);
     }
   });
 

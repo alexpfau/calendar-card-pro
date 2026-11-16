@@ -577,11 +577,12 @@ describe('the editor names each view once', () => {
     // The state words that name no layout of their own; the rest take it as `{layout}`.
     const states = [
       'value_source.card',
-      'state.set_all_layouts',
+      'state.set',
+      'state.default',
       'state.from_all_layouts',
       'state.whole_card',
-      'state.set_layout',
-      'state.layout_default',
+      'state.whole_card_set',
+      'state.from_card',
     ] as const;
     const names = VIEWS.map((view) => EDITOR_STRINGS[`view.option.${view}.label`]);
 

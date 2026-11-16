@@ -110,7 +110,6 @@ export const REFERENCED_STRINGS: ReadonlyArray<string> = [
   'state',
   'reset',
   'inactive',
-  'other_layouts',
   'prefs',
   'audit',
   'notices',

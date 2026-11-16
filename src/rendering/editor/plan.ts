@@ -103,6 +103,12 @@ export interface PlanCtx {
   readonly entryKeys?: ReadonlyArray<number>;
   /** The calendar entry, by its key, whose fields `calendar:` ids name. */
   readonly entry?: number;
+  /**
+   * The layout the preview draws, which a calendar's field reads the card's value in. A calendar's
+   * page has no Settings For, so what it says the card gives must match the preview, whatever
+   * scope the card's pages are edited in. The workspace where absent.
+   */
+  readonly previewed?: EditorWorkspace;
 }
 
 /** One item of a heading's Add row: a field, or a family as one. */
@@ -136,12 +142,6 @@ export interface HeadingPlan {
   }>;
 }
 
-/** The foot line naming what other layouts add here, one per set of layouts offering the same. */
-export interface OtherLayoutLine {
-  readonly views: ReadonlyArray<Types.EffectiveView>;
-  readonly ids: ReadonlyArray<FieldId>;
-}
-
 /** What a field says about its value (section 5.3), in data; the words are drawn from it. */
 export interface StateWords {
   readonly words?:
@@ -162,7 +162,10 @@ export interface StateWords {
     | { readonly kind: 'from-all-layouts' }
     | { readonly kind: 'set-entry'; readonly shared: boolean }
     | { readonly kind: 'follows-card'; readonly value: unknown };
-  /** In All Layouts: "Grid Sets Its Own: 20", per layout storing its own. */
+  /**
+   * In All Layouts: "Grid Has Its Own: 20", per layout storing its own or defaulting the field to a
+   * value other than the All Layouts one.
+   */
   readonly layoutsOwn?: ReadonlyArray<{
     readonly view: Types.EffectiveView;
     readonly value: unknown;
@@ -516,6 +519,16 @@ function divergent(field: IndexedField, view: Types.EffectiveView): boolean {
 }
 
 /**
+ * Where a calendar's field reads the card's value: the layout the preview draws.
+ *
+ * @param ctx - Plan context
+ * @returns The workspace
+ */
+function cardScope(ctx: PlanCtx): EditorWorkspace {
+  return ctx.previewed ?? ctx.workspace;
+}
+
+/**
  * A calendar option's card counterpart as it applies in a workspace, in comparable form.
  *
  * @param option - The calendar option
@@ -552,10 +565,10 @@ function inheritedDifferent(field: IndexedField, ctx: PlanCtx): boolean {
   if (isEntryField(field.id)) {
     const { name } = parseFieldId(field.id);
     if (!(name in CARD_COUNTERPART) || entryStored(field, ctx)) return false;
-    const value = cardCounterpart(name, ctx.config, ctx.workspace);
+    const value = cardCounterpart(name, ctx.config, cardScope(ctx));
     return (
       CARD_COUNTERPART[name] !== undefined &&
-      !deepEqual(value, cardCounterpart(name, defaultConfig(), ctx.workspace))
+      !deepEqual(value, cardCounterpart(name, defaultConfig(), cardScope(ctx)))
     );
   }
 
@@ -775,14 +788,9 @@ export function fieldState(id: FieldId, appearance: Appearance, ctx: PlanCtx): F
  *
  * @param headings - The headings, in registry order
  * @param ctx - Plan context
- * @param otherLines - Collects the other layouts' fields, when the caller draws that line
  * @returns A plan per heading
  */
-function planHeadings(
-  headings: ReadonlyArray<HeadingDef>,
-  ctx: PlanCtx,
-  otherLines?: Map<string, { views: ReadonlyArray<Types.EffectiveView>; ids: FieldId[] }>,
-): HeadingPlan[] {
+function planHeadings(headings: ReadonlyArray<HeadingDef>, ctx: PlanCtx): HeadingPlan[] {
   return headings.map((heading) => {
     const live: Array<HeadingPlan['live'][number]> = [];
     const add: AddItem[] = [];
@@ -814,14 +822,8 @@ function planHeadings(
         case 'inactive':
           inactive.push({ id, gate: state.gate, unmet: state.unmet, source: state.source });
           break;
-        case 'other-layout': {
-          if (!otherLines) break;
-          const key = state.views.join(' ');
-          const line = otherLines.get(key);
-          if (line) line.ids.push(id);
-          else otherLines.set(key, { views: state.views, ids: [id] });
-          break;
-        }
+        // Another layout's setting is search's to name (`search.ts`); a page leaves it out.
+        case 'other-layout':
         case 'none':
           break;
       }
@@ -832,19 +834,14 @@ function planHeadings(
 
 /**
  * What a page draws: per heading its live fields, Add row, gate line and stored-but-not-in-use
- * lines, and at its foot one line per set of other layouts that add fields here.
+ * lines.
  *
  * @param page - The page
  * @param ctx - Plan context
  * @returns The plan
  */
-export function planPage(
-  page: PageDef,
-  ctx: PlanCtx,
-): { headings: HeadingPlan[]; otherLayouts: OtherLayoutLine[] } {
-  const lines = new Map<string, { views: ReadonlyArray<Types.EffectiveView>; ids: FieldId[] }>();
-  const headings = planHeadings(page.headings, ctx, lines);
-  return { headings, otherLayouts: [...lines.values()] };
+export function planPage(page: PageDef, ctx: PlanCtx): { headings: HeadingPlan[] } {
+  return { headings: planHeadings(page.headings, ctx) };
 }
 
 /**
@@ -942,7 +939,7 @@ export function stateOf(field: IndexedField, ctx: PlanCtx): StateWords | undefin
     if (inheritedDifferent(field, ctx)) {
       const { name } = parseFieldId(field.id);
       return {
-        words: { kind: 'follows-card', value: cardCounterpart(name, ctx.config, ctx.workspace) },
+        words: { kind: 'follows-card', value: cardCounterpart(name, ctx.config, cardScope(ctx)) },
       };
     }
     return undefined;
@@ -955,15 +952,23 @@ export function stateOf(field: IndexedField, ctx: PlanCtx): StateWords | undefin
   let layoutsOwn: StateWords['layoutsOwn'];
 
   if (!hasLayoutCopy(field)) {
+    // A whole-card setting on a page of per-layout ones says so in every scope, All Layouts too.
     if (onWholeCardPage(field.id)) words = here ? { kind: 'set' } : undefined;
-    else if (view === undefined) words = here ? { kind: 'set-all-layouts' } : undefined;
     else words = { kind: 'whole-card', stored: here };
   } else if (view === undefined) {
     if (here) words = { kind: 'set-all-layouts' };
-    const own = ViewConfig.VIEWS.filter((each) => storedAt(ctx.raw, field, each)).map((each) => ({
-      view: each,
-      value: shownValue(ctx.config, each, field),
-    }));
+    // Each layout that stores its own, and each that offers the field and defaults it otherwise:
+    // the All Layouts value does not reach either.
+    const top = shownValue(ctx.config, 'shared', field);
+    const own = ViewConfig.VIEWS.flatMap((each) => {
+      const value = shownValue(ctx.config, each, field);
+      if (storedAt(ctx.raw, field, each)) return [{ view: each, value }];
+      const ownDefault =
+        divergent(field, each) &&
+        universeIndex('en', each).fields.has(field.id) &&
+        !deepEqual(value, top);
+      return ownDefault ? [{ view: each, value }] : [];
+    });
     if (own.length > 0) layoutsOwn = own;
   } else if (here) {
     words = {
@@ -1044,10 +1049,10 @@ export function resetOutcome(field: IndexedField, ctx: PlanCtx): ResetOutcome | 
     if (name in CARD_COUNTERPART) {
       return CARD_COUNTERPART[name] === undefined
         ? undefined
-        : { kind: 'card', value: cardCounterpart(name, ctx.config, ctx.workspace) };
+        : { kind: 'card', value: cardCounterpart(name, ctx.config, cardScope(ctx)) };
     }
     if (!hasOwn(Config.DEFAULT_CONFIG, name)) return undefined;
-    const effective = Routing.workspaceConfig(ctx.config, ctx.workspace);
+    const effective = Routing.workspaceConfig(ctx.config, cardScope(ctx));
     return { kind: 'card', value: normalizeRootValue(name, effective[name as keyof Types.Config]) };
   }
 
