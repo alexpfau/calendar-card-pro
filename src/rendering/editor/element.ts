@@ -385,6 +385,20 @@ function handleFocus(list: ReorderList, id: string | number): string {
   return list === 'calendar' ? `handle:${id}` : `handle:button:${id}`;
 }
 
+/**
+ * The helper under an action field. Home Assistant's `ui_action` selector draws none, whatever
+ * `computeHelper` returns, so Tapping an Event and a toolbar button's Tap Action draw their own.
+ *
+ * @param field - The field
+ * @param helper - Its helper
+ * @returns The line, or nothing for any other selector
+ */
+function actionHelper(field: IndexedField, helper: string | undefined): unknown {
+  return helper && 'ui_action' in field.node.selector
+    ? html`<p class="hint action-helper">${helper}</p>`
+    : nothing;
+}
+
 /** The line a removal or an applied story leaves under its list ("Removed Ben · Undo"). */
 interface StatusLine {
   readonly kind: 'entry' | 'button' | 'story';
@@ -1634,13 +1648,15 @@ export class CalendarCardProEditor extends LitElement {
         ? this._string(ctx, 'history.change', { setting })
         : this._string(ctx, 'history.change_for', { setting, name: owner });
     const typed = moved && ('text' in moved.node.selector || 'number' in moved.node.selector);
+    const cleared =
+      moved && path ? this._clearedSelect(frame, moved, path, incoming, focusKey) : undefined;
     this._commit(
       label,
       // By owner as well: two entries' pages give the same field the same focus key.
       typed
         ? `${WriteFrames.ownerKey(frame.owner)}|${focusKey}|${path!.join('.')}|${frame.workspace}`
         : undefined,
-      () => this._writeOwned(frame, incoming),
+      cleared ? () => this._applyReset(cleared, []) : () => this._writeOwned(frame, incoming),
       focusKey,
     );
     // A setting edited this session stays where it is, even once its value is cleared: a box
@@ -1650,6 +1666,45 @@ export class CalendarCardProEditor extends LitElement {
       const added = frame.owner.kind === 'entry' ? `entry:${frame.owner.key}:${id}` : id;
       if (!this._added.has(added)) this._added = new Set([...this._added, added]);
     }
+  }
+
+  /**
+   * The reset a dropdown's ✕ stands for. Home Assistant's select clears to no value, which a
+   * derived dropdown would otherwise apply as a choice of its own (Duplicates would store
+   * `filter_duplicates: false`), and which in a layout's scope would write the layout an override
+   * of its own. Cleared, the dropdown deletes its line where this scope writes it, exactly as its
+   * Reset does.
+   *
+   * @param frame - The frame of the form that sent the change
+   * @param moved - The control whose value changed
+   * @param path - Its data path, its name last
+   * @param incoming - The form's whole data, as it sent it
+   * @param focusKey - The field's focus key, `field:<id>`
+   * @returns The reset, or `undefined` for any other change
+   */
+  private _clearedSelect(
+    frame: WriteFrames.OwnedFrame,
+    moved: { readonly node: HaFormSchema },
+    path: ReadonlyArray<string>,
+    incoming: Record<string, unknown>,
+    focusKey: string | undefined,
+  ): Reset.ResetTarget | undefined {
+    const selector = 'selector' in moved.node ? moved.node.selector : undefined;
+    if (selector === undefined || !('select' in selector) || selector.select?.multiple) {
+      return undefined;
+    }
+    const value = Routing.atPath(incoming, path.slice(0, -1), path[path.length - 1]);
+    if (value !== undefined && value !== null && value !== '') return undefined;
+    if (!focusKey?.startsWith('field:')) return undefined;
+    const id = focusKey.slice('field:'.length);
+    const field = universeIndex(this._ctx.language, frame.workspace).fields.get(id);
+    if (field === undefined) return undefined;
+    if (frame.owner.kind === 'entry') {
+      return { kind: 'entry', key: frame.owner.key, keys: field.configKeys };
+    }
+    return frame.owner.kind === 'card'
+      ? { kind: 'field', field, workspace: frame.workspace }
+      : undefined;
   }
 
   /**
@@ -2033,6 +2088,7 @@ export class CalendarCardProEditor extends LitElement {
             this._valueChanged(frame, event, field.labelPath, `field:${field.id}`)}
         ></ha-form>`,
       )}
+      ${actionHelper(field, text.helper(field.node))}
       ${this._wordToggle(WriteFrames.CARD_OWNER, field, data, ctx)} ${show?.line ?? nothing}
     </div>`;
     return this._jumpedCardField(field, ctx, wrapper);
@@ -2822,7 +2878,11 @@ export class CalendarCardProEditor extends LitElement {
                   kind: 'remove',
                   onPress: () => this._removeFamily(family, owner, ctx, heading.key),
                 }),
-          body: html`${live} ${more} ${add} ${ShownView.gateLines(gateLines, inactive)}`,
+          // Split This Calendar opens Which Events (plan section 5.6); every other extra follows
+          // its heading's fields.
+          body: heading.extras?.includes('split')
+            ? html`${more} ${live} ${add} ${ShownView.gateLines(gateLines, inactive)}`
+            : html`${live} ${more} ${add} ${ShownView.gateLines(gateLines, inactive)}`,
         }),
       ];
     });
@@ -3939,7 +3999,8 @@ export class CalendarCardProEditor extends LitElement {
           set: Workspace.storedCount(this._rawConfig, value),
         })),
         displayedLabel: label(displayed),
-        previewDiffers: workspace !== 'shared' && workspace !== displayed,
+        // All Layouts included: a value List keeps of its own never reaches the preview from there.
+        previewDiffers: workspace !== displayed,
       },
       this._t(ctx),
       this._openScope,
@@ -4732,6 +4793,8 @@ export class CalendarCardProEditor extends LitElement {
         typeof appearance === 'object' && 'chips' in appearance && appearance.chips === kind,
     );
     const sources = new Map<string, string[]>();
+    // Chips that follow a layout's own default, by the words for it: "Grid’s Default".
+    const defaults = new Map<string, string[]>();
     const actions: ShownView.LineButton[] = [];
     const chips = placed.flatMap(([id, appearance]): ChipsView.ChipModel[] => {
       if (!Chips.inScope(id, workspace)) return [];
@@ -4759,7 +4822,9 @@ export class CalendarCardProEditor extends LitElement {
       const pressed = Chips.isPressed(Routing.atPath(data, field.dataPath, field.node.name));
       const state = Plan.stateOf(field, pctx);
       const words = Shown.stateText(state, t, layout, this._wordOf(field, ctx));
-      if (words !== undefined && state?.words?.kind !== 'layout-default') {
+      if (words !== undefined && state?.words?.kind === 'layout-default') {
+        defaults.set(words, [...(defaults.get(words) ?? []), label(id)]);
+      } else if (words !== undefined) {
         const pairs = sources.get(words) ?? [];
         pairs.push(
           t('summary.pair', {
@@ -4813,7 +4878,14 @@ export class CalendarCardProEditor extends LitElement {
     if (chips.length === 0) return nothing;
     const absent = placed.map(([id]) => id).filter((id) => !Chips.inScope(id, workspace));
     const view = Workspace.viewForWorkspace(workspace);
-    const source = [...sources].flatMap(([where, pairs]) => [where, ...pairs]);
+    const source = [
+      ...[...sources].flatMap(([where, pairs]) => [where, ...pairs]),
+      // A chip a layout defaults otherwise reads as wrongly off without this: "Grid’s Default:
+      // Location".
+      ...[...defaults].map(([where, names]) =>
+        t('summary.pair', { label: where, value: names.join(', ') }),
+      ),
+    ];
     const group = ChipsView.chipGroup(
       kind === 'parts' ? (this._headingTitle(heading, ctx) ?? '') : t('toolbar.controls'),
       chips,
@@ -7559,6 +7631,7 @@ export class CalendarCardProEditor extends LitElement {
             @value-changed=${(event: CustomEvent) =>
               this._valueChanged(frame, event, field.labelPath, `button:${key}`, title)}
           ></ha-form>
+          ${actionHelper(field, fieldHelper(field, ctx))}
         </div>`;
         return this._jumpsTo('button-field', key) && this._jump!.target.id === field.id
           ? this._jumpTo(ctx, wrapper)

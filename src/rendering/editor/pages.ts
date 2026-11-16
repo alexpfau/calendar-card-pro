@@ -96,7 +96,8 @@ export interface PageDef {
   readonly headings: ReadonlyArray<HeadingDef>;
   /**
    * The settings the overview's row for this page names with their values, in order; each one
-   * only where it is present (`summary.ts`).
+   * only where it is present (`summary.ts`). A toggle chip stands for its whole group, named by
+   * the chips pressed.
    */
   readonly summary: ReadonlyArray<FieldId>;
 }
@@ -197,7 +198,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
     id: 'card_header',
     titleKey: 'panel.card',
     iconPath: mdiCardTextOutline,
-    summary: ['card:title', 'card:toolbar.show'],
+    summary: ['card:title', 'card:toolbar.show', 'card:toolbar.add_event'],
     headings: [
       {
         fields: [
@@ -322,7 +323,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
     id: 'events',
     titleKey: 'panel.events',
     iconPath: mdiCalendarText,
-    summary: ['events:show_time', 'events:show_location', 'content:time_format'],
+    summary: ['events:show_time', 'content:time_format'],
     headings: [
       {
         key: 'heading_details',

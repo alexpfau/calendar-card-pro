@@ -6,7 +6,8 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_CONFIG } from '../src/config/config';
+import { mountEditor } from './helpers/editor-host';
+import { CURRENT_CONFIG_VERSION, DEFAULT_CONFIG } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { buildFieldIndex, schemaCtx } from '../src/rendering/editor/field-index';
 import { PAGES, type PageDef, placementOf } from '../src/rendering/editor/pages';
@@ -55,6 +56,33 @@ describe('Settings For', () => {
     expect(isCompactScope(noSwitcher, merged(noSwitcher), 'list', false)).toBe(true);
     const hidden = { ...LIST_CARD, toolbar: { show: false, view_switcher: true } };
     expect(isCompactScope(hidden, merged(hidden), 'list', false)).toBe(true);
+  });
+
+  // Plan section 5.10: the line shows whenever the scope is not the displayed layout, and a
+  // value List keeps of its own is exactly what All Layouts cannot show in the preview.
+  it('says the preview shows another layout in every scope but the displayed one', async () => {
+    const editor = await mountEditor({
+      config_version: CURRENT_CONFIG_VERSION,
+      entities: ['calendar.anna'],
+      column: { event_font_size: '13px' },
+    });
+    const root = editor.shadowRoot!;
+    const line = () =>
+      root.querySelector('.scope-preview')?.textContent?.replace(/\s+/g, ' ').trim();
+    const pick = async (workspace: EditorWorkspace) => {
+      const radio = root.querySelector<HTMLInputElement>(`[data-focus="scope:${workspace}"]`)!;
+      radio.checked = true;
+      radio.dispatchEvent(new Event('change'));
+      await editor.updateComplete;
+    };
+    expect(line()).toBeUndefined();
+    await pick('shared');
+    expect(line()).toBe('Editing All Layouts · Preview Shows List');
+    await pick('grid');
+    expect(line()).toBe('Editing Grid · Preview Shows List');
+    await pick('list');
+    expect(line()).toBeUndefined();
+    document.body.replaceChildren();
   });
 
   it('turns full for the session once the scope was changed or Change pressed', () => {
@@ -162,13 +190,42 @@ describe('section row summaries', () => {
       'Title: Family · Show Toolbar: Off · Set: 1',
     );
     expect(summaryOf(page('events'), { ...LIST_CARD, show_time: false }, 'shared')).toBe(
-      'Show Time: Off · Show Location: On · Time Format: Follow Home Assistant · Set: 1',
+      'Location · Now · Time Format: Follow Home Assistant · Set: 1',
     );
     // Without a weather entity, Show The Forecast is not built, and an empty entity says nothing.
     expect(summaryOf(page('weather'), LIST_CARD, 'shared')).toBe('');
     expect(
       summaryOf(page('weather'), { ...LIST_CARD, weather: { entity: 'weather.home' } }, 'shared'),
     ).toBe('Weather Entity: weather.home · Show The Forecast: In the Day Header · Set: 1');
+  });
+
+  // A chip stands for its group, named by the chips pressed: label-value pairs under-reported
+  // what an event shows, naming two of its eight parts.
+  it('names a chip group by its pressed chips, the Events parts and the toolbar’s controls', () => {
+    const parts = {
+      ...LIST_CARD,
+      show_end_time: true,
+      show_countdown: 'once_per_day',
+      show_now_indicator: false,
+    };
+    expect(summaryOf(page('events'), parts, 'shared')).toBe(
+      'Time · End Time · Location · Countdown · Time Format: Follow Home Assistant · Set: 3',
+    );
+    // None pressed: the group says nothing.
+    const none = {
+      ...LIST_CARD,
+      show_time: false,
+      show_location: false,
+      show_now_indicator: false,
+    };
+    expect(summaryOf(page('events'), none, 'shared')).toBe(
+      'Time Format: Follow Home Assistant · Set: 3',
+    );
+    // The toolbar's controls only while the toolbar shows them.
+    const toolbar = { ...LIST_CARD, toolbar: { show: true, reset: false, search: false } };
+    expect(summaryOf(page('card_header'), toolbar, 'shared')).toMatch(
+      /^Show Toolbar: On · Add Event · View Switcher · Refresh · Date Navigation · Set: 3$/,
+    );
   });
 
   it('counts each stored value once, and one a gate holds back as well', () => {

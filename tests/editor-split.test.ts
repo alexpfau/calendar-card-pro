@@ -307,6 +307,22 @@ describe('Split This Calendar on an entry’s page', () => {
     expect(root(editor).querySelector('.split-row')).toBeNull();
   });
 
+  // Plan section 5.6: first the row, then the fields the entry stores under Which Events.
+  it('draws its row first under Which Events, above the fields stored there', async () => {
+    const { editor } = await onBensPage({
+      entity: 'calendar.ben',
+      blocklist: 'Dentist',
+      event_type: 'timed',
+    });
+    const heading = root(editor).querySelector('[data-heading="page.which_events"]')!;
+    const row = heading.querySelector('.split-row')!;
+    const fields = [...heading.querySelectorAll('[data-field]')];
+    expect(fields.length).toBeGreaterThan(0);
+    for (const field of fields) {
+      expect(row.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+  });
+
   it('splits All-Day vs. With a Time in one undo step, previewing both parts on the way', async () => {
     const { editor, paths } = await onBensPage();
     const [benKey, annaKey] = keysOf(editor, 'entry');

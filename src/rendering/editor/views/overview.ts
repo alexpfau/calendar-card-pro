@@ -31,7 +31,7 @@ export interface ScopeModel {
   readonly choices: ReadonlyArray<ScopeChoice>;
   /** The label of the layout the card displays, for the preview line. */
   readonly displayedLabel: string;
-  /** Whether the scope is a layout the card does not display, so the preview shows another. */
+  /** Whether the scope is not the layout the card displays (All Layouts or another layout). */
   readonly previewDiffers: boolean;
 }
 

@@ -24,6 +24,7 @@ import {
   entry,
   formOf,
   formsOf,
+  lastConfig,
   mountEditor,
   openPageOf,
   openPanels,
@@ -319,5 +320,63 @@ describe('direct view forms and resets', () => {
     await changeField(element, 'layout:day_spacing', '20px');
 
     expect(escaped).toBe(0);
+  });
+});
+
+/**
+ * Home Assistant's ✕ on a dropdown clears it to no value. A derived dropdown read that as a choice
+ * of its own, so Duplicates stored `filter_duplicates: false`; in a layout's scope the clear wrote
+ * the layout an override (`list: { filter_duplicates: false }`) where nothing was stored. Cleared,
+ * a dropdown now deletes its line where the scope writes it, as its Reset does.
+ */
+describe("a dropdown's clear button", () => {
+  const CASES: ReadonlyArray<readonly [string, string, Record<string, unknown>]> = [
+    ['content:filter_duplicates_mode', 'filter_duplicates', { filter_duplicates: true }],
+    ['content:first_day_of_week', 'first_day_of_week', { first_day_of_week: 'monday' }],
+    ['day_header:week_number_mode', 'show_week_numbers', { show_week_numbers: 'iso' }],
+    ['day_header:today_indicator_style', 'today_indicator', { today_indicator: 'dot' }],
+  ];
+
+  async function inAllLayouts(config: Record<string, unknown>): Promise<EditorHost> {
+    const element = await mountEditor({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: ['calendar.a'],
+      ...config,
+    });
+    await changeField(element, 'workspace:editing_workspace', 'shared');
+    return element;
+  }
+
+  it.each(CASES)('clears %s to what its Reset leaves', async (id, keys, config) => {
+    const cleared = await inAllLayouts(config);
+    await openPageOf(cleared, id);
+    emitChange(formOf(cleared, id)!, { [id]: undefined });
+    await cleared.updateComplete;
+    const afterClear = lastConfig(cleared);
+
+    const reset = await inAllLayouts(config);
+    const button = await resetButton(reset, keys);
+    expect(button).not.toBeNull();
+    button!.click();
+    await reset.updateComplete;
+
+    expect(afterClear).toEqual(lastConfig(reset));
+    expect(afterClear).not.toHaveProperty(keys);
+  });
+
+  it('writes nothing in a layout scope where only All Layouts stores the value', async () => {
+    const element = await mountEditor({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: ['calendar.a'],
+      filter_duplicates: true,
+    });
+    const seen = reported(element);
+    await openPageOf(element, 'content:filter_duplicates_mode');
+    emitChange(formOf(element, 'content:filter_duplicates_mode')!, {
+      'content:filter_duplicates_mode': undefined,
+    });
+    await element.updateComplete;
+    expect(seen.map((config) => config.list)).not.toContainEqual({ filter_duplicates: false });
+    expect(seen.every((config) => config.filter_duplicates === true)).toBe(true);
   });
 });
