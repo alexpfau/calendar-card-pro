@@ -16,9 +16,9 @@ view: column
 days_to_show: 5
 ```
 
-In the [visual editor](/features/editor#options-for-the-selected-view), **Card Displays**
-chooses the layout the card opens with. Select **Columns** under **Editing Settings For** to
-edit column view's own values, including its column-only options, without changing
+In the [visual editor](/features/editor#options-for-the-selected-view), **Card Displays** on
+the overview chooses the layout the card opens with. Select **Columns** under **Settings For**
+to edit column view's own values, including its column-only options, without changing
 **Card Displays**.
 
 Column view is responsive by design: a card too narrow to give every configured day a readable
@@ -184,7 +184,7 @@ Which class of event it keeps, and whether it hides when there is nothing to sho
 
 `event_type` · `hide_when_empty`
 
-An entry the card does not recognize is ignored rather than treated as an error, so one stray line cannot break the rest of the card. If an override seems to do nothing, check it is not one of the options above. The visual editor lists every such option when it opens and offers to move it; see [Options the Card Ignores](/features/editor#options-the-card-ignores).
+An entry the card does not recognize is ignored rather than treated as an error, so one stray line cannot break the rest of the card. If an override seems to do nothing, check it is not one of the options above. The visual editor names every such option under **Options the Card Ignores** at the top of its overview and offers to move it; see [Options the Card Ignores](/features/editor#options-the-card-ignores).
 
 Three options sound as though they belong in the first list, and do not:
 
@@ -240,10 +240,10 @@ column has no such band: each day of the event is a row in its column, as
 `split_multiday_events` decides. It does nothing in list view either.
 
 ::: tip Hidden When Editing Column View
-The editor omits these controls in the Columns workspace, including the per-calendar compact
-limit and grid banner setting. Stored values are preserved and still apply where they are read:
-in List, which the card falls back to, and the banner setting in Grid. To change them, select
-that layout under Editing Settings For; Card Displays stays unchanged.
+The editor omits these controls while **Settings For** is Columns, including the per-calendar
+compact limit and grid banner setting. Stored values are preserved and still apply where they
+are read: in List, which the card falls back to, and the banner setting in Grid. To change them,
+select that layout under **Settings For**; **Card Displays** stays unchanged.
 See [Options for the Selected View](/features/editor#options-for-the-selected-view).
 :::
 

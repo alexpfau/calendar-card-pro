@@ -462,14 +462,14 @@ blue without a chip of their own.
 
 - **Its events always show,** even on a device that hid the calendar before it was left out.
 - **A card whose every calendar is left out has no filter,** exactly as with `legend: false`.
-- **In the visual editor** it is the **Show in Calendar Filter** switch under each calendar's
-  **Name**, offered while the toolbar shows a filter.
+- **In the visual editor** it is the **Show in Calendar Filter** switch on each calendar's page,
+  under **Name & Look**, offered while the toolbar shows a filter.
 
 ::: details Calendars Listed Twice
 
 The setting belongs to the calendar, not to one entry in `entities`. The
-[visual editor](/features/editor#per-calendar-panels-actions) writes it to every entry for that
-calendar, and in YAML the first entry that sets it wins.
+[visual editor](/features/editor#entry-pages) writes it to every entry for that calendar, and in
+YAML the first entry that sets it wins.
 
 :::
 
@@ -589,11 +589,13 @@ read right to left the top row is mirrored, and an icon is drawn as you chose it
 On a narrow card your buttons, and then the add button, move into a menu button, three dots, and
 come back into the row as the card widens.
 
-In the [visual editor](/features/editor#editor-organization), the buttons are under
-**Card & Header** while the toolbar is shown, a panel for each with **Move Up**, **Move Down** and
-**Remove**. **Add Button**, after the last, adds one with the `mdi:gesture-tap-button` icon for you
-to change, and **Tap Action** offers the card's own actions first, **Go Back** among them. The
-editor has no field for `back`'s `navigation_path`; write that in YAML.
+In the [visual editor](/features/editor#pages-back), the buttons are on the **Card & Header**
+page under **Your Own Buttons** while the toolbar is shown, a row for each with **Move Up**,
+**Move Down**, **Remove** and a handle to drag it into place. Each row holds **Icon**, **Name**,
+**Entity** and **Tap Action**. **Add Button**, after the last, adds one with the
+`mdi:gesture-tap-button` icon for you to change, and **Tap Action** offers the card's own actions
+first, **Go Back** among them. The editor has no field for `back`'s `navigation_path`; write that
+in YAML.
 
 ::: details Buttons on Narrow Cards
 
@@ -981,7 +983,7 @@ as a week number, a quarter or a sprint name.
 Find it under **Day Header → Today Indicator**, where **Style** offers **None**,
 **Date Tile**, **Dot**, **Pulsing Dot**, **Glowing Dot**, **An Icon** and
 **An Emoji or Image**. The date tile takes only an **Indicator Color**; the other styles add
-an **Indicator Size**, and in the List workspace an **Indicator Position**.
+an **Indicator Size**, and while **Settings For** is List an **Indicator Position**.
 :::
 
 ::: warning Changed In v5

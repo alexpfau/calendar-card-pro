@@ -77,12 +77,13 @@ The name is used wherever the card itself names a calendar:
   for the calendars it can move to or a new event can be added to;
 - the "Couldn't load: …" line at the foot of the card when a calendar
   [fails to load](/features/performance#when-a-calendar-fails-to-load);
-- the names [grid view](/features/grid-view) gives icon and picture labels for screen readers.
+- the names [grid view](/features/grid-view) gives icon and picture labels for screen readers;
+- the [visual editor's](/features/editor#calendars) calendar list and each calendar's page.
 
 Left unset, each of these keeps Home Assistant's name for the calendar, or its entity ID where
 Home Assistant has none. Home Assistant's own controls keep Home Assistant's name either way:
-the calendar picker in the visual editor, the heading of each calendar's panel beneath it, and
-Home Assistant's more-info dialog.
+the calendar picker behind the visual editor's **Add Calendar**, and Home Assistant's more-info
+dialog.
 
 A name never draws on an event row. That is what [`label`](#choosing-how-a-label-is-read) is
 for, and a calendar can have either, both or neither.
@@ -91,8 +92,8 @@ for, and a calendar can have either, both or neither.
 
 - The name belongs to the calendar, not to one entry in `entities`. A calendar listed twice, as
   [splitting it by event type](#separating-all-day-from-timed-events) does, has one name: the
-  [visual editor](/features/editor#per-calendar-panels-actions) writes it to every entry for
-  that calendar, and in YAML the first entry that sets one wins.
+  [visual editor](/features/editor#entry-pages) writes it to every entry for that calendar, and
+  in YAML the first entry that sets one wins.
 - A calendar whose entity ID Home Assistant does not know, usually because of a typo, keeps its
   ID beside its name in the "Couldn't load" line, as in "Couldn't load: Anna
   (calendar.ana_personal)", so the entry to fix is easy to find.
@@ -133,9 +134,9 @@ entities:
 ```
 
 A calendar's events show while every condition in its list holds, and a calendar with no list
-always shows. In the [visual editor](/features/editor#per-calendar-panels-actions), each
-calendar's panel has a **Visibility** section holding Home Assistant's own Visibility editor, the
-one under a card's **Visibility** tab, which picks people by name rather than by ID.
+always shows. In the [visual editor](/features/editor#entry-pages), each calendar's page has a
+**Who Sees It** heading holding Home Assistant's own Visibility editor, the one under a card's
+**Visibility** tab, which picks people by name rather than by ID.
 
 Every condition that editor offers works here:
 
@@ -163,7 +164,7 @@ the dashboard can read its configuration, conditions included.
   `device` or a `state` held `for` a while stays hidden, and the browser console says why once.
   2026.6 to 2026.9 judge them for administrators only. A template binary sensor does the same job
   on any version: put the test in the sensor, and use `condition: state` on it.
-- Before Home Assistant 2023.11, which has no Visibility editor to lend, the panel takes the
+- Before Home Assistant 2023.11, which has no Visibility editor to lend, the page takes the
   conditions as YAML instead.
 - Written by hand, a `state` or `numeric_state` condition naming its entity with `entity` rather
   than `entity_id` cannot wait (`for`) or use a `value_template`. Its calendar stays hidden, and
@@ -279,8 +280,8 @@ Existing configurations need no change: leave `label_type` out and the card read
 as described above.
 
 ::: tip Visual Editor
-The **Label Type** dropdown under each calendar writes this for you, and only when it has
-to. Pick a type and the right control appears below it — a text box, Home Assistant's icon
+The **Label Type** dropdown on each calendar's page, under **Name & Look**, writes this for
+you, and only when it has to. Pick a type and the right control appears below it — a text box, Home Assistant's icon
 browser, or a path field — along with **Label Icon Color** where the label is an icon.
 :::
 
@@ -449,7 +450,7 @@ results and calendar filter keep the card's sizes. Left unset, or set to anythin
 above 0, the calendar's events draw as the card's do.
 
 ::: tip Visual Editor
-**Text Scale** is the last field under **Name & Appearance** in each calendar's panel.
+**Text Scale** is the last setting under **Name & Look** on each calendar's page.
 :::
 
 ::: details Calendars Listed Twice, Merged Rows, Grid Overlaps & Theming
@@ -479,7 +480,7 @@ above 0, the calendar's events draw as the card's do.
 Calendar Card Pro provides powerful filtering capabilities to control exactly which events appear on your dashboard:
 
 ::: tip Visual Editor
-Each calendar's own filters are under **Calendars**, in that calendar's panel, under **Event Filtering** — **Blocklist** and **Allowlist** among them, with **Match Against** choosing the field they read. **Filter Duplicates** works across calendars, so it is card-wide: find it under **Time Range & Content** → **Event Filtering**.
+Each calendar's own filters are on that calendar's page, under **Which Events**: **Blocklist** and **Allowlist** among them, each taking one word or phrase at a time, with **Match Against** choosing the field they read. **Filter Duplicates** works across calendars, so it is card-wide: find it on the **Which Events** page.
 :::
 
 ### Filtering by Event Name
@@ -586,8 +587,9 @@ entities:
 ```
 
 Because the same pattern is allowed in one block and blocked in the other, every event
-lands in exactly one of them — nothing is lost and nothing appears twice. The visual
-editor's **Duplicate** action on a calendar's panel builds the second block for you.
+lands in exactly one of them — nothing is lost and nothing appears twice. In the visual
+editor, [Split This Calendar](/features/editor#split-this-calendar) **By Words** builds both
+blocks for you.
 
 Teams meetings need no allowlist to get their icon; that happens on its own. This pattern
 is for when you want the two halves styled differently, or want a specific icon on the
@@ -657,12 +659,14 @@ below, and it composes with the name filters: a block may set `event_type` and a
 `allowlist` together, and an event has to satisfy both to appear.
 
 ::: tip Listing a Calendar Twice in the Visual Editor
-Home Assistant's calendar picker hides a calendar you have already chosen, so the second
-listing cannot be added there. Use **Duplicate** above the calendar's own settings
-instead: it lists the calendar again with the same settings, ready for you to change the
-one option that differs. The two panels are numbered so you can tell them apart, and
-**Remove** on the panel drops one block without taking the other — see
-[Per-Calendar Panels & Actions](/features/editor#per-calendar-panels-actions).
+**Split This Calendar** on the calendar's page builds both entries in one step: choose
+**All-Day vs. With a Time**, give each part its color, and check where the upcoming events
+land before you split. Undo takes it back. To add a second entry by hand, use **Duplicate**
+in the calendar's ⋮ menu, which lists it again with the same settings, ready for you to
+change the one option that differs. The entries sit under their calendar in the list, and
+**Remove** on one drops it without taking the other; see
+[Split This Calendar](/features/editor#split-this-calendar) and
+[Calendar Actions](/features/editor#calendar-actions).
 :::
 
 ::: tip It Describes the Kind of Event, Not Its Length
@@ -905,9 +909,9 @@ entities:
     # No label for remaining events
 ```
 
-In the visual editor, build this with **Duplicate** above the calendar's settings —
-once for each extra block — and then give each copy its own filter, label and color. See
-[Per-Calendar Panels & Actions](/features/editor#per-calendar-panels-actions).
+In the visual editor, build this with **Duplicate** in the calendar's ⋮ menu, once for each
+extra block, and then give each entry its own filter, label and color on its page. See
+[Calendar Actions](/features/editor#calendar-actions).
 
 Any event whose title matches two of these blocks is drawn once per block. If your patterns
 can overlap, add `filter_duplicates: true` — see
@@ -1300,8 +1304,8 @@ list:
 - **Within a day,** the latest event comes first and all-day events come last, so a limit of
   one keeps today's latest entry rather than an all-day event.
 - **List view only.** Column and grid view keep time running forward, and the option applies
-  again whenever they fall back to a list on a narrow card. The visual editor offers it under
-  Time Range when List is the layout being edited.
+  again whenever they fall back to a list on a narrow card. The visual editor offers it on the
+  **Which Events** page while **Settings For** is List.
 - **Today and paging stay as they are.** The today indicator still marks today, and the
   [date navigation](/features/layout-appearance#paging-through-dates) still moves back and
   forward in time.
@@ -1356,7 +1360,7 @@ its own — see
 [Showing a Different Number of Days in Each Layout](#showing-a-different-number-of-days-in-each-layout).
 
 In the [visual editor](/features/editor#options-for-the-selected-view), choose All Layouts
-to edit shared values or a named layout to edit only its block.
+under **Settings For** to edit shared values, or a named layout to edit only its block.
 
 ::: tip Older Configurations Keep Working
 List options written at the top level, as cards from before v5 have them, are still read

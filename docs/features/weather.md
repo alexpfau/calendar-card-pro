@@ -32,7 +32,7 @@ weather:
 ```
 
 ::: tip Visual Editor
-In the editor's **Weather** panel, choose a **Weather Entity** and **Show The Forecast** appears. Where you send the forecast decides which groups follow: **In the Day Header**, **Beside Each Event**, or both, each holding the options for its position.
+On the editor's **Weather** page, choose a **Weather Entity** and **Show The Forecast** appears. Where you send the forecast decides which groups follow: **In the Day Header**, **Beside Each Event**, or both, each holding the options for its position.
 :::
 
 ## ⚙️ Weather Configuration Options
@@ -126,7 +126,7 @@ The option can only take weather away. `position` decides whether events get wea
 while it is `date` or `none` this changes nothing, and `true` draws what the card draws anyway.
 
 ::: tip Visual Editor
-**Event Weather** is the last field under **Event Details** in each calendar's panel. It appears
+**Event Weather** is the last setting under **Event Details** on each calendar's page. It appears
 once the card shows the forecast beside events.
 :::
 

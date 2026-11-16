@@ -159,7 +159,7 @@ event_tap_action:
   action: details
 ```
 
-`event_tap_action` also takes Home Assistant's own actions, which can [use the tapped event's fields](#using-the-events-fields-in-an-action), such as a `url` built from its title. Left at `none`, the default, events are not tap targets, and a tap on one is a tap on the card that runs `tap_action`. The card's own actions, `expand`, `refresh`, `add-event`, `reset` and `back`, are about the whole card or the page, so on an event they read as `none` too. The visual editor's Event Tap Action dropdown offers Show Event Details and Home Assistant's actions.
+`event_tap_action` also takes Home Assistant's own actions, which can [use the tapped event's fields](#using-the-events-fields-in-an-action), such as a `url` built from its title. Left at `none`, the default, events are not tap targets, and a tap on one is a tap on the card that runs `tap_action`. The card's own actions, `expand`, `refresh`, `add-event`, `reset` and `back`, are about the whole card or the page, so on an event they read as `none` too. In the visual editor, the **Tapping an Event Opens It** switch on the [overview](/features/editor#the-overview) sets `details`, and the Event Tap Action dropdown on the **Taps & Refresh** page offers Show Event Details and Home Assistant's actions.
 
 ### Event Details
 
