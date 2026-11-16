@@ -2774,7 +2774,7 @@ Behavior-preserving.
   `tests/event-sort-order.test.ts` and `tests/editor-calendar-list.test.ts` fail across the five
   projects. Card +532 B raw, +190 B gzip -9 (644,751 B, 179,545 B); the editor's sha256 is
   unchanged.
-  - **Still open:** with Filter Duplicates on, two events of one calendar alike in title, start,
+  - **Known limitation, left as is:** with Filter Duplicates on, two events of one calendar alike in title, start,
     end and location but told apart by the field a split by words reads keep different copies:
     the calendar listed once keeps the first to arrive, the split keeps the worded part's, drawn
     in the same place. That follows the documented rule that the first entry's copy wins and
