@@ -175,10 +175,11 @@ describe.each<{
 
 describe('a visit to a page', () => {
   it('leaves the overview’s forms as they were, the very elements with the very inputs', async () => {
-    // A start offset draws a fourth form on the overview, beside the search bar and the first two.
+    // A start offset draws a fourth form on the overview, beside the search bar, Days To Show and
+    // Tapping an Event Opens It; Start Date's chips are no form. Not `+1`, which reads as Tomorrow.
     const editor = await mountEditor({
       ...CONFIG,
-      start_date: '+1',
+      start_date: '+2',
     });
     const forms = drawnHere(editor);
     const before = inputsOf(forms);

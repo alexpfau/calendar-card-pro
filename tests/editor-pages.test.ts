@@ -121,9 +121,10 @@ describe('the overview', () => {
     });
   });
 
-  it('names its two radio groups, each option with a value', async () => {
+  it('names its three radio groups, each option with a value', async () => {
     const editor = await mountEditor({ ...CARD, toolbar: { show: true } });
-    for (const name of ['scope', 'view']) {
+    // Settings For, Card Displays, and Start Date's chips.
+    for (const name of ['scope', 'view', 'start_date_mode']) {
       const radios = [
         ...editor.shadowRoot!.querySelectorAll<HTMLInputElement>(`input[type="radio"]`),
       ].filter((radio) => radio.name === name);
@@ -136,7 +137,7 @@ describe('the overview', () => {
     }
     expect(
       [...editor.shadowRoot!.querySelectorAll<HTMLInputElement>('input[type="radio"]')].every(
-        (radio) => radio.name === 'scope' || radio.name === 'view',
+        (radio) => ['scope', 'view', 'start_date_mode'].includes(radio.name),
       ),
     ).toBe(true);
   });

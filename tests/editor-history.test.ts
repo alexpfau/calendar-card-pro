@@ -336,7 +336,8 @@ describe('Undo restores exactly', () => {
     const { editor } = await mount({
       config_version: VERSION,
       entities: ['calendar.anna'],
-      start_date: '+1',
+      // Not `+1`, which reads as Tomorrow and draws no Expression field.
+      start_date: '+2',
     });
     await changeField(editor, 'content:start_date_offset', '-');
     const held = { ...internals(editor)._pending };

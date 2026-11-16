@@ -15,13 +15,11 @@ import { bool, color, number, select, text } from './common';
  * The start-date controls, which vary with the shape of the value.
  *
  * @param language - Effective language code
- * @param mode - Derived start-date mode
+ * @param mode - Start-date mode, as presented
  * @returns The mode selector and the control it calls for
  */
 function startDateFields(language: string, mode: string): HaFormSchema[] {
-  const fields: HaFormSchema[] = [
-    select(language, 'start_date_mode', ['default', 'fixed', 'offset']),
-  ];
+  const fields: HaFormSchema[] = [select(language, 'start_date_mode', Synthetic.START_DATE_MODES)];
 
   if (mode === 'fixed') {
     fields.push({ name: 'start_date_fixed', selector: { text: { type: 'date' } } });
@@ -50,7 +48,7 @@ function compactFields(hasEventLimit: boolean): HaFormSchema[] {
  * Builds the Time Range & Content panel schema.
  *
  * @param language - Effective language code
- * @param startMode - Derived start-date mode
+ * @param startMode - Start-date mode, as presented (`synthetic.ts` › `modeFor`)
  * @param languageMode - Derived language mode
  * @param hasEventLimit - Whether a compact event limit is set, which is what the
  *   `compact_events_complete_days` toggle depends on
@@ -118,7 +116,7 @@ export function buildContentSchema(ctx: SchemaCtx): HaFormSchema[] {
   const workspace = ctx.workspace ?? ctx.view;
   return contentSchema(
     ctx.language,
-    Synthetic.startDateMode(ctx.config),
+    Synthetic.modeFor(ctx, 'start_date_mode', Synthetic.startDateMode),
     Synthetic.languageMode(ctx.config),
     hasCompactEventLimit(ctx.config),
     Boolean(resolveWorkspaceOption(ctx.config, 'show_empty_days', workspace)),

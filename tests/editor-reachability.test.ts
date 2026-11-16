@@ -50,8 +50,8 @@ function holds(schema: ReadonlyArray<HaFormSchema>, node: unknown): boolean {
 
 /**
  * The fields reached on the open place: each frame's id, where its form holds the node the
- * index built for that id, or where it draws that id's color control, which reaches the value of
- * a mode it absorbs as well.
+ * index built for that id, where it draws that id's color control, which reaches the value of
+ * a mode it absorbs as well, or where it is a control composed for that id.
  *
  * @param editor - Editor element
  * @param nodes - The present fields' nodes by id
@@ -72,6 +72,9 @@ function reached(
       const edits = spec === undefined ? [] : spec.mode === id ? [id, spec.value] : [id];
       return edits.filter((each) => nodes.has(each));
     }
+    // A control the editor composes for its field reaches that field: Start Date's chips, the
+    // line Tapping an Event Opens It gives way to, a word list one term at a time.
+    if (frame.hasAttribute('data-composed')) return nodes.has(id) ? [id] : [];
     const form = frame.querySelector('ha-form') as { schema?: ReadonlyArray<HaFormSchema> } | null;
     return form?.schema && nodes.has(id) && holds(form.schema, nodes.get(id)) ? [id] : [];
   });

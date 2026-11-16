@@ -97,6 +97,7 @@ describe('the gate lines’ clauses', () => {
       'compact_days content:compact_events_to_show': 'gate.when.events_limit',
       'open_links actions:event_tap_action': 'gate.when.no_event_actions',
       'open_links actions:event_hold_action': 'gate.when.no_event_actions',
+      'open_links actions:event_opens_details': 'gate.when.no_event_actions',
       'empty_days content:show_empty_days': 'gate.when.empty_or_today',
       'empty_days content:show_empty_today': 'gate.when.empty_or_today',
       'label_icon_color calendar:label_type': 'gate.when.label_icon',

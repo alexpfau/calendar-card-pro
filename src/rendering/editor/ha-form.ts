@@ -19,7 +19,16 @@ export interface SelectOption {
  */
 export type Selector =
   | { boolean: Record<string, never> | null }
-  | { text: { multiline?: boolean; prefix?: string; suffix?: string; type?: string } | null }
+  | {
+      text: {
+        multiline?: boolean;
+        prefix?: string;
+        suffix?: string;
+        type?: string;
+        /** One input per value, the value a list: the word lists' terms. */
+        multiple?: boolean;
+      } | null;
+    }
   | {
       number: {
         min?: number;

@@ -246,11 +246,12 @@ describe('the feeds in the rendered editor', () => {
       );
     const live = (): string[] => feeds().filter((each) => each.endsWith(' live'));
 
-    // The overview: the filter bar, Days to Show and Start Date; its calendars are rows.
+    // The overview: the filter bar, Days to Show and Tapping an Event Opens It; Start Date is the
+    // editor's own chips, and its calendars are rows.
     expect(feeds()).toEqual([
       'filter-form steady',
       'content:days_to_show steady',
-      'content:start_date_mode steady',
+      'actions:event_opens_details steady',
     ]);
 
     // An entry's page: its Calendar picker, each field in a form of its own, and the Visibility
