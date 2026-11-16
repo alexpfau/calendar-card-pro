@@ -1,9 +1,11 @@
 /**
  * What This Card Changes (backlog item 307, the editor redesign's PR 16): every line the YAML
- * stores, grouped by where it lives, each with its YAML path and state words; Edit mounts the
- * line's own control and writes where the line lives, whatever the scope; Reset All in a layout
- * is one undo step; lines the editor does not own are read-only. And values from YAML: a
- * dropdown holding a value none of its options offers shows it, "(From YAML)", and keeps it.
+ * stores, grouped as Whole Card, All Layouts, each layout, each calendar and the lines kept as
+ * written, worded as the editor words them, with the YAML path only on request; each owned line
+ * one button opening a strip, whose Change Here mounts the line's own control and writes where
+ * the line lives, whatever the scope; Reset leaves a line with Undo; Reset All in a layout is one
+ * undo step; lines the editor does not own are read-only. And values from YAML: a dropdown
+ * holding a value none of its options offers shows it, "(From YAML)", and keeps it.
  */
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -19,6 +21,7 @@ import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as Audit from '../src/rendering/editor/audit';
 import { corpus } from '../src/rendering/editor/gates';
+import { EDITOR_STRINGS, interpolate } from '../src/rendering/editor/strings';
 import { isConfigBlock } from '../src/utils/helpers';
 
 type Editor = Awaited<ReturnType<typeof mountEditor>>;
@@ -90,6 +93,49 @@ function rows(
   );
 }
 
+/** The `data-focus` key of a line's row, the one button it is. */
+const rowKey = (path: string): string => `[data-focus="${CSS.escape(`more:audit:${path}`)}"]`;
+
+/**
+ * A line's strip, opened by pressing its row as a user does: each action's words and name.
+ *
+ * @param editor - Editor element, on the page
+ * @param path - The line
+ * @returns Its actions
+ */
+async function strip(
+  editor: Editor,
+  path: string,
+): Promise<Array<{ id: string; label: string; name: string }>> {
+  const row = $(editor, rowKey(path))!;
+  if (row.getAttribute('aria-expanded') !== 'true') await click(editor, rowKey(path));
+  return [
+    ...editor.shadowRoot!.querySelectorAll<HTMLElement>(
+      `[data-audit="${CSS.escape(path)}"] .strip button`,
+    ),
+  ].map((button) => ({
+    id: button.dataset.focus!.split(':').pop()!,
+    label: text(button.querySelector('.strip-label')),
+    name: button.getAttribute('aria-label')!,
+  }));
+}
+
+/**
+ * Presses one action of a line's strip, opening it first: `change`, `open` or `reset`.
+ *
+ * @param editor - Editor element, on the page
+ * @param path - The line
+ * @param action - The action
+ */
+async function act(
+  editor: Editor,
+  path: string,
+  action: 'change' | 'open' | 'reset',
+): Promise<void> {
+  await strip(editor, path);
+  await click(editor, `[data-focus="${CSS.escape(`strip:audit:${path}:${action}`)}"]`);
+}
+
 /** Every leaf of a stored configuration, by path, past what the page never lists. */
 function storedLeaves(raw: Readonly<Record<string, unknown>>): string[] {
   const out: string[] = [];
@@ -126,14 +172,8 @@ describe('What This Card Changes, its groups', () => {
       (groups[row.group] ??= []).push(path);
     }
     expect(groups).toEqual({
-      'audit:card': [
-        'view',
-        'days_to_show',
-        'title',
-        'refresh_interval',
-        'toolbar.show',
-        'toolbar.legend',
-      ],
+      'audit:whole': ['view', 'title', 'refresh_interval', 'toolbar.show', 'toolbar.legend'],
+      'audit:card': ['days_to_show'],
       'audit:list': ['list.show_past_events', 'list.description_font_size'],
       'audit:grid': ['time_grid.start_time', 'time_grid.end_time', 'time_grid.show_location'],
       'audit:entry:0': ['entities[0].label', 'entities[0].accent_color'],
@@ -151,7 +191,12 @@ describe('What This Card Changes, its groups', () => {
       'calendar.anna',
       'calendar.bin_day',
     ]);
-    expect(text($(editor, '.audit-count'))).toBe('Set: 15 · Not in Use: 1');
+    // Group titles in that order, and no counts anywhere: the scope chips have none to match.
+    expect(
+      [...editor.shadowRoot!.querySelectorAll('.audit h3')].map((title) => text(title)),
+    ).toEqual(['Whole Card', 'All Layouts', 'List', 'Grid', 'Calendars', 'Kept as Written']);
+    expect(editor.shadowRoot!.querySelector('.audit-count')).toBeNull();
+    expect(text($(editor, '.audit'))).not.toMatch(/Set: \d/);
   });
 
   /**
@@ -205,42 +250,69 @@ describe('What This Card Changes, its groups', () => {
       remove_location_country: true,
     };
     const config = { ...Config.DEFAULT_CONFIG, ...raw } as unknown as Types.Config;
-    const [card] = Audit.auditGroups({ raw, config, entryKeys: [0] });
+    const top = Audit.auditGroups({ raw, config, entryKeys: [0] })
+      .filter((group) => group.kind === 'whole' || group.kind === 'card')
+      .flatMap((group) => group.lines);
 
-    expect(Object.fromEntries(card.lines.map((line) => [line.text, line.field]))).toEqual({
+    expect(Object.fromEntries(top.map((line) => [line.text, line.field]))).toEqual({
       start_date: 'content:start_date_fixed',
       // A mode whose value is not drawn: the mode is the line's control.
       remove_location_country: 'events:location_country_mode',
     });
   });
 
-  it('shows every row its YAML path and its state words', async () => {
+  it('words each row, its YAML path only with Show YAML Option Names on, and no “Set”', async () => {
     const editor = await mountEditor(WALL);
     await openAudit(editor);
     const all = rows(editor);
 
+    // The group says where a line lives, so a row says only what is worth knowing about it.
     for (const [path, row] of Object.entries(all)) {
-      const [code, ...words] = row.meta.split(' · ');
-      expect(code, path).toBe(path);
-      expect(words.join(' · '), path).not.toBe('');
+      expect(row.meta, path).not.toMatch(/\bSet\b/);
+      expect(row.meta, path).not.toContain(path);
     }
-    expect(all.days_to_show.meta).toBe('days_to_show · Set');
-    expect(all.refresh_interval.meta).toBe(
-      'refresh_interval · Whole Card · Set Same as the Default',
-    );
-    expect(all['toolbar.legend'].meta).toBe('toolbar.legend · Set');
-    expect(all['time_grid.end_time'].meta).toBe('time_grid.end_time · Set');
-    expect(all['time_grid.start_time'].meta).toBe('time_grid.start_time · Set Same as the Default');
+    expect(all.days_to_show.meta).toBe('');
+    expect(all.refresh_interval.meta).toBe('Same as the Default');
+    expect(all['time_grid.end_time'].meta).toBe('');
+    expect(all['time_grid.start_time'].meta).toBe('Same as the Default');
     expect(all['list.description_font_size'].meta).toBe(
       // Show Description is the Description chip, so its clause says pressed (PR 18).
-      'list.description_font_size · Set Not in Use until Description is pressed',
+      'Not in Use until Description is pressed',
     );
-    expect(all['entities[2].event_type'].meta).toBe('entities[2].event_type · Set');
-    expect(all.grid_options.meta).toBe(
-      'grid_options · Kept as Written Home Assistant’s own, from the Layout tab',
-    );
+    expect(all.grid_options.meta).toBe('Home Assistant’s own, from the Layout tab');
     expect(all.grid_options.value).toBe('columns: 12');
     expect(all.view.value).toBe('List');
+    expect(all.days_to_show.value).toBe('7');
+
+    const yaml = await mountEditor(WALL, { yaml: true });
+    await openAudit(yaml);
+    const shown = rows(yaml);
+    for (const [path, row] of Object.entries(shown)) expect(row.meta, path).toMatch(/^\S+/);
+    expect(shown.days_to_show.meta).toBe('days_to_show');
+    expect(shown['time_grid.start_time'].meta).toBe('time_grid.start_time Same as the Default');
+    expect(shown['entities[2].glitter'].meta).toBe('entities[2].glitter');
+  });
+
+  it('says under All Layouts which layouts have their own value, a line each', async () => {
+    const editor = await mountEditor({
+      config_version: VERSION,
+      entities: ['calendar.anna'],
+      show_location: true,
+      list: { show_location: false },
+      time_grid: { show_location: false },
+    });
+    await openAudit(editor);
+    const row = $(editor, '[data-audit="show_location"]')!;
+    expect(row.closest<HTMLElement>('.audit-group')!.dataset.heading).toBe('audit:card');
+    expect([...row.querySelectorAll('.audit-own')].map((line) => text(line))).toEqual([
+      interpolate(EDITOR_STRINGS['state.layout_own'], { layout: 'List', value: 'Off' }),
+      interpolate(EDITOR_STRINGS['state.layout_own'], { layout: 'Grid', value: 'Off' }),
+    ]);
+    // And the row button is described by them, so a screen reader hears them with it.
+    const button = $(editor, rowKey('show_location'))!;
+    expect(editor.shadowRoot!.getElementById(button.getAttribute('aria-describedby')!)).toBe(
+      row.querySelector('.audit-meta'),
+    );
   });
 
   it('keeps lines the editor does not own read-only', async () => {
@@ -251,36 +323,65 @@ describe('What This Card Changes, its groups', () => {
     expect(all.card_mod.buttons).toEqual([]);
     expect(all.grid_options.buttons).toEqual([]);
     expect(all['entities[2].glitter'].buttons).toEqual([]);
-    expect(all['entities[2].glitter'].meta).toBe('entities[2].glitter · Kept as Written');
-    // An owned line has all three.
-    expect(all['time_grid.end_time'].buttons).toEqual([
-      'Edit Last Hour in Grid, 21:00',
-      'Reset Last Hour in Grid',
-      'Go to Last Hour in Grid',
-    ]);
-    expect(all['entities[0].label'].buttons).toEqual([
-      'Edit Label on calendar.anna, 🎒',
-      'Reset Label on calendar.anna',
-      'Go to Label on calendar.anna',
-    ]);
+    expect(all['entities[2].glitter'].meta).toBe('');
   });
 
-  it('names every button on the page uniquely', async () => {
+  it('makes an owned line one stop, whose strip says by ear what each action does', async () => {
+    const editor = await mountEditor(WALL);
+    await openAudit(editor);
+    // One button a row, closed, named by the setting and its value.
+    expect(rows(editor)['time_grid.end_time'].buttons).toEqual(['Last Hour in Grid: 21:00']);
+    const row = $(editor, rowKey('time_grid.end_time'))!;
+    expect(row.getAttribute('aria-expanded')).toBe('false');
+
+    expect(await strip(editor, 'time_grid.end_time')).toEqual([
+      { id: 'change', label: 'Change Here', name: 'Change Last Hour in Grid Here' },
+      { id: 'open', label: 'Open in Grid', name: 'Open Last Hour in Grid in Grid' },
+      { id: 'reset', label: 'Reset', name: 'Reset Last Hour in Grid' },
+    ]);
+    expect(row.getAttribute('aria-expanded')).toBe('true');
+    const group = $(editor, '[data-audit="time_grid.end_time"] .strip')!;
+    expect(group.getAttribute('role')).toBe('group');
+    expect(group.getAttribute('aria-label')).toBe('Actions for Last Hour in Grid');
+    // A calendar's line opens on its calendar's page, and says so.
+    expect((await strip(editor, 'entities[0].label')).map(({ name }) => name)).toEqual([
+      'Change Label on calendar.anna Here',
+      'Open Label on calendar.anna in calendar.anna',
+      // Its control leaves the page with its line, so the action is Remove.
+      'Remove Label on calendar.anna',
+    ]);
+    // Opening one strip closes the other; Escape closes it, focus back on its row.
+    expect($(editor, '[data-audit="time_grid.end_time"] .strip')).toBeNull();
+    $(editor, '[data-focus="strip:audit:entities[0].label:open"]')!.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }),
+    );
+    await editor.updateComplete;
+    await editor.updateComplete;
+    expect($(editor, '[data-audit="entities[0].label"] .strip')).toBeNull();
+    expect(editor.shadowRoot!.activeElement).toBe($(editor, rowKey('entities[0].label')));
+  });
+
+  it('names every button on the page uniquely, its strips open', async () => {
     const editor = await mountEditor(WALL);
     await openAudit(editor);
     const names = [...editor.shadowRoot!.querySelectorAll('.audit-group button')].map(
       (button) => button.getAttribute('aria-label') ?? text(button),
     );
-    expect(names.length).toBeGreaterThan(40);
+    for (const path of ['time_grid.end_time', 'list.show_past_events', 'days_to_show']) {
+      names.push(...(await strip(editor, path)).map(({ name }) => name));
+    }
+    expect(names.length).toBeGreaterThan(20);
     expect(names.filter((name, at) => names.indexOf(name) !== at)).toEqual([]);
   });
 
-  it('counts the lines it sets on the overview', async () => {
+  it('names on the overview where the card stores values, and what is not in use', async () => {
     const editor = await mountEditor(WALL);
 
     expect(text($(editor, '[data-focus="more:audit"] .nav-summary'))).toBe(
-      'Set: 15 · Not in Use: 1',
+      'Whole Card · All Layouts · List · Grid · calendar.anna · calendar.bin_day · Not in Use: 1',
     );
+    const fresh = await mountEditor({ config_version: VERSION, entities: ['calendar.anna'] });
+    expect(text($(fresh, '[data-focus="more:audit"] .nav-summary'))).toBe('Nothing Changed');
   });
 });
 
@@ -288,7 +389,7 @@ describe('What This Card Changes, its actions', () => {
   it('edits a line in place and writes where it lives, whatever the scope', async () => {
     const editor = await mountEditor(WALL);
     await openAudit(editor);
-    await click(editor, '[data-focus="edit:time_grid.end_time"]');
+    await act(editor, 'time_grid.end_time', 'change');
 
     const row = $(editor, '[data-audit="time_grid.end_time"]')!;
     const form = row.querySelector<HTMLElement & { data: Record<string, unknown> }>('ha-form')!;
@@ -315,8 +416,8 @@ describe('What This Card Changes, its actions', () => {
     });
     expect(stored).not.toHaveProperty('end_time');
     expect(stored.list).toEqual(WALL.list);
-    // Still open, on the new value; Escape closes it, focus back on its Edit.
-    expect(rows(editor)['time_grid.end_time'].meta).toBe('time_grid.end_time · Set');
+    // Still open, on the new value; Escape closes it, focus back on its row.
+    expect(rows(editor)['time_grid.end_time'].meta).toBe('');
     row
       .querySelector('ha-form')!
       .dispatchEvent(
@@ -326,7 +427,7 @@ describe('What This Card Changes, its actions', () => {
     await editor.updateComplete;
     expect($(editor, '[data-audit="time_grid.end_time"] ha-form')).toBeNull();
     expect(editor.shadowRoot!.activeElement?.getAttribute('data-focus')).toBe(
-      'edit:time_grid.end_time',
+      'more:audit:time_grid.end_time',
     );
     expect(rows(editor)['time_grid.end_time'].value).toBe('20:00');
   });
@@ -340,12 +441,10 @@ describe('What This Card Changes, its actions', () => {
       time_grid: { show_location: false },
     });
     await openAudit(editor);
-    expect(rows(editor)['time_grid.show_location'].buttons[0]).toBe(
-      'Edit Show Location in Grid, Off',
-    );
+    expect(rows(editor)['time_grid.show_location'].buttons[0]).toBe('Show Location in Grid: Off');
 
     // A part drawn as a chip on its page: Edit mounts its chip, pressed as the line stores it.
-    await click(editor, '[data-focus="edit:time_grid.show_location"]');
+    await act(editor, 'time_grid.show_location', 'change');
     const chip = $(editor, '[data-audit="time_grid.show_location"] button.chip')!;
     expect(chip.getAttribute('data-field')).toBe('events:show_location');
     expect(chip.getAttribute('aria-pressed')).toBe('false');
@@ -361,7 +460,7 @@ describe('What This Card Changes, its actions', () => {
     ).toBe('true');
 
     // Calendar Filter, a radio group on its page, mounts as that group and picks in place.
-    await click(editor, '[data-focus="edit:toolbar.legend"]');
+    await act(editor, 'toolbar.legend', 'change');
     const off = $(
       editor,
       '[data-audit="toolbar.legend"] fieldset.segmented input[type="radio"][value="off"]',
@@ -381,7 +480,7 @@ describe('What This Card Changes, its actions', () => {
       time_grid: { show_location: false },
     });
     await openAudit(editor);
-    await click(editor, '[data-focus="audit-go:time_grid.show_location"]');
+    await act(editor, 'time_grid.show_location', 'open');
     await editor.updateComplete;
     expect(
       editor.shadowRoot!.activeElement?.closest('[data-field]')?.getAttribute('data-field'),
@@ -396,7 +495,7 @@ describe('What This Card Changes, its actions', () => {
   it('edits a top-level line at the top level from Grid', async () => {
     const editor = await mountEditor({ ...WALL, view: 'grid' });
     await openAudit(editor);
-    await click(editor, '[data-focus="edit:days_to_show"]');
+    await act(editor, 'days_to_show', 'change');
 
     const form = $(editor, '[data-audit="days_to_show"] ha-form') as HTMLElement & {
       data: Record<string, unknown>;
@@ -417,7 +516,7 @@ describe('What This Card Changes, its actions', () => {
   it('edits a calendar line on its own entry', async () => {
     const editor = await mountEditor(WALL);
     await openAudit(editor);
-    await click(editor, '[data-focus="edit:entities[2].allday_expires_at"]');
+    await act(editor, 'entities[2].allday_expires_at', 'change');
 
     const form = $(
       editor,
@@ -457,18 +556,36 @@ describe('What This Card Changes, its actions', () => {
   it('resets one line where it lives, and a calendar line on its entry', async () => {
     const editor = await mountEditor(WALL);
     await openAudit(editor);
-    await click(editor, '[data-focus="audit-reset:time_grid.show_location"]');
-    await click(editor, '[data-focus="audit-reset:entities[0].accent_color"]');
+    await act(editor, 'time_grid.show_location', 'reset');
+    await act(editor, 'entities[0].accent_color', 'reset');
 
     const stored = lastConfig(editor)!;
     expect(stored.time_grid).toEqual({ start_time: '07:00', end_time: '21:00' });
     expect((stored.entities as unknown[])[0]).toEqual({ entity: 'calendar.anna', label: '🎒' });
   });
 
+  it('leaves a line saying what Reset did, with Undo, which takes focus and puts it back', async () => {
+    const editor = await mountEditor(WALL);
+    await openAudit(editor);
+    await act(editor, 'list.show_past_events', 'reset');
+
+    expect(lastConfig(editor)!.list).toEqual({ description_font_size: '20px' });
+    const bar = $(editor, '[data-heading="audit:list"] [data-status-bar]')!;
+    expect(text(bar)).toBe('Reset Show Past Events in List Undo');
+    expect(text($(editor, '.live-region'))).toBe('Reset Show Past Events in List.');
+    expect(editor.shadowRoot!.activeElement).toBe(bar.querySelector('[data-focus="status-undo"]'));
+    // Its row has gone, the line stands where it was.
+    expect($(editor, '[data-audit="list.show_past_events"]')).toBeNull();
+    await click(editor, '[data-focus="status-undo"]');
+    expect(lastConfig(editor)!.list).toEqual(WALL.list);
+    expect($(editor, '[data-audit="list.show_past_events"]')).not.toBeNull();
+    expect($(editor, '[data-status-bar]')).toBeNull();
+  });
+
   it('goes to a setting on its page, in its group’s scope', async () => {
     const editor = await mountEditor(WALL);
     await openAudit(editor);
-    await click(editor, '[data-focus="audit-go:time_grid.end_time"]');
+    await act(editor, 'time_grid.end_time', 'open');
 
     expect($(editor, '.page')!.dataset.page).toBe('grid');
     expect($(editor, '[data-field="layout:time_grid.end_time"]')).not.toBeNull();
@@ -476,7 +593,7 @@ describe('What This Card Changes, its actions', () => {
     await click(editor, '[data-focus="back-top"]');
     expect($(editor, '.page')!.dataset.page).toBe('audit');
     expect(editor.shadowRoot!.activeElement?.getAttribute('data-focus')).toBe(
-      'audit-go:time_grid.end_time',
+      'more:audit:time_grid.end_time',
     );
   });
 
@@ -537,7 +654,7 @@ describe('What This Card Changes, the review’s findings', () => {
     path: string,
     change: (data: Record<string, unknown>) => Record<string, unknown>,
   ): Promise<void> {
-    await click(editor, `[data-focus="edit:${path}"]`);
+    await act(editor, path, 'change');
     const form = $(editor, `[data-audit="${path}"] ha-form`) as HTMLElement & {
       data: Record<string, unknown>;
     };
@@ -578,11 +695,9 @@ describe('What This Card Changes, the review’s findings', () => {
     });
     await openAudit(editor);
     expect(
-      $(editor, '[data-audit="entities[0].accent_color"] [data-focus^="edit:"]')!.getAttribute(
-        'aria-label',
-      ),
-    ).toMatch(/^Edit Accent Color on /);
-    await click(editor, '[data-focus="edit:entities[0].accent_color"]');
+      (await strip(editor, 'entities[0].accent_color')).find(({ id }) => id === 'change')!.name,
+    ).toMatch(/^Change Accent Color on .* Here$/);
+    await act(editor, 'entities[0].accent_color', 'change');
     // Edit opens the control the line's setting is drawn as, its swatches there to pick.
     const row = $(editor, '[data-audit="entities[0].accent_color"]')!;
     expect(row.querySelector('.color-toggle')?.getAttribute('aria-expanded')).toBe('true');
@@ -605,7 +720,7 @@ describe('What This Card Changes, the review’s findings', () => {
       title_color: '#123456',
     });
     await openAudit(editor);
-    await click(editor, '[data-focus="edit:title_color"]');
+    await act(editor, 'title_color', 'change');
     const row = $(editor, '[data-audit="title_color"]')!;
     expect(row.querySelector('.color-toggle')?.getAttribute('aria-expanded')).toBe('true');
     const amber = row.querySelector<HTMLInputElement>('[data-swatch="amber"] input')!;
@@ -646,7 +761,7 @@ describe('What This Card Changes, the review’s findings', () => {
       entities: [{ entity: 'calendar.anna', multiday_banners: false }],
     });
     await openAudit(editor);
-    await click(editor, '[data-focus="audit-go:entities[0].multiday_banners"]');
+    await act(editor, 'entities[0].multiday_banners', 'open');
 
     expect($(editor, '.page')!.dataset.page).toBe(`entry:${0}`);
     expect($(editor, '[data-field="calendar:multiday_banners"]')).not.toBeNull();

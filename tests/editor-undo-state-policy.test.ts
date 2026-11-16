@@ -79,6 +79,9 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_added',
     '_addOpen',
     '_prefs',
+    // The ⋯ menu holding the preferences, and the page Search Settings left for the overview.
+    '_prefsOpen',
+    '_searchFrom',
     // The line What This Card Changes is editing in place.
     '_auditEdit',
     // Split This Calendar: Undo cancels an open run first, closes the panel a split left, and

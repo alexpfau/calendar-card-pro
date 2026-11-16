@@ -497,7 +497,7 @@ function topStored(field: IndexedField, ctx: PlanCtx): boolean {
  * @param field - The field
  * @returns `true` when its value can differ between layouts
  */
-function hasLayoutCopy(field: Pick<IndexedField, 'dataPath' | 'configKeys'>): boolean {
+export function hasLayoutCopy(field: Pick<IndexedField, 'dataPath' | 'configKeys'>): boolean {
   if (field.dataPath.length > 0) return BLOCK_KEYS.has(field.dataPath[0]);
   return field.configKeys.some((key) =>
     ViewConfig.VIEWS.some((view) => Routing.destination(key, view) !== undefined),

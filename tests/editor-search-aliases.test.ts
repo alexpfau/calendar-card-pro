@@ -85,6 +85,11 @@ const FAMILIES: Readonly<Record<string, Family>> = {
     scope: 'page',
     queries: ['Time Range & Content'],
   },
+  'panel.events.aliases': {
+    field: 'events',
+    scope: 'page',
+    queries: ['Events'],
+  },
   'page.taps_refresh.aliases': {
     field: 'taps_refresh',
     scope: 'page',

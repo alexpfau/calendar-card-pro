@@ -824,7 +824,7 @@ show_past_events: true # Keep finished events on the card
   rather than counting up.
 - For a log with the newest entry first, see [Event Order](/features/core-settings#event-order),
   and the [House Log](/guide/house-log) story for a complete card.
-- In the visual editor it comes with the **Countdown** part on the **Events** page.
+- In the visual editor it comes with the **Countdown** part on the **Event Appearance** page.
 
 ### Countdown Range
 

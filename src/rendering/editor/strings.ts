@@ -58,11 +58,16 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'audit.intro':
     'Every value this card stores, grouped by where it lives. Anything not listed uses its default.',
   'audit.not_in_use': 'Not in Use: {count}',
-  'audit.card': 'Card',
-  'audit.card_note': 'Stored for the whole card. Every layout uses these unless it sets its own.',
+  'audit.none': 'Nothing Changed',
+  'audit.whole_note': 'One value for every layout.',
+  'audit.all_layouts_note': 'Every layout uses these unless it has its own.',
   'audit.reset_all': 'Reset All in {layout}',
   'audit.reset_all_done': 'Reset every value stored for {layout}.',
-  'audit.edit': 'Edit {label}, {value}',
+  'audit.change_here': 'Change Here',
+  'audit.change_named': 'Change {label} Here',
+  'audit.open_in': 'Open in {page}',
+  'audit.open_named': 'Open {label} in {page}',
+  'audit.remove_named': 'Remove {label}',
   'audit.go_to': 'Go to {name}',
   'audit.go_setting': 'Go to Setting',
   'audit.in_layout': '{label} in {layout}',
@@ -86,6 +91,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'nav.crumb': '{page} › {heading}',
   'nav.cross_link.past_days': 'Dates of past days:',
   'nav.cross_link.past_events': 'Whether past events show:',
+  'nav.cross_link.days_of_week': 'Which days its events show:',
   'settings_for.label': 'Settings For',
   'settings_for.compact': 'Settings for {layout}',
   'settings_for.change': 'Change',
@@ -173,7 +179,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Setting rows. Remembered in this browser.',
   'prefs.yaml': 'Show YAML Option Names',
   'prefs.yaml_note':
-    'Shows each setting’s option name beside its label. Remembered in this browser.',
+    'Shows each setting’s option name beside its label, in search and in What This Card Changes. Remembered in this browser.',
+  'prefs.menu': 'Editor Preferences',
 
   // --- Undo & Redo ----------------------------------------------------------
   //
@@ -220,6 +227,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'search.not_set': 'Not Set',
   'search.yaml': 'YAML: {path}',
   'search.return': 'Return to Results',
+  'search.back_to': 'Back to {place}',
   'search.showing': 'Showing {label}.',
   // The tag on a setting a gate withholds, around a gate phrase below or the label of the control
   // it waits on (`plan.ts` › `needsTag`): "Needs Show Description".
@@ -228,8 +236,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'search.needs_said': '{label} needs {needs}.',
   'search.only_in': 'Only in {layouts}',
   'search.help_phrase': 'Help: “{phrase}”',
-  'search.add': 'Add',
-  'search.add_named': 'Add {label}, {place}',
   'search.edit_here': 'Edit Here',
   'search.show_list': 'Show as a List',
   'search.hint': 'Try fewer words, or an option name from YAML such as show_location.',
@@ -1275,7 +1281,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   week_number_background_color: 'Week Number Background Color',
 
   // --- Events ---------------------------------------------------------------
-  'panel.events': 'Events',
+  'panel.events': 'Event Appearance',
+  'panel.events.aliases': 'events',
   event_font_size: 'Event Font Size',
   event_color: 'Event Color',
   accent_color: 'Custom Accent Color',

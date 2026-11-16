@@ -43,6 +43,7 @@ import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { lookup } from '../src/rendering/editor/localize';
 import { ENTRY_GROUPS } from '../src/rendering/editor/pages';
 import { walkSchema } from '../src/rendering/editor/panels';
+import { keepsControl } from '../src/rendering/editor/plan';
 import { buildEntitySchema, entitySchemaFor } from '../src/rendering/editor/schemas/entity';
 import { search as searchRows } from '../src/rendering/editor/search';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
@@ -67,22 +68,55 @@ function fieldNames(schema: ReadonlyArray<HaFormSchema>): string[] {
   return sequence(schema).filter((name) => !name.startsWith('# '));
 }
 
+/**
+ * Names in the order a search lists a calendar's settings that all match alike: the ones its page
+ * draws on every card first (`search.ts` › `matchTier`), each half in page order.
+ *
+ * @param names - Field names, in page order
+ * @returns Them, essential first
+ */
+function essentialFirst(names: ReadonlyArray<string>): string[] {
+  const essential = new Set(
+    ENTRY_GROUPS.flatMap((group) => group.fields)
+      .filter(([, appearance]) => keepsControl(appearance))
+      .map(([id]) => id.split(/[:.]/).pop()!),
+  );
+  return [
+    ...names.filter((name) => essential.has(name)),
+    ...names.filter((name) => !essential.has(name)),
+  ];
+}
+
 describe('the Name field', () => {
-  it("opens a calendar's fields, first under the entry page's first heading, as plain text", () => {
+  it("follows the accent color under the entry page's first heading, as plain text", () => {
     const schema = entitySchema();
 
-    expect(sequence(schema).slice(0, 2)).toEqual(['name', 'show_in_legend']);
-    expect(schema[0]).toEqual({ name: 'name', selector: { text: { type: 'text' } } });
-    expect([ENTRY_GROUPS[0].key, ENTRY_GROUPS[0].fields[0][0]]).toEqual([
+    // Accent Color leads the page: a calendar's color is what most people open it for.
+    expect(sequence(schema).slice(0, 4)).toEqual([
+      'accent_color_mode',
+      'accent_color',
+      'name',
+      'show_in_legend',
+    ]);
+    expect(schema.find((node) => node.name === 'name')).toEqual({
+      name: 'name',
+      selector: { text: { type: 'text' } },
+    });
+    expect([ENTRY_GROUPS[0].key, ...ENTRY_GROUPS[0].fields.slice(0, 3).map(([id]) => id)]).toEqual([
       'heading.name_and_look',
+      'calendar:accent_color_mode',
+      'calendar:accent_color',
       'calendar:name',
     ]);
   });
 
   it.each(['none', 'text', 'icon', 'image'])(
-    'stays first whatever shape the label holds (%s)',
+    'comes right after the accent color whatever shape the label holds (%s)',
     (type) => {
-      expect(sequence(entitySchemaFor(entitySchema(), type))[0]).toBe('name');
+      const names = sequence(entitySchemaFor(entitySchema(), type)).filter(
+        (name) => name !== 'accent_color',
+      );
+      expect(names.slice(0, 2)).toEqual(['accent_color_mode', 'name']);
     },
   );
 
@@ -289,8 +323,10 @@ describe('searching the editor for a calendar by its name', () => {
     ];
     // Everything a list card's editor draws, which withholds the time grid's own control. The
     // accent color is one control with the mode choosing its source, so one row, the mode's.
-    const everything = fieldNames(entitySchema()).filter(
-      (name) => name !== 'multiday_banners' && name !== 'accent_color',
+    const everything = essentialFirst(
+      fieldNames(entitySchema()).filter(
+        (name) => name !== 'multiday_banners' && name !== 'accent_color',
+      ),
     );
 
     expect(search(entities, 0, 'at work')).toEqual(everything);

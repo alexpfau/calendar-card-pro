@@ -586,6 +586,7 @@ function readRegistryKeys(editor) {
     }
     helper(def.helperKey, `${where}, its helper line`);
     name(named, def.crossLink?.textKey, `${where}, its cross-link`);
+    name(named, def.pointer?.textKey, `${where}, its pointer`);
   };
 
   name(titles, CALENDARS_BLOCK.titleKey, 'the Calendars block');

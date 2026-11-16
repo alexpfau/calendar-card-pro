@@ -26,8 +26,6 @@ export interface ChassisSchemas {
   addCalendar: ReadonlyArray<HaFormSchema>;
   /** An entry page's Calendar, which points the entry at another calendar */
   entryCalendar: ReadonlyArray<HaFormSchema>;
-  /** The preferences under More, a form each; remembered in this browser, never written */
-  prefs: ReadonlyArray<ReadonlyArray<HaFormSchema>>;
 }
 
 /** The label path of Add Calendar's picker: `calendars.pick`. */
@@ -35,9 +33,6 @@ export const ADD_CALENDAR_PATH: ReadonlyArray<string> = ['calendars'];
 
 /** The label path of an entry page's Calendar: `entry.calendar`. */
 export const ENTRY_CALENDAR_PATH: ReadonlyArray<string> = ['entry'];
-
-/** The label path of the preferences under More: `prefs.every`, `prefs.yaml`. */
-export const PREFS_PATH: ReadonlyArray<string> = ['prefs'];
 
 /**
  * Add Calendar's picker. The element adds the calendars already on the card as
@@ -51,14 +46,6 @@ const ADD_CALENDAR_SCHEMA: ReadonlyArray<HaFormSchema> = [
 const ENTRY_CALENDAR_SCHEMA: ReadonlyArray<HaFormSchema> = [
   { name: 'calendar', required: true, selector: { entity: { filter: { domain: 'calendar' } } } },
 ];
-
-/**
- * Show Every Setting and Show YAML Option Names, as Home Assistant's own switch. Each is a form
- * of its own, so each keeps a focus key; its name is the preference's key in `prefs.ts`.
- */
-const PREFS_SCHEMAS: ReadonlyArray<ReadonlyArray<HaFormSchema>> = (['every', 'yaml'] as const).map(
-  (name) => [{ name, selector: { boolean: {} } }],
-);
 
 /**
  * Schemas the chassis renders itself, belonging to no panel.
@@ -76,7 +63,6 @@ export function chassisSchemas(language = 'en'): ChassisSchemas {
     filter: FILTER_SCHEMA,
     addCalendar: ADD_CALENDAR_SCHEMA,
     entryCalendar: ENTRY_CALENDAR_SCHEMA,
-    prefs: PREFS_SCHEMAS,
   };
 }
 
@@ -87,13 +73,11 @@ export function chassisSchemas(language = 'en'): ChassisSchemas {
  * @returns Sub-forms the chassis renders above the panels, in render order
  */
 export function chassisSubforms(language = 'en'): SubformDef[] {
-  const { displayView, workspace, filter, addCalendar, entryCalendar, prefs } =
-    chassisSchemas(language);
+  const { displayView, workspace, filter, addCalendar, entryCalendar } = chassisSchemas(language);
   return [
     ...[displayView, workspace, filter].map((schema) => ({ path: [], schema })),
     { path: [...ADD_CALENDAR_PATH], schema: addCalendar },
     { path: [...ENTRY_CALENDAR_PATH], schema: entryCalendar },
-    ...prefs.map((schema) => ({ path: [...PREFS_PATH], schema })),
     // Quick Setup, which takes the place of the panels while it is open.
     ...[QUICK_SETUP_CALENDARS_SCHEMA, QUICK_SETUP_WEATHER_SCHEMA, QUICK_SETUP_TAPS_SCHEMA].map(
       (schema) => ({ path: [...QUICK_SETUP_PATH], schema }),

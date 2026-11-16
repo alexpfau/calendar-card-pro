@@ -217,7 +217,7 @@ describe('announcements', () => {
 
     await press(editor, 'undo');
 
-    expect(said(editor)).toMatch(/^Undid: .+\. Showing Events\.$/);
+    expect(said(editor)).toMatch(/^Undid: .+\. Showing Event Appearance\.$/);
   });
 });
 

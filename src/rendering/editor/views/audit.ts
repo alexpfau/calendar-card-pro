@@ -1,22 +1,14 @@
 /**
  * What This Card Changes, drawn (section 5.10): a group per place the YAML stores lines, and a
- * compact row per line whose body is its Edit, with Reset and Go to Setting beside it. Templates
- * only, as `overview.ts`.
+ * row per line, which is one button: pressed, it opens a strip under it with Change Here, Open in
+ * the setting's page and Reset or Remove, as a calendar row's ⋮ does. A line the editor keeps as
+ * written is a row with nothing to press. Templates only, as `overview.ts`.
  */
 
-import { mdiArrowRight, mdiRestore } from '@mdi/js';
 import { type TemplateResult, html, nothing } from 'lit';
 import { styleMap } from 'lit/directives/style-map.js';
 
-import { icon } from './icon';
-
-/** An icon button: its glyph, its name and its tooltip. */
-export interface RowAction {
-  readonly name: string;
-  readonly title: string;
-  readonly focus: string;
-  readonly onPress: () => void;
-}
+import { type StripAction, strip } from './calendars';
 
 /** One stored line, as its row shows it. */
 export interface AuditRow {
@@ -24,47 +16,32 @@ export interface AuditRow {
   readonly path: string;
   readonly label: string;
   readonly value: string;
-  /** Its state words, or what keeps it as written. */
-  readonly words: string;
+  /** Its YAML path as shown, with Show YAML Option Names on. */
+  readonly yaml?: string;
   /** "Same as the Default", "Home Assistant’s own, from the Layout tab". */
   readonly tags: ReadonlyArray<string>;
+  /** A line each: "Grid Has Its Own: 5". */
+  readonly lines?: ReadonlyArray<string>;
   /** "Not in Use until Show Description is on". */
   readonly warning?: string;
-  /** Edit's name; absent for a line the editor keeps as written. */
-  readonly edit?: { readonly name: string; readonly onPress: () => void };
-  /** The field's control, while it is being edited. */
+  /** The row's button and strip; absent for a line the editor keeps as written. */
+  readonly menu?: {
+    /** The button's name: "Past Date Opacity in Grid, 60%". */
+    readonly name: string;
+    /** The strip's name: "Actions for Past Date Opacity in Grid". */
+    readonly stripName: string;
+    readonly open: boolean;
+    readonly onToggle: () => void;
+    readonly actions: ReadonlyArray<StripAction>;
+  };
+  /** The field's control, while it is changed here. */
   readonly editing?: unknown;
-  readonly reset?: RowAction;
-  readonly go?: RowAction;
 }
 
 /**
- * An icon button of a row.
- *
- * @param action - What it does
- * @param glyph - Its icon
- * @returns The button
- */
-function iconAction(action: RowAction | undefined, glyph: string): TemplateResult | typeof nothing {
-  return action
-    ? html`<button
-        type="button"
-        class="icon-button"
-        data-focus=${action.focus}
-        aria-label=${action.name}
-        title=${action.title}
-        @click=${action.onPress}
-      >
-        ${icon(glyph)}
-      </button>`
-    : nothing;
-}
-
-/**
- * One line's row: its label and value over its path, state words and tags, which as a whole is
- * Edit and gives way to the field's own control while edited, then Reset and Go to Setting. Edit
- * is named by the label and value, and described by the line under them. The separator ends the
- * path's span, so a wrapped meta line never starts with it.
+ * One line's row: its label and value over its YAML path (on request), tags and lines, which as a
+ * whole is the button opening its strip, and gives way to the field's own control while changed
+ * here. The button is named by the label and value, and described by the lines under them.
  *
  * @param row - What it shows
  * @returns The row
@@ -74,30 +51,36 @@ export function auditRow(row: AuditRow): TemplateResult {
     ><span>${row.label}</span><span class="audit-value">${row.value}</span></span
   >`;
   const metaId = `audit-meta:${row.path}`;
-  const meta = html`<span class="audit-meta" id=${metaId}
-    ><span class="audit-path"><code>${row.path}</code> ·</span>
-    <span>${row.words}</span>${row.tags.map(
-      (tag) => html` <span class="tag">${tag}</span>`,
-    )}${row.warning ? html` <span class="tag warning">${row.warning}</span>` : nothing}</span
-  >`;
+  const lines = row.lines ?? [];
+  const hasMeta =
+    row.yaml !== undefined || row.tags.length > 0 || lines.length > 0 || row.warning !== undefined;
+  const meta = hasMeta
+    ? html`<span class="audit-meta" id=${metaId}
+        >${row.yaml === undefined ? nothing : html`<code class="audit-path">${row.yaml}</code>`}${row.tags.map(
+          (tag) => html` <span class="tag">${tag}</span>`,
+        )}${row.warning ? html` <span class="tag warning">${row.warning}</span>` : nothing}${lines.map(
+          (line) => html`<span class="audit-own">${line}</span>`,
+        )}</span
+      >`
+    : nothing;
+  const menu = row.menu;
   return html`<div class="audit-row" data-audit=${row.path}>
-    <div class="audit-text">
-      ${
-        row.editing === undefined && row.edit
-          ? html`<button
-              type="button"
-              class="audit-edit"
-              data-focus=${`edit:${row.path}`}
-              aria-label=${row.edit.name}
-              aria-describedby=${metaId}
-              @click=${row.edit.onPress}
-            >
-              ${text} ${meta}
-            </button>`
-          : html`${row.editing ?? text} ${meta}`
-      }
-    </div>
-    ${iconAction(row.reset, mdiRestore)}${iconAction(row.go, mdiArrowRight)}
+    ${
+      row.editing === undefined && menu
+        ? html`<button
+            type="button"
+            class="audit-edit"
+            data-focus=${`more:audit:${row.path}`}
+            aria-label=${menu.name}
+            aria-describedby=${hasMeta ? metaId : nothing}
+            aria-expanded=${String(menu.open)}
+            @click=${menu.onToggle}
+          >
+            ${text} ${meta}
+          </button>`
+        : html`<div class="audit-text">${row.editing ?? text} ${meta}</div>`
+    }
+    ${menu?.open && row.editing === undefined ? strip(`audit:${row.path}`, menu.stripName, menu.actions) : nothing}
   </div>`;
 }
 
@@ -106,8 +89,6 @@ export interface AuditGroupView {
   /** `data-heading`, which See What Grid Keeps scrolls to. */
   readonly key: string;
   readonly title: string;
-  /** "Set: 3". */
-  readonly count: string;
   readonly note?: string;
   /** Reset All in Grid, Go to Anna. */
   readonly action?: {
@@ -116,7 +97,8 @@ export interface AuditGroupView {
     readonly focus: string;
     readonly onPress: () => void;
   };
-  readonly rows: ReadonlyArray<TemplateResult>;
+  /** Its rows, after the line a reset left in it, where one did. */
+  readonly rows: ReadonlyArray<unknown>;
   /** A calendar's group, under the Calendars heading. */
   readonly sub?: boolean;
   /** A calendar group's dot color, as its row on the overview draws it. */
@@ -126,7 +108,7 @@ export interface AuditGroupView {
 }
 
 /**
- * A group: its title, count and action, the line under its title, and its rows. A calendar's
+ * A group: its title and action, the line under its title, and its rows. A calendar's
  * group leads with its dot and label, as its row on the overview does.
  *
  * @param group - What it shows
@@ -151,7 +133,6 @@ export function auditGroup(group: AuditGroupView): TemplateResult {
               <h4 class="heading" tabindex="-1">${group.title}</h4>`
           : html`<h3 class="heading" tabindex="-1">${group.title}</h3>`
       }
-      <span class="audit-count">${group.count}</span>
       ${
         action
           ? html`<button

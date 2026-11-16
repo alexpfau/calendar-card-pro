@@ -18,7 +18,7 @@
  * falls back to the letters of a label in order. Rows rank by tier (card settings, then a
  * calendar's, then Home Assistant's tabs), then by how the label matched, then by key or alias,
  * then option or heading, and a row found only in its helper comes last with the phrase it
- * matched.
+ * matched. Within each of those, a page's essential settings come first.
  *
  * DOM-free, so the tests read it as the element does.
  */
@@ -106,7 +106,7 @@ export interface SearchEntry {
   readonly target: SearchTarget;
   /** In the editor's language. */
   readonly label: string;
-  /** Shown on every field's row, whatever Show YAML Option Names says (candidate A §9, R56). */
+  /** Found by always; shown on a row only with Show YAML Option Names on. */
   readonly yamlPath: string;
   readonly crumbs: ReadonlyArray<string>;
   /** The value as the field shows it, "Not Set", or nothing where it has no words. */
@@ -120,6 +120,11 @@ export interface SearchEntry {
   readonly status: ResultStatus;
   /** Card settings 0, a calendar's 1, Home Assistant's tabs 2. */
   readonly tier: 0 | 1 | 2;
+  /**
+   * Whether its page draws it on every card (`plan.ts` › `keepsControl`), as a page, the calendar
+   * list and a toolbar button's fields are: it leads the rows matched as well (`search`).
+   */
+  readonly essential: boolean;
   /** For a calendar entry's field, whether the entry stores its own value. */
   readonly stored?: boolean;
   /** Every text the row is found by, folded, with where it came from and as written. */
@@ -726,6 +731,7 @@ function cardRow(place: Placed, ctx: SearchCtx): SearchEntry | undefined {
     needs: found.needs,
     status,
     tier: 0,
+    essential: Plan.keepsControl(place.appearance),
     text: folded(texts),
   };
 }
@@ -747,6 +753,7 @@ function pageRow(page: PageDef, ctx: SearchCtx): SearchEntry {
     crumbs: [ctx.t('overview.settings')],
     status: { kind: 'info' },
     tier: 0,
+    essential: true,
     text: folded([
       [title, 'label'],
       [EditorLocalize.lookup('en', page.titleKey), 'label'],
@@ -793,6 +800,7 @@ function haTabRows(ctx: SearchCtx): SearchEntry[] {
     tag: note,
     status: { kind: 'info' },
     tier: 2,
+    essential: true,
     text: folded([[label, 'label'], ...words, [note, 'heading']]),
   }));
 }
@@ -842,6 +850,7 @@ function entryRows(owner: SearchOwner, ctx: SearchCtx): SearchEntry[] {
         needs,
         status,
         tier: 1,
+        essential: Plan.keepsControl(appearance),
         get stored() {
           return words()?.words?.kind === 'set-entry';
         },
@@ -873,6 +882,7 @@ function splitRow(owner: SearchOwner, ctx: SearchCtx): SearchEntry {
     crumbs: [Entities.entityDisplayName(config.entity, ctx.hass), ...(group ? [ctx.t(group)] : [])],
     status: { kind: 'info' },
     tier: 1,
+    essential: true,
     text: folded([
       [label, 'label'],
       [EditorLocalize.lookup('en', 'split.title'), 'label'],
@@ -903,6 +913,7 @@ function calendarsRow(ctx: SearchCtx): SearchEntry {
     }),
     status: { kind: 'live' },
     tier: 0,
+    essential: true,
     text: folded([
       [label, 'label'],
       [EditorLocalize.lookup('en', CALENDARS_BLOCK.titleKey), 'label'],
@@ -934,6 +945,7 @@ function buttonRows(
     value: valueWords(field, Routing.atPath(owner.entry, field.dataPath, field.node.name), ctx),
     status: { kind: 'live' },
     tier: 0,
+    essential: true,
     text: folded([...fieldTexts(field, ctx, 'button'), ...identity]),
   }));
 }
@@ -992,6 +1004,21 @@ const SCORE = {
   helper: 10,
   letters: 5,
 } as const;
+
+/**
+ * The match tier a score falls in, highest first: the label is the query; holds it where a word
+ * starts, its own start included; holds it elsewhere, or holds every word; then key or alias,
+ * option or heading, helper, letters. Within a tier a page's essential settings lead, so "past"
+ * finds Show Past Events before Past Date Opacity, though only the second starts with it.
+ *
+ * @param score - A hit's score
+ * @returns Its tier
+ */
+function matchTier(score: number): number {
+  if (score === SCORE.prefix) return SCORE.wordStart;
+  if (score === SCORE.allInLabel) return SCORE.substring;
+  return score;
+}
 
 /**
  * The words of a helper around the first word of the query only the helper holds: its sentence,
@@ -1191,7 +1218,8 @@ function holdsLetters(label: string, letters: string): boolean {
 }
 
 /**
- * The rows a query finds, best first: by tier, then by how well, then in the index's order. A
+ * The rows a query finds, best first: by tier, then by match tier (`matchTier`), essential
+ * settings before the others, then by how well, then in the index's order. A
  * query of three letters or more whose words no row holds falls back to the labels holding its
  * letters in order.
  *
@@ -1218,7 +1246,11 @@ export function search(index: ReadonlyArray<SearchEntry>, query: string): Search
   }
   return hits.sort(
     (a, b) =>
-      a.entry.tier - b.entry.tier || b.score - a.score || order.get(a.entry)! - order.get(b.entry)!,
+      a.entry.tier - b.entry.tier ||
+      matchTier(b.score) - matchTier(a.score) ||
+      Number(b.entry.essential) - Number(a.entry.essential) ||
+      b.score - a.score ||
+      order.get(a.entry)! - order.get(b.entry)!,
   );
 }
 

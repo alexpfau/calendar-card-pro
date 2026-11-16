@@ -583,7 +583,9 @@ describe('with the shown set and What This Card Changes', () => {
       start_date: 'today+1',
     });
     await press(editor, 'more:audit');
-    await press(editor, 'edit:start_date');
+    // The row opens its strip; Change Here mounts the control in place.
+    await press(editor, 'more:audit:start_date');
+    await press(editor, 'strip:audit:start_date:change');
     const row = (): Element => root(editor).querySelector('[data-audit="start_date"]')!;
     const fields = (): Array<string | null> =>
       [...row().querySelectorAll('[data-field]')].map((each) => each.getAttribute('data-field'));
@@ -618,7 +620,9 @@ describe('with the shown set and What This Card Changes', () => {
       entities: [{ entity: 'calendar.anna', blocklist: 'Soccer' }],
     });
     await press(editor, 'more:audit');
-    await press(editor, 'edit:entities[0].blocklist');
+    // The row opens its strip; Change Here mounts the control in place.
+    await press(editor, 'more:audit:entities[0].blocklist');
+    await press(editor, 'strip:audit:entities[0].blocklist:change');
     const form = root(editor).querySelector(
       '[data-audit="entities[0].blocklist"] [data-composed="words"] ha-form',
     ) as never as HTMLElement & { data: Record<string, unknown> };

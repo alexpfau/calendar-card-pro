@@ -19,6 +19,7 @@ import {
   mdiFormatVerticalAlignTop,
   mdiInformationOutline,
   mdiPlus,
+  mdiRestore,
 } from '@mdi/js';
 import {
   LitElement,
@@ -123,6 +124,7 @@ import * as Focus from './views/focus';
 import * as HistoryView from './views/history';
 import { icon } from './views/icon';
 import { escapeAction, historyKey, inTextField } from './views/keys';
+import * as MenuView from './views/menu';
 import * as Overview from './views/overview';
 import * as PageView from './views/page';
 import * as PickView from './views/pick';
@@ -428,10 +430,12 @@ function actionHelper(field: IndexedField, helper: string | undefined): unknown 
  * receipt the upgrade on opening leaves at the top of the overview.
  */
 interface StatusLine {
-  readonly kind: 'entry' | 'button' | 'story' | 'upgrade';
+  readonly kind: 'entry' | 'button' | 'story' | 'upgrade' | 'audit';
   readonly text: string;
   /** The removed calendar's place among the calendars, where the line stands in the list. */
   readonly at: number;
+  /** For a line reset on What This Card Changes, its group's key, atop which the line stands. */
+  readonly group?: string;
   /** The upgrade's options, the editor before it, and whether they were shared since. */
   readonly upgrade?: {
     readonly keys: ReadonlyArray<string>;
@@ -720,6 +724,20 @@ export class CalendarCardProEditor extends LitElement {
 
   /** Show Every Setting and Show YAML Option Names, remembered in this browser (`prefs.ts`). */
   @state() private _prefs: Prefs.Prefs = Prefs.readPrefs();
+
+  /** Whether the overview header's ⋯ menu, which holds the preferences, is open. */
+  @state() private _prefsOpen = false;
+
+  /**
+   * The place Search Settings in a page header left for the overview's search field, which the
+   * overview's Back and Escape in an empty field return to: where the editor was, its scroll
+   * position and its name.
+   */
+  @state() private _searchFrom?: {
+    readonly nav: Navigation.NavState;
+    readonly scrollTop: number;
+    readonly name: string;
+  };
 
   /**
    * The settings added this session, which their pages draw although nothing is stored: field
@@ -1456,9 +1474,11 @@ export class CalendarCardProEditor extends LitElement {
       void this._focusAfterRemove(status.at);
       return;
     }
-    this._focusSoon([
-      status.kind === 'button' ? '.add-button' : '[data-heading="calendars"] .heading',
-    ]);
+    this._focusSoon(
+      status.kind === 'audit'
+        ? [`[data-heading="${CSS.escape(status.group ?? '')}"] .heading`, '.page-title']
+        : [status.kind === 'button' ? '.add-button' : '[data-heading="calendars"] .heading'],
+    );
   }
 
   /**
@@ -1529,6 +1549,73 @@ export class CalendarCardProEditor extends LitElement {
           this._togglePick,
         )}`
       : controls;
+  }
+
+  /**
+   * A page header's actions: Search Settings, then Undo, Redo and Pick From Preview.
+   *
+   * @param ctx - Schema context
+   * @param name - The place's name, which the overview's Back names
+   * @returns The actions
+   */
+  private _renderHeadActions(ctx: SchemaCtx, name: string): TemplateResult {
+    return html`${PageView.searchButton(this._string(ctx, 'search'), () =>
+      this._searchFromPage(name),
+    )}${this._renderHistory(ctx)}`;
+  }
+
+  /**
+   * Search Settings in a page header: the overview, with focus in its search field and a Back
+   * that returns to the page and to the button.
+   *
+   * @param name - The page's name
+   */
+  private _searchFromPage(name: string): void {
+    const from = { nav: this._nav, scrollTop: Focus.scrollPosition(this), name };
+    this._closeDisclosures();
+    this._nav = Navigation.OVERVIEW;
+    this._jump = this._resultsLeft = undefined;
+    this._searchFrom = from;
+    void this._focusSearchField();
+  }
+
+  /**
+   * Focuses the overview's search field once it is drawn: Home Assistant draws its box a few
+   * frames after the form, so it is looked for until it is there, for at most half a second.
+   */
+  private async _focusSearchField(): Promise<void> {
+    await this.updateComplete;
+    for (let frame = 0; frame < 30; frame++) {
+      const form = this.renderRoot.querySelector('ha-form.filter-form');
+      if (form === null) return;
+      if (Focus.focusTextBox(form)) return;
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+    // Where the box never came, the overview's Back takes focus rather than the page's body.
+    Focus.focusFirst(this.renderRoot, ['[data-focus="search-back"]', '.row-group .heading']);
+  }
+
+  /**
+   * The overview's Back after Search Settings left a page for it: that page again, as it was,
+   * with focus on Search Settings. A place gone since falls back to the overview.
+   *
+   * @returns Whether there was a place to return to
+   */
+  private _backToSearchOrigin(): boolean {
+    const from = this._searchFrom;
+    if (from === undefined || this._nav.route.kind !== 'overview') return false;
+    this._searchFrom = undefined;
+    this._closeDisclosures();
+    const checked = Navigation.validate(from.nav, (route) => this._exists(route));
+    this._nav = checked.nav;
+    this._jump = this._resultsLeft = undefined;
+    if (this._filter.query !== '') this._applyFilter({ ...this._filter, query: '' });
+    void this._afterMove({
+      route: checked.nav.route,
+      scrollTop: from.scrollTop,
+      focusKey: 'search-open',
+    });
+    return true;
   }
 
   /**
@@ -1684,7 +1771,7 @@ export class CalendarCardProEditor extends LitElement {
     const status = this._status;
     if (status === undefined || !kinds.includes(status.kind)) return nothing;
     return HistoryView.statusBar(
-      status.kind === 'story' ? mdiCheck : mdiDeleteOutline,
+      status.kind === 'story' ? mdiCheck : status.kind === 'audit' ? mdiRestore : mdiDeleteOutline,
       status.text,
       this._haWord(ctx, 'ui.common.undo', 'history.undo'),
       this._undo,
@@ -3114,7 +3201,8 @@ export class CalendarCardProEditor extends LitElement {
       const addKey = `add:${heading.key ?? 'top'}`;
       const helper =
         heading.helperKey === undefined ? undefined : this._string(ctx, heading.helperKey);
-      const crossLink = this._crossLink(heading, ctx);
+      const crossLink =
+        this._crossLink(heading, ctx) ?? this._pointer(heading, owner, ctx, labelOf);
       // Where the title and the Add row would stack with nothing between, the row carries the
       // title in place of the heading.
       const named =
@@ -3974,6 +4062,58 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * A heading's line pointing to a setting on the same page (`HeadingDef.pointer`), named by the
+   * setting's heading and label, which opens it as a search result does: added where it waits.
+   *
+   * @param heading - The heading
+   * @param owner - The card, or a calendar entry
+   * @param ctx - Schema context
+   * @param labelOf - A field's label
+   * @returns The line, or `undefined`
+   */
+  private _pointer(
+    heading: HeadingDef,
+    owner: PlanOwner,
+    ctx: SchemaCtx,
+    labelOf: (id: FieldId) => string,
+  ): PageView.CrossLink | undefined {
+    const pointer = heading.pointer;
+    const place = pointer && placementOf(pointer.field);
+    if (!pointer || !place) return undefined;
+    const headings =
+      place.page === 'entry'
+        ? ENTRY_GROUPS
+        : PAGES.find((page) => page.id === place.page)?.headings;
+    const at = headings?.[place.heading];
+    const label = labelOf(pointer.field);
+    const key = `xlink:${pointer.field}`;
+    const page = place.page === 'entry' || place.page === 'overview' ? undefined : place.page;
+    return {
+      text: this._string(ctx, pointer.textKey),
+      label:
+        at === undefined
+          ? label
+          : this._string(ctx, 'nav.crumb', {
+              page: this._headingTitle(at, ctx) ?? '',
+              heading: label,
+            }),
+      key,
+      onOpen: () =>
+        this._openResult(
+          {
+            target:
+              owner.kind === 'entry'
+                ? { kind: 'entry-field', id: pointer.field, key: owner.key }
+                : { kind: 'field', id: pointer.field, page },
+            label,
+          },
+          key,
+          false,
+        ),
+    };
+  }
+
+  /**
    * A heading's title: its key, or the key it takes in a layout (Icons in Grid).
    *
    * @param heading - The heading
@@ -3994,6 +4134,18 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _pageTitle(page: PageDef, ctx: SchemaCtx): string {
     return this._string(ctx, page.titleKey);
+  }
+
+  /**
+   * A page's title by its id.
+   *
+   * @param id - The page
+   * @param ctx - Schema context
+   * @returns The title
+   */
+  private _pageTitleOf(id: PageId, ctx: SchemaCtx): string {
+    const page = PAGES.find((each) => each.id === id);
+    return page === undefined ? id : this._pageTitle(page, ctx);
   }
 
   /**
@@ -4049,11 +4201,14 @@ export class CalendarCardProEditor extends LitElement {
     this._closeDisclosures();
     this._nav = Navigation.go(this._nav, to, from, how);
     this._jump = this._resultsLeft = undefined;
+    // Leaving the overview by its own rows: Search Settings' page is no longer where Back goes.
+    if (from.route.kind === 'overview') this._searchFrom = undefined;
     void this._afterMove(undefined, heading);
   }
 
   /** Closes the strip, Add Calendar and the keyboard grab, which belong to the place being left. */
   private _closeDisclosures(): void {
+    this._prefsOpen = false;
     this._auditEdit = undefined;
     this._openStrip = undefined;
     this._adding = undefined;
@@ -4145,6 +4300,7 @@ export class CalendarCardProEditor extends LitElement {
    * overview, where a result shows a field in place of the results, Back is Return to Results.
    */
   private _back = (): void => {
+    if (this._resultsLeft === undefined && this._backToSearchOrigin()) return;
     this._closeDisclosures();
     let restore = this._resultsLeft;
     if (restore === undefined || this._nav.route.kind !== 'overview') {
@@ -4235,7 +4391,8 @@ export class CalendarCardProEditor extends LitElement {
       onPage:
         wizard !== undefined ||
         this._nav.route.kind !== 'overview' ||
-        this._resultsLeft !== undefined,
+        this._resultsLeft !== undefined ||
+        (this._searchFrom !== undefined && !Filter.hasQuery(this._filter)),
       query: Filter.hasQuery(this._filter),
     });
     if (action === 'pass') return;
@@ -4277,7 +4434,7 @@ export class CalendarCardProEditor extends LitElement {
       const edited = this._auditEdit?.line.text;
       const opener =
         edited !== undefined
-          ? `edit:${edited}`
+          ? `more:audit:${edited}`
           : strip !== undefined
             ? `more:${strip}`
             : this._adding !== undefined
@@ -4611,7 +4768,16 @@ export class CalendarCardProEditor extends LitElement {
           })
         : nothing
     }
-    ${this._renderPickBanner(ctx)} ${this._renderFilterBar(ctx, chassis)}`;
+    ${this._renderPickBanner(ctx)}
+    ${
+      this._searchFrom === undefined || this._resultsLeft !== undefined
+        ? nothing
+        : PageView.backToPage(
+            this._string(ctx, 'search.back_to', { place: this._searchFrom.name }),
+            this._back,
+          )
+    }
+    ${this._renderFilterBar(ctx, chassis)}`;
 
     // One template whatever the query, so the filter bar above it is never drawn anew and the
     // search field keeps focus as the first character turns the overview into results. The
@@ -4666,7 +4832,6 @@ export class CalendarCardProEditor extends LitElement {
       ([field, appearance]) =>
         this._renderField(field, ctx, this._fieldShow(field, appearance, pctx, ctx, CARD)),
     );
-    const prefs = chassis.prefs.map((schema) => this._renderPref(schema, ctx));
     return html`${this._renderScope(ctx)} ${calendars} ${this._renderDisplays(ctx, chassis)} ${own}
     ${Overview.rowGroup(t('overview.settings'), rows)}
     ${Overview.rowGroup(t('overview.more'), [
@@ -4675,47 +4840,48 @@ export class CalendarCardProEditor extends LitElement {
           key: 'more:audit',
           iconPath: mdiFormatListChecks,
           title: t('more.audit'),
-          summary: this._auditSummary(t),
+          summary: this._auditSummary(ctx),
         },
         () => this._open({ kind: 'audit' }, 'more:audit'),
       ),
       Overview.exampleRow(t, this._openQuickSetup),
-      ...prefs,
     ])}`;
   }
 
   /**
-   * A preference under More, as Home Assistant's own switch with its helper beside it. Toggling
-   * one writes this browser's preferences and nothing to the card.
+   * The overview header's ⋯ menu: Show Every Setting and Show YAML Option Names, each a checkbox
+   * item with its line under it. Turning one over writes this browser's preferences and nothing to
+   * the card, and leaves the menu open.
    *
-   * @param schema - Its schema, one boolean named for its key in `prefs.ts`
    * @param ctx - Schema context
-   * @returns The form
+   * @returns The menu button
    */
-  private _renderPref(schema: ReadonlyArray<HaFormSchema>, ctx: SchemaCtx): TemplateResult {
-    const key = schema[0].name as keyof Prefs.Prefs;
+  private _renderPrefsMenu(ctx: SchemaCtx): TemplateResult {
     const t = this._t(ctx);
-    const text =
-      key === 'every'
-        ? { label: t('prefs.every'), helper: t('prefs.every_note') }
-        : { label: t('prefs.yaml'), helper: t('prefs.yaml_note') };
-    const [hass, feed] = this._feed(schema, ctx.language);
-    return html`<ha-form
-      class="pref-form"
-      data-focus=${`pref:${key}`}
-      data-hass=${feed}
-      .hass=${hass}
-      .data=${this._intern(`pref.data:${key}`, { [key]: this._prefs[key] })}
-      .schema=${schema}
-      .computeLabel=${this._keep(`pref.label:${key}`, text.label, () => () => text.label)}
-      .computeHelper=${this._keep(`pref.helper:${key}`, text.helper, () => () => text.helper)}
-      @value-changed=${(event: CustomEvent) => {
-        event.stopPropagation();
-        const value = (event.detail?.value as Record<string, unknown> | undefined)?.[key];
-        this._prefs = { ...this._prefs, [key]: value === true };
+    const item = (key: keyof Prefs.Prefs, label: string, note: string): MenuView.MenuCheck => ({
+      key,
+      label,
+      note,
+      checked: this._prefs[key],
+      onToggle: () => {
+        this._prefs = { ...this._prefs, [key]: !this._prefs[key] };
         Prefs.writePrefs(this._prefs);
-      }}
-    ></ha-form>`;
+      },
+    });
+    return MenuView.prefsMenu({
+      name: t('prefs.menu'),
+      open: this._prefsOpen,
+      items: [
+        item('every', t('prefs.every'), t('prefs.every_note')),
+        item('yaml', t('prefs.yaml'), t('prefs.yaml_note')),
+      ],
+      onOpen: (open, at) => {
+        this._prefsOpen = open;
+        if (open && at !== undefined) {
+          void this.updateComplete.then(() => MenuView.focusMenuItem(this.shadowRoot!, at));
+        }
+      },
+    });
   }
 
   /**
@@ -4862,8 +5028,8 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * One result's row: its label with the query marked, where it is, its value, where the value
-   * comes from and its YAML path, its tag, the phrase a helper-only match was found by, and Add
-   * for a setting not shown yet.
+   * comes from and, with Show YAML Option Names on, its YAML path, its tag and the phrase a
+   * helper-only match was found by. It is one action: choosing a setting not shown yet adds it.
    *
    * @param hit - The result
    * @param query - The query
@@ -4883,25 +5049,13 @@ export class CalendarCardProEditor extends LitElement {
       meta: this._resultMeta(entry, ctx),
       tag: entry.tag,
       phrase: hit.phrase ? { template: t('search.help_phrase'), ...hit.phrase } : undefined,
-      add:
-        entry.status.kind === 'add' && open
-          ? {
-              label: t('search.add'),
-              name: t('search.add_named', {
-                label: entry.label,
-                place: entry.crumbs.join(', '),
-              }),
-              key: `add-${key}`,
-              onAdd: open,
-            }
-          : undefined,
       onOpen: open,
     };
   }
 
   /**
    * A result's line under its breadcrumb: its value, where the value comes from, and its YAML
-   * path, which a field's row always shows.
+   * path while Show YAML Option Names is on.
    *
    * @param entry - The result
    * @param ctx - Schema context
@@ -4911,7 +5065,7 @@ export class CalendarCardProEditor extends LitElement {
     return [
       entry.value,
       entry.words,
-      entry.yamlPath === ''
+      entry.yamlPath === '' || !this._prefs.yaml
         ? undefined
         : this._string(ctx, 'search.yaml', { path: entry.yamlPath }),
     ]
@@ -5407,7 +5561,12 @@ export class CalendarCardProEditor extends LitElement {
           ? PageView.pageLine(this._string(ctx, 'value_source.card'))
           : this._renderScope(ctx);
     return html`<div class="page" data-page=${page.id}>
-      ${PageView.pageHead(this._pageTitle(page, ctx), t, this._back, this._renderHistory(ctx))}
+      ${PageView.pageHead(
+        this._pageTitle(page, ctx),
+        t,
+        this._back,
+        this._renderHeadActions(ctx, this._pageTitle(page, ctx)),
+      )}
       ${this._renderPickBanner(ctx)} ${this._jumpDrawn() ? nothing : this._renderReturn(ctx)}
       ${scope} ${page.noteKey ? PageView.pageLine(this._string(ctx, page.noteKey)) : nothing}
       ${this._renderPageBody(page, ctx)} ${PageView.footBack(t, this._back, docsUrl(page.id))}
@@ -7804,7 +7963,7 @@ export class CalendarCardProEditor extends LitElement {
         title,
         t,
         this._back,
-        html`${this._renderHistory(ctx)} ${more}`,
+        html`${this._renderHeadActions(ctx, title)} ${more}`,
         entityId,
         this._string(ctx, 'entry.back'),
       )}
@@ -9057,7 +9216,13 @@ export class CalendarCardProEditor extends LitElement {
       return field ? fieldLabel(field, ctx.language) : option.to;
     };
     return html`<div class="page" data-page="notices">
-      ${PageView.pageHead(t('misplaced.title'), t, this._back, this._renderHistory(ctx), '')}
+      ${PageView.pageHead(
+        t('misplaced.title'),
+        t,
+        this._back,
+        this._renderHeadActions(ctx, t('misplaced.title')),
+        '',
+      )}
       ${this._renderPickBanner(ctx)} ${this._renderMisplaced(ctx)}
       ${
         old.length > 0
@@ -9121,23 +9286,46 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * The audit's counts, "Set: 24 · Not in Use: 1", as its page and its More row show them.
+   * Where the card stores values, as the More row on the overview names them: Whole Card, All
+   * Layouts, each layout and each calendar holding a line, then "Not in Use: 1" where any is.
+   * Lines kept as written are the YAML's own and named by none.
    *
-   * @param t - The editor's strings
+   * @param ctx - Schema context
    * @returns The words
    */
-  private _auditSummary(t: Translate): string {
-    const { set, inactive } = Audit.auditCounts(this._auditGroups());
-    return [
-      t('summary.set', { count: set }),
-      ...(inactive > 0 ? [t('audit.not_in_use', { count: inactive })] : []),
-    ].join(Summary.SUMMARY_SEPARATOR);
+  private _auditSummary(ctx: SchemaCtx): string {
+    const t = this._t(ctx);
+    const layout = this._layoutName(ctx);
+    const groups = this._auditGroups().filter((group) => group.kind !== 'kept');
+    const places = [
+      ...new Set(
+        groups.map((group) => {
+          switch (group.kind) {
+            case 'whole':
+              return t('state.whole_card');
+            case 'card':
+              return t('editing_workspace.option.shared.label');
+            case 'layout':
+              return layout(group.workspace);
+            default:
+              return this._entryName(group.key ?? 0);
+          }
+        }),
+      ),
+    ];
+    const { inactive } = Audit.auditCounts(groups);
+    if (places.length === 0) return t('audit.none');
+    return [...places, ...(inactive > 0 ? [t('audit.not_in_use', { count: inactive })] : [])].join(
+      Summary.SUMMARY_SEPARATOR,
+    );
   }
 
   /**
-   * What This Card Changes (section 5.10): every stored line, grouped by where it lives, each a
-   * compact row whose Edit mounts its field's control in place and writes where the line lives,
-   * with Reset and Go to Setting; Reset All per layout, and the lines kept as written, read-only.
+   * What This Card Changes (section 5.10): every stored line, grouped as Whole Card, All Layouts,
+   * each layout, each calendar and the lines kept as written. Each line is one button opening a
+   * strip with Change Here, which mounts its field's control in place and writes where the line
+   * lives, Open in its page, and Reset or Remove; Reset All per layout. The lines kept as written
+   * are read-only.
    *
    * @param ctx - Schema context
    * @returns The page
@@ -9157,71 +9345,84 @@ export class CalendarCardProEditor extends LitElement {
       if (at < 0) groups.push({ ...edit.group, lines: [edit.line] });
       else groups[at] = { ...groups[at], lines: [...groups[at].lines, edit.line] };
     }
+    const status = (key: string): TemplateResult | typeof nothing =>
+      this._status?.kind === 'audit' && this._status.group === key
+        ? this._renderStatus(ctx, ['audit'])
+        : nothing;
     const view = (group: Audit.AuditGroup): TemplateResult => {
-      const count = t('summary.set', { count: group.lines.length });
-      const rows = group.lines.map((line) => this._auditRow(line, group, ctx));
-      const key = group.key ?? 0;
-      const name = this._entryName(key);
+      const key = this._auditGroupKey(group);
+      const rows = [
+        status(key),
+        ...group.lines.map((line) => this._auditRow(line, group, key, ctx)),
+      ];
+      const entry = group.kind === 'entry' ? group.key! : undefined;
+      if (entry !== undefined) {
+        const name = this._entryName(entry);
+        const stored = this._entryOf(entry);
+        return AuditView.auditGroup({
+          key,
+          title: name,
+          sub: true,
+          color: stored === undefined ? undefined : this._rowColor(stored),
+          badge: stored === undefined ? undefined : this._rowBadge(stored),
+          action: {
+            label: t('audit.go_to', { name }),
+            focus: `audit-entry:${entry}`,
+            onPress: () => this._open({ kind: 'entry', key: entry }, `audit-entry:${entry}`),
+          },
+          rows,
+        });
+      }
       const where = layout(group.workspace);
-      const entry = group.kind === 'entry' ? this._entryOf(key) : undefined;
-      return group.kind === 'entry'
-        ? AuditView.auditGroup({
-            key: `audit:entry:${key}`,
-            title: name,
-            count,
-            sub: true,
-            color: entry === undefined ? undefined : this._rowColor(entry),
-            badge: entry === undefined ? undefined : this._rowBadge(entry),
-            action: {
-              label: t('audit.go_to', { name }),
-              focus: `audit-entry:${key}`,
-              onPress: () => this._open({ kind: 'entry', key }, `audit-entry:${key}`),
-            },
-            rows,
-          })
-        : AuditView.auditGroup({
-            key: `audit:${group.kind === 'layout' ? group.workspace : group.kind}`,
-            title:
-              group.kind === 'card'
-                ? t('audit.card')
-                : group.kind === 'kept'
-                  ? t('audit.kept')
-                  : where,
-            count,
-            note:
-              group.kind === 'card'
-                ? t('audit.card_note')
-                : group.kind === 'kept'
-                  ? t('audit.kept_note')
-                  : undefined,
-            action:
-              group.kind === 'layout'
-                ? {
-                    label: t('audit.reset_all', { layout: where }),
-                    focus: `reset-all:${group.workspace}`,
-                    onPress: () => {
-                      this._commit(t('audit.reset_all', { layout: where }), undefined, () =>
-                        this._applyReset(
-                          // Line by line, so a line kept as written in the block stays.
-                          group.lines.map((line) => ({ kind: 'path' as const, path: line.path })),
-                          [],
-                        ),
-                      );
-                      this._say(t('audit.reset_all_done', { layout: where }));
-                      this._focusSoon(['.page-title']);
-                    },
-                  }
+      return AuditView.auditGroup({
+        key,
+        title:
+          group.kind === 'whole'
+            ? t('state.whole_card')
+            : group.kind === 'kept'
+              ? t('audit.kept')
+              : where,
+        note:
+          group.kind === 'whole'
+            ? t('audit.whole_note')
+            : group.kind === 'card'
+              ? t('audit.all_layouts_note')
+              : group.kind === 'kept'
+                ? t('audit.kept_note')
                 : undefined,
-            rows,
-          });
+        action:
+          group.kind === 'layout'
+            ? {
+                label: t('audit.reset_all', { layout: where }),
+                focus: `reset-all:${group.workspace}`,
+                onPress: () => {
+                  this._commit(t('audit.reset_all', { layout: where }), undefined, () =>
+                    this._applyReset(
+                      // Line by line, so a line kept as written in the block stays.
+                      group.lines.map((line) => ({ kind: 'path' as const, path: line.path })),
+                      [],
+                    ),
+                  );
+                  this._say(t('audit.reset_all_done', { layout: where }));
+                  this._focusSoon(['.page-title']);
+                },
+              }
+            : undefined,
+        rows,
+      });
     };
     const entries = groups.filter((group) => group.kind === 'entry');
     return html`<div class="page audit" data-page="audit">
-      ${PageView.pageHead(t('more.audit'), t, this._back, this._renderHistory(ctx), t('overview.more'))}
+      ${PageView.pageHead(
+        t('more.audit'),
+        t,
+        this._back,
+        this._renderHeadActions(ctx, t('more.audit')),
+        t('overview.more'),
+      )}
       ${this._renderPickBanner(ctx)}
       <p class="hint">${t('audit.intro')}</p>
-      <p class="audit-count">${this._auditSummary(t)}</p>
-      ${groups.filter((group) => group.kind === 'card' || group.kind === 'layout').map(view)}
+      ${groups.filter((group) => group.kind !== 'entry' && group.kind !== 'kept').map(view)}
       ${
         entries.length > 0
           ? html`<section class="page-group" data-heading="audit:calendars">
@@ -9233,6 +9434,17 @@ export class CalendarCardProEditor extends LitElement {
       ${groups.filter((group) => group.kind === 'kept').map(view)}
       ${PageView.footBack(t, this._back, docsUrl('audit'))}
     </div>`;
+  }
+
+  /**
+   * A group's `data-heading` key, which a reset's line and See What Grid Keeps find it by.
+   *
+   * @param group - The group
+   * @returns Its key
+   */
+  private _auditGroupKey(group: Audit.AuditGroup): string {
+    if (group.kind === 'entry') return `audit:entry:${group.key ?? 0}`;
+    return `audit:${group.kind === 'layout' ? group.workspace : group.kind}`;
   }
 
   /**
@@ -9252,65 +9464,96 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * One line of What This Card Changes, as its row: label, value, YAML path, state words and
-   * tags; Edit, Reset and Go to Setting where the editor owns the line, none where it keeps it as
-   * written.
+   * Resets one line of What This Card Changes, as one undo step, and leaves the line that says so
+   * at the top of its group, with Undo, which takes focus.
+   *
+   * @param named - The setting, as the row names it
+   * @param groupKey - Its group's key
+   * @param target - What to reset
+   */
+  private _auditReset(named: string, groupKey: string, target: Reset.ResetTarget): void {
+    const text = this._string(this._ctx, 'history.reset', { setting: named });
+    this._openStrip = undefined;
+    const done = this._commit(text, undefined, () => this._applyReset(target, []));
+    if (done) this._showStatus({ kind: 'audit', text, at: 0, group: groupKey }, `${text}.`);
+  }
+
+  /**
+   * One line of What This Card Changes, as its row: label and value, its YAML path with Show YAML
+   * Option Names on, and what is worth knowing about it ("Same as the Default", "Not in Use until
+   * …", "Grid Has Its Own: 5"). Where the editor owns the line, the row is one button opening its
+   * strip: Change Here, Open in its page, and Reset or Remove. A line kept as written has none.
    *
    * @param line - The line
    * @param group - Its group
+   * @param groupKey - Its group's key
    * @param ctx - Schema context
    * @returns The row
    */
   private _auditRow(
     line: Audit.AuditLine,
     group: Audit.AuditGroup,
+    groupKey: string,
     ctx: SchemaCtx,
   ): TemplateResult {
     const t = this._t(ctx);
     const layout = this._layoutName(ctx);
     const key = line.path[line.path.length - 1];
+    const yaml = this._prefs.yaml ? line.text : undefined;
+    const stripKey = `audit:${line.text}`;
+    const open = this._openStrip === stripKey;
+    const toggle = (): void => {
+      this._openStrip = open ? undefined : stripKey;
+    };
     const kept = (): TemplateResult =>
       AuditView.auditRow({
         path: line.text,
         label: key,
         value: Audit.plainValue(line.value),
-        words: t('audit.kept'),
+        yaml,
         tags: Audit.HA_LAYOUT_KEYS.has(key) ? [t('audit.ha_own')] : [],
       });
+    const action = (
+      id: string,
+      label: string,
+      name: string,
+      onPress: () => void,
+    ): CalendarView.StripAction => ({ id, label, name, onPress });
+
     if (line.page !== undefined) {
       const label = this._string(ctx, key === 'view' ? 'view' : 'toolbar.buttons.heading');
-      const reset = t('value_source.reset', { option: label });
+      const value =
+        key === 'view'
+          ? layout(line.value as Types.EffectiveView)
+          : Audit.buttonNames(line.value, this._string(ctx, 'toolbar.buttons.untitled'));
+      const page =
+        line.page === 'overview' ? t('search.overview') : this._pageTitleOf(line.page, ctx);
+      const go = (): void =>
+        line.page === 'overview'
+          ? this._open({ kind: 'overview' }, `more:${stripKey}`)
+          : this._open({ kind: 'page', page: line.page! }, `more:${stripKey}`, 'push', key);
       return AuditView.auditRow({
         path: line.text,
         label,
-        value:
-          key === 'view'
-            ? layout(line.value as Types.EffectiveView)
-            : Audit.buttonNames(line.value, this._string(ctx, 'toolbar.buttons.untitled')),
-        words: t('state.whole_card_set'),
+        value,
+        yaml,
         tags: [],
-        reset: {
-          name: reset,
-          title: t('reset.reset'),
-          focus: `audit-reset:${line.text}`,
-          onPress: () =>
-            this._commit(t('history.reset', { setting: label }), undefined, () =>
-              this._applyReset({ kind: 'path', path: line.path }, []),
+        menu: {
+          name: t('summary.pair', { label, value }),
+          stripName: this._string(ctx, 'calendars.actions', { name: label }),
+          open,
+          onToggle: toggle,
+          actions: [
+            action(
+              'open',
+              t('audit.open_in', { page }),
+              t('audit.open_named', { label, page }),
+              go,
             ),
-        },
-        go: {
-          name: t('audit.go_to', { name: label }),
-          title: t('audit.go_setting'),
-          focus: `audit-go:${line.text}`,
-          onPress: () =>
-            line.page === 'overview'
-              ? this._open({ kind: 'overview' }, `audit-go:${line.text}`)
-              : this._open(
-                  { kind: 'page', page: line.page! },
-                  `audit-go:${line.text}`,
-                  'push',
-                  key,
-                ),
+            action('reset', t('reset.reset'), t('value_source.reset', { option: label }), () =>
+              this._auditReset(label, groupKey, { kind: 'path', path: line.path }),
+            ),
+          ],
         },
       });
     }
@@ -9357,98 +9600,126 @@ export class CalendarCardProEditor extends LitElement {
       const each = universeIndex(ctx.language, group.workspace).fields.get(id);
       return each ? fieldLabel(each, ctx.language) : id;
     };
+    const word = this._wordOf(field, ctx);
+    // Under All Layouts, the layouts that keep their own value of it, a line each.
+    const own = (state?.layoutsOwn ?? []).map((each) =>
+      t('state.layout_own', { layout: layout(each.view), value: word(each.value) }),
+    );
     const editing = this._auditEdit?.line.text === line.text;
+    const owner: PlanOwner = entry === undefined ? CARD : { kind: 'entry', key: entry };
+    const appearance = Plan.appearanceOf(field.id) ?? 'add';
+    const verb = open
+      ? (this._resetActionOf(field.id, appearance, pctx, owner) ?? 'reset')
+      : 'reset';
+    const placed = placementOf(field.id)?.page;
+    const page =
+      entry !== undefined
+        ? this._entryName(entry)
+        : placed === undefined || placed === 'overview' || placed === 'entry'
+          ? t('search.overview')
+          : this._pageTitleOf(placed, ctx);
+    const change = (): void => {
+      this._openStrip = undefined;
+      this._auditEdit = { line, group };
+      // A color's line opens its control, as changing a dropdown's line opens no menu but shows
+      // its choices: here the choices are the control's rows and swatches.
+      const colorKey = this._colorKeyOf(
+        entry === undefined ? WriteFrames.CARD_OWNER : { kind: 'entry', key: entry },
+        field.id,
+        entry === undefined ? wctx : ctx,
+      );
+      if (colorKey !== undefined) this._openColor = colorKey;
+      this._focusSoon([`[data-audit="${CSS.escape(line.text)}"] [data-field]`]);
+    };
+    const go = (): void => {
+      // A calendar's field opens where its page draws it: the scope, else the first that does.
+      const scope =
+        entry === undefined
+          ? group.workspace
+          : [this._workspace, ...Workspace.WORKSPACES].find((each) =>
+              entityFieldIndex(entrySchema(stored!, this._ctxIn(each))).fields.has(field.id),
+            );
+      if (scope !== undefined && scope !== this._workspace) {
+        this._selectedWorkspace = scope;
+        this._scopeChanged = true;
+      }
+      this._openStrip = undefined;
+      this._openResult(
+        {
+          target:
+            entry === undefined
+              ? {
+                  kind: 'field',
+                  id: field.id,
+                  page: placed === 'overview' || placed === 'entry' ? undefined : placed,
+                }
+              : { kind: 'entry-field', id: field.id, key: entry },
+          label,
+        },
+        `more:${stripKey}`,
+        false,
+      );
+    };
     return AuditView.auditRow({
       path: line.text,
       label,
       value,
-      words: Shown.stateText(state, t) ?? t('state.set'),
-      tags: (
+      yaml,
+      tags:
         state?.words?.kind === 'set-layout'
           ? state.words.sameAsDefault
+            ? [t('audit.same')]
+            : []
           : (outcome?.kind === 'default' || outcome?.kind === 'layout-default') &&
-            Value.deepEqual(outcome.value, line.value)
-      )
-        ? [t('audit.same')]
-        : [],
+              Value.deepEqual(outcome.value, line.value)
+            ? [t('audit.same')]
+            : [],
+      lines: own,
       warning: line.inactive
         ? t('audit.inactive', {
             when: whenText(line.inactive.gate, data, ctx.language, labelOf) ?? '',
           })
         : undefined,
-      edit: {
-        name: t('audit.edit', { label: named, value }),
-        onPress: () => {
-          this._auditEdit = { line, group };
-          // A color's line opens its control, as editing a dropdown's line opens no menu but
-          // shows its choices: here the choices are the control's rows and swatches.
-          const colorKey = this._colorKeyOf(
-            entry === undefined ? WriteFrames.CARD_OWNER : { kind: 'entry', key: entry },
-            field.id,
-            entry === undefined ? wctx : ctx,
-          );
-          if (colorKey !== undefined) this._openColor = colorKey;
-          this._focusSoon([`[data-audit="${CSS.escape(line.text)}"] [data-field]`]);
-        },
+      menu: {
+        name: t('summary.pair', { label: named, value }),
+        stripName: this._string(ctx, 'calendars.actions', { name: named }),
+        open,
+        onToggle: toggle,
+        actions: [
+          action(
+            'change',
+            t('audit.change_here'),
+            t('audit.change_named', { label: named }),
+            change,
+          ),
+          action(
+            'open',
+            t('audit.open_in', { page }),
+            t('audit.open_named', { label: named, page }),
+            go,
+          ),
+          action(
+            'reset',
+            verb === 'remove' ? t('reset.remove') : t('reset.reset'),
+            verb === 'remove'
+              ? t('audit.remove_named', { label: named })
+              : t('value_source.reset', { option: named }),
+            () =>
+              this._auditReset(
+                named,
+                groupKey,
+                entry === undefined
+                  ? { kind: 'path', path: line.path }
+                  : { kind: 'entry', key: entry, keys: [key] },
+              ),
+          ),
+        ],
       },
       editing: editing
         ? entry === undefined
           ? this._renderField(field, wctx)
           : this._renderEntryField(field, entry, entryData!, ctx)
         : undefined,
-      reset: {
-        name: t('value_source.reset', { option: named }),
-        title: t('reset.reset'),
-        focus: `audit-reset:${line.text}`,
-        onPress: () => {
-          this._commit(t('history.reset', { setting: named }), undefined, () =>
-            this._applyReset(
-              entry === undefined
-                ? { kind: 'path', path: line.path }
-                : { kind: 'entry', key: entry, keys: [key] },
-              [],
-            ),
-          );
-          this._focusSoon([
-            `[data-heading="${CSS.escape(`audit:${entry === undefined ? (group.kind === 'layout' ? group.workspace : 'card') : `entry:${entry}`}`)}"] .heading`,
-            '.page-title',
-          ]);
-        },
-      },
-      go: {
-        name: t('audit.go_to', { name: named }),
-        title: t('audit.go_setting'),
-        focus: `audit-go:${line.text}`,
-        onPress: () => {
-          // A calendar's field opens where its page draws it: the scope, else the first that does.
-          const scope =
-            entry === undefined
-              ? group.workspace
-              : [this._workspace, ...Workspace.WORKSPACES].find((each) =>
-                  entityFieldIndex(entrySchema(stored!, this._ctxIn(each))).fields.has(field.id),
-                );
-          if (scope !== undefined && scope !== this._workspace) {
-            this._selectedWorkspace = scope;
-            this._scopeChanged = true;
-          }
-          const page = placementOf(field.id)?.page;
-          this._openResult(
-            {
-              target:
-                entry === undefined
-                  ? {
-                      kind: 'field',
-                      id: field.id,
-                      page: page === 'overview' || page === 'entry' ? undefined : page,
-                    }
-                  : { kind: 'entry-field', id: field.id, key: entry },
-              label,
-            },
-            `audit-go:${line.text}`,
-            false,
-          );
-        },
-      },
     });
   }
 
@@ -9528,8 +9799,8 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Renders the overview's search row: the search field, then Undo and Redo at its end, so the
-   * keyboard reaches them in that order.
+   * Renders the overview's search row: the search field, then Undo, Redo, Pick From Preview and
+   * the ⋯ menu of preferences at its end, so the keyboard reaches them in that order.
    *
    * @param ctx - Current editor context
    * @param chassis - The chassis schemas this render draws
@@ -9552,7 +9823,7 @@ export class CalendarCardProEditor extends LitElement {
           @compositionstart=${this._compositionStart}
           @compositionend=${this._compositionEnd}
         ></ha-form>
-        ${this._renderHistory(ctx)}
+        ${this._renderHistory(ctx)} ${this._renderPrefsMenu(ctx)}
       </div>
     `;
   }

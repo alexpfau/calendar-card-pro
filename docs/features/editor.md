@@ -15,32 +15,33 @@ The overview is the first thing the editor shows. It holds the settings almost e
 so a simple card can be finished without leaving it, and a row for each page that holds the
 rest. Top to bottom:
 
-| Part                           | What it does                                                                                                                                   |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Notices**                    | Only when the YAML holds [options the card ignores](#options-the-card-ignores) or [removed options](#deprecated-options)                       |
-| **Quick Setup**                | On a fresh card, a banner offering [Quick Setup](#quick-setup), which takes focus as the editor opens                                          |
-| **Search**, **Undo**, **Redo** | [Search](#search) every setting; [Undo and Redo](#undo-redo) the last change                                                                   |
-| **Settings For**               | Which layout's settings the pages edit; see [Options for the Selected View](#options-for-the-selected-view)                                    |
-| **Calendars**                  | The card's [calendars](#calendars), a row each                                                                                                 |
-| **Card Displays**              | List, Columns or Grid, the layout the card opens with                                                                                          |
-| **Days to Show**               | How many days the card covers                                                                                                                  |
-| **Start Date**                 | Today, Tomorrow, Start of Week, A Fixed Date, or Relative to Today                                                                             |
-| **Tapping an Event Opens It**  | Opens an event's details on a tap                                                                                                              |
-| **Settings**                   | A row per page, saying in one line what the page holds for this card                                                                           |
-| **More**                       | [What This Card Changes](#what-this-card-changes), Start From an Example, [Show Every Setting](#show-every-setting) and Show YAML Option Names |
+| Part                           | What it does                                                                                                             |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| **Notices**                    | Only when the YAML holds [options the card ignores](#options-the-card-ignores) or [removed options](#deprecated-options) |
+| **Quick Setup**                | On a fresh card, a banner offering [Quick Setup](#quick-setup), which takes focus as the editor opens                    |
+| **Search**, **Undo**, **Redo** | [Search](#search) every setting; [Undo and Redo](#undo-redo) the last change                                             |
+| **⋯ Editor Preferences**       | [Show Every Setting](#show-every-setting) and Show YAML Option Names, at the end of the search row                       |
+| **Settings For**               | Which layout's settings the pages edit; see [Options for the Selected View](#options-for-the-selected-view)              |
+| **Calendars**                  | The card's [calendars](#calendars), a row each                                                                           |
+| **Card Displays**              | List, Columns or Grid, the layout the card opens with                                                                    |
+| **Days to Show**               | How many days the card covers                                                                                            |
+| **Start Date**                 | Today, Tomorrow, Start of Week, A Fixed Date, or Relative to Today                                                       |
+| **Tapping an Event Opens It**  | Opens an event's details on a tap                                                                                        |
+| **Settings**                   | A row per page, saying in one line what the page holds for this card                                                     |
+| **More**                       | [What This Card Changes](#what-this-card-changes) and Start From an Example                                              |
 
 The settings rows open these pages:
 
-| Page               | What it holds                                                                                                    |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| **Which Events**   | Event Type, duplicates, event order, past events, multi-day events, empty days and Compact Mode                  |
-| **Card & Header**  | The title, the card's background and language, the toolbar and your own toolbar buttons                          |
-| **Day Header**     | How each day announces itself: its date, weeks and week numbers, today and its indicator, past days and weekends |
-| **Events**         | What each event shows, the time format, and how each part looks                                                  |
-| **Size & Spacing** | The card's height and spacing, the density of Columns and Grid, and the rules between days, weeks and months     |
-| **Grid**           | Only while you edit Grid: the hours it shows, its hour labels, and what it draws on the grid                     |
-| **Weather**        | The weather entity, and the forecast in the day header and beside each event                                     |
-| **Taps & Refresh** | What a tap or a hold on the card, a day or an event does, and how often the card reads its calendars again       |
+| Page                 | What it holds                                                                                                    |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **Which Events**     | Event Type, duplicates, event order, past events, multi-day events, empty days and Compact Mode                  |
+| **Card & Header**    | The title, the card's background and language, the toolbar and your own toolbar buttons                          |
+| **Day Header**       | How each day announces itself: its date, weeks and week numbers, today and its indicator, past days and weekends |
+| **Event Appearance** | What each event shows, the time format, and how each part looks                                                  |
+| **Size & Spacing**   | The card's height and spacing, the density of Columns and Grid, and the rules between days, weeks and months     |
+| **Grid**             | Only while you edit Grid: the hours it shows, its hour labels, and what it draws on the grid                     |
+| **Weather**          | The weather entity, and the forecast in the day header and beside each event                                     |
+| **Taps & Refresh**   | What a tap or a hold on the card, a day or an event does, and how often the card reads its calendars again       |
 
 **Start Date**'s choices write the existing `start_date` option: Tomorrow writes `today+1`, Start
 of Week writes `start_of_week`, and Relative to Today takes any offset, such as `today-29`.
@@ -48,9 +49,11 @@ of Week writes `start_of_week`, and Relative to Today takes any offset, such as 
 action is stored, such as a navigation, the switch gives way to a line naming it, and **Change**
 opens Taps & Refresh, where the full action editor is.
 
-Each row in **More** that is a switch, **Show Every Setting** and **Show YAML Option Names**, is
-remembered in this browser for every card. The second shows each setting's YAML option name
-beside its label, which helps when you move between the editor and YAML.
+The **⋯** menu at the end of the search row holds **Show Every Setting** and **Show YAML Option
+Names**, each remembered in this browser for every card. The second shows each setting's YAML
+option name beside its label, and the YAML path in search results and in What This Card Changes,
+which helps when you move between the editor and YAML. Down Arrow opens the menu from its button,
+and Escape closes it.
 
 ### Pages & Back
 
@@ -381,12 +384,15 @@ where there are several, which entry it is, as in **Anna · Entry 2 of 3**. **Pr
 
 | Heading              | What it holds                                                                                                                                                                       |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Name & Look**      | The calendar's name on the card, [its label](#per-calendar-labels), Show in Calendar Filter, its colors and Text Scale                                                              |
+| **Name & Look**      | Its Accent Color first, then the calendar's name on the card, [its label](#per-calendar-labels), Show in Calendar Filter and Text Scale                                             |
 | **Who Sees It**      | [Visibility conditions](/features/core-settings#showing-a-calendar-under-conditions), in Home Assistant's own Visibility editor                                                     |
 | **Which Events**     | [Split This Calendar](#split-this-calendar), Days of the Week, Event Type, All-Day Events Expire At, Hide Events Containing, Only Show Events Containing and Compact Events to Show |
 | **Text Replacement** | Find and Replace With, rewriting the event's title, location or description                                                                                                         |
 | **Multi-Day Events** | Whether this calendar's long events split across days, and how Grid draws them                                                                                                      |
 | **Event Details**    | Whether this calendar's events show their time, location, description and weather                                                                                                   |
+
+To show a calendar only on some days of the week, use **Days of the Week** under **Which
+Events**; the line under **Who Sees It** leads there.
 
 **Hide Events Containing** and **Only Show Events Containing** write `blocklist` and `allowlist`.
 Each takes one word or phrase at a time, matched as written, so punctuation needs no escaping, and
@@ -543,7 +549,7 @@ focus in it, ready to type into, and writes nothing until you change it.
 
 ### Show Every Setting
 
-**Show Every Setting**, under **More** on the overview, opens every page with all its settings
+**Show Every Setting**, in the **⋯** menu beside the search field, opens every page with all its settings
 that apply as controls, rather than naming the rest in Add Setting rows. It is off at first, and
 remembered in this browser for every card. Turn it on to browse what a page offers; leave it off
 to see what this card actually does.
@@ -553,12 +559,15 @@ to see what this card actually does.
 The search field at the top of the overview reaches every setting, including the ones not on
 their page yet, the ones waiting on another setting, the ones only another layout offers, and
 values stored but not in use. Typing turns the overview into a list of results, each with its
-name, the page and heading it lives under, its current value, and where the value comes from.
+name, the page and heading it lives under, its current value, and where the value comes from;
+with Show YAML Option Names on, its YAML path too. **Search Settings** at the top of every page
+takes you to the field, and **Back**, or Escape in an empty field, returns to the page.
 
-Choosing a result opens its page at the setting, highlighted, with **Return to Results** above
-it, which brings back the query and the list. A result that is not on its page yet offers
-**Add**, which adds it there and opens it; one waiting on another setting says what it needs, as
-in **Needs Show Description**. **Edit Here** turns the card settings the search found into their
+Results that match alike list a page's main settings first, so `past` leads with **Show Past
+Events**. Choosing a result opens its page at the setting, highlighted, with **Return to
+Results** above it, which brings back the query and the list. A result that is not on its page
+yet is added there as it opens; one waiting on another setting says what it needs, as in
+**Needs Show Description**. **Edit Here** turns the card settings the search found into their
 live controls, on the results list itself, and **Show as a List** goes back; a setting that is
 waiting on another one, not in use, or only another layout's stays a row that opens it.
 
@@ -599,7 +608,7 @@ hour labels. Its page opens with that part's heading at the top and its first se
 a search result opens one.
 
 - While it is on, a line above the editor says so, with **Cancel**, and the part under the
-  pointer is outlined and named, as in **Events › Location · Click to Edit**.
+  pointer is outlined and named, as in **Event Appearance › Location · Click to Edit**.
 - One pick turns it off again, and so do **Cancel**, Escape, the button itself, and moving
   anywhere else in the editor. **Back** returns to where you were.
 - The preview's own taps, holds and Grid's drag do nothing while it is on.
@@ -638,21 +647,24 @@ Assistant's code editor, ends what Undo can reach.
 ## 📋 What This Card Changes
 
 **What This Card Changes**, under **More** on the overview, lists every value this card stores,
-grouped by where it lives: the card as a whole, each layout's own block, and each calendar
-entry. Anything not listed uses its default. Its row on the overview counts them, as in
-**Set: 24 · Not in Use: 1**.
+in words, grouped by where it lives: **Whole Card** for settings with one value for every layout,
+**All Layouts** for the values every layout uses unless it has its own, then **List**,
+**Columns** and **Grid**, and each calendar entry. Anything not listed uses its default. Its row on
+the overview names where values are stored, as in **All Layouts · Grid · Anna · Not in Use: 1**.
 
-Each line shows its setting, its value and its state, and offers:
+Each line shows its setting and its value; with Show YAML Option Names on, its YAML path too.
+Pressing a line opens its actions under it:
 
-- **Edit**, which opens the setting's control right there and writes where the line lives; Card
-  Displays and your own toolbar buttons are edited where they are, through Go to Setting;
-- **Reset**, which removes the line;
-- **Go to Setting**, which opens its page at the setting.
+- **Change Here**, which opens the setting's control right there and writes where the line lives;
+- **Open in** its page, as in **Open in Day Header**, which opens the page at the setting; Card
+  Displays and your own toolbar buttons are changed there;
+- **Reset**, or **Remove** where the setting leaves its page, which removes the line. The line
+  left in its place says what was reset, with **Undo**.
 
 A layout's group adds **Reset All in Grid**. A line written at its default says **Same as the
-Default**, and one stored but not in use says when it would apply. Lines the editor does not own,
-such as options it does not know, are listed under **Kept as Written**, and the editor keeps them
-exactly as written.
+Default**, one stored but not in use says when it would apply, and a line under All Layouts that a
+layout overrides says so, a line per layout. Lines the editor does not own, such as options it
+does not know, are listed under **Kept as Written**, and the editor keeps them exactly as written.
 
 ## ⚖️ View Exceptions
 
@@ -783,7 +795,7 @@ those controls has a new home, and searching for its old name still finds it.
 | **Time Range & Content** | Days to Show and Start Date on the overview; Which Events; Language on Card & Header; Time Format on Events |
 | **Card & Header**        | Card & Header                                                                                               |
 | **Day Header**           | Day Header, now with First Day of Week                                                                      |
-| **Events**               | Events, with what each event shows as a row of parts to press                                               |
+| **Events**               | Event Appearance, with what each event shows as a row of parts to press                                     |
 | **Separators**           | Size & Spacing                                                                                              |
 | **Weather**              | Weather                                                                                                     |
 | **Actions & Refresh**    | Taps & Refresh, and Tapping an Event Opens It on the overview                                               |
@@ -800,7 +812,7 @@ setting a page offers, turn on [Show Every Setting](#show-every-setting).
 [Search](#search) is still at the top of the overview, now as a list of results that open each
 setting where it lives. The **Customized Only** switch is gone: pages show what the card sets
 anyway, and [What This Card Changes](#what-this-card-changes) lists every stored value in one
-place, each with Edit and Reset.
+place, each with Change Here and Reset.
 
 ### Per-Calendar Panels & Actions
 
