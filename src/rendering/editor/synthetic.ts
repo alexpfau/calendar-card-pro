@@ -799,7 +799,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
  * @returns `true` when the key must never reach the configuration
  */
 export function isSyntheticKey(key: string): boolean {
-  return Object.prototype.hasOwnProperty.call(SYNTHETIC_FIELDS, key);
+  return Helpers.hasOwn(SYNTHETIC_FIELDS, key);
 }
 
 /**

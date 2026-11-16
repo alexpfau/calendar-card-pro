@@ -8,6 +8,7 @@ import { EDITOR_LANGUAGE_STRINGS } from './translations/index';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
 import { intlLocales } from '../../translations/intl-locales';
+import { hasOwn } from '../../utils/helpers';
 
 /**
  * Turns a config key into readable text, as a last resort.
@@ -140,7 +141,7 @@ function divergentDefaultNote(
   view: Types.EffectiveView,
 ): string | undefined {
   const defaults = ViewConfig.DEFAULT_OVERRIDES_BY_VIEW[view];
-  if (defaults === undefined || !Object.prototype.hasOwnProperty.call(defaults, key)) {
+  if (defaults === undefined || !hasOwn(defaults, key)) {
     return undefined;
   }
 

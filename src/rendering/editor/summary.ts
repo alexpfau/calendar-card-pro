@@ -10,12 +10,11 @@ import { fieldLabel, parseFieldId } from './field-index';
 import type { SelectOption } from './ha-form';
 import { lookup } from './localize';
 import type { PageDef } from './pages';
-import { destination } from './routing';
+import { atPath, destination } from './routing';
 import { isColorNode } from './schemas/common';
 import { interpolate } from './strings';
-import { configKeysForField } from './synthetic';
+import { configKeysForField, isSet } from './synthetic';
 import type { EditorWorkspace } from './workspace';
-import { isConfigBlock } from '../../utils/helpers';
 
 /** Joins the parts of a summary. */
 export const SUMMARY_SEPARATOR = ' · ';
@@ -25,19 +24,6 @@ export const SUMMARY_SEPARATOR = ' · ';
  * `undefined` to leave the pair out.
  */
 export type Describe = (field: Pick<IndexedField, 'node'>, value: unknown) => string | undefined;
-
-/**
- * The value at a data path.
- *
- * @param data - Form data
- * @param path - Keys, outermost first
- * @returns The value, or `undefined` where a step is missing
- */
-function at(data: unknown, path: ReadonlyArray<string>): unknown {
-  let value = data;
-  for (const key of path) value = isConfigBlock(value) ? value[key] : undefined;
-  return value;
-}
 
 /**
  * Words a field's value as its control shows it: On or Off for a switch, the option's label for
@@ -107,7 +93,7 @@ export function summaryParts(
     if (field === undefined) continue;
     const value = wordValue(
       field,
-      at(data, [...field.dataPath, field.node.name]),
+      atPath(data, field.dataPath, field.node.name),
       language,
       describe,
     );
@@ -135,16 +121,6 @@ export function setCount(count: number, language: string): string {
 }
 
 /**
- * Whether a value counts as written: blanks and nulls are how a cleared field is left.
- *
- * @param value - Value as stored
- * @returns `true` when the value is there
- */
-function holdsValue(value: unknown): boolean {
-  return value !== undefined && value !== null && value !== '';
-}
-
-/**
  * Where the YAML stores a value for a card field in a scope, as configuration paths: its own
  * nested path, or, for a field on the card's root, where the scope writes each of its keys, a
  * layout's block or the top level. A top-level value a layout inherits is not stored in that
@@ -161,14 +137,16 @@ export function storedPaths(
   workspace: EditorWorkspace,
 ): string[] {
   const { dataPath, name } = parseFieldId(id);
-  const paths =
+  const paths: Array<readonly [ReadonlyArray<string>, string]> =
     dataPath.length > 0
-      ? [[...dataPath, name]]
+      ? [[dataPath, name]]
       : configKeysForField(name).map((key) => {
           const block = destination(key, workspace);
-          return block === undefined ? [key] : [block, key];
+          return [block === undefined ? [] : [block], key];
         });
-  return paths.filter((path) => holdsValue(at(raw, path))).map((path) => path.join('.'));
+  return paths
+    .filter(([path, key]) => isSet(atPath(raw, path, key)))
+    .map(([path, key]) => [...path, key].join('.'));
 }
 
 /**

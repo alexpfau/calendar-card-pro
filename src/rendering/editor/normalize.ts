@@ -69,7 +69,7 @@ export function normalizeFieldValue(
         view,
       );
     }
-    if (Object.prototype.hasOwnProperty.call(block.onlyDefaults, key)) {
+    if (Helpers.hasOwn(block.onlyDefaults, key)) {
       return view === 'grid'
         ? ViewConfig.normalizeTimeGridValue(
             key as keyof typeof ViewConfig.TIME_GRID_DEFAULTS,

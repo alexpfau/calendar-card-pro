@@ -80,7 +80,7 @@ const CALENDAR_OPTIONS: Readonly<Record<string, CalendarOption>> = {
  * @returns `true` for an option the calendar has once
  */
 export function isCalendarOption(key: string): boolean {
-  return Object.prototype.hasOwnProperty.call(CALENDAR_OPTIONS, key);
+  return Helpers.hasOwn(CALENDAR_OPTIONS, key);
 }
 
 /**
