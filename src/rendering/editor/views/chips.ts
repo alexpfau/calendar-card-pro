@@ -44,7 +44,7 @@ export function chipGroup(
   shown: boolean,
 ): TemplateResult {
   return html`${shown ? html`<p class="label">${label}</p>` : nothing}
-    <div class="chips" role="group" aria-label=${label} tabindex="-1">
+    <div class="chip-group" role="group" aria-label=${label} tabindex="-1">
       ${chips.map((chip) => {
         const why = chip.needs === undefined ? undefined : `needs-${chip.id.replace(/\W/g, '-')}`;
         // A chip that can be pressed is composed for its field; one a gate withholds stands for

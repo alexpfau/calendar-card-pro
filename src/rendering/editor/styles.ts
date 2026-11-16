@@ -1140,8 +1140,9 @@ export default css`
      Toggle chips: native buttons, pressed with a check and the primary color, so the state never
      rests on color alone. An unpressable chip stays focusable and shows its reason inside it.
      Calendar Filter is a segmented row of native radios. The toolbar's own buttons are the
-     calendar list's rows, each bordered as one card that opens in place. */
-  .chips {
+     calendar list's rows, each bordered as one card that opens in place. The group is not .chips,
+     which Start Date's radio chips use as a column. */
+  .chip-group {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
@@ -1189,14 +1190,14 @@ export default css`
   }
 
   .chip:focus-visible,
-  .chips:focus-visible,
+  .chip-group:focus-visible,
   .segmented:focus-visible,
   .segment:focus-within {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
   }
 
-  .chips:focus:not(:focus-visible),
+  .chip-group:focus:not(:focus-visible),
   .segmented:focus:not(:focus-visible) {
     outline: none;
   }
