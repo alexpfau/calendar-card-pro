@@ -1,8 +1,10 @@
 /**
- * A closed panel mounts no form (backlog item 307).
+ * A closed panel mounts no form, and a page only its own (backlog item 307).
  *
  * Today's dialog built every panel's forms, 124 of them behind closed panels, at every open and
- * on every render. Now a panel mounts its forms when it first opens, and has to do so before Home
+ * on every render. Now the card's settings sit on pages, and only the place open draws its forms;
+ * the panels left, a calendar's and a toolbar button's, mount theirs when they first open, and have
+ * to do so before Home
  * Assistant measures it: its `ha-expansion-panel` announces `expanded-will-change`, lets a render
  * pass, reads its content's height, and only then announces `expanded-changed` (`_toggleContainer`
  * in its frontend, 2026.11). Forms mounted on `expanded-changed` would arrive after the measuring,
@@ -15,9 +17,8 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { changeField, mountEditor } from './helpers/editor-host';
+import { changeField, mountEditor, openPageOf } from './helpers/editor-host';
 import * as Config from '../src/config/config';
-import { PANELS } from '../src/rendering/editor/panels';
 
 /** A drawn panel, as Home Assistant's element and the editor set it. */
 type Panel = HTMLElement & { expanded?: boolean; header?: string };
@@ -66,27 +67,33 @@ async function toggleOpen(panel: Panel): Promise<number> {
 
 afterEach(() => document.body.replaceChildren());
 
+/** A calendar's panel, by its place among those drawn. */
+function calendar(editor: HTMLElement, at: number): Panel {
+  return panels(editor).filter((panel) => panel.matches('.entity-panel'))[at];
+}
+
 describe('a closed panel', () => {
   it('holds no form, and nor does any panel inside it', async () => {
     const editor = await mountEditor(CONFIG);
 
     const drawn = panels(editor);
-    // Nine panels, two calendars and one toolbar button: every panel the editor draws.
-    expect(drawn).toHaveLength(PANELS.length + 2 + 1);
+    // Two calendars on the overview: every panel it draws.
+    expect(drawn).toHaveLength(2);
     expect(drawn.map((panel) => mounted(panel).length)).toEqual(drawn.map(() => 0));
-    // The control: the forms above the panels are drawn as before.
-    expect(editor.shadowRoot!.querySelectorAll('ha-form')).toHaveLength(3);
+    // The control: the overview's own forms are drawn: the filter bar, the calendar picker,
+    // Days to Show and Start Date.
+    expect(editor.shadowRoot!.querySelectorAll('ha-form').length).toBeGreaterThanOrEqual(4);
   });
 
   it('opens with its forms mounted in the update that opens it, before Home Assistant measures it', async () => {
     const editor = await mountEditor(CONFIG);
-    const events = panels(editor).find((panel) => panel.header === 'Events')!;
+    const ben = calendar(editor, 1);
     const updates: string[] = [];
-    events.addEventListener('expanded-changed', () =>
-      updates.push(`changed with ${mounted(events).length} forms`),
+    ben.addEventListener('expanded-changed', () =>
+      updates.push(`changed with ${mounted(ben).length} forms`),
     );
 
-    events.dispatchEvent(
+    ben.dispatchEvent(
       new CustomEvent('expanded-will-change', {
         detail: { expanded: true },
         bubbles: true,
@@ -95,78 +102,83 @@ describe('a closed panel', () => {
     );
     await editor.updateComplete;
 
-    // Still closed, and nothing announced yet beyond the will-change: the form is there now.
-    expect(events.expanded).not.toBe(true);
+    // Still closed, and nothing announced yet beyond the will-change: the forms are there now.
+    expect(ben.expanded).not.toBe(true);
     expect(updates).toEqual([]);
-    expect(mounted(events)).toHaveLength(1);
-    // Only that panel: every other one still holds none.
-    expect(
-      panels(editor)
-        .filter((panel) => panel !== events)
-        .flatMap(mounted),
-    ).toEqual([]);
+    expect(mounted(ben).length).toBeGreaterThan(0);
+    // Only that panel: the other still holds none.
+    expect(mounted(calendar(editor, 0))).toEqual([]);
   });
 
-  it.each(PANELS.map((panel) => panel.id))(
-    'mounts what the %s panel holds before Home Assistant measures it',
-    async (id) => {
-      const editor = await mountEditor(CONFIG);
-      const index = PANELS.findIndex((panel) => panel.id === id);
-      const panel = panels(editor).filter(
-        (candidate) => !candidate.matches('.entity-panel, .button-panel'),
-      )[index];
-
-      const measured = await toggleOpen(panel);
-
-      expect(measured).toBeGreaterThan(0);
-      expect(mounted(panel).length).toBe(measured);
-    },
-  );
-
-  it('mounts a calendar’s forms when its own panel opens, inside an open Calendars panel', async () => {
+  it('mounts what a calendar’s panel holds before Home Assistant measures it', async () => {
     const editor = await mountEditor(CONFIG);
-    const calendars = panels(editor)[0];
-    const ben = panels(editor).filter((panel) => panel.matches('.entity-panel'))[1];
+    const ben = calendar(editor, 1);
+    const measured = await toggleOpen(ben);
+    expect(measured).toBeGreaterThan(0);
+    expect(mounted(ben).length).toBe(measured);
+    expect(mounted(calendar(editor, 0))).toEqual([]);
+  });
 
-    expect(await toggleOpen(calendars)).toBe(1);
-    // The calendars' own panels are still closed: the picker is the only form so far.
-    expect(mounted(ben)).toEqual([]);
+  it('mounts what a toolbar button’s panel holds before Home Assistant measures it', async () => {
+    const editor = await mountEditor(CONFIG);
+    await openPageOf(editor, 'card:title');
+    const home = panels(editor).find((panel) => panel.matches('.button-panel'))!;
+    expect(mounted(home)).toEqual([]);
 
-    expect(await toggleOpen(ben)).toBeGreaterThan(0);
-    expect(mounted(panels(editor).filter((panel) => panel.matches('.entity-panel'))[0])).toEqual(
-      [],
-    );
+    const measured = await toggleOpen(home);
+    expect(measured).toBeGreaterThan(0);
+    expect(mounted(home).length).toBe(measured);
   });
 
   it('keeps its forms once it has opened, closed again or not', async () => {
     const editor = await mountEditor(CONFIG);
-    const events = panels(editor).find((panel) => panel.header === 'Events')!;
-    await toggleOpen(events);
-    const form = mounted(events)[0];
+    const ben = calendar(editor, 1);
+    await toggleOpen(ben);
+    const forms = mounted(ben);
 
-    events.dispatchEvent(
+    ben.dispatchEvent(
       new CustomEvent('expanded-will-change', {
         detail: { expanded: false },
         bubbles: true,
         composed: true,
       }),
     );
-    events.expanded = false;
+    ben.expanded = false;
     editor.requestUpdate();
     await editor.updateComplete;
 
-    expect(mounted(events)).toEqual([form]);
+    expect(mounted(ben)).toEqual(forms);
+  });
+});
+
+describe('a page', () => {
+  it('draws its own fields only, and the overview’s come back with it', async () => {
+    const editor = await mountEditor(CONFIG);
+    const ids = (): string[] =>
+      [...editor.shadowRoot!.querySelectorAll('[data-field]')].map((field) =>
+        field.getAttribute('data-field')!,
+      );
+    const overview = ids();
+    expect(overview).toContain('content:days_to_show');
+
+    await openPageOf(editor, 'events:show_time');
+    expect(ids().length).toBeGreaterThan(1);
+    expect(ids().every((id) => id.startsWith('events:') || id.startsWith('content:'))).toBe(true);
+    expect(ids()).not.toContain('content:days_to_show');
+
+    await openPageOf(editor, 'content:days_to_show');
+    expect(ids()).toEqual(overview);
   });
 });
 
 describe('a search', () => {
-  it('opens the panels it keeps, which then mount their forms', async () => {
+  it('opens the calendar panels it keeps, which then mount their forms', async () => {
     const editor = await mountEditor(CONFIG);
 
     await changeField(editor, 'filter:search', 'color');
 
-    const kept = panels(editor).filter((panel) => !panel.matches('.entity-panel, .button-panel'));
-    expect(kept.length).toBeGreaterThan(1);
+    const kept = panels(editor).filter((panel) => panel.matches('.entity-panel'));
+    expect(kept.length).toBeGreaterThan(0);
     expect(kept.map((panel) => [panel.expanded, mounted(panel).length > 0])).toEqual(
       kept.map(() => [true, true]),
     );

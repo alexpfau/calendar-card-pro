@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
-import { CARD, changeField, formOf, formsOf, mountEditor } from './helpers/editor-host';
+import {
+  CARD,
+  changeField,
+  formOf,
+  formsOf,
+  mountEditor,
+  openPanels,
+  resetButtons,
+} from './helpers/editor-host';
 import { CURRENT_CONFIG_VERSION, DEFAULT_CONFIG } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import {
@@ -22,6 +30,7 @@ import {
   toFilterCriteria,
 } from '../src/rendering/editor/filter';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
+import { PAGES } from '../src/rendering/editor/pages';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 import { buildEntitySchema, entitySchemaFor } from '../src/rendering/editor/schemas/entity';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
@@ -646,15 +655,14 @@ describe('editor filter: the chassis', () => {
       dispatched.push((event as CustomEvent).detail.config);
     });
 
+    // What a search shows of each page: a group under the page's title, on the overview.
     const panels = () =>
-      [...element.shadowRoot!.querySelectorAll('ha-expansion-panel')].filter(
-        (node) =>
-          !node.classList.contains('entity-panel') &&
-          !node.classList.contains('button-panel') &&
-          !node.classList.contains('exceptions'),
+      [...element.shadowRoot!.querySelectorAll('.overview > section.page-group')].filter(
+        (node) => node.getAttribute('data-heading') !== 'calendars',
       );
+    const rows = () => element.shadowRoot!.querySelectorAll('[data-focus^="nav:"]');
 
-    return { element, dispatched, panels };
+    return { element, dispatched, panels, rows };
   }
 
   it('renders the filter bar above the panels', async () => {
@@ -665,10 +673,11 @@ describe('editor filter: the chassis', () => {
   });
 
   it('collapses away the panels a search empties', async () => {
-    const { element, panels } = await mount({ entities: ['calendar.a'] });
+    const { element, panels, rows } = await mount({ entities: ['calendar.a'] });
 
-    const before = panels().length;
-    expect(before).toBe(PANELS.length);
+    // A row per page before; the pages a search keeps after.
+    const before = rows().length;
+    expect(before).toBe(PAGES.length - 1);
 
     await changeField(element, `filter:${SEARCH_FIELD}`, 'min_day_width');
 
@@ -684,15 +693,16 @@ describe('editor filter: the chassis', () => {
   it('expands the panels that still have something to show', async () => {
     const { element, panels } = await mount({ entities: ['calendar.a'] });
 
-    expect(panels().every((panel) => (panel as unknown as { expanded: boolean }).expanded)).toBe(
-      false,
-    );
+    expect(panels()).toHaveLength(0);
 
     await changeField(element, `filter:${SEARCH_FIELD}`, 'week');
 
+    // Each page's matches drawn as live controls, none behind a heading to open.
     const shown = panels();
     expect(shown.length).toBeGreaterThan(0);
-    expect(shown.every((panel) => (panel as unknown as { expanded: boolean }).expanded)).toBe(true);
+    expect(shown.every((panel) => panel.querySelector('[data-field] > ha-form') !== null)).toBe(
+      true,
+    );
   });
 
   it('says so when a search matches nothing', async () => {
@@ -752,8 +762,11 @@ describe('editor filter: the chassis', () => {
     await changeField(element, `filter:${CUSTOMIZED_ONLY_FIELD}`, true);
 
     expect(
-      element.shadowRoot!.querySelectorAll('[data-reset-keys="event_font_size"]'),
+      (await resetButtons(element)).filter(
+        (button) => button.dataset.resetKeys === 'event_font_size',
+      ),
     ).toHaveLength(1);
+    await openPanels(element);
     const offered = formsOf(element, CARD).flatMap((form) => fieldNames(form.schema));
     expect(offered).toContain('event_font_size');
   });

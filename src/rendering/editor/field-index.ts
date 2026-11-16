@@ -239,6 +239,32 @@ const presentIndex = Helpers.memoizeLast(
   },
 );
 
+/** Each panel's built schema, by the configuration it was built from, then by its other inputs. */
+const builtSchemas = new WeakMap<
+  object,
+  Map<string, { readonly raw: unknown; readonly schema: HaFormSchema[] }>
+>();
+
+/**
+ * A panel's schema as its builder makes it for a context, inert fields withheld, built once for
+ * the inputs a builder reads: the index and the editor's filter both read it, and neither builds
+ * it again.
+ *
+ * @param panel - The panel
+ * @param ctx - Schema context
+ * @returns The schema
+ */
+export function builtSchema(panel: PanelDef, ctx: SchemaCtx): HaFormSchema[] {
+  let byInputs = builtSchemas.get(ctx.config);
+  if (byInputs === undefined) builtSchemas.set(ctx.config, (byInputs = new Map()));
+  const key = `${panel.id}\u0000${ctx.language}\u0000${ctx.workspace}\u0000${ctx.view}`;
+  const kept = byInputs.get(key);
+  if (kept !== undefined && kept.raw === ctx.rawConfig) return kept.schema;
+  const schema = Filter.withholdInertFields(panel.build(ctx), ctx.workspace ?? ctx.view);
+  byInputs.set(key, { raw: ctx.rawConfig, schema });
+  return schema;
+}
+
 /**
  * Indexes one panel's fields as built for a context, after `filter.ts` › `withholdInertFields`.
  *
@@ -247,7 +273,7 @@ const presentIndex = Helpers.memoizeLast(
  * @param ctx - Schema context
  */
 function indexPanel(target: Map<FieldId, IndexedField>, panel: PanelDef, ctx: SchemaCtx): void {
-  const built = Filter.withholdInertFields(panel.build(ctx), ctx.workspace ?? ctx.view);
+  const built = builtSchema(panel, ctx);
   indexLeaves(target, panel.id, built, [], cardConfigKeys);
 }
 

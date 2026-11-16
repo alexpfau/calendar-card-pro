@@ -268,8 +268,8 @@ describe('the button in the middle', () => {
       entities: [ANNA],
       toolbar: { show: true, buttons: [HOME, LIGHTS, FAN] },
     });
-    await openPageOf(editor, 'card:title');
-    await openPanels(editor);
+    // Card & Header, each button's panel open on it.
+    for (const at of [0, 1, 2]) await openPageOf(editor, 'button:name', button(at));
     const [home, lights, fan] = keysOf(editor, 'button');
     const lightsForm = formOf(editor, 'button:name', button(1))!;
     const fanForm = formOf(editor, 'button:name', button(2))!;
@@ -441,8 +441,7 @@ describe('a form drawn before another write', () => {
       entities: [ANNA],
       toolbar: { show: true, buttons: [{ ...HOME, tap_action: OLD }] },
     });
-    await openPageOf(editor, 'card:title');
-    await openPanels(editor);
+    await openPageOf(editor, 'button:name', button(0));
     const [home] = keysOf(editor, 'button');
     const form = formOf(editor, 'button:name', button(0))!;
 
@@ -582,8 +581,7 @@ describe('a late change from an owner that has left', () => {
       entities: [ANNA],
       toolbar: { show: true, buttons: [HOME, LIGHTS] },
     });
-    await openPageOf(editor, 'card:title');
-    await openPanels(editor);
+    for (const at of [0, 1]) await openPageOf(editor, 'button:name', button(at));
     const [home] = keysOf(editor, 'button');
     const homeForm = formOf(editor, 'button:name', button(0))!;
 

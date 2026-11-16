@@ -25,7 +25,9 @@ import {
   formOf,
   formsOf,
   mountEditor,
+  openPageOf,
   openPanels,
+  resetButton,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -67,9 +69,6 @@ function panelOwning(element: EditorHost, id: string): FormElement {
   return owner;
 }
 
-const panelCount = (element: EditorHost): number =>
-  element.shadowRoot!.querySelectorAll('ha-expansion-panel').length;
-
 beforeEach(() => {
   document.body.innerHTML = '';
   Entities.clearCopiedSettings();
@@ -78,12 +77,13 @@ beforeEach(() => {
 describe('editor filter bar', () => {
   it('narrows the rendered panels to the ones that match the search', async () => {
     const element = await mount({ entities: ['calendar.a'] });
-    const before = panelCount(element);
+    const before = formsOf(element, CARD).length;
     expect(before).toBeGreaterThan(1);
 
     await changeFields(element, { 'filter:search': 'weather', 'filter:customized_only': false });
 
-    const during = panelCount(element);
+    // What the search finds, drawn on the overview, every page's matches.
+    const during = formsOf(element, CARD).length;
     expect(during).toBeGreaterThan(0);
     expect(during).toBeLessThan(before);
 
@@ -93,13 +93,13 @@ describe('editor filter bar', () => {
 
   it('restores every panel when the search is cleared', async () => {
     const element = await mount({ entities: ['calendar.a'] });
-    const before = panelCount(element);
+    const before = formsOf(element, CARD).length;
 
     await changeFields(element, { 'filter:search': 'weather', 'filter:customized_only': false });
-    expect(panelCount(element)).toBeLessThan(before);
+    expect(formsOf(element, CARD).length).toBeLessThan(before);
 
     await changeFields(element, { 'filter:search': '', 'filter:customized_only': false });
-    expect(panelCount(element)).toBe(before);
+    expect(formsOf(element, CARD)).toHaveLength(before);
   });
 
   it('keeps the filter event inside the editor', async () => {
@@ -160,6 +160,7 @@ describe('editor panel option forms', () => {
 
   it('keeps the same panel form across ordinary edits within one workspace', async () => {
     const element = await mount({ entities: ['calendar.anna'], view: 'grid' });
+    await openPageOf(element, 'events:event_font_size');
     const form = panelOwning(element, 'events:event_font_size');
     await changeField(element, 'events:event_font_size', '18px');
 
@@ -211,9 +212,11 @@ describe('editor panel option forms', () => {
     const element = await mount({ entities: ['calendar.a'] });
     const seen = reported(element);
 
-    const form = panelOwning(element, 'content:days_to_show');
-    emitChange(form, { 'content:days_to_show': 7 });
-    emitChange(form, { 'content:days_to_show': 7, 'content:first_day_of_week': 'monday' });
+    // Each field in a form of its own: one on the overview, one on Day Header.
+    const days = panelOwning(element, 'content:days_to_show');
+    const week = panelOwning(element, 'content:first_day_of_week');
+    emitChange(days, { 'content:days_to_show': 7 });
+    emitChange(week, { 'content:first_day_of_week': 'monday' });
     await element.updateComplete;
 
     const last = seen[seen.length - 1];
@@ -283,14 +286,13 @@ describe('direct view forms and resets', () => {
       view: 'column',
       column: { day_spacing: '20px' },
     });
-    const reset = element.shadowRoot!.querySelector<HTMLButtonElement>(
-      '[data-reset-keys="day_spacing"]',
-    );
+    const reset = await resetButton(element, 'day_spacing');
     expect(reset).not.toBeNull();
     reset!.click();
     await element.updateComplete;
+    await openPageOf(element, 'layout:day_spacing');
     expect(valueOf(element, 'layout:day_spacing')).toBe('10px');
-    expect(element.shadowRoot!.querySelector('[data-reset-keys="day_spacing"]')).toBeNull();
+    expect(await resetButton(element, 'day_spacing')).toBeNull();
   });
 
   it('writes an override value into the view block', async () => {

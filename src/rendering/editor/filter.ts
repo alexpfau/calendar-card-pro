@@ -316,6 +316,18 @@ export function matchesPanel(panel: PanelDef, ctx: FilterCtx): boolean {
   );
 }
 
+/**
+ * Whether a query names any of some displayed text, as it names a panel by its title.
+ *
+ * @param texts - The text, holes allowed
+ * @param ctx - Matching context
+ * @returns `true` when one matches; `false` when nothing was typed
+ */
+export function matchesText(texts: ReadonlyArray<string | undefined>, ctx: FilterCtx): boolean {
+  const query = queryOf(ctx);
+  return query !== '' && anyMatches(texts, query);
+}
+
 const normalized = Helpers.memoizeLast((config: Readonly<Types.Config>) =>
   Config.normalizeLengthOptions(Config.normalizeNumericOptions({ ...config })),
 );

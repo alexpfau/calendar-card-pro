@@ -56,6 +56,38 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'heading.name_and_look': 'Name & Look',
   'heading.who_sees_it': 'Who Sees It',
 
+  // --- Overview & navigation ------------------------------------------------
+  //
+  // The overview's own words, the pages' Back and cross-links, the scope control and the line
+  // under each section row. Every key here is looked up by a literal in code, which `check:i18n`
+  // holds them to. Counts are a label and a number ("Set: 3"), so no language inflects for one.
+  'overview.settings': 'Settings',
+  'overview.more': 'More',
+  'more.example': 'Start From an Example',
+  'more.example_note': 'Quick Setup: an example card and a few questions',
+  'quick_setup.dismiss': 'Dismiss Quick Setup',
+  'nav.back': 'Back',
+  // A link to the heading on another page that answers the neighboring question.
+  'nav.crumb': '{page} › {heading}',
+  'nav.cross_link.past_days': 'Dates of past days:',
+  'nav.cross_link.past_events': 'Whether past events show:',
+  'settings_for.label': 'Settings For',
+  'settings_for.compact': 'Settings for {layout}',
+  'settings_for.change': 'Change',
+  'settings_for.change_named': 'Change: settings for {layout}',
+  'settings_for.option_set': '{layout}, Set: {count}',
+  'settings_for.help_shared':
+    'Shared starting values. A layout’s own settings or built-in defaults can take precedence.',
+  'settings_for.help_layout':
+    'Edits here are written for {layout} and apply when the card shows it.',
+  'settings_for.preview': 'Editing {layout} · Preview Shows {displayed}',
+  'settings_for.grid_only': 'Applies when the card shows Grid.',
+  'announce.scope': 'Now editing settings for {layout}.',
+  'summary.pair': '{label}: {value}',
+  'summary.set': 'Set: {count}',
+  'summary.on': 'On',
+  'summary.off': 'Off',
+
   // --- Gates ----------------------------------------------------------------
   //
   // What a withheld setting waits for, where the control's own label does not say it. Read from
@@ -345,11 +377,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.label': 'Label',
   'entity.color': 'Event Color',
   'entity.color.helper': 'Event titles from this calendar. Overrides the card color.',
-  'entity.accent_color': 'Accent Color',
+  'entity.accent_color': 'Custom Accent Color',
   'entity.accent_color.helper':
     'The vertical line beside each event, and its background where the background ' +
     'opacity is above zero.',
-  'entity.accent_color_mode': 'Accent Color',
+  'entity.accent_color_mode': 'Accent Color Source',
   'entity.accent_color_mode.helper':
     'Home Assistant can hold a color for each calendar, under Settings, Devices & ' +
     'Services, Entities. Calendars it has no color for fall back to the card.',
@@ -934,10 +966,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'panel.events.helper': 'The events themselves, and the lines each one can carry.',
   event_font_size: 'Event Font Size',
   event_color: 'Event Color',
-  accent_color: 'Accent Color',
+  accent_color: 'Custom Accent Color',
   'accent_color.helper':
     'The bar beside each event. A calendar can override it for its own events.',
-  accent_color_mode: 'Accent Color',
+  accent_color_mode: 'Accent Color Source',
   'accent_color_mode.helper':
     'Home Assistant can hold a color for each calendar, under Settings, Devices & ' +
     'Services, Entities. Calendars it has no color for keep the card default.',
@@ -1131,34 +1163,34 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   'weather.date': 'In the Day Header',
   'weather.date.helper': "The day's forecast, shown once per day.",
-  'date.show_conditions': 'Show Conditions',
+  'date.show_conditions': 'Show Conditions Beside Days',
   'date.show_high_temp': 'Show High Temperature',
   'date.show_low_temp': 'Show Low Temperature',
   'date.show_low_temp.helper': 'The UV index takes this place on days it is shown.',
-  'date.show_uv_index': 'Show UV Index',
-  'date.uv_index_threshold': 'UV Index Threshold',
+  'date.show_uv_index': 'Show UV Index Beside Days',
+  'date.uv_index_threshold': 'UV Index Threshold Beside Days',
   'date.uv_index_threshold.helper': 'Hide the index below this value. Zero always shows it.',
-  'date.icon_size': 'Icon Size',
-  'date.font_size': 'Font Size',
-  'date.color': 'Color',
+  'date.icon_size': 'Icon Size Beside Days',
+  'date.font_size': 'Font Size Beside Days',
+  'date.color': 'Color Beside Days',
 
   'weather.event': 'Beside Each Event',
   'weather.event.helper': "The forecast for each event's own start time.",
-  'event.show_conditions': 'Show Conditions',
+  'event.show_conditions': 'Show Conditions Beside Events',
   'event.show_conditions.helper':
     'Shows the condition icon. In column and grid layouts the icon is always shown, ' +
     'because the row shares an icon edge with the time and location, and this adds the ' +
     'condition in words instead.',
   'event.show_temp': 'Show Temperature',
-  'event.show_uv_index': 'Show UV Index',
-  'event.uv_index_threshold': 'UV Index Threshold',
+  'event.show_uv_index': 'Show UV Index Beside Events',
+  'event.uv_index_threshold': 'UV Index Threshold Beside Events',
   'event.uv_index_threshold.helper': 'Hide the index below this value. Zero always shows it.',
   'event.daily_forecast_fallback': 'Fall Back to the Daily Forecast',
   'event.daily_forecast_fallback.helper':
     'For an all-day event, or one further ahead than the hourly forecast reaches.',
-  'event.icon_size': 'Icon Size',
-  'event.font_size': 'Font Size',
-  'event.color': 'Color',
+  'event.icon_size': 'Icon Size Beside Events',
+  'event.font_size': 'Font Size Beside Events',
+  'event.color': 'Color Beside Events',
   'event.max_lines': 'Weather Line Limit',
   'event.max_lines.helper':
     'Zero means no limit. Column and grid layouts write the condition out in words, so ' +

@@ -11,7 +11,7 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { changeField, mountEditor, openPanels } from './helpers/editor-host';
+import { changeField, mountEditor, openPanels, resetButton } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { valueSource } from '../src/rendering/editor/routing';
@@ -49,10 +49,6 @@ async function choose(editor: EditorHost, choice: 'keep-list' | 'shared-root'): 
   await editor.updateComplete;
   // The panels arrive with the answer, each closed and mounting no form until opened.
   await openPanels(editor);
-}
-
-function resetButton(editor: EditorHost, key: string): HTMLButtonElement | null {
-  return editor.shadowRoot!.querySelector<HTMLButtonElement>(`[data-reset-keys="${key}"]`);
 }
 
 function merged(config: Record<string, unknown>): Types.Config {
@@ -220,7 +216,7 @@ describe('a kept view value is the view’s own', () => {
     expect(valueSource(merged(card), 'grid', 'days_to_show')).toBe('own');
 
     const { editor, reports } = await mount(card);
-    const reset = resetButton(editor, 'days_to_show');
+    const reset = await resetButton(editor, 'days_to_show');
     expect(reset).not.toBeNull();
 
     reset!.click();
@@ -229,7 +225,7 @@ describe('a kept view value is the view’s own', () => {
     expect(reports).toEqual([
       { config_version: Config.CURRENT_CONFIG_VERSION, entities: ['calendar.anna'], view: 'grid' },
     ]);
-    expect(resetButton(editor, 'days_to_show')).toBeNull();
+    expect(await resetButton(editor, 'days_to_show')).toBeNull();
     expect(valueSource(merged(reports[0]), 'grid', 'days_to_show')).toBe('inherited');
   });
 

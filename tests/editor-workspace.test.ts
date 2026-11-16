@@ -7,9 +7,7 @@ import {
   changeField,
   changeFields,
   entry,
-  formOf,
   formsOf,
-  labelOf,
   mountEditor,
   openPanels,
   valueOf,
@@ -29,7 +27,6 @@ import {
   WORKSPACES,
   WORKSPACE_FIELD,
 } from '../src/rendering/editor/workspace';
-import * as Logger from '../src/utils/logger';
 
 // Complete shipped translations must not remove the partial-language fallback fixture.
 vi.mock('../src/rendering/editor/translations/index', async (importOriginal) => {
@@ -71,10 +68,33 @@ function onlyForm(matches: FormElement[]): FormElement {
 }
 
 /** The forms directly inside the view controls, in order. */
-function viewControls(editor: EditorHost): FormElement[] {
-  return formsOf(editor, CHASSIS).filter((form) =>
-    form.parentElement?.classList.contains('view-controls'),
+/** Card Displays and Settings For, the overview's own radio groups. */
+function viewControls(editor: EditorHost): Element[] {
+  return [...editor.shadowRoot!.querySelectorAll('.overview fieldset.displays, .overview .scope')];
+}
+
+/**
+ * The values a radio group of the editor's own offers.
+ *
+ * @param editor - Editor
+ * @param name - The inputs' name
+ * @returns The values, in order
+ */
+function offered(editor: EditorHost, name: string): string[] {
+  return [...editor.shadowRoot!.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`)].map(
+    (input) => input.value,
   );
+}
+
+/**
+ * Opens Settings For as a user does, with Change, where it is its compact line.
+ *
+ * @param editor - Editor
+ */
+async function openScope(editor: EditorHost): Promise<void> {
+  const change = editor.shadowRoot!.querySelector<HTMLElement>('[data-focus="scope-change"]');
+  change?.click();
+  await editor.updateComplete;
 }
 
 async function mount(overrides: Partial<Types.Config> = {}): Promise<EditorHost> {
@@ -86,21 +106,6 @@ async function mount(overrides: Partial<Types.Config> = {}): Promise<EditorHost>
   // A closed panel mounts no form: open every panel, as these tests read forms across the editor.
   await openPanels(editor);
   return editor;
-}
-
-async function change(
-  editor: EditorHost,
-  form: FormElement,
-  values: Record<string, unknown>,
-): Promise<void> {
-  form.dispatchEvent(
-    new CustomEvent('value-changed', {
-      detail: { value: { ...form.data, ...values } },
-      bubbles: true,
-      composed: true,
-    }),
-  );
-  await editor.updateComplete;
 }
 
 function workspace(editor: EditorHost): unknown {
@@ -188,41 +193,52 @@ afterEach(() => {
  * editor drew outside the panels without declaring it there would escape both.
  */
 describe('the chassis draws exactly the forms subforms.ts declares', () => {
-  it('renders every form outside the panels from chassisSubforms, in order', async () => {
+  it('draws every chassis control from what chassisSubforms declares, in order', async () => {
     for (const view of VIEWS) {
       const editor = await mount({ view });
-      const outside = formsOf(editor).filter((form) => !form.closest('ha-expansion-panel'));
-
       // Quick Setup's forms are drawn only while it is open, one step at a time; the test below
       // walks them.
-      const chassis = chassisSubforms()
+      const [display, scope, filter] = chassisSubforms()
         .filter((subform) => subform.path.length === 0)
         .map((subform) => subform.schema);
-      expect(
-        outside.map((form) => form.schema),
-        view,
-      ).toEqual(chassis);
+      // The filter bar is a form; Card Displays and Settings For are the editor's own radio
+      // groups, drawn from the options their declared schemas hold.
       expect(
         formsOf(editor, CHASSIS).map((form) => form.schema),
         view,
-      ).toEqual(chassis);
+      ).toEqual([filter]);
+      const values = (schema: ReadonlyArray<HaFormSchema>): string[] => {
+        const node = schema[0] as unknown as { selector: { select: { options: unknown[] } } };
+        return node.selector.select.options.map((option) =>
+          typeof option === 'string' ? option : String((option as { value: unknown }).value),
+        );
+      };
+      expect(offered(editor, 'view'), view).toEqual(values(display));
+      await openScope(editor);
+      expect(offered(editor, 'scope'), view).toEqual(values(scope));
       editor.remove();
     }
   });
 });
 
 describe('displayed view and editing workspace are separate controls', () => {
-  it('renders both controls above search and declares both to the translation checker', async () => {
+  it('draws both as the overview’s own radio groups and declares both to the translation checker', async () => {
     const editor = await mount({ view: 'grid' });
-    const controls = viewControls(editor);
-    expect(controls.map((form) => form.className)).toEqual(['display-view-form', 'workspace-form']);
-    expect(labelOf(editor, 'display:view')).toBe('Card Displays');
-    expect(labelOf(editor, `workspace:${WORKSPACE_FIELD}`)).toBe('Editing Settings For');
-    expect(
-      [...editor.shadowRoot!.querySelector('.card-config')!.children]
-        .slice(0, 3)
-        .map((el) => el.className),
-    ).toEqual(['quick-setup-entry', 'view-controls', 'filter-bar']);
+    expect(viewControls(editor)).toHaveLength(2);
+    expect(editor.shadowRoot!.querySelector('fieldset.displays legend')!.textContent!.trim()).toBe(
+      'Card Displays',
+    );
+    await openScope(editor);
+    expect(editor.shadowRoot!.querySelector('.scope legend')!.textContent!.trim()).toBe(
+      'Settings For',
+    );
+    // The overview, top to bottom: the filter bar, Settings For, Calendars, Card Displays.
+    const order = [
+      ...editor.shadowRoot!.querySelectorAll(
+        '.overview > .filter-bar, .overview > .scope, .overview > [data-heading="calendars"], .overview > .displays',
+      ),
+    ].map((element) => element.className.split(' ')[0] || element.getAttribute('data-heading'));
+    expect(order).toEqual(['filter-bar', 'scope', 'page-group', 'displays']);
     expect(chassisSubforms().flatMap((subform) => names(subform.schema))).toEqual([
       'view',
       WORKSPACE_FIELD,
@@ -237,18 +253,7 @@ describe('displayed view and editing workspace are separate controls', () => {
       'day_adds',
     ]);
     expect(formsOf(editor, CARD).flatMap((form) => names(form.schema))).not.toContain('view');
-
-    const node = formOf(editor, `workspace:${WORKSPACE_FIELD}`)!.schema.find(
-      (candidate) => candidate.name === WORKSPACE_FIELD,
-    )!;
-    expect(node).toHaveProperty('required', true);
-    if (!('selector' in node) || !('select' in node.selector))
-      throw new Error('Workspace is not a select');
-    expect(
-      node.selector.select?.options.map((option) =>
-        typeof option === 'string' ? option : option.value,
-      ),
-    ).toEqual(EXPECTED_WORKSPACES);
+    expect(offered(editor, 'scope')).toEqual(EXPECTED_WORKSPACES);
     expect(WORKSPACES).toEqual(EXPECTED_WORKSPACES);
   });
 
@@ -340,31 +345,24 @@ describe('workspace transitions do not configure the card', () => {
     expect(workspace(editor)).toBe('grid');
   });
 
-  it('keeps the workspace event inside the editor and ignores unrelated payload keys', async () => {
+  it('keeps a scope change inside the editor', async () => {
     const editor = await mount();
     const seen = reports(editor);
     const escaped = vi.fn();
     editor.addEventListener('value-changed', escaped);
-    // Keys the form does not draw, so the event is built by hand from the form the harness finds.
-    await change(editor, formOf(editor, `workspace:${WORKSPACE_FIELD}`)!, {
-      [WORKSPACE_FIELD]: 'grid',
-      view: 'column',
-      title: 'Not a config edit',
-    });
+    editor.addEventListener('change', escaped);
+    await choose(editor, 'grid');
     expect(workspace(editor)).toBe('grid');
     expect(valueOf(editor, 'display:view')).toBe('list');
     expect(escaped).not.toHaveBeenCalled();
     expect(seen).toEqual([]);
   });
 
-  it('reports an invalid workspace without changing either dimension', async () => {
+  it('offers only the four scopes, so no other can be chosen', async () => {
     const editor = await mount();
-    const warning = vi.spyOn(Logger, 'warn').mockImplementation(() => {});
-    const seen = reports(editor);
-    await changeField(editor, `workspace:${WORKSPACE_FIELD}`, 'not-a-workspace');
+    await openScope(editor);
+    expect(offered(editor, 'scope')).toEqual(EXPECTED_WORKSPACES);
     expect(workspace(editor)).toBe('list');
-    expect(warning).toHaveBeenCalledOnce();
-    expect(seen).toEqual([]);
   });
 
   it('leaves the controls available when search empties the editor', async () => {
@@ -372,7 +370,8 @@ describe('workspace transitions do not configure the card', () => {
     const seen = reports(editor);
     await changeFields(editor, { 'filter:search': 'zzznomatch', 'filter:customized_only': false });
     expect(formsOf(editor, CARD)).toHaveLength(0);
-    expect(viewControls(editor)).toHaveLength(2);
+    // Settings For stays above what the search finds: the results write where it says.
+    expect(viewControls(editor)).toHaveLength(1);
     await choose(editor, 'grid');
     expect(workspace(editor)).toBe('grid');
     expect(seen).toEqual([]);
@@ -598,31 +597,5 @@ describe('a panel retitles itself for the workspace it configures', () => {
     }
 
     expect(guarded, 'no language could have dropped to an English refinement').toBeGreaterThan(0);
-  });
-
-  /**
-   * The two tests above check the resolver. This one checks that the element asks it —
-   * a correct resolver nothing calls is the failure they cannot see between them.
-   *
-   * The panel is located by an option it contains rather than by index, so reordering the
-   * nine sections cannot silently retarget the assertion.
-   */
-  it('renders the retitled panel', async () => {
-    const editor = await mount();
-    const header = (): { header: string; secondary: string } =>
-      formOf(editor, 'separators:day_separator_width')!.closest(
-        'ha-expansion-panel',
-      ) as unknown as {
-        header: string;
-        secondary: string;
-      };
-
-    expect(header().header).toBe('Separators');
-    expect(header().secondary).toBe(EDITOR_STRINGS['panel.separators.helper']);
-
-    await choose(editor, 'grid');
-
-    expect(header().header).toBe('Rules');
-    expect(header().secondary).toBe(EDITOR_STRINGS['panel.separators.grid.helper']);
   });
 });

@@ -21,7 +21,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
-  CARD,
   type FormElement,
   button,
   changeField,
@@ -33,6 +32,7 @@ import {
   labelOf,
   mountEditor,
   openPageOf,
+  openPanels,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -152,7 +152,11 @@ async function mount(
     fieldNames,
     control,
     press,
-    heading: () => formOf(element, 'button:heading', CARD),
+    // The card-owned heading Card & Header draws above the buttons; search results draw the
+    // buttons under the page's title instead.
+    heading: () =>
+      root.querySelector<HTMLElement>('[data-heading="toolbar.buttons.heading"] > .heading') ??
+      undefined,
     add: () => root.querySelector<HTMLButtonElement>('.add-button'),
   };
 }
@@ -200,11 +204,7 @@ describe('the toolbar buttons in the editor', () => {
 
     const icons = editor
       .panels()
-      .map(
-        (panel) =>
-          (panel.querySelector('ha-svg-icon[slot="leading-icon"]') as { path?: string } | null)
-            ?.path,
-      );
+      .map((panel) => panel.querySelector('[slot="leading-icon"] path')?.getAttribute('d'));
     expect(icons).toEqual([TOOLBAR_BUTTON_ICON, TOOLBAR_BUTTON_ICON]);
   });
 
@@ -214,8 +214,8 @@ describe('the toolbar buttons in the editor', () => {
     expect(editor.panels()).toHaveLength(0);
     const heading = editor.heading();
     expect(heading).toBeDefined();
-    expect(heading!.schema).toEqual([{ name: 'heading', type: 'constant' }]);
-    expect(labelOf(editor.element, 'button:heading', CARD)).toBe('Your Own Buttons');
+    expect(heading!.localName).toBe('h3');
+    expect(heading!.textContent!.trim()).toBe('Your Own Buttons');
     expect(editor.add()?.textContent?.trim()).toBe('Add Button');
   });
 
@@ -274,6 +274,8 @@ describe('the toolbar buttons in the editor', () => {
   it('keeps the keyboard on a moved button’s controls', async () => {
     const editor = await mount({ show: true, buttons: [BACK, LIGHTS] });
 
+    // On the button, as a keyboard is.
+    editor.control(0, 'Move Down').focus();
     await editor.press(editor.control(0, 'Move Down'));
     await editor.element.updateComplete;
 
@@ -494,7 +496,10 @@ describe('searching the toolbar buttons', () => {
       'tap_action',
     ]);
     expect(editor.panels()[0].expanded).toBe(true);
-    expect(editor.heading()).toBeDefined();
+    // Under Card & Header's title among the results, which draw no headings of their own.
+    expect(editor.root.querySelector('[data-heading="card_header"] > .heading')?.textContent).toBe(
+      'Card & Header',
+    );
     expect(editor.add()).toBeNull();
   });
 
@@ -522,6 +527,9 @@ describe('searching the toolbar buttons', () => {
     const editor = await mount({ show: true, buttons: [{ icon: 'mdi:home' }, LIGHTS] });
 
     await changeField(editor.element, `filter:${CUSTOMIZED_ONLY_FIELD}`, true);
+    // The switch sits on the overview; the buttons on Card & Header.
+    await openPanels(editor.element);
+    await openPageOf(editor.element, 'button:icon', button(0));
 
     expect(editor.forms().map(editor.fieldNames)).toEqual([
       ['icon'],

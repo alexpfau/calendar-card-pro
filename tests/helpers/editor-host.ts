@@ -8,21 +8,25 @@
  * or by the key the editor gives it, which stays with it wherever the list moves it. This module is
  * the one place that knows how today's editor draws its forms. The redesign changes that several
  * times: closed panels stopped mounting their forms, entries and buttons gained stable keys,
- * panels become pages. Each of those changes this module and leaves the tests that go through it
+ * panels became pages. Each of those changes this module and leaves the tests that go through it
  * alone.
  *
- * Today every form is an `ha-form`, told apart by the class the editor gives it:
+ * Today the card's fields sit one to a form on the overview and on one page per section, and only
+ * the open place draws its forms. A helper that needs a field elsewhere goes there as a user would
+ * (`openPageOf`), and `openPanels` visits every page, keeping what each drew for the synchronous
+ * helpers to read. Every form is an `ha-form`, told apart by the class the editor gives it:
  *
  * | Class                             | Owner   | Scope                                          |
  * | --------------------------------- | ------- | ---------------------------------------------- |
- * | `panel-form`                      | card    | its panel's id, read from the panel's icon     |
- * | `buttons-heading`                 | card    | `button`: the caption above the buttons        |
+ * | `field-form`                      | card    | its wrapper's `data-field` id                  |
  * | `entity-form`                     | entry   | `calendar`                                     |
  * | `button-form`                     | button  | `button`                                       |
- * | `display-view-form`               | chassis | `display` (Card Displays)                      |
- * | `workspace-form`                  | chassis | `workspace` (Editing Settings For)             |
  * | `filter-form`                     | chassis | `filter` (the search bar and its switches)     |
  * | `quick-setup-form`                | chassis | `quick_setup`                                  |
+ *
+ * Card Displays and Settings For are the editor's own radio groups rather than forms. The ids
+ * `display:view` and `workspace:editing_workspace` still name them, for `changeField` and
+ * `valueOf`, which choose and read them as a user does.
  *
  * The chassis scopes are this module's own: `field-index.ts` indexes the nine panels, calendar
  * entries and toolbar buttons, and the chassis draws forms that belong to none of them. They
@@ -50,7 +54,8 @@ import {
 } from '../../src/rendering/editor/field-index';
 import * as Filter from '../../src/rendering/editor/filter';
 import type { HaFormSchema } from '../../src/rendering/editor/ha-form';
-import { PANELS, type SchemaCtx, walkSchema } from '../../src/rendering/editor/panels';
+import { PAGES, placementOf } from '../../src/rendering/editor/pages';
+import { type SchemaCtx, walkSchema } from '../../src/rendering/editor/panels';
 import { ENTITY_PATH } from '../../src/rendering/editor/schemas/calendars';
 import {
   TOOLBAR_BUTTON_PATH,
@@ -129,13 +134,21 @@ export function button(at?: number | { readonly key: number }): Owner {
 
 /** Chassis forms, by class, with the scope their ids take. */
 const CHASSIS_FORMS: Readonly<Record<string, string>> = {
-  'display-view-form': 'display',
-  'workspace-form': 'workspace',
   'filter-form': 'filter',
   'quick-setup-form': 'quick_setup',
 };
 
-const CHASSIS_SCOPES: ReadonlySet<string> = new Set(Object.values(CHASSIS_FORMS));
+/** The editor's own radio groups, by the id a test names them with, with each input's name. */
+const RADIO_GROUPS: Readonly<Record<string, string>> = {
+  'display:view': 'view',
+  'workspace:editing_workspace': 'scope',
+};
+
+const CHASSIS_SCOPES: ReadonlySet<string> = new Set([
+  ...Object.values(CHASSIS_FORMS),
+  'display',
+  'workspace',
+]);
 
 /** One form the editor draws, with who draws it and the scope of its ids. */
 interface Drawn {
@@ -148,6 +161,8 @@ interface Drawn {
   readonly scope: string;
   /** Place among every form the editor draws, counted from 1, to tell two forms apart. */
   readonly place: number;
+  /** The page it was drawn on, for a form `openPanels` kept from a page no longer open. */
+  readonly page?: string;
 }
 
 /** A node a form draws, as `walkSchema` visits it. */
@@ -159,6 +174,8 @@ interface Visit {
 
 interface Found extends Drawn {
   readonly visit: Visit;
+  /** Every form drawing a block, where the fields it nests sit in forms of their own. */
+  readonly all?: ReadonlyArray<Found>;
 }
 
 /**
@@ -312,28 +329,6 @@ function buttonIndexes(editor: EditorElement, root: ShadowRoot): Map<Element, nu
 }
 
 /**
- * The panel id a panel form belongs to, read from its panel's leading icon: each of the nine
- * panels draws its own.
- *
- * @param form - A panel form
- * @returns The panel id
- */
-function panelScope(form: FormElement): string {
-  const panel = form.closest('ha-expansion-panel');
-  const icon = [...(panel?.children ?? [])].find(
-    (child) => child.localName === 'ha-svg-icon' && child.getAttribute('slot') === 'leading-icon',
-  ) as (Element & { path?: string }) | undefined;
-  const named = PANELS.filter((candidate) => candidate.iconPath === icon?.path);
-  if (named.length !== 1) {
-    throw new Error(
-      `A panel form whose panel's icon names ${named.length} panels; ` +
-        'tests/helpers/editor-host.ts reads a panel by its icon, so each must be its own.',
-    );
-  }
-  return named[0].id;
-}
-
-/**
  * The key an entry's or a button's panel names.
  *
  * @param panel - The panel, if any
@@ -363,10 +358,11 @@ function placeForm(
   buttons: ReadonlyMap<Element, number>,
 ): Drawn {
   const classes = form.classList;
-  if (classes.contains('panel-form')) {
-    return { form, kind: 'card', scope: panelScope(form), place };
+  if (classes.contains('field-form')) {
+    const id = form.closest('[data-field]')?.getAttribute('data-field');
+    if (!id) outOfStep('A field form outside a field wrapper');
+    return { form, kind: 'card', scope: parseFieldId(id).scope, place };
   }
-  if (classes.contains('buttons-heading')) return { form, kind: 'card', scope: 'button', place };
   if (classes.contains('entity-form')) {
     const panel = form.closest('ha-expansion-panel.entity-panel');
     const index = panel === null ? undefined : entries.get(panel);
@@ -398,14 +394,171 @@ function drawnForms(editor: EditorElement): Drawn[] {
   if (root === null) {
     throw new Error('The editor has not rendered: mount it, and await its first update.');
   }
+  const live = liveForms(editor, root);
+  const open = openPage(editor);
+  // Quick Setup and the migration choice draw in place of every page, and a search draws what it
+  // finds of every page on the overview itself.
+  const results =
+    root.querySelector('.overview') !== null && root.querySelector('[data-focus^="nav:"]') === null;
+  const paged = root.querySelector('.overview, .page') !== null && !results;
+  const kept = paged ? keptForms(editor).filter((drawn) => drawn.page !== open) : [];
+  return [...live, ...kept.map((drawn, at) => ({ ...drawn, place: live.length + at + 1 }))];
+}
+
+/**
+ * The forms the open place draws, in document order, with their owners and scopes.
+ *
+ * @param editor - Editor element
+ * @param root - Its shadow root
+ * @param page - The page they are drawn on, for keeping them
+ * @returns The forms
+ */
+function liveForms(editor: EditorElement, root: ShadowRoot, page?: string): Drawn[] {
   const entries = entryIndexes(editor, root);
   const buttons = buttonIndexes(editor, root);
+  return [...root.querySelectorAll<FormElement>('ha-form')]
+    .filter((form) => form.closest('[inert]') === null)
+    .map((form, at) => {
+      const drawn = { ...placeForm(form, at + 1, entries, buttons), page };
+      formScopes.set(form, drawn.scope);
+      return drawn;
+    });
+}
 
-  return [...root.querySelectorAll<FormElement>('ha-form')].map((form, at) => {
-    const drawn = placeForm(form, at + 1, entries, buttons);
-    formScopes.set(form, drawn.scope);
-    return drawn;
-  });
+/** What `openPanels` kept from every page it visited, and what the editor held then. */
+interface Kept {
+  forms: Drawn[];
+  stamp: ReadonlyArray<unknown>;
+}
+
+/** What `openPanels` kept, by editor. */
+const visited = new WeakMap<EditorElement, Kept>();
+
+/**
+ * What a page's forms are drawn from: once any of it moves, kept forms are out of date.
+ *
+ * @param editor - Editor element
+ * @returns The editor's state, by identity
+ */
+function stampOf(editor: EditorElement): unknown[] {
+  const state = editor as unknown as Record<string, unknown>;
+  return ['_config', '_pending', '_filter', '_workspace', '_rawConfig', 'hass'].map(
+    (member) => state[member],
+  );
+}
+
+/**
+ * The forms kept from the pages `openPanels` visited, drawn again first where the editor has
+ * moved since: each page is drawn in turn, at once, with every panel on it open, and the place
+ * open drawn back. Rendered synchronously (Lit's `performUpdate`), so a synchronous helper reads
+ * forms as the editor would draw them now, and a kept form still writes through its own listener.
+ *
+ * @param editor - Editor element
+ * @returns The kept forms
+ */
+function keptForms(editor: EditorElement): Drawn[] {
+  const kept = visited.get(editor);
+  if (kept === undefined) return [];
+  const stamp = stampOf(editor);
+  if (stamp.every((value, at) => value === kept.stamp[at])) return kept.forms;
+
+  const element = editor as unknown as {
+    _nav: unknown;
+    requestUpdate(): void;
+    performUpdate(): void;
+  };
+  const root = editor.shadowRoot!;
+  const draw = (): void => {
+    element.requestUpdate();
+    element.performUpdate();
+  };
+  const saved = element._nav;
+  const forms: Drawn[] = [];
+  // The pages the overview offers now: the Grid page only while Grid is the scope.
+  const scope = (editor as unknown as { _workspace: string })._workspace;
+  const pages = PAGES.filter((page) => page.onlyIn === undefined || page.onlyIn === scope);
+  for (const { id: page } of pages) {
+    element._nav = { route: { kind: 'page', page }, trail: [], fromResults: false };
+    draw();
+    if (root.querySelector(`.page[data-page="${page}"]`) === null) continue;
+    for (const panel of root.querySelectorAll<Element & { expanded?: boolean }>(
+      'ha-expansion-panel',
+    )) {
+      panel.expanded = true;
+    }
+    draw();
+    forms.push(...liveForms(editor, root, page));
+  }
+  element._nav = saved;
+  draw();
+  kept.forms = forms;
+  kept.stamp = stampOf(editor);
+  return forms;
+}
+
+/**
+ * The page open, read from what the editor draws.
+ *
+ * @param editor - Editor element
+ * @returns Its id, or undefined on the overview
+ */
+function openPage(editor: EditorElement): string | undefined {
+  return editor.shadowRoot?.querySelector('.page')?.getAttribute('data-page') ?? undefined;
+}
+
+/**
+ * Clicks a control of the editor's own and waits for the render it asks for.
+ *
+ * @param editor - Editor element
+ * @param selector - The control
+ * @param what - What it is, for a failure
+ */
+async function press(editor: EditorElement, selector: string, what: string): Promise<void> {
+  const control = editor.shadowRoot?.querySelector<HTMLElement>(selector);
+  if (!control) outOfStep(`The editor draws no ${what}`);
+  control.click();
+  await editor.updateComplete;
+}
+
+/**
+ * Goes back to the overview, as a user would: Back until no page is open.
+ *
+ * @param editor - Editor element
+ */
+export async function goOverview(editor: EditorElement): Promise<void> {
+  for (let guard = 0; openPage(editor) !== undefined && guard < 4; guard++) {
+    await press(editor, '[data-focus="back-top"]', 'Back');
+  }
+}
+
+/**
+ * Opens a section page from the overview's row for it, unless it is open.
+ *
+ * @param editor - Editor element
+ * @param page - The page's id
+ */
+export async function goPage(editor: EditorElement, page: string): Promise<void> {
+  if (openPage(editor) === page) return;
+  await goOverview(editor);
+  await press(editor, `[data-focus="nav:${page}"]`, `row for the ${page} page`);
+}
+
+/**
+ * The page a card field is placed on, or the overview; for a block id, the page of the first
+ * field inside it.
+ *
+ * @param id - Field id
+ * @returns The page's id, `overview`, or undefined for an id the registry does not place
+ */
+function pageOf(id: FieldId): string | undefined {
+  const placed = placementOf(id)?.page;
+  if (placed !== undefined) return placed;
+  for (const page of PAGES) {
+    for (const heading of page.headings) {
+      if (heading.fields.some(([field]) => field.startsWith(`${id}.`))) return page.id;
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -646,6 +799,11 @@ function find(editor: EditorElement, id: FieldId, owner: Owner | undefined): Fou
     return undefined;
   }
 
+  // A block that nests several fields' data is drawn by each of their forms, one field apiece.
+  if (mine.length > 1 && mine.every((drawn) => !('selector' in drawn.visit.node))) {
+    return { ...mine[0], all: mine };
+  }
+
   if (mine.length > 1) {
     const names = [...new Set(mine.map((drawn) => ownerName(drawn.kind, drawn.index)))];
     if (names.length > 1) {
@@ -795,7 +953,17 @@ export function helperOf(editor: EditorElement, id: FieldId, owner?: Owner): str
  * @returns The value
  */
 export function valueOf(editor: EditorElement, id: FieldId, owner?: Owner): unknown {
-  const { form, visit } = located(editor, id, owner);
+  if (id in RADIO_GROUPS) return chosen(editor, id);
+  const found = located(editor, id, owner);
+  if (found.all !== undefined) {
+    // Each field's form holds only its own part of the block, so the parts are merged deeply.
+    return found.all.reduce<unknown>(
+      (merged, { form, visit }) =>
+        mergeDeep(merged, atPath(form.data, [...visit.dataPath, visit.node.name])),
+      {},
+    );
+  }
+  const { form, visit } = found;
   return atPath(form.data, [...visit.dataPath, visit.node.name]);
 }
 
@@ -850,7 +1018,9 @@ export async function changeField(
 
 /**
  * Changes several fields of one form in a single `value-changed`, as a test means a form to
- * have reported them together, then awaits the editor's update.
+ * have reported them together, then awaits the editor's update. A field not drawn where the editor
+ * is, or kept from a page `openPanels` visited, is first gone to, as a user would (`openPageOf`).
+ * Card Displays and Settings For are chosen as a user chooses them.
  *
  * @param editor - Editor element
  * @param values - New values, by field id, every one drawn by the same form
@@ -863,22 +1033,98 @@ export async function changeFields(
 ): Promise<void> {
   const ids = Object.keys(values);
   if (ids.length === 0) throw new Error('changeFields needs a field to change.');
-  const forms = ids.map((id) => located(editor, id, owner).form);
-  if (forms.some((form) => form !== forms[0])) {
-    throw new Error(`${listed(ids)} are drawn by different forms: change each on its own.`);
+  const radio = ids.find((id) => id in RADIO_GROUPS);
+  if (radio !== undefined) {
+    if (ids.length > 1) throw new Error(`${radio} is a radio group: change it on its own.`);
+    await choose(editor, radio, values[radio]);
+  } else {
+    for (const id of ids) {
+      const found = find(editor, id, owner);
+      if (found === undefined || found.page !== undefined) await openPageOf(editor, id, owner);
+    }
+    const forms = ids.map((id) => located(editor, id, owner).form);
+    if (forms.some((form) => form !== forms[0])) {
+      throw new Error(`${listed(ids)} are drawn by different forms: change each on its own.`);
+    }
+    emitChange(forms[0], values);
+    await editor.updateComplete;
   }
-  emitChange(forms[0], values);
+}
+
+/**
+ * The option a radio group of the editor's own has chosen. Settings For drawn as its compact line
+ * names the scope the editor follows.
+ *
+ * @param editor - Editor element
+ * @param id - `display:view` or `workspace:editing_workspace`
+ * @returns The chosen option's value
+ */
+function chosen(editor: EditorElement, id: FieldId): unknown {
+  const input = editor.shadowRoot?.querySelector<HTMLInputElement>(
+    `input[name="${RADIO_GROUPS[id]}"]:checked`,
+  );
+  if (input) return input.value;
+  if (id === 'workspace:editing_workspace') {
+    return (editor as unknown as { _workspace: string })._workspace;
+  }
+  return outOfStep(`The editor draws no ${id} to read`);
+}
+
+/**
+ * Two values merged as `ha-form` data nests them: plain objects key by key, at every depth;
+ * anything else, the second.
+ *
+ * @param a - The first value
+ * @param b - The second value
+ * @returns The merged value
+ */
+function mergeDeep(a: unknown, b: unknown): unknown {
+  const plain = (value: unknown): value is Record<string, unknown> =>
+    typeof value === 'object' && value !== null && !Array.isArray(value);
+  if (!plain(a) || !plain(b)) return b === undefined ? a : b;
+  const merged: Record<string, unknown> = { ...a };
+  for (const [key, value] of Object.entries(b)) merged[key] = mergeDeep(a[key], value);
+  return merged;
+}
+
+/**
+ * Chooses an option of a radio group of the editor's own, as a user does: where the open place
+ * draws it, else on the overview; after Change where Settings For is its compact line.
+ *
+ * @param editor - Editor element
+ * @param id - `display:view` or `workspace:editing_workspace`
+ * @param value - The option
+ */
+async function choose(editor: EditorElement, id: FieldId, value: unknown): Promise<void> {
+  const name = RADIO_GROUPS[id];
+  const root = editor.shadowRoot;
+  const drawn = (): boolean =>
+    root?.querySelector(`input[name="${name}"]`) !== null ||
+    (name === 'scope' && root?.querySelector('[data-focus="scope-change"]') !== null);
+  // Settings For sits on every page the scope matters to as well; Card Displays only here.
+  if (!drawn()) await goOverview(editor);
+  if (name === 'scope' && root?.querySelector('input[name="scope"]') === null) {
+    await press(editor, '[data-focus="scope-change"]', 'Change for Settings For');
+  }
+  const input = root?.querySelector<HTMLInputElement>(
+    `input[name="${name}"][value="${String(value)}"]`,
+  );
+  if (!input) outOfStep(`The editor offers no ${String(value)} for ${id}`);
+  input.checked = true;
+  input.dispatchEvent(new Event('change', { bubbles: true }));
   await editor.updateComplete;
 }
 
 /**
- * Opens what holds a field, as a user would before editing it: today every collapsed panel
- * around its form, outermost first. A panel opens as Home Assistant's does: it announces
- * `expanded-will-change`, lets a render pass (`nextRender`), expands and announces
- * `expanded-changed`. A closed panel draws no form, so a field not drawn yet is found by the
- * panel its owner's forms belong in: one of the nine for a card field, by its icon; a calendar
- * block's or a toolbar button's own panel, by its place. That panel is opened, with every panel
- * around it, and the field looked for again.
+ * Goes to a field as a user would before editing it: to the page it is placed on, or the
+ * overview, from the overview's row for that page; a calendar block's panel on the overview, a
+ * toolbar button's on Card & Header; then opens every collapsed panel around its form, outermost
+ * first. A panel opens as Home Assistant's does: it announces `expanded-will-change`, lets a
+ * render pass (`nextRender`), expands and announces `expanded-changed`. A closed panel draws no
+ * form, so a calendar's or a button's field not drawn yet is found by its owner's own panel, by
+ * its place or key.
+ *
+ * Where a query holds the overview's results, a card field is looked for there.
  *
  * @param editor - Editor element
  * @param id - Field id
@@ -886,14 +1132,24 @@ export async function changeFields(
  */
 export async function openPageOf(editor: EditorElement, id: FieldId, owner?: Owner): Promise<void> {
   let found = find(editor, id, owner);
-  if (found === undefined) {
+  if (found === undefined || found.page !== undefined) {
     const { scope } = parseFieldId(id);
-    const holders = holdersOf(editor, owner ?? impliedOwner(scope), scope);
-    for (const panel of holders) await openAround(panel);
-    if (holders.length > 0) {
-      await editor.updateComplete;
-      found = find(editor, id, owner);
+    const wanted = owner ?? impliedOwner(scope);
+    const page = wanted.kind === 'card' ? pageOf(id) : undefined;
+    const results = (): boolean =>
+      openPage(editor) === undefined &&
+      editor.shadowRoot?.querySelector('[data-focus^="nav:"]') === null;
+    if (wanted.kind === 'button') await goPage(editor, 'card_header');
+    else if (page === undefined || page === 'overview' || page === 'entry')
+      await goOverview(editor);
+    else if (!(results() && find(editor, id, owner) !== undefined)) {
+      await goOverview(editor);
+      if (!results()) await goPage(editor, page);
     }
+    const holders = holdersOf(editor, wanted);
+    for (const panel of holders) await openAround(panel);
+    await editor.updateComplete;
+    found = find(editor, id, owner);
   }
   if (found === undefined) found = located(editor, id, owner);
 
@@ -902,13 +1158,12 @@ export async function openPageOf(editor: EditorElement, id: FieldId, owner?: Own
 }
 
 /**
- * Opens every panel the editor draws, closed ones all together, each as Home Assistant's opens
- * on a click (`expand`). A closed panel draws no form, so a test about every form the editor
- * draws opens them first.
+ * Opens every panel the place open draws, closed ones all together, each as Home Assistant's
+ * opens on a click (`expand`).
  *
  * @param editor - Editor element
  */
-export async function openPanels(editor: EditorElement): Promise<void> {
+async function expandAll(editor: EditorElement): Promise<void> {
   const closed = [...(editor.shadowRoot?.querySelectorAll('ha-expansion-panel') ?? [])].filter(
     (panel) => (panel as Element & { expanded?: boolean }).expanded !== true,
   );
@@ -917,22 +1172,80 @@ export async function openPanels(editor: EditorElement): Promise<void> {
 }
 
 /**
- * The panels an owner's forms belong in, drawn or not: one of the nine for the card, found by its
- * icon; each matching calendar block's or toolbar button's own panel, found by its place or key.
+ * Visits every page the overview offers a row for, opening every panel on each, keeps the forms
+ * each draws for the helpers to read, and comes back to the overview with its own panels open. A
+ * test about every form the editor draws visits them first. Kept forms hold what their page drew
+ * when it was last visited; `changeFields` visits again after every change.
+ *
+ * @param editor - Editor element
+ */
+export async function openPanels(editor: EditorElement): Promise<void> {
+  const root = editor.shadowRoot;
+  if (root === null) throw new Error('The editor has not rendered: mount it, and await it.');
+  await goOverview(editor);
+  const kept: Drawn[] = [];
+  const pages = [...root.querySelectorAll('[data-focus^="nav:"]')].map((row) =>
+    row.getAttribute('data-focus')!.slice('nav:'.length),
+  );
+  for (const page of pages) {
+    await goPage(editor, page);
+    await expandAll(editor);
+    kept.push(...liveForms(editor, root, page));
+  }
+  await goOverview(editor);
+  await expandAll(editor);
+  visited.set(editor, { forms: kept, stamp: stampOf(editor) });
+}
+
+/**
+ * Every reset button the editor offers for the scope's own values, on whichever page holds the
+ * field it resets: each page is visited, as `openPanels` does, and the editor comes back to the
+ * overview. A button kept from a page no longer open still resets, as its listener stays its own.
+ *
+ * @param editor - Editor element
+ * @returns The buttons, page by page
+ */
+export async function resetButtons(editor: EditorElement): Promise<HTMLButtonElement[]> {
+  const root = editor.shadowRoot;
+  if (root === null) throw new Error('The editor has not rendered: mount it, and await it.');
+  const found = [...root.querySelectorAll<HTMLButtonElement>('[data-reset-keys]')];
+  await goOverview(editor);
+  const pages = [...root.querySelectorAll('[data-focus^="nav:"]')].map((row) =>
+    row.getAttribute('data-focus')!.slice('nav:'.length),
+  );
+  for (const page of pages) {
+    await goPage(editor, page);
+    found.push(...root.querySelectorAll<HTMLButtonElement>('[data-reset-keys]'));
+  }
+  await goOverview(editor);
+  return [...new Set(found)];
+}
+
+/**
+ * The reset button for some options, on whichever page offers it (`resetButtons`).
+ *
+ * @param editor - Editor element
+ * @param keys - The options it resets, space-separated as `data-reset-keys` names them
+ * @returns The button, or null where no page offers it
+ */
+export async function resetButton(
+  editor: EditorElement,
+  keys: string,
+): Promise<HTMLButtonElement | null> {
+  return (await resetButtons(editor)).find((button) => button.dataset.resetKeys === keys) ?? null;
+}
+
+/**
+ * The panels an owner's forms belong in, drawn or not: each matching calendar block's or toolbar
+ * button's own panel, found by its place or key. The card's fields sit in no panel.
  *
  * @param editor - Editor element
  * @param owner - The owner
- * @param scope - The field id's scope, naming the card's panel
  * @returns The panels, outermost first
  */
-function holdersOf(editor: EditorElement, owner: Owner, scope: string): Element[] {
-  if (owner.kind === 'card') {
-    // The caption above the toolbar buttons is the card's, drawn in the Card & Header panel.
-    const panel = panelOf(editor, scope === 'button' ? 'card' : scope);
-    return panel === undefined ? [] : [panel];
-  }
+function holdersOf(editor: EditorElement, owner: Owner): Element[] {
   const root = editor.shadowRoot;
-  if (root === null || owner.kind === 'chassis') return [];
+  if (root === null || owner.kind === 'card' || owner.kind === 'chassis') return [];
   checkOwner(editor, owner);
   const places = owner.kind === 'entry' ? entryIndexes(editor, root) : buttonIndexes(editor, root);
   return [...places]
@@ -955,27 +1268,6 @@ async function openAround(node: Element): Promise<void> {
     if (at.localName === 'ha-expansion-panel') panels.unshift(at);
   }
   for (const panel of panels) await expand(panel);
-}
-
-/**
- * One of the nine panels, found by its leading icon rather than by a form inside it.
- *
- * @param editor - Editor element
- * @param scope - The panel's id
- * @returns The panel, or undefined where it is not drawn
- */
-function panelOf(editor: EditorElement, scope: string): Element | undefined {
-  const iconPath = PANELS.find((panel) => panel.id === scope)?.iconPath;
-  if (iconPath === undefined) return undefined;
-  return [...(editor.shadowRoot?.querySelectorAll('ha-expansion-panel') ?? [])].find(
-    (panel) =>
-      !panel.matches('.entity-panel, .button-panel') &&
-      [...panel.children].some(
-        (child) =>
-          child.localName === 'ha-svg-icon' &&
-          (child as Element & { path?: string }).path === iconPath,
-      ),
-  );
 }
 
 /**

@@ -1,9 +1,10 @@
 /**
- * The editor element that hosts schema panels and mediates `<ha-form>` changes.
- * Schemas name Home Assistant selectors rather than concrete input elements, because HA renames its components without notice.
+ * The editor element: the overview, one page per section, and the `<ha-form>` changes they
+ * mediate. Schemas name Home Assistant selectors rather than concrete input elements, because HA
+ * renames its components without notice; the editor draws its own rows, headings and radio
+ * groups through `views/`.
  */
 
-import { mdiChevronRight, mdiCreation } from '@mdi/js';
 import {
   type ChildPart,
   LitElement,
@@ -15,21 +16,39 @@ import {
 } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { Directive, directive } from 'lit/directive.js';
+import { cache } from 'lit/directives/cache.js';
 import { keyed } from 'lit/directives/keyed.js';
 import { repeat } from 'lit/directives/repeat.js';
 
+import { Announcer } from './announce';
 import * as Buttons from './buttons';
 import * as Entities from './entities';
 import * as Essentials from './essentials';
 import * as Exceptions from './exceptions';
-import type { FieldId } from './field-index';
+import {
+  type FieldId,
+  type IndexedField,
+  buildFieldIndex,
+  builtSchema,
+  fieldId,
+  fieldLabel,
+} from './field-index';
 import * as Filter from './filter';
 import { type HaFormSchema, warmSchema } from './ha-form';
 import * as HassKey from './hass-key';
-import { withCardActionLabels } from './hass-localize';
+import { HA_ACTION_LABEL_PREFIX, withCardActionLabels } from './hass-localize';
 import * as EditorLocalize from './localize';
 import * as Misplaced from './misplaced';
-import { PANELS, type PanelDef, type PanelExtra, type SchemaCtx } from './panels';
+import * as Navigation from './navigation';
+import {
+  type HeadingDef,
+  OVERVIEW_FIELDS,
+  PAGES,
+  type PageDef,
+  isWholeCard,
+  placementOf,
+} from './pages';
+import { PANELS, type PanelDef, type PanelExtra, type SchemaCtx, walkSchema } from './panels';
 import * as QuickSetup from './quick-setup';
 import * as Routing from './routing';
 import { ENTITY_PATH } from './schemas/calendars';
@@ -53,8 +72,14 @@ import { DOCS_SITE, STORIES, type StoryId } from './stories';
 import { interpolate } from './strings';
 import styles from './styles';
 import * as Subforms from './subforms';
+import * as Summary from './summary';
 import * as Synthetic from './synthetic';
 import * as Value from './value';
+import * as Focus from './views/focus';
+import { icon } from './views/icon';
+import { escapeAction } from './views/keys';
+import * as Overview from './views/overview';
+import * as PageView from './views/page';
 import * as Workspace from './workspace';
 import * as WriteFrames from './write-frames';
 import * as Config from '../../config/config';
@@ -208,9 +233,6 @@ class WhenOpened extends Directive {
 
 const whenOpened = directive(WhenOpened);
 
-/** Each panel's built schema, inert fields withheld, by the context it was built from. */
-const builtPanels = new WeakMap<SchemaCtx, Map<string, HaFormSchema[]>>();
-
 /** The data of a form that draws no field, the one object every render hands it. */
 const NO_DATA: Readonly<Record<string, unknown>> = {};
 
@@ -244,25 +266,6 @@ function undefinedBelow(root: ParentNode, found = new Set<string>()): Set<string
     if (element.shadowRoot) undefinedBelow(element.shadowRoot, found);
   }
   return found;
-}
-
-/**
- * A panel's schema as its builder makes it for a context, inert fields withheld, built once per
- * context: `_ctx` is made again only when the configuration, the workspace or the language moves.
- *
- * @param panel - Panel definition
- * @param ctx - Schema context
- * @returns The schema
- */
-function builtPanel(panel: PanelDef, ctx: SchemaCtx): HaFormSchema[] {
-  let built = builtPanels.get(ctx);
-  if (!built) builtPanels.set(ctx, (built = new Map()));
-  let schema = built.get(panel.id);
-  if (!schema) {
-    schema = Filter.withholdInertFields(panel.build(ctx), ctx.workspace ?? ctx.view);
-    built.set(panel.id, schema);
-  }
-  return schema;
 }
 
 type MigrationState =
@@ -522,6 +525,33 @@ export class CalendarCardProEditor extends LitElement {
 
   @state() private _quickSetup?: QuickSetupSession;
 
+  /** Where the editor is, and where Back goes (`navigation.ts`). */
+  @state() private _nav: Navigation.NavState = Navigation.OVERVIEW;
+
+  /** Whether the scope was changed this session, which keeps Settings For full. */
+  @state() private _scopeChanged = false;
+
+  /** Whether Change opened Settings For, a disclosure Escape closes again. */
+  @state() private _scopeOpen = false;
+
+  /**
+   * Whether Quick Setup's banner shows: decided by the session's first configuration, a fresh
+   * card's, and kept until Quick Setup is applied or the banner dismissed.
+   */
+  @state() private _banner?: boolean;
+
+  /** The one polite live region's queue (`announce.ts`). */
+  private _announcer = new Announcer();
+
+  /** What the live region last said. */
+  private _spoken = '';
+
+  /** What this render draws from: the fields built here, and those the filter bar keeps. */
+  private _drawing?: {
+    readonly present: ReadonlyMap<FieldId, IndexedField>;
+    readonly shown: ReadonlySet<FieldId>;
+  };
+
   /** What Home Assistant's Visibility editor last sent for each calendar (`_conditionsFor`). */
   private _emittedConditions = new Map<
     number,
@@ -694,7 +724,10 @@ export class CalendarCardProEditor extends LitElement {
       this._pending = {};
       this._gridReconciliation = [];
       this._gridResetKeys.clear();
+      // The page open may be gone from the card, the Grid page outside Grid.
+      this._nav = Navigation.validate(this._nav, (route) => this._exists(route)).nav;
     }
+    this._banner ??= QuickSetup.isFreshCard(rawConfig);
 
     this._lastDispatched = Value.toStoredConfig(
       this._config,
@@ -798,7 +831,7 @@ export class CalendarCardProEditor extends LitElement {
   /**
    * The schema context, made again only when the configuration, the workspace or Home
    * Assistant's locale moves, so a render that changed none of them hands every builder the same
-   * context and reuses what it built (`builtPanel`).
+   * context and reuses what it built (`field-index.ts` › `builtSchema`).
    */
   private _ctxFor = Helpers.memoizeLast(
     (
@@ -929,9 +962,16 @@ export class CalendarCardProEditor extends LitElement {
    * @param slot - Which form
    * @param schema - The form's schema
    * @param ctx - Schema context
+   * @param labelPath - The label path every field takes, for a lifted field; else the one
+   * `ha-form` hands down
    * @returns The callback
    */
-  private _helper(slot: string, schema: ReadonlyArray<HaFormSchema>, ctx: SchemaCtx) {
+  private _helper(
+    slot: string,
+    schema: ReadonlyArray<HaFormSchema>,
+    ctx: SchemaCtx,
+    labelPath?: ReadonlyArray<string>,
+  ) {
     const workspace = ctx.workspace ?? ctx.view;
     const sources: Record<string, string | undefined> = {};
     for (const { node } of Routing.workspaceFields(schema)) {
@@ -946,7 +986,7 @@ export class CalendarCardProEditor extends LitElement {
             ctx.language,
             ctx.view,
             node,
-            options?.path ?? [],
+            labelPath ?? options?.path ?? [],
             true,
           );
           const from = 'selector' in node ? sources[node.name] : undefined;
@@ -1145,7 +1185,7 @@ export class CalendarCardProEditor extends LitElement {
     const panel = owner.kind === 'card' ? PANELS.find((each) => each.id === scope) : undefined;
     const schema =
       panel !== undefined
-        ? builtPanel(panel, ctx)
+        ? builtSchema(panel, ctx)
         : owner.kind === 'entry' && scope === 'calendar'
           ? buildEntitySchema(ctx)
           : owner.kind === 'button' && scope === 'button'
@@ -1251,151 +1291,699 @@ export class CalendarCardProEditor extends LitElement {
     EditorLocalize.lookup(this._ctx.language, key);
 
   /**
-   * Renders one panel: an expansion panel wrapping a form.
+   * What the filter bar leaves of every panel, as today's in-place filtering decides it, and
+   * the field ids that survive: Essentials Only and Customized Only narrow every page by them,
+   * and a query shows them on the overview, grouped by page. Counts what Essentials Only hides
+   * as it goes.
    *
-   * @param panel - Panel definition
    * @param ctx - Schema context
-   * @returns The panel template, or nothing when the filter leaves it empty
+   * @returns Each panel's filtered schema, and the ids it holds
    */
-  private _renderPanel(panel: PanelDef, ctx: SchemaCtx): TemplateResult | typeof nothing {
+  private _filtered(ctx: SchemaCtx): {
+    readonly schemas: ReadonlyMap<string, HaFormSchema[]>;
+    readonly shown: ReadonlySet<FieldId>;
+  } {
     const filterCtx = this._filterCtx;
-    const searching = Filter.isSearching(this._filter);
-
-    // Keep panel.build complete for translation reconciliation; only rendered forms
-    // withhold fields. Search and exceptions both receive this same reduced schema.
-    const built = builtPanel(panel, ctx);
-    // Only a typed query may let a whole panel through by its name: on an empty one every panel
-    // matches, and Essentials Only would show all it hides.
-    const wholePanel =
-      Filter.hasQuery(this._filter) &&
-      !this._filter.customizedOnly &&
-      Filter.matchesPanel(panel, filterCtx);
-    const schema = wholePanel
-      ? Filter.openMatches(built, filterCtx)
-      : Filter.filterSchema(built, filterCtx);
-
-    const resets = this._renderResetControls(schema, ctx);
-    this._countHidden(built, schema);
-    const entities = this._renderEntities(panel, ctx);
-    const buttons = this._renderToolbarButtons(panel, ctx);
-    const extras = Filter.filterExtras(panel.extras?.(ctx) ?? [], panel, filterCtx);
-
-    const empty =
-      !Filter.hasFields(schema) &&
-      extras.length === 0 &&
-      resets === nothing &&
-      entities === nothing &&
-      buttons === nothing;
-
-    if (empty) {
-      return nothing;
+    const schemas = new Map<string, HaFormSchema[]>();
+    const shown = new Set<FieldId>();
+    for (const panel of PANELS) {
+      const built = builtSchema(panel, ctx);
+      // Only a typed query may let a whole panel through by its name: on an empty one every
+      // panel matches, and Essentials Only would show all it hides.
+      const wholePanel =
+        Filter.hasQuery(this._filter) &&
+        !this._filter.customizedOnly &&
+        Filter.matchesPanel(panel, filterCtx);
+      const schema = wholePanel
+        ? Filter.openMatches(built, filterCtx)
+        : Filter.filterSchema(built, filterCtx);
+      this._countHidden(built, schema);
+      schemas.set(panel.id, schema);
+      for (const { node, dataPath } of walkSchema(schema)) {
+        if ('selector' in node) shown.add(fieldId(panel.id, dataPath, node.name));
+      }
+      // Calendars and toolbar buttons are counted here, whichever place draws them.
+      for (const subform of panel.subforms?.(ctx) ?? []) {
+        const path = subform.path.join('.');
+        const forms =
+          path === ENTITY_PATH.join('.')
+            ? this._entrySchemas(subform, ctx)
+            : path === TOOLBAR_BUTTON_PATH.join('.') && Config.resolveToolbar(ctx.config).show
+              ? this._buttonSchemas(subform)
+              : [];
+        for (const { offered, schema: kept } of forms) this._countHidden(offered, kept);
+      }
     }
-    this._drawn?.push([schema, this._formData()]);
-
-    return html`
-      <ha-expansion-panel
-        outlined
-        .header=${this._panelTitle(panel, ctx)}
-        .secondary=${this._panelHelper(panel, ctx) ?? ''}
-        .leftChevron=${false}
-        .expanded=${searching}
-      >
-        <ha-svg-icon slot="leading-icon" .path=${panel.iconPath}></ha-svg-icon>
-        <div class="panel-body">
-          ${whenOpened(() => this._renderPanelForm(panel.id, schema, ctx))}
-          ${extras.map((extra) => this._renderExtra(extra))} ${entities} ${buttons} ${resets}
-        </div>
-      </ha-expansion-panel>
-    `;
+    // A page is let through whole by its own title, as a panel is by its: the pages' titles are
+    // the ones the overview shows.
+    if (!this._filter.customizedOnly) {
+      for (const page of PAGES) {
+        if (!Filter.matchesText([page.id, this._pageTitle(page, ctx)], filterCtx)) continue;
+        for (const heading of page.headings) for (const [id] of heading.fields) shown.add(id);
+      }
+    }
+    return { schemas, shown };
   }
 
   /**
-   * One panel's form, drawn once its panel has opened. Handed only the part of the workspace's
-   * data its own fields read (`Routing.formDataFor`), so a write elsewhere leaves it untouched.
+   * One field in a form of its own, inside the editor's own wrapper named after it: the one
+   * place focus lands on a field, since nothing inside a form takes it.
    *
-   * @param id - Panel id
-   * @param shown - The panel's schema, as the filter left it
+   * Every input the form is handed is kept while it is equal (PR 3's identity rules, carried to
+   * lifted fields): the lifted schema is interned by the index, the data is the field's own
+   * projection of the scope's data, and the label and helper callbacks resolve through the
+   * label path the field had inside its panel, so every string key stays what it was.
+   *
+   * @param field - The field, as the index lifted it
    * @param ctx - Schema context
-   * @returns The form
+   * @returns The wrapper and its form
    */
-  private _renderPanelForm(
-    id: string,
-    shown: ReadonlyArray<HaFormSchema>,
-    ctx: SchemaCtx,
-  ): unknown {
-    const slot = `panel.${id}`;
-    const schema = this._intern(slot, shown);
+  private _renderField(field: IndexedField, ctx: SchemaCtx): TemplateResult {
+    const slot = `field.${field.id}`;
+    const schema = this._intern(slot, field.lifted);
     const data = this._intern(`${slot}.data`, Routing.formDataFor(this._formData(), schema));
     const [hass, feed] = this._feed(schema, ctx.language);
-    // Key the form node as well as its callback: reusing a node would redirect its
-    // pending events into the next workspace's frame.
+    const workspace = ctx.workspace ?? ctx.view;
     const frame: WriteFrames.OwnedFrame = {
       owner: WriteFrames.CARD_OWNER,
-      workspace: ctx.workspace ?? ctx.view,
+      workspace,
       schema,
       data,
     };
-
-    const form = html`
-      <ha-form
-        class="panel-form"
-        data-hass=${feed}
-        .hass=${hass}
-        .data=${data}
-        .schema=${schema}
-        .computeLabel=${this._labeler(ctx.language)}
-        .computeHelper=${this._helper(slot, schema, ctx)}
-        .localizeValue=${this._localizeValue}
-        @value-changed=${(event: CustomEvent) => this._valueChanged(frame, event)}
-      ></ha-form>
-    `;
     // Focus goes to the calendar picker once Remove has taken the last calendar
-    // (`_focusAfterRemove`). `ha-form` focuses nothing it draws, so the picker's form sits in a
-    // group of the editor's own, named after the field.
-    const picker = schema.find((node) => node.name === 'calendars');
-    return keyed(
-      frame.workspace,
-      picker === undefined
-        ? form
-        : html`<div
-            class="calendar-picker"
-            tabindex="-1"
-            role="group"
-            aria-label=${this._labeler(ctx.language)(picker)}
-          >
-            ${form}
-          </div>`,
+    // (`_focusAfterRemove`), and to any field's wrapper, never into its form.
+    return html`<div
+      class="field${field.id === 'calendars:calendars' ? ' calendar-picker' : ''}"
+      data-field=${field.id}
+      tabindex="-1"
+      role="group"
+      aria-label=${fieldLabel(field, ctx.language)}
+    >
+      ${keyed(
+        // Keyed by scope as well: reusing a form would redirect its pending events into the
+        // next scope's frame.
+        workspace,
+        html`<ha-form
+          class="field-form"
+          data-hass=${feed}
+          .hass=${hass}
+          .data=${data}
+          .schema=${schema}
+          .computeLabel=${this._labeler(ctx.language, field.labelPath)}
+          .computeHelper=${this._helper(slot, schema, ctx, field.labelPath)}
+          .localizeValue=${this._localizeValue}
+          @value-changed=${(event: CustomEvent) => this._valueChanged(frame, event)}
+        ></ha-form>`,
+      )}
+    </div>`;
+  }
+
+  /**
+   * A run of fields, each kept with its own frame by its id: drawn by position, a field a gate
+   * takes away would hand its form to the field after it, and an edit that form sends late would
+   * be written for the wrong field.
+   *
+   * @param fields - The fields
+   * @param ctx - Schema context
+   * @returns The fields' frames
+   */
+  private _renderFields(fields: ReadonlyArray<IndexedField>, ctx: SchemaCtx): unknown {
+    return repeat(
+      fields,
+      (field) => field.id,
+      (field) => this._renderField(field, ctx),
     );
   }
 
   /**
-   * Resolves a panel's heading.
+   * The fields a run of the registry draws here: each placed one present for this
+   * configuration and scope and kept by the filter bar, in the registry's order.
    *
-   * @param panel - Panel definition
-   * @param ctx - Schema context
-   * @returns Title text
+   * @param fields - The run's placements
+   * @param present - The fields built here
+   * @param shown - The ids the filter bar keeps
+   * @returns The fields
    */
-  private _panelTitle(panel: PanelDef, ctx: SchemaCtx): string {
-    return (
-      EditorLocalize.lookupForView(ctx.language, panel.titleKey, ctx.workspace ?? ctx.view) ??
-      EditorLocalize.humanize(panel.titleKey)
-    );
+  private _fieldsOf(
+    fields: HeadingDef['fields'],
+    present: ReadonlyMap<FieldId, IndexedField>,
+    shown: ReadonlySet<FieldId>,
+  ): IndexedField[] {
+    return fields.flatMap(([id]) => {
+      const field = present.get(id);
+      return field !== undefined && shown.has(id) ? [field] : [];
+    });
   }
 
   /**
-   * Resolves the sentence under a panel's heading.
+   * A heading's title: its key, or the key it takes in a layout (Icons in Grid).
    *
-   * @param panel - Panel definition
+   * @param heading - The heading
    * @param ctx - Schema context
-   * @returns Helper text, or `undefined` when the panel has none
+   * @returns The title, or `undefined` for a page's unheaded top run
    */
-  private _panelHelper(panel: PanelDef, ctx: SchemaCtx): string | undefined {
-    return EditorLocalize.lookupForView(
+  private _headingTitle(heading: HeadingDef, ctx: SchemaCtx): string | undefined {
+    const key = heading.keyByView?.[ctx.view] ?? heading.key;
+    return key === undefined ? undefined : this._string(ctx, key);
+  }
+
+  /**
+   * A page's title, as its row and its header show it.
+   *
+   * @param page - The page
+   * @param ctx - Schema context
+   * @returns The title
+   */
+  private _pageTitle(page: PageDef, ctx: SchemaCtx): string {
+    return this._string(ctx, page.titleKey);
+  }
+
+  /**
+   * Whether a place exists on the card as it is now: the Grid page only while Grid is the scope.
+   *
+   * @param route - The place
+   * @returns `true` where it can be drawn
+   */
+  private _exists(route: Navigation.Route): boolean {
+    if (route.kind === 'overview') return true;
+    if (route.kind !== 'page') return false;
+    const page = PAGES.find((candidate) => candidate.id === route.page);
+    return page !== undefined && (page.onlyIn === undefined || page.onlyIn === this._workspace);
+  }
+
+  /**
+   * A translator for the views: the editor's own strings, by literal key.
+   *
+   * @param ctx - Schema context
+   * @returns The translator
+   */
+  private _t(ctx: SchemaCtx): Overview.Translate {
+    return this._keep('translate', ctx.language, () => (key: string) => this._string(ctx, key));
+  }
+
+  /**
+   * Opens a place, saving the scroll position and the control that left, so Back restores both.
+   *
+   * @param to - Where to go
+   * @param focusKey - The `data-focus` key of the row or link that opened it
+   * @param how - How the trail changes (`navigation.ts` › `go`)
+   * @param heading - A heading on the page to bring to the top, for a cross-link
+   */
+  private _open(
+    to: Navigation.Route,
+    focusKey: string,
+    how: 'push' | 'cross-link' = 'push',
+    heading?: string,
+  ): void {
+    const from: Navigation.TrailEntry = {
+      route: this._nav.route,
+      scrollTop: Focus.scrollPosition(this),
+      focusKey,
+    };
+    this._nav = Navigation.go(this._nav, to, from, how);
+    void this._afterMove(undefined, heading);
+  }
+
+  /** Goes Back one place, restoring its scroll position and the control that left it. */
+  private _back = (): void => {
+    const { nav, restore } = Navigation.back(this._nav);
+    this._nav = nav;
+    void this._afterMove(restore);
+  };
+
+  /**
+   * Moves focus once a move has rendered, in the same continuation, before the swapped-out
+   * control's loss of focus can land anywhere else: a page's `h2`, with its header at the top
+   * of what scrolls the editor; back on a place, its saved scroll position and the control
+   * that left it, else that place's list heading.
+   *
+   * @param restore - The place returned to, for Back
+   * @param heading - A heading to bring to the top instead of the page's header
+   */
+  private async _afterMove(restore?: Navigation.TrailEntry, heading?: string): Promise<void> {
+    await this.updateComplete;
+    const root = this.renderRoot;
+    if (restore !== undefined) {
+      Focus.restoreScroll(this, restore.scrollTop);
+      const keys = restore.focusKey === undefined ? [] : [Focus.byFocusKey(restore.focusKey)];
+      Focus.focusFirst(root, [...keys, '.row-group .heading', '.page-title']);
+      return;
+    }
+    const title = Focus.focusFirst(root, ['.page-title']);
+    const target =
+      (heading === undefined
+        ? undefined
+        : root.querySelector(`[data-heading="${CSS.escape(heading)}"]`)) ??
+      title?.closest('.page-head');
+    if (target) Focus.scrollToTop(this, target);
+  }
+
+  /**
+   * Escape, by the rule the editor follows (`views/keys.ts` › `escapeAction`): a Home
+   * Assistant overlay keeps it; else the open disclosure closes, else a page goes Back, else the
+   * query clears; else it goes through and Home Assistant closes the dialog. Whenever the editor
+   * acts, both `preventDefault()` and `stopPropagation()`: either alone lets the dialog close.
+   *
+   * @param event - A `keydown` anywhere under the editor
+   */
+  private _onKeydown = (event: KeyboardEvent): void => {
+    if (event.key !== 'Escape' || event.defaultPrevented) return;
+    const wizard = this._quickSetup;
+    // Quick Setup is a place of its own: Escape is its Back, or Cancel on its first step.
+    const action = escapeAction(event.composedPath(), this, {
+      disclosure: wizard === undefined && this._scopeOpen,
+      onPage: wizard !== undefined || this._nav.route.kind !== 'overview',
+      query: Filter.hasQuery(this._filter),
+    });
+    if (action === 'pass') return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (action === 'back' && wizard !== undefined) {
+      const index = QUICK_SETUP_STEPS.indexOf(wizard.step);
+      if (index > 0) {
+        this._quickSetupGo(QUICK_SETUP_STEPS[index - 1]);
+        void this.updateComplete.then(() =>
+          Focus.focusFirst(this.renderRoot, ['[data-quick-setup-back]', '[data-quick-setup-next]']),
+        );
+      } else {
+        this._cancelQuickSetup();
+        void this.updateComplete.then(() =>
+          Focus.focusFirst(this.renderRoot, [
+            '[data-focus="quick-setup"]',
+            '[data-quick-setup-open]',
+          ]),
+        );
+      }
+    } else if (action === 'close') {
+      this._scopeOpen = false;
+      void this.updateComplete.then(() =>
+        Focus.focusFirst(this.renderRoot, [Focus.byFocusKey('scope-change')]),
+      );
+    } else if (action === 'back') {
+      this._back();
+    } else if (action === 'clear') {
+      this._filter = { ...this._filter, query: '' };
+      void this.updateComplete.then(() =>
+        Focus.focusFirst(this.renderRoot, ['ha-form.filter-form']),
+      );
+    }
+  };
+
+  /**
+   * Settings For, compact or full, as the overview and every page that depends on the scope
+   * draw it.
+   *
+   * @param ctx - Schema context
+   * @returns The control
+   */
+  private _renderScope(ctx: SchemaCtx): TemplateResult {
+    const displayed = this._viewForConfig(this._config!);
+    const workspace = this._workspace;
+    const label = (each: Workspace.EditorWorkspace): string =>
+      this._string(ctx, `editing_workspace.option.${each}.label`);
+    return Overview.scopeControl(
+      {
+        compact:
+          !this._scopeOpen &&
+          Workspace.isCompactScope(this._rawConfig, this._config!, displayed, this._scopeChanged),
+        workspace,
+        choices: Workspace.WORKSPACES.map((value) => ({
+          value,
+          label: label(value),
+          set: Workspace.storedCount(this._rawConfig, value),
+        })),
+        displayedLabel: label(displayed),
+        previewDiffers: workspace !== 'shared' && workspace !== displayed,
+      },
+      this._t(ctx),
+      this._openScope,
+      this._pickScope,
+    );
+  }
+
+  /** Change: Settings For opens as the four choices. */
+  private _openScope = (): void => {
+    this._scopeOpen = true;
+    void this.updateComplete.then(() =>
+      Focus.focusFirst(this.renderRoot, [`input[name="scope"]:checked`, `input[name="scope"]`]),
+    );
+  };
+
+  /**
+   * Changes the scope: writes nothing, keeps focus on the chosen option, says so, and keeps
+   * Settings For full for the rest of the session.
+   *
+   * @param workspace - The scope chosen
+   */
+  private _pickScope = (workspace: Workspace.EditorWorkspace): void => {
+    if (!this._config || workspace === this._workspace) return;
+    this._selectedWorkspace = workspace;
+    this._scopeChanged = true;
+    this._scopeOpen = false;
+    const ctx = this._ctx;
+    this._say(
+      interpolate(this._string(ctx, 'announce.scope'), {
+        layout: this._string(ctx, `editing_workspace.option.${workspace}.label`),
+      }),
+    );
+    // The Grid page exists only while Grid is the scope.
+    if (!this._exists(this._nav.route)) {
+      this._nav = Navigation.validate(this._nav, (route) => this._exists(route)).nav;
+    }
+  };
+
+  /**
+   * Queues words for the live region and asks for the render that speaks them.
+   *
+   * @param message - A whole sentence
+   */
+  private _say(message: string): void {
+    if (this._announcer.say(message)) this.requestUpdate();
+  }
+
+  /**
+   * Card Displays: the three illustrated layouts, written through the frame the card's own
+   * display form always had, and the Grid notice under it.
+   *
+   * @param ctx - Schema context
+   * @param chassis - The chassis schemas
+   * @returns The group
+   */
+  private _renderDisplays(ctx: SchemaCtx, chassis: Subforms.ChassisSchemas): TemplateResult {
+    const node = chassis.displayView[0] as { selector: { select: { options: unknown } } };
+    const options = node.selector.select.options as ReadonlyArray<Overview.DisplayChoice>;
+    const value = this._viewForConfig(this._config!);
+    return html`${Overview.displayControl(
+      this._string(ctx, 'view'),
+      EditorLocalize.lookup(ctx.language, 'view.helper'),
+      options,
+      value,
+      (view) => {
+        const data = { view: value };
+        this._writeOwned(
+          { owner: WriteFrames.CARD_OWNER, workspace: 'list', schema: chassis.displayView, data },
+          { view },
+        );
+      },
+    )}
+    ${this._renderGridReconciliation(ctx)}`;
+  }
+
+  /**
+   * Words a value a field cannot word itself, for a section row's summary: an action by Home
+   * Assistant's name for it, an entity by its name.
+   *
+   * @param field - The field
+   * @param value - Its value
+   * @returns The words, or `undefined` to leave the pair out
+   */
+  private _describe = (field: IndexedField, value: unknown): string | undefined => {
+    const selector = field.node.selector;
+    if ('ui_action' in selector) {
+      const action = Helpers.isConfigBlock(value) ? value.action : undefined;
+      if (typeof action !== 'string') return undefined;
+      const key = `${HA_ACTION_LABEL_PREFIX}${action}`;
+      const words = withCardActionLabels(this.hass, this._ctx.language)?.localize?.(key);
+      return typeof words === 'string' && words !== '' && words !== key ? words : undefined;
+    }
+    if ('entity' in selector && typeof value === 'string' && value !== '') {
+      return Entities.entityDisplayName(value, this.hass);
+    }
+    return undefined;
+  };
+
+  /**
+   * A section row's summary: its main settings with their values, and what it stores here.
+   *
+   * @param page - The page
+   * @param ctx - Schema context
+   * @param present - The fields built here
+   * @returns The line
+   */
+  private _summary(
+    page: PageDef,
+    ctx: SchemaCtx,
+    present: ReadonlyMap<FieldId, IndexedField>,
+  ): string {
+    const workspace = ctx.workspace ?? ctx.view;
+    const stored = Summary.pageStoredCount(page, this._rawConfig, workspace);
+    return Summary.summaryParts(
+      page,
+      { fields: present },
+      this._formData(),
+      stored,
       ctx.language,
-      panel.titleKey,
-      ctx.workspace ?? ctx.view,
-      '.helper',
+      this._describe,
+    ).join(Summary.SUMMARY_SEPARATOR);
+  }
+
+  /**
+   * The Calendars block: today's picker and the panel of each calendar entry, under the block's
+   * own heading, until calendars get rows and pages of their own.
+   *
+   * @param ctx - Schema context
+   * @param present - The fields built here
+   * @param shown - The ids the filter bar keeps
+   * @returns The block, or nothing where the filter leaves nothing of it
+   */
+  private _renderCalendars(
+    ctx: SchemaCtx,
+    present: ReadonlyMap<FieldId, IndexedField>,
+    shown: ReadonlySet<FieldId>,
+  ): TemplateResult | typeof nothing {
+    const panel = PANELS.find((candidate) => candidate.id === 'calendars')!;
+    const picker = this._fieldsOf([['calendars:calendars', 'essential']], present, shown);
+    const entries = this._renderEntities(panel, ctx);
+    if (picker.length === 0 && entries === nothing) return nothing;
+    return html`<section class="page-group" data-heading="calendars">
+      <h3 class="heading" tabindex="-1">${this._string(ctx, panel.titleKey)}</h3>
+      ${this._renderFields(picker, ctx)} ${entries}
+    </section>`;
+  }
+
+  /**
+   * The overview: notices, Quick Setup's banner, the filter bar, then either what a query finds,
+   * grouped by page, or Settings For, Calendars, Card Displays, the overview's own fields, a row
+   * per section page and More.
+   *
+   * @param ctx - Schema context
+   * @param chassis - The chassis schemas
+   * @returns The overview
+   */
+  private _renderOverview(ctx: SchemaCtx, chassis: Subforms.ChassisSchemas): TemplateResult {
+    const t = this._t(ctx);
+    const { present, shown } = this._drawing!;
+    const own = this._fieldsOf(
+      OVERVIEW_FIELDS.filter(([id]) => id !== 'calendars:calendars'),
+      present,
+      shown,
     );
+    const head = html`${this._renderMisplaced(ctx)}
+    ${
+      this._banner
+        ? Overview.quickSetupBanner(t, this._openQuickSetup, () => {
+            this._banner = false;
+          })
+        : nothing
+    }
+    ${this._renderFilterBar(ctx, chassis)} ${this._renderEssentialsNote(ctx)}`;
+
+    // One template whatever the query, so the filter bar above it is never drawn anew and the
+    // search field keeps focus as the first character turns the overview into results. The
+    // scope stays in view with the results: what they write goes where it says.
+    return html`<div class="overview">
+      ${head} ${this._renderOverviewBody(ctx, chassis, present, shown, own)}
+    </div>`;
+  }
+
+  /**
+   * What the overview draws below its filter bar: what a query finds, or Settings For,
+   * Calendars, Card Displays, the overview's own fields, a row per section page and More.
+   *
+   * @param ctx - Schema context
+   * @param chassis - The chassis schemas
+   * @param present - The fields built here
+   * @param shown - The ids the filter keeps
+   * @param own - The overview's own fields it keeps
+   * @returns The body
+   */
+  private _renderOverviewBody(
+    ctx: SchemaCtx,
+    chassis: Subforms.ChassisSchemas,
+    present: ReadonlyMap<FieldId, IndexedField>,
+    shown: ReadonlySet<FieldId>,
+    own: ReadonlyArray<IndexedField>,
+  ): TemplateResult {
+    const t = this._t(ctx);
+    if (Filter.hasQuery(this._filter)) {
+      return html`${this._renderScope(ctx)} ${this._renderResults(ctx, present, shown, own)}`;
+    }
+    const rows = PAGES.filter(
+      (page) => page.onlyIn === undefined || page.onlyIn === this._workspace,
+    ).map((page) =>
+      Overview.navRow(
+        {
+          key: `nav:${page.id}`,
+          iconPath: page.iconPath,
+          title: this._pageTitle(page, ctx),
+          summary: this._summary(page, ctx, present),
+        },
+        () => this._open({ kind: 'page', page: page.id }, `nav:${page.id}`),
+      ),
+    );
+    const calendars = this._renderCalendars(ctx, present, shown);
+    // Only the switches can empty the editor without a query: say so, as the panels did.
+    const empty = shown.size === 0 && calendars === nothing && Filter.isFiltering(this._filter);
+    return html`${empty ? this._renderNoMatches(ctx) : nothing} ${this._renderScope(ctx)}
+    ${calendars} ${this._renderDisplays(ctx, chassis)} ${this._renderFields(own, ctx)}
+    ${this._renderResetControls(
+      own.flatMap((field) => field.lifted),
+      ctx,
+    )}
+    ${Overview.rowGroup(t('overview.settings'), rows)}
+    ${Overview.rowGroup(t('overview.more'), [Overview.exampleRow(t, this._openQuickSetup)])}`;
+  }
+
+  /**
+   * What a query finds: the matching fields of every page as live controls, grouped by page,
+   * the overview's own and the calendars' first, as today's in-place filtering finds them.
+   *
+   * @param ctx - Schema context
+   * @param present - The fields built here
+   * @param shown - The ids the filter keeps
+   * @param own - The overview's own fields it keeps
+   * @returns The results, or the line saying nothing matches
+   */
+  private _renderResults(
+    ctx: SchemaCtx,
+    present: ReadonlyMap<FieldId, IndexedField>,
+    shown: ReadonlySet<FieldId>,
+    own: ReadonlyArray<IndexedField>,
+  ): TemplateResult {
+    const groups = PAGES.flatMap((page) => {
+      const body = this._renderPageBody(page, ctx, present, shown, false);
+      return body === undefined
+        ? []
+        : [PageView.headingBlock({ title: this._pageTitle(page, ctx), key: page.id, body })];
+    });
+    const calendars = this._renderCalendars(ctx, present, shown);
+    if (groups.length === 0 && own.length === 0 && calendars === nothing) {
+      return this._renderNoMatches(ctx);
+    }
+    return html`${this._renderFields(own, ctx)}
+    ${this._renderResetControls(
+      own.flatMap((field) => field.lifted),
+      ctx,
+    )}
+    ${calendars} ${groups}`;
+  }
+
+  /**
+   * What a page draws under its header: each heading with its fields, and what the page holds
+   * besides them (the toolbar's own buttons, the column width table, the reset buttons of the
+   * scope's own values).
+   *
+   * @param page - The page
+   * @param ctx - Schema context
+   * @param present - The fields built here
+   * @param shown - The ids the filter bar keeps
+   * @param headings - Whether to draw the page's headings, as the page itself does; search
+   * results draw the fields alone, under the page's title
+   * @returns The body, or `undefined` where the filter leaves nothing of it
+   */
+  private _renderPageBody(
+    page: PageDef,
+    ctx: SchemaCtx,
+    present: ReadonlyMap<FieldId, IndexedField>,
+    shown: ReadonlySet<FieldId>,
+    headings: boolean,
+  ): unknown[] | undefined {
+    const parts: unknown[] = [];
+    const drawn: IndexedField[] = [];
+    for (const heading of page.headings) {
+      const fields = this._fieldsOf(heading.fields, present, shown);
+      const buttons = heading.extras?.includes('own-buttons')
+        ? this._renderToolbarButtons(
+            PANELS.find((panel) => panel.id === 'card')!,
+            ctx,
+          )
+        : nothing;
+      if (fields.length === 0 && buttons === nothing) continue;
+      drawn.push(...fields);
+      const body = html`${this._renderFields(fields, ctx)} ${buttons}`;
+      if (!headings) {
+        parts.push(body);
+        continue;
+      }
+      const link = heading.crossLink;
+      const target = link && PAGES.find((candidate) => candidate.id === link.page);
+      const targetHeading = target?.headings.find((each) => each.key === link!.heading);
+      parts.push(
+        PageView.headingBlock({
+          title: this._headingTitle(heading, ctx),
+          key: heading.key,
+          helper:
+            heading.helperKey === undefined ? undefined : this._string(ctx, heading.helperKey),
+          crossLink:
+            link && target && targetHeading
+              ? {
+                  text: this._string(ctx, link.textKey),
+                  label: interpolate(this._string(ctx, 'nav.crumb'), {
+                    page: this._pageTitle(target, ctx),
+                    heading: this._headingTitle(targetHeading, ctx) ?? '',
+                  }),
+                  key: `xlink:${link.heading}`,
+                  onOpen: () =>
+                    this._open(
+                      { kind: 'page', page: link.page },
+                      `xlink:${link.heading}`,
+                      'cross-link',
+                      link.heading,
+                    ),
+                }
+              : undefined,
+          body,
+        }),
+      );
+    }
+    if (page.id === 'size_spacing') {
+      const layout = PANELS.find((panel) => panel.id === 'layout')!;
+      const extras = Filter.filterExtras(layout.extras?.(ctx) ?? [], layout, this._filterCtx);
+      parts.push(...extras.map((extra) => this._renderExtra(extra)));
+    }
+    const resets = this._renderResetControls(
+      drawn.flatMap((field) => field.lifted),
+      ctx,
+    );
+    if (drawn.length === 0 && resets === nothing && parts.length === 0) return undefined;
+    parts.push(resets);
+    return parts;
+  }
+
+  /**
+   * A section page: its header, the scope it is edited for (or that it applies to the whole
+   * card, or only to Grid), its note, its headings and Back at its foot.
+   *
+   * @param page - The page
+   * @param ctx - Schema context
+   * @returns The page
+   */
+  private _renderPage(page: PageDef, ctx: SchemaCtx): TemplateResult {
+    const t = this._t(ctx);
+    const { present, shown } = this._drawing!;
+    const scope =
+      page.onlyIn !== undefined
+        ? PageView.pageLine(t('settings_for.grid_only'))
+        : isWholeCard(page)
+          ? PageView.pageLine(this._string(ctx, 'value_source.card'))
+          : this._renderScope(ctx);
+    const body = this._renderPageBody(page, ctx, present, shown, true);
+    return html`<div class="page" data-page=${page.id}>
+      ${PageView.pageHead(this._pageTitle(page, ctx), t, this._back)} ${scope}
+      ${page.noteKey ? PageView.pageLine(this._string(ctx, page.noteKey)) : nothing}
+      ${body ?? (Filter.isFiltering(this._filter) ? this._renderNoMatches(ctx) : nothing)}
+      ${PageView.footBack(t, this._back)}
+    </div>`;
   }
 
   /**
@@ -1424,6 +2012,63 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * Each calendar entry's form as the filter bar leaves it, with what was declared for it.
+   *
+   * @param subform - The entries' sub-form
+   * @param ctx - Schema context
+   * @returns Every entry, with its key, its declared fields (inert ones withheld) and its schema
+   */
+  private _entrySchemas(
+    subform: { path: ReadonlyArray<string>; schema: ReadonlyArray<HaFormSchema> },
+    ctx: SchemaCtx,
+  ) {
+    const filterCtx = this._filterCtx;
+    const toolbar = Config.resolveToolbar(ctx.config);
+    const hasLegend = toolbar.show && toolbar.legend !== false;
+    const entries = this._config?.entities ?? [];
+    const keys = this._entryKeysFor(entries.length);
+    return entries.map((entry, index) => {
+      const declared = entitySchemaFor(
+        subform.schema as HaFormSchema[],
+        Entities.labelTypeOf(entry),
+        accentColorModeOf(Entities.asEntityConfig(entry).accent_color),
+        labelIconSourceOf(Entities.asEntityConfig(entry).label),
+        Entities.showsLocation(entry, ctx.config, this._destinationView(ctx)),
+        labelImageSourceOf(Entities.asEntityConfig(entry).label),
+        hasLegend,
+        showsEventWeather(ctx.config.weather),
+      );
+      const schema = Filter.filterEntitySchema(declared, entry, subform.path, filterCtx);
+      const offered = Filter.withholdInertFields(declared, ctx.workspace ?? ctx.view, 'entity');
+      return { entry, index, key: keys[index], offered, schema };
+    });
+  }
+
+  /**
+   * Each toolbar button's form as the filter bar leaves it.
+   *
+   * @param subform - The buttons' sub-form
+   * @returns Every button, with its key, its fields, its schema and its data
+   */
+  private _buttonSchemas(subform: {
+    path: ReadonlyArray<string>;
+    schema: ReadonlyArray<HaFormSchema>;
+  }) {
+    const filterCtx = this._filterCtx;
+    const written = Buttons.writtenButtons(this._config!);
+    const keys = this._buttonKeysFor(written.length);
+    const fields = subform.schema.filter((node) => !Filter.isHeading(node));
+    return written.map((entry, index) => ({
+      entry,
+      index,
+      key: keys[index],
+      offered: fields,
+      schema: Filter.filterButtonSchema(fields, entry, subform.path, filterCtx),
+      data: Buttons.toButtonFormData(entry),
+    }));
+  }
+
+  /**
    * Renders the per-calendar settings, one collapsible form per configured calendar.
    *
    * @param panel - Panel being rendered
@@ -1439,36 +2084,15 @@ export class CalendarCardProEditor extends LitElement {
     const entries = this._config?.entities ?? [];
     if (entries.length === 0) return nothing;
 
-    const filterCtx = this._filterCtx;
     const searching = Filter.isSearching(this._filter);
-    const toolbar = Config.resolveToolbar(ctx.config);
-    const hasLegend = toolbar.show && toolbar.legend !== false;
     const conditionsEditor = conditionsEditorDefined();
     // Defined before this editor opens wherever Home Assistant's card editor is; should it arrive
     // later, it takes over the YAML box then.
     if (!conditionsEditor) awaitConditionsEditor(this);
 
-    const keys = this._entryKeysFor(entries.length);
-    const shown = entries
-      .map((entry, index) => {
-        const declared = entitySchemaFor(
-          subform.schema,
-          Entities.labelTypeOf(entry),
-          accentColorModeOf(Entities.asEntityConfig(entry).accent_color),
-          labelIconSourceOf(Entities.asEntityConfig(entry).label),
-          Entities.showsLocation(entry, ctx.config, this._destinationView(ctx)),
-          labelImageSourceOf(Entities.asEntityConfig(entry).label),
-          hasLegend,
-          showsEventWeather(ctx.config.weather),
-        );
-        const schema = Filter.filterEntitySchema(declared, entry, subform.path, filterCtx);
-        this._countHidden(
-          Filter.withholdInertFields(declared, ctx.workspace ?? ctx.view, 'entity'),
-          schema,
-        );
-        return { entry, index, key: keys[index], schema };
-      })
-      .filter((candidate) => Filter.hasFields(candidate.schema));
+    const shown = this._entrySchemas(subform, ctx).filter((candidate) =>
+      Filter.hasFields(candidate.schema),
+    );
 
     if (shown.length === 0) return nothing;
 
@@ -1488,15 +2112,6 @@ export class CalendarCardProEditor extends LitElement {
             ? this._conditionsFor(index, entityId, Entities.asEntityConfig(entry).visibility)
             : undefined;
           const split = conditions ? splitAtVisibility(schema) : undefined;
-          const values = Entities.toEntityFormData(entry, entries);
-          for (const part of split ? [split.before, split.after] : [schema]) {
-            this._drawn?.push([part, values]);
-          }
-          if (split) {
-            for (const each of conditions!) {
-              this._drawnConditions.set(JSON.stringify(each), entityId);
-            }
-          }
 
           return html`
             <ha-expansion-panel
@@ -1508,7 +2123,7 @@ export class CalendarCardProEditor extends LitElement {
               .leftChevron=${false}
               .expanded=${searching}
             >
-              <ha-svg-icon slot="leading-icon" .path=${ENTITY_ICON}></ha-svg-icon>
+              <span slot="leading-icon" class="leading-icon">${icon(ENTITY_ICON)}</span>
               <div class="panel-body">
                 <div class="entity-actions">
                   <div class="entity-actions-safe">
@@ -1546,7 +2161,7 @@ export class CalendarCardProEditor extends LitElement {
                 </div>
                 ${whenOpened(() => {
                   const slot = `entry.${key}`;
-                  const data = this._intern(slot, values);
+                  const data = this._intern(slot, Entities.toEntityFormData(entry, entries));
                   const owner: WriteFrames.WriteOwner = { kind: 'entry', key };
                   const form = (part: ReadonlyArray<HaFormSchema>, name: string) => {
                     const kept = this._intern(`${slot}.${name}`, part);
@@ -1828,8 +2443,8 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Renders the toolbar's own buttons: the sub-heading, a collapsible form per button headed by
-   * its name, and Add Button after the last.
+   * Renders the toolbar's own buttons, under the heading Card & Header draws for them: a
+   * collapsible form per button headed by its name, and Add Button after the last.
    *
    * Only while the toolbar is shown, as the card draws the buttons only then. The list is read
    * as written, so an entry the card cannot draw yet, such as one whose icon was just cleared,
@@ -1846,27 +2461,14 @@ export class CalendarCardProEditor extends LitElement {
       ?.find((candidate) => candidate.path.join('.') === TOOLBAR_BUTTON_PATH.join('.'));
     if (subform === undefined || !Config.resolveToolbar(ctx.config).show) return nothing;
 
-    const filterCtx = this._filterCtx;
     const filtering = Filter.isFiltering(this._filter);
     const written = Buttons.writtenButtons(this._config!);
-    const keys = this._buttonKeysFor(written.length);
-    const headings = subform.schema.filter((node) => Filter.isHeading(node));
-    const fields = subform.schema.filter((node) => !Filter.isHeading(node));
-
-    const shown = written
-      .map((entry, index) => {
-        const schema = Filter.filterButtonSchema(fields, entry, subform.path, filterCtx);
-        this._countHidden(fields, schema);
-        const data = Buttons.toButtonFormData(entry);
-        return { entry, index, key: keys[index], schema, data };
-      })
-      .filter((candidate) => Filter.hasFields(candidate.schema));
+    const shown = this._buttonSchemas(subform).filter((candidate) =>
+      Filter.hasFields(candidate.schema),
+    );
 
     if (filtering && shown.length === 0) return nothing;
-    this._drawn?.push(
-      [headings, NO_DATA],
-      ...shown.map(({ schema, data }) => [schema, data] as const),
-    );
+    this._drawn?.push(...shown.map(({ schema, data }) => [schema, data] as const));
 
     const computeLabel = this._labeler(ctx.language, subform.path);
     const computeHelper = this._subformHelper(ctx, subform.path, false);
@@ -1875,20 +2477,6 @@ export class CalendarCardProEditor extends LitElement {
     const untitled = this._string(ctx, 'toolbar.buttons.untitled');
 
     return html`
-      ${whenOpened(() => {
-        const schema = this._intern('buttons.heading', headings);
-        const [hass, feed] = this._feed(schema, ctx.language);
-        return html`
-          <ha-form
-            class="buttons-heading"
-            data-hass=${feed}
-            .hass=${hass}
-            .data=${NO_DATA}
-            .schema=${schema}
-            .computeLabel=${computeLabel}
-          ></ha-form>
-        `;
-      })}
       ${repeat(
         shown,
         ({ key }) => key,
@@ -1901,7 +2489,7 @@ export class CalendarCardProEditor extends LitElement {
             .leftChevron=${false}
             .expanded=${Filter.isSearching(this._filter) || this._addedButtons.has(key)}
           >
-            <ha-svg-icon slot="leading-icon" .path=${TOOLBAR_BUTTON_ICON}></ha-svg-icon>
+            <span slot="leading-icon" class="leading-icon">${icon(TOOLBAR_BUTTON_ICON)}</span>
             <div class="panel-body">
               <div class="button-actions">
                 <div class="button-actions-safe">
@@ -2240,25 +2828,76 @@ export class CalendarCardProEditor extends LitElement {
     this._essentialsHidden = 0;
     this._drawn = [];
     this._drawnConditions = new Map();
-    const panels = PANELS.map((panel) => this._renderPanel(panel, ctx)).filter(
-      (panel) => panel !== nothing,
-    );
-
-    const empty = panels.length === 0 && Filter.isFiltering(this._filter);
+    const { shown } = this._filtered(ctx);
+    const present = buildFieldIndex(ctx).fields;
+    this._drawing = { present, shown };
+    // Every field's form, drawn on the open page or not, and every toolbar button's, so what a
+    // page or a panel draws has loaded before it opens.
+    const data = this._formData();
+    for (const id of shown) {
+      const field = present.get(id);
+      // A field the registry places nowhere is drawn nowhere (the registry test fails on it).
+      if (field !== undefined && placementOf(id) !== undefined) {
+        this._drawn.push([field.lifted, data]);
+      }
+    }
+    const calendars = PANELS.find((panel) => panel.id === 'calendars')!;
+    const entries = calendars
+      .subforms?.(ctx)
+      ?.find((subform) => subform.path.join('.') === ENTITY_PATH.join('.'));
+    if (entries !== undefined) {
+      // As `_renderEntities` draws them, wherever the editor is: a calendar's form split around
+      // Home Assistant's Visibility editor, which holds its conditions.
+      const all = this._config!.entities ?? [];
+      const conditionsEditor = conditionsEditorDefined();
+      for (const { entry, index, schema } of this._entrySchemas(entries, ctx)) {
+        if (!Filter.hasFields(schema)) continue;
+        const entityId = Synthetic.entityIdOf(entry);
+        const conditions = conditionsEditor
+          ? this._conditionsFor(index, entityId, Entities.asEntityConfig(entry).visibility)
+          : undefined;
+        const split = conditions ? splitAtVisibility(schema) : undefined;
+        const values = Entities.toEntityFormData(entry, all);
+        for (const part of split ? [split.before, split.after] : [schema]) {
+          this._drawn.push([part, values]);
+        }
+        for (const each of conditions ?? []) {
+          this._drawnConditions.set(JSON.stringify(each), entityId);
+        }
+      }
+    }
+    const card = PANELS.find((panel) => panel.id === 'card')!;
+    const buttons = card
+      .subforms?.(ctx)
+      ?.find((subform) => subform.path.join('.') === TOOLBAR_BUTTON_PATH.join('.'));
+    if (buttons !== undefined && Config.resolveToolbar(ctx.config).show) {
+      for (const { schema, data: values } of this._buttonSchemas(buttons)) {
+        if (Filter.hasFields(schema)) this._drawn.push([schema, values]);
+      }
+    }
     const chassis = this._keep('chassis', ctx.language, () =>
       Subforms.chassisSchemas(ctx.language),
     );
-    // Drawn as the editor opens, so these load their own values' elements: their types suffice.
-    for (const form of [chassis.displayView, chassis.workspace, chassis.filter]) {
-      this._drawn.push([form, NO_DATA]);
-    }
+    // Drawn as the editor opens, so it loads its own values' elements: its types suffice.
+    this._drawn.push([chassis.filter, NO_DATA]);
+
+    const route = this._nav.route;
+    const page = route.kind === 'page' ? PAGES.find((each) => each.id === route.page) : undefined;
+    const spoken = this._announcer.take();
+    if (spoken !== undefined) this._spoken = spoken;
 
     return html`
-      <div class="card-config" @expanded-will-change=${this._panelWillChange}>
-        ${this._renderQuickSetupEntry(ctx)} ${this._renderViewControls(ctx, chassis)}
-        ${this._renderGridReconciliation(ctx)} ${this._renderMisplaced(ctx)}
-        ${this._renderFilterBar(ctx, chassis)} ${this._renderEssentialsNote(ctx)} ${panels}
-        ${empty ? this._renderNoMatches(ctx) : nothing}
+      <div
+        class="card-config"
+        @expanded-will-change=${this._panelWillChange}
+        @keydown=${this._onKeydown}
+      >
+        ${cache(
+          page === undefined || !this._exists(route)
+            ? this._renderOverview(ctx, chassis)
+            : keyed(Navigation.routeKey(route), this._renderPage(page, ctx)),
+        )}
+        <div class="live-region" role="status" aria-live="polite">${this._spoken}</div>
       </div>
     `;
   }
@@ -2384,42 +3023,6 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * The banner that opens Quick Setup, above everything else in the editor.
-   *
-   * One button, so the whole banner is the target: a primary-color badge, the title and one line
-   * saying what it does, and a chevron. Drawn from Home Assistant's theme variables, so it follows
-   * any theme, light or dark (chosen over a filled button and a card with example chips).
-   *
-   * @param ctx - Current editor context
-   * @returns The entry
-   */
-  private _renderQuickSetupEntry(ctx: SchemaCtx): TemplateResult {
-    return html`
-      <div class="quick-setup-entry">
-        <button
-          type="button"
-          class="quick-setup-banner"
-          data-quick-setup-open
-          @click=${this._openQuickSetup}
-        >
-          <span class="quick-setup-badge" aria-hidden="true">
-            <ha-svg-icon .path=${mdiCreation}></ha-svg-icon>
-          </span>
-          <span class="quick-setup-text">
-            <span class="quick-setup-name">${this._string(ctx, 'quick_setup.open')}</span>
-            <span class="quick-setup-line">${this._string(ctx, 'quick_setup.open_note')}</span>
-          </span>
-          <ha-svg-icon
-            class="quick-setup-chevron"
-            aria-hidden="true"
-            .path=${mdiChevronRight}
-          ></ha-svg-icon>
-        </button>
-      </div>
-    `;
-  }
-
-  /**
    * Renders Quick Setup in place of the panels: one step at a time, with its own buttons.
    *
    * @param ctx - Current editor context
@@ -2436,7 +3039,7 @@ export class CalendarCardProEditor extends LitElement {
     const last = index === QUICK_SETUP_STEPS.length - 1;
 
     return html`
-      <div class="card-config">
+      <div class="card-config" @keydown=${this._onKeydown}>
         <div
           class="quick-setup"
           data-quick-setup=${session.step}
@@ -2444,7 +3047,7 @@ export class CalendarCardProEditor extends LitElement {
           aria-labelledby="quick-setup-title"
         >
           <strong id="quick-setup-title">${this._string(ctx, 'quick_setup.title')}</strong>
-          <div class="quick-setup-step">
+          <div class="quick-setup-step" tabindex="-1">
             ${interpolate(this._string(ctx, 'quick_setup.step'), {
               step: String(index + 1),
               steps: String(QUICK_SETUP_STEPS.length),
@@ -2657,7 +3260,20 @@ export class CalendarCardProEditor extends LitElement {
       step: 'story',
       previews: [],
     };
+    this._keepFocusInQuickSetup();
   };
+
+  /**
+   * Puts focus on Quick Setup's step line once a step renders, where focus is not in the editor:
+   * Safari does not focus a button on click, so Escape would otherwise reach no listener of the
+   * editor's. Where focus is on Next or Back, it stays there.
+   */
+  private _keepFocusInQuickSetup(): void {
+    void this.updateComplete.then(() => {
+      if ((this.renderRoot as ShadowRoot).activeElement !== null) return;
+      Focus.focusFirst(this.renderRoot, ['.quick-setup-step']);
+    });
+  }
 
   /**
    * Moves Quick Setup to another step.
@@ -2667,6 +3283,7 @@ export class CalendarCardProEditor extends LitElement {
   private _quickSetupGo(step: QuickSetupStep): void {
     if (this._quickSetup === undefined) return;
     this._quickSetup = { ...this._quickSetup, step };
+    this._keepFocusInQuickSetup();
   }
 
   /**
@@ -2774,6 +3391,7 @@ export class CalendarCardProEditor extends LitElement {
     const stored = QuickSetup.buildQuickSetupConfig(session.opening, session.answers);
     const shown = session.previews[session.previews.length - 1] ?? session.opening;
     this._quickSetup = undefined;
+    this._banner = false;
     // Quick Setup keeps every block of each calendar it keeps, in order, as the picker does.
     this._carryEntryKeys(Array.isArray(stored.entities) ? stored.entities : []);
     this._rawConfig = structuredClone(stored);
@@ -2881,76 +3499,6 @@ export class CalendarCardProEditor extends LitElement {
     this._lastDispatched = next;
     this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: next } }));
   }
-
-  /**
-   * Keeps displayed-view configuration separate from the editor's local cursor.
-   *
-   * @param ctx - Current editor context
-   * @param chassis - The chassis schemas this render draws
-   * @returns The two adjacent controls, outside the searchable panels
-   */
-  private _renderViewControls(ctx: SchemaCtx, chassis: Subforms.ChassisSchemas): TemplateResult {
-    const data = this._intern('view', { view: this._viewForConfig(this._config!) });
-    const schema = chassis.displayView;
-    const frame: WriteFrames.OwnedFrame = {
-      owner: WriteFrames.CARD_OWNER,
-      workspace: 'list',
-      schema,
-      data,
-    };
-    const note = Workspace.workspaceNote(ctx.workspace ?? ctx.view);
-    const [hass, feed] = this._feed(schema, ctx.language);
-    const [workspaceHass, workspaceFeed] = this._feed(chassis.workspace, ctx.language);
-    const computeLabel = this._labeler(ctx.language);
-
-    return html`
-      <div class="view-controls">
-        <ha-form
-          class="display-view-form"
-          data-hass=${feed}
-          .hass=${hass}
-          .data=${data}
-          .schema=${schema}
-          .computeLabel=${computeLabel}
-          .computeHelper=${this._helper('view', schema, ctx)}
-          .localizeValue=${this._localizeValue}
-          @value-changed=${(event: CustomEvent) => this._valueChanged(frame, event)}
-        ></ha-form>
-        <ha-form
-          class="workspace-form"
-          data-hass=${workspaceFeed}
-          .hass=${workspaceHass}
-          .data=${this._intern('workspace', { [Workspace.WORKSPACE_FIELD]: this._workspace })}
-          .schema=${chassis.workspace}
-          .computeLabel=${computeLabel}
-          .computeHelper=${this._helper('workspace', chassis.workspace, ctx)}
-          .localizeValue=${this._localizeValue}
-          @value-changed=${this._workspaceChanged}
-        ></ha-form>
-        ${note ? html` <div class="workspace-note">${this._string(ctx, note)}</div> ` : nothing}
-      </div>
-    `;
-  }
-
-  /**
-   * Changes only the editor workspace; this form never enters the config write path.
-   *
-   * @param event - Workspace form's value change
-   */
-  private _workspaceChanged = (event: CustomEvent): void => {
-    event.stopPropagation();
-    if (!this._config) return;
-
-    const value: unknown = event.detail?.value?.[Workspace.WORKSPACE_FIELD];
-    if (!Workspace.isWorkspace(value)) {
-      Logger.warn('Ignoring an unsupported editor workspace', value);
-      this.requestUpdate();
-      return;
-    }
-    if (value === this._workspace) return;
-
-    this._selectedWorkspace = value;
-  };
 
   /**
    * Renders the filter bar above the panels.

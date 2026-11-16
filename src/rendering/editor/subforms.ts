@@ -58,6 +58,21 @@ export function chassisSubforms(language = 'en'): SubformDef[] {
   ];
 }
 
+/**
+ * Prefixes of chassis strings held to their readers: every key under one must be looked up by a
+ * literal in code (`_string(ctx, …)` or a view's `t(…)`) or named by the page
+ * registry, else `check:i18n` reports it, as it does an orphaned field string. The older chassis
+ * prefixes compose some of their keys, so a prefix alone vouches for them.
+ */
+export const REFERENCED_STRINGS: ReadonlyArray<string> = [
+  'overview',
+  'more',
+  'nav',
+  'settings_for',
+  'announce',
+  'summary',
+];
+
 export const CHASSIS_STRINGS: ReadonlyArray<string> = [
   'filter',
   'entity',
@@ -68,6 +83,7 @@ export const CHASSIS_STRINGS: ReadonlyArray<string> = [
   'misplaced',
   'quick_setup',
   'row',
+  ...REFERENCED_STRINGS,
 ];
 
 /**

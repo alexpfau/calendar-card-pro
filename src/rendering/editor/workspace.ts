@@ -4,8 +4,10 @@
 
 import type { HaFormSchema } from './ha-form';
 import { select } from './schemas/common';
+import { DEFAULT_CONFIG, resolveToolbar } from '../../config/config';
 import type * as Types from '../../config/types';
-import { VIEWS, resolveViewOption } from '../../config/view';
+import { OVERRIDE_BLOCK_BY_VIEW, VIEWS, resolveViewOption } from '../../config/view';
+import { isConfigBlock } from '../../utils/helpers';
 
 /**
  * A workspace is a place values are written, which is not the same thing as a view.
@@ -103,4 +105,83 @@ export function workspaceNote(workspace: EditorWorkspace): string | undefined {
  */
 export function buildWorkspaceSchema(language: string): HaFormSchema[] {
   return [{ ...select(language, WORKSPACE_FIELD, WORKSPACES), required: true }];
+}
+
+/**
+ * Top-level keys the scope control does not count for All Layouts: what the card is, its
+ * calendars and its layout each have a control of their own above the settings.
+ */
+const UNCOUNTED_ROOT_KEYS: ReadonlySet<string> = new Set([
+  'type',
+  'entities',
+  'view',
+  'config_version',
+]);
+
+const BLOCK_KEYS: ReadonlySet<string> = new Set(Object.values(OVERRIDE_BLOCK_BY_VIEW));
+
+/**
+ * Whether a value counts as written: blanks and nulls are how a cleared field is left.
+ *
+ * @param value - Value as stored
+ * @returns `true` when the value is there
+ */
+function holdsValue(value: unknown): boolean {
+  return value !== undefined && value !== null && value !== '';
+}
+
+/**
+ * How many values the YAML stores in a scope: a layout's own block, or for All Layouts the
+ * card's own top-level settings. Read from the YAML as stored, never from the merged
+ * configuration, which carries every default.
+ *
+ * @param raw - Configuration as the YAML holds it
+ * @param workspace - The scope
+ * @returns The count, shown as "Set: N"
+ */
+export function storedCount(
+  raw: Readonly<Record<string, unknown>>,
+  workspace: EditorWorkspace,
+): number {
+  const view = viewForWorkspace(workspace);
+  if (view !== undefined) {
+    const blockKey = OVERRIDE_BLOCK_BY_VIEW[view];
+    const block = blockKey === undefined ? undefined : raw[blockKey];
+    return isConfigBlock(block) ? Object.values(block).filter(holdsValue).length : 0;
+  }
+  return Object.entries(raw).filter(
+    ([key, value]) =>
+      !UNCOUNTED_ROOT_KEYS.has(key) &&
+      !BLOCK_KEYS.has(key) &&
+      Object.prototype.hasOwnProperty.call(DEFAULT_CONFIG, key) &&
+      holdsValue(value),
+  ).length;
+}
+
+/**
+ * Whether Settings For shows as its one compact line, "Settings for List · Change", rather
+ * than as the four choices.
+ *
+ * Compact until the scope is changed or Change is pressed, for the rest of the session; while
+ * the toolbar is shown with its View Switcher, which lets the card show another layout; and
+ * while no layout other than the one the card displays stores values in its block. Values in
+ * the displayed layout's own block, where a List card's first edits land, and top-level values
+ * keep it compact.
+ *
+ * @param raw - Configuration as the YAML holds it
+ * @param config - Merged configuration
+ * @param displayed - The layout the card displays
+ * @param touched - Whether the scope was changed, or Change pressed, this session
+ * @returns `true` for the compact line
+ */
+export function isCompactScope(
+  raw: Readonly<Record<string, unknown>>,
+  config: Readonly<Types.Config>,
+  displayed: Types.EffectiveView,
+  touched: boolean,
+): boolean {
+  if (touched) return false;
+  const toolbar = resolveToolbar(config);
+  if (toolbar.show && toolbar.viewSwitcher) return false;
+  return VIEWS.every((view) => view === displayed || storedCount(raw, view) === 0);
 }

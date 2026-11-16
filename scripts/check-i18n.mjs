@@ -588,6 +588,7 @@ function readRegistryKeys(editor) {
       name(titles, key, `${where}, in ${view}`);
     }
     helper(def.helperKey, `${where}, its helper line`);
+    name(named, def.crossLink?.textKey, `${where}, its cross-link`);
   };
 
   for (const page of PAGES) {
@@ -2204,6 +2205,23 @@ async function checkEditorKeysUsedInCode() {
   }
 
   assertFound([...found.keys()], 'any literal translation keys', dir);
+
+  // Keys under a prefix held to its readers are used only where a literal or the registry names
+  // them; the prefix alone, which makes every other chassis key reachable, does not vouch here.
+  const editor = await loadEditor();
+  const registry = readRegistryKeys(editor);
+  const held = Object.keys(EDITOR_STRINGS).filter((key) =>
+    editor.REFERENCED_STRINGS.some((prefix) => key.startsWith(`${prefix}.`)),
+  );
+  assertFound(held, 'any strings under the prefixes held to their readers', dir);
+  for (const key of held) {
+    if (found.has(key) || registry.named.has(key) || registry.titles.has(key)) continue;
+    error(
+      'editor/strings.ts',
+      `defines \`${key}\`, which no code looks up by that literal and no registry table names — ` +
+        'it is translation work for a string nothing draws',
+    );
+  }
 
   for (const [key, where] of [...found].sort()) {
     if (!(key in EDITOR_STRINGS)) {

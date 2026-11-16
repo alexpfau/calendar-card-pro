@@ -519,19 +519,13 @@ describe('No two adjacent fields share a label', () => {
     return [...new Set(found)].sort();
   }
 
-  // The accent mode and the color it governs are both `Accent Color`, on the card and
-  // again on the per-calendar subform, in English and in all ten translations — which is
-  // why no English-only rename fixes it. Reusing the already-translated
-  // `accent_color_mode.option.custom.label` looks free and is not: the dropdown's own
-  // *value* is that string, so the swatch below would read `Custom color / Custom color`.
-  // A real fix needs a new string translated nine times, which is a product decision.
-  const KNOWN = [
-    'calendars/subform: "Accent Color" = accent_color_mode + accent_color',
-    'events: "Accent Color" = accent_color_mode + accent_color',
-  ];
+  // The accent mode and the color it governs were both `Accent Color`, on the card and again
+  // on the per-calendar subform. They now read "Accent Color Source" and "Custom Accent Color",
+  // so every name on a page is its own (`tests/editor-unique-names.test.ts`).
+  const KNOWN: string[] = [];
 
   for (const workspace of WORKSPACES) {
-    it(`has only the known pair in the ${workspace} workspace`, () => {
+    it(`has no such pair in the ${workspace} workspace`, () => {
       expect(adjacentDuplicates(workspace)).toEqual(KNOWN);
     });
   }

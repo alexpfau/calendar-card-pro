@@ -15,11 +15,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   type FormElement,
+  button,
   changeField,
+  entry,
   fakeHass,
   formsOf,
   labelOf,
   mountEditor,
+  openPageOf,
   openPanels,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -96,6 +99,20 @@ function later(hass: Types.Hass, id: string): Types.Hass {
 async function mountOpen(hass: Types.Hass = haWith()) {
   const editor = await mountEditor(CONFIG, { hass });
   await openPanels(editor);
+  return editor;
+}
+
+/**
+ * Mounts the editor on the overview with both calendars' panels open, so it draws live forms,
+ * steady ones and Home Assistant's Visibility editor at once.
+ *
+ * @param hass - The `hass`
+ * @returns The editor
+ */
+async function mountOverview(hass: Types.Hass = haWith()) {
+  const editor = await mountEditor(CONFIG, { hass });
+  await openPageOf(editor, 'calendar:name', entry(0));
+  await openPageOf(editor, 'calendar:name', entry(1));
   return editor;
 }
 
@@ -212,50 +229,54 @@ describe('hass-key.ts', () => {
 
 describe('the feeds in the rendered editor', () => {
   it('feeds each form by the selectors it draws, and Home Assistant’s Visibility editor live', async () => {
-    const editor = await mountOpen();
+    const editor = await mountOverview();
+    const feed = (selector: string) =>
+      editor.shadowRoot!.querySelector<HTMLElement>(selector)?.dataset.hass;
+    const field = (id: string) => feed(`[data-field="${id}"] > ha-form`);
 
+    // The overview: the filter bar, the calendar picker, each calendar's two forms around its
+    // Visibility editor, then Days to Show and Start Date. Anna's label is a person, picked by
+    // entity; Ben's is none, so his first form draws no live selector, and each second form
+    // draws the location icon.
+    const name = (element: Fed): string =>
+      element.closest('[data-field]')?.getAttribute('data-field') ??
+      (element.className || element.localName);
     const feeds = [...editor.shadowRoot!.querySelectorAll<Fed>('[data-hass]')].map(
-      (element) => `${element.className || element.localName} ${element.dataset.hass}`,
+      (element) => `${name(element)} ${element.dataset.hass}`,
     );
     expect(feeds).toEqual([
-      'display-view-form steady',
-      'workspace-form steady',
       'filter-form steady',
-      // Calendars: the picker, then each calendar's two forms around its Visibility editor.
-      // Anna's label is a person, picked by entity; Ben's is none, so his first form draws no
-      // live selector, and each second form draws the location icon.
-      'panel-form live',
+      'calendars:calendars live',
       'entity-form live',
       'ha-card-conditions-editor live',
       'entity-form live',
       'entity-form steady',
       'ha-card-conditions-editor live',
       'entity-form live',
-      // Layout, then Time Range & Content.
-      'panel-form steady',
-      'panel-form steady',
-      // Card & Header, then the caption above the buttons and the one button's form.
-      'panel-form steady',
-      'buttons-heading steady',
-      'button-form live',
-      // Day Header, Events, Separators, then Weather and Actions & Refresh.
-      'panel-form steady',
-      'panel-form steady',
-      'panel-form steady',
-      'panel-form live',
-      'panel-form live',
+      'content:days_to_show steady',
+      'content:start_date_mode steady',
     ]);
-    expect(formsOf(editor)).toHaveLength(feeds.length - 2);
+
+    // Pages: a field takes the live feed by its own selector, one form apiece.
+    await openPageOf(editor, 'weather:weather.entity');
+    expect(field('weather:weather.entity')).toBe('live');
+    expect(field('weather:weather.position')).toBe('steady');
+    await openPageOf(editor, 'actions:tap_action');
+    expect(field('actions:tap_action')).toBe('live');
+    expect(field('actions:refresh_interval')).toBe('steady');
+    await openPageOf(editor, 'button:icon', button(0));
+    expect(feed('.button-form')).toBe('live');
+    expect(field('card:title')).toBe('steady');
   });
 
   it('renders nothing for a hass that moves nothing it draws, and hands it to the live forms alone', async () => {
     const hass = haWith();
-    const editor = await mountOpen(hass);
+    const editor = await mountOverview(hass);
     const render = vi.spyOn(editor, 'render');
     const live = fed(editor, 'live');
     const steady = fed(editor, 'steady');
     const before = new Map([...live, ...steady].map((element) => [element, element.hass]));
-    expect([live.length, steady.length]).toEqual([9, 11]);
+    expect([live.length, steady.length]).toEqual([6, 4]);
 
     const next = later(hass, 'sensor.porch');
     editor.hass = next;
@@ -271,10 +292,10 @@ describe('the feeds in the rendered editor', () => {
 
   it('keeps the live forms’ states current and their actions named, through every later render', async () => {
     const hass = haWith();
-    const editor = await mountOpen(hass);
+    const editor = await mountOverview(hass);
     const forms = fed(editor, 'live').filter((element) => element.localName === 'ha-form');
     const visibility = fed(editor, 'live').filter((element) => !forms.includes(element));
-    expect([forms.length, visibility.length]).toEqual([7, 2]);
+    expect([forms.length, visibility.length]).toEqual([4, 2]);
     const current = (newest: Types.Hass) => {
       for (const form of forms) {
         expect(form.hass?.states).toBe(newest.states);
@@ -375,11 +396,9 @@ describe('an update that carries an irrelevant hass and a bare request together'
   it('opens a panel whose opening lands beside an irrelevant hass', async () => {
     const hass = haWith();
     const editor = await mountEditor(CONFIG, { hass });
-    const events = [
-      ...editor.shadowRoot!.querySelectorAll<HTMLElement & { header: string }>(
-        'ha-expansion-panel',
-      ),
-    ].find((panel) => panel.header === 'Events')!;
+    const events = editor.shadowRoot!.querySelector<HTMLElement>(
+      'ha-expansion-panel.entity-panel',
+    )!;
     expect(events.querySelector('ha-form')).toBeNull();
 
     events.dispatchEvent(
