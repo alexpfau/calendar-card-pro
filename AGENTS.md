@@ -1870,6 +1870,22 @@ composed control, with a form standing in that holds the field's own schema: `ch
 a chip where it is not already as asked (true or false only) or picks a radio, and `valueOf`,
 `labelOf` and `formOf` read it as they read a form.
 
+### Pick From Preview reads the card's class names
+
+Pick From Preview (`pick.ts`, `views/pick.ts`) maps the card's own class names to the page and
+heading each part opens, so those class names are a contract with the editor. It lives in the
+editor alone: it finds the card in Home Assistant's dialog by the card's tag, with `preview` set,
+in the shadow root holding the editor's host or one shadow root below it (a sections dashboard
+previews the card inside a section), and only while a pick is on adds a style, an outline and
+capture-phase listeners to the card's shadow root. The card ships no byte of it. A dashboard's own
+cards also run with `preview` set while it is edited, so the search must never reach further.
+
+`tests/editor-pick-map.test.ts` renders the card in all three layouts and fails on a selector that
+matches nothing, on a drawn leaf that reaches only a catch-all, and on any change to what each
+part takes in from inside it, which is pinned by value. So a markup change that renames or adds a
+part fails there: map the new class in `PICK_PARTS`, specific before the part that holds it, and
+read the pinned table's diff rather than copying it over.
+
 ### The editor renders only what it draws
 
 Home Assistant hands an open editor a new `hass` several times a second, so the editor follows

@@ -1,0 +1,282 @@
+/**
+ * Pick From Preview's part map against the card it maps (`src/rendering/editor/pick.ts`).
+ *
+ * The map names the card's own class names, so a markup change could break a pick without a
+ * word: a renamed part would fall through to whatever holds it, and the outline would then name
+ * the wrong page. This file renders the real card in List, Columns and Grid, with every part the
+ * map names turned on, and holds the map in both directions:
+ *
+ * - every selector in the map matches something in at least one layout, so a stale entry fails
+ *   rather than building up;
+ * - every element the card draws that holds no other reaches a part of its own, not one of the
+ *   catch-alls, so a new part that nobody mapped fails here instead of opening Card & Header;
+ * - what each part takes in from inside it is pinned by value, so a part whose entry is dropped,
+ *   landing its pieces on what holds it, fails too.
+ *
+ * And every target names a page and a heading the page registry has, in the scope it says.
+ */
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import '../src/calendar-card-pro';
+import { WEATHER } from './fixtures';
+import type * as Types from '../src/config/types';
+import { PAGES } from '../src/rendering/editor/pages';
+import { PICK_CATCH_ALLS, PICK_PARTS } from '../src/rendering/editor/pick';
+import { partOn } from '../src/rendering/editor/views/pick';
+
+interface Card extends HTMLElement {
+  setConfig(config: unknown): void;
+  hass: Types.Hass;
+  events: Types.CalendarEventData[];
+  weatherForecasts: Types.WeatherForecasts;
+  isInitialLoad: boolean;
+  config: Types.Config;
+  updateEvents(): Promise<void>;
+  updateComplete: Promise<boolean>;
+}
+
+const event = (
+  summary: string,
+  start: string,
+  end: string,
+  entity: string,
+  extra: Partial<Types.CalendarEventData> = {},
+): Types.CalendarEventData =>
+  ({
+    summary,
+    start: start.length === 10 ? { date: start } : { dateTime: start },
+    end: end.length === 10 ? { date: end } : { dateTime: end },
+    _entityId: entity,
+    ...extra,
+  }) as Types.CalendarEventData;
+
+const EVENTS = [
+  event('Dentist', '2026-06-17T09:30:00Z', '2026-06-17T11:00:00Z', 'calendar.anna', {
+    location: 'Maple Street Clinic',
+    description: 'Bring the card',
+  }),
+  event('Soccer', '2026-06-17T10:00:00Z', '2026-06-17T11:30:00Z', 'calendar.ben', {
+    location: 'Riverside Park',
+  }),
+  event('Swim', '2026-06-17T10:15:00Z', '2026-06-17T11:45:00Z', 'calendar.ben'),
+  event('Bin Day', '2026-06-18', '2026-06-19', 'calendar.ben'),
+  event('Trip', '2026-06-18', '2026-06-21', 'calendar.anna'),
+];
+
+/** Every part on, in the shape each layout can draw it. */
+function config(view: Types.EffectiveView): Record<string, unknown> {
+  return {
+    title: 'Family',
+    view,
+    days_to_show: 5,
+    show_empty_days: true,
+    entities: [
+      { entity: 'calendar.anna', label: '🎒' },
+      { entity: 'calendar.ben', label: 'mdi:soccer' },
+    ],
+    toolbar: {
+      show: true,
+      navigation: true,
+      add_event: true,
+      view_switcher: true,
+      refresh: true,
+      legend: 'chips',
+      buttons: [{ icon: 'mdi:lightbulb', name: 'Lamp' }],
+    },
+    show_week_numbers: 'iso',
+    today_indicator: 'dot',
+    show_location: true,
+    show_description: true,
+    show_countdown: true,
+    show_progress_bar: true,
+    show_now_indicator: true,
+    week_separator_width: '2px',
+    day_separator_width: '1px',
+    event_gap: '4px',
+    // The badge beside the time in List, the pill around the title in Columns.
+    allday_badge: view === 'list' ? 'time' : 'title',
+    weather: { entity: 'weather.home', position: 'both' },
+    time_grid: { today_background_color: '#ffeeee', max_simultaneous_events: 1 },
+  };
+}
+
+async function mount(view: Types.EffectiveView): Promise<Card> {
+  const card = document.createElement('calendar-card-pro-dev') as Card;
+  vi.spyOn(card, 'updateEvents').mockResolvedValue();
+  card.setConfig(config(view));
+  card.hass = {
+    states: {
+      'weather.home': { state: 'sunny', attributes: {} },
+    },
+    locale: { language: 'en' },
+    callApi: async () => [],
+    connection: { subscribeMessage: () => Promise.reject({ code: 'unknown_command' }) },
+  } as unknown as Types.Hass;
+  card.events = EVENTS.map((each) => ({
+    ...each,
+    _matchedConfig: card.config.entities.find(
+      (entry) => (entry as Types.EntityConfig).entity === each._entityId,
+    ) as Types.EntityConfig,
+  }));
+  card.isInitialLoad = false;
+  document.body.appendChild(card);
+  await card.updateComplete;
+  card.weatherForecasts = WEATHER;
+  await card.updateComplete;
+  return card;
+}
+
+/**
+ * The entry the map decides an element by, as `partOn` reads it, and the one selector of that
+ * entry's list the element matches.
+ */
+function entryOf(element: Element): { group: string; selector: string } | undefined {
+  const group = PICK_PARTS.find(([selectors]) => element.matches(selectors))?.[0];
+  if (group === undefined) return undefined;
+  return { group, selector: group.split(', ').find((each) => element.matches(each))! };
+}
+
+/** The element and its ancestors up to the card's shadow root, innermost first. */
+function pathOf(element: Element): Element[] {
+  const path: Element[] = [];
+  for (let node: Node | null = element; node instanceof Element; node = node.parentNode) {
+    path.push(node);
+  }
+  return path;
+}
+
+/**
+ * Every element the card draws that holds no other, an `svg` counted whole: what a pointer lands
+ * on. A container is the space between its parts, which a catch-all is for.
+ */
+function leaves(root: ShadowRoot): Element[] {
+  return [...root.querySelectorAll('*')].filter(
+    (each) =>
+      each.localName !== 'style' &&
+      (each.localName === 'svg' || (each.closest('svg') === null && each.children.length === 0)),
+  );
+}
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-06-17T10:00:00Z'));
+});
+
+afterEach(() => {
+  document.body.replaceChildren();
+  vi.useRealTimers();
+});
+
+describe('Pick From Preview part map', () => {
+  it('matches every selector it holds in some layout, and leaves no drawn part unmapped', async () => {
+    const matched = new Set<string>();
+    const unmapped: string[] = [];
+    const absorbed = new Set<string>();
+    let elements = 0;
+    for (const view of ['list', 'column', 'grid'] as const) {
+      const card = await mount(view);
+      const root = card.shadowRoot!;
+      for (const [selectors] of PICK_PARTS) {
+        for (const selector of selectors.split(', ')) {
+          if (root.querySelector(selector)) matched.add(selector);
+        }
+      }
+      for (const element of leaves(root)) {
+        elements++;
+        const part = partOn(pathOf(element), card);
+        const entry = part && entryOf(part.element);
+        const name = [element.localName, ...element.classList].join('.');
+        if (entry === undefined || PICK_CATCH_ALLS.has(entry.group)) {
+          unmapped.push(`${view}: ${name}`);
+        } else if (part!.element !== element) {
+          absorbed.add(`${entry.selector} ⊃ ${name}`);
+        }
+      }
+      card.remove();
+    }
+    // The denominator: three layouts drew a card worth checking.
+    expect(elements).toBeGreaterThan(300);
+    // Each selector of a group on its own, so one gone stale beside a live one still fails.
+    expect(
+      PICK_PARTS.flatMap(([selectors]) => selectors.split(', ')).filter(
+        (each) => !matched.has(each),
+      ),
+    ).toEqual([]);
+    expect([...new Set(unmapped)]).toEqual([]);
+    // What each part takes in from inside it, pinned whole: a part whose own entry goes missing
+    // lands its pieces on what holds it, and a new piece inside a part arrives unannounced, and
+    // either changes this table.
+    expect([...absorbed].sort()).toEqual([
+      '.card-toolbar ⊃ input.toolbar-date-input',
+      '.card-toolbar ⊃ span.toolbar-month-cap',
+      '.card-toolbar ⊃ span.toolbar-month-name',
+      '.card-toolbar ⊃ span.toolbar-range-text',
+      '.card-toolbar ⊃ span.view-switcher-probe',
+      '.card-toolbar ⊃ span.view-switcher-probe.view-switcher-page',
+      '.card-toolbar ⊃ svg.toolbar-button-icon',
+      '.card-toolbar ⊃ svg.toolbar-button-icon.date-navigation-direction',
+      '.card-toolbar ⊃ svg.toolbar-month-icon',
+      '.card-toolbar ⊃ svg.view-switcher-icon',
+      '.column-day-header ⊃ div.day',
+      '.column-day-header ⊃ div.month',
+      '.column-day-header ⊃ div.weekday',
+      '.custom-button ⊃ ha-icon.custom-button-icon',
+      '.date-column ⊃ div.day',
+      '.date-column ⊃ div.month',
+      '.date-column ⊃ div.weekday',
+      '.description ⊃ ha-icon',
+      '.description ⊃ span',
+      '.event ⊃ div.grid-event-accessible',
+      '.event ⊃ div.time-location',
+      '.event-gap-row ⊃ td.event-gap-cell',
+      '.event-title ⊃ span.title-word',
+      '.event-weather ⊃ ha-icon',
+      '.event-weather ⊃ span',
+      '.grid-axis ⊃ div.grid-axis-label',
+      '.grid-axis ⊃ span',
+      '.grid-container ⊃ div.grid-boundary.grid-boundary-band-bottom',
+      '.grid-container ⊃ div.grid-boundary.grid-boundary-band-top',
+      '.grid-container ⊃ div.grid-boundary.grid-boundary-body-end',
+      '.grid-day-body ⊃ div.grid-day-plane',
+      '.grid-day-body ⊃ div.grid-event-backdrop-rules',
+      '.grid-event-overflow ⊃ div.grid-event-overflow-label',
+      '.legend-chip ⊃ span.legend-chip-label',
+      '.location ⊃ ha-icon',
+      '.location ⊃ span',
+      '.progress-bar ⊃ div.progress-bar-filled',
+      '.separator-cell ⊃ div.separator-line',
+      '.time ⊃ ha-icon',
+      '.time ⊃ span',
+      '.time ⊃ span.time-end',
+      '.today-indicator-container ⊃ ha-icon.today-indicator.dot',
+      '.weather ⊃ ha-icon',
+      '.weather ⊃ span.weather-temp-high',
+    ]);
+  });
+
+  it('opens a page and heading the registry has, in the scope it names', () => {
+    for (const [selector, target] of PICK_PARTS) {
+      if ('calendar' in target) continue;
+      const page = PAGES.find((each) => each.id === target.page);
+      expect(page, selector).toBeDefined();
+      if (target.heading !== undefined) {
+        expect(
+          page!.headings.some((heading) => heading.key === target.heading),
+          `${selector} → ${target.page} › ${target.heading}`,
+        ).toBe(true);
+      }
+      if (page!.onlyIn !== undefined) expect(target.scope, selector).toBe(page!.onlyIn);
+    }
+  });
+
+  it('decides an element by its innermost part', async () => {
+    const card = await mount('list');
+    const location = card.shadowRoot!.querySelector('.location span')!;
+    expect(entryOf(partOn(pathOf(location), card)!.element)?.selector).toBe('.location');
+    const empty = card.shadowRoot!.querySelector('.empty-day-title')!;
+    expect(partOn(pathOf(empty), card)!.target).toEqual({
+      page: 'which_events',
+      heading: 'heading_nothing',
+    });
+  });
+});
