@@ -1,5 +1,5 @@
 /**
- * Undo and Redo (backlog item 307): exact snapshots, the migration choice as a step, coalescing,
+ * Undo and Redo (backlog item 307): exact snapshots, the upgrade on opening as a step, coalescing,
  * the keys, focus after a step, and the line a removal or an applied story leaves.
  *
  * Exactness is checked on what the editor tells Home Assistant, as JSON, so a key's order and a
@@ -18,6 +18,7 @@ import {
   keysOf,
   mountEditor,
   openPageOf,
+  reportsOf,
   resetButton,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -372,44 +373,106 @@ describe('echoes after a step', () => {
   });
 });
 
-describe('the migration choice', () => {
+describe('the upgrade on opening', () => {
   const PRE_V5 = { entities: ['calendar.anna'], event_font_size: '18px' };
-  const choices = (editor: MountedEditor) => [
-    ...editor.shadowRoot!.querySelectorAll<HTMLButtonElement>('[data-config-migration] button'),
-  ];
+  const receipt = (editor: MountedEditor) => $(editor, '[data-upgrade-receipt]');
 
-  it('is a step: Undo sends the YAML back and shows the choice again, past the echo', async () => {
-    const { editor, sent, last } = await mount(PRE_V5);
-    choices(editor)[0]!.click();
-    await settle(editor);
-    const chosen = sent[0];
-    expect(last()).toHaveProperty('config_version', VERSION);
-    expect($(editor, '[data-config-migration]')).toBeNull();
-
-    await press(editor, 'undo');
-    // `mount` echoed it, as Home Assistant does; the screen and Redo outlast the echo.
-    expect(sent[1]).toBe(JSON.stringify(PRE_V5));
-    expect($(editor, '[data-config-migration]')).not.toBeNull();
-    expect(choices(editor)).toHaveLength(2);
-    expect(internals(editor)._history.canRedo).toBe(true);
-    expect(editor.shadowRoot!.activeElement?.id).toBe('config-migration-title');
-
-    const redo = await key(editor, editor.shadowRoot!.activeElement!, {
-      key: 'y',
-      ctrlKey: true,
+  /**
+   * Opens a card the upgrade decides, records what the editor tells Home Assistant from its
+   * creation on, as JSON, and with `echo` hands each configuration back, the upgrade included.
+   *
+   * @param echo - Whether to echo
+   * @returns The editor and what it reported
+   */
+  async function opened(echo = true) {
+    const editor = await mountEditor(structuredClone(PRE_V5), {
+      hass: fakeHass({ states: { 'calendar.anna': {} } }),
     });
-    expect(redo.prevented).toBe(true);
-    expect(sent[2]).toBe(chosen);
-    expect($(editor, '[data-config-migration]')).toBeNull();
+    const sent = reportsOf(editor).map((config) => JSON.stringify(config));
+    if (echo) editor.setConfig(JSON.parse(sent[0]!));
+    editor.addEventListener('config-changed', (event) => {
+      const config = (event as CustomEvent<{ config: Record<string, unknown> }>).detail.config;
+      sent.push(JSON.stringify(config));
+      if (echo) editor.setConfig(structuredClone(config));
+    });
+    await settle(editor);
+    return { editor, sent, last: () => JSON.parse(sent[sent.length - 1]!) };
+  }
+
+  it('writes it once, moves no focus, and says the receipt', async () => {
+    const { editor, sent } = await opened();
+    expect(sent).toHaveLength(1);
+    expect(JSON.parse(sent[0]!)).toEqual({
+      entities: ['calendar.anna'],
+      list: { event_font_size: '18px' },
+      config_version: VERSION,
+    });
+    expect(editor.shadowRoot!.activeElement).toBeNull();
+    expect($(editor, '.live-region')!.textContent).toBe(
+      'Upgraded. Event Font Size now applies to List, as before. The card looks the same.',
+    );
+    expect(undoLabel(editor)).toBe('Undo: Upgrade This Card');
   });
 
-  it('shows the choice again before Home Assistant echoes anything', async () => {
-    const { editor, sent } = await mount(PRE_V5, false);
-    choices(editor)[1]!.click();
-    await settle(editor);
+  it('is a step: Undo sends the YAML back past the echo, and Redo writes it again', async () => {
+    const { editor, sent } = await opened();
+    const upgraded = sent[0];
+
     await press(editor, 'undo');
     expect(sent[1]).toBe(JSON.stringify(PRE_V5));
-    expect($(editor, '[data-config-migration]')).not.toBeNull();
+    expect(receipt(editor)).toBeNull();
+    expect(internals(editor)._history.canRedo).toBe(true);
+    expect(editor.shadowRoot!.activeElement).toBe($(editor, '[data-heading="calendars"] .heading'));
+
+    await press(editor, 'redo');
+    expect(sent[2]).toBe(upgraded);
+  });
+
+  it('after Undo, upgrades the same way with the next change, in its step, with no receipt', async () => {
+    const { editor, sent, last } = await opened();
+    await press(editor, 'undo');
+
+    await changeField(editor, 'card:title', 'Family');
+    expect(last()).toEqual({
+      entities: ['calendar.anna'],
+      title: 'Family',
+      list: { event_font_size: '18px' },
+      config_version: VERSION,
+    });
+    expect(receipt(editor)).toBeNull();
+
+    await press(editor, 'undo');
+    expect(sent[sent.length - 1]).toBe(JSON.stringify(PRE_V5));
+  });
+
+  it('shares them with every layout in a step of its own, which Undo takes back to List', async () => {
+    const { editor, sent, last } = await opened(false);
+    const upgraded = sent[0];
+    receipt(editor)!.querySelector<HTMLElement>('[data-focus="upgrade-share"]')!.click();
+    await settle(editor);
+
+    expect(last()).toEqual({
+      entities: ['calendar.anna'],
+      event_font_size: '18px',
+      config_version: VERSION,
+    });
+    expect(receipt(editor)!.textContent).toContain(
+      'Event Font Size now applies to every layout, unless a layout has its own.',
+    );
+    expect(receipt(editor)!.querySelector('[data-focus="upgrade-share"]')).toBeNull();
+    expect(editor.shadowRoot!.activeElement).toBe(
+      receipt(editor)!.querySelector('[data-focus="status-undo"]'),
+    );
+    expect(undoLabel(editor)).toBe('Undo: Use Upgraded Settings for Every Layout');
+
+    await press(editor, 'undo');
+    expect(sent[sent.length - 1]).toBe(upgraded);
+  });
+
+  it('closes the receipt with the next change, so its Undo never takes another', async () => {
+    const { editor } = await opened();
+    await changeField(editor, 'card:title', 'Family');
+    expect(receipt(editor)).toBeNull();
   });
 });
 
@@ -703,7 +766,8 @@ describe('Quick Setup', () => {
   });
 
   it('leaves no line where Apply changed nothing, so nothing else is undone from it', async () => {
-    const { editor, sent } = await mount({ config_version: VERSION, entities: ['calendar.anna'] });
+    // Ben, not the first calendar Home Assistant lists, so a calendar someone chose.
+    const { editor, sent } = await mount({ config_version: VERSION, entities: ['calendar.ben'] });
     const click = async (selector: string) => {
       $(editor, selector)!.click();
       await settle(editor);

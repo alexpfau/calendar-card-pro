@@ -6,6 +6,9 @@
  * story. Each calendar's colors survive as a palette, given in order to the user's calendars
  * that have no color of their own. Its names and labels do not: they name the story's people.
  *
+ * Simple Agenda comes first: not a story but the card Usage's Your First Card documents, for
+ * someone who wants a short list of the next few days and nothing more.
+ *
  * Only the five stories that work without per-calendar filters are here. Bin Day splits one
  * calendar four ways by words in event titles, and Family Agenda separates work events by a tag
  * in their descriptions; neither can be guessed for someone else's calendars.
@@ -18,12 +21,18 @@
 
 /** A story's id, which is also the stem of its editor strings: `quick_setup.story.<id>`. */
 export type StoryId =
-  'family_hub' | 'now_and_next' | 'today_and_tomorrow' | 'birthdays_and_holidays' | 'house_log';
+  | 'simple_agenda'
+  | 'family_hub'
+  | 'now_and_next'
+  | 'today_and_tomorrow'
+  | 'birthdays_and_holidays'
+  | 'house_log';
 
 /** One story Quick Setup can start from. */
 export interface Story {
   readonly id: StoryId;
-  /** Its page on the docs site, from the site's root. */
+  /** Its page on the docs site, from the site's root, with the heading its card is under where
+   * the page holds more than one. */
   readonly page: string;
   /** Each calendar's accent color in the story, in the order its calendars are listed. */
   readonly palette: ReadonlyArray<string>;
@@ -50,8 +59,14 @@ function story(
   return { id, page, palette, shell: () => structuredClone(shell) as Record<string, unknown> };
 }
 
-/** The five stories, in the order Quick Setup offers them. */
+/** The six starting points, in the order Quick Setup offers them. */
 export const STORIES: ReadonlyArray<Story> = [
+  // Not an Example Story: the card Usage starts everyone with, for a plain list of the next days.
+  story('simple_agenda', '/guide/usage#your-first-card', [], {
+    days_to_show: 3,
+    show_location: false,
+    show_month: false,
+  }),
   story(
     'family_hub',
     '/guide/family-calendar',

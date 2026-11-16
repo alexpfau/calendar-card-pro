@@ -480,7 +480,7 @@ above 0, the calendar's events draw as the card's do.
 Calendar Card Pro provides powerful filtering capabilities to control exactly which events appear on your dashboard:
 
 ::: tip Visual Editor
-Each calendar's own filters are on that calendar's page, under **Which Events**: **Blocklist** and **Allowlist** among them, each taking one word or phrase at a time, with **Match Against** choosing the field they read. **Filter Duplicates** works across calendars, so it is card-wide: find it on the **Which Events** page.
+Each calendar's own filters are on that calendar's page, under **Which Events**: **Hide Events Containing** (`blocklist`) and **Only Show Events Containing** (`allowlist`) among them, each taking one word or phrase at a time, with **Match Against** choosing the field they read. **Filter Duplicates** works across calendars, so it is card-wide: find it on the **Which Events** page.
 :::
 
 ### Filtering by Event Name
@@ -1366,9 +1366,8 @@ under **Settings For** to edit shared values, or a named layout to edit only its
 List options written at the top level, as cards from before v5 have them, are still read
 there, permanently; nothing needs changing by hand. On its first edit, the visual editor
 moves the options only List reads into `list:`. A top-level value that could mean either
-"List only" or "shared by every layout" stays shared unless you choose **Keep my existing List
-appearance** when the editor asks, which it does on a List or Grid card before that first
-edit; see
+"List only" or "shared by every layout" stays List's on a List or Grid card, where the editor
+keeps it for List when it opens and offers **Use Them for Every Layout** instead; see
 [Upgrading a Card From Before v5](/features/editor#upgrading-a-card-from-before-v5).
 :::
 

@@ -119,6 +119,34 @@ describe('Quick Setup', () => {
     );
   });
 
+  it('names the calendar a fresh card was started with, and opens it to change it', async () => {
+    const fresh = (calendar: string) => ({
+      type: 'custom:calendar-card-pro',
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: [calendar],
+      days_to_show: 3,
+    });
+    const { editor } = await mount(fresh('calendar.anna'));
+    const line = () => root(editor).querySelector<HTMLElement>('[data-started-with]');
+    expect(line()!.textContent!.replace(/\s+/g, ' ').trim()).toBe(
+      'Home Assistant started this card with calendar.anna, the first calendar it lists. ' +
+        'Change Calendar',
+    );
+
+    await click(editor, '[data-focus="started-with"]');
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(root(editor).activeElement).toBe(
+      root(editor).querySelector('[data-focus="entry-calendar"]'),
+    );
+
+    // Once the card holds a calendar someone chose, nothing is said.
+    editor.setConfig({ ...fresh('calendar.anna'), entities: ['calendar.anna', 'calendar.ben'] });
+    await goOverview(editor);
+    expect(line()).toBeNull();
+    const chosen = await mount(fresh('calendar.ben'));
+    expect(root(chosen.editor).querySelector('[data-started-with]')).toBeNull();
+  });
+
   it('offers no banner on a card that already stores settings', async () => {
     const { editor } = await mount();
     expect(root(editor).querySelector('.quick-setup-entry')).toBeNull();
@@ -141,12 +169,30 @@ describe('Quick Setup', () => {
     expect(
       [...root(editor).querySelectorAll<HTMLElement>('.story-tile')].map((t) => t.dataset.story),
     ).toEqual([
+      'simple_agenda',
       'family_hub',
       'now_and_next',
       'today_and_tomorrow',
       'birthdays_and_holidays',
       'house_log',
     ]);
+    // Each link is named for its example, so a list of links reads as six different ones.
+    const links = [...root(editor).querySelectorAll<HTMLAnchorElement>('.story-link')];
+    expect(links.map((link) => link.textContent!.trim())).toEqual([
+      'Read about Simple Agenda',
+      'Read about Family Hub',
+      'Read about Now & Next',
+      'Read about Today & Tomorrow',
+      'Read about Birthdays & Holidays',
+      'Read about House Log',
+    ]);
+    expect(links[0].href).toBe(
+      'https://calendar-card-pro.alexpfau.com/guide/usage#your-first-card',
+    );
+    // The panel is a heading, which a screen reader's list of headings finds.
+    expect(root(editor).querySelector('h2#quick-setup-title')!.textContent!.trim()).toBe(
+      'Quick Setup',
+    );
     expect(reports).toEqual([]);
   });
 
@@ -249,9 +295,21 @@ describe('Quick Setup', () => {
     await click(editor, '[data-story="family_hub"]');
     for (let i = 0; i < 4; i++) await click(editor, '[data-quick-setup-next]');
     expect(step(editor)).toBe('review');
-    const review = root(editor).querySelector('.quick-setup-review')!.textContent!;
-    expect(review).toContain('Family Hub');
-    expect(review.replace(/\s+/g, ' ')).toContain('Colors from the example for: calendar.anna.');
+    const rows = [...root(editor).querySelectorAll('.quick-setup-review > div')].map((row) =>
+      [...row.children].map((cell) => cell.textContent!.trim()).join(': '),
+    );
+    expect(rows).toEqual([
+      'Example: Family Hub',
+      'Calendars: calendar.anna and calendar.ben',
+      'Colors From the Example: calendar.anna',
+      'Layout: Grid · 7 days',
+      'Title: Our Week',
+      'Weather: weather.home',
+    ]);
+    // Named setting by setting, rather than "every setting not listed here".
+    expect(
+      root(editor).querySelector('[data-quick-setup-replaced]')!.textContent!.replace(/\s+/g, ' '),
+    ).toBe(' Apply replaces 1 setting: Show Empty Days: Off → Default ');
 
     const written = reports.length;
     await click(editor, '[data-quick-setup-apply]');
@@ -268,6 +326,63 @@ describe('Quick Setup', () => {
     for (const key of ['list', 'column', 'time_grid', 'toolbar', 'duplicate_accent_color']) {
       expect(after[key], key).toEqual(shell[key]);
     }
+  });
+
+  it('lists five settings Apply replaces, then all of them on Show All', async () => {
+    const { editor } = await mount({
+      ...OPENING,
+      title: 'Everything',
+      days_to_show: 7,
+      day_spacing: '12px',
+      show_location: false,
+      show_month: false,
+      event_font_size: '16px',
+      show_countdown: true,
+      list: { show_past_events: true },
+    });
+    await click(editor, '[data-quick-setup-open]');
+    await click(editor, '[data-story="simple_agenda"]');
+    for (let i = 0; i < 4; i++) await click(editor, '[data-quick-setup-next]');
+    const items = () =>
+      [...root(editor).querySelectorAll('[data-quick-setup-replaced] li')].map((item) =>
+        item.textContent!.trim(),
+      );
+
+    expect(root(editor).querySelector('#quick-setup-replaces')!.textContent!.trim()).toBe(
+      'Apply replaces 6 settings:',
+    );
+    expect(items()).toEqual([
+      'Show Empty Days: Off → Default',
+      'Days To Show: 7 → 3',
+      'Day Spacing: 12px → Default',
+      'Event Font Size: 16px → Default',
+      'Show Countdown: On → Default',
+    ]);
+    await click(editor, '[data-focus="quick-setup-show-all"]');
+    expect(items().slice(5)).toEqual(['Show Past Events in List: On → Default']);
+    expect(root(editor).querySelector('[data-focus="quick-setup-show-all"]')).toBeNull();
+    // Simple Agenda keeps the title the card has: the user's, which Apply does not replace.
+    expect(items().join('|')).not.toContain('Title');
+  });
+
+  it('starts a fresh card with no calendar chosen, rather than the one it was started with', async () => {
+    const fresh = {
+      type: 'custom:calendar-card-pro',
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: ['calendar.anna'],
+      days_to_show: 3,
+    };
+    const { editor } = await mount(fresh);
+    await click(editor, '[data-quick-setup-open]');
+    await click(editor, '[data-story="simple_agenda"]');
+    await click(editor, '[data-quick-setup-next]');
+    expect(step(editor)).toBe('calendars');
+    expect(root(editor).querySelector<HTMLButtonElement>('[data-quick-setup-next]')!.disabled).toBe(
+      true,
+    );
+    expect(root(editor).querySelector('.quick-setup-note')!.textContent!.trim()).toBe(
+      'Choose at least one calendar to go on.',
+    );
   });
 
   it('draws exactly the forms subforms.ts declares for it, one per step, in order', async () => {

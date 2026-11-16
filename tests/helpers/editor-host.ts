@@ -2066,6 +2066,22 @@ export function lastConfig(editor: EditorElement): Record<string, unknown> | und
 }
 
 /**
+ * Every configuration an editor reported to Home Assistant since `mountEditor` mounted it, oldest
+ * first: the list itself, so it grows with later reports. An upgrade the editor writes on opening
+ * is the first.
+ *
+ * @param editor - An editor `mountEditor` mounted
+ * @returns The reports
+ */
+export function reportsOf(editor: EditorElement): Array<Record<string, unknown>> {
+  const reported = reports.get(editor);
+  if (reported === undefined) {
+    throw new Error('reportsOf reads what an editor reported since mountEditor mounted it.');
+  }
+  return reported;
+}
+
+/**
  * The key the editor gives each calendar entry or each toolbar button, in list order: what
  * `entry({ key })` and `button({ key })` name an owner by.
  *

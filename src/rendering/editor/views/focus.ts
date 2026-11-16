@@ -64,6 +64,47 @@ export function byFocusKey(key: string): string {
 }
 
 /**
+ * The first text box under an element, through every shadow root below it.
+ *
+ * @param root - Where to look
+ * @returns The box, or `undefined`
+ */
+function textBoxUnder(root: Element | ShadowRoot): HTMLElement | undefined {
+  const box = root.querySelector<HTMLElement>('input:not([type="hidden"]), textarea');
+  if (box) return box;
+  for (const element of root.querySelectorAll('*')) {
+    const inner = element.shadowRoot ? textBoxUnder(element.shadowRoot) : undefined;
+    if (inner) return inner;
+  }
+  return undefined;
+}
+
+/**
+ * Puts focus in the text box a just-added word list holds, the one exception to the rule above:
+ * adding the list is asking to type in it. Home Assistant draws the box a few frames after the
+ * form, so it is looked for each frame for up to a second; until then, and where none ever
+ * appears, the wrapper keeps the focus it was given.
+ *
+ * @param wrapper - The field's wrapper
+ */
+export function focusTextBoxSoon(wrapper: HTMLElement): void {
+  const until = Date.now() + 1000;
+  const step = (): void => {
+    if (!wrapper.isConnected) return;
+    // Focus that moved on, by the user's own hand, is left where it went.
+    const active = (wrapper.getRootNode() as ShadowRoot).activeElement;
+    if (active !== null && active !== wrapper && !wrapper.contains(active)) return;
+    const box = textBoxUnder(wrapper);
+    if (box) {
+      box.focus({ preventScroll: true });
+      return;
+    }
+    if (Date.now() < until) requestAnimationFrame(step);
+  };
+  step();
+}
+
+/**
  * Scrolls the editor so an element sits at the top of what scrolls it, by arithmetic rather
  * than `scrollIntoView`, which would scroll every ancestor, Home Assistant's dialog included.
  *
