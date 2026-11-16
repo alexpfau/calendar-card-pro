@@ -498,6 +498,94 @@ describe('a draft is kept where its value would be stored', () => {
   });
 });
 
+describe('a change that arrives late, or a word typed', () => {
+  beforeEach(stubSupports);
+
+  it('writes a Grid text field’s late change to Grid, after List was chosen', async () => {
+    const editor = await mountEditor({
+      ...BASE,
+      view: 'grid',
+      list: { event_color: '#111111' },
+      time_grid: { event_color: '#222222' },
+    });
+    await changeField(editor, 'workspace:editing_workspace', 'grid');
+    const grid = textField(await openColor(editor, 'events:event_color'))!;
+    await changeField(editor, 'workspace:editing_workspace', 'list');
+    const list = textField(await openColor(editor, 'events:event_color'))!;
+    expect(list).not.toBe(grid);
+
+    const send = async (text: string) => {
+      grid.dispatchEvent(
+        new CustomEvent('value-changed', {
+          detail: { value: { event_color: text } },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      await editor.updateComplete;
+    };
+    await send('hot pink');
+    expect(textField(control(editor, 'events:event_color'))!.data.event_color).toBe('#111111');
+    await send('#333333');
+    const config = lastConfig(editor)!;
+    expect(config.list).toEqual({ event_color: '#111111' });
+    expect(config.time_grid).toEqual({ event_color: '#333333' });
+  });
+
+  it('writes a word the card honors as its row does, never as a custom color', async () => {
+    const editor = await mountEditor({ ...BASE, time_color: '#123456' });
+    const at = await openColor(editor, 'events:time_color');
+    await type(editor, at, 'time_color', ' accent ');
+    // A List card writes List's own.
+    expect(lastConfig(editor)?.list).toEqual({ time_color: 'accent' });
+
+    const entries = await mountEditor(
+      {
+        ...BASE,
+        accent_color: '#123456',
+        entities: [{ entity: 'calendar.anna', accent_color: '#abcdef' }],
+      },
+      {
+        hass: fakeHass({ states: { 'calendar.anna': { attributes: { friendly_name: 'Anna' } } } }),
+      },
+    );
+    const [anna] = keysOf(entries, 'entry');
+    const host = document.body.appendChild(document.createElement('div'));
+    const draw = async () => {
+      entries.requestUpdate();
+      await entries.updateComplete;
+      render(
+        internals(entries)._renderEntryColor(
+          anna,
+          'calendar:accent_color',
+          internals(entries)._ctx,
+        ),
+        host,
+      );
+    };
+    await draw();
+    host.querySelector<HTMLButtonElement>('.color-toggle')!.click();
+    await draw();
+    await type(entries, host, 'accent_color', 'home-assistant');
+    expect((lastConfig(entries)?.entities as ReadonlyArray<unknown>)[0]).toEqual({
+      entity: 'calendar.anna',
+      accent_color: 'home-assistant',
+    });
+  });
+
+  it('lets Escape go Back on a page where the open control is not drawn', async () => {
+    const editor = await mountEditor({ ...BASE, title_color: '#123456' });
+    await openColor(editor, 'card:title_color');
+    await openPageOf(editor, 'events:event_font_size');
+    const page = editor.shadowRoot!.querySelector<HTMLElement>('.page[data-page="events"]')!;
+    page.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }),
+    );
+    await editor.updateComplete;
+    expect(editor.shadowRoot!.querySelector('.page')).toBeNull();
+  });
+});
+
 describe('what each owner’s control writes', () => {
   beforeEach(stubSupports);
 

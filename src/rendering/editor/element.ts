@@ -1524,9 +1524,16 @@ export class CalendarCardProEditor extends LitElement {
    * @param owner - Whose field
    * @param fieldId - The field's id (`field-index.ts`), as the owner draws it now
    * @param value - Its new value
+   * @param workspace - The scope the control was drawn for, where a change can arrive after
+   * another scope was chosen; the scope now otherwise
    */
-  private _writeFieldValue(owner: WriteFrames.WriteOwner, fieldId: FieldId, value: unknown): void {
-    this._writeFieldValues(owner, { [fieldId]: value });
+  private _writeFieldValue(
+    owner: WriteFrames.WriteOwner,
+    fieldId: FieldId,
+    value: unknown,
+    workspace?: Workspace.EditorWorkspace,
+  ): void {
+    this._writeFieldValues(owner, { [fieldId]: value }, workspace);
   }
 
   /**
@@ -1535,10 +1542,12 @@ export class CalendarCardProEditor extends LitElement {
    *
    * @param owner - Whose fields
    * @param values - New values, by field id
+   * @param workspace - The scope the control was drawn for (`_writeFieldValue`)
    */
   private _writeFieldValues(
     owner: WriteFrames.WriteOwner,
     values: Readonly<Record<FieldId, unknown>>,
+    workspace?: Workspace.EditorWorkspace,
   ): void {
     if (!this._config) return;
     const ctx = this._ctx;
@@ -1549,7 +1558,7 @@ export class CalendarCardProEditor extends LitElement {
       owner,
       fields,
       this._writeState(),
-      ctx.workspace ?? ctx.view,
+      workspace ?? ctx.workspace ?? ctx.view,
     );
     if (frame === undefined) return;
     this._writeOwned(
@@ -2096,17 +2105,22 @@ export class CalendarCardProEditor extends LitElement {
     const data = this._intern(`${slot}.data`, WriteFrames.withValue({}, c.valueField, shown));
     const [hass, feed] = this._feed(schema, c.ctx.language);
     const card = c.owner.kind === 'card';
+    // Keyed by where its value is stored: a form reused for another scope would hand its pending
+    // events, and the draft they make, to that scope.
     return html`<div class="color-text-field">
-      <ha-form
-        class=${card ? 'field-form' : 'entity-form'}
-        data-hass=${feed}
-        .hass=${hass}
-        .data=${data}
-        .schema=${schema}
-        .computeLabel=${this._keep(`${slot}.label`, label, () => () => label)}
-        .localizeValue=${this._localizeValue}
-        @value-changed=${(event: CustomEvent) => this._colorTyped(c, draftKey, event)}
-      ></ha-form>
+      ${keyed(
+        draftKey,
+        html`<ha-form
+          class=${card ? 'field-form' : 'entity-form'}
+          data-hass=${feed}
+          .hass=${hass}
+          .data=${data}
+          .schema=${schema}
+          .computeLabel=${this._keep(`${slot}.label`, label, () => () => label)}
+          .localizeValue=${this._localizeValue}
+          @value-changed=${(event: CustomEvent) => this._colorTyped(c, draftKey, event)}
+        ></ha-form>`,
+      )}
     </div>`;
   }
 
@@ -2149,7 +2163,9 @@ export class CalendarCardProEditor extends LitElement {
       label,
       coalesceKey,
       () => {
-        for (const [id, value] of steps) this._writeFieldValue(c.owner, id, value);
+        for (const [id, value] of steps) {
+          this._writeFieldValue(c.owner, id, value, ctx.workspace ?? ctx.view);
+        }
       },
       c.focusKey,
     );
@@ -2175,7 +2191,17 @@ export class CalendarCardProEditor extends LitElement {
       return;
     }
     this._colorDrafts = drafts.set(draftKey, {});
-    this._writeColor(c, { ...c.spec.custom, [c.spec.value]: text }, `${c.focusKey}|${draftKey}`);
+    // A word the card honors here is written as its row writes it, exactly as the card reads it.
+    const choice = Colors.choiceOf(text.trim(), c.spec);
+    const row =
+      choice.kind === 'source' && choice.source !== 'default'
+        ? c.spec.sources.find(({ source }) => source === choice.source)?.write
+        : undefined;
+    this._writeColor(
+      c,
+      row ?? { ...c.spec.custom, [c.spec.value]: text },
+      `${c.focusKey}|${draftKey}`,
+    );
   }
 
   /**
@@ -2323,7 +2349,7 @@ export class CalendarCardProEditor extends LitElement {
     const wizard = this._quickSetup;
     // Quick Setup is a place of its own: Escape is its Back, or Cancel on its first step.
     const action = escapeAction(event.composedPath(), this, {
-      disclosure: wizard === undefined && (this._openColor !== undefined || this._scopeOpen),
+      disclosure: wizard === undefined && (this._colorOpenHere() || this._scopeOpen),
       onPage: wizard !== undefined || this._nav.route.kind !== 'overview',
       query: Filter.hasQuery(this._filter),
     });
@@ -2346,7 +2372,7 @@ export class CalendarCardProEditor extends LitElement {
           ]),
         );
       }
-    } else if (action === 'close' && this._openColor !== undefined) {
+    } else if (action === 'close' && this._colorOpenHere()) {
       const open = this._openColor;
       this._openColor = undefined;
       void this.updateComplete.then(() =>
@@ -2366,6 +2392,20 @@ export class CalendarCardProEditor extends LitElement {
       );
     }
   };
+
+  /**
+   * Whether the open color control is drawn where the editor is: one left open on another page
+   * stays open there, and Escape here is not its to take.
+   *
+   * @returns True while it is drawn
+   */
+  private _colorOpenHere(): boolean {
+    const open = this._openColor;
+    return (
+      open !== undefined &&
+      this.renderRoot.querySelector(Focus.byFocusKey(`color:${open}`)) !== null
+    );
+  }
 
   /**
    * Settings For, compact or full, as the overview and every page that depends on the scope
