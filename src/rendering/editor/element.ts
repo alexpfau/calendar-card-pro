@@ -2852,6 +2852,8 @@ export class CalendarCardProEditor extends LitElement {
   /** Change: Settings For opens as the four choices. */
   private _openScope = (): void => {
     this._scopeOpen = true;
+    // One disclosure at a time, so Escape closes the one just opened.
+    this._addOpen = undefined;
     void this.updateComplete.then(() =>
       Focus.focusFirst(this.renderRoot, [`input[name="scope"]:checked`, `input[name="scope"]`]),
     );
