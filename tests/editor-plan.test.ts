@@ -39,6 +39,7 @@ import {
   stateOf,
   storedAt,
 } from '../src/rendering/editor/plan';
+import { reset } from '../src/rendering/editor/reset';
 import { workspaceFormData } from '../src/rendering/editor/routing';
 import type { EditorWorkspace } from '../src/rendering/editor/workspace';
 import type { WriteState } from '../src/rendering/editor/write-frames';
@@ -766,5 +767,66 @@ describe('what counts as stored, where a blank or a shared key carries the meani
       'shared',
     );
     expect(stateIn(icon, 'calendar:label_icon_source').kind).toBe('inactive');
+  });
+
+  // `show_countdown: true` is the Countdown chip's line. Leave Out Repeated Countdowns reads it as
+  // off, its default, so it holds nothing of its own there in any scope, and was drawn live as
+  // "From All Layouts" (or "Set" in All Layouts) with nothing stored for it.
+  it('reads Leave Out Repeated Countdowns as stored or inherited only where once_per_day turns it on', () => {
+    const ID = 'events:countdown_once_per_day';
+    for (const workspace of ['shared', 'list', 'column'] as const) {
+      const on = cardCtx({ show_countdown: true }, workspace);
+      expect(stateIn(on, ID), workspace).toEqual({ kind: 'add' });
+      expect(stateOf(fieldIn(on, ID), on), workspace).toBeUndefined();
+      expect(storedAt(on.raw, fieldIn(on, ID), workspace), workspace).toBe(false);
+    }
+    // Control: `once_per_day` turns it on, stored at the top level and inherited by a layout.
+    const once = { show_countdown: 'once_per_day' };
+    expect(stateIn(cardCtx(once, 'shared'), ID)).toEqual({ kind: 'live', why: 'stored' });
+    expect(stateIn(cardCtx(once, 'list'), ID)).toEqual({ kind: 'live', why: 'inherited' });
+    const list = cardCtx(once, 'list');
+    expect(stateOf(fieldIn(list, ID), list)).toEqual({ words: { kind: 'from-all-layouts' } });
+    // The chip it refines still reads the line as its own.
+    expect(
+      stateOf(
+        fieldIn(cardCtx({ show_countdown: true }, 'shared'), 'events:show_countdown'),
+        cardCtx({ show_countdown: true }, 'shared'),
+      ),
+    ).toEqual({ words: { kind: 'set-all-layouts' } });
+  });
+
+  it('resets Leave Out Repeated Countdowns to off without taking the countdowns with it', () => {
+    const ID = 'events:countdown_once_per_day';
+    const after = (raw: Record<string, unknown>, workspace: EditorWorkspace) => {
+      const ctx = cardCtx(raw, workspace);
+      const result = reset(writeState(ctx), { kind: 'field', field: fieldIn(ctx, ID), workspace });
+      return result.state.config;
+    };
+    expect(after({ show_countdown: 'once_per_day' }, 'shared').show_countdown).toBe(true);
+    const list = after({ list: { show_countdown: 'once_per_day' } }, 'list');
+    expect(list.list?.show_countdown).toBe(true);
+    // Nothing of its own stored: the chip's line is left alone, never deleted.
+    expect(after({ show_countdown: true }, 'shared').show_countdown).toBe(true);
+    // Remove, since the switch leaves the page once it is off; the countdowns stay.
+    const ctx = cardCtx({ show_countdown: 'once_per_day' }, 'shared');
+    expect(resetAction(ID, APPEARANCE.get(ID)!, ctx, writeState(ctx))).toBe('remove');
+  });
+
+  // The same shape as the countdown, one key read by a derived control, but there every value
+  // the dropdown can show is its own: `true` is Same Title, Times and Location, not Off.
+  it('reads Duplicates from the derived value, so a stored filter_duplicates is inherited', () => {
+    const ID = 'content:filter_duplicates_mode';
+    for (const value of [true, 'ignore_location']) {
+      expect(stateIn(cardCtx({ filter_duplicates: value }, 'list'), ID)).toEqual({
+        kind: 'live',
+        why: 'inherited',
+      });
+      expect(stateIn(cardCtx({ filter_duplicates: value }, 'shared'), ID)).toEqual({
+        kind: 'live',
+        why: 'stored',
+      });
+    }
+    // `false` derives Off, the default: nothing differs to inherit.
+    expect(stateIn(cardCtx({ filter_duplicates: false }, 'list'), ID)).toEqual({ kind: 'add' });
   });
 });

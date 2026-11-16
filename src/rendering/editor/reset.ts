@@ -4,7 +4,8 @@
  * A reset deletes a line where it is stored, so what applies afterwards is what the card would use
  * without it. It never writes a default in its place: a value the YAML holds is kept by
  * `value.ts` › `toStoredConfig` even where it equals the default, so writing one back would leave
- * the line standing. Every reset updates the configuration, the authored root keys, the Grid reset
+ * the line standing. The one exception is a switch that refines another control's option, whose
+ * line is not its own to delete (`resetRefinement`). Every reset updates the configuration, the authored root keys, the Grid reset
  * keys and the held text together, as `element.ts` › `_resetViewValues` does for one layout's
  * block, so a root key that left cannot be written back by `retainAuthoredSharedValues` on the next
  * unrelated edit, and a Grid default that came back is not replaced by the root value the next time
@@ -31,6 +32,7 @@ import { entityConfigKeys } from './schemas/entity';
 import * as Synthetic from './synthetic';
 import { BLOCK_KEYS, type EditorWorkspace } from './workspace';
 import type { WriteState } from './write-frames';
+import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
 import * as Helpers from '../../utils/helpers';
@@ -231,6 +233,34 @@ function removeField(
 }
 
 /**
+ * Resets a switch that refines another control's option (`synthetic.ts` › `refines`): where the
+ * line turns it on, writes the value its off position writes, and otherwise leaves the line
+ * alone. Deleting the line would turn the refined control off too: Leave Out Repeated Countdowns
+ * would take every countdown with it.
+ *
+ * @param draft - What the reset builds
+ * @param name - The switch's field name
+ * @param keys - The options it reads
+ * @param workspace - The workspace whose lines are reset
+ */
+function resetRefinement(
+  draft: Draft,
+  name: string,
+  keys: ReadonlyArray<string>,
+  workspace: EditorWorkspace,
+): void {
+  const synthetic = Synthetic.SYNTHETIC_FIELDS[name];
+  for (const key of keys) {
+    const block = Routing.destination(key, workspace);
+    const path = block === undefined ? [] : [block];
+    if (!Synthetic.refinementHolds(name, key, Routing.atPath(draft.config, path, key))) continue;
+    const off = synthetic.derive(Config.DEFAULT_CONFIG);
+    const { changes } = synthetic.apply(off, draft.config as unknown as Types.Config);
+    draft.config = Routing.writePath(draft.config, path, key, changes[key]);
+  }
+}
+
+/**
  * The fields of a family, in registry order, on the card's pages or on a calendar entry's.
  *
  * @param headings - Where to look
@@ -337,7 +367,11 @@ export function reset(state: WriteState, target: ResetTarget): ResetResult {
   switch (target.kind) {
     case 'field': {
       const { field, workspace } = target;
-      removeField(draft, field.dataPath, field.configKeys, workspace);
+      if (Synthetic.SYNTHETIC_FIELDS[field.node.name]?.refines) {
+        resetRefinement(draft, field.node.name, field.configKeys, workspace);
+      } else {
+        removeField(draft, field.dataPath, field.configKeys, workspace);
+      }
       clearAdded = [field.id];
       break;
     }
