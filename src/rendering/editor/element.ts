@@ -8708,7 +8708,9 @@ export class CalendarCardProEditor extends LitElement {
         path: line.text,
         label,
         value:
-          key === 'view' ? layout(line.value as Types.EffectiveView) : Audit.plainValue(line.value),
+          key === 'view'
+            ? layout(line.value as Types.EffectiveView)
+            : Audit.buttonNames(line.value, this._string(ctx, 'toolbar.buttons.untitled')),
         words: t('state.set_all_layouts'),
         tags: [],
         reset: {

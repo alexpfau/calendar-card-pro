@@ -9,6 +9,7 @@
  * none of its options offers, are here too (`withYamlOption`).
  */
 
+import { buttonTitle } from './buttons';
 import {
   type FieldId,
   type IndexedField,
@@ -322,18 +323,56 @@ export function auditCounts(groups: ReadonlyArray<AuditGroup>): { set: number; i
 }
 
 /**
- * A value as one line of text, for a line no control words: `columns: 12`.
+ * A value as one line of YAML in flow style, for a line no control words: `columns: 12`, a list
+ * as `a, b`, and what nests inside either in braces or brackets, `target: {entity_id: [a, b]}`.
+ * Never JSON, whose quotes and brackets on every word make a stored line hard to read. A string
+ * inside either is quoted only where it would read as something else: empty, holding a comma,
+ * colon, bracket or quote, or reading as null, a boolean or a number.
  *
  * @param value - The value as stored
  * @returns The text
  */
 export function plainValue(value: unknown): string {
-  if (isConfigBlock(value)) {
-    return Object.entries(value)
-      .map(([key, inner]) => `${key}: ${typeof inner === 'object' ? JSON.stringify(inner) : inner}`)
-      .join(', ');
+  return flow(value, false);
+}
+
+/**
+ * `plainValue` at any depth.
+ *
+ * @param value - The value
+ * @param nested - Whether it sits inside a block or list, where it keeps its brackets
+ * @returns The text
+ */
+function flow(value: unknown, nested: boolean): string {
+  const list = Array.isArray(value);
+  if (!list && !isConfigBlock(value)) {
+    return nested && typeof value === 'string' && AMBIGUOUS.test(value)
+      ? JSON.stringify(value)
+      : String(value);
   }
-  return typeof value === 'object' ? JSON.stringify(value) : String(value);
+  const items = list
+    ? value.map((each) => flow(each, true))
+    : Object.entries(value)
+        .filter(([, inner]) => inner !== undefined)
+        .map(([key, inner]) => `${flow(key, true)}: ${flow(inner, true)}`);
+  const text = items.join(', ');
+  return nested || items.length === 0 ? (list ? `[${text}]` : `{${text}}`) : text;
+}
+
+/** A string that, unquoted, would read as another value or split where it does not. */
+const AMBIGUOUS = /^$|^\s|\s$|[,:[\]{}"]|^(?:null|true|false|[-+.\d][\d.]*)$/;
+
+/**
+ * The toolbar's own buttons, each named as its row on the toolbar page names it.
+ *
+ * @param value - `toolbar.buttons` as stored
+ * @param untitled - The words for a button with no name or icon, with `{number}` for its place
+ * @returns The names, or the value as YAML where it is no list or an empty one
+ */
+export function buttonNames(value: unknown, untitled: string): string {
+  return Array.isArray(value) && value.length > 0
+    ? value.map((entry, at) => buttonTitle(entry, at, untitled)).join(', ')
+    : plainValue(value);
 }
 
 /**
