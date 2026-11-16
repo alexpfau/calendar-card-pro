@@ -22,6 +22,7 @@ import {
   emitChange,
   fakeHass,
   formOf,
+  helperOf,
   lastConfig,
   mountEditor,
   openResultGroup,
@@ -446,6 +447,8 @@ describe('helper-only matches', () => {
   it('show their phrase on the row', async () => {
     const editor = await mount(WALL);
     await searchFor(editor, 'color');
+    // The phrase's template is the results' own, never the search field's helper.
+    expect(helperOf(editor, 'filter:search')).toBeUndefined();
     const filter = $(editor, '[data-focus="result:content:filter_duplicates_mode"] .result-phrase');
     expect(text(filter)).toBe('Help: “…kept, along with its color.”');
     expect(filter?.querySelector('mark')?.textContent).toBe('color');
@@ -616,5 +619,96 @@ describe('an input method composing a word', () => {
     await editor.updateComplete;
     expect($(editor, '[data-focus^="nav:"]')).toBeNull();
     expect($(editor, '.result-status, .filter-empty')).not.toBeNull();
+  });
+});
+
+/** The defects a review of the full search found, each pinned where it was. */
+describe('the review’s findings', () => {
+  it('never hands one result’s control to another, so a late change writes its own field', async () => {
+    const editor = await mount({ ...LIST, list: { weekday_font_size: '18px' } });
+    await searchFor(editor, 'refresh interval');
+    $(editor, '[data-focus="edit-here"]')!.click();
+    await editor.updateComplete;
+    const form = $(editor, '.result--edit [data-field="actions:refresh_interval"] ha-form')!;
+    const data = (form as unknown as { data: Record<string, unknown> }).data;
+    await searchFor(editor, 'weekday font size');
+    expect($(editor, '.result--edit [data-field="day_header:weekday_font_size"] ha-form')).not.toBe(
+      form,
+    );
+    // The change the refresh control sends as the results move on.
+    form.dispatchEvent(
+      new CustomEvent('value-changed', {
+        detail: { value: { ...data, refresh_interval: 45 } },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await editor.updateComplete;
+    expect(lastConfig(editor)).toMatchObject({
+      refresh_interval: 45,
+      list: { weekday_font_size: '18px' },
+    });
+  });
+
+  it('opens a value the overview holds back at the overview’s own setting', async () => {
+    // A relative start date is stored where the fixed date's control writes, which Start Date's
+    // mode holds back; the overview draws no gate line to open.
+    const editor = await mount({ ...LIST, start_date: '+1' });
+    await searchFor(editor, 'start date');
+    const fixed = row(editor, 'content:start_date_fixed');
+    expect(fixed.tag).toMatch(/^Not in Use · Needs /);
+    await chooseResult(editor, fixed.key);
+    expect(openPage(editor)).toBeUndefined();
+    expect(editor.shadowRoot!.activeElement).toBe(
+      $(editor, '[data-field="content:start_date_mode"]'),
+    );
+    expect(lastConfig(editor)).toBeUndefined();
+  });
+
+  it('finds a calendar’s setting only other layouts offer, tagged with them', () => {
+    const one = (view: string, workspace: 'grid' | 'list', query: string) => {
+      const config = {
+        ...Config.DEFAULT_CONFIG,
+        view,
+        entities: ['calendar.anna'],
+      } as unknown as Types.Config;
+      return search(searchIndex(config, { workspace }), query)
+        .filter(({ entry: e }) => e.target.kind === 'entry-field')
+        .map(({ entry: e }) => [('id' in e.target && e.target.id) || '', e.tag]);
+    };
+    expect(one('grid', 'grid', 'split multi')).toContainEqual([
+      'calendar:split_multiday_events',
+      'Only in List and Columns',
+    ]);
+    expect(one('list', 'list', 'banners')).toContainEqual([
+      'calendar:multiday_banners',
+      'Only in Grid',
+    ]);
+  });
+
+  it('marks and matches past a character outside the basic plane', () => {
+    expect(highlight('😀Time', 'time')).toEqual([[2, 6]]);
+    expect(search([entry('a😀bc', 0)], '😀c')).toHaveLength(1);
+  });
+
+  it('ranks a short word found only in help as help, with its phrase', () => {
+    const [hit] = search([entry('Button', 0, [['Shown on the toolbar.', 'helper']])], 'on');
+    expect(hit.source).toBe('helper');
+    expect(hit.phrase?.text).toBe('Shown on the toolbar.');
+  });
+
+  it('words an action anew when Home Assistant’s strings change', async () => {
+    const words = (said: string) => (key: string) => (key.endsWith('.navigate') ? said : '');
+    const hass = { ...fakeHass({ states: STATES }), localize: words('Navigate') };
+    const editor = await mountEditor(
+      { ...LIST, event_tap_action: { action: 'navigate', navigation_path: '/lovelace/0' } },
+      { hass },
+    );
+    await searchFor(editor, 'event tap action');
+    expect(row(editor, 'actions:event_tap_action').meta).toMatch(/^Navigate · /);
+    editor.hass = { ...hass, localize: words('Gehe zu') } as typeof editor.hass;
+    editor.requestUpdate();
+    await editor.updateComplete;
+    expect(row(editor, 'actions:event_tap_action').meta).toMatch(/^Gehe zu · /);
   });
 });

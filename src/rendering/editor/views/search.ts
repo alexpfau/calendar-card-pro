@@ -8,6 +8,7 @@
 
 import { mdiChevronDown, mdiChevronRight, mdiKeyboardReturn, mdiOpenInNew, mdiPlus } from '@mdi/js';
 import { type TemplateResult, html, nothing } from 'lit';
+import { repeat } from 'lit/directives/repeat.js';
 
 import { icon } from './icon';
 
@@ -196,33 +197,39 @@ export function resultList(
       </button>
     </div>
     <div class="row-group results">
-      ${items.map((item) => {
-        if (item.kind === 'row') return resultRow(item.row);
-        if (item.kind === 'field') {
-          return html`<div class="result result--edit" data-result=${item.key}>
-            <span class="nav-summary">${item.crumbs.join(' › ')}</span>
-            ${item.field}
-          </div>`;
-        }
-        return html`${resultRow(item.row, item.expanded)}
-        ${item.entries.map(
-          (entry) =>
-            html`<button
-              type="button"
-              class="nav-row result-entry"
-              data-focus=${entry.key}
-              @click=${entry.onOpen}
-            >
-              <span class="nav-text">
-                <span>${entry.label}</span>
-                <span class="nav-summary">${entry.crumbs.join(' › ')}</span>
-                <span class="nav-summary">${entry.meta}</span>
-                ${entry.tag ? html`<span class="result-tag">${entry.tag}</span>` : nothing}
-              </span>
-              <span class="result-go">${entry.go}</span>
-            </button>`,
-        )}`;
-      })}
+      ${repeat(
+        items,
+        // Keyed by result: a field's form is never handed to another field's result, where a
+        // change it sends late would write through the other field's frame.
+        (item) => (item.kind === 'field' ? item.key : item.row.key),
+        (item) => {
+          if (item.kind === 'row') return resultRow(item.row);
+          if (item.kind === 'field') {
+            return html`<div class="result result--edit" data-result=${item.key}>
+              <span class="nav-summary">${item.crumbs.join(' › ')}</span>
+              ${item.field}
+            </div>`;
+          }
+          return html`${resultRow(item.row, item.expanded)}
+          ${item.entries.map(
+            (entry) =>
+              html`<button
+                type="button"
+                class="nav-row result-entry"
+                data-focus=${entry.key}
+                @click=${entry.onOpen}
+              >
+                <span class="nav-text">
+                  <span>${entry.label}</span>
+                  <span class="nav-summary">${entry.crumbs.join(' › ')}</span>
+                  <span class="nav-summary">${entry.meta}</span>
+                  ${entry.tag ? html`<span class="result-tag">${entry.tag}</span>` : nothing}
+                </span>
+                <span class="result-go">${entry.go}</span>
+              </button>`,
+          )}`;
+        },
+      )}
     </div>`;
 }
 

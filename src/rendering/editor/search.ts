@@ -221,7 +221,8 @@ function foldMapped(text: string): {
       // Runs of space collapse, and none leads.
       if (out === ' ' && (folded === '' || folded.endsWith(' '))) continue;
       folded += out;
-      from.push([start, at]);
+      // One entry per UTF-16 unit, as the folded text is indexed.
+      for (let unit = 0; unit < out.length; unit++) from.push([start, at]);
     }
   }
   if (folded.endsWith(' ')) {
@@ -707,7 +708,13 @@ function entryRows(owner: SearchOwner, ctx: SearchCtx): SearchEntry[] {
     for (const [id, appearance] of group.fields) {
       const state = Plan.fieldState(id, appearance, plan);
       const own = present.fields.get(id);
-      const field = own ?? universe.fields.get(id);
+      // A field only other layouts offer is worded from the first of them.
+      const field =
+        own ??
+        (state.kind === 'other-layout'
+          ? universeIndex(ctx.language, state.views[0])
+          : universe
+        ).fields.get(id);
       if (!field) continue;
       let status: ResultStatus;
       let tag: string | undefined;
@@ -727,6 +734,15 @@ function entryRows(owner: SearchOwner, ctx: SearchCtx): SearchEntry[] {
                 labelNamer(ctx),
               )
             : interpolate(ctx.t('search.not_in_use'), { needs });
+      } else if (state.kind === 'other-layout') {
+        status = { kind: 'other-layout', views: state.views };
+        tag = interpolate(ctx.t('search.only_in'), {
+          layouts: EditorLocalize.formatList(
+            ctx.language,
+            state.views.map(layoutNamer(ctx)),
+            'conjunction',
+          ),
+        });
       } else continue;
       const { name: key } = { name: field.node.name };
       const words = once(() => Plan.stateOf(field, plan));
@@ -977,7 +993,7 @@ function match(
           ? SCORE.prefix
           : ` ${label}`.includes(` ${wanted}`)
             ? SCORE.wordStart
-            : label.includes(wanted)
+            : holdsTerm(label, wanted)
               ? SCORE.substring
               : terms.every((term) => holdsTerm(label, term))
                 ? SCORE.allInLabel
@@ -1024,11 +1040,11 @@ function match(
  */
 function holdsLetters(label: string, letters: string): boolean {
   let at = 0;
-  for (const char of label) {
-    if (char === letters[at]) at++;
-    if (at === letters.length) return true;
+  // By UTF-16 unit on both sides, so a character outside the basic plane compares whole.
+  for (let unit = 0; unit < label.length && at < letters.length; unit++) {
+    if (label[unit] === letters[at]) at++;
   }
-  return false;
+  return at === letters.length;
 }
 
 /**

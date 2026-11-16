@@ -3194,6 +3194,8 @@ export class CalendarCardProEditor extends LitElement {
       this._entryKeys.join(),
       this._buttonKeys.join(),
       this.hass?.states,
+      // Action values are worded through it, and Home Assistant loads its strings late.
+      this.hass?.localize,
       this._prefs.every,
     ];
     const kept = this._indexKept;
@@ -3339,7 +3341,7 @@ export class CalendarCardProEditor extends LitElement {
       crumbs: entry.crumbs,
       meta: this._resultMeta(entry, ctx),
       tag: entry.tag,
-      phrase: hit.phrase ? { template: t('search.helper'), ...hit.phrase } : undefined,
+      phrase: hit.phrase ? { template: t('search.help_phrase'), ...hit.phrase } : undefined,
       add:
         entry.status.kind === 'add' && open
           ? {
@@ -3406,7 +3408,7 @@ export class CalendarCardProEditor extends LitElement {
           set === 0
             ? t('search.calendars_none')
             : interpolate(t('search.calendars_set'), { count: String(set) }),
-        phrase: first.phrase ? { template: t('search.helper'), ...first.phrase } : undefined,
+        phrase: first.phrase ? { template: t('search.help_phrase'), ...first.phrase } : undefined,
         onOpen: () => {
           const next = new Set(this._openResults);
           if (open) next.delete(item.id);
@@ -3462,7 +3464,14 @@ export class CalendarCardProEditor extends LitElement {
         });
         return;
       }
-      case 'gated': {
+      case 'gated':
+      case 'inactive': {
+        // A value the overview's own setting holds back is opened at that setting: the overview
+        // draws no gate lines.
+        if (status.kind === 'inactive' && (target.kind !== 'field' || target.page)) {
+          this._openInactive(entry, target, focusKey);
+          return;
+        }
         const by = status.by;
         const labelOf = (id: FieldId): string => {
           const field =
@@ -3487,27 +3496,6 @@ export class CalendarCardProEditor extends LitElement {
         );
         return;
       }
-      case 'inactive': {
-        const route: Navigation.Route =
-          target.kind === 'entry-field'
-            ? { kind: 'entry', key: target.key }
-            : {
-                kind: 'page',
-                page: target.kind === 'field' && target.page ? target.page : 'card_header',
-              };
-        this._leaveResults(route, focusKey);
-        void this.updateComplete.then(() => {
-          const root = this.renderRoot;
-          const line = Focus.focusFirst(root, [
-            Focus.byFocusKey(`reset:${target.id}`),
-            Focus.byFocusKey(`edit:${target.id}:shared`),
-            '.page-title',
-          ]);
-          if (line) Focus.scrollToTopSettled(this, line);
-          this._say(interpolate(this._string(ctx, 'search.showing'), { label: entry.label }));
-        });
-        return;
-      }
       default:
         this._openResult(
           { target, label: entry.label },
@@ -3518,6 +3506,36 @@ export class CalendarCardProEditor extends LitElement {
             : undefined,
         );
     }
+  }
+
+  /**
+   * Opens a value stored but not in use at its gate line, on its page, focused on the line's
+   * Reset, or its Edit where the value is All Layouts'.
+   *
+   * @param entry - The result
+   * @param target - What it opens: a field on a page, or an entry's field
+   * @param focusKey - Its row's `data-focus` key
+   */
+  private _openInactive(
+    entry: Search.SearchEntry,
+    target: Search.FieldTarget,
+    focusKey: string,
+  ): void {
+    const ctx = this._ctx;
+    const route: Navigation.Route =
+      target.kind === 'entry-field'
+        ? { kind: 'entry', key: target.key }
+        : { kind: 'page', page: (target.kind === 'field' && target.page) || 'card_header' };
+    this._leaveResults(route, focusKey);
+    void this.updateComplete.then(() => {
+      const line = Focus.focusFirst(this.renderRoot, [
+        Focus.byFocusKey(`reset:${target.id}`),
+        Focus.byFocusKey(`edit:${target.id}:shared`),
+        '.page-title',
+      ]);
+      if (line) Focus.scrollToTopSettled(this, line);
+      this._say(interpolate(this._string(ctx, 'search.showing'), { label: entry.label }));
+    });
   }
 
   /**

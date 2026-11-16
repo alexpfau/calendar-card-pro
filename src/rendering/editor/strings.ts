@@ -202,7 +202,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'search.not_in_use': 'Not in Use · Needs {needs}',
   'search.needs_said': '{label} needs {needs}.',
   'search.only_in': 'Only in {layouts}',
-  'search.helper': 'Help: “{phrase}”',
+  'search.help_phrase': 'Help: “{phrase}”',
   'search.add': 'Add',
   'search.add_named': 'Add {label}, {place}',
   'search.edit_here': 'Edit Here',

@@ -88,9 +88,12 @@ function calendarHits(
   query: string,
   schema: ReadonlyArray<HaFormSchema>,
 ): string[] {
+  // What a list card draws: another layout's setting is listed as that layout's.
   return search(searchIndex(config, { workspace: 'list', entrySchemas: [schema] }), query).flatMap(
-    ({ entry: { target } }) =>
-      target.kind === 'entry-field' ? [target.id.split(/[:.]/).pop()!] : [],
+    ({ entry: { target, status } }) =>
+      target.kind === 'entry-field' && status.kind !== 'other-layout'
+        ? [target.id.split(/[:.]/).pop()!]
+        : [],
   );
 }
 

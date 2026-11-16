@@ -274,8 +274,9 @@ describe('searching the editor for a calendar by its name', () => {
       workspace: 'list',
       entrySchemas: entities.map(() => entitySchema()),
     });
-    return searchRows(rows, query).flatMap(({ entry: { target } }) =>
-      target.kind === 'entry-field' && target.key === index
+    // What this layout draws: another layout's setting is listed as that layout's.
+    return searchRows(rows, query).flatMap(({ entry: { target, status } }) =>
+      target.kind === 'entry-field' && target.key === index && status.kind !== 'other-layout'
         ? [target.id.slice('calendar:'.length)]
         : [],
     );
