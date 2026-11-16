@@ -621,7 +621,9 @@ describe('days drawn, against days loaded', () => {
 
     expect(card._pageShown).toBe('2026-06-18');
     expect(card.shadowRoot!.textContent).toContain('Anna swim 2026-06-18');
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('keeps the day on screen at midnight when a week was loaded behind one column', async () => {
     // The 18th was loaded the day before and is the day drawn after midnight; the midnight

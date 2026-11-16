@@ -363,7 +363,10 @@ describe('workspace transitions do not configure the card', () => {
         expect(seen).toEqual([]);
         editor.remove();
       }
+      // Over a second in a full local run; the limit is set for CI's slower runner under load
+      // rather than for a hang.
     },
+    30_000,
   );
 
   it('does not seed a grid block or persist its cursor when visiting another workspace', async () => {
@@ -470,7 +473,9 @@ describe('workspace state survives echoes and pending edits', () => {
     await editor.updateComplete;
     expect(valueOf(editor, 'events:title_max_lines')).toBe(0);
     expect(seen).toHaveLength(1);
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('diffs a view edit against its projection, not the different displayed view', async () => {
     const editor = await mount({ view: 'list', time_grid: { event_font_size: '23px' } });

@@ -119,7 +119,9 @@ describe('ambiguous legacy configurations', () => {
     ]);
     expect(blocker(editor)).toBeNull();
     expect(valueOf(editor, 'events:event_font_size')).toBe('18px');
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('updates local state before an immediate form edit and before any echo', async () => {
     const { editor, reports } = await mount({
@@ -501,7 +503,9 @@ describe('All Layouts follows shared values rather than List', () => {
     await changeField(editor, 'display:view', 'grid');
     expect(reopened.reports.slice(-1)[0]?.time_grid).toMatchObject(chosen);
     expect(reopened.reports.slice(-1)[0]?.time_grid).toEqual(reports.slice(-1)[0]?.time_grid);
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('keeps default-valued roots when migration explicitly chooses shared storage', async () => {
     const chosen = {

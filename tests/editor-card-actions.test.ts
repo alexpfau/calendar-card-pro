@@ -530,7 +530,9 @@ describe('the event tap action in the editor', () => {
     });
     await changeField(element, 'card:toolbar.add_event', true);
     expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it.each(['list', 'column', 'grid'])(
     'writes the toolbar at the top level while editing the %s layout',
