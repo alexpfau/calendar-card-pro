@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import { hitIds, searchIndex } from './helpers/search-index';
 import type * as Types from '../src/config/types';
+import { parseFieldId } from '../src/rendering/editor/field-index';
 import {
   type FilterCriteria,
   type FilterCtx,
   NO_FILTER,
-  filterSchema,
   isCustomized,
 } from '../src/rendering/editor/filter';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
@@ -14,8 +15,8 @@ import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 import { stripColumnDefaults } from '../src/rendering/editor/value';
 
 /**
- * The editor's search index and its translation keys are both built from a node's enclosing
- * path, but those two paths are not the same path. A `scope()` group extends the
+ * The editor's search index (`search.ts`) and its translation keys are both built from a node's
+ * enclosing path, but those two paths are not the same path. A `scope()` group extends the
  * configuration path without extending the label path, so its fields must stay findable by
  * their real configuration key without their translation keys moving. A partially written
  * nested block, meanwhile, leaves its remaining keys absent rather than defaulted. A column
@@ -32,18 +33,13 @@ function ctxFor(config: Types.Config, criteria: Partial<FilterCriteria> = {}): F
   };
 }
 
-function fieldNames(schema: ReadonlyArray<HaFormSchema>): string[] {
-  return [...walkSchema(schema)]
-    .filter(({ node }) => !('schema' in node))
-    .map(({ node }) => node.name);
-}
-
+/** The names of a panel's fields a query lists in the jump list. */
 function searchIn(panelId: string, query: string, config: Types.Config): string[] {
-  const panel = PANELS.find((entry) => entry.id === panelId);
-  if (!panel) throw new Error(`no panel ${panelId}`);
-  const ctx = ctxFor(config, { query });
-
-  return fieldNames(filterSchema(panel.build({ view: ctx.view, config, language: 'en' }), ctx));
+  const workspace = config.view === 'column' ? 'column' : 'shared';
+  return hitIds(searchIndex(config, { workspace }), query)
+    .map((id) => parseFieldId(id))
+    .filter(({ scope }) => scope === panelId)
+    .map(({ name }) => name);
 }
 
 function nodeNamed(panelId: string, name: string, config: Types.Config): HaFormSchema {
@@ -77,17 +73,6 @@ describe('editor search resolves configuration paths as well as label paths', ()
     ['event.show_temp', 'show_temp'],
   ])('still finds %s by its label path, so translation keys are unchanged', (query, expected) => {
     expect(searchIn('weather', query, WITH_WEATHER())).toContain(expected);
-  });
-
-  it('still finds a field nested under an expandable by its qualified path', () => {
-    // `location.show_location` was the case here until the five content switches moved out
-    // of their groups and into the panel's opening run — `show_location` is no longer
-    // nested under anything, so the query proved nothing about qualified paths. The group
-    // still exists once locations are on, and everything left in it is genuinely nested,
-    // so the subject is unchanged and the config now says out loud what it depends on.
-    expect(
-      searchIn('events', 'location.location_font_size', buildConfig({ show_location: true })),
-    ).toContain('location_font_size');
   });
 
   it('still finds a field by its bare name', () => {

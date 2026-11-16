@@ -40,6 +40,16 @@ export type WriteOwner =
   | { readonly kind: 'entry'; readonly key: number }
   | { readonly kind: 'button'; readonly key: number };
 
+/**
+ * An owner as a string: `card`, `entry:<key>` or `button:<key>`.
+ *
+ * @param owner - The owner
+ * @returns Its key
+ */
+export function ownerKey(owner: WriteOwner): string {
+  return owner.kind === 'card' ? 'card' : `${owner.kind}:${owner.key}`;
+}
+
 /** The card, as the owner of every write outside an entry and a toolbar button. */
 export const CARD_OWNER: WriteOwner = { kind: 'card' };
 
@@ -280,13 +290,15 @@ export function keysByPosition(
 }
 
 /**
- * Keys for an entry list rebuilt a calendar at a time, as the calendar picker's `apply` and
- * Quick Setup rebuild it: each calendar's entries in the order they had, so the n-th entry of a
- * calendar now is the n-th it had before, and keeps that one's key. An entry of a calendar the
- * list did not hold takes a new key, and an entry that is gone takes its key with it.
+ * Keys for an entry list rebuilt a calendar at a time, as Quick Setup rebuilds it, and as the
+ * calendar list's operations leave it, grouped (`calendar-list.ts`): each calendar's entries in
+ * the order they had, so the n-th entry of a calendar now is the n-th it had before, and keeps
+ * that one's key. An entry of a calendar the list did not hold takes a new key, and an entry
+ * that is gone takes its key with it.
  *
- * 🚨 This mirrors `synthetic.ts` › `SYNTHETIC_FIELDS.calendars`' `apply`, which hands every
- * calendar back its whole queue of entries. Change one and the other together.
+ * 🚨 This holds only while nothing reorders the entries inside one calendar, which nothing in
+ * the editor does (`calendar-list.ts`). An operation that did would hand one entry's key, and
+ * with it its page and any late edit, to another.
  *
  * @param before - The list as it was
  * @param keys - A key per entry of `before`

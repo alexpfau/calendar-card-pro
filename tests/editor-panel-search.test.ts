@@ -7,20 +7,30 @@ import {
   formsOf,
   mountEditor,
   openPageOf,
+  resultRows,
 } from './helpers/editor-host';
 import type * as Types from '../src/config/types';
 import type { CalendarCardProEditor } from '../src/rendering/editor/element';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
-import { lookupForView } from '../src/rendering/editor/localize';
+import { lookup } from '../src/rendering/editor/localize';
+import { PAGES } from '../src/rendering/editor/pages';
 
 /**
- * The rule fields every card form drawn now holds: on the Size & Spacing page, or in the
- * overview's results for a query.
+ * The rule fields the open place shows, by name: drawn on the Size & Spacing page, or listed by
+ * the overview's results for a query.
  *
  * @param editor - Editor
  * @returns Their names, in order
  */
 function ruleFields(editor: CalendarCardProEditor): string[] {
+  const root = editor.shadowRoot!;
+  const results =
+    root.querySelector('.overview') !== null && root.querySelector('[data-focus^="nav:"]') === null;
+  if (results) {
+    return resultRows(editor)
+      .filter((row) => row.id.startsWith('separators:'))
+      .map((row) => row.id.split(/[:.]/).pop()!);
+  }
   return formsOf(editor, CARD)
     .filter((form) =>
       form.closest('[data-field]')?.getAttribute('data-field')?.startsWith('separators:'),
@@ -49,16 +59,31 @@ async function mount(language: string, view: Types.EffectiveView = 'grid') {
 }
 
 /**
- * The words the search matches the rules' panel by, in a layout: the panel's title or the line
- * under it, as the filter reads them, now that pages draw neither.
+ * The words a search finds the rules by: the title of the page that draws them, or of the
+ * heading they sit under there.
  *
  * @param language - Editor language
- * @param view - The scope
- * @param suffix - `.helper` for the line under the title
+ * @param key - Page or heading title key
  * @returns The words
  */
-function panelWords(language: string, view: string, suffix?: string): string {
-  return lookupForView(language, 'panel.separators', view, suffix) ?? '';
+function words(language: string, key: string): string {
+  return lookup(language, key) ?? '';
+}
+
+const SIZE_SPACING = PAGES.find((page) => page.id === 'size_spacing')!;
+
+/**
+ * The rule fields a heading of the Size & Spacing page holds, by name.
+ *
+ * @param key - Heading key
+ * @returns Their names, in order
+ */
+function headingRules(key: string): string[] {
+  const heading = SIZE_SPACING.headings.find((candidate) => candidate.key === key)!;
+  return heading.fields
+    .map(([id]) => id)
+    .filter((id) => id.startsWith('separators:'))
+    .map((id) => id.slice(id.lastIndexOf('.') + 1).replace(/^separators:/, ''));
 }
 
 async function search(editor: CalendarCardProEditor, query: string, customizedOnly = false) {
@@ -71,12 +96,12 @@ async function search(editor: CalendarCardProEditor, query: string, customizedOn
 afterEach(() => document.body.replaceChildren());
 
 describe.each(['en', 'en-GB', 'de', 'et', 'it', 'lt', 'lv', 'nb', 'pl', 'sk', 'sv'])(
-  'panel search in %s',
+  'search for the rules in %s',
   (language) => {
-    it('finds every Grid rule by the title of the panel that builds them', async () => {
+    it('finds every Grid rule by the title of the page that draws them', async () => {
       const editor = await mount(language);
       const before = ruleFields(editor);
-      const title = panelWords(language, 'grid');
+      const title = words(language, SIZE_SPACING.titleKey);
       expect(before).toContain('hour_line_width');
       expect(before).toHaveLength(11);
       expect(title).not.toBe('');
@@ -85,30 +110,35 @@ describe.each(['en', 'en-GB', 'de', 'et', 'it', 'lt', 'lv', 'nb', 'pl', 'sk', 's
       expect(ruleFields(editor)).toEqual(before);
     });
 
-    it('finds every Grid rule by the line under that panel’s title', async () => {
-      const editor = await mount(language);
-      const before = ruleFields(editor);
-      const helper = panelWords(language, 'grid', '.helper');
-      expect(helper).not.toBe('');
+    it.each(['heading_between_days', 'heading_across_the_grid'])(
+      'finds the Grid rules under %s by that heading’s title',
+      async (key) => {
+        const editor = await mount(language);
+        const rules = headingRules(key);
+        const title = words(language, key);
+        expect(rules.length).toBeGreaterThan(1);
+        expect(title).not.toBe('');
 
-      await search(editor, helper);
-      expect(ruleFields(editor)).toEqual(before);
-    });
+        await search(editor, title);
+        expect(ruleFields(editor)).toEqual(expect.arrayContaining(rules));
+      },
+    );
 
-    it('control: still finds List by its title without exposing Grid-only rules', async () => {
+    it('control: still finds List’s rules by the page title without exposing Grid-only rules', async () => {
       const editor = await mount(language, 'list');
       const before = ruleFields(editor);
-      const title = panelWords(language, 'list');
       expect(before).not.toContain('hour_line_width');
 
-      await search(editor, title);
+      await search(editor, words(language, SIZE_SPACING.titleKey));
       expect(ruleFields(editor)).toEqual(before);
     });
   },
 );
 
-it('does not let a panel title bypass Customized Only', async () => {
+it('does not let a page or heading title bypass Customized Only', async () => {
   const editor = await mount('it');
-  await search(editor, panelWords('it', 'grid'), true);
+  await search(editor, words('it', SIZE_SPACING.titleKey), true);
+  expect(ruleFields(editor)).toEqual([]);
+  await search(editor, words('it', 'heading_across_the_grid'), true);
   expect(ruleFields(editor)).toEqual([]);
 });

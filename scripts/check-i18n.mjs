@@ -182,7 +182,6 @@ export async function readEditorSchemaKeys() {
     chassisSubforms,
     CHASSIS_STRINGS,
     EDITOR_STRINGS,
-    VIEWS,
     VIEW_SCOPE,
     ENTITY_VIEW_SCOPE,
     DEFAULT_OVERRIDES_BY_VIEW,
@@ -244,18 +243,9 @@ export async function readEditorSchemaKeys() {
     }
   };
 
+  // A builder's own drawing may name strings beyond its fields' keys (the width table, the
+  // toolbar buttons' words). Its title is not among them: titles are the page registry's.
   for (const panel of PANELS) {
-    roots.add(panel.titleKey);
-    titles.add(panel.titleKey);
-    helpers.add(panel.titleKey);
-    // `_panelTitle` and `_panelHelper` resolve `<titleKey>.<view>` before the shared key,
-    // so a panel whose contents differ enough by view can retitle itself there. The title
-    // needs no registration — it is reachable under the shared root — but the helper does,
-    // or a legitimate per-view helper reads as a string nothing can look up. Registered
-    // as permitted rather than required: adding these to `titles` would demand 27 headings
-    // that should not exist. Reconciled against VIEWS rather than listed, so the day a
-    // fourth view lands its qualified keys are covered without an edit here.
-    for (const view of VIEWS) helpers.add(`${panel.titleKey}.${view}`);
     for (const prefix of panel.strings ?? []) roots.add(prefix);
   }
 
@@ -567,9 +557,10 @@ const REGISTRY_PREFIXES = ['page.', 'heading.', 'family.', 'gate.needs.'];
  * @returns Titles and other named keys, each with where it is named, and helper bases
  */
 function readRegistryKeys(editor) {
-  const { PAGES, ENTRY_GROUPS, FAMILIES, GATES, ENTRY_GATES } = editor;
+  const { PAGES, ENTRY_GROUPS, FAMILIES, CALENDARS_BLOCK, GATES, ENTRY_GATES } = editor;
   assertFound(PAGES, 'any pages in the page registry', PAGES_TS);
   assertFound(ENTRY_GROUPS, 'any calendar entry groups in the page registry', PAGES_TS);
+  assertFound(CALENDARS_BLOCK, 'the Calendars block in the page registry', PAGES_TS);
 
   const titles = new Map();
   const named = new Map();
@@ -591,6 +582,7 @@ function readRegistryKeys(editor) {
     name(named, def.crossLink?.textKey, `${where}, its cross-link`);
   };
 
+  name(titles, CALENDARS_BLOCK.titleKey, 'the Calendars block');
   for (const page of PAGES) {
     name(titles, page.titleKey, `page ${page.id}`);
     name(named, page.noteKey, `page ${page.id}, its note`);
@@ -1303,11 +1295,6 @@ const IDENTICAL_TO_ENGLISH_ANY_LANGUAGE = new Set([
  * Keyed `lang:key`. Each entry is a loanword the language genuinely uses, not a gap.
  */
 const IDENTICAL_TO_ENGLISH_OK = new Set([
-  'de:panel.layout',
-  'it:panel.layout',
-  'nb:panel.layout',
-  'sv:panel.layout',
-
   // `Label` is a German loanword in Home Assistant's own UI.
   'de:entity.label',
   'de:view',

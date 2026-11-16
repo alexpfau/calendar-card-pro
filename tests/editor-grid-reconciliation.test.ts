@@ -653,7 +653,12 @@ describe('implicit defaults and first-switch boundaries', () => {
     expect(valueOf(editor, 'events:event_background_opacity')).toBe(20);
     await changeField(editor, 'filter:customized_only', true);
     expect(reports).toHaveLength(1);
-    expect(formOf(editor, 'calendars:calendars')).toBeDefined();
+    // The positive control: the filter ran and drew its verdict, that nothing is customized.
+    // A bare calendar is customized in nothing either, so the Calendars block is left out with
+    // it, and the editor's whole answer is this line.
+    expect(editor.shadowRoot!.querySelector('.overview > .filter-empty')?.textContent?.trim()).toBe(
+      lookup('en', 'filter.nothing_customized'),
+    );
     const fields = formsOf(editor, CARD).flatMap((form) =>
       [...workspaceFields(form.schema)].map(({ node }) => node.name),
     );

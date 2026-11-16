@@ -55,6 +55,29 @@ export function scrollToTop(editor: Element, element: Element): void {
 }
 
 /**
+ * Keeps an element at the top of what scrolls the editor while what is drawn above it settles:
+ * the forms above a field a result opened finish drawing after the move, and push it down. Each
+ * frame it is scrolled back to the top, until it has stayed there for five frames, or for at most
+ * a second.
+ *
+ * @param editor - The editor element
+ * @param element - What to keep at the top
+ */
+export function scrollToTopSettled(editor: Element, element: Element): void {
+  const until = Date.now() + 1000;
+  let still = 0;
+  let last = Number.NaN;
+  const step = (): void => {
+    scrollToTop(editor, element);
+    const top = element.getBoundingClientRect().top;
+    still = top === last ? still + 1 : 0;
+    last = top;
+    if (still < 5 && Date.now() < until && element.isConnected) requestAnimationFrame(step);
+  };
+  step();
+}
+
+/**
  * Where the editor's scroll container stands.
  *
  * @param editor - The editor element

@@ -39,12 +39,19 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_scopeChanged',
     '_scopeOpen',
     '_status',
+    '_entryNotice',
+    '_openStrip',
+    '_adding',
+    '_calendarQuery',
     '_announcer',
     '_spoken',
     // A color draft is never written, and Undo leaves it as it does the text in any field.
     '_colorDrafts',
     '_openColor',
     '_registryHeld',
+    // The field a search result showed, and the results it left.
+    '_jump',
+    '_resultsLeft',
   ],
   // Keys never go back, so a restored entry's key is never handed to another.
   counters: ['_nextEntryKey', '_nextButtonKey'],
@@ -68,6 +75,7 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_drawing',
     '_bareUpdatePending',
     '_registryWanted',
+    '_resultStatus',
   ],
   // The history itself, and whether a change is being recorded.
   history: ['_history', '_committing'],
@@ -96,6 +104,8 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_defaultData',
     '_haColorName',
     '_registryChanged',
+    '_cancelAdd',
+    '_addCalendarChosen',
   ],
 };
 

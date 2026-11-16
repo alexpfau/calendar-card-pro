@@ -11,6 +11,7 @@ import {
   formsOf,
   mountEditor,
   openPanels,
+  resultRows,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -22,7 +23,7 @@ import * as Filter from '../src/rendering/editor/filter';
 import type { HaFormSchema, SelectorSchema } from '../src/rendering/editor/ha-form';
 import { PANELS, type SchemaCtx } from '../src/rendering/editor/panels';
 import { ENTITY_PATH } from '../src/rendering/editor/schemas/calendars';
-import { group, heading, row, scope, text } from '../src/rendering/editor/schemas/common';
+import { scope, text } from '../src/rendering/editor/schemas/common';
 import {
   buildEntitySchema,
   entityConfigKeys,
@@ -33,6 +34,26 @@ import * as Grid from '../src/rendering/grid';
 import * as List from '../src/rendering/render';
 import * as EventUtils from '../src/utils/events';
 import { showsEventWeather } from '../src/utils/weather-position';
+
+/** A sub-heading, as a calendar's panel still draws one: what withholding has to prune. */
+const heading = (name: string): HaFormSchema => ({ name, type: 'constant' });
+
+/** An unnamed row, which nests neither data nor labels. */
+const row = (...children: HaFormSchema[]): HaFormSchema => ({
+  type: 'grid',
+  name: '',
+  schema: children,
+});
+
+/** A flattened collapsible, whose children stay at the level above it. */
+const group = (name: string, children: HaFormSchema[]): HaFormSchema => ({
+  type: 'expandable',
+  name,
+  flatten: true,
+  title: name,
+  titleKey: name,
+  schema: children,
+});
 
 interface Field {
   key: string;
@@ -221,7 +242,7 @@ describe('view withholding reconciles both directions', () => {
 
   it.each(['card', 'entity'] as const)('keeps unknown keys visible in %s forms', (target) => {
     const schema = [
-      group('en', 'unknown_group', '', [
+      group('unknown_group', [
         row(text('future_option'), text('toString'), text('event_background_opacity')),
         text('compact_events_to_show'),
       ]),
@@ -242,12 +263,12 @@ describe('view withholding reconciles both directions', () => {
 
   it('distinguishes real data blocks from flattened label groups and unknown nesting', () => {
     const schema = [
-      group('en', 'labels_only', '', [text('split_multiday_events')]),
+      group('labels_only', [text('split_multiday_events')]),
       scope('column', [text('split_multiday_events')]),
       scope('time_grid', [text('split_multiday_events'), text('hour_height')]),
       scope('weather', [scope('date', [text('split_multiday_events')])]),
       scope('future_block', [text('split_multiday_events')]),
-      group('en', 'compact_events_to_show', '', [text('event_background_opacity')]),
+      group('compact_events_to_show', [text('event_background_opacity')]),
     ];
 
     expect(fields(Filter.withholdInertFields(schema, 'grid')).map((field) => field.key)).toEqual([
@@ -263,7 +284,7 @@ describe('view withholding reconciles both directions', () => {
     const survivor = row(text('show_empty_days'), text('future_option'));
     const schema = [
       heading('removed_heading'),
-      group('en', 'removed_group', '', [
+      group('removed_group', [
         heading('nested_heading'),
         row(text('compact_days_to_show'), text('compact_events_to_show')),
       ]),
@@ -322,9 +343,20 @@ describe('view withholding reconciles both directions', () => {
         ),
         expected,
       );
-      const entityForms = formsOf(await mount(config), entry());
-      expect(entityForms).toHaveLength(1);
-      reconcile(fields(entityForms[0].schema), expected);
+      // The one calendar's entry page draws each of its fields in a form of its own, grouped
+      // under the page's headings, so its fields are compared in the order the builder builds
+      // them.
+      const editor = await mount(config);
+      const entityForms = formsOf(editor, entry());
+      expect(entityForms.length).toBeGreaterThan(0);
+      expect(entityForms).toEqual(formsOf(editor, entry(0)));
+      const order = expected.map((field) => field.key);
+      reconcile(
+        entityForms
+          .flatMap((form) => fields(form.schema))
+          .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key)),
+        expected,
+      );
     }
   });
 
@@ -378,15 +410,24 @@ describe('withholding is not a search filter or a config edit', () => {
     reconcile(drawnInBuiltOrder(editor, expectedFields(after, to)), expectedFields(after, to));
   });
 
-  it('cannot be bypassed by panel, group, field, or customized-only searches', async () => {
+  it('cannot be bypassed by page, heading, field, or customized-only searches', async () => {
     const config = configFor('grid');
     const editor = await mount(config);
     expect(formsOf(editor, CARD).length).toBeGreaterThan(1);
+    // What applies to Grid, read off the built schemas rather than off the editor.
+    const cardKeys = expectedFields(
+      PANELS.flatMap((panel) => panel.build(context(config))),
+      'grid',
+    ).map((field) => field.key);
+    const calendarKeys = expectedFields(buildEntitySchema(context(config)), 'grid', true).map(
+      (field) => field.key,
+    );
 
+    let total = 0;
     for (const criteria of [
       { search: '', customized_only: false },
-      { search: 'Time Range & Content', customized_only: false },
-      { search: 'content', customized_only: false },
+      { search: 'Which Events', customized_only: false },
+      { search: 'which', customized_only: false },
       { search: 'compact', customized_only: false },
       { search: 'Multi-Day Events', customized_only: false },
       { search: 'empty_day_text', customized_only: false },
@@ -397,19 +438,35 @@ describe('withholding is not a search filter or a config edit', () => {
         'filter:search': criteria.search,
         'filter:customized_only': criteria.customized_only,
       });
-      const calendars = formsOf(editor, entry());
-      for (const form of [...formsOf(editor, CARD), ...calendars]) {
-        const actual = fields(form.schema);
-        reconcile(actual, expectedFields(form.schema, 'grid', calendars.includes(form)));
+      if (criteria.search === '') {
+        const calendars = formsOf(editor, entry());
+        for (const form of [...formsOf(editor, CARD), ...calendars]) {
+          const actual = fields(form.schema);
+          reconcile(actual, expectedFields(form.schema, 'grid', calendars.includes(form)));
+        }
+        continue;
       }
-      if (criteria.search === 'content') {
-        expect(
-          formsOf(editor, CARD)
-            .flatMap((form) => fields(form.schema))
-            .map((f) => f.key),
-        ).toContain('show_empty_days');
+      // A query lists rows: none of them a field Grid withholds.
+      const listed = resultRows(editor).map(({ id, ownerKey }) => ({
+        key: id.slice(id.indexOf(':') + 1),
+        calendar: ownerKey !== undefined,
+      }));
+      total += listed.length;
+      expect(
+        listed.filter(({ key, calendar }) => !(calendar ? calendarKeys : cardKeys).includes(key)),
+        criteria.search,
+      ).toEqual([]);
+      if (criteria.search === 'which') {
+        expect(listed.map(({ key }) => key)).toContain('show_empty_days');
       }
     }
+    // The denominators: rows were listed, and Grid does withhold fields the panels build, so
+    // "none of them withheld" can fail.
+    expect(total).toBeGreaterThan(10);
+    const built = PANELS.flatMap((panel) =>
+      fields(panel.build(context(config))).map((field) => field.key),
+    );
+    expect(built.filter((key) => !cardKeys.includes(key)).length).toBeGreaterThan(0);
   });
 
   it('preserves hidden root, calendar, and block values through edits and a view round trip', async () => {

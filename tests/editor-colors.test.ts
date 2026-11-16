@@ -19,12 +19,12 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { render } from 'lit';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   type MountedEditor,
   changeField,
+  entry,
   fakeHass,
   keysOf,
   lastConfig,
@@ -51,7 +51,6 @@ interface Internals {
   readonly _ctx: SchemaCtx;
   readonly _history: { peekUndo(): { readonly label: string } | undefined };
   _undo(): void;
-  _renderEntryColor(key: number, id: FieldId, ctx: SchemaCtx): unknown;
 }
 
 const internals = (editor: MountedEditor): Internals => editor as unknown as Internals;
@@ -341,6 +340,35 @@ async function openColor(editor: MountedEditor, id: FieldId): Promise<HTMLElemen
 }
 
 /**
+ * Goes to a calendar entry's page and opens its color control, as a user would.
+ *
+ * @param editor - Editor
+ * @param key - The entry's key
+ * @param id - The field the control is drawn for
+ * @returns The control, on the entry's page
+ */
+async function openEntryColor(
+  editor: MountedEditor,
+  key: number,
+  id: FieldId = 'calendar:accent_color_mode',
+): Promise<HTMLElement> {
+  await openPageOf(editor, id, entry({ key }));
+  const found = () => {
+    const at = editor.shadowRoot!.querySelector<HTMLElement>(
+      `.entry-page[data-entry-key="${key}"] .color-field[data-field="${id}"]`,
+    );
+    if (at === null) throw new Error(`No color control for ${id} on entry ${key}'s page`);
+    return at;
+  };
+  const toggle = found().querySelector<HTMLButtonElement>('.color-toggle')!;
+  if (toggle.getAttribute('aria-expanded') !== 'true') {
+    toggle.click();
+    await editor.updateComplete;
+  }
+  return found();
+}
+
+/**
  * Picks a row, a swatch or Custom in an open control.
  *
  * @param editor - Editor, awaited after the pick
@@ -550,22 +578,7 @@ describe('a change that arrives late, or a word typed', () => {
       },
     );
     const [anna] = keysOf(entries, 'entry');
-    const host = document.body.appendChild(document.createElement('div'));
-    const draw = async () => {
-      entries.requestUpdate();
-      await entries.updateComplete;
-      render(
-        internals(entries)._renderEntryColor(
-          anna,
-          'calendar:accent_color',
-          internals(entries)._ctx,
-        ),
-        host,
-      );
-    };
-    await draw();
-    host.querySelector<HTMLButtonElement>('.color-toggle')!.click();
-    await draw();
+    const host = await openEntryColor(entries, anna);
     await type(entries, host, 'accent_color', 'home-assistant');
     expect((lastConfig(entries)?.entities as ReadonlyArray<unknown>)[0]).toEqual({
       entity: 'calendar.anna',
@@ -644,19 +657,12 @@ describe('what each owner’s control writes', () => {
       },
     );
     const [anna] = keysOf(editor, 'entry');
-    const host = document.body.appendChild(document.createElement('div'));
-    const draw = async (): Promise<HTMLElement> => {
-      editor.requestUpdate();
-      await editor.updateComplete;
-      render(
-        internals(editor)._renderEntryColor(anna, 'calendar:accent_color', internals(editor)._ctx),
-        host,
-      );
-      return host;
-    };
-    let at = await draw();
-    at.querySelector<HTMLButtonElement>('.color-toggle')!.click();
-    at = await draw();
+    let at = await openEntryColor(editor, anna);
+    const draw = async (): Promise<HTMLElement> => openEntryColor(editor, anna);
+    // The page draws Anna's accent as one control: its value is inside it, not a field of its own.
+    expect(
+      at.closest('.entry-page')?.querySelectorAll('[data-field^="calendar:accent_color"]'),
+    ).toHaveLength(1);
     expect(at.querySelector('[data-color-row="follow-card"] input')).toHaveProperty(
       'checked',
       true,
@@ -667,6 +673,10 @@ describe('what each owner’s control writes', () => {
 
     await pick(editor, at, '[data-swatch="pink"]');
     at = await draw();
+    // Its own color now, still inside the one control rather than a field beside it.
+    expect(
+      at.closest('.entry-page')?.querySelectorAll('[data-field^="calendar:accent_color"]'),
+    ).toHaveLength(1);
     const entities = () => lastConfig(editor)?.entities as ReadonlyArray<unknown>;
     expect(entities()).toEqual([
       {
@@ -733,36 +743,20 @@ describe('Follow Home Assistant', () => {
     // Nothing is read until a control asks.
     expect(callWS).not.toHaveBeenCalled();
     const [anna, ben] = keysOf(editor, 'entry');
-    const hosts = [anna, ben].map(() => document.body.appendChild(document.createElement('div')));
-    const draw = async () => {
-      editor.requestUpdate();
-      await editor.updateComplete;
-      [anna, ben].forEach((key, at) =>
-        render(
-          internals(editor)._renderEntryColor(
-            key,
-            'calendar:accent_color_mode',
-            internals(editor)._ctx,
-          ),
-          hosts[at],
-        ),
-      );
-    };
-    await draw();
-    hosts[0].querySelector<HTMLButtonElement>('.color-toggle')!.click();
-    await draw();
     const said = (host: HTMLElement) =>
       host.querySelector('[data-color-row="follow-ha"] .display-description')?.textContent;
+    await openEntryColor(editor, anna);
     await vi.waitFor(() => expect(callWS).toHaveBeenCalledTimes(1));
     await vi.waitFor(async () => {
-      await draw();
-      expect(said(hosts[0])).toBe("Home Assistant's color for Anna: Teal");
+      editor.requestUpdate();
+      expect(said(await openEntryColor(editor, anna))).toBe(
+        "Home Assistant's color for Anna: Teal",
+      );
     });
-    // One control is open at a time: Ben's, now.
-    hosts[1].querySelector<HTMLButtonElement>('.color-toggle')!.click();
-    await draw();
-    expect(said(hosts[0])).toBeUndefined();
-    expect(said(hosts[1])).toBe('None set for Ben there, so it falls back to the card');
+    // Ben has none, and his page reads the same registry, once.
+    expect(said(await openEntryColor(editor, ben))).toBe(
+      'None set for Ben there, so it falls back to the card',
+    );
     expect(callWS).toHaveBeenCalledTimes(1);
     await vi.waitFor(() => expect(subscribeEvents).toHaveBeenCalledTimes(1));
 

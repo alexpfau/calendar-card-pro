@@ -28,6 +28,7 @@ import {
   openPageOf,
   openPanels,
   resetButton,
+  resultRows,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -75,23 +76,19 @@ beforeEach(() => {
 });
 
 describe('editor filter bar', () => {
-  it('narrows the rendered panels to the ones that match the search', async () => {
+  it('lists what the search finds in place of the overview’s forms', async () => {
     const element = await mount({ entities: ['calendar.a'] });
     const before = formsOf(element, CARD).length;
     expect(before).toBeGreaterThan(1);
 
     await changeFields(element, { 'filter:search': 'weather', 'filter:customized_only': false });
 
-    // What the search finds, drawn on the overview, every page's matches.
-    const during = formsOf(element, CARD).length;
-    expect(during).toBeGreaterThan(0);
-    expect(during).toBeLessThan(before);
-
-    const surviving = formsOf(element, CARD);
-    expect(surviving.some((form) => schemaNames(form).includes('weather'))).toBe(true);
+    // What the search finds, as rows, which mount no form.
+    expect(formsOf(element, CARD)).toHaveLength(0);
+    expect(resultRows(element).some((row) => row.id === 'weather:weather.entity')).toBe(true);
   });
 
-  it('restores every panel when the search is cleared', async () => {
+  it('restores every form when the search is cleared', async () => {
     const element = await mount({ entities: ['calendar.a'] });
     const before = formsOf(element, CARD).length;
 
@@ -249,7 +246,12 @@ describe('editor per-calendar forms', () => {
     });
     const seen = reported(element);
 
-    expect(formsOf(element, entry())).toHaveLength(2);
+    // Each calendar draws its own forms on its entry page, one per field, and no other entry's.
+    expect([0, 1].map((index) => formsOf(element, entry(index)).length > 0)).toEqual([true, true]);
+    expect(formsOf(element, entry())).toEqual([
+      ...formsOf(element, entry(0)),
+      ...formsOf(element, entry(1)),
+    ]);
 
     await changeField(element, 'calendar:label', 'CHANGED', entry(1));
 

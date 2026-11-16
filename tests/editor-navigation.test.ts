@@ -110,6 +110,19 @@ describe('routes', () => {
     expect(back(nav).restore?.search).toEqual({ query: 'color', editHere: false });
   });
 
+  it('still marks a page opened from search results after Back from a cross-link', () => {
+    const results = {
+      route: OVERVIEW.route,
+      scrollTop: 0,
+      search: { query: 'past', editHere: false },
+    };
+    const page = go(OVERVIEW, events, results);
+    const linked = go(page, dayHeader, from(events), 'cross-link');
+    expect(linked.fromResults).toBe(false);
+    // Back on the page the results opened, Return to Results is there again.
+    expect(back(linked).nav).toMatchObject({ route: events, fromResults: true });
+  });
+
   it('keys each route apart', () => {
     const keys = [
       OVERVIEW.route,

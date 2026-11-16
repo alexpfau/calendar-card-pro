@@ -363,8 +363,7 @@ export default css`
     margin-top: 8px;
   }
 
-  ha-expansion-panel.button-panel,
-  ha-expansion-panel.entity-panel {
+  ha-expansion-panel.button-panel {
     margin: 0;
   }
 
@@ -374,9 +373,8 @@ export default css`
      doing them again: an auto start margin holds it against the far edge, and on a narrow
      panel — where the four buttons no longer fit on one line — it wraps onto a line of its
      own rather than sitting next to Duplicate. A toolbar button's panel lays out Move Up,
-     Move Down and Remove the same way. */
-  .button-actions,
-  .entity-actions {
+     Move Down and Remove this way. */
+  .button-actions {
     border-bottom: 1px solid var(--divider-color);
     display: flex;
     flex-wrap: wrap;
@@ -384,22 +382,19 @@ export default css`
     padding-bottom: 8px;
   }
 
-  .button-actions-safe,
-  .entity-actions-safe {
+  .button-actions-safe {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
   }
 
-  .button-actions .destructive,
-  .entity-actions .destructive {
+  .button-actions .destructive {
     margin-inline-start: auto;
   }
 
-  /* Home Assistant's own Visibility editor sits between the two halves of a calendar's form,
-     under the Visibility heading that ends the first half. Its helper reads as a form field's
-     helper does, above the editor rather than below it, since the editor grows downward as
-     conditions are added. */
+  /* Home Assistant's own Visibility editor, under an entry page's Who Sees It. Its helper reads
+     as a form field's helper does, above the editor rather than below it, since the editor grows
+     downward as conditions are added. */
   .entity-visibility {
     display: flex;
     flex-direction: column;
@@ -789,6 +784,234 @@ export default css`
     flex-direction: column;
     gap: 4px;
     border-radius: 4px;
+  }
+
+  /* --- The calendar list and entry pages ------------------------------------
+     A row per entry; a calendar listed more than once gets a row of its own, its entries indented
+     under it. Every target is at least 44px. */
+  .cal-list,
+  .cal-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .cal-list {
+    gap: 8px;
+  }
+
+  .cal-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 56px;
+    border: 1px solid var(--divider-color);
+    border-radius: 12px;
+  }
+
+  .cal-row-head {
+    padding-inline-start: 16px;
+  }
+
+  .cal-row-entry {
+    margin-inline-start: 24px;
+  }
+
+  .cal-body {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    min-height: 56px;
+    padding: 8px 4px 8px 16px;
+    border: none;
+    border-radius: 12px;
+    background: none;
+    color: var(--primary-text-color);
+    cursor: pointer;
+    font: inherit;
+    text-align: start;
+  }
+
+  .cal-body:hover,
+  .strip-button:hover:not(:disabled) {
+    background: var(--secondary-background-color);
+  }
+
+  .cal-body:focus-visible,
+  .strip-button:focus-visible,
+  .cal-filter:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+
+  .cal-dot {
+    flex: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--cal-dot, var(--primary-color));
+  }
+
+  .cal-badge {
+    flex: none;
+    max-width: 48px;
+    overflow: hidden;
+  }
+
+  .cal-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .cal-summary {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--secondary-text-color);
+    font-size: 12px;
+    line-height: 1.45;
+    --mdc-icon-size: 16px;
+  }
+
+  .cal-missing,
+  .entry-notice.warning .icon {
+    fill: var(--warning-color);
+  }
+
+  .strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 12px;
+    background: var(--secondary-background-color);
+  }
+
+  .strip-button {
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 44px;
+    padding: 4px 12px;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    color: var(--primary-color);
+    cursor: pointer;
+    font: inherit;
+    font-size: 14px;
+    text-align: start;
+  }
+
+  .strip-button.destructive {
+    color: var(--error-color, #db4437);
+  }
+
+  .strip-button:disabled {
+    color: var(--disabled-text-color, #bdbdbd);
+    cursor: default;
+  }
+
+  .strip-keys,
+  .strip-note {
+    color: var(--secondary-text-color);
+    font: inherit;
+    font-size: 12px;
+  }
+
+  .cal-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 16px;
+    text-align: center;
+  }
+
+  .cal-empty p {
+    margin: 0;
+  }
+
+  .cal-filter {
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--divider-color);
+    border-radius: 8px;
+    background: var(--card-background-color);
+    color: var(--primary-text-color);
+    font: inherit;
+  }
+
+  .add-calendar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .add-calendar-actions,
+  .entry-steps {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .entry-steps {
+    justify-content: space-between;
+  }
+
+  .text-button.filled {
+    background: var(--primary-color);
+    color: var(--text-primary-color, #fff);
+  }
+
+  .text-button.filled:disabled {
+    background: var(--disabled-color, #bdbdbd);
+  }
+
+  .add-calendar-button,
+  .text-button.filled,
+  .entry-steps .text-button {
+    min-height: 44px;
+  }
+
+  .add-calendar-button {
+    align-self: flex-start;
+  }
+
+  .entry-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: var(--secondary-background-color);
+    font-size: 14px;
+    --mdc-icon-size: 20px;
+  /* The field a search result opened, Return to Results above it, highlighted for 2 s. */
+  .jump {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .return {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    align-self: flex-start;
+    min-height: 44px;
+  }
+
+  .jumped {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 4px;
   }
 
   .color-head {

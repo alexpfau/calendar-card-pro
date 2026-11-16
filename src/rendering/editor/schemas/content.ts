@@ -2,8 +2,6 @@
  * Content schema rows.
  */
 
-import { mdiCalendarRange } from '@mdi/js';
-
 import * as Config from '../../../config/config';
 import * as Types from '../../../config/types';
 import * as Helpers from '../../../utils/helpers';
@@ -11,15 +9,7 @@ import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx } from '../panels';
 import * as Synthetic from '../synthetic';
 import { resolveWorkspaceOption } from '../workspace';
-import { bool, color, group, heading, number, row, select, text } from './common';
-
-export const CONTENT_ICON = mdiCalendarRange;
-
-const COMPACT_ICON = 'M4 5h16v2H4V5m0 6h10v2H4v-2m0 6h16v2H4v-2Z';
-const LANGUAGE_ICON =
-  'M12.87 15.07l-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44' +
-  ' 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5' +
-  ' 3.11 3.11.76-2.04M18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12m-2.62 7l1.62-4.33L19.12 17h-3.24Z';
+import { bool, color, number, select, text } from './common';
 
 /**
  * The start-date controls, which vary with the shape of the value.
@@ -50,7 +40,8 @@ function startDateFields(language: string, mode: string): HaFormSchema[] {
  */
 function compactFields(hasEventLimit: boolean): HaFormSchema[] {
   return [
-    row(number('compact_days_to_show', 1), number('compact_events_to_show', 0)),
+    number('compact_days_to_show', 1),
+    number('compact_events_to_show', 0),
     ...(hasEventLimit ? [bool('compact_events_complete_days')] : []),
   ];
 }
@@ -85,29 +76,11 @@ const contentSchema = Helpers.memoizeLast(
       showEmptyDays || showEmptyToday ? [text('empty_day_text'), color('empty_day_color')] : [];
 
     return [
-      // The time range the card covers, which is what the panel's own title leads with.
-      heading('heading_time_range'),
       number('days_to_show', 1),
       ...startDateFields(language, startMode),
       select(language, 'first_day_of_week', ['system', 'monday', 'sunday']),
-      // Last in the range, because it says which end of the range the list starts from. A
-      // list option: the List workspace offers it, and the others withhold it.
+      // A list option: the List workspace offers it, and the others withhold it.
       select(language, 'event_order', ['earliest_first', 'latest_first']),
-
-      // The three runs below were one collapsed group titled "What The Card Shows", which
-      // put `show_past_events` — among the most commonly changed options in the card —
-      // behind a disclosure, along with the event-type filter and the empty-day handling.
-      // Nothing here is a refinement of anything above it: these decide which events the
-      // card holds at all, which is the same order of question as `days_to_show`. So the
-      // group's own caption is gone and its three sub-headings stand at panel level,
-      // leaving the two genuinely optional subjects — the compact override and the locale
-      // overrides — as the panel's only collapsibles.
-      //
-      // The shared spine, matched by `buildEntitySchema`: which events qualify → how they
-      // are arranged across days → and then whatever is unique to this panel. The two
-      // panels configure the same pipeline, so reading them in different orders is what
-      // made the editor hard to scan.
-      heading('heading_filters'),
       select(language, 'event_type', ['all', 'timed', 'all_day']),
       bool('show_past_events'),
       select(language, 'filter_duplicates_mode', Synthetic.FILTER_DUPLICATES_MODES),
@@ -115,33 +88,22 @@ const contentSchema = Helpers.memoizeLast(
       // so an always-visible field would be inert half the time — the silent no-op this
       // editor tries hard not to ship.
       ...(filterDuplicates ? [color('duplicate_accent_color')] : []),
-      // Last, because it acts on what the filters above leave rather than on one event: it
-      // drops rows from the top of the result, as the compact limit drops them from its end.
-      // Outside Compact Mode, because it stays in force expanded. A list option, like the order.
+      // A list option, like the order.
       number('skip_first_events', 0),
-
-      // How a multi-day event is drawn across days, per view family: the split for list and
-      // column, the banner for the time grid. Each workspace offers the one its views read.
-      heading('heading_multiday'),
+      // Each workspace offers the one its views read: the split for list and column, the
+      // banner for the time grid.
       bool('split_multiday_events'),
       bool('multiday_banners'),
-
-      // Card-level only: the pipeline's terminal state, when nothing survived it.
-      heading('heading_nothing'),
       bool('show_empty_days'),
       // Dependent for the same reason as the merged-row color above: with every empty day
       // showing, today is already one of them and the switch would do nothing.
       ...(showEmptyDays ? [] : [bool('show_empty_today')]),
       ...emptyDayFields,
       bool('hide_when_empty'),
-
-      group(language, 'compact_mode', COMPACT_ICON, compactFields(hasEventLimit)),
-
-      group(language, 'locale', LANGUAGE_ICON, [
-        select(language, 'language_mode', ['system', 'custom']),
-        ...(languageMode === 'custom' ? [text('language')] : []),
-        select(language, 'time_format', ['system', '24', '12']),
-      ]),
+      ...compactFields(hasEventLimit),
+      select(language, 'language_mode', ['system', 'custom']),
+      ...(languageMode === 'custom' ? [text('language')] : []),
+      select(language, 'time_format', ['system', '24', '12']),
     ];
   },
 );
