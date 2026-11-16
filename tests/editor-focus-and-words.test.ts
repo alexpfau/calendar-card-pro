@@ -129,20 +129,18 @@ describe('focus', () => {
     expect(deepFocus(editor)?.className).toBe('late-input');
   });
 
-  it('lands in the setting an Add row adds, never on its Remove', async () => {
+  it('keeps focus on a setting’s head as it opens, so the same press folds it again', async () => {
     const editor = await mount({ entities: [ANNA], view: 'list' });
     await goPage(editor, 'day_header');
-    const toggle = [
-      ...editor.shadowRoot!.querySelectorAll<HTMLElement>('.add-toggle[data-focus]'),
-    ][0];
+    const toggle = editor.shadowRoot!.querySelector<HTMLElement>('.setting-toggle[data-focus]')!;
+    toggle.focus();
     await press(editor, toggle.dataset.focus!);
-    const item = editor.shadowRoot!.querySelector<HTMLElement>('.add-item:not(.add-all)')!;
-    await press(editor, item.dataset.focus!);
     await frames();
 
-    const active = deepFocus(editor);
-    expect(active?.className).toBe('late-input');
-    expect(active?.closest?.('.field-line')).toBeFalsy();
+    expect(deepFocus(editor)).toBe(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    await press(editor, toggle.dataset.focus!);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
   });
 
   it('lands on the section a cross-link names, not on the page’s title', async () => {
@@ -252,13 +250,12 @@ describe('words', () => {
   it('names the Now line’s default color rather than spelling its hex code', async () => {
     const editor = await mount({ entities: [ANNA], view: 'list' });
     await goPage(editor, 'events');
-    await press(editor, 'add:heading_event_state');
 
+    // Its folded head says the value.
     expect(
       editor
-        .shadowRoot!.querySelector('[data-focus="add:heading_event_state"]')
-        ?.closest('.add-row')
-        ?.querySelector('.add-item-value')?.textContent,
+        .shadowRoot!.querySelector('.page-group[data-heading="heading_event_state"] .setting-value')
+        ?.textContent?.trim(),
     ).toBe('Emerald');
   });
 });

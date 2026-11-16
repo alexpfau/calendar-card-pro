@@ -74,10 +74,12 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     // How the results are drawn: Edit Here, and the calendars' rows a folded result opened.
     '_editHere',
     '_openResults',
-    // What a page shows besides what is stored (section 5.1): the settings added this session,
-    // the Add row open, and the two preferences, which this browser remembers instead.
+    // What a page shows besides what is stored (section 5.1): the settings opened this session,
+    // the state pill whose menu is open, the helpers shown behind their ⓘ, and the preference,
+    // which this browser remembers instead.
     '_added',
-    '_addOpen',
+    '_menuOpen',
+    '_helpOpen',
     '_prefs',
     // The ⋯ menu holding the preferences, and the page Search Settings left for the overview.
     '_prefsOpen',

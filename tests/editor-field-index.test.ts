@@ -769,7 +769,12 @@ describe('the index builds what the editor draws today', () => {
         if (resolved.has(reads)) continue;
         const answer = {
           label: form.computeLabel(node, form.data, { path }),
-          helper: form.computeHelper(node, { path }),
+          // A setting under a head row keeps its helper behind ⓘ, its form drawing none.
+          helper:
+            form.computeHelper(node, { path }) ??
+            ((form as unknown as Element).closest?.('.setting') ?? null)
+              ?.querySelector(':scope > .setting-help')
+              ?.textContent?.trim(),
         };
         resolved.set(reads, answer);
         // The control: a field's form binds the label path it had in its panel, which `ha-form`

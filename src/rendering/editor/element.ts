@@ -444,10 +444,34 @@ interface StatusLine {
   };
 }
 
+/**
+ * Whether a setting is a plain switch, whose head row starts with Home Assistant's own switch row
+ * rather than its name: a boolean no control of the editor's own is composed for.
+ *
+ * @param field - The field
+ * @returns Whether it is
+ */
+function isSwitchRow(field: IndexedField): boolean {
+  return (
+    'boolean' in field.node.selector &&
+    field.id !== OPENS_DETAILS_FIELD &&
+    field.id !== LEGEND_FIELD &&
+    !(field.id in Chips.CHIP_LABELS)
+  );
+}
+
 /** What a live field shows besides its control: its state words, and the line under it. */
 interface FieldShow {
   readonly words?: string;
   readonly line: TemplateResult | typeof nothing;
+  /** The setting's head row, which its heading draws above its control (`_settingShow`). */
+  readonly head?: ShownView.SettingHead;
+  /** Whether the control is drawn below the head. */
+  readonly open?: boolean;
+  /** Whether Home Assistant's own switch row starts the head, a switch's only control. */
+  readonly switchRow?: boolean;
+  /** The helper's element id: the helper sits behind ⓘ, so the form draws none of its own. */
+  readonly describedBy?: string;
 }
 
 /** Whose page a heading is planned for: the card's, or one calendar entry's, by its key. */
@@ -748,7 +772,10 @@ export class CalendarCardProEditor extends LitElement {
   @state() private _added: ReadonlySet<string> = new Set();
 
   /** The Add row open, by its `data-focus` key, and what its box narrows it to. */
-  @state() private _addOpen?: { readonly key: string; readonly query: string };
+  /** The state pill whose menu is open, by its `data-focus` key. */
+  @state() private _menuOpen?: string;
+  /** The settings whose helper is shown behind its ⓘ, by added-set key. */
+  @state() private _helpOpen: ReadonlySet<string> = new Set();
 
   @state() private _selectedWorkspace?: Workspace.EditorWorkspace;
 
@@ -1741,8 +1768,8 @@ export class CalendarCardProEditor extends LitElement {
         FieldId | null | undefined;
       const say = () => this._string(ctx, 'search.showing', { label });
       if (!id) {
-        // Every setting under it waits in its Add row, which takes focus instead.
-        if (group) Focus.focusFirst(group, ['.add-toggle']);
+        // Nothing under it is drawn as a field: its heading takes focus instead.
+        if (group) Focus.focusFirst(group, ['.heading']);
         this._say(say());
         return;
       }
@@ -2514,7 +2541,7 @@ export class CalendarCardProEditor extends LitElement {
       schema,
       data,
     };
-    const text = this._fieldText(slot, field, ctx, show?.words);
+    const text = this._fieldText(slot, field, ctx, show?.words, show?.describedBy === undefined);
     // Focus goes to a field's wrapper, never into its form.
     const wrapper = html`<div
       class="field"
@@ -2522,6 +2549,7 @@ export class CalendarCardProEditor extends LitElement {
       tabindex="-1"
       role="group"
       aria-label=${text.group}
+      aria-describedby=${show?.describedBy ?? nothing}
     >
       ${keyed(
         // Keyed by scope as well: reusing a form would redirect its pending events into the
@@ -2957,7 +2985,8 @@ export class CalendarCardProEditor extends LitElement {
       // Ids and structure only; labels and values are worded from `ctx.language`'s own fields.
       universe: universeIndex('en', workspace),
       added: this._added,
-      showEverySetting: this._prefs.every,
+      // Every page draws every setting that applies; one at its default folds to its head.
+      showEverySetting: true,
       pending: this._pending,
       entryKeys: this._entryKeysFor((this._config!.entities ?? []).length),
       previewed: this._previewedScope()?.view ?? this._viewForConfig(this._config!),
@@ -3020,7 +3049,6 @@ export class CalendarCardProEditor extends LitElement {
       this._pending,
       pctx.workspace,
       this._added,
-      this._prefs.every,
       this._entryKeys.join(),
       // A calendar's field reads the card's value in the layout the preview draws.
       pctx.previewed,
@@ -3043,7 +3071,8 @@ export class CalendarCardProEditor extends LitElement {
    * @param pctx - Plan context, the entry's on an entry page
    * @param ctx - Schema context
    * @param owner - The card, or a calendar entry
-   * @param heading - The heading's key, whose Add row or title takes focus after a Remove
+   * @param heading - The heading's key, whose title takes focus after a Remove
+   * @param why - Why the plan draws it, where a heading draws it with a head row
    * @returns What it shows
    */
   private _fieldShow(
@@ -3053,6 +3082,7 @@ export class CalendarCardProEditor extends LitElement {
     ctx: SchemaCtx,
     owner: PlanOwner,
     heading?: string,
+    why?: Extract<Plan.FieldState, { kind: 'live' }>['why'],
   ): FieldShow {
     const t = this._t(ctx);
     const layout = this._layoutName(ctx);
@@ -3105,10 +3135,265 @@ export class CalendarCardProEditor extends LitElement {
         onPress: () => this._resetField(field, owner, action, label, heading),
       });
     }
+    if (why !== undefined) {
+      return this._settingShow(
+        field,
+        appearance,
+        state,
+        owner,
+        notes,
+        calendars,
+        actions,
+        ctx,
+        why,
+      );
+    }
     return {
       words,
       line: ShownView.fieldLine({ notes, calendars, actions }),
     };
+  }
+
+  /**
+   * A setting's head row (backlog item 307): its name, while folded its value, ⓘ with its helper,
+   * its state pill in the one vocabulary (Default, Set, From All Layouts, Whole Card, From the
+   * Card, and under All Layouts "Grid Has Its Own"), and a chevron where it folds. The pill opens
+   * the notes and the Reset the line under a field used to hold. A setting at its default folds to
+   * its head until opened; opening adds it to the session's added set, so a value cleared while it
+   * is open does not fold it under the cursor.
+   *
+   * @param field - The field
+   * @param appearance - How its page shows it
+   * @param state - What `plan.ts` › `stateOf` found
+   * @param owner - The card, or a calendar entry
+   * @param notes - What the state words leave out
+   * @param calendars - "Set on Calendars:" with a link per entry
+   * @param actions - Reset or Remove
+   * @param ctx - Schema context
+   * @param why - Why the plan draws it
+   * @returns What it shows
+   */
+  private _settingShow(
+    field: IndexedField,
+    appearance: Appearance,
+    state: Plan.StateWords | undefined,
+    owner: PlanOwner,
+    notes: ReadonlyArray<{ text: string }>,
+    calendars: { label: string; links: ShownView.LineButton[] } | undefined,
+    actions: ReadonlyArray<ShownView.LineButton>,
+    ctx: SchemaCtx,
+    why: Extract<Plan.FieldState, { kind: 'live' }>['why'],
+  ): FieldShow {
+    const t = this._t(ctx);
+    const layout = this._layoutName(ctx);
+    const label = fieldLabel(field, ctx.language);
+    const key = this._addedKey(field.id, owner);
+    const words = state?.words;
+    const pillText = Shown.stateText(state, t) ?? t('state.default');
+    const atDefault =
+      words === undefined ||
+      words.kind === 'layout-default' ||
+      (words.kind === 'whole-card' && !words.stored);
+    const pill: ShownView.Pill = {
+      text: pillText,
+      tone: atDefault
+        ? 'default'
+        : words.kind === 'from-all-layouts' || words.kind === 'follows-card'
+          ? 'inherited'
+          : 'set',
+    };
+    const own = state?.layoutsOwn ?? [];
+    const warn: ShownView.Pill | undefined =
+      own.length === 0
+        ? undefined
+        : {
+            text:
+              own.length === 1
+                ? t('state.has_its_own', { layout: layout(own[0].view) })
+                : t('state.have_their_own', {
+                    layouts: EditorLocalize.formatList(
+                      ctx.language,
+                      own.map((each) => layout(each.view)),
+                      'conjunction',
+                    ),
+                  }),
+            tone: 'warning',
+          };
+    const menuKey = `pill:${key}`;
+    const menuOpen = this._menuOpen === menuKey;
+    const notesOf = [...notes.map((note) => note.text), ...(calendars ? [calendars.label] : [])];
+    const closing = (press: () => void) => () => {
+      this._menuOpen = undefined;
+      press();
+    };
+    const buttons = [
+      ...(calendars?.links ?? []).map((link) => ({ ...link, onPress: closing(link.onPress) })),
+      ...actions.map((action) => ({
+        ...action,
+        onPress: closing(() => {
+          action.onPress();
+          // The control stays open where it was, now at its default: added after the reset,
+          // which retires the setting's own key.
+          this._added = new Set([...this._added, key]);
+        }),
+      })),
+    ];
+    // A calendar's setting whose helper explains one of its values shows it only for that value.
+    const helpedValue =
+      owner.kind === 'entry' ? Entities.HELPER_FOR_VALUE[parseFieldId(field.id).name] : undefined;
+    const entryValue =
+      owner.kind === 'entry'
+        ? Entities.toEntityFormData(this._entryOf(owner.key) ?? '', this._config!.entities ?? [])[
+            parseFieldId(field.id).name
+          ]
+        : undefined;
+    const helper =
+      helpedValue === undefined || entryValue === helpedValue ? fieldHelper(field, ctx) : undefined;
+    const helpId = `help-${key.replace(/[^\w-]/g, '_')}`;
+    const helpOpen = this._helpOpen.has(key);
+    const isSwitch = isSwitchRow(field);
+    const jumped =
+      this._jump?.target !== undefined &&
+      'id' in this._jump.target &&
+      this._jump.target.id === field.id;
+    // Who Sees It is the only control under its heading, and Home Assistant's own editor: drawn open.
+    const folds =
+      !isSwitch &&
+      field.id !== `calendar:${VISIBILITY}` &&
+      atDefault &&
+      (why === 'every' || why === 'added');
+    // Opened on its own key: a family's members are live together, but each opens and folds alone,
+    // so opening one never moves the head of another.
+    const open = isSwitch || !folds || this._added.has(key) || jumped;
+    const data =
+      owner.kind === 'entry'
+        ? Entities.toEntityFormData(this._entryOf(owner.key) ?? '', this._config!.entities ?? [])
+        : this._formData();
+    const raw =
+      owner.kind === 'entry'
+        ? data[parseFieldId(field.id).name]
+        : Routing.atPath(data, field.dataPath, field.node.name);
+    // Only what reads as words: an action or a list no summary words shows no value.
+    const worded =
+      !folds || raw === undefined || raw === null || raw === ''
+        ? undefined
+        : (Summary.wordValue(field, raw, ctx.language, this._describe) ??
+          (typeof raw === 'object' ? undefined : String(raw)));
+    // A value worded as the pill already reads ("Default · Default") says nothing more.
+    const value =
+      worded === undefined || worded.trim().toLowerCase() === pillText.toLowerCase()
+        ? undefined
+        : worded;
+    const family =
+      typeof appearance === 'object' && 'family' in appearance ? appearance.family : undefined;
+    const head: ShownView.SettingHead = {
+      id: field.id,
+      label,
+      lang: ctx.language,
+      value,
+      pill,
+      warn,
+      menu:
+        notesOf.length > 0 || buttons.length > 0
+          ? {
+              key: menuKey,
+              open: menuOpen,
+              notes: notesOf,
+              buttons,
+              onToggle: () => {
+                this._menuOpen = menuOpen ? undefined : menuKey;
+              },
+            }
+          : undefined,
+      help: helper
+        ? {
+            id: helpId,
+            name: t('setting.about', { label }),
+            open: helpOpen,
+            onToggle: () => {
+              const next = new Set(this._helpOpen);
+              if (helpOpen) next.delete(key);
+              else next.add(key);
+              this._helpOpen = next;
+            },
+          }
+        : undefined,
+      fold: folds
+        ? {
+            key: `fold:${key}`,
+            open,
+            onToggle: () =>
+              open ? this._foldSetting(field, owner, family) : this._unfold(field, key),
+          }
+        : undefined,
+    };
+    return {
+      head,
+      // A switch's own row is its head; any other setting draws its control below the head.
+      open: open && !isSwitch,
+      switchRow: isSwitch,
+      describedBy: helper ? helpId : undefined,
+      line: nothing,
+    };
+  }
+
+  /**
+   * Whether a color's value is drawn inside its mode's control on this page, as `_renderField` and
+   * `_renderEntryField` draw it, so it has no head row of its own.
+   *
+   * @param field - The field
+   * @param owner - The card, or a calendar entry
+   * @param ctx - Schema context
+   * @returns Whether its mode's control holds it
+   */
+  private _absorbedColor(field: IndexedField, owner: PlanOwner, ctx: SchemaCtx): boolean {
+    if (owner.kind === 'entry') {
+      const spec = this._entryColors(ctx).specs.get(field.id);
+      return spec?.mode !== undefined && field.id === spec.value;
+    }
+    const spec = this._cardColors(ctx).specs.get(field.id);
+    return (
+      spec?.mode !== undefined &&
+      field.id === spec.value &&
+      this._drawing?.present.has(spec.mode) === true &&
+      this._drawing.shown.has(spec.mode)
+    );
+  }
+
+  /**
+   * Opens a setting folded to its head: added to the session's added set, so its control is drawn
+   * below the head, which keeps focus. A word list's text box takes it instead, ready to type.
+   *
+   * @param field - The field
+   * @param key - Its added-set key
+   */
+  private _unfold(field: IndexedField, key: string): void {
+    this._added = new Set([...this._added, key]);
+    if (WORD_LIST_FIELDS.has(field.id)) {
+      void this.updateComplete.then(() => {
+        const wrapper = this.renderRoot.querySelector<HTMLElement>(
+          `.field[data-field="${CSS.escape(field.id)}"]`,
+        );
+        if (!wrapper) return;
+        // From the head, which the press focused, into the box once Home Assistant draws it.
+        wrapper.focus({ preventScroll: true });
+        Focus.focusTextBoxSoon(wrapper);
+      });
+    }
+  }
+
+  /**
+   * Folds an opened setting back to its head: its own key out of the added set, and its family's,
+   * which a search may have added. Its family's other members stay as they are.
+   *
+   * @param field - The field
+   * @param owner - The card, or a calendar entry
+   * @param family - Its family, where it has one
+   */
+  private _foldSetting(field: IndexedField, owner: PlanOwner, family?: FamilyId): void {
+    const ids = family === undefined ? [field.id] : [field.id, `family:${family}`];
+    const gone = new Set(ids.map((id) => this._addedKey(id, owner)));
+    this._added = new Set([...this._added].filter((each) => !gone.has(each)));
   }
 
   /**
@@ -3130,9 +3415,9 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * Draws the headings of a page or of a calendar entry's page from their plans: each heading's
-   * title and line, its live fields in registry order, its Add row, its gate lines and the values
-   * stored for settings that are not in use (section 5.2). A heading with none of these, and
-   * nothing else to draw, is left out.
+   * title and line, and in registry order every setting under its head row and every setting a
+   * gate withholds in its place, then the values stored for settings that are not in use (section
+   * 5.2). A heading with none of these, and nothing else to draw, is left out.
    *
    * @param plans - The headings' plans
    * @param pctx - Plan context, the entry's on an entry page
@@ -3142,7 +3427,6 @@ export class CalendarCardProEditor extends LitElement {
    * @param data - Form data the gates read
    * @param draw - Draws one live field
    * @param extra - What a heading draws besides its fields
-   * @param topTitle - The name a page's unheaded top run goes by in its Add row
    * @returns The headings
    */
   private _renderHeadings(
@@ -3154,7 +3438,6 @@ export class CalendarCardProEditor extends LitElement {
     data: { card: Record<string, unknown>; entry?: Record<string, unknown> },
     draw: (field: IndexedField, show: FieldShow) => unknown,
     extra: (heading: HeadingDef) => unknown,
-    topTitle: string,
   ): unknown[] {
     const t = this._t(ctx);
     // Labels resolve through `ctx.language` whichever index a field comes from.
@@ -3167,53 +3450,7 @@ export class CalendarCardProEditor extends LitElement {
     return plans.flatMap((plan) => {
       const { heading } = plan;
       const title = this._headingTitle(heading, ctx);
-      const name = title ?? topTitle;
       const more = extra(heading);
-      // The chips of one kind are drawn together where the first of them is placed, and Calendar
-      // Filter as its radio group (section 5.9); every other field in a form of its own.
-      const grouped = new Set<string>();
-      const live = plan.live.flatMap(({ id, appearance }) => {
-        if (typeof appearance === 'object' && 'chips' in appearance) {
-          if (grouped.has(appearance.chips)) return [];
-          grouped.add(appearance.chips);
-          return [
-            keyed(
-              `chips:${appearance.chips}`,
-              this._renderChips(appearance.chips, heading, pctx, ctx),
-            ),
-          ];
-        }
-        const field = present.get(id);
-        if (field !== undefined && appearance === 'segmented') {
-          return [
-            keyed(`:${id}`, this._renderSegmented(field, appearance, pctx, ctx, heading.key)),
-          ];
-        }
-        return field
-          ? [
-              keyed(
-                `${owner.kind === 'entry' ? owner.key : ''}:${id}`,
-                draw(field, this._fieldShow(field, appearance, pctx, ctx, owner, heading.key)),
-              ),
-            ]
-          : [];
-      });
-      const addKey = `add:${heading.key ?? 'top'}`;
-      const helper =
-        heading.helperKey === undefined ? undefined : this._string(ctx, heading.helperKey);
-      const crossLink =
-        this._crossLink(heading, ctx) ?? this._pointer(heading, owner, ctx, labelOf);
-      // Where the title and the Add row would stack with nothing between, the row carries the
-      // title in place of the heading.
-      const named =
-        live.length === 0 && more === nothing && helper === undefined && crossLink === undefined;
-      const add =
-        plan.add.length === 0 || this._prefs.every
-          ? nothing
-          : this._renderAddRow(plan, addKey, name, named, owner, ctx, known);
-      // One line per condition waited on: the names still to come, else the line alone with the
-      // stored values after it.
-      const byWhen = new Map<string, { names: string[]; held: number }>();
       const when = (gate: Plan.HeadingPlan['gated'][number]['gate']): string =>
         whenText(gate, data, ctx.language, labelOf) ?? '';
       // A chip a gate withholds says why on itself ("Needs Time"), so no gate line names it.
@@ -3221,13 +3458,110 @@ export class CalendarCardProEditor extends LitElement {
         const appearance = Plan.appearanceOf(id);
         return typeof appearance === 'object' && 'chips' in appearance;
       };
+      // Every setting in registry order: the chips of one kind together where the first of them
+      // is placed, Calendar Filter as its radio group (section 5.9), every other setting under its
+      // head row, and a setting a gate withholds in its place, saying when it appears.
+      const order = new Map(heading.fields.map(([id], at) => [id, at]));
+      const prefix = owner.kind === 'entry' ? owner.key : '';
+      const grouped = new Set<string>();
+      type Item =
+        | { readonly at: number; readonly drawn: unknown }
+        | { readonly at: number; readonly gated: FieldId; readonly clause: string };
+      const items: Item[] = [];
+      for (const { id, appearance, why } of plan.live) {
+        const at = order.get(id) ?? 0;
+        if (typeof appearance === 'object' && 'chips' in appearance) {
+          if (grouped.has(appearance.chips)) continue;
+          grouped.add(appearance.chips);
+          items.push({
+            at,
+            drawn: keyed(
+              `chips:${appearance.chips}`,
+              this._renderChips(appearance.chips, heading, pctx, ctx),
+            ),
+          });
+          continue;
+        }
+        const field = present.get(id);
+        if (field === undefined) continue;
+        if (appearance === 'segmented') {
+          items.push({
+            at,
+            drawn: keyed(
+              `:${id}`,
+              this._renderSegmented(field, appearance, pctx, ctx, heading.key),
+            ),
+          });
+          continue;
+        }
+        // A color's value is drawn inside its mode's control where the page draws both: no head.
+        if (this._absorbedColor(field, owner, ctx)) continue;
+        const show = this._fieldShow(field, appearance, pctx, ctx, owner, heading.key, why);
+        const head = show.head!;
+        items.push({
+          at,
+          drawn: keyed(
+            `${prefix}:${id}`,
+            html`<div class="setting${show.open ? ' open' : ''}" data-setting=${id}>
+              ${ShownView.settingHead(
+                show.switchRow ? { ...head, control: draw(field, show) } : head,
+              )}
+              ${show.open ? draw(field, show) : nothing}
+              ${
+                head.help
+                  ? ShownView.settingHelp(head.help.id, fieldHelper(field, ctx)!, head.help.open)
+                  : nothing
+              }
+            </div>`,
+          ),
+        });
+      }
+      // The conditions a setting drawn in place already says it waits on.
+      const said = new Set<string>();
       for (const each of plan.gated) {
         if (isChip(each.id)) continue;
         const clause = when(each.gate);
-        const line = byWhen.get(clause) ?? { names: [], held: 0 };
-        line.names.push(labelOf(each.id));
-        byWhen.set(clause, line);
+        said.add(clause);
+        items.push({ at: order.get(each.id) ?? 0, gated: each.id, clause });
       }
+      items.sort((a, b) => a.at - b.at);
+      const live: unknown[] = [];
+      for (let at = 0; at < items.length; at++) {
+        const item = items[at];
+        if (!('gated' in item)) {
+          live.push(item.drawn);
+          continue;
+        }
+        // Settings in a row waiting on the same condition share one line.
+        const run = [item.gated];
+        while (at + 1 < items.length) {
+          const next = items[at + 1];
+          if (!('gated' in next) || next.clause !== item.clause) break;
+          run.push(next.gated);
+          at++;
+        }
+        live.push(
+          keyed(
+            `${prefix}:${run[0]}:gated`,
+            run.length === 1
+              ? ShownView.gatedRow(
+                  run[0],
+                  t('gate.line_bare', { when: item.clause }),
+                  labelOf(run[0]),
+                )
+              : ShownView.gatedRow(
+                  run[0],
+                  t('gate.line', { when: item.clause, names: run.map(labelOf).join(', ') }),
+                ),
+          ),
+        );
+      }
+      const helper =
+        heading.helperKey === undefined ? undefined : this._string(ctx, heading.helperKey);
+      const crossLink =
+        this._crossLink(heading, ctx) ?? this._pointer(heading, owner, ctx, labelOf);
+      // One line per condition the stored values of settings not in use wait on.
+      const byWhen = new Map<string, { names: string[]; held: number }>();
       for (const each of plan.inactive) {
         if (each.gate.kind !== 'gate' || isChip(each.id)) continue;
         const clause = when(each.gate);
@@ -3235,11 +3569,14 @@ export class CalendarCardProEditor extends LitElement {
         line.held += 1;
         byWhen.set(clause, line);
       }
-      const gateLines = [...byWhen].map(([clause, line]) =>
-        line.names.length > 0
-          ? t('gate.line', { when: clause, names: line.names.join(', ') })
-          : t('gate.line_bare', { when: clause }),
-      );
+      const gateLines = [...byWhen]
+        // A condition a setting in place already names needs no line of its own.
+        .filter(([clause, line]) => line.names.length > 0 || !said.has(clause))
+        .map(([clause, line]) =>
+          line.names.length > 0
+            ? t('gate.line', { when: clause, names: line.names.join(', ') })
+            : t('gate.line_bare', { when: clause }),
+        );
       const inactive = plan.inactive.flatMap((each) => {
         const field = known(each.id);
         if (field === undefined) return [];
@@ -3289,13 +3626,13 @@ export class CalendarCardProEditor extends LitElement {
           },
         ];
       });
-      if (live.length === 0 && add === nothing && gateLines.length === 0 && inactive.length === 0) {
+      if (live.length === 0 && gateLines.length === 0 && inactive.length === 0) {
         if (more === nothing) return [];
       }
       const family = this._liveFamily(plan);
       return [
         PageView.headingBlock({
-          title: named && add !== nothing ? undefined : title,
+          title,
           key: heading.key,
           helper,
           crossLink,
@@ -3303,26 +3640,26 @@ export class CalendarCardProEditor extends LitElement {
             family === undefined
               ? undefined
               : ShownView.lineButton({
-                  label: t('reset.remove'),
-                  name: t('reset.remove_named', {
+                  label: t('reset.reset'),
+                  name: t('reset.named', {
                     label: this._string(ctx, FAMILIES[family].titleKey),
                   }),
                   focus: `remove-family:${family}`,
-                  kind: 'remove',
+                  kind: 'reset',
                   onPress: () => this._removeFamily(family, owner, ctx, heading.key),
                 }),
           // Split This Calendar opens Which Events (plan section 5.6); every other extra follows
           // its heading's fields.
           body: heading.extras?.includes('split')
-            ? html`${more} ${live} ${add} ${ShownView.gateLines(gateLines, inactive)}`
-            : html`${live} ${more} ${add} ${ShownView.gateLines(gateLines, inactive)}`,
+            ? html`${more} ${live} ${ShownView.gateLines(gateLines, inactive)}`
+            : html`${live} ${more} ${ShownView.gateLines(gateLines, inactive)}`,
         }),
       ];
     });
   }
 
   /**
-   * The family a heading shows because it is stored or was added, which its ✕ removes.
+   * The family a heading shows a stored value of, which its Reset resets in one step.
    *
    * @param plan - The heading's plan
    * @returns The family, or `undefined`
@@ -3330,114 +3667,10 @@ export class CalendarCardProEditor extends LitElement {
   private _liveFamily(plan: Plan.HeadingPlan): FamilyId | undefined {
     for (const { appearance, why } of plan.live) {
       if (typeof appearance === 'object' && 'family' in appearance) {
-        if (why === 'stored' || why === 'added') return appearance.family;
+        if (why === 'stored') return appearance.family;
       }
     }
     return undefined;
-  }
-
-  /**
-   * A heading's Add row: closed, its settings named; open, one button per setting.
-   *
-   * @param plan - The heading's plan
-   * @param key - The row's `data-focus` key
-   * @param heading - The heading's name
-   * @param named - Whether the row stands in for the heading: nothing live, no line between
-   * @param owner - The card, or a calendar entry
-   * @param ctx - Schema context
-   * @param known - A field by id
-   * @returns The row
-   */
-  private _renderAddRow(
-    plan: Plan.HeadingPlan,
-    key: string,
-    heading: string,
-    named: boolean,
-    owner: PlanOwner,
-    ctx: SchemaCtx,
-    known: (id: FieldId) => IndexedField | undefined,
-  ): TemplateResult {
-    const t = this._t(ctx);
-    const data = owner.kind === 'entry' ? undefined : this._formData();
-    const items = plan.add.flatMap((item): ShownView.AddItem[] => {
-      if (item.kind === 'family') {
-        const family = FAMILIES[item.family];
-        const added = this._addedKey(`family:${item.family}`, owner);
-        return [
-          {
-            key: `family:${item.family}`,
-            label: this._string(ctx, family.titleKey),
-            helper: Shown.firstSentence(
-              family.helperKey === undefined ? undefined : this._string(ctx, family.helperKey),
-            ),
-            onAdd: () =>
-              this._addSettings([added], this._string(ctx, family.titleKey), item.ids[0], ctx),
-          },
-        ];
-      }
-      const field = known(item.id);
-      if (field === undefined) return [];
-      const label = fieldLabel(field, ctx.language);
-      const value =
-        data === undefined
-          ? undefined
-          : Summary.wordValue(
-              field,
-              Routing.atPath(data, field.dataPath, field.node.name),
-              ctx.language,
-              this._describe,
-            );
-      return [
-        {
-          key: item.id,
-          label,
-          helper: Shown.firstSentence(fieldHelper(field, ctx)),
-          value,
-          onAdd: () => this._addSettings([this._addedKey(item.id, owner)], label, item.id, ctx),
-        },
-      ];
-    });
-    const open = this._addOpen?.key === key;
-    // A family is one item named by the family, but the closed row names its members: under a
-    // heading named as the family, its name alone would only repeat the heading. The count counts
-    // what it names.
-    const names = plan.add.flatMap((item) =>
-      item.kind === 'family'
-        ? item.ids.flatMap((id) => {
-            const field = known(id);
-            return field === undefined ? [] : [fieldLabel(field, ctx.language)];
-          })
-        : items.filter((each) => each.key === item.id).map((each) => each.label),
-    );
-    return ShownView.addRow(
-      {
-        key,
-        heading,
-        named,
-        names: names.join(' · '),
-        count: names.length,
-        items,
-        open,
-        query: open ? this._addOpen!.query : '',
-        onToggle: () => {
-          this._addOpen = open ? undefined : { key, query: '' };
-        },
-        onShowAll: () => {
-          this._addSettings(
-            items.map((item) => this._addedKey(item.key, owner)),
-            undefined,
-            plan.add[0].kind === 'field' ? plan.add[0].id : plan.add[0].ids[0],
-            ctx,
-            heading,
-          );
-          this._addOpen = undefined;
-        },
-        onQuery: (query) => {
-          this._addOpen = { key, query };
-        },
-      },
-      t,
-    );
   }
 
   /** The card's color specs for a context (`colors.ts` › `cardColorFields`). */
@@ -3857,45 +4090,6 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Adds settings to the session's added set: their page draws them, and nothing is written
-   * (rule 3). Focus moves into the one setting added, ready to type into (`views/focus.ts` ›
-   * `focusInto`), or to the first field's wrapper after Show All, and the change is said.
-   *
-   * @param keys - Added-set keys
-   * @param label - The setting added, for "Added Time Font Size."; none for Show All
-   * @param focusId - The field whose wrapper takes focus
-   * @param ctx - Schema context
-   * @param heading - The heading, for "Showing every setting under Time."
-   */
-  private _addSettings(
-    keys: ReadonlyArray<string>,
-    label: string | undefined,
-    focusId: FieldId,
-    ctx: SchemaCtx,
-    heading?: string,
-  ): void {
-    this._added = new Set([...this._added, ...keys]);
-    this._say(
-      label === undefined
-        ? this._string(ctx, 'announce.showing_all', { heading: heading ?? '' })
-        : this._string(ctx, 'announce.added', { label }),
-    );
-    void this.updateComplete.then(() => {
-      const wrapper = this.renderRoot.querySelector<HTMLElement>(
-        `[data-field="${CSS.escape(focusId)}"]`,
-      );
-      if (!wrapper) return;
-      // One setting added is one to type into; Show All lands on the first of them. A word list
-      // draws its text box after its buttons, so focus waits for that box rather than the first.
-      if (label === undefined) wrapper.focus({ preventScroll: true });
-      else if (WORD_LIST_FIELDS.has(focusId)) {
-        wrapper.focus({ preventScroll: true });
-        Focus.focusTextBoxSoon(wrapper);
-      } else Focus.focusInto(wrapper);
-    });
-  }
-
-  /**
    * Resets a field's line where this page writes it, through `reset.ts`, as one undo step. Reset
    * keeps the control and focuses its wrapper; Remove also takes the field from the added set,
    * so it goes back to its Add row, which takes focus, else its heading does.
@@ -3956,8 +4150,8 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Removes a family shown on a page: every member's line here, and the family from the added
-   * set, in one step.
+   * Resets a family a page shows a stored value of: every member's line here, in one step. Its
+   * members stay drawn, at their defaults.
    *
    * @param family - The family
    * @param owner - The card, or a calendar entry
@@ -3978,7 +4172,8 @@ export class CalendarCardProEditor extends LitElement {
     this._commit(this._string(ctx, 'history.reset', { setting: name }), undefined, () =>
       this._applyReset(target, []),
     );
-    this._say(this._string(ctx, 'announce.removed_setting', { label: name }));
+    // The family stays on its page, now at its defaults.
+    this._say(this._string(ctx, 'reset.named', { label: name }));
     this._focusAfterReset(undefined, heading);
   }
 
@@ -4023,7 +4218,7 @@ export class CalendarCardProEditor extends LitElement {
     const group = `.page-group[data-heading="${CSS.escape(heading ?? '')}"]`;
     this._focusSoon([
       ...(id === undefined ? [] : [`[data-field="${CSS.escape(id)}"]`]),
-      `${group} .add-toggle`,
+      `[data-setting="${CSS.escape(id ?? '')}"] .setting-toggle`,
       `${group} .heading`,
       '.page-title',
       // On the overview, which has no page headings: its own fields, then its first heading.
@@ -4208,12 +4403,15 @@ export class CalendarCardProEditor extends LitElement {
 
   /** Closes the strip, Add Calendar and the keyboard grab, which belong to the place being left. */
   private _closeDisclosures(): void {
+    // A setting opened on the page being left folds again, unless it now holds a value.
+    this._added = new Set();
+    this._helpOpen = new Set();
     this._prefsOpen = false;
     this._auditEdit = undefined;
     this._openStrip = undefined;
     this._adding = undefined;
     this._grab = undefined;
-    this._addOpen = undefined;
+    this._menuOpen = undefined;
   }
 
   /**
@@ -4386,7 +4584,7 @@ export class CalendarCardProEditor extends LitElement {
           this._auditEdit !== undefined ||
           this._openStrip !== undefined ||
           this._adding !== undefined ||
-          this._addOpen !== undefined ||
+          this._menuOpen !== undefined ||
           this._split !== undefined),
       onPage:
         wizard !== undefined ||
@@ -4421,7 +4619,7 @@ export class CalendarCardProEditor extends LitElement {
       this._split !== undefined &&
       this._openStrip === undefined &&
       this._adding === undefined &&
-      this._addOpen === undefined &&
+      this._menuOpen === undefined &&
       this._auditEdit === undefined &&
       !this._scopeOpen
     ) {
@@ -4430,7 +4628,7 @@ export class CalendarCardProEditor extends LitElement {
     } else if (action === 'close') {
       // The disclosure opened last closes, focus back on what opened it.
       const strip = this._openStrip;
-      const addRow = this._addOpen?.key;
+      const pill = this._menuOpen;
       const edited = this._auditEdit?.line.text;
       const opener =
         edited !== undefined
@@ -4439,13 +4637,13 @@ export class CalendarCardProEditor extends LitElement {
             ? `more:${strip}`
             : this._adding !== undefined
               ? 'add-calendar'
-              : addRow !== undefined
-                ? addRow
+              : pill !== undefined
+                ? pill
                 : 'scope-change';
       if (edited !== undefined) this._auditEdit = undefined;
       else if (strip !== undefined) this._openStrip = undefined;
       else if (this._adding !== undefined) this._adding = undefined;
-      else if (addRow !== undefined) this._addOpen = undefined;
+      else if (pill !== undefined) this._menuOpen = undefined;
       else this._scopeOpen = false;
       this._focusSoon([Focus.byFocusKey(opener)]);
     } else if (action === 'back') {
@@ -4579,7 +4777,7 @@ export class CalendarCardProEditor extends LitElement {
   private _openScope = (): void => {
     this._scopeOpen = true;
     // One disclosure at a time, so Escape closes the one just opened.
-    this._addOpen = undefined;
+    this._menuOpen = undefined;
     this._focusSoon([`input[name="scope"]:checked`, `input[name="scope"]`]);
   };
 
@@ -4871,10 +5069,8 @@ export class CalendarCardProEditor extends LitElement {
     return MenuView.prefsMenu({
       name: t('prefs.menu'),
       open: this._prefsOpen,
-      items: [
-        item('every', t('prefs.every'), t('prefs.every_note')),
-        item('yaml', t('prefs.yaml'), t('prefs.yaml_note')),
-      ],
+      // Every page draws every setting, so Show YAML Option Names is the one preference left.
+      items: [item('yaml', t('prefs.yaml'), t('prefs.yaml_note'))],
       onOpen: (open, at) => {
         this._prefsOpen = open;
         if (open && at !== undefined) {
@@ -4908,7 +5104,6 @@ export class CalendarCardProEditor extends LitElement {
       this.hass?.states,
       // Action values are worded through it, and Home Assistant loads its strings late.
       this.hass?.localize,
-      this._prefs.every,
     ];
     const kept = this._indexKept;
     if (kept && kept.deps.every((each, at) => each === deps[at])) return kept.index;
@@ -5302,7 +5497,6 @@ export class CalendarCardProEditor extends LitElement {
       (field, show) => this._renderField(field, ctx, show),
       (heading) =>
         heading.extras?.includes('own-buttons') ? this._renderToolbarButtons(ctx) : nothing,
-      this._pageTitle(page, ctx),
     );
     if (page.id === 'size_spacing') {
       const layout = PANELS.find((panel) => panel.id === 'layout')!;
@@ -7014,7 +7208,8 @@ export class CalendarCardProEditor extends LitElement {
       field,
       ctx,
       show?.words,
-      helpedValue === undefined || data[name] === helpedValue,
+      // Behind the setting's ⓘ where its head draws one; else only for the value it explains.
+      show?.describedBy === undefined && (helpedValue === undefined || data[name] === helpedValue),
     );
     const schema = this._intern(slot, this._yamlSchema(field, data, ctx));
     // The field's own projection of the entry's data, as a card field gets, so a write to one
@@ -7034,6 +7229,7 @@ export class CalendarCardProEditor extends LitElement {
       tabindex="-1"
       role="group"
       aria-label=${fieldLabel(field, ctx.language)}
+      aria-describedby=${show?.describedBy ?? nothing}
     >
       ${keyed(
         workspace,
@@ -7951,7 +8147,6 @@ export class CalendarCardProEditor extends LitElement {
           : this._renderEntryField(field, key, data, ctx, show),
       // Split This Calendar, at Which Events (D12): its row, or the task while it is open.
       (heading) => (heading.extras?.includes('split') ? this._renderSplit(key, ctx) : nothing),
-      name,
     );
     return html`<div
       class="page entry-page"

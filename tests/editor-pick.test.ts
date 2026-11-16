@@ -222,14 +222,15 @@ describe('Pick From Preview', () => {
     fire(day, 'click');
     await settle(editor, card);
     expect($(editor, '.page[data-page="day_header"]')).not.toBeNull();
+    // Every setting is drawn, so the heading's first in the registry, opened by the jump.
     const jump = $(editor, '.page-group[data-heading=""] .jump [data-field]');
-    expect(jump?.getAttribute('data-field')).toBe('day_header:show_month');
+    expect(jump?.getAttribute('data-field')).toBe('day_header:date_vertical_alignment');
     expect($(editor, '[data-pick-banner]')).toBeNull();
     expect(card.shadowRoot!.querySelector('.ccp-pick-layer')).toBeNull();
     expect(said).toContain('Showing Day Header.');
   });
 
-  it('opens a heading whose settings all wait in its Add row at that row', async () => {
+  it('opens a heading whose settings are all folded at its first, opened', async () => {
     const { editor, card } = await dialog();
     pickButton(editor)!.click();
     await settle(editor, card);
@@ -241,9 +242,11 @@ describe('Pick From Preview', () => {
     );
     fire(location, 'click');
     await settle(editor, card);
-    expect(editor.shadowRoot!.activeElement).toBe(
-      $(editor, '.page-group[data-heading="location"] .add-toggle'),
-    );
+    const jump = $(editor, '.page-group[data-heading="location"] .jump [data-field]');
+    expect(jump).not.toBeNull();
+    expect(
+      editor.shadowRoot!.activeElement?.closest('.page-group')?.getAttribute('data-heading'),
+    ).toBe('location');
     expect(said).toContain('Showing Event Appearance › Location.');
   });
 

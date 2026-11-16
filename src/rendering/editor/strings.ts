@@ -119,21 +119,13 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'announce.moved': 'Moved {name} to position {position} of {total}.',
   'announce.pasted': 'Pasted settings into {name}.',
   'announce.added': 'Added {label}.',
-  'announce.showing_all': 'Showing every setting under {heading}.',
   'announce.removed_setting': 'Removed {label} and reset it.',
 
   // --- Show What Applies ----------------------------------------------------
   //
-  // A page draws what applies here and is essential, stored, inherited with a different value or
-  // added; the rest of a heading waits in its Add row, named. Counts are a label and a number,
-  // which inflects nothing.
-  'add.setting': 'Add Setting',
-  'add.setting_under': '{heading} · Add Setting',
-  'add.name': 'Add Setting under {heading}, Settings: {count}',
-  'add.count': 'Settings: {count}',
-  'add.group': 'Settings to Add under {heading}',
-  'add.show_all': 'Show All',
-  'add.filter': 'Filter Settings',
+  // A page draws every setting that applies; one at its default folds to its head row, which
+  // opens it. Its ⓘ, named for the setting, shows its helper.
+  'setting.about': 'About {label}',
   // What a field says about where its value comes from, after its label or before its helper: one
   // vocabulary on every page, since Settings For already names the layout. "Default" is a layout's
   // own default; a field following the card's says nothing.
@@ -148,6 +140,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'state.from_card': 'From the Card',
   // Under a field in All Layouts, for each layout the All Layouts value does not reach.
   'state.layout_own': '{layout} Has Its Own: {value}',
+  // Under All Layouts, beside the pill of a setting a layout does not take the shared value for.
+  'state.has_its_own': '{layout} Has Its Own',
+  'state.have_their_own': '{layouts} Have Their Own',
   'state.set_on_calendars': 'Set on Calendars:',
   // The button under a stored field. Reset keeps the setting on the page and names the value it
   // goes back to, "Reset (Off)", or "Reset (Empty)" where nothing comes back. Remove Setting takes
@@ -156,11 +151,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'reset.to': 'Reset ({value})',
   'reset.empty': 'Reset (Empty)',
   'reset.reset': 'Reset',
+  'reset.remove': 'Remove',
   'reset.named': 'Reset {label}',
   'reset.named_to': 'Reset {label} to {value}',
   'reset.named_empty': 'Reset {label} to Empty',
   'reset.remove_setting': 'Remove Setting',
-  'reset.remove': 'Remove',
   'reset.remove_named': 'Remove {label} and Reset It',
   'reset.remove_named_to': 'Remove {label} and Reset It to {value}',
   // One Reset per group of chips, for every chip stored in this scope; its name lists them.
@@ -172,11 +167,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'inactive.line_top': 'Stored but not in use: {label} ({value}), from All Layouts',
   'inactive.line_bare': 'Stored but not in use: {label}',
   'inactive.line_top_bare': 'Stored but not in use: {label}, from All Layouts',
-  // The two preferences under More, remembered in this browser (`prefs.ts`).
-  'prefs.every': 'Show Every Setting',
-  'prefs.every_note':
-    'Pages open with every setting that applies as a control, instead of naming the rest in Add ' +
-    'Setting rows. Remembered in this browser.',
+  // The preference under More, remembered in this browser (`prefs.ts`).
   'prefs.yaml': 'Show YAML Option Names',
   'prefs.yaml_note':
     'Shows each setting’s option name beside its label, in search and in What This Card Changes. Remembered in this browser.',

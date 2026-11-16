@@ -1,15 +1,14 @@
 /**
- * What a page draws around its live fields (backlog item 307): the line under a field with its
- * notes and its Reset or Remove, a heading's Add row, its gate line and the values stored for
- * settings that are not in use. Templates only, as `overview.ts`.
+ * What a page draws around its settings (backlog item 307): each setting's head row with its
+ * state pill, ⓘ and chevron, the pill's menu with the notes and Reset, a setting a gate withholds
+ * in its place, and the values stored for settings that are not in use. Templates only, as
+ * `overview.ts`.
  */
 
-import { mdiChevronDown, mdiChevronUp, mdiClose, mdiPlus, mdiRestore } from '@mdi/js';
+import { mdiChevronDown, mdiChevronUp, mdiClose, mdiInformationOutline, mdiRestore } from '@mdi/js';
 import { type TemplateResult, html, nothing } from 'lit';
 
 import { icon } from './icon';
-import type { Translate } from './overview';
-import { interpolate } from '../strings';
 
 /** A button of the editor's own, in a field's line or a heading's. */
 export interface LineButton {
@@ -88,129 +87,178 @@ export function fieldLine(line: FieldLine): TemplateResult | typeof nothing {
   </div>`;
 }
 
-/** One setting an Add row offers. */
-export interface AddItem {
-  readonly key: string;
-  readonly label: string;
-  /** The first sentence of its helper. */
-  readonly helper?: string;
-  /** Its value as it stands. */
-  readonly value?: string;
-  readonly onAdd: () => void;
+/** A state pill's tone: outlined for Default, tinted for Set, gray for a value from elsewhere. */
+export type PillTone = 'default' | 'set' | 'inherited' | 'warning';
+
+/** A state pill: "Default", "Set", "From All Layouts", "Grid Has Its Own". */
+export interface Pill {
+  readonly text: string;
+  readonly tone: PillTone;
 }
 
-/** What a heading's Add row shows. */
-export interface AddRow {
-  /** The `data-focus` key of the row's own button. */
+/** The menu a pill opens: the notes and the Reset the line under a field used to hold. */
+export interface PillMenu {
   readonly key: string;
-  readonly heading: string;
-  /** Whether nothing under the heading is live, so the row carries the heading's name. */
-  readonly named: boolean;
-  /**
-   * Every setting's name, a family's members each by name, as the closed row shows them: clamped
-   * to two lines and cut with an ellipsis, while the count beside them carries the total.
-   */
-  readonly names: string;
-  /** How many names `names` lists, which the count beside them says. */
-  readonly count: number;
-  readonly items: ReadonlyArray<AddItem>;
   readonly open: boolean;
-  readonly query: string;
+  readonly notes: ReadonlyArray<string>;
+  readonly buttons: ReadonlyArray<LineButton>;
   readonly onToggle: () => void;
-  readonly onShowAll: () => void;
-  readonly onQuery: (query: string) => void;
 }
 
-/** Past this many settings, an open Add row offers a box to narrow them. */
-const FILTER_PAST = 7;
+/** What a setting's head row shows. */
+export interface SettingHead {
+  readonly id: string;
+  readonly label: string;
+  /** The editor's language, so a long label breaks where that language hyphenates. */
+  readonly lang?: string;
+  /** Its value in words, while it is folded; never the pill's own word. */
+  readonly value?: string;
+  readonly pill: Pill;
+  /** "Grid Has Its Own", on a line of its own under the head, under All Layouts. */
+  readonly warn?: Pill;
+  readonly menu?: PillMenu;
+  /** The helper behind ⓘ, its button named "About {label}". */
+  readonly help?: {
+    readonly id: string;
+    readonly name: string;
+    readonly open: boolean;
+    readonly onToggle: () => void;
+  };
+  /** The chevron of a setting that folds; otherwise the slot is kept, so pills line up. */
+  readonly fold?: { readonly key: string; readonly open: boolean; readonly onToggle: () => void };
+  /**
+   * Home Assistant's own control in place of the name, for a switch: its row, label and switch
+   * start the head, and the pill and ⓘ follow it outside its box.
+   */
+  readonly control?: unknown;
+}
 
 /**
- * A heading's Add row: closed, a primary "+", "Add Setting" with the names it holds and their
- * count, and a chevron saying it opens; open, a group of one button per setting, Show All first
- * where there are two or more, and a box to narrow them where there are many.
+ * A setting's head row (backlog item 307): one 44 px line, drawn the same folded and open, so
+ * nothing in it moves when the setting opens. The name and, while folded, the value at the start;
+ * ⓘ, the state pill and the chevron at the end. Home Assistant's control is drawn below it while
+ * the setting is open, so nothing of the editor's sits inside Home Assistant's field box. Where
+ * the setting folds the whole row is its toggle, except the pill and ⓘ, which sit above it; while
+ * folded, the toggle is what `[data-field]` finds, as the control is once open.
  *
- * @param row - What it shows
- * @param t - The editor's strings
- * @returns The row
+ * @param head - What it shows
+ * @returns The row, and the pill's menu while open
  */
-export function addRow(row: AddRow, t: Translate): TemplateResult {
-  const count = String(row.count);
-  const counted = interpolate(t('add.count'), { count });
-  const query = row.query.trim().toLowerCase();
-  const items =
-    query === '' ? row.items : row.items.filter((item) => item.label.toLowerCase().includes(query));
-  return html`<div class="add-row${row.open ? ' open' : ''}">
-    <button
-      type="button"
-      class="add-toggle"
-      data-focus=${row.key}
-      aria-expanded=${row.open ? 'true' : 'false'}
-      aria-label=${interpolate(t('add.name'), { heading: row.heading, count })}
-      @click=${row.onToggle}
-    >
-      ${icon(mdiPlus, 'add-plus')}
-      <span class="add-text">
-        <span class="add-title"
-          >${
-            row.named
-              ? interpolate(t('add.setting_under'), { heading: row.heading })
-              : t('add.setting')
-          }</span
+export function settingHead(head: SettingHead): TemplateResult {
+  const { menu, help, fold, pill, warn } = head;
+  // The value is isolated, so a color or a length reads in its own order right to left.
+  const text = html`<span class="setting-label" lang=${head.lang ?? nothing}>${head.label}</span>${
+      head.value === undefined
+        ? nothing
+        : html`<bdi class="setting-value${fold?.open ? ' setting-kept' : ''}">${head.value}</bdi>`
+    }`;
+  const pillEl = menu
+    ? html`<button
+        type="button"
+        class="setting-target setting-pill-button"
+        data-focus=${menu.key}
+        aria-expanded=${menu.open ? 'true' : 'false'}
+        aria-label=${`${head.label}: ${pill.text}`}
+        @click=${menu.onToggle}
+      >
+        <span class="setting-pill tone-${pill.tone}"
+          >${pill.text}${icon(menu.open ? mdiChevronUp : mdiChevronDown)}</span
         >
-        <span class="add-names">${row.names}</span>
+      </button>`
+    : html`<span class="setting-pill-plain"
+        ><span class="setting-pill tone-${pill.tone}">${pill.text}</span></span
+      >`;
+  return html`<div
+      class="setting-head${fold ? ' folds' : ''}${head.control !== undefined ? ' switch' : ''}"
+    >
+      ${
+        fold
+          ? html`<button
+              type="button"
+              class="setting-text setting-toggle"
+              data-focus=${fold.key}
+              data-field=${fold.open ? nothing : head.id}
+              aria-expanded=${fold.open ? 'true' : 'false'}
+              aria-label=${head.value === undefined ? head.label : `${head.label}, ${head.value}`}
+              @click=${fold.onToggle}
+            >
+              ${text}
+            </button>`
+          : head.control !== undefined
+            ? html`<div class="setting-control">${head.control}</div>`
+            : html`<span class="setting-text">${text}</span>`
+      }
+      <span class="setting-tools">
+        ${
+          help
+            ? html`<button
+                type="button"
+                class="setting-target setting-info"
+                aria-expanded=${help.open ? 'true' : 'false'}
+                aria-controls=${help.id}
+                aria-label=${help.name}
+                @click=${help.onToggle}
+              >
+                ${icon(mdiInformationOutline)}
+              </button>`
+            : // The slot is kept, so pills line up down the page.
+              html`<span class="setting-slot" aria-hidden="true"></span>`
+        }
+        ${pillEl}
+        <span class="setting-end" aria-hidden="true"
+          >${fold ? icon(fold.open ? mdiChevronUp : mdiChevronDown) : nothing}</span
+        >
       </span>
-      <span class="add-count">${counted}</span>
-      ${icon(row.open ? mdiChevronUp : mdiChevronDown, 'nav-chevron')}
-    </button>
+    </div>
     ${
-      row.open
-        ? html`<div
-            class="add-list"
-            role="group"
-            aria-label=${interpolate(t('add.group'), { heading: row.heading })}
-          >
-            ${
-              row.items.length >= 2
-                ? html`<button
-                    type="button"
-                    class="add-item add-all"
-                    data-focus=${`${row.key}:all`}
-                    @click=${row.onShowAll}
-                  >
-                    <span class="add-item-label">${t('add.show_all')}</span>
-                    <span class="add-item-note">${counted}</span>
-                  </button>`
-                : nothing
-            }
-            ${
-              row.items.length > FILTER_PAST
-                ? html`<input
-                    type="search"
-                    class="add-filter"
-                    aria-label=${t('add.filter')}
-                    placeholder=${t('add.filter')}
-                    .value=${row.query}
-                    @input=${(event: Event) =>
-                      row.onQuery((event.target as HTMLInputElement).value)}
-                  />`
-                : nothing
-            }
-            ${items.map(
-              (item) =>
-                html`<button
-                  type="button"
-                  class="add-item"
-                  data-focus=${`${row.key}:${item.key}`}
-                  @click=${item.onAdd}
-                >
-                  <span class="add-item-label">${item.label}</span>
-                  ${item.helper ? html`<span class="add-item-note">${item.helper}</span>` : nothing}
-                  ${item.value ? html`<span class="add-item-value">${item.value}</span>` : nothing}
-                </button>`,
-            )}
-          </div>`
+      warn
+        ? html`<p class="setting-warn">
+            <span class="setting-pill tone-${warn.tone}">${warn.text}</span>
+          </p>`
         : nothing
     }
+    ${
+      menu?.open
+        ? html`<div class="setting-menu" role="group" aria-label=${`${head.label}: ${pill.text}`}>
+            ${menu.notes.map((note) => html`<p class="setting-menu-note">${note}</p>`)}
+            ${menu.buttons.map(lineButton)}
+          </div>`
+        : nothing
+    }`;
+}
+
+/**
+ * A setting's helper, behind its ⓘ: always in the tree as the setting's accessible description,
+ * and shown while ⓘ is pressed.
+ *
+ * @param id - Its element id
+ * @param text - The helper
+ * @param open - Whether it is shown
+ * @returns The paragraph
+ */
+export function settingHelp(id: string, text: string, open: boolean): TemplateResult {
+  return html`<p class="hint setting-help" id=${id} ?hidden=${!open}>${text}</p>`;
+}
+
+/**
+ * A setting a gate withholds, in its place: its name and when it appears; several in a row
+ * waiting on the same condition share one line.
+ *
+ * @param id - The first setting's field id, which a search lands on
+ * @param text - "Indicator Size · Appears once …", or the shared gate line
+ * @param label - The setting's name, for one setting alone
+ * @returns The row
+ */
+export function gatedRow(id: string, text: string, label?: string): TemplateResult {
+  return html`<div
+    class="setting-gated"
+    data-field=${id}
+    tabindex="-1"
+    role="group"
+    aria-label=${label === undefined ? text : `${label}. ${text}`}
+  >
+    ${label === undefined ? nothing : html`<span class="setting-label">${label}</span>`}
+    <span class="setting-gated-when">${text}</span>
   </div>`;
 }
 

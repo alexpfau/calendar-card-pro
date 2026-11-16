@@ -1248,100 +1248,280 @@ export default css`
     text-overflow: ellipsis;
   }
 
-  .add-row {
-    border: 1px dashed var(--divider-color);
-    border-radius: var(--ha-card-border-radius, 12px);
-  }
-
-  .add-toggle,
-  .add-item {
+  /* --- A setting's head row -------------------------------------------------
+     Every setting has a 44 px head row drawn the same folded and open: name and, while folded,
+     value at the start; ⓘ, the state pill and a chevron at the end. Nothing of the editor's sits
+     inside Home Assistant's field box, which an open setting draws below its head, so nothing
+     covers the box's arrow, clear button, spinner or suffix, and nothing in the head moves when
+     the setting opens: a second press lands where the first did. A switch keeps Home Assistant's
+     own row, label and switch, at the head's start. */
+  .setting {
     display: flex;
-    align-items: center;
-    gap: 12px;
-    width: 100%;
-    min-height: 44px;
-    padding: 8px 12px;
-    border: none;
-    border-radius: inherit;
-    background: none;
-    color: var(--primary-text-color);
-    cursor: pointer;
-    font: inherit;
-    text-align: start;
+    flex-direction: column;
+    gap: 4px;
   }
 
-  .add-toggle:hover,
-  .add-item:hover {
+  /* Settings read as one list. The space after an open one is its own, so opening a setting
+     never moves its head. */
+  .setting + .setting {
+    margin-top: -8px;
+  }
+
+  .setting.open {
+    padding-bottom: 8px;
+  }
+
+  .setting-head {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 0 4px;
+    min-height: 44px;
+    border-radius: 4px;
+  }
+
+  .setting-head.folds:hover {
     background: var(--secondary-background-color);
   }
 
-  .add-toggle:focus-visible,
-  .add-item:focus-visible {
+  .setting-text {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: baseline;
+    gap: 0 8px;
+    min-width: 0;
+    padding: 12px 0;
+    padding-inline-start: 4px;
+    color: var(--primary-text-color);
+    font: inherit;
+    line-height: 20px;
+    text-align: start;
+  }
+
+  .setting-toggle {
+    border: none;
+    background: none;
+    cursor: pointer;
+  }
+
+  /* The whole row is the toggle; the pill and ⓘ sit above it. */
+  .setting-toggle::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 4px;
+  }
+
+  .setting-toggle:focus-visible {
+    outline: none;
+  }
+
+  .setting-toggle:focus-visible::after {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
   }
 
-  .add-text,
-  .add-item {
+  /* A long label breaks between words, or where its language hyphenates, never letter by
+     letter. */
+  .setting-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+
+  /* One line, cut with an ellipsis, so a folded head is as tall open as folded and an opened
+     setting leaves no gap where a long value wrapped. */
+  .setting-value {
+    flex: 0 1 auto;
+    max-width: 45%;
+    margin-inline-start: auto;
+    overflow: hidden;
+    color: var(--secondary-text-color);
+    font-size: 13px;
+    text-align: end;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Kept in place while open, so the row wraps the same in both states. */
+  .setting-kept {
+    visibility: hidden;
+  }
+
+  /* A switch: Home Assistant's own row, label and switch, starts the head, and the pill and ⓘ
+     sit on its line. */
+  .setting-head.switch {
+    align-items: center;
+  }
+
+  .setting-control {
+    flex: 1 1 auto;
+    min-width: 0;
+    align-self: center;
+  }
+
+  .setting-tools {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex: none;
+    align-items: center;
+    min-height: 44px;
+    pointer-events: none;
+  }
+
+  .setting-tools > * {
+    pointer-events: auto;
+  }
+
+  .setting-target {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 2px;
+    border: none;
+    border-radius: 22px;
+    background: none;
+    color: var(--secondary-text-color);
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .setting-target:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -2px;
+  }
+
+  .setting-info {
+    --mdc-icon-size: 20px;
+  }
+
+  .setting-info:hover {
+    color: var(--primary-text-color);
+  }
+
+  .setting-slot {
+    flex: none;
+    width: 44px;
+  }
+
+  .setting-warn {
+    margin: -8px 0 0;
+    padding-inline-start: 4px;
+  }
+
+  .setting-pill-plain {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 2px;
+  }
+
+  /* The chevron's slot is kept where nothing folds, so pills line up down the page. */
+  .setting-end {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    min-height: 44px;
+    color: var(--secondary-text-color);
+    pointer-events: none;
+    --mdc-icon-size: 20px;
+  }
+
+  .setting-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    height: 24px;
+    padding: 0 8px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    color: var(--secondary-text-color);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 22px;
+    white-space: nowrap;
+    box-sizing: border-box;
+    --mdc-icon-size: 16px;
+  }
+
+  .setting-pill.tone-default {
+    border-color: var(--divider-color);
+  }
+
+  .setting-pill.tone-set {
+    background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
+    color: var(--primary-text-color);
+    font-weight: 600;
+  }
+
+  .setting-pill.tone-inherited {
+    background: var(--secondary-background-color);
+    color: var(--primary-text-color);
+  }
+
+  /* Text in the primary text color on a warning tint, as Not in Use's tag. */
+  .setting-pill.tone-warning {
+    background: rgba(var(--rgb-warning-color, 255, 166, 0), 0.28);
+    color: var(--primary-text-color);
+  }
+
+  .setting-menu {
+    display: flex;
     flex-direction: column;
     align-items: flex-start;
+    align-self: flex-end;
+    max-width: 100%;
+    margin-top: -4px;
+    padding: 0 12px 4px;
+    border: 1px solid var(--divider-color);
+    border-radius: 8px;
+    background: var(--card-background-color);
+    box-sizing: border-box;
   }
 
-  .add-text {
-    flex: 1;
-    display: flex;
-    gap: 2px;
-    min-width: 0;
-  }
-
-  .add-title {
-    color: var(--primary-color);
-    font-weight: 500;
-  }
-
-  .add-names,
-  .add-count,
-  .add-item-note,
-  .add-item-value {
+  .setting-menu-note {
+    margin: 8px 0 0;
     color: var(--secondary-text-color);
     font-size: 12px;
     line-height: 1.45;
   }
 
-  /* The names wrap to two lines at most and end in an ellipsis where they are cut; the count
-     beside them carries the total. */
-  .add-names {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    min-width: 0;
-    overflow: hidden;
+  .setting-help {
+    margin: 0;
+    padding-inline: 4px;
   }
 
-  .add-toggle .add-plus {
-    fill: var(--primary-color);
+  .setting-help[hidden] {
+    display: none;
   }
 
-  .add-list {
+  /* A setting a gate withholds, in its place. */
+  .setting-gated {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 0 8px 8px;
-    border-top: 1px solid var(--divider-color);
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 8px;
+    min-height: 44px;
+    padding-inline-start: 4px;
+    color: var(--secondary-text-color);
   }
 
-  .add-item {
-    gap: 2px;
+  .setting-gated-when {
+    margin-inline-start: auto;
+    font-size: 12px;
+    line-height: 1.45;
+    text-align: end;
   }
 
-  .add-filter {
-    margin: 8px 4px;
-    padding: 8px;
-    border: 1px solid var(--divider-color);
-    border-radius: 4px;
-    background: var(--card-background-color);
-    color: var(--primary-text-color);
-    font: inherit;
+  /* A gate line shared by several settings reads as a sentence. */
+  .setting-gated > .setting-gated-when:only-child {
+    margin-inline-start: 0;
+    text-align: start;
   }
 
   /* --- The calendar list and entry pages ------------------------------------

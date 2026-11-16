@@ -36,6 +36,7 @@ import {
   mountEditor,
   openPageOf,
   openPanels,
+  unfoldAll,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -407,6 +408,8 @@ describe('the calendar list', () => {
     const { editor, reports } = await mount({ entities: [ANNA, BEN, LEO] });
     const [anna, ben, leo] = keysOf(editor, 'entry');
     await openPageOf(editor, 'calendar:color', entry({ key: leo }));
+    // Every setting open, so the page draws a form for each.
+    await unfoldAll(editor);
     const page = () => editor.shadowRoot!.querySelectorAll('.entry-page ha-form');
     const forms = [...page()];
     const color = formOf(editor, 'calendar:color', entry({ key: leo }))!;

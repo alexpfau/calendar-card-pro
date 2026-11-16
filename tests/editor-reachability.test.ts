@@ -8,17 +8,16 @@
  * none: the harness navigates for its tests, so it can only fail on a field a test happens to
  * edit, where this walks the whole present index (`field-index.ts` › `buildFieldIndex`).
  *
- * Twice: with Show Every Setting on, where each page draws every setting that applies, and with it
- * off, where a page draws its shown set and names the rest in Add rows, each of which is used to
- * add what it names (section 5.1 of the plan). Each place's controls are named apart as well:
- * every field's frame, and every button the shown set draws (Reset, Remove, Edit, Add Setting and
- * what it offers).
+ * Every page draws every setting that applies, one at its default folded to its head row, which
+ * is pressed to open it, as a user would. Each place's controls are named apart as well: every
+ * field's frame, and every button a setting's head and the lines draw (its toggle, ⓘ, its pill,
+ * Reset).
  */
 import { setTimeout as nodeTimeout } from 'node:timers/promises';
 
 import { afterAll, describe, expect, it } from 'vitest';
 
-import { type MountedEditor, addEverything, changeField, mountEditor } from './helpers/editor-host';
+import { type MountedEditor, changeField, mountEditor, unfoldAll } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { type ColorSpec, cardColorFields } from '../src/rendering/editor/colors';
@@ -94,7 +93,7 @@ function sharedNames(editor: MountedEditor): string[] {
   }
   const buttons = new Map<string, number>();
   for (const control of editor.shadowRoot!.querySelectorAll<HTMLElement>(
-    '.line-button, .add-toggle, .add-item',
+    '.line-button, .setting-toggle, .setting-info, .setting-pill-button',
   )) {
     const name = (control.getAttribute('aria-label') ?? control.textContent ?? '')
       .replace(/\s+/g, ' ')
@@ -125,80 +124,73 @@ describe('reachability through rendered navigation', () => {
   let editor: MountedEditor | undefined;
   afterAll(() => editor?.remove());
 
-  it.each([
-    ['on', true],
-    ['off, through each Add row', false],
-  ] as const)(
-    'reaches every present card field from its page row with Show Every Setting %s, each named apart, over the corpus in every scope',
-    async (_, every) => {
-      editor?.remove();
-      editor = await mountEditor(
-        { config_version: Config.CURRENT_CONFIG_VERSION, entities: ['calendar.anna'] },
-        { every },
-      );
-      const missing = new Map<string, FieldId[]>();
-      const clashes = new Set<string>();
-      let states = 0;
-      let visits = 0;
-      let fields = 0;
-      const seen = new Set<string>();
-      for (const workspace of WORKSPACES) {
-        for (const state of STATES.filter((candidate) => candidate.workspace === workspace)) {
-          const config = state.config as Types.Config;
-          const key = `${workspace} ${JSON.stringify(config)}`;
-          if (seen.has(key)) continue;
-          seen.add(key);
-          states += 1;
+  it('reaches every present card field from its page row, each opened from its head and named apart, over the corpus in every scope', async () => {
+    editor?.remove();
+    editor = await mountEditor({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: ['calendar.anna'],
+    });
+    const missing = new Map<string, FieldId[]>();
+    const clashes = new Set<string>();
+    let states = 0;
+    let visits = 0;
+    let fields = 0;
+    const seen = new Set<string>();
+    for (const workspace of WORKSPACES) {
+      for (const state of STATES.filter((candidate) => candidate.workspace === workspace)) {
+        const config = state.config as Types.Config;
+        const key = `${workspace} ${JSON.stringify(config)}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        states += 1;
 
-          const ctx = schemaCtx(config, workspace, 'en');
-          const present = [...buildFieldIndex(ctx).fields.values()];
-          const colors = cardColorFields(ctx).specs;
-          const nodes = new Map(present.map((field) => [field.id, field.node]));
-          const byPage = new Map<string, FieldId[]>();
-          for (const field of present) {
-            const page = placementOf(field.id)?.page ?? 'unplaced';
-            byPage.set(page, [...(byPage.get(page) ?? []), field.id]);
-          }
-          fields += present.length;
-
-          // As stored by a card the visual editor wrote: at the current configuration version.
-          editor.setConfig({ ...config, config_version: Config.CURRENT_CONFIG_VERSION });
-          await editor.updateComplete;
-          // Back to the overview, as Back would take a user there, then the state's scope.
-          while (editor.shadowRoot!.querySelector('[data-focus="back-top"]') !== null) {
-            await click(editor, '[data-focus="back-top"]');
-          }
-          await changeField(editor, 'workspace:editing_workspace', workspace);
-
-          if (!every) await addEverything(editor);
-          const found = new Set<FieldId>(reached(editor, nodes, colors));
-          for (const clash of sharedNames(editor)) clashes.add(`overview ${clash}`);
-          for (const page of byPage.keys()) {
-            if (page === 'overview' || page === 'unplaced') continue;
-            await click(editor, `[data-focus="nav:${page}"]`);
-            visits += 1;
-            for (const clash of sharedNames(editor)) clashes.add(`${page} ${clash}`);
-            if (!every) await addEverything(editor);
-            for (const id of reached(editor, nodes, colors)) found.add(id);
-            for (const clash of sharedNames(editor)) clashes.add(`${page} ${clash}`);
-            await click(editor, '[data-focus="back-top"]');
-          }
-          const lost = present.map((field) => field.id).filter((id) => !found.has(id));
-          if (lost.length > 0)
-            missing.set(`${workspace} ${state.display} ${state.gate ?? 'fresh'}`, lost);
-          // Lets the timers the renders queued run, so what they hold is let go.
-          await nodeTimeout(0);
+        const ctx = schemaCtx(config, workspace, 'en');
+        const present = [...buildFieldIndex(ctx).fields.values()];
+        const colors = cardColorFields(ctx).specs;
+        const nodes = new Map(present.map((field) => [field.id, field.node]));
+        const byPage = new Map<string, FieldId[]>();
+        for (const field of present) {
+          const page = placementOf(field.id)?.page ?? 'unplaced';
+          byPage.set(page, [...(byPage.get(page) ?? []), field.id]);
         }
+        fields += present.length;
+
+        // As stored by a card the visual editor wrote: at the current configuration version.
+        editor.setConfig({ ...config, config_version: Config.CURRENT_CONFIG_VERSION });
+        await editor.updateComplete;
+        // Back to the overview, as Back would take a user there, then the state's scope.
+        while (editor.shadowRoot!.querySelector('[data-focus="back-top"]') !== null) {
+          await click(editor, '[data-focus="back-top"]');
+        }
+        await changeField(editor, 'workspace:editing_workspace', workspace);
+
+        await unfoldAll(editor);
+        const found = new Set<FieldId>(reached(editor, nodes, colors));
+        for (const clash of sharedNames(editor)) clashes.add(`overview ${clash}`);
+        for (const page of byPage.keys()) {
+          if (page === 'overview' || page === 'unplaced') continue;
+          await click(editor, `[data-focus="nav:${page}"]`);
+          visits += 1;
+          for (const clash of sharedNames(editor)) clashes.add(`${page} ${clash}`);
+          await unfoldAll(editor);
+          for (const id of reached(editor, nodes, colors)) found.add(id);
+          for (const clash of sharedNames(editor)) clashes.add(`${page} ${clash}`);
+          await click(editor, '[data-focus="back-top"]');
+        }
+        const lost = present.map((field) => field.id).filter((id) => !found.has(id));
+        if (lost.length > 0)
+          missing.set(`${workspace} ${state.display} ${state.gate ?? 'fresh'}`, lost);
+        // Lets the timers the renders queued run, so what they hold is let go.
+        await nodeTimeout(0);
       }
-      console.info(
-        `reachability: ${states} corpus states over ${WORKSPACES.length} scopes, ` +
-          `${visits} page visits, ${fields} present fields`,
-      );
-      expect(fields).toBeGreaterThan(10_000);
-      expect(Object.fromEntries(missing)).toEqual({});
-      // No two fields drawn on one place share an accessible name.
-      expect([...clashes]).toEqual([]);
-    },
-    600_000,
-  );
+    }
+    console.info(
+      `reachability: ${states} corpus states over ${WORKSPACES.length} scopes, ` +
+        `${visits} page visits, ${fields} present fields`,
+    );
+    expect(fields).toBeGreaterThan(10_000);
+    expect(Object.fromEntries(missing)).toEqual({});
+    // No two fields drawn on one place share an accessible name.
+    expect([...clashes]).toEqual([]);
+  }, 600_000);
 });

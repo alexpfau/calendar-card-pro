@@ -25,10 +25,10 @@ import {
   entry,
   fakeHass,
   formOf,
-  helperOf,
   mountEditor,
   openPageOf,
   openPanels,
+  pillOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import { PANELS } from '../src/rendering/editor/panels';
@@ -215,18 +215,15 @@ describe('a panel’s builder', () => {
 });
 
 describe('a kept helper', () => {
-  it('is made again once the note it shows moves, so a field never reads stale', async () => {
+  it('draws the pill again once the state it shows moves, so a setting never reads stale', async () => {
     const editor = await mountEditor(CONFIG);
     await changeField(editor, `workspace:${WORKSPACE_FIELD}`, 'list');
-    await openPanels(editor);
-    const helper = formOf(editor, 'events:event_font_size')!.computeHelper;
-    const own = `${EDITOR_STRINGS['state.set']}.`;
-    expect(helperOf(editor, 'events:event_font_size') ?? '').not.toContain(own);
+    await openPageOf(editor, 'events:event_font_size');
+    expect(pillOf(editor, 'events:event_font_size')).not.toBe(EDITOR_STRINGS['state.set']);
 
     await changeField(editor, 'events:event_font_size', '18px');
 
-    expect(formOf(editor, 'events:event_font_size')!.computeHelper).not.toBe(helper);
-    expect(helperOf(editor, 'events:event_font_size')).toContain(own);
+    expect(pillOf(editor, 'events:event_font_size')).toBe(EDITOR_STRINGS['state.set']);
   });
 
   it('answers for the fields drawn now, where the notes line up with the fields drawn before', async () => {
@@ -235,12 +232,13 @@ describe('a kept helper', () => {
     // the switch, while the field in the last place is another one.
     const editor = await mountEditor({ ...CONFIG, list: { height: '300px' } });
     await changeField(editor, `workspace:${WORKSPACE_FIELD}`, 'list');
-    await openPanels(editor);
-    const own = `${EDITOR_STRINGS['state.set']}.`;
-    expect(helperOf(editor, 'layout:card_height')).toContain(own);
+    await openPageOf(editor, 'layout:card_height');
+    const own = EDITOR_STRINGS['state.set'];
+    expect(pillOf(editor, 'layout:card_height')).toBe(own);
 
     await changeField(editor, 'layout:height_mode', 'maximum');
 
-    expect(helperOf(editor, 'layout:card_max_height')).toContain(own);
+    await openPageOf(editor, 'layout:card_max_height');
+    expect(pillOf(editor, 'layout:card_max_height')).toBe(own);
   });
 });

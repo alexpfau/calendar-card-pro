@@ -8,6 +8,7 @@ import {
   mountEditor,
   openPageOf,
   resultRows,
+  unfoldAll,
 } from './helpers/editor-host';
 import type * as Types from '../src/config/types';
 import type { CalendarCardProEditor } from '../src/rendering/editor/element';
@@ -60,8 +61,9 @@ async function mount(language: string, view: Types.EffectiveView = 'grid') {
     // Every rule the page can draw, so what a search reaches is compared with all of them.
     { hass: fakeHass({ language }), every: true },
   );
-  // The rules' page, opened as a user would to read it.
+  // The rules' page, opened as a user would to read it, every setting on it open.
   await openPageOf(editor, 'separators:day_separator_width');
+  await unfoldAll(editor);
   return editor;
 }
 
