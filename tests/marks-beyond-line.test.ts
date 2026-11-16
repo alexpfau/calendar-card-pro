@@ -9,7 +9,7 @@
  * above and below the line" in styles.ts):
  *
  * - a box that hid its overflow only as a backstop for a long word cuts the inline axis alone,
- *   behind `@supports (overflow: clip)`;
+ *   behind `@supports (overflow: clip) and (contain-intrinsic-size: 1px)`;
  * - a box that clamps lines keeps room above its first line, inside its cut, as padding given
  *   back by a negative margin of the same size, so nothing in the layout moves;
  * - either kind keeps 0.125em of room at its inline edges the same way, for a Thai tone mark past
@@ -96,7 +96,7 @@ function blockAt(start: number): string {
   throw new Error('unbalanced block');
 }
 
-/** Every rule inside `@supports (overflow: clip)`, as selector list to declarations. */
+/** Every rule inside `@supports (overflow: clip) and …`, as selector list to declarations. */
 function clipRules(): Record<string, Record<string, string>> {
   const out: Record<string, Record<string, string>> = {};
   for (const match of CSS.matchAll(/@supports \(overflow: clip\)/g)) {
@@ -163,7 +163,8 @@ describe('a box that hides its overflow only as a backstop for a long word', () 
   });
 
   it('keeps the hidden overflow outside the @supports, for browsers without overflow: clip', () => {
-    // Safari before 16 has no overflow: clip. There the boxes hide their overflow as before and
+    // Safari before 16 has no overflow: clip, and 16 paints no text in a box that clips one axis
+    // and shows the other, so the gate leaves out both. There the boxes hide their overflow as before and
     // cut the marks as before; overflow-y: visible beside a hidden overflow-x would compute to
     // auto there and make each of them a scroll container.
     for (const list of Object.keys(clipRules())) {
@@ -519,12 +520,15 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
     // A whole pixel stays out of every sum it joins: a gutter or a hanging indent it is folded
     // into, which a fraction rounded apart from the margin giving it back, and a width read as
     // clientWidth less the padding, which a fraction moved by half a pixel.
-    const rounded = [...CSS.matchAll(/@supports \(width: round\(1px, 1px\)\) \{/g)].flatMap(
-      (match) =>
-        [...blockAt(match.index!).matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, selectors, body]) => ({
-          selectors: normal(selectors),
-          declarations: declarationsOf(body),
-        })),
+    const rounded = [
+      ...CSS.matchAll(
+        /@supports \(width: round\(1px, 1px\)\) and \(contain-intrinsic-size: 1px\) \{/g,
+      ),
+    ].flatMap((match) =>
+      [...blockAt(match.index!).matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, selectors, body]) => ({
+        selectors: normal(selectors),
+        declarations: declarationsOf(body),
+      })),
     );
     expect(
       rounded.filter(({ declarations }) =>
@@ -557,6 +561,27 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
       ),
     );
     expect([...rooms].sort()).toEqual(['0px', '12px', '1em', '1px', '1.25em', '4px'].sort());
+  });
+
+  it('is rounded, and cut along one axis, only where WebKit computes and paints them right', () => {
+    // Safari 15.4 to 16.x parse round() and overflow: clip and answer @supports for both, but get
+    // them wrong. A calc() over round() came out as 33554428px, so the margin giving the room back
+    // squeezed every summary to 4px. A box with overflow-x: clip and overflow-y: visible painted
+    // none of its text at all. Either left list view with no event text. Safari 17.0 gets both
+    // right, and nothing about either parses differently there, so every gate admitting them also
+    // asks for contain-intrinsic-size, new in Safari 17.0; content-visibility, from Safari 18,
+    // serves as well. Below that, each box is drawn as it was before v5.2.
+    const gates = [...CSS.matchAll(/@supports([^{]*)\{/g)]
+      .map(([, condition]) => normal(condition))
+      .filter((condition) => condition.includes('round(') || condition.includes('overflow: clip'));
+    expect(gates.length).toBeGreaterThan(0);
+    expect(
+      gates.filter(
+        (condition) =>
+          !condition.includes('(contain-intrinsic-size: 1px)') &&
+          !condition.includes('(content-visibility: auto)'),
+      ),
+    ).toEqual([]);
   });
 
   it("is in the size of the text a box cuts, where that is not the box's own", () => {
@@ -868,7 +893,7 @@ describe("a summary that clamps a labeled title's line (backlog item 264)", () =
 
   it('does so only under a limit, where a line is hidden', () => {
     // Without one nothing is hidden, and a mark below the last line keeps the room it had, as
-    // in Safari before 16, where the summary hides its overflow whatever the limit.
+    // in Safari before 17, where the summary hides its overflow whatever the limit.
     const margin = (title_max_lines: number) =>
       generateCustomPropertiesObject(buildConfig({ title_max_lines }))[
         '--calendar-card-summary-end-margin'
