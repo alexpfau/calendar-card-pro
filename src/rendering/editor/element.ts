@@ -8948,17 +8948,17 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Renders the filter bar above the panels.
+   * Renders the overview's search row: the search field, then Undo and Redo at its end, so the
+   * keyboard reaches them in that order.
    *
    * @param ctx - Current editor context
    * @param chassis - The chassis schemas this render draws
-   * @returns The filter bar
+   * @returns The search row
    */
   private _renderFilterBar(ctx: SchemaCtx, chassis: Subforms.ChassisSchemas): TemplateResult {
     const [hass, feed] = this._feed(chassis.filter, ctx.language);
     return html`
-      <div class="filter-bar">
-        ${this._renderHistory(ctx)}
+      <div class="filter-bar search-row">
         <ha-form
           class="filter-form"
           data-hass=${feed}
@@ -8972,6 +8972,7 @@ export class CalendarCardProEditor extends LitElement {
           @compositionstart=${this._compositionStart}
           @compositionend=${this._compositionEnd}
         ></ha-form>
+        ${this._renderHistory(ctx)}
       </div>
     `;
   }

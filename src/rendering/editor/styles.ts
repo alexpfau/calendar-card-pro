@@ -8,7 +8,7 @@ export default css`
   .card-config {
     display: flex;
     flex-direction: column;
-    padding: 4px 0;
+    padding: 0 0 4px;
   }
 
   .config-migration {
@@ -310,6 +310,24 @@ export default css`
   .filter-bar {
     border-bottom: 1px solid var(--divider-color);
     padding-bottom: 12px;
+  }
+
+  /* The overview's search row: the field takes the width, Undo and Redo sit at its end. Home
+     Assistant's field is 56px tall and reserves 8px for a helper line below it, so the 48px
+     buttons are aligned with the box rather than with the form: 4px down from its top. */
+  .search-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .search-row .filter-form {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .search-row .history-controls {
+    margin-top: 4px;
   }
 
   .filter-empty {
