@@ -17,6 +17,7 @@ import {
   type MountedEditor,
   changeField,
   chooseResult,
+  entry,
   fakeHass,
   mountEditor,
   resultRows,
@@ -340,6 +341,19 @@ describe('Return to Results', () => {
     await jump(editor, 'exclude', 'calendar:blocklist', 0);
     // Anna sets nothing, so Customized Only takes her panel away.
     await changeField(editor, 'filter:customized_only', true);
+    expect($(editor, '.jump')).toBeNull();
+    expect($(editor, '.overview > [data-focus="return"]')).not.toBeNull();
+  });
+
+  it('moves to the top when another field takes away the one it was above', async () => {
+    const editor = await mountEditor(
+      { ...CARD, entities: [{ entity: 'calendar.anna', label: 'Kids' }] },
+      { hass: fakeHass({ states: STATES }) },
+    );
+    await jump(editor, 'kids', 'calendar:label', 0);
+    expect($(editor, '.jump')).not.toBeNull();
+    // A label type of None leaves the calendar no Label.
+    await changeField(editor, 'calendar:label_type', 'none', entry(0));
     expect($(editor, '.jump')).toBeNull();
     expect($(editor, '.overview > [data-focus="return"]')).not.toBeNull();
   });

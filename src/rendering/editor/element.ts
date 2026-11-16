@@ -32,6 +32,7 @@ import {
   builtSchema,
   buttonFieldIndex,
   entityFieldIndex,
+  entrySchema,
   fieldId,
   fieldLabel,
 } from './field-index';
@@ -1441,7 +1442,13 @@ export class CalendarCardProEditor extends LitElement {
   private _jumpDrawn(): boolean {
     const target = this._jump?.target;
     if (target === undefined) return false;
-    if (target.kind === 'entry-field') return this._entryKeys.includes(target.key);
+    if (target.kind === 'entry-field') {
+      // Still the entry's, and still built for it: another of its fields can gate it off.
+      const entry = this._config!.entities?.[this._entryKeys.indexOf(target.key)];
+      return (
+        entry !== undefined && entityFieldIndex(entrySchema(entry, this._ctx)).fields.has(target.id)
+      );
+    }
     if (target.kind === 'button-field') return this._buttonKeys.includes(target.key);
     return this._drawing!.shown.has(target.id) && this._drawing!.present.has(target.id);
   }
@@ -1643,7 +1650,7 @@ export class CalendarCardProEditor extends LitElement {
     this._jump = jump;
     void this.updateComplete.then(() => {
       const field = this.renderRoot.querySelector<HTMLElement>('.jump');
-      if (field) Focus.scrollToTop(this, field);
+      if (field) Focus.scrollToTopSettled(this, field);
       Focus.focusFirst(field ?? this.renderRoot, ['[tabindex="-1"]', '.page-title']);
       this._say(interpolate(this._string(this._ctx, 'search.showing'), { label: hit.label }));
       setTimeout(() => {
