@@ -1398,7 +1398,10 @@ export class CalendarCardProEditor extends LitElement {
     const typed = moved && ('text' in moved.node.selector || 'number' in moved.node.selector);
     this._commit(
       label,
-      typed ? `${focusKey}|${path!.join('.')}|${frame.workspace}` : undefined,
+      // By owner as well: two entries' pages give the same field the same focus key.
+      typed
+        ? `${WriteFrames.ownerKey(frame.owner)}|${focusKey}|${path!.join('.')}|${frame.workspace}`
+        : undefined,
       () => this._writeOwned(frame, incoming),
       focusKey,
     );
@@ -1865,12 +1868,20 @@ export class CalendarCardProEditor extends LitElement {
       scrollTop: Focus.scrollPosition(this),
       focusKey,
     };
+    this._closeDisclosures();
     this._nav = Navigation.go(this._nav, to, from, how);
     void this._afterMove(undefined, heading);
   }
 
+  /** Closes the strip and Add Calendar, which belong to the place being left. */
+  private _closeDisclosures(): void {
+    this._openStrip = undefined;
+    this._adding = undefined;
+  }
+
   /** Goes Back one place, restoring its scroll position and the control that left it. */
   private _back = (): void => {
+    this._closeDisclosures();
     const { nav, restore } = Navigation.back(this._nav);
     this._nav = nav;
     void this._afterMove(restore);
@@ -2859,8 +2870,11 @@ export class CalendarCardProEditor extends LitElement {
   private _renderCalendars(ctx: SchemaCtx): TemplateResult | typeof nothing {
     const entities = this._config?.entities ?? [];
     const calendars = this._calendarModels(ctx);
-    if (Filter.hasQuery(this._filter) && calendars.length === 0) return nothing;
     const status = this._status;
+    // The line a removal left stays, with its Undo, though a query now matches no row.
+    if (Filter.hasQuery(this._filter) && calendars.length === 0 && status?.kind !== 'entry') {
+      return nothing;
+    }
     const bar =
       status?.kind === 'entry'
         ? { at: status.at, bar: this._renderStatus(ctx, ['entry']) as TemplateResult }
@@ -2878,7 +2892,8 @@ export class CalendarCardProEditor extends LitElement {
       <h3 class="heading" tabindex="-1">${this._string(ctx, 'panel.calendars')}</h3>
       ${this._renderStatus(ctx, ['story'])}
       ${
-        entities.length >= CALENDAR_FILTER_ROWS
+        // Kept while it holds a query, so a removal below eight rows cannot strand one.
+        entities.length >= CALENDAR_FILTER_ROWS || this._calendarQuery !== ''
           ? CalendarView.calendarFilter(
               this._string(ctx, 'calendars.filter'),
               this._calendarQuery,
@@ -3023,9 +3038,10 @@ export class CalendarCardProEditor extends LitElement {
       interpolate(this._string(this._ctx, 'calendars.chose'), { name: this._calendarName(chosen) }),
     );
     void this.updateComplete.then(() =>
+      // Open where the calendar is already on the card, and Add is off.
       Focus.focusFirst(this.renderRoot, [
-        Focus.byFocusKey('add-confirm'),
         Focus.byFocusKey('add-open'),
+        Focus.byFocusKey('add-confirm'),
       ]),
     );
   };
@@ -3092,10 +3108,12 @@ export class CalendarCardProEditor extends LitElement {
           ? undefined
           : root.querySelector<HTMLButtonElement>(Focus.byFocusKey(focusKey));
       if (target && !target.disabled) target.focus({ preventScroll: true });
-      else if (this._nav.route.kind === 'overview') {
+      else {
+        // The row on the overview; on an entry page, the menu the move was made from.
         Focus.focusFirst(root, [
           Focus.byFocusKey(`row:${first}`),
           Focus.byFocusKey(`more:calendar:${entityId}`),
+          Focus.byFocusKey('more:page'),
         ]);
       }
     });
@@ -3336,7 +3354,7 @@ export class CalendarCardProEditor extends LitElement {
       route: this._nav.route,
       scrollTop: Focus.scrollPosition(this),
     };
-    this._openStrip = undefined;
+    this._closeDisclosures();
     this._nav = Navigation.go(this._nav, { kind: 'entry', key }, from, 'replace');
     this._say(
       interpolate(this._string(this._ctx, 'entry.showing'), { name: this._entryName(key) }),
@@ -3363,13 +3381,16 @@ export class CalendarCardProEditor extends LitElement {
   ): TemplateResult {
     const slot = `entry.${key}.${field.id}`;
     const schema = this._intern(slot, field.lifted);
+    // The field's own projection of the entry's data, as a card field gets, so a write to one
+    // field hands no other form a new object.
+    const own = this._intern(`${slot}.data`, Routing.formDataFor(data, schema));
     const [hass, feed] = this._feed(schema, ctx.language);
     const workspace = ctx.workspace ?? ctx.view;
     const frame: WriteFrames.OwnedFrame = {
       owner: { kind: 'entry', key },
       workspace,
       schema,
-      data,
+      data: own,
     };
     return html`<div
       class="field"
@@ -3384,7 +3405,7 @@ export class CalendarCardProEditor extends LitElement {
           class="entity-form"
           data-hass=${feed}
           .hass=${hass}
-          .data=${data}
+          .data=${own}
           .schema=${schema}
           .computeLabel=${this._labeler(ctx.language, field.labelPath)}
           .computeHelper=${this._subformHelper(ctx, field.labelPath, true)}

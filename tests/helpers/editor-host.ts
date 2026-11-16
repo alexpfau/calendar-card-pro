@@ -59,6 +59,7 @@ import * as Filter from '../../src/rendering/editor/filter';
 import type { HaFormSchema } from '../../src/rendering/editor/ha-form';
 import { PAGES, placementOf } from '../../src/rendering/editor/pages';
 import { type SchemaCtx, walkSchema } from '../../src/rendering/editor/panels';
+import * as Routing from '../../src/rendering/editor/routing';
 import {
   TOOLBAR_BUTTON_PATH,
   buildToolbarButtonSchema,
@@ -239,7 +240,8 @@ function outOfStep(what: string): never {
  *
  * The key is the editor's own word for it, so the page is also held to what the harness works
  * out on its own: an entry the configuration holds, whose forms each hold that entry's data, as
- * `entities.ts` › `toEntityFormData` projects it. Where any of that fails, the helper fails rather
+ * `entities.ts` › `toEntityFormData` projects it, narrowed to the form's own field
+ * (`routing.ts` › `formDataFor`). Where any of that fails, the helper fails rather
  * than guess: a page the editor drew for the wrong entry would otherwise read as that entry's.
  *
  * @param editor - Editor element
@@ -262,7 +264,7 @@ function entryIndexes(editor: EditorElement, root: ShadowRoot): Map<Element, num
   }
   const data = Entities.toEntityFormData(entries[index], entries);
   for (const form of page.querySelectorAll<FormElement>('ha-form.entity-form')) {
-    if (!Value.deepEqual(form.data, data)) {
+    if (!Value.deepEqual(form.data, Routing.formDataFor(data, form.schema))) {
       outOfStep(`The page of entry ${index} holds another entry's data`);
     }
   }

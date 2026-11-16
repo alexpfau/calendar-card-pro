@@ -11,6 +11,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   CHASSIS,
   changeField,
+  entry,
   fakeHass,
   goEntry,
   keysOf,
@@ -602,5 +603,90 @@ describe('Who Sees It', () => {
     await goEntry(editor, anna);
     expect(conditions()).toBe(sent);
     expect(keysOf(editor, 'entry')).toEqual([anna, ben]);
+  });
+});
+
+describe('across entries and places', () => {
+  it('keeps typing in two entries’ fields as two undo steps', async () => {
+    const editor = await mount([ANNA, BEN]);
+    const [anna] = keysOf(editor, 'entry');
+    await goEntry(editor, anna);
+    await changeField(editor, 'calendar:name', 'Anna at home', entry(0));
+    await press(editor, 'entry-next');
+    // Within the time that joins typing in one field into one step.
+    await changeField(editor, 'calendar:name', 'Ben at school', entry(1));
+
+    await press(editor, 'undo');
+
+    expect(lastConfig(editor)?.entities).toEqual([{ entity: ANNA, name: 'Anna at home' }, BEN]);
+  });
+
+  it('keeps Filter Calendars, with its query, while the query hides rows', async () => {
+    const eight = Array.from({ length: 8 }, (_, at) => `calendar.c${at}`);
+    const editor = await mount(eight);
+    const filter = control(editor, 'calendar-filter') as unknown as HTMLInputElement;
+    filter.value = 'c7';
+    filter.dispatchEvent(new Event('input'));
+    await editor.updateComplete;
+
+    await press(editor, `more:entry:${keysOf(editor, 'entry')[7]}`);
+    await press(editor, `strip:entry:${keysOf(editor, 'entry')[7]}:remove`);
+
+    // Seven rows, all hidden by the query: the field stays, so it can be cleared.
+    expect((control(editor, 'calendar-filter') as unknown as HTMLInputElement).value).toBe('c7');
+  });
+
+  it('keeps the line a removal left when a search then matches no row', async () => {
+    const editor = await mount([ANNA, BEN]);
+    await changeField(editor, 'filter:search', 'Anna', CHASSIS);
+    const [anna] = keysOf(editor, 'entry');
+    await press(editor, `more:entry:${anna}`);
+
+    await press(editor, `strip:entry:${anna}:remove`);
+
+    expect(editor.shadowRoot!.querySelector('.status-text')?.textContent).toBe('Removed Anna');
+    expect(focused(editor)).toBe('status-undo');
+  });
+
+  it('closes a row’s strip when its page opens, so Escape goes Back', async () => {
+    const editor = await mount([ANNA]);
+    const [anna] = keysOf(editor, 'entry');
+    await press(editor, `more:entry:${anna}`);
+    await press(editor, `row:${anna}`);
+
+    const escape = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+    });
+    control(editor, 'back-top')!.dispatchEvent(escape);
+    await editor.updateComplete;
+
+    expect(escape.defaultPrevented).toBe(true);
+    expect(editor.shadowRoot!.querySelector('.entry-page')).toBeNull();
+  });
+
+  it('puts focus on the page’s menu when a move from it reaches the top', async () => {
+    const editor = await mount([ANNA, BEN]);
+    const [, ben] = keysOf(editor, 'entry');
+    await goEntry(editor, ben);
+    await press(editor, 'more:page');
+
+    await press(editor, 'strip:page:top');
+
+    expect(lastConfig(editor)?.entities).toEqual([BEN, ANNA]);
+    expect(control(editor, 'strip:page:top')?.disabled).toBe(true);
+    expect(focused(editor)).toBe('more:page');
+  });
+
+  it('puts focus on Open when the calendar chosen is already on the card', async () => {
+    const editor = await mount([ANNA]);
+    await press(editor, 'add-calendar');
+
+    await changeField(editor, 'add_calendar:pick', ANNA, CHASSIS);
+    await editor.updateComplete;
+
+    expect(focused(editor)).toBe('add-open');
   });
 });

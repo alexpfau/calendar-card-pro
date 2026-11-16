@@ -40,6 +40,16 @@ export type WriteOwner =
   | { readonly kind: 'entry'; readonly key: number }
   | { readonly kind: 'button'; readonly key: number };
 
+/**
+ * An owner as a string: `card`, `entry:<key>` or `button:<key>`.
+ *
+ * @param owner - The owner
+ * @returns Its key
+ */
+export function ownerKey(owner: WriteOwner): string {
+  return owner.kind === 'card' ? 'card' : `${owner.kind}:${owner.key}`;
+}
+
 /** The card, as the owner of every write outside an entry and a toolbar button. */
 export const CARD_OWNER: WriteOwner = { kind: 'card' };
 
