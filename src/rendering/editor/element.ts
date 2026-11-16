@@ -30,6 +30,8 @@ import {
   type IndexedField,
   buildFieldIndex,
   builtSchema,
+  buttonFieldIndex,
+  entityFieldIndex,
   fieldId,
   fieldLabel,
 } from './field-index';
@@ -68,6 +70,7 @@ import {
   QUICK_SETUP_TAPS_SCHEMA,
   QUICK_SETUP_WEATHER_SCHEMA,
 } from './schemas/quick-setup';
+import * as Search from './search';
 import { DOCS_SITE, STORIES, type StoryId } from './stories';
 import { interpolate } from './strings';
 import styles from './styles';
@@ -80,6 +83,7 @@ import { icon } from './views/icon';
 import { escapeAction } from './views/keys';
 import * as Overview from './views/overview';
 import * as PageView from './views/page';
+import * as SearchView from './views/search';
 import * as Workspace from './workspace';
 import * as WriteFrames from './write-frames';
 import * as Config from '../../config/config';
@@ -232,6 +236,23 @@ class WhenOpened extends Directive {
 }
 
 const whenOpened = directive(WhenOpened);
+
+/**
+ * A schema without one of its nodes, at any depth.
+ *
+ * @param schema - The schema
+ * @param node - The node to leave out
+ * @returns The rest
+ */
+function withoutNode(schema: ReadonlyArray<HaFormSchema>, node: HaFormSchema): HaFormSchema[] {
+  return schema.flatMap((each) =>
+    each === node
+      ? []
+      : 'schema' in each
+        ? [{ ...each, schema: withoutNode(each.schema, node) } as HaFormSchema]
+        : [each],
+  );
+}
 
 /** The data of a form that draws no field, the one object every render hands it. */
 const NO_DATA: Readonly<Record<string, unknown>> = {};
@@ -539,6 +560,19 @@ export class CalendarCardProEditor extends LitElement {
    * card's, and kept until Quick Setup is applied or the banner dismissed.
    */
   @state() private _banner?: boolean;
+
+  /** The field a search result opened, highlighted while `lit` (`_openResult`). */
+  @state() private _jump?: {
+    readonly target: Search.SearchTarget;
+    readonly label: string;
+    readonly lit: boolean;
+  };
+
+  /** The results a result on the overview left, which Return to Results and Escape restore. */
+  @state() private _resultsLeft?: Navigation.TrailEntry;
+
+  /** The jump list's count line, as the last render drew it, announced as the query changes. */
+  private _resultStatus = '';
 
   /** The one polite live region's queue (`announce.ts`). */
   private _announcer = new Announcer();
@@ -887,7 +921,6 @@ export class CalendarCardProEditor extends LitElement {
     return {
       ...ctx,
       criteria: this._filter,
-      hass: this.hass,
       stored: this._rawConfig,
     };
   }
@@ -1291,10 +1324,9 @@ export class CalendarCardProEditor extends LitElement {
     EditorLocalize.lookup(this._ctx.language, key);
 
   /**
-   * What the filter bar leaves of every panel, as today's in-place filtering decides it, and
-   * the field ids that survive: Essentials Only and Customized Only narrow every page by them,
-   * and a query shows them on the overview, grouped by page. Counts what Essentials Only hides
-   * as it goes.
+   * What the switches leave of every panel, and the field ids that survive: Essentials Only and
+   * Customized Only narrow every page and the jump list by them. A query narrows nothing: it
+   * sets Essentials Only aside and shows results. Counts what Essentials Only hides as it goes.
    *
    * @param ctx - Schema context
    * @returns Each panel's filtered schema, and the ids it holds
@@ -1308,15 +1340,7 @@ export class CalendarCardProEditor extends LitElement {
     const shown = new Set<FieldId>();
     for (const panel of PANELS) {
       const built = builtSchema(panel, ctx);
-      // Only a typed query may let a whole panel through by its name: on an empty one every
-      // panel matches, and Essentials Only would show all it hides.
-      const wholePanel =
-        Filter.hasQuery(this._filter) &&
-        !this._filter.customizedOnly &&
-        Filter.matchesPanel(panel, filterCtx);
-      const schema = wholePanel
-        ? Filter.openMatches(built, filterCtx)
-        : Filter.filterSchema(built, filterCtx);
+      const schema = Filter.filterSchema(built, filterCtx);
       this._countHidden(built, schema);
       schemas.set(panel.id, schema);
       for (const { node, dataPath } of walkSchema(schema)) {
@@ -1332,14 +1356,6 @@ export class CalendarCardProEditor extends LitElement {
               ? this._buttonSchemas(subform)
               : [];
         for (const { offered, schema: kept } of forms) this._countHidden(offered, kept);
-      }
-    }
-    // A page is let through whole by its own title, as a panel is by its: the pages' titles are
-    // the ones the overview shows.
-    if (!this._filter.customizedOnly) {
-      for (const page of PAGES) {
-        if (!Filter.matchesText([page.id, this._pageTitle(page, ctx)], filterCtx)) continue;
-        for (const heading of page.headings) for (const [id] of heading.fields) shown.add(id);
       }
     }
     return { schemas, shown };
@@ -1372,7 +1388,7 @@ export class CalendarCardProEditor extends LitElement {
     };
     // Focus goes to the calendar picker once Remove has taken the last calendar
     // (`_focusAfterRemove`), and to any field's wrapper, never into its form.
-    return html`<div
+    const wrapper = html`<div
       class="field${field.id === 'calendars:calendars' ? ' calendar-picker' : ''}"
       data-field=${field.id}
       tabindex="-1"
@@ -1396,6 +1412,100 @@ export class CalendarCardProEditor extends LitElement {
         ></ha-form>`,
       )}
     </div>`;
+    const jump = this._jump;
+    return jump?.target.kind === 'field' && jump.target.id === field.id
+      ? this._jumpTo(ctx, wrapper)
+      : wrapper;
+  }
+
+  /**
+   * The field a result opened, with Return to Results above it while the results can be
+   * returned to, highlighted while it is lit.
+   *
+   * @param ctx - Schema context
+   * @param body - The field, or the forms holding it
+   * @returns The group
+   */
+  private _jumpTo(ctx: SchemaCtx, body: unknown): TemplateResult {
+    return html`<div class="jump${this._jump?.lit ? ' jumped' : ''}">
+      ${this._renderReturn(ctx)} ${body}
+    </div>`;
+  }
+
+  /**
+   * Whether the field a result opened is still drawn where it opened, so Return to Results goes
+   * above it rather than at the top. A jump ends as the editor moves, so where it opened is here.
+   *
+   * @returns `true` while it is
+   */
+  private _jumpDrawn(): boolean {
+    const target = this._jump?.target;
+    if (target === undefined) return false;
+    if (target.kind === 'entry-field') return this._entryKeys.includes(target.key);
+    if (target.kind === 'button-field') return this._buttonKeys.includes(target.key);
+    return this._drawing!.shown.has(target.id) && this._drawing!.present.has(target.id);
+  }
+
+  /**
+   * Whether a result opened a field of one calendar entry or one toolbar button.
+   *
+   * @param kind - Whose field
+   * @param key - The entry's or button's key
+   * @returns `true` for the one a result opened
+   */
+  private _jumpsTo(kind: 'entry-field' | 'button-field', key: number): boolean {
+    const target = this._jump?.target;
+    return target?.kind === kind && target.key === key;
+  }
+
+  /**
+   * The field of one calendar entry or toolbar button a result opened, as its form builds it.
+   *
+   * @param kind - Whose field
+   * @param key - The entry's or button's key
+   * @param schema - Its form's fields
+   * @returns The field, or `undefined` where no result opened one of this owner's
+   */
+  private _jumpField(
+    kind: 'entry-field' | 'button-field',
+    key: number,
+    schema: ReadonlyArray<HaFormSchema>,
+  ): IndexedField | undefined {
+    if (!this._jumpsTo(kind, key)) return undefined;
+    const index = kind === 'entry-field' ? entityFieldIndex(schema) : buttonFieldIndex(schema);
+    return index.fields.get(this._jump!.target.id);
+  }
+
+  /**
+   * A field of an entry or a button a result opened, drawn alone, in a wrapper named after it
+   * that takes focus for it, as a card field's does.
+   *
+   * @param ctx - Schema context
+   * @param forms - The forms
+   * @returns The group
+   */
+  private _jumpToOwned(ctx: SchemaCtx, forms: unknown): TemplateResult {
+    return this._jumpTo(
+      ctx,
+      html`<div class="field" tabindex="-1" role="group" aria-label=${this._jump!.label}>
+        ${forms}
+      </div>`,
+    );
+  }
+
+  /**
+   * Return to Results, wherever a result left them: Back from a page reached from the results,
+   * or the overview's own Back while a result shows a field there.
+   *
+   * @param ctx - Schema context
+   * @returns The button, or nothing where there are no results to return to
+   */
+  private _renderReturn(ctx: SchemaCtx): TemplateResult | typeof nothing {
+    const returnable =
+      this._nav.route.kind === 'overview' ? this._resultsLeft !== undefined : this._nav.fromResults;
+    return returnable
+      ? SearchView.returnButton(this._string(ctx, 'search.return'), this._back)
+      : nothing;
   }
 
   /**
@@ -1501,13 +1611,60 @@ export class CalendarCardProEditor extends LitElement {
       focusKey,
     };
     this._nav = Navigation.go(this._nav, to, from, how);
+    this._jump = this._resultsLeft = undefined;
     void this._afterMove(undefined, heading);
   }
 
-  /** Goes Back one place, restoring its scroll position and the control that left it. */
+  /**
+   * Opens what a result names (section 5.8): its page at the field, or, for a field the overview
+   * draws, the overview with the field shown in place of the results. Either way Return to
+   * Results sits above the field, which is scrolled to the top, highlighted for 2 s and focused
+   * on its wrapper, and the move is announced.
+   *
+   * @param hit - The result
+   * @param focusKey - The result's `data-focus` key, which Back restores focus to
+   */
+  private _openResult(hit: Search.SearchEntry, focusKey: string): void {
+    const target = hit.target;
+    const from: Navigation.TrailEntry = {
+      route: this._nav.route,
+      scrollTop: Focus.scrollPosition(this),
+      focusKey,
+      search: { query: this._filter.query, editHere: false },
+    };
+    const page =
+      target.kind === 'button-field' ? 'card_header' : target.kind === 'field' && target.page;
+    if (page) {
+      this._nav = Navigation.go(this._nav, { kind: 'page', page }, from);
+    } else {
+      this._resultsLeft = from;
+    }
+    const jump = { target, label: hit.label, lit: true };
+    this._jump = jump;
+    void this.updateComplete.then(() => {
+      const field = this.renderRoot.querySelector<HTMLElement>('.jump');
+      if (field) Focus.scrollToTop(this, field);
+      Focus.focusFirst(field ?? this.renderRoot, ['[tabindex="-1"]', '.page-title']);
+      this._say(interpolate(this._string(this._ctx, 'search.showing'), { label: hit.label }));
+      setTimeout(() => {
+        if (this._jump === jump) this._jump = { ...jump, lit: false };
+      }, 2000);
+    });
+  }
+
+  /**
+   * Goes Back one place, restoring its scroll position and the control that left it. On the
+   * overview, where a result shows a field in place of the results, Back is Return to Results.
+   */
   private _back = (): void => {
-    const { nav, restore } = Navigation.back(this._nav);
-    this._nav = nav;
+    let restore = this._resultsLeft;
+    if (restore === undefined || this._nav.route.kind !== 'overview') {
+      const moved = Navigation.back(this._nav);
+      this._nav = moved.nav;
+      restore = moved.restore;
+    }
+    // The query stays typed while a result's field shows, so the results come back with it.
+    this._jump = this._resultsLeft = undefined;
     void this._afterMove(restore);
   };
 
@@ -1552,7 +1709,10 @@ export class CalendarCardProEditor extends LitElement {
     // Quick Setup is a place of its own: Escape is its Back, or Cancel on its first step.
     const action = escapeAction(event.composedPath(), this, {
       disclosure: wizard === undefined && this._scopeOpen,
-      onPage: wizard !== undefined || this._nav.route.kind !== 'overview',
+      onPage:
+        wizard !== undefined ||
+        this._nav.route.kind !== 'overview' ||
+        this._resultsLeft !== undefined,
       query: Filter.hasQuery(this._filter),
     });
     if (action === 'pass') return;
@@ -1583,6 +1743,7 @@ export class CalendarCardProEditor extends LitElement {
       this._back();
     } else if (action === 'clear') {
       this._filter = { ...this._filter, query: '' };
+      this._jump = undefined;
       void this.updateComplete.then(() =>
         Focus.focusFirst(this.renderRoot, ['ha-form.filter-form']),
       );
@@ -1697,7 +1858,7 @@ export class CalendarCardProEditor extends LitElement {
    * @param value - Its value
    * @returns The words, or `undefined` to leave the pair out
    */
-  private _describe = (field: IndexedField, value: unknown): string | undefined => {
+  private _describe = (field: Pick<IndexedField, 'node'>, value: unknown): string | undefined => {
     const selector = field.node.selector;
     if ('ui_action' in selector) {
       const action = Helpers.isConfigBlock(value) ? value.action : undefined;
@@ -1708,6 +1869,10 @@ export class CalendarCardProEditor extends LitElement {
     }
     if ('entity' in selector && typeof value === 'string' && value !== '') {
       return Entities.entityDisplayName(value, this.hass);
+    }
+    // The calendar picker's list, as its rows name the calendars.
+    if ('entity' in selector && Array.isArray(value) && value.length > 0) {
+      return value.map((each) => Entities.entityDisplayName(String(each), this.hass)).join(', ');
     }
     return undefined;
   };
@@ -1790,9 +1955,10 @@ export class CalendarCardProEditor extends LitElement {
 
     // One template whatever the query, so the filter bar above it is never drawn anew and the
     // search field keeps focus as the first character turns the overview into results. The
-    // scope stays in view with the results: what they write goes where it says.
+    // scope stays in view with the results: their values are the scope's.
     return html`<div class="overview">
-      ${head} ${this._renderOverviewBody(ctx, chassis, present, shown, own)}
+      ${head} ${this._jumpDrawn() ? nothing : this._renderReturn(ctx)}
+      ${this._renderOverviewBody(ctx, chassis, present, shown, own)}
     </div>`;
   }
 
@@ -1815,8 +1981,8 @@ export class CalendarCardProEditor extends LitElement {
     own: ReadonlyArray<IndexedField>,
   ): TemplateResult {
     const t = this._t(ctx);
-    if (Filter.hasQuery(this._filter)) {
-      return html`${this._renderScope(ctx)} ${this._renderResults(ctx, present, shown, own)}`;
+    if (Filter.hasQuery(this._filter) && this._resultsLeft === undefined) {
+      return html`${this._renderScope(ctx)} ${this._renderResults(ctx, present, shown)}`;
     }
     const rows = PAGES.filter(
       (page) => page.onlyIn === undefined || page.onlyIn === this._workspace,
@@ -1845,37 +2011,74 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * What a query finds: the matching fields of every page as live controls, grouped by page,
-   * the overview's own and the calendars' first, as today's in-place filtering finds them.
+   * What a query finds, as the jump list: the count, the scope its values are for, and a row per
+   * field, which opens the field where it is drawn.
    *
    * @param ctx - Schema context
    * @param present - The fields built here
-   * @param shown - The ids the filter keeps
-   * @param own - The overview's own fields it keeps
+   * @param shown - The ids the switches keep
    * @returns The results, or the line saying nothing matches
    */
   private _renderResults(
     ctx: SchemaCtx,
     present: ReadonlyMap<FieldId, IndexedField>,
     shown: ReadonlySet<FieldId>,
-    own: ReadonlyArray<IndexedField>,
   ): TemplateResult {
-    const groups = PAGES.flatMap((page) => {
-      const body = this._renderPageBody(page, ctx, present, shown, false);
-      return body === undefined
-        ? []
-        : [PageView.headingBlock({ title: this._pageTitle(page, ctx), key: page.id, body })];
+    const query = this._filter.query.trim();
+    const owners = (forms: ReadonlyArray<Search.SearchOwner>) =>
+      forms.filter(({ schema }) => Filter.hasFields(schema));
+    const calendars = PANELS.find((panel) => panel.id === 'calendars')!;
+    const entries = calendars
+      .subforms?.(ctx)
+      ?.find((subform) => subform.path.join('.') === ENTITY_PATH.join('.'));
+    const card = PANELS.find((panel) => panel.id === 'card')!;
+    const buttons = card
+      .subforms?.(ctx)
+      ?.find((subform) => subform.path.join('.') === TOOLBAR_BUTTON_PATH.join('.'));
+    const index = Search.buildSearchIndex({
+      ...ctx,
+      hass: this.hass,
+      customizedOnly: this._filter.customizedOnly,
+      present,
+      shown,
+      data: this._formData(),
+      entries: entries ? owners(this._entrySchemas(entries, ctx)) : [],
+      buttons:
+        buttons && Config.resolveToolbar(ctx.config).show
+          ? owners(this._buttonSchemas(buttons))
+          : [],
+      t: this._t(ctx),
+      describe: this._describe,
     });
-    const calendars = this._renderCalendars(ctx, present, shown);
-    if (groups.length === 0 && own.length === 0 && calendars === nothing) {
-      return this._renderNoMatches(ctx);
-    }
-    return html`${this._renderFields(own, ctx)}
-    ${this._renderResetControls(
-      own.flatMap((field) => field.lifted),
-      ctx,
-    )}
-    ${calendars} ${groups}`;
+    const hits = Search.search(index, query);
+    this._resultStatus = interpolate(this._string(ctx, 'search.results'), {
+      query,
+      count: String(hits.length),
+    });
+    if (hits.length === 0) return this._renderNoMatches(ctx);
+    const workspace = ctx.workspace ?? ctx.view;
+    const rows = hits.map(({ entry }): SearchView.ResultRow => {
+      const { target } = entry;
+      const key = `result:${target.id}${target.kind === 'field' ? '' : `:${target.key}`}`;
+      return {
+        key,
+        label: entry.label,
+        marks: Search.highlight(entry.label, query),
+        crumbs: entry.crumbs,
+        value: entry.value,
+        yaml: interpolate(this._string(ctx, 'search.yaml'), { path: entry.yamlPath }),
+        onOpen: () => this._openResult(entry, key),
+      };
+    });
+    return SearchView.resultList(
+      this._resultStatus,
+      workspace === 'shared'
+        ? undefined
+        : interpolate(this._string(ctx, 'search.values_for'), {
+            layout: this._string(ctx, `editing_workspace.option.${workspace}.label`),
+          }),
+      rows,
+    );
   }
 
   /**
@@ -1886,17 +2089,14 @@ export class CalendarCardProEditor extends LitElement {
    * @param page - The page
    * @param ctx - Schema context
    * @param present - The fields built here
-   * @param shown - The ids the filter bar keeps
-   * @param headings - Whether to draw the page's headings, as the page itself does; search
-   * results draw the fields alone, under the page's title
-   * @returns The body, or `undefined` where the filter leaves nothing of it
+   * @param shown - The ids the switches keep
+   * @returns The body, or `undefined` where the switches leave nothing of it
    */
   private _renderPageBody(
     page: PageDef,
     ctx: SchemaCtx,
     present: ReadonlyMap<FieldId, IndexedField>,
     shown: ReadonlySet<FieldId>,
-    headings: boolean,
   ): unknown[] | undefined {
     const parts: unknown[] = [];
     const drawn: IndexedField[] = [];
@@ -1911,10 +2111,6 @@ export class CalendarCardProEditor extends LitElement {
       if (fields.length === 0 && buttons === nothing) continue;
       drawn.push(...fields);
       const body = html`${this._renderFields(fields, ctx)} ${buttons}`;
-      if (!headings) {
-        parts.push(body);
-        continue;
-      }
       const link = heading.crossLink;
       const target = link && PAGES.find((candidate) => candidate.id === link.page);
       const targetHeading = target?.headings.find((each) => each.key === link!.heading);
@@ -1948,7 +2144,7 @@ export class CalendarCardProEditor extends LitElement {
     }
     if (page.id === 'size_spacing') {
       const layout = PANELS.find((panel) => panel.id === 'layout')!;
-      const extras = Filter.filterExtras(layout.extras?.(ctx) ?? [], layout, this._filterCtx);
+      const extras = Filter.filterExtras(layout.extras?.(ctx) ?? [], this._filterCtx);
       parts.push(...extras.map((extra) => this._renderExtra(extra)));
     }
     const resets = this._renderResetControls(
@@ -1977,9 +2173,10 @@ export class CalendarCardProEditor extends LitElement {
         : isWholeCard(page)
           ? PageView.pageLine(this._string(ctx, 'value_source.card'))
           : this._renderScope(ctx);
-    const body = this._renderPageBody(page, ctx, present, shown, true);
+    const body = this._renderPageBody(page, ctx, present, shown);
     return html`<div class="page" data-page=${page.id}>
-      ${PageView.pageHead(this._pageTitle(page, ctx), t, this._back)} ${scope}
+      ${PageView.pageHead(this._pageTitle(page, ctx), t, this._back)}
+      ${this._jumpDrawn() ? nothing : this._renderReturn(ctx)} ${scope}
       ${page.noteKey ? PageView.pageLine(this._string(ctx, page.noteKey)) : nothing}
       ${body ?? (Filter.isFiltering(this._filter) ? this._renderNoMatches(ctx) : nothing)}
       ${PageView.footBack(t, this._back)}
@@ -2084,7 +2281,6 @@ export class CalendarCardProEditor extends LitElement {
     const entries = this._config?.entities ?? [];
     if (entries.length === 0) return nothing;
 
-    const searching = Filter.isSearching(this._filter);
     const conditionsEditor = conditionsEditorDefined();
     // Defined before this editor opens wherever Home Assistant's card editor is; should it arrive
     // later, it takes over the YAML box then.
@@ -2121,7 +2317,7 @@ export class CalendarCardProEditor extends LitElement {
               .header=${Entities.entityDisplayName(entityId, this.hass)}
               .secondary=${this._entitySummary(entries, index, ctx)}
               .leftChevron=${false}
-              .expanded=${searching}
+              .expanded=${this._filter.customizedOnly || this._jumpsTo('entry-field', key)}
             >
               <span slot="leading-icon" class="leading-icon">${icon(ENTITY_ICON)}</span>
               <div class="panel-body">
@@ -2162,6 +2358,13 @@ export class CalendarCardProEditor extends LitElement {
                 ${whenOpened(() => {
                   const slot = `entry.${key}`;
                   const data = this._intern(slot, Entities.toEntityFormData(entry, entries));
+                  // The field a result opened, drawn alone above the rest, unless it is the
+                  // conditions Home Assistant's own editor holds.
+                  const jumped = this._jumpField('entry-field', key, schema);
+                  const visibility = split !== undefined && jumped?.node.name === VISIBILITY;
+                  const lifted = visibility ? undefined : jumped;
+                  const rest = lifted ? withoutNode(schema, lifted.node) : schema;
+                  const parts = lifted && split ? splitAtVisibility(rest) : split;
                   const owner: WriteFrames.WriteOwner = { kind: 'entry', key };
                   const form = (part: ReadonlyArray<HaFormSchema>, name: string) => {
                     const kept = this._intern(`${slot}.${name}`, part);
@@ -2182,30 +2385,37 @@ export class CalendarCardProEditor extends LitElement {
                     `;
                   };
 
-                  return split
+                  const conditionsBlock = (body: TemplateResult) =>
+                    visibility ? this._jumpToOwned(ctx, body) : body;
+                  const forms = parts
                     ? html`
-                        ${split.before.length > 0 ? form(split.before, 'before') : nothing}
-                        <div
-                          class="entity-visibility"
-                          @context-request=${(event: Event) => provideCalendar(event, entityId)}
-                        >
-                          <div class="entity-visibility-helper">
-                            ${this._string(ctx, 'entity.visibility.helper')}
-                          </div>
-                          ${keyed(
-                            entityId,
-                            html`<ha-card-conditions-editor
-                              data-hass="live"
-                              .hass=${this.hass}
-                              .conditions=${conditions}
-                              @value-changed=${(event: CustomEvent) =>
-                                this._visibilityChanged(key, event)}
-                            ></ha-card-conditions-editor>`,
-                          )}
-                        </div>
-                        ${split.after.length > 0 ? form(split.after, 'after') : nothing}
+                        ${parts.before.length > 0 ? form(parts.before, 'before') : nothing}
+                        ${conditionsBlock(
+                          html`<div
+                            class="entity-visibility"
+                            @context-request=${(event: Event) => provideCalendar(event, entityId)}
+                          >
+                            <div class="entity-visibility-helper">
+                              ${this._string(ctx, 'entity.visibility.helper')}
+                            </div>
+                            ${keyed(
+                              entityId,
+                              html`<ha-card-conditions-editor
+                                data-hass="live"
+                                .hass=${this.hass}
+                                .conditions=${conditions}
+                                @value-changed=${(event: CustomEvent) =>
+                                  this._visibilityChanged(key, event)}
+                              ></ha-card-conditions-editor>`,
+                            )}
+                          </div>`,
+                        )}
+                        ${parts.after.length > 0 ? form(parts.after, 'after') : nothing}
                       `
-                    : form(schema, 'all');
+                    : form(rest, 'all');
+                  return lifted
+                    ? html`${this._jumpToOwned(ctx, form(lifted.lifted, 'jump'))} ${forms}`
+                    : forms;
                 })}
               </div>
             </ha-expansion-panel>
@@ -2487,7 +2697,11 @@ export class CalendarCardProEditor extends LitElement {
             data-button-key=${key}
             .header=${Buttons.buttonTitle(entry, index, untitled)}
             .leftChevron=${false}
-            .expanded=${Filter.isSearching(this._filter) || this._addedButtons.has(key)}
+            .expanded=${
+              this._filter.customizedOnly ||
+              this._addedButtons.has(key) ||
+              this._jumpsTo('button-field', key)
+            }
           >
             <span slot="leading-icon" class="leading-icon">${icon(TOOLBAR_BUTTON_ICON)}</span>
             <div class="panel-body">
@@ -2522,28 +2736,36 @@ export class CalendarCardProEditor extends LitElement {
               </div>
               ${whenOpened(() => {
                 const slot = `button.${key}`;
-                const kept = this._intern(slot, schema);
                 const data = this._intern(`${slot}.data`, values);
-                const [hass, feed] = this._feed(kept, ctx.language);
-                const frame: WriteFrames.OwnedFrame = {
-                  owner: { kind: 'button', key },
-                  workspace,
-                  schema: kept,
-                  data,
+                // The field a result opened, drawn alone above the rest.
+                const lifted = this._jumpField('button-field', key, schema);
+                const form = (part: ReadonlyArray<HaFormSchema>, name: string) => {
+                  const kept = this._intern(`${slot}${name}`, part);
+                  const [hass, feed] = this._feed(kept, ctx.language);
+                  const frame: WriteFrames.OwnedFrame = {
+                    owner: { kind: 'button', key },
+                    workspace,
+                    schema: kept,
+                    data,
+                  };
+                  return html`
+                    <ha-form
+                      class="button-form"
+                      data-hass=${feed}
+                      .hass=${hass}
+                      .data=${data}
+                      .schema=${kept}
+                      .computeLabel=${computeLabel}
+                      .computeHelper=${computeHelper}
+                      .localizeValue=${this._localizeValue}
+                      @value-changed=${(event: CustomEvent) => this._valueChanged(frame, event)}
+                    ></ha-form>
+                  `;
                 };
-                return html`
-                  <ha-form
-                    class="button-form"
-                    data-hass=${feed}
-                    .hass=${hass}
-                    .data=${data}
-                    .schema=${kept}
-                    .computeLabel=${computeLabel}
-                    .computeHelper=${computeHelper}
-                    .localizeValue=${this._localizeValue}
-                    @value-changed=${(event: CustomEvent) => this._valueChanged(frame, event)}
-                  ></ha-form>
-                `;
+                return lifted
+                  ? html`${this._jumpToOwned(ctx, form(lifted.lifted, '.jump'))}
+                    ${form(withoutNode(schema, lifted.node), '')}`
+                  : form(schema, '');
               })}
             </div>
           </ha-expansion-panel>
@@ -3541,7 +3763,15 @@ export class CalendarCardProEditor extends LitElement {
     if (next.essentialsOnly !== this._filter.essentialsOnly) {
       Essentials.rememberEssentialsOnly(next.essentialsOnly);
     }
+    const typed = next.query !== this._filter.query;
     this._filter = next;
+    // A switch can take away the field a result showed, so Return to Results goes to the top.
+    this._jump = undefined;
+    if (!typed) return;
+    // Typing again leaves the field a result showed for the results.
+    this._resultsLeft = undefined;
+    // The count, through the queue, once the render that counts it is done.
+    if (Filter.hasQuery(next)) void this.updateComplete.then(() => this._say(this._resultStatus));
   };
 
   /**

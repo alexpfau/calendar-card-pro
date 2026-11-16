@@ -1124,7 +1124,8 @@ async function choose(editor: EditorElement, id: FieldId, value: unknown): Promi
  * form, so a calendar's or a button's field not drawn yet is found by its owner's own panel, by
  * its place or key.
  *
- * Where a query holds the overview's results, a card field is looked for there.
+ * Where a query holds the overview's results, the field is reached as a user reaches it there:
+ * through its result row, which opens it where it is drawn.
  *
  * @param editor - Editor element
  * @param id - Field id
@@ -1136,15 +1137,20 @@ export async function openPageOf(editor: EditorElement, id: FieldId, owner?: Own
     const { scope } = parseFieldId(id);
     const wanted = owner ?? impliedOwner(scope);
     const page = wanted.kind === 'card' ? pageOf(id) : undefined;
-    const results = (): boolean =>
-      openPage(editor) === undefined &&
-      editor.shadowRoot?.querySelector('[data-focus^="nav:"]') === null;
-    if (wanted.kind === 'button') await goPage(editor, 'card_header');
+    const row = resultRows(editor).find(
+      (each) =>
+        each.id === id &&
+        (wanted.kind === 'card' ||
+          wanted.kind === 'chassis' ||
+          each.ownerKey === ownerKey(editor, wanted)),
+    );
+    if (row !== undefined) await chooseResult(editor, row.key);
+    else if (wanted.kind === 'button') await goPage(editor, 'card_header');
     else if (page === undefined || page === 'overview' || page === 'entry')
       await goOverview(editor);
-    else if (!(results() && find(editor, id, owner) !== undefined)) {
+    else {
       await goOverview(editor);
-      if (!results()) await goPage(editor, page);
+      await goPage(editor, page);
     }
     const holders = holdersOf(editor, wanted);
     for (const panel of holders) await openAround(panel);
@@ -1154,6 +1160,83 @@ export async function openPageOf(editor: EditorElement, id: FieldId, owner?: Own
   if (found === undefined) found = located(editor, id, owner);
 
   await openAround(found.form);
+  await editor.updateComplete;
+}
+
+/**
+ * The key of the entry or button an owner names, or of the first, where it names none.
+ *
+ * @param editor - Editor element
+ * @param owner - An entry or a button
+ * @returns Its key
+ */
+function ownerKey(editor: EditorElement, owner: Owner): number | undefined {
+  if (owner.kind !== 'entry' && owner.kind !== 'button') return undefined;
+  if (owner.key !== undefined) return owner.key;
+  const keys = keysOf(editor, owner.kind);
+  return owner.index === undefined ? undefined : keys[owner.index];
+}
+
+/** One row of the jump list, as the editor draws it. */
+export interface ResultRowRead {
+  /** Its `data-focus` key. */
+  readonly key: string;
+  readonly id: FieldId;
+  /** The key of the calendar entry or toolbar button it belongs to. */
+  readonly ownerKey?: number;
+  readonly label: string;
+  /** The parts of the label marked as matching. */
+  readonly marked: ReadonlyArray<string>;
+  /** "Events › Time". */
+  readonly crumbs: string;
+  /** "On · YAML: show_time". */
+  readonly meta: string;
+}
+
+/**
+ * The jump list's rows, in order; none where the overview is not showing results.
+ *
+ * @param editor - Editor element
+ * @returns The rows
+ */
+export function resultRows(editor: EditorElement): ResultRowRead[] {
+  const rows = editor.shadowRoot?.querySelectorAll('[data-focus^="result:"]') ?? [];
+  return [...rows].map((row) => {
+    const key = row.getAttribute('data-focus')!;
+    const [, id, owner] = /^result:([^:]+:[^:]+)(?::(\d+))?$/.exec(key)!;
+    const [label, crumbs, meta] = [...row.querySelectorAll('.nav-text > span')].map(
+      (span) => span.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+    );
+    return {
+      key,
+      id,
+      ownerKey: owner === undefined ? undefined : Number(owner),
+      label,
+      marked: [...row.querySelectorAll('mark')].map((mark) => mark.textContent ?? ''),
+      crumbs,
+      meta,
+    };
+  });
+}
+
+/**
+ * Types a query into the overview's search field, as a user does, from wherever the editor is.
+ *
+ * @param editor - Editor element
+ * @param query - The query
+ */
+export async function searchFor(editor: EditorElement, query: string): Promise<void> {
+  await changeField(editor, 'filter:search', query);
+}
+
+/**
+ * Chooses a result row, as a user taps it, and waits for the move to settle.
+ *
+ * @param editor - Editor element
+ * @param key - The row's `data-focus` key
+ */
+export async function chooseResult(editor: EditorElement, key: string): Promise<void> {
+  await press(editor, `[data-focus="${CSS.escape(key)}"]`, `result row ${key}`);
   await editor.updateComplete;
 }
 

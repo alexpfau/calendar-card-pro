@@ -7,31 +7,29 @@ import {
   formsOf,
   mountEditor,
   openPageOf,
+  resultRows,
 } from './helpers/editor-host';
 import type * as Types from '../src/config/types';
 import type { CalendarCardProEditor } from '../src/rendering/editor/element';
-import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { lookupForView } from '../src/rendering/editor/localize';
 
 /**
- * The rule fields every card form drawn now holds: on the Size & Spacing page, or in the
+ * The rule fields the open place shows: drawn on the Size & Spacing page, or listed by the
  * overview's results for a query.
  *
  * @param editor - Editor
- * @returns Their names, in order
+ * @returns Their ids, in order
  */
 function ruleFields(editor: CalendarCardProEditor): string[] {
-  return formsOf(editor, CARD)
-    .filter((form) =>
-      form.closest('[data-field]')?.getAttribute('data-field')?.startsWith('separators:'),
-    )
-    .flatMap((form) => fieldNames(form.schema));
-}
-
-function fieldNames(schema: ReadonlyArray<HaFormSchema>): string[] {
-  return schema.flatMap((node) =>
-    'schema' in node ? fieldNames(node.schema) : 'selector' in node ? [node.name] : [],
-  );
+  const root = editor.shadowRoot!;
+  const results =
+    root.querySelector('.overview') !== null && root.querySelector('[data-focus^="nav:"]') === null;
+  const ids = results
+    ? resultRows(editor).map((row) => row.id)
+    : formsOf(editor, CARD).map((form) =>
+        form.closest('[data-field]')!.getAttribute('data-field')!,
+      );
+  return ids.filter((id) => id.startsWith('separators:'));
 }
 
 async function mount(language: string, view: Types.EffectiveView = 'grid') {
@@ -77,7 +75,7 @@ describe.each(['en', 'en-GB', 'de', 'et', 'it', 'lt', 'lv', 'nb', 'pl', 'sk', 's
       const editor = await mount(language);
       const before = ruleFields(editor);
       const title = panelWords(language, 'grid');
-      expect(before).toContain('hour_line_width');
+      expect(before).toContain('separators:time_grid.hour_line_width');
       expect(before).toHaveLength(11);
       expect(title).not.toBe('');
 
@@ -99,7 +97,7 @@ describe.each(['en', 'en-GB', 'de', 'et', 'it', 'lt', 'lv', 'nb', 'pl', 'sk', 's
       const editor = await mount(language, 'list');
       const before = ruleFields(editor);
       const title = panelWords(language, 'list');
-      expect(before).not.toContain('hour_line_width');
+      expect(before).not.toContain('separators:time_grid.hour_line_width');
 
       await search(editor, title);
       expect(ruleFields(editor)).toEqual(before);

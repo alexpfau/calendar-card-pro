@@ -117,12 +117,10 @@ export function back(nav: NavState): { nav: NavState; restore: TrailEntry | unde
   const restore = nav.trail[nav.trail.length - 1];
   if (restore === undefined) return { nav: OVERVIEW, restore: undefined };
   const trail = nav.trail.slice(0, -1);
+  // The place returned to was reached from the results when the place before it held them.
+  const before = trail[trail.length - 1]?.search?.query;
   return {
-    nav: {
-      route: restore.route,
-      trail,
-      fromResults: trail.length > 0 && nav.fromResults,
-    },
+    nav: { route: restore.route, trail, fromResults: before !== undefined && before !== '' },
     restore,
   };
 }

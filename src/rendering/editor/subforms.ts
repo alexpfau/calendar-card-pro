@@ -71,6 +71,7 @@ export const REFERENCED_STRINGS: ReadonlyArray<string> = [
   'settings_for',
   'announce',
   'summary',
+  'search',
 ];
 
 export const CHASSIS_STRINGS: ReadonlyArray<string> = [
