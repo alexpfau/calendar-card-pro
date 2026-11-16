@@ -345,11 +345,18 @@ describe('the Escape guard', () => {
     const editor = await mountEditor(CARD);
     // A click focuses no button here, as in Safari: focus is on nothing in the editor.
     await click(editor, '[data-quick-setup-open]');
-    expect(editor.shadowRoot!.activeElement).toBe($(editor, '.quick-setup-step'));
+    // The heading takes focus, and reads the step line as its description.
+    expect(editor.shadowRoot!.activeElement).toBe($(editor, '.quick-setup-title'));
+    expect(
+      $(
+        editor,
+        `#${$(editor, '.quick-setup-title')!.getAttribute('aria-describedby')}`,
+      )!.textContent!.trim(),
+    ).toBe('Step 1 of 5: Starting Point');
     await click(editor, '[data-story="family_hub"]');
     (editor.shadowRoot!.activeElement as HTMLElement | null)?.blur();
     await click(editor, '[data-quick-setup-next]');
-    expect(editor.shadowRoot!.activeElement).toBe($(editor, '.quick-setup-step'));
+    expect(editor.shadowRoot!.activeElement).toBe($(editor, '.quick-setup-title'));
 
     // A keyboard user on Next stays on Next.
     $(editor, '[data-quick-setup-next]')!.focus();

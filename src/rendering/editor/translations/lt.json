@@ -429,7 +429,6 @@
   "split.edit_allowlist": "Redaguoti „Rodyti tik įvykius, kuriuose yra“",
   "split.edit_blocklist": "Redaguoti „Slėpti įvykius, kuriuose yra“",
   "split.go_budget": "Eiti į „Rodomi įvykiai suglaudintame režime“",
-  "split.colors.title": "Spalvos ir etiketės",
   "split.colors.intro": "Abi dalys išlaiko pavadinimą „{name}“, kurį turi visi kalendoriaus įrašai. Kalendorių sąraše ir kortelėje jos atskiriamos pagal tai, ką rodo, ir pagal šiuos nustatymus.",
   "split.part_of": "{part} dalis iš {total}",
   "split.color_now": "Dabartinė „{name}“ spalva.",

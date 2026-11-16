@@ -429,7 +429,6 @@
   "split.edit_allowlist": "Modifica «Mostra solo gli eventi che contengono»",
   "split.edit_blocklist": "Modifica «Nascondi gli eventi che contengono»",
   "split.go_budget": "Vai a «Eventi in modalità compatta»",
-  "split.colors.title": "Colori ed etichette",
   "split.colors.intro": "Entrambe le parti mantengono il nome {name}, condiviso da tutte le voci di un calendario. L’elenco dei calendari e la scheda le distinguono per ciò che mostrano e per questi.",
   "split.part_of": "Parte {part} di {total}",
   "split.color_now": "Colore attuale di {name}.",

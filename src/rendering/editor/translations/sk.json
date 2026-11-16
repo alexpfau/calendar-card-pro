@@ -429,7 +429,6 @@
   "split.edit_allowlist": "Upraviť „Zobraziť len udalosti obsahujúce“",
   "split.edit_blocklist": "Upraviť „Skryť udalosti obsahujúce“",
   "split.go_budget": "Prejsť na „Udalosti v kompaktnom režime“",
-  "split.colors.title": "Farby a štítky",
   "split.colors.intro": "Obe časti si ponechajú názov {name}, ktorý zdieľajú všetky položky kalendára. Zoznam kalendárov a karta ich rozlíšia podľa toho, čo zobrazujú, a podľa týchto nastavení.",
   "split.part_of": "Časť {part} z {total}",
   "split.color_now": "Súčasná farba kalendára {name}.",

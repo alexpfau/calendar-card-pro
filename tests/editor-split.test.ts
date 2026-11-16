@@ -307,6 +307,43 @@ describe('Split This Calendar on an entry’s page', () => {
     expect(root(editor).querySelector('.split-row')).toBeNull();
   });
 
+  it('keeps its heading on every step and names the step in the line the heading reads', async () => {
+    const { editor } = await onBensPage();
+    await press(editor, 'split-row');
+    const described = (): string => {
+      const title = root(editor).querySelector('.split-title')!;
+      const id = title.getAttribute('aria-describedby')!;
+      return text(root(editor).querySelector(`#${id}`));
+    };
+    const progress = (): Array<[string, string | null]> =>
+      [...root(editor).querySelectorAll('.split-steps > li')].map((step) => [
+        step.className,
+        step.getAttribute('aria-current'),
+      ]);
+    const names = [...root(editor).querySelectorAll('.split-steps > li')].map(text);
+
+    expect(names).toEqual(['How', 'Colors', 'Review']);
+    for (const [step, next] of [
+      ['How', 'split-next'],
+      ['Colors', 'split-next'],
+      ['Review', undefined],
+    ] as const) {
+      const at = names.indexOf(step);
+      expect(text(root(editor).querySelector('.split-title'))).toBe('Split Ben');
+      expect(root(editor).activeElement?.classList.contains('split-title')).toBe(true);
+      expect(described()).toBe(`Step ${at + 1} of 3 · ${step}`);
+      expect(progress()).toEqual(
+        names.map((_, each) =>
+          each < at ? ['done', null] : each === at ? ['current', 'step'] : ['', null],
+        ),
+      );
+      if (next) {
+        await press(editor, next);
+        await settle(editor);
+      }
+    }
+  });
+
   // Plan section 5.6: first the row, then the fields the entry stores under Which Events.
   it('draws its row first under Which Events, above the fields stored there', async () => {
     const { editor } = await onBensPage({
