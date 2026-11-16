@@ -423,7 +423,6 @@
   "split.edit_allowlist": "Edytuj „Pokaż tylko wydarzenia zawierające”",
   "split.edit_blocklist": "Edytuj „Ukryj wydarzenia zawierające”",
   "split.go_budget": "Przejdź do „Wydarzenia w trybie kompaktowym”",
-  "split.colors.title": "Kolory i etykiety",
   "split.colors.intro": "Obie części zachowują nazwę {name}, wspólną dla wszystkich wpisów kalendarza. Lista kalendarzy i karta rozróżniają je po tym, co pokazują, i po tych ustawieniach.",
   "split.part_of": "Część {part} z {total}",
   "split.color_now": "Obecny kolor wpisu {name}.",

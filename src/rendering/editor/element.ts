@@ -13,6 +13,7 @@ import {
   mdiContentCopy,
   mdiContentDuplicate,
   mdiContentPaste,
+  mdiCreation,
   mdiDeleteOutline,
   mdiFormatListChecks,
   mdiFormatVerticalAlignTop,
@@ -125,12 +126,14 @@ import { escapeAction, historyKey, inTextField } from './views/keys';
 import * as Overview from './views/overview';
 import * as PageView from './views/page';
 import * as PickView from './views/pick';
+import * as QuickSetupView from './views/quick-setup';
 import * as ReorderView from './views/reorder';
 import { ScopePreview } from './views/scope-preview';
 import { scrollContainer } from './views/scroll';
 import * as SearchView from './views/search';
 import * as ShownView from './views/shown';
 import * as SplitView from './views/split';
+import * as Wizard from './views/wizard';
 import * as WordLists from './word-lists';
 import * as Workspace from './workspace';
 import * as WriteFrames from './write-frames';
@@ -7267,12 +7270,10 @@ export class CalendarCardProEditor extends LitElement {
       focus: 'split-back',
       onPress: () => this._splitGo(session.step - 1),
     };
-    let title: string;
     let intro: string;
     let body: unknown;
     let next: CalendarView.TextButton;
     if (session.step === 0) {
-      title = t('split.named', { name });
       intro = t('split.how.intro', { name, entity: entityId });
       const way = (id: FieldId, label: string): CalendarView.TextButton => ({
         label,
@@ -7373,7 +7374,6 @@ export class CalendarCardProEditor extends LitElement {
         };
       };
       if (session.step === 1) {
-        title = t('split.colors.title');
         intro = t('split.colors.intro', { name });
         body = [0, 1].map((part) =>
           SplitView.partCard(
@@ -7388,7 +7388,6 @@ export class CalendarCardProEditor extends LitElement {
           onPress: () => this._splitGo(2),
         };
       } else {
-        title = t('split.step.review');
         intro = t('split.review.intro', { name });
         const pair = this._splitPair(session)!;
         const window = SplitReview.reviewWindow(
@@ -7472,14 +7471,16 @@ export class CalendarCardProEditor extends LitElement {
         };
       }
     }
+    const stepOf = t('split.step_of', { step: session.step + 1, total: '3' });
     return SplitView.splitTask({
       name: t('split.title'),
       steps,
       step: session.step,
-      stepOf: t('split.step_of', { step: session.step + 1, total: '3' }),
+      stepOf,
+      stepLine: `${stepOf}${Summary.SUMMARY_SEPARATOR}${steps[session.step]}`,
       closeName: t('quick_setup.cancel'),
       onClose: () => this._cancelSplit(true),
-      title,
+      title: t('split.named', { name }),
       intro,
       body,
       back: session.step === 0 ? cancel : back,
@@ -8361,27 +8362,33 @@ export class CalendarCardProEditor extends LitElement {
         ? answers !== undefined
         : answers !== undefined && answers.calendars.length > 0;
     const last = index === QUICK_SETUP_STEPS.length - 1;
+    const names = QUICK_SETUP_STEPS.map((step) => this._string(ctx, `quick_setup.step.${step}`));
+    const stepLine = this._string(ctx, 'quick_setup.step', {
+      step: index + 1,
+      steps: QUICK_SETUP_STEPS.length,
+      name: names[index],
+    });
 
     return html`
       <div class="card-config" @keydown=${this._onKeydown}>
         <div
-          class="quick-setup"
+          class="quick-setup wizard"
           data-quick-setup=${session.step}
           role="group"
           aria-labelledby="quick-setup-title"
         >
-          <h2 class="quick-setup-title" id="quick-setup-title">
-            ${this._string(ctx, 'quick_setup.title')}
-          </h2>
-          <div class="quick-setup-step" tabindex="-1">
-            ${this._string(ctx, 'quick_setup.step', {
-              step: index + 1,
-              steps: QUICK_SETUP_STEPS.length,
-              name: this._string(ctx, `quick_setup.step.${session.step}`),
-            })}
-          </div>
+          ${Wizard.wizardHead({
+            iconPath: mdiCreation,
+            title: this._string(ctx, 'quick_setup.title'),
+            titleClass: 'quick-setup-title',
+            level: 2,
+            stepLine,
+            stepClass: 'quick-setup-step',
+            id: 'quick-setup',
+          })}
+          ${Wizard.wizardProgress(names, index, stepLine, 'quick-setup-progress')}
           ${this._renderQuickSetupStep(ctx, session)}
-          <div class="quick-setup-actions">
+          <div class="wizard-actions quick-setup-actions">
             <button
               type="button"
               class="text-button"
@@ -8390,39 +8397,41 @@ export class CalendarCardProEditor extends LitElement {
             >
               ${this._string(ctx, 'quick_setup.cancel')}
             </button>
-            ${
-              index > 0
-                ? html`<button
-                    type="button"
-                    class="migration-choice"
-                    data-quick-setup-back
-                    @click=${() => this._quickSetupGo(QUICK_SETUP_STEPS[index - 1])}
-                  >
-                    ${this._string(ctx, 'quick_setup.back')}
-                  </button>`
-                : nothing
-            }
-            ${
-              last
-                ? html`<button
-                    type="button"
-                    class="migration-choice primary"
-                    data-quick-setup-apply
-                    ?disabled=${!ready}
-                    @click=${this._applyQuickSetup}
-                  >
-                    ${this._string(ctx, 'quick_setup.apply')}
-                  </button>`
-                : html`<button
-                    type="button"
-                    class="migration-choice primary"
-                    data-quick-setup-next
-                    ?disabled=${!ready}
-                    @click=${() => this._quickSetupGo(QUICK_SETUP_STEPS[index + 1])}
-                  >
-                    ${this._string(ctx, 'quick_setup.next')}
-                  </button>`
-            }
+            <span class="wizard-actions-end">
+              ${
+                index > 0
+                  ? html`<button
+                      type="button"
+                      class="text-button"
+                      data-quick-setup-back
+                      @click=${() => this._quickSetupGo(QUICK_SETUP_STEPS[index - 1])}
+                    >
+                      ${this._string(ctx, 'quick_setup.back')}
+                    </button>`
+                  : nothing
+              }
+              ${
+                last
+                  ? html`<button
+                      type="button"
+                      class="text-button filled"
+                      data-quick-setup-apply
+                      ?disabled=${!ready}
+                      @click=${this._applyQuickSetup}
+                    >
+                      ${this._string(ctx, 'quick_setup.apply')}
+                    </button>`
+                  : html`<button
+                      type="button"
+                      class="text-button filled"
+                      data-quick-setup-next
+                      ?disabled=${!ready}
+                      @click=${() => this._quickSetupGo(QUICK_SETUP_STEPS[index + 1])}
+                    >
+                      ${this._string(ctx, 'quick_setup.next')}
+                    </button>`
+              }
+            </span>
           </div>
         </div>
       </div>
@@ -8441,41 +8450,22 @@ export class CalendarCardProEditor extends LitElement {
 
     if (session.step === 'story' || answers === undefined) {
       return html`
-        <div>${this._string(ctx, 'quick_setup.story_intro')}</div>
-        <div class="quick-setup-stories">
-          ${STORIES.map(
-            (story) => html`
-              <div class="story-option">
-                <button
-                  type="button"
-                  class="story-tile"
-                  data-story=${story.id}
-                  aria-pressed=${answers?.story === story.id ? 'true' : 'false'}
-                  @click=${() => this._pickStory(story.id)}
-                >
-                  <span class="story-name"
-                    >${this._string(ctx, `quick_setup.story.${story.id}`)}</span
-                  >
-                  <span class="story-detail"
-                    >${this._string(ctx, `quick_setup.story.${story.id}.best_for`)}</span
-                  >
-                  <span class="story-detail"
-                    >${this._string(ctx, `quick_setup.story.${story.id}.space`)}</span
-                  >
-                </button>
-                <a
-                  class="story-link"
-                  href=${`${DOCS_SITE}${story.page}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  >${this._string(ctx, 'quick_setup.read_story', {
-                    story: this._string(ctx, `quick_setup.story.${story.id}`),
-                  })}</a
-                >
-              </div>
-            `,
-          )}
-        </div>
+        <p class="quick-setup-intro">${this._string(ctx, 'quick_setup.story_intro')}</p>
+        ${QuickSetupView.storyOptions(
+          STORIES.map((story) => {
+            const name = this._string(ctx, `quick_setup.story.${story.id}`);
+            return {
+              id: story.id,
+              name,
+              bestFor: this._string(ctx, `quick_setup.story.${story.id}.best_for`),
+              space: this._string(ctx, `quick_setup.story.${story.id}.space`),
+              href: `${DOCS_SITE}${story.page}`,
+              readName: this._string(ctx, 'quick_setup.read_story', { story: name }),
+              picked: answers?.story === story.id,
+              onPick: () => this._pickStory(story.id),
+            };
+          }),
+        )}
       `;
     }
 
@@ -8506,7 +8496,7 @@ export class CalendarCardProEditor extends LitElement {
       ${keyed(
         session.step,
         html`<ha-form
-          class="quick-setup-form"
+          class=${session.step === 'taps' ? 'quick-setup-form boxed' : 'quick-setup-form'}
           data-hass=${feed}
           .hass=${hass}
           .data=${this._intern(`quick_setup.${session.step}`, step.data)}
@@ -8526,9 +8516,7 @@ export class CalendarCardProEditor extends LitElement {
       )}
       ${
         session.step === 'calendars' && answers.calendars.length === 0
-          ? html`<div class="quick-setup-note">
-              ${this._string(ctx, 'quick_setup.calendars_needed')}
-            </div>`
+          ? Wizard.wizardNote(this._string(ctx, 'quick_setup.calendars_needed'), 'quick-setup-note')
           : nothing
       }
     `;
@@ -8583,7 +8571,7 @@ export class CalendarCardProEditor extends LitElement {
     const shown = this._reviewAll ? replaced : replaced.slice(0, REVIEW_SHOWN);
 
     return html`
-      <dl class="quick-setup-review">
+      <dl class="quick-setup-review wizard-card">
         ${rows.map(
           ([term, value]) =>
             html`<div>
@@ -8594,8 +8582,8 @@ export class CalendarCardProEditor extends LitElement {
       </dl>
       ${
         replaced.length > 0
-          ? html`<div class="quick-setup-replaced" data-quick-setup-replaced>
-              <p id="quick-setup-replaces">
+          ? html`<div class="quick-setup-replaced wizard-card" data-quick-setup-replaced>
+              <p class="quick-setup-replaces" id="quick-setup-replaces">
                 ${
                   replaced.length === 1
                     ? t('quick_setup.review.replaces_one')
@@ -8603,13 +8591,20 @@ export class CalendarCardProEditor extends LitElement {
                 }
               </p>
               <ul aria-labelledby="quick-setup-replaces" tabindex="-1">
-                ${shown.map((each) => html`<li>${this._replacementText(each, ctx)}</li>`)}
+                ${shown.map((each) => {
+                  const [setting, change] = this._replacementParts(each, ctx);
+                  // The hidden ": " keeps the row one phrase to assistive technology.
+                  return html`<li>
+                    <span>${setting}</span><span class="visually-hidden">: </span
+                    ><span class="quick-setup-change">${change}</span>
+                  </li>`;
+                })}
               </ul>
               ${
                 shown.length < replaced.length
                   ? html`<button
                       type="button"
-                      class="link"
+                      class="text-button quick-setup-show-all"
                       data-focus="quick-setup-show-all"
                       @click=${() => {
                         this._reviewAll = true;
@@ -8623,19 +8618,22 @@ export class CalendarCardProEditor extends LitElement {
             </div>`
           : nothing
       }
-      <p class="quick-setup-note">${t('quick_setup.review_keeps')}</p>
+      <p class="hint">${t('quick_setup.review_keeps')}</p>
     `;
   }
 
   /**
-   * One setting Apply replaces, as "Days To Show: 7 → 3", "Title: Everything → None" or "Day
+   * One setting Apply replaces, as its name and its change: "Days To Show" and "7 → 3", "Title: Everything → None" or "Day
    * Spacing in List: 10px → Default", its values worded as its control words them.
    *
    * @param replacement - The setting
    * @param ctx - Schema context
-   * @returns The words
+   * @returns The setting's name, and its change
    */
-  private _replacementText(replacement: QuickSetup.Replacement, ctx: SchemaCtx): string {
+  private _replacementParts(
+    replacement: QuickSetup.Replacement,
+    ctx: SchemaCtx,
+  ): readonly [string, string] {
     const { line, group, next } = replacement;
     const t = (key: string, values?: Words): string => this._string(ctx, key, values);
     const key = line.path[line.path.length - 1];
@@ -8665,7 +8663,7 @@ export class CalendarCardProEditor extends LitElement {
           ? t('quick_setup.review.none')
           : t('quick_setup.review.default')
         : word(next);
-    return `${setting}: ${word(line.value)} → ${to}`;
+    return [setting, `${word(line.value)} → ${to}`];
   }
 
   /** Opens Quick Setup on the card as it is now. */
@@ -8682,14 +8680,14 @@ export class CalendarCardProEditor extends LitElement {
   };
 
   /**
-   * Puts focus on Quick Setup's step line once a step renders, where focus is not in the editor:
+   * Puts focus on Quick Setup's heading once a step renders, where focus is not in the editor:
    * Safari does not focus a button on click, so Escape would otherwise reach no listener of the
    * editor's. Where focus is on Next or Back, it stays there.
    */
   private _keepFocusInQuickSetup(): void {
     void this.updateComplete.then(() => {
       if ((this.renderRoot as ShadowRoot).activeElement !== null) return;
-      Focus.focusFirst(this.renderRoot, ['.quick-setup-step']);
+      Focus.focusFirst(this.renderRoot, ['.quick-setup-title']);
     });
   }
 
