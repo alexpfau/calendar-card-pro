@@ -582,6 +582,12 @@ export const PAGES: ReadonlyArray<PageDef> = [
   },
 ];
 
+/**
+ * The overview's Calendars block, which holds the calendar picker and each calendar's panel until
+ * calendars get rows and pages of their own.
+ */
+export const CALENDARS_BLOCK = { titleKey: 'panel.calendars' } as const;
+
 /** A calendar entry's page. */
 export const ENTRY_GROUPS: ReadonlyArray<HeadingDef> = [
   {

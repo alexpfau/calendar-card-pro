@@ -470,7 +470,6 @@ describe('a toolbar button’s form', () => {
       {
         path: TOOLBAR_BUTTON_PATH,
         schema: [
-          { name: 'heading', type: 'constant' },
           { name: 'icon', required: true, selector: { icon: {} } },
           { name: 'name', selector: { text: { type: 'text' } } },
           { name: 'entity', selector: { entity: {} } },

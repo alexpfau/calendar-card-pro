@@ -6,7 +6,7 @@ import * as Entities from './entities';
 import { isEssentialCalendarField, isEssentialCardField } from './essentials';
 import { type HaFormSchema, isGroupSchema } from './ha-form';
 import * as EditorLocalize from './localize';
-import { type PanelDef, type PanelExtra, type SchemaCtx, walkSchema } from './panels';
+import { type PanelExtra, type SchemaCtx, walkSchema } from './panels';
 import * as Routing from './routing';
 import { entityConfigKeys } from './schemas/entity';
 import { configKeysForField, deriveSyntheticData, isSyntheticKey } from './synthetic';
@@ -134,10 +134,10 @@ export function isFiltering(criteria: FilterCriteria): boolean {
 /**
  * Whether the user has typed a search.
  *
- * 🚨 The test for every shortcut that lets a whole panel or group through because its own name
+ * 🚨 The test for every shortcut that lets a whole page or place through because its own name
  * matched. Asked as "is the editor filtering" instead, those shortcuts fire on an empty query,
- * where `matchesPanel` answers `true` for every panel, and Essentials Only would show every
- * field it was switched on to hide.
+ * where every name matches, and Essentials Only would show every field it was switched on to
+ * hide.
  *
  * @param criteria - What the user has asked to see
  * @returns `true` when the query holds more than whitespace
@@ -288,32 +288,6 @@ export function matchesQuery(
   if (query === '') return true;
 
   return anyMatches(searchableText(node, path, ctx, dataPath), query);
-}
-
-/**
- * Whether a panel's own heading answers the search text.
- *
- * @param panel - Panel definition
- * @param ctx - Matching context
- * @returns `true` when the panel matches, or when nothing was typed
- */
-export function matchesPanel(panel: PanelDef, ctx: FilterCtx): boolean {
-  const query = queryOf(ctx);
-  if (query === '') return true;
-
-  return anyMatches(
-    [
-      panel.id,
-      EditorLocalize.lookupForView(ctx.language, panel.titleKey, ctx.workspace ?? ctx.view),
-      EditorLocalize.lookupForView(
-        ctx.language,
-        panel.titleKey,
-        ctx.workspace ?? ctx.view,
-        '.helper',
-      ),
-    ],
-    query,
-  );
 }
 
 /**
@@ -813,20 +787,20 @@ export function countFields(schema: ReadonlyArray<HaFormSchema>): number {
  * Filters the content a panel renders below its fields.
  *
  * @param extras - Content the panel built
- * @param panel - Panel definition
+ * @param place - The words naming the place it is drawn on, which let it through whole
  * @param ctx - Matching context
  * @returns The content to render
  */
 export function filterExtras(
   extras: ReadonlyArray<PanelExtra>,
-  panel: PanelDef,
+  place: ReadonlyArray<string | undefined>,
   ctx: FilterCtx,
 ): PanelExtra[] {
   if (!isFiltering(ctx.criteria)) return [...extras];
   if (ctx.criteria.customizedOnly) return [];
   // A layout's width table explains the layout rather than setting it, so it is not essential.
   if (appliesEssentials(ctx.criteria)) return [];
-  if (matchesPanel(panel, ctx)) return [...extras];
+  if (matchesText(place, ctx)) return [...extras];
 
   const query = queryOf(ctx);
 

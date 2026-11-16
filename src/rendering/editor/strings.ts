@@ -32,8 +32,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Settings that depend on another one appear only once that one is switched on.',
 
   // --- Panels ---------------------------------------------------------------
-  'panel.layout': 'Layout',
-  'panel.layout.helper': 'How the card arranges days, and how much room it takes up.',
 
   // --- Pages ----------------------------------------------------------------
   //
@@ -325,7 +323,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // not: it is not only *which* calendars, it is where each one's label, colors and
   // filters live. "The calendars this card shows" was *Calendars* with more words in it.
   'panel.calendars': 'Calendars',
-  'panel.calendars.helper': 'Which calendars the card shows, and how each one looks.',
   calendars: 'Calendars',
   // "Entries" rather than "calendars": with Duplicate, the two entries carrying the same
   // event are often two blocks of *one* calendar, and `deduplicateEvents` keeps whichever
@@ -467,9 +464,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   // --- Sub-headings ---------------------------------------------------------
   //
-  // Rendered by `heading()` as `constant` nodes, which carry no value and no input. The
-  // same key serves both the card-level and per-calendar panels wherever they name the
-  // same category, so the two read with one vocabulary rather than two.
+  // Named by the page registry (`pages.ts`), which draws them as the pages' own headings, and
+  // by a calendar's panel, which still draws them as `constant` nodes. The same key serves both
+  // wherever they name the same category, so the two read with one vocabulary rather than two.
   //
   // Terse noun phrases, and deliberately so. The earlier set were sentence fragments —
   // `Which Events Appear`, `What Each Event Shows` — which read well in isolation and
@@ -482,7 +479,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // a heading repeating its only field's label is the stutter `AGENTS.md` warns about, and
   // it is invisible to a DOM probe. Renaming the field rather than the heading also moves
   // the per-calendar label closer to the card-level `Split Multi-Day Events`.
-  heading_time_range: 'Time Range',
   heading_gap_and_rule: 'Gap & Rule',
   heading_hour_labels: 'Hour Labels',
   heading_on_the_grid: 'On the Grid',
@@ -587,19 +583,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'What to put in place of each match \u2014 or of the whole field, when nothing is ' +
     'being searched for. Left empty, the match is removed.',
 
-  // --- Exceptions -----------------------------------------------------------
+  // --- The time grid's own block ----------------------------------------------
   //
-  // The surface for "this option has a different value in this layout". Worded as
-  // exceptions throughout, because that is what they are: the card has one
-  // configuration, and a handful of options may depart from it in one layout.
-  'column.height': 'Height',
-  'column.max_height': 'Maximum Height',
-  'column.show_week_numbers': 'Week Numbers',
-  'column.today_indicator': 'Today Indicator',
-  'column.allday_badge': 'All-Day Badge',
-  'column.allday_badge_style': 'All-Day Badge Style',
-  'column.allday_badge_color': 'All-Day Badge Color',
-  'column.remove_location_country': 'Country Names',
+  // Options stored in `time_grid:`, labeled under its prefix (`schemas/common.ts` ›
+  // `blockScope`).
   'time_grid.density': 'Grid Density',
   'time_grid.density.helper':
     'How narrow a day column may get before the grid gives up a day, and what it does ' +
@@ -683,11 +670,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'The most events drawn side by side. The rest collapse into a narrow +N block at the ' +
     'edge, so nothing is hidden without being counted. An event stacked over a longer one ' +
     'does not count, because it sits on top of that event rather than beside it.',
-  'time_grid.height': 'Height',
-  'time_grid.max_height': 'Maximum Height',
-  'time_grid.show_week_numbers': 'Week Numbers',
-  'time_grid.allday_badge': 'All-Day Badge',
-  'time_grid.remove_location_country': 'Remove Country From Location',
 
   // --- Defaults a view substitutes -------------------------------------------
   //
@@ -706,8 +688,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'an event covers shows it. Add an exception below to change that.',
 
   // --- Time Range & Content -------------------------------------------------
-  'panel.content': 'Time Range & Content',
-  'panel.content.helper': 'Which days the card covers, and what it puts in them.',
   days_to_show: 'Days To Show',
   'days_to_show.aliases': 'how many days, number of days, weeks ahead, future weeks, date range',
   'days_to_show.helper':
@@ -796,7 +776,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'This is about the kind of event, not how long it lasts. Individual calendars can ' +
     'depart from it below.',
 
-  locale: 'Language & Time Format',
   language_mode: 'Language',
   'language_mode.option.system.label': 'Follow Home Assistant',
   'language_mode.option.custom.label': 'Choose One',
@@ -810,7 +789,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   // --- Card & Header --------------------------------------------------------
   'panel.card': 'Card & Header',
-  'panel.card.helper': 'The card itself, and the title and toolbar above its events.',
   title: 'Title',
   'title.helper':
     'Text containing {{ or {% is a Home Assistant template and updates by itself. With the ' +
@@ -876,7 +854,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   // --- Day Header -----------------------------------------------------------
   'panel.day_header': 'Day Header',
-  'panel.day_header.helper': 'How each day announces itself, whichever layout it is announced in.',
   date_vertical_alignment: 'Vertical Alignment',
   'date_vertical_alignment.option.top.label': 'Top',
   'date_vertical_alignment.option.middle.label': 'Middle',
@@ -971,7 +948,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'today_indicator_position.helper':
     'A pair of percentages, across then down — for example 15% 50%.',
 
-  week_numbers: 'Week Numbers',
   week_number_mode: 'Numbering',
   'week_number_mode.option.none.label': 'None',
   'week_number_mode.option.iso.label': 'ISO 8601',
@@ -988,7 +964,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   // --- Events ---------------------------------------------------------------
   'panel.events': 'Events',
-  'panel.events.helper': 'The events themselves, and the lines each one can carry.',
   event_font_size: 'Event Font Size',
   event_color: 'Event Color',
   accent_color: 'Custom Accent Color',
@@ -1141,14 +1116,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   progress_bar_width: 'Progress Bar Width',
 
   // --- Separators -----------------------------------------------------------
-  'panel.separators': 'Separators',
-  'panel.separators.helper': 'The rules the card draws between days, weeks and months.',
   // Grid alone gathers horizontal rules — the hour lines and the band edge — beside the
   // vertical day, week and month ones, so "Separators" describes only half of what the
   // panel holds there. The field labels in it already say "Rule".
-  'panel.separators.grid': 'Rules',
-  'panel.separators.grid.helper':
-    'Every rule the grid draws, both between the days and across all of them.',
   day_separator_width: 'Day Rule Width',
   day_separator_color: 'Day Rule Color',
   week_separator_width: 'Week Rule Width',
@@ -1177,7 +1147,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // and `computeLabel` tries the qualified key first, so a future field of the same
   // name inside a titled group would resolve to its own string rather than to these.
   'panel.weather': 'Weather',
-  'panel.weather.helper': 'A forecast beside the day, beside the event, or both.',
   entity: 'Weather Entity',
   'entity.helper': 'Leave empty for no forecast at all.',
   position: 'Show The Forecast',
@@ -1223,8 +1192,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'index are never truncated.',
 
   // --- Actions & Refresh ----------------------------------------------------
-  'panel.actions': 'Actions & Refresh',
-  'panel.actions.helper': 'What a tap does, and how often the card re-reads its calendars.',
   tap_action: 'Tap Action',
   hold_action: 'Hold Action',
   // Home Assistant names its own actions; this is the one the card adds, and both
@@ -1309,9 +1276,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'scope.list_only.compact_events_to_show':
     'Applies to the list layout. Capping events per card would empty columns rather ' +
     'than shorten the card.',
-  'scope.list_only.compact_mode':
-    'No effect in side-by-side layouts. These only shorten the list layout, which also ' +
-    'appears on narrow screens; otherwise, limits would remove whole days instead.',
 };
 
 /**

@@ -15,7 +15,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { computeHelper, computeLabel, lookup } from '../src/rendering/editor/localize';
-import { PANELS } from '../src/rendering/editor/panels';
+import { CALENDARS_BLOCK, PAGES } from '../src/rendering/editor/pages';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import deEditor from '../src/rendering/editor/translations/de.json';
 import enGbEditor from '../src/rendering/editor/translations/en-GB.json';
@@ -52,7 +52,10 @@ describe('editor strings resolve in the requested language', () => {
       'search',
       'customized_only',
       'customized_only.helper',
-      ...PANELS.flatMap((panel) => [panel.titleKey, `${panel.titleKey}.helper`]),
+      // The overview's titles that carry today's panel titles over; the `page.*` ones are new
+      // English until the editor's translation pass.
+      CALENDARS_BLOCK.titleKey,
+      ...PAGES.map((page) => page.titleKey).filter((key) => key.startsWith('panel.')),
       'calendars',
       'calendars.helper',
       'entity.customised',
@@ -98,8 +101,6 @@ describe('editor strings resolve in the requested language', () => {
     // per-key fallback those deletions rely on is already pinned above.
     expect(EDITOR_STRINGS['view.helper']).toContain('Side-by-side layouts');
     expect(EDITOR_STRINGS['view.helper']).not.toContain('Column layout');
-    expect(EDITOR_STRINGS['scope.list_only.compact_mode']).toContain('side-by-side layouts');
-    expect(EDITOR_STRINGS['scope.list_only.compact_mode']).not.toContain('column view');
   });
 
   it('tells a grid user that a fixed height compresses the axis instead of scrolling', () => {
@@ -164,24 +165,6 @@ describe('editor strings resolve in the requested language', () => {
     expect(lookup('en-GB', 'weekend_colors')).toBe('Weekend Colours');
     expect(EDITOR_LANGUAGE_STRINGS['en-gb']).not.toHaveProperty('weekend_colors.helper');
     expect(lookup('en-GB', 'weekend_colors.helper')).toBe(EDITOR_STRINGS['weekend_colors.helper']);
-  });
-
-  it('states compact-mode scope only when the active view needs it', () => {
-    const compactGroup = {
-      type: 'expandable' as const,
-      name: 'compact_mode',
-      titleKey: 'compact_mode',
-      schema: [],
-    };
-
-    expect(computeHelper('en', 'list', compactGroup)).toBe(EDITOR_STRINGS['compact_mode.helper']);
-    expect(computeHelper('en', 'column', compactGroup)).toBe(
-      `${EDITOR_STRINGS['compact_mode.helper']} ${EDITOR_STRINGS['scope.list_only.compact_mode']}`,
-    );
-    expect(computeHelper('en', 'grid', compactGroup)).toBe(
-      `${EDITOR_STRINGS['compact_mode.helper']} ${EDITOR_STRINGS['scope.list_only.compact_mode']}`,
-    );
-    expect(computeHelper('en', 'column', compactGroup)).not.toContain('⚠️');
   });
 
   it('returns undefined for a key nothing defines', () => {
