@@ -10,7 +10,8 @@
  */
 
 import type * as Types from '../../src/config/types';
-import { reviewWindow, shownOn } from '../../src/rendering/editor/split-review';
+import { type SplitHow, splitEntry } from '../../src/rendering/editor/split';
+import { entryKeeps, reviewWindow, shownOn } from '../../src/rendering/editor/split-review';
 import * as EventUtils from '../../src/utils/events';
 import { getLocalDateKey } from '../../src/utils/format';
 import { drawnIn } from '../../src/utils/search';
@@ -351,6 +352,114 @@ export const PLANTED: Readonly<Record<string, (inputs: MirrorInputs) => MirrorIn
     config: { ...inputs.config, split_multiday_events: false },
   }),
 };
+
+/**
+ * Ben's events with two pairs that share a start, the event a split by "training" gives its first
+ * part listed after the other: Choir beside Friday training, and Training run beside Reminder. A
+ * split that drew one part's events ahead of the other's would swap each pair.
+ *
+ * @returns The events
+ */
+export function tiedEvents(): Types.CalendarEventData[] {
+  return [
+    timed('Choir', at(16, 17), at(16, 18)),
+    ...reviewEvents(),
+    timed('Training run', at(15, 12), at(15, 13)),
+  ];
+}
+
+/** The card-wide limits the split is judged under: List's event limit and Skip First Events. */
+export const BUDGETS: ReadonlyArray<Partial<Types.Config>> = [
+  { compact_events_to_show: 2 },
+  { compact_events_to_show: 5 },
+  { skip_first_events: 2 },
+  { skip_first_events: 5 },
+];
+
+/** The two splits: by type, and by a word one event of each tied pair carries. */
+const BUDGET_SPLITS: ReadonlyArray<SplitHow> = [
+  { kind: 'type' },
+  { kind: 'words', terms: ['training'], field: 'title' },
+];
+
+/** Which part the review puts an event in: the first that keeps it (`reviewParts`). */
+export type Assign = (
+  event: Types.CalendarEventData,
+  pair: readonly [Types.EntityConfig, Types.EntityConfig],
+  card: Types.Config,
+) => number;
+
+const firstKeeping: Assign = (event, pair, card) => (entryKeeps(event, pair[0], card) ? 0 : 1);
+
+/**
+ * Where a split card, under a card-wide limit, draws other events than the entry did, or draws
+ * an event in another part than the review's rule puts it in: one line per difference. The rows
+ * are the card's own, in the order it draws them, before and after the split.
+ *
+ * The review applies no card-wide limit (section 5.7), so this checks what it rests on rather
+ * than its lines: the limits keep the same events after a split, and each lands in the part
+ * `entryKeeps` names first, the rule `reviewParts` assigns by.
+ *
+ * @param each - The case, without a limit of its own
+ * @param events - The calendar's events
+ * @param assign - The review's assignment, or a planted one
+ * @returns The differences, and how many rows were compared and how many the limits cut
+ */
+export function budgetDisagreements(
+  each: ReviewCase,
+  events: Types.CalendarEventData[],
+  assign: Assign = firstKeeping,
+): { lines: string[]; rows: number; cut: number } {
+  const lines: string[] = [];
+  let rows = 0;
+  let cut = 0;
+  const draw = (config: Types.Config): Array<{ key: string; title: string; part: number }> =>
+    drawnIn(
+      EventUtils.groupEventsByDay(
+        EventUtils.processEvents(events, config),
+        config,
+        false,
+        'en',
+        each.view,
+        each.hass,
+      ),
+      config,
+      each.view,
+    ).flatMap((bucket) =>
+      bucket.events
+        .filter((row) => !row._isEmptyDay)
+        .map((row) => {
+          const title = row._source?.summary ?? row.summary ?? '';
+          return {
+            key: `${getLocalDateKey(new Date(bucket.timestamp))} · ${title}`,
+            title,
+            part: config.entities.findIndex((entry) => entry === row._matchedConfig),
+          };
+        }),
+    );
+  const whole = draw(each.config).length;
+  for (const budget of BUDGETS) {
+    const card = buildConfig({ ...each.config, ...budget });
+    const before = draw(card);
+    rows += before.length;
+    if (before.length < whole) cut++;
+    for (const how of BUDGET_SPLITS) {
+      const pair = splitEntry(card.entities[0] as Types.EntityConfig, how, [{}, {}]);
+      const after = draw(buildConfig({ ...card, entities: [...pair] }));
+      const said = `${JSON.stringify(budget)} · ${how.kind}`;
+      if (after.map((row) => row.key).join('\n') !== before.map((row) => row.key).join('\n')) {
+        lines.push(`${said}: card draws ${after.map((row) => row.key).join(', ')}`);
+      }
+      for (const row of after) {
+        const event = events.find((one) => one.summary === row.title)!;
+        const named = assign(event, pair, card);
+        if (named !== row.part)
+          lines.push(`${said}: ${row.key} in part ${row.part}, review ${named}`);
+      }
+    }
+  }
+  return { lines, rows, cut };
+}
 
 /**
  * Every local day of 2026 that is not 24 hours long in the zone the suite runs in: none under

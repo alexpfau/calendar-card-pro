@@ -25,6 +25,7 @@ const CALENDAR = 'calendar.family';
 const at = (day: number, hour = 0, minute = 0): string =>
   new Date(2026, 0, day, hour, minute).toISOString();
 const date = (day: number): string => getLocalDateKey(new Date(2026, 0, day));
+const at15 = (hour: number): string => at(15, hour);
 
 /** The events, their words in every field, in every case, with RegExp metacharacters. */
 function events(): Types.CalendarEventData[] {
@@ -52,7 +53,15 @@ function events(): Types.CalendarEventData[] {
     _entityId: CALENDAR,
     ...extra,
   });
+  // Each event a split's first part keeps has an event the second part keeps at the same start,
+  // listed before it, so a split that drew one part after the other would swap the pair.
   return [
+    timed('Dentist', at(14, 16), at(14, 17)),
+    timed('Parents evening', at(15, 7, 30), at(15, 8)),
+    timed('Choir', at(15, 17), at(15, 18)),
+    timed('Kickoff', at(16, 10), at(16, 11)),
+    timed('Dinner', at(16, 18), at(16, 19)),
+    timed('Packing', at(19, 9), at(19, 10)),
     timed('School trip', at(14, 8), at(14, 15), { location: 'School', description: 'Bring lunch' }),
     timed('school run', at(15, 7, 30), at(15, 8)),
     allDay('SCHOOL Fair', 16, 17, { description: 'At the school hall' }),
@@ -270,6 +279,126 @@ describe('Split This Calendar keeps every row the entry draws, in exactly one pa
         }
       },
     );
+
+    // A card-wide event limit and Skip First Events count rows in the order the card draws them,
+    // so they keep the same events only where the parts' rows come in the entry's order, events
+    // sharing a start included.
+    it.each(SPLITS.map(([name, entry, how, card]) => ({ name, entry, how, card: card ?? {} })))(
+      'in the same order, under a card-wide event limit or skip: $name',
+      ({ entry, how, card }) => {
+        const order = (rows: Rows): string[] => rows.rows.map((row) => row.key);
+        let limited = 0;
+        for (const past of [false, true]) {
+          const base = {
+            ...card,
+            ...layout,
+            show_past_events: past,
+            ...(view === 'grid' ? { time_grid: { show_past_events: past } } : {}),
+            days_to_show: 7,
+          };
+          const whole = beforeAndAfter(entry, how, base, view);
+          expect(order(whole.after)).toEqual(order(whole.before));
+
+          for (let n = 1; n <= whole.before.rows.length; n++) {
+            for (const budget of [{ compact_events_to_show: n }, { skip_first_events: n }]) {
+              const { before, after } = beforeAndAfter(entry, how, { ...base, ...budget }, view);
+              if (before.rows.length < whole.before.rows.length) limited++;
+              expect(order(after), JSON.stringify(budget)).toEqual(order(before));
+            }
+          }
+        }
+        // The limits cut rows in List, the one layout they act in, so the comparison above saw
+        // them at work there.
+        expect(limited > 0).toBe(view === 'list');
+      },
+    );
+
+    it('keeps the same one of two events at one start, where the limit keeps one of them', () => {
+      const kept = (
+        pair: Types.CalendarEventData[],
+        entities: Types.EntityConfig[],
+        budget: Partial<Types.Config>,
+      ): string[] => {
+        const config = buildConfig({ ...layout, ...budget, days_to_show: 7, entities });
+        return EventUtils.groupEventsByDay(
+          EventUtils.processEvents(pair, config),
+          config,
+          false,
+          'en',
+          view,
+        ).flatMap((day) =>
+          day.events.filter((row) => !row._isEmptyDay).map((row) => row.summary ?? ''),
+        );
+      };
+      const entry: Types.EntityConfig = { entity: CALENDAR };
+      const parts = [...splitEntry(entry, words(['school']), [{}, {}])];
+
+      // The event without the word arrives first, once before the worded one alphabetically and
+      // once after it, so neither the parts' order nor the titles' can stand in for arrival.
+      for (const [first, second] of [
+        ['Dentist', 'School play'],
+        ['Swimming', 'Assembly at school'],
+      ]) {
+        const pair = [first, second].map((summary, at) => ({
+          summary,
+          start: { dateTime: at15(9) },
+          end: { dateTime: at15(10 + at) },
+          _entityId: CALENDAR,
+        }));
+        const cases = [
+          [{ compact_events_to_show: 1 }, [first]],
+          [{ skip_first_events: 1 }, [second]],
+        ] as const;
+        for (const [budget, listed] of cases) {
+          const one = kept(pair, [entry], budget);
+          // The calendar's own order decides the tie; the limits act in List alone.
+          expect(one, first).toEqual(view === 'list' ? listed : [first, second]);
+          expect(kept(pair, parts, budget), `${first} ${JSON.stringify(budget)}`).toEqual(one);
+        }
+      }
+    });
+
+    it('keeps the same events where Filter Duplicates folds two the split tells apart', () => {
+      // Lunch arrives twice, alike but for a description only the split reads, around Other at
+      // the same start. Listed once, the first Lunch is kept; split, the worded part's, which
+      // must still be drawn where the first arrived.
+      const three = [
+        ['Lunch', 'normal'],
+        ['Other', ''],
+        ['Lunch', 'priority'],
+      ].map(([summary, description]) => ({
+        summary,
+        description,
+        start: { dateTime: at15(9) },
+        end: { dateTime: at15(10) },
+        _entityId: CALENDAR,
+      }));
+      const entry: Types.EntityConfig = { entity: CALENDAR };
+      const parts = [...splitEntry(entry, words(['priority'], 'description'), [{}, {}])];
+      const kept = (entities: Types.EntityConfig[], budget: Partial<Types.Config>): string[] => {
+        const config = buildConfig({
+          ...layout,
+          ...budget,
+          filter_duplicates: true,
+          days_to_show: 7,
+          entities,
+        });
+        return EventUtils.groupEventsByDay(
+          EventUtils.processEvents(three, config),
+          config,
+          false,
+          'en',
+          view,
+        ).flatMap((day) =>
+          day.events.filter((row) => !row._isEmptyDay).map((row) => row.summary ?? ''),
+        );
+      };
+
+      for (const budget of [{}, { compact_events_to_show: 1 }, { skip_first_events: 1 }]) {
+        expect(kept(parts, budget), JSON.stringify(budget)).toEqual(kept([entry], budget));
+      }
+      expect(kept([entry], {})).toEqual(['Lunch', 'Other']);
+    });
 
     it('fails where a split by words meets a blocklist the card cannot read', () => {
       const entry: Types.EntityConfig = { entity: CALENDAR, blocklist: '[' };

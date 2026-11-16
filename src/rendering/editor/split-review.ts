@@ -11,8 +11,13 @@
  * event or a different first day.
  *
  * Filters that act on the card's whole list (Filter Duplicates against other calendars, a
- * card-wide compact budget, Skip First Events) act alike before and after a split, so they are
- * not applied; an entry with its own compact budget is refused (`split.ts` › `refusals`).
+ * card-wide compact budget, Skip First Events) act alike before and after a split, events sharing
+ * a start included, because the card draws a calendar listed more than once in the order it sent
+ * its events, whichever entry kept them (`events.ts` › `groupEventsByDay`); so they are not
+ * applied. The one exception is Filter Duplicates over two events of this calendar alike but for
+ * the field a split by words reads, where the split keeps the worded copy, drawn where the first
+ * arrived. An entry with its own
+ * compact budget is refused (`split.ts` › `refusals`).
  */
 
 import * as Days from './calendar-days';

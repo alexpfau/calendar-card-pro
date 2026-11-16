@@ -1080,6 +1080,15 @@ export interface CalendarEventData {
    */
   _splitFromTimedEvent?: boolean;
   /**
+   * Where the event came in the list Home Assistant sent, stamped by `processEvents`. Only for a
+   * calendar listed more than once, `groupEventsByDay` puts that calendar's events back in this
+   * order before sorting, so events sharing a start are drawn as the calendar listed once would
+   * draw them, whichever entry kept them, and a card-wide event limit or Skip First Events keeps
+   * the same events after Split This Calendar. A kept duplicate takes its calendar's earliest copy's
+   * (`deduplicateEvents`).
+   */
+  _arrival?: number;
+  /**
    * Which of its event's days a list or column row stands for, "Day 2 of 3", set by
    * `groupEventsByDay` while `show_progress_bar` is on, on every row of an event a day or more
    * long. Its presence is what takes the row's progress bar away, so it is there on a row
