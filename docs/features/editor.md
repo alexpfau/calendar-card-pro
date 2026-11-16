@@ -564,6 +564,36 @@ are: `full width` finds **Card Width**, in Home Assistant's **Layout** tab above
 
 :::
 
+## 👆 Pick From Preview
+
+**Pick From Preview** opens a setting by pointing at the part of the card it changes. Turn it on
+with its button, after **Undo** and **Redo** beside the search field and at the top of every
+page, then click a part of the preview: a day header, an event's time, a separator, the Grid's
+hour labels. Its page opens with that part's heading at the top and its first setting marked, as
+a search result opens one.
+
+- While it is on, a line above the editor says so, with **Cancel**, and the part under the
+  pointer is outlined and named, as in **Events › Location · Click to Edit**.
+- One pick turns it off again, and so do **Cancel**, Escape, the button itself, and moving
+  anywhere else in the editor. **Back** returns to where you were.
+- The preview's own taps, holds and Grid's drag do nothing while it is on.
+- A legend chip opens its calendar's page. A part only one layout has, such as the Grid's hour
+  labels, switches **Settings For** to that layout first and says so.
+- Where every setting under a heading still waits in its **Add Setting** row, that row takes
+  focus instead.
+- On a phone the preview sits below the editor. Tap a part once to outline it, then tap it again
+  to open it; the editor scrolls back up to the setting.
+
+::: details When Pick From Preview Is Not Offered
+
+The button appears only where the editor can find the card's preview beside it, which is Home
+Assistant's card editor dialog, on a sections dashboard and a masonry one alike. Anywhere else the
+editor opens, it draws no button, and the section rows and **Search** reach every setting there as
+before.
+Keyboard and screen reader users keep those too: the preview needs no new tab stops.
+
+:::
+
 ## ↩️ Undo & Redo
 
 **Undo** and **Redo** sit beside the search field and at the top of every page. They cover

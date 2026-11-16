@@ -684,6 +684,16 @@ export default css`
     background: none;
   }
 
+  /* Pick From Preview, after Undo and Redo, tinted while a pick is on. */
+  .search-row .pick-button {
+    margin-top: 4px;
+  }
+
+  .pick-button[aria-pressed='true'] {
+    color: var(--primary-color);
+    background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.16);
+  }
+
   /* The line a removal or an applied story leaves, until the next change. */
   .status-bar {
     display: flex;

@@ -54,6 +54,7 @@ import { LEGEND_EDITOR_VALUES, LEGEND_OFF } from './normalize';
 import {
   type Appearance,
   CALENDARS_BLOCK,
+  ENTRY_GROUPS,
   FAMILIES,
   type FamilyId,
   type HeadingDef,
@@ -108,6 +109,7 @@ import * as HistoryView from './views/history';
 import { escapeAction, historyKey, inTextField } from './views/keys';
 import * as Overview from './views/overview';
 import * as PageView from './views/page';
+import * as PickView from './views/pick';
 import * as ReorderView from './views/reorder';
 import { scrollContainer } from './views/scroll';
 import * as SearchView from './views/search';
@@ -425,6 +427,7 @@ export class CalendarCardProEditor extends LitElement {
     this._cancelSplit(false);
     awaitingConditionsEditor.delete(this);
     this._drag?.cancel();
+    this._endPick(false);
     // The last editor or card out closes the registry subscription (`entity-colors.ts`).
     if (this._registryHeld) EntityColors.releaseEntityColors(this._registryChanged);
     this._registryHeld = false;
@@ -515,6 +518,7 @@ export class CalendarCardProEditor extends LitElement {
    * the calendar it would edit against.
    */
   protected override updated(): void {
+    this._syncPick();
     // Home Assistant's calendar colors, read through the card's own module once an entry's color
     // control describes one, and watched while this editor is open.
     if (this._registryWanted && !this._registryHeld && this.hass) {
@@ -712,6 +716,26 @@ export class CalendarCardProEditor extends LitElement {
 
   /** The results a result on the overview left, which Return to Results and Escape restore. */
   @state() private _resultsLeft?: Navigation.TrailEntry;
+
+  /** Whether Home Assistant's dialog shows the card beside the editor, so a pick can be made. */
+  @state() private _canPick = false;
+
+  /** The place a pick was turned on at, while it is on; a move anywhere else ends it. */
+  @state() private _pickingAt?: string;
+
+  /** How many more times a missing preview is looked for (`_syncPick`). */
+  private _pickLooks = 4;
+
+  /** Pick From Preview in the preview (`views/pick.ts`). */
+  private _picker = new PickView.PreviewPicker({
+    label: (part, touch) =>
+      this._string(this._ctx, touch ? 'pick.tap' : 'pick.click', {
+        label: this._pickName(part),
+      }),
+    pick: (part) => this._pickPart(part),
+    cancel: () => this._endPick(true),
+    find: () => PickView.findPreviewCard(this),
+  });
 
   /** The jump list's count line, as the last render drew it, announced as the query changes. */
   private _resultStatus = '';
@@ -1310,7 +1334,7 @@ export class CalendarCardProEditor extends LitElement {
       enabled: entry !== undefined,
       onPress,
     });
-    return HistoryView.historyControls(
+    const controls = HistoryView.historyControls(
       button(
         this._history.peekUndo(),
         this._haWord(ctx, 'ui.common.undo', 'history.undo'),
@@ -1324,6 +1348,154 @@ export class CalendarCardProEditor extends LitElement {
         this._redo,
       ),
     );
+    // Not over the choice a migration blocks the editor with, where nothing a pick opens is drawn.
+    const blocked = this._migration.kind !== 'current' && this._migration.kind !== 'automatic';
+    return this._canPick && !blocked
+      ? html`${controls}${PickView.pickButton(
+          this._string(ctx, 'pick.button'),
+          this._pickingAt !== undefined,
+          this._togglePick,
+        )}`
+      : controls;
+  }
+
+  /**
+   * The line that says a pick is on, where one is.
+   *
+   * @param ctx - Schema context
+   * @returns The line, or nothing
+   */
+  private _renderPickBanner(ctx: SchemaCtx): TemplateResult | typeof nothing {
+    if (this._pickingAt === undefined) return nothing;
+    return PickView.pickBanner(
+      this._string(ctx, PickView.touchOnly() ? 'pick.banner_touch' : 'pick.banner'),
+      this._string(ctx, 'calendars.cancel'),
+      () => this._endPick(true),
+    );
+  }
+
+  /**
+   * Keeps Pick From Preview in step with the dialog after each render: the button only while the
+   * preview is found, looked for again a few times while it is not yet drawn, and a pick ended by a
+   * move elsewhere in the editor or by the preview going away.
+   */
+  private _syncPick(): void {
+    const card = PickView.findPreviewCard(this);
+    if ((card !== undefined) !== this._canPick) this._canPick = card !== undefined;
+    if (card === undefined && this._pickLooks > 0) {
+      this._pickLooks--;
+      setTimeout(() => this.isConnected && this._syncPick(), 500);
+    }
+    if (this._pickingAt === undefined) return;
+    if (
+      card === undefined ||
+      this._quickSetup !== undefined ||
+      this._pickingAt !== Navigation.routeKey(this._nav.route)
+    ) {
+      this._endPick(false);
+    } else {
+      this._picker.attach(card);
+    }
+  }
+
+  /** The Pick From Preview button: turns a pick on, or off again. */
+  private _togglePick = (): void => {
+    if (this._pickingAt !== undefined) {
+      this._endPick(false);
+      return;
+    }
+    const card = PickView.findPreviewCard(this);
+    if (card === undefined) {
+      this._canPick = false;
+      return;
+    }
+    this._pickingAt = Navigation.routeKey(this._nav.route);
+    this._picker.attach(card);
+  };
+
+  /**
+   * Ends a pick, leaving the preview as it was.
+   *
+   * @param focus - Whether focus goes back to the button, as Cancel and Escape put it
+   */
+  private _endPick(focus: boolean): void {
+    this._picker.detach();
+    if (this._pickingAt === undefined) return;
+    this._pickingAt = undefined;
+    if (focus) this._focusSoon([Focus.byFocusKey('pick')]);
+  }
+
+  /**
+   * What a part opens, in words: "Events › Location", the page alone for its top run, or the
+   * calendar a legend chip names.
+   *
+   * @param part - The part
+   * @returns The name
+   */
+  private _pickName(part: PickView.PickedPart): string {
+    const ctx = this._ctx;
+    const target = part.target;
+    if ('calendar' in target) {
+      return this._calendarName(part.element.getAttribute('data-calendar') ?? '');
+    }
+    const page = PAGES.find((each) => each.id === target.page)!;
+    const heading = page.headings.find((each) => each.key === target.heading);
+    const title = heading && this._headingTitle(heading, ctx);
+    const name = this._pageTitle(page, ctx);
+    return title ? `${name} › ${title}` : name;
+  }
+
+  /**
+   * Opens what a part of the preview names, as a search result opens a field: its page, with the
+   * heading at the top and the first setting drawn under it marked and focused. A heading that
+   * lives in one layout's scope switches to it first, which is announced. The pick ends.
+   *
+   * @param part - The part
+   */
+  private _pickPart(part: PickView.PickedPart): void {
+    const ctx = this._ctx;
+    const label = this._pickName(part);
+    const target = part.target;
+    this._endPick(false);
+    let route: Navigation.Route;
+    let heading: string | undefined;
+    if ('calendar' in target) {
+      const entries = this._config?.entities ?? [];
+      const calendar = part.element.getAttribute('data-calendar');
+      const at = entries.findIndex((each) => Synthetic.entityIdOf(each) === calendar);
+      if (at < 0) return;
+      route = { kind: 'entry', key: this._entryKeysFor(entries.length)[at]! };
+      heading = ENTRY_GROUPS[0]!.key;
+    } else {
+      if (target.scope !== undefined && this._workspace !== target.scope) {
+        this._pickScope(target.scope);
+      }
+      route = { kind: 'page', page: target.page };
+      heading = target.heading;
+    }
+    this._open(route, 'pick', 'push', heading ?? '');
+    void this.updateComplete.then(() => {
+      const group = this.renderRoot.querySelector(
+        `.page-group[data-heading="${CSS.escape(heading ?? '')}"]`,
+      );
+      const id = group?.querySelector('[data-field]')?.getAttribute('data-field') as
+        FieldId | null | undefined;
+      const say = () => this._string(ctx, 'search.showing', { label });
+      if (!id) {
+        // Every setting under it waits in its Add row, which takes focus instead.
+        if (group) Focus.focusFirst(group, ['.add-toggle']);
+        this._say(say());
+        return;
+      }
+      this._land(
+        route.kind === 'entry'
+          ? { kind: 'entry-field', id, key: route.key }
+          : { kind: 'field', id, page: (route as { page: PageId }).page },
+        label,
+        [`button.chip[data-field="${CSS.escape(id)}"]`],
+        say,
+      );
+    });
   }
 
   /**
@@ -3753,6 +3925,12 @@ export class CalendarCardProEditor extends LitElement {
     }
     if (this._moveByKey(event)) return;
     if (event.key !== 'Escape') return;
+    if (this._pickingAt !== undefined) {
+      event.preventDefault();
+      event.stopPropagation();
+      this._endPick(true);
+      return;
+    }
     const wizard = this._quickSetup;
     // Quick Setup is a place of its own: Escape is its Back, or Cancel on its first step.
     const grab = this._grabbed();
@@ -4140,7 +4318,7 @@ export class CalendarCardProEditor extends LitElement {
           })
         : nothing
     }
-    ${this._renderFilterBar(ctx, chassis)}`;
+    ${this._renderPickBanner(ctx)} ${this._renderFilterBar(ctx, chassis)}`;
 
     // One template whatever the query, so the filter bar above it is never drawn anew and the
     // search field keeps focus as the first character turns the overview into results. The
@@ -4957,8 +5135,8 @@ export class CalendarCardProEditor extends LitElement {
           : this._renderScope(ctx);
     return html`<div class="page" data-page=${page.id}>
       ${PageView.pageHead(this._pageTitle(page, ctx), t, this._back, this._renderHistory(ctx))}
-      ${this._jumpDrawn() ? nothing : this._renderReturn(ctx)} ${scope}
-      ${page.noteKey ? PageView.pageLine(this._string(ctx, page.noteKey)) : nothing}
+      ${this._renderPickBanner(ctx)} ${this._jumpDrawn() ? nothing : this._renderReturn(ctx)}
+      ${scope} ${page.noteKey ? PageView.pageLine(this._string(ctx, page.noteKey)) : nothing}
       ${this._renderPageBody(page, ctx)} ${PageView.footBack(t, this._back)}
     </div>`;
   }
@@ -7267,6 +7445,7 @@ export class CalendarCardProEditor extends LitElement {
         sub,
         this._string(ctx, 'entry.back'),
       )}
+      ${this._renderPickBanner(ctx)}
       ${
         pageOpen
           ? CalendarView.strip(
@@ -8486,7 +8665,7 @@ export class CalendarCardProEditor extends LitElement {
     };
     return html`<div class="page" data-page="notices">
       ${PageView.pageHead(t('misplaced.title'), t, this._back, this._renderHistory(ctx), '')}
-      ${this._renderMisplaced(ctx)}
+      ${this._renderPickBanner(ctx)} ${this._renderMisplaced(ctx)}
       ${
         old.length > 0
           ? PageView.headingBlock({
@@ -8643,6 +8822,7 @@ export class CalendarCardProEditor extends LitElement {
     const entries = groups.filter((group) => group.kind === 'entry');
     return html`<div class="page audit" data-page="audit">
       ${PageView.pageHead(t('more.audit'), t, this._back, this._renderHistory(ctx), t('overview.more'))}
+      ${this._renderPickBanner(ctx)}
       <p class="hint">${t('audit.intro')}</p>
       <p class="audit-count">${this._auditSummary(t)}</p>
       ${groups.filter((group) => group.kind === 'card' || group.kind === 'layout').map(view)}

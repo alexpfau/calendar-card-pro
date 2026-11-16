@@ -184,6 +184,15 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'history.move': 'Move {name}',
   'history.apply': 'Apply {story}',
   'history.add': 'Add {name}',
+  // Pick From Preview, beside Undo and Redo while Home Assistant's dialog shows the card: its
+  // button, the line that says a pick is on (Click where there is a pointer to hover, Tap on a
+  // touch screen, whose preview sits below the editor), and the label on the outlined part, whose
+  // {label} is where it opens ("Events › Location").
+  'pick.button': 'Pick From Preview',
+  'pick.banner': 'Click a part of the preview to open its settings.',
+  'pick.banner_touch': 'Tap a part of the preview below to open its settings.',
+  'pick.click': '{label} · Click to Edit',
+  'pick.tap': '{label} · Tap to Edit',
   // The line a removal or an applied story leaves, beside its Undo, until the next change.
   'status.removed': 'Removed {name}',
   'status.removed_calendar': 'Removed {name} · Entries: {count}',
