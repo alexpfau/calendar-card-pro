@@ -41,7 +41,12 @@ const WALL = {
   entities: [
     { entity: 'calendar.anna', label: '🎒', accent_color: '#F06292' },
     'calendar.ben',
-    { entity: 'calendar.bin_day', event_type: 'allday', allday_expires_at: '09:00', glitter: true },
+    {
+      entity: 'calendar.bin_day',
+      event_type: 'all_day',
+      allday_expires_at: '09:00',
+      glitter: true,
+    },
   ],
 };
 
@@ -462,5 +467,115 @@ describe('values from YAML', () => {
         ['sat'],
       ),
     ).toBe(false);
+  });
+});
+
+describe('What This Card Changes, the review’s findings', () => {
+  async function editLine(
+    editor: Editor,
+    path: string,
+    change: (data: Record<string, unknown>) => Record<string, unknown>,
+  ): Promise<void> {
+    await click(editor, `[data-focus="edit:${path}"]`);
+    const form = $(editor, `[data-audit="${path}"] ha-form`) as HTMLElement & {
+      data: Record<string, unknown>;
+    };
+    expect(form, path).not.toBeNull();
+    form.dispatchEvent(
+      new CustomEvent('value-changed', {
+        detail: { value: change(form.data) },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await editor.updateComplete;
+    await editor.updateComplete;
+  }
+
+  it('keeps a layout’s lines kept as written through Reset All', async () => {
+    const editor = await mountEditor({
+      config_version: VERSION,
+      entities: ['calendar.anna'],
+      time_grid: { end_time: '21:00', custom_thing: { value: 'keep' } },
+    });
+    await openAudit(editor);
+    expect(rows(editor)['time_grid.custom_thing'].group).toBe('audit:kept');
+    await click(editor, '[data-focus="reset-all:grid"]');
+
+    expect(lastConfig(editor)!.time_grid).toEqual({ custom_thing: { value: 'keep' } });
+    await click(editor, '[data-focus="undo"]');
+    expect(lastConfig(editor)!.time_grid).toEqual({
+      end_time: '21:00',
+      custom_thing: { value: 'keep' },
+    });
+  });
+
+  it('edits a calendar’s color where its mode follows Home Assistant through the mode', async () => {
+    const editor = await mountEditor({
+      config_version: VERSION,
+      entities: [{ entity: 'calendar.anna', accent_color: 'home-assistant' }],
+    });
+    await openAudit(editor);
+    expect(
+      $(editor, '[data-audit="entities[0].accent_color"] [data-focus^="edit:"]')!.getAttribute(
+        'aria-label',
+      ),
+    ).toMatch(/^Edit Accent Color Source on /);
+    await editLine(editor, 'entities[0].accent_color', (data) => ({
+      ...data,
+      accent_color_mode: 'custom',
+    }));
+
+    expect(
+      (lastConfig(editor)!.entities as Array<Record<string, unknown>>)[0].accent_color,
+    ).not.toBe('home-assistant');
+  });
+
+  it('keeps the line being edited, and its control, once its value reaches the default', async () => {
+    const editor = await mountEditor({
+      config_version: VERSION,
+      entities: ['calendar.anna'],
+      days_to_show: 7,
+    });
+    await openAudit(editor);
+    await editLine(editor, 'days_to_show', (data) => ({
+      ...data,
+      days_to_show: Config.DEFAULT_CONFIG.days_to_show,
+    }));
+
+    expect(lastConfig(editor)).not.toHaveProperty('days_to_show');
+    expect($(editor, '[data-audit="days_to_show"] ha-form')).not.toBeNull();
+    const form = $(editor, '[data-audit="days_to_show"] ha-form')!;
+    form.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }),
+    );
+    await editor.updateComplete;
+    await editor.updateComplete;
+    expect($(editor, '[data-audit="days_to_show"]')).toBeNull();
+    expect($(editor, '.page')!.dataset.page).toBe('audit');
+  });
+
+  it('goes to a calendar’s setting in a scope that offers it', async () => {
+    const editor = await mountEditor({
+      config_version: VERSION,
+      view: 'list',
+      entities: [{ entity: 'calendar.anna', multiday_banners: false }],
+    });
+    await openAudit(editor);
+    await click(editor, '[data-focus="audit-go:entities[0].multiday_banners"]');
+
+    expect($(editor, '.page')!.dataset.page).toBe(`entry:${0}`);
+    expect($(editor, '[data-field="calendar:multiday_banners"]')).not.toBeNull();
+  });
+
+  it('words a stored action no control holds as YAML would', async () => {
+    const editor = await mountEditor({
+      config_version: VERSION,
+      entities: ['calendar.anna'],
+      day_tap_action: { action: 'navigate', navigation_path: '/lovelace/test' },
+    });
+    await openAudit(editor);
+
+    expect(rows(editor).day_tap_action.value).not.toContain('[object Object]');
   });
 });

@@ -70,23 +70,31 @@ export function canMove(raw: Readonly<Record<string, unknown>>, old: OldOption):
 
 /**
  * Moves an old option's value to its replacement, in the old option's place among its
- * neighbors, so the YAML reads as though it had been written with the new name.
+ * neighbors, so the YAML reads as though it had been written with the new name. Where the old
+ * option has already gone, as a pre-v5 card's first write removes it while migrating, the value
+ * it held is written to the replacement instead.
  *
  * @param raw - The configuration as stored; not changed
  * @param old - The option
+ * @param held - The value it held, for where it has already gone
  * @returns The configuration after the move, or `undefined` where it cannot move
  */
 export function moveOld(
   raw: Readonly<Record<string, unknown>>,
   old: OldOption,
+  held?: unknown,
 ): Record<string, unknown> | undefined {
-  if (!canMove(raw, old)) return undefined;
+  const at = old.entry === undefined ? raw : (raw.entities as unknown[] | undefined)?.[old.entry];
+  if (!isConfigBlock(at) || (at[old.to] !== undefined && at[old.to] !== null)) return undefined;
+  if (!(old.key in at) && held === undefined) return undefined;
   const renamed = (from: Readonly<Record<string, unknown>>): Record<string, unknown> =>
-    Object.fromEntries(
-      Object.entries(from)
-        .filter(([key]) => key !== old.to)
-        .map(([key, value]) => [key === old.key ? old.to : key, value]),
-    );
+    old.key in from
+      ? Object.fromEntries(
+          Object.entries(from)
+            .filter(([key]) => key !== old.to)
+            .map(([key, value]) => [key === old.key ? old.to : key, value]),
+        )
+      : { ...from, [old.to]: held };
   if (old.entry === undefined) return renamed(raw);
   const entities = [...(raw.entities as Array<string | Types.EntityConfig>)];
   entities[old.entry] = renamed(

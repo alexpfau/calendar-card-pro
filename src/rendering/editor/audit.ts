@@ -177,9 +177,9 @@ function planCtx(ctx: AuditCtx, workspace: EditorWorkspace): PlanCtx {
 }
 
 /**
- * A stored line with the field that writes it: of the fields writing its option, the one named
- * after it, else one drawn here, else the value rather than its mode (Start Date's fixed date,
- * not its mode), and whether it is in use.
+ * A stored line with the field that writes it: of the fields writing its option, one drawn here,
+ * then the one named after it, then the value rather than its mode (Start Date's fixed date, not
+ * its mode), and whether it is in use.
  *
  * @param path - The line's keys
  * @param text - Its YAML path
@@ -203,9 +203,11 @@ function ownedLine(
     const appearance = appearanceOf(id) ?? 'add';
     // A mode's value outranks the mode, which only says which value is kept.
     const mode = isSyntheticKey(name) && !(typeof appearance === 'object' && 'with' in appearance);
+    // A field drawn here outranks one named after the option: a value its mode leaves undrawn
+    // (a calendar's color while it follows Home Assistant) writes nothing.
     const at =
-      (name === key ? 0 : 4) +
-      (fieldState(id, appearance, pctx).kind === 'live' ? 0 : 2) +
+      (fieldState(id, appearance, pctx).kind === 'live' ? 0 : 4) +
+      (name === key ? 0 : 2) +
       (mode ? 1 : 0);
     if (at < rank) [field, rank] = [id, at];
   }

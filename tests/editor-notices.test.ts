@@ -91,6 +91,15 @@ describe('the notices page', () => {
     expect(lastConfig(editor)).toEqual(card);
   });
 
+  it('moves an old option on a card from before v5, whose first write migrates it', async () => {
+    const editor = await mountEditor({ entities: ['calendar.anna'], row_spacing: '5px' });
+    await click(editor, $(editor, '[data-focus="notices"]'));
+    await click(editor, button(editor, 'row_spacing'));
+
+    expect(lastConfig(editor)).toMatchObject({ day_spacing: '5px' });
+    expect(lastConfig(editor)).not.toHaveProperty('row_spacing');
+  });
+
   it('moves a calendar’s old option onto that calendar', async () => {
     const editor = await mountEditor({
       config_version: VERSION,
