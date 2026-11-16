@@ -15,6 +15,7 @@
  * not applied; an entry with its own compact budget is refused (`split.ts` › `refusals`).
  */
 
+import * as Days from './calendar-days';
 import { asEntityConfig } from './entities';
 import { lookup } from './localize';
 import { effectiveEventType, filterFieldOf } from './split';
@@ -23,7 +24,7 @@ import { compiles } from './word-lists';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
 import { multidaySplitPolicy, resolveEffectiveConfig } from '../../config/view';
-import * as FormatUtils from '../../utils/format';
+import { intlLocales } from '../../translations/intl-locales';
 import { parseStartDateExpression } from '../../utils/start-date';
 
 /** How long the review waits for Home Assistant before showing each part's rule alone. */
@@ -117,13 +118,13 @@ function windowStart(startDate: unknown, firstDay: number, now: Date): Date {
 export function reviewWindow(
   raw: Types.Config,
   view: Types.EffectiveView,
-  hass: Pick<Types.Hass, 'locale'> | undefined,
+  hass: Days.Home | undefined,
   now: Date = new Date(),
 ): ReviewWindow {
   const config = resolveEffectiveConfig(Config.normalizeNumericOptions({ ...raw }), view);
   const start = windowStart(
     config.start_date,
-    FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hass?.locale),
+    Days.firstDayOfWeek(config.first_day_of_week, hass?.locale),
     now,
   );
   // Stepped as the card steps it, keeping the hour where a day has no midnight.
@@ -200,9 +201,7 @@ function wellFormed(event: Types.CalendarEventData): Types.CalendarEventData | n
   }
   if (!end || end.dateTime) return null;
   const valid = [event.start.date, end.date].every(
-    (value) =>
-      typeof value === 'string' &&
-      FormatUtils.getLocalDateKey(FormatUtils.parseAllDayDate(value)) === value,
+    (value) => typeof value === 'string' && Days.dateKey(Days.parseDate(value)) === value,
   );
   return valid && end.date! > event.start.date! ? event : null;
 }
@@ -232,22 +231,22 @@ function listRows(event: Types.CalendarEventData, split: boolean): Row[] {
   const { start, end } = event;
   if (!split) return [{ start, end }];
   if (start.date && end.date) {
-    const first = FormatUtils.parseAllDayDate(start.date);
-    const last = FormatUtils.parseAllDayDate(end.date);
+    const first = Days.parseDate(start.date);
+    const last = Days.parseDate(end.date);
     last.setDate(last.getDate() - 1);
     if (first.toDateString() === last.toDateString()) return [{ start, end }];
-    const lastKey = FormatUtils.getLocalDateKey(last);
+    const lastKey = Days.dateKey(last);
     const rows: Row[] = [];
     for (
       let date = new Date(first);
-      FormatUtils.getLocalDateKey(date) <= lastKey;
+      Days.dateKey(date) <= lastKey;
       date.setDate(date.getDate() + 1)
     ) {
       const next = new Date(date);
       next.setDate(next.getDate() + 1);
       rows.push({
-        start: { date: FormatUtils.getLocalDateKey(date) },
-        end: { date: FormatUtils.getLocalDateKey(next) },
+        start: { date: Days.dateKey(date) },
+        end: { date: Days.dateKey(next) },
       });
     }
     return rows;
@@ -274,8 +273,8 @@ function listRows(event: Types.CalendarEventData, split: boolean): Row[] {
     const next = new Date(date);
     next.setDate(next.getDate() + 1);
     rows.push({
-      start: { date: FormatUtils.getLocalDateKey(date) },
-      end: { date: FormatUtils.getLocalDateKey(next) },
+      start: { date: Days.dateKey(date) },
+      end: { date: Days.dateKey(next) },
       fromTimed: true,
     });
   }
@@ -303,7 +302,7 @@ function gridRows(event: Types.CalendarEventData, window: ReviewWindow, banners:
   const source = { start: event.start, end: event.end };
   const rows: Row[] = [];
   if (event.start.dateTime) {
-    const banner = banners === true && FormatUtils.fullDaySpan(event.start, event.end) !== null;
+    const banner = banners === true && Days.spansFullDays(event.start, event.end);
     const start = new Date(event.start.dateTime);
     const end = new Date(event.end.dateTime!);
     if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) return [];
@@ -338,16 +337,16 @@ function gridRows(event: Types.CalendarEventData, window: ReviewWindow, banners:
     }
     return rows;
   }
-  const first = FormatUtils.parseAllDayDate(event.start.date!);
-  const end = FormatUtils.parseAllDayDate(event.end.date!);
+  const first = Days.parseDate(event.start.date!);
+  const end = Days.parseDate(event.end.date!);
   for (
     let date = first < window.start ? day(window.start) : first;
     date < end && date < window.end;
     date = addDays(date, 1)
   ) {
     rows.push({
-      start: { date: FormatUtils.getLocalDateKey(date) },
-      end: { date: FormatUtils.getLocalDateKey(addDays(date, 1)) },
+      start: { date: Days.dateKey(date) },
+      end: { date: Days.dateKey(addDays(date, 1)) },
       source,
     });
   }
@@ -393,7 +392,7 @@ function firstShown(
   entry: Entry,
   window: ReviewWindow,
   view: Types.EffectiveView,
-  hass: FormatUtils.WeekendSource | null | undefined,
+  hass: Days.Home | null | undefined,
   now: Date,
 ): { readonly day: Date; readonly row: Row } | undefined {
   const config = window.config;
@@ -422,8 +421,8 @@ function firstShown(
     let start: Date;
     let end: Date;
     if (allDay) {
-      start = FormatUtils.parseAllDayDate(row.start.date!);
-      end = addDaysKeepingHour(FormatUtils.parseAllDayDate(row.end.date!), -1);
+      start = Days.parseDate(row.start.date!);
+      end = addDaysKeepingHour(Days.parseDate(row.end.date!), -1);
     } else {
       start = new Date(row.start.dateTime!);
       end = new Date(row.end.dateTime!);
@@ -435,9 +434,7 @@ function firstShown(
       const pastAt =
         row.banner && row.source?.end.dateTime ? new Date(row.source.end.dateTime) : end;
       if (!allDay && pastAt < now) continue;
-      const last = row.source?.end.date
-        ? addDays(FormatUtils.parseAllDayDate(row.source.end.date), -1)
-        : end;
+      const last = row.source?.end.date ? addDays(Days.parseDate(row.source.end.date), -1) : end;
       if (allDay && now >= expiry(last, row.fromTimed ? undefined : own.allday_expires_at))
         continue;
     }
@@ -448,7 +445,7 @@ function firstShown(
         : end.toDateString() === window.start.toDateString() || end > window.start
           ? window.start
           : start;
-    if (weekdays && FormatUtils.isWeekendDate(shown, hass) !== (weekdays === 'weekends')) continue;
+    if (weekdays && Days.isWeekend(shown, hass) !== (weekdays === 'weekends')) continue;
     return { day: day(shown), row };
   }
   return undefined;
@@ -486,7 +483,7 @@ export function shownOn(
   entry: Entry,
   window: ReviewWindow,
   view: Types.EffectiveView,
-  hass: FormatUtils.WeekendSource | null | undefined,
+  hass: Days.Home | null | undefined,
   now: Date = new Date(),
 ): Date | null {
   return firstShown(event, entry, window, view, hass, now)?.day ?? null;
@@ -545,13 +542,12 @@ export function reviewParts(
   pair: readonly [Types.EntityConfig, Types.EntityConfig],
   window: ReviewWindow,
   view: Types.EffectiveView,
-  hass: Types.Hass | null | undefined,
+  hass: Days.Home | null | undefined,
   language: string,
   now: Date = new Date(),
 ): readonly [ReviewPart, ReviewPart] {
   const config = window.config;
-  const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
-  const weekday = new Intl.DateTimeFormat(language, { weekday: 'short' });
+  const weekday = new Intl.DateTimeFormat(intlLocales(language), { weekday: 'short' });
   const shown = events
     .flatMap((event) => {
       const first = firstShown(event, original, window, view, hass, now);
@@ -577,11 +573,7 @@ export function reviewParts(
       return row.start.dateTime
         ? interpolate(lookup(language, 'split.review.event_time') ?? '{day} · {time} · {title}', {
             day: date,
-            time: FormatUtils.formatTime(
-              new Date(row.start.dateTime),
-              use24h,
-              config.time_two_digit_hours,
-            ),
+            time: Days.formatTime(new Date(row.start.dateTime), config, hass),
             title,
           })
         : interpolate(lookup(language, 'split.review.event') ?? '{day} · {title}', {

@@ -11,6 +11,7 @@ import {
   reviewNow,
 } from './helpers/split-review-cases';
 import type * as Types from '../src/config/types';
+import * as Days from '../src/rendering/editor/calendar-days';
 import { splitEntry } from '../src/rendering/editor/split';
 import {
   READ_TIMEOUT,
@@ -18,6 +19,7 @@ import {
   reviewParts,
   reviewWindow,
 } from '../src/rendering/editor/split-review';
+import * as FormatUtils from '../src/utils/format';
 
 /**
  * Split This Calendar's review list (section 5.7): it reads the calendar over the card's own REST
@@ -194,5 +196,114 @@ describe("Split's review names what the card shows, under UTC", () => {
     );
 
     expect(found.length).toBeGreaterThan(0);
+  });
+});
+
+describe("the review's day helpers are the card's own", () => {
+  const letters = [...'abcdefghijklmnopqrstuvwxyz'];
+  const pairs = letters.flatMap((a) => letters.map((b) => `${a}${b}`));
+  const languages = [
+    ...pairs,
+    'en-gb',
+    'en-us',
+    'pt-br',
+    'zh-hans',
+    'zh-hant',
+    'sr-latn',
+    'es-419',
+    'EN-GB',
+  ];
+  const week = Array.from({ length: 7 }, (_, day) => new Date(2026, 0, 11 + day));
+
+  it('holds the card’s country table by value', () => {
+    expect(Days.WEEKEND_BY_COUNTRY).toEqual(FormatUtils.WEEKEND_BY_COUNTRY);
+  });
+
+  it('finds the same weekend and first weekday for every language and country code', () => {
+    const mismatches: string[] = [];
+    const firstWeekdays = [undefined, '', 'language', 'sunday', 'monday', 'saturday', 'friday'];
+    for (const language of languages) {
+      for (const first_weekday of firstWeekdays) {
+        const locale = { language, first_weekday };
+        for (const configured of ['system', 'sunday', 'monday'] as const) {
+          if (
+            Days.firstDayOfWeek(configured, locale) !==
+            FormatUtils.getFirstDayOfWeek(configured, locale)
+          ) {
+            mismatches.push(`first day: ${configured} ${language} ${first_weekday}`);
+          }
+        }
+      }
+      const home = { locale: { language } } as unknown as Types.Hass;
+      for (const day of week) {
+        if (Days.isWeekend(day, home) !== FormatUtils.isWeekendDate(day, home)) {
+          mismatches.push(`weekend: ${language} ${day.getDay()}`);
+        }
+      }
+    }
+    for (const country of pairs.map((pair) => pair.toUpperCase())) {
+      const home = { config: { country }, locale: { language: 'ar' } } as unknown as Types.Hass;
+      for (const day of week) {
+        if (Days.isWeekend(day, home) !== FormatUtils.isWeekendDate(day, home)) {
+          mismatches.push(`weekend: ${country} ${day.getDay()}`);
+        }
+      }
+    }
+
+    expect({ languages: languages.length, countries: pairs.length, mismatches }).toEqual({
+      languages: 684,
+      countries: 676,
+      mismatches: [],
+    });
+  });
+
+  it('writes a time and judges a full day as the card does', () => {
+    const mismatches: string[] = [];
+    const times = [
+      new Date(2026, 0, 14, 0, 5),
+      new Date(2026, 0, 14, 9, 30),
+      new Date(2026, 0, 14, 12, 0),
+      new Date(2026, 0, 14, 23, 59),
+    ];
+    for (const time_24h of [true, false, undefined]) {
+      for (const time_format of [undefined, '12', '24', 'language', 'system']) {
+        for (const language of ['en', 'de', 'en-gb', 'ja']) {
+          for (const time_two_digit_hours of [true, false]) {
+            const config = { ...buildConfig(), time_24h, time_two_digit_hours } as Types.Config;
+            const home = { locale: { language, time_format } } as unknown as Types.Hass;
+            for (const time of times) {
+              const card = FormatUtils.formatTime(
+                time,
+                FormatUtils.resolveTimeFormat24h(config, home),
+                time_two_digit_hours,
+              );
+              if (Days.formatTime(time, config, home) !== card)
+                mismatches.push(`${card} ${time_24h} ${time_format} ${language}`);
+            }
+          }
+        }
+      }
+    }
+    const at = (day: number, hour: number, minute = 0): { dateTime: string } => ({
+      dateTime: new Date(2026, 0, day, hour, minute).toISOString(),
+    });
+    const spans: Array<[Types.CalendarEventData['start'], Types.CalendarEventData['end']]> = [
+      [{ date: '2026-01-14' }, { date: '2026-01-15' }],
+      [{ date: '2026-01-14' }, { date: '2026-01-16' }],
+      [at(14, 22), at(15, 6)],
+      [at(14, 12), at(15, 12)],
+      [at(14, 12), at(15, 11, 59)],
+      [at(14, 9), at(17, 8)],
+      [at(14, 0), at(15, 0)],
+      [at(14, 0), at(16, 0)],
+      [at(14, 10), at(14, 18)],
+    ];
+    for (const [start, end] of spans) {
+      if (Days.spansFullDays(start, end) !== (FormatUtils.fullDaySpan(start, end) !== null)) {
+        mismatches.push(`span ${JSON.stringify(start)} ${JSON.stringify(end)}`);
+      }
+    }
+
+    expect(mismatches).toEqual([]);
   });
 });
