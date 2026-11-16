@@ -64,6 +64,7 @@ import {
   walkSchema,
 } from './panels';
 import * as QuickSetup from './quick-setup';
+import * as Reorder from './reorder';
 import * as Routing from './routing';
 import { ENTITY_PATH } from './schemas/calendars';
 import { TOOLBAR_BUTTON_ICON, TOOLBAR_BUTTON_PATH, buildToolbarButtonSchema } from './schemas/card';
@@ -96,6 +97,8 @@ import { icon } from './views/icon';
 import { escapeAction, historyKey, inTextField } from './views/keys';
 import * as Overview from './views/overview';
 import * as PageView from './views/page';
+import * as ReorderView from './views/reorder';
+import { scrollContainer } from './views/scroll';
 import * as SearchView from './views/search';
 import * as Workspace from './workspace';
 import * as WriteFrames from './write-frames';
@@ -353,6 +356,7 @@ export class CalendarCardProEditor extends LitElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     awaitingConditionsEditor.delete(this);
+    this._drag?.cancel();
   }
 
   /**
@@ -612,6 +616,18 @@ export class CalendarCardProEditor extends LitElement {
   /** What Filter Calendars holds. */
   @state() private _calendarQuery = '';
 
+  /**
+   * The calendar the keyboard grab holds, and where (`reorder.ts`): session state, outside undo,
+   * written only when it drops.
+   */
+  @state() private _grab?: Reorder.GrabState;
+
+  /** The pointer drag under way on a handle, which Escape cancels. */
+  private _drag?: { readonly cancel: () => void };
+
+  /** Whether the next click on a handle repeats what a Space or a drag just did, and is ignored. */
+  private _swallowClick = false;
+
   /** The line under an entry page's header after a Duplicate or a re-point, until the next change. */
   @state() private _entryNotice?: {
     readonly key: number;
@@ -799,7 +815,10 @@ export class CalendarCardProEditor extends LitElement {
     this._migration = this._migrationState(rawConfig);
 
     if (!isEcho) {
-      // A configuration the editor did not send ends what Undo could reach.
+      // A configuration the editor did not send ends what Undo could reach, and a grab or a drag
+      // whose list it may have reordered.
+      this._grab = undefined;
+      this._drag?.cancel();
       this._history.clear();
       this._status = undefined;
       this._entryNotice = undefined;
@@ -1023,6 +1042,7 @@ export class CalendarCardProEditor extends LitElement {
     if (this._quickSetup !== undefined) return;
     const entry = way === 'undo' ? this._history.undo() : this._history.redo();
     if (entry === undefined) return;
+    this._grab = undefined;
     this._restore(way === 'undo' ? entry.before : entry.after);
     const { route, workspace, focusKey } = entry.where;
     if (workspace !== this._selectedWorkspace) this._selectedWorkspace = workspace;
@@ -1992,10 +2012,11 @@ export class CalendarCardProEditor extends LitElement {
     void this._afterMove(undefined, heading);
   }
 
-  /** Closes the strip and Add Calendar, which belong to the place being left. */
+  /** Closes the strip, Add Calendar and the keyboard grab, which belong to the place being left. */
   private _closeDisclosures(): void {
     this._openStrip = undefined;
     this._adding = undefined;
+    this._grab = undefined;
   }
 
   /**
@@ -2105,10 +2126,15 @@ export class CalendarCardProEditor extends LitElement {
     if (event.key !== 'Escape') return;
     const wizard = this._quickSetup;
     // Quick Setup is a place of its own: Escape is its Back, or Cancel on its first step.
+    const grab = this._grabbed();
     const action = escapeAction(event.composedPath(), this, {
       disclosure:
         wizard === undefined &&
-        (this._scopeOpen || this._openStrip !== undefined || this._adding !== undefined),
+        (this._drag !== undefined ||
+          grab !== undefined ||
+          this._scopeOpen ||
+          this._openStrip !== undefined ||
+          this._adding !== undefined),
       onPage:
         wizard !== undefined ||
         this._nav.route.kind !== 'overview' ||
@@ -2134,6 +2160,11 @@ export class CalendarCardProEditor extends LitElement {
           ]),
         );
       }
+    } else if (action === 'close' && this._drag !== undefined) {
+      this._drag.cancel();
+    } else if (action === 'close' && grab !== undefined) {
+      // The grab is innermost: the row goes back, focus stays on its handle.
+      this._putBack(grab, true);
     } else if (action === 'close') {
       // The disclosure opened last closes, focus back on what opened it.
       const strip = this._openStrip;
@@ -2987,10 +3018,16 @@ export class CalendarCardProEditor extends LitElement {
       interpolate(this._string(ctx, 'summary.set'), {
         count: String(CalendarList.setCount(entry)),
       });
-    return CalendarList.groups(state).flatMap((calendar) => {
+    const grab = this._grabbed();
+    const calendars = CalendarList.groups(state);
+    const preview =
+      grab === undefined ? undefined : Reorder.order(this._calendarKeys(calendars), grab);
+    return calendars.flatMap((calendar) => {
       const name = this._calendarName(calendar.entityId);
       const grouped = calendar.rows.length > 1;
       const missing = this._missing(calendar.entityId);
+      const key = calendar.rows[0].key;
+      const handle = this._handle(calendar.entityId, key, name, ctx);
       const rows = calendar.rows.flatMap((row): CalendarView.EntryRowModel[] => {
         if (kept !== undefined && !kept.has(row.index)) return [];
         const entry = entities[row.index];
@@ -3035,6 +3072,7 @@ export class CalendarCardProEditor extends LitElement {
                 : undefined,
             missing,
             moves: grouped ? undefined : calendar.entityId,
+            handle: grouped ? undefined : handle,
             more,
             strip,
             onOpen: () => this._open({ kind: 'entry', key: row.key }, `row:${row.key}`),
@@ -3044,6 +3082,7 @@ export class CalendarCardProEditor extends LitElement {
       if (rows.length === 0) return [];
       const head = grouped
         ? {
+            handle,
             name,
             count: interpolate(this._string(ctx, 'calendars.entries'), {
               count: String(calendar.rows.length),
@@ -3059,7 +3098,244 @@ export class CalendarCardProEditor extends LitElement {
             ),
           }
         : undefined;
-      return [{ entityId: calendar.entityId, head, rows }];
+      return [
+        {
+          entityId: calendar.entityId,
+          grabbed: grab?.key === key,
+          place: preview?.indexOf(key),
+          head,
+          rows,
+        },
+      ];
+    });
+  }
+
+  /**
+   * Each calendar's key for reordering: its first entry's, which a move keeps.
+   *
+   * @param calendars - The calendars, else the list's
+   * @returns The keys, in list order
+   */
+  private _calendarKeys(
+    calendars: ReadonlyArray<CalendarList.CalendarGroup> = CalendarList.groups(this._listState()),
+  ): number[] {
+    return calendars.map((calendar) => calendar.rows[0].key);
+  }
+
+  /**
+   * The keyboard grab, while the list still holds its calendar where it was picked up; a grab the
+   * list has moved under (another editor's write, an undo) holds nothing.
+   *
+   * @returns The grab, or undefined
+   */
+  private _grabbed(): Reorder.GrabState | undefined {
+    const grab = this._grab;
+    const keys = this._calendarKeys();
+    return grab !== undefined && keys.length === grab.total && keys[grab.from] === grab.key
+      ? grab
+      : undefined;
+  }
+
+  /**
+   * A calendar's drag handle (section 5.11): Space picks it up and drops it, the arrow keys move
+   * it while held, Alt+Arrow moves it at once, and a pointer drags it.
+   *
+   * @param entityId - The calendar
+   * @param key - Its key for reordering
+   * @param name - Its name
+   * @param ctx - Schema context
+   * @returns The handle
+   */
+  private _handle(entityId: string, key: number, name: string, ctx: SchemaCtx): TemplateResult {
+    return ReorderView.dragHandle({
+      focus: `handle:${entityId}`,
+      moves: entityId,
+      name: interpolate(this._string(ctx, 'reorder.handle'), { name }),
+      tooltip: interpolate(this._string(ctx, 'reorder.tooltip'), { name }),
+      pressed: this._grabbed()?.key === key,
+      onKeydown: (event) => this._handleKeydown(event, key),
+      onClick: () => {
+        // A Space the keydown already took, or the end of a drag, also clicks.
+        if (this._swallowClick) this._swallowClick = false;
+        else this._toggleGrab(key);
+      },
+      onPointerdown: (event) => {
+        this._swallowClick = false;
+        this._dragStart(event);
+      },
+      onBlur: () => {
+        this._swallowClick = false;
+        const grab = this._grabbed();
+        if (grab?.key === key) this._putBack(grab, false);
+      },
+    });
+  }
+
+  /**
+   * A key on a handle: Space picks its calendar up or drops it; while it is held, the arrow keys
+   * move it one place, focus staying on the handle. Escape reaches the editor's own rule
+   * (`_onKeydown`), and Alt+Arrow without a grab moves the calendar at once (`_moveByKey`).
+   *
+   * @param event - The `keydown`
+   * @param key - The handle's calendar key
+   */
+  private _handleKeydown(event: KeyboardEvent, key: number): void {
+    const grab = this._grabbed();
+    const arrow = event.key === 'ArrowUp' ? -1 : event.key === 'ArrowDown' ? 1 : 0;
+    const space =
+      event.key === ' ' && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey;
+    // The button may click on Space's keyup as well: that click is swallowed. Any other key, Enter
+    // among them, clicks for itself.
+    this._swallowClick = space;
+    if (space) {
+      if (!event.repeat) this._toggleGrab(key);
+    } else if (grab?.key === key && arrow !== 0) {
+      this._grab = Reorder.moveBy(grab, arrow);
+      this._sayGrab(this._grab, false);
+    } else {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  /**
+   * Picks a calendar up, or drops the one held: the drop writes once, where it moved.
+   *
+   * @param key - The calendar's key
+   */
+  private _toggleGrab(key: number): void {
+    const grab = this._grabbed();
+    if (grab !== undefined) {
+      if (grab.key !== key) return;
+      this._grab = undefined;
+      const entityId = this._grabbedCalendar(grab);
+      if (grab.at === grab.from) this._putBack(grab, true);
+      else this._moveCalendar(entityId, grab.at, `handle:${entityId}`);
+      return;
+    }
+    if (this._drag !== undefined) return;
+    this._grab = Reorder.grab(this._calendarKeys(), key);
+    this._sayGrab(this._grab, true);
+  }
+
+  /**
+   * The calendar a grab holds.
+   *
+   * @param grab - The grab, still valid
+   * @returns Its entity id
+   */
+  private _grabbedCalendar(grab: Reorder.GrabState): string {
+    return CalendarList.groups(this._listState())[grab.from].entityId;
+  }
+
+  /**
+   * The grab's words: where the held calendar stands, and as it is picked up the keys, the same
+   * words the line under the list shows.
+   *
+   * @param grab - The grab
+   * @param keys - Whether to say the keys too
+   */
+  private _sayGrab(grab: Reorder.GrabState, keys: boolean): void {
+    const ctx = this._ctx;
+    const position = this._grabPosition(grab, ctx);
+    this._say(
+      keys
+        ? `${position} ${interpolate(this._string(ctx, 'reorder.keys'), this._keyCaps(ctx))}`
+        : position,
+    );
+  }
+
+  /**
+   * "Anna, position 2 of 5.", for a grab.
+   *
+   * @param grab - The grab
+   * @param ctx - Schema context
+   * @returns The sentence
+   */
+  private _grabPosition(grab: Reorder.GrabState, ctx: SchemaCtx): string {
+    return interpolate(this._string(ctx, 'reorder.status'), {
+      name: this._calendarName(this._grabbedCalendar(grab)),
+      position: String(grab.at + 1),
+      total: String(grab.total),
+    });
+  }
+
+  /**
+   * What the key caps in the grab's line read.
+   *
+   * @param ctx - Schema context
+   * @returns The caps, by placeholder
+   */
+  private _keyCaps(ctx: SchemaCtx): Record<string, string> {
+    return {
+      up: '↑',
+      down: '↓',
+      space: this._string(ctx, 'reorder.space'),
+      esc: this._string(ctx, 'reorder.esc'),
+    };
+  }
+
+  /**
+   * Puts the held calendar back where it was picked up, writing nothing, and says so.
+   *
+   * @param grab - The grab
+   * @param refocus - Whether focus returns to its handle: after Escape, not after focus left it
+   */
+  private _putBack(grab: Reorder.GrabState, refocus: boolean): void {
+    const entityId = this._grabbedCalendar(grab);
+    this._grab = undefined;
+    this._sayPutBack(entityId);
+    if (refocus) {
+      void this.updateComplete.then(() =>
+        Focus.focusFirst(this.renderRoot, [Focus.byFocusKey(`handle:${entityId}`)]),
+      );
+    }
+  }
+
+  /**
+   * Says a calendar is back where it was: "Put Anna back at position 2 of 5."
+   *
+   * @param entityId - The calendar, which nothing has moved
+   */
+  private _sayPutBack(entityId: string): void {
+    const calendars = this._calendarKeys();
+    this._say(
+      interpolate(this._string(this._ctx, 'reorder.put_back'), {
+        name: this._calendarName(entityId),
+        position: String(this._calendarPlace(entityId) + 1),
+        total: String(calendars.length),
+      }),
+    );
+  }
+
+  /**
+   * A pointer pressed on a handle: once it travels, the calendar follows it, and letting go drops
+   * it where it is shown, as one write; a cancel puts it back.
+   *
+   * @param event - The `pointerdown`
+   */
+  private _dragStart(event: PointerEvent): void {
+    if (this._drag !== undefined || this._grabbed() !== undefined) return;
+    this._drag = ReorderView.pointerDrag(event, scrollContainer(this), (outcome) => {
+      this._drag = undefined;
+      if (outcome === undefined) return;
+      // The click a mouse makes on letting go; a touch makes none, and the next press clears it.
+      this._swallowClick = true;
+      const entityId = outcome.ids[outcome.from];
+      if (!outcome.dropped) {
+        // A calendar a change from outside took off the card goes nowhere to be put back.
+        if (this._config?.entities?.some((each) => Synthetic.entityIdOf(each) === entityId)) {
+          this._sayPutBack(entityId);
+        }
+      } else if (outcome.at !== outcome.from) {
+        const all = CalendarList.groups(this._listState()).map((calendar) => calendar.entityId);
+        this._moveCalendar(
+          entityId,
+          Reorder.placeIn(all, outcome.ids, entityId, outcome.at),
+          `handle:${entityId}`,
+        );
+      }
     });
   }
 
@@ -3107,8 +3383,26 @@ export class CalendarCardProEditor extends LitElement {
             )
           : nothing
       }
-      ${list} ${this._renderAddCalendar(ctx)}
+      ${list} ${this._renderGrabStatus(ctx)} ${this._renderAddCalendar(ctx)}
     </section>`;
+  }
+
+  /**
+   * The keyboard grab's line under the list, while a calendar is held: where it stands and the
+   * keys (the D10 mockup), plain text whose words the queue speaks.
+   *
+   * @param ctx - Schema context
+   * @returns The line, or nothing
+   */
+  private _renderGrabStatus(ctx: SchemaCtx): TemplateResult | typeof nothing {
+    const grab = this._grabbed();
+    return grab === undefined
+      ? nothing
+      : ReorderView.grabStatus(
+          this._grabPosition(grab, ctx),
+          this._string(ctx, 'reorder.keys'),
+          this._keyCaps(ctx),
+        );
   }
 
   /**
@@ -3275,7 +3569,8 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * Moves a calendar, with all its entries, to a place among the calendars, as one undo step, and
-   * says where it went. Focus stays on the control that moved it, else on the row.
+   * says where it went. Focus goes to its handle on the overview; on an entry page it stays on the
+   * control that moved it, else on the page's menu.
    *
    * @param entityId - The calendar
    * @param to - Its new place, counting from zero
@@ -3311,15 +3606,18 @@ export class CalendarCardProEditor extends LitElement {
         focusKey === undefined
           ? undefined
           : root.querySelector<HTMLButtonElement>(Focus.byFocusKey(focusKey));
-      if (target && !target.disabled) target.focus({ preventScroll: true });
-      else {
-        // The row on the overview; on an entry page, the menu the move was made from.
-        Focus.focusFirst(root, [
-          Focus.byFocusKey(`row:${first}`),
-          Focus.byFocusKey(`more:calendar:${entityId}`),
-          Focus.byFocusKey('more:page'),
-        ]);
-      }
+      // On the overview, the moved calendar's handle (ia-final §9), except that the strip's move
+      // to the top, which turns its Move Up off, focuses the row itself where the calendar is one;
+      // on an entry page, which has no handle, the control that moved it, else its menu.
+      const topped =
+        to === 0 && focusKey?.startsWith('strip:') && calendars[from].rows.length === 1;
+      Focus.focusFirst(root, [
+        ...(topped ? [Focus.byFocusKey(`row:${first}`)] : []),
+        Focus.byFocusKey(`handle:${entityId}`),
+        ...(target && !target.disabled ? [Focus.byFocusKey(focusKey!)] : []),
+        Focus.byFocusKey(`row:${first}`),
+        Focus.byFocusKey('more:page'),
+      ]);
     });
   }
 

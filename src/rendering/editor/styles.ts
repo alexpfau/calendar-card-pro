@@ -809,12 +809,8 @@ export default css`
     border-radius: 12px;
   }
 
-  .cal-row-head {
-    padding-inline-start: 16px;
-  }
-
   .cal-row-entry {
-    margin-inline-start: 24px;
+    margin-inline-start: 28px;
   }
 
   .cal-body {
@@ -834,7 +830,12 @@ export default css`
     text-align: start;
   }
 
+  .drag-handle + .cal-body {
+    padding-inline-start: 4px;
+  }
+
   .cal-body:hover,
+  .drag-handle:hover,
   .strip-button:hover:not(:disabled) {
     background: var(--secondary-background-color);
   }
@@ -844,6 +845,85 @@ export default css`
   .cal-filter:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
+  }
+
+  /* --- Reordering -------------------------------------------------------------
+     A calendar's drag handle. Only the handle stops touch scrolling, so a finger on the rest of
+     a row still scrolls the dialog. While the keyboard grab holds a calendar its row is marked
+     and the list shows the preview order by CSS order (views/calendars.ts); while a pointer drags
+     one, it and the rows it passes move by transform (views/reorder.ts). */
+  .drag-handle {
+    flex: none;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    min-height: 44px;
+    padding: 0;
+    border: none;
+    border-radius: 12px;
+    background: none;
+    color: var(--secondary-text-color);
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .drag-handle:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -4px;
+  }
+
+  .drag-handle[aria-pressed='true'] {
+    color: var(--primary-color);
+  }
+
+  .cal-list > :not([data-reorder]) {
+    order: var(--bar, 0);
+  }
+
+  .cal-group.grabbed > .cal-row:first-child {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 1px var(--primary-color);
+  }
+
+  .cal-list.dragging {
+    user-select: none;
+  }
+
+  .cal-list.dragging > [data-reorder] {
+    transition: transform 0.15s ease;
+  }
+
+  .cal-list.dragging > .lifted {
+    position: relative;
+    z-index: 1;
+    border-radius: 12px;
+    background: var(--card-background-color);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: none;
+    cursor: grabbing;
+  }
+
+  .grab-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 4px 8px;
+    border-radius: 8px;
+    background: var(--secondary-background-color);
+    color: var(--secondary-text-color);
+    font-size: 12px;
+    line-height: 1.6;
+    --mdc-icon-size: 16px;
+  }
+
+  .grab-status kbd {
+    padding: 0 4px;
+    border: 1px solid var(--divider-color);
+    border-radius: 4px;
+    font: inherit;
   }
 
   .cal-dot {
@@ -1024,7 +1104,8 @@ export default css`
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .quick-setup-banner {
+    .quick-setup-banner,
+    .cal-list.dragging > [data-reorder] {
       transition: none;
     }
   }

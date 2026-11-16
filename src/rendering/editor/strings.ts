@@ -375,6 +375,16 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // The keys beside a move in an entry page's menu.
   'strip.key_up': 'Alt ↑',
   'strip.key_down': 'Alt ↓',
+  // Reordering (section 5.11): a calendar's drag handle, and the keyboard grab's line under the
+  // list, which the announcement queue also speaks. In `reorder.keys` each `{…}` is drawn as a key
+  // cap: `{up}` and `{down}` as arrows, `{space}` and `{esc}` as `reorder.space` and `reorder.esc`.
+  'reorder.handle': 'Move {name}',
+  'reorder.tooltip': 'Drag to move {name}, or press Space',
+  'reorder.status': '{name}, position {position} of {total}.',
+  'reorder.keys': '{up} {down} move it, {space} drops it, {esc} puts it back.',
+  'reorder.space': 'Space',
+  'reorder.esc': 'Esc',
+  'reorder.put_back': 'Put {name} back at position {position} of {total}.',
   // A calendar entry's page.
   'entry.back': 'Back to the overview',
   'entry.previous': 'Previous Calendar',
