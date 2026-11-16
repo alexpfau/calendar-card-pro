@@ -88,7 +88,6 @@
   "state.layout_own": "{layout} iestata savu: {value}",
   "state.set_on_calendars": "Iestatīts kalendāros:",
   "state.edit_layout": "Rediģēt: {layout}",
-  "state.edit_named": "Rediģēt: {layout}, {label}",
   "reset.to": "Atiestatīt uz {value}",
   "reset.clear": "Notīrīt",
   "reset.reset": "Atiestatīt",

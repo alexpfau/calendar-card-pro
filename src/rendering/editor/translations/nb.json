@@ -88,7 +88,6 @@
   "state.layout_own": "«{layout}» har sin egen: {value}",
   "state.set_on_calendars": "Angitt på kalendere:",
   "state.edit_layout": "Rediger «{layout}»",
-  "state.edit_named": "Rediger «{layout}»: {label}",
   "reset.to": "Tilbakestill til {value}",
   "reset.clear": "Tøm",
   "reset.reset": "Tilbakestill",

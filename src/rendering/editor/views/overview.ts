@@ -5,7 +5,14 @@
  * templates live outside `element.ts`).
  */
 
-import { mdiCheck, mdiChevronRight, mdiClose, mdiCreation, mdiLayersOutline } from '@mdi/js';
+import {
+  mdiCheck,
+  mdiChevronRight,
+  mdiClose,
+  mdiCreation,
+  mdiEyeOutline,
+  mdiLayersOutline,
+} from '@mdi/js';
 import { type TemplateResult, html, nothing } from 'lit';
 
 import { icon } from './icon';
@@ -127,7 +134,7 @@ export function scopeControl(
     ${
       model.previewDiffers
         ? html`<p class="hint scope-preview">
-            ${interpolate(t('settings_for.preview'), {
+            ${icon(mdiEyeOutline)}${interpolate(t('settings_for.preview'), {
               layout: name,
               displayed: model.displayedLabel,
             })}

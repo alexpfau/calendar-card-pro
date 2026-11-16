@@ -80,6 +80,10 @@ describe('Settings For', () => {
     expect(line()).toBe('Editing All Layouts · Preview Shows List');
     await pick('grid');
     expect(line()).toBe('Editing Grid · Preview Shows List');
+    // The eye leads the line, as the mockup draws it, and is no part of its words.
+    expect(root.querySelector('.scope-preview > svg.icon')?.getAttribute('aria-hidden')).toBe(
+      'true',
+    );
     await pick('list');
     expect(line()).toBeUndefined();
     document.body.replaceChildren();

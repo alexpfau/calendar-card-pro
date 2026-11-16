@@ -124,6 +124,12 @@ async function click(editor: MountedEditor, selector: string): Promise<void> {
   await editor.updateComplete;
 }
 
+/** The `data-focus` keys of the buttons in the line under a field. */
+const lineButtons = (editor: MountedEditor, id: FieldId): string[] =>
+  [...($(editor, `[data-field="${id}"]`)?.querySelectorAll('.line-button') ?? [])].map(
+    (button) => button.getAttribute('data-focus') ?? '',
+  );
+
 /** The live region's last words, once what queued them has rendered. */
 const said = (editor: MountedEditor): string =>
   $(editor, '.live-region')?.textContent?.trim() ?? '';
@@ -157,7 +163,7 @@ describe('what a page shows of a fresh card', () => {
     expect(lastConfig(editor)).toBeUndefined();
   });
 
-  it('names the settings of an Add row, four and a count past that', async () => {
+  it('names every setting of an Add row, and counts them beside the names', async () => {
     const editor = await mount();
     await goPage(editor, 'events');
     const row = $(editor, '.page-group[data-heading="time"] .add-toggle')!;
@@ -167,12 +173,10 @@ describe('what a page shows of a fresh card', () => {
       .map(([id]) => fieldLabel(EVERY.get(id)!, 'en'));
     // Seven since End Time and Duration became chips under Event Details (PR 18).
     expect(names).toHaveLength(7);
-    expect(row.querySelector('.add-names')!.textContent).toBe(
-      `${names.slice(0, 4).join(' · ')}, +3`,
-    );
-    // The count stands outside the two-line clamp, which a long name on a phone would cut.
-    expect(row.querySelector('.add-names-list')!.textContent).toBe(names.slice(0, 4).join(' · '));
-    expect(row.querySelector('.add-more')!.textContent).toBe(', +3');
+    // Every name, which the two-line clamp cuts with an ellipsis; the count carries the total, so
+    // no "+N" follows them to be stranded where they wrap.
+    expect(row.querySelector('.add-names')!.textContent).toBe(names.join(' · '));
+    expect(row.querySelector('.add-names')!.children).toHaveLength(0);
     expect(row.querySelector('.add-count')!.textContent).toBe('Settings: 7');
     expect(row.getAttribute('aria-label')).toBe('Add Setting under Time, Settings: 7');
     expect(row.getAttribute('aria-expanded')).toBe('false');
@@ -282,11 +286,40 @@ describe('what the card sets stays on its page', () => {
     await openPageOf(editor, 'events:event_font_size');
     expect(live(editor)).toContain('events:event_font_size');
     expect(words(editor, 'events:event_font_size')).toContain('From All Layouts.');
-    expect($(editor, '[data-focus="edit:events:event_font_size:shared"]')?.textContent).toContain(
-      'Edit All Layouts',
-    );
+    expect(lineButtons(editor, 'events:event_font_size')).toEqual([]);
     await goPage(editor, 'taps_refresh');
     expect(live(editor)).toContain('actions:refresh_interval');
+  });
+
+  it('gives a value from All Layouts no button of its own, and keeps the other layouts’ Edit', async () => {
+    const editor = await mount({ view: 'grid', filter_duplicates: true });
+    await changeField(editor, 'workspace:editing_workspace', 'column');
+    await openPageOf(editor, 'content:filter_duplicates_mode');
+    expect(words(editor, 'content:filter_duplicates_mode')).toContain('· From All Layouts |');
+    expect(lineButtons(editor, 'content:filter_duplicates_mode')).toEqual([]);
+    // The page's foot still names what only another layout offers here, with Edit for it.
+    expect(
+      [...editor.shadowRoot!.querySelectorAll('[data-focus^="edit-layout:"]')].map((button) =>
+        button.textContent!.trim(),
+      ),
+    ).toEqual(['Edit List', 'Edit Grid']);
+  });
+
+  it('names a layout’s own value under the field in All Layouts, with only its Reset', async () => {
+    const editor = await mount({
+      view: 'grid',
+      filter_duplicates: true,
+      column: { filter_duplicates: false },
+    });
+    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await openPageOf(editor, 'content:filter_duplicates_mode');
+    const field = $(editor, '[data-field="content:filter_duplicates_mode"]')!;
+    expect(field.querySelector('.field-note')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Columns Sets Its Own: Off',
+    );
+    expect(lineButtons(editor, 'content:filter_duplicates_mode')).toEqual([
+      'remove:content:filter_duplicates_mode',
+    ]);
   });
 
   it('draws a value held at a nested path', async () => {
@@ -538,8 +571,11 @@ describe('gate lines and stored values not in use', () => {
       /^Appears once Description is pressed: Show Description For All-Day Events, /,
     );
     expect(lines).toContain(
-      'Stored but not in use: Description Font Size (20px), from All Layouts Edit All Layouts',
+      'Stored but not in use: Description Font Size (20px), from All Layouts',
     );
+    // No Reset here reaches All Layouts' value, so the line has no button; Settings For does.
+    const line = $(editor, '[data-focus="inactive:events:description_font_size"]')!;
+    expect(line.querySelector('button')).toBeNull();
   });
 });
 

@@ -88,7 +88,6 @@
   "state.layout_own": "Išdėstymas „{layout}“ turi savą: {value}",
   "state.set_on_calendars": "Nustatyta kalendoriams:",
   "state.edit_layout": "Redaguoti „{layout}“",
-  "state.edit_named": "Redaguoti „{layout}“: {label}",
   "reset.to": "Atkurti į {value}",
   "reset.clear": "Išvalyti",
   "reset.reset": "Atkurti",

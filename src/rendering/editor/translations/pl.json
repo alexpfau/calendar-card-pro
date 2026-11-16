@@ -88,7 +88,6 @@
   "state.layout_own": "Własna wartość ({layout}): {value}",
   "state.set_on_calendars": "Ustawione w kalendarzach:",
   "state.edit_layout": "Edytuj: {layout}",
-  "state.edit_named": "Edytuj: {layout}, {label}",
   "reset.to": "Resetuj do {value}",
   "reset.clear": "Wyczyść",
   "reset.reset": "Resetuj",

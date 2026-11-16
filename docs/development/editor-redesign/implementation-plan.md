@@ -1206,14 +1206,11 @@ mockup).
 **The Add row** is a card-built disclosure (`button aria-expanded`), following the prototype's
 `addRowHTML` and D02 A:
 
-- **Closed**: "Add Setting", then as many of the hidden settings' names as fit in two lines (D02 A),
-  joined with " · ", then, when some did not fit, the localized template `add.names_more`,
-  "{names}, +{count}", which a translator can reorder and which inflects nothing (adopted over the
-  D02 mockup's "· and 4 more", section 13, row B); and "Settings: 8".
-  The names are fitted by measurement after render (`views/add-row.ts` measures each name's line
-  with a `ResizeObserver` on the row and re-fits on resize); before the first measurement, and where
-  layout is absent (happy-dom), the first four names show. Accessible name: "Add Setting under Time,
-  Settings: 8".
+- **Closed**: "Add Setting", then every hidden setting's name joined with " · ", clamped to two
+  lines (D02 A) and cut with an ellipsis; and "Settings: 8", which carries the total. No "+N"
+  follows the names: drawn after a clamp, it was stranded at the far end of the second line
+  whenever the names wrapped, beside a count that already says how many there are. Accessible
+  name: "Add Setting under Time, Settings: 8".
 - **Open**: a group named "Settings to Add under Time" holding **Show All** with "Settings: 8"
   (when there are two or more), a native filter box past seven items (never focused automatically),
   then one button per item: its label, the first sentence of its helper, its current value.
@@ -1276,7 +1273,8 @@ it: "Appears once Show Description is on: Show Description For All-Day Events. S
 use: Description Font Size (20px)", with **Reset** (named "Reset Description Font Size"); each
 stored value gets its own line and Reset. In a layout scope, when the value lives at the top level,
 the line reads "Stored but not in use: Description Font Size (20px), from All Layouts" and carries
-**Edit All Layouts** instead, because a reset here could not reach it. Two complete templates,
+no button, because a reset here could not reach it; Settings For is where All Layouts is edited, and
+a search for the value lands on the line itself. Two complete templates,
 `inactive.line` and `inactive.line_top`, neither assembled from a fragment; neither says what the
 value waits for, because the gate line above it does. A mode value's stored line sits under its mode
 control, which says it.
@@ -1298,10 +1296,10 @@ language's `Intl.ListFormat`, which the editor already loads (`element.ts` › `
 | No per-layout copy           | All Layouts scope, stored                                      | "Set for All Layouts"                                                                                                           | Reset or Remove                        |
 | No per-layout copy           | A layout scope                                                 | "Whole Card", or "Whole Card · Set" when stored                                                                                 | Reset or Remove when stored            |
 | Per-layout copy              | All Layouts scope, stored at the top level                     | "Set for All Layouts"                                                                                                           | Reset or Remove                        |
-| Per-layout copy              | All Layouts scope, a layout stores its own                     | the line "Grid Sets Its Own: 20" per such layout                                                                                | **Edit Grid**                          |
+| Per-layout copy              | All Layouts scope, a layout stores its own                     | the line "Grid Sets Its Own: 20" per such layout                                                                                | none                                   |
 | Per-layout copy              | A layout scope, stored in its block                            | "Set for Grid", plus ", Same as the Default" when equal to Grid's default or the card's                                         | Reset or Remove, and the Reset outcome |
 | Per-layout copy              | A layout scope that defaults differently, nothing in its block | "Grid's Default"; plus the note "The All Layouts value, 5, does not apply in Grid." when the top level stores a different value | none                                   |
-| Per-layout copy              | A layout scope, inherited from a top-level value               | "From All Layouts"                                                                                                              | **Edit All Layouts**                   |
+| Per-layout copy              | A layout scope, inherited from a top-level value               | "From All Layouts"                                                                                                              | none                                   |
 | Entry option                 | Stored on the entry                                            | "Set on This Calendar", plus " · Shared by Its Entries" for a calendar option with siblings                                     | Reset or Remove                        |
 | Entry option                 | Following the card while the card's value differs              | "Follows the Card: Hide"                                                                                                        | none                                   |
 | Card option entries override | Any scope, one or more entries store their own                 | the line "Set on Calendars: Ben, Bin Day", one link per entry                                                                   | the links                              |

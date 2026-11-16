@@ -10,7 +10,6 @@ import { type TemplateResult, html, nothing } from 'lit';
 
 import { icon } from './icon';
 import type { Translate } from './overview';
-import type { NamesParts } from '../shown';
 import { interpolate } from '../strings';
 
 /** A button of the editor's own, in a field's line or a heading's. */
@@ -48,11 +47,11 @@ export function lineButton(button: LineButton): TemplateResult {
 
 /** What the line under a live field shows. */
 export interface FieldLine {
-  /** Lines of their own: "Grid Sets Its Own: 20" with Edit Grid, the ignored All Layouts value. */
-  readonly notes: ReadonlyArray<{ readonly text: string; readonly button?: LineButton }>;
+  /** Lines of their own: "Grid Sets Its Own: 20", the ignored All Layouts value. */
+  readonly notes: ReadonlyArray<{ readonly text: string }>;
   /** "Set on Calendars:" with a link per entry. */
   readonly calendars?: { readonly label: string; readonly links: ReadonlyArray<LineButton> };
-  /** Reset or Remove, named for what it leaves, and any Edit for another layout. */
+  /** Reset or Remove, named for what it leaves. */
   readonly actions: ReadonlyArray<LineButton>;
 }
 
@@ -71,7 +70,7 @@ export function fieldLine(line: FieldLine): TemplateResult | typeof nothing {
       ${line.notes.map(
         (note) =>
           html`<p class="field-note">
-            <span>${note.text}</span>${note.button ? lineButton(note.button) : nothing}
+            <span>${note.text}</span>
           </p>`,
       )}
       ${
@@ -109,10 +108,10 @@ export interface AddRow {
   /** Whether nothing under the heading is live, so the row carries the heading's name. */
   readonly named: boolean;
   /**
-   * The settings' names as the closed row shows them, and the "+N" for those that did not fit,
-   * which is drawn outside the names' two-line clamp so a long name cannot hide it.
+   * Every setting's name, as the closed row shows them: clamped to two lines and cut with an
+   * ellipsis, while the count beside them carries the total.
    */
-  readonly names: NamesParts;
+  readonly names: string;
   readonly items: ReadonlyArray<AddItem>;
   readonly open: boolean;
   readonly query: string;
@@ -157,11 +156,7 @@ export function addRow(row: AddRow, t: Translate): TemplateResult {
               : t('add.setting')
           }</span
         >
-        <span class="add-names"
-          ><span class="add-names-list">${row.names.names}</span>${
-            row.names.more ? html`<span class="add-more">${row.names.more}</span>` : nothing
-          }</span
-        >
+        <span class="add-names">${row.names}</span>
       </span>
       <span class="add-count">${counted}</span>
       ${icon(row.open ? mdiChevronUp : mdiChevronDown, 'nav-chevron')}
@@ -220,7 +215,7 @@ export function addRow(row: AddRow, t: Translate): TemplateResult {
 
 /**
  * A heading's gate line, "Appears once Show Description is on: Description Color.", and the
- * values stored for settings that are not in use, each with its action.
+ * values stored for settings that are not in use, each with its Reset where one reaches it.
  *
  * @param gateLines - The gate lines, one per condition waited on
  * @param inactive - The stored lines
@@ -228,14 +223,23 @@ export function addRow(row: AddRow, t: Translate): TemplateResult {
  */
 export function gateLines(
   gateLines: ReadonlyArray<string>,
-  inactive: ReadonlyArray<{ readonly text: string; readonly button: LineButton }>,
+  inactive: ReadonlyArray<{
+    readonly text: string;
+    readonly button?: LineButton;
+    /** A line without a button: the `data-focus` key a search lands on. */
+    readonly focus?: string;
+  }>,
 ): TemplateResult | typeof nothing {
   if (gateLines.length === 0 && inactive.length === 0) return nothing;
   return html`${gateLines.map((line) => html`<p class="gate-line">${line}</p>`)}
   ${inactive.map(
     (line) =>
-      html`<p class="gate-line inactive-line">
-        <span>${line.text}</span>${lineButton(line.button)}
+      html`<p
+        class="gate-line inactive-line"
+        data-focus=${line.focus ?? nothing}
+        tabindex=${line.focus ? '-1' : nothing}
+      >
+        <span>${line.text}</span>${line.button ? lineButton(line.button) : nothing}
       </p>`,
   )}`;
 }

@@ -88,7 +88,6 @@
   "state.layout_own": "{layout} 자체 설정: {value}",
   "state.set_on_calendars": "설정된 캘린더:",
   "state.edit_layout": "{layout} 편집",
-  "state.edit_named": "{layout} 편집: {label}",
   "reset.to": "{value}(으)로 초기화",
   "reset.clear": "지우기",
   "reset.reset": "초기화",

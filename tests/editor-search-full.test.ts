@@ -377,8 +377,8 @@ describe('choosing a result', () => {
 
   it.each([
     ['shared', 'reset:events:description_color'],
-    // In List the value is All Layouts', which that line edits rather than resets.
-    ['list', 'edit:events:description_color:shared'],
+    // In List the value is All Layouts', which no Reset here reaches: it lands on the line.
+    ['list', 'inactive:events:description_color'],
   ])('stored but not in use, in %s: opens its gate line, at %s', async (scope, focus) => {
     const editor = await mount({ ...LIST, description_color: 'red' });
     await changeField(editor, 'workspace:editing_workspace', scope);
