@@ -111,6 +111,9 @@ export const REFERENCED_STRINGS: ReadonlyArray<string> = [
   'inactive',
   'other_layouts',
   'prefs',
+  'audit',
+  'notices',
+  'value',
 ];
 
 export const CHASSIS_STRINGS: ReadonlyArray<string> = [

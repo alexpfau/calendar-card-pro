@@ -5,7 +5,7 @@
  * groups through `views/`.
  */
 
-import { mdiCheck, mdiDeleteOutline } from '@mdi/js';
+import { mdiCheck, mdiDeleteOutline, mdiFormatListChecks, mdiInformationOutline } from '@mdi/js';
 import {
   type ChildPart,
   LitElement,
@@ -22,8 +22,10 @@ import { keyed } from 'lit/directives/keyed.js';
 import { repeat } from 'lit/directives/repeat.js';
 
 import { Announcer } from './announce';
+import * as Audit from './audit';
 import * as Buttons from './buttons';
 import * as CalendarList from './calendar-list';
+import * as Deprecated from './deprecated';
 import * as Entities from './entities';
 import {
   type FieldId,
@@ -33,6 +35,7 @@ import {
   builtSchema,
   buttonFieldIndex,
   entityFieldIndex,
+  entrySchema,
   fieldHelper,
   fieldLabel,
   parseFieldId,
@@ -90,6 +93,7 @@ import * as Subforms from './subforms';
 import * as Summary from './summary';
 import * as Synthetic from './synthetic';
 import * as Value from './value';
+import * as AuditView from './views/audit';
 import * as CalendarView from './views/calendars';
 import * as Focus from './views/focus';
 import * as HistoryView from './views/history';
@@ -600,6 +604,15 @@ export class CalendarCardProEditor extends LitElement {
    * card's, and kept until Quick Setup is applied or the banner dismissed.
    */
   @state() private _banner?: boolean;
+
+  /**
+   * The line What This Card Changes is editing in place, and its group: kept drawn while it is
+   * edited, even once the edit takes it out of the YAML, so its control stays under the cursor.
+   */
+  @state() private _auditEdit?: {
+    readonly line: Audit.AuditLine;
+    readonly group: Audit.AuditGroup;
+  };
 
   /** The field a search result opened, highlighted while `lit` (`_openResult`). */
   @state() private _jump?: {
@@ -1717,6 +1730,27 @@ export class CalendarCardProEditor extends LitElement {
     EditorLocalize.lookup(this._ctx.language, key);
 
   /**
+   * A field's one-field schema, offering a value from YAML as an option of its own where the
+   * field is a dropdown none of whose options holds it (`audit.ts` › `withYamlOption`), so the
+   * value shows, "monthly (From YAML)", and stays until another is chosen.
+   *
+   * @param field - The field
+   * @param data - The form data it reads from
+   * @param ctx - Schema context
+   * @returns The schema
+   */
+  private _yamlSchema(
+    field: IndexedField,
+    data: Record<string, unknown>,
+    ctx: SchemaCtx,
+  ): ReadonlyArray<HaFormSchema> {
+    const value = Routing.atPath(data, field.dataPath, field.node.name);
+    if (!Audit.outsideOptions(field.node, value)) return field.lifted;
+    const label = interpolate(this._string(ctx, 'value.from_yaml'), { value: String(value) });
+    return Routing.nestedSchema(Audit.withYamlOption(field.node, value, label), field.dataPath);
+  }
+
+  /**
    * One field in a form of its own, inside the editor's own wrapper named after it: the one
    * place focus lands on a field, since nothing inside a form takes it.
    *
@@ -1731,11 +1765,13 @@ export class CalendarCardProEditor extends LitElement {
    * @returns The wrapper and its form
    */
   private _renderField(field: IndexedField, ctx: SchemaCtx, show?: FieldShow): TemplateResult {
-    const slot = `field.${field.id}`;
-    const schema = this._intern(slot, field.lifted);
-    const data = this._intern(`${slot}.data`, Routing.formDataFor(this._formData(), schema));
-    const [hass, feed] = this._feed(schema, ctx.language);
     const workspace = ctx.workspace ?? ctx.view;
+    const slot = `field.${workspace}.${field.id}`;
+    // The scope's data, which What This Card Changes draws a line's field in whatever the scope.
+    const all = this._formDataFor(this._config!, workspace, this._pending);
+    const schema = this._intern(slot, this._yamlSchema(field, all, ctx));
+    const data = this._intern(`${slot}.data`, Routing.formDataFor(all, schema));
+    const [hass, feed] = this._feed(schema, ctx.language);
     const frame: WriteFrames.OwnedFrame = {
       owner: WriteFrames.CARD_OWNER,
       workspace,
@@ -2458,12 +2494,21 @@ export class CalendarCardProEditor extends LitElement {
    * reports it: the YAML, the authored root keys, the Grid reset keys and the held text, as
    * `reset.ts` hands them back, and the added set without what the reset retires.
    *
-   * @param target - What to reset
+   * @param target - What to reset, or several targets reset together
    * @param retire - Added-set keys to retire besides the reset's own
    */
-  private _applyReset(target: Reset.ResetTarget, retire: ReadonlyArray<string>): void {
+  private _applyReset(
+    target: Reset.ResetTarget | ReadonlyArray<Reset.ResetTarget>,
+    retire: ReadonlyArray<string>,
+  ): void {
     if (!this._config || !this._prepareForWrite()) return;
-    const { state, clearAdded } = Reset.reset(this._writeState(), target);
+    let state = this._writeState();
+    const clearAdded: string[] = [];
+    for (const each of Array.isArray(target) ? target : [target]) {
+      const result = Reset.reset(state, each);
+      state = result.state;
+      clearAdded.push(...result.clearAdded);
+    }
     this._config = state.config;
     this._pending = { ...state.pending };
     this._authoredRootKeys = new Set(state.authoredRootKeys);
@@ -2555,7 +2600,8 @@ export class CalendarCardProEditor extends LitElement {
    * @returns `true` where it can be drawn
    */
   private _exists(route: Navigation.Route): boolean {
-    if (route.kind === 'overview') return true;
+    if (route.kind === 'overview' || route.kind === 'audit' || route.kind === 'notices')
+      return true;
     if (route.kind === 'entry') {
       return this._entryKeysFor((this._config?.entities ?? []).length).includes(route.key);
     }
@@ -2601,6 +2647,7 @@ export class CalendarCardProEditor extends LitElement {
 
   /** Closes the strip and Add Calendar, which belong to the place being left. */
   private _closeDisclosures(): void {
+    this._auditEdit = undefined;
     this._openStrip = undefined;
     this._adding = undefined;
     this._addOpen = undefined;
@@ -2615,13 +2662,17 @@ export class CalendarCardProEditor extends LitElement {
    * @param hit - The result
    * @param focusKey - The result's `data-focus` key, which Back restores focus to
    */
-  private _openResult(hit: Search.SearchEntry, focusKey: string): void {
+  private _openResult(
+    hit: Pick<Search.SearchEntry, 'target' | 'label'>,
+    focusKey: string,
+    search = true,
+  ): void {
     const target = hit.target;
     const from: Navigation.TrailEntry = {
       route: this._nav.route,
       scrollTop: Focus.scrollPosition(this),
       focusKey,
-      search: { query: this._filter.query, editHere: false },
+      search: search ? { query: this._filter.query, editHere: false } : undefined,
     };
     const page =
       target.kind === 'button-field' ? 'card_header' : target.kind === 'field' && target.page;
@@ -2631,8 +2682,10 @@ export class CalendarCardProEditor extends LitElement {
       this._nav = Navigation.go(this._nav, { kind: 'entry', key: target.key }, from);
     } else if (page) {
       this._nav = Navigation.go(this._nav, { kind: 'page', page }, from);
-    } else {
+    } else if (search) {
       this._resultsLeft = from;
+    } else {
+      this._nav = Navigation.OVERVIEW;
     }
     // A result that waits in an Add row is added, as choosing it there would: it writes nothing.
     if (target.kind !== 'button-field') {
@@ -2722,6 +2775,7 @@ export class CalendarCardProEditor extends LitElement {
       disclosure:
         wizard === undefined &&
         (this._scopeOpen ||
+          this._auditEdit !== undefined ||
           this._openStrip !== undefined ||
           this._adding !== undefined ||
           this._addOpen !== undefined),
@@ -2754,15 +2808,19 @@ export class CalendarCardProEditor extends LitElement {
       // The disclosure opened last closes, focus back on what opened it.
       const strip = this._openStrip;
       const addRow = this._addOpen?.key;
+      const edited = this._auditEdit?.line.text;
       const opener =
-        strip !== undefined
-          ? `more:${strip}`
-          : this._adding !== undefined
-            ? 'add-calendar'
-            : addRow !== undefined
-              ? addRow
-              : 'scope-change';
-      if (strip !== undefined) this._openStrip = undefined;
+        edited !== undefined
+          ? `edit:${edited}`
+          : strip !== undefined
+            ? `more:${strip}`
+            : this._adding !== undefined
+              ? 'add-calendar'
+              : addRow !== undefined
+                ? addRow
+                : 'scope-change';
+      if (edited !== undefined) this._auditEdit = undefined;
+      else if (strip !== undefined) this._openStrip = undefined;
       else if (this._adding !== undefined) this._adding = undefined;
       else if (addRow !== undefined) this._addOpen = undefined;
       else this._scopeOpen = false;
@@ -3004,7 +3062,7 @@ export class CalendarCardProEditor extends LitElement {
   private _renderOverview(ctx: SchemaCtx, chassis: Subforms.ChassisSchemas): TemplateResult {
     const t = this._t(ctx);
     const { present, shown } = this._drawing!;
-    const head = html`${this._renderMisplaced(ctx)}
+    const head = html`${this._renderNoticesRow(ctx)}
     ${
       this._banner
         ? Overview.quickSetupBanner(t, this._openQuickSetup, () => {
@@ -3084,6 +3142,15 @@ export class CalendarCardProEditor extends LitElement {
     return html`${this._renderScope(ctx)} ${calendars} ${this._renderDisplays(ctx, chassis)} ${own}
     ${Overview.rowGroup(t('overview.settings'), rows)}
     ${Overview.rowGroup(t('overview.more'), [
+      Overview.navRow(
+        {
+          key: 'more:audit',
+          iconPath: mdiFormatListChecks,
+          title: t('more.audit'),
+          summary: this._auditSummary(t),
+        },
+        () => this._open({ kind: 'audit' }, 'more:audit'),
+      ),
       Overview.exampleRow(t, this._openQuickSetup),
       ...prefs,
     ])}`;
@@ -4215,7 +4282,7 @@ export class CalendarCardProEditor extends LitElement {
   ): TemplateResult {
     const slot = `entry.${key}.${field.id}`;
     const text = this._fieldText(slot, field, ctx, show?.words);
-    const schema = this._intern(slot, field.lifted);
+    const schema = this._intern(slot, this._yamlSchema(field, data, ctx));
     // The field's own projection of the entry's data, as a card field gets, so a write to one
     // field hands no other form a new object.
     const own = this._intern(`${slot}.data`, Routing.formDataFor(data, schema));
@@ -4989,13 +5056,17 @@ export class CalendarCardProEditor extends LitElement {
         @keydown=${this._onKeydown}
       >
         ${cache(
-          !this._exists(route) || (page === undefined && route.kind !== 'entry')
+          !this._exists(route) || route.kind === 'overview' || (route.kind === 'page' && !page)
             ? this._renderOverview(ctx, chassis)
             : keyed(
                 Navigation.routeKey(route),
                 route.kind === 'entry'
                   ? this._renderEntryPage(route.key, ctx)
-                  : this._renderPage(page!, ctx),
+                  : route.kind === 'audit'
+                    ? this._renderAudit(ctx)
+                    : route.kind === 'notices'
+                      ? this._renderNotices(ctx)
+                      : this._renderPage(page!, ctx),
               ),
         )}
         <div class="live-region" role="status" aria-live="polite">${this._spoken}</div>
@@ -5116,6 +5187,14 @@ export class CalendarCardProEditor extends LitElement {
       <div class="grid-reconciliation" data-grid-reconciliation role="status">
         <strong>${this._string(ctx, 'grid_reconciliation.title')}</strong>
         <div>${interpolate(this._string(ctx, 'grid_reconciliation.message'), { options })}</div>
+        <button
+          type="button"
+          class="text-button"
+          data-focus="grid-keeps"
+          @click=${() => this._open({ kind: 'audit', group: 'grid' }, 'grid-keeps', 'push', 'audit:grid')}
+        >
+          ${this._string(ctx, 'grid_reconciliation.see')}
+        </button>
         <button
           type="button"
           class="text-button"
@@ -5608,6 +5687,440 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * The overview's notices row, where the YAML holds options the card ignores or options v3.0.0
+   * removed: "Options the Card Ignores: 2 · Old Options: 1", opening the notices page.
+   *
+   * @param ctx - Schema context
+   * @returns The row, or nothing
+   */
+  private _renderNoticesRow(ctx: SchemaCtx): TemplateResult | typeof nothing {
+    const t = this._t(ctx);
+    const parts = [
+      [t('notices.ignored'), ViewConfig.findMisplacedOptions(this._rawConfig).length],
+      [t('notices.old'), Deprecated.oldOptions(this._rawConfig).length],
+    ] as const;
+    const title = parts
+      .filter(([, count]) => count > 0)
+      .map(([words, count]) => interpolate(words, { count: String(count) }))
+      .join(Summary.SUMMARY_SEPARATOR);
+    return title
+      ? Overview.navRow({ key: 'notices', iconPath: mdiInformationOutline, title }, () =>
+          this._open({ kind: 'notices' }, 'notices'),
+        )
+      : nothing;
+  }
+
+  /**
+   * The notices page: the options the card ignores, each with its Move, then each option v3.0.0
+   * removed with its replacement and Move to it, which the next change would otherwise remove.
+   *
+   * @param ctx - Schema context
+   * @returns The page
+   */
+  private _renderNotices(ctx: SchemaCtx): TemplateResult {
+    const t = this._t(ctx);
+    const raw = this._rawConfig;
+    const old = Deprecated.oldOptions(raw);
+    const labelOf = (option: Deprecated.OldOption): string => {
+      const id = Audit.fieldFor(option.to, option.entry === undefined ? 'shared' : 'calendar');
+      const field = id && Audit.anyField(id, ctx.language);
+      return field ? fieldLabel(field, ctx.language) : option.to;
+    };
+    return html`<div class="page" data-page="notices">
+      ${PageView.pageHead(t('misplaced.title'), t, this._back, this._renderHistory(ctx), '')}
+      ${this._renderMisplaced(ctx)}
+      ${
+        old.length > 0
+          ? PageView.headingBlock({
+              title: t('notices.old_title'),
+              key: 'old',
+              helper: t('notices.old_note'),
+              body: html`<ul class="old-options">
+                ${old.map((option) => {
+                  const label = labelOf(option);
+                  return html`<li data-old=${option.path}>
+                    <code>${option.path}</code>
+                    <span>${interpolate(t('notices.replaced'), { label })}</span>
+                    ${
+                      Deprecated.canMove(raw, option)
+                        ? html`<button
+                            type="button"
+                            class="text-button"
+                            @click=${() => this._moveOld(option)}
+                          >
+                            ${interpolate(t('misplaced.move'), { place: label })}
+                          </button>`
+                        : html`<span class="misplaced-taken"
+                            >${interpolate(t('misplaced.taken'), { place: label })}</span
+                          >`
+                    }
+                  </li>`;
+                })}
+              </ul>`,
+            })
+          : nothing
+      }
+      ${PageView.footBack(t, this._back)}
+    </div>`;
+  }
+
+  /** What This Card Changes' groups, made again only when what they read moves. */
+  private _audit = Helpers.memoizeLast(
+    (
+      raw: Readonly<Record<string, unknown>>,
+      config: Types.Config,
+      pending: Readonly<Record<string, string>>,
+      keys: string,
+    ): Audit.AuditGroup[] =>
+      Audit.auditGroups({
+        raw,
+        config,
+        pending,
+        entryKeys: keys === '' ? [] : keys.split(',').map(Number),
+      }),
+  );
+
+  /**
+   * What This Card Changes' groups, for the YAML as it stands.
+   *
+   * @returns The groups
+   */
+  private _auditGroups(): Audit.AuditGroup[] {
+    const keys = this._entryKeysFor((this._config!.entities ?? []).length);
+    return this._audit(this._rawConfig, this._config!, this._pending, keys.join());
+  }
+
+  /**
+   * The audit's counts, "Set: 24 · Not in Use: 1", as its page and its More row show them.
+   *
+   * @param t - The editor's strings
+   * @returns The words
+   */
+  private _auditSummary(t: Overview.Translate): string {
+    const { set, inactive } = Audit.auditCounts(this._auditGroups());
+    return [
+      interpolate(t('summary.set'), { count: String(set) }),
+      ...(inactive > 0 ? [interpolate(t('audit.not_in_use'), { count: String(inactive) })] : []),
+    ].join(Summary.SUMMARY_SEPARATOR);
+  }
+
+  /**
+   * What This Card Changes (section 5.10): every stored line, grouped by where it lives, each a
+   * compact row whose Edit mounts its field's control in place and writes where the line lives,
+   * with Reset and Go to Setting; Reset All per layout, and the lines kept as written, read-only.
+   *
+   * @param ctx - Schema context
+   * @returns The page
+   */
+  private _renderAudit(ctx: SchemaCtx): TemplateResult {
+    const t = this._t(ctx);
+    const layout = this._layoutName(ctx);
+    const groups = [...this._auditGroups()];
+    const edit = this._auditEdit;
+    if (edit && !groups.some((group) => group.lines.some((line) => line.text === edit.line.text))) {
+      const at = groups.findIndex(
+        (group) =>
+          group.kind === edit.group.kind &&
+          group.workspace === edit.group.workspace &&
+          group.key === edit.group.key,
+      );
+      if (at < 0) groups.push({ ...edit.group, lines: [edit.line] });
+      else groups[at] = { ...groups[at], lines: [...groups[at].lines, edit.line] };
+    }
+    const view = (group: Audit.AuditGroup): TemplateResult => {
+      const count = interpolate(t('summary.set'), { count: String(group.lines.length) });
+      const rows = group.lines.map((line) => this._auditRow(line, group, ctx));
+      const key = group.key ?? 0;
+      const name = this._entryName(key);
+      const where = layout(group.workspace);
+      return group.kind === 'entry'
+        ? AuditView.auditGroup({
+            key: `audit:entry:${key}`,
+            title: name,
+            count,
+            sub: true,
+            action: {
+              label: interpolate(t('audit.go_to'), { name }),
+              focus: `audit-entry:${key}`,
+              onPress: () => this._open({ kind: 'entry', key }, `audit-entry:${key}`),
+            },
+            rows,
+          })
+        : AuditView.auditGroup({
+            key: `audit:${group.kind === 'layout' ? group.workspace : group.kind}`,
+            title:
+              group.kind === 'card'
+                ? t('audit.card')
+                : group.kind === 'kept'
+                  ? t('audit.kept')
+                  : where,
+            count,
+            note:
+              group.kind === 'card'
+                ? t('audit.card_note')
+                : group.kind === 'kept'
+                  ? t('audit.kept_note')
+                  : undefined,
+            action:
+              group.kind === 'layout'
+                ? {
+                    label: interpolate(t('audit.reset_all'), { layout: where }),
+                    focus: `reset-all:${group.workspace}`,
+                    onPress: () => {
+                      this._commit(
+                        interpolate(t('audit.reset_all'), { layout: where }),
+                        undefined,
+                        () =>
+                          this._applyReset(
+                            // Line by line, so a line kept as written in the block stays.
+                            group.lines.map((line) => ({ kind: 'path' as const, path: line.path })),
+                            [],
+                          ),
+                      );
+                      this._say(interpolate(t('audit.reset_all_done'), { layout: where }));
+                      void this.updateComplete.then(() =>
+                        Focus.focusFirst(this.renderRoot, ['.page-title']),
+                      );
+                    },
+                  }
+                : undefined,
+            rows,
+          });
+    };
+    const entries = groups.filter((group) => group.kind === 'entry');
+    return html`<div class="page audit" data-page="audit">
+      ${PageView.pageHead(t('more.audit'), t, this._back, this._renderHistory(ctx), t('overview.more'))}
+      <p class="hint">${t('audit.intro')}</p>
+      <p class="audit-count">${this._auditSummary(t)}</p>
+      ${groups.filter((group) => group.kind === 'card' || group.kind === 'layout').map(view)}
+      ${
+        entries.length > 0
+          ? html`<section class="page-group" data-heading="audit:calendars">
+              <h3 class="heading" tabindex="-1">${t('panel.calendars')}</h3>
+              ${entries.map(view)}
+            </section>`
+          : nothing
+      }
+      ${groups.filter((group) => group.kind === 'kept').map(view)}
+      ${PageView.footBack(t, this._back)}
+    </div>`;
+  }
+
+  /**
+   * A stored value as its row words it: as its control does, else as YAML would, where the
+   * control cannot (an action a mode collapses to Nothing).
+   *
+   * @param field - The line's field
+   * @param value - The value as stored
+   * @param ctx - Schema context
+   * @returns The words
+   */
+  private _auditWord(field: IndexedField, value: unknown, ctx: SchemaCtx): string {
+    const word = Summary.wordValue(field, value, ctx.language, this._describe);
+    return word === undefined || (typeof value === 'object' && word === String(value))
+      ? Audit.plainValue(value)
+      : word;
+  }
+
+  /**
+   * One line of What This Card Changes, as its row: label, value, YAML path, state words and
+   * tags; Edit, Reset and Go to Setting where the editor owns the line, none where it keeps it as
+   * written.
+   *
+   * @param line - The line
+   * @param group - Its group
+   * @param ctx - Schema context
+   * @returns The row
+   */
+  private _auditRow(
+    line: Audit.AuditLine,
+    group: Audit.AuditGroup,
+    ctx: SchemaCtx,
+  ): TemplateResult {
+    const t = this._t(ctx);
+    const layout = this._layoutName(ctx);
+    const key = line.path[line.path.length - 1];
+    const kept = (): TemplateResult =>
+      AuditView.auditRow({
+        path: line.text,
+        label: key,
+        value: Audit.plainValue(line.value),
+        words: t('audit.kept'),
+        tags: Audit.HA_LAYOUT_KEYS.has(key) ? [t('audit.ha_own')] : [],
+      });
+    if (line.page !== undefined) {
+      const label = this._string(ctx, key === 'view' ? 'view' : 'toolbar.buttons.heading');
+      const reset = interpolate(t('value_source.reset'), { option: label });
+      return AuditView.auditRow({
+        path: line.text,
+        label,
+        value:
+          key === 'view' ? layout(line.value as Types.EffectiveView) : Audit.plainValue(line.value),
+        words: t('state.set_all_layouts'),
+        tags: [],
+        reset: {
+          name: reset,
+          title: t('reset.reset'),
+          focus: `audit-reset:${line.text}`,
+          onPress: () =>
+            this._commit(interpolate(t('history.reset'), { setting: label }), undefined, () =>
+              this._applyReset({ kind: 'path', path: line.path }, []),
+            ),
+        },
+        go: {
+          name: interpolate(t('audit.go_to'), { name: label }),
+          title: t('audit.go_setting'),
+          focus: `audit-go:${line.text}`,
+          onPress: () =>
+            line.page === 'overview'
+              ? this._open({ kind: 'overview' }, `audit-go:${line.text}`)
+              : this._open(
+                  { kind: 'page', page: line.page! },
+                  `audit-go:${line.text}`,
+                  'push',
+                  key,
+                ),
+        },
+      });
+    }
+    if (line.field === undefined) return kept();
+
+    const entry = group.kind === 'entry' ? group.key! : undefined;
+    const wctx =
+      entry === undefined ? this._ctxFor(this._config!, group.workspace, this.hass?.locale) : ctx;
+    const stored = entry === undefined ? undefined : this._entryOf(entry);
+    const present =
+      stored === undefined ? buildFieldIndex(wctx) : entityFieldIndex(entrySchema(stored, wctx));
+    const field = present.fields.get(line.field) ?? Audit.anyField(line.field, ctx.language);
+    if (field === undefined) return kept();
+    const pctx: Plan.PlanCtx = {
+      ...this._planCtx(ctx),
+      workspace: group.workspace,
+      present,
+      universe: universeIndex('en', group.workspace),
+      entry,
+    };
+    const label = fieldLabel(field, ctx.language);
+    const named =
+      entry !== undefined
+        ? interpolate(t('audit.on_calendar'), { label, name: this._entryName(entry) })
+        : group.kind === 'layout'
+          ? interpolate(t('audit.in_layout'), { label, layout: layout(group.workspace) })
+          : label;
+    const value = Audit.outsideOptions(field.node, line.value)
+      ? interpolate(t('value.from_yaml'), { value: String(line.value) })
+      : this._auditWord(field, line.value, ctx);
+    const state = Plan.stateOf(field, pctx);
+    const outcome = Plan.resetOutcome(field, pctx);
+    const entryData =
+      stored === undefined
+        ? undefined
+        : this._intern(
+            `entry.${entry}`,
+            Entities.toEntityFormData(stored, this._config!.entities ?? []),
+          );
+    const data = {
+      card: this._formDataFor(this._config!, group.workspace, this._pending),
+      entry: entryData,
+    };
+    const labelOf = (id: FieldId): string => {
+      const each = universeIndex(ctx.language, group.workspace).fields.get(id);
+      return each ? fieldLabel(each, ctx.language) : id;
+    };
+    const editing = this._auditEdit?.line.text === line.text;
+    return AuditView.auditRow({
+      path: line.text,
+      label,
+      value,
+      words: Shown.stateText(state, t, layout, this._wordOf(field, ctx)) ?? t('state.set'),
+      tags:
+        state?.words?.kind !== 'set-layout' &&
+        (outcome?.kind === 'default' || outcome?.kind === 'layout-default') &&
+        Value.deepEqual(outcome.value, line.value)
+          ? [t('audit.same')]
+          : [],
+      warning: line.inactive
+        ? interpolate(t('audit.inactive'), {
+            when: whenText(line.inactive.gate, data, ctx.language, labelOf) ?? '',
+          })
+        : undefined,
+      edit: {
+        name: interpolate(t('audit.edit'), { label: named, value }),
+        onPress: () => {
+          this._auditEdit = { line, group };
+          void this.updateComplete.then(() =>
+            Focus.focusFirst(this.renderRoot, [
+              `[data-audit="${CSS.escape(line.text)}"] [data-field]`,
+            ]),
+          );
+        },
+      },
+      editing: editing
+        ? entry === undefined
+          ? this._renderField(field, wctx)
+          : this._renderEntryField(field, entry, entryData!, ctx)
+        : undefined,
+      reset: {
+        name: interpolate(t('value_source.reset'), { option: named }),
+        title: t('reset.reset'),
+        focus: `audit-reset:${line.text}`,
+        onPress: () => {
+          this._commit(interpolate(t('history.reset'), { setting: named }), undefined, () =>
+            this._applyReset(
+              entry === undefined
+                ? { kind: 'path', path: line.path }
+                : { kind: 'entry', key: entry, keys: [key] },
+              [],
+            ),
+          );
+          void this.updateComplete.then(() =>
+            Focus.focusFirst(this.renderRoot, [
+              `[data-heading="${CSS.escape(`audit:${entry === undefined ? (group.kind === 'layout' ? group.workspace : 'card') : `entry:${entry}`}`)}"] .heading`,
+              '.page-title',
+            ]),
+          );
+        },
+      },
+      go: {
+        name: interpolate(t('audit.go_to'), { name: named }),
+        title: t('audit.go_setting'),
+        focus: `audit-go:${line.text}`,
+        onPress: () => {
+          // A calendar's field opens where its page draws it: the scope, else the first that does.
+          const scope =
+            entry === undefined
+              ? group.workspace
+              : [this._workspace, ...Workspace.WORKSPACES].find((each) =>
+                  entityFieldIndex(
+                    entrySchema(stored!, this._ctxFor(this._config!, each, this.hass?.locale)),
+                  ).fields.has(field.id),
+                );
+          if (scope !== undefined && scope !== this._workspace) {
+            this._selectedWorkspace = scope;
+            this._scopeChanged = true;
+          }
+          const page = placementOf(field.id)?.page;
+          this._openResult(
+            {
+              target:
+                entry === undefined
+                  ? {
+                      kind: 'field',
+                      id: field.id,
+                      page: page === 'overview' || page === 'entry' ? undefined : page,
+                    }
+                  : { kind: 'entry-field', id: field.id, key: entry },
+              label,
+            },
+            `audit-go:${line.text}`,
+            false,
+          );
+        },
+      },
+    });
+  }
+
+  /**
    * Moves one misplaced option to where it works, and reports the result.
    *
    * Edits the YAML's own configuration and adopts it as the authored baseline before any echo,
@@ -5633,13 +6146,53 @@ export class CalendarCardProEditor extends LitElement {
    * @param to - The place to move it to
    */
   private _moveOption(finding: ViewConfig.MisplacedOption, to: Misplaced.Place): void {
+    this._writeRaw(
+      (raw) => Misplaced.moveOption(raw, finding, to),
+      finding.from === null ? finding.key : undefined,
+      to === null ? finding.key : undefined,
+    );
+  }
+
+  /**
+   * Moves an option v3.0.0 removed to its replacement, as one undo step (`deprecated.ts`).
+   *
+   * @param old - The option
+   */
+  private _moveOld(old: Deprecated.OldOption): void {
+    // A pre-v5 card's first write migrates it and removes the option before the move reads it.
+    const at = old.entry === undefined ? this._rawConfig : this._config?.entities?.[old.entry];
+    const held = Helpers.isConfigBlock(at) ? at[old.key] : undefined;
+    this._commit(
+      interpolate(this._string(this._ctx, 'history.move'), { name: old.path }),
+      undefined,
+      () =>
+        this._writeRaw(
+          (raw) => Deprecated.moveOld(raw, old, held),
+          old.entry === undefined ? old.key : undefined,
+          old.entry === undefined ? old.to : undefined,
+        ),
+    );
+  }
+
+  /**
+   * Writes a change made to the YAML itself, adopted as the authored baseline before any echo:
+   * a move, which `_report` would minimize against a baseline that never held the moved line.
+   *
+   * @param make - The YAML after the change, from the YAML as it stands
+   * @param left - A root key the change takes away
+   * @param added - A root key the change writes
+   */
+  private _writeRaw(
+    make: (raw: Readonly<Record<string, unknown>>) => Record<string, unknown> | undefined,
+    left?: string,
+    added?: string,
+  ): void {
     if (!this._prepareForWrite()) return;
 
     // A first write can migrate a pre-v5 card; move within what that produced.
-    const next =
-      Misplaced.moveOption(this._rawConfig, finding, to) ?? structuredClone(this._rawConfig);
-    if (finding.from === null) this._authoredRootKeys.delete(finding.key);
-    if (to === null) this._authoredRootKeys.add(finding.key);
+    const next = make(this._rawConfig) ?? structuredClone(this._rawConfig);
+    if (left !== undefined) this._authoredRootKeys.delete(left);
+    if (added !== undefined) this._authoredRootKeys.add(added);
 
     this._rawConfig = structuredClone(next);
     this._config = { ...Config.DEFAULT_CONFIG, ...(next as unknown as Types.Config) };

@@ -99,11 +99,20 @@ export default css`
     padding-inline-start: 20px;
   }
 
-  .misplaced-options li {
+  .old-options {
+    margin: 0;
+    padding-inline-start: 20px;
+    line-height: 1.4;
+  }
+
+  .misplaced-options li,
+  .old-options li {
     padding: 2px 0;
   }
 
-  .misplaced-options code {
+  .misplaced-options code,
+  .old-options code,
+  .audit-meta code {
     font-family: var(--code-font-family, monospace);
     overflow-wrap: anywhere;
   }
@@ -464,6 +473,7 @@ export default css`
   }
 
   .icon-button:focus-visible,
+  .audit-edit:focus-visible,
   .nav-row:focus-visible,
   .text-button:focus-visible,
   .link:focus-visible,
@@ -801,6 +811,68 @@ export default css`
   .field-line-body {
     flex: 1;
     min-width: 0;
+  }
+
+  /* What This Card Changes: a compact row per stored line, its label and value as Edit. */
+  .audit-head,
+  .audit-row,
+  .audit-line,
+  .audit-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 8px;
+  }
+
+  .audit-head .heading {
+    flex: 1;
+  }
+
+  .audit-count,
+  .audit-meta {
+    color: var(--secondary-text-color);
+    font-size: 12px;
+  }
+
+  .audit-row {
+    flex-wrap: nowrap;
+    border-top: 1px solid var(--divider-color);
+  }
+
+  .audit-text {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 0;
+  }
+
+  .audit-edit {
+    width: 100%;
+    min-height: 44px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+  }
+
+  .audit-line {
+    justify-content: space-between;
+  }
+
+  .audit-value {
+    overflow-wrap: anywhere;
+  }
+
+  .tag {
+    padding: 0 6px;
+    border-radius: 8px;
+    background: var(--secondary-background-color);
+  }
+
+  .tag.warning {
+    color: var(--warning-color, #ffa600);
   }
 
   .field-note,
