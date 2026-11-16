@@ -6,6 +6,9 @@
  * from the same rule (`findMisplacedOptions`) and moves one to where it works when that place is
  * free. A move must survive the next unrelated edit even when the moved value equals a default,
  * which is why it edits the YAML's own configuration rather than going through `_report`.
+ *
+ * Since the editor redesign's notices (backlog item 307), the overview names these in one row,
+ * "Options the Card Ignores: 2", and the list itself is on the page that row opens.
  */
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -46,6 +49,17 @@ async function mount(config: Record<string, unknown>, language = 'en') {
   return { editor, reports };
 }
 
+/**
+ * Opens the notices page from the overview's notices row, where there is one.
+ *
+ * @param editor - The editor
+ */
+async function openNotices(editor: EditorHost): Promise<void> {
+  const row = editor.shadowRoot!.querySelector<HTMLElement>('[data-focus="notices"]');
+  row?.click();
+  await editor.updateComplete;
+}
+
 function notice(editor: EditorHost): HTMLElement | null {
   return editor.shadowRoot!.querySelector<HTMLElement>('[data-misplaced-options]');
 }
@@ -80,7 +94,9 @@ describe('the misplaced-option notice', () => {
       column: { min_day_width: '120px' },
       time_grid: { start_time: '07:00' },
     });
+    await openNotices(editor);
 
+    expect(editor.shadowRoot!.querySelector('[data-focus="notices"]')).toBeNull();
     expect(notice(editor)).toBeNull();
   });
 
@@ -92,6 +108,10 @@ describe('the misplaced-option notice', () => {
       time_grid: { weather: { entity: 'weather.home' } },
       weather: { entity: 'weather.home' },
     });
+    expect(editor.shadowRoot!.querySelector('[data-focus="notices"] .nav-title')!.textContent).toBe(
+      'Options the Card Ignores: 4',
+    );
+    await openNotices(editor);
 
     expect(rows(editor)).toEqual({
       min_day_width: {
@@ -119,6 +139,7 @@ describe('the misplaced-option notice', () => {
 
   it('names the layout a key from another layout belongs to', async () => {
     const { editor } = await mount({ column: { start_time: '07:00' } });
+    await openNotices(editor);
 
     expect(rows(editor)['column.start_time']).toEqual({
       text: 'column.start_time Belongs to another layout: Grid. Move to Grid',
@@ -128,6 +149,7 @@ describe('the misplaced-option notice', () => {
 
   it('moves a card-wide option to the top level and drops the emptied block', async () => {
     const { editor, reports } = await mount({ time_grid: { toolbar: { show: true } } });
+    await openNotices(editor);
 
     await press(editor, 'time_grid.toolbar', 'Move to Top Level');
 
@@ -142,6 +164,7 @@ describe('the misplaced-option notice', () => {
       hour_height: '40px',
       time_grid: { slot_minutes: 30 },
     });
+    await openNotices(editor);
 
     await press(editor, 'hour_height', 'Move to Grid');
 
@@ -154,6 +177,7 @@ describe('the misplaced-option notice', () => {
       title: 'Before',
       list: { allow_event_edit: true, hide_when_empty: false },
     });
+    await openNotices(editor);
 
     await press(editor, 'list.allow_event_edit', 'Move to Top Level');
     await press(editor, 'list.hide_when_empty', 'Move to Top Level');
@@ -172,6 +196,7 @@ describe('the misplaced-option notice', () => {
     await changeField(editor, 'card:title', 'After');
     // The edit was made on its page; the notice stands on the overview.
     await goOverview(editor);
+    await openNotices(editor);
 
     expect(reports[reports.length - 1].list).toEqual({ start_date: 'today' });
     expect(Object.keys(rows(editor))).toEqual(['list.start_date']);
@@ -181,12 +206,14 @@ describe('the misplaced-option notice', () => {
     const { editor } = await mount({ list: { toolbar: { show: true } } });
 
     await changeFields(editor, { 'filter:search': 'zzzz-no-such-option' });
+    await openNotices(editor);
 
     expect(Object.keys(rows(editor))).toEqual(['list.toolbar']);
   });
 
   it('speaks the editor language, joining places the way it writes a list', async () => {
     const { editor } = await mount({ day_header_gap: '8px' }, 'de');
+    await openNotices(editor);
 
     expect(notice(editor)!.querySelector('strong')!.textContent).not.toBe(
       'Options the Card Ignores',

@@ -53,6 +53,8 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_added',
     '_addOpen',
     '_prefs',
+    // The line What This Card Changes is editing in place.
+    '_auditEdit',
   ],
   // Keys never go back, so a restored entry's key is never handed to another.
   counters: ['_nextEntryKey', '_nextButtonKey'],
@@ -69,6 +71,8 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_warmed',
     // Each field's Reset or Remove, recomputed once the configuration moves.
     '_actions',
+    // What This Card Changes' groups, made again once what they read moves.
+    '_audit',
   ],
   // Derived from what is snapshotted, or from the render in progress.
   derived: ['_config', '_lastDispatched', '_drawing', '_bareUpdatePending', '_resultStatus'],

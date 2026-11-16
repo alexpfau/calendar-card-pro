@@ -217,7 +217,7 @@ let appearances: ReadonlyMap<FieldId, Appearance> | undefined;
  * @param id - Field id
  * @returns Its appearance, or `undefined` for one the registry does not place
  */
-function appearanceOf(id: FieldId): Appearance | undefined {
+export function appearanceOf(id: FieldId): Appearance | undefined {
   if (!appearances) {
     const map = new Map<FieldId, Appearance>();
     const each = (fields: HeadingDef['fields']): void => {

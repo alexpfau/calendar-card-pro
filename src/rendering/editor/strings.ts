@@ -50,6 +50,30 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'overview.more': 'More',
   'more.example': 'Start From an Example',
   'more.example_note': 'Quick Setup: an example card and a few questions',
+  'more.audit': 'What This Card Changes',
+  'audit.intro':
+    'Every value this card stores, grouped by where it lives. Anything not listed uses its default.',
+  'audit.not_in_use': 'Not in Use: {count}',
+  'audit.card': 'Card',
+  'audit.card_note': 'Stored for the whole card. Every layout uses these unless it sets its own.',
+  'audit.reset_all': 'Reset All in {layout}',
+  'audit.reset_all_done': 'Reset every value stored for {layout}.',
+  'audit.edit': 'Edit {label}, {value}',
+  'audit.go_to': 'Go to {name}',
+  'audit.go_setting': 'Go to Setting',
+  'audit.in_layout': '{label} in {layout}',
+  'audit.on_calendar': '{label} on {name}',
+  'audit.same': 'Same as the Default',
+  'audit.inactive': 'Not in Use until {when}',
+  'audit.kept': 'Kept as Written',
+  'audit.kept_note': 'Lines this editor does not own. It keeps them exactly as written.',
+  'audit.ha_own': 'Home Assistant’s own, from the Layout tab',
+  'notices.ignored': 'Options the Card Ignores: {count}',
+  'notices.old': 'Old Options: {count}',
+  'notices.old_title': 'Old Options',
+  'notices.old_note': 'The next change removes these.',
+  'notices.replaced': 'Replaced by {label}.',
+  'value.from_yaml': '{value} (From YAML)',
   'quick_setup.dismiss': 'Dismiss Quick Setup',
   'nav.back': 'Back',
   // A link to the heading on another page that answers the neighboring question.
@@ -235,6 +259,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'grid_reconciliation.message':
     'Grid kept your existing values for: {options}. Use Reset in Grid to use its default for an option.',
   'grid_reconciliation.dismiss': 'Dismiss',
+  'grid_reconciliation.see': 'See What Grid Keeps',
 
   // --- Misplaced options (backlog item 192) -----------------------------------
   //

@@ -1,0 +1,387 @@
+/**
+ * What This Card Changes (section 5.10, D07 A): every line the YAML stores, grouped by where it
+ * lives, each with the field that writes it where the editor has one. DOM-free, so the tests read
+ * the groups the page draws.
+ *
+ * Built on stored presence, never on "differs from the default": a line equal to its default is
+ * listed all the same, because the YAML holds it. Options v3.0.0 removed are left to the notices
+ * page (`deprecated.ts`), since the next write removes them. Values from YAML, a dropdown's value
+ * none of its options offers, are here too (`withYamlOption`).
+ */
+
+import {
+  type FieldId,
+  type IndexedField,
+  buildFieldIndex,
+  entityFieldIndex,
+  entrySchema,
+  parseFieldId,
+  schemaCtx,
+  universeIndex,
+} from './field-index';
+import type { Gate, Prereq } from './gates';
+import type { SelectOption, SelectorSchema } from './ha-form';
+import type { PageId } from './pages';
+import { type PlanCtx, appearanceOf, fieldState } from './plan';
+import { destination } from './routing';
+import { isSyntheticKey } from './synthetic';
+import { type EditorWorkspace, WORKSPACES } from './workspace';
+import * as Config from '../../config/config';
+import type * as Types from '../../config/types';
+import { VIEWS, viewBlockFor } from '../../config/view';
+import { isConfigBlock } from '../../utils/helpers';
+
+/** One stored line. */
+export interface AuditLine {
+  /** Its keys, outermost first: `['time_grid', 'end_time']`, `['entities', '3', 'label']`. */
+  readonly path: ReadonlyArray<string>;
+  /** Its YAML path as the page shows it: `time_grid.end_time`, `entities[3].label`. */
+  readonly text: string;
+  readonly value: unknown;
+  /** The field that writes it; absent where the editor keeps it as written. */
+  readonly field?: FieldId;
+  /** A line the editor owns with no one field: Card Displays, a toolbar's own buttons. */
+  readonly page?: PageId | 'overview';
+  /** Stored but not in use: the gate holding it back. */
+  readonly inactive?: { readonly gate: Gate; readonly unmet: Prereq };
+}
+
+/** One group of the page. */
+export interface AuditGroup {
+  readonly kind: 'card' | 'layout' | 'entry' | 'kept';
+  /** Where its lines are written: All Layouts for the card, a calendar's and the kept lines. */
+  readonly workspace: EditorWorkspace;
+  /** A calendar entry's key, for its group. */
+  readonly key?: number;
+  readonly lines: ReadonlyArray<AuditLine>;
+}
+
+/** What the groups are read from. */
+export interface AuditCtx {
+  /** The configuration as stored. */
+  readonly raw: Readonly<Record<string, unknown>>;
+  /** The configuration as the editor holds it, merged with root defaults. */
+  readonly config: Readonly<Types.Config>;
+  readonly entryKeys: ReadonlyArray<number>;
+  readonly pending?: Readonly<Record<string, string>>;
+}
+
+/** Root lines the page does not list: the card's type and version, and its calendar list. */
+const SKIPPED: ReadonlySet<string> = new Set(['type', 'entities', 'config_version']);
+
+/** Lines the editor owns with no one field, and where they are edited. */
+const OWNED: Readonly<Record<string, PageId | 'overview'>> = {
+  view: 'overview',
+  'toolbar.buttons': 'card_header',
+};
+
+/** Home Assistant's own keys, which its Layout tab writes. */
+export const HA_LAYOUT_KEYS: ReadonlySet<string> = new Set([
+  'grid_options',
+  'layout_options',
+  'view_layout',
+]);
+
+/**
+ * Whether a value counts as written: blanks and nulls are how a cleared field is left.
+ *
+ * @param value - Value as stored
+ * @returns `true` when the value is there
+ */
+function holdsValue(value: unknown): boolean {
+  return value !== undefined && value !== null && value !== '';
+}
+
+const owners = new Map<string, Map<string, FieldId[]>>();
+
+/**
+ * The fields that write each path, in a workspace: the card's by their full path (a layout's own
+ * line under its block), or, for `calendar`, a calendar entry's by option.
+ *
+ * @param workspace - The workspace, or `calendar`
+ * @returns Field ids by path
+ */
+function ownersIn(workspace: EditorWorkspace | 'calendar'): Map<string, FieldId[]> {
+  let map = owners.get(workspace);
+  if (map) return map;
+  map = new Map();
+  const entry = workspace === 'calendar';
+  // A calendar's options are the same in every layout, but each layout offers only its own.
+  const fields = entry
+    ? WORKSPACES.flatMap((each) => [...universeIndex('en', each).fields.values()])
+    : universeIndex('en', workspace).fields.values();
+  for (const field of fields) {
+    const { scope } = parseFieldId(field.id);
+    if (entry !== (scope === 'calendar') || scope === 'button') continue;
+    for (const key of field.configKeys) {
+      const block = entry || field.dataPath.length > 0 ? undefined : destination(key, workspace);
+      const path = [...(block ? [block] : field.dataPath), key].join('.');
+      const ids = map.get(path) ?? [];
+      if (!ids.includes(field.id)) map.set(path, [...ids, field.id]);
+    }
+  }
+  owners.set(workspace, map);
+  return map;
+}
+
+/**
+ * The first field that writes a path: a card option's in a workspace, or a calendar option's.
+ *
+ * @param path - The YAML path, `day_spacing`
+ * @param workspace - The workspace, or `calendar`
+ * @returns The field's id, or `undefined`
+ */
+export function fieldFor(
+  path: string,
+  workspace: EditorWorkspace | 'calendar',
+): FieldId | undefined {
+  return ownersIn(workspace).get(path)?.[0];
+}
+
+/**
+ * A field as the first layout offering it builds it, in a language: a calendar's option some
+ * layouts withhold is found all the same.
+ *
+ * @param id - Field id
+ * @param language - Editor language
+ * @returns The field, or `undefined`
+ */
+export function anyField(id: FieldId, language: string): IndexedField | undefined {
+  for (const workspace of WORKSPACES) {
+    const field = universeIndex(language, workspace).fields.get(id);
+    if (field) return field;
+  }
+  return undefined;
+}
+
+/**
+ * The plan context a line is judged in: every setting shown, so a field is live wherever it
+ * applies, and a value its gate holds back reads as stored but not in use.
+ *
+ * @param ctx - Audit context
+ * @param workspace - Where the line is written
+ * @returns The context
+ */
+function planCtx(ctx: AuditCtx, workspace: EditorWorkspace): PlanCtx {
+  return {
+    workspace,
+    config: ctx.config,
+    raw: ctx.raw,
+    present: buildFieldIndex(schemaCtx(ctx.config as Types.Config, workspace, 'en')),
+    universe: universeIndex('en', workspace),
+    added: new Set(),
+    showEverySetting: true,
+    pending: ctx.pending,
+    entryKeys: ctx.entryKeys,
+  };
+}
+
+/**
+ * A stored line with the field that writes it: of the fields writing its option, the one named
+ * after it, else one drawn here, else the value rather than its mode (Start Date's fixed date,
+ * not its mode), and whether it is in use.
+ *
+ * @param path - The line's keys
+ * @param text - Its YAML path
+ * @param value - Its value
+ * @param ids - The fields writing it
+ * @param pctx - Where it is judged
+ * @returns The line
+ */
+function ownedLine(
+  path: ReadonlyArray<string>,
+  text: string,
+  value: unknown,
+  ids: ReadonlyArray<FieldId>,
+  pctx: PlanCtx,
+): AuditLine {
+  const key = path[path.length - 1];
+  let field = ids[0];
+  let rank = Infinity;
+  for (const id of ids) {
+    const { name } = parseFieldId(id);
+    const appearance = appearanceOf(id) ?? 'add';
+    // A mode's value outranks the mode, which only says which value is kept.
+    const mode = isSyntheticKey(name) && !(typeof appearance === 'object' && 'with' in appearance);
+    const at =
+      (name === key ? 0 : 4) +
+      (fieldState(id, appearance, pctx).kind === 'live' ? 0 : 2) +
+      (mode ? 1 : 0);
+    if (at < rank) [field, rank] = [id, at];
+  }
+  const state = fieldState(field, appearanceOf(field) ?? 'add', pctx);
+  return {
+    path,
+    text,
+    value,
+    field,
+    inactive:
+      state.kind === 'inactive' && state.source === 'here'
+        ? { gate: state.gate, unmet: state.unmet }
+        : undefined,
+  };
+}
+
+/**
+ * Every line the YAML stores, by group: the card's top level, each layout's block, each calendar
+ * entry storing more than its id, then what the editor keeps as written. A group with no line is
+ * left out.
+ *
+ * @param ctx - Audit context
+ * @returns The groups, in page order
+ */
+export function auditGroups(ctx: AuditCtx): AuditGroup[] {
+  const raw = ctx.raw;
+  const blocks = new Map<string, Types.EffectiveView>(
+    VIEWS.flatMap((view) => {
+      const block = viewBlockFor(view)?.blockKey;
+      return block ? [[block as string, view] as const] : [];
+    }),
+  );
+  const kept: AuditLine[] = [];
+  const walk = (
+    from: Readonly<Record<string, unknown>>,
+    prefix: ReadonlyArray<string>,
+    workspace: EditorWorkspace,
+  ): AuditLine[] => {
+    const map = ownersIn(workspace);
+    let pctx: PlanCtx | undefined;
+    const lines: AuditLine[] = [];
+    for (const [key, value] of Object.entries(from)) {
+      const path = [...prefix, key];
+      const text = path.join('.');
+      if (
+        !holdsValue(value) ||
+        (prefix.length === 0 &&
+          (SKIPPED.has(key) || blocks.has(key) || key in Config.DEPRECATED_CONFIG_MAP))
+      ) {
+        continue;
+      }
+      const ids = map.get(text);
+      if (ids) {
+        lines.push(ownedLine(path, text, value, ids, (pctx ??= planCtx(ctx, workspace))));
+      } else if (OWNED[text]) {
+        lines.push({ path, text, value, page: OWNED[text] });
+      } else if (
+        isConfigBlock(value) &&
+        [...map.keys()].some((each) => each.startsWith(`${text}.`))
+      ) {
+        lines.push(...walk(value, path, workspace));
+      } else {
+        kept.push({ path, text, value });
+      }
+    }
+    return lines;
+  };
+
+  const groups: AuditGroup[] = [
+    { kind: 'card', workspace: 'shared', lines: walk(raw, [], 'shared') },
+  ];
+  for (const [block, view] of blocks) {
+    const held = raw[block];
+    if (isConfigBlock(held)) {
+      groups.push({ kind: 'layout', workspace: view, lines: walk(held, [block], view) });
+    }
+  }
+
+  const entities = Array.isArray(raw.entities) ? raw.entities : [];
+  const byOption = ownersIn('calendar');
+  let shared: PlanCtx | undefined;
+  entities.forEach((entry: unknown, at) => {
+    if (!isConfigBlock(entry)) return;
+    shared ??= planCtx(ctx, 'shared');
+    const pctx: PlanCtx = {
+      ...shared,
+      present: entityFieldIndex(
+        entrySchema(
+          entry as unknown as Types.EntityConfig,
+          schemaCtx(ctx.config as Types.Config, 'shared', 'en'),
+        ),
+      ),
+      entry: ctx.entryKeys[at],
+    };
+    const lines = Object.entries(entry).flatMap(([key, value]): AuditLine[] => {
+      if (key === 'entity' || !holdsValue(value) || key in Config.DEPRECATED_ENTITY_CONFIG_MAP) {
+        return [];
+      }
+      const path = ['entities', String(at), key];
+      const text = `entities[${at}].${key}`;
+      const ids = byOption.get(key);
+      return [ids ? ownedLine(path, text, value, ids, pctx) : { path, text, value }];
+    });
+    groups.push({ kind: 'entry', workspace: 'shared', key: ctx.entryKeys[at], lines });
+  });
+  groups.push({ kind: 'kept', workspace: 'shared', lines: kept });
+  return groups.filter((group) => group.lines.length > 0);
+}
+
+/**
+ * The page's counts, which its More row shows too: the lines the editor sets, and those of them
+ * not in use. Lines kept as written, a calendar's unknown ones included, are counted by neither.
+ *
+ * @param groups - The groups
+ * @returns The counts
+ */
+export function auditCounts(groups: ReadonlyArray<AuditGroup>): { set: number; inactive: number } {
+  const lines = groups
+    .flatMap((group) => group.lines)
+    .filter((line) => line.field !== undefined || line.page !== undefined);
+  return { set: lines.length, inactive: lines.filter((line) => line.inactive).length };
+}
+
+/**
+ * A value as one line of text, for a line no control words: `columns: 12`.
+ *
+ * @param value - The value as stored
+ * @returns The text
+ */
+export function plainValue(value: unknown): string {
+  if (isConfigBlock(value)) {
+    return Object.entries(value)
+      .map(([key, inner]) => `${key}: ${typeof inner === 'object' ? JSON.stringify(inner) : inner}`)
+      .join(', ');
+  }
+  return typeof value === 'object' ? JSON.stringify(value) : String(value);
+}
+
+/**
+ * Whether a dropdown holds a value none of its options offers: a value from YAML, which the
+ * dropdown would otherwise show as blank.
+ *
+ * @param node - The field's node
+ * @param value - Its value
+ * @returns `true` for a value from YAML
+ */
+export function outsideOptions(node: SelectorSchema, value: unknown): boolean {
+  const select = 'select' in node.selector ? node.selector.select : undefined;
+  if (!select || select.multiple || select.custom_value || !holdsValue(value)) return false;
+  if (typeof value !== 'string' && typeof value !== 'number') return false;
+  return !(select.options as ReadonlyArray<SelectOption | string>).some(
+    (option) => String(typeof option === 'object' ? option.value : option) === String(value),
+  );
+}
+
+/**
+ * A dropdown offering, besides its own options, the value from YAML it holds, labeled so, so the
+ * value shows and stays until another is chosen.
+ *
+ * @param node - The field's node
+ * @param value - Its value
+ * @param label - The value's label, "monthly (From YAML)"
+ * @returns The node with that option, or the node itself where the value is one of its options
+ */
+export function withYamlOption(
+  node: SelectorSchema,
+  value: unknown,
+  label: string,
+): SelectorSchema {
+  if (!outsideOptions(node, value) || !('select' in node.selector)) return node;
+  const select = node.selector.select!;
+  const options = select.options as ReadonlyArray<SelectOption | string>;
+  return {
+    ...node,
+    selector: {
+      select: { ...select, options: [...options, { value: value as string | number, label }] },
+    },
+  } as SelectorSchema;
+}
