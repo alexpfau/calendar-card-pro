@@ -54,7 +54,7 @@ import {
 import * as Reset from './reset';
 import * as Routing from './routing';
 import { interpolate } from './strings';
-import { entityIdOf } from './synthetic';
+import { SYNTHETIC_FIELDS, entityIdOf } from './synthetic';
 import { deepEqual, toStoredConfig } from './value';
 import { type EditorWorkspace, viewForWorkspace } from './workspace';
 import type { WriteState } from './write-frames';
@@ -209,6 +209,34 @@ function holdsValue(value: unknown): boolean {
   return value !== undefined && value !== null && value !== '';
 }
 
+/** Per root option, whether an empty string stored for it reads otherwise than none. */
+const blankMeans = new Map<string, boolean>();
+
+/**
+ * Whether a root option's stored value counts as stored: #834's rule, except that a blank is
+ * stored where the editor reads it otherwise than nothing. An emptied Countries To Remove writes
+ * `remove_location_country: ''`, which Country Names reads as Custom with nothing in it, not Keep.
+ *
+ * @param key - Root option
+ * @param value - Its stored value
+ * @returns `true` when it holds something
+ */
+function holdsRoot(key: string, value: unknown): boolean {
+  if (holdsValue(value)) return true;
+  if (value !== '') return false;
+  let means = blankMeans.get(key);
+  if (means === undefined) {
+    const blank = { ...Config.DEFAULT_CONFIG, [key]: '' } as Types.Config;
+    const none = { ...Config.DEFAULT_CONFIG, [key]: undefined } as Types.Config;
+    means = Object.values(SYNTHETIC_FIELDS).some(
+      (field) =>
+        field.configKeys.includes(key) && !deepEqual(field.derive(blank), field.derive(none)),
+    );
+    blankMeans.set(key, means);
+  }
+  return means;
+}
+
 let appearances: ReadonlyMap<FieldId, Appearance> | undefined;
 
 /**
@@ -341,7 +369,7 @@ export function storedAt(
   }
   return field.configKeys.some((key) => {
     const block = Routing.destination(key, workspace);
-    return holdsValue(block === undefined ? raw[key] : Routing.atPath(raw, [block], key));
+    return holdsRoot(key, block === undefined ? raw[key] : Routing.atPath(raw, [block], key));
   });
 }
 
@@ -407,6 +435,36 @@ function storedHere(field: IndexedField, ctx: PlanCtx): boolean {
 }
 
 /**
+ * Whether a field a gate withholds holds a value of its own here. A calendar's control derived
+ * from an option another control writes holds one only where that option reads otherwise for
+ * it: Icon Source answers for `label`, so a text label is not an icon source held back, while
+ * Home Assistant's icon stored under a text label type is.
+ *
+ * @param field - The field
+ * @param ctx - Plan context
+ * @returns `true` when it does
+ */
+function holdsOwnValue(field: IndexedField, ctx: PlanCtx): boolean {
+  if (!storedHere(field, ctx)) return false;
+  const name = field.node.name;
+  if (!isEntryField(field.id) || field.configKeys.includes(name)) return true;
+  const place = entryPlace(ctx);
+  if (place === undefined) return true;
+  const { entities, index } = place;
+  const entry = Entities.asEntityConfig(entities[index]) as unknown as Record<string, unknown>;
+  const bare = Object.fromEntries(
+    Object.entries(entry).filter(([key]) => !field.configKeys.includes(key)),
+  ) as unknown as Types.EntityConfig;
+  const list = entities.map((each, at) => (at === index ? bare : each)) as Types.EntityConfig[];
+  const read = (one: Types.EntityConfig, all: Types.EntityConfig[]): unknown =>
+    (Entities.toEntityFormData(one, all) as Record<string, unknown>)[name];
+  return !deepEqual(
+    read(entry as unknown as Types.EntityConfig, entities as Types.EntityConfig[]),
+    read(bare, list),
+  );
+}
+
+/**
  * Whether the top level stores a value for one of a root field's keys.
  *
  * @param field - The field
@@ -414,7 +472,9 @@ function storedHere(field: IndexedField, ctx: PlanCtx): boolean {
  * @returns `true` when it does
  */
 function topStored(field: IndexedField, ctx: PlanCtx): boolean {
-  return field.dataPath.length === 0 && field.configKeys.some((key) => holdsValue(ctx.raw[key]));
+  return (
+    field.dataPath.length === 0 && field.configKeys.some((key) => holdsRoot(key, ctx.raw[key]))
+  );
 }
 
 /**
@@ -669,7 +729,7 @@ export function fieldState(id: FieldId, appearance: Appearance, ctx: PlanCtx): F
     const gate = gateOf(id);
     const unmet = gate && firstUnmet(gate, gateData(ctx));
     if (gate === undefined || unmet === undefined) return NONE;
-    if (storedHere(field, ctx)) return { kind: 'inactive', gate, unmet, source: 'here' };
+    if (holdsOwnValue(field, ctx)) return { kind: 'inactive', gate, unmet, source: 'here' };
     const view = viewForWorkspace(ctx.workspace);
     if (
       view !== undefined &&
@@ -679,7 +739,7 @@ export function fieldState(id: FieldId, appearance: Appearance, ctx: PlanCtx): F
         (key) =>
           Routing.destination(key, ctx.workspace) !== undefined &&
           !ViewConfig.hasDivergentDefault(key, view) &&
-          holdsValue(ctx.raw[key]),
+          holdsRoot(key, ctx.raw[key]),
       )
     ) {
       return { kind: 'inactive', gate, unmet, source: 'all-layouts' };

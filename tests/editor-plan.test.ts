@@ -739,3 +739,32 @@ describe('a calendar entry’s page', () => {
     );
   });
 });
+
+/** Two findings of the plan's notion of "stored", fixed at the top of the stack (PR 17). */
+describe('what counts as stored, where a blank or a shared key carries the meaning', () => {
+  it('keeps Country Names live once Countries To Remove is emptied, since a blank is Custom', () => {
+    // An emptied word list writes an empty pattern: Custom with nothing in it, not Keep.
+    const emptied = cardCtx({ show_location: true, remove_location_country: '' }, 'shared');
+    expect(stateIn(emptied, 'events:location_country_mode')).toEqual({
+      kind: 'live',
+      why: 'stored',
+    });
+    expect(stateIn(emptied, 'events:location_country_pattern').kind).toBe('live');
+    // Control: with nothing stored, Country Names waits in its Add row, as before.
+    const none = cardCtx({ show_location: true }, 'shared');
+    expect(stateIn(none, 'events:location_country_mode').kind).toBe('add');
+  });
+
+  it('reads a calendar’s Icon Source as not in use only when its label holds an icon source', () => {
+    // A text label is stored under `label`, which Icon Source also answers for; it is not an
+    // icon source held back.
+    const text = entryCtx({ entities: [{ entity: 'calendar.anna', label: 'Kids' }] }, 'shared');
+    expect(stateIn(text, 'calendar:label_icon_source').kind).toBe('gated');
+    // Control: Home Assistant's icon, stored as its sentinel under a text label type, is.
+    const icon = entryCtx(
+      { entities: [{ entity: 'calendar.anna', label_type: 'text', label: 'home-assistant' }] },
+      'shared',
+    );
+    expect(stateIn(icon, 'calendar:label_icon_source').kind).toBe('inactive');
+  });
+});
