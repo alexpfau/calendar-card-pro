@@ -550,16 +550,32 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * A fresh card opens from Home Assistant's card picker, which leaves focus on the page's body
-   * as it goes. The editor then puts it on Start From an Example, its first control, so the
-   * keyboard starts inside the dialog. Anything Home Assistant focused stays focused.
+   * A fresh card opens from Home Assistant's card picker, which hands focus to the edit dialog's
+   * frame a moment after the editor first draws, and then drops it on the page's body. The editor
+   * puts it on Start From an Example, its first control, so the keyboard starts inside the dialog.
+   * It watches for a second, frame by frame, and stops at the first focus on a control anywhere:
+   * what Home Assistant or the user focused stays focused.
    */
   private _greet(): void {
     if (this._greeted || !this._config) return;
     this._greeted = true;
-    const active = document.activeElement;
-    if (!this._banner || (active !== null && active !== document.body)) return;
-    Focus.focusFirst(this.renderRoot, [Focus.byFocusKey('quick-setup')]);
+    if (!this._banner) return;
+    const until = Date.now() + 1000;
+    const greet = (): void => {
+      Focus.focusFirst(this.renderRoot, [Focus.byFocusKey('quick-setup')]);
+    };
+    const step = (): void => {
+      if (!this.isConnected) return;
+      const active = Focus.deepActive();
+      if (active === undefined) return greet();
+      // Still the picker, or the dialog's frame rather than a control in it.
+      const passing =
+        active.localName === 'dialog' || Focus.within(active, 'hui-dialog-create-card');
+      if (!passing) return;
+      if (Date.now() < until) requestAnimationFrame(step);
+      else if (active.localName === 'dialog') greet();
+    };
+    step();
   }
 
   /**
