@@ -563,7 +563,9 @@ describe('the warm-up form', () => {
         for (const tag of elements([...lifted, ...subforms])) builtAll.add(tag);
       }
     }
-    for (const tag of elements(Object.values(chassisSchemas('en')))) builtAll.add(tag);
+    // The preferences are a form each, so their entry holds a schema per form.
+    const { prefs, ...chassis } = chassisSchemas('en');
+    for (const tag of elements([...Object.values(chassis), ...prefs])) builtAll.add(tag);
     console.info(
       `Warm-up: ${states.length} corpus states, ${values} values held, ${warmedAll.size} elements: ${[...warmedAll].sort().join(' ')}`,
     );

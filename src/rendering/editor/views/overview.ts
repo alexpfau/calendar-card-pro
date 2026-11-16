@@ -5,7 +5,7 @@
  * templates live outside `element.ts`).
  */
 
-import { mdiChevronRight, mdiClose, mdiCreation } from '@mdi/js';
+import { mdiCheck, mdiChevronRight, mdiClose, mdiCreation } from '@mdi/js';
 import { type TemplateResult, html, nothing } from 'lit';
 
 import { icon } from './icon';
@@ -107,6 +107,7 @@ export function scopeControl(
               }
               @change=${() => onPick(choice.value)}
             />
+            ${choice.value === model.workspace ? icon(mdiCheck) : nothing}
             <span>${choice.label}</span>
             ${
               choice.set > 0
@@ -182,6 +183,7 @@ export function radioChips(
               .checked=${choice.value === value}
               @change=${() => onPick(choice.value)}
             />
+            ${choice.value === value ? icon(mdiCheck) : nothing}
             <span>${choice.label}</span>
           </label>`,
       )}
@@ -350,7 +352,9 @@ export function rowGroup(title: string, rows: ReadonlyArray<TemplateResult>): Te
 }
 
 /**
- * Quick Setup's banner, on a fresh card: opening it, or dismissing it for the session.
+ * Quick Setup's banner, on a fresh card: opening it, or dismissing it for the session. The two
+ * are sibling buttons, since a button cannot hold another, inside one tinted frame (the D06
+ * mockup): ✕ at its end, beside the banner's chevron.
  *
  * @param t - The editor's strings
  * @param onOpen - The banner was activated
@@ -377,10 +381,11 @@ export function quickSetupBanner(
         <span class="quick-setup-name" id="quick-setup-name">${t('quick_setup.open')}</span>
         <span class="quick-setup-line" id="quick-setup-line">${t('quick_setup.open_note')}</span>
       </span>
+      ${icon(mdiChevronRight, 'nav-chevron')}
     </button>
     <button
       type="button"
-      class="icon-button"
+      class="icon-button quick-setup-dismiss"
       aria-label=${t('quick_setup.dismiss')}
       title=${t('quick_setup.dismiss')}
       @click=${onDismiss}

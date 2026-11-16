@@ -26,6 +26,8 @@ import {
   lastConfig,
   mountEditor,
   openPageOf,
+  prefForm,
+  togglePref,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
@@ -509,11 +511,13 @@ describe('the preferences under More', () => {
     await goPage(editor, 'events');
     const shown = live(editor).length;
     await click(editor, '[data-focus="back-top"]');
-    const toggle = $(editor, '[data-focus="pref:every"]')!;
-    expect(toggle.getAttribute('role')).toBe('switch');
-    expect(toggle.getAttribute('aria-checked')).toBe('false');
-    await click(editor, '[data-focus="pref:every"]');
-    expect($(editor, '[data-focus="pref:every"]')!.getAttribute('aria-checked')).toBe('true');
+    // Home Assistant's own switch, a form of its own that writes nothing to the card.
+    expect(prefForm(editor, 'every')!.schema).toEqual([
+      { name: 'every', selector: { boolean: {} } },
+    ]);
+    expect(prefForm(editor, 'every')!.data).toEqual({ every: false });
+    await togglePref(editor, 'every');
+    expect(prefForm(editor, 'every')!.data).toEqual({ every: true });
     expect(JSON.parse(localStorage.getItem(PREFS_KEY)!)).toEqual({
       v: 1,
       every: true,
@@ -529,7 +533,7 @@ describe('the preferences under More', () => {
 
   it('Show YAML Option Names puts each setting’s option, where this scope writes it, first', async () => {
     const editor = await mount({ event_font_size: '30px' });
-    await click(editor, '[data-focus="pref:yaml"]');
+    await togglePref(editor, 'yaml');
     await openPageOf(editor, 'events:event_font_size');
     expect(helperOf(editor, 'events:event_font_size')).toMatch(
       /^YAML: list\.event_font_size From All Layouts\./,

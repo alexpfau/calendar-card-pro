@@ -4195,18 +4195,7 @@ export class CalendarCardProEditor extends LitElement {
       ([field, appearance]) =>
         this._renderField(field, ctx, this._fieldShow(field, appearance, pctx, ctx, CARD)),
     );
-    const prefs = (['every', 'yaml'] as const).map((key) =>
-      ShownView.prefRow({
-        key,
-        label: key === 'every' ? t('prefs.every') : t('prefs.yaml'),
-        helper: key === 'every' ? t('prefs.every_note') : t('prefs.yaml_note'),
-        on: this._prefs[key],
-        onToggle: () => {
-          this._prefs = { ...this._prefs, [key]: !this._prefs[key] };
-          Prefs.writePrefs(this._prefs);
-        },
-      }),
-    );
+    const prefs = chassis.prefs.map((schema) => this._renderPref(schema, ctx));
     return html`${this._renderScope(ctx)} ${calendars} ${this._renderDisplays(ctx, chassis)} ${own}
     ${Overview.rowGroup(t('overview.settings'), rows)}
     ${Overview.rowGroup(t('overview.more'), [
@@ -4222,6 +4211,40 @@ export class CalendarCardProEditor extends LitElement {
       Overview.exampleRow(t, this._openQuickSetup),
       ...prefs,
     ])}`;
+  }
+
+  /**
+   * A preference under More, as Home Assistant's own switch with its helper beside it. Toggling
+   * one writes this browser's preferences and nothing to the card.
+   *
+   * @param schema - Its schema, one boolean named for its key in `prefs.ts`
+   * @param ctx - Schema context
+   * @returns The form
+   */
+  private _renderPref(schema: ReadonlyArray<HaFormSchema>, ctx: SchemaCtx): TemplateResult {
+    const key = schema[0].name as keyof Prefs.Prefs;
+    const t = this._t(ctx);
+    const text =
+      key === 'every'
+        ? { label: t('prefs.every'), helper: t('prefs.every_note') }
+        : { label: t('prefs.yaml'), helper: t('prefs.yaml_note') };
+    const [hass, feed] = this._feed(schema, ctx.language);
+    return html`<ha-form
+      class="pref-form"
+      data-focus=${`pref:${key}`}
+      data-hass=${feed}
+      .hass=${hass}
+      .data=${this._intern(`pref.data:${key}`, { [key]: this._prefs[key] })}
+      .schema=${schema}
+      .computeLabel=${this._keep(`pref.label:${key}`, text.label, () => () => text.label)}
+      .computeHelper=${this._keep(`pref.helper:${key}`, text.helper, () => () => text.helper)}
+      @value-changed=${(event: CustomEvent) => {
+        event.stopPropagation();
+        const value = (event.detail?.value as Record<string, unknown> | undefined)?.[key];
+        this._prefs = { ...this._prefs, [key]: value === true };
+        Prefs.writePrefs(this._prefs);
+      }}
+    ></ha-form>`;
   }
 
   /**
@@ -5173,6 +5196,19 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * The text or emoji a row is labeled with, where its label is one rather than an icon.
+   *
+   * @param entry - The entry
+   * @returns The label, or `undefined`
+   */
+  private _rowBadge(entry: string | Types.EntityConfig): string | undefined {
+    const label = Entities.asEntityConfig(entry).label;
+    return Entities.labelTypeOf(entry) === 'text' && typeof label === 'string' && label !== ''
+      ? label
+      : undefined;
+  }
+
+  /**
    * The actions a row's strip offers, on the overview or in an entry page's menu.
    *
    * @param rowKey - The strip's key
@@ -5405,10 +5441,7 @@ export class CalendarCardProEditor extends LitElement {
               row: described.join(', '),
             }),
             color: this._rowColor(entry),
-            badge:
-              Entities.labelTypeOf(entry) === 'text' && typeof label === 'string' && label !== ''
-                ? label
-                : undefined,
+            badge: this._rowBadge(entry),
             missing,
             tag: this._newEntries.has(row.key) ? this._string(ctx, 'split.new') : undefined,
             moves: grouped ? undefined : calendar.entityId,
@@ -8591,12 +8624,15 @@ export class CalendarCardProEditor extends LitElement {
       const key = group.key ?? 0;
       const name = this._entryName(key);
       const where = layout(group.workspace);
+      const entry = group.kind === 'entry' ? this._entryOf(key) : undefined;
       return group.kind === 'entry'
         ? AuditView.auditGroup({
             key: `audit:entry:${key}`,
             title: name,
             count,
             sub: true,
+            color: entry === undefined ? undefined : this._rowColor(entry),
+            badge: entry === undefined ? undefined : this._rowBadge(entry),
             action: {
               label: t('audit.go_to', { name }),
               focus: `audit-entry:${key}`,

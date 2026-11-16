@@ -108,37 +108,57 @@ export default css`
     color: var(--secondary-text-color);
   }
 
+  /* The banner and its ✕ share one frame, drawn from Home Assistant's theme variables so it
+     reads as native in any theme; rgb-primary-color is the primary color as an r, g, b triple,
+     which Home Assistant derives for every theme. The fallback triple is its default blue. */
   .quick-setup-entry {
-    padding-bottom: 20px;
-  }
-
-  /* The banner is one button, drawn from Home Assistant's theme variables so it reads as native
-     in any theme; rgb-primary-color is the primary color as an r, g, b triple, which Home
-     Assistant derives for every theme. The fallback triple is its default blue. */
-  .quick-setup-banner {
     display: flex;
     align-items: center;
-    gap: 16px;
-    width: 100%;
-    min-height: 76px;
-    padding: 14px 16px;
+    gap: 4px;
+    padding-inline-end: 4px;
     border: 1px solid rgba(var(--rgb-primary-color, 3, 169, 244), 0.32);
     border-radius: var(--ha-card-border-radius, 12px);
     background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
+    transition: background-color 0.15s ease-in-out;
+  }
+
+  .quick-setup-entry:has(.quick-setup-banner:hover) {
+    background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.14);
+  }
+
+  .quick-setup-banner {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+    min-height: 76px;
+    padding: 14px 4px 14px 16px;
+    border: none;
+    border-radius: inherit;
+    background: none;
     color: var(--primary-text-color);
     cursor: pointer;
     font: inherit;
     text-align: start;
-    transition: background-color 0.15s ease-in-out;
   }
 
-  .quick-setup-banner:hover {
+  .quick-setup-banner .nav-chevron {
+    fill: var(--primary-color);
+  }
+
+  .quick-setup-dismiss {
+    align-self: flex-start;
+    margin-top: 4px;
+  }
+
+  .quick-setup-dismiss:hover {
     background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.14);
   }
 
   .quick-setup-banner:focus-visible {
     outline: 2px solid var(--primary-color);
-    outline-offset: 2px;
+    outline-offset: -2px;
   }
 
   .quick-setup-badge {
@@ -307,8 +327,8 @@ export default css`
     margin-top: 10px;
   }
 
-  .filter-bar {
-    border-bottom: 1px solid var(--divider-color);
+  /* Undo and Redo above the migration choice. */
+  .filter-bar:not(.search-row) {
     padding-bottom: 12px;
   }
 
@@ -378,15 +398,23 @@ export default css`
     align-self: flex-start;
   }
 
+  /* Every text button is a 44px target in weight 500, as Home Assistant's buttons are, and lays
+     out an icon beside its label rather than on the text's baseline. */
   .text-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
     background: none;
     border: none;
-    border-radius: 4px;
+    border-radius: 22px;
     color: var(--primary-color);
     cursor: pointer;
     font: inherit;
     font-size: 14px;
-    padding: 6px 8px;
+    font-weight: 500;
+    padding: 6px 12px;
   }
 
   /* Remove is the only action in this row that discards anything, and the only one with
@@ -440,8 +468,8 @@ export default css`
   .icon-button:hover,
   .nav-row:hover,
   .display-choice:hover,
-  .scope-choice:hover,
-  .chip-choice:hover {
+  .scope-choice:not(:has(input:checked)):hover,
+  .chip-choice:not(:has(input:checked)):hover {
     background: var(--secondary-background-color);
   }
 
@@ -453,9 +481,9 @@ export default css`
   .field:focus-visible,
   .heading:focus-visible,
   .page-title:focus-visible,
-  .display-choice:focus-within,
-  .scope-choice:focus-within,
-  .chip-choice:focus-within {
+  .display-choice:has(input:focus-visible),
+  .scope-choice:has(input:focus-visible),
+  .chip-choice:has(input:focus-visible) {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
   }
@@ -485,6 +513,15 @@ export default css`
     align-items: flex-start;
     gap: 8px;
     --mdc-icon-size: 16px;
+  }
+
+  /* A card-built control's helper sits where Home Assistant's own helpers sit, inset from the
+     field's edge. */
+  .field .hint:not(.color-kept),
+  .displays > .hint,
+  .chip-group ~ .hint,
+  .entity-visibility-helper {
+    padding-inline: 16px;
   }
 
   .scope,
@@ -525,22 +562,62 @@ export default css`
     gap: 6px;
   }
 
+  /* Settings For's choices and Start Date's are native radios drawn as the toggle chips are:
+     the circle hidden, the chosen one tinted with a check, so the state never rests on color
+     alone. The radio keeps the arrow keys and the group's name; it takes no pointer events. */
   .scope-choice,
   .chip-choice {
+    position: relative;
     display: inline-flex;
     align-items: center;
     gap: 6px;
     min-height: 44px;
-    padding: 0 12px 0 6px;
+    padding: 0 14px;
     border: 1px solid var(--divider-color);
     border-radius: 22px;
     cursor: pointer;
+    font-size: 14px;
+    --mdc-icon-size: 18px;
+  }
+
+  .scope-choice input,
+  .chip-choice input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
   }
 
   .scope-choice:has(input:checked),
-  .chip-choice:has(input:checked),
+  .chip-choice:has(input:checked) {
+    border-color: transparent;
+    background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.18);
+    color: var(--primary-color);
+  }
+
+  .scope-choice:has(input:checked) .icon,
+  .chip-choice:has(input:checked) .icon {
+    fill: currentcolor;
+  }
+
+  .scope-choice:has(input:checked) .scope-count {
+    color: inherit;
+  }
+
   .display-choice:has(input:checked) {
     border-color: var(--primary-color);
+    background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
+  }
+
+  input[type='radio'] {
+    accent-color: var(--primary-color);
+  }
+
+  /* A fieldset's legend is no flex item, so the gap under it is its own. */
+  .scope > legend,
+  .chips > legend,
+  .displays > legend,
+  .segmented > legend {
+    margin-bottom: 8px;
   }
 
   .scope-count {
@@ -548,13 +625,15 @@ export default css`
     font-size: 12px;
   }
 
+  /* Secondary text, as every 12px line: the warning color is under 2:1 on a light theme. */
   .scope-preview {
-    color: var(--warning-color);
+    font-weight: 500;
   }
 
+  /* Three across at every width, as Home Assistant's box select draws its options. */
   .display-choices {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
   }
 
@@ -569,10 +648,27 @@ export default css`
     cursor: pointer;
   }
 
+  .display-choice input {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+  }
+
   .display-text {
     display: flex;
     flex-direction: column;
     padding-top: 2px;
+  }
+
+  /* The label beside the radio, and the description under both, across the card's width: three
+     across leaves each card about 118px at 372px, and the longest translations (German) would
+     otherwise run to five lines. */
+  .display-choice > .display-text {
+    display: contents;
+  }
+
+  .display-label {
+    align-self: center;
   }
 
   .display-label {
@@ -583,6 +679,12 @@ export default css`
     color: var(--secondary-text-color);
     font-size: 12px;
     line-height: 1.35;
+  }
+
+  .display-choice .display-description {
+    grid-column: 1 / -1;
+    min-width: 0;
+    overflow-wrap: break-word;
   }
 
   .display-image {
@@ -648,12 +750,6 @@ export default css`
     color: var(--secondary-text-color);
     font-size: 12px;
     line-height: 1.45;
-  }
-
-  .quick-setup-entry {
-    display: flex;
-    align-items: center;
-    gap: 4px;
   }
 
   .page-head {
@@ -764,7 +860,7 @@ export default css`
 
   /* --- Show what applies -----------------------------------------------------
      The line under a field with what its state words leave out, what Reset gives and its
-     actions; a heading's Add row and gate lines; the preferences. The mark is decoration:
+     actions; a heading's Add row and gate lines. The mark is decoration:
      a filled dot for a value stored here, a ring otherwise. */
   /* A family's Remove, under the heading it removes. */
   .heading-action {
@@ -799,7 +895,8 @@ export default css`
     min-width: 0;
   }
 
-  /* What This Card Changes: a compact row per stored line, its label and value as Edit. */
+  /* What This Card Changes: a compact row per stored line, its label, value and the line under
+     them as Edit. */
   .audit-head,
   .audit-row,
   .audit-line,
@@ -832,6 +929,11 @@ export default css`
   }
 
   .audit-edit {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    gap: 2px;
     width: 100%;
     min-height: 44px;
     padding: 0;
@@ -855,10 +957,14 @@ export default css`
     padding: 0 6px;
     border-radius: 8px;
     background: var(--secondary-background-color);
+    color: var(--primary-text-color);
   }
 
+  /* Not in Use: text in the primary text color on a warning tint, since the warning color as
+     text on a light theme is under 2:1. */
   .tag.warning {
-    color: var(--warning-color, #ffa600);
+    background: rgba(var(--rgb-warning-color, 255, 166, 0), 0.24);
+    color: var(--primary-text-color);
   }
 
   .field-note,
@@ -883,6 +989,11 @@ export default css`
     min-height: 44px;
     font-size: 13px;
     --mdc-icon-size: 16px;
+  }
+
+  .other-layouts .line-button,
+  .field-note .line-button {
+    white-space: nowrap;
   }
 
   .add-row {
@@ -913,8 +1024,7 @@ export default css`
   }
 
   .add-toggle:focus-visible,
-  .add-item:focus-visible,
-  .pref-switch:focus-visible {
+  .add-item:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
   }
@@ -975,62 +1085,10 @@ export default css`
     font: inherit;
   }
 
-  .pref-row {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 4px 16px 8px;
-  }
-
-  .pref-switch {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    min-height: 44px;
-    padding: 0;
-    border: none;
-    background: none;
-    color: var(--primary-text-color);
-    cursor: pointer;
-    font: inherit;
-    text-align: start;
-  }
-
-  .pref-track {
-    flex: none;
-    width: 36px;
-    height: 14px;
-    border-radius: 7px;
-    background: var(--secondary-text-color);
-    opacity: 0.5;
-    position: relative;
-  }
-
-  .pref-thumb {
-    position: absolute;
-    top: -3px;
-    inset-inline-start: 0;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: var(--card-background-color);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-  }
-
-  .pref-switch[aria-checked='true'] .pref-track {
-    background: var(--primary-color);
-  }
-
-  .pref-switch[aria-checked='true'] .pref-thumb {
-    inset-inline-start: 16px;
-    background: var(--primary-color);
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .pref-thumb {
-      transition: inset-inline-start 0.15s;
-    }
+  /* The preferences under More: Home Assistant's own switch, in the row group's inset. */
+  .pref-form {
+    display: block;
+    padding: 0 16px;
   }
 
   /* --- The calendar list and entry pages ------------------------------------
@@ -1058,6 +1116,80 @@ export default css`
 
   .cal-row-entry {
     margin-inline-start: 28px;
+  }
+
+  /* The overview's Calendars block is one card, as Settings and More are (the D03 mockup): its
+     heading and Add Calendar inside it, and a calendar's rows set apart from the next calendar's
+     by a divider rather than by a border of their own. The divider is each calendar's bottom
+     edge, so it follows the order the keyboard grab previews, which moves rows by CSS order.
+     The toolbar's button list keeps a bordered card per row. */
+  .cal-block {
+    padding: 4px 0 12px;
+    border: 1px solid var(--divider-color);
+    border-radius: var(--ha-card-border-radius, 12px);
+  }
+
+  .cal-block > .heading {
+    padding-top: 8px;
+  }
+
+  .cal-block > :not(.cal-list) {
+    margin-inline: 16px;
+  }
+
+  .cal-block > .text-button {
+    margin-inline: 8px;
+  }
+
+  .cal-block .cal-list,
+  .cal-block .cal-group {
+    gap: 0;
+  }
+
+  .cal-block .cal-group {
+    border-bottom: 1px solid var(--divider-color);
+  }
+
+  .cal-block .cal-row {
+    border: none;
+    border-radius: 0;
+  }
+
+  /* An entry under its calendar's row hangs from a line under the calendar's drag handle. */
+  .cal-block .cal-row-entry {
+    margin-inline-start: 19px;
+    border-inline-start: 2px solid var(--divider-color);
+  }
+
+  .cal-block .cal-row-entry > .cal-body {
+    padding-inline-start: 23px;
+  }
+
+  .cal-block .strip {
+    margin: 0 8px 8px;
+  }
+
+  .cal-block .cal-list > .status-bar {
+    margin: 4px 8px;
+  }
+
+  /* Hovering a row's body fills the whole row, its handle and ⋮ included. */
+  .cal-block .cal-row:has(> .cal-body:hover) {
+    background: var(--secondary-background-color);
+  }
+
+  .cal-block .cal-body {
+    border-radius: 0;
+  }
+
+  .cal-block .cal-body:hover {
+    background: none;
+  }
+
+  .cal-block .cal-group.grabbed {
+    border-radius: 8px;
+    outline: 2px solid var(--primary-color);
+    outline-offset: -2px;
   }
 
   .cal-body {
@@ -1114,6 +1246,10 @@ export default css`
     color: var(--secondary-text-color);
     cursor: grab;
     touch-action: none;
+  }
+
+  .row-more[aria-expanded='true'] {
+    background: var(--secondary-background-color);
   }
 
   .drag-handle:focus-visible {
@@ -1192,7 +1328,7 @@ export default css`
   }
 
   .chip-source {
-    color: var(--primary-color);
+    color: var(--secondary-text-color);
   }
 
   .segmented {
@@ -1274,9 +1410,8 @@ export default css`
     order: var(--bar, 0);
   }
 
-  .cal-group.grabbed > .cal-row:first-child {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 1px var(--primary-color);
+  .cal-block .cal-body:focus-visible {
+    outline-offset: -2px;
   }
 
   .cal-list.dragging {
@@ -1330,6 +1465,8 @@ export default css`
     flex: none;
     max-width: 48px;
     overflow: hidden;
+    font-size: 18px;
+    line-height: 1;
   }
 
   .cal-text {
@@ -1438,18 +1575,17 @@ export default css`
   }
 
   .text-button.filled {
+    padding-inline: 16px;
     background: var(--primary-color);
     color: var(--text-primary-color, #fff);
   }
 
-  .text-button.filled:disabled {
-    background: var(--disabled-color, #bdbdbd);
+  .text-button.filled .icon {
+    fill: currentcolor;
   }
 
-  .add-calendar-button,
-  .text-button.filled,
-  .entry-steps .text-button {
-    min-height: 44px;
+  .text-button.filled:disabled {
+    background: var(--disabled-color, #bdbdbd);
   }
 
   .add-calendar-button {
@@ -1525,7 +1661,8 @@ export default css`
   /*
    * Split This Calendar (D12): the row under Which Events, the task in place of it with its
    * stepper, a refusal inside its method's card, a part's card, and the panel a split leaves.
-   * The task and the panel are outlined in the primary color, the way the mockups frame them.
+   * The task is a card as the page's other groups are; the dashed frame round it in the D12
+   * mockups is the mockups' own annotation. The panel a split leaves is tinted, as a notice.
    */
   .split-row {
     display: flex;
@@ -1549,8 +1686,13 @@ export default css`
     flex-direction: column;
     gap: 12px;
     padding: 12px 16px;
-    border: 2px solid var(--primary-color);
+    border: 1px solid var(--divider-color);
     border-radius: 12px;
+  }
+
+  .split-done {
+    border-color: transparent;
+    background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
   }
 
   .split-stepper,
@@ -1570,11 +1712,25 @@ export default css`
     padding: 0;
     list-style: none;
     color: var(--secondary-text-color);
-    font-size: 14px;
+    font-size: 13px;
   }
 
+  /* A line joins each step to the next. */
   .split-step {
     flex: 1;
+    min-width: 0;
+  }
+
+  .split-step:last-child {
+    flex: none;
+  }
+
+  .split-step:not(:last-child)::after {
+    content: '';
+    flex: 1;
+    min-width: 8px;
+    height: 1px;
+    background: var(--divider-color);
   }
 
   .split-step.current {
@@ -1594,10 +1750,23 @@ export default css`
     --mdc-icon-size: 16px;
   }
 
-  .split-step.current .split-step-dot,
-  .split-step.done .split-step-dot {
+  .split-step-dot {
+    flex: none;
+  }
+
+  .split-step.current .split-step-dot {
     border-color: var(--primary-color);
     color: var(--primary-color);
+  }
+
+  .split-step.done .split-step-dot {
+    border-color: var(--primary-color);
+    background: var(--primary-color);
+    color: var(--text-primary-color, #fff);
+  }
+
+  .split-step.done .split-step-dot .icon {
+    fill: currentcolor;
   }
 
   .split-title {
@@ -1627,6 +1796,14 @@ export default css`
 
   .split-method.checked {
     border-color: var(--primary-color);
+    background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
+  }
+
+  .split-method input {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    margin: 0;
   }
 
   .split-method label {
@@ -1675,7 +1852,17 @@ export default css`
     list-style: none;
   }
 
-  .tag {
+  .split-note {
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
+    color: var(--primary-text-color);
+    font-size: 14px;
+    --mdc-icon-size: 20px;
+  }
+
+  /* A row's New, on the list and the split's panel; the audit's tags are .audit-meta's. */
+  .cal-title .tag {
     padding: 0 6px;
     border-radius: 8px;
     background: var(--primary-color);
@@ -1732,7 +1919,7 @@ export default css`
   }
 
   .color-toggle:focus-visible,
-  .color-row:focus-within,
+  .color-row:has(input:focus-visible),
   .color-swatch:has(input:focus-visible) {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
@@ -1819,6 +2006,11 @@ export default css`
     font-weight: 500;
   }
 
+  .color-check {
+    margin-inline-start: auto;
+    fill: var(--primary-color);
+  }
+
   .color-mark {
     display: inline-grid;
     place-items: center;
@@ -1828,7 +2020,7 @@ export default css`
   .color-swatches {
     display: grid;
     grid-template-columns: repeat(auto-fill, 44px);
-    gap: 4px;
+    gap: 4px 2px;
     margin: 4px 0;
     padding: 8px 0;
     border: none;
@@ -1920,7 +2112,7 @@ export default css`
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .quick-setup-banner,
+    .quick-setup-entry,
     .cal-list.dragging > [data-reorder] {
       transition: none;
     }
