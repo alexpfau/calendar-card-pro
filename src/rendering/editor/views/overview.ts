@@ -149,7 +149,7 @@ export interface ChipChoice {
  * @param text - The group's accessible name, its visible legend and the helper under it
  * @param choices - The chips, in order
  * @param value - The chosen one
- * @param line - The line under the field: what Reset gives, and its actions
+ * @param line - The line under the field: its notes, and Reset or Remove
  * @param onPick - A chip was chosen
  * @returns The group
  */
@@ -199,7 +199,7 @@ export function radioChips(
  * @param t - The editor's strings
  * @param action - The stored action's name
  * @param words - The field's state words, where it has any
- * @param below - The line under the field: what Reset gives, and its actions
+ * @param below - The line under the field: its notes, and Reset or Remove
  * @param onChange - Change was pressed
  * @returns The line
  */

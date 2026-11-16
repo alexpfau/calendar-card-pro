@@ -70,7 +70,7 @@ src/
 │   │   ├── schemas/              # One field builder per section, plus their shared vocabulary
 │   │   ├── field-index.ts        # Every built field, by a stable id
 │   │   ├── plan.ts               # The shown set: live fields, Add Setting rows and gate lines
-│   │   ├── shown.ts              # The shown set in words: value sources, what Reset gives
+│   │   ├── shown.ts              # The shown set in words: value sources, what Reset leaves
 │   │   ├── gates.ts              # Why a field is withheld, and the setting that opens it
 │   │   ├── filter.ts             # Withholds the fields a layout ignores
 │   │   ├── search.ts             # The search's index, matching and ranking

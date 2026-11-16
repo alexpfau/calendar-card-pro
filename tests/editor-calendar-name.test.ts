@@ -95,9 +95,8 @@ describe('the Name field', () => {
       label: 'Name',
       heading: 'Name & Look',
       helper:
-        'Names this calendar in the calendar filter, when you open one of its events, and in ' +
-        'notices, and heads its row and its page here. Every entry for this calendar shares it. ' +
-        'Left empty, the card uses Home Assistant\u2019s name for it.',
+        'Every entry for this calendar shares it. Left empty, the card uses Home ' +
+        'Assistant\u2019s name.',
     });
   });
 });

@@ -372,7 +372,7 @@ describe('the toolbar on Card & Header', () => {
     expect(group().querySelector('legend')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
       'Calendar Filter · Set',
     );
-    expect(reset()?.getAttribute('aria-label')).toBe('Reset Calendar Filter');
+    expect(reset()?.getAttribute('aria-label')).toBe('Reset to Menu: Calendar Filter');
     expect(radios().map((radio) => [radio.value, radio.checked])).toEqual([
       ['off', true],
       ['menu', false],
@@ -400,7 +400,9 @@ describe('the toolbar on Card & Header', () => {
     await openPageOf(editor, 'card:toolbar.legend');
 
     editor
-      .shadowRoot!.querySelector<HTMLButtonElement>('[aria-label="Reset Calendar Filter"]')!
+      .shadowRoot!.querySelector<HTMLButtonElement>(
+        '[aria-label="Reset to Menu: Calendar Filter"]',
+      )!
       .click();
     await editor.updateComplete;
 

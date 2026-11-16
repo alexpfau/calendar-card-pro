@@ -427,13 +427,13 @@ describe('helper-only matches', () => {
     const hits = cardHits();
     const helper = hits.filter(({ source }) => source === 'helper');
     const first = hits.findIndex(({ source }) => source === 'helper');
-    // The D05 mockup's five, each with the phrase that matched.
+    // The D05 mockup's five, less All-Day Badge, whose shorter helper no longer says color,
+    // each with the phrase that matched.
     expect(helper.map(({ entry: e }) => e.label)).toEqual(
       expect.arrayContaining([
         'Filter Duplicates',
         'Title',
         'Event Background Opacity',
-        'All-Day Badge',
         'All-Day Badge Style',
       ]),
     );
@@ -450,7 +450,7 @@ describe('helper-only matches', () => {
     // The phrase's template is the results' own, never the search field's helper.
     expect(helperOf(editor, 'filter:search')).toBeUndefined();
     const filter = $(editor, '[data-focus="result:content:filter_duplicates_mode"] .result-phrase');
-    expect(text(filter)).toBe('Help: “…kept, along with its color.”');
+    expect(text(filter)).toBe('Help: “…is kept, with its color.”');
     expect(filter?.querySelector('mark')?.textContent).toBe('color');
   });
 });
@@ -556,7 +556,7 @@ describe('Edit Here', () => {
 
   it('is offered at sixty results, and draws every card setting found, leaving the rest rows', async () => {
     const editor = await mount(LIST);
-    await searchFor(editor, 'show');
+    await searchFor(editor, 'day');
     const rows = resultRows(editor);
     expect(rows.length).toBeGreaterThanOrEqual(60);
     // Settings a page draws or keeps in an Add row carry no tag; pages, calendars, buttons and
