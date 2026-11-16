@@ -85,6 +85,31 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'summary.set': 'Set: {count}',
   'summary.on': 'On',
   'summary.off': 'Off',
+  'announce.removed': 'Removed {name}.',
+  'announce.applied': 'Applied {story}.',
+
+  // --- Undo & Redo ----------------------------------------------------------
+  //
+  // Each step is named for what it did, so the buttons read "Undo: Remove Ben" and a screen
+  // reader hears "Undid: Remove Ben.". Undo and Redo on their own are Home Assistant's words
+  // (`ui.common.undo`, `ui.common.redo`) wherever it has them; these are the fallback.
+  'history.undo': 'Undo',
+  'history.redo': 'Redo',
+  'history.undo_named': 'Undo: {action}',
+  'history.redo_named': 'Redo: {action}',
+  'history.undone': 'Undid: {action}.',
+  'history.redone': 'Redid: {action}.',
+  'history.change': 'Change {setting}',
+  'history.change_for': 'Change {setting} for {name}',
+  'history.reset': 'Reset {setting}',
+  'history.remove': 'Remove {name}',
+  'history.duplicate': 'Duplicate {name}',
+  'history.paste': 'Paste Settings Into {name}',
+  'history.move': 'Move {name}',
+  'history.apply': 'Apply {story}',
+  // The line a removal or an applied story leaves, beside its Undo, until the next change.
+  'status.removed': 'Removed {name}',
+  'status.applied': 'Applied {story}',
 
   // --- Gates ----------------------------------------------------------------
   //

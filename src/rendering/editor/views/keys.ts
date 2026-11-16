@@ -92,3 +92,56 @@ export function escapeAction(
   if (state.query) return 'clear';
   return 'pass';
 }
+
+/** Roles of an element that edits text, whose own Ctrl/Cmd+Z the editor leaves alone. */
+const EDITING_ROLES: ReadonlySet<string> = new Set([
+  'textbox',
+  'combobox',
+  'spinbutton',
+  'searchbox',
+]);
+
+/**
+ * Whether a key's path runs through anything that edits text: an input, a text area, editable
+ * content, or an element in one of the roles that do.
+ *
+ * @param path - The event's composed path
+ * @returns True to leave the key to it
+ */
+export function inTextField(path: ReadonlyArray<EventTarget>): boolean {
+  return path.some(
+    (target) =>
+      target instanceof Element &&
+      (target.localName === 'input' ||
+        target.localName === 'textarea' ||
+        target.hasAttribute('contenteditable') ||
+        EDITING_ROLES.has(target.getAttribute('role') ?? '')),
+  );
+}
+
+/**
+ * What a key does to the editor's history: Ctrl/Cmd+Z undoes; Ctrl+Y and Ctrl/Cmd+Shift+Z redo.
+ * Home Assistant's Ctrl+Shift+Y, which its code editor uses, is left alone, and so is every key
+ * typed in a text field, whose own undo it is (ia-final §9).
+ *
+ * @param event - A `keydown`
+ * @returns Which step to take, or undefined to let the key through
+ */
+export function historyKey(
+  event: Pick<
+    KeyboardEvent,
+    'key' | 'ctrlKey' | 'metaKey' | 'shiftKey' | 'altKey' | 'composedPath'
+  >,
+): 'undo' | 'redo' | undefined {
+  if (event.altKey || !(event.ctrlKey || event.metaKey)) return undefined;
+  const key = event.key.toLowerCase();
+  const step =
+    key === 'z'
+      ? event.shiftKey
+        ? 'redo'
+        : 'undo'
+      : key === 'y' && event.ctrlKey && !event.metaKey && !event.shiftKey
+        ? 'redo'
+        : undefined;
+  return step !== undefined && !inTextField(event.composedPath()) ? step : undefined;
+}
