@@ -294,7 +294,10 @@ describe('the toolbar buttons in the editor', () => {
     expect(editor.storedButtons()).toEqual([BACK, HOME]);
     expect(editor.headers()).toEqual(['Back', 'Home']);
     await editor.element.updateComplete;
-    expect(editor.root.activeElement).toBe(editor.add());
+    // The line the removal leaves holds focus on its Undo (editor-history.test.ts).
+    const line = editor.root.querySelector('[data-status-bar]');
+    expect(line?.querySelector('.status-text')?.textContent?.trim()).toBe('Removed Lights');
+    expect(editor.root.activeElement).toBe(line?.querySelector('[data-focus="status-undo"]'));
 
     await editor.press(editor.control(1, 'Remove'));
     await editor.press(editor.control(0, 'Remove'));
@@ -470,7 +473,6 @@ describe('a toolbar button’s form', () => {
       {
         path: TOOLBAR_BUTTON_PATH,
         schema: [
-          { name: 'heading', type: 'constant' },
           { name: 'icon', required: true, selector: { icon: {} } },
           { name: 'name', selector: { text: { type: 'text' } } },
           { name: 'entity', selector: { entity: {} } },

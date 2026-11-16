@@ -5,10 +5,36 @@
 import { isEntityColorSentinel } from '../../../utils/entity-colors';
 import { isEntityIconSentinel } from '../../../utils/entity-icons';
 import { isPersonEntityId } from '../../../utils/person-pictures';
-import type { HaFormSchema, SelectorSchema } from '../ha-form';
+import type { GridSchema, HaFormSchema, SelectorSchema } from '../ha-form';
 import { humanize, lookup } from '../localize';
 import type { SchemaCtx } from '../panels';
-import { heading, row, text } from './common';
+import { text } from './common';
+
+/**
+ * A sub-heading in a calendar's panel: a `constant` node with no `value`, which Home Assistant
+ * draws as a bare bold label.
+ *
+ * The card's own builders emit none: pages own their headings (`pages.ts`). A calendar's panel
+ * is still one `ha-form` per entry until calendars get pages of their own, so its headings stay
+ * here, and go with that panel.
+ *
+ * @param name - String key for the heading text
+ * @returns The node
+ */
+function heading(name: string): HaFormSchema {
+  return { name, type: 'constant' };
+}
+
+/**
+ * A responsive row in a calendar's panel, which Home Assistant collapses to one column as the
+ * pane narrows. Kept here for the reason `heading` is.
+ *
+ * @param children - Fields to place side by side
+ * @returns The row
+ */
+function row(...children: HaFormSchema[]): GridSchema {
+  return { type: 'grid', name: '', schema: children };
+}
 
 export const INHERIT = 'inherit';
 

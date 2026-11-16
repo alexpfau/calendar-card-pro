@@ -5,6 +5,7 @@
  * groups through `views/`.
  */
 
+import { mdiCheck, mdiDeleteOutline } from '@mdi/js';
 import {
   type ChildPart,
   LitElement,
@@ -40,10 +41,12 @@ import * as Filter from './filter';
 import { type HaFormSchema, warmSchema } from './ha-form';
 import * as HassKey from './hass-key';
 import { HA_ACTION_LABEL_PREFIX, withCardActionLabels } from './hass-localize';
+import { History, type MigrationState, type Snapshot } from './history';
 import * as EditorLocalize from './localize';
 import * as Misplaced from './misplaced';
 import * as Navigation from './navigation';
 import {
+  CALENDARS_BLOCK,
   type HeadingDef,
   OVERVIEW_FIELDS,
   PAGES,
@@ -80,8 +83,9 @@ import * as Summary from './summary';
 import * as Synthetic from './synthetic';
 import * as Value from './value';
 import * as Focus from './views/focus';
+import * as HistoryView from './views/history';
 import { icon } from './views/icon';
-import { escapeAction } from './views/keys';
+import { escapeAction, historyKey } from './views/keys';
 import * as Overview from './views/overview';
 import * as PageView from './views/page';
 import * as SearchView from './views/search';
@@ -290,13 +294,6 @@ function undefinedBelow(root: ParentNode, found = new Set<string>()): Set<string
   return found;
 }
 
-type MigrationState =
-  | { readonly kind: 'current' }
-  | { readonly kind: 'automatic' }
-  | { readonly kind: 'choice'; readonly keys: ReadonlyArray<string> }
-  | { readonly kind: 'future'; readonly version: number }
-  | { readonly kind: 'invalid'; readonly value: unknown };
-
 /** Quick Setup's steps, in order. */
 type QuickSetupStep = 'story' | 'calendars' | 'weather' | 'taps' | 'review';
 
@@ -320,10 +317,20 @@ interface QuickSetupSession {
   /** The configuration as the YAML held it when Quick Setup opened. */
   readonly opening: Readonly<Record<string, unknown>>;
   readonly openingAuthoredRootKeys: ReadonlySet<string>;
+  /** Everything the editor held as Quick Setup opened: the `before` of Apply's undo step. */
+  readonly openingSnapshot: Snapshot;
   readonly step: QuickSetupStep;
   /** Unset until a story is picked; nothing is previewed before that. */
   readonly answers?: QuickSetup.QuickSetupAnswers;
   readonly previews: ReadonlyArray<Record<string, unknown>>;
+}
+
+/** The line a removal or an applied story leaves under its list ("Removed Ben · Undo"). */
+interface StatusLine {
+  readonly kind: 'entry' | 'button' | 'story';
+  readonly text: string;
+  /** Where the removed calendar's panel was drawn, for focus once the line closes. */
+  readonly at: number;
 }
 
 /**
@@ -578,6 +585,15 @@ export class CalendarCardProEditor extends LitElement {
   /** The one polite live region's queue (`announce.ts`). */
   private _announcer = new Announcer();
 
+  /** Undo and Redo's steps, for this session (`history.ts`). */
+  private _history = new History();
+
+  /** The line a removal or an applied story leaves, until the next change. */
+  @state() private _status?: StatusLine;
+
+  /** Whether `_commit` is running a change, so a write inside it joins that change's step. */
+  private _committing = false;
+
   /** What the live region last said. */
   private _spoken = '';
 
@@ -755,6 +771,9 @@ export class CalendarCardProEditor extends LitElement {
     this._migration = this._migrationState(rawConfig);
 
     if (!isEcho) {
+      // A configuration the editor did not send ends what Undo could reach.
+      this._history.clear();
+      this._status = undefined;
       this._selectedWorkspace = undefined;
       this._pending = {};
       this._gridReconciliation = [];
@@ -764,6 +783,10 @@ export class CalendarCardProEditor extends LitElement {
     }
     this._banner ??= QuickSetup.isFreshCard(rawConfig);
 
+    // An echo leaves what was sent as it was sent: recomputed through the minimizing write, a
+    // restored deprecated option would drop out of it, and the next echo of the same YAML would
+    // read as a change from outside.
+    if (isEcho) return;
     this._lastDispatched = Value.toStoredConfig(
       this._config,
       this._authoredRootKeys,
@@ -848,10 +871,286 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _chooseMigration(mode: Value.ListMigrationMode): void {
     if (this._migration.kind !== 'choice') return;
-    const result = this._migrationResult(mode);
-    this._adoptMigration(result);
-    this._lastDispatched = result.config;
-    this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: result.config } }));
+    const label = this._string(
+      this._ctx,
+      mode === 'keep-list' ? 'config_migration.keep_list' : 'config_migration.use_shared',
+    );
+    // One undo step: Undo puts the YAML back as it was, and the choice with it.
+    this._commit(label, undefined, () => {
+      const result = this._migrationResult(mode);
+      this._adoptMigration(result);
+      this._lastDispatched = result.config;
+      this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: result.config } }));
+    });
+  }
+
+  /**
+   * Everything the editor holds about the configuration, as Undo restores it (`history.ts`).
+   *
+   * @returns A copy, which later writes cannot reach
+   */
+  private _snapshot(): Snapshot {
+    const config = this._config;
+    return {
+      raw: structuredClone(this._rawConfig),
+      authoredRootKeys: [...this._authoredRootKeys],
+      gridResetKeys: [...this._gridResetKeys],
+      gridReconciliation: [...this._gridReconciliation],
+      pending: { ...this._pending },
+      migration: this._migration,
+      entryKeys: config ? [...this._entryKeysFor((config.entities ?? []).length)] : [],
+      buttonKeys: config ? [...this._buttonKeysFor(Buttons.writtenButtons(config).length)] : [],
+    };
+  }
+
+  /**
+   * Makes a change one undo step: what the editor held before it and after it, recorded only
+   * where the stored configuration moved. A write a change makes inside another joins the outer
+   * one's step. A change that leaves no line of its own closes the line shown.
+   *
+   * @param label - The step's name, localized: "Change Event Font Size"
+   * @param coalesceKey - The text or number field typed in, which later keystrokes join
+   * @param run - Makes the change
+   * @param focusKey - What Undo and Redo focus: `field:<id>`, `entry:<key>` or `button:<key>`
+   * @param before - What the step goes back to, where that is not the editor as it is now
+   * @returns Whether a step was recorded
+   */
+  private _commit(
+    label: string,
+    coalesceKey: string | undefined,
+    run: () => void,
+    focusKey?: string,
+    before?: Snapshot,
+  ): boolean {
+    if (this._committing || !this._config) {
+      run();
+      return false;
+    }
+    before ??= this._snapshot();
+    const where = { route: this._nav.route, workspace: this._selectedWorkspace, focusKey };
+    const status = this._status;
+    this._committing = true;
+    try {
+      run();
+    } finally {
+      this._committing = false;
+    }
+    if (Value.equalConfigs(before.raw, this._rawConfig)) return false;
+    this._history.record(
+      { label, before, after: this._snapshot(), where },
+      coalesceKey,
+      Date.now(),
+    );
+    if (this._status === status) this._closeStatus();
+    return true;
+  }
+
+  /**
+   * Puts back what a snapshot holds and tells Home Assistant, bypassing the minimizing write, so a
+   * pruned deprecated option or an authored default comes back byte for byte. Home Assistant's
+   * echo then reads as the editor's own.
+   *
+   * @param snapshot - What to put back
+   */
+  private _restore(snapshot: Snapshot): void {
+    this._rawConfig = structuredClone(snapshot.raw) as Record<string, unknown>;
+    this._config = {
+      ...Config.DEFAULT_CONFIG,
+      ...(structuredClone(snapshot.raw) as unknown as Types.Config),
+    };
+    if (!Array.isArray(this._config.entities)) this._config.entities = [];
+    this._authoredRootKeys = new Set(snapshot.authoredRootKeys);
+    this._gridResetKeys = new Set(snapshot.gridResetKeys);
+    this._gridReconciliation = [...snapshot.gridReconciliation];
+    this._pending = { ...snapshot.pending };
+    this._migration = snapshot.migration;
+    this._entryKeys = [...snapshot.entryKeys];
+    this._buttonKeys = [...snapshot.buttonKeys];
+    this._status = undefined;
+    const config = structuredClone(snapshot.raw) as Record<string, unknown>;
+    this._lastDispatched = config;
+    this.dispatchEvent(
+      new CustomEvent('config-changed', { detail: { config: structuredClone(config) } }),
+    );
+  }
+
+  /** Takes the last step back. */
+  private _undo = (): void => this._step('undo');
+
+  /** Does the last step taken back again. */
+  private _redo = (): void => this._step('redo');
+
+  /**
+   * Undo or Redo: restores the step's snapshot, returns to where it was made, says what it did,
+   * and puts focus on what it restored: a field's wrapper, never anything inside its form, so the
+   * next Ctrl/Cmd+Z still reaches the editor; else the page's heading.
+   *
+   * @param way - Which way
+   */
+  private _step(way: 'undo' | 'redo'): void {
+    if (this._quickSetup !== undefined) return;
+    const entry = way === 'undo' ? this._history.undo() : this._history.redo();
+    if (entry === undefined) return;
+    this._restore(way === 'undo' ? entry.before : entry.after);
+    const { route, workspace, focusKey } = entry.where;
+    if (workspace !== this._selectedWorkspace) this._selectedWorkspace = workspace;
+    if (!Navigation.sameRoute(route, this._nav.route)) {
+      const from = { route: this._nav.route, scrollTop: Focus.scrollPosition(this) };
+      this._nav = Navigation.go(this._nav, route, from);
+    }
+    // An entry's page the step took away, or the Grid page outside Grid, gives way.
+    this._nav = Navigation.validate(this._nav, (each) => this._exists(each)).nav;
+    this._say(
+      interpolate(
+        way === 'undo'
+          ? this._string(this._ctx, 'history.undone')
+          : this._string(this._ctx, 'history.redone'),
+        { action: entry.label },
+      ),
+    );
+    void this.updateComplete.then(() => this._focusRestored(focusKey));
+  }
+
+  /**
+   * Puts focus on what Undo or Redo restored: a field's wrapper, a calendar's or a button's panel,
+   * else the heading of the place shown, or the migration choice's title.
+   *
+   * @param focusKey - What the step's change was made with
+   */
+  private _focusRestored(focusKey: string | undefined): void {
+    const root = this.renderRoot as ShadowRoot;
+    const [kind, key] =
+      focusKey === undefined
+        ? []
+        : [focusKey.slice(0, focusKey.indexOf(':')), focusKey.slice(focusKey.indexOf(':') + 1)];
+    const target =
+      kind === 'field'
+        ? root.querySelector<HTMLElement>(`.field[data-field="${CSS.escape(key!)}"]`)
+        : kind === 'entry' || kind === 'button'
+          ? root.querySelector<HTMLElement>(
+              `.${kind === 'entry' ? 'entity' : 'button'}-panel[data-${kind}-key="${CSS.escape(key!)}"]`,
+            )
+          : null;
+    if (target) {
+      // A panel's own header is the row's control; Home Assistant draws it as a button.
+      const summary = target.shadowRoot?.querySelector<HTMLElement>('#summary');
+      (summary ?? target).focus({ preventScroll: true });
+      target.scrollIntoView?.({ block: 'nearest' });
+      if (root.activeElement === target) return;
+    }
+    Focus.focusFirst(root, [
+      '#config-migration-title',
+      '.page-title',
+      '.page-group .heading',
+      '.row-group .heading',
+    ]);
+  }
+
+  /**
+   * Closes the line a removal or an applied story left. Where focus was on it, focus moves on:
+   * for a calendar, to the calendar drawn in its place (`_focusAfterRemove`); for a button, to Add
+   * Button; for a story, to the Calendars heading.
+   */
+  private _closeStatus(): void {
+    const status = this._status;
+    if (status === undefined) return;
+    const root = this.renderRoot as ShadowRoot;
+    const focused = root.querySelector('[data-status-bar]')?.contains(root.activeElement) ?? false;
+    this._status = undefined;
+    if (!focused) return;
+    if (status.kind === 'entry') {
+      void this._focusAfterRemove(status.at);
+      return;
+    }
+    void this.updateComplete.then(() =>
+      Focus.focusFirst(root, [
+        status.kind === 'button' ? '.add-button' : '[data-heading="calendars"] .heading',
+      ]),
+    );
+  }
+
+  /**
+   * Shows the line a removal or an applied story leaves, says it, and puts focus on its Undo.
+   *
+   * @param status - The line
+   * @param said - The sentence a screen reader hears
+   */
+  private _showStatus(status: StatusLine, said: string): void {
+    this._status = status;
+    this._say(said);
+    void this.updateComplete.then(() =>
+      Focus.focusFirst(this.renderRoot, [Focus.byFocusKey('status-undo')]),
+    );
+  }
+
+  /**
+   * A word Home Assistant has for a control, else the editor's own.
+   *
+   * @param ctx - Schema context
+   * @param haKey - Home Assistant's key
+   * @param key - The editor's key
+   * @returns The word
+   */
+  private _haWord(ctx: SchemaCtx, haKey: string, key: 'history.undo' | 'history.redo'): string {
+    const word = this.hass?.localize?.(haKey);
+    if (typeof word === 'string' && word !== '' && word !== haKey) return word;
+    return key === 'history.undo'
+      ? this._string(ctx, 'history.undo')
+      : this._string(ctx, 'history.redo');
+  }
+
+  /**
+   * Undo and Redo, named after the step each would take while it can.
+   *
+   * @param ctx - Schema context
+   * @returns The pair
+   */
+  private _renderHistory(ctx: SchemaCtx): TemplateResult {
+    const button = (
+      entry: { readonly label: string } | undefined,
+      plain: string,
+      named: string,
+      onPress: () => void,
+    ) => ({
+      label: entry === undefined ? plain : interpolate(named, { action: entry.label }),
+      enabled: entry !== undefined,
+      onPress,
+    });
+    return HistoryView.historyControls(
+      button(
+        this._history.peekUndo(),
+        this._haWord(ctx, 'ui.common.undo', 'history.undo'),
+        this._string(ctx, 'history.undo_named'),
+        this._undo,
+      ),
+      button(
+        this._history.peekRedo(),
+        this._haWord(ctx, 'ui.common.redo', 'history.redo'),
+        this._string(ctx, 'history.redo_named'),
+        this._redo,
+      ),
+    );
+  }
+
+  /**
+   * The line a removal or an applied story leaves, where it belongs.
+   *
+   * @param ctx - Schema context
+   * @param kinds - The kinds of line drawn here
+   * @returns The line, or nothing
+   */
+  private _renderStatus(
+    ctx: SchemaCtx,
+    kinds: ReadonlyArray<StatusLine['kind']>,
+  ): TemplateResult | typeof nothing {
+    const status = this._status;
+    if (status === undefined || !kinds.includes(status.kind)) return nothing;
+    return HistoryView.statusBar(
+      status.kind === 'story' ? mdiCheck : mdiDeleteOutline,
+      status.text,
+      this._haWord(ctx, 'ui.common.undo', 'history.undo'),
+      this._undo,
+    );
   }
 
   /**
@@ -1059,16 +1358,49 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Folds a form change into the configuration, for the owner the form was drawn for.
+   * Folds a form change into the configuration, for the owner the form was drawn for, as one
+   * undo step named after the field that moved. Typing in a text or number field joins the step
+   * before it (`history.ts`).
    *
    * @param frame - Owner, workspace, schema and baseline captured when this form was rendered
    * @param event - The form's `value-changed`
+   * @param labelPath - The label path the form's fields take
+   * @param focusKey - What Undo and Redo focus: the field's wrapper, or the owner's panel
+   * @param owner - The calendar or button the form belongs to, by name
    */
-  private _valueChanged(frame: WriteFrames.OwnedFrame, event: CustomEvent): void {
+  private _valueChanged(
+    frame: WriteFrames.OwnedFrame,
+    event: CustomEvent,
+    labelPath?: ReadonlyArray<string>,
+    focusKey?: string,
+    owner?: string,
+  ): void {
     event.stopPropagation();
 
     const incoming = event.detail?.value as Record<string, unknown> | undefined;
-    if (incoming) this._writeOwned(frame, incoming);
+    if (!incoming) return;
+    const [path] = WriteFrames.writeSet(frame, incoming);
+    const moved =
+      path === undefined
+        ? undefined
+        : [...Routing.workspaceFields(frame.schema)].find(
+            (field) => [...field.path, field.node.name].join('.') === path.join('.'),
+          );
+    const ctx = this._ctx;
+    const setting = moved
+      ? EditorLocalize.computeLabel(ctx.language, moved.node, labelPath ?? moved.labelPath)
+      : '';
+    const label =
+      owner === undefined
+        ? interpolate(this._string(ctx, 'history.change'), { setting })
+        : interpolate(this._string(ctx, 'history.change_for'), { setting, name: owner });
+    const typed = moved && ('text' in moved.node.selector || 'number' in moved.node.selector);
+    this._commit(
+      label,
+      typed ? `${focusKey}|${path!.join('.')}|${frame.workspace}` : undefined,
+      () => this._writeOwned(frame, incoming),
+      focusKey,
+    );
   }
 
   /**
@@ -1409,7 +1741,8 @@ export class CalendarCardProEditor extends LitElement {
           .computeLabel=${this._labeler(ctx.language, field.labelPath)}
           .computeHelper=${this._helper(slot, schema, ctx, field.labelPath)}
           .localizeValue=${this._localizeValue}
-          @value-changed=${(event: CustomEvent) => this._valueChanged(frame, event)}
+          @value-changed=${(event: CustomEvent) =>
+            this._valueChanged(frame, event, field.labelPath, `field:${field.id}`)}
         ></ha-form>`,
       )}
     </div>`;
@@ -1711,7 +2044,16 @@ export class CalendarCardProEditor extends LitElement {
    * @param event - A `keydown` anywhere under the editor
    */
   private _onKeydown = (event: KeyboardEvent): void => {
-    if (event.key !== 'Escape' || event.defaultPrevented) return;
+    if (event.defaultPrevented) return;
+    // Undo and Redo, outside text fields; Quick Setup previews and is not undone a step at a time.
+    const step = this._quickSetup === undefined ? historyKey(event) : undefined;
+    if (step !== undefined) {
+      event.preventDefault();
+      event.stopPropagation();
+      this._step(step);
+      return;
+    }
+    if (event.key !== 'Escape') return;
     const wizard = this._quickSetup;
     // Quick Setup is a place of its own: Escape is its Back, or Cancel on its first step.
     const action = escapeAction(event.composedPath(), this, {
@@ -1848,9 +2190,20 @@ export class CalendarCardProEditor extends LitElement {
       value,
       (view) => {
         const data = { view: value };
-        this._writeOwned(
-          { owner: WriteFrames.CARD_OWNER, workspace: 'list', schema: chassis.displayView, data },
-          { view },
+        // The view and the Grid notice it brings are one step.
+        this._commit(
+          interpolate(this._string(ctx, 'history.change'), { setting: this._string(ctx, 'view') }),
+          undefined,
+          () =>
+            this._writeOwned(
+              {
+                owner: WriteFrames.CARD_OWNER,
+                workspace: 'list',
+                schema: chassis.displayView,
+                data,
+              },
+              { view },
+            ),
         );
       },
     )}
@@ -1928,8 +2281,8 @@ export class CalendarCardProEditor extends LitElement {
     const entries = this._renderEntities(panel, ctx);
     if (picker.length === 0 && entries === nothing) return nothing;
     return html`<section class="page-group" data-heading="calendars">
-      <h3 class="heading" tabindex="-1">${this._string(ctx, panel.titleKey)}</h3>
-      ${this._renderFields(picker, ctx)} ${entries}
+      <h3 class="heading" tabindex="-1">${this._string(ctx, CALENDARS_BLOCK.titleKey)}</h3>
+      ${this._renderStatus(ctx, ['entry', 'story'])} ${this._renderFields(picker, ctx)} ${entries}
     </section>`;
   }
 
@@ -2009,11 +2362,7 @@ export class CalendarCardProEditor extends LitElement {
     const empty = shown.size === 0 && calendars === nothing && Filter.isFiltering(this._filter);
     return html`${empty ? this._renderNoMatches(ctx) : nothing} ${this._renderScope(ctx)}
     ${calendars} ${this._renderDisplays(ctx, chassis)} ${this._renderFields(own, ctx)}
-    ${this._renderResetControls(
-      own.flatMap((field) => field.lifted),
-      ctx,
-    )}
-    ${Overview.rowGroup(t('overview.settings'), rows)}
+    ${this._renderResetControls(own, ctx)} ${Overview.rowGroup(t('overview.settings'), rows)}
     ${Overview.rowGroup(t('overview.more'), [Overview.exampleRow(t, this._openQuickSetup)])}`;
   }
 
@@ -2154,10 +2503,7 @@ export class CalendarCardProEditor extends LitElement {
       const extras = Filter.filterExtras(layout.extras?.(ctx) ?? [], this._filterCtx);
       parts.push(...extras.map((extra) => this._renderExtra(extra)));
     }
-    const resets = this._renderResetControls(
-      drawn.flatMap((field) => field.lifted),
-      ctx,
-    );
+    const resets = this._renderResetControls(drawn, ctx);
     if (drawn.length === 0 && resets === nothing && parts.length === 0) return undefined;
     parts.push(resets);
     return parts;
@@ -2182,7 +2528,7 @@ export class CalendarCardProEditor extends LitElement {
           : this._renderScope(ctx);
     const body = this._renderPageBody(page, ctx, present, shown);
     return html`<div class="page" data-page=${page.id}>
-      ${PageView.pageHead(this._pageTitle(page, ctx), t, this._back)}
+      ${PageView.pageHead(this._pageTitle(page, ctx), t, this._back, this._renderHistory(ctx))}
       ${this._jumpDrawn() ? nothing : this._renderReturn(ctx)} ${scope}
       ${page.noteKey ? PageView.pageLine(this._string(ctx, page.noteKey)) : nothing}
       ${body ?? (Filter.isFiltering(this._filter) ? this._renderNoMatches(ctx) : nothing)}
@@ -2387,7 +2733,14 @@ export class CalendarCardProEditor extends LitElement {
                         .computeLabel=${computeLabel}
                         .computeHelper=${computeHelper}
                         .localizeValue=${this._localizeValue}
-                        @value-changed=${(event: CustomEvent) => this._valueChanged(frame, event)}
+                        @value-changed=${(event: CustomEvent) =>
+                          this._valueChanged(
+                            frame,
+                            event,
+                            subform.path,
+                            `entry:${key}`,
+                            Entities.entityDisplayName(entityId, this.hass),
+                          )}
                       ></ha-form>
                     `;
                   };
@@ -2521,7 +2874,16 @@ export class CalendarCardProEditor extends LitElement {
       entityId: Synthetic.entityIdOf(entry),
       conditions,
     });
-    this._writeFieldValue({ kind: 'entry', key }, `calendar:${VISIBILITY}`, conditions);
+    const ctx = this._ctx;
+    this._commit(
+      interpolate(this._string(ctx, 'history.change_for'), {
+        setting: this._string(ctx, `entity.${VISIBILITY}`),
+        name: Entities.entityDisplayName(Synthetic.entityIdOf(entry), this.hass),
+      }),
+      undefined,
+      () => this._writeFieldValue({ kind: 'entry', key }, `calendar:${VISIBILITY}`, conditions),
+      `entry:${key}`,
+    );
   }
 
   /**
@@ -2575,14 +2937,34 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _pasteEntitySettings(index: number): void {
     if (!this._config) return;
+    const entities = this._config.entities ?? [];
+    this._commit(
+      this._entryLabel(this._string(this._ctx, 'history.paste'), entities[index]),
+      undefined,
+      () => {
+        if (!this._prepareForWrite()) return;
+        this._config = {
+          ...this._config!,
+          entities: Entities.pasteSettings(this._config!.entities ?? [], index),
+        };
 
-    if (!this._prepareForWrite()) return;
-    this._config = {
-      ...this._config,
-      entities: Entities.pasteSettings(this._config.entities ?? [], index),
-    };
+        this._report(this._config);
+      },
+      `entry:${this._entryKeysFor(entities.length)[index]}`,
+    );
+  }
 
-    this._report(this._config);
+  /**
+   * A step's name for something done to a calendar entry, by the calendar's name.
+   *
+   * @param template - The step's string, naming the calendar as `{name}`
+   * @param entry - The entry
+   * @returns The name
+   */
+  private _entryLabel(template: string, entry: string | Types.EntityConfig | undefined): string {
+    return interpolate(template, {
+      name: Entities.entityDisplayName(entry ? Synthetic.entityIdOf(entry) : '', this.hass),
+    });
   }
 
   /**
@@ -2593,51 +2975,75 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _duplicateEntity(index: number): void {
     if (!this._config) return;
+    const entities = this._config.entities ?? [];
+    this._commit(
+      this._entryLabel(this._string(this._ctx, 'history.duplicate'), entities[index]),
+      undefined,
+      () => {
+        if (!this._prepareForWrite()) return;
+        const keys = this._entryKeysFor(this._config!.entities?.length ?? 0);
+        this._config = {
+          ...this._config!,
+          entities: Entities.duplicateEntity(this._config!.entities ?? [], index),
+        };
+        // Moved before the report, whose echo can arrive before it returns.
+        this._entryKeys = [
+          ...keys.slice(0, index + 1),
+          this._mintEntryKey(),
+          ...keys.slice(index + 1),
+        ];
 
-    if (!this._prepareForWrite()) return;
-    const keys = this._entryKeysFor(this._config.entities?.length ?? 0);
-    this._config = {
-      ...this._config,
-      entities: Entities.duplicateEntity(this._config.entities ?? [], index),
-    };
-    // Moved before the report, whose echo can arrive before it returns.
-    this._entryKeys = [...keys.slice(0, index + 1), this._mintEntryKey(), ...keys.slice(index + 1)];
-
-    this._report(this._config);
+        this._report(this._config);
+      },
+      `entry:${this._entryKeysFor(entities.length)[index]}`,
+    );
   }
 
   /**
-   * Drops one calendar from the list, its key with it. Where focus was inside the calendar's
-   * panel, as on a keyboard's Remove, it moves on (`_focusAfterRemove`), since the panel takes the
-   * focused button with it.
+   * Drops one calendar from the list, its key with it, as one undo step, and leaves the line
+   * "Removed Ben · Undo" in its place, with focus on its Undo.
    *
    * @param index - Position of the calendar in the list
    */
   private _removeEntity(index: number): void {
     if (!this._config) return;
-
-    if (!this._prepareForWrite()) return;
-    const keys = this._entryKeysFor(this._config.entities?.length ?? 0);
+    const entities = this._config.entities ?? [];
+    const keys = this._entryKeysFor(entities.length);
     const panels = [...this.renderRoot.querySelectorAll('.entity-panel')];
-    const panel = panels.find((each) => each.getAttribute('data-entry-key') === `${keys[index]}`);
-    const focused = panel?.contains((this.renderRoot as ShadowRoot).activeElement);
-    this._config = {
-      ...this._config,
-      entities: Entities.removeEntity(this._config.entities ?? [], index),
-    };
-    // Moved before the report, whose echo can arrive before it returns.
-    this._entryKeys = keys.filter((_key, at) => at !== index);
+    const at = panels.findIndex((each) => each.getAttribute('data-entry-key') === `${keys[index]}`);
+    const name = Entities.entityDisplayName(Synthetic.entityIdOf(entities[index]), this.hass);
+    const ctx = this._ctx;
+    this._commit(
+      this._entryLabel(this._string(this._ctx, 'history.remove'), entities[index]),
+      undefined,
+      () => {
+        if (!this._prepareForWrite()) return;
+        this._config = {
+          ...this._config!,
+          entities: Entities.removeEntity(this._config!.entities ?? [], index),
+        };
+        // Moved before the report, whose echo can arrive before it returns.
+        this._entryKeys = this._entryKeys.filter((_key, place) => place !== index);
 
-    this._report(this._config);
-    if (focused) void this._focusAfterRemove(panels.indexOf(panel!));
+        this._report(this._config);
+        this._showStatus(
+          {
+            kind: 'entry',
+            text: interpolate(this._string(ctx, 'status.removed'), { name }),
+            at: Math.max(at, 0),
+          },
+          interpolate(this._string(ctx, 'announce.removed'), { name }),
+        );
+      },
+      `entry:${keys[index]}`,
+    );
   }
 
   /**
-   * Puts focus where a removed calendar's panel took it from, as a keyboard user expects: on the
-   * Remove of the calendar drawn in its place now, else of the one drawn before it, else on the
-   * calendar picker. Drawn by place, the panels used to keep focus there by handing the next
-   * calendar the removed one's panel; drawn by key, each panel is its owner's own. A closed panel
-   * draws nothing to focus, so the calendar's panel opens first.
+   * Puts focus where a removed calendar's panel was, once the line its removal left closes with
+   * focus on it, as a keyboard user expects: on the Remove of the calendar drawn in its place now,
+   * else of the one drawn before it, else on the calendar picker. A closed panel draws nothing to
+   * focus, so the calendar's panel opens first.
    *
    * @param at - The removed calendar's place among the panels drawn
    */
@@ -2765,7 +3171,14 @@ export class CalendarCardProEditor extends LitElement {
                       .computeLabel=${computeLabel}
                       .computeHelper=${computeHelper}
                       .localizeValue=${this._localizeValue}
-                      @value-changed=${(event: CustomEvent) => this._valueChanged(frame, event)}
+                      @value-changed=${(event: CustomEvent) =>
+                        this._valueChanged(
+                          frame,
+                          event,
+                          subform.path,
+                          `button:${key}`,
+                          Buttons.buttonTitle(entry, index, untitled),
+                        )}
                     ></ha-form>
                   `;
                 };
@@ -2778,6 +3191,7 @@ export class CalendarCardProEditor extends LitElement {
           </ha-expansion-panel>
         `,
       )}
+      ${this._renderStatus(ctx, ['button'])}
       ${
         filtering
           ? nothing
@@ -2839,11 +3253,23 @@ export class CalendarCardProEditor extends LitElement {
     if (to < 0 || to >= written.length) return;
 
     const keys = this._buttonKeysFor(written.length);
-    if (!this._writeButtons(Buttons.moveButton(written, index, by))) return;
-    [keys[index], keys[to]] = [keys[to], keys[index]];
+    const name = Buttons.buttonTitle(
+      written[index],
+      index,
+      this._string(this._ctx, 'toolbar.buttons.untitled'),
+    );
+    this._commit(
+      interpolate(this._string(this._ctx, 'history.move'), { name }),
+      undefined,
+      () => {
+        if (!this._writeButtons(Buttons.moveButton(written, index, by))) return;
+        [keys[index], keys[to]] = [keys[to], keys[index]];
 
-    const moved = keys[to];
-    void this.updateComplete.then(() => this._focusMoveControl(moved, by));
+        const moved = keys[to];
+        void this.updateComplete.then(() => this._focusMoveControl(moved, by));
+      },
+      `button:${keys[index]}`,
+    );
   }
 
   /**
@@ -2865,7 +3291,8 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Drops one button from the list. Focus passes to Add Button, as the removed panel held it.
+   * Drops one button from the list, as one undo step, and leaves the line "Removed Lights · Undo"
+   * with focus on its Undo. Once the line closes with focus on it, focus passes to Add Button.
    *
    * @param index - Position of the button in the list
    */
@@ -2873,12 +3300,30 @@ export class CalendarCardProEditor extends LitElement {
     if (!this._config) return;
     const written = Buttons.writtenButtons(this._config);
     const keys = this._buttonKeysFor(written.length);
-    if (!this._writeButtons(Buttons.removeButton(written, index))) return;
+    const ctx = this._ctx;
+    const name = Buttons.buttonTitle(
+      written[index],
+      index,
+      this._string(ctx, 'toolbar.buttons.untitled'),
+    );
+    this._commit(
+      interpolate(this._string(ctx, 'history.remove'), { name }),
+      undefined,
+      () => {
+        if (!this._writeButtons(Buttons.removeButton(written, index))) return;
 
-    const [removed] = keys.splice(index, 1);
-    this._addedButtons.delete(removed);
-    void this.updateComplete.then(() =>
-      this.renderRoot.querySelector<HTMLButtonElement>('.add-button')?.focus(),
+        const [removed] = keys.splice(index, 1);
+        this._addedButtons.delete(removed);
+        this._showStatus(
+          {
+            kind: 'button',
+            text: interpolate(this._string(ctx, 'status.removed'), { name }),
+            at: index,
+          },
+          interpolate(this._string(ctx, 'announce.removed'), { name }),
+        );
+      },
+      `button:${keys[index]}`,
     );
   }
 
@@ -2889,11 +3334,18 @@ export class CalendarCardProEditor extends LitElement {
     if (!this._config) return;
     const written = Buttons.writtenButtons(this._config);
     const keys = this._buttonKeysFor(written.length);
-    if (!this._writeButtons(Buttons.addButton(written))) return;
-
     const key = this._nextButtonKey++;
-    keys.push(key);
-    this._addedButtons.add(key);
+    this._commit(
+      this._string(this._ctx, 'toolbar.buttons.add'),
+      undefined,
+      () => {
+        if (!this._writeButtons(Buttons.addButton(written))) return;
+
+        keys.push(key);
+        this._addedButtons.add(key);
+      },
+      `button:${key}`,
+    );
   };
 
   /**
@@ -2928,12 +3380,12 @@ export class CalendarCardProEditor extends LitElement {
    * shared base inherits from nothing. It is also what the root-writing workspace did
    * before `list:` existed, so this restores that behavior rather than inventing one.
    *
-   * @param schema - Fields currently shown
+   * @param fields - Fields currently shown
    * @param ctx - Editing context
    * @returns Per-option reset buttons, or nothing
    */
   private _renderResetControls(
-    schema: ReadonlyArray<HaFormSchema>,
+    fields: ReadonlyArray<IndexedField>,
     ctx: SchemaCtx,
   ): TemplateResult | typeof nothing {
     const view = this._destinationView(ctx);
@@ -2943,7 +3395,11 @@ export class CalendarCardProEditor extends LitElement {
     const stored = Value.storedViewBlocks(this._config!)[blockKey];
     if (!stored || typeof stored !== 'object') return nothing;
     const seen = new Set<string>();
-    const resets = [...Routing.workspaceFields(schema)].flatMap(({ node, path, labelPath }) => {
+    // Each with the field it belongs to, whose wrapper Undo focuses once the value is back.
+    const shown = fields.flatMap((field) =>
+      [...Routing.workspaceFields(field.lifted)].map((each) => ({ ...each, id: field.id })),
+    );
+    const resets = shown.flatMap(({ node, path, labelPath, id }) => {
       const keys = (
         path.length === 1 && path[0] === blockKey
           ? [node.name]
@@ -2955,18 +3411,18 @@ export class CalendarCardProEditor extends LitElement {
       ).filter((key) => Object.prototype.hasOwnProperty.call(stored, key) && !seen.has(key));
       if (keys.length === 0) return [];
       keys.forEach((key) => seen.add(key));
-      return [{ keys, label: EditorLocalize.computeLabel(ctx.language, node, labelPath) }];
+      return [{ keys, id, label: EditorLocalize.computeLabel(ctx.language, node, labelPath) }];
     });
     if (resets.length === 0) return nothing;
     return html`
       <div class="view-resets">
         ${resets.map(
-          ({ keys, label }) => html`
+          ({ keys, id, label }) => html`
             <button
               type="button"
               class="text-button"
               data-reset-keys=${keys.join(' ')}
-              @click=${() => this._resetViewValues(blockKey, view, keys)}
+              @click=${() => this._resetViewValues(blockKey, view, keys, label, id)}
             >
               ${interpolate(this._string(ctx, 'value_source.reset'), {
                 option: label,
@@ -2984,14 +3440,38 @@ export class CalendarCardProEditor extends LitElement {
    * @param blockKey - View's storage block
    * @param view - View whose value is reset
    * @param keys - Options controlled by the field
+   * @param label - The field's label, which names the undo step
+   * @param fieldId - The field, whose wrapper Undo and Redo focus
    */
   private _resetViewValues(
     blockKey: keyof Types.Config,
     view: Types.EffectiveView,
     keys: ReadonlyArray<string>,
+    label: string,
+    fieldId: FieldId,
   ): void {
     if (!this._config) return;
-    if (!this._prepareForWrite()) return;
+    this._commit(
+      interpolate(this._string(this._ctx, 'history.reset'), { setting: label }),
+      undefined,
+      () => this._resetValues(blockKey, view, keys),
+      `field:${fieldId}`,
+    );
+  }
+
+  /**
+   * `_resetViewValues`' change itself.
+   *
+   * @param blockKey - View's storage block
+   * @param view - View whose value is reset
+   * @param keys - Options controlled by the field
+   */
+  private _resetValues(
+    blockKey: keyof Types.Config,
+    view: Types.EffectiveView,
+    keys: ReadonlyArray<string>,
+  ): void {
+    if (!this._config || !this._prepareForWrite()) return;
     if (blockKey === 'time_grid') {
       for (const key of keys) {
         if (ViewConfig.hasDivergentDefault(key, view)) this._gridResetKeys.add(key);
@@ -3168,15 +3648,21 @@ export class CalendarCardProEditor extends LitElement {
         : 'config_migration.list_message';
     const options = keys.map((key) => this._string(ctx, key)).join(', ');
 
+    // Undo and Redo stay at hand: an undone choice returns here, and Redo makes it again.
     return html`
-      <div class="card-config">
+      <div class="card-config" @keydown=${this._onKeydown}>
+        ${
+          this._history.canUndo || this._history.canRedo
+            ? html`<div class="filter-bar">${this._renderHistory(ctx)}</div>`
+            : nothing
+        }
         <div
           class="config-migration"
           data-config-migration
           role="group"
           aria-labelledby="config-migration-title"
         >
-          <strong id="config-migration-title"
+          <strong id="config-migration-title" tabindex="-1"
             >${this._string(ctx, 'config_migration.title')}</strong
           >
           <div>${this._string(ctx, messageKey)}</div>
@@ -3486,6 +3972,7 @@ export class CalendarCardProEditor extends LitElement {
     this._quickSetup = {
       opening: structuredClone(this._rawConfig),
       openingAuthoredRootKeys: new Set(this._authoredRootKeys),
+      openingSnapshot: this._snapshot(),
       step: 'story',
       previews: [],
     };
@@ -3608,7 +4095,9 @@ export class CalendarCardProEditor extends LitElement {
   };
 
   /**
-   * Writes what Quick Setup built and returns to the panels, with that as the authored truth.
+   * Writes what Quick Setup built and returns to the panels, with that as the authored truth, as
+   * one undo step from the card as Quick Setup opened on it, and leaves the line "Applied Family
+   * Hub · Undo".
    *
    * Like a migration's adoption: everything the editor keeps about the YAML it last saw is reset
    * to the new configuration, before Home Assistant echoes it.
@@ -3616,6 +4105,30 @@ export class CalendarCardProEditor extends LitElement {
   private _applyQuickSetup = (): void => {
     const session = this._quickSetup;
     if (session?.answers === undefined || session.answers.calendars.length === 0) return;
+    const ctx = this._ctx;
+    const story = this._string(ctx, `quick_setup.story.${session.answers.story}`);
+    const applied = this._commit(
+      interpolate(this._string(ctx, 'history.apply'), { story }),
+      undefined,
+      () => this._applyStory(session),
+      undefined,
+      session.openingSnapshot,
+    );
+    // An Apply that changed nothing is no step, and its line would offer to undo another.
+    if (!applied) return;
+    this._showStatus(
+      { kind: 'story', text: interpolate(this._string(ctx, 'status.applied'), { story }), at: 0 },
+      interpolate(this._string(ctx, 'announce.applied'), { story }),
+    );
+  };
+
+  /**
+   * `_applyQuickSetup`'s change itself.
+   *
+   * @param session - The run being applied
+   */
+  private _applyStory(session: QuickSetupSession): void {
+    if (session.answers === undefined) return;
 
     const stored = QuickSetup.buildQuickSetupConfig(session.opening, session.answers);
     const shown = session.previews[session.previews.length - 1] ?? session.opening;
@@ -3637,7 +4150,7 @@ export class CalendarCardProEditor extends LitElement {
     this._lastDispatched = stored;
     if (Value.equalConfigs(stored, shown)) return;
     this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: stored } }));
-  };
+  }
 
   /**
    * Lists the options written where the card ignores them, with a way to move each one.
@@ -3714,6 +4227,20 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _moveMisplaced(finding: ViewConfig.MisplacedOption, to: Misplaced.Place): void {
     if (Misplaced.moveOption(this._rawConfig, finding, to) === undefined) return;
+    this._commit(
+      interpolate(this._string(this._ctx, 'history.move'), { name: Misplaced.pathOf(finding) }),
+      undefined,
+      () => this._moveOption(finding, to),
+    );
+  }
+
+  /**
+   * `_moveMisplaced`' change itself.
+   *
+   * @param finding - The option and where it is written
+   * @param to - The place to move it to
+   */
+  private _moveOption(finding: ViewConfig.MisplacedOption, to: Misplaced.Place): void {
     if (!this._prepareForWrite()) return;
 
     // A first write can migrate a pre-v5 card; move within what that produced.
@@ -3740,6 +4267,7 @@ export class CalendarCardProEditor extends LitElement {
     const [hass, feed] = this._feed(chassis.filter, ctx.language);
     return html`
       <div class="filter-bar">
+        ${this._renderHistory(ctx)}
         <ha-form
           class="filter-form"
           data-hass=${feed}

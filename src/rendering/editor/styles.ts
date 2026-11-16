@@ -697,6 +697,42 @@ export default css`
     margin-inline-start: -8px;
   }
 
+  /* Undo and Redo: at the end of the overview's search row and of every page header. */
+  .history-controls {
+    display: flex;
+    justify-content: flex-end;
+    margin-inline-start: auto;
+  }
+
+  .history-button {
+    width: 48px;
+    height: 48px;
+  }
+
+  .history-button:disabled {
+    color: var(--disabled-text-color, #bdbdbd);
+    cursor: default;
+  }
+
+  .history-button:disabled:hover {
+    background: none;
+  }
+
+  /* The line a removal or an applied story leaves, until the next change. */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 4px 4px 12px;
+    border-radius: 8px;
+    background: var(--secondary-background-color);
+  }
+
+  .status-text {
+    flex: 1;
+    min-width: 0;
+  }
+
   .page-head .icon-button:dir(rtl),
   .page-foot .icon:dir(rtl) {
     transform: scaleX(-1);

@@ -134,7 +134,7 @@ describe('the results', () => {
       'Events › Event Details',
       'Follow Home Assistant · YAML: time_24h',
     ],
-    ['time', 'content:days_to_show', 'Overview', '3 · YAML: list.days_to_show'],
+    ['days', 'content:days_to_show', 'Overview', '3 · YAML: list.days_to_show'],
     [
       'lights',
       'button:name',
@@ -289,7 +289,7 @@ describe('choosing a result', () => {
 
   it('opens a field of the overview’s own on the overview', async () => {
     const editor = await mount();
-    await jump(editor, 'time', 'content:days_to_show');
+    await jump(editor, 'days', 'content:days_to_show');
 
     expect($(editor, '[data-focus^="nav:"]')).not.toBeNull();
     expect(editor.shadowRoot!.activeElement).toBe($(editor, '[data-field="content:days_to_show"]'));
@@ -312,7 +312,8 @@ describe('Return to Results', () => {
     '(%s, from %s) restores the query, the scroll position and the row chosen',
     async (how, id, owner) => {
       const editor = await mount();
-      const query = id === 'calendar:blocklist' ? 'exclude' : 'time';
+      const query =
+        id === 'calendar:blocklist' ? 'exclude' : id === 'content:days_to_show' ? 'days' : 'time';
       await searchFor(editor, query);
       scroller().scrollTop = 240;
       const key = await jump(editor, query, id, owner);

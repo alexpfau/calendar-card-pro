@@ -18,6 +18,7 @@ import { type FieldId, entrySchema, fieldId, schemaCtx } from '../src/rendering/
 import * as Filter from '../src/rendering/editor/filter';
 import { ENTRY_GATES, GATES, type Gate, corpus } from '../src/rendering/editor/gates';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
+import { lookup } from '../src/rendering/editor/localize';
 import {
   type Appearance,
   ENTRY_GROUPS,
@@ -845,6 +846,109 @@ describe('the page registry is consistent with itself', () => {
       'weather',
     ]);
     expect(isWholeCard({ headings: ENTRY_GROUPS })).toBe(false);
+  });
+});
+
+/**
+ * What the builders' headings, rows and groups used to say, now said by the registry. Each case
+ * restates one assertion `tests/editor-schema.test.ts`, `tests/editor-layout-structure.test.ts`
+ * or `tests/editor-filter.test.ts` made about a builder, against the page that draws its fields.
+ * The approved map above pins every placement already; these name the claims, so a change to
+ * one fails with the reason it was made.
+ */
+describe('the registry heads what the builders used to', () => {
+  /** A heading's field ids, by page and heading key. */
+  const under = (page: string, key: string): FieldId[] => {
+    const heading = PAGES.find((candidate) => candidate.id === page)?.headings.find(
+      (candidate) => candidate.key === key,
+    );
+    if (heading === undefined) throw new Error(`no heading ${key} on ${page}`);
+    return heading.fields.map(([id]) => id);
+  };
+
+  it('names the two weather positions after where the forecast appears', () => {
+    const date = under('weather', 'weather.date');
+    const event = under('weather', 'weather.event');
+    expect(date.length).toBeGreaterThan(1);
+    expect(event.length).toBeGreaterThan(1);
+    expect(date.every((id) => id.startsWith('weather:weather.date.'))).toBe(true);
+    expect(event.every((id) => id.startsWith('weather:weather.event.'))).toBe(true);
+    expect(EDITOR_STRINGS['weather.date']).toBeTypeOf('string');
+    expect(EDITOR_STRINGS['weather.event']).toBeTypeOf('string');
+  });
+
+  it('captions the day-header gap and its rule together, under one heading', () => {
+    const rule = ['day_header_gap', 'day_header_separator_width', 'day_header_separator_color'];
+    expect(under('day_header', 'heading_gap_and_rule')).toEqual(
+      ['column', 'time_grid'].flatMap((block) => rule.map((key) => `day_header:${block}.${key}`)),
+    );
+  });
+
+  it('splits the rules the grid draws by direction', () => {
+    expect(under('size_spacing', 'heading_between_days')).toEqual([
+      'layout:day_spacing',
+      'separators:day_spacing',
+      'separators:day_separator_width',
+      'separators:day_separator_color',
+      'separators:week_separator_width',
+      'separators:week_separator_color',
+      'separators:month_separator_width',
+      'separators:month_separator_color',
+    ]);
+    expect(under('size_spacing', 'heading_across_the_grid')).toEqual([
+      'separators:time_grid.hour_line_width',
+      'separators:time_grid.hour_line_color',
+      'separators:time_grid.allday_band_line_width',
+      'separators:time_grid.allday_band_line_color',
+    ]);
+  });
+
+  it("heads the Events page's opening runs, state before accent and the title kept together", () => {
+    const keys = PAGES.find((page) => page.id === 'events')!.headings.map((heading) => heading.key);
+    const at = (key: string) => keys.indexOf(key);
+    expect(at('heading_details')).toBe(0);
+    expect(at('heading_event_state')).toBeGreaterThan(at('heading_details'));
+    expect(at('heading_accent')).toBeGreaterThan(at('heading_event_state'));
+    expect(at('heading_title')).toBeGreaterThan(at('heading_accent'));
+    expect(at('heading_icon_and_badge')).toBeGreaterThan(at('heading_title'));
+    expect(under('events', 'heading_title')).toEqual([
+      'events:event_font_size',
+      'events:event_color',
+      'events:title_max_lines',
+      'events:scroll_long_titles',
+    ]);
+  });
+
+  it('keeps the background tint with the accent it is mixed from', () => {
+    expect(under('events', 'heading_accent')).toContain('events:event_background_opacity');
+    expect(under('events', 'heading_title')).not.toContain('events:event_background_opacity');
+  });
+
+  it("captions only the toolbar's switches with the toolbar heading", () => {
+    expect(under('card_header', 'heading_toolbar')).toEqual([
+      'card:toolbar.show',
+      'card:toolbar.legend',
+      'card:toolbar.add_event',
+      'card:toolbar.view_switcher',
+      'card:toolbar.reset',
+      'card:toolbar.refresh',
+      'card:toolbar.search',
+      'card:toolbar.navigation',
+    ]);
+  });
+
+  it('opens the Grid page on the time axis, titled through the block-qualified key', () => {
+    const grid = PAGES.find((page) => page.id === 'grid')!;
+    expect(grid.headings[0].key).toBe('time_grid.axis');
+    expect(EDITOR_STRINGS['time_grid.axis']).toBe('Time Axis');
+    expect(lookup('de', 'time_grid.axis')).toBe('Zeitachse');
+  });
+
+  it('draws past-event opacity beside the switch it fades for', () => {
+    expect(under('which_events', 'heading.past_events')).toEqual([
+      'content:show_past_events',
+      'events:past_event_opacity',
+    ]);
   });
 });
 

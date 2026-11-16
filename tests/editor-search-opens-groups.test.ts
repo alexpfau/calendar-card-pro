@@ -8,9 +8,10 @@
  * queries that once opened groups now list every field those groups held for them, and a page
  * opened from a row draws its field under a heading, which never closes.
  *
- * The fields a group held are found here independently of the search: every field inside a
- * collapsible whose own label or key holds the query. Customized Only still opens what it keeps,
- * until the switches retire.
+ * The groups have since become headings on pages (the builders emit no collapsible at all), so a
+ * heading's title, or a family's helper line, lists every field under it, as a group's title let
+ * all of the group through. The fields a query names are found here independently of the search:
+ * every field whose own label or key holds it.
  */
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -78,41 +79,24 @@ function filtered(ctx: FilterCtx): Leaf[] {
 }
 
 /**
- * The fields a collapsible group holds for a query, by id: each inside one whose own label or key
- * holds the query, read off the built schema rather than through the search.
+ * The fields a query names by their own words, by id: each whose label or key holds it, read off
+ * the built schema rather than through the search.
  *
  * @param workspace - The scope
  * @param query - The query
- * @param panels - The panels to read, every one when omitted
  * @returns The ids
  */
-function heldByGroups(
-  workspace: EditorWorkspace,
-  query: string,
-  panels: ReadonlyArray<string> = PANELS.map((panel) => panel.id),
-): string[] {
+function namedBy(workspace: EditorWorkspace, query: string): string[] {
   const ctx = ctxFor(workspace, {});
   const wanted = query.toLowerCase();
-  return PANELS.filter((panel) => panels.includes(panel.id)).flatMap((panel) =>
+  return PANELS.flatMap((panel) =>
     [...walkSchema(withholdInertFields(panel.build(ctx), workspace))].flatMap(
       ({ node, path, dataPath }) => {
-        if (!('selector' in node) || path.length === 0) return [];
+        if (!('selector' in node)) return [];
         const words = [node.name, computeLabel('en', node, path)].join(' ').toLowerCase();
         return words.includes(wanted) ? [fieldId(panel.id, dataPath, node.name)] : [];
       },
     ),
-  );
-}
-
-/** Every field a collapsible group of Day Header holds, by group name. */
-function dayHeaderGroup(name: string): string[] {
-  const ctx = ctxFor('list', {});
-  const panel = PANELS.find((candidate) => candidate.id === 'day_header')!;
-  const group = [...walkSchema(withholdInertFields(panel.build(ctx), 'list'))].find(
-    ({ node }) => isGroupSchema(node) && node.name === name,
-  )!;
-  return [...walkSchema([group.node], group.path, group.dataPath)].flatMap(({ node, dataPath }) =>
-    'selector' in node ? [fieldId('day_header', dataPath, node.name)] : [],
   );
 }
 
@@ -122,21 +106,29 @@ function index(workspace: EditorWorkspace) {
   });
 }
 
+const WEEKEND = [
+  'day_header:weekend_weekday_color',
+  'day_header:weekend_day_color',
+  'day_header:weekend_month_color',
+];
+
 describe.each(WORKSPACES)('a search in the %s workspace', (workspace) => {
   it.each(['color', 'font', 'opacity', 'weekend'])(
-    'lists every field a group once opened for "%s"',
+    'lists every field "%s" names, none behind a collapsible',
     (query) => {
-      const held = heldByGroups(workspace, query);
-      // The denominator: hits inside collapsibles exist, so "every one is listed" can fail.
-      expect(held.length).toBeGreaterThan(0);
+      const named = namedBy(workspace, query);
+      // The denominator: the query names something, so "every one is listed" can fail.
+      expect(named.length).toBeGreaterThan(0);
       const listed = hitIds(index(workspace), query);
-      expect(held.filter((id) => !listed.includes(id))).toEqual([]);
+      expect(named.filter((id) => !listed.includes(id))).toEqual([]);
+      // The builders emit no collapsible for a field to hide behind.
+      expect(filtered(ctxFor(workspace, {})).filter((leaf) => leaf.depth > 0)).toEqual([]);
     },
   );
 });
 
 describe('what a group once opened', () => {
-  it('opens the groups Customized Only keeps, as it opens their panels', () => {
+  it('leaves what Customized Only keeps in no collapsible', () => {
     const shown = filtered(
       ctxFor('shared', { customizedOnly: true }, {
         time_color: '#ff0000',
@@ -146,20 +138,30 @@ describe('what a group once opened', () => {
     expect(shown.find((leaf) => leaf.name === 'time_color')).toEqual({
       name: 'time_color',
       open: true,
-      depth: 1,
+      depth: 0,
     });
   });
 
-  it('is listed whole for a query naming the group itself', () => {
-    const group = dayHeaderGroup('weekend_colors');
-    expect(group.length).toBeGreaterThan(1);
-    expect(group.filter((id) => !hitIds(index('list'), 'weekend colors').includes(id))).toEqual([]);
+  it('is listed whole for a query naming its heading, and none of its fields', () => {
+    expect(namedBy('list', 'weekend colors')).toEqual([]);
+    expect(WEEKEND.filter((id) => !hitIds(index('list'), 'weekend colors').includes(id))).toEqual(
+      [],
+    );
   });
 
-  it('lists only the groups that hold a match', () => {
+  // The family's helper line, as the collapsible's helper was: words from no field under it.
+  it.each([
+    ['country set in home assistant', 'list', 'day_header:weekend_day_color'],
+    ['compact dashboard slot', 'list', 'content:compact_days_to_show'],
+    ['when it runs out', 'grid', 'layout:time_grid.min_day_width'],
+  ] as const)('lists the fields a family helper names, for "%s"', (query, scope, id) => {
+    expect(hitIds(index(scope), query)).toContain(id);
+  });
+
+  it('lists only the headings that hold a match', () => {
     const listed = hitIds(index('list'), 'opacity');
     expect(listed).toContain('day_header:past_date_opacity');
-    expect(listed.filter((id) => dayHeaderGroup('weekend_colors').includes(id))).toEqual([]);
+    expect(listed.filter((id) => WEEKEND.includes(id))).toEqual([]);
   });
 
   it('lists nothing when nothing was typed', () => {

@@ -5,8 +5,8 @@
  *
  * A field is found by its label, helper, aliases (`localize.ts` › `computeAliases`, #834's: there
  * is no second alias table), key and option text, and by the words that brought it on screen
- * before results were rows: its page's title, its panel's title and the line under it, the title
- * of a group around it, a calendar's names for its fields and the calendar picker, a button's
+ * before results were rows: its page's title, its heading's title and the line under it (a
+ * family's, for a family), a calendar's names for its fields and the calendar picker, a button's
  * name, icon and entity for its fields. Under Customized Only a title finds nothing by itself.
  * Case and surrounding space are ignored; folding, ranking and tags come with the full search.
  *
@@ -18,7 +18,7 @@ import * as Entities from './entities';
 import { type FieldId, type IndexedField, builtSchema, fieldId } from './field-index';
 import { type HaFormSchema, isGroupSchema } from './ha-form';
 import * as EditorLocalize from './localize';
-import { ENTRY_GROUPS, OVERVIEW_FIELDS, PAGES, type PageId, placementOf } from './pages';
+import { ENTRY_GROUPS, FAMILIES, OVERVIEW_FIELDS, PAGES, type PageId, placementOf } from './pages';
 import { PANELS, type SchemaCtx } from './panels';
 import * as Routing from './routing';
 import { ENTITY_PATH } from './schemas/calendars';
@@ -117,16 +117,6 @@ function nodeTexts(
     [EditorLocalize.qualifiedKey(node.name, dataPath), 'key'],
   ];
 
-  // A group's own words are its title and the line under it; a field's `titleKey` resolves
-  // through `computeLabel` below like any other.
-  if ('type' in node && node.type === 'expandable' && node.titleKey !== undefined) {
-    text.push(
-      [node.title, 'heading'],
-      [EditorLocalize.lookup(language, `${node.titleKey}.helper`), 'helper'],
-    );
-    return text;
-  }
-
   // A derived control writes keys it is not named after (`time_format` writes `time_24h`).
   for (const written of entity ? entityConfigKeys(node.name) : configKeysForField(node.name)) {
     text.push([written, 'key'], [EditorLocalize.qualifiedKey(written, dataPath), 'key']);
@@ -169,15 +159,13 @@ interface Leaf {
 }
 
 /**
- * Walks a schema to its fields, each carrying its own text and, outside Customized Only, the
- * text of every group around it, as a group's title once let all of it through.
+ * Walks a schema to its fields, each with its own text.
  *
  * @param schema - The schema
  * @param ctx - The index's context
  * @param owner - Whose fields: the card's, a calendar entry's or a toolbar button's
  * @param path - Enclosing group names
  * @param dataPath - Enclosing configuration keys
- * @param around - The enclosing groups' text
  * @returns The fields
  */
 function leaves(
@@ -186,26 +174,21 @@ function leaves(
   owner: 'card' | 'entry' | 'button',
   path: ReadonlyArray<string>,
   dataPath: ReadonlyArray<string>,
-  around: Texts = [],
 ): Leaf[] {
-  const entity = owner === 'entry';
   return schema.flatMap((node): Leaf[] => {
     if (isGroupSchema(node)) {
-      const own = ctx.customizedOnly ? [] : nodeTexts(node, path, ctx, dataPath, entity);
-      const heading = own.map(([text]) => [text, 'heading'] as const);
       return leaves(
         node.schema,
         ctx,
         owner,
         node.type === 'expandable' && node.name !== '' ? [...path, node.name] : path,
         node.name !== '' && node.flatten !== true ? [...dataPath, node.name] : dataPath,
-        [...around, ...heading],
       );
     }
     if (!('selector' in node)) return [];
     // A calendar's and a button's fields were matched by their label path as their data path.
-    const own = nodeTexts(node, path, ctx, owner === 'card' ? dataPath : path, entity);
-    return [{ node, path, dataPath, text: [...own, ...around] }];
+    const text = nodeTexts(node, path, ctx, owner === 'card' ? dataPath : path, owner === 'entry');
+    return [{ node, path, dataPath, text }];
   });
 }
 
@@ -285,7 +268,7 @@ function at(data: unknown, path: ReadonlyArray<string>): unknown {
 
 /**
  * The card fields' rows, by id: each field the switches keep and the registry places, found by
- * its own text, its panel's title and helper, and its page's title.
+ * its own text, its page's title, and its heading's title and the line under it.
  *
  * @param ctx - The index's context
  * @returns Rows by id
@@ -293,36 +276,33 @@ function at(data: unknown, path: ReadonlyArray<string>): unknown {
 function cardRows(ctx: SearchCtx): Map<FieldId, SearchEntry> {
   const rows = new Map<FieldId, SearchEntry>();
   const scope = ctx.workspace ?? ctx.view;
-  const titles = (page: PageId | 'overview'): Texts => {
-    const def = PAGES.find((each) => each.id === page);
-    return ctx.customizedOnly || def === undefined
-      ? []
-      : [
-          [def.id, 'heading'],
-          [ctx.t(def.titleKey), 'heading'],
-        ];
-  };
   for (const panel of PANELS) {
-    const panelText: Texts = ctx.customizedOnly
-      ? []
-      : [
-          [panel.id, 'heading'],
-          [EditorLocalize.lookupForView(ctx.language, panel.titleKey, scope), 'heading'],
-          [EditorLocalize.lookupForView(ctx.language, panel.titleKey, scope, '.helper'), 'heading'],
-        ];
     for (const leaf of leaves(builtSchema(panel, ctx), ctx, 'card', [], [])) {
       const id = fieldId(panel.id, leaf.dataPath, leaf.node.name);
       const place = placementOf(id);
       const field = ctx.present.get(id);
       if (!place || !field || !ctx.shown.has(id) || rows.has(id)) continue;
-      const text: Texts = [...leaf.text, ...panelText, ...titles(place.page as PageId)];
+      const page = PAGES.find((each) => each.id === place.page);
+      const heading = page?.headings[place.heading];
+      const headingKey = heading?.keyByView?.[ctx.view] ?? heading?.key;
+      // A family's helper line is the family's, not the heading's (`pages.ts` › `FAMILIES`).
+      const helperKey =
+        heading?.helperKey ??
+        Object.values(FAMILIES).find((family) => family.titleKey === heading?.key)?.helperKey;
+      const text: Texts = [...leaf.text];
+      if (page && !ctx.customizedOnly) {
+        text.push(
+          [page.id, 'heading'],
+          [ctx.t(page.titleKey), 'heading'],
+          [heading?.key, 'heading'],
+          [headingKey && ctx.t(headingKey), 'heading'],
+          [helperKey && ctx.t(helperKey), 'heading'],
+        );
+      }
       // The picker lists the calendars, so a search for one keeps it beside their rows.
       if (configKeysForField(leaf.node.name).includes('entities') && leaf.dataPath.length === 0) {
         for (const entry of ctx.config.entities ?? []) text.push(...calendarTexts(entry, ctx));
       }
-      const page = PAGES.find((each) => each.id === place.page);
-      const heading = page?.headings[place.heading];
-      const headingKey = heading?.keyByView?.[ctx.view] ?? heading?.key;
       const written = keyOf(leaf.node.name, field.configKeys);
       const block = leaf.dataPath.length === 0 ? Routing.destination(written, scope) : undefined;
       rows.set(id, {

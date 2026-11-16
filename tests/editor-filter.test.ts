@@ -142,11 +142,11 @@ function calendarHits(
   );
 }
 
-/** One field of one panel, found by name, with the label path it sits under. */
+/** One field of one panel, found by name, with the label and data paths it sits under. */
 function fieldOf(
   config: Types.Config,
   name: string,
-): { node: HaFormSchema; path: ReadonlyArray<string> } {
+): { node: HaFormSchema; path: ReadonlyArray<string>; dataPath: ReadonlyArray<string> } {
   for (const panel of PANELS) {
     const built = panel.build({
       view: config.view === 'column' ? 'column' : 'list',
@@ -224,8 +224,8 @@ describe('editor filter: what search matches', () => {
   });
 });
 
-describe('editor filter: groups and panels a query names', () => {
-  it('lists a group whole when its own heading matches', () => {
+describe('editor filter: headings and pages a query names', () => {
+  it('lists a heading whole when its own title matches', () => {
     const config = columnConfig();
     const layout = PANELS.find((panel) => panel.id === 'layout')!;
     const built = layout.build({ view: 'column', config, language: 'en' });
@@ -241,28 +241,16 @@ describe('editor filter: groups and panels a query names', () => {
     expect(panelHits(columnConfig(), 'layout', 'min_day_width')).toEqual(['min_day_width']);
   });
 
-  it('lists a panel whole when its own heading matches', () => {
-    const config = columnConfig();
-    const every = searchIndex(config, { workspace: 'column' }).flatMap(({ target }) =>
-      target.id.startsWith('layout:') ? [target.id.split(/[:.]/).pop()!] : [],
-    );
-
-    // A word from the panel's own subheading and from no field in it: without the panel-level
-    // rule its fields would go unlisted while its heading was the thing that answered the query.
-    expect(every.length).toBeGreaterThan(0);
-    expect(panelHits(config, 'layout', 'arranges')).toEqual(every);
-  });
-
-  it('does not list a group or a panel whole under "customized only", however it reads', () => {
+  it('does not list a heading or a page whole under "customized only", however it reads', () => {
     // One density option is the card's own, so Customized Only shows it…
     const config = columnConfig({ column: { min_day_width: 200 } as Types.ColumnOverrides });
     expect(panelHits(config, 'layout', 'min_day_width', true)).toEqual(['min_day_width']);
 
-    // …and neither its group's heading nor its panel's lists it, though both list it without.
+    // …and neither its heading nor its page lists it, though both list it without.
     expect(panelHits(config, 'layout', 'Column Density')).toContain('min_day_width');
-    expect(panelHits(config, 'layout', 'arranges')).toContain('min_day_width');
+    expect(panelHits(config, 'layout', 'Size & Spacing')).toContain('min_day_width');
     expect(panelHits(config, 'layout', 'Column Density', true)).toEqual([]);
-    expect(panelHits(config, 'layout', 'arranges', true)).toEqual([]);
+    expect(panelHits(config, 'layout', 'Size & Spacing', true)).toEqual([]);
   });
 });
 
@@ -301,7 +289,7 @@ describe('editor filter: what counts as customized', () => {
    */
   it('counts a value the column block holds as its own, even at the default', () => {
     const config = columnConfig();
-    const { node, path } = fieldOf(config, 'min_day_width');
+    const { node, dataPath: path } = fieldOf(config, 'min_day_width');
 
     expect(path).toEqual(['column']);
 
@@ -324,7 +312,7 @@ describe('editor filter: what counts as customized', () => {
    */
   it('handles an override whose default is another option', () => {
     const config = columnConfig({ days_to_show: 5, column: { min_days_to_show: 5 } });
-    const { node, path } = fieldOf(config, 'min_days_to_show');
+    const { node, dataPath: path } = fieldOf(config, 'min_days_to_show');
 
     expect(isCustomized(node, path, ctxFor(config, { customizedOnly: true }))).toBe(true);
     expect(stripColumnDefaults(config)).toBeUndefined();
@@ -855,26 +843,24 @@ describe('editor filter: section headings', () => {
     expect(headingNames(filtered)).toEqual(['heading_appearance']);
   });
 
-  it("captions only the toolbar's switches with the Card & Header panel's toolbar heading", () => {
-    // The heading closes the panel, so a filter keeping only the card's own options must not
-    // leave it standing over nothing, and one keeping a toolbar switch must keep it.
-    const kept = (config: Types.Config) =>
-      filterSchema(
-        PANELS.find((entry) => entry.id === 'card')!.build({
-          view: config.view,
-          config,
-          language: 'en',
-        }),
-        customized(config),
-      );
+  it("finds the toolbar's switches by the word, and the background apart from them", () => {
+    // Which heading captions them is the registry's (`tests/editor-page-registry.test.ts`).
+    const config = buildConfig({ toolbar: { show: true } });
 
-    const background = kept(buildConfig({ background_color: '#123456' }));
-    expect(fieldNames(background)).toEqual(['background_color']);
-    expect(headingNames(background)).toEqual([]);
+    expect(panelHits(config, 'card', 'background')).toEqual(['background_color']);
 
-    const toolbar = kept(buildConfig({ toolbar: { show: true } }));
-    expect(fieldNames(toolbar)).toEqual(['show']);
-    expect(headingNames(toolbar)).toEqual(['heading_toolbar']);
+    // The title says what it becomes while the toolbar is shown, so the search finds it too.
+    expect(panelHits(config, 'card', 'toolbar')).toEqual([
+      'title',
+      'show',
+      'legend',
+      'add_event',
+      'view_switcher',
+      'reset',
+      'refresh',
+      'search',
+      'navigation',
+    ]);
   });
 
   it('does not count a heading as a field when deciding a panel is empty', () => {
@@ -891,12 +877,13 @@ describe('editor filter: section headings', () => {
 });
 
 /**
- * The field and heading order of the two panels, pinned.
+ * The field and heading order of the two panels, pinned: the per-calendar panel as its builder
+ * draws it, the card-level one as its builder orders its fields and as the page registry heads
+ * them.
  *
- * Order was incidental until this change and nothing asserted it: reordering both panels
- * passed the entire suite. It is now *designed* — the two panels share a spine, which
- * users see and which the source comments explain — so it needs a gate, or the next
- * refactor silently undoes the thing the reorder was for.
+ * Order was incidental once and nothing asserted it: reordering both panels passed the entire
+ * suite. It is *designed* — the two share a spine, which users see — so it needs a gate, or
+ * the next refactor silently undoes the thing the reorder was for.
  *
  * Pinned by value, in full, rather than by walking. A test that iterates the schema and
  * checks something about each node cannot notice a node leaving, and cannot see order at
@@ -963,26 +950,18 @@ describe('editor: the order of the two panels', () => {
   });
 
   it('pins the card-level content panel', () => {
-    // The whole panel, not a group inside it: the six options that used to sit in a
-    // collapsed group captioned "What The Card Shows" are now panel-level runs, so there
-    // is no group left to slice and the promotion is exactly what this has to pin. The
-    // two remaining groups are flattened into the tail by `sequence`, which is why the
-    // compact and locale fields appear here without their captions.
+    // Its builder emits fields alone; the headings over them are the registry's.
     expect(sequence(contentSchema())).toEqual([
-      '# heading_time_range',
       'days_to_show',
       'start_date_mode',
       'first_day_of_week',
       'event_order',
-      '# heading_filters',
       'event_type',
       'show_past_events',
       'filter_duplicates_mode',
       'skip_first_events',
-      '# heading_multiday',
       'split_multiday_events',
       'multiday_banners',
-      '# heading_nothing',
       'show_empty_days',
       // No `show_empty_today`: with every empty day already showing it has nothing to add,
       // so the switch is withheld (see the empty-day tests in editor-schema.test.ts).
@@ -1010,20 +989,22 @@ describe('editor: the order of the two panels', () => {
         .filter(({ node }) => 'type' in node && node.type === 'constant')
         .map(({ node }) => node.name);
 
+    // The card's categories are the headings of the page drawing its content options.
+    const whichEvents = PAGES.find((page) => page.id === 'which_events')!;
     const entity = headingsOf(entitySchema());
-    const content = headingsOf(contentSchema());
+    const content = whichEvents.headings.flatMap((heading) => heading.key ?? []);
     const shared = entity.filter((name) => content.includes(name));
 
     // The denominator. With no shared categories the agreement below is vacuous, and it
     // would go vacuous silently if a heading were renamed on one side only.
-    expect(shared).toEqual(['heading_filters', 'heading_multiday']);
+    expect(shared).toEqual(['heading_multiday']);
 
     expect(content.filter((name) => shared.includes(name))).toEqual(shared);
 
     /**
-     * The options a panel lists under one heading, in render order.
+     * The options a calendar's panel lists under one heading, in render order.
      *
-     * @param schema - Panel or group schema
+     * @param schema - Panel schema
      * @param name - Heading key to read under
      * @returns The option names between that heading and the next one
      */
@@ -1035,11 +1016,21 @@ describe('editor: the order of the two panels', () => {
 
       return (until === -1 ? rest : rest.slice(0, until)).filter(Boolean);
     };
+    const cardUnder = (key: string | undefined) =>
+      (whichEvents.headings.find((heading) => heading.key === key)?.fields ?? []).map(([id]) =>
+        id.slice(id.indexOf(':') + 1),
+      );
 
-    // What the two panels put under `heading_filters`, pinned by value so a key joining or
-    // leaving either side is a deliberate edit rather than a silently smaller comparison.
+    // Both sides of the shared category, pinned by value.
+    expect(optionsUnder(entitySchema(), 'heading_multiday')).toEqual([
+      'split_multiday_events',
+      'multiday_banners',
+    ]);
+    expect(cardUnder('heading_multiday')).toEqual(['split_multiday_events', 'multiday_banners']);
+
+    // The calendar's filters, and the card's filters in the page's unheaded opening run.
     const entityFilters = optionsUnder(entitySchema(), 'heading_filters');
-    const contentFilters = optionsUnder(contentSchema(), 'heading_filters');
+    const contentFilters = cardUnder(undefined);
 
     expect(entityFilters).toEqual([
       'days_of_week',
@@ -1052,24 +1043,17 @@ describe('editor: the order of the two panels', () => {
     ]);
     expect(contentFilters).toEqual([
       'event_type',
-      'show_past_events',
       'filter_duplicates_mode',
+      'duplicate_accent_color',
+      'event_order',
       'skip_first_events',
     ]);
 
     /**
-     * The invariant, stated over the options the two panels actually share.
-     *
-     * This replaces a "both panels start `heading_filters` with the same key" assertion,
-     * which was a **proxy** that held only while `event_type` was the sole shared option
-     * and every other key sat after it. The per-calendar panel now opens with
-     * `days_of_week`, which is per-calendar only — there is no card-level counterpart to
-     * disagree with — so the proxy went false without anything being wrong. Relative order
-     * over the intersection is the property that was actually meant.
-     *
-     * At one shared option this is trivially satisfied, which is why the set is pinned
-     * above: the assertion becomes real the moment a second key is shared, and cannot go
-     * quietly vacuous by one panel dropping a key in the meantime.
+     * The invariant, stated over the options the two share: relative order over the
+     * intersection. At one shared option this is trivially satisfied, which is why the set is
+     * pinned: the assertion becomes real the moment a second key is shared, and cannot go
+     * quietly vacuous by one side dropping a key in the meantime.
      */
     const sharedFilters = entityFilters.filter((name) => contentFilters.includes(name));
 
