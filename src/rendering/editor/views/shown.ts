@@ -5,11 +5,12 @@
  * preferences. Templates only, as `overview.ts`.
  */
 
-import { mdiClose, mdiPlus, mdiRestore } from '@mdi/js';
+import { mdiChevronDown, mdiChevronUp, mdiClose, mdiPlus, mdiRestore } from '@mdi/js';
 import { type TemplateResult, html, nothing } from 'lit';
 
 import { icon } from './icon';
 import type { Translate } from './overview';
+import type { NamesParts } from '../shown';
 import { interpolate } from '../strings';
 
 /** A button of the editor's own, in a field's line or a heading's. */
@@ -107,8 +108,11 @@ export interface AddRow {
   readonly heading: string;
   /** Whether nothing under the heading is live, so the row carries the heading's name. */
   readonly named: boolean;
-  /** The settings' names as the closed row shows them. */
-  readonly names: string;
+  /**
+   * The settings' names as the closed row shows them, and the "+N" for those that did not fit,
+   * which is drawn outside the names' two-line clamp so a long name cannot hide it.
+   */
+  readonly names: NamesParts;
   readonly items: ReadonlyArray<AddItem>;
   readonly open: boolean;
   readonly query: string;
@@ -121,9 +125,9 @@ export interface AddRow {
 const FILTER_PAST = 7;
 
 /**
- * A heading's Add row: closed, "Add Setting" with the names it holds and their count; open, a
- * group of one button per setting, Show All first where there are two or more, and a box to
- * narrow them where there are many.
+ * A heading's Add row: closed, a primary "+", "Add Setting" with the names it holds and their
+ * count, and a chevron saying it opens; open, a group of one button per setting, Show All first
+ * where there are two or more, and a box to narrow them where there are many.
  *
  * @param row - What it shows
  * @param t - The editor's strings
@@ -144,7 +148,7 @@ export function addRow(row: AddRow, t: Translate): TemplateResult {
       aria-label=${interpolate(t('add.name'), { heading: row.heading, count })}
       @click=${row.onToggle}
     >
-      ${icon(mdiPlus)}
+      ${icon(mdiPlus, 'add-plus')}
       <span class="add-text">
         <span class="add-title"
           >${
@@ -153,9 +157,14 @@ export function addRow(row: AddRow, t: Translate): TemplateResult {
               : t('add.setting')
           }</span
         >
-        <span class="add-names">${row.names}</span>
+        <span class="add-names"
+          ><span class="add-names-list">${row.names.names}</span>${
+            row.names.more ? html`<span class="add-more">${row.names.more}</span>` : nothing
+          }</span
+        >
       </span>
       <span class="add-count">${counted}</span>
+      ${icon(row.open ? mdiChevronUp : mdiChevronDown, 'nav-chevron')}
     </button>
     ${
       row.open

@@ -5,7 +5,7 @@
  * templates live outside `element.ts`).
  */
 
-import { mdiChevronRight, mdiClose, mdiCreation } from '@mdi/js';
+import { mdiChevronRight, mdiClose, mdiCreation, mdiLayersOutline } from '@mdi/js';
 import { type TemplateResult, html, nothing } from 'lit';
 
 import { icon } from './icon';
@@ -69,7 +69,11 @@ export function scopeControl(
   const name = current?.label ?? '';
   if (model.compact) {
     return html`<div class="scope scope-compact">
-      <span class="scope-line">${withBold(t('settings_for.compact'), name)}</span>
+      <span class="scope-lead"
+        >${icon(mdiLayersOutline)}<span class="scope-line"
+          >${withBold(t('settings_for.compact'), name)}</span
+        ></span
+      >
       <button
         type="button"
         class="text-button"

@@ -149,9 +149,39 @@ export function resetLabel(
   return worded === '' ? t('reset.clear') : interpolate(t('reset.to'), { value: worded });
 }
 
+/** Names as an Add row draws them: the names, and what follows them where more did not fit. */
+export interface NamesParts {
+  /** The first names, with whatever the template puts before them. */
+  readonly names: string;
+  /** What the template puts after them, ", +3"; empty where every name fit. */
+  readonly more: string;
+}
+
 /**
- * Names joined for an Add row or the other-layouts line: the first `fit`, then "{names}, +{count}"
- * where more did not fit.
+ * Names joined for an Add row: the first `fit`, then "{names}, +{count}" where more did not fit,
+ * split at the end of the names so the row can keep the count visible however the names wrap.
+ *
+ * @param names - Every name, in order
+ * @param t - The editor's strings
+ * @param fit - How many fit
+ * @returns The names and what follows them
+ */
+export function namesParts(names: ReadonlyArray<string>, t: Translate, fit = 4): NamesParts {
+  const shown = names.slice(0, fit).join(' · ');
+  if (names.length <= fit) return { names: shown, more: '' };
+  const marker = '\u0000';
+  const whole = interpolate(t('add.names_more'), {
+    names: marker,
+    count: String(names.length - fit),
+  });
+  const at = whole.indexOf(marker);
+  if (at < 0) return { names: whole, more: '' };
+  return { names: whole.slice(0, at) + shown, more: whole.slice(at + marker.length) };
+}
+
+/**
+ * Names joined for the other-layouts line: the first `fit`, then "{names}, +{count}" where more
+ * did not fit.
  *
  * @param names - Every name, in order
  * @param t - The editor's strings
@@ -159,10 +189,8 @@ export function resetLabel(
  * @returns The names
  */
 export function namesText(names: ReadonlyArray<string>, t: Translate, fit = 4): string {
-  const shown = names.slice(0, fit).join(' · ');
-  return names.length <= fit
-    ? shown
-    : interpolate(t('add.names_more'), { names: shown, count: String(names.length - fit) });
+  const parts = namesParts(names, t, fit);
+  return parts.names + parts.more;
 }
 
 /**

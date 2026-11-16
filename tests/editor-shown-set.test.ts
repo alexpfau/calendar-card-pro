@@ -168,9 +168,32 @@ describe('what a page shows of a fresh card', () => {
     expect(row.querySelector('.add-names')!.textContent).toBe(
       `${names.slice(0, 4).join(' · ')}, +3`,
     );
+    // The count stands outside the two-line clamp, which a long name on a phone would cut.
+    expect(row.querySelector('.add-names-list')!.textContent).toBe(names.slice(0, 4).join(' · '));
+    expect(row.querySelector('.add-more')!.textContent).toBe(', +3');
     expect(row.querySelector('.add-count')!.textContent).toBe('Settings: 7');
     expect(row.getAttribute('aria-label')).toBe('Add Setting under Time, Settings: 7');
     expect(row.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it("names a family's members in its closed Add row, and the family in the open one", async () => {
+    const editor = await mount();
+    await goPage(editor, 'day_header');
+    const group = $(editor, '.page-group[data-heading="past_days"]')!;
+    const members = [
+      'day_header:past_date_opacity',
+      'day_header:past_date_scale',
+      'day_header:past_date_font_weight',
+    ].map((id) => fieldLabel(EVERY.get(id as FieldId)!, 'en'));
+    // The heading is "Past Days", so naming the family there would only say it twice.
+    expect(group.querySelector('.add-names')!.textContent).toBe(members.join(' · '));
+    expect(group.querySelector('.add-count')!.textContent).toBe('Settings: 1');
+    (group.querySelector('.add-toggle') as HTMLButtonElement).click();
+    await editor.updateComplete;
+    const items = [...group.querySelectorAll('.add-item .add-item-label')].map(
+      (each) => each.textContent,
+    );
+    expect(items).toEqual(['Past Days']);
   });
 
   it('names an Add row with its heading only where the row stands in for it', async () => {

@@ -568,9 +568,13 @@ const APPROVED_MAP: ReadonlyArray<
       'actions:open_links A SLC',
       'actions:allow_event_edit E',
       'actions:allow_event_delete E',
-      'actions:refresh_interval A',
-      'actions:refresh_on_navigate A',
     ],
+  ],
+  [
+    'Taps & Refresh',
+    'Refresh',
+    '',
+    ['actions:refresh_interval A', 'actions:refresh_on_navigate A'],
   ],
   [
     'Calendar Entry',

@@ -406,6 +406,32 @@ export default css`
     cursor: default;
   }
 
+  /* An icon beside a button's label takes the label's color, disabled and destructive included,
+     rather than the theme's icon color. */
+  .with-icon,
+  .strip-button,
+  .scope-lead {
+    --mdc-icon-size: 18px;
+  }
+
+  .with-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .with-icon .icon,
+  .strip-button .icon {
+    fill: currentcolor;
+  }
+
+  .scope-lead {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
   /* --- Overview and pages ---------------------------------------------------
      Drawn by the editor itself from Home Assistant's theme variables. Every target is at least
      44px tall, nothing is sticky, and labels wrap rather than truncate. */
@@ -966,11 +992,29 @@ export default css`
     line-height: 1.45;
   }
 
+  /* The names wrap to two lines at most; "+N" stands outside the clamp, so a long name is cut
+     rather than the count of the names that did not fit. */
   .add-names {
+    display: flex;
+    align-items: flex-end;
+    min-width: 0;
+  }
+
+  .add-names-list {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+    min-width: 0;
     overflow: hidden;
+  }
+
+  .add-more {
+    flex: none;
+    white-space: nowrap;
+  }
+
+  .add-toggle .add-plus {
+    fill: var(--primary-color);
   }
 
   .add-list {
@@ -1386,8 +1430,8 @@ export default css`
 
   .strip-button {
     display: inline-flex;
-    flex-direction: column;
-    justify-content: center;
+    align-items: center;
+    gap: 8px;
     min-height: 44px;
     padding: 4px 12px;
     border: none;
@@ -1407,6 +1451,11 @@ export default css`
   .strip-button:disabled {
     color: var(--disabled-text-color, #bdbdbd);
     cursor: default;
+  }
+
+  .strip-text {
+    display: flex;
+    flex-direction: column;
   }
 
   .strip-keys,
@@ -1474,6 +1523,18 @@ export default css`
 
   .add-calendar-button {
     align-self: flex-start;
+  }
+
+  /* Add Calendar is the list's one primary action, so it is a tonal pill rather than a link. */
+  .text-button.add-calendar-button {
+    padding: 0 16px 0 12px;
+    border-radius: 22px;
+    background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.14);
+    font-weight: 500;
+  }
+
+  .text-button.add-calendar-button:hover {
+    background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.22);
   }
 
   .entry-notice {

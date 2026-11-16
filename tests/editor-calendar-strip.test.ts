@@ -290,6 +290,12 @@ describe('the strip', () => {
     // Remove is the one that takes something away: last, and in Home Assistant's
     // destructive color. No confirmation; the line it leaves carries Undo.
     expect(strip.lastElementChild!.classList.contains('destructive')).toBe(true);
+    // Each action carries an icon of its own beside its label, hidden from assistive technology.
+    const icons = [...strip.querySelectorAll('.strip-button')].map((each) =>
+      each.querySelector(':scope > svg[aria-hidden="true"] path')?.getAttribute('d'),
+    );
+    expect(icons.every((path) => path !== undefined && path !== null && path !== '')).toBe(true);
+    expect(new Set(icons).size).toBe(icons.length);
   });
 
   it('draws Remove in the destructive color, in the stylesheet', () => {
