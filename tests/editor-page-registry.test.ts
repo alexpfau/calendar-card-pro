@@ -324,7 +324,7 @@ const APPROVED_MAP: ReadonlyArray<
     ],
   ],
   [
-    'Events',
+    'Event Appearance',
     'Event Details',
     '',
     [
@@ -340,9 +340,9 @@ const APPROVED_MAP: ReadonlyArray<
       'events:time_position A SLC',
     ],
   ],
-  ['Events', 'Event State', '', ['events:now_color A']],
+  ['Event Appearance', 'Event State', '', ['events:now_color A']],
   [
-    'Events',
+    'Event Appearance',
     'Accent',
     '',
     [
@@ -354,7 +354,7 @@ const APPROVED_MAP: ReadonlyArray<
     ],
   ],
   [
-    'Events',
+    'Event Appearance',
     'Title',
     '',
     [
@@ -365,7 +365,7 @@ const APPROVED_MAP: ReadonlyArray<
     ],
   ],
   [
-    'Events',
+    'Event Appearance',
     'Icon & Badge',
     '',
     [
@@ -377,7 +377,7 @@ const APPROVED_MAP: ReadonlyArray<
     ],
   ],
   [
-    'Events',
+    'Event Appearance',
     'Time',
     '',
     [
@@ -391,7 +391,7 @@ const APPROVED_MAP: ReadonlyArray<
     ],
   ],
   [
-    'Events',
+    'Event Appearance',
     'Location',
     '',
     [
@@ -405,7 +405,7 @@ const APPROVED_MAP: ReadonlyArray<
     ],
   ],
   [
-    'Events',
+    'Event Appearance',
     'Description',
     '',
     [
@@ -417,7 +417,7 @@ const APPROVED_MAP: ReadonlyArray<
     ],
   ],
   [
-    'Events',
+    'Event Appearance',
     'Countdown & Progress',
     '',
     [
@@ -581,6 +581,8 @@ const APPROVED_MAP: ReadonlyArray<
     'Name & Look',
     '',
     [
+      'calendar:accent_color_mode E',
+      'calendar:accent_color W',
       'calendar:name E',
       'calendar:show_in_legend A',
       'calendar:label_type E',
@@ -589,8 +591,6 @@ const APPROVED_MAP: ReadonlyArray<
       'calendar:label W',
       'calendar:label_icon_color A',
       'calendar:color A',
-      'calendar:accent_color_mode E',
-      'calendar:accent_color W',
       'calendar:text_scale A',
     ],
   ],

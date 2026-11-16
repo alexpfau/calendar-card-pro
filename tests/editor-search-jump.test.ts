@@ -47,8 +47,8 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
-async function mount(): Promise<MountedEditor> {
-  return mountEditor(CARD, { hass: fakeHass({ states: STATES }) });
+async function mount(yaml = false): Promise<MountedEditor> {
+  return mountEditor(CARD, { hass: fakeHass({ states: STATES }), yaml });
 }
 
 function $(editor: MountedEditor, selector: string): HTMLElement | null {
@@ -100,8 +100,8 @@ describe('the results', () => {
     );
   });
 
-  it('give every row a breadcrumb, a value and a YAML path', async () => {
-    const editor = await mount();
+  it('give every row a breadcrumb, a value and, with Show YAML Option Names on, a YAML path', async () => {
+    const editor = await mount(true);
     let checked = 0;
     for (const query of ['time', 'color', 'lights', 'exclude', 'ben']) {
       await searchFor(editor, query);
@@ -131,13 +131,13 @@ describe('the results', () => {
     [
       'show_location',
       'events:show_location',
-      'Events › Event Details',
+      'Event Appearance › Event Details',
       'On · YAML: list.show_location',
     ],
     [
       '12h',
       'content:time_format',
-      'Events › Event Details',
+      'Event Appearance › Event Details',
       'Follow Home Assistant · Whole Card · YAML: time_24h',
     ],
     ['days', 'content:days_to_show', 'Overview', '3 · YAML: list.days_to_show'],
@@ -154,7 +154,7 @@ describe('the results', () => {
       'mdi:lightbulb · YAML: toolbar.buttons[0].icon',
     ],
   ])('for "%s" show %s where it is, with its value', async (query, id, crumbs, meta) => {
-    const editor = await mount();
+    const editor = await mount(true);
     await searchFor(editor, query);
     expect(row(editor, id)).toMatchObject({ crumbs, meta });
   });
@@ -168,7 +168,7 @@ describe('the results', () => {
           { entity: 'calendar.ben', visibility: [{ condition: 'user', users: ['u1'] }] },
         ],
       },
-      { hass: fakeHass({ states: STATES }) },
+      { hass: fakeHass({ states: STATES }), yaml: true },
     );
     await searchFor(editor, 'kids');
     await openResultGroup(editor, 'calendar:label');
@@ -190,7 +190,7 @@ describe('the results', () => {
   });
 
   it('give each calendar its own rows, under its name, with its own value', async () => {
-    const editor = await mount();
+    const editor = await mount(true);
     await searchFor(editor, 'exclude');
     // One field of two calendars is one result until it is opened.
     expect(
@@ -371,5 +371,113 @@ describe('Return to Results', () => {
     expect(resultRows(editor).map(({ id, expanded }) => [id, expanded])).toEqual([
       ['calendar:blocklist', false],
     ]);
+  });
+});
+
+describe('Search Settings in a page header', () => {
+  /** Waits out the frames the editor looks for the search box in. */
+  async function frames(editor: MountedEditor, count = 3): Promise<void> {
+    for (let at = 0; at < count; at++) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      await editor.updateComplete;
+    }
+  }
+
+  /** Presses a page header's 🔍, Home Assistant drawing the search box a frame later. */
+  async function searchFromHeader(editor: MountedEditor): Promise<HTMLInputElement> {
+    $(editor, '.page-head [data-focus="search-open"]')!.click();
+    await editor.updateComplete;
+    // Home Assistant draws its box inside the form late; the editor waits for it.
+    const box = document.createElement('input');
+    $(editor, 'ha-form.filter-form')!.appendChild(box);
+    await frames(editor);
+    return box;
+  }
+
+  it('comes first among the header’s actions, on a section page, a calendar’s and the audit', async () => {
+    const editor = await mount();
+    const actions = (): string[] =>
+      [...editor.shadowRoot!.querySelectorAll<HTMLElement>('.page-head button')]
+        .map((button) => button.dataset.focus ?? '')
+        .filter((key) => key !== 'back-top');
+    for (const open of [
+      '[data-focus="nav:events"]',
+      '[data-focus^="row:"]',
+      '[data-focus="more:audit"]',
+    ]) {
+      $(editor, '[data-focus="search-back"]')?.click();
+      if ($(editor, '.page-head')) $(editor, '[data-focus="back-top"]')!.click();
+      await editor.updateComplete;
+      $(editor, open)!.click();
+      await editor.updateComplete;
+      expect(actions()[0], open).toBe('search-open');
+      expect(actions().slice(1, 3), open).toEqual(['undo', 'redo']);
+      const button = $(editor, '.page-head [data-focus="search-open"]')!;
+      expect(button.getAttribute('aria-label')).toBe('Search Settings');
+    }
+  });
+
+  it('opens the overview with focus in the search field; Back returns to the page and to it', async () => {
+    const editor = await mount();
+    $(editor, '[data-focus="nav:events"]')!.click();
+    await editor.updateComplete;
+    const box = await searchFromHeader(editor);
+
+    expect($(editor, '.overview')).not.toBeNull();
+    expect(editor.shadowRoot!.activeElement).toBe(box);
+    const back = $(editor, '[data-focus="search-back"]')!;
+    expect(text(back)).toBe('Back to Event Appearance');
+
+    // A query and its results keep the way back; choosing a result and returning keeps it too.
+    await searchFor(editor, 'show time');
+    await chooseResult(editor, 'result:events:show_time');
+    $(editor, '[data-focus="return"]')!.click();
+    await editor.updateComplete;
+    expect(resultRows(editor).length).toBeGreaterThan(0);
+    await searchFor(editor, '');
+    $(editor, '[data-focus="search-back"]')!.click();
+    await editor.updateComplete;
+    await editor.updateComplete;
+    expect($(editor, '.page')!.dataset.page).toBe('events');
+    expect(editor.shadowRoot!.activeElement?.getAttribute('data-focus')).toBe('search-open');
+  });
+
+  it('returns by Escape in an empty field; with a query, Escape clears it first', async () => {
+    const editor = await mount();
+    const [key] = (editor as unknown as { _entryKeys: number[] })._entryKeys;
+    $(editor, `[data-focus="row:${key}"]`)!.click();
+    await editor.updateComplete;
+    const box = await searchFromHeader(editor);
+    await searchFor(editor, 'color');
+    const escape = async (): Promise<void> => {
+      box.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }),
+      );
+      await editor.updateComplete;
+      await editor.updateComplete;
+    };
+    await escape();
+    expect($(editor, '.overview')).not.toBeNull();
+    expect(resultRows(editor)).toEqual([]);
+    await escape();
+    expect($(editor, '.entry-page')).not.toBeNull();
+    expect(editor.shadowRoot!.activeElement?.getAttribute('data-focus')).toBe('search-open');
+    // Back home by the page's own Back, the overview has no way back to it any more.
+    $(editor, '[data-focus="back-top"]')!.click();
+    await editor.updateComplete;
+    expect($(editor, '[data-focus="search-back"]')).toBeNull();
+  });
+
+  it('is forgotten once the overview opens another page by its own rows', async () => {
+    const editor = await mount();
+    $(editor, '[data-focus="nav:events"]')!.click();
+    await editor.updateComplete;
+    await searchFromHeader(editor);
+    $(editor, '[data-focus="nav:weather"]')!.click();
+    await editor.updateComplete;
+    $(editor, '[data-focus="back-top"]')!.click();
+    await editor.updateComplete;
+    expect($(editor, '.overview')).not.toBeNull();
+    expect($(editor, '[data-focus="search-back"]')).toBeNull();
   });
 });

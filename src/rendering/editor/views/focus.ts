@@ -29,6 +29,31 @@ export function focusFirst(
 }
 
 /**
+ * Focuses the text box inside a form, the one exception to the rule above: Search Settings in a
+ * page header is pressed to type, so the keyboard a phone opens is wanted there. Looks through
+ * the form's shadow roots, as Home Assistant draws its box several down.
+ *
+ * @param form - The form
+ * @returns Whether a box was found and focused
+ */
+export function focusTextBox(form: Element): boolean {
+  const queue: Array<Element | ShadowRoot> = [form];
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    const box = node.querySelector<HTMLElement>('input, textarea');
+    if (box) {
+      box.focus({ preventScroll: true });
+      return true;
+    }
+    for (const element of node.querySelectorAll('*')) {
+      if (element.shadowRoot) queue.push(element.shadowRoot);
+    }
+    if (node instanceof Element && node.shadowRoot) queue.push(node.shadowRoot);
+  }
+  return false;
+}
+
+/**
  * The selector for the control a `data-focus` key names.
  *
  * @param key - The key

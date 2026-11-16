@@ -160,7 +160,6 @@ const CHASSIS_FORMS: Readonly<Record<string, string>> = {
   'add-calendar-form': 'add_calendar',
   'entry-calendar-form': 'entry_calendar',
   'split-form': 'split',
-  'pref-form': 'prefs',
 };
 
 /** The editor's own radio groups, by the id a test names them with, with each input's name. */
@@ -1803,34 +1802,66 @@ async function keepEntries(editor: EditorElement): Promise<void> {
 }
 
 /**
- * A preference's switch under More, Home Assistant's own in a form of its own.
+ * A preference's item in the overview header's ⋯ menu, opening the menu where it is closed.
  *
  * @param editor - Editor element, on the overview
  * @param key - The preference
- * @returns Its form, where the overview draws it
+ * @returns Its item, where the overview draws the menu
  */
-export function prefForm(editor: EditorElement, key: 'every' | 'yaml'): FormElement | undefined {
-  return (
-    editor.shadowRoot?.querySelector<FormElement>(`ha-form.pref-form[data-focus="pref:${key}"]`) ??
-    undefined
-  );
+export async function prefItem(
+  editor: EditorElement,
+  key: 'every' | 'yaml',
+): Promise<HTMLElement | undefined> {
+  const root = editor.shadowRoot!;
+  const button = root.querySelector<HTMLElement>('[data-focus="prefs-menu"]');
+  if (button === null) return undefined;
+  if (button.getAttribute('aria-expanded') !== 'true') {
+    button.click();
+    await editor.updateComplete;
+  }
+  return root.querySelector<HTMLElement>(`.menu [data-pref="${key}"]`) ?? undefined;
 }
 
 /**
- * Flips a preference under More, as its switch does: the form reports its data with the
- * preference turned over.
+ * Whether a preference is on, as its item in the ⋯ menu says.
+ *
+ * @param editor - Editor element, on the overview
+ * @param key - The preference
+ * @returns `true` while it is on
+ */
+export async function prefOn(editor: EditorElement, key: 'every' | 'yaml'): Promise<boolean> {
+  const item = await prefItem(editor, key);
+  if (!item) outOfStep(`The editor draws no menu item for the preference ${key}`);
+  const on = item.getAttribute('aria-checked') === 'true';
+  await closePrefs(editor);
+  return on;
+}
+
+/**
+ * Closes the ⋯ menu, as Escape on its item does.
+ *
+ * @param editor - Editor element
+ */
+async function closePrefs(editor: EditorElement): Promise<void> {
+  const item = editor.shadowRoot!.querySelector<HTMLElement>('.menu [role^="menuitem"]');
+  item?.dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }),
+  );
+  await editor.updateComplete;
+}
+
+/**
+ * Turns a preference over through its item in the ⋯ menu, as a user does, and closes the menu.
  *
  * @param editor - Editor element, on the overview
  * @param key - The preference
  */
 export async function togglePref(editor: EditorElement, key: 'every' | 'yaml'): Promise<void> {
-  const form = prefForm(editor, key);
-  if (!form) outOfStep(`The editor draws no switch for the preference ${key}`);
-  const data = form.data as Record<string, unknown>;
-  form.dispatchEvent(
-    new CustomEvent('value-changed', { detail: { value: { ...data, [key]: data[key] !== true } } }),
-  );
+  const item = await prefItem(editor, key);
+  if (!item) outOfStep(`The editor draws no menu item for the preference ${key}`);
+  item.click();
   await editor.updateComplete;
+  await closePrefs(editor);
 }
 
 /**
@@ -1842,10 +1873,10 @@ export async function togglePref(editor: EditorElement, key: 'every' | 'yaml'): 
  * @returns Puts the preference back, from the overview
  */
 async function showEverySetting(editor: EditorElement): Promise<() => Promise<void>> {
-  const form = prefForm(editor, 'every');
-  if (form === undefined || (form.data as Record<string, unknown>).every === true) {
+  if (editor.shadowRoot!.querySelector('[data-focus="prefs-menu"]') === null) {
     return async () => undefined;
   }
+  if (await prefOn(editor, 'every')) return async () => undefined;
   await togglePref(editor, 'every');
   return async () => {
     await goOverview(editor);
@@ -2096,6 +2127,8 @@ export interface MountOptions {
    * every page can draw rather than about what it shows by default. Not remembered after it.
    */
   readonly every?: boolean;
+  /** Show YAML Option Names, switched on the same way and not remembered after it either. */
+  readonly yaml?: boolean;
 }
 
 /**
@@ -2126,8 +2159,9 @@ export async function mountEditor(
   editor.setConfig(config);
   document.body.appendChild(editor);
   await editor.updateComplete;
-  if (options.every === true) {
-    await togglePref(editor, 'every');
+  for (const key of ['every', 'yaml'] as const) {
+    if (options[key] !== true) continue;
+    await togglePref(editor, key);
     // What the browser remembers stays as the test found it.
     localStorage.removeItem(PREFS_KEY);
   }

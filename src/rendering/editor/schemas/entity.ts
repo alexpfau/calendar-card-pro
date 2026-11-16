@@ -319,9 +319,10 @@ function labelFields(
  * `Name & Appearance` leads, and is deliberately *outside* that spine rather than an
  * exception to it. It selects nothing, arranges nothing and populates nothing — it says
  * which calendar is being edited. Identity precedes configuration, which is also why the
- * card-level panel has no counterpart: a card is not one of several. `name` opens it,
- * because a name is the purest identity there is: it changes nothing about how an event
- * looks, only what the card calls the calendar it came from.
+ * card-level panel has no counterpart: a card is not one of several. Its accent color opens
+ * it, because a calendar's color is what most people come to its page for; `name` follows,
+ * the purest identity there is: it changes nothing about how an event looks, only what the
+ * card calls the calendar it came from.
  *
  * `Text Replacement` is likewise outside it, and is the one category this panel carries
  * that the card-level one does not. It rewrites what a row says rather than deciding which
@@ -334,6 +335,9 @@ function labelFields(
  */
 export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
   return [
+    // First, ahead of the name: a calendar's color is what most people open its page for.
+    accentColorMode(ctx.language),
+    color('accent_color'),
     text('name'),
     // Beside `name` because both belong to the calendar rather than to this block, and both
     // are about the calendar filter's entry for it: what it says, and whether there is one.
@@ -345,8 +349,6 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     text('label'),
     color('label_icon_color'),
     color('color'),
-    accentColorMode(ctx.language),
-    color('accent_color'),
     // Last in the section that says how this calendar's events look: after which label and
     // which colors, how large. No ceiling, as YAML has none, and a box rather than a slider,
     // which Home Assistant draws only with both bounds.

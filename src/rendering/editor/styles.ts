@@ -798,11 +798,30 @@ export default css`
     line-height: 1.45;
   }
 
+  /* A header too narrow for its title beside its actions, a phone's, puts the actions on a line
+     of their own at its end rather than squeezing the title into a column of single words. */
   .page-head {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: 0 8px;
     margin-inline-start: -8px;
+  }
+
+  /* A page header's actions, Search Settings first, sit together at its end and wrap together. */
+  .head-actions {
+    display: flex;
+    align-items: center;
+    margin-inline-start: auto;
+  }
+
+  .head-actions .history-controls {
+    margin-inline-start: 0;
+  }
+
+  .head-search {
+    width: 48px;
+    height: 48px;
   }
 
   /* Undo and Redo: at the end of the overview's search row and of every page header. */
@@ -840,6 +859,86 @@ export default css`
     fill: currentcolor;
   }
 
+  /* The overview header's ⋯ menu of preferences: under its button, at the row's end, and never
+     wider than the dialog leaves on a phone. Each item is a 48px target with a check column. */
+  .menu-wrap {
+    position: relative;
+    flex: none;
+  }
+
+  .search-row .menu-wrap {
+    margin-top: 4px;
+  }
+
+  .menu-button {
+    width: 48px;
+    height: 48px;
+  }
+
+  .menu {
+    position: absolute;
+    inset-inline-end: 0;
+    top: calc(100% + 4px);
+    z-index: 4;
+    display: flex;
+    flex-direction: column;
+    width: max-content;
+    max-width: min(320px, calc(100vw - 48px));
+    padding: 4px 0;
+    border: 1px solid var(--divider-color);
+    border-radius: 8px;
+    background: var(--card-background-color, var(--primary-background-color));
+    box-shadow: var(--ha-card-box-shadow, 0 2px 8px rgba(0, 0, 0, 0.2));
+  }
+
+  .menu-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    min-height: 48px;
+    padding: 10px 16px 10px 12px;
+    border: none;
+    background: none;
+    color: var(--primary-text-color);
+    cursor: pointer;
+    font: inherit;
+    text-align: start;
+  }
+
+  .menu-item:hover,
+  .menu-item:focus-visible {
+    background: var(--secondary-background-color);
+  }
+
+  .menu-item:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -2px;
+  }
+
+  .menu-check {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    color: var(--primary-color);
+    --mdc-icon-size: 20px;
+  }
+
+  .menu-check .icon {
+    fill: currentcolor;
+  }
+
+  .menu-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .menu-note {
+    color: var(--secondary-text-color);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
   /* The line a removal or an applied story leaves, until the next change. */
   .status-bar {
     display: flex;
@@ -855,13 +954,14 @@ export default css`
     min-width: 0;
   }
 
-  .page-head .icon-button:dir(rtl),
+  .page-head .icon-button:not(.head-search):dir(rtl),
   .page-foot .icon:dir(rtl) {
     transform: scaleX(-1);
   }
 
   .page-titles {
     display: flex;
+    flex: 1 1 6rem;
     flex-direction: column;
     min-width: 0;
   }
@@ -963,8 +1063,8 @@ export default css`
     min-width: 0;
   }
 
-  /* What This Card Changes: a compact row per stored line, its label, value and the line under
-     them as Edit. */
+  /* What This Card Changes: a row per stored line, its label, value and the lines under them as
+     one button, and its strip under it while open. */
   .audit-head,
   .audit-row,
   .audit-line,
@@ -981,15 +1081,24 @@ export default css`
     flex: 1 1 12em;
   }
 
-  .audit-count,
   .audit-meta {
     color: var(--secondary-text-color);
     font-size: 12px;
   }
 
   .audit-row {
-    flex-wrap: nowrap;
+    flex-direction: column;
+    align-items: stretch;
     border-top: 1px solid var(--divider-color);
+  }
+
+  .audit-row > .strip {
+    margin-bottom: 8px;
+  }
+
+  /* "Grid Has Its Own: 5", a line each under the tags. */
+  .audit-own {
+    flex-basis: 100%;
   }
 
   .audit-text {
@@ -1005,8 +1114,8 @@ export default css`
     justify-content: center;
     gap: 2px;
     width: 100%;
-    min-height: 44px;
-    padding: 0;
+    min-height: 48px;
+    padding: 4px 0;
     border: none;
     background: none;
     color: inherit;
@@ -1167,12 +1276,6 @@ export default css`
     background: var(--card-background-color);
     color: var(--primary-text-color);
     font: inherit;
-  }
-
-  /* The preferences under More: Home Assistant's own switch, in the row group's inset. */
-  .pref-form {
-    display: block;
-    padding: 0 16px;
   }
 
   /* --- The calendar list and entry pages ------------------------------------
@@ -1701,8 +1804,9 @@ export default css`
     --mdc-icon-size: 20px;
   }
 
-  /* The jump list: Edit Here beside the count, Add beside a row, the tag saying why a setting
-     is not drawn, a helper-only match's phrase, and a calendar's row under its folded result. */
+  /* The jump list: Edit Here beside the count, the tag saying why a setting is not drawn, a
+     helper-only match's phrase, and a calendar's row under its folded result. Each result is one
+     button. */
   .result-head {
     display: flex;
     align-items: center;
@@ -1713,39 +1817,6 @@ export default css`
   .result {
     display: flex;
     align-items: center;
-  }
-
-  /* Add takes a column of its own, so every row's chevron ends the first column at the same x
-     whether or not the row has Add. A plain result row lends its two buttons to the grid; an
-     opened field, an info row and a calendar's row span both columns. */
-  .results {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .results > * {
-    grid-column: 1 / -1;
-  }
-
-  .results > .result:not(.result--edit, .result--info) {
-    display: contents;
-  }
-
-  .results > .result > .nav-row {
-    grid-column: 1;
-  }
-
-  .results > .result > .result-add {
-    grid-column: 2;
-    align-self: center;
-  }
-
-  .result-add {
-    display: inline-flex;
-    align-items: center;
-    flex-shrink: 0;
-    min-height: 44px;
-    margin-inline-end: 8px;
   }
 
   /* The query's words in a label, tinted rather than the browser's yellow, which ignores the

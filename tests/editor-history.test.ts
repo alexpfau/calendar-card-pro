@@ -414,16 +414,17 @@ describe('the migration choice', () => {
 });
 
 describe('the search row', () => {
-  // One row, as designed: the search field, then Undo and Redo at its end. They were once drawn
-  // as a row of their own above the field, which cost the overview 48px.
+  // One row, as designed: the search field, then Undo and Redo, then the ⋯ menu of preferences at
+  // its end. Undo and Redo were once drawn as a row of their own above the field, which cost the
+  // overview 48px.
   const row = (editor: MountedEditor) =>
     [...$(editor, '.overview > .search-row')!.children].map(
       (child) => (child as HTMLElement).dataset.focus ?? child.className,
     );
 
-  it('holds the search field, then Undo and Redo, on one row', async () => {
+  it('holds the search field, then Undo and Redo, then the preferences, on one row', async () => {
     const { editor } = await mount({ config_version: VERSION, entities: ['calendar.anna'] });
-    expect(row(editor)).toEqual(['filter-form', 'history-controls']);
+    expect(row(editor)).toEqual(['filter-form', 'history-controls', 'menu-wrap']);
     expect(
       [...$(editor, '.search-row .history-controls')!.children].map(
         (button) => (button as HTMLElement).dataset.focus,
@@ -440,7 +441,7 @@ describe('the search row', () => {
     await changeField(editor, 'filter:search', 'color');
     await settle(editor);
     expect($(editor, '.result-status, .filter-empty')).not.toBeNull();
-    expect(row(editor)).toEqual(['filter-form', 'history-controls']);
+    expect(row(editor)).toEqual(['filter-form', 'history-controls', 'menu-wrap']);
     expect($(editor, '.search-row [data-focus="undo"]')!.hasAttribute('disabled')).toBe(false);
   });
 });

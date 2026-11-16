@@ -58,7 +58,9 @@ describe('the filter switch', () => {
     const schema = entitySchema();
     const names = fieldNames(schema);
 
-    expect(names.slice(0, 3)).toEqual(['name', 'show_in_legend', 'label_type']);
+    // After the accent color, which leads the page.
+    const at = names.indexOf('name');
+    expect(names.slice(at, at + 3)).toEqual(['name', 'show_in_legend', 'label_type']);
     expect(schema.find((node) => node.name === 'show_in_legend')).toEqual({
       name: 'show_in_legend',
       selector: { boolean: {} },

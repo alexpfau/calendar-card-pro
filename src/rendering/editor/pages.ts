@@ -83,6 +83,12 @@ export interface HeadingDef {
     readonly heading: string;
     readonly textKey: string;
   };
+  /**
+   * A line pointing to a setting on the same page that answers the question people bring to this
+   * heading by mistake, led by `textKey`: Who Sees It's to Days of the Week. Following it opens the
+   * setting, added where it waits in an Add row.
+   */
+  readonly pointer?: { readonly field: FieldId; readonly textKey: string };
 }
 
 /** One section page. */
@@ -600,7 +606,10 @@ export const CALENDARS_BLOCK = { titleKey: 'panel.calendars' } as const;
 export const ENTRY_GROUPS: ReadonlyArray<HeadingDef> = [
   {
     key: 'heading.name_and_look',
+    // Accent Color first: a calendar's color is what most people open its page for.
     fields: [
+      ['calendar:accent_color_mode', E],
+      ['calendar:accent_color', withMode('calendar:accent_color_mode')],
       ['calendar:name', E],
       ['calendar:show_in_legend', A],
       ['calendar:label_type', E],
@@ -609,13 +618,13 @@ export const ENTRY_GROUPS: ReadonlyArray<HeadingDef> = [
       ['calendar:label', withMode('calendar:label_type')],
       ['calendar:label_icon_color', A],
       ['calendar:color', A],
-      ['calendar:accent_color_mode', E],
-      ['calendar:accent_color', withMode('calendar:accent_color_mode')],
       ['calendar:text_scale', A],
     ],
   },
   {
     key: 'heading.who_sees_it',
+    // Hiding a calendar on weekends is asked here, and answered under Which Events.
+    pointer: { field: 'calendar:days_of_week', textKey: 'nav.cross_link.days_of_week' },
     fields: [['calendar:visibility', A]],
   },
   {

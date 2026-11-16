@@ -26,7 +26,7 @@ import {
   lastConfig,
   mountEditor,
   openPageOf,
-  prefForm,
+  prefItem,
   togglePref,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -579,19 +579,20 @@ describe('gate lines and stored values not in use', () => {
   });
 });
 
-describe('the preferences under More', () => {
+describe('the preferences in the overview header’s ⋯ menu', () => {
   it('Show Every Setting draws every setting that applies, with no Add row, and is remembered', async () => {
     const editor = await mount();
     await goPage(editor, 'events');
     const shown = live(editor).length;
     await click(editor, '[data-focus="back-top"]');
-    // Home Assistant's own switch, a form of its own that writes nothing to the card.
-    expect(prefForm(editor, 'every')!.schema).toEqual([
-      { name: 'every', selector: { boolean: {} } },
-    ]);
-    expect(prefForm(editor, 'every')!.data).toEqual({ every: false });
-    await togglePref(editor, 'every');
-    expect(prefForm(editor, 'every')!.data).toEqual({ every: true });
+    // Not under More any more: a checkbox item of the menu, writing nothing to the card.
+    expect(editor.shadowRoot!.querySelector('ha-form.pref-form')).toBeNull();
+    const item = (await prefItem(editor, 'every'))!;
+    expect(item.getAttribute('role')).toBe('menuitemcheckbox');
+    expect(item.getAttribute('aria-checked')).toBe('false');
+    item.click();
+    await editor.updateComplete;
+    expect((await prefItem(editor, 'every'))!.getAttribute('aria-checked')).toBe('true');
     expect(JSON.parse(localStorage.getItem(PREFS_KEY)!)).toEqual({
       v: 1,
       every: true,
@@ -603,6 +604,62 @@ describe('the preferences under More', () => {
     expect(live(editor)).toContain('events:time_font_size');
     expect(live(editor).length).toBeGreaterThan(shown * 3);
     expect(lastConfig(editor)).toBeUndefined();
+  });
+
+  it('is a menu button the keyboard opens, walks and closes, with focus back on the button', async () => {
+    const editor = await mount();
+    const root = editor.shadowRoot!;
+    const button = root.querySelector<HTMLElement>('[data-focus="prefs-menu"]')!;
+    // At the end of the search row, after Undo and Redo.
+    const row = [...root.querySelectorAll<HTMLElement>('.search-row button')];
+    expect(row.indexOf(button)).toBe(row.length - 1);
+    expect(button.getAttribute('aria-label')).toBe('Editor Preferences');
+    expect(button.getAttribute('aria-haspopup')).toBe('menu');
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(root.querySelector('.menu')).toBeNull();
+
+    const key = async (target: Element, name: string): Promise<void> => {
+      target.dispatchEvent(
+        new KeyboardEvent('keydown', { key: name, bubbles: true, composed: true }),
+      );
+      await editor.updateComplete;
+      await editor.updateComplete;
+    };
+    button.focus();
+    await key(button, 'ArrowDown');
+    const menu = root.querySelector<HTMLElement>('.menu')!;
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    expect(button.getAttribute('aria-controls')).toBe(menu.id);
+    expect(menu.getAttribute('role')).toBe('menu');
+    const items = [...menu.querySelectorAll<HTMLElement>('[role="menuitemcheckbox"]')];
+    // Each item is named by its label and described by the line under it.
+    const named = (item: HTMLElement, attribute: string): string =>
+      root.getElementById(item.getAttribute(attribute)!)!.textContent!.trim();
+    expect(items.map((item) => named(item, 'aria-labelledby'))).toEqual([
+      'Show Every Setting',
+      'Show YAML Option Names',
+    ]);
+    expect(named(items[1], 'aria-describedby')).toMatch(/option name/);
+    expect(root.activeElement).toBe(items[0]);
+    await key(items[0], 'ArrowDown');
+    expect(root.activeElement).toBe(items[1]);
+    await key(items[1], 'ArrowDown');
+    expect(root.activeElement).toBe(items[0]);
+    await key(items[0], 'End');
+    expect(root.activeElement).toBe(items[1]);
+    // Pressing an item turns it over and leaves the menu open on it.
+    items[1].click();
+    await editor.updateComplete;
+    expect(root.querySelector('[data-pref="yaml"]')!.getAttribute('aria-checked')).toBe('true');
+    await key(root.querySelector('[data-pref="yaml"]')!, 'Escape');
+    expect(root.querySelector('.menu')).toBeNull();
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(root.activeElement).toBe(button);
+    // Escape closed the menu only: the overview is still there, and nothing was written.
+    expect(root.querySelector('.overview')).not.toBeNull();
+    expect(lastConfig(editor)).toBeUndefined();
+    await key(button, 'ArrowUp');
+    expect(root.activeElement).toBe(root.querySelector('[data-pref="yaml"]'));
   });
 
   it('Show YAML Option Names puts each setting’s option, where this scope writes it, first', async () => {

@@ -1,7 +1,8 @@
 /**
  * What This Card Changes (section 5.10, D07 A): every line the YAML stores, grouped by where it
- * lives, each with the field that writes it where the editor has one. DOM-free, so the tests read
- * the groups the page draws.
+ * lives (the whole card, All Layouts, each layout, each calendar, then the lines kept as written),
+ * each with the field that writes it where the editor has one. DOM-free, so the tests read the
+ * groups the page draws.
  *
  * Built on stored presence, never on "differs from the default": a line equal to its default is
  * listed all the same, because the YAML holds it. Options v3.0.0 removed are left to the notices
@@ -23,7 +24,7 @@ import {
 import type { Gate, Prereq } from './gates';
 import type { SelectOption, SelectorSchema } from './ha-form';
 import type { PageId } from './pages';
-import { type PlanCtx, appearanceOf, fieldState } from './plan';
+import { type PlanCtx, appearanceOf, fieldState, hasLayoutCopy } from './plan';
 import { destination } from './routing';
 import { isSet as holdsValue, isSyntheticKey } from './synthetic';
 import { type EditorWorkspace, WORKSPACES } from './workspace';
@@ -49,8 +50,13 @@ export interface AuditLine {
 
 /** One group of the page. */
 export interface AuditGroup {
-  readonly kind: 'card' | 'layout' | 'entry' | 'kept';
-  /** Where its lines are written: All Layouts for the card, a calendar's and the kept lines. */
+  /**
+   * `whole`: the card's top-level lines with one value for every layout; `card`: those every
+   * layout uses unless it has its own (All Layouts); then a layout's block, a calendar entry's
+   * lines, and the lines kept as written.
+   */
+  readonly kind: 'whole' | 'card' | 'layout' | 'entry' | 'kept';
+  /** Where its lines are written: All Layouts for the card's, a calendar's and the kept lines. */
   readonly workspace: EditorWorkspace;
   /** A calendar entry's key, for its group. */
   readonly key?: number;
@@ -216,7 +222,22 @@ function ownedLine(
 }
 
 /**
- * Every line the YAML stores, by group: the card's top level, each layout's block, each calendar
+ * Whether a top-level line has one value for every layout: one the editor owns with no field (the
+ * layout shown, the toolbar's own buttons), or one whose field has no copy per layout.
+ *
+ * @param line - A line of the card's top level
+ * @returns `true` for the Whole Card group
+ */
+function wholeCard(line: AuditLine): boolean {
+  if (line.page !== undefined) return true;
+  const field =
+    line.field === undefined ? undefined : universeIndex('en', 'shared').fields.get(line.field);
+  return field !== undefined && !hasLayoutCopy(field);
+}
+
+/**
+ * Every line the YAML stores, by group: the card's top level, split into the lines with one value
+ * for every layout and those a layout can have its own of, then each layout's block, each calendar
  * entry storing more than its id, then what the editor keeps as written. A group with no line is
  * left out.
  *
@@ -267,8 +288,10 @@ export function auditGroups(ctx: AuditCtx): AuditGroup[] {
     return lines;
   };
 
+  const top = walk(raw, [], 'shared');
   const groups: AuditGroup[] = [
-    { kind: 'card', workspace: 'shared', lines: walk(raw, [], 'shared') },
+    { kind: 'whole', workspace: 'shared', lines: top.filter(wholeCard) },
+    { kind: 'card', workspace: 'shared', lines: top.filter((line) => !wholeCard(line)) },
   ];
   for (const [block, view] of blocks) {
     const held = raw[block];

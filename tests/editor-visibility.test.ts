@@ -417,3 +417,32 @@ describe("which editor a calendar entry's page shows", () => {
     expect(editor.emitted).toEqual([]);
   });
 });
+
+describe('the line under Who Sees It', () => {
+  it('points to Days of the Week, which it adds and focuses as a search result does, writing nothing', async () => {
+    const editor = await mountEditor({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: [ANNA],
+    });
+    let reported = 0;
+    editor.addEventListener('config-changed', () => (reported += 1));
+    const [key] = keysOf(editor, 'entry');
+    await goEntry(editor, key);
+    const root = editor.shadowRoot!;
+    const group = root.querySelector('.page-group[data-heading="heading.who_sees_it"]')!;
+    const line = group.querySelector('.page-line')!;
+    expect(line.textContent!.replace(/\s+/g, ' ').trim()).toBe(
+      'Which days its events show: Which Events › Days of the Week',
+    );
+    // Days of the Week waits in an Add row until something is stored.
+    expect(root.querySelector('[data-field="calendar:days_of_week"]')).toBeNull();
+
+    line.querySelector<HTMLElement>('button.link')!.click();
+    await editor.updateComplete;
+    await editor.updateComplete;
+    const field = root.querySelector('[data-field="calendar:days_of_week"]');
+    expect(field).not.toBeNull();
+    expect(root.activeElement).toBe(field);
+    expect(reported).toBe(0);
+  });
+});

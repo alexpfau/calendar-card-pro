@@ -6,15 +6,21 @@
  * Assistant does not expose those as headings to assistive technology (`spike/ha-probe.md` §3).
  */
 
-import { mdiArrowRight, mdiChevronLeft, mdiInformationOutline, mdiOpenInNew } from '@mdi/js';
+import {
+  mdiArrowRight,
+  mdiChevronLeft,
+  mdiInformationOutline,
+  mdiMagnify,
+  mdiOpenInNew,
+} from '@mdi/js';
 import { type TemplateResult, html, nothing } from 'lit';
 
 import { icon } from './icon';
 import type { Translate } from './overview';
 
 /**
- * The page's header: Back, then its title as the `h2` that takes focus as the page opens, then
- * Undo and Redo.
+ * The page's header: Back, then its title as the `h2` that takes focus as the page opens, then its
+ * actions as one group: Search Settings, Undo and Redo, and what else the page adds.
  *
  * @param title - The page's title
  * @param t - The editor's strings
@@ -48,8 +54,47 @@ export function pageHead(
       <h2 class="page-title" tabindex="-1">${title}</h2>
       <span class="page-sub">${sub ?? t('overview.settings')}</span>
     </div>
-    ${actions}
+    ${actions === undefined ? nothing : html`<div class="head-actions">${actions}</div>`}
   </div>`;
+}
+
+/**
+ * Search Settings in a page's header, first of its actions: it takes the editor to the overview's
+ * search field, and Back there returns to the page and to it.
+ *
+ * @param name - Its name, "Search Settings"
+ * @param onPress - It was pressed
+ * @returns The button
+ */
+export function searchButton(name: string, onPress: () => void): TemplateResult {
+  return html`<button
+    type="button"
+    class="icon-button head-search"
+    data-focus="search-open"
+    aria-label=${name}
+    title=${name}
+    @click=${onPress}
+  >
+    ${icon(mdiMagnify)}
+  </button>`;
+}
+
+/**
+ * Back on the overview after Search Settings left a page for it: "Back to Event Appearance".
+ *
+ * @param label - Its words
+ * @param onBack - It was pressed
+ * @returns The button
+ */
+export function backToPage(label: string, onBack: () => void): TemplateResult {
+  return html`<button
+    type="button"
+    class="text-button return"
+    data-focus="search-back"
+    @click=${onBack}
+  >
+    ${icon(mdiChevronLeft)} ${label}
+  </button>`;
 }
 
 /**

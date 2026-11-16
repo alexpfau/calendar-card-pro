@@ -1,12 +1,12 @@
 /**
  * The jump list (D05 A): a status line with Edit Here, then a row per result with its label, the
- * match marked, a breadcrumb, its value, where the value comes from and its YAML path, its tag, the
- * phrase a helper-only match was found by, and Add for a setting not shown yet. One field of
+ * match marked, a breadcrumb, its value, where the value comes from and, on request, its YAML
+ * path, its tag and the phrase a helper-only match was found by. Each row is one action. One field of
  * several calendars is one row that opens to a row per calendar. With Edit Here on, a card
  * setting found is its live control under its breadcrumb. Templates only, as `overview.ts`.
  */
 
-import { mdiChevronDown, mdiChevronRight, mdiKeyboardReturn, mdiOpenInNew, mdiPlus } from '@mdi/js';
+import { mdiChevronDown, mdiChevronRight, mdiKeyboardReturn, mdiOpenInNew } from '@mdi/js';
 import { type TemplateResult, html, nothing } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
 
@@ -28,13 +28,6 @@ export interface ResultRow {
   readonly tag?: string;
   /** A helper-only match's phrase, in its template: `Help: “{phrase}”`. */
   readonly phrase?: { readonly template: string; readonly text: string; readonly marks: Marks };
-  /** Add, for a setting not shown yet. */
-  readonly add?: {
-    readonly label: string;
-    readonly name: string;
-    readonly key: string;
-    readonly onAdd: () => void;
-  };
   /** Absent for a row that opens nothing: Home Assistant's tabs. */
   readonly onOpen?: () => void;
 }
@@ -115,7 +108,7 @@ function rowText(row: ResultRow): TemplateResult {
 }
 
 /**
- * One result's row, with Add beside it where the setting is not shown yet.
+ * One result's row.
  *
  * @param row - The row
  * @param expanded - For a folded result, whether it is open
@@ -140,19 +133,6 @@ function resultRow(row: ResultRow, expanded?: boolean): TemplateResult {
       ${rowText(row)}
       ${icon(expanded === undefined ? mdiChevronRight : mdiChevronDown, 'nav-chevron')}
     </button>
-    ${
-      row.add
-        ? html`<button
-            type="button"
-            class="text-button result-add"
-            data-focus=${row.add.key}
-            aria-label=${row.add.name}
-            @click=${row.add.onAdd}
-          >
-            ${icon(mdiPlus)} ${row.add.label}
-          </button>`
-        : nothing
-    }
   </div>`;
 }
 

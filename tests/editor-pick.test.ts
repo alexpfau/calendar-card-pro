@@ -237,14 +237,14 @@ describe('Pick From Preview', () => {
     const location = card.shadowRoot!.querySelector('.location span')!;
     fire(location, 'pointermove', { pointerType: 'mouse' });
     expect(card.shadowRoot!.querySelector('.ccp-pick-label')!.textContent).toBe(
-      'Events › Location · Click to Edit',
+      'Event Appearance › Location · Click to Edit',
     );
     fire(location, 'click');
     await settle(editor, card);
     expect(editor.shadowRoot!.activeElement).toBe(
       $(editor, '.page-group[data-heading="location"] .add-toggle'),
     );
-    expect(said).toContain('Showing Events › Location.');
+    expect(said).toContain('Showing Event Appearance › Location.');
   });
 
   it('opens a legend chip’s calendar on its own page', async () => {
@@ -278,7 +278,7 @@ describe('Pick From Preview', () => {
     await settle(editor, card);
     expect($(editor, '.page[data-page="events"]')).toBeNull();
     expect(card.shadowRoot!.querySelector('.ccp-pick-label')!.textContent).toBe(
-      'Events › Location · Tap to Edit',
+      'Event Appearance › Location · Tap to Edit',
     );
     fire(location, 'pointerdown', { pointerType: 'touch' });
     fire(location, 'click');

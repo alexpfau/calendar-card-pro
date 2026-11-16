@@ -28,10 +28,12 @@ import {
   openResultGroup,
   resultRows,
   searchFor,
+  togglePref,
 } from './helpers/editor-host';
 import { searchIndex } from './helpers/search-index';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
+import { PREFS_KEY } from '../src/rendering/editor/prefs';
 import {
   type SearchEntry,
   type SearchHit,
@@ -155,11 +157,12 @@ describe('fold', () => {
   );
 });
 
-/** A row of a hand-written index, found by the texts given. */
+/** A row of a hand-written index, found by the texts given; essential unless said otherwise. */
 function entry(
   label: string,
   tier: SearchEntry['tier'],
   texts: ReadonlyArray<readonly [string, SearchEntry['text'][number][1]]> = [],
+  essential = true,
 ): SearchEntry {
   return {
     target: { kind: 'page', page: 'weather' },
@@ -168,6 +171,7 @@ function entry(
     crumbs: [],
     status: { kind: 'info' },
     tier,
+    essential,
     text: [[fold(label), 'label', label], ...texts.map(([t, s]) => [fold(t), s, t] as const)],
   };
 }
@@ -208,6 +212,33 @@ describe('ranking', () => {
       '0 Other helper',
       '1 Time Format ',
       '2 Time Format ',
+    ]);
+  });
+
+  it('puts a page’s essential settings first within a match tier, and nowhere else', () => {
+    // In the index's order: the setting a page draws on every card last.
+    const index = [
+      entry('Past Date Opacity', 0, [], false),
+      entry('Past Event Opacity', 0, [], false),
+      entry('Hide Past Days', 0, [], false),
+      entry('Pastel Colors', 0, [], false),
+      entry('Show Past Events', 0, [], true),
+      entry('Past', 0, [], false),
+      entry('Repast', 0, [], true),
+      entry('Other', 0, [['past', 'alias']], true),
+    ];
+    // A label holding the query from its start and from a later word are one tier, inside which
+    // the essential setting leads and a label's start still outranks a later word; an exact label
+    // and a match inside a word are tiers of their own, which essential settings do not leave.
+    expect(search(index, 'past').map(({ entry: e }) => e.label)).toEqual([
+      'Past',
+      'Show Past Events',
+      'Past Date Opacity',
+      'Past Event Opacity',
+      'Pastel Colors',
+      'Hide Past Days',
+      'Repast',
+      'Other',
     ]);
   });
 
@@ -261,27 +292,33 @@ describe('what a result says it is', () => {
   it('a setting the page draws: its value and where it comes from, and no tag', async () => {
     const editor = await mount(LIST);
     await searchFor(editor, 'show time');
-    expect(row(editor, 'events:show_time')).toMatchObject({
-      meta: 'On · YAML: list.show_time',
-      tag: undefined,
-    });
-    expect($(editor, '[data-focus="add-result:events:show_time"]')).toBeNull();
+    expect(row(editor, 'events:show_time')).toMatchObject({ meta: 'On', tag: undefined });
   });
 
-  it('a setting waiting in an Add row: Add beside it, named for the setting and its place', async () => {
+  it('its YAML path only with Show YAML Option Names on, though it is found by it either way', async () => {
+    const editor = await mount(LIST);
+    await searchFor(editor, 'list.show_time');
+    expect(row(editor, 'events:show_time').meta).toBe('On');
+    await searchFor(editor, '');
+    await togglePref(editor, 'yaml');
+    await searchFor(editor, 'show time');
+    expect(row(editor, 'events:show_time').meta).toBe('On · YAML: list.show_time');
+    localStorage.removeItem(PREFS_KEY);
+  });
+
+  it('a setting waiting in an Add row: one action, the row itself, with nothing beside it', async () => {
     const editor = await mount(LIST);
     await searchFor(editor, 'time font size');
     expect(row(editor, 'events:time_font_size').tag).toBeUndefined();
-    expect(
-      $(editor, '[data-focus="add-result:events:time_font_size"]')?.getAttribute('aria-label'),
-    ).toBe('Add Time Font Size, Events, Time');
+    const result = $(editor, '[data-focus="result:events:time_font_size"]')!.closest('.result')!;
+    expect(result.querySelectorAll('button')).toHaveLength(1);
+    expect(editor.shadowRoot!.querySelector('[data-focus^="add-result:"]')).toBeNull();
   });
 
   it('a setting a gate withholds: what it needs', async () => {
     const editor = await mount(LIST);
     await searchFor(editor, 'description color');
     expect(row(editor, 'events:description_color').tag).toBe('Needs Show Description');
-    expect($(editor, '[data-focus="add-result:events:description_color"]')).toBeNull();
   });
 
   it('a value stored but not in use: that, and what it needs', async () => {
@@ -341,12 +378,10 @@ describe('what a result says it is', () => {
 });
 
 describe('choosing a result', () => {
-  it('waiting in an Add row: Add adds it and opens it, writing nothing', async () => {
+  it('waiting in an Add row: choosing it adds it and opens it, writing nothing', async () => {
     const editor = await mount(LIST);
     await searchFor(editor, 'time font size');
-    $(editor, '[data-focus="add-result:events:time_font_size"]')!.click();
-    await editor.updateComplete;
-    await editor.updateComplete;
+    await chooseResult(editor, 'result:events:time_font_size');
 
     const field = $(editor, '[data-field="events:time_font_size"]');
     expect(openPage(editor)).toBe('events');
@@ -359,7 +394,6 @@ describe('choosing a result', () => {
     await searchFor(editor, '');
     await changeField(editor, 'filter:search', 'time font size');
     expect(row(editor, 'events:time_font_size').tag).toBeUndefined();
-    expect($(editor, '[data-focus="add-result:events:time_font_size"]')).toBeNull();
   });
 
   it('withheld by a gate: opens the setting that allows it, and says what it needs', async () => {
@@ -474,12 +508,12 @@ describe('one field of several calendars', () => {
     const rows = resultRows(editor).filter(({ id }) => id === 'calendar:color');
     expect(rows.map(({ label, meta }) => [label, meta])).toEqual([
       ['Event Color', 'Set on Calendars: 6'],
-      ['Anna', '#e91e63 · Set on This Calendar · YAML: entities[0].color'],
-      ['Ben', '#2196f3 · Set on This Calendar · YAML: entities[1].color'],
-      ['Leo', '#4caf50 · Set on This Calendar · YAML: entities[2].color'],
-      ['Family', '#ff9800 · Set on This Calendar · YAML: entities[3].color'],
-      ['Work', '#9c27b0 · Set on This Calendar · YAML: entities[4].color'],
-      ['Bin Day', '#795548 · Set on This Calendar · YAML: entities[5].color'],
+      ['Anna', '#e91e63 · Set on This Calendar'],
+      ['Ben', '#2196f3 · Set on This Calendar'],
+      ['Leo', '#4caf50 · Set on This Calendar'],
+      ['Family', '#ff9800 · Set on This Calendar'],
+      ['Work', '#9c27b0 · Set on This Calendar'],
+      ['Bin Day', '#795548 · Set on This Calendar'],
     ]);
     expect(text($(editor, `[data-focus="${rows[2].key}"] .result-go`))).toBe('Go to Setting');
 
@@ -705,11 +739,11 @@ describe('the review’s findings', () => {
       { hass },
     );
     await searchFor(editor, 'event tap action');
-    expect(row(editor, 'actions:event_tap_action').meta).toMatch(/^Navigate · /);
+    expect(row(editor, 'actions:event_tap_action').meta).toMatch(/^Navigate( · |$)/);
     editor.hass = { ...hass, localize: words('Gehe zu') } as typeof editor.hass;
     editor.requestUpdate();
     await editor.updateComplete;
-    expect(row(editor, 'actions:event_tap_action').meta).toMatch(/^Gehe zu · /);
+    expect(row(editor, 'actions:event_tap_action').meta).toMatch(/^Gehe zu( · |$)/);
   });
 });
 
@@ -735,13 +769,15 @@ describe('the controls the stack below added', () => {
   it('words a color as the color control names it, shown or held back', async () => {
     const editor = await stack();
     await searchFor(editor, 'background color');
-    expect(row(editor, 'card:background_color').meta).toMatch(/^Home Assistant's primary color · /);
+    expect(row(editor, 'card:background_color').meta).toMatch(
+      /^Home Assistant's primary color( · |$)/,
+    );
     // A color a gate holds back, and another layout's, are worded the same way, never as CSS.
     expect(row(editor, 'day_header:week_number_background_color').meta).toMatch(
-      /^Home Assistant's primary color, 31% · /,
+      /^Home Assistant's primary color, 31%( · |$)/,
     );
     expect(row(editor, 'layout:time_grid.weekend_background_color').meta).toMatch(
-      /^Primary Text, 4% · /,
+      /^Primary Text, 4%( · |$)/,
     );
   });
 
@@ -764,8 +800,10 @@ describe('the controls the stack below added', () => {
       expect(ids).not.toContain(value);
     }
     expect(ids.filter((id) => id === 'calendar:accent_color')).toEqual([]);
-    expect(row(editor, 'events:accent_color_mode').meta).toMatch(/^Default · /);
-    expect(row(editor, 'events:allday_badge_color_mode').meta).toMatch(/^Calendar Accent Color · /);
+    expect(row(editor, 'events:accent_color_mode').meta).toMatch(/^Default( · |$)/);
+    expect(row(editor, 'events:allday_badge_color_mode').meta).toMatch(
+      /^Calendar Accent Color( · |$)/,
+    );
     // Found by the value's own label too, where the mode's label does not hold the words.
     await searchFor(editor, 'custom accent');
     expect(resultRows(editor).map((each) => each.id)).toContain('events:accent_color_mode');
@@ -773,7 +811,7 @@ describe('the controls the stack below added', () => {
     document.body.replaceChildren();
     const custom = await mount({ ...LIST, accent_color: 'var(--pink-color)' });
     await searchFor(custom, 'accent color');
-    expect(row(custom, 'events:accent_color_mode').meta).toMatch(/^Pink · /);
+    expect(row(custom, 'events:accent_color_mode').meta).toMatch(/^Pink( · |$)/);
   });
 
   it('reaches Split This Calendar on every entry, and opens one at its row', async () => {
@@ -800,7 +838,7 @@ describe('the controls the stack below added', () => {
       await searchFor(editor, query);
       expect(row(editor, 'overview:calendars'), query).toMatchObject({
         label: 'Calendars',
-        meta: 'Entries: 2 · YAML: entities',
+        meta: 'Entries: 2',
       });
     }
     await chooseResult(editor, 'result:overview:calendars');
@@ -814,27 +852,27 @@ describe('the controls the stack below added', () => {
     await searchFor(editor, 'blocklist');
     await openResultGroup(editor, 'calendar:blocklist');
     expect(resultRows(editor).find(({ label }) => label === 'Ben')?.meta).toBe(
-      'Dentist, Gym · Set on This Calendar · YAML: entities[1].blocklist',
+      'Dentist, Gym · Set on This Calendar',
     );
   });
 
   it('words Start Date’s shortcut and Tapping an Event as the overview shows them', async () => {
     const editor = await stack();
     await searchFor(editor, 'tomorrow');
-    expect(row(editor, 'content:start_date_mode').meta).toMatch(/^Tomorrow · /);
+    expect(row(editor, 'content:start_date_mode').meta).toMatch(/^Tomorrow( · |$)/);
     await searchFor(editor, 'tapping');
     // Another action stored in its place: the switch gives way to it, and so does its value.
-    expect(row(editor, 'actions:event_opens_details').meta).toMatch(/^Navigate · /);
+    expect(row(editor, 'actions:event_opens_details').meta).toMatch(/^Navigate( · |$)/);
   });
 
   it('reaches the event-part chips and the toolbar’s controls, and opens at the chip', async () => {
     const editor = await stack();
     await searchFor(editor, 'end time');
-    expect(row(editor, 'events:show_end_time').meta).toMatch(/^On · /);
+    expect(row(editor, 'events:show_end_time').meta).toMatch(/^On( · |$)/);
     await searchFor(editor, 'refresh button');
-    expect(row(editor, 'card:toolbar.refresh').meta).toMatch(/^On · /);
+    expect(row(editor, 'card:toolbar.refresh').meta).toMatch(/^On( · |$)/);
     await searchFor(editor, 'calendar filter');
-    expect(row(editor, 'card:toolbar.legend').meta).toMatch(/^Menu · /);
+    expect(row(editor, 'card:toolbar.legend').meta).toMatch(/^Menu( · |$)/);
     await searchFor(editor, 'end time');
     await chooseResult(editor, 'result:events:show_end_time');
     expect(editor.shadowRoot!.activeElement).toBe(
