@@ -52,7 +52,10 @@ describe.each(['list', 'column', 'grid'] as const)('%s serialized editor state',
       expect(valueOf(reopened.editor, 'events:show_description')).toBe(
         valueOf(editor, 'events:show_description'),
       );
+      // Over a second in a full local run; the limit is set for CI's slower runner under load
+      // rather than for a hang.
     },
+    30_000,
   );
 });
 

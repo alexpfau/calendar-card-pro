@@ -258,7 +258,9 @@ describe('days_to_show per view', () => {
     expect(drawnDays(card)).toBe(21);
     expect(range(card)).toBe(`Jun 15${TO}Jul 5`);
     expect(callApi).toHaveBeenCalledTimes(1);
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('pages by the days on screen, and a switch keeps the first day without fetching', async () => {
     const card = await mount();

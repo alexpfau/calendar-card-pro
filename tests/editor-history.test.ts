@@ -507,7 +507,9 @@ describe('steps', () => {
       count++;
     }
     expect(count).toBe(History.LIMIT);
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('are forgotten once a configuration the editor did not send arrives', async () => {
     const { editor } = await mount({ config_version: VERSION, entities: ['calendar.anna'] });
