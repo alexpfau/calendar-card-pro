@@ -786,14 +786,17 @@ function entryCtx(entry: string | Types.EntityConfig, key: number, ctx: PlanCtx)
  * @param entry - The entry as stored
  * @param key - Its key
  * @param ctx - Plan context for the card; its `entryKeys` place the entry among its calendar's
+ * @param present - The entry's fields as its page builds them, where the caller has them
  * @returns A plan per group
  */
 export function planEntry(
   entry: string | Types.EntityConfig,
   key: number,
   ctx: PlanCtx,
+  present?: FieldIndex,
 ): HeadingPlan[] {
-  return planHeadings(ENTRY_GROUPS, entryCtx(entry, key, ctx));
+  const own = entryCtx(entry, key, ctx);
+  return planHeadings(ENTRY_GROUPS, present === undefined ? own : { ...own, present });
 }
 
 /**
@@ -803,9 +806,18 @@ export function planEntry(
  * @returns `true` on Card & Header and Weather
  */
 function onWholeCardPage(id: FieldId): boolean {
-  const page = PAGES.find((each) => each.id === placementOf(id)?.page);
-  return page !== undefined && isWholeCard(page);
+  const page = placementOf(id)?.page;
+  if (page === undefined) return false;
+  let whole = wholeCardPages.get(page);
+  if (whole === undefined) {
+    const def = PAGES.find((each) => each.id === page);
+    wholeCardPages.set(page, (whole = def !== undefined && isWholeCard(def)));
+  }
+  return whole;
 }
+
+/** Whether each page applies to the whole card, worked out once (`pages.ts` › `isWholeCard`). */
+const wholeCardPages = new Map<string, boolean>();
 
 /**
  * The entries storing their own value for the calendar option a card field is overridden by.
@@ -1038,10 +1050,34 @@ export function resetAction(
   if (field === undefined) return undefined;
   const stored = storedHere(field, ctx);
   if (!stored && !ctx.added.has(addedKey(id, ctx))) return undefined;
+  // An essential setting keeps its control whatever is stored, and resetting its own line never
+  // withholds it (`tests/editor-shown-set.test.ts` checks that over the gate corpus), so it gets
+  // Reset without building what the reset would leave. A mode value's own reset can withhold it
+  // (Card Height leaves with its height), so every other setting takes the full path below.
+  if (stored && keepsControl(appearance)) return 'reset';
 
-  const after = afterReset(ctx, Reset.reset(state, resetTargetFor(field, ctx)));
+  const result = Reset.reset(state, resetTargetFor(field, ctx));
+  // Nothing stored here, so the reset deletes no line and the builders' answer is unchanged.
+  const after = stored
+    ? afterReset(ctx, result)
+    : { ...ctx, added: new Set([...ctx.added].filter((key) => !result.clearAdded.includes(key))) };
   if (fieldState(id, appearance, after).kind === 'live') return stored ? 'reset' : undefined;
   return 'remove';
+}
+
+/**
+ * Whether a setting stays live whatever is stored, while it applies: an essential one, a chip or
+ * a toolbar button's row.
+ *
+ * @param appearance - How its page shows it
+ * @returns `true` when it does
+ */
+export function keepsControl(appearance: Appearance): boolean {
+  return (
+    appearance === 'essential' ||
+    appearance === 'button-rows' ||
+    (typeof appearance === 'object' && 'chips' in appearance)
+  );
 }
 
 /**

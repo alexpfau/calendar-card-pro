@@ -785,7 +785,7 @@ describe('the index builds what the editor draws today', () => {
       fresh.forEach(({ field, reads }, at) => {
         const today = resolved.get(reads)!;
         labels.compared += 1;
-        if (!deepEqual(indexed[at], today)) {
+        if (!sameButWords(indexed[at], today)) {
           labels.differ.push(
             `${workspace} ${field.id}: index ${JSON.stringify(indexed[at])}, form ` +
               JSON.stringify(today),
@@ -794,6 +794,32 @@ describe('the index builds what the editor draws today', () => {
       });
     }
     return { names, labels };
+  }
+
+  /**
+   * Whether a form words a field as the index does, but for the state words a page adds where
+   * the field's value comes from (`shown.ts` › `wordsPlace`): after the label as " · Set for
+   * Grid", or before the helper as "Set for Grid.".
+   *
+   * @param index - The index's label and helper
+   * @param form - The form's
+   * @returns `true` when they agree
+   */
+  function sameButWords(
+    index: { label: string; helper: string | undefined },
+    form: { label: string; helper: string | undefined },
+  ): boolean {
+    const label =
+      form.label === index.label ||
+      (form.label.startsWith(`${index.label} · `) && form.helper === index.helper);
+    const helper =
+      form.helper === index.helper ||
+      (form.label === index.label &&
+        form.helper !== undefined &&
+        (index.helper === undefined
+          ? /^[^.]+\.$/.test(form.helper)
+          : form.helper.endsWith(`. ${index.helper}`)));
+    return label && helper;
   }
 
   let observation: Promise<Observed> | undefined;

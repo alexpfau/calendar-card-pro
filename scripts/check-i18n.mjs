@@ -539,7 +539,7 @@ function probeContexts(editor, language) {
  * Key prefixes the page registry and the gate table own: a key under one is used only if one of
  * them names it.
  */
-const REGISTRY_PREFIXES = ['page.', 'heading.', 'family.', 'gate.needs.'];
+const REGISTRY_PREFIXES = ['page.', 'heading.', 'family.', 'gate.needs.', 'gate.when.'];
 
 /**
  * The string keys the page registry and the gate table name, each with where.
@@ -595,8 +595,15 @@ function readRegistryKeys(editor) {
   }
   for (const [id, gate] of [...Object.entries(GATES), ...Object.entries(ENTRY_GATES)]) {
     name(named, gate.needsKey, `gate ${id}`);
+    name(named, gate.whenKey, `gate ${id}`);
     for (const prereq of [...gate.requires, ...(gate.anyOf ?? []).flat()]) {
       name(named, prereq.needsKey, `gate ${id}, its condition on ${prereq.field}`);
+      // A gate line's clause: the condition's own, else its gate's, else a switch's
+      // `gate.when.on` (`gates.ts` › `whenKeyOf`), so the switch template is named while any
+      // condition falls to it.
+      if (gate.kind === 'gate') {
+        name(named, editor.whenKeyOf(gate, prereq), `gate ${id}, its condition on ${prereq.field}`);
+      }
     }
   }
 

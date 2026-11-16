@@ -48,6 +48,11 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     // The field a search result showed, and the results it left.
     '_jump',
     '_resultsLeft',
+    // What a page shows besides what is stored (section 5.1): the settings added this session,
+    // the Add row open, and the two preferences, which this browser remembers instead.
+    '_added',
+    '_addOpen',
+    '_prefs',
   ],
   // Keys never go back, so a restored entry's key is never handed to another.
   counters: ['_nextEntryKey', '_nextButtonKey'],
@@ -62,16 +67,11 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_warmData',
     '_warmRun',
     '_warmed',
+    // Each field's Reset or Remove, recomputed once the configuration moves.
+    '_actions',
   ],
   // Derived from what is snapshotted, or from the render in progress.
-  derived: [
-    '_config',
-    '_lastDispatched',
-    '_essentialsHidden',
-    '_drawing',
-    '_bareUpdatePending',
-    '_resultStatus',
-  ],
+  derived: ['_config', '_lastDispatched', '_drawing', '_bareUpdatePending', '_resultStatus'],
   // The history itself, and whether a change is being recorded.
   history: ['_history', '_committing'],
   // Bound handlers and memoized builders: no state Undo could miss.

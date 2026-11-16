@@ -297,8 +297,7 @@ describe('what the editor reads of hass while it renders', () => {
       for (const criteria of [
         { 'filter:search': 'anna' },
         { 'filter:search': 'ben' },
-        { 'filter:search': '', 'filter:customized_only': true },
-        { 'filter:customized_only': false, 'filter:essentials_only': true },
+        { 'filter:search': '' },
       ]) {
         await changeFields(editor, criteria);
         await settle();

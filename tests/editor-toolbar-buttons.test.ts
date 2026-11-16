@@ -34,14 +34,13 @@ import {
   labelOf,
   mountEditor,
   openPageOf,
-  openPanels,
   resultRows,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as Buttons from '../src/rendering/editor/buttons';
-import { CUSTOMIZED_ONLY_FIELD, SEARCH_FIELD } from '../src/rendering/editor/filter';
+import { SEARCH_FIELD } from '../src/rendering/editor/filter';
 import { HA_ACTION_LABEL_PREFIX } from '../src/rendering/editor/hass-localize';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 import { ACTION_OPTIONS } from '../src/rendering/editor/schemas/actions';
@@ -535,20 +534,6 @@ describe('searching the toolbar buttons', () => {
     await changeField(editor.element, `filter:${SEARCH_FIELD}`, 'your own buttons');
 
     expect(resultRows(editor.element).filter((row) => row.ownerKey !== undefined)).toEqual([]);
-  });
-
-  it('shows each button’s own fields under customized only', async () => {
-    const editor = await mount({ show: true, buttons: [{ icon: 'mdi:home' }, LIGHTS] });
-
-    await changeField(editor.element, `filter:${CUSTOMIZED_ONLY_FIELD}`, true);
-    // The switch sits on the overview; the buttons on Card & Header.
-    await openPanels(editor.element);
-    await openPageOf(editor.element, 'button:icon', button(0));
-
-    expect(editor.forms().map(editor.fieldNames)).toEqual([
-      ['icon'],
-      ['icon', 'name', 'entity', 'tap_action'],
-    ]);
   });
 });
 

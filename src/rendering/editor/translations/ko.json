@@ -1,10 +1,6 @@
 {
   "search": "설정 검색",
-  "customized_only": "수정한 항목만 표시",
-  "customized_only.helper": "사용자가 변경한 설정만 표시합니다. 기본값 항목은 숨겨집니다.",
   "filter.no_matches": "“{query}”와(과) 일치하는 항목이 없습니다.",
-  "filter.nothing_customized": "커스텀된 설정이 없습니다 — 모든 설정이 카드 기본값 상태입니다.",
-  "filter.gated_note": "다른 설정이 켜져야만 활성화되는 설정은 해당 설정이 켜진 후에만 나타납니다.",
   "view.option.list.label": "목록",
   "view.option.list.description": "행마다 하루씩 세로로 쌓는 방식",
   "view.option.column.label": "열",
