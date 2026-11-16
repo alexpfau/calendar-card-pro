@@ -6,7 +6,14 @@
  * the list's styles serve both.
  */
 
-import { mdiCheck, mdiChevronDown, mdiChevronUp } from '@mdi/js';
+import {
+  mdiArrowDown,
+  mdiArrowUp,
+  mdiCheck,
+  mdiChevronDown,
+  mdiChevronUp,
+  mdiDeleteOutline,
+} from '@mdi/js';
 import { type TemplateResult, html, nothing } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
 
@@ -163,12 +170,14 @@ export function buttonList(rows: ReadonlyArray<ButtonRowModel>): TemplateResult 
         const strip = (action: StripAction, destructive = false) =>
           html`<button
             type="button"
-            class="text-button${destructive ? ' destructive' : ''}"
+            class="text-button with-icon${destructive ? ' destructive' : ''}"
             data-move=${action.move ?? nothing}
             ?disabled=${!action.enabled}
             @click=${action.onPress}
           >
-            ${action.label}
+            ${icon(
+              destructive ? mdiDeleteOutline : action.move === 'up' ? mdiArrowUp : mdiArrowDown,
+            )}${action.label}
           </button>`;
         return html`<div
           role="listitem"

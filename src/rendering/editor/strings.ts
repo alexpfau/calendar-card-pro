@@ -43,6 +43,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'heading.weeks': 'Weeks',
   'heading.name_and_look': 'Name & Look',
   'heading.who_sees_it': 'Who Sees It',
+  'heading.refresh': 'Refresh',
 
   // --- Overview & navigation ------------------------------------------------
   //
