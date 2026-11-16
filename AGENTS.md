@@ -536,6 +536,14 @@ guard. The emitted equivalence tests run through the real Rollup plugin chain un
 the DST projects. Incremental builds must regenerate every language vector when English keys
 change. See _Compact Payloads, Readable Sources_ in `docs/architecture.md`.
 
+The editor build goes further, and two of its steps constrain source. It collapses the
+indentation in editor `html` and `css` templates, so an editor template must never render text
+under `white-space: pre`, `pre-wrap`, `pre-line` or `break-spaces`. And it renames the
+undecorated `private` and `protected` members of `element.ts` (`rollup.config.mjs` ›
+`editorPrivateMembers`), so never read one by its name as a string; the build refuses to start
+if one appears as a whole string literal in `src/`. The editor's component tests import source,
+so neither step is visible to them; compare a built bundle when changing either.
+
 **`generate-en-gb.mjs` is the one with a trap in it.** `src/rendering/editor/translations/en-GB.json`
 is generated, not maintained — `en-gb.mjs` holds the substitution list, the generator writes
 the file, and `check:i18n` recomputes the same data and fails on any difference. Nothing runs

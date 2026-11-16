@@ -2,7 +2,7 @@
  * Layout schema rows.
  */
 
-import { blockScope, bool, color, text } from './common';
+import { blockScope, bool, color, select, text } from './common';
 import * as Types from '../../../config/types';
 import * as ViewConfig from '../../../config/view';
 import * as Helpers from '../../../utils/helpers';
@@ -88,20 +88,7 @@ function densityFields(blockKey: string, daysToShow: number, language: string): 
         number: { min: 1, max: Math.max(1, Math.floor(daysToShow)), step: 1 },
       },
     },
-    {
-      name: 'min_days_fallback',
-      selector: {
-        select: {
-          mode: 'dropdown',
-          options: (['list', 'cramp'] as const).map((value) => ({
-            value,
-            label:
-              lookup(language, `${blockKey}.min_days_fallback.option.${value}.label`) ??
-              humanize(value),
-          })),
-        },
-      },
-    },
+    select(language, 'min_days_fallback', ['list', 'cramp'], `${blockKey}.min_days_fallback`),
   ]);
 }
 
@@ -123,36 +110,11 @@ function timeAxisFields(blockKey: string, language: string): HaFormSchema[] {
     blockScope(blockKey, [
       text('start_time'),
       text('end_time'),
-      {
-        name: 'slot_minutes',
-        selector: {
-          select: {
-            mode: 'dropdown',
-            options: ([15, 20, 30, 60] as const).map((value) => ({
-              value,
-              label:
-                lookup(language, `${blockKey}.slot_minutes.option.${value}.label`) ?? String(value),
-            })),
-          },
-        },
-      },
+      select(language, 'slot_minutes', [15, 20, 30, 60], `${blockKey}.slot_minutes`),
       text('hour_height'),
       text('axis_width'),
       bool('show_axis_labels'),
-      {
-        name: 'axis_label_minutes',
-        selector: {
-          select: {
-            mode: 'dropdown',
-            options: ([30, 60, 120, 180] as const).map((value) => ({
-              value,
-              label:
-                lookup(language, `${blockKey}.axis_label_minutes.option.${value}.label`) ??
-                String(value),
-            })),
-          },
-        },
-      },
+      select(language, 'axis_label_minutes', [30, 60, 120, 180], `${blockKey}.axis_label_minutes`),
       color('weekend_background_color'),
       color('today_background_color'),
       bool('show_now_line'),
@@ -160,20 +122,7 @@ function timeAxisFields(blockKey: string, language: string): HaFormSchema[] {
         name: 'allday_band_max_rows',
         selector: { number: { min: 1, max: 10, step: 1, mode: 'box' } },
       },
-      {
-        name: 'overlap_layout',
-        selector: {
-          select: {
-            mode: 'dropdown',
-            options: (['cascade', 'columns'] as const).map((value) => ({
-              value,
-              label:
-                lookup(language, `${blockKey}.overlap_layout.option.${value}.label`) ??
-                humanize(value),
-            })),
-          },
-        },
-      },
+      select(language, 'overlap_layout', ['cascade', 'columns'], `${blockKey}.overlap_layout`),
       {
         name: 'max_simultaneous_events',
         selector: { number: { min: 1, max: 10, step: 1, mode: 'box' } },
@@ -205,28 +154,14 @@ const layoutSchema = Helpers.memoizeLast(
       view === 'grid' ? [] : [text('day_spacing'), text('event_gap'), text('event_spacing')];
 
     const cardBox: HaFormSchema[] = [
-      {
-        name: 'additional_card_spacing',
-        selector: { text: { type: 'text' } },
-      },
-      {
-        name: 'height_mode',
-        selector: {
-          select: {
-            mode: 'dropdown',
-            options: (['auto', 'fixed', 'maximum'] as const).map((value) => ({
-              value,
-              label: lookup(language, `height_mode.option.${value}.label`) ?? humanize(value),
-            })),
-          },
-        },
-      },
+      text('additional_card_spacing'),
+      select(language, 'height_mode', ['auto', 'fixed', 'maximum']),
     ];
 
     if (heightMode === 'fixed') {
-      cardBox.push({ name: 'card_height', selector: { text: { type: 'text' } } });
+      cardBox.push(text('card_height'));
     } else if (heightMode === 'maximum') {
-      cardBox.push({ name: 'card_max_height', selector: { text: { type: 'text' } } });
+      cardBox.push(text('card_max_height'));
     }
 
     const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view];

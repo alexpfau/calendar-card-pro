@@ -29,7 +29,7 @@ import { ENTRY_GROUPS, type FamilyId, type HeadingDef, PAGES } from './pages';
 import * as Routing from './routing';
 import { entityConfigKeys } from './schemas/entity';
 import * as Synthetic from './synthetic';
-import type { EditorWorkspace } from './workspace';
+import { BLOCK_KEYS, type EditorWorkspace } from './workspace';
 import type { WriteState } from './write-frames';
 import type * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
@@ -59,10 +59,6 @@ export interface ResetResult {
 /** The block Grid's divergent defaults live in, the one `_gridResetKeys` speaks for. */
 const GRID_BLOCK = ViewConfig.viewBlockFor('grid')?.blockKey;
 
-const BLOCK_KEYS: ReadonlySet<string> = new Set(
-  ViewConfig.VIEWS.flatMap((view) => ViewConfig.viewBlockFor(view)?.blockKey ?? []),
-);
-
 /** What a reset changes, built up in one place so the four parts move together. */
 interface Draft {
   config: Record<string, unknown>;
@@ -91,7 +87,7 @@ function viewOfBlock(blockKey: string): Types.EffectiveView | undefined {
 function removeRoot(draft: Draft, key: string): void {
   delete draft.pending[key];
   forgetSyntheticText(draft, key, 'shared');
-  if (!Object.prototype.hasOwnProperty.call(draft.config, key)) return;
+  if (!Helpers.hasOwn(draft.config, key)) return;
   const config = { ...draft.config };
   delete config[key];
   draft.config = config;
@@ -139,7 +135,7 @@ function removeInBlock(draft: Draft, blockKey: string, key: string): void {
   }
 
   const block = draft.config[blockKey];
-  if (!Helpers.isConfigBlock(block) || !Object.prototype.hasOwnProperty.call(block, key)) return;
+  if (!Helpers.isConfigBlock(block) || !Helpers.hasOwn(block, key)) return;
   const next = { ...block };
   delete next[key];
   const config = { ...draft.config };
@@ -168,7 +164,7 @@ function removeBlock(draft: Draft, blockKey: string): void {
   );
   const keys = new Set([...(Helpers.isConfigBlock(block) ? Object.keys(block) : []), ...held]);
   for (const key of keys) removeInBlock(draft, blockKey, key);
-  if (Object.prototype.hasOwnProperty.call(draft.config, blockKey)) {
+  if (Helpers.hasOwn(draft.config, blockKey)) {
     const config = { ...draft.config };
     delete config[blockKey];
     draft.config = config;
@@ -202,7 +198,7 @@ function removePath(draft: Draft, path: ReadonlyArray<string>): void {
     enclosing.slice(0, -1),
     enclosing[enclosing.length - 1],
   );
-  if (!Helpers.isConfigBlock(parent) || !Object.prototype.hasOwnProperty.call(parent, key)) return;
+  if (!Helpers.isConfigBlock(parent) || !Helpers.hasOwn(parent, key)) return;
   draft.config = Routing.writePath(draft.config, enclosing, key, undefined);
 }
 

@@ -582,11 +582,9 @@ export interface GateData {
  */
 export function fieldValue(data: GateData, id: FieldId): unknown {
   const { scope, dataPath, name } = parseFieldId(id);
-  let value: unknown = scope === 'calendar' ? data.entry : data.card;
-  for (const part of scope === 'calendar' ? [name] : [...dataPath, name]) {
-    value = Helpers.isConfigBlock(value) ? value[part] : undefined;
-  }
-  return value;
+  return scope === 'calendar'
+    ? Routing.atPath(data.entry, [], name)
+    : Routing.atPath(data.card, dataPath, name);
 }
 
 /**

@@ -4,10 +4,11 @@
 
 import type { HaFormSchema } from './ha-form';
 import { select } from './schemas/common';
+import { isSet as holdsValue } from './synthetic';
 import { DEFAULT_CONFIG, resolveToolbar } from '../../config/config';
 import type * as Types from '../../config/types';
 import { OVERRIDE_BLOCK_BY_VIEW, VIEWS, resolveViewOption } from '../../config/view';
-import { isConfigBlock } from '../../utils/helpers';
+import { hasOwn, isConfigBlock } from '../../utils/helpers';
 
 /**
  * A workspace is a place values are written, which is not the same thing as a view.
@@ -118,17 +119,8 @@ const UNCOUNTED_ROOT_KEYS: ReadonlySet<string> = new Set([
   'config_version',
 ]);
 
-const BLOCK_KEYS: ReadonlySet<string> = new Set(Object.values(OVERRIDE_BLOCK_BY_VIEW));
-
-/**
- * Whether a value counts as written: blanks and nulls are how a cleared field is left.
- *
- * @param value - Value as stored
- * @returns `true` when the value is there
- */
-function holdsValue(value: unknown): boolean {
-  return value !== undefined && value !== null && value !== '';
-}
+/** The keys of the view blocks. */
+export const BLOCK_KEYS: ReadonlySet<string> = new Set(Object.values(OVERRIDE_BLOCK_BY_VIEW));
 
 /**
  * How many values the YAML stores in a scope: a layout's own block, or for All Layouts the
@@ -153,7 +145,7 @@ export function storedCount(
     ([key, value]) =>
       !UNCOUNTED_ROOT_KEYS.has(key) &&
       !BLOCK_KEYS.has(key) &&
-      Object.prototype.hasOwnProperty.call(DEFAULT_CONFIG, key) &&
+      hasOwn(DEFAULT_CONFIG, key) &&
       holdsValue(value),
   ).length;
 }

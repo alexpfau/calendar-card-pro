@@ -13,10 +13,14 @@ import { humanize, lookup } from '../localize';
  * @param values - Option values, in the order they should appear
  * @returns Labeled options
  */
-function options(language: string, name: string, values: ReadonlyArray<string>): SelectOption[] {
+function options(
+  language: string,
+  name: string,
+  values: ReadonlyArray<string | number>,
+): SelectOption[] {
   return values.map((value) => ({
     value,
-    label: lookup(language, `${name}.option.${value}.label`) ?? humanize(value),
+    label: lookup(language, `${name}.option.${value}.label`) ?? humanize(String(value)),
   }));
 }
 
@@ -33,7 +37,7 @@ function options(language: string, name: string, values: ReadonlyArray<string>):
 export function select(
   language: string,
   name: string,
-  values: ReadonlyArray<string>,
+  values: ReadonlyArray<string | number>,
   labelKey: string = name,
 ): SelectorSchema {
   return {

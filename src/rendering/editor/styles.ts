@@ -8,20 +8,7 @@ export default css`
   .card-config {
     display: flex;
     flex-direction: column;
-    padding: 4px 0;
-  }
-
-  .view-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    padding-bottom: 16px;
-  }
-
-  .workspace-note {
-    color: var(--secondary-text-color);
-    font-size: 12px;
-    line-height: 1.4;
+    padding: 0 0 4px;
   }
 
   .config-migration {
@@ -184,16 +171,6 @@ export default css`
     font-size: 14px;
   }
 
-  .quick-setup-chevron {
-    flex: none;
-    color: var(--primary-color);
-  }
-
-  /* The chevron points the way the text runs. */
-  .quick-setup-chevron:dir(rtl) {
-    transform: scaleX(-1);
-  }
-
   .quick-setup {
     display: flex;
     flex-direction: column;
@@ -335,6 +312,24 @@ export default css`
     padding-bottom: 12px;
   }
 
+  /* The overview's search row: the field takes the width, Undo and Redo sit at its end. Home
+     Assistant's field is 56px tall and reserves 8px for a helper line below it, so the 48px
+     buttons are aligned with the box rather than with the form: 4px down from its top. */
+  .search-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .search-row .filter-form {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .search-row .history-controls {
+    margin-top: 4px;
+  }
+
   .filter-empty {
     color: var(--primary-text-color);
     padding: 24px 8px;
@@ -377,12 +372,6 @@ export default css`
     color: var(--secondary-text-color);
     font-size: 12px;
     line-height: 1.4;
-  }
-
-  /* The panel body spaces its children 16px apart, and a form spaces its fields 24px apart;
-     the buttons' sub-heading takes the form's spacing from the toolbar's last switch above it. */
-  .buttons-heading {
-    margin-top: 8px;
   }
 
   .add-button {

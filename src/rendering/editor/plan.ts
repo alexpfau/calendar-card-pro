@@ -54,13 +54,14 @@ import {
 import * as Reset from './reset';
 import * as Routing from './routing';
 import { interpolate } from './strings';
-import { SYNTHETIC_FIELDS, entityIdOf } from './synthetic';
+import { SYNTHETIC_FIELDS, entityIdOf, isSet as holdsValue } from './synthetic';
 import { deepEqual, toStoredConfig } from './value';
-import { type EditorWorkspace, viewForWorkspace } from './workspace';
+import { BLOCK_KEYS, type EditorWorkspace, viewForWorkspace } from './workspace';
 import type { WriteState } from './write-frames';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
+import { hasOwn } from '../../utils/helpers';
 import { showsEventWeather } from '../../utils/weather-position';
 
 /** Why a field is live, or what stands in its place. */
@@ -180,10 +181,6 @@ export type ResetOutcome =
 const LIVE_ESSENTIAL: FieldState = { kind: 'live', why: 'essential' };
 const NONE: FieldState = { kind: 'none' };
 
-const BLOCK_KEYS: ReadonlySet<string> = new Set(
-  ViewConfig.VIEWS.flatMap((view) => ViewConfig.viewBlockFor(view)?.blockKey ?? []),
-);
-
 /**
  * The card setting each calendar option overrides, read where the card reads it. `days_of_week`
  * has none: the card shows every day, and only a calendar can narrow it.
@@ -198,16 +195,6 @@ const CARD_COUNTERPART: Readonly<Record<string, string | undefined>> = {
   event_type: 'event_type',
   days_of_week: undefined,
 };
-
-/**
- * Whether a value counts as stored: present and neither `null` nor empty (#834's rule).
- *
- * @param value - A stored value
- * @returns `true` when it holds something
- */
-function holdsValue(value: unknown): boolean {
-  return value !== undefined && value !== null && value !== '';
-}
 
 /** Per root option, whether an empty string stored for it reads otherwise than none. */
 const blankMeans = new Map<string, boolean>();
@@ -617,9 +604,7 @@ function liveWhy(
   appearance: Appearance,
   ctx: PlanCtx,
 ): Extract<FieldState, { kind: 'live' }>['why'] | undefined {
-  if (appearance === 'essential' || appearance === 'button-rows') return 'essential';
-  if (appearance === 'segmented') return 'essential';
-  if (typeof appearance === 'object' && 'chips' in appearance) return 'essential';
+  if (keepsControl(appearance)) return 'essential';
   if (typeof appearance === 'object' && 'family' in appearance) {
     return familyWhy(appearance.family, ctx);
   }
@@ -1027,7 +1012,7 @@ export function resetOutcome(field: IndexedField, ctx: PlanCtx): ResetOutcome | 
         ? undefined
         : { kind: 'card', value: cardCounterpart(name, ctx.config, ctx.workspace) };
     }
-    if (!Object.prototype.hasOwnProperty.call(Config.DEFAULT_CONFIG, name)) return undefined;
+    if (!hasOwn(Config.DEFAULT_CONFIG, name)) return undefined;
     const effective = Routing.workspaceConfig(ctx.config, ctx.workspace);
     return { kind: 'card', value: normalizeRootValue(name, effective[name as keyof Types.Config]) };
   }
