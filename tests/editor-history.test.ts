@@ -413,6 +413,38 @@ describe('the migration choice', () => {
   });
 });
 
+describe('the search row', () => {
+  // One row, as designed: the search field, then Undo and Redo at its end. They were once drawn
+  // as a row of their own above the field, which cost the overview 48px.
+  const row = (editor: MountedEditor) =>
+    [...$(editor, '.overview > .search-row')!.children].map(
+      (child) => (child as HTMLElement).dataset.focus ?? child.className,
+    );
+
+  it('holds the search field, then Undo and Redo, on one row', async () => {
+    const { editor } = await mount({ config_version: VERSION, entities: ['calendar.anna'] });
+    expect(row(editor)).toEqual(['filter-form', 'history-controls']);
+    expect(
+      [...$(editor, '.search-row .history-controls')!.children].map(
+        (button) => (button as HTMLElement).dataset.focus,
+      ),
+    ).toEqual(['undo', 'redo']);
+    // No second row of buttons anywhere else on the overview.
+    expect(editor.shadowRoot!.querySelectorAll('.history-controls')).toHaveLength(1);
+    expect(getComputedStyle($(editor, '.search-row')!).display).toBe('flex');
+  });
+
+  it('keeps that order while a query is in the field', async () => {
+    const { editor } = await mount({ config_version: VERSION, entities: ['calendar.anna'] });
+    await changeField(editor, 'content:days_to_show', 5);
+    await changeField(editor, 'filter:search', 'color');
+    await settle(editor);
+    expect($(editor, '.result-status, .filter-empty')).not.toBeNull();
+    expect(row(editor)).toEqual(['filter-form', 'history-controls']);
+    expect($(editor, '.search-row [data-focus="undo"]')!.hasAttribute('disabled')).toBe(false);
+  });
+});
+
 describe('steps', () => {
   it('join typing in one field, and part at a pause or another field', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
