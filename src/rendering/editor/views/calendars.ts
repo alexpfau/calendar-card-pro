@@ -10,7 +10,9 @@
 import {
   mdiAlertOutline,
   mdiCalendarBlankOutline,
+  mdiChevronDown,
   mdiChevronRight,
+  mdiChevronUp,
   mdiDotsVertical,
   mdiInformationOutline,
 } from '@mdi/js';
@@ -25,6 +27,8 @@ export interface StripAction {
   /** Its part of the `data-focus` key, so focus can return to it after a move. */
   readonly id: string;
   readonly label: string;
+  /** Its icon's path, drawn before the label. */
+  readonly icon?: string;
   /** Its accessible name, which says whose action it is. */
   readonly name: string;
   /** A line under the label: "From Ben", "Copy settings first". */
@@ -60,13 +64,16 @@ export function strip(
           ?disabled=${action.disabled === true}
           @click=${action.onPress}
         >
-          <span class="strip-label">${action.label}</span>
-          ${
-            action.keys
-              ? html`<kbd class="strip-keys" aria-hidden="true">${action.keys}</kbd>`
-              : nothing
-          }
-          ${action.note ? html`<small class="strip-note">${action.note}</small>` : nothing}
+          ${action.icon ? icon(action.icon) : nothing}
+          <span class="strip-text">
+            <span class="strip-label">${action.label}</span>
+            ${
+              action.keys
+                ? html`<kbd class="strip-keys" aria-hidden="true">${action.keys}</kbd>`
+                : nothing
+            }
+            ${action.note ? html`<small class="strip-note">${action.note}</small>` : nothing}
+          </span>
         </button>`,
     )}
   </div>`;
@@ -296,6 +303,8 @@ export interface TextButton {
   readonly label: string;
   readonly focus: string;
   readonly name?: string;
+  /** An icon's path, drawn before the label. */
+  readonly iconPath?: string;
   readonly disabled?: boolean;
   readonly onPress: () => void;
 }
@@ -310,13 +319,13 @@ export interface TextButton {
 export function textButton(button: TextButton, classes = ''): TemplateResult {
   return html`<button
     type="button"
-    class="text-button${classes}"
+    class="text-button${button.iconPath ? ' with-icon' : ''}${classes}"
     data-focus=${button.focus}
     aria-label=${button.name ?? nothing}
     ?disabled=${button.disabled === true}
     @click=${button.onPress}
   >
-    ${button.label}
+    ${button.iconPath ? icon(button.iconPath) : nothing}${button.label}
   </button>`;
 }
 
@@ -350,14 +359,18 @@ export function addCalendar(
 }
 
 /**
- * Previous Calendar and Next Calendar, under an entry page's header.
+ * Previous Calendar and Next Calendar, under an entry page's header, each with the chevron
+ * pointing the way it steps through the list.
  *
  * @param previous - Previous Calendar
  * @param next - Next Calendar
  * @returns The pair
  */
 export function previousNext(previous: TextButton, next: TextButton): TemplateResult {
-  return html`<div class="entry-steps">${textButton(previous)} ${textButton(next)}</div>`;
+  return html`<div class="entry-steps">
+    ${textButton({ ...previous, iconPath: mdiChevronUp })}
+    ${textButton({ ...next, iconPath: mdiChevronDown })}
+  </div>`;
 }
 
 /**

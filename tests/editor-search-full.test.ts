@@ -537,7 +537,7 @@ describe('Edit Here', () => {
     await toggle(editor);
     expect(controls(editor)).toEqual(['actions:refresh_interval']);
     expect(resultRows(editor)).toHaveLength(0);
-    expect(text($(editor, '.result--edit > .nav-summary'))).toBe('Taps & Refresh');
+    expect(text($(editor, '.result--edit > .nav-summary'))).toBe('Taps & Refresh › Refresh');
     expect([text(button), button.getAttribute('aria-pressed')]).toEqual(['Show as a List', 'true']);
 
     await toggle(editor);

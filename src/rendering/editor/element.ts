@@ -5,7 +5,20 @@
  * groups through `views/`.
  */
 
-import { mdiCheck, mdiDeleteOutline, mdiFormatListChecks, mdiInformationOutline } from '@mdi/js';
+import {
+  mdiArrowDown,
+  mdiArrowUp,
+  mdiCallSplit,
+  mdiCheck,
+  mdiContentCopy,
+  mdiContentDuplicate,
+  mdiContentPaste,
+  mdiDeleteOutline,
+  mdiFormatListChecks,
+  mdiFormatVerticalAlignTop,
+  mdiInformationOutline,
+  mdiPlus,
+} from '@mdi/js';
 import {
   LitElement,
   type PropertyValues,
@@ -106,6 +119,7 @@ import * as ChipsView from './views/chips';
 import * as ColorView from './views/color';
 import * as Focus from './views/focus';
 import * as HistoryView from './views/history';
+import { icon } from './views/icon';
 import { escapeAction, historyKey, inTextField } from './views/keys';
 import * as Overview from './views/overview';
 import * as PageView from './views/page';
@@ -3082,8 +3096,17 @@ export class CalendarCardProEditor extends LitElement {
         key,
         heading,
         named,
-        names: Shown.namesText(
-          items.map((item) => item.label),
+        // A family is one item named by the family, but the closed row names its members: under a
+        // heading named as the family, its name alone would only repeat the heading.
+        names: Shown.namesParts(
+          plan.add.flatMap((item) =>
+            item.kind === 'family'
+              ? item.ids.flatMap((id) => {
+                  const field = known(id);
+                  return field === undefined ? [] : [fieldLabel(field, ctx.language)];
+                })
+              : items.filter((each) => each.key === item.id).map((each) => each.label),
+          ),
           t,
         ),
         items,
@@ -5380,6 +5403,7 @@ export class CalendarCardProEditor extends LitElement {
         {
           id: 'up',
           label: this._string(ctx, 'toolbar.buttons.move_up'),
+          icon: mdiArrowUp,
           name: this._string(ctx, 'strip.move_up', { name }),
           keys: onPage ? this._string(ctx, 'strip.key_up') : undefined,
           disabled: place === 0,
@@ -5388,6 +5412,7 @@ export class CalendarCardProEditor extends LitElement {
         {
           id: 'down',
           label: this._string(ctx, 'toolbar.buttons.move_down'),
+          icon: mdiArrowDown,
           name: this._string(ctx, 'strip.move_down', { name }),
           keys: onPage ? this._string(ctx, 'strip.key_down') : undefined,
           disabled: last,
@@ -5396,6 +5421,7 @@ export class CalendarCardProEditor extends LitElement {
         {
           id: 'top',
           label: this._string(ctx, 'strip.move_top_label'),
+          icon: mdiFormatVerticalAlignTop,
           name: this._string(ctx, 'strip.move_top', { name }),
           disabled: place === 0,
           onPress: () => this._moveCalendar(entityId, 0, `${focus}top`),
@@ -5406,6 +5432,7 @@ export class CalendarCardProEditor extends LitElement {
       actions.push({
         id: 'remove',
         label: this._string(ctx, 'entity.remove'),
+        icon: mdiDeleteOutline,
         name: this._string(ctx, 'strip.remove_calendar', {
           name,
           count: total,
@@ -5422,6 +5449,7 @@ export class CalendarCardProEditor extends LitElement {
       actions.unshift({
         id: 'split',
         label: this._string(ctx, 'split.title'),
+        icon: mdiCallSplit,
         name: this._string(ctx, 'split.named', { name: entryName }),
         onPress: () => this._openSplit(entryKey),
       });
@@ -5432,12 +5460,14 @@ export class CalendarCardProEditor extends LitElement {
       {
         id: 'duplicate',
         label: this._string(ctx, 'entity.duplicate'),
+        icon: mdiContentDuplicate,
         name: this._string(ctx, 'strip.duplicate', { name: entryName }),
         onPress: () => this._duplicateEntry(entryKey),
       },
       {
         id: 'copy',
         label: this._string(ctx, 'entity.copy'),
+        icon: mdiContentCopy,
         name: this._string(ctx, 'strip.copy', { name: entryName }),
         disabled: !Entities.hasTransferableSettings(entry),
         onPress: () => this._copyEntry(entryKey),
@@ -5445,6 +5475,7 @@ export class CalendarCardProEditor extends LitElement {
       {
         id: 'paste',
         label: this._string(ctx, 'entity.paste'),
+        icon: mdiContentPaste,
         name: this._string(ctx, 'strip.paste', { name: entryName }),
         note: !copied
           ? this._string(ctx, 'strip.paste_empty')
@@ -5458,6 +5489,7 @@ export class CalendarCardProEditor extends LitElement {
         id: 'remove',
         label:
           total > 1 ? this._string(ctx, 'strip.remove_entry') : this._string(ctx, 'entity.remove'),
+        icon: mdiDeleteOutline,
         name: interpolate(
           total > 1
             ? this._string(ctx, 'strip.remove_entry_named')
@@ -6004,6 +6036,7 @@ export class CalendarCardProEditor extends LitElement {
         {
           label: this._string(ctx, 'calendars.add'),
           focus: 'add-calendar',
+          iconPath: mdiPlus,
           onPress: () => {
             this._adding = {};
             this._focusSoon([Focus.byFocusKey('add-picker')]);
@@ -7511,6 +7544,7 @@ export class CalendarCardProEditor extends LitElement {
               ? this._string(ctx, 'entry.remove', { name })
               : this._string(ctx, 'strip.remove_entry'),
             focus: 'entry-remove',
+            iconPath: mdiDeleteOutline,
             name: interpolate(
               single
                 ? this._string(ctx, 'strip.remove')
@@ -7679,8 +7713,8 @@ export class CalendarCardProEditor extends LitElement {
     return html`
       ${ChipsView.buttonList(rows)} ${this._renderGrabStatus(ctx, 'button')}
       ${this._renderStatus(ctx, ['button'])}
-      <button type="button" class="text-button add-button" @click=${this._addButton}>
-        ${this._string(ctx, 'toolbar.buttons.add')}
+      <button type="button" class="text-button with-icon add-button" @click=${this._addButton}>
+        ${icon(mdiPlus)}${this._string(ctx, 'toolbar.buttons.add')}
       </button>
     `;
   }
