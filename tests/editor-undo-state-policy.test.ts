@@ -59,6 +59,12 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     // The field a search result showed, and the results it left.
     '_jump',
     '_resultsLeft',
+    // Pick From Preview: whether the preview is found, and a pick while it is on.
+    '_canPick',
+    '_pickingAt',
+    '_pickLooks',
+    '_picker',
+    '_togglePick',
     // How the results are drawn: Edit Here, and the calendars' rows a folded result opened.
     '_editHere',
     '_openResults',
