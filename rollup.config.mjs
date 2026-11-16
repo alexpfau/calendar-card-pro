@@ -6,6 +6,7 @@ import esbuild from 'rollup-plugin-esbuild';
 import json from '@rollup/plugin-json';
 import { readdirSync, readFileSync, rmSync } from 'fs';
 import { join } from 'path';
+import ts from 'typescript';
 import {
   collapseTemplateWhitespace,
   compactDayjsLocales,
@@ -175,6 +176,63 @@ const collapseEditorTemplateWhitespace = {
 };
 
 /**
+ * Fails when a source file holds one of `names` as a whole string literal, the form in which a
+ * member is read by name (`changed.has('_x')`, `'_x' in el`, `el['_x']`). Comments do not count.
+ *
+ * @param path - Source file
+ * @param names - Member names the editor build renames
+ */
+function refuseQuoted(path, names) {
+  const ast = ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest);
+  (function visit(node) {
+    if (ts.isStringLiteralLike(node) && names.has(node.text)) {
+      throw new Error(`${path} quotes ${node.text}, which the editor build renames`);
+    }
+    ts.forEachChild(node, visit);
+  })(ast);
+}
+
+/**
+ * The editor element's own members that terser may rename: every `private` or `protected`
+ * member of `element.ts` declared without a decorator. Terser leaves property names alone by
+ * default, so each of these reached the bundle in full, hundreds of times. Renaming is
+ * consistent across the bundle, and nothing outside it reads them: Home Assistant uses the
+ * element's public members only. A decorated member is left out, because its decorator names
+ * it in a string Lit reads.
+ *
+ * A name written in quotes anywhere in `src/` would be read by its string and break once
+ * renamed, so the build refuses to start rather than ship that.
+ *
+ * @returns A pattern matching exactly those names
+ */
+function editorPrivateMembers() {
+  const element = readFileSync('src/rendering/editor/element.ts', 'utf8');
+  const decorated = new Set(
+    [...element.matchAll(/@\w+\([^)]*\)\s*(?:(?:private|protected|public|accessor) )*(_\w+)/g)].map(
+      (match) => match[1],
+    ),
+  );
+  const names = [
+    ...new Set(
+      [
+        ...element.matchAll(
+          /^ {2}(?:private|protected) (?:readonly )?(?:async )?(?:get |set )?(_\w+)/gm,
+        ),
+      ].map((match) => match[1]),
+    ),
+  ].filter((name) => !decorated.has(name));
+  const renamed = new Set(names);
+  (function walk(dir) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) walk(path);
+      else if (entry.name.endsWith('.ts')) refuseQuoted(path, renamed);
+    }
+  })('src');
+  return new RegExp(`^(?:${names.join('|')})$`);
+}
+
+/**
  * The plugin chain, built fresh for each output.
  *
  * A factory rather than a shared array: a Rollup plugin instance carries per-build state,
@@ -182,7 +240,7 @@ const collapseEditorTemplateWhitespace = {
  * results that depend on which build ran first.
  *
  * @param options - Disable compaction only for the emitted equivalence test's control; `editor`
- *   adds the editor's own template whitespace collapse
+ *   adds the editor's own template whitespace collapse, terser options and member renaming
  * @returns The plugins, in order
  */
 export function createBuildPlugins({ compactPayloads = true, editor = false } = {}) {
@@ -253,7 +311,14 @@ export function createBuildPlugins({ compactPayloads = true, editor = false } = 
         // possible once another call site is gone. Two, not more: a third shrank the raw
         // file further but made the gzipped one larger, and gzipped is what transfers.
         passes: 2,
+        // The editor only, measured against its own bundle: inlining single-use and
+        // non-trivial functions into their callers made the gzipped file larger, because the
+        // copies stop matching each other. None of the three changes what the code does; the
+        // first two only do less, and function declarations are hoisted by the language anyway.
+        // The card keeps the options above exactly.
+        ...(editor ? { reduce_funcs: false, inline: 1, hoist_funs: true } : {}),
       },
+      ...(editor ? { mangle: { properties: { regex: editorPrivateMembers() } } } : {}),
       format: {
         // Remove comments in production
         comments: false,
