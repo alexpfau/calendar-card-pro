@@ -2554,7 +2554,8 @@ Behavior-preserving.
     finds a builder's fields by the retired titles or panel helpers; a page's title still does
     (PR 5). The group titles were searchable, and those fields keep being found the same way: a
     query naming a registry heading's title or helper line lets that heading's fields through, as
-    a page title lets its page through (`element.ts` › `_filtered`). Layout's width table follows
+    a page title lets its page through (`element.ts` › `_filtered`); a family's heading reads the
+    family's helper line too, which the blind review found missing. Layout's width table follows
     the Size & Spacing page's title (`filterExtras` takes the place's words). PR 8 replaces both.
   - **`localize.ts`**, unchanged in section 4.2, loses `lookupForView`, which only the per-layout
     panel title (`panel.separators.grid`) and `matchesPanel` read, and the compact-mode group's
@@ -2567,14 +2568,16 @@ Behavior-preserving.
     group's prefix kept reachable. Removed from `strings.ts` and the ten translation files, en-GB
     regenerated (67 overrides).
   - **Proof.** The one-off comparison (`tests/editor-form-inputs.test.ts`, fixture at
-    `b52713bd`) walks 372 corpus states over 3,066 places and 37,713 controls (410 distinct
-    records) and is equal at the stripping commit; a planted titleKey drop on Weather's
-    `date.show_conditions` fails it. Heading assertions moved to the registry test, named in the
-    PR body; a property test fails on any heading, row or collapsible a builder emits over 549
-    corpus states. Suite 13,318 → 13,286.
-  - **Bytes.** Editor 646,945 → 628,055 B raw (−18,890), 197,152 → 191,493 B gzip -9 (−5,659)
-    over `b52713bd`, the card's sha256 `fbce536bd288…` unchanged; `docs/guide/installation.md`
-    moves from 646 KB and 197 KB to 628 KB and 191 KB.
+    `b52713bd`, the clock pinned because the fixed-date gate opens with today's date) walks 372
+    corpus states over 3,066 places and 37,713 controls (410 distinct records) and is equal at the
+    stripping commit and in CI; a planted change to `date.show_conditions`'s English value makes
+    24 places differ. A planted `titleKey` drop on the same field is caught earlier, by
+    `check:i18n` as an orphan. Heading assertions moved to the registry test, named in the PR
+    body; a property test fails on any heading, row or collapsible a builder emits over 549
+    corpus states. Suite 13,317 at `b52713bd` → 13,288.
+  - **Bytes.** Editor 646,945 → 628,525 B raw (−18,420), 197,152 → 191,600 B gzip -9 (−5,552)
+    over `b52713bd`, the card's sha256 `fbce536bd288…` unchanged; the family-helper fix is 107 B of
+    that. `docs/guide/installation.md` moves from 646 KB and 197 KB to 628 KB and 191 KB.
 
 ### PR 7 · Undo & Redo
 
