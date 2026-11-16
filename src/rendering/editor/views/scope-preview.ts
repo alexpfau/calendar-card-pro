@@ -6,9 +6,11 @@
  * preview's own card the configuration with `view` replaced, through the card's `setConfig`, which
  * is the one method every card has. The card is found as Pick From Preview finds it
  * (`pick.ts` › `findPreviewCard`). Home Assistant builds a new card element for every change in
- * preview mode and configures it before putting it in place, so this watches the card's parent as
- * the picker does and configures each replacement again once it arrives. Turned off, it hands the
- * card the configuration as written, unless Home Assistant has already replaced it.
+ * preview mode and configures it before putting it in place, and on a sections dashboard it builds
+ * the element around the card anew as well. So this watches every shadow root from the card up to
+ * the one it shares with the editor, Home Assistant's dialog, each with its whole subtree, and
+ * configures whatever card it finds after a change there. Turned off, it hands the card the configuration as written, unless Home Assistant has
+ * already replaced it.
  *
  * The card itself is unchanged: on a dashboard nothing calls it this way, so it costs the card
  * nothing.
@@ -34,12 +36,17 @@ export class ScopePreview {
   private _card?: ConfigurableCard;
   private _shown?: ScopePreviewWant;
   private _watch?: MutationObserver;
-  private _parent?: Node;
+  /** The roots watched, the card's own first. */
+  private _roots: Node[] = [];
 
   /**
    * @param _find - The preview's card, where it is found
+   * @param _editor - The editor, whose dialog is as far up as anything is watched
    */
-  constructor(private readonly _find: () => HTMLElement | undefined) {}
+  constructor(
+    private readonly _find: () => HTMLElement | undefined,
+    private readonly _editor?: Element,
+  ) {}
 
   /**
    * Shows the preview in a layout, or as Home Assistant configured it.
@@ -60,7 +67,8 @@ export class ScopePreview {
     const card = this._card;
     const shown = this._shown;
     this._watch?.disconnect();
-    this._watch = this._parent = this._card = this._shown = undefined;
+    this._watch = this._card = this._shown = undefined;
+    this._roots = [];
     // A card Home Assistant has already replaced is gone, and its replacement was never touched.
     if (card?.isConnected && shown !== undefined) card.setConfig?.(shown.config);
   }
@@ -71,11 +79,12 @@ export class ScopePreview {
     if (want === undefined) return;
     const card = this._find() as ConfigurableCard | undefined;
     if (card === undefined || typeof card.setConfig !== 'function') return;
-    if (card.parentNode && card.parentNode !== this._parent) {
+    const roots = shadowRoots(card, this._editor);
+    if (roots.length !== this._roots.length || roots.some((root, at) => root !== this._roots[at])) {
       this._watch?.disconnect();
-      this._parent = card.parentNode;
+      this._roots = roots;
       this._watch = new MutationObserver(this._apply);
-      this._watch.observe(card.parentNode, { childList: true });
+      for (const root of roots) this._watch.observe(root, { childList: true, subtree: true });
     }
     if (
       card === this._card &&
@@ -88,4 +97,29 @@ export class ScopePreview {
     this._shown = want;
     card.setConfig({ ...want.config, view: want.view });
   };
+}
+
+/**
+ * The shadow roots an element sits in, its own first, up to and including the first one that also
+ * holds `near`; the document is never one of them.
+ *
+ * @param element - The element
+ * @param near - The element whose roots end the climb, where given
+ * @returns The roots
+ */
+function shadowRoots(element: Element, near?: Element): ShadowRoot[] {
+  const stops = new Set<Node>();
+  for (let root = near?.getRootNode(); root instanceof ShadowRoot; root = root.host.getRootNode()) {
+    stops.add(root);
+  }
+  const roots: ShadowRoot[] = [];
+  for (
+    let root = element.getRootNode();
+    root instanceof ShadowRoot;
+    root = root.host.getRootNode()
+  ) {
+    roots.push(root);
+    if (stops.has(root)) break;
+  }
+  return roots;
 }
