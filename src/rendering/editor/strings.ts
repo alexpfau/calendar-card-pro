@@ -188,6 +188,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'history.paste': 'Paste Settings Into {name}',
   'history.move': 'Move {name}',
   'history.apply': 'Apply {story}',
+  'history.upgrade': 'Upgrade This Card',
+  'history.upgrade_share': 'Use Upgraded Settings for Every Layout',
   'history.add': 'Add {name}',
   // Pick From Preview, beside Undo and Redo while Home Assistant's dialog shows the card: its
   // button, the line that says a pick is on (Click where there is a pointer to hover, Tap on a
@@ -383,6 +385,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'quick_setup.step.review': 'Review',
   'quick_setup.story_intro':
     'Pick the example closest to what this card is for. You can change everything afterward.',
+  'quick_setup.story.simple_agenda': 'Simple Agenda',
+  'quick_setup.story.simple_agenda.best_for': 'The next few days, one after another',
+  'quick_setup.story.simple_agenda.space': 'Anywhere: a section, a tablet or a phone',
   'quick_setup.story.family_hub': 'Family Hub',
   'quick_setup.story.family_hub.best_for':
     'The whole family’s week, with every control on the card',
@@ -400,7 +405,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'quick_setup.story.house_log': 'House Log',
   'quick_setup.story.house_log.best_for': 'When each job was last done, newest first',
   'quick_setup.story.house_log.space': 'A dashboard section, and the same card on a phone',
-  'quick_setup.read_story': 'Read about this example',
+  'quick_setup.read_story': 'Read about {story}',
   'quick_setup.card_title': 'Title',
   'quick_setup.card_title.helper': 'Leave it empty for a card without a title.',
   'quick_setup.card_calendars': 'Calendars',
@@ -414,11 +419,19 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'quick_setup.event_details.helper': 'Shows the event in the card’s own window.',
   'quick_setup.day_adds': 'Tapping a Day Adds an Event',
   'quick_setup.day_adds.helper': 'Only on calendars that accept new events.',
-  'quick_setup.review_story':
-    'This card takes the layout, look and actions of {story}. Every setting not listed here is ' +
-    'replaced.',
-  'quick_setup.review_calendars': 'Calendars: {calendars}. Each keeps its own settings.',
-  'quick_setup.review_colors': 'Colors from the example for: {calendars}.',
+  'quick_setup.review.example': 'Example',
+  'quick_setup.review.calendars': 'Calendars',
+  'quick_setup.review.colors': 'Colors From the Example',
+  'quick_setup.review.layout': 'Layout',
+  'quick_setup.review.days': '{count} days',
+  'quick_setup.review.days_one': '1 day',
+  'quick_setup.review.title': 'Title',
+  'quick_setup.review.weather': 'Weather',
+  'quick_setup.review.none': 'None',
+  'quick_setup.review.replaces': 'Apply replaces {count} settings:',
+  'quick_setup.review.replaces_one': 'Apply replaces 1 setting:',
+  'quick_setup.review.default': 'Default',
+  'quick_setup.review.show_all': 'Show All {count}',
   'quick_setup.review_keeps':
     'Settings Home Assistant keeps for this card, such as its size on the dashboard, stay as ' +
     'they are.',
@@ -426,18 +439,13 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'quick_setup.next': 'Next',
   'quick_setup.cancel': 'Cancel',
   'quick_setup.apply': 'Apply',
-  'config_migration.title': 'Choose How to Upgrade This Card',
-  'config_migration.list_message':
-    'Version 5 separates settings for List from settings shared by every layout. Either choice keeps the card looking the same right now.',
-  'config_migration.grid_message':
-    'Version 5 separates settings for List from settings shared by every layout. Either choice keeps Grid looking the same right now and decides what List uses later.',
-  'config_migration.affected': 'Choose what these settings mean: {options}.',
-  'config_migration.keep_list': 'Keep my existing List appearance',
-  'config_migration.keep_list_note':
-    'Recommended. Keep these values specific to List; other layouts keep their own settings and defaults.',
-  'config_migration.use_shared': 'Use these settings for all layouts',
-  'config_migration.use_shared_note':
-    'Keep these values shared. A layout’s own settings and built-in defaults can still take precedence.',
+  'upgrade.title': 'Upgraded.',
+  'upgrade.list': '{options} now apply to List, as before. The card looks the same.',
+  'upgrade.list_one': '{options} now applies to List, as before. The card looks the same.',
+  'upgrade.shared': '{options} now apply to every layout, unless a layout has its own.',
+  'upgrade.shared_one': '{options} now applies to every layout, unless a layout has its own.',
+  'upgrade.share': 'Use Them for Every Layout',
+  'upgrade.share_one': 'Use It for Every Layout',
   'config_migration.future_title': 'This Card Uses a Newer Configuration',
   'config_migration.future_message':
     'This editor supports configuration version 5, but the card uses version {version}. Update Calendar Card Pro before editing it.',
@@ -524,6 +532,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'calendars.chose': 'Chose {name}. Add puts it on the card and opens its page.',
   'calendars.already': '{name} is already on the card.',
   'calendars.open': 'Open {name}',
+  'calendars.started_with':
+    'Home Assistant started this card with {name}, the first calendar it lists.',
+  'calendars.change': 'Change Calendar',
   'calendars.empty': 'No Calendars Yet',
   'calendars.empty_note': 'Add the calendars this card shows.',
   'calendars.filter': 'Filter Calendars',
@@ -617,7 +628,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'split.field.title': 'event title',
   'split.field.location': 'location',
   'split.field.description': 'description',
-  'split.locked': 'Locked to {field}, where this entry’s Blocklist looks.',
+  'split.locked': 'Locked to {field}, where this entry’s Hide Events Containing looks.',
   'split.refused.all_day':
     'Can’t split {name} into all-day and timed events: it already shows only all-day events. ' +
     'Duplicate it to add an entry for events with a time.',
@@ -633,20 +644,20 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'split.refused.words':
     'Can’t split {name} by words: it already shows only events containing “{words}”. One entry ' +
     'keeps one set of words, so the two parts could not show exactly what {name} shows now. ' +
-    'Split All-Day vs. With a Time instead, or change the Allowlist first.',
+    'Split All-Day vs. With a Time instead, or change Only Show Events Containing first.',
   'split.refused.blocklist':
-    'Can’t split {name} by words: its Blocklist cannot be read, so the card ignores it, and the ' +
-    'two parts would show some events twice. Fix the Blocklist first, or split All-Day vs. With ' +
-    'a Time.',
+    'Can’t split {name} by words: its Hide Events Containing cannot be read, so the card ' +
+    'ignores it, and the two parts would show some events twice. Fix it first, or split All-Day ' +
+    'vs. With a Time.',
   'split.refused.allowlist':
-    'Can’t split {name} by words: its Allowlist cannot be read, so the card ignores it, and the ' +
-    'two parts would show some events twice. Fix the Allowlist first, or split All-Day vs. With ' +
-    'a Time.',
+    'Can’t split {name} by words: its Only Show Events Containing cannot be read, so the card ' +
+    'ignores it, and the two parts would show some events twice. Fix it first, or split All-Day ' +
+    'vs. With a Time.',
   'split.refused.budget':
     'Can’t split {name}: it has its own Compact Events to Show, which two entries would double. ' +
     'Clear it first.',
-  'split.edit_allowlist': 'Edit Allowlist',
-  'split.edit_blocklist': 'Edit Blocklist',
+  'split.edit_allowlist': 'Edit Only Show Events Containing',
+  'split.edit_blocklist': 'Edit Hide Events Containing',
   'split.go_budget': 'Go to Compact Events to Show',
   'split.colors.intro':
     'Both parts keep the name {name}, which every entry of a calendar shares. The calendar list ' +
@@ -675,13 +686,13 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'split.rule.words.location': 'Location contains {words}',
   'split.rule.words.description': 'Description contains {words}',
   'split.rule.other': 'Every other event',
-  'split.writes.allowlist': 'Writes Allowlist: {words}, matching the {field}',
-  'split.writes.blocklist': 'Writes Blocklist: {words}, matching the {field}',
+  'split.writes.allowlist': 'Writes Only Show Events Containing: {words}, matching the {field}',
+  'split.writes.blocklist': 'Writes Hide Events Containing: {words}, matching the {field}',
   'split.apply': 'Split',
   'split.done': 'Split {name} into 2 entries. This page now edits the first.',
   'split.done_button': 'Done',
   'split.new': 'New',
-  // Under a Blocklist, an Allowlist or Countries To Remove the card cannot compile.
+  // Under Hide Events Containing, Only Show Events Containing or Countries To Remove the card cannot compile.
   'word_list.invalid': 'This pattern cannot be read, so the card ignores it.',
   'word_list.use_pattern': 'Use a Pattern',
   'word_list.use_words': 'Use Words',
@@ -855,12 +866,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   'entity.compact_events_to_show': 'Compact Events to Show',
   'entity.compact_events_to_show.helper': 'Left empty, the card’s limit applies.',
-  'entity.blocklist': 'Blocklist',
-  'entity.blocklist.aliases': 'filter out, exclude, keywords',
-  'entity.blocklist.helper': 'Hide events where the field above contains any of these terms.',
-  'entity.allowlist': 'Allowlist',
-  'entity.allowlist.aliases': 'filter, include only, keywords',
-  'entity.allowlist.helper': 'Show only events where the field above contains one of these terms.',
+  'entity.blocklist': 'Hide Events Containing',
+  'entity.blocklist.aliases': 'blocklist, filter out, exclude, keywords',
+  'entity.blocklist.helper': 'Checks the event title, or what Match Against names.',
+  'entity.allowlist': 'Only Show Events Containing',
+  'entity.allowlist.aliases': 'allowlist, filter, include only, keywords',
+  'entity.allowlist.helper': 'Checks the event title, or what Match Against names.',
   'entity.filter_field': 'Match Against',
   'entity.filter_field.option.title.label': 'Event title',
   'entity.filter_field.option.location.label': 'Location',

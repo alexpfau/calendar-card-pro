@@ -46,13 +46,6 @@ export default css`
     color: var(--text-primary-color, white);
   }
 
-  .migration-choice-note {
-    color: var(--secondary-text-color);
-    font-size: 12px;
-    line-height: 1.4;
-    margin-top: -8px;
-  }
-
   .grid-reconciliation {
     display: flex;
     flex-direction: column;
@@ -260,8 +253,41 @@ export default css`
     padding-inline-start: 2px;
   }
 
-  .quick-setup-review {
+  .quick-setup-title {
     margin: 0;
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  /* What Apply leaves, a term beside its value, as a two-column list. */
+  .quick-setup-review {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    margin: 0;
+  }
+
+  .quick-setup-review > div {
+    display: contents;
+  }
+
+  .quick-setup-review dt,
+  .quick-setup-review dd {
+    margin: 0;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--divider-color);
+  }
+
+  .quick-setup-review dt {
+    padding-inline-end: 16px;
+    color: var(--secondary-text-color);
+  }
+
+  .quick-setup-replaced p {
+    margin: 0;
+  }
+
+  .quick-setup-replaced ul {
+    margin: 4px 0;
     padding-inline-start: 20px;
   }
 
@@ -861,6 +887,33 @@ export default css`
     min-width: 0;
   }
 
+  /* A fresh card's note on the calendar it was started with, and Change Calendar. */
+  .started-with {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    color: var(--secondary-text-color);
+    font-size: 14px;
+  }
+
+  /* The upgrade's receipt: its sentences, then its two buttons, which wrap under them. */
+  .upgrade-receipt {
+    flex-wrap: wrap;
+    padding: 8px 4px 4px 12px;
+    background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
+  }
+
+  .upgrade-receipt .status-text {
+    flex-basis: 100%;
+  }
+
+  .upgrade-actions {
+    display: flex;
+    flex-wrap: wrap;
+    margin-inline-start: -12px;
+  }
+
   .page-head .icon-button:dir(rtl),
   .page-foot .icon:dir(rtl) {
     transform: scaleX(-1);
@@ -941,9 +994,11 @@ export default css`
     border-radius: 4px;
   }
 
-  /* Use a Pattern and Use Words sit under their list at their own width. */
+  /* Use a Pattern and Use Words: a small link under their list, in line with its helper. */
   .word-mode {
     align-self: flex-start;
+    margin-inline-start: 16px;
+    font-size: 12px;
   }
 
   /* --- Show what applies -----------------------------------------------------
