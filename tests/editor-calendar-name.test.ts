@@ -33,14 +33,15 @@ import {
   openPanels,
   valueOf,
 } from './helpers/editor-host';
+import { searchIndex } from './helpers/search-index';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as Entities from '../src/rendering/editor/entities';
-import { type FilterCtx, NO_FILTER, filterEntitySchema } from '../src/rendering/editor/filter';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { lookup } from '../src/rendering/editor/localize';
 import { walkSchema } from '../src/rendering/editor/panels';
 import { buildEntitySchema, entitySchemaFor } from '../src/rendering/editor/schemas/entity';
+import { search as searchRows } from '../src/rendering/editor/search';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { EDITOR_LANGUAGE_STRINGS } from '../src/rendering/editor/translations';
 
@@ -285,12 +286,12 @@ describe('writing a calendar name', () => {
 
 describe('searching the editor for a calendar by its name', () => {
   /**
-   * Search one block's settings.
+   * Search one block's settings, as the jump list lists them.
    *
    * @param entities - The list as stored
    * @param index - The block searched
    * @param query - The search text
-   * @returns The fields left
+   * @returns The fields listed
    */
   function search(
     entities: Array<string | Types.EntityConfig>,
@@ -298,13 +299,15 @@ describe('searching the editor for a calendar by its name', () => {
     query: string,
   ): string[] {
     const config = { ...buildConfig(), entities } as Types.Config;
-    const ctx: FilterCtx = {
-      language: 'en',
-      view: 'list',
-      config,
-      criteria: { ...NO_FILTER, query },
-    };
-    return fieldNames(filterEntitySchema(entitySchema(), entities[index], ['entity'], ctx));
+    const rows = searchIndex(config, {
+      workspace: 'list',
+      entrySchemas: entities.map(() => entitySchema()),
+    });
+    return searchRows(rows, query).flatMap(({ entry: { target } }) =>
+      target.kind === 'entry-field' && target.key === index
+        ? [target.id.slice('calendar:'.length)]
+        : [],
+    );
   }
 
   it('finds every block of a calendar by its name, whichever block holds it', () => {

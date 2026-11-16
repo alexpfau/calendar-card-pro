@@ -110,6 +110,14 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // The line a removal or an applied story leaves, beside its Undo, until the next change.
   'status.removed': 'Removed {name}',
   'status.applied': 'Applied {story}',
+  // The jump list: its count line, the scope it shows values for, and what a row and a jump say.
+  'search.results': 'Results for “{query}”: {count}',
+  'search.values_for': 'Values for {layout}',
+  'search.overview': 'Overview',
+  'search.not_set': 'Not Set',
+  'search.yaml': 'YAML: {path}',
+  'search.return': 'Return to Results',
+  'search.showing': 'Showing {label}.',
 
   // --- Gates ----------------------------------------------------------------
   //

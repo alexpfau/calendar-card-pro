@@ -23,7 +23,7 @@ export const SUMMARY_SEPARATOR = ' · ';
  * Describes a value the field cannot word itself: an action, a calendar or entity. Returns
  * `undefined` to leave the pair out.
  */
-export type Describe = (field: IndexedField, value: unknown) => string | undefined;
+export type Describe = (field: Pick<IndexedField, 'node'>, value: unknown) => string | undefined;
 
 /**
  * The value at a data path.
@@ -40,7 +40,7 @@ function at(data: unknown, path: ReadonlyArray<string>): unknown {
 
 /**
  * Words a field's value as its control shows it: On or Off for a switch, the option's label for
- * a dropdown, the text or number as written; anything else through `describe`.
+ * a dropdown, the text, number or icon name as written; anything else through `describe`.
  *
  * @param field - Indexed field
  * @param value - Its value, as its form holds it
@@ -49,7 +49,7 @@ function at(data: unknown, path: ReadonlyArray<string>): unknown {
  * @returns The words, or `undefined` for a value with nothing to show
  */
 export function wordValue(
-  field: IndexedField,
+  field: Pick<IndexedField, 'node'>,
   value: unknown,
   language: string,
   describe?: Describe,
@@ -69,7 +69,7 @@ export function wordValue(
     }
     return value === undefined || value === null || value === '' ? undefined : String(value);
   }
-  if ('text' in selector || 'number' in selector) {
+  if ('text' in selector || 'number' in selector || 'icon' in selector) {
     return value === undefined || value === null || value === '' ? undefined : String(value);
   }
   return describe?.(field, value);

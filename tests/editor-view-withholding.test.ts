@@ -11,6 +11,7 @@ import {
   formsOf,
   mountEditor,
   openPanels,
+  resultRows,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -402,7 +403,16 @@ describe('withholding is not a search filter or a config edit', () => {
     const config = configFor('grid');
     const editor = await mount(config);
     expect(formsOf(editor, CARD).length).toBeGreaterThan(1);
+    // What applies to Grid, read off the built schemas rather than off the editor.
+    const cardKeys = expectedFields(
+      PANELS.flatMap((panel) => panel.build(context(config))),
+      'grid',
+    ).map((field) => field.key);
+    const calendarKeys = expectedFields(buildEntitySchema(context(config)), 'grid', true).map(
+      (field) => field.key,
+    );
 
+    let total = 0;
     for (const criteria of [
       { search: '', customized_only: false },
       { search: 'Which Events', customized_only: false },
@@ -417,19 +427,35 @@ describe('withholding is not a search filter or a config edit', () => {
         'filter:search': criteria.search,
         'filter:customized_only': criteria.customized_only,
       });
-      const calendars = formsOf(editor, entry());
-      for (const form of [...formsOf(editor, CARD), ...calendars]) {
-        const actual = fields(form.schema);
-        reconcile(actual, expectedFields(form.schema, 'grid', calendars.includes(form)));
+      if (criteria.search === '') {
+        const calendars = formsOf(editor, entry());
+        for (const form of [...formsOf(editor, CARD), ...calendars]) {
+          const actual = fields(form.schema);
+          reconcile(actual, expectedFields(form.schema, 'grid', calendars.includes(form)));
+        }
+        continue;
       }
+      // A query lists rows: none of them a field Grid withholds.
+      const listed = resultRows(editor).map(({ id, ownerKey }) => ({
+        key: id.slice(id.indexOf(':') + 1),
+        calendar: ownerKey !== undefined,
+      }));
+      total += listed.length;
+      expect(
+        listed.filter(({ key, calendar }) => !(calendar ? calendarKeys : cardKeys).includes(key)),
+        criteria.search,
+      ).toEqual([]);
       if (criteria.search === 'which') {
-        expect(
-          formsOf(editor, CARD)
-            .flatMap((form) => fields(form.schema))
-            .map((f) => f.key),
-        ).toContain('show_empty_days');
+        expect(listed.map(({ key }) => key)).toContain('show_empty_days');
       }
     }
+    // The denominators: rows were listed, and Grid does withhold fields the panels build, so
+    // "none of them withheld" can fail.
+    expect(total).toBeGreaterThan(10);
+    const built = PANELS.flatMap((panel) =>
+      fields(panel.build(context(config))).map((field) => field.key),
+    );
+    expect(built.filter((key) => !cardKeys.includes(key)).length).toBeGreaterThan(0);
   });
 
   it('preserves hidden root, calendar, and block values through edits and a view round trip', async () => {

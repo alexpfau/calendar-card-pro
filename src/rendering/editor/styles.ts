@@ -791,6 +791,26 @@ export default css`
     border-radius: 4px;
   }
 
+  /* The field a search result opened, Return to Results above it, highlighted for 2 s. */
+  .jump {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .return {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    align-self: flex-start;
+    min-height: 44px;
+  }
+
+  .jumped {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 4px;
+  }
+
   .live-region {
     position: absolute;
     width: 1px;

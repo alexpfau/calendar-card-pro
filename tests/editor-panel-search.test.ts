@@ -7,6 +7,7 @@ import {
   formsOf,
   mountEditor,
   openPageOf,
+  resultRows,
 } from './helpers/editor-host';
 import type * as Types from '../src/config/types';
 import type { CalendarCardProEditor } from '../src/rendering/editor/element';
@@ -15,13 +16,21 @@ import { lookup } from '../src/rendering/editor/localize';
 import { PAGES } from '../src/rendering/editor/pages';
 
 /**
- * The rule fields every card form drawn now holds: on the Size & Spacing page, or in the
- * overview's results for a query.
+ * The rule fields the open place shows, by name: drawn on the Size & Spacing page, or listed by
+ * the overview's results for a query.
  *
  * @param editor - Editor
  * @returns Their names, in order
  */
 function ruleFields(editor: CalendarCardProEditor): string[] {
+  const root = editor.shadowRoot!;
+  const results =
+    root.querySelector('.overview') !== null && root.querySelector('[data-focus^="nav:"]') === null;
+  if (results) {
+    return resultRows(editor)
+      .filter((row) => row.id.startsWith('separators:'))
+      .map((row) => row.id.split(/[:.]/).pop()!);
+  }
   return formsOf(editor, CARD)
     .filter((form) =>
       form.closest('[data-field]')?.getAttribute('data-field')?.startsWith('separators:'),

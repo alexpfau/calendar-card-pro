@@ -17,7 +17,13 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { changeField, mountEditor, openPageOf } from './helpers/editor-host';
+import {
+  changeField,
+  chooseResult,
+  mountEditor,
+  openPageOf,
+  resultRows,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
 
 /** A drawn panel, as Home Assistant's element and the editor set it. */
@@ -172,15 +178,23 @@ describe('a page', () => {
 });
 
 describe('a search', () => {
-  it('opens the calendar panels it keeps, which then mount their forms', async () => {
+  it('opens the calendar panel a result names, which then mounts its forms, and no other', async () => {
     const editor = await mountEditor(CONFIG);
 
     await changeField(editor, 'filter:search', 'color');
+    // Results are rows: no calendar panel is drawn, so none mounts a form.
+    expect(panels(editor).filter((panel) => panel.matches('.entity-panel'))).toEqual([]);
 
-    const kept = panels(editor).filter((panel) => panel.matches('.entity-panel'));
-    expect(kept.length).toBeGreaterThan(0);
-    expect(kept.map((panel) => [panel.expanded, mounted(panel).length > 0])).toEqual(
-      kept.map(() => [true, true]),
+    const row = resultRows(editor).find((each) => each.ownerKey !== undefined)!;
+    await chooseResult(editor, row.key);
+    const drawn = panels(editor).filter((panel) => panel.matches('.entity-panel'));
+    expect(drawn.length).toBeGreaterThan(1);
+    expect(drawn.map((panel) => [panel.expanded, mounted(panel).length > 0])).toEqual(
+      drawn.map((panel) =>
+        panel.getAttribute('data-entry-key') === String(row.ownerKey)
+          ? [true, true]
+          : [false, false],
+      ),
     );
   });
 });

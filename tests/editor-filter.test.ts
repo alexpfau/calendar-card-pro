@@ -9,7 +9,9 @@ import {
   mountEditor,
   openPanels,
   resetButtons,
+  resultRows,
 } from './helpers/editor-host';
+import { searchIndex } from './helpers/search-index';
 import { CURRENT_CONFIG_VERSION, DEFAULT_CONFIG } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import {
@@ -25,13 +27,13 @@ import {
   hasFields,
   isCustomized,
   isFiltering,
-  matchesQuery,
   toFilterCriteria,
 } from '../src/rendering/editor/filter';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { PAGES } from '../src/rendering/editor/pages';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 import { buildEntitySchema, entitySchemaFor } from '../src/rendering/editor/schemas/entity';
+import { search } from '../src/rendering/editor/search';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { CHASSIS_STRINGS, chassisSubforms } from '../src/rendering/editor/subforms';
 import { stripColumnDefaults } from '../src/rendering/editor/value';
@@ -41,9 +43,10 @@ import { ENTITY_COLOR_SENTINEL } from '../src/utils/entity-colors';
  * Tests for the editor's search and "customized only" filter.
  *
  * Everything outside `element.ts` is free of Lit and of the DOM, so the filter is tested
- * the way it is written: as functions over schema, without rendering anything. The
- * handful of cases that are genuinely about the chassis — a panel disappearing, a filter
- * never reaching the configuration — mount the element and say so.
+ * the way it is written: as functions over schema, without rendering anything, and what a
+ * query finds as the jump list's index (`search.ts`) lists it. The handful of cases that are
+ * genuinely about the chassis — results in place of the overview, a filter never reaching the
+ * configuration — mount the element and say so.
  *
  * **Every case sets the values it is about.** The suite is built from default config, so
  * an option left alone is indistinguishable from one the filter dropped, and a
@@ -88,17 +91,55 @@ function headingNames(schema: ReadonlyArray<HaFormSchema>): string[] {
     .map(({ node }) => node.name);
 }
 
-/** Every field the whole editor would render for a configuration and criteria. */
+/**
+ * Every card field the editor shows for a configuration and criteria, by name: with a query, the
+ * fields the jump list lists, in the card's own layout; without one, what the switches leave of
+ * every panel.
+ */
 function visibleFields(config: Types.Config, criteria: Partial<FilterCriteria> = {}): string[] {
-  const ctx = ctxFor(config, criteria);
-  const names: string[] = [];
-
-  for (const panel of PANELS) {
-    const built = panel.build({ view: ctx.view, config, language: 'en' });
-    names.push(...fieldNames(filterSchema(built, ctx)));
+  if (criteria.query === undefined) {
+    // No query: what the switches leave of every panel.
+    const ctx = ctxFor(config, criteria);
+    return PANELS.flatMap((panel) =>
+      fieldNames(filterSchema(panel.build({ view: ctx.view, config, language: 'en' }), ctx)),
+    );
   }
+  // Under Customized Only, Shared: where a value at the root is the card's own.
+  const index = searchIndex(config, {
+    workspace: criteria.customizedOnly ? 'shared' : config.view === 'column' ? 'column' : 'list',
+    customizedOnly: criteria.customizedOnly,
+  });
+  return search(index, criteria.query ?? '').flatMap(({ entry: { target } }) =>
+    target.kind === 'field' ? [target.id.split(/[:.]/).pop()!] : [],
+  );
+}
 
-  return names;
+/** The fields of one panel the jump list lists for a query, by name. */
+function panelHits(
+  config: Types.Config,
+  panel: string,
+  query: string,
+  customizedOnly = false,
+): string[] {
+  const workspace = config.view === 'column' ? 'column' : 'list';
+  return search(searchIndex(config, { workspace, customizedOnly }), query).flatMap(
+    ({ entry: { target } }) =>
+      target.kind === 'field' && target.id.startsWith(`${panel}:`)
+        ? [target.id.split(/[:.]/).pop()!]
+        : [],
+  );
+}
+
+/** The fields of a calendar's one block the jump list lists for a query, by name. */
+function calendarHits(
+  config: Types.Config,
+  query: string,
+  schema: ReadonlyArray<HaFormSchema>,
+): string[] {
+  return search(searchIndex(config, { workspace: 'list', entrySchemas: [schema] }), query).flatMap(
+    ({ entry: { target } }) =>
+      target.kind === 'entry-field' ? [target.id.split(/[:.]/).pop()!] : [],
+  );
 }
 
 /** One field of one panel, found by name, with the label and data paths it sits under. */
@@ -144,11 +185,8 @@ describe('editor filter: what search matches', () => {
   });
 
   it('finds a field by its helper text', () => {
-    const config = buildConfig();
-    const { node, path } = fieldOf(config, 'day_spacing');
-
     // "gutter" is in the helper and in no label.
-    expect(matchesQuery(node, path, ctxFor(config, { query: 'gutter' }))).toBe(true);
+    expect(visibleFields(buildConfig(), { query: 'gutter' })).toContain('day_spacing');
   });
 
   it('ignores case and surrounding space', () => {
@@ -157,10 +195,11 @@ describe('editor filter: what search matches', () => {
     expect(visibleFields(config, { query: '  MINIMUM day  ' })).toContain('min_day_width');
   });
 
-  it('shows everything when nothing is typed', () => {
+  it('lists nothing, and narrows nothing, when nothing is typed', () => {
     const config = columnConfig();
 
-    expect(visibleFields(config, { query: '   ' })).toEqual(visibleFields(config));
+    expect(visibleFields(config, { query: '   ' })).toEqual([]);
+    expect(visibleFields(config, { query: 'width' }).length).toBeGreaterThan(0);
     expect(isFiltering({ query: '  ', customizedOnly: false, essentialsOnly: false })).toBe(false);
   });
 
@@ -185,37 +224,33 @@ describe('editor filter: what search matches', () => {
   });
 });
 
-describe('editor filter: groups and empty sections', () => {
-  it('drops a group whose children all filtered out', () => {
+describe('editor filter: headings and pages a query names', () => {
+  it('lists a heading whole when its own title matches', () => {
     const config = columnConfig();
     const layout = PANELS.find((panel) => panel.id === 'layout')!;
     const built = layout.build({ view: 'column', config, language: 'en' });
 
-    const kept = filterSchema(built, ctxFor(config, { query: 'min_day_width' }));
+    const whole = panelHits(config, 'layout', 'Column Density').sort();
+    const density = built.find((node) => 'schema' in node && node.name === 'column');
+    const inside = fieldNames((density as { schema: ReadonlyArray<HaFormSchema> }).schema).sort();
 
-    // The density group survives because one of its fields did; nothing else does, and
-    // no group is left standing with an empty body.
-    for (const { node } of walkSchema(kept)) {
-      if (!('schema' in node)) continue;
-      expect(fieldNames(node.schema).length).toBeGreaterThan(0);
-    }
-
-    expect(fieldNames(kept)).toEqual(['min_day_width']);
+    expect(whole).toEqual(inside);
   });
 
-  it('does not keep a group whole under "customized only", however its heading reads', () => {
-    const config = columnConfig();
-    const layout = PANELS.find((panel) => panel.id === 'layout')!;
-    const built = layout.build({ view: 'column', config, language: 'en' });
+  it('lists only the field a key names', () => {
+    expect(panelHits(columnConfig(), 'layout', 'min_day_width')).toEqual(['min_day_width']);
+  });
 
-    const kept = filterSchema(
-      built,
-      ctxFor(config, { query: 'Column Density', customizedOnly: true }),
-    );
+  it('does not list a heading or a page whole under "customized only", however it reads', () => {
+    // One density option is the card's own, so Customized Only shows it…
+    const config = columnConfig({ column: { min_day_width: 200 } as Types.ColumnOverrides });
+    expect(panelHits(config, 'layout', 'min_day_width', true)).toEqual(['min_day_width']);
 
-    // Every density option is at its default, so the matching heading brings nothing
-    // back with it.
-    expect(fieldNames(kept)).toEqual([]);
+    // …and neither its heading nor its page lists it, though both list it without.
+    expect(panelHits(config, 'layout', 'Column Density')).toContain('min_day_width');
+    expect(panelHits(config, 'layout', 'Size & Spacing')).toContain('min_day_width');
+    expect(panelHits(config, 'layout', 'Column Density', true)).toEqual([]);
+    expect(panelHits(config, 'layout', 'Size & Spacing', true)).toEqual([]);
   });
 });
 
@@ -497,70 +532,40 @@ describe('editor filter: the per-calendar settings', () => {
     const headingOnly = 'replacement';
     expect(EDITOR_STRINGS.heading_replace.toLowerCase()).toContain(headingOnly);
 
-    const kept = filterEntitySchema(
-      schema,
-      config.entities[0],
-      ENTITY_PATH,
-      ctxFor(config, { query: headingOnly }),
-    );
-
-    expect(fieldNames(kept)).toEqual([]);
-    expect(kept).toEqual([]);
-    expect(hasFields(kept)).toBe(false);
+    expect(calendarHits(config, headingOnly, schema)).toEqual([]);
 
     // The denominator: a word that *is* under a heading still comes back, so the empty
     // result above is the rule working rather than the search finding nothing ever.
-    const found = filterEntitySchema(
-      schema,
-      config.entities[0],
-      ENTITY_PATH,
-      ctxFor(config, { query: 'replace' }),
-    );
-    expect(fieldNames(found)).toEqual(['replace_field', 'replace_pattern', 'replace_with']);
-    expect(hasFields(found)).toBe(true);
+    expect(calendarHits(config, 'replace', schema)).toEqual([
+      'replace_field',
+      'replace_pattern',
+      'replace_with',
+    ]);
   });
 
   it('finds the label shape by searching for the label', () => {
     const config = buildConfig({ entities: [{ entity: 'calendar.a', label: 'Work' }] });
 
-    const kept = filterEntitySchema(
-      entitySchemaFor(entitySchema(config), 'text'),
-      config.entities[0],
-      ENTITY_PATH,
-      ctxFor(config, { query: 'label' }),
-    );
-
-    expect(fieldNames(kept)).toEqual(['label_type', 'label']);
+    expect(calendarHits(config, 'label', entitySchemaFor(entitySchema(config), 'text'))).toEqual([
+      'label_type',
+      'label',
+    ]);
   });
 
-  it('keeps a calendar whole when the search names it', () => {
+  it('lists a calendar whole when the search names it', () => {
     const config = buildConfig({ entities: ['calendar.birthdays'] });
     const schema = entitySchema(config);
 
-    const byId = filterEntitySchema(
-      schema,
-      config.entities[0],
-      ENTITY_PATH,
-      ctxFor(config, { query: 'birthdays' }),
-    );
-
     // Whole as a list card's editor draws it, which withholds the time grid's own control.
-    expect(fieldNames(byId)).toEqual(
+    expect(calendarHits(config, 'birthdays', schema)).toEqual(
       fieldNames(schema).filter((name) => name !== 'multiday_banners'),
     );
   });
 
-  it('filters a calendar down to the fields that match', () => {
+  it('lists a calendar’s fields that match, and no other', () => {
     const config = buildConfig({ entities: ['calendar.a'] });
 
-    const kept = filterEntitySchema(
-      entitySchema(config),
-      config.entities[0],
-      ENTITY_PATH,
-      ctxFor(config, { query: 'blocklist' }),
-    );
-
-    expect(fieldNames(kept)).toEqual(['blocklist']);
+    expect(calendarHits(config, 'blocklist', entitySchema(config))).toEqual(['blocklist']);
   });
 });
 
@@ -623,11 +628,8 @@ describe('editor filter: the chassis', () => {
       dispatched.push((event as CustomEvent).detail.config);
     });
 
-    // What a search shows of each page: a group under the page's title, on the overview.
-    const panels = () =>
-      [...element.shadowRoot!.querySelectorAll('.overview > section.page-group')].filter(
-        (node) => node.getAttribute('data-heading') !== 'calendars',
-      );
+    // What the overview shows of the pages: a row per page, or a row per result.
+    const panels = () => resultRows(element);
     const rows = () => element.shadowRoot!.querySelectorAll('[data-focus^="nav:"]');
 
     return { element, dispatched, panels, rows };
@@ -640,42 +642,39 @@ describe('editor filter: the chassis', () => {
     expect(formOf(element, `filter:${SEARCH_FIELD}`)).toBeDefined();
   });
 
-  it('collapses away the panels a search empties', async () => {
+  it('shows results in place of the page rows', async () => {
     const { element, panels, rows } = await mount({ entities: ['calendar.a'] });
 
-    // A row per page before; the pages a search keeps after.
-    const before = rows().length;
-    expect(before).toBe(PAGES.length - 1);
+    // A row per page before; a row per result after, and no page row.
+    expect(rows()).toHaveLength(PAGES.length - 1);
 
-    await changeField(element, `filter:${SEARCH_FIELD}`, 'min_day_width');
+    await changeField(element, `filter:${SEARCH_FIELD}`, 'week');
 
-    // Column density is a Layout option, and the card is a list here — so nothing at all
-    // matches and no panel is left holding an empty body.
-    expect(panels().length).toBeLessThan(before);
+    expect(rows()).toHaveLength(0);
+    expect(panels().length).toBeGreaterThan(0);
   });
 
   /**
-   * Nine collapsed headings would be a worse answer than none: the user asked where an
-   * option is, and a closed panel replies only with which section it is in.
+   * A row mounts no form until its page opens (D05 A's cost): live controls for every match
+   * would draw what the user has not asked to edit yet.
    */
-  it('expands the panels that still have something to show', async () => {
+  it('draws its results as rows, mounting no form', async () => {
     const { element, panels } = await mount({ entities: ['calendar.a'] });
 
     expect(panels()).toHaveLength(0);
 
     await changeField(element, `filter:${SEARCH_FIELD}`, 'week');
 
-    // Each page's matches drawn as live controls, none behind a heading to open.
-    const shown = panels();
-    expect(shown.length).toBeGreaterThan(0);
-    expect(shown.every((panel) => panel.querySelector('[data-field] > ha-form') !== null)).toBe(
-      true,
-    );
+    expect(panels().length).toBeGreaterThan(0);
+    expect(element.shadowRoot!.querySelector('[data-field] > ha-form')).toBeNull();
   });
 
   it('says so when a search matches nothing', async () => {
     const { element, panels } = await mount({ entities: ['calendar.a'] });
 
+    // Column density is a Layout option of Columns, and the card is a list here.
+    await changeField(element, `filter:${SEARCH_FIELD}`, 'min_day_width');
+    expect(panels()).toHaveLength(0);
     await changeField(element, `filter:${SEARCH_FIELD}`, 'zzzznotathing');
 
     expect(panels()).toHaveLength(0);
@@ -754,11 +753,10 @@ describe('editor filter: the chassis', () => {
   });
 
   /**
-   * `ha-form` hands back the whole data object it was given, filtered schema or not, so
-   * an edit made while a search is active still writes exactly what an unfiltered one
-   * would. Worth pinning: the opposite would be silent, and it would be data loss.
+   * A field a result opened writes exactly what it writes reached any other way. Worth
+   * pinning: the opposite would be silent, and it would be data loss.
    */
-  it('writes the same configuration for an edit made while filtered', async () => {
+  it('writes the same configuration for an edit made from a result', async () => {
     const { element, dispatched } = await mount({
       entities: ['calendar.a'],
       days_to_show: 7,
@@ -784,21 +782,18 @@ describe('editor filter: the chassis', () => {
  * Section headings under the filter.
  *
  * A heading is a claim about the fields beneath it, which makes it the one node type that
- * can be actively misleading when the filter runs. Two failure modes, and neither is
- * visible to a test that only counts fields:
- *
- *  - A heading matching the *query* on its own text. "When There Is Nothing To Show"
- *    contains "nothing", so searching that word would return the heading alone, captioning
- *    an empty section.
- *  - A heading whose fields were all filtered out, left stranded above whatever section
- *    happens to follow — so it silently relabels someone else's options.
- *
- * Both are prevented the same way: headings never match, they ride along with their
- * section, and one whose section came back empty is pruned.
+ * can be actively misleading when the filter runs: one whose fields were all filtered out is
+ * left stranded above whatever section happens to follow, silently relabeling someone else's
+ * options. Headings never keep themselves; they ride along with their section, and one whose
+ * section came back empty is pruned. A query no longer narrows a form, so Customized Only is
+ * what empties sections now; a query's results are rows, and a heading is never one
+ * (the per-calendar "replacement" case above).
  */
 describe('editor filter: section headings', () => {
   const entitySchema = () =>
     buildEntitySchema({ view: 'list' as const, config: buildConfig(), language: 'en' });
+
+  const customized = (config: Types.Config) => ctxFor(config, { customizedOnly: true });
 
   it('renders its headings when nothing is filtered (denominator)', () => {
     // Without this, every assertion below could pass against a schema that has no
@@ -813,68 +808,49 @@ describe('editor filter: section headings', () => {
     ]);
   });
 
-  it('never returns a heading as a search hit of its own', () => {
-    // Isolated deliberately. The real content group cannot express this case: searching
-    // "nothing" *does* legitimately return `heading_nothing`, because `hide_when_empty`'s
-    // helper reads "...while it has nothing to show" and so matches too — the heading is
-    // then correctly kept for the field beneath it. A hand-built schema is the only way to
-    // present a heading whose text matches while nothing under it does.
+  it('never keeps a heading for itself', () => {
     const schema: HaFormSchema[] = [
       { name: 'heading_nothing', type: 'constant' },
       { name: 'days_to_show', selector: { number: { min: 1 } } },
     ];
 
-    const ctx = ctxFor(buildConfig(), { query: 'nothing' });
-
-    // The denominator: the heading's own text really does contain the query, so a filter
-    // that matched on it would keep it.
-    expect(matchesQuery(schema[0], [], ctx)).toBe(true);
-    expect(matchesQuery(schema[1], [], ctx)).toBe(false);
-
-    expect(filterSchema(schema, ctx)).toEqual([]);
+    expect(filterSchema(schema, customized(buildConfig()))).toEqual([]);
   });
 
-  it('keeps a heading when a field under it matches, even if the heading does not', () => {
-    // The other direction, and the common one: the heading is not itself a hit but must
-    // survive to caption the field that is.
+  it('keeps a heading when a field under it is kept', () => {
     const schema: HaFormSchema[] = [
       { name: 'heading_filters', type: 'constant' },
       { name: 'days_to_show', selector: { number: { min: 1 } } },
     ];
+    const kept = filterSchema(schema, customized(buildConfig({ days_to_show: 7 })));
 
-    const ctx = ctxFor(buildConfig(), { query: 'days to show' });
-
-    expect(matchesQuery(schema[0], [], ctx)).toBe(false);
-    expect(fieldNames(filterSchema(schema, ctx))).toEqual(['days_to_show']);
-    expect(headingNames(filterSchema(schema, ctx))).toEqual(['heading_filters']);
+    expect(fieldNames(kept)).toEqual(['days_to_show']);
+    expect(headingNames(kept)).toEqual(['heading_filters']);
   });
 
   it('keeps a heading whose section still has an option, and drops the rest', () => {
-    // "color" reaches the appearance fields and nothing else, so exactly one heading
-    // should survive — the one that still has something under it.
-    const entry = { entity: 'calendar.a' };
-    const ctx = ctxFor(buildConfig({ entities: [entry] }), { query: 'accent' });
-    const filtered = filterEntitySchema(entitySchema(), entry, ['entity'], ctx);
+    // A calendar color is an appearance field, so exactly one heading survives: the one that
+    // still has something under it.
+    const entry = { entity: 'calendar.a', color: '#ff0000' };
+    const filtered = filterEntitySchema(
+      entitySchema(),
+      entry,
+      ['entity'],
+      customized(buildConfig({ entities: [entry] })),
+    );
 
-    expect(fieldNames(filtered).length).toBeGreaterThan(0);
+    expect(fieldNames(filtered)).toEqual(['color']);
     expect(headingNames(filtered)).toEqual(['heading_appearance']);
   });
 
   it("finds the toolbar's switches by the word, and the background apart from them", () => {
     // Which heading captions them is the registry's (`tests/editor-page-registry.test.ts`).
     const config = buildConfig({ toolbar: { show: true } });
-    const built = PANELS.find((entry) => entry.id === 'card')!.build({
-      view: config.view,
-      config,
-      language: 'en',
-    });
 
-    const background = filterSchema(built, ctxFor(config, { query: 'background' }));
-    expect(fieldNames(background)).toEqual(['background_color']);
+    expect(panelHits(config, 'card', 'background')).toEqual(['background_color']);
 
     // The title says what it becomes while the toolbar is shown, so the search finds it too.
-    const toolbar = filterSchema(built, ctxFor(config, { query: 'toolbar' }));
-    expect(fieldNames(toolbar)).toEqual([
+    expect(panelHits(config, 'card', 'toolbar')).toEqual([
       'title',
       'show',
       'legend',

@@ -41,6 +41,9 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_status',
     '_announcer',
     '_spoken',
+    // The field a search result showed, and the results it left.
+    '_jump',
+    '_resultsLeft',
   ],
   // Keys never go back, so a restored entry's key is never handed to another.
   counters: ['_nextEntryKey', '_nextButtonKey'],
@@ -57,7 +60,14 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_warmed',
   ],
   // Derived from what is snapshotted, or from the render in progress.
-  derived: ['_config', '_lastDispatched', '_essentialsHidden', '_drawing', '_bareUpdatePending'],
+  derived: [
+    '_config',
+    '_lastDispatched',
+    '_essentialsHidden',
+    '_drawing',
+    '_bareUpdatePending',
+    '_resultStatus',
+  ],
   // The history itself, and whether a change is being recorded.
   history: ['_history', '_committing'],
   // Bound handlers and memoized builders: no state Undo could miss.

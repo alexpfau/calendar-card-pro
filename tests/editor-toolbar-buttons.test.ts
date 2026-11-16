@@ -25,14 +25,17 @@ import {
   button,
   changeField,
   changeFields,
+  chooseResult,
   fakeHass,
   formOf,
   formsOf,
   helperOf,
+  keysOf,
   labelOf,
   mountEditor,
   openPageOf,
   openPanels,
+  resultRows,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -485,44 +488,53 @@ describe('searching the toolbar buttons', () => {
     document.body.innerHTML = '';
   });
 
-  it('shows a button whose name answers, whole, and withholds Add Button', async () => {
+  it('lists a button whose entity answers, whole, and opens it alone', async () => {
     const editor = await mount({ show: true, buttons: [BACK, LIGHTS, HOME] });
 
     await changeField(editor.element, `filter:${SEARCH_FIELD}`, 'kitchen');
 
-    expect(editor.headers()).toEqual(['Lights']);
-    expect(editor.fieldNames(formOf(editor.element, 'button:icon', button(1))!)).toEqual([
-      'icon',
-      'name',
-      'entity',
-      'tap_action',
-    ]);
-    expect(editor.panels()[0].expanded).toBe(true);
-    // Under Card & Header's title among the results, which draw no headings of their own.
-    expect(editor.root.querySelector('[data-heading="card_header"] > .heading')?.textContent).toBe(
-      'Card & Header',
+    const keys = keysOf(editor.element, 'button');
+    expect(
+      resultRows(editor.element).map(({ id, ownerKey, crumbs }) => [id, ownerKey, crumbs]),
+    ).toEqual(
+      ['button:icon', 'button:name', 'button:entity', 'button:tap_action'].map((id) => [
+        id,
+        keys[1],
+        'Card & Header › Your Own Buttons › Lights',
+      ]),
     );
-    expect(editor.add()).toBeNull();
+
+    await chooseResult(editor.element, `result:button:entity:${keys[1]}`);
+    expect(editor.panels().map((panel) => panel.expanded)).toEqual([false, true, false]);
+    // The entity alone, above the rest of the button's fields.
+    expect(formsOf(editor.element, button(1)).map(editor.fieldNames)).toEqual([
+      ['entity'],
+      ['icon', 'name', 'tap_action'],
+    ]);
   });
 
-  it('shows only the field a search names, on every button', async () => {
+  it('lists only the field a search names, on every button', async () => {
     const editor = await mount({ show: true, buttons: [BACK, LIGHTS] });
 
     await changeField(editor.element, `filter:${SEARCH_FIELD}`, 'tap action');
 
-    expect(editor.headers()).toEqual(['Back', 'Lights']);
-    expect(editor.forms().map(editor.fieldNames)).toEqual([['tap_action'], ['tap_action']]);
+    expect(
+      resultRows(editor.element)
+        .filter((row) => row.ownerKey !== undefined)
+        .map(({ id, crumbs }) => [id, crumbs.split(' › ').pop()]),
+    ).toEqual([
+      ['button:tap_action', 'Back'],
+      ['button:tap_action', 'Lights'],
+    ]);
   });
 
-  it('drops the heading with the last panel a search hides', async () => {
+  it('lists no button for the words of its heading alone', async () => {
     const editor = await mount({ show: true, buttons: [BACK, LIGHTS] });
 
     // The heading's own words are no match: a heading is never a hit of its own.
     await changeField(editor.element, `filter:${SEARCH_FIELD}`, 'your own buttons');
 
-    expect(editor.panels()).toHaveLength(0);
-    expect(editor.heading()).toBeUndefined();
-    expect(editor.add()).toBeNull();
+    expect(resultRows(editor.element).filter((row) => row.ownerKey !== undefined)).toEqual([]);
   });
 
   it('shows each button’s own fields under customized only', async () => {
