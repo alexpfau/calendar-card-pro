@@ -387,8 +387,11 @@ describe('rowParts', () => {
     ).toEqual(['Weekdays', 'Expires at 18:00']);
   });
 
-  it('falls back to English, key by key, in a language without these strings yet', () => {
-    expect(List.rowParts({ entity: 'x', event_type: 'all_day' }, 'de')).toEqual(['All-day events']);
+  it('falls back to English, key by key, in a language without these strings', () => {
+    // British English carries only its spelling overrides, so the row's words come from English.
+    expect(List.rowParts({ entity: 'x', event_type: 'all_day' }, 'en-GB')).toEqual([
+      'All-day events',
+    ]);
   });
 });
 
