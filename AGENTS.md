@@ -1937,60 +1937,74 @@ enabling Add. A second entry of one calendar comes only from Duplicate.
 the chassis, whose sub-forms are not searched, every `entity.*.aliases` string would fail as
 unsearchable.
 
-### Sub-headings are `constant` nodes, and they can lie
+### Headings are the registry's, and they can lie
 
-A section heading is a `constant` schema node **with no `value`** — that renders as a bare
-bold label. Give it a `value` and it becomes a `Label: value` data row instead, which is not
-a heading. The type was already declared and unused, so this needs no new mechanism, and
-`check:i18n` treats it as a labeled field and requires one English string for it —
-enforcement, not cost.
+A heading is drawn by the page that holds it. `pages.ts` names it (`HeadingDef.key`, with
+`keyByView` where a layout words it differently) and `views/page.ts` draws it as an element, so
+assistive technology announces it as a heading, which a `constant` node never was. **A builder
+emits fields and the named scopes that store them, and nothing else.** A heading, a row or a
+collapsible in a builder renders nowhere, since a page lifts every field into a form of its own,
+while `check:i18n` would keep its strings alive; `tests/editor-layout-structure.test.ts` fails on
+any of the three in any panel, workspace or corpus state.
 
-A heading is the one node type that can **actively lie**, because it makes a claim about
-what follows it. Adding them forced three changes to the panel filter, each preventing a
-distinct false statement:
+A field whose value nests (`time_grid:`, `weather.date:`) goes in `schemas/common.ts` ›
+`blockScope`, never a bare `scope`: a named `grid` nests data and not labels, and `blockScope`
+stamps the `titleKey` that keeps the field's string key, and with it every translation, where it
+was.
+
+No builder draws a `constant` heading any more. A calendar's panel was the last; since each entry
+has a page of its own, its headings are the registry's `ENTRY_GROUPS` like every other page's, and
+`schemas/entity.ts` emits fields only. Where a form does hold one, a `constant` node **with no
+`value`** renders as a bare bold label, and given a `value` it becomes a `Label: value` data row
+instead, which is not a heading, and the filter holds three rules, each preventing a distinct false
+statement:
 
 1. **A heading must never be a search hit of its own.** Its text matches like any field's,
    so searching a word that appears only in a heading returned the heading alone,
    captioning an empty section.
 2. **A heading whose section the filter emptied must be pruned**, or it strands above the
    next section and relabels someone else's options.
-3. **`hasFields` must not count a heading**, or a panel reduced to nothing but labels is
+3. **`hasFields` must not count a heading**, or a form reduced to nothing but labels is
    still offered as having content.
 
-The rule governing placement: **a heading over a non-contiguous category is worse than no
-heading**, because it silently claims whatever follows it. Introducing headings therefore
-drags the reorder into the same change; they cannot be sequenced apart.
+On a page, a query naming a heading's title or the line under it brings every field under that
+heading with it, as a page's title brings the page; the heading is never shown alone.
 
-Two smaller ones. A heading named the same as its only field reads as a stutter, and a DOM
-probe cannot see that — only a screenshot can. And when a schema gains headings, the test
-helpers enumerating _options_ should exclude them, with heading behavior pinned separately;
-sprinkling heading names through a dozen expectations makes each assertion less about what
-it was for.
+Wherever it is drawn, a heading is the one thing that can **actively lie**, because it makes a
+claim about what follows it: **a heading over a non-contiguous category is worse than no
+heading**. A heading named the same as its only field reads as a stutter, and a DOM probe cannot
+see that — only a screenshot can.
 
 ### Where a new option goes is a decision, not a default
 
-**Placing a new option at the end of its section is not placement — it is the absence of
-it.** Picking the right section is the first half of the question; the second half is where
-in that section it belongs, and appending answers it by accident. This has been raised on
-two consecutive pull requests, both times because a session chose the category carefully
-and then appended.
+**A new field is placed in the page registry, and placing it at the end of a heading is not
+placement — it is the absence of it.** A field a builder builds and no page places fails
+`tests/editor-page-registry.test.ts` ("built but unplaced"), so the question cannot be skipped;
+it can only be answered by accident. Picking the right page and heading is the first half of the
+question; the second half is where under that heading it belongs, and with which appearance
+(`essential`, `add`, a mode value or a family member), and appending answers both by accident.
+This was raised on two consecutive pull requests, both times because a session chose the
+category carefully and then appended.
 
-The sections are ordered coarse-to-fine by **scope**, and the options inside them follow
-the same rule: what qualifies a whole day, then what qualifies a class of event, then what
-retires an event, then patterns matching one event's text, then the budget capping how many
-survive. That is why `compact_events_to_show` sits last in _Which Events Appear_ — it is a
-budget rather than a predicate, applied to the result set rather than to an event.
+Headings, and the options under each, are ordered coarse-to-fine by **scope**: what qualifies a
+whole day, then what qualifies a class of event, then what retires an event, then patterns
+matching one event's text, then the budget capping how many survive. That is why
+`compact_events_to_show` closes a calendar's filters — it is a budget rather than a predicate,
+applied to the result set rather than to an event.
 
-Do **not** order a section by the pipeline stage the options run in. It is a real ordering
-and it is invisible to the reader, who cannot tell which options are resolved at fetch time
-and which at render time, and should not have to. `days_of_week` is resolved last of the
-per-calendar filters and belongs first, because it is the broadest question a reader asks.
+Do **not** order by the pipeline stage the options run in. It is a real ordering and it is
+invisible to the reader, who cannot tell which options are resolved at fetch time and which at
+render time, and should not have to. `days_of_week` is resolved last of the per-calendar filters
+and belongs first, because it is the broadest question a reader asks.
 
-Treat a new option's position as needing a stated reason, the same way its name and its
-default do. Say in the PR body where it went and why.
+Treat a new option's position as needing a stated reason, the same way its name and its default
+do. Say in the PR body which page, heading and appearance it took, and why. The approved map in
+`tests/editor-page-registry.test.ts` pins every placement by value, so the move shows up there as
+a deliberate edit.
 
-`npm run check:i18n` reconciles `strings.ts` against the fields the schemas reference, in
-both directions, by importing the schema modules. A new field with no string fails it.
+`npm run check:i18n` reconciles `strings.ts` against the fields the schemas reference and the
+strings the page registry names, in both directions, by importing both. A new field with no
+string fails it, and so does a heading string no page names any more.
 
 ## Style
 

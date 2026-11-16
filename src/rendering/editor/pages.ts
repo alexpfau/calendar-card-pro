@@ -581,6 +581,9 @@ export const PAGES: ReadonlyArray<PageDef> = [
   },
 ];
 
+/** The overview's Calendars block: the calendar list (`views/calendars.ts`). */
+export const CALENDARS_BLOCK = { titleKey: 'panel.calendars' } as const;
+
 /** A calendar entry's page. */
 export const ENTRY_GROUPS: ReadonlyArray<HeadingDef> = [
   {

@@ -16,7 +16,13 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { changeField, goEntry, keysOf, mountEditor, openPageOf } from './helpers/editor-host';
+import {
+  changeField,
+  chooseResult,
+  mountEditor,
+  openPageOf,
+  resultRows,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
 
 /** A drawn panel, as Home Assistant's element and the editor set it. */
@@ -192,31 +198,20 @@ describe('a page', () => {
 });
 
 describe('a search', () => {
-  it('keeps the calendar rows whose page keeps a field, and each kept page mounts those fields’ forms', async () => {
+  it('opens the calendar entry’s page a result names, which then mounts its forms, and no other', async () => {
     const editor = await mountEditor(CONFIG);
     const root = editor.shadowRoot!;
-    const fieldForms = (): number => root.querySelectorAll('ha-form.entity-form').length;
-    // Each entry's page unfiltered, for the control.
-    const unfiltered = new Map<number, number>();
-    for (const key of keysOf(editor, 'entry')) {
-      await goEntry(editor, key);
-      unfiltered.set(key, fieldForms());
-    }
-    await openPageOf(editor, 'content:days_to_show');
 
     await changeField(editor, 'filter:search', 'color');
+    // Results are rows: no entry page is drawn, so no calendar form is mounted.
+    expect(root.querySelectorAll('ha-form.entity-form')).toHaveLength(0);
 
-    const kept = keysOf(editor, 'entry').filter(
-      (key) => root.querySelector(`[data-focus="row:${key}"]`) !== null,
-    );
-    expect(kept.length).toBeGreaterThan(0);
-    const drawn: Array<[number, boolean, boolean]> = [];
-    for (const key of kept) {
-      await goEntry(editor, key);
-      const forms = fieldForms();
-      drawn.push([key, forms > 0, forms < unfiltered.get(key)!]);
-    }
-    // Every kept page draws forms, and fewer than it draws unfiltered.
-    expect(drawn).toEqual(kept.map((key) => [key, true, true]));
+    const row = resultRows(editor).find((each) => each.id.startsWith('calendar:'))!;
+    await chooseResult(editor, row.key);
+    const pages = [...root.querySelectorAll('.entry-page')];
+    expect(pages.map((page) => page.getAttribute('data-entry-key'))).toEqual([
+      String(row.ownerKey),
+    ]);
+    expect(root.querySelectorAll('ha-form.entity-form').length).toBeGreaterThan(0);
   });
 });

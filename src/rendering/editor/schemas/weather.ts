@@ -2,22 +2,13 @@
  * Weather schema rows.
  */
 
-import { mdiWeatherPartlyCloudy } from '@mdi/js';
-
 import * as Helpers from '../../../utils/helpers';
 import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx } from '../panels';
-import { bool, color, nested, number, row, scope, select, text } from './common';
-
-export const WEATHER_ICON = mdiWeatherPartlyCloudy;
-
-const DATE_POSITION_ICON =
-  'M19 3h-1V1h-2v2H8V1H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2m0' +
-  ' 16H5V9h14v10Z';
-const EVENT_POSITION_ICON = 'M3 5h18v2H3V5m0 6h18v2H3v-2m0 6h12v2H3v-2Z';
+import { blockScope, bool, color, number, scope, select, text } from './common';
 
 function styling(): HaFormSchema[] {
-  return [row(text('icon_size'), text('font_size')), color('color')];
+  return [text('icon_size'), text('font_size'), color('color')];
 }
 
 /**
@@ -70,7 +61,7 @@ const weatherSchema = Helpers.memoizeLast(
 
       if (position === 'date' || position === 'both') {
         inside.push(
-          nested(language, 'date', 'weather.date', DATE_POSITION_ICON, [
+          blockScope('date', [
             bool('show_conditions'),
             bool('show_high_temp'),
             bool('show_low_temp'),
@@ -82,7 +73,7 @@ const weatherSchema = Helpers.memoizeLast(
 
       if (position === 'event' || position === 'both') {
         inside.push(
-          nested(language, 'event', 'weather.event', EVENT_POSITION_ICON, [
+          blockScope('event', [
             bool('show_conditions'),
             bool('show_temp'),
             ...uvIndexFields(eventUvIndex),

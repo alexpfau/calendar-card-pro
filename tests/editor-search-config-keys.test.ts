@@ -1,16 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import { hitIds, searchIndex } from './helpers/search-index';
 import type * as Types from '../src/config/types';
-import {
-  type FilterCtx,
-  NO_FILTER,
-  matchesQuery,
-  withholdInertFields,
-} from '../src/rendering/editor/filter';
-import { type HaFormSchema, isGroupSchema } from '../src/rendering/editor/ha-form';
-import { PANELS, type SchemaCtx, walkSchema } from '../src/rendering/editor/panels';
-import { ENTITY_PATH } from '../src/rendering/editor/schemas/calendars';
+import { parseFieldId } from '../src/rendering/editor/field-index';
+import { walkSchema } from '../src/rendering/editor/panels';
 import {
   ACCENT_COLOR_MODE,
   LABEL_IMAGE_SOURCE,
@@ -20,7 +14,7 @@ import {
   entitySchemaFor,
 } from '../src/rendering/editor/schemas/entity';
 import { SYNTHETIC_FIELDS, configKeysForField } from '../src/rendering/editor/synthetic';
-import { type EditorWorkspace, WORKSPACES } from '../src/rendering/editor/workspace';
+import { WORKSPACES } from '../src/rendering/editor/workspace';
 
 /**
  * Searching the YAML key of an option finds the control that writes it.
@@ -33,20 +27,9 @@ import { type EditorWorkspace, WORKSPACES } from '../src/rendering/editor/worksp
  *
  * Reconciled against the mappings the editor writes through, `configKeysForField` and
  * `entityConfigKeys`, rather than a list of known cases, so the next derived control is
- * covered without being named here. Each leaf is matched on its own, with its own label
- * and data paths: asking whether it survives `filterSchema` would pass for any leaf inside
- * a group that happens to match, because a matching group keeps all of its children.
+ * covered without being named here. Each field is its own row of the jump list, so a query
+ * finding it lists that row, whatever else it lists.
  */
-
-/** The query a context carries, with nothing else filtered. */
-function searching<T extends SchemaCtx>(ctx: T, query: string): T & FilterCtx {
-  return { ...ctx, criteria: { ...NO_FILTER, query } };
-}
-
-/** Whether a node is a setting rather than a group or a sub-heading. */
-function isLeaf(node: HaFormSchema): boolean {
-  return !isGroupSchema(node) && !('type' in node && node.type === 'constant');
-}
 
 /**
  * Configurations that between them reveal every conditional control. A synthetic field
@@ -69,16 +52,6 @@ const CARD_CONFIGS: ReadonlyArray<Partial<Types.Config>> = [
   { show_countdown: true },
 ];
 
-/** The context a panel is built and searched in, for one editing workspace. */
-function cardCtx(config: Types.Config, workspace: EditorWorkspace): SchemaCtx {
-  return {
-    view: workspace === 'shared' ? 'list' : workspace,
-    workspace,
-    config,
-    language: 'en',
-  };
-}
-
 describe('editor search finds the control that writes a key', () => {
   it('for every card-wide control, in every workspace', () => {
     const misses: string[] = [];
@@ -89,22 +62,19 @@ describe('editor search finds the control that writes a key', () => {
       const config = buildConfig({ entities: ['calendar.anna'], ...overrides });
 
       for (const workspace of WORKSPACES) {
-        const ctx = cardCtx(config, workspace);
+        const index = searchIndex(config, { workspace });
 
-        for (const panel of PANELS) {
-          const schema = withholdInertFields(panel.build(ctx), workspace);
+        for (const { target } of index) {
+          if (target.kind !== 'field') continue;
+          const { dataPath, name } = parseFieldId(target.id);
+          seen.add(name);
 
-          for (const { node, path, dataPath } of walkSchema(schema)) {
-            if (!isLeaf(node)) continue;
-            seen.add(node.name);
-
-            for (const key of configKeysForField(node.name)) {
-              const qualified = [...dataPath, key].join('.');
-              for (const query of new Set([key, qualified])) {
-                checked++;
-                if (!matchesQuery(node, path, searching(ctx, query), dataPath)) {
-                  misses.push(`${workspace} ${panel.id}: "${query}" misses ${node.name}`);
-                }
+          for (const key of configKeysForField(name)) {
+            const qualified = [...dataPath, key].join('.');
+            for (const query of new Set([key, qualified])) {
+              checked++;
+              if (!hitIds(index, query).includes(target.id)) {
+                misses.push(`${workspace}: "${query}" misses ${target.id}`);
               }
             }
           }
@@ -147,19 +117,17 @@ describe('editor search finds the control that writes a key', () => {
             const schema = entitySchemaFor(base, type, accent, iconSource, true, imageSource);
 
             for (const workspace of WORKSPACES) {
-              const ctx: FilterCtx = {
-                ...searching(cardCtx(config, workspace), ''),
-                scope: 'entity',
-              };
+              const index = searchIndex(config, { workspace, entrySchemas: [schema] });
 
-              for (const { node, path } of walkSchema(schema, ENTITY_PATH, [])) {
-                if (!isLeaf(node)) continue;
-                seen.add(node.name);
+              for (const { target } of index) {
+                if (target.kind !== 'entry-field') continue;
+                const { name } = parseFieldId(target.id);
+                seen.add(name);
 
-                for (const key of entityConfigKeys(node.name)) {
+                for (const key of entityConfigKeys(name)) {
                   checked++;
-                  if (!matchesQuery(node, path, searching(ctx, key))) {
-                    misses.push(`${workspace} ${type}/${accent}: "${key}" misses ${node.name}`);
+                  if (!hitIds(index, key).includes(`${target.id}@0`)) {
+                    misses.push(`${workspace} ${type}/${accent}: "${key}" misses ${name}`);
                   }
                 }
               }
@@ -183,17 +151,8 @@ describe('editor search finds the control that writes a key', () => {
   ])('finds the derived control for %s', (key, control) => {
     // Three of the four keys the editor guide used to list as unsearchable, as named cases: the
     // reconciliation above covers them too, but a failure here reads as the regression it is.
-    // The fourth, `entities`, was written by the calendar picker, which the calendar list and
-    // its entry pages replaced; no control writes the whole list any more.
-    const config = buildConfig({ entities: ['calendar.anna'] });
-    const ctx = searching(cardCtx(config, 'shared'), key);
-    const found: string[] = [];
-
-    for (const panel of PANELS) {
-      for (const { node, path, dataPath } of walkSchema(panel.build(ctx))) {
-        if (isLeaf(node) && matchesQuery(node, path, ctx, dataPath)) found.push(node.name);
-      }
-    }
+    const index = searchIndex(buildConfig({ entities: ['calendar.anna'] }));
+    const found = hitIds(index, key).map((id) => parseFieldId(id.split('@')[0]).name);
 
     expect(found).toContain(control);
   });

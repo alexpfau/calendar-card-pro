@@ -8,7 +8,7 @@ import { isPersonEntityId } from '../../../utils/person-pictures';
 import type { HaFormSchema, SelectorSchema } from '../ha-form';
 import { humanize, lookup } from '../localize';
 import type { SchemaCtx } from '../panels';
-import { heading, row, text } from './common';
+import { text } from './common';
 
 export const INHERIT = 'inherit';
 
@@ -357,7 +357,6 @@ function labelFields(
  */
 export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
   return [
-    heading('heading_appearance'),
     text('name'),
     // Beside `name` because both belong to the calendar rather than to this block, and both
     // are about the calendar filter's entry for it: what it says, and whether there is one.
@@ -368,7 +367,8 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     labelImageSource(ctx.language),
     text('label'),
     text('label_icon_color'),
-    row(text('color'), accentColorMode(ctx.language)),
+    text('color'),
+    accentColorMode(ctx.language),
     text('accent_color'),
     // Last in the section that says how this calendar's events look: after which label and
     // which colors, how large. No ceiling, as YAML has none, and a box rather than a slider,
@@ -399,12 +399,10 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     // Visibility comes before all of them, coarser still: whether this entry shows at all,
     // for this viewer and at this moment, before which of its events do. A section of its own
     // rather than the first filter, because it judges Home Assistant rather than the events.
-    // Edited in Home Assistant's own Visibility editor where it is available (`element.ts`,
-    // `splitAtVisibility`), and as YAML where it is not: its conditions nest where no form here
+    // Edited in Home Assistant's own Visibility editor where it is available (`element.ts` ›
+    // `_renderVisibility`), and as YAML where it is not: its conditions nest where no form here
     // can follow.
-    heading('heading_visibility'),
     { name: VISIBILITY, selector: { object: {} } },
-    heading('heading_filters'),
     choice(ctx.language, 'days_of_week'),
     choice(ctx.language, 'event_type'),
     { name: 'allday_expires_at', selector: { text: { type: 'time' } } },
@@ -430,7 +428,6 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     // `replace_field` leads for `filter_field`'s reason one section up: it qualifies the two
     // below it rather than doing anything itself, and a reader who meets `Find` first has
     // already assumed it searches the title.
-    heading('heading_replace'),
     choice(ctx.language, 'replace_field'),
     text('replace_pattern'),
     text('replace_with'),
@@ -438,7 +435,6 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     // Both answer how a multi-day event is drawn: across the days of a list or columns, and
     // in the time grid. Split first, as on the card-level Multi-Day section, where the grid's
     // switch also follows it.
-    heading('heading_multiday'),
     choice(ctx.language, 'split_multiday_events'),
     choice(ctx.language, 'multiday_banners'),
 
@@ -446,7 +442,6 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     // at all, for the same coarse-to-fine reason: whether the row appears, then what it
     // carries. Appending it after `show_description` would separate it from the only
     // option it means anything alongside.
-    heading('heading_details'),
     choice(ctx.language, 'show_time'),
     choice(ctx.language, 'show_location'),
     { name: 'location_icon', selector: { icon: {} } },

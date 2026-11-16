@@ -9,25 +9,17 @@
  * language's words differ.
  *
  * Three things are pinned. The families by value against `strings.ts`, so an alias string that
- * appears or disappears fails here. Each family's words finding its setting, on the card or in a
- * calendar's form. And each language searching its own words where it has them and the English
- * ones where it has none.
+ * appears or disappears fails here. Each family's words finding its setting as a jump-list row,
+ * on the card or on a calendar. And each language searching its own words where it has them and
+ * the English ones where it has none.
  */
 import { describe, expect, it } from 'vitest';
 
+import { searchIndex } from './helpers/search-index';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
-import {
-  type FilterCtx,
-  NO_FILTER,
-  filterEntitySchema,
-  filterSchema,
-  withholdInertFields,
-} from '../src/rendering/editor/filter';
-import { PANELS, type SchemaCtx } from '../src/rendering/editor/panels';
-import { workspaceFields } from '../src/rendering/editor/routing';
-import { ENTITY_PATH } from '../src/rendering/editor/schemas/calendars';
-import { buildEntitySchema } from '../src/rendering/editor/schemas/entity';
+import { parseFieldId } from '../src/rendering/editor/field-index';
+import { search } from '../src/rendering/editor/search';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { EDITOR_LANGUAGE_STRINGS } from '../src/rendering/editor/translations';
 
@@ -70,28 +62,25 @@ const FAMILIES: Readonly<Record<string, Family>> = {
   'time_format.aliases': { field: 'time_format', scope: 'card', queries: ['12h', 'AM/PM'] },
 };
 
-function ids(schema: Parameters<typeof workspaceFields>[0]): string[] {
-  return [...workspaceFields(schema)].map(({ node, path }) => [...path, node.name].join('.'));
-}
-
-function ctxFor(language: string, query: string): FilterCtx {
+/** The settings a search lists on the card, in the List workspace, and on its one calendar. */
+function rows(language: string, query: string): { card: string[]; calendar: string[] } {
   const config = { ...Config.DEFAULT_CONFIG, entities: ['calendar.anna'] } as Types.Config;
-  const ctx: SchemaCtx = { view: 'list', workspace: 'list', config, rawConfig: config, language };
-  return { ...ctx, criteria: { ...NO_FILTER, query } };
+  const found = { card: [] as string[], calendar: [] as string[] };
+  for (const { entry } of search(searchIndex(config, { workspace: 'list', language }), query)) {
+    const { name } = parseFieldId(entry.target.id);
+    found[entry.target.kind === 'field' ? 'card' : 'calendar'].push(name);
+  }
+  return found;
 }
 
-/** What a search shows on the card's panels, in the List workspace. */
+/** What a search lists on the card. */
 function cardHits(language: string, query: string): string[] {
-  const ctx = ctxFor(language, query);
-  return PANELS.flatMap((panel) =>
-    ids(filterSchema(withholdInertFields(panel.build(ctx), 'list'), ctx)),
-  );
+  return rows(language, query).card;
 }
 
-/** What a search shows in one calendar's form. */
+/** What a search lists on the calendar. */
 function calendarHits(language: string, query: string): string[] {
-  const ctx = ctxFor(language, query);
-  return ids(filterEntitySchema(buildEntitySchema(ctx), 'calendar.anna', ENTITY_PATH, ctx));
+  return rows(language, query).calendar;
 }
 
 function hits(language: string, query: string, scope: Family['scope']): string[] {

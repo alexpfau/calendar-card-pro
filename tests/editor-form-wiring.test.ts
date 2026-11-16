@@ -28,6 +28,7 @@ import {
   openPageOf,
   openPanels,
   resetButton,
+  resultRows,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -75,23 +76,19 @@ beforeEach(() => {
 });
 
 describe('editor filter bar', () => {
-  it('narrows the rendered panels to the ones that match the search', async () => {
+  it('lists what the search finds in place of the overview’s forms', async () => {
     const element = await mount({ entities: ['calendar.a'] });
     const before = formsOf(element, CARD).length;
     expect(before).toBeGreaterThan(1);
 
     await changeFields(element, { 'filter:search': 'weather', 'filter:customized_only': false });
 
-    // What the search finds, drawn on the overview, every page's matches.
-    const during = formsOf(element, CARD).length;
-    expect(during).toBeGreaterThan(0);
-    expect(during).toBeLessThan(before);
-
-    const surviving = formsOf(element, CARD);
-    expect(surviving.some((form) => schemaNames(form).includes('weather'))).toBe(true);
+    // What the search finds, as rows, which mount no form.
+    expect(formsOf(element, CARD)).toHaveLength(0);
+    expect(resultRows(element).some((row) => row.id === 'weather:weather.entity')).toBe(true);
   });
 
-  it('restores every panel when the search is cleared', async () => {
+  it('restores every form when the search is cleared', async () => {
     const element = await mount({ entities: ['calendar.a'] });
     const before = formsOf(element, CARD).length;
 

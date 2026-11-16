@@ -11,12 +11,14 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   CHASSIS,
   changeField,
+  chooseResult,
   entry,
   fakeHass,
   goEntry,
   keysOf,
   lastConfig,
   mountEditor,
+  resultRows,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import * as Entities from '../src/rendering/editor/entities';
@@ -636,15 +638,20 @@ describe('across entries and places', () => {
     expect((control(editor, 'calendar-filter') as unknown as HTMLInputElement).value).toBe('c7');
   });
 
-  it('keeps the line a removal left when a search then matches no row', async () => {
-    const editor = await mount([ANNA, BEN]);
-    await changeField(editor, 'filter:search', 'Anna', CHASSIS);
-    const [anna] = keysOf(editor, 'entry');
-    await press(editor, `more:entry:${anna}`);
+  it('leaves the search when an entry a result opened is removed, the line in the list', async () => {
+    const editor = await mount([{ entity: ANNA, label: 'Kids' }, BEN]);
+    await changeField(editor, 'filter:search', 'kids', CHASSIS);
+    const result = resultRows(editor).find((each) => each.id === 'calendar:label')!;
+    await chooseResult(editor, result.key);
 
-    await press(editor, `strip:entry:${anna}:remove`);
+    await press(editor, 'entry-remove');
 
-    expect(editor.shadowRoot!.querySelector('.status-text')?.textContent).toBe('Removed Anna');
+    // The results would stand where the list is: the search is left, as Back to the overview
+    // leaves it, so the line and its Undo are drawn.
+    expect(resultRows(editor)).toEqual([]);
+    expect(editor.shadowRoot!.querySelector('.cal-list .status-text')?.textContent).toBe(
+      'Removed Anna',
+    );
     expect(focused(editor)).toBe('status-undo');
   });
 

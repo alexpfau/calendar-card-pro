@@ -7,12 +7,8 @@
  * as the panel's sub-form, so `check:i18n` keeps reading it as searched: each entry page is.
  */
 
-import { mdiCalendarMultiple } from '@mdi/js';
-
 import { buildEntitySchema } from './entity';
 import type { SchemaCtx, SubformDef } from '../panels';
-
-export const CALENDARS_ICON = mdiCalendarMultiple;
 
 export const ENTITY_PATH: ReadonlyArray<string> = ['entity'];
 

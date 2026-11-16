@@ -103,6 +103,7 @@ export const REFERENCED_STRINGS: ReadonlyArray<string> = [
   'calendars',
   'strip',
   'entry',
+  'search',
 ];
 
 export const CHASSIS_STRINGS: ReadonlyArray<string> = [

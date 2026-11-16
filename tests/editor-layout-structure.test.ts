@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import { CHASSIS, changeField, goEntry, keysOf, mountEditor } from './helpers/editor-host';
 import type * as Types from '../src/config/types';
+import { schemaCtx } from '../src/rendering/editor/field-index';
 import * as Filter from '../src/rendering/editor/filter';
+import { corpus } from '../src/rendering/editor/gates';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import * as EditorLocalize from '../src/rendering/editor/localize';
+import { ENTRY_GROUPS, type HeadingDef, PAGES } from '../src/rendering/editor/pages';
 import { PANELS, type SchemaCtx } from '../src/rendering/editor/panels';
 import {
   type EditorWorkspace,
@@ -13,10 +17,9 @@ import {
 } from '../src/rendering/editor/workspace';
 
 /**
- * The Layout panel's rendered order, flattened the way a reader sees it.
- *
- * Collapsibles are recorded as one entry and **not** recursed into, because the point of
- * every assertion here is what the panel shows before anyone opens anything.
+ * A builder's fields in order, each by the label it resolves, flattened the way a page lifts
+ * them. A collapsible would be recorded as one entry and **not** recursed into; no builder
+ * emits one (asserted below), and a heading would read `— Heading —`.
  *
  * 🚨 The label path does **not** accumulate through named grids, and getting that wrong is
  * how this helper first reported a false pass. Storage nesting and label nesting are
@@ -109,6 +112,9 @@ function renderedPanel(
   return Filter.withholdInertFields(panel.build(ctx), ctx.workspace ?? ctx.view);
 }
 
+/** The density fields, alike in Columns and Grid; each block keeps its own helper wording. */
+const DENSITY = ['Minimum Day Width', 'Fewest Day Columns', 'When Too Narrow'];
+
 function layoutOutline(view: Types.EffectiveView): string[] {
   const config = buildConfig({ view, entities: [{ entity: 'calendar.anna' }] });
   const ctx: SchemaCtx = { config, view, language: 'en' };
@@ -122,20 +128,17 @@ function layoutOutline(view: Types.EffectiveView): string[] {
 describe('Layout panel structure', () => {
   // Pinned by value rather than walked. A test that iterates the schema and asserts each
   // entry resolves would stay green while an entry left the schema, which is the failure
-  // this file exists to make loud: the whole restructure below landed with the suite
-  // green, because nothing pinned the shape it replaced.
-  it('opens the grid workspace on the axis, not on two card-box options', () => {
+  // this file exists to make loud. Which heading each field sits under is the registry's
+  // (`tests/editor-page-registry.test.ts`).
+  it('builds the grid workspace the axis first, then the card box and the density', () => {
     expect(layoutOutline('grid')).toEqual([
-      '— Time Axis —',
       'First Hour',
       'Last Hour',
       'Grid Lines Every',
       'Height Per Hour',
-      '— Hour Labels —',
       'Hour Label Width',
       'Show Hour Labels',
       'Axis Labels Every',
-      '— On the Grid —',
       'Weekend Shading',
       'Today Shading',
       'Now Line',
@@ -144,20 +147,18 @@ describe('Layout panel structure', () => {
       // side only reads once the reader has been shown how overlaps are drawn.
       'Overlapping Events',
       'Most Events Side By Side',
-      '— Card Size & Spacing —',
       'Additional Card Spacing',
       'Card Height',
-      '[Grid Density]',
+      ...DENSITY,
     ]);
   });
 
-  // The reused key is the reason this assertion is separate. `time_grid.axis` was the
-  // collapsible's title and carries nine translations; the heading resolves it only
-  // because `blockScope` stamps `titleKey`. Drop the stamp and the label humanizes to
-  // "Axis" with every translation stranded, which no other gate would report.
-  it('resolves the axis heading through the block-qualified key', () => {
-    expect(layoutOutline('grid')).toContain('— Time Axis —');
-    expect(EditorLocalize.lookup('de', 'time_grid.axis')).toBe('Zeitachse');
+  // `blockScope` stamps `titleKey`, which is the only reason these resolve their block's own
+  // wording. Drop the stamp and each humanizes or takes another view's label, which no other
+  // gate would report.
+  it('resolves the time grid fields through their block-qualified keys', () => {
+    expect(layoutOutline('grid')).toContain('Height Per Hour');
+    expect(EditorLocalize.lookup('en', 'time_grid.hour_height')).toBe('Height Per Hour');
   });
 
   it('leaves list and column on the order they always had, the event gap added in place', () => {
@@ -170,27 +171,54 @@ describe('Layout panel structure', () => {
       'Card Height',
     ];
     expect(layoutOutline('list')).toEqual(expected);
-    // "Column Density", not "Grid Density" — the per-view panel-title mechanism resolving
-    // the same group under the workspace being configured.
-    expect(layoutOutline('column')).toEqual([...expected, '[Column Density]']);
-  });
-
-  // Headings earn their place only where there is enough to caption. Asserting the
-  // absence is what stops a later sweep "tidying" list and column into the grid's shape.
-  it('captions grid and only grid', () => {
-    for (const view of ['list', 'column'] as const) {
-      expect(layoutOutline(view).filter((entry) => entry.startsWith('—'))).toEqual([]);
-    }
+    expect(layoutOutline('column')).toEqual([...expected, ...DENSITY]);
   });
 });
 
 /**
- * The Day Header panel as each workspace shows it.
+ * The presentation every builder has handed to the page registry: a builder emits fields and
+ * the named scopes that store them, and nothing else. A heading, a row or a collapsible in a
+ * builder would render nowhere, since pages lift each field into a form of its own, while
+ * `check:i18n` kept its strings alive. Stated as a property over every panel, workspace and
+ * corpus state, so a builder nobody has written yet is covered.
+ */
+describe('No builder emits presentation', () => {
+  it('builds no heading, row or collapsible in any panel, workspace or corpus state', () => {
+    const found = new Set<string>();
+    let nodes = 0;
+    let states = 0;
+    for (const state of corpus()) {
+      states += 1;
+      const ctx = schemaCtx(state.config, state.workspace, 'en');
+      for (const panel of PANELS) {
+        const walk = (schema: ReadonlyArray<HaFormSchema>): void => {
+          for (const node of schema) {
+            nodes += 1;
+            if ('type' in node && node.type === 'constant')
+              found.add(`${panel.id} heading ${node.name}`);
+            if ('type' in node && node.type === 'expandable')
+              found.add(`${panel.id} collapsible ${node.name}`);
+            if ('type' in node && node.type === 'grid' && node.name === '')
+              found.add(`${panel.id} row`);
+            if ('schema' in node) walk(node.schema);
+          }
+        };
+        walk(panel.build(ctx));
+        for (const subform of panel.subforms?.(ctx) ?? []) walk(subform.schema);
+      }
+    }
+    console.info(`builder presentation: ${states} corpus states, ${nodes} nodes walked`);
+    expect(nodes).toBeGreaterThan(10_000);
+    expect([...found].sort()).toEqual([]);
+  });
+});
+
+/**
+ * The Day Header panel as each workspace builds it.
  *
  * What every date shares first, then the header's geometry and week numbering, then the
- * exceptions by the kind of day: today visible, with its indicator right after it, and past
- * days and weekends collapsed. Today's colors were in a collapsed group at the panel's foot,
- * with Week Numbers between them and the indicator, so restyling today meant two places.
+ * exceptions by the kind of day: today, with its indicator right after it, then past days and
+ * weekends.
  */
 describe('Day Header panel structure', () => {
   function dayHeader(workspace: EditorWorkspace, options: Partial<Types.Config> = {}): string[] {
@@ -198,20 +226,6 @@ describe('Day Header panel structure', () => {
     if (panel === undefined) throw new Error('Day Header panel not found');
     const ctx = ctxFor(workspace);
     return outline(renderedPanel(panel, { ...ctx, config: { ...ctx.config, ...options } }));
-  }
-
-  /** The fields of one collapsible, which `outline` deliberately does not open. */
-  function group(workspace: EditorWorkspace, name: string, options: Partial<Types.Config> = {}) {
-    const panel = PANELS.find((candidate) => candidate.id === 'day_header')!;
-    const ctx = ctxFor(workspace);
-    const node = renderedPanel(panel, { ...ctx, config: { ...ctx.config, ...options } }).find(
-      (candidate) =>
-        'type' in candidate && candidate.type === 'expandable' && candidate.name === name,
-    );
-    if (node === undefined || !('schema' in node)) throw new Error(`no ${name} group`);
-    return node.schema
-      .flatMap((child) => ('schema' in child ? child.schema : [child]))
-      .map((child) => child.name);
   }
 
   const SHARED_START = [
@@ -224,26 +238,23 @@ describe('Day Header panel structure', () => {
     'Month Color',
   ];
   const BY_DAY = [
-    '— Week Numbers —',
     'Numbering',
-    '— Today —',
     "Today's Date Scale",
     "Today's Font Weight",
     "Today's Weekday Color",
     "Today's Day Number Color",
     "Today's Month Color",
-    '— Today Indicator —',
     'Style',
     'Indicator Color',
-    '[Past Days]',
-    '[Weekend Colors]',
+    // The fade first: it is what a past day is usually given, and it needs nothing else.
+    'Past Date Opacity',
+    'Past Date Scale',
+    'Past Font Weight',
+    'Weekend Weekday Color',
+    'Weekend Day Number Color',
+    'Weekend Month Color',
   ];
-  const GAP_AND_RULE = [
-    '— Gap & Rule —',
-    'Day Header Gap',
-    'Day Header Rule Width',
-    'Day Header Rule Color',
-  ];
+  const GAP_AND_RULE = ['Day Header Gap', 'Day Header Rule Width', 'Day Header Rule Color'];
 
   it('shows the list workspace its alignment, and no gap or rule', () => {
     expect(dayHeader('list')).toEqual(['Vertical Alignment', ...SHARED_START, ...BY_DAY]);
@@ -257,50 +268,14 @@ describe('Day Header panel structure', () => {
     expect(dayHeader('shared')).toEqual([...SHARED_START, ...BY_DAY]);
   });
 
-  it('puts the fade first among the past-day fields', () => {
-    expect(group('list', 'past_days')).toEqual([
-      'past_date_opacity',
-      'past_date_scale',
-      'past_date_font_weight',
-    ]);
-  });
-
   it('hides every month color while the month is hidden', () => {
     const outline = dayHeader('list', { show_month: false });
 
     expect(outline).not.toContain('Month Color');
     expect(outline).not.toContain("Today's Month Color");
-    expect(group('list', 'weekend_colors', { show_month: false })).toEqual([
-      'weekend_weekday_color',
-      'weekend_day_color',
-    ]);
-    expect(group('list', 'weekend_colors')).toContain('weekend_month_color');
+    expect(outline).not.toContain('Weekend Month Color');
+    expect(outline).toContain('Weekend Day Number Color');
   });
-});
-
-describe('Collapsibles come last in every panel', () => {
-  // A reported problem, generalized. A "Gap & Rule" run was appended *below* Day Header's
-  // four collapsibles, so the panel opened on a disclosure and then produced two more
-  // fields underneath it — a reader who has stopped scanning at the first collapsed row
-  // never sees them. That is a convention rather than a mechanism, which is why it broke
-  // silently and why it is asserted here across every panel and every view rather than
-  // for the one panel that happened to be reported.
-  //
-  // Stated as a property, not as a list: nothing after the first collapsible may be
-  // anything other than a collapsible. That covers panels nobody has written yet, which a
-  // per-panel expectation would not.
-  for (const workspace of WORKSPACES) {
-    for (const panel of PANELS) {
-      it(`${panel.id} in ${workspace}`, () => {
-        const entries = outline(renderedPanel(panel, ctxFor(workspace)));
-        const first = entries.findIndex((entry) => entry.startsWith('['));
-        if (first === -1) {
-          return;
-        }
-        expect(entries.slice(first).filter((entry) => !entry.startsWith('['))).toEqual([]);
-      });
-    }
-  }
 });
 
 describe('No collapsible opens onto fewer than two controls', () => {
@@ -398,57 +373,33 @@ describe('No collapsible opens onto fewer than two controls', () => {
   });
 });
 
-describe('The card and the per-calendar subform caption the same switches alike', () => {
-  // `heading_details` is deliberately shared. The subform has captioned `show_time` /
-  // `show_location` / `show_description` with it for as long as it has had headings, and
-  // the card-level run that replaced four collapsed groups asks the same question one
-  // level up — so it reuses the key rather than introducing an English-only one beside a
-  // translated one. That reuse is only defensible while both surfaces really do put the
-  // same switches under it in the same order, which is what this asserts.
+describe('The card and a calendar entry caption the same switches alike', () => {
+  // `heading_details` is deliberately shared. A calendar's fields have been captioned
+  // `show_time` / `show_location` / `show_description` with it for as long as they have had
+  // headings, and the Events page asks the same question one level up — so it reuses the key
+  // rather than introducing an English-only one beside a translated one. That reuse is only
+  // defensible while both surfaces really do put the same switches under it in the same order,
+  // which is what this asserts, both from the page registry: the Events page's heading and the
+  // entry page's group of that name.
   //
-  // The card run carries two the subform does not; the claim is that the shared three
-  // agree on order and caption, not that the two lists are equal.
-  function underDetails(schema: ReadonlyArray<HaFormSchema>): string[] {
-    const flat: string[] = [];
-    const walk = (nodes: ReadonlyArray<HaFormSchema>): void => {
-      for (const node of nodes) {
-        if ('type' in node && node.type === 'expandable') continue;
-        if ('schema' in node) {
-          walk(node.schema);
-          continue;
-        }
-        flat.push(node.name);
-      }
-    };
-    walk(schema);
+  // The card run carries others the entry does not; the claim is that the shared three agree
+  // on order and caption, not that the two lists are equal.
+  const SHARED = ['show_time', 'show_location', 'show_description'];
 
-    const start = flat.indexOf('heading_details');
-    if (start === -1) return [];
-
-    const rest = flat.slice(start + 1);
-    const end = rest.findIndex((name) => name.startsWith('heading_'));
-
-    return (end === -1 ? rest : rest.slice(0, end)).filter((name) =>
-      ['show_time', 'show_location', 'show_description'].includes(name),
-    );
-  }
-
-  const config = buildConfig({ view: 'list', entities: [{ entity: 'calendar.anna' }] });
-  const ctx: SchemaCtx = { config, view: 'list', language: 'en' };
+  const under = (headings: ReadonlyArray<HeadingDef>): string[] =>
+    (headings.find((heading) => heading.key === 'heading_details')?.fields ?? [])
+      .map(([id]) => id.slice(id.indexOf(':') + 1))
+      .filter((name) => SHARED.includes(name));
 
   it('puts the three shared switches under it in the same order on both', () => {
-    const events = PANELS.find((panel) => panel.id === 'events');
-    const calendars = PANELS.find((panel) => panel.id === 'calendars');
-    if (events === undefined || calendars === undefined) {
-      throw new Error('a panel was renamed, and this test now proves nothing');
+    const events = PAGES.find((page) => page.id === 'events');
+    if (events === undefined) {
+      throw new Error('the Events page was renamed, and this test now proves nothing');
     }
 
-    const card = underDetails(events.build(ctx));
-    const subform = (calendars.subforms?.(ctx) ?? []).flatMap((sub) => underDetails(sub.schema));
-
     // Both halves pinned by value: an empty pair would agree with itself.
-    expect(card).toEqual(['show_time', 'show_location', 'show_description']);
-    expect(subform).toEqual(['show_time', 'show_location', 'show_description']);
+    expect(under(events.headings)).toEqual(SHARED);
+    expect(under(ENTRY_GROUPS)).toEqual(SHARED);
   });
 });
 
@@ -591,49 +542,55 @@ describe('Sub-forms are view-scoped like the panels above them', () => {
   }
 });
 
-describe('No sub-form heading is left captioning nothing', () => {
+describe('No entry page heading is left captioning nothing', () => {
   // 🚨 Withholding a key can empty the heading above it, and a stranded heading is worse
   // than no heading: it makes a claim about whatever follows it, so it silently relabels
   // the next section. `## Multi-Day Events` held exactly one control, `split_multiday_events`,
-  // which grid withholds — so scoping the sub-form is the first change able to strand one.
-  //
-  // The live probe that verified the scoping could not have seen this. It counted
-  // `ha-selector-*` elements, and a heading is an `ha-form-constant`; the editor would have
-  // rendered a bare bold label over the wrong fields while every measured count was right.
-  function flat(nodes: ReadonlyArray<HaFormSchema>): Array<'heading' | 'field'> {
-    return nodes.flatMap((node): Array<'heading' | 'field'> => {
-      if ('schema' in node) return flat(node.schema);
-
-      return ['selector' in node ? 'field' : 'heading'];
-    });
-  }
-
+  // which grid withholds — so scoping a calendar's fields is the first change able to strand
+  // one. The entry page draws its headings from `ENTRY_GROUPS` and each over the fields the
+  // workspace builds, so this reads the drawn page, where a stranded heading would show.
   for (const workspace of WORKSPACES) {
-    it(`captions at least one field per heading in ${workspace}`, () => {
-      const ctx = ctxFor(workspace);
-      let headings = 0;
+    it(`draws a field under every heading in ${workspace}`, async () => {
+      const editor = await mountEditor({
+        type: 'custom:calendar-card-pro',
+        entities: ['calendar.anna'],
+      });
+      await changeField(editor, 'workspace:editing_workspace', workspace);
+      await goEntry(editor, keysOf(editor, 'entry')[0]);
+      const page = editor.shadowRoot!.querySelector('.entry-page');
+      const headings = [...(page?.querySelectorAll('[data-heading]') ?? [])];
 
-      for (const panel of PANELS) {
-        for (const subform of panel.subforms?.(ctx) ?? []) {
-          const seq = flat(renderedSubform(subform, ctx));
-          const empty: number[] = [];
-
-          seq.forEach((kind, i) => {
-            if (kind !== 'heading') return;
-            headings += 1;
-            if (seq[i + 1] === undefined || seq[i + 1] === 'heading') empty.push(i);
-          });
-
-          expect({ where: `${panel.id}/${subform.path.join('.')}`, empty }).toEqual({
-            where: `${panel.id}/${subform.path.join('.')}`,
-            empty: [],
-          });
-        }
-      }
-
-      // Without this the test passes when the sub-form has no headings at all, which is
-      // the state a bad refactor would produce.
-      expect(headings).toBeGreaterThan(2);
+      // Without this the test passes on a page with no headings at all, which is the state a
+      // bad refactor would produce.
+      expect(headings.length).toBeGreaterThan(2);
+      expect(
+        headings
+          .filter((heading) => heading.querySelector('[data-field]') === null)
+          .map((heading) => heading.getAttribute('data-heading')),
+      ).toEqual([]);
+      editor.remove();
     });
   }
+
+  it('draws only the headings Customized Only leaves a field under', async () => {
+    // The state that does empty groups: only the color is set, so every heading but the one
+    // over it would caption nothing.
+    const editor = await mountEditor({
+      type: 'custom:calendar-card-pro',
+      entities: [{ entity: 'calendar.anna', color: '#ff0000' }],
+    });
+    await changeField(editor, 'filter:customized_only', true, CHASSIS);
+    await goEntry(editor, keysOf(editor, 'entry')[0]);
+    const page = editor.shadowRoot!.querySelector('.entry-page');
+
+    expect(
+      [...(page?.querySelectorAll('[data-heading]') ?? [])].map((heading) => [
+        heading.getAttribute('data-heading'),
+        [...heading.querySelectorAll('[data-field]')].map((field) =>
+          field.getAttribute('data-field'),
+        ),
+      ]),
+    ).toEqual([['heading.name_and_look', ['calendar:color']]]);
+    editor.remove();
+  });
 });

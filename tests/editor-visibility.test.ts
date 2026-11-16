@@ -32,6 +32,7 @@ import {
 import * as Config from '../src/config/config';
 import * as Entities from '../src/rendering/editor/entities';
 import { lookup } from '../src/rendering/editor/localize';
+import { ENTRY_GROUPS } from '../src/rendering/editor/pages';
 import { buildEntitySchema } from '../src/rendering/editor/schemas/entity';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { EDITOR_LANGUAGE_STRINGS } from '../src/rendering/editor/translations';
@@ -53,16 +54,20 @@ describe('the visibility field', () => {
     const at = schema.findIndex((node) => node.name === 'visibility');
 
     expect(schema[at]).toEqual({ name: 'visibility', selector: { object: {} } });
-    expect(schema[at - 1]).toEqual({ name: 'heading_visibility', type: 'constant' });
+    expect(
+      ENTRY_GROUPS.filter((group) => group.fields.some(([id]) => id === 'calendar:visibility')).map(
+        (group) => [group.key, group.fields.map(([id]) => id)],
+      ),
+    ).toEqual([['heading.who_sees_it', ['calendar:visibility']]]);
   });
 
   it("is named in Home Assistant's words, and explained", () => {
     expect({
-      heading: lookup('en', 'heading_visibility'),
+      heading: lookup('en', 'heading.who_sees_it'),
       label: lookup('en', 'entity.visibility'),
       helper: EDITOR_STRINGS['entity.visibility.helper'],
     }).toEqual({
-      heading: 'Visibility',
+      heading: 'Who Sees It',
       label: 'Conditions',
       helper:
         'Shows this calendar\u2019s events only while all of these conditions hold, the same ' +
@@ -75,10 +80,7 @@ describe('the visibility field', () => {
     const missing = Object.entries(EDITOR_LANGUAGE_STRINGS)
       .filter(([, strings]) => strings['entity.name'] !== undefined)
       .filter(
-        ([, strings]) =>
-          !strings.heading_visibility ||
-          !strings['entity.visibility'] ||
-          !strings['entity.visibility.helper'],
+        ([, strings]) => !strings['entity.visibility'] || !strings['entity.visibility.helper'],
       )
       .map(([language]) => language);
 

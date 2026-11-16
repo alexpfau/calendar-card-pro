@@ -2,18 +2,16 @@
  * Panel registry and schema walking helpers.
  */
 
-import { mdiViewDashboardOutline } from '@mdi/js';
-
 import type { HaFormSchema } from './ha-form';
-import { ACTIONS_ICON, buildActionsSchema } from './schemas/actions';
-import { CALENDARS_ICON, calendarsSubforms } from './schemas/calendars';
-import { CARD_ICON, buildCardSchema, cardSubforms } from './schemas/card';
-import { CONTENT_ICON, buildContentSchema } from './schemas/content';
-import { DAY_HEADER_ICON, buildDayHeaderSchema } from './schemas/day-header';
-import { EVENTS_ICON, buildEventsSchema } from './schemas/events';
+import { buildActionsSchema } from './schemas/actions';
+import { calendarsSubforms } from './schemas/calendars';
+import { buildCardSchema, cardSubforms } from './schemas/card';
+import { buildContentSchema } from './schemas/content';
+import { buildDayHeaderSchema } from './schemas/day-header';
+import { buildEventsSchema } from './schemas/events';
 import { buildLayoutSchema, layoutExtras } from './schemas/layout';
-import { SEPARATORS_ICON, buildSeparatorsSchema } from './schemas/separators';
-import { WEATHER_ICON, buildWeatherSchema } from './schemas/weather';
+import { buildSeparatorsSchema } from './schemas/separators';
+import { buildWeatherSchema } from './schemas/weather';
 import type { EditorWorkspace } from './workspace';
 import * as Types from '../../config/types';
 
@@ -86,12 +84,12 @@ export interface SubformDef {
 }
 
 /**
- * One collapsible section of the editor.
+ * One field builder: the authority on which of its fields exist for a configuration. Where they
+ * are drawn, under which heading and with which title, is the page registry's (`pages.ts`).
  */
 export interface PanelDef {
   id: string;
-  titleKey: string;
-  iconPath: string;
+  /** String prefixes the panel's own drawing names, beyond its fields' keys. */
   strings?: ReadonlyArray<string>;
   /**
    * Builds the panel's form schema.
@@ -119,30 +117,22 @@ export interface PanelDef {
 export const PANELS: ReadonlyArray<PanelDef> = [
   {
     id: 'calendars',
-    titleKey: 'panel.calendars',
-    iconPath: CALENDARS_ICON,
     // No field of its own: the overview's calendar list stands where the picker was.
     build: () => [],
     subforms: calendarsSubforms,
   },
   {
     id: 'layout',
-    titleKey: 'panel.layout',
-    iconPath: mdiViewDashboardOutline,
     strings: ['width_table'],
     build: buildLayoutSchema,
     extras: layoutExtras,
   },
   {
     id: 'content',
-    titleKey: 'panel.content',
-    iconPath: CONTENT_ICON,
     build: buildContentSchema,
   },
   {
     id: 'card',
-    titleKey: 'panel.card',
-    iconPath: CARD_ICON,
     // The words on the toolbar buttons' own panels: Add Button, Move Up and the rest.
     strings: ['toolbar.buttons'],
     build: buildCardSchema,
@@ -150,32 +140,22 @@ export const PANELS: ReadonlyArray<PanelDef> = [
   },
   {
     id: 'day_header',
-    titleKey: 'panel.day_header',
-    iconPath: DAY_HEADER_ICON,
     build: buildDayHeaderSchema,
   },
   {
     id: 'events',
-    titleKey: 'panel.events',
-    iconPath: EVENTS_ICON,
     build: buildEventsSchema,
   },
   {
     id: 'separators',
-    titleKey: 'panel.separators',
-    iconPath: SEPARATORS_ICON,
     build: buildSeparatorsSchema,
   },
   {
     id: 'weather',
-    titleKey: 'panel.weather',
-    iconPath: WEATHER_ICON,
     build: buildWeatherSchema,
   },
   {
     id: 'actions',
-    titleKey: 'panel.actions',
-    iconPath: ACTIONS_ICON,
     build: buildActionsSchema,
   },
 ];

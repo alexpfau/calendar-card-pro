@@ -18,6 +18,7 @@ import {
   CARD,
   button,
   changeFields,
+  chooseResult,
   entry,
   formOf,
   formsOf,
@@ -25,6 +26,7 @@ import {
   mountEditor,
   openPageOf,
   openPanels,
+  resultRows,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import * as Types from '../src/config/types';
@@ -293,6 +295,10 @@ describe('Essentials Only on the editor', () => {
     const editor = await mount();
     await changeFields(editor, { 'filter:essentials_only': true, 'filter:search': 'separator' });
 
+    // Listed, and drawn on its page once chosen there.
+    const row = resultRows(editor).find((each) => each.id.endsWith(':day_separator_width'));
+    expect(row).toBeDefined();
+    await chooseResult(editor, row!.key);
     expect(panelFields(editor)).toContain('day_separator_width');
   });
 

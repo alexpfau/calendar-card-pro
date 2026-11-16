@@ -28,6 +28,7 @@ import {
   accentTextProperties,
 } from '../src/rendering/accent-text';
 import * as Column from '../src/rendering/column';
+import { PAGES } from '../src/rendering/editor/pages';
 import { walkSchema } from '../src/rendering/editor/panels';
 import * as Routing from '../src/rendering/editor/routing';
 import { buildEventsSchema } from '../src/rendering/editor/schemas/events';
@@ -716,7 +717,8 @@ describe('where the toggle sits', () => {
     // they turn on. That earlier form was always the weaker claim: being first in the
     // panel is a fact about what happens to sit above it, whereas leading its own run and
     // preceding every field it governs is the property the placement exists for. Both
-    // halves are asserted, so moving the run does not silently retire either.
+    // halves are asserted, so moving the run does not silently retire either: the run from the
+    // page registry, the order from the builder.
     const schema = buildEventsSchema({
       config: buildConfig({
         show_time: true,
@@ -730,12 +732,14 @@ describe('where the toggle sits', () => {
 
     expect(schema.length, 'panel rendered nothing').toBeGreaterThan(5);
 
-    const names = schema.map((node) => (node as { name?: string }).name);
-    const accentHeading = names.indexOf('heading_accent');
+    // The run is the page registry's: the Events page's Accent heading leads with the switch.
+    const accent = PAGES.find((page) => page.id === 'events')?.headings.find(
+      (heading) => heading.key === 'heading_accent',
+    );
 
-    expect(accentHeading, 'the Accent heading is gone').toBeGreaterThan(-1);
-    expect(names[accentHeading + 1], 'something got between the heading and the switch').toBe(
-      'accent_event_text',
+    expect(accent, 'the Accent heading is gone').toBeDefined();
+    expect(accent!.fields[0]?.[0], 'something got between the heading and the switch').toBe(
+      'events:accent_event_text',
     );
 
     const walked = [...walkSchema(schema)].map(({ node }) => node.name);

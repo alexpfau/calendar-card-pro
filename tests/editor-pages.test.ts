@@ -18,6 +18,7 @@ import {
   lastConfig,
   mountEditor,
   openPageOf,
+  resultRows,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import styles from '../src/rendering/editor/styles';
@@ -164,7 +165,7 @@ describe('the search field', () => {
 
 describe('a search by a page’s title', () => {
   it.each(['shared', 'list', 'column', 'grid'])(
-    'finds every page the overview lists, by the title it shows, in %s',
+    'lists every field of every page the overview lists, by the title it shows, in %s',
     async (scope) => {
       const editor = await mountEditor(CARD);
       await changeField(editor, 'workspace:editing_workspace', scope);
@@ -178,10 +179,17 @@ describe('a search by a page’s title', () => {
       expect(rows.length).toBeGreaterThan(5);
       const missed: string[] = [];
       for (const { page, title } of rows) {
+        await goPage(editor, page);
+        const drawn = [...editor.shadowRoot!.querySelectorAll('[data-field]')].map((field) =>
+          field.getAttribute('data-field')!,
+        );
         await changeField(editor, 'filter:search', title);
-        if ($(editor, `section.page-group[data-heading="${page}"] [data-field]`) === null) {
-          missed.push(`${page} by "${title}"`);
+        const listed = resultRows(editor).map((row) => row.id);
+        if (drawn.length === 0) missed.push(`${page} draws no field`);
+        for (const id of drawn.filter((each) => !listed.includes(each))) {
+          missed.push(`${id} by "${title}"`);
         }
+        await changeField(editor, 'filter:search', '');
       }
       expect(missed).toEqual([]);
     },

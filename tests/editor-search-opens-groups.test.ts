@@ -1,31 +1,35 @@
 /**
- * A search opens what it finds (backlog item 314).
+ * A search leaves no match behind a closed heading (backlog item 314), now by listing it.
  *
- * The docs promise that a search "expands what survives, so a match is never hidden behind a
- * collapsed heading". The panels always opened; the collapsible groups inside them did not,
- * because nothing set the `expanded` flag Home Assistant's expandable reads, so "color" left
- * five of its hits behind closed Weekend Colors, Time and Location headings.
+ * The docs promised that a search "expands what survives, so a match is never hidden behind a
+ * collapsed heading", and #834 made it true by opening every collapsible group a search kept:
+ * "color" had left five of its hits behind closed Weekend Colors, Time and Location headings. The
+ * jump list keeps the promise by construction, since each field is a row of its own. So the
+ * queries that once opened groups now list every field those groups held for them, and a page
+ * opened from a row draws its field under a heading, which never closes.
  *
- * Read from the schema the forms are handed rather than from rendered panels: happy-dom does
- * not render Home Assistant's `ha-form-expandable`, and the flag on the schema is exactly what
- * that element binds (`.expanded=${Boolean(this.schema.expanded)}`).
+ * The groups have since become headings on pages (the builders emit no collapsible at all), so a
+ * heading's title, or a family's helper line, lists every field under it, as a group's title let
+ * all of the group through. The fields a query names are found here independently of the search:
+ * every field whose own label or key holds it.
  */
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { changeField, formOf, mountEditor, openPageOf, valueOf } from './helpers/editor-host';
+import { chooseResult, formOf, mountEditor, resultRows, searchFor } from './helpers/editor-host';
+import { hitIds, searchIndex } from './helpers/search-index';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
-import type { CalendarCardProEditor } from '../src/rendering/editor/element';
+import { fieldId } from '../src/rendering/editor/field-index';
 import {
   type FilterCriteria,
   type FilterCtx,
   NO_FILTER,
   filterSchema,
-  openMatches,
   withholdInertFields,
 } from '../src/rendering/editor/filter';
 import { type HaFormSchema, isGroupSchema } from '../src/rendering/editor/ha-form';
-import { PANELS, type SchemaCtx } from '../src/rendering/editor/panels';
+import { computeLabel } from '../src/rendering/editor/localize';
+import { PANELS, type SchemaCtx, walkSchema } from '../src/rendering/editor/panels';
 import { type EditorWorkspace, WORKSPACES } from '../src/rendering/editor/workspace';
 
 interface Leaf {
@@ -51,17 +55,6 @@ function leaves(schema: ReadonlyArray<HaFormSchema>, open = true, depth = 0): Le
   });
 }
 
-/** The collapsible groups of a schema, by name, with whether each is open. */
-function groups(schema: ReadonlyArray<HaFormSchema>): Record<string, boolean> {
-  const found: Record<string, boolean> = {};
-  for (const node of schema) {
-    if (!isGroupSchema(node)) continue;
-    if (node.type === 'expandable') found[node.name] = node.expanded === true;
-    Object.assign(found, groups(node.schema));
-  }
-  return found;
-}
-
 function ctxFor(
   workspace: EditorWorkspace,
   criteria: Partial<FilterCriteria>,
@@ -85,23 +78,57 @@ function filtered(ctx: FilterCtx): Leaf[] {
   );
 }
 
-function dayHeader(ctx: FilterCtx): ReadonlyArray<HaFormSchema> {
-  const panel = PANELS.find((candidate) => candidate.id === 'day_header')!;
-  return withholdInertFields(panel.build(ctx), ctx.workspace!);
+/**
+ * The fields a query names by their own words, by id: each whose label or key holds it, read off
+ * the built schema rather than through the search.
+ *
+ * @param workspace - The scope
+ * @param query - The query
+ * @returns The ids
+ */
+function namedBy(workspace: EditorWorkspace, query: string): string[] {
+  const ctx = ctxFor(workspace, {});
+  const wanted = query.toLowerCase();
+  return PANELS.flatMap((panel) =>
+    [...walkSchema(withholdInertFields(panel.build(ctx), workspace))].flatMap(
+      ({ node, path, dataPath }) => {
+        if (!('selector' in node)) return [];
+        const words = [node.name, computeLabel('en', node, path)].join(' ').toLowerCase();
+        return words.includes(wanted) ? [fieldId(panel.id, dataPath, node.name)] : [];
+      },
+    ),
+  );
 }
 
-describe.each(WORKSPACES)('a search in the %s workspace', (workspace) => {
-  it.each(['color', 'font', 'opacity', 'weekend'])('leaves no hit for "%s" closed', (query) => {
-    const shown = filtered(ctxFor(workspace, { query }));
-
-    // The denominator: hits inside collapsibles exist, so "none is closed" can fail.
-    expect(shown.filter((leaf) => leaf.depth > 0).length).toBeGreaterThan(0);
-    expect(shown.filter((leaf) => !leaf.open).map((leaf) => leaf.name)).toEqual([]);
+function index(workspace: EditorWorkspace) {
+  return searchIndex({ ...Config.DEFAULT_CONFIG, entities: ['calendar.anna'] } as Types.Config, {
+    workspace,
   });
+}
+
+const WEEKEND = [
+  'day_header:weekend_weekday_color',
+  'day_header:weekend_day_color',
+  'day_header:weekend_month_color',
+];
+
+describe.each(WORKSPACES)('a search in the %s workspace', (workspace) => {
+  it.each(['color', 'font', 'opacity', 'weekend'])(
+    'lists every field "%s" names, none behind a collapsible',
+    (query) => {
+      const named = namedBy(workspace, query);
+      // The denominator: the query names something, so "every one is listed" can fail.
+      expect(named.length).toBeGreaterThan(0);
+      const listed = hitIds(index(workspace), query);
+      expect(named.filter((id) => !listed.includes(id))).toEqual([]);
+      // The builders emit no collapsible for a field to hide behind.
+      expect(filtered(ctxFor(workspace, {})).filter((leaf) => leaf.depth > 0)).toEqual([]);
+    },
+  );
 });
 
-describe('opening what a search finds', () => {
-  it('opens the groups Customized Only keeps, as it opens their panels', () => {
+describe('what a group once opened', () => {
+  it('leaves what Customized Only keeps in no collapsible', () => {
     const shown = filtered(
       ctxFor('shared', { customizedOnly: true }, {
         time_color: '#ff0000',
@@ -111,31 +138,34 @@ describe('opening what a search finds', () => {
     expect(shown.find((leaf) => leaf.name === 'time_color')).toEqual({
       name: 'time_color',
       open: true,
-      depth: 1,
+      depth: 0,
     });
   });
 
-  it('opens a group let through whole by its own heading', () => {
-    const ctx = ctxFor('list', { query: 'weekend colors' });
-    const schema = filterSchema(dayHeader(ctx), ctx);
-
-    expect(groups(schema)).toEqual({ weekend_colors: true });
-    expect(leaves(schema).every((leaf) => leaf.open)).toBe(true);
+  it('is listed whole for a query naming its heading, and none of its fields', () => {
+    expect(namedBy('list', 'weekend colors')).toEqual([]);
+    expect(WEEKEND.filter((id) => !hitIds(index('list'), 'weekend colors').includes(id))).toEqual(
+      [],
+    );
   });
 
-  it('opens only the groups of a whole panel that hold a match', () => {
-    const ctx = ctxFor('list', { query: 'opacity' });
-    const before = groups(dayHeader(ctx));
-    expect(Object.values(before)).not.toContain(true);
-
-    const opened = groups(openMatches(dayHeader(ctx), ctx));
-    expect(opened.past_days).toBe(true);
-    expect(opened.weekend_colors).toBe(false);
+  // The family's helper line, as the collapsible's helper was: words from no field under it.
+  it.each([
+    ['country set in home assistant', 'list', 'day_header:weekend_day_color'],
+    ['compact dashboard slot', 'list', 'content:compact_days_to_show'],
+    ['when it runs out', 'grid', 'layout:time_grid.min_day_width'],
+  ] as const)('lists the fields a family helper names, for "%s"', (query, scope, id) => {
+    expect(hitIds(index(scope), query)).toContain(id);
   });
 
-  it('leaves a whole panel as declared when nothing was typed', () => {
-    const ctx = ctxFor('list', {});
-    expect(openMatches(dayHeader(ctx), ctx)).toEqual(dayHeader(ctx));
+  it('lists only the headings that hold a match', () => {
+    const listed = hitIds(index('list'), 'opacity');
+    expect(listed).toContain('day_header:past_date_opacity');
+    expect(listed.filter((id) => WEEKEND.includes(id))).toEqual([]);
+  });
+
+  it('lists nothing when nothing was typed', () => {
+    expect(hitIds(index('list'), '   ')).toEqual([]);
   });
 });
 
@@ -146,77 +176,32 @@ async function mount() {
   });
 }
 
-async function search(editor: CalendarCardProEditor, query: string) {
-  await changeField(editor, 'filter:search', query);
-}
-
-/**
- * The Day Header settings a query keeps, as the editor's own filter keeps them in the scope the
- * editor shows: the fields the query must find drawn.
- */
-function dayHeaderHits(editor: CalendarCardProEditor, query: string): string[] {
-  const workspace = valueOf(editor, 'workspace:editing_workspace') as EditorWorkspace;
-  const ctx = ctxFor(workspace, { query });
-  return leaves(filterSchema(dayHeader(ctx), ctx)).map((leaf) => `day_header:${leaf.name}`);
-}
-
-/**
- * Each field drawn, where it is drawn, and whether a closed collapsible hides any of it.
- *
- * Pages draw their headings as headings, which never close, and each field in a form of its own;
- * a field still behind a closed expandable would show up here as not open.
- */
-function drawn(editor: CalendarCardProEditor, ids: ReadonlyArray<string>) {
-  return Object.fromEntries(
-    ids.map((id) => {
-      const form = formOf(editor, id);
-      return [
-        id,
-        form === undefined
-          ? 'not drawn'
-          : {
-              results: form.closest('.overview') !== null,
-              open: leaves(form.schema).every((leaf) => leaf.open),
-            },
-      ];
-    }),
-  );
-}
-
 describe('the mounted editor', () => {
   afterEach(() => document.body.replaceChildren());
 
-  it('draws every setting of a section its own title let through, none closed', async () => {
+  it('lists every setting of a section its own title names', async () => {
     const editor = await mount();
-    // "day" names Day Header itself, so the whole section comes through, its two groups
-    // (Weekend Colors, Past Days) with it.
-    const hits = dayHeaderHits(editor, 'day');
-    expect(hits).toEqual(
+    // "day" names Day Header itself, so its whole section is listed, its two groups (Weekend
+    // Colors, Past Days) with it.
+    const all = [...index('list')]
+      .map(({ target }) => target.id)
+      .filter((id) => id.startsWith('day_header:'));
+    expect(all).toEqual(
       expect.arrayContaining(['day_header:past_date_opacity', 'day_header:weekend_day_color']),
     );
 
-    await search(editor, 'day');
-    expect(drawn(editor, hits)).toEqual(
-      Object.fromEntries(hits.map((id) => [id, { results: true, open: true }])),
-    );
+    await searchFor(editor, 'day');
+    const listed = resultRows(editor).map((row) => row.id);
+    expect(all.filter((id) => !listed.includes(id))).toEqual([]);
   });
 
-  it('draws them on their page, none closed, once the search is cleared', async () => {
+  it('opens a row’s field on its page, behind no closed heading', async () => {
     const editor = await mount();
-    await search(editor, 'opacity');
-    expect(drawn(editor, ['day_header:past_date_opacity'])).toEqual({
-      'day_header:past_date_opacity': { results: true, open: true },
-    });
+    await searchFor(editor, 'opacity');
+    await chooseResult(editor, 'result:day_header:past_date_opacity');
 
-    await search(editor, '');
-    // Cleared, the results go; the page draws every setting under its headings.
-    expect(drawn(editor, ['day_header:past_date_opacity'])).toEqual({
-      'day_header:past_date_opacity': 'not drawn',
-    });
-    await openPageOf(editor, 'day_header:past_date_opacity');
-    const all = dayHeaderHits(editor, '');
-    expect(drawn(editor, all)).toEqual(
-      Object.fromEntries(all.map((id) => [id, { results: false, open: true }])),
-    );
+    const form = formOf(editor, 'day_header:past_date_opacity');
+    expect(form?.closest('.page')).not.toBeNull();
+    expect(leaves(form!.schema).every((leaf) => leaf.open)).toBe(true);
   });
 });

@@ -27,6 +27,7 @@ import {
   mountEditor,
   openPageOf,
   openPanels,
+  resultRows,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -67,26 +68,33 @@ afterEach(() => {
 });
 
 describe('the owner of a form', () => {
-  it('is a calendar block by its place in entities, whatever a search leaves out', async () => {
-    const editor = await mount([
-      { entity: ANNA, name: 'Anna' },
-      { entity: BEN, name: 'Ben' },
-      { entity: LEO, name: 'Leo' },
-    ]);
+  it('is a calendar block by its place in entities, whatever a filter leaves out', async () => {
+    const editor = await mount([ANNA, BEN, { entity: LEO, name: 'Leo' }]);
     // Only the page open draws its forms: visit every entry's page, as a user would to read them.
     await openPanels(editor);
-    expect([0, 1, 2].map((index) => valueOf(editor, 'calendar:name', entry(index)))).toEqual([
-      'Anna',
-      'Ben',
-      'Leo',
-    ]);
+    expect(drawing(editor, 3)).toEqual([true, true, true]);
 
-    // Only Leo's page answers, so the first calendar form drawn is the third entry's.
-    await changeField(editor, 'filter:search', 'Leo');
+    // Only Leo's block sets anything, so only the third entry's page keeps a field.
+    await changeField(editor, 'filter:customized_only', true);
 
     expect(drawing(editor, 3)).toEqual([false, false, true]);
     expect(formOf(editor, 'calendar:name', entry(0))).toBeUndefined();
     expect(valueOf(editor, 'calendar:name', entry(2))).toBe('Leo');
+  });
+
+  it('is the block a search result opens, by its place in entities', async () => {
+    const editor = await mount([{ entity: ANNA, label: 'Kids' }, ANNA]);
+    await changeField(editor, 'filter:search', 'kids');
+    // The search lists the first entry's fields only, the one whose label answers.
+    const keys = keysOf(editor, 'entry');
+    const owners = resultRows(editor).flatMap((row) => row.ownerKey ?? []);
+    expect(new Set(owners)).toEqual(new Set([keys[0]]));
+
+    await changeField(editor, 'calendar:label', 'Kids at home', entry(0));
+    // Only the first entry's page opens, with its label among its fields.
+    expect(formsOf(editor, entry())).toEqual(formsOf(editor, entry(0)));
+    expect(formOf(editor, 'calendar:label', entry(0))).toBeDefined();
+    expect(lastConfig(editor)?.entities).toEqual([{ entity: ANNA, label: 'Kids at home' }, ANNA]);
   });
 
   it('is the block a filter keeps, not the first one showing the same data', async () => {
@@ -125,18 +133,6 @@ describe('the owner of a form', () => {
         index: 1,
         value: 'text',
         entities: [ANNA, { entity: ANNA, label_type: 'text' }, BEN],
-      },
-    },
-    {
-      filter: 'a search one block answers',
-      entities: [{ entity: ANNA, label: 'Kids' }, ANNA],
-      criteria: { 'filter:search': 'kids' },
-      field: 'calendar:label',
-      shown: ['Kids', undefined],
-      write: {
-        index: 0,
-        value: 'Kids at home',
-        entities: [{ entity: ANNA, label: 'Kids at home' }, ANNA],
       },
     },
   ])('is each repeated block’s own under $filter', async (row) => {
