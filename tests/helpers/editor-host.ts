@@ -711,19 +711,39 @@ function composedForm(editor: EditorElement, control: Element): FormElement {
   const id = control.getAttribute('data-field')!;
   const form = document.createElement('div') as unknown as FormElement;
   form.className = 'composed-form';
-  const words = kind === 'words' ? control.querySelector<FormElement>('ha-form') : null;
-  if (kind === 'words' && words === null) outOfStep(`The word list '${id}' draws no form`);
+  // The word list's form as drawn now: a scope change draws it again.
+  const wordsForm = (): FormElement | null =>
+    kind === 'words' ? control.querySelector<FormElement>('ha-form') : null;
+  if (kind === 'words' && wordsForm() === null) outOfStep(`The word list '${id}' draws no form`);
   Object.defineProperties(form, {
     schema: { get: () => composedFieldOf(editor, control).field.lifted },
+    // What the control shows, read off it: the chip that is checked, the pattern the terms its
+    // form holds write. Only the line shows no value of its own, so it reads the editor's.
     data: {
       get: () => {
-        const { data } = composedFieldOf(editor, control);
+        const { data, field } = composedFieldOf(editor, control);
+        const name = field.node.name;
+        if (kind === 'chips') {
+          const checked = control.querySelector<HTMLInputElement>('input[type="radio"]:checked');
+          return withValue({}, field.dataPath, name, checked?.value);
+        }
+        const drawn = wordsForm();
+        if (drawn !== null) {
+          const terms = drawn.data[name];
+          return withValue(
+            {},
+            field.dataPath,
+            name,
+            Array.isArray(terms) ? WordLists.toPattern(terms.map(String)) : terms,
+          );
+        }
         return Routing.formDataFor(data, form.schema);
       },
     },
     // As the form it draws is handed it, or as a form of the field's would be (`element.ts` › `_feed`).
     hass: {
       get: () => {
+        const words = wordsForm();
         if (words !== null) return words.hass;
         const hass = (editor as unknown as { hass?: Types.Hass }).hass;
         const language = stateOf(editor)._ctx.language;
@@ -737,10 +757,12 @@ function composedForm(editor: EditorElement, control: Element): FormElement {
         fieldLabel(composedFieldOf(editor, control).field, stateOf(editor)._ctx.language),
     },
     computeHelper: {
-      value: () =>
-        words !== null
+      value: () => {
+        const words = wordsForm();
+        return words !== null
           ? words.computeHelper?.(words.schema[0])
-          : fieldHelper(composedFieldOf(editor, control).field, stateOf(editor)._ctx),
+          : fieldHelper(composedFieldOf(editor, control).field, stateOf(editor)._ctx);
+      },
     },
   });
   form.closest = ((selector: string) => control.closest(selector)) as typeof form.closest;
@@ -758,6 +780,7 @@ function composedForm(editor: EditorElement, control: Element): FormElement {
       input.checked = true;
       return input.dispatchEvent(new Event('change', { bubbles: true }));
     }
+    const words = wordsForm();
     if (kind === 'words' && words !== null) {
       const terms = WordLists.fromPattern(typeof value === 'string' ? value : '');
       if (terms === undefined) {

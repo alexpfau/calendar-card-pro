@@ -133,6 +133,17 @@ describe('Start Date reads and writes its shortcuts', () => {
   });
 });
 
+describe('Start Date’s Expression', () => {
+  it('holds Relative to Today while what is typed reads as a shortcut, and releases it after', () => {
+    const typed = applySyntheticChange('start_date_offset', '+1', withStart('+2'));
+    expect(typed.changes).toEqual({ start_date: '+1' });
+    expect(typed.pending?.start_date_mode).toBe('offset');
+    expect(
+      applySyntheticChange('start_date_offset', '+10', withStart('+1')).pending?.start_date_mode,
+    ).toBeNull();
+  });
+});
+
 describe('Start Date on the overview', () => {
   it('offers the five chips in order', async () => {
     const editor = await mountEditor({ config_version: VERSION, entities: ['calendar.anna'] });
@@ -186,6 +197,22 @@ describe('Start Date on the overview', () => {
     expect(lastConfig(editor)!.start_date).toBe('today+1');
     expect(pressedChip(editor)).toBe('tomorrow');
     expect(formOf(editor, 'content:start_date_offset')).toBeUndefined();
+  });
+
+  it('keeps Expression while typing passes through a shortcut', async () => {
+    const editor = await mountEditor({
+      config_version: VERSION,
+      entities: ['calendar.anna'],
+      start_date: '+2',
+    });
+    expect(pressedChip(editor)).toBe('offset');
+    await changeField(editor, 'content:start_date_offset', '+1');
+    expect(lastConfig(editor)!.start_date).toBe('+1');
+    expect(pressedChip(editor)).toBe('offset');
+    expect(valueOf(editor, 'content:start_date_offset')).toBe('+1');
+    await changeField(editor, 'content:start_date_offset', '+10');
+    expect(lastConfig(editor)!.start_date).toBe('+10');
+    expect(pressedChip(editor)).toBe('offset');
   });
 
   it('writes Start of Week, and Today removes the line', async () => {
@@ -383,6 +410,55 @@ describe('a word list', () => {
 
     await changeField(editor, 'calendar:name', 'Anna', entry(0));
     expect(annas(editor).blocklist).toBe('^Soc+er\\b');
+  });
+
+  it('writes a late edit for the scope its form was drawn for', async () => {
+    const editor = await mountEditor({
+      config_version: VERSION,
+      entities: ['calendar.anna'],
+      list: { remove_location_country: 'Germany' },
+    });
+    const field = 'events:location_country_pattern';
+    await openPageOf(editor, field);
+    const drawn = listForm(editor, field);
+    expect(drawn.data).toEqual({ location_country_pattern: ['Germany'] });
+    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    drawn.dispatchEvent(
+      new CustomEvent('value-changed', {
+        detail: { value: { location_country_pattern: ['Germany', 'Austria'] } },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await editor.updateComplete;
+    expect(lastConfig(editor)!.list).toEqual({ remove_location_country: 'Germany|Austria' });
+    expect(lastConfig(editor)).not.toHaveProperty('remove_location_country');
+  });
+
+  it('leaves its terms and its presentation behind when a configuration arrives from outside', async () => {
+    const editor = await onAnnasPage('School');
+    await sendTerms(editor, ['School', '']);
+    expect(listForm(editor).data).toEqual({ blocklist: ['School', ''] });
+    editor.setConfig({
+      config_version: VERSION,
+      entities: [{ entity: 'calendar.ben', blocklist: 'School' }],
+    });
+    await editor.updateComplete;
+    await openPageOf(editor, 'calendar:blocklist', entry(0));
+    expect(listForm(editor).data).toEqual({ blocklist: ['School'] });
+
+    await press(
+      editor,
+      root(editor).querySelector<HTMLElement>('[data-composed="words"] .word-mode')!.dataset.focus!,
+    );
+    expect(listForm(editor).data).toEqual({ blocklist: 'School' });
+    editor.setConfig({
+      config_version: VERSION,
+      entities: [{ entity: 'calendar.anna', blocklist: 'School' }],
+    });
+    await editor.updateComplete;
+    await openPageOf(editor, 'calendar:blocklist', entry(0));
+    expect(listForm(editor).data).toEqual({ blocklist: ['School'] });
   });
 
   it('shows Countries To Remove as words while it is empty', async () => {

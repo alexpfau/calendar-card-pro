@@ -495,11 +495,19 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
       const mode = startDateMode(config);
       return mode === 'default' || mode === 'fixed' ? '' : String(config.start_date);
     },
-    apply: (value) => {
+    // Typed into while Relative to Today is chosen, a value that reads as a shortcut holds that
+    // choice, or typing `+10` would pass through `+1`, press Tomorrow and take the field away.
+    apply: (value): SyntheticApplyResult => {
       const text = String(value ?? '');
 
       return isCommittableOffset(text)
-        ? { changes: { start_date: text }, pending: { start_date_offset: null } }
+        ? {
+            changes: { start_date: text },
+            pending: {
+              start_date_offset: null,
+              start_date_mode: startDateShortcut(text) === undefined ? null : 'offset',
+            },
+          }
         : { changes: {}, pending: { start_date_offset: text } };
     },
   },

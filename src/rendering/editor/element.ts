@@ -939,6 +939,9 @@ export class CalendarCardProEditor extends LitElement {
       this._split = this._splitDone = undefined;
       this._newEntries = new Set();
       this._colorDrafts = new Map();
+      // Keyed by entry key, which a list from outside hands out by place again.
+      this._wordModes = new Map();
+      this._wordDrafts = new Map();
       this._entryNotice = undefined;
       this._selectedWorkspace = undefined;
       this._pending = {};
@@ -2127,6 +2130,15 @@ export class CalendarCardProEditor extends LitElement {
     const [hass, feed] = this._feed(schema, ctx.language);
     const label = fieldLabel(field, ctx.language);
     const workspace = ctx.workspace ?? ctx.view;
+    // The field's own frame, captured as its raw form's is, so an edit the form sends late is
+    // written for the owner and scope it was drawn for.
+    const lifted = this._intern(slot, field.lifted);
+    const frame: WriteFrames.OwnedFrame = {
+      owner,
+      workspace,
+      schema: lifted,
+      data: this._intern(`${slot}.data`, Routing.formDataFor(data, lifted)),
+    };
     return html`<div
       class="field"
       data-field=${field.id}
@@ -2151,7 +2163,7 @@ export class CalendarCardProEditor extends LitElement {
           }
           .localizeValue=${this._localizeValue}
           @value-changed=${(event: CustomEvent) =>
-            this._wordsChanged(owner, field, event, workspace, label, ownerName)}
+            this._wordsChanged(frame, field, event, label, ownerName)}
         ></ha-form>`,
       )}
       ${this._wordButton(key, 'pattern', this._string(ctx, 'word_list.use_pattern'))}
@@ -2217,21 +2229,20 @@ export class CalendarCardProEditor extends LitElement {
    * undo step. The terms are kept as sent, so a term just added stays shown while it is empty.
    * A plain value, as a text field without `multiple` would send, is written as the pattern it is.
    *
-   * @param owner - Whose list
+   * @param frame - The field's frame, as drawn
    * @param field - The field
    * @param event - The form's `value-changed`
-   * @param workspace - The scope the form was drawn for
    * @param setting - The field's label, for the undo label
    * @param ownerName - The calendar's name, for the undo label
    */
   private _wordsChanged(
-    owner: WriteFrames.WriteOwner,
+    frame: WriteFrames.OwnedFrame,
     field: IndexedField,
     event: CustomEvent,
-    workspace: Workspace.EditorWorkspace,
     setting: string,
     ownerName?: string,
   ): void {
+    const { owner, workspace } = frame;
     event.stopPropagation();
     const incoming = event.detail?.value as Record<string, unknown> | undefined;
     if (!incoming) return;
@@ -2256,7 +2267,7 @@ export class CalendarCardProEditor extends LitElement {
     this._commit(
       label,
       `${key}|words|${workspace}`,
-      () => this._writeFieldValue(owner, field.id, pattern, workspace),
+      () => this._writeOwned(frame, WriteFrames.withValue(frame.data, field, pattern)),
       `field:${field.id}`,
     );
   }
