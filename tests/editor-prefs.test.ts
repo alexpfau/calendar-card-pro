@@ -60,4 +60,20 @@ describe('the editor’s preferences', () => {
     expect(readPrefs()).toEqual(NO_PREFS);
     expect(() => writePrefs({ every: true, yaml: true })).not.toThrow();
   });
+
+  it('carry on where reaching storage at all throws, as a sandboxed frame’s does', () => {
+    const own = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get: () => {
+        throw new Error('SecurityError');
+      },
+    });
+    try {
+      expect(readPrefs()).toEqual(NO_PREFS);
+      expect(() => writePrefs({ every: true, yaml: true })).not.toThrow();
+    } finally {
+      if (own) Object.defineProperty(globalThis, 'localStorage', own);
+    }
+  });
 });
