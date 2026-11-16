@@ -8,7 +8,7 @@
  * toolbar shows a calendar filter, since on any other card it would control nothing.
  *
  * **That the setting belongs to the calendar.** A calendar listed twice is one chip, so each
- * panel shows the calendar's value, a change on any panel is written to every block, Remove
+ * entry's page shows the calendar's value, a change on any entry is written to every block, Remove
  * leaves it on the block that remains, Copy and Paste leave it where it is, and an edit to
  * anything else leaves each block's value exactly as written. Only `false` is stored; turning
  * the switch back on removes the key.
@@ -20,7 +20,9 @@ import { buildConfig } from './fixtures';
 import {
   changeField,
   entry,
+  fakeHass,
   formsOf,
+  keysOf,
   mountEditor,
   openPanels,
   valueOf,
@@ -270,12 +272,19 @@ describe('the filter switch in the rendered editor', () => {
    * @returns The editor and every configuration it reports
    */
   async function render(entities: ReadonlyArray<unknown>, toolbar?: Types.ToolbarConfig) {
-    const element = await mountEditor({
-      config_version: Config.CURRENT_CONFIG_VERSION,
-      entities,
-      ...(toolbar ? { toolbar } : {}),
-    });
-    // A closed panel mounts no form: open the calendars' panels, as these tests read them.
+    // Home Assistant has both calendars, so no row is marked as one it no longer finds.
+    const states = Object.fromEntries(
+      [ANNA, BEN].map((id) => [id, { entity_id: id, state: 'off', attributes: {} }]),
+    );
+    const element = await mountEditor(
+      {
+        config_version: Config.CURRENT_CONFIG_VERSION,
+        entities,
+        ...(toolbar ? { toolbar } : {}),
+      },
+      { hass: fakeHass({ states }) },
+    );
+    // Only the open page draws its forms: visit every entry's page, as these tests read them.
     await openPanels(element);
 
     const emitted: Array<Record<string, unknown>> = [];
@@ -286,8 +295,13 @@ describe('the filter switch in the rendered editor', () => {
     return {
       element,
       emitted,
+      /** Per entry, whether any of the forms its page draws holds the switch. */
       offers: () =>
-        formsOf(element, entry()).map((form) => fieldNames(form.schema).includes('show_in_legend')),
+        keysOf(element, 'entry').map((_, index) =>
+          formsOf(element, entry(index))
+            .flatMap((form) => fieldNames(form.schema))
+            .includes('show_in_legend'),
+        ),
     };
   }
 
@@ -318,8 +332,9 @@ describe('the filter switch in the rendered editor', () => {
     });
   });
 
-  it('summarizes a calendar holding its name and the switch as configured', async () => {
-    // The name alone says nothing more under the heading; the switch is a setting of its own.
+  it("heads a calendar's row with its name, and counts the switch as a setting of its own", async () => {
+    // The name heads the row in place of Home Assistant's; the switch is a setting of its own,
+    // so Anna's row counts one more than Ben's, which holds the name alone.
     const editor = await render(
       [
         { entity: ANNA, name: 'Anna at work', show_in_legend: false },
@@ -327,13 +342,15 @@ describe('the filter switch in the rendered editor', () => {
       ],
       { show: true, legend: 'chips' },
     );
-    const secondary = Array.from(
-      editor.element.shadowRoot!.querySelectorAll<HTMLElement & { secondary?: string }>(
-        'ha-expansion-panel.entity-panel',
-      ),
-    ).map((panel) => panel.secondary);
+    const rows = Array.from(editor.element.shadowRoot!.querySelectorAll('.cal-row')).map((row) => [
+      row.querySelector('.cal-title')?.textContent?.trim(),
+      row.querySelector('.cal-summary')?.textContent?.trim(),
+    ]);
 
-    expect(secondary).toEqual(['Anna at work · Configured', 'Ben at school']);
+    expect(rows).toEqual([
+      ['Anna at work', 'All events · Set: 2'],
+      ['Ben at school', 'All events · Set: 1'],
+    ]);
   });
 
   it('shows the second block the calendar left out, and writes the switch to both', async () => {

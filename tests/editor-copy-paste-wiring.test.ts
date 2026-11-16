@@ -7,12 +7,13 @@
  * `Entities.pasteSettings` could be deleted from their click handlers, and the full
  * suite stayed green.
  *
- * The chain being pinned here is longer than "a click calls a function". Copy writes to
- * a module-level clipboard, so the Paste buttons on *every* calendar have to re-render
- * to become enabled — which only happens because the copy handler asks for an update.
- * Paste then rebuilds the config and reports it upward, and the pasted-into calendar
- * gains settings of its own, so its own Copy button turns on. Each of those is visible
- * from the outside, and each breaks differently.
+ * The buttons sit in each calendar row's action strip, opened from the row's ⋮. The chain
+ * being pinned here is longer than "a click calls a function". Copy writes to a module-level
+ * clipboard, so the Paste button on *every* row has to re-render to become enabled — which
+ * only happens because the copy handler asks for an update. Paste then rebuilds the config
+ * and reports it upward, and the pasted-into calendar gains settings of its own, so its own
+ * Copy button turns on. Each of those is visible from the outside, and each breaks
+ * differently.
  *
  * The clipboard is module state shared by every instance, so it is cleared before each
  * test; without that, a test would inherit whatever the previous one copied.
@@ -20,6 +21,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { keysOf } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import * as Entities from '../src/rendering/editor/entities';
@@ -36,12 +38,15 @@ interface EditorHost extends HTMLElement {
 interface Harness {
   element: EditorHost;
   /**
-   * Every rendered button, in document order: four per calendar, so calendar N's own
-   * four begin at 4N.
+   * One calendar row's strip buttons, in document order, opening that row's strip first:
+   * only one strip is open at a time, so reading a row closes any other.
+   *
+   * @param calendar - Which calendar's row, counting from zero
+   * @returns Its strip's buttons
    */
-  buttons(): HTMLButtonElement[];
+  strip(calendar: number): Promise<HTMLButtonElement[]>;
   /**
-   * One calendar's button, by the text on it.
+   * One calendar's strip button, by the text on it.
    *
    * Addressed by label rather than by offset because the row has grown once already:
    * Duplicate and Remove landed between Paste and the next calendar's Copy, and every
@@ -51,10 +56,24 @@ interface Harness {
    * @param label - The text on the button
    * @returns That button
    */
-  action(calendar: number, label: string): HTMLButtonElement;
-  /** Enabled/disabled state of every button, as readable strings. */
-  states(): string[];
+  action(calendar: number, label: string): Promise<HTMLButtonElement>;
+  /**
+   * Enabled/disabled state of every strip button on every row, as readable strings.
+   *
+   * @returns The states, row by row
+   */
+  states(): Promise<string[]>;
   emitted: Array<Record<string, unknown>>;
+}
+
+/**
+ * The text a strip button shows as its label, without the note under it.
+ *
+ * @param button - A strip button
+ * @returns Its label
+ */
+function labelOf(button: HTMLButtonElement): string {
+  return button.querySelector('.strip-label')?.textContent?.trim() ?? '';
 }
 
 /**
@@ -75,30 +94,39 @@ async function renderEditor(entities: ReadonlyArray<unknown>): Promise<Harness> 
     emitted.push((event as CustomEvent).detail.config as Record<string, unknown>);
   });
 
-  // Every calendar's row, and nothing outside them: the chassis has buttons of its own, such
-  // as Quick Setup's, that are no part of what this file pins.
-  const buttons = () =>
-    Array.from(element.shadowRoot!.querySelectorAll<HTMLButtonElement>('.entity-actions button'));
-
-  const rowOf = (calendar: number) =>
-    Array.from(
-      element.shadowRoot!.querySelectorAll('.entity-actions')[calendar].querySelectorAll('button'),
-    );
+  const root = element.shadowRoot!;
+  // One row's strip, and nothing outside it: the chassis has buttons of its own, such as Quick
+  // Setup's, that are no part of what this file pins.
+  const strip = async (calendar: number) => {
+    const key = keysOf(element, 'entry')[calendar];
+    const selector = `[data-focus^="strip:entry:${key}:"]`;
+    if (root.querySelector(selector) === null) {
+      const more = root.querySelector<HTMLButtonElement>(`[data-focus="more:entry:${key}"]`);
+      if (more === null) throw new Error(`no row for calendar ${calendar}`);
+      more.click();
+      await element.updateComplete;
+    }
+    return Array.from(root.querySelectorAll<HTMLButtonElement>(selector));
+  };
 
   return {
     element,
-    buttons,
-    action: (calendar, label) => {
-      const found = rowOf(calendar).find((button) => button.textContent?.trim() === label);
+    strip,
+    action: async (calendar, label) => {
+      const found = (await strip(calendar)).find((button) => labelOf(button) === label);
       if (!found) throw new Error(`no ${label} button on calendar ${calendar}`);
 
       return found;
     },
-    states: () =>
-      buttons().map(
-        (button) =>
-          `${button.textContent?.trim()}:${button.hasAttribute('disabled') ? 'off' : 'on'}`,
-      ),
+    states: async () => {
+      const states: string[] = [];
+      for (let calendar = 0; calendar < keysOf(element, 'entry').length; calendar++) {
+        for (const button of await strip(calendar)) {
+          states.push(`${labelOf(button)}:${button.hasAttribute('disabled') ? 'off' : 'on'}`);
+        }
+      }
+      return states;
+    },
     emitted,
   };
 }
@@ -115,16 +143,22 @@ describe('editor copy/paste buttons', () => {
       'calendar.b',
     ]);
 
-    // The whole row, both calendars, so a button appearing or disappearing shows up here
-    // rather than silently shifting the offsets the rest of this file used to read.
-    expect(harness.states()).toEqual([
+    // Each row's whole strip, both calendars, so a button appearing or disappearing shows up
+    // here rather than silently shifting the offsets the rest of this file used to read.
+    expect(await harness.states()).toEqual([
+      'Move Up:off',
+      'Move Down:on',
+      'Move to Top:off',
+      'Duplicate:on',
       'Copy Settings:on',
       'Paste Settings:off',
-      'Duplicate:on',
       'Remove:on',
+      'Move Up:on',
+      'Move Down:off',
+      'Move to Top:on',
+      'Duplicate:on',
       'Copy Settings:off',
       'Paste Settings:off',
-      'Duplicate:on',
       'Remove:on',
     ]);
   });
@@ -135,13 +169,14 @@ describe('editor copy/paste buttons', () => {
       'calendar.b',
     ]);
 
-    harness.action(0, 'Copy Settings').click();
+    (await harness.action(0, 'Copy Settings')).click();
     await harness.element.updateComplete;
 
     // Both Paste buttons, not just the one on the calendar that was copied from: the
-    // clipboard is shared, so the whole list has to re-render.
-    expect(harness.action(0, 'Paste Settings').hasAttribute('disabled')).toBe(false);
-    expect(harness.action(1, 'Paste Settings').hasAttribute('disabled')).toBe(false);
+    // clipboard is shared. The first is read from the strip still open from the click, so it
+    // flips only because the copy handler asks for an update.
+    expect((await harness.action(0, 'Paste Settings')).hasAttribute('disabled')).toBe(false);
+    expect((await harness.action(1, 'Paste Settings')).hasAttribute('disabled')).toBe(false);
   });
 
   it('reports a config in which the pasted-into calendar keeps its own entity', async () => {
@@ -150,9 +185,9 @@ describe('editor copy/paste buttons', () => {
       'calendar.b',
     ]);
 
-    harness.action(0, 'Copy Settings').click();
+    (await harness.action(0, 'Copy Settings')).click();
     await harness.element.updateComplete;
-    harness.action(1, 'Paste Settings').click();
+    (await harness.action(1, 'Paste Settings')).click();
     await harness.element.updateComplete;
 
     expect(harness.emitted).toHaveLength(1);
@@ -168,15 +203,15 @@ describe('editor copy/paste buttons', () => {
       'calendar.b',
     ]);
 
-    harness.action(0, 'Copy Settings').click();
+    (await harness.action(0, 'Copy Settings')).click();
     await harness.element.updateComplete;
-    expect(harness.action(1, 'Copy Settings').hasAttribute('disabled')).toBe(true);
+    expect((await harness.action(1, 'Copy Settings')).hasAttribute('disabled')).toBe(true);
 
-    harness.action(1, 'Paste Settings').click();
+    (await harness.action(1, 'Paste Settings')).click();
     await harness.element.updateComplete;
 
     // The pasted config has to have traveled back into the editor for this to flip.
-    expect(harness.action(1, 'Copy Settings').hasAttribute('disabled')).toBe(false);
+    expect((await harness.action(1, 'Copy Settings')).hasAttribute('disabled')).toBe(false);
   });
 
   it('leaves the calendar that was copied from untouched', async () => {
@@ -185,9 +220,9 @@ describe('editor copy/paste buttons', () => {
       { entity: 'calendar.b', label: 'B' },
     ]);
 
-    harness.action(0, 'Copy Settings').click();
+    (await harness.action(0, 'Copy Settings')).click();
     await harness.element.updateComplete;
-    harness.action(1, 'Paste Settings').click();
+    (await harness.action(1, 'Paste Settings')).click();
     await harness.element.updateComplete;
 
     const entities = harness.emitted[0].entities as Array<Record<string, unknown>>;

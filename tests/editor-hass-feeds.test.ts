@@ -15,11 +15,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   type FormElement,
+  button,
   changeField,
+  entry,
   fakeHass,
   formsOf,
+  goPage,
   labelOf,
   mountEditor,
+  openPageOf,
   openPanels,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -96,6 +100,20 @@ function later(hass: Types.Hass, id: string): Types.Hass {
 async function mountOpen(hass: Types.Hass = haWith()) {
   const editor = await mountEditor(CONFIG, { hass });
   await openPanels(editor);
+  return editor;
+}
+
+/**
+ * Mounts the editor on Anna's entry page, after Ben's, so it draws live forms, steady ones and
+ * Home Assistant's Visibility editor at once.
+ *
+ * @param hass - The `hass`
+ * @returns The editor
+ */
+async function mountEntry(hass: Types.Hass = haWith()) {
+  const editor = await mountEditor(CONFIG, { hass });
+  await openPageOf(editor, 'calendar:name', entry(1));
+  await openPageOf(editor, 'calendar:name', entry(0));
   return editor;
 }
 
@@ -212,50 +230,67 @@ describe('hass-key.ts', () => {
 
 describe('the feeds in the rendered editor', () => {
   it('feeds each form by the selectors it draws, and Home Assistant’s Visibility editor live', async () => {
-    const editor = await mountOpen();
+    const editor = await mountEditor(CONFIG, { hass: haWith() });
+    const feed = (selector: string) =>
+      editor.shadowRoot!.querySelector<HTMLElement>(selector)?.dataset.hass;
+    const field = (id: string) => feed(`[data-field="${id}"] > ha-form`);
+    const name = (element: Fed): string =>
+      (element.closest('[data-field]')?.getAttribute('data-field') ??
+        (element.className || element.localName)) +
+      (element.localName === 'ha-form' ? '' : ` ${element.localName}`);
+    const feeds = (): string[] =>
+      [...editor.shadowRoot!.querySelectorAll<Fed>('[data-hass]')].map(
+        (element) => `${name(element)} ${element.dataset.hass}`,
+      );
+    const live = (): string[] => feeds().filter((each) => each.endsWith(' live'));
 
-    const feeds = [...editor.shadowRoot!.querySelectorAll<Fed>('[data-hass]')].map(
-      (element) => `${element.className || element.localName} ${element.dataset.hass}`,
-    );
-    expect(feeds).toEqual([
-      'display-view-form steady',
-      'workspace-form steady',
+    // The overview: the filter bar, Days to Show and Start Date; its calendars are rows.
+    expect(feeds()).toEqual([
       'filter-form steady',
-      // Calendars: the picker, then each calendar's two forms around its Visibility editor.
-      // Anna's label is a person, picked by entity; Ben's is none, so his first form draws no
-      // live selector, and each second form draws the location icon.
-      'panel-form live',
-      'entity-form live',
-      'ha-card-conditions-editor live',
-      'entity-form live',
-      'entity-form steady',
-      'ha-card-conditions-editor live',
-      'entity-form live',
-      // Layout, then Time Range & Content.
-      'panel-form steady',
-      'panel-form steady',
-      // Card & Header, then the caption above the buttons and the one button's form.
-      'panel-form steady',
-      'buttons-heading steady',
-      'button-form live',
-      // Day Header, Events, Separators, then Weather and Actions & Refresh.
-      'panel-form steady',
-      'panel-form steady',
-      'panel-form steady',
-      'panel-form live',
-      'panel-form live',
+      'content:days_to_show steady',
+      'content:start_date_mode steady',
     ]);
-    expect(formsOf(editor)).toHaveLength(feeds.length - 2);
+
+    // An entry's page: its Calendar picker, each field in a form of its own, and the Visibility
+    // editor. Anna's label is a person, picked by entity, and every page draws the location icon;
+    // every other field is steady.
+    await openPageOf(editor, 'calendar:name', entry(0));
+    expect(live()).toEqual([
+      'entry-calendar-form live',
+      'calendar:label live',
+      'calendar:visibility ha-card-conditions-editor live',
+      'calendar:location_icon live',
+    ]);
+    expect(feeds().length).toBeGreaterThan(live().length + 10);
+    expect(field('calendar:name')).toBe('steady');
+    // Ben's label is none, so his page draws no live selector for it.
+    await openPageOf(editor, 'calendar:name', entry(1));
+    expect(live()).toEqual([
+      'entry-calendar-form live',
+      'calendar:visibility ha-card-conditions-editor live',
+      'calendar:location_icon live',
+    ]);
+
+    // Pages: a field takes the live feed by its own selector, one form apiece.
+    await openPageOf(editor, 'weather:weather.entity');
+    expect(field('weather:weather.entity')).toBe('live');
+    expect(field('weather:weather.position')).toBe('steady');
+    await openPageOf(editor, 'actions:tap_action');
+    expect(field('actions:tap_action')).toBe('live');
+    expect(field('actions:refresh_interval')).toBe('steady');
+    await openPageOf(editor, 'button:icon', button(0));
+    expect(feed('.button-form')).toBe('live');
+    expect(field('card:title')).toBe('steady');
   });
 
   it('renders nothing for a hass that moves nothing it draws, and hands it to the live forms alone', async () => {
     const hass = haWith();
-    const editor = await mountOpen(hass);
+    const editor = await mountEntry(hass);
     const render = vi.spyOn(editor, 'render');
     const live = fed(editor, 'live');
     const steady = fed(editor, 'steady');
     const before = new Map([...live, ...steady].map((element) => [element, element.hass]));
-    expect([live.length, steady.length]).toEqual([9, 11]);
+    expect([live.length, steady.length]).toEqual([4, 22]);
 
     const next = later(hass, 'sensor.porch');
     editor.hass = next;
@@ -271,10 +306,10 @@ describe('the feeds in the rendered editor', () => {
 
   it('keeps the live forms’ states current and their actions named, through every later render', async () => {
     const hass = haWith();
-    const editor = await mountOpen(hass);
+    const editor = await mountEntry(hass);
     const forms = fed(editor, 'live').filter((element) => element.localName === 'ha-form');
     const visibility = fed(editor, 'live').filter((element) => !forms.includes(element));
-    expect([forms.length, visibility.length]).toEqual([7, 2]);
+    expect([forms.length, visibility.length]).toEqual([3, 1]);
     const current = (newest: Types.Hass) => {
       for (const form of forms) {
         expect(form.hass?.states).toBe(newest.states);
@@ -319,12 +354,12 @@ describe('the feeds in the rendered editor', () => {
     editor.hass = renamed;
     await editor.updateComplete;
 
-    // A calendar's name heads its panel, so this one renders.
+    // A calendar's name titles its row in the overview's list, so this one renders.
     expect(render).toHaveBeenCalledTimes(1);
-    const headers = [
-      ...editor.shadowRoot!.querySelectorAll<HTMLElement & { header: string }>('.entity-panel'),
-    ].map((panel) => panel.header);
-    expect(headers).toEqual(['Anna at work', 'Ben']);
+    const titles = [...editor.shadowRoot!.querySelectorAll<HTMLElement>('.cal-title')].map(
+      (title) => title.textContent!.trim(),
+    );
+    expect(titles).toEqual(['Anna at work', 'Ben']);
     for (const [form, before] of steady) expect(form.hass).toBe(before);
   });
 
@@ -375,14 +410,11 @@ describe('an update that carries an irrelevant hass and a bare request together'
   it('opens a panel whose opening lands beside an irrelevant hass', async () => {
     const hass = haWith();
     const editor = await mountEditor(CONFIG, { hass });
-    const events = [
-      ...editor.shadowRoot!.querySelectorAll<HTMLElement & { header: string }>(
-        'ha-expansion-panel',
-      ),
-    ].find((panel) => panel.header === 'Events')!;
-    expect(events.querySelector('ha-form')).toBeNull();
+    await goPage(editor, 'card_header');
+    const hall = editor.shadowRoot!.querySelector<HTMLElement>('ha-expansion-panel.button-panel')!;
+    expect(hall.querySelector('ha-form')).toBeNull();
 
-    events.dispatchEvent(
+    hall.dispatchEvent(
       new CustomEvent('expanded-will-change', {
         detail: { expanded: true },
         bubbles: true,
@@ -392,7 +424,7 @@ describe('an update that carries an irrelevant hass and a bare request together'
     editor.hass = later(hass, 'sensor.porch');
     await editor.updateComplete;
 
-    expect(events.querySelector('ha-form')).not.toBeNull();
+    expect(hall.querySelector('ha-form')).not.toBeNull();
   });
 
   it('renders a configuration that arrives beside an irrelevant hass', async () => {

@@ -32,8 +32,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Settings that depend on another one appear only once that one is switched on.',
 
   // --- Panels ---------------------------------------------------------------
-  'panel.layout': 'Layout',
-  'panel.layout.helper': 'How the card arranges days, and how much room it takes up.',
 
   // --- Pages ----------------------------------------------------------------
   //
@@ -56,6 +54,78 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'heading.name_and_look': 'Name & Look',
   'heading.who_sees_it': 'Who Sees It',
 
+  // --- Overview & navigation ------------------------------------------------
+  //
+  // The overview's own words, the pages' Back and cross-links, the scope control and the line
+  // under each section row. Every key here is looked up by a literal in code, which `check:i18n`
+  // holds them to. Counts are a label and a number ("Set: 3"), so no language inflects for one.
+  'overview.settings': 'Settings',
+  'overview.more': 'More',
+  'more.example': 'Start From an Example',
+  'more.example_note': 'Quick Setup: an example card and a few questions',
+  'quick_setup.dismiss': 'Dismiss Quick Setup',
+  'nav.back': 'Back',
+  // A link to the heading on another page that answers the neighboring question.
+  'nav.crumb': '{page} › {heading}',
+  'nav.cross_link.past_days': 'Dates of past days:',
+  'nav.cross_link.past_events': 'Whether past events show:',
+  'settings_for.label': 'Settings For',
+  'settings_for.compact': 'Settings for {layout}',
+  'settings_for.change': 'Change',
+  'settings_for.change_named': 'Change: settings for {layout}',
+  'settings_for.option_set': '{layout}, Set: {count}',
+  'settings_for.help_shared':
+    'Shared starting values. A layout’s own settings or built-in defaults can take precedence.',
+  'settings_for.help_layout':
+    'Edits here are written for {layout} and apply when the card shows it.',
+  'settings_for.preview': 'Editing {layout} · Preview Shows {displayed}',
+  'settings_for.grid_only': 'Applies when the card shows Grid.',
+  'announce.scope': 'Now editing settings for {layout}.',
+  'summary.pair': '{label}: {value}',
+  'summary.set': 'Set: {count}',
+  'summary.on': 'On',
+  'summary.off': 'Off',
+  'announce.removed': 'Removed {name}.',
+  'announce.applied': 'Applied {story}.',
+  'announce.moved': 'Moved {name} to position {position} of {total}.',
+  'announce.pasted': 'Pasted settings into {name}.',
+
+  // --- Undo & Redo ----------------------------------------------------------
+  //
+  // Each step is named for what it did, so the buttons read "Undo: Remove Ben" and a screen
+  // reader hears "Undid: Remove Ben.". Undo and Redo on their own are Home Assistant's words
+  // (`ui.common.undo`, `ui.common.redo`) wherever it has them; these are the fallback.
+  'history.undo': 'Undo',
+  'history.redo': 'Redo',
+  'history.undo_named': 'Undo: {action}',
+  'history.redo_named': 'Redo: {action}',
+  'history.undone': 'Undid: {action}.',
+  'history.redone': 'Redid: {action}.',
+  'history.change': 'Change {setting}',
+  'history.change_for': 'Change {setting} for {name}',
+  'history.reset': 'Reset {setting}',
+  'history.remove': 'Remove {name}',
+  'history.duplicate': 'Duplicate {name}',
+  'history.paste': 'Paste Settings Into {name}',
+  'history.move': 'Move {name}',
+  'history.apply': 'Apply {story}',
+  'history.add': 'Add {name}',
+  // The line a removal or an applied story leaves, beside its Undo, until the next change.
+  'status.removed': 'Removed {name}',
+  'status.removed_calendar': 'Removed {name} · Entries: {count}',
+  'status.applied': 'Applied {story}',
+  // The jump list: its count line, the scope it shows values for, and what a row and a jump say.
+  'search.results': 'Results for “{query}”: {count}',
+  'search.values_for': 'Values for {layout}',
+  'search.overview': 'Overview',
+  'search.not_set': 'Not Set',
+  'search.yaml': 'YAML: {path}',
+  'search.return': 'Return to Results',
+  'search.showing': 'Showing {label}.',
+  // The tag on a setting a gate withholds, around a gate phrase below or the label of the control
+  // it waits on (`plan.ts` › `needsTag`): "Needs Show Description".
+  'search.needs': 'Needs {needs}',
+
   // --- Gates ----------------------------------------------------------------
   //
   // What a withheld setting waits for, where the control's own label does not say it. Read from
@@ -72,12 +142,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'gate.needs.no_event_actions': 'both event actions set to Nothing',
   'gate.needs.events_limit': 'an Events limit under Compact Mode',
   'gate.needs.calendar_filter': 'a calendar filter in the toolbar',
-
-  // --- Search ---------------------------------------------------------------
-  //
-  // The tag search gives a setting a gate withholds, around one of the phrases above or the
-  // label of the control it waits on (`plan.ts` › `needsTag`): "Needs Show Description".
-  'search.needs': 'Needs {needs}',
 
   // --- View -----------------------------------------------------------------
   view: 'Card Displays',
@@ -274,15 +338,64 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // not: it is not only *which* calendars, it is where each one's label, colors and
   // filters live. "The calendars this card shows" was *Calendars* with more words in it.
   'panel.calendars': 'Calendars',
-  'panel.calendars.helper': 'Which calendars the card shows, and how each one looks.',
-  calendars: 'Calendars',
-  // "Entries" rather than "calendars": with Duplicate, the two entries carrying the same
-  // event are often two blocks of *one* calendar, and `deduplicateEvents` keeps whichever
-  // is listed first in `entities` either way. Naming calendars made the true case — the
-  // keyword-icon mapping, which is one calendar listed several times — read as impossible.
-  'calendars.helper':
-    'Order matters, and can be dragged. When two entries carry the same event and ' +
-    'duplicates are filtered, the copy from the one listed first is the one kept.',
+  // --- Calendar list --------------------------------------------------------
+  //
+  // The overview's list of calendars (`views/calendars.ts`): a row per entry, a calendar row
+  // above the entries of a calendar listed more than once, the action strip under a row, and
+  // Add Calendar. Every key is looked up by a literal in code. A row's control is named with its
+  // summary, so "Edit {row}" receives "Anna, Without: Homework, Set: 4", already joined.
+  'calendars.entries': 'Entries: {count}',
+  'calendars.missing': 'Not found in Home Assistant',
+  'calendars.edit': 'Edit {row}',
+  'calendars.position': 'entry {position} of {total}',
+  'calendars.actions': 'Actions for {name}',
+  'calendars.add': 'Add Calendar',
+  'calendars.pick': 'Calendar',
+  'calendars.pick.helper':
+    'Choose a calendar, then press Add: it joins the card and its page opens.',
+  'calendars.add_confirm': 'Add',
+  'calendars.cancel': 'Cancel',
+  'calendars.chose': 'Chose {name}. Add puts it on the card and opens its page.',
+  'calendars.already': '{name} is already on the card.',
+  'calendars.open': 'Open {name}',
+  'calendars.empty': 'No Calendars Yet',
+  'calendars.empty_note': 'Add the calendars this card shows.',
+  'calendars.filter': 'Filter Calendars',
+  'calendars.no_match': 'No calendars match.',
+  // The strip of actions under a row. Moves act on a whole calendar; the names say whose.
+  'strip.move_up': 'Move {name} up',
+  'strip.move_down': 'Move {name} down',
+  'strip.move_top': 'Move {name} to the top',
+  'strip.move_top_label': 'Move to Top',
+  'strip.duplicate': 'Duplicate {name}',
+  'strip.copy': 'Copy settings from {name}',
+  'strip.paste': 'Paste settings into {name}',
+  'strip.paste_empty': 'Copy settings first',
+  'strip.paste_from': 'From {name}',
+  'strip.remove': 'Remove {name}',
+  'strip.remove_calendar': 'Remove {name}, Entries: {count}',
+  'strip.remove_entry': 'Remove This Entry',
+  // The keys beside a move in an entry page's menu.
+  'strip.key_up': 'Alt ↑',
+  'strip.key_down': 'Alt ↓',
+  // A calendar entry's page.
+  'entry.back': 'Back to the overview',
+  'entry.previous': 'Previous Calendar',
+  'entry.next': 'Next Calendar',
+  'entry.previous_named': 'Previous calendar: {name}',
+  'entry.next_named': 'Next calendar: {name}',
+  'entry.showing': 'Showing {name}.',
+  'entry.calendar': 'Calendar',
+  'entry.calendar.helper':
+    'The calendar this entry reads. Picking another keeps this entry’s settings.',
+  'entry.duplicate_warning':
+    'Both entries show the same events until one sets Event Type or a word list, so each ' +
+    'event shows twice for now.',
+  'entry.duplicated': 'Duplicated {name}.',
+  'entry.repointed': '{name} now reads {calendar}.',
+  'entry.repointed_adopted':
+    '{name} now reads {calendar}, so it uses that calendar’s name and calendar filter setting.',
+  'entry.remove': 'Remove {name}',
 
   // --- Calendar list rows ---------------------------------------------------
   //
@@ -303,11 +416,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   // --- Per-calendar settings ------------------------------------------------
   //
-  // Each calendar gets its own collapsible form below the picker. Four of these are
+  // Each calendar entry gets a page of its own, opened from its row. Four of these are
   // three-way rather than switches, because the card reads them presence-first — an
   // absent key means "follow the card", which no checkbox can say.
-  'entity.customised': 'Configured',
-  'entity.unconfigured': 'Using the card settings',
   // Not "Copy 2 of 2": neither block is the copy once both exist, and which one was
   // duplicated stops being interesting the moment their settings diverge. What the user
   // needs is only which of the two panels they are looking at.
@@ -320,9 +431,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.name': 'Name',
   'entity.name.helper':
     'Names this calendar in the calendar filter, when you open one of its events, and in ' +
-    'notices. Every entry for this calendar shares it. Left empty, the card uses Home ' +
-    'Assistant\u2019s name for it, which the calendar picker and this panel\u2019s heading ' +
-    'keep either way.',
+    'notices, and heads its row and its page here. Every entry for this calendar shares it. ' +
+    'Left empty, the card uses Home Assistant\u2019s name for it.',
   'entity.show_in_legend': 'Show in Calendar Filter',
   'entity.show_in_legend.helper':
     'Off leaves this calendar out of the calendar filter, as a chip and in the menu, so its ' +
@@ -351,11 +461,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.label': 'Label',
   'entity.color': 'Event Color',
   'entity.color.helper': 'Event titles from this calendar. Overrides the card color.',
-  'entity.accent_color': 'Accent Color',
+  'entity.accent_color': 'Custom Accent Color',
   'entity.accent_color.helper':
     'The vertical line beside each event, and its background where the background ' +
     'opacity is above zero.',
-  'entity.accent_color_mode': 'Accent Color',
+  'entity.accent_color_mode': 'Accent Color Source',
   'entity.accent_color_mode.helper':
     'Home Assistant can hold a color for each calendar, under Settings, Devices & ' +
     'Services, Entities. Calendars it has no color for fall back to the card.',
@@ -416,9 +526,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   // --- Sub-headings ---------------------------------------------------------
   //
-  // Rendered by `heading()` as `constant` nodes, which carry no value and no input. The
-  // same key serves both the card-level and per-calendar panels wherever they name the
-  // same category, so the two read with one vocabulary rather than two.
+  // Named by the page registry (`pages.ts`), which draws them as the pages' own headings, a
+  // calendar entry's page among them. The same key serves the card's pages and an entry's
+  // wherever they name the same category, so the two read with one vocabulary rather than two.
   //
   // Terse noun phrases, and deliberately so. The earlier set were sentence fragments —
   // `Which Events Appear`, `What Each Event Shows` — which read well in isolation and
@@ -431,7 +541,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // a heading repeating its only field's label is the stutter `AGENTS.md` warns about, and
   // it is invisible to a DOM probe. Renaming the field rather than the heading also moves
   // the per-calendar label closer to the card-level `Split Multi-Day Events`.
-  heading_time_range: 'Time Range',
   heading_gap_and_rule: 'Gap & Rule',
   heading_hour_labels: 'Hour Labels',
   heading_on_the_grid: 'On the Grid',
@@ -442,12 +551,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   heading_icons: 'Icons',
   heading_between_days: 'Between Days',
   heading_across_the_grid: 'Across the Grid',
-  heading_visibility: 'Visibility',
-  heading_filters: 'Event Filtering',
   heading_replace: 'Text Replacement',
   heading_multiday: 'Multi-Day Events',
   heading_nothing: 'Empty Days',
-  heading_appearance: 'Name & Appearance',
   heading_details: 'Event Details',
   heading_event_state: 'Event State',
   heading_toolbar: 'Toolbar',
@@ -536,19 +642,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'What to put in place of each match \u2014 or of the whole field, when nothing is ' +
     'being searched for. Left empty, the match is removed.',
 
-  // --- Exceptions -----------------------------------------------------------
+  // --- The time grid's own block ----------------------------------------------
   //
-  // The surface for "this option has a different value in this layout". Worded as
-  // exceptions throughout, because that is what they are: the card has one
-  // configuration, and a handful of options may depart from it in one layout.
-  'column.height': 'Height',
-  'column.max_height': 'Maximum Height',
-  'column.show_week_numbers': 'Week Numbers',
-  'column.today_indicator': 'Today Indicator',
-  'column.allday_badge': 'All-Day Badge',
-  'column.allday_badge_style': 'All-Day Badge Style',
-  'column.allday_badge_color': 'All-Day Badge Color',
-  'column.remove_location_country': 'Country Names',
+  // Options stored in `time_grid:`, labeled under its prefix (`schemas/common.ts` ›
+  // `blockScope`).
   'time_grid.density': 'Grid Density',
   'time_grid.density.helper':
     'How narrow a day column may get before the grid gives up a day, and what it does ' +
@@ -632,11 +729,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'The most events drawn side by side. The rest collapse into a narrow +N block at the ' +
     'edge, so nothing is hidden without being counted. An event stacked over a longer one ' +
     'does not count, because it sits on top of that event rather than beside it.',
-  'time_grid.height': 'Height',
-  'time_grid.max_height': 'Maximum Height',
-  'time_grid.show_week_numbers': 'Week Numbers',
-  'time_grid.allday_badge': 'All-Day Badge',
-  'time_grid.remove_location_country': 'Remove Country From Location',
 
   // --- Defaults a view substitutes -------------------------------------------
   //
@@ -655,8 +747,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'an event covers shows it. Add an exception below to change that.',
 
   // --- Time Range & Content -------------------------------------------------
-  'panel.content': 'Time Range & Content',
-  'panel.content.helper': 'Which days the card covers, and what it puts in them.',
   days_to_show: 'Days To Show',
   'days_to_show.aliases': 'how many days, number of days, weeks ahead, future weeks, date range',
   'days_to_show.helper':
@@ -745,7 +835,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'This is about the kind of event, not how long it lasts. Individual calendars can ' +
     'depart from it below.',
 
-  locale: 'Language & Time Format',
   language_mode: 'Language',
   'language_mode.option.system.label': 'Follow Home Assistant',
   'language_mode.option.custom.label': 'Choose One',
@@ -759,7 +848,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   // --- Card & Header --------------------------------------------------------
   'panel.card': 'Card & Header',
-  'panel.card.helper': 'The card itself, and the title and toolbar above its events.',
   title: 'Title',
   'title.helper':
     'Text containing {{ or {% is a Home Assistant template and updates by itself. With the ' +
@@ -825,7 +913,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   // --- Day Header -----------------------------------------------------------
   'panel.day_header': 'Day Header',
-  'panel.day_header.helper': 'How each day announces itself, whichever layout it is announced in.',
   date_vertical_alignment: 'Vertical Alignment',
   'date_vertical_alignment.option.top.label': 'Top',
   'date_vertical_alignment.option.middle.label': 'Middle',
@@ -920,7 +1007,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'today_indicator_position.helper':
     'A pair of percentages, across then down — for example 15% 50%.',
 
-  week_numbers: 'Week Numbers',
   week_number_mode: 'Numbering',
   'week_number_mode.option.none.label': 'None',
   'week_number_mode.option.iso.label': 'ISO 8601',
@@ -937,13 +1023,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   // --- Events ---------------------------------------------------------------
   'panel.events': 'Events',
-  'panel.events.helper': 'The events themselves, and the lines each one can carry.',
   event_font_size: 'Event Font Size',
   event_color: 'Event Color',
-  accent_color: 'Accent Color',
+  accent_color: 'Custom Accent Color',
   'accent_color.helper':
     'The bar beside each event. A calendar can override it for its own events.',
-  accent_color_mode: 'Accent Color',
+  accent_color_mode: 'Accent Color Source',
   'accent_color_mode.helper':
     'Home Assistant can hold a color for each calendar, under Settings, Devices & ' +
     'Services, Entities. Calendars it has no color for keep the card default.',
@@ -1090,14 +1175,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   progress_bar_width: 'Progress Bar Width',
 
   // --- Separators -----------------------------------------------------------
-  'panel.separators': 'Separators',
-  'panel.separators.helper': 'The rules the card draws between days, weeks and months.',
   // Grid alone gathers horizontal rules — the hour lines and the band edge — beside the
   // vertical day, week and month ones, so "Separators" describes only half of what the
   // panel holds there. The field labels in it already say "Rule".
-  'panel.separators.grid': 'Rules',
-  'panel.separators.grid.helper':
-    'Every rule the grid draws, both between the days and across all of them.',
   day_separator_width: 'Day Rule Width',
   day_separator_color: 'Day Rule Color',
   week_separator_width: 'Week Rule Width',
@@ -1126,7 +1206,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // and `computeLabel` tries the qualified key first, so a future field of the same
   // name inside a titled group would resolve to its own string rather than to these.
   'panel.weather': 'Weather',
-  'panel.weather.helper': 'A forecast beside the day, beside the event, or both.',
   entity: 'Weather Entity',
   'entity.helper': 'Leave empty for no forecast at all.',
   position: 'Show The Forecast',
@@ -1137,34 +1216,34 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   'weather.date': 'In the Day Header',
   'weather.date.helper': "The day's forecast, shown once per day.",
-  'date.show_conditions': 'Show Conditions',
+  'date.show_conditions': 'Show Conditions Beside Days',
   'date.show_high_temp': 'Show High Temperature',
   'date.show_low_temp': 'Show Low Temperature',
   'date.show_low_temp.helper': 'The UV index takes this place on days it is shown.',
-  'date.show_uv_index': 'Show UV Index',
-  'date.uv_index_threshold': 'UV Index Threshold',
+  'date.show_uv_index': 'Show UV Index Beside Days',
+  'date.uv_index_threshold': 'UV Index Threshold Beside Days',
   'date.uv_index_threshold.helper': 'Hide the index below this value. Zero always shows it.',
-  'date.icon_size': 'Icon Size',
-  'date.font_size': 'Font Size',
-  'date.color': 'Color',
+  'date.icon_size': 'Icon Size Beside Days',
+  'date.font_size': 'Font Size Beside Days',
+  'date.color': 'Color Beside Days',
 
   'weather.event': 'Beside Each Event',
   'weather.event.helper': "The forecast for each event's own start time.",
-  'event.show_conditions': 'Show Conditions',
+  'event.show_conditions': 'Show Conditions Beside Events',
   'event.show_conditions.helper':
     'Shows the condition icon. In column and grid layouts the icon is always shown, ' +
     'because the row shares an icon edge with the time and location, and this adds the ' +
     'condition in words instead.',
   'event.show_temp': 'Show Temperature',
-  'event.show_uv_index': 'Show UV Index',
-  'event.uv_index_threshold': 'UV Index Threshold',
+  'event.show_uv_index': 'Show UV Index Beside Events',
+  'event.uv_index_threshold': 'UV Index Threshold Beside Events',
   'event.uv_index_threshold.helper': 'Hide the index below this value. Zero always shows it.',
   'event.daily_forecast_fallback': 'Fall Back to the Daily Forecast',
   'event.daily_forecast_fallback.helper':
     'For an all-day event, or one further ahead than the hourly forecast reaches.',
-  'event.icon_size': 'Icon Size',
-  'event.font_size': 'Font Size',
-  'event.color': 'Color',
+  'event.icon_size': 'Icon Size Beside Events',
+  'event.font_size': 'Font Size Beside Events',
+  'event.color': 'Color Beside Events',
   'event.max_lines': 'Weather Line Limit',
   'event.max_lines.helper':
     'Zero means no limit. Column and grid layouts write the condition out in words, so ' +
@@ -1172,8 +1251,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'index are never truncated.',
 
   // --- Actions & Refresh ----------------------------------------------------
-  'panel.actions': 'Actions & Refresh',
-  'panel.actions.helper': 'What a tap does, and how often the card re-reads its calendars.',
   tap_action: 'Tap Action',
   hold_action: 'Hold Action',
   // Home Assistant names its own actions; this is the one the card adds, and both
@@ -1258,9 +1335,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'scope.list_only.compact_events_to_show':
     'Applies to the list layout. Capping events per card would empty columns rather ' +
     'than shorten the card.',
-  'scope.list_only.compact_mode':
-    'No effect in side-by-side layouts. These only shorten the list layout, which also ' +
-    'appears on narrow screens; otherwise, limits would remove whole days instead.',
 };
 
 /**

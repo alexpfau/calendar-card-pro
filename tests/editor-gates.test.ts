@@ -765,10 +765,10 @@ describe('the universe', () => {
       );
     }
     expect(sizes).toEqual({
-      shared: { card: 152, calendar: 27 },
-      list: { card: 159, calendar: 28 },
-      column: { card: 158, calendar: 27 },
-      grid: { card: 157, calendar: 27 },
+      shared: { card: 151, calendar: 27 },
+      list: { card: 158, calendar: 28 },
+      column: { card: 157, calendar: 27 },
+      grid: { card: 156, calendar: 27 },
     });
   });
 
@@ -1298,7 +1298,7 @@ describe('what a gate says it waits for', () => {
     expect(lines).toEqual([
       { text: 'Weather Entity', unmet: `${W}entity` },
       { text: 'the forecast beside each event', unmet: `${W}position` },
-      { text: 'Show Conditions', unmet: `${W}event.show_conditions` },
+      { text: 'Show Conditions Beside Events', unmet: `${W}event.show_conditions` },
       { text: undefined, unmet: undefined },
     ]);
   });

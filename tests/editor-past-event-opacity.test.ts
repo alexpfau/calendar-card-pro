@@ -39,7 +39,8 @@ afterEach(() => {
 });
 
 describe('past-event opacity editor contract', () => {
-  it.each(WORKSPACES)('places the fractional selector under Event State in %s', (workspace) => {
+  // The heading it is drawn under is the registry's: Past Events, beside the switch it fades for.
+  it.each(WORKSPACES)('builds the fractional selector after the now marker in %s', (workspace) => {
     const config = buildConfig({ show_past_events: false });
     const schema = buildEventsSchema({
       config,
@@ -50,13 +51,12 @@ describe('past-event opacity editor contract', () => {
     const names = schema.map((node) => node.name);
     const start = names.indexOf('show_progress_bar');
     expect(start).toBeGreaterThan(0);
-    expect(names.slice(start, start + 6)).toEqual([
+    expect(names.slice(start, start + 5)).toEqual([
       'show_progress_bar',
-      'heading_event_state',
       'show_now_indicator',
       'now_color',
       'past_event_opacity',
-      'heading_accent',
+      'accent_event_text',
     ]);
     expect(schema.find((node) => node.name === 'past_event_opacity')).toEqual({
       name: 'past_event_opacity',

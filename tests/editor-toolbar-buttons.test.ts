@@ -21,18 +21,21 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
-  CARD,
   type FormElement,
   button,
   changeField,
   changeFields,
+  chooseResult,
   fakeHass,
   formOf,
   formsOf,
   helperOf,
+  keysOf,
   labelOf,
   mountEditor,
   openPageOf,
+  openPanels,
+  resultRows,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -152,7 +155,11 @@ async function mount(
     fieldNames,
     control,
     press,
-    heading: () => formOf(element, 'button:heading', CARD),
+    // The card-owned heading Card & Header draws above the buttons; search results draw the
+    // buttons under the page's title instead.
+    heading: () =>
+      root.querySelector<HTMLElement>('[data-heading="toolbar.buttons.heading"] > .heading') ??
+      undefined,
     add: () => root.querySelector<HTMLButtonElement>('.add-button'),
   };
 }
@@ -200,11 +207,7 @@ describe('the toolbar buttons in the editor', () => {
 
     const icons = editor
       .panels()
-      .map(
-        (panel) =>
-          (panel.querySelector('ha-svg-icon[slot="leading-icon"]') as { path?: string } | null)
-            ?.path,
-      );
+      .map((panel) => panel.querySelector('[slot="leading-icon"] path')?.getAttribute('d'));
     expect(icons).toEqual([TOOLBAR_BUTTON_ICON, TOOLBAR_BUTTON_ICON]);
   });
 
@@ -214,8 +217,8 @@ describe('the toolbar buttons in the editor', () => {
     expect(editor.panels()).toHaveLength(0);
     const heading = editor.heading();
     expect(heading).toBeDefined();
-    expect(heading!.schema).toEqual([{ name: 'heading', type: 'constant' }]);
-    expect(labelOf(editor.element, 'button:heading', CARD)).toBe('Your Own Buttons');
+    expect(heading!.localName).toBe('h3');
+    expect(heading!.textContent!.trim()).toBe('Your Own Buttons');
     expect(editor.add()?.textContent?.trim()).toBe('Add Button');
   });
 
@@ -274,6 +277,8 @@ describe('the toolbar buttons in the editor', () => {
   it('keeps the keyboard on a moved button’s controls', async () => {
     const editor = await mount({ show: true, buttons: [BACK, LIGHTS] });
 
+    // On the button, as a keyboard is.
+    editor.control(0, 'Move Down').focus();
     await editor.press(editor.control(0, 'Move Down'));
     await editor.element.updateComplete;
 
@@ -289,7 +294,10 @@ describe('the toolbar buttons in the editor', () => {
     expect(editor.storedButtons()).toEqual([BACK, HOME]);
     expect(editor.headers()).toEqual(['Back', 'Home']);
     await editor.element.updateComplete;
-    expect(editor.root.activeElement).toBe(editor.add());
+    // The line the removal leaves holds focus on its Undo (editor-history.test.ts).
+    const line = editor.root.querySelector('[data-status-bar]');
+    expect(line?.querySelector('.status-text')?.textContent?.trim()).toBe('Removed Lights');
+    expect(editor.root.activeElement).toBe(line?.querySelector('[data-focus="status-undo"]'));
 
     await editor.press(editor.control(1, 'Remove'));
     await editor.press(editor.control(0, 'Remove'));
@@ -465,7 +473,6 @@ describe('a toolbar button’s form', () => {
       {
         path: TOOLBAR_BUTTON_PATH,
         schema: [
-          { name: 'heading', type: 'constant' },
           { name: 'icon', required: true, selector: { icon: {} } },
           { name: 'name', selector: { text: { type: 'text' } } },
           { name: 'entity', selector: { entity: {} } },
@@ -481,47 +488,62 @@ describe('searching the toolbar buttons', () => {
     document.body.innerHTML = '';
   });
 
-  it('shows a button whose name answers, whole, and withholds Add Button', async () => {
+  it('lists a button whose entity answers, whole, and opens it alone', async () => {
     const editor = await mount({ show: true, buttons: [BACK, LIGHTS, HOME] });
 
     await changeField(editor.element, `filter:${SEARCH_FIELD}`, 'kitchen');
 
-    expect(editor.headers()).toEqual(['Lights']);
-    expect(editor.fieldNames(formOf(editor.element, 'button:icon', button(1))!)).toEqual([
-      'icon',
-      'name',
-      'entity',
-      'tap_action',
+    const keys = keysOf(editor.element, 'button');
+    expect(
+      resultRows(editor.element).map(({ id, ownerKey, crumbs }) => [id, ownerKey, crumbs]),
+    ).toEqual(
+      ['button:icon', 'button:name', 'button:entity', 'button:tap_action'].map((id) => [
+        id,
+        keys[1],
+        'Card & Header › Your Own Buttons › Lights',
+      ]),
+    );
+
+    await chooseResult(editor.element, `result:button:entity:${keys[1]}`);
+    expect(editor.panels().map((panel) => panel.expanded)).toEqual([false, true, false]);
+    // The entity alone, above the rest of the button's fields.
+    expect(formsOf(editor.element, button(1)).map(editor.fieldNames)).toEqual([
+      ['entity'],
+      ['icon', 'name', 'tap_action'],
     ]);
-    expect(editor.panels()[0].expanded).toBe(true);
-    expect(editor.heading()).toBeDefined();
-    expect(editor.add()).toBeNull();
   });
 
-  it('shows only the field a search names, on every button', async () => {
+  it('lists only the field a search names, on every button', async () => {
     const editor = await mount({ show: true, buttons: [BACK, LIGHTS] });
 
     await changeField(editor.element, `filter:${SEARCH_FIELD}`, 'tap action');
 
-    expect(editor.headers()).toEqual(['Back', 'Lights']);
-    expect(editor.forms().map(editor.fieldNames)).toEqual([['tap_action'], ['tap_action']]);
+    expect(
+      resultRows(editor.element)
+        .filter((row) => row.ownerKey !== undefined)
+        .map(({ id, crumbs }) => [id, crumbs.split(' › ').pop()]),
+    ).toEqual([
+      ['button:tap_action', 'Back'],
+      ['button:tap_action', 'Lights'],
+    ]);
   });
 
-  it('drops the heading with the last panel a search hides', async () => {
+  it('lists no button for the words of its heading alone', async () => {
     const editor = await mount({ show: true, buttons: [BACK, LIGHTS] });
 
     // The heading's own words are no match: a heading is never a hit of its own.
     await changeField(editor.element, `filter:${SEARCH_FIELD}`, 'your own buttons');
 
-    expect(editor.panels()).toHaveLength(0);
-    expect(editor.heading()).toBeUndefined();
-    expect(editor.add()).toBeNull();
+    expect(resultRows(editor.element).filter((row) => row.ownerKey !== undefined)).toEqual([]);
   });
 
   it('shows each button’s own fields under customized only', async () => {
     const editor = await mount({ show: true, buttons: [{ icon: 'mdi:home' }, LIGHTS] });
 
     await changeField(editor.element, `filter:${CUSTOMIZED_ONLY_FIELD}`, true);
+    // The switch sits on the overview; the buttons on Card & Header.
+    await openPanels(editor.element);
+    await openPageOf(editor.element, 'button:icon', button(0));
 
     expect(editor.forms().map(editor.fieldNames)).toEqual([
       ['icon'],

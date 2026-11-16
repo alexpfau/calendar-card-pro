@@ -242,7 +242,7 @@ describe('field ids', () => {
       `Field ids: ${leaves} leaves over ${DISTINCT.length} distinct corpus states, ` +
         `${EVERY_FIELD.size} ids in all.`,
     );
-    expect(EVERY_FIELD.size).toBe(223);
+    expect(EVERY_FIELD.size).toBe(222);
   });
 
   it('do not depend on the editor language', () => {
@@ -288,7 +288,7 @@ describe('labels', () => {
     expect(label('events:show_time')).toBe('Show Time');
     expect(label('layout:time_grid.start_time')).toBe('First Hour');
     expect(label('day_header:column.day_header_gap')).toBe('Day Header Gap');
-    expect(label('weather:weather.date.show_conditions')).toBe('Show Conditions');
+    expect(label('weather:weather.date.show_conditions')).toBe('Show Conditions Beside Days');
     expect(label('content:compact_events_to_show')).toBe('Events');
     expect(label('calendar:show_time')).toBe('Event Times');
     expect(label('calendar:split_multiday_events')).toBe('Split Across Days');
@@ -717,7 +717,7 @@ describe('the index builds what the editor draws today', () => {
         reads: string;
       }> = [];
       const indexes: ReadonlyArray<readonly [string, Owner, Iterable<IndexedField>]> = [
-        ['ha-form.panel-form', CARD, card.values()],
+        ['ha-form.field-form', CARD, card.values()],
         ['ha-form.entity-form', entry(), entries.values()],
         [
           'ha-form.button-form',
@@ -737,13 +737,17 @@ describe('the index builds what the editor draws today', () => {
             }
             labels.reached.add(`${workspace} ${field.id}`);
             const source =
-              selector === 'ha-form.panel-form'
+              selector === 'ha-form.field-form'
                 ? Routing.valueSource(config, workspace, node.name)
                 : undefined;
             // What the form's callbacks read: the node drawn, the path `ha-form` hands over, the
-            // language and the workspace's layout, and for a panel form's helper where the value
-            // comes from. What the index reads besides: its own node and label path for the field.
-            const reads = [workspace, selector, ctx.language, path.join('.'), source].join(' ');
+            // language and the workspace's layout, and for a card field's helper where the value
+            // comes from. A card field's form is its own, its callbacks bound to the label path
+            // the field had in its panel, so two fields of one name read apart by where they sit.
+            // What the index reads besides: its own node and label path for the field.
+            const reads = [workspace, selector, ctx.language, path.join('.'), source, key].join(
+              ' ',
+            );
             const both = [
               reads,
               JSON.stringify(node),
@@ -760,21 +764,18 @@ describe('the index builds what the editor draws today', () => {
 
       // The forms' callbacks are the expensive half, so each combination they read is resolved
       // once; the index's resolvers run for every combination either side reads.
-      for (const { form, node, path, reads } of fresh) {
+      for (const { form, node, path, field, reads } of fresh) {
         if (resolved.has(reads)) continue;
         const answer = {
           label: form.computeLabel(node, form.data, { path }),
           helper: form.computeHelper(node, { path }),
         };
         resolved.set(reads, answer);
-        // The control: the same callbacks without the path `ha-form` hands them.
-        if (path.length > 0) {
+        // The control: a field's form binds the label path it had in its panel, which `ha-form`
+        // no longer hands over; without it, a nested field's label reads otherwise.
+        if (field.labelPath.length > 0) {
           labels.nested += 1;
-          const pathless = {
-            label: form.computeLabel(node, form.data, { path: [] }),
-            helper: form.computeHelper(node, { path: [] }),
-          };
-          if (!deepEqual(pathless, answer)) labels.nestedDiffer += 1;
+          if (computeLabel(ctx.language, node, []) !== answer.label) labels.nestedDiffer += 1;
         }
       }
       const indexed = fresh.map(({ field }) => ({

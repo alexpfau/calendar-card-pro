@@ -28,12 +28,15 @@
  * warm-up stays while they read it; the last one defines the stand-ins as it goes.
  */
 
+import { setTimeout as nodeTimeout } from 'node:timers';
+
 import { LitElement, html, nothing } from 'lit';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   changeField,
   fakeHass,
+  formsOf,
   lastConfig,
   mountEditor,
   openPageOf,
@@ -42,8 +45,8 @@ import {
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
-import { schemaCtx } from '../src/rendering/editor/field-index';
-import { NO_FILTER } from '../src/rendering/editor/filter';
+import { buildFieldIndex, entityFieldIndex, schemaCtx } from '../src/rendering/editor/field-index';
+import { NO_FILTER, isHeading } from '../src/rendering/editor/filter';
 import { corpus } from '../src/rendering/editor/gates';
 import { type HaFormSchema, warmSchema } from '../src/rendering/editor/ha-form';
 import { VALUE_SELECTORS } from '../src/rendering/editor/hass-key';
@@ -52,6 +55,7 @@ import {
   withCardActionLabels,
 } from '../src/rendering/editor/hass-localize';
 import { PANELS } from '../src/rendering/editor/panels';
+import { ENTITY_PATH } from '../src/rendering/editor/schemas/calendars';
 import { chassisSchemas } from '../src/rendering/editor/subforms';
 import { WORKSPACE_FIELD } from '../src/rendering/editor/workspace';
 
@@ -63,6 +67,43 @@ const plant = vi.hoisted(() => ({ on: false, action: false, many: 0, extra: '' }
 // whose element draws what its value picks, which no calendar's form has today. `plant.many`
 // adds that many further selector types to a panel, used nowhere else, and `plant.extra` the one
 // it names.
+// Pages draw only the fields the registry places, so the planted panel fields are placed on Size &
+// Spacing, and the planted calendar fields in a group of an entry's page of their own, as a
+// builder's new field must be before any page draws it.
+vi.mock('../src/rendering/editor/pages', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../src/rendering/editor/pages')>();
+  const entryIds = ['calendar:planted_calendar', 'calendar:planted_action'];
+  const ids = [
+    'layout:planted_panel',
+    'layout:planted_nested',
+    ...Array.from({ length: 12 }, (_, at) => `layout:planted_many${at}`),
+    'layout:planted_a',
+    'layout:planted_b',
+  ];
+  const page = original.PAGES.find((candidate) => candidate.id === 'size_spacing')!;
+  return {
+    ...original,
+    PAGES: original.PAGES.map((candidate) =>
+      candidate === page
+        ? {
+            ...page,
+            headings: [...page.headings, { fields: ids.map((id) => [id, 'add'] as const) }],
+          }
+        : candidate,
+    ),
+    ENTRY_GROUPS: [
+      ...original.ENTRY_GROUPS,
+      { fields: entryIds.map((id) => [id, 'add'] as const) },
+    ],
+    placementOf: (id: string) =>
+      ids.includes(id)
+        ? { page: 'size_spacing', heading: page.headings.length }
+        : entryIds.includes(id)
+          ? { page: 'entry', heading: original.ENTRY_GROUPS.length }
+          : original.placementOf(id),
+  };
+});
+
 vi.mock('../src/rendering/editor/panels', async (importOriginal) => {
   const original = await importOriginal<typeof import('../src/rendering/editor/panels')>();
   const { ENTITY_PATH } = await import('../src/rendering/editor/schemas/calendars');
@@ -236,7 +277,8 @@ function warmValues(editor: Editor): [string, unknown][] {
 async function drawn(editor: Editor): Promise<string[]> {
   await openPanels(editor);
   return elements(
-    [...editor.shadowRoot!.querySelectorAll<Form>('ha-form')].map((form) => form.schema),
+    // Every page's forms, as the harness keeps them from its visit, the overview's live.
+    formsOf(editor).map((form) => form.schema),
   );
 }
 
@@ -269,7 +311,7 @@ async function drawnValues(editor: Editor): Promise<[string, unknown][]> {
       if ('schema' in node) walk(node.schema, value);
     }
   };
-  for (const form of editor.shadowRoot!.querySelectorAll<Form>('ha-form')) {
+  for (const form of formsOf(editor)) {
     walk(form.schema, form.data);
   }
   return [...found.values()].sort(byJson);
@@ -478,6 +520,7 @@ describe('the warm-up form', () => {
     vi.useRealTimers();
   });
 
+  // Every page is visited in every corpus state, which takes longer than the default allows.
   it('holds each element and each value the forms draw with every panel open, across the corpus and the builders', async () => {
     const editor = await mountEditor(ANNA);
     const states = [
@@ -489,6 +532,8 @@ describe('the warm-up form', () => {
     const builtAll = new Set<string>();
     let values = 0;
     for (const state of states) {
+      // A task between states, so what each state's visit to every page left behind is let go.
+      await new Promise((resolve) => nodeTimeout(resolve, 0));
       editor.setConfig({ ...state.config, config_version: Config.CURRENT_CONFIG_VERSION });
       await editor.updateComplete;
       if (valueOf(editor, `workspace:${WORKSPACE_FIELD}`) !== state.workspace) {
@@ -503,11 +548,17 @@ describe('the warm-up form', () => {
       values += held.length;
 
       const ctx = schemaCtx(state.config, state.workspace, 'en');
+      // Each field is drawn lifted out of its panel, in a form of its own, and so is each of a
+      // calendar entry's on its page; buttons keep their sub-forms, less the sub-heading their
+      // panels caption.
+      const lifted = [...buildFieldIndex(ctx).fields.values()].map((field) => field.lifted);
       for (const panel of PANELS) {
-        const subforms = panel.subforms?.(ctx) ?? [];
-        for (const tag of elements([panel.build(ctx), ...subforms.map((s) => s.schema)])) {
-          builtAll.add(tag);
-        }
+        const subforms = (panel.subforms?.(ctx) ?? []).flatMap((subform) =>
+          subform.path.join() === ENTITY_PATH.join()
+            ? [...entityFieldIndex(subform.schema).fields.values()].map((field) => field.lifted)
+            : [subform.schema.filter((node) => !isHeading(node))],
+        );
+        for (const tag of elements([...lifted, ...subforms])) builtAll.add(tag);
       }
     }
     for (const tag of elements(Object.values(chassisSchemas('en')))) builtAll.add(tag);
@@ -518,7 +569,7 @@ describe('the warm-up form', () => {
     expect(warmedAll.size).toBeGreaterThan(3);
     expect(values).toBeGreaterThan(0);
     expect([...warmedAll].sort()).toEqual([...builtAll].sort());
-  });
+  }, 120_000);
 
   it('holds each element and each value the forms draw for calendars and buttons of every kind, in every workspace', async () => {
     const editor = await mountEditor(KINDS);
@@ -1078,15 +1129,17 @@ describe('once Home Assistant draws what it holds', () => {
     expect(warmConditions(editor)!.conditions).toEqual([screen]);
     await gone(editor);
 
-    // A search that matches nothing draws no calendar, and is then cleared: the conditions it held
-    // to the end are not held again.
+    // A search that matches nothing draws no calendar's row, and is then cleared: the conditions it
+    // held to the end are not held again.
     const search = editor as unknown as { _filter: unknown };
+    const row = () => editor.shadowRoot!.querySelector('.cal-row [data-focus^="row:"]');
+    expect(row()).not.toBeNull();
     search._filter = { ...NO_FILTER, query: 'nothing matches this' };
     await editor.updateComplete;
-    expect(editor.shadowRoot!.querySelector('ha-expansion-panel.entity-panel')).toBeNull();
+    expect(row()).toBeNull();
     search._filter = NO_FILTER;
     await editor.updateComplete;
-    expect(editor.shadowRoot!.querySelector('ha-expansion-panel.entity-panel')).not.toBeNull();
+    expect(row()).not.toBeNull();
     expect(warmConditions(editor)).toBeNull();
     await gone(editor);
   });

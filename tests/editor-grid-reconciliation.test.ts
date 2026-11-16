@@ -14,6 +14,8 @@ import {
   formsOf,
   mountEditor,
   openPanels,
+  resetButton,
+  resetButtons,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -75,9 +77,9 @@ function notice(editor: EditorHost): HTMLElement | null {
 }
 
 async function reset(editor: EditorHost, keys: string[]): Promise<void> {
-  const buttons = [
-    ...editor.shadowRoot!.querySelectorAll<HTMLButtonElement>('[data-reset-keys]'),
-  ].filter((button) => button.dataset.resetKeys === keys.join(' '));
+  const buttons = (await resetButtons(editor)).filter(
+    (button) => button.dataset.resetKeys === keys.join(' '),
+  );
   expect(buttons, `reset for ${keys.join(', ')}`).toHaveLength(1);
   buttons[0].click();
   await editor.updateComplete;
@@ -459,9 +461,7 @@ describe('first-switch reconciliation regressions', () => {
     const { editor, reports } = await mount({ event_background_opacity: 5 });
     await changeField(editor, 'display:view', 'grid');
     expect(reports.slice(-1)[0]).toHaveProperty('time_grid.event_background_opacity', 5);
-    editor
-      .shadowRoot!.querySelector<HTMLButtonElement>('[data-reset-keys="event_background_opacity"]')!
-      .click();
+    (await resetButton(editor, 'event_background_opacity'))!.click();
     await editor.updateComplete;
     await changeField(editor, 'display:view', 'list');
     await changeField(editor, 'display:view', 'grid');
@@ -653,7 +653,12 @@ describe('implicit defaults and first-switch boundaries', () => {
     expect(valueOf(editor, 'events:event_background_opacity')).toBe(20);
     await changeField(editor, 'filter:customized_only', true);
     expect(reports).toHaveLength(1);
-    expect(formOf(editor, 'calendars:calendars')).toBeDefined();
+    // The positive control: the filter ran and drew its verdict, that nothing is customized.
+    // A bare calendar is customized in nothing either, so the Calendars block is left out with
+    // it, and the editor's whole answer is this line.
+    expect(editor.shadowRoot!.querySelector('.overview > .filter-empty')?.textContent?.trim()).toBe(
+      lookup('en', 'filter.nothing_customized'),
+    );
     const fields = formsOf(editor, CARD).flatMap((form) =>
       [...workspaceFields(form.schema)].map(({ node }) => node.name),
     );

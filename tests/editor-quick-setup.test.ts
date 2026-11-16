@@ -9,7 +9,7 @@
  * card and the authorship it was opened with; Apply makes the result the authored truth, so the
  * next unrelated edit keeps every line the story wrote.
  */
-import { mdiChevronRight, mdiCreation } from '@mdi/js';
+import { mdiCreation } from '@mdi/js';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
@@ -19,6 +19,7 @@ import {
   changeFields,
   fakeHass,
   formsOf,
+  goOverview,
   lastConfig,
   mountEditor,
   openPanels,
@@ -78,18 +79,50 @@ async function click(editor: EditorHost, selector: string): Promise<void> {
 afterEach(() => document.body.replaceChildren());
 
 describe('Quick Setup', () => {
-  it('is offered as one banner: a sparkle, the name, one line and a chevron', async () => {
-    const { editor } = await mount();
+  it('is offered on a fresh card as a banner with Dismiss, and always under More', async () => {
+    const fresh = {
+      type: 'custom:calendar-card-pro',
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: ['calendar.anna'],
+      days_to_show: 3,
+    };
+    const { editor } = await mount(fresh);
     const entry = root(editor).querySelector<HTMLElement>('.quick-setup-entry')!;
-    const buttons = entry.querySelectorAll('button');
-    const icons = [...entry.querySelectorAll<HTMLElement & { path: string }>('ha-svg-icon')];
+    const [open, dismiss] = entry.querySelectorAll('button');
 
-    expect(buttons).toHaveLength(1);
-    expect(buttons[0].hasAttribute('data-quick-setup-open')).toBe(true);
-    expect(buttons[0].textContent!.replace(/\s+/g, ' ').trim()).toBe(
+    expect(entry.querySelectorAll('button')).toHaveLength(2);
+    expect(open.hasAttribute('data-quick-setup-open')).toBe(true);
+    expect(open.textContent!.replace(/\s+/g, ' ').trim()).toBe(
       'Quick Setup Start from an example card and answer a few questions.',
     );
-    expect(icons.map((icon) => icon.path)).toEqual([mdiCreation, mdiChevronRight]);
+    expect(open.querySelector('svg path')?.getAttribute('d')).toBe(mdiCreation);
+    expect(dismiss.getAttribute('aria-label')).toBe('Dismiss Quick Setup');
+
+    // Kept after adding a calendar: the session started fresh. Added as a user adds one, with
+    // Add Calendar, which opens the new calendar's page; the banner is the overview's.
+    await click(editor, '[data-focus="add-calendar"]');
+    await changeField(editor, 'add_calendar:pick', 'calendar.ben');
+    await click(editor, '[data-focus="add-confirm"]');
+    expect(lastConfig(editor)?.entities).toEqual(['calendar.anna', 'calendar.ben']);
+    await goOverview(editor);
+    const kept = root(editor).querySelector<HTMLElement>('.quick-setup-entry');
+    expect(kept).not.toBeNull();
+    expect(kept!.querySelectorAll('button')[1]).toBe(dismiss);
+
+    dismiss.click();
+    await editor.updateComplete;
+    expect(root(editor).querySelector('.quick-setup-entry')).toBeNull();
+    const more = root(editor).querySelector<HTMLElement>('[data-focus="more:example"]')!;
+    expect(more.hasAttribute('data-quick-setup-open')).toBe(true);
+    expect(more.textContent!.replace(/\s+/g, ' ').trim()).toBe(
+      'Start From an Example Quick Setup: an example card and a few questions',
+    );
+  });
+
+  it('offers no banner on a card that already stores settings', async () => {
+    const { editor } = await mount();
+    expect(root(editor).querySelector('.quick-setup-entry')).toBeNull();
+    expect(root(editor).querySelector('[data-quick-setup-open]')).not.toBeNull();
   });
 
   it('opens on the starting point without writing anything', async () => {

@@ -13,6 +13,7 @@ import {
   changeField,
   changeFields,
   fakeHass,
+  goOverview,
   mountEditor,
   openPanels,
 } from './helpers/editor-host';
@@ -169,6 +170,8 @@ describe('the misplaced-option notice', () => {
     const { editor, reports } = await mount({ title: 'Before', list: { start_date: 'today' } });
 
     await changeField(editor, 'card:title', 'After');
+    // The edit was made on its page; the notice stands on the overview.
+    await goOverview(editor);
 
     expect(reports[reports.length - 1].list).toEqual({ start_date: 'today' });
     expect(Object.keys(rows(editor))).toEqual(['list.start_date']);

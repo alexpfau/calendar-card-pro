@@ -70,8 +70,15 @@ export interface HeadingDef {
   readonly helperKey?: string;
   readonly fields: ReadonlyArray<readonly [FieldId, Appearance]>;
   readonly extras?: ReadonlyArray<HeadingExtra>;
-  /** A link to the heading on another page that answers the neighboring question. */
-  readonly crossLink?: { readonly page: PageId; readonly heading: string };
+  /**
+   * A link to the heading on another page that answers the neighboring question, led by
+   * `textKey`, the question it answers ("Dates of past days:").
+   */
+  readonly crossLink?: {
+    readonly page: PageId;
+    readonly heading: string;
+    readonly textKey: string;
+  };
 }
 
 /** One section page. */
@@ -83,6 +90,11 @@ export interface PageDef {
   readonly onlyIn?: Types.EffectiveView;
   readonly noteKey?: string;
   readonly headings: ReadonlyArray<HeadingDef>;
+  /**
+   * The settings the overview's row for this page names with their values, in order; each one
+   * only where it is present (`summary.ts`).
+   */
+  readonly summary: ReadonlyArray<FieldId>;
 }
 
 const E = 'essential';
@@ -112,7 +124,6 @@ const W = 'weather:weather.';
 
 /** The fields the overview edits itself, above the section rows. */
 export const OVERVIEW_FIELDS: ReadonlyArray<readonly [FieldId, Appearance]> = [
-  ['calendars:calendars', E],
   ['content:days_to_show', E],
   ['content:start_date_mode', E],
   ['content:start_date_fixed', withMode('content:start_date_mode')],
@@ -125,6 +136,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
     titleKey: 'page.which_events',
     iconPath: mdiCalendarFilterOutline,
     noteKey: 'page.which_events.note',
+    summary: ['content:show_past_events', 'content:show_empty_days'],
     headings: [
       {
         fields: [
@@ -137,7 +149,11 @@ export const PAGES: ReadonlyArray<PageDef> = [
       },
       {
         key: 'heading.past_events',
-        crossLink: { page: 'day_header', heading: 'past_days' },
+        crossLink: {
+          page: 'day_header',
+          heading: 'past_days',
+          textKey: 'nav.cross_link.past_days',
+        },
         fields: [
           ['content:show_past_events', E],
           ['events:past_event_opacity', A],
@@ -174,6 +190,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
     id: 'card_header',
     titleKey: 'panel.card',
     iconPath: mdiCardTextOutline,
+    summary: ['card:title', 'card:toolbar.show'],
     headings: [
       {
         fields: [
@@ -214,6 +231,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
     id: 'day_header',
     titleKey: 'panel.day_header',
     iconPath: mdiCalendarWeekBegin,
+    summary: ['day_header:week_number_mode', 'day_header:today_indicator_style'],
     headings: [
       {
         fields: [
@@ -272,7 +290,11 @@ export const PAGES: ReadonlyArray<PageDef> = [
       },
       {
         key: 'past_days',
-        crossLink: { page: 'which_events', heading: 'heading.past_events' },
+        crossLink: {
+          page: 'which_events',
+          heading: 'heading.past_events',
+          textKey: 'nav.cross_link.past_events',
+        },
         fields: [
           ['day_header:past_date_opacity', member('past_days')],
           ['day_header:past_date_scale', member('past_days')],
@@ -293,6 +315,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
     id: 'events',
     titleKey: 'panel.events',
     iconPath: mdiCalendarText,
+    summary: ['events:show_time', 'events:show_location', 'content:time_format'],
     headings: [
       {
         key: 'heading_details',
@@ -398,6 +421,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
     id: 'size_spacing',
     titleKey: 'page.size_spacing',
     iconPath: mdiResize,
+    summary: ['layout:height_mode'],
     headings: [
       {
         key: 'heading_card_size',
@@ -456,6 +480,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
     titleKey: 'editing_workspace.option.grid.label',
     iconPath: mdiTimelineClockOutline,
     onlyIn: 'grid',
+    summary: ['layout:time_grid.start_time', 'layout:time_grid.end_time'],
     headings: [
       {
         key: 'time_grid.axis',
@@ -491,6 +516,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
     id: 'weather',
     titleKey: 'panel.weather',
     iconPath: mdiWeatherPartlyCloudy,
+    summary: [`${W}entity`, `${W}position`],
     headings: [
       {
         fields: [
@@ -535,6 +561,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
     titleKey: 'page.taps_refresh',
     iconPath: mdiGestureTapButton,
     noteKey: 'page.taps_refresh.note',
+    summary: ['actions:event_tap_action', 'actions:day_tap_action_mode'],
     headings: [
       {
         fields: [
@@ -553,6 +580,9 @@ export const PAGES: ReadonlyArray<PageDef> = [
     ],
   },
 ];
+
+/** The overview's Calendars block: the calendar list (`views/calendars.ts`). */
+export const CALENDARS_BLOCK = { titleKey: 'panel.calendars' } as const;
 
 /** A calendar entry's page. */
 export const ENTRY_GROUPS: ReadonlyArray<HeadingDef> = [

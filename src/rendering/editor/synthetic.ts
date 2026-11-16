@@ -660,65 +660,6 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
         ? { changes: { day_tap_action: { action: 'add-event' } } }
         : { changes: { day_tap_action: undefined } },
   },
-
-  calendars: {
-    configKeys: ['entities'],
-    // One row per calendar, not one per block. The picker answers "which calendars does
-    // this card show"; the per-calendar panels below answer "how many blocks, and what is
-    // on each". Deriving 1:1 made the picker answer both and agree with itself on
-    // neither — a duplicate could be seen there and cleared there, but never added there,
-    // because Home Assistant's picker refuses to hold one entity twice.
-    //
-    // A Set keeps first-occurrence order, which is the only ordering anything downstream
-    // reads: `deduplicateEvents` walks `config.entities` and matches on `event._entityId`,
-    // so a second block of the same id finds every signature already seen and contributes
-    // nothing — priority under `filter_duplicates` is fixed by an id's *first* position.
-    // `fetchEvents` skips an id it has already fetched, and `getPrimaryEntityId` reads
-    // `entities[0]`. Collapsing `[a, b, c, b]` to `[a, b, b, c]` therefore changes nothing
-    // observable: b still precedes c, and entities[0] is untouched.
-    derive: (config) => [...new Set((config.entities ?? []).map(entityIdOf))],
-    apply: (value, config) => {
-      const ids = Array.isArray(value) ? value.map((id) => String(id)) : [];
-
-      // Listing the same calendar twice is supported and meaningful — each block
-      // carries its own label, color and limits. A Map keyed by entity ID kept
-      // only the last block for a repeated ID, so re-opening the picker rewrote
-      // every earlier duplicate with the last one's settings. Queue the blocks
-      // per ID so each keeps its own config.
-      const existing = new Map<string, Array<string | Types.EntityConfig>>();
-      for (const entry of config.entities ?? []) {
-        const id = entityIdOf(entry);
-        const queue = existing.get(id);
-        if (queue) {
-          queue.push(entry);
-        } else {
-          existing.set(id, [entry]);
-        }
-      }
-
-      // Each row emits that calendar's *whole* queue, because one row now stands for
-      // however many blocks the calendar has. Shifting one off instead would silently
-      // drop the rest, which is what makes this the half that cannot be changed alone.
-      // Clearing a row therefore drops every block for that calendar, which is the
-      // model the picker now presents; removing a single block is the panel's own
-      // Remove action. The editor's keys for the entries follow these queues in order
-      // (`write-frames.ts` › `carryEntryKeys`), so neither may reorder a queue alone.
-      const used = new Set<string>();
-
-      return {
-        changes: {
-          entities: ids.flatMap((id) => {
-            // The picker cannot emit an id twice, but this keeps the function total
-            // rather than duplicating a queue if anything else ever calls it.
-            if (used.has(id)) return [];
-            used.add(id);
-
-            return existing.get(id) ?? [id];
-          }),
-        },
-      };
-    },
-  },
 };
 
 /**

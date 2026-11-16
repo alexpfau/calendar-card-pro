@@ -15,6 +15,7 @@ import {
   formsOf,
   mountEditor,
   openPanels,
+  resetButton,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -336,9 +337,7 @@ describe('configuration version states', () => {
     });
     const titleForm = formOf(editor, 'card:title')!;
     const entityForm = formOf(editor, 'calendar:name', entry(0));
-    const reset = editor.shadowRoot!.querySelector<HTMLButtonElement>(
-      '[data-reset-keys="event_font_size"]',
-    )!;
+    const reset = (await resetButton(editor, 'event_font_size'))!;
     expect(entityForm).toBeDefined();
     expect(reset).not.toBeNull();
 
@@ -560,6 +559,10 @@ describe('compact expansion after editor migration', () => {
     const migrated = reports.slice(-1)[0]!;
     expect(migrated).toHaveProperty(`list.${key}`, limit);
     expect(migrated).not.toHaveProperty(key);
+    // The edit opened a page, which focuses its heading. happy-dom's `ShadowRoot.activeElement`
+    // throws while focus sits in another shadow root, as the card's update asks it, so focus
+    // leaves the editor before the cards mount, as it would once a user moved to the dashboard.
+    (editor.shadowRoot!.activeElement as HTMLElement | null)?.blur();
 
     const events: Types.CalendarEventData[] = [
       ['2026-06-17', '2026-06-18'],

@@ -67,6 +67,31 @@ function ownedByCard(key: string): boolean {
   );
 }
 
+/** What a card fresh from Home Assistant's card picker stores, besides keys the card does not own. */
+const FRESH_KEYS: ReadonlySet<string> = new Set([
+  'type',
+  'entities',
+  'days_to_show',
+  'config_version',
+]);
+
+/**
+ * Whether a card is fresh, so the overview offers Quick Setup's banner: at most one calendar,
+ * no layout block, and nothing stored beyond what the card picker's stub writes (`type`,
+ * `entities`, `days_to_show`, `config_version`, and its `_description` note), besides keys
+ * the card does not own, which Home Assistant or the user add (`grid_options`, `visibility`).
+ *
+ * @param raw - Configuration as the YAML holds it
+ * @returns `true` for a fresh card
+ */
+export function isFreshCard(raw: Readonly<Record<string, unknown>>): boolean {
+  const entries = raw.entities;
+  if (entries !== undefined && (!Array.isArray(entries) || entries.length > 1)) return false;
+  return Object.keys(raw).every(
+    (key) => FRESH_KEYS.has(key) || key.startsWith('_') || !ownedByCard(key),
+  );
+}
+
 /**
  * The calendars a configuration lists, each once, in the order it first lists them.
  *

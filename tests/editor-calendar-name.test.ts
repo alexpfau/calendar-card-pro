@@ -3,9 +3,8 @@
  *
  * Four things are pinned here, and each fails in a way the others cannot see.
  *
- * **Where the field sits and what it says.** It opens the per-calendar panel, under a heading
- * renamed to say so in every language that translates it; a translation left behind would go
- * on calling the section a label's, which no gate other than these pins would notice.
+ * **Where the field sits and what it says.** It opens a calendar's fields, first under the entry
+ * page's first heading, which names it.
  *
  * **That the name belongs to the calendar.** A calendar listed twice — the pattern
  * `event_type` needs, and what Duplicate creates — has one name. So each block's form shows
@@ -18,8 +17,8 @@
  * calendar carrying only its name offers nothing to copy. Without that, an empty copy would
  * arm every Paste button with a paste that clears the calendar it lands on.
  *
- * **What it does not change.** The panel heading stays Home Assistant's name, matching the
- * calendar picker above it, which the card cannot rename.
+ * **What it heads.** The calendar's row on the overview and its entry page are headed by the
+ * name, and by Home Assistant's name where the calendar has none of its own.
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -29,20 +28,24 @@ import {
   changeField,
   entry,
   fakeHass,
+  goEntry,
+  goOverview,
+  keysOf,
   mountEditor,
   openPanels,
   valueOf,
 } from './helpers/editor-host';
+import { searchIndex } from './helpers/search-index';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as Entities from '../src/rendering/editor/entities';
-import { type FilterCtx, NO_FILTER, filterEntitySchema } from '../src/rendering/editor/filter';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { lookup } from '../src/rendering/editor/localize';
+import { ENTRY_GROUPS } from '../src/rendering/editor/pages';
 import { walkSchema } from '../src/rendering/editor/panels';
 import { buildEntitySchema, entitySchemaFor } from '../src/rendering/editor/schemas/entity';
+import { search as searchRows } from '../src/rendering/editor/search';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
-import { EDITOR_LANGUAGE_STRINGS } from '../src/rendering/editor/translations';
 
 const ANNA = 'calendar.anna';
 const BEN = 'calendar.ben';
@@ -65,67 +68,36 @@ function fieldNames(schema: ReadonlyArray<HaFormSchema>): string[] {
 }
 
 describe('the Name field', () => {
-  it('opens the per-calendar panel, directly under its first heading, as plain text', () => {
+  it("opens a calendar's fields, first under the entry page's first heading, as plain text", () => {
     const schema = entitySchema();
 
-    expect(sequence(schema).slice(0, 3)).toEqual([
-      '# heading_appearance',
-      'name',
-      'show_in_legend',
+    expect(sequence(schema).slice(0, 2)).toEqual(['name', 'show_in_legend']);
+    expect(schema[0]).toEqual({ name: 'name', selector: { text: { type: 'text' } } });
+    expect([ENTRY_GROUPS[0].key, ENTRY_GROUPS[0].fields[0][0]]).toEqual([
+      'heading.name_and_look',
+      'calendar:name',
     ]);
-    expect(schema[1]).toEqual({ name: 'name', selector: { text: { type: 'text' } } });
   });
 
   it.each(['none', 'text', 'icon', 'image'])(
     'stays first whatever shape the label holds (%s)',
     (type) => {
-      expect(sequence(entitySchemaFor(entitySchema(), type)).slice(0, 2)).toEqual([
-        '# heading_appearance',
-        'name',
-      ]);
+      expect(sequence(entitySchemaFor(entitySchema(), type))[0]).toBe('name');
     },
   );
 
   it('is labeled and explained, under a heading that names it', () => {
     expect({
       label: lookup('en', 'entity.name'),
-      heading: EDITOR_STRINGS.heading_appearance,
+      heading: EDITOR_STRINGS['heading.name_and_look'],
       helper: EDITOR_STRINGS['entity.name.helper'],
     }).toEqual({
       label: 'Name',
-      heading: 'Name & Appearance',
+      heading: 'Name & Look',
       helper:
         'Names this calendar in the calendar filter, when you open one of its events, and in ' +
-        'notices. Every entry for this calendar shares it. Left empty, the card uses Home ' +
-        'Assistant\u2019s name for it, which the calendar picker and this panel\u2019s heading ' +
-        'keep either way.',
-    });
-  });
-
-  it('names the heading as a name and an appearance in every translated editor', () => {
-    // Pinned by value for every language with an editor file, so a translation left on the
-    // old heading — which named only the label and the colors, and not the text scale the
-    // section also holds — fails here.
-    const translated = Object.fromEntries(
-      Object.entries(EDITOR_LANGUAGE_STRINGS).map(([language, strings]) => [
-        language,
-        [strings.heading_appearance, strings['entity.name']],
-      ]),
-    );
-
-    expect(translated).toEqual({
-      de: ['Name & Darstellung', 'Name'],
-      // No spelling of its own to override any longer, so British English reads the English.
-      'en-gb': [undefined, undefined],
-      et: ['Nimi ja välimus', 'Nimi'],
-      it: ['Nome e aspetto', 'Nome'],
-      ko: ['이름 및 모양', '이름'],
-      lt: ['Pavadinimas ir išvaizda', 'Kalendoriaus pavadinimas'],
-      lv: ['Nosaukums un izskats', 'Nosaukums'],
-      nb: ['Navn og utseende', 'Navn'],
-      pl: ['Nazwa i wygląd', 'Nazwa'],
-      sk: ['Názov a vzhľad', 'Názov kalendára'],
-      sv: ['Namn och utseende', 'Namn'],
+        'notices, and heads its row and its page here. Every entry for this calendar shares it. ' +
+        'Left empty, the card uses Home Assistant\u2019s name for it.',
     });
   });
 });
@@ -253,8 +225,8 @@ describe('writing a calendar name', () => {
   });
 
   it('moves the name to the block left when Remove takes the only block holding it', () => {
-    // Hand-written YAML naming the calendar on its second block only: both panels show the
-    // name, so removing that block must not quietly give the calendar Home Assistant's back.
+    // Hand-written YAML naming the calendar on its second block only: both entry pages show
+    // the name, so removing that block must not quietly give the calendar Home Assistant's back.
     expect(
       Entities.removeEntity(
         [
@@ -285,12 +257,12 @@ describe('writing a calendar name', () => {
 
 describe('searching the editor for a calendar by its name', () => {
   /**
-   * Search one block's settings.
+   * Search one block's settings, as the jump list lists them.
    *
    * @param entities - The list as stored
    * @param index - The block searched
    * @param query - The search text
-   * @returns The fields left
+   * @returns The fields listed
    */
   function search(
     entities: Array<string | Types.EntityConfig>,
@@ -298,13 +270,15 @@ describe('searching the editor for a calendar by its name', () => {
     query: string,
   ): string[] {
     const config = { ...buildConfig(), entities } as Types.Config;
-    const ctx: FilterCtx = {
-      language: 'en',
-      view: 'list',
-      config,
-      criteria: { ...NO_FILTER, query },
-    };
-    return fieldNames(filterEntitySchema(entitySchema(), entities[index], ['entity'], ctx));
+    const rows = searchIndex(config, {
+      workspace: 'list',
+      entrySchemas: entities.map(() => entitySchema()),
+    });
+    return searchRows(rows, query).flatMap(({ entry: { target } }) =>
+      target.kind === 'entry-field' && target.key === index
+        ? [target.id.slice('calendar:'.length)]
+        : [],
+    );
   }
 
   it('finds every block of a calendar by its name, whichever block holds it', () => {
@@ -368,10 +342,6 @@ describe('copying and pasting a calendar’s settings', () => {
 });
 
 describe('the Name field in the rendered editor', () => {
-  interface Panel extends HTMLElement {
-    header?: string;
-  }
-
   /**
    * Builds a rendered editor over the given calendars, with Home Assistant naming Anna's.
    *
@@ -393,7 +363,7 @@ describe('the Name field in the rendered editor', () => {
         }),
       },
     );
-    // A closed panel mounts no form: open the calendars' panels, as these tests read them.
+    // Only the open page draws its forms: visit every entry's page, as these tests read them.
     await openPanels(element);
 
     const emitted: Array<Record<string, unknown>> = [];
@@ -405,14 +375,26 @@ describe('the Name field in the rendered editor', () => {
     return {
       element,
       emitted,
-      headers: () =>
-        Array.from(root.querySelectorAll<Panel>('ha-expansion-panel.entity-panel')).map(
-          (panel) => panel.header,
-        ),
-      copy: (calendar: number) =>
-        Array.from(root.querySelectorAll('.entity-actions')[calendar].querySelectorAll('button'))
-          .filter((button) => button.textContent?.trim() === 'Copy Settings')
-          .map((button) => (button.hasAttribute('disabled') ? 'off' : 'on'))[0],
+      /** The row's title on the overview, then the entry page's heading, for one entry. */
+      headings: async (calendar: number) => {
+        const key = keysOf(element, 'entry')[calendar];
+        await goOverview(element);
+        const row = root.querySelector(`[data-focus="row:${key}"] .cal-title`)?.textContent;
+        await goEntry(element, key);
+        const page = root.querySelector('.entry-page h2.page-title')?.textContent;
+        await goOverview(element);
+        return [row?.trim(), page?.trim()];
+      },
+      /** Whether the Copy Settings button in one entry's row strip is enabled. */
+      copy: async (calendar: number) => {
+        const key = keysOf(element, 'entry')[calendar];
+        await goOverview(element);
+        root.querySelector<HTMLButtonElement>(`[data-focus="more:entry:${key}"]`)!.click();
+        await element.updateComplete;
+        const copy = root.querySelector(`[data-focus="strip:entry:${key}:copy"]`);
+        if (copy === null) throw new Error(`no Copy Settings on calendar ${calendar}`);
+        return copy.hasAttribute('disabled') ? 'off' : 'on';
+      },
     };
   }
 
@@ -421,11 +403,16 @@ describe('the Name field in the rendered editor', () => {
     document.body.innerHTML = '';
   });
 
-  it("keeps Home Assistant's name in the panel heading, matching the picker above it", async () => {
+  it("heads the calendar's row and page with its name, and with Home Assistant's without one", async () => {
     const editor = await render([{ entity: ANNA, name: 'Anna at work' }]);
 
-    expect(editor.headers()).toEqual(['Anna calendar']);
+    expect(await editor.headings(0)).toEqual(['Anna at work', 'Anna at work']);
     expect(valueOf(editor.element, 'calendar:name', entry(0))).toBe('Anna at work');
+
+    // The control: the same calendar with no name of its own is headed by Home Assistant's.
+    const unnamed = await render([ANNA]);
+    expect(await unnamed.headings(0)).toEqual(['Anna calendar', 'Anna calendar']);
+    expect(valueOf(unnamed.element, 'calendar:name', entry(0))).toBeUndefined();
   });
 
   it('offers Copy only for a calendar carrying more than its name', async () => {
@@ -434,7 +421,7 @@ describe('the Name field in the rendered editor', () => {
       { entity: BEN, name: 'Ben at school', label: 'B' },
     ]);
 
-    expect([editor.copy(0), editor.copy(1)]).toEqual(['off', 'on']);
+    expect([await editor.copy(0), await editor.copy(1)]).toEqual(['off', 'on']);
   });
 
   it('shows the second block the name and writes a rename to both', async () => {

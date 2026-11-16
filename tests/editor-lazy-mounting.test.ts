@@ -1,9 +1,10 @@
 /**
- * A closed panel mounts no form (backlog item 307).
+ * A closed panel mounts no form, and a page only its own (backlog item 307).
  *
  * Today's dialog built every panel's forms, 124 of them behind closed panels, at every open and
- * on every render. Now a panel mounts its forms when it first opens, and has to do so before Home
- * Assistant measures it: its `ha-expansion-panel` announces `expanded-will-change`, lets a render
+ * on every render. Now the card's settings sit on pages, a calendar entry's on a page of its own,
+ * and only the place open draws its forms; the panels left, the toolbar buttons', mount theirs when
+ * they first open, and have to do so before Home Assistant measures it: its `ha-expansion-panel` announces `expanded-will-change`, lets a render
  * pass, reads its content's height, and only then announces `expanded-changed` (`_toggleContainer`
  * in its frontend, 2026.11). Forms mounted on `expanded-changed` would arrive after the measuring,
  * and the panel would open to the height of an empty one.
@@ -15,9 +16,14 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { changeField, mountEditor } from './helpers/editor-host';
+import {
+  changeField,
+  chooseResult,
+  mountEditor,
+  openPageOf,
+  resultRows,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
-import { PANELS } from '../src/rendering/editor/panels';
 
 /** A drawn panel, as Home Assistant's element and the editor set it. */
 type Panel = HTMLElement & { expanded?: boolean; header?: string };
@@ -26,7 +32,13 @@ const CONFIG = {
   config_version: Config.CURRENT_CONFIG_VERSION,
   entities: ['calendar.anna', { entity: 'calendar.ben', label: 'mdi:home' }],
   weather: { entity: 'weather.home', position: 'both' },
-  toolbar: { show: true, buttons: [{ icon: 'mdi:home', name: 'Home' }] },
+  toolbar: {
+    show: true,
+    buttons: [
+      { icon: 'mdi:home', name: 'Home' },
+      { icon: 'mdi:bed', name: 'Bed' },
+    ],
+  },
 };
 
 /** Every panel the editor draws, outermost first. */
@@ -66,27 +78,45 @@ async function toggleOpen(panel: Panel): Promise<number> {
 
 afterEach(() => document.body.replaceChildren());
 
+/**
+ * A toolbar button's panel on Card & Header, by its place among those drawn.
+ *
+ * @param editor - The editor, on Card & Header
+ * @param at - Its place
+ * @returns The panel
+ */
+function toolbarButton(editor: HTMLElement, at: number): Panel {
+  return panels(editor).filter((panel) => panel.matches('.button-panel'))[at];
+}
+
 describe('a closed panel', () => {
   it('holds no form, and nor does any panel inside it', async () => {
     const editor = await mountEditor(CONFIG);
+    // The overview draws its calendars as rows, and no panel at all; its own forms are drawn: the
+    // filter bar, Days to Show and Start Date.
+    expect(panels(editor)).toEqual([]);
+    expect(editor.shadowRoot!.querySelectorAll('ha-form').length).toBeGreaterThanOrEqual(3);
 
+    await openPageOf(editor, 'card:title');
     const drawn = panels(editor);
-    // Nine panels, two calendars and one toolbar button: every panel the editor draws.
-    expect(drawn).toHaveLength(PANELS.length + 2 + 1);
+    // Two toolbar buttons on Card & Header: every panel it draws.
+    expect(drawn).toHaveLength(2);
     expect(drawn.map((panel) => mounted(panel).length)).toEqual(drawn.map(() => 0));
-    // The control: the forms above the panels are drawn as before.
-    expect(editor.shadowRoot!.querySelectorAll('ha-form')).toHaveLength(3);
+    // The control: the page's own forms are drawn, outside the panels.
+    const forms = editor.shadowRoot!.querySelectorAll('ha-form').length;
+    expect(forms).toBeGreaterThanOrEqual(4);
   });
 
   it('opens with its forms mounted in the update that opens it, before Home Assistant measures it', async () => {
     const editor = await mountEditor(CONFIG);
-    const events = panels(editor).find((panel) => panel.header === 'Events')!;
+    await openPageOf(editor, 'card:title');
+    const bed = toolbarButton(editor, 1);
     const updates: string[] = [];
-    events.addEventListener('expanded-changed', () =>
-      updates.push(`changed with ${mounted(events).length} forms`),
+    bed.addEventListener('expanded-changed', () =>
+      updates.push(`changed with ${mounted(bed).length} forms`),
     );
 
-    events.dispatchEvent(
+    bed.dispatchEvent(
       new CustomEvent('expanded-will-change', {
         detail: { expanded: true },
         bubbles: true,
@@ -95,80 +125,93 @@ describe('a closed panel', () => {
     );
     await editor.updateComplete;
 
-    // Still closed, and nothing announced yet beyond the will-change: the form is there now.
-    expect(events.expanded).not.toBe(true);
+    // Still closed, and nothing announced yet beyond the will-change: the forms are there now.
+    expect(bed.expanded).not.toBe(true);
     expect(updates).toEqual([]);
-    expect(mounted(events)).toHaveLength(1);
-    // Only that panel: every other one still holds none.
-    expect(
-      panels(editor)
-        .filter((panel) => panel !== events)
-        .flatMap(mounted),
-    ).toEqual([]);
+    expect(mounted(bed).length).toBeGreaterThan(0);
+    // Only that panel: the other still holds none.
+    expect(mounted(toolbarButton(editor, 0))).toEqual([]);
   });
 
-  it.each(PANELS.map((panel) => panel.id))(
-    'mounts what the %s panel holds before Home Assistant measures it',
-    async (id) => {
-      const editor = await mountEditor(CONFIG);
-      const index = PANELS.findIndex((panel) => panel.id === id);
-      const panel = panels(editor).filter(
-        (candidate) => !candidate.matches('.entity-panel, .button-panel'),
-      )[index];
-
-      const measured = await toggleOpen(panel);
-
-      expect(measured).toBeGreaterThan(0);
-      expect(mounted(panel).length).toBe(measured);
-    },
-  );
-
-  it('mounts a calendar’s forms when its own panel opens, inside an open Calendars panel', async () => {
+  it('mounts what one of two toolbar buttons’ panels holds before Home Assistant measures it, and not the other’s', async () => {
     const editor = await mountEditor(CONFIG);
-    const calendars = panels(editor)[0];
-    const ben = panels(editor).filter((panel) => panel.matches('.entity-panel'))[1];
+    await openPageOf(editor, 'card:title');
+    const bed = toolbarButton(editor, 1);
+    const measured = await toggleOpen(bed);
+    expect(measured).toBeGreaterThan(0);
+    expect(mounted(bed).length).toBe(measured);
+    expect(mounted(toolbarButton(editor, 0))).toEqual([]);
+  });
 
-    expect(await toggleOpen(calendars)).toBe(1);
-    // The calendars' own panels are still closed: the picker is the only form so far.
-    expect(mounted(ben)).toEqual([]);
+  it('mounts what a toolbar button’s panel holds before Home Assistant measures it', async () => {
+    const editor = await mountEditor(CONFIG);
+    await openPageOf(editor, 'card:title');
+    const home = panels(editor).find((panel) => panel.matches('.button-panel'))!;
+    expect(mounted(home)).toEqual([]);
 
-    expect(await toggleOpen(ben)).toBeGreaterThan(0);
-    expect(mounted(panels(editor).filter((panel) => panel.matches('.entity-panel'))[0])).toEqual(
-      [],
-    );
+    const measured = await toggleOpen(home);
+    expect(measured).toBeGreaterThan(0);
+    expect(mounted(home).length).toBe(measured);
   });
 
   it('keeps its forms once it has opened, closed again or not', async () => {
     const editor = await mountEditor(CONFIG);
-    const events = panels(editor).find((panel) => panel.header === 'Events')!;
-    await toggleOpen(events);
-    const form = mounted(events)[0];
+    await openPageOf(editor, 'card:title');
+    const bed = toolbarButton(editor, 1);
+    await toggleOpen(bed);
+    const forms = mounted(bed);
+    expect(forms.length).toBeGreaterThan(0);
 
-    events.dispatchEvent(
+    bed.dispatchEvent(
       new CustomEvent('expanded-will-change', {
         detail: { expanded: false },
         bubbles: true,
         composed: true,
       }),
     );
-    events.expanded = false;
+    bed.expanded = false;
     editor.requestUpdate();
     await editor.updateComplete;
 
-    expect(mounted(events)).toEqual([form]);
+    expect(mounted(bed)).toEqual(forms);
+  });
+});
+
+describe('a page', () => {
+  it('draws its own fields only, and the overview’s come back with it', async () => {
+    const editor = await mountEditor(CONFIG);
+    const ids = (): string[] =>
+      [...editor.shadowRoot!.querySelectorAll('[data-field]')].map((field) =>
+        field.getAttribute('data-field')!,
+      );
+    const overview = ids();
+    expect(overview).toContain('content:days_to_show');
+
+    await openPageOf(editor, 'events:show_time');
+    expect(ids().length).toBeGreaterThan(1);
+    expect(ids().every((id) => id.startsWith('events:') || id.startsWith('content:'))).toBe(true);
+    expect(ids()).not.toContain('content:days_to_show');
+
+    await openPageOf(editor, 'content:days_to_show');
+    expect(ids()).toEqual(overview);
   });
 });
 
 describe('a search', () => {
-  it('opens the panels it keeps, which then mount their forms', async () => {
+  it('opens the calendar entry’s page a result names, which then mounts its forms, and no other', async () => {
     const editor = await mountEditor(CONFIG);
+    const root = editor.shadowRoot!;
 
     await changeField(editor, 'filter:search', 'color');
+    // Results are rows: no entry page is drawn, so no calendar form is mounted.
+    expect(root.querySelectorAll('ha-form.entity-form')).toHaveLength(0);
 
-    const kept = panels(editor).filter((panel) => !panel.matches('.entity-panel, .button-panel'));
-    expect(kept.length).toBeGreaterThan(1);
-    expect(kept.map((panel) => [panel.expanded, mounted(panel).length > 0])).toEqual(
-      kept.map(() => [true, true]),
-    );
+    const row = resultRows(editor).find((each) => each.id.startsWith('calendar:'))!;
+    await chooseResult(editor, row.key);
+    const pages = [...root.querySelectorAll('.entry-page')];
+    expect(pages.map((page) => page.getAttribute('data-entry-key'))).toEqual([
+      String(row.ownerKey),
+    ]);
+    expect(root.querySelectorAll('ha-form.entity-form').length).toBeGreaterThan(0);
   });
 });
