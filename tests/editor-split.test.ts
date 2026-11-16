@@ -441,8 +441,12 @@ describe('Split This Calendar on an entry’s page', () => {
     await press(editor, 'split-next');
     await press(editor, 'split-next');
     await settle(editor);
-    expect(text(task(editor))).toContain('Writes Allowlist: Lake, matching the location');
-    expect(text(task(editor))).toContain('Writes Blocklist: Lake, matching the location');
+    expect(text(task(editor))).toContain(
+      'Writes Only Show Events Containing: Lake, matching the location',
+    );
+    expect(text(task(editor))).toContain(
+      'Writes Hide Events Containing: Lake, matching the location',
+    );
 
     await press(editor, 'split-apply');
     expect((lastConfig(editor)!.entities as unknown[]).slice(0, 2)).toEqual([
@@ -640,7 +644,7 @@ describe('a word list the card cannot read', () => {
       blocklist: 'This pattern cannot be read, so the card ignores it.',
     });
     await press(editor, 'split-row');
-    expect(text(task(editor))).toContain('its Blocklist cannot be read');
+    expect(text(task(editor))).toContain('its Hide Events Containing cannot be read');
   });
 
   it('is not flagged where the card reads it', async () => {

@@ -4,7 +4,7 @@
  */
 
 import { mdiRedo, mdiUndo } from '@mdi/js';
-import { type TemplateResult, html } from 'lit';
+import { type TemplateResult, html, nothing } from 'lit';
 
 import { icon } from './icon';
 
@@ -65,5 +65,47 @@ export function statusBar(
     <button type="button" class="text-button" data-focus="status-undo" @click=${onUndo}>
       ${undoLabel}
     </button>
+  </div>`;
+}
+
+/**
+ * The receipt the upgrade on opening leaves at the top of the overview: "Upgraded. Day Spacing
+ * now applies to List, as before. The card looks the same." with Use It for Every Layout, until it
+ * is, and Undo.
+ *
+ * @param receipt - Its title, sentences, share button and Undo
+ * @param receipt.title - "Upgraded."
+ * @param receipt.text - The sentences after it
+ * @param receipt.share - Use Them for Every Layout, while they are List's
+ * @param receipt.undoLabel - Undo's label
+ * @param receipt.onUndo - Undo
+ * @returns The receipt
+ */
+export function upgradeReceipt(receipt: {
+  readonly title: string;
+  readonly text: string;
+  readonly share?: { readonly label: string; readonly onPress: () => void };
+  readonly undoLabel: string;
+  readonly onUndo: () => void;
+}): TemplateResult {
+  return html`<div class="status-bar upgrade-receipt" data-status-bar data-upgrade-receipt>
+    <span class="status-text"><strong>${receipt.title}</strong> ${receipt.text}</span>
+    <span class="upgrade-actions">
+      ${
+        receipt.share
+          ? html`<button
+              type="button"
+              class="text-button"
+              data-focus="upgrade-share"
+              @click=${receipt.share.onPress}
+            >
+              ${receipt.share.label}
+            </button>`
+          : nothing
+      }
+      <button type="button" class="text-button" data-focus="status-undo" @click=${receipt.onUndo}>
+        ${receipt.undoLabel}
+      </button>
+    </span>
   </div>`;
 }

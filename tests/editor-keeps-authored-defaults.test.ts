@@ -11,7 +11,13 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { changeField, mountEditor, openPanels, resetButton } from './helpers/editor-host';
+import {
+  changeField,
+  mountEditor,
+  openPanels,
+  reportsOf,
+  resetButton,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { valueSource } from '../src/rendering/editor/routing';
@@ -32,22 +38,22 @@ async function mount(config: Record<string, unknown>) {
   const editor = await mountEditor(structuredClone(config));
   // A closed panel mounts no form: open every panel, as these tests read forms across the editor.
   await openPanels(editor);
-  const reports: Record<string, unknown>[] = [];
-  editor.addEventListener('config-changed', (event) => {
-    reports.push(
-      structuredClone((event as CustomEvent<{ config: Record<string, unknown> }>).detail.config),
-    );
-  });
-  return { editor, reports };
+  // What it reported since it was created: an upgrade on opening is the first.
+  return { editor, reports: reportsOf(editor) };
 }
 
+/**
+ * The upgrade's answer: List, as the editor writes on opening, or every layout, through the
+ * receipt's Use Them for Every Layout.
+ *
+ * @param editor - Editor
+ * @param choice - The answer
+ */
 async function choose(editor: EditorHost, choice: 'keep-list' | 'shared-root'): Promise<void> {
-  const blocker = editor.shadowRoot!.querySelector('[data-config-migration]')!;
-  const buttons = [...blocker.querySelectorAll<HTMLButtonElement>('button')];
-  expect(buttons).toHaveLength(2);
-  buttons[choice === 'keep-list' ? 0 : 1].click();
-  await editor.updateComplete;
-  // The panels arrive with the answer, each closed and mounting no form until opened.
+  if (choice === 'shared-root') {
+    editor.shadowRoot!.querySelector<HTMLButtonElement>('[data-focus="upgrade-share"]')!.click();
+    await editor.updateComplete;
+  }
   await openPanels(editor);
 }
 
@@ -105,12 +111,13 @@ const ANSWERS = {
   },
 } as const;
 
-describe('answering the upgrade prompt', () => {
-  it('writes nothing when the editor is only opened', async () => {
+describe('the upgrade on opening', () => {
+  it('writes the List answer when the editor is only opened', async () => {
     const { editor, reports } = await mount(V4_CARD);
 
-    expect(editor.shadowRoot!.querySelector('[data-config-migration]')).not.toBeNull();
-    expect(reports).toEqual([]);
+    expect(editor.shadowRoot!.querySelector('[data-config-migration]')).toBeNull();
+    expect(editor.shadowRoot!.querySelector('[data-upgrade-receipt]')).not.toBeNull();
+    expect(reports).toEqual([ANSWERS['keep-list']]);
   });
 
   it.each(Object.keys(ANSWERS) as Array<keyof typeof ANSWERS>)(
@@ -120,7 +127,7 @@ describe('answering the upgrade prompt', () => {
 
       await choose(editor, answer);
 
-      expect(reports).toEqual([ANSWERS[answer]]);
+      expect(reports.slice(-1)).toEqual([ANSWERS[answer]]);
     },
   );
 

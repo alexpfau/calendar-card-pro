@@ -71,7 +71,8 @@ position and focus where you left them. Nothing goes deeper than a page.
 
 ## 🪄 Quick Setup
 
-**Quick Setup** starts a card from one of the [Example Stories](/reference/examples) and asks only
+**Quick Setup** starts a card from a [Simple Agenda](/guide/usage#your-first-card) or one of the
+[Example Stories](/reference/examples) and asks only
 what a story cannot know about your home: the title, your calendars, your weather and how the
 card should answer a tap. Use it on a new card to get a finished-looking one in a few steps, or
 on an existing card to try a different look without retyping anything.
@@ -111,18 +112,19 @@ entities:
     accent_color: '#26a69a'
 ```
 
-| Step                  | What it asks                                                                                                                                                                                                   |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Starting Point**    | [Family Hub](/guide/family-calendar), [Now & Next](/guide/now-and-next), [Today & Tomorrow](/guide/today-and-tomorrow), [Birthdays & Holidays](/guide/birthdays-and-holidays) or [House Log](/guide/house-log) |
-| **Title & Calendars** | The card's title, and its calendars; at least one                                                                                                                                                              |
-| **Weather**           | A weather entity, or none                                                                                                                                                                                      |
-| **Taps & Toolbar**    | Whether to show the toolbar, open an event on a tap, and add an event on a tap on a day                                                                                                                        |
-| **Review**            | What Apply will change, then **Apply**                                                                                                                                                                         |
+| Step                  | What it asks                                                                                                                                                                                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Starting Point**    | [Simple Agenda](/guide/usage#your-first-card), [Family Hub](/guide/family-calendar), [Now & Next](/guide/now-and-next), [Today & Tomorrow](/guide/today-and-tomorrow), [Birthdays & Holidays](/guide/birthdays-and-holidays) or [House Log](/guide/house-log) |
+| **Title & Calendars** | The card's title, and its calendars; at least one                                                                                                                                                                                                             |
+| **Weather**           | A weather entity, or none                                                                                                                                                                                                                                     |
+| **Taps & Toolbar**    | Whether to show the toolbar, open an event on a tap, and add an event on a tap on a day                                                                                                                                                                       |
+| **Review**            | The example, calendars, layout, title and weather Apply leaves, each setting it replaces, then **Apply**                                                                                                                                                      |
 
 - **The preview follows every answer.** **Cancel** puts the card back exactly as it was, and
   after **Apply**, one **Undo** does.
 - **The story replaces the card's look**: its layout, spacing, toolbar settings and actions, and
-  every setting the steps do not ask about.
+  every setting the steps do not ask about. On a card with settings, the review names each one it
+  replaces, with its value now and after, such as "Days To Show: 7 → 3".
 - **Your calendars keep their own settings.** A calendar without a color of its own takes the
   story's next color, until the story runs out of colors.
 - **The weather step starts from your card's weather entity.** Without one, a story that shows
@@ -141,6 +143,9 @@ entities:
 - Each answer is a real edit of the card, so pressing Home Assistant's **Save** before
   **Apply** saves what the preview shows.
 - Changing the card's YAML while Quick Setup is open closes it, keeping your YAML.
+- A new card from Home Assistant's card picker starts with the first calendar Home Assistant
+  lists, which nobody chose. Quick Setup starts such a card with no calendar chosen, and the
+  overview names that calendar under **Calendars**, with **Change Calendar** to pick another.
 
 :::
 
@@ -210,30 +215,31 @@ until you add it again. The words above it say which value that is.
 
 ### Upgrading a Card From Before v5
 
-Opening a List or Grid card from before v5 can raise one question first. Before v5, List
-settings lived at the top level, alongside values inherited by Column. In v5, that same
-location means **All Layouts**. When an older List or Grid card contains an option whose
-default differs in another layout, the editor cannot safely guess which meaning you want. It
-pauses before showing the normal controls and offers two choices:
+Opening a List or Grid card from before v5 upgrades it, and the card looks the same. Before v5,
+List settings lived at the top level, alongside values inherited by Column. In v5, that same
+location means **All Layouts**. When an older List or Grid card holds an option whose default
+differs in another layout, the editor keeps that value for List, as it was written, and says so
+at the top of the overview, for example "Upgraded. Day Spacing and Event Font Size now apply to
+List, as before. The card looks the same."
 
-- **Keep my existing List appearance** — recommended. The existing values stay with List,
-  while Column and Grid keep their own settings and defaults.
-- **Use these settings for all layouts** — the existing values become the shared starting
-  point. A layout's own settings and built-in defaults can still take precedence.
+- **Use Them for Every Layout** makes those values the shared starting point instead. A
+  layout's own settings and built-in defaults can still take precedence.
+- **Undo** puts the YAML back exactly as it was. The editor then upgrades it the same way with
+  your next change.
 
-Either choice keeps every option your YAML spells out, including one set to its default, such
-as `show_month: true`, and preserves the layout currently on screen at the moment you choose
-it. On a Grid card, the choice decides what List — including a responsive List fallback — uses
-later; the current Grid appearance is unchanged.
+Either way the editor keeps every option your YAML spells out, including one set to its default,
+such as `show_month: true`, and the layout currently on screen. On a Grid card, the upgrade
+decides what List, including a responsive List fallback, uses later; the current Grid appearance
+is unchanged.
 
-Column cards do not show this choice, and their columns do not change: the first editor edit
-keeps the top-level values shared, as Column read them before v5.
+Column cards are not upgraded on opening, and their columns do not change: the first editor
+edit keeps the top-level values shared, as Column read them before v5.
 
-Merely opening and closing the editor writes nothing, and a card you never edit keeps working
-as it is; see [Per-View Options](/features/core-settings#per-view-options). Once the choice or
-an automatic adoption is saved, it is not asked again, and the editor has written the
-`config_version` option for you, as it does on every card it creates. You do not need to add
-it by hand; see
+The upgrade is a change to the card like any other: Home Assistant asks before closing without
+saving, and a card you never open in the editor keeps working as it is; see
+[Per-View Options](/features/core-settings#per-view-options). Once it is saved, the editor has
+written the `config_version` option for you, as it does on every card it creates. You do not
+need to add it by hand; see
 [Core Settings in the configuration reference](/reference/configuration#core-settings).
 
 ```yaml
@@ -243,14 +249,14 @@ config_version: 5
 
 ::: details What the Upgrade Writes
 
-- The editor asks only when at least one authored value is genuinely ambiguous. The five
-  options only List can read move into `list:` without asking. A List or Grid card with no
-  ambiguous values opens normally and adopts the v5 format on its first actual edit. A Column
-  card's first edit moves only those five and records the v5 format.
+- The editor upgrades a card on opening only when at least one authored value is genuinely
+  ambiguous. The five options only List can read move into `list:` either way. A List or Grid
+  card with no ambiguous values opens normally and adopts the v5 format on its first actual edit.
+  A Column card's first edit moves only those five and records the v5 format.
 - A configuration without `config_version` that already contains `list:` or `time_grid:` is
   treated as layered. It opens normally and adopts the marker on its first actual edit without
   reinterpreting shared values.
-- The choice moves only the values it asks about, and adds `config_version`.
+- The upgrade moves only those values, and adds `config_version`.
 - Every later save works the same way: the editor removes a line you wrote only when you change
   that option, so a card that spells out a default keeps it even if a later release changes the
   default. Setting an option back to its default in the editor still removes the line, except a
@@ -361,19 +367,21 @@ that entry's page. Its header names the calendar and,
 where there are several, which entry it is, as in **Entry 2 of 3**. **Previous Calendar** and
 **Next Calendar** step through the list without going Back. The page holds these headings:
 
-| Heading              | What it holds                                                                                                                                        |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Name & Look**      | The calendar's name on the card, [its label](#per-calendar-labels), Show in Calendar Filter, its colors and Text Scale                               |
-| **Who Sees It**      | [Visibility conditions](/features/core-settings#showing-a-calendar-under-conditions), in Home Assistant's own Visibility editor                      |
-| **Which Events**     | [Split This Calendar](#split-this-calendar), Days of the Week, Event Type, All-Day Events Expire At, Blocklist, Allowlist and Compact Events to Show |
-| **Text Replacement** | Find and Replace With, rewriting the event's title, location or description                                                                          |
-| **Multi-Day Events** | Whether this calendar's long events split across days, and how Grid draws them                                                                       |
-| **Event Details**    | Whether this calendar's events show their time, location, description and weather                                                                    |
+| Heading              | What it holds                                                                                                                                                                       |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Name & Look**      | The calendar's name on the card, [its label](#per-calendar-labels), Show in Calendar Filter, its colors and Text Scale                                                              |
+| **Who Sees It**      | [Visibility conditions](/features/core-settings#showing-a-calendar-under-conditions), in Home Assistant's own Visibility editor                                                     |
+| **Which Events**     | [Split This Calendar](#split-this-calendar), Days of the Week, Event Type, All-Day Events Expire At, Hide Events Containing, Only Show Events Containing and Compact Events to Show |
+| **Text Replacement** | Find and Replace With, rewriting the event's title, location or description                                                                                                         |
+| **Multi-Day Events** | Whether this calendar's long events split across days, and how Grid draws them                                                                                                      |
+| **Event Details**    | Whether this calendar's events show their time, location, description and weather                                                                                                   |
 
-**Blocklist** and **Allowlist** take one word or phrase at a time, each matched as written, so
-punctuation needs no escaping. **Use a Pattern** switches a list to the regular expression the
-card stores, and a pattern the card cannot read is flagged at the field: the card ignores that
-pattern, so it stops filtering events.
+**Hide Events Containing** and **Only Show Events Containing** write `blocklist` and `allowlist`.
+Each takes one word or phrase at a time, matched as written, so punctuation needs no escaping, and
+each is ready to type in the moment it is added. They check the event title unless **Match
+Against** names another field. The **Use a Pattern** link under a list switches it to the regular
+expression the card stores, and a pattern the card cannot read is flagged at the field: the card
+ignores that pattern, so it stops filtering events.
 
 The calendar's name and **Show in Calendar Filter** belong to the calendar, not to one entry:
 changing them on one entry changes every entry, and the page says so.
@@ -444,9 +452,9 @@ forward:
 
 - an entry that already shows only all-day events, or only timed ones, cannot split on that;
   **Duplicate** it and change the copy's Event Type instead;
-- an entry with an Allowlist of its own cannot split by words, since one entry holds one list;
-- an entry whose Blocklist or Allowlist the card cannot read cannot split by words until it is
-  fixed;
+- an entry with its own Only Show Events Containing cannot split by words, since one entry holds
+  one list;
+- an entry whose word list the card cannot read cannot split by words until it is fixed;
 - an entry with its own **Compact Events to Show** clears it first, since two entries would
   double it.
 
@@ -550,7 +558,7 @@ option they write: `time_24h` finds **Time Format**.
 
 It also knows a few words people use for a setting whose name says something else: `12h` or
 `AM/PM` finds **Time Format**, `hide past` finds **Show Past Events**, `newest first` finds
-**Event Order**, `tomorrow` finds **Start Date**, and `exclude` finds a calendar's **Blocklist**.
+**Event Order**, `tomorrow` finds **Start Date**, and `exclude` or `blocklist` finds a calendar's **Hide Events Containing**.
 A translated editor searches by its own language's words for these, and by the English ones
 where it has none. Earlier names still lead somewhere, such as `separators` to **Size & Spacing**, and the British
 spelling of color finds every color setting.

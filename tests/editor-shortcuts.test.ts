@@ -7,11 +7,14 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   type MountedEditor,
+  addFromRow,
   changeField,
   entry,
   fakeHass,
   formOf,
+  goEntry,
   goOverview,
+  keysOf,
   lastConfig,
   mountEditor,
   openPageOf,
@@ -372,6 +375,27 @@ describe('a word list', () => {
     expect(listForm(editor).data).toEqual({ blocklist: ['Soccer', 'School', 'C++'] });
   });
 
+  it('holds one empty box once added, and puts focus in it, writing nothing', async () => {
+    const editor = await mountEditor({ config_version: VERSION, entities: ['calendar.anna'] });
+    await goEntry(editor, keysOf(editor, 'entry')[0]);
+    expect(root(editor).querySelector('[data-field="calendar:blocklist"]')).toBeNull();
+
+    expect(await addFromRow(editor, 'calendar:blocklist')).toBe(true);
+    // One box to type in, rather than Home Assistant's button that adds one.
+    expect(listForm(editor).data).toEqual({ blocklist: [''] });
+    expect(lastConfig(editor)).toBeUndefined();
+
+    // Home Assistant draws the box a few frames after the form; focus follows it there.
+    const box = document.createElement('input');
+    listForm(editor).append(box);
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    expect(root(editor).activeElement).toBe(box);
+
+    await sendTerms(editor, ['Dentist']);
+    expect(annas(editor).blocklist).toBe('Dentist');
+  });
+
   it('deletes the line when the last term is removed, and stays on the page', async () => {
     const editor = await onAnnasPage('Soccer');
     await sendTerms(editor, []);
@@ -527,7 +551,10 @@ describe('with the shown set and What This Card Changes', () => {
       'Reset to Off: Tapping an Event Opens It',
     ]);
     await openPageOf(editor, 'calendar:blocklist', entry(0));
-    expect(buttonsOf(editor, 'calendar:blocklist')).toEqual(['Use a Pattern', 'Remove: Blocklist']);
+    expect(buttonsOf(editor, 'calendar:blocklist')).toEqual([
+      'Use a Pattern',
+      'Remove: Hide Events Containing',
+    ]);
   });
 
   it('resets Start Date to Today, releasing Relative to Today held over a shortcut', async () => {

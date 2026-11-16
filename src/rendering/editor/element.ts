@@ -147,6 +147,9 @@ import { showsEventWeather } from '../../utils/weather-position';
 /** How many entries the list holds before Filter Calendars appears above it. */
 const CALENDAR_FILTER_ROWS = 8;
 
+/** The settings Quick Setup's review lists Apply replacing before Show All. */
+const REVIEW_SHOWN = 5;
+
 /** Home Assistant's own Visibility editor: the element under a card's Visibility tab. */
 const CONDITIONS_EDITOR = 'ha-card-conditions-editor';
 
@@ -416,12 +419,21 @@ function actionHelper(field: IndexedField, helper: string | undefined): unknown 
     : nothing;
 }
 
-/** The line a removal or an applied story leaves under its list ("Removed Ben · Undo"). */
+/**
+ * The line a removal or an applied story leaves under its list ("Removed Ben · Undo"), or the
+ * receipt the upgrade on opening leaves at the top of the overview.
+ */
 interface StatusLine {
-  readonly kind: 'entry' | 'button' | 'story';
+  readonly kind: 'entry' | 'button' | 'story' | 'upgrade';
   readonly text: string;
   /** The removed calendar's place among the calendars, where the line stands in the list. */
   readonly at: number;
+  /** The upgrade's options, the editor before it, and whether they were shared since. */
+  readonly upgrade?: {
+    readonly keys: ReadonlyArray<string>;
+    readonly before: Snapshot;
+    readonly shared: boolean;
+  };
 }
 
 /** What a live field shows besides its control: its state words, and the line under it. */
@@ -495,7 +507,12 @@ export class CalendarCardProEditor extends LitElement {
       if (stale()) moved = this._warmed.delete(key);
     }
     if (bare || moved || changed.size !== 1 || !changed.has('hass') || !this._config) return true;
-    const ids = HassKey.editorEntityIds(this._config, this._quickSetup?.answers?.calendars);
+    // Quick Setup's answers name calendars and a weather entity its steps draw by name.
+    const answers = this._quickSetup?.answers;
+    const ids = HassKey.editorEntityIds(
+      this._config,
+      answers === undefined ? [] : [...answers.calendars, answers.weather],
+    );
     if (HassKey.editorHassKey(changed.get('hass') as Types.Hass | undefined, this.hass, ids)) {
       return true;
     }
@@ -547,6 +564,11 @@ export class CalendarCardProEditor extends LitElement {
    * the calendar it would edit against.
    */
   protected override updated(): void {
+    // Written once attached, where Home Assistant hears it: `setConfig` comes while detached.
+    if (this._pendingUpgrade && this.hass && this.isConnected) {
+      this._pendingUpgrade = false;
+      this._upgradeOnOpen();
+    }
     this._syncPick();
     // Home Assistant's calendar colors, read through the card's own module once an entry's color
     // control describes one, and watched while this editor is open.
@@ -694,6 +716,15 @@ export class CalendarCardProEditor extends LitElement {
   @state() private _gridReconciliation: ReadonlyArray<string> = [];
 
   @state() private _migration: MigrationState = { kind: 'current' };
+  /** Whether Quick Setup's review lists every setting Apply replaces, not only the first few. */
+  @state() private _reviewAll = false;
+  /** A card whose root options v5 split arrived, so the editor upgrades it once attached. */
+  private _pendingUpgrade = false;
+  /**
+   * The calendar Home Assistant's card picker starts a new card with, the first it lists, as it
+   * was when the configuration arrived (`quick-setup.ts` › `startedWith`).
+   */
+  private _pickerCalendar?: string;
 
   @state() private _quickSetup?: QuickSetupSession;
 
@@ -1001,6 +1032,9 @@ export class CalendarCardProEditor extends LitElement {
     if (!isEcho) this._authoredRootKeys = new Set(Object.keys(rawConfig));
     this._adopt(rawConfig, config);
     this._migration = this._migrationState(rawConfig);
+    if (!isEcho) this._pendingUpgrade = this._migration.kind === 'ambiguous';
+    // Found once, where the walk over every state is not part of a render the key could skip.
+    if (!isEcho) this._pickerCalendar = QuickSetup.firstCalendar(this.hass?.states);
 
     if (!isEcho) {
       // A configuration the editor did not send ends what Undo could reach, and a grab or a drag
@@ -1056,9 +1090,9 @@ export class CalendarCardProEditor extends LitElement {
 
     const keys = Value.ambiguousRootKeys(rawConfig);
     const block = ViewConfig.viewBlockFor(this._viewForConfig(this._config!));
-    const needsChoice =
+    const ambiguous =
       block === ViewConfig.VIEW_BLOCKS.list || block === ViewConfig.VIEW_BLOCKS.grid;
-    return needsChoice && keys.length > 0 ? { kind: 'choice', keys } : { kind: 'automatic' };
+    return ambiguous && keys.length > 0 ? { kind: 'ambiguous', keys } : { kind: 'automatic' };
   }
 
   /**
@@ -1087,38 +1121,84 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Accepts a write and prepares any non-ambiguous migration.
+   * Accepts a write and prepares any pending migration: a card without layout blocks shares its
+   * root options, and one whose root options v5 split keeps them for List, as the upgrade on
+   * opening does (`_upgradeOnOpen`), here after an Undo of it.
    *
    * @returns Whether configuration editing is allowed
    */
   private _prepareForWrite(): boolean {
-    if (this._migration.kind !== 'current' && this._migration.kind !== 'automatic') {
-      Logger.debug('Ignoring an editor write while migration is blocked', this._migration.kind);
+    const kind = this._migration.kind;
+    if (kind === 'future' || kind === 'invalid') {
+      Logger.debug('Ignoring an editor write while migration is blocked', kind);
       return false;
     }
-    if (this._migration.kind === 'automatic') {
-      this._adoptMigration(this._migrationResult('shared-root'));
-    }
+    if (kind === 'automatic') this._adoptMigration(this._migrationResult('shared-root'));
+    if (kind === 'ambiguous') this._adoptMigration(this._migrationResult('keep-list'));
     return true;
   }
 
   /**
-   * Commits the user's one-time interpretation of legacy root values.
-   *
-   * @param mode - Whether ambiguous values belong to List or every layout
+   * Upgrades a card whose root options v5 split between List and every layout, once the editor
+   * is attached and Home Assistant listens: they stay List's, as they were written, so the card
+   * looks the same, in one undo step. The receipt says what was kept, offers to share them with
+   * every layout, and Undo; nothing moves focus, and the receipt is read out once.
    */
-  private _chooseMigration(mode: Value.ListMigrationMode): void {
-    if (this._migration.kind !== 'choice') return;
-    const label = this._string(
-      this._ctx,
-      mode === 'keep-list' ? 'config_migration.keep_list' : 'config_migration.use_shared',
-    );
-    // One undo step: Undo puts the YAML back as it was, and the choice with it.
-    this._commit(label, undefined, () => {
-      const result = this._migrationResult(mode);
+  private _upgradeOnOpen(): void {
+    if (this._migration.kind !== 'ambiguous') return;
+    const keys = this._migration.keys;
+    const before = this._snapshot();
+    const ctx = this._ctx;
+    this._commit(this._string(ctx, 'history.upgrade'), undefined, () => {
+      const result = this._migrationResult('keep-list');
       this._adoptMigration(result);
       this._send(result.config);
     });
+    this._status = { kind: 'upgrade', text: '', at: 0, upgrade: { keys, before, shared: false } };
+    this._say(`${this._string(ctx, 'upgrade.title')} ${this._upgradeText(ctx, keys, false)}`);
+  }
+
+  /**
+   * Shares the options the upgrade kept for List with every layout, as one undo step from the
+   * List upgrade: written from the card as it was before the upgrade, exactly as choosing every
+   * layout always wrote it.
+   */
+  private _shareUpgraded = (): void => {
+    const upgrade = this._status?.upgrade;
+    if (upgrade === undefined || upgrade.shared) return;
+    const { keys, before } = upgrade;
+    const ctx = this._ctx;
+    this._commit(this._string(ctx, 'history.upgrade_share'), undefined, () => {
+      this._adopt(before.raw, structuredClone(before.raw));
+      this._authoredRootKeys = new Set(before.authoredRootKeys);
+      this._migration = before.migration;
+      const result = this._migrationResult('shared-root');
+      this._adoptMigration(result);
+      this._send(result.config);
+    });
+    this._showStatus(
+      { kind: 'upgrade', text: '', at: 0, upgrade: { keys, before, shared: true } },
+      `${this._string(ctx, 'upgrade.title')} ${this._upgradeText(ctx, keys, true)}`,
+    );
+  };
+
+  /**
+   * The upgrade receipt's sentences after its title: "Day Spacing and Event Font Size now apply
+   * to List, as before. The card looks the same."
+   *
+   * @param ctx - Schema context
+   * @param keys - The options the upgrade decided
+   * @param shared - Whether they were shared with every layout
+   * @returns The sentence
+   */
+  private _upgradeText(ctx: SchemaCtx, keys: ReadonlyArray<string>, shared: boolean): string {
+    const options = EditorLocalize.formatList(
+      ctx.language,
+      keys.map((key) => this._string(ctx, key)),
+      'conjunction',
+    );
+    const key = `upgrade.${shared ? 'shared' : 'list'}${keys.length === 1 ? '_one' : ''}`;
+    return this._string(ctx, key, { options });
   }
 
   /**
@@ -1265,7 +1345,7 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * Puts focus on what Undo or Redo restored: a field's wrapper, a calendar entry's row, a
-   * button's row, else the heading of the place shown, or the migration choice's title.
+   * button's row, else the heading of the place shown.
    *
    * @param focusKey - What the step's change was made with
    */
@@ -1289,12 +1369,7 @@ export class CalendarCardProEditor extends LitElement {
       target.scrollIntoView?.({ block: 'nearest' });
       if (root.activeElement === target) return;
     }
-    Focus.focusFirst(root, [
-      '#config-migration-title',
-      '.page-title',
-      '.page-group .heading',
-      '.row-group .heading',
-    ]);
+    Focus.focusFirst(root, ['.page-title', '.page-group .heading', '.row-group .heading']);
   }
 
   /**
@@ -1377,8 +1452,8 @@ export class CalendarCardProEditor extends LitElement {
         this._redo,
       ),
     );
-    // Not over the choice a migration blocks the editor with, where nothing a pick opens is drawn.
-    const blocked = this._migration.kind !== 'current' && this._migration.kind !== 'automatic';
+    // Not over a version the editor cannot edit, where nothing a pick opens is drawn.
+    const blocked = this._migration.kind === 'future' || this._migration.kind === 'invalid';
     return this._canPick && !blocked
       ? html`${controls}${PickView.pickButton(
           this._string(ctx, 'pick.button'),
@@ -1546,6 +1621,31 @@ export class CalendarCardProEditor extends LitElement {
       this._haWord(ctx, 'ui.common.undo', 'history.undo'),
       this._undo,
     );
+  }
+
+  /**
+   * The upgrade's receipt: what it kept, and where, with "Use Them for Every Layout" until they
+   * are shared, and Undo.
+   *
+   * @param ctx - Schema context
+   * @returns The receipt, or nothing
+   */
+  private _renderUpgrade(ctx: SchemaCtx): TemplateResult | typeof nothing {
+    const upgrade = this._status?.kind === 'upgrade' ? this._status.upgrade : undefined;
+    if (upgrade === undefined) return nothing;
+    const { keys, shared } = upgrade;
+    return HistoryView.upgradeReceipt({
+      title: this._string(ctx, 'upgrade.title'),
+      text: this._upgradeText(ctx, keys, shared),
+      share: shared
+        ? undefined
+        : {
+            label: this._string(ctx, keys.length === 1 ? 'upgrade.share_one' : 'upgrade.share'),
+            onPress: this._shareUpgraded,
+          },
+      undoLabel: this._haWord(ctx, 'ui.common.undo', 'history.undo'),
+      onUndo: this._undo,
+    });
   }
 
   /**
@@ -2449,7 +2549,17 @@ export class CalendarCardProEditor extends LitElement {
     if (terms === undefined || this._wordModes.has(key)) return undefined;
     const draft = this._wordDrafts.get(key);
     const pattern = typeof stored === 'string' ? stored : '';
-    const shown = draft !== undefined && WordLists.toPattern(draft) === pattern ? draft : terms;
+    // A list just added holds one empty box, ready to type in, where Home Assistant's own empty
+    // list would offer only a button that adds one.
+    const added =
+      owner.kind !== 'button' &&
+      this._added.has(this._addedKey(field.id, owner.kind === 'card' ? CARD : owner));
+    const shown =
+      draft !== undefined && WordLists.toPattern(draft) === pattern
+        ? draft
+        : terms.length === 0 && draft === undefined && added
+          ? ['']
+          : terms;
     const schema = this._intern(`${slot}.words`, [
       { name, selector: { text: { multiple: true } } },
     ] satisfies HaFormSchema[]);
@@ -2534,7 +2644,7 @@ export class CalendarCardProEditor extends LitElement {
     const focus = `words:${key}`;
     return html`<button
       type="button"
-      class="text-button word-mode"
+      class="link word-mode"
       data-focus=${focus}
       @click=${() => {
         const modes = new Map(this._wordModes);
@@ -3591,6 +3701,14 @@ export class CalendarCardProEditor extends LitElement {
         : this._string(ctx, 'announce.added', { label }),
     );
     this._focusSoon([`[data-field="${CSS.escape(focusId)}"]`]);
+    if (label !== undefined && WORD_LIST_FIELDS.has(focusId)) {
+      void this.updateComplete.then(() => {
+        const wrapper = this.renderRoot.querySelector<HTMLElement>(
+          `[data-field="${CSS.escape(focusId)}"]`,
+        );
+        if (wrapper) Focus.focusTextBoxSoon(wrapper);
+      });
+    }
   }
 
   /**
@@ -4352,7 +4470,7 @@ export class CalendarCardProEditor extends LitElement {
   private _renderOverview(ctx: SchemaCtx, chassis: Subforms.ChassisSchemas): TemplateResult {
     const t = this._t(ctx);
     const { present } = this._drawing!;
-    const head = html`${this._renderNoticesRow(ctx)}
+    const head = html`${this._renderUpgrade(ctx)} ${this._renderNoticesRow(ctx)}
     ${
       this._banner
         ? Overview.quickSetupBanner(t, this._openQuickSetup, () => {
@@ -6048,7 +6166,7 @@ export class CalendarCardProEditor extends LitElement {
           : CalendarView.calendarList(calendars, bar);
     return html`<section class="page-group cal-block" data-heading="calendars">
       <h3 class="heading" tabindex="-1">${this._string(ctx, CALENDARS_BLOCK.titleKey)}</h3>
-      ${this._renderStatus(ctx, ['story'])}
+      ${this._renderStatus(ctx, ['story'])} ${this._renderStartedWith(ctx)}
       ${
         // Kept while it holds a query, so a removal below eight rows cannot strand one.
         entities.length >= CALENDAR_FILTER_ROWS || this._calendarQuery !== ''
@@ -6063,6 +6181,36 @@ export class CalendarCardProEditor extends LitElement {
       }
       ${list} ${this._renderGrabStatus(ctx, 'calendar')} ${this._renderAddCalendar(ctx)}
     </section>`;
+  }
+
+  /**
+   * On a fresh card, the line naming the calendar Home Assistant started it with, which nobody
+   * chose (`quick-setup.ts` › `startedWith`), with Change Calendar, which opens its entry's page
+   * at its Calendar field.
+   *
+   * @param ctx - Schema context
+   * @returns The line, or nothing
+   */
+  private _renderStartedWith(ctx: SchemaCtx): TemplateResult | typeof nothing {
+    const calendar = QuickSetup.startedWith(this._rawConfig, this._pickerCalendar);
+    if (calendar === undefined) return nothing;
+    const [key] = this._entryKeysFor(1);
+    return html`<div class="started-with" data-started-with>
+      <span
+        >${this._string(ctx, 'calendars.started_with', { name: this._calendarName(calendar) })}</span
+      >
+      <button
+        type="button"
+        class="text-button"
+        data-focus="started-with"
+        @click=${() => {
+          this._open({ kind: 'entry', key }, 'started-with');
+          this._focusSoon([Focus.byFocusKey('entry-calendar')]);
+        }}
+      >
+        ${this._string(ctx, 'calendars.change')}
+      </button>
+    </div>`;
   }
 
   /**
@@ -8038,9 +8186,6 @@ export class CalendarCardProEditor extends LitElement {
     }
 
     const ctx = this._ctx;
-    if (this._migration.kind === 'choice') {
-      return this._renderMigrationChoice(ctx, this._migration.keys);
-    }
     if (this._migration.kind === 'future') {
       return this._renderMigrationBlock(
         ctx,
@@ -8142,65 +8287,6 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Renders the one-time interpretation choice for ambiguous legacy values.
-   *
-   * @param ctx - Current editor context
-   * @param keys - Authored roots whose meaning differs between List and another view
-   * @returns The blocking choice surface
-   */
-  private _renderMigrationChoice(ctx: SchemaCtx, keys: ReadonlyArray<string>): TemplateResult {
-    const block = ViewConfig.viewBlockFor(this._viewForConfig(this._config!));
-    const messageKey =
-      block === ViewConfig.VIEW_BLOCKS.grid
-        ? 'config_migration.grid_message'
-        : 'config_migration.list_message';
-    const options = keys.map((key) => this._string(ctx, key)).join(', ');
-
-    // Undo and Redo stay at hand: an undone choice returns here, and Redo makes it again.
-    return html`
-      <div class="card-config" @keydown=${this._onKeydown}>
-        ${
-          this._history.canUndo || this._history.canRedo
-            ? html`<div class="filter-bar">${this._renderHistory(ctx)}</div>`
-            : nothing
-        }
-        <div
-          class="config-migration"
-          data-config-migration
-          role="group"
-          aria-labelledby="config-migration-title"
-        >
-          <strong id="config-migration-title" tabindex="-1"
-            >${this._string(ctx, 'config_migration.title')}</strong
-          >
-          <div>${this._string(ctx, messageKey)}</div>
-          <div>${this._string(ctx, 'config_migration.affected', { options })}</div>
-          <button
-            type="button"
-            class="migration-choice primary"
-            @click=${() => this._chooseMigration('keep-list')}
-          >
-            ${this._string(ctx, 'config_migration.keep_list')}
-          </button>
-          <div class="migration-choice-note">
-            ${this._string(ctx, 'config_migration.keep_list_note')}
-          </div>
-          <button
-            type="button"
-            class="migration-choice"
-            @click=${() => this._chooseMigration('shared-root')}
-          >
-            ${this._string(ctx, 'config_migration.use_shared')}
-          </button>
-          <div class="migration-choice-note">
-            ${this._string(ctx, 'config_migration.use_shared_note')}
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  /**
    * Renders a non-destructive version error with no configuration controls.
    *
    * @param ctx - Current editor context
@@ -8277,7 +8363,9 @@ export class CalendarCardProEditor extends LitElement {
           role="group"
           aria-labelledby="quick-setup-title"
         >
-          <strong id="quick-setup-title">${this._string(ctx, 'quick_setup.title')}</strong>
+          <h2 class="quick-setup-title" id="quick-setup-title">
+            ${this._string(ctx, 'quick_setup.title')}
+          </h2>
           <div class="quick-setup-step" tabindex="-1">
             ${this._string(ctx, 'quick_setup.step', {
               step: index + 1,
@@ -8373,7 +8461,9 @@ export class CalendarCardProEditor extends LitElement {
                   href=${`${DOCS_SITE}${story.page}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  >${this._string(ctx, 'quick_setup.read_story')}</a
+                  >${this._string(ctx, 'quick_setup.read_story', {
+                    story: this._string(ctx, `quick_setup.story.${story.id}`),
+                  })}</a
                 >
               </div>
             `,
@@ -8438,7 +8528,8 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * What Apply will do, said plainly.
+   * What Apply will do, said plainly: the example, calendars, colors, layout, title and weather it
+   * leaves, and on a card with settings each one it replaces, five at first, then Show All.
    *
    * @param ctx - Current editor context
    * @param session - The run in progress
@@ -8450,37 +8541,124 @@ export class CalendarCardProEditor extends LitElement {
     session: QuickSetupSession,
     answers: QuickSetup.QuickSetupAnswers,
   ): TemplateResult {
+    const t = (key: string, values?: Words): string => this._string(ctx, key, values);
     const name = (calendar: string): string => Entities.entityDisplayName(calendar, this.hass);
+    const list = (items: ReadonlyArray<string>): string =>
+      EditorLocalize.formatList(ctx.language, items, 'conjunction');
+    const none = t('quick_setup.review.none');
+    const built = QuickSetup.buildQuickSetupConfig(session.opening, answers);
+    const merged = { ...Config.DEFAULT_CONFIG, ...built } as unknown as Types.Config;
+    const view = this._viewForConfig(merged);
+    const days = ViewConfig.resolveEffectiveConfig(merged, view).days_to_show;
     const colored = QuickSetup.storyColors(session.opening, answers).map(({ calendar }) =>
       name(calendar),
     );
-    const list = (items: ReadonlyArray<string>): string =>
-      EditorLocalize.formatList(ctx.language, items, 'conjunction');
+    const weather = answers.weather.trim();
+    const rows: Array<[string, string]> = [
+      [t('quick_setup.review.example'), t(`quick_setup.story.${answers.story}`)],
+      [t('quick_setup.review.calendars'), list(answers.calendars.map(name))],
+      ...(colored.length > 0
+        ? [[t('quick_setup.review.colors'), list(colored)] as [string, string]]
+        : []),
+      [
+        t('quick_setup.review.layout'),
+        [
+          this._layoutName(ctx)(view),
+          days === 1
+            ? t('quick_setup.review.days_one')
+            : t('quick_setup.review.days', { count: days }),
+        ].join(Summary.SUMMARY_SEPARATOR),
+      ],
+      [t('quick_setup.review.title'), answers.title.trim() || none],
+      [t('quick_setup.review.weather'), weather === '' ? none : name(weather)],
+    ];
+    const replaced = QuickSetup.replacements(session.opening, built);
+    const shown = this._reviewAll ? replaced : replaced.slice(0, REVIEW_SHOWN);
 
     return html`
-      <ul class="quick-setup-review">
-        <li>
-          ${this._string(ctx, 'quick_setup.review_story', {
-            story: this._string(ctx, `quick_setup.story.${answers.story}`),
-          })}
-        </li>
-        <li>
-          ${this._string(ctx, 'quick_setup.review_calendars', {
-            calendars: list(answers.calendars.map(name)),
-          })}
-        </li>
-        ${
-          colored.length > 0
-            ? html`<li>
-                ${this._string(ctx, 'quick_setup.review_colors', {
-                  calendars: list(colored),
-                })}
-              </li>`
-            : nothing
-        }
-        <li>${this._string(ctx, 'quick_setup.review_keeps')}</li>
-      </ul>
+      <dl class="quick-setup-review">
+        ${rows.map(
+          ([term, value]) =>
+            html`<div>
+              <dt>${term}</dt>
+              <dd>${value}</dd>
+            </div>`,
+        )}
+      </dl>
+      ${
+        replaced.length > 0
+          ? html`<div class="quick-setup-replaced" data-quick-setup-replaced>
+              <p id="quick-setup-replaces">
+                ${
+                  replaced.length === 1
+                    ? t('quick_setup.review.replaces_one')
+                    : t('quick_setup.review.replaces', { count: replaced.length })
+                }
+              </p>
+              <ul aria-labelledby="quick-setup-replaces" tabindex="-1">
+                ${shown.map((each) => html`<li>${this._replacementText(each, ctx)}</li>`)}
+              </ul>
+              ${
+                shown.length < replaced.length
+                  ? html`<button
+                      type="button"
+                      class="link"
+                      data-focus="quick-setup-show-all"
+                      @click=${() => {
+                        this._reviewAll = true;
+                        this._focusSoon(['.quick-setup-replaced ul']);
+                      }}
+                    >
+                      ${t('quick_setup.review.show_all', { count: replaced.length })}
+                    </button>`
+                  : nothing
+              }
+            </div>`
+          : nothing
+      }
+      <p class="quick-setup-note">${t('quick_setup.review_keeps')}</p>
     `;
+  }
+
+  /**
+   * One setting Apply replaces, as "Days To Show: 7 → 3", "Title: Everything → None" or "Day
+   * Spacing in List: 10px → Default", its values worded as its control words them.
+   *
+   * @param replacement - The setting
+   * @param ctx - Schema context
+   * @returns The words
+   */
+  private _replacementText(replacement: QuickSetup.Replacement, ctx: SchemaCtx): string {
+    const { line, group, next } = replacement;
+    const t = (key: string, values?: Words): string => this._string(ctx, key, values);
+    const key = line.path[line.path.length - 1];
+    const field = line.field === undefined ? undefined : Audit.anyField(line.field, ctx.language);
+    const word = (value: unknown): string => {
+      if (key === 'view' && line.page !== undefined) {
+        return this._layoutName(ctx)(value as Types.EffectiveView);
+      }
+      if (line.page !== undefined) {
+        return Audit.buttonNames(value, t('toolbar.buttons.untitled'));
+      }
+      return field === undefined ? Audit.plainValue(value) : this._auditWord(field, value, ctx);
+    };
+    const label =
+      line.page !== undefined
+        ? t(key === 'view' ? 'view' : 'toolbar.buttons.heading')
+        : field === undefined
+          ? key
+          : fieldLabel(field, ctx.language);
+    const setting =
+      group.kind === 'layout'
+        ? t('audit.in_layout', { label, layout: this._layoutName(ctx)(group.workspace) })
+        : label;
+    const to =
+      next === undefined || next === null || next === ''
+        ? key === 'title'
+          ? t('quick_setup.review.none')
+          : t('quick_setup.review.default')
+        : word(next);
+    return `${setting}: ${word(line.value)} → ${to}`;
   }
 
   /** Opens Quick Setup on the card as it is now. */
@@ -8516,6 +8694,7 @@ export class CalendarCardProEditor extends LitElement {
   private _quickSetupGo(step: QuickSetupStep): void {
     if (this._quickSetup === undefined) return;
     this._quickSetup = { ...this._quickSetup, step };
+    this._reviewAll = false;
     this._keepFocusInQuickSetup();
   }
 

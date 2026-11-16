@@ -80,6 +80,10 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_split',
     '_splitDone',
     '_newEntries',
+    // Quick Setup's review listing every setting Apply replaces.
+    '_reviewAll',
+    // The upgrade on opening, made once the editor is attached; Undo takes back what it wrote.
+    '_pendingUpgrade',
   ],
   // Keys never go back, so a restored entry's key is never handed to another.
   counters: ['_nextEntryKey', '_nextButtonKey', '_reads'],
@@ -107,6 +111,8 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_bareUpdatePending',
     '_registryWanted',
     '_resultStatus',
+    // The card picker's calendar, read from Home Assistant as the configuration arrived.
+    '_pickerCalendar',
   ],
   // The history itself, and whether a change is being recorded.
   history: ['_history', '_committing', '_splitting'],
@@ -139,6 +145,7 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_registryChanged',
     '_cancelAdd',
     '_addCalendarChosen',
+    '_shareUpgraded',
   ],
 };
 

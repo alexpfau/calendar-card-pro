@@ -145,6 +145,8 @@ export const CHASSIS_STRINGS: ReadonlyArray<string> = [
   'value_source',
   'grid_reconciliation',
   'config_migration',
+  // The receipt's keys are composed from the upgrade's count and where it put them.
+  'upgrade',
   'misplaced',
   'quick_setup',
   'row',
