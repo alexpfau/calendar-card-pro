@@ -2782,8 +2782,8 @@ Behavior-preserving.
     `toStoredConfig` and asking `fieldState` again; it needs the state, so it is not `stateOf`'s
     job. A field still live afterwards gets Reset, which with Show Every Setting on is every stored
     field, where the prototype gave Remove: the plan's rule is built. `needsTag` wraps `needsText`
-    in `search.needs`, "Needs {needs}", the one string; `subforms.ts` › `CHASSIS_STRINGS` gains
-    `search` for it.
+    in `search.needs`, "Needs {needs}", the one string, held to its reader under PR 8's `search`
+    prefix (`subforms.ts` › `REFERENCED_STRINGS`).
   - **`days_of_week` has no card setting**, so seven of the eight entry tri-states can follow a card
     value that differs; the test pins the eighth as never inheriting one.
   - **Families.** A family is live by its members that apply here; a stored member a gate withholds
@@ -2795,19 +2795,23 @@ Behavior-preserving.
   - **Other layouts** are read from each layout's universe built in English; ids do not depend on the
     language.
   - **`reset.ts`.** A reset deletes lines and never writes a default, which `toStoredConfig` would
-    keep where the YAML held it. Each line's reset forgets the text held for it, a synthetic field's
+    keep where the YAML held it. On the stack through PR 10, each of the editor's per-field Reset
+    buttons leaves the same stored YAML, Grid reset keys and held text as `reset.ts` does, and
+    PR 7's undo snapshot holds all four, so a reset through `_commit` undoes whole. Each line's reset forgets the text held for it, a synthetic field's
     included (a cleared Card Height is held as `card_height`). A Grid reset of a key Grid defaults
     differently is remembered whether or not the block stored it yet, as `_resetViewValues`
     remembers it; a path naming a whole block resets it as Reset All does; a root reset forgets a
     Grid reset it outlives, as a Shared write does; a block or root key that leaves the
     configuration leaves the authored root keys. `entities.ts` gains `resetEntry` and exports
     `isCalendarOption`; an entry reduced to its id stays an object. `reset.ts` also exports
-    `cardFamilyMembers` and `entryFamilyMembers`, which `plan.ts` reads.
+    `cardFamilyMembers` and `entryFamilyMembers`, which `plan.ts` reads. `planEntry` builds an
+    entry's fields as PR 10's entry page withholds them, in every scope; its added-set keys extend
+    `write-frames.ts` › `ownerKey`, `entry:<key>:<id>`.
   - **Tests and bytes.** 57 cases in the two files; 45 planted defects in `plan.ts`, `reset.ts` and
     `entities.ts` each fail a named case against a green control. Neither module is imported by the
-    editor yet, so both are tree-shaken until PR 15: the editor chunk moves by the string and the
-    chassis prefix alone, +86 B raw and +57 B gzip -9 over PR 4's head, and the card's sha256 is
-    unchanged.
+    editor yet, so both are tree-shaken until PR 15: the editor chunk moves by the string alone,
+    +86 B raw and +11 B gzip -9 over PR 10's head `7b3fe6bd` (+57 B over PR 4's at first), and the
+    card's sha256 is unchanged.
 
 ### PR 15 · Show What Applies
 
