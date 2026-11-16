@@ -48,26 +48,55 @@ describe('the preview switch', () => {
     expect(card.calls).toHaveLength(2);
   });
 
-  it('follows Home Assistant’s rebuild of the card, and leaves alone a card it replaced', async () => {
+  /**
+   * The dialog as Home Assistant draws it: a shadow root holding the editor and the preview, the
+   * card inside an element that wraps it.
+   *
+   * @returns The dialog's root, and a way to rebuild the preview as Home Assistant does
+   */
+  function dialog() {
     document.body.innerHTML = '';
-    const parent = document.createElement('div');
-    document.body.append(parent);
-    const first = fakeCard();
-    parent.append(first);
-    const preview = new ScopePreview(() => parent.firstElementChild as HTMLElement);
-    preview.sync({ view: 'column', config: written });
+    const host = document.createElement('div');
+    document.body.append(host);
+    const root = host.attachShadow({ mode: 'open' });
+    const editor = document.createElement('div');
+    const preview = document.createElement('div');
+    root.append(editor, preview);
+    const build = (): FakeCard => {
+      // Configured with the YAML before it is put in place, as `hui-card` does.
+      const card = fakeCard();
+      card.className = 'card';
+      card.setConfig(written);
+      const wrapper = document.createElement('div');
+      wrapper.append(card);
+      preview.replaceChildren(wrapper);
+      return card;
+    };
+    const find = () => preview.querySelector<HTMLElement>('.card') ?? undefined;
+    return { editor, build, find };
+  }
 
-    // Home Assistant configures a new card with the YAML and puts it in place of the old one.
-    const second = fakeCard();
-    second.setConfig(written);
-    parent.replaceChildren(second);
+  it('follows Home Assistant’s rebuild of the card, and leaves alone a card it replaced', async () => {
+    const { editor, build, find } = dialog();
+    const first = build();
+    const preview = new ScopePreview(find, editor);
+    preview.sync({ view: 'column', config: written });
+    expect(first.calls).toEqual([written, { ...written, view: 'column' }]);
+
+    // A sections dashboard builds the element around the card anew too, so its parent is gone.
+    const second = build();
     await settle();
     expect(second.calls).toEqual([written, { ...written, view: 'column' }]);
 
     // Switched off after the rebuild: the new card goes back to the YAML, the old one is gone.
     preview.sync(undefined);
     expect(second.calls[second.calls.length - 1]).toEqual(written);
-    expect(first.calls).toEqual([{ ...written, view: 'column' }]);
+    expect(first.calls).toEqual([written, { ...written, view: 'column' }]);
+
+    // Off, a rebuild is Home Assistant's alone.
+    const third = build();
+    await settle();
+    expect(third.calls).toEqual([written]);
   });
 
   it('does nothing where no preview is found', () => {
