@@ -262,6 +262,11 @@ export async function readEditorSchemaKeys() {
   for (const key of registry.named.keys()) roots.add(key);
   for (const key of registry.helpers) helpers.add(key);
 
+  // Search reads a page's words on its title key (`search.ts` › `pageRow`) and a job of Home
+  // Assistant's tabs on its name's key (`search.ts` › `HA_TAB_KEYS`), and no other heading's.
+  for (const page of editor.PAGES) aliasKeys.add(page.titleKey);
+  for (const key of editor.HA_TAB_KEYS) aliasKeys.add(key);
+
   for (const ctx of probeContexts(editor, 'en')) {
     for (const panel of PANELS) {
       collect(panel.build(ctx), [], true);
@@ -549,9 +554,10 @@ const REGISTRY_PREFIXES = ['page.', 'heading.', 'family.', 'gate.needs.', 'gate.
  * conditions is named by. A helper line is looked up by its own key, so only its base is
  * registered as a helper root.
  *
- * A page has no search words of its own yet. Nothing here names an `.aliases` key, and the alias
- * keys `checkEditorStrings` accepts are fields' alone, so a `page.<id>.aliases` string fails it
- * twice: as a page-registry key nothing names, and as an alias no field resolves.
+ * A page's search words sit on its title key, `<title key>.aliases`, which names them where they
+ * exist. Words filed under any other page key, `page.weather.aliases` where Weather's title is
+ * `panel.weather`, fail twice: as a page-registry key nothing names, and as an alias search never
+ * reads (`checkEditorStrings`).
  *
  * @param editor - The bundled editor modules
  * @returns Titles and other named keys, each with where it is named, and helper bases
@@ -585,6 +591,9 @@ function readRegistryKeys(editor) {
   name(titles, CALENDARS_BLOCK.titleKey, 'the Calendars block');
   for (const page of PAGES) {
     name(titles, page.titleKey, `page ${page.id}`);
+    if (`${page.titleKey}.aliases` in editor.EDITOR_STRINGS) {
+      name(named, `${page.titleKey}.aliases`, `page ${page.id}, its search words`);
+    }
     name(named, page.noteKey, `page ${page.id}, its note`);
     page.headings.forEach((def, index) => heading(def, `page ${page.id}, heading ${index}`));
   }
@@ -1013,12 +1022,8 @@ async function checkEditorStrings() {
     // Exact for the same reason: a prefix test would accept aliases filed under a group's
     // name or a heading's, which search never reads, so the words would silently find nothing.
     if (key.endsWith('.aliases')) {
-      if (!aliasKeys.has(key.slice(0, -'.aliases'.length))) {
-        error(
-          'strings.ts',
-          `\`${key}\` can never be searched — no field resolves its aliases under that key`,
-        );
-      }
+      const problem = aliasKeyProblem(key, aliasKeys);
+      if (problem) error('strings.ts', problem);
       continue;
     }
 
@@ -1377,6 +1382,21 @@ export const isOverlongLabel = ({ value, english }) => value > 24 && value > eng
  * @param key - String key
  * @returns `true` for a label
  */
+/**
+ * Whether an `.aliases` string sits on a key the search reads its words under: a field's label
+ * key or name, a page's title key, or the name of a job Home Assistant's tabs do. Exact, so words
+ * filed under a page's id rather than its title key are reported, not silently never found.
+ *
+ * @param {string} key - A string key ending in `.aliases`
+ * @param {Set<string>} aliasKeys - The keys words may sit on (`readEditorSchemaKeys`)
+ * @returns {string | undefined} The problem, or `undefined`
+ */
+export function aliasKeyProblem(key, aliasKeys) {
+  return aliasKeys.has(key.slice(0, -'.aliases'.length))
+    ? undefined
+    : `\`${key}\` can never be searched — no field, page or tab resolves its aliases under that key`;
+}
+
 export const isLabelKey = (key) => !key.endsWith('.helper') && !key.endsWith('.aliases');
 
 /**

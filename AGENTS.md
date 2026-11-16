@@ -1540,10 +1540,14 @@ the same edit, and let `check:i18n` tell you the exact keys it asked for.
 setting whose label says something else (`time_format.aliases` holds `12h`). `check:i18n` holds
 it to the key `computeAliases` reads, exactly as it holds a `.helper`, so one filed under a
 group, a heading, an option or a control outside the panels fails rather than silently finding
-nothing. Aliases are exempt from
+nothing. Two more keys take words: a page's title key, which finds the page (`page.size_spacing`
+carries "separators", the title of the panel whose settings it took), and a job of Home
+Assistant's own tabs (`search.ts` › `HA_TAB_KEYS`). Words filed under a page's id where its title
+key differs (`page.weather` beside `panel.weather`) fail. Aliases are exempt from
 the label rules and from the glossary's rejected forms, because they exist to catch the words the
-interface chose not to use. Add one only for a word users have used and the search misses;
-`tests/editor-search-aliases.test.ts` pins the families by value.
+interface chose not to use. Add one only for a word users have used and the search misses, and
+none for a British spelling: search reads every label in British English as well, so the
+British spelling of color finds every color setting. `tests/editor-search-aliases.test.ts` pins the families by value.
 
 **The editor's termbase lives in [`scripts/editor-glossary.mjs`](./scripts/editor-glossary.mjs).**
 It records, per language, the decided form of each UI term and the forms rejected for it,

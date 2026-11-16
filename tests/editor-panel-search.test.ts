@@ -22,13 +22,15 @@ import { PAGES } from '../src/rendering/editor/pages';
  * @param editor - Editor
  * @returns Their names, in order
  */
-function ruleFields(editor: CalendarCardProEditor): string[] {
+function ruleFields(editor: CalendarCardProEditor, otherLayouts = false): string[] {
   const root = editor.shadowRoot!;
   const results =
     root.querySelector('.overview') !== null && root.querySelector('[data-focus^="nav:"]') === null;
   if (results) {
+    // Another layout's rules are listed as that layout's, tagged with it.
+    const theirs = (row: { tag?: string }) => row.tag?.startsWith(onlyIn) === true;
     return resultRows(editor)
-      .filter((row) => row.id.startsWith('separators:'))
+      .filter((row) => row.id.startsWith('separators:') && theirs(row) === otherLayouts)
       .map((row) => row.id.split(/[:.]/).pop()!);
   }
   return formsOf(editor, CARD)
@@ -44,7 +46,11 @@ function fieldNames(schema: ReadonlyArray<HaFormSchema>): string[] {
   );
 }
 
+/** The tag's words before the layouts: "Only in". */
+let onlyIn = '';
+
 async function mount(language: string, view: Types.EffectiveView = 'grid') {
+  onlyIn = (lookup(language, 'search.only_in') ?? '').split('{')[0];
   const editor = await mountEditor(
     {
       config_version: 5,
@@ -122,13 +128,14 @@ describe.each(['en', 'en-GB', 'de', 'et', 'it', 'lt', 'lv', 'nb', 'pl', 'sk', 's
       },
     );
 
-    it('control: still finds List’s rules by the page title without exposing Grid-only rules', async () => {
+    it('control: still finds List’s rules by the page title, and Grid’s only as Grid’s', async () => {
       const editor = await mount(language, 'list');
       const before = ruleFields(editor);
       expect(before).not.toContain('hour_line_width');
 
       await search(editor, words(language, SIZE_SPACING.titleKey));
       expect(ruleFields(editor)).toEqual(before);
+      expect(ruleFields(editor, true)).toContain('hour_line_width');
     });
   },
 );

@@ -616,7 +616,7 @@ export class CalendarCardProEditor extends LitElement {
 
   /** The field a search result opened, highlighted while `lit` (`_openResult`). */
   @state() private _jump?: {
-    readonly target: Search.SearchTarget;
+    readonly target: Search.FieldTarget;
     readonly label: string;
     readonly lit: boolean;
   };
@@ -626,6 +626,18 @@ export class CalendarCardProEditor extends LitElement {
 
   /** The jump list's count line, as the last render drew it, announced as the query changes. */
   private _resultStatus = '';
+
+  /** Edit Here: the card settings found are drawn as their live controls (section 5.8). */
+  @state() private _editHere = false;
+
+  /** The folded results opened to a row per calendar entry, by field id. */
+  @state() private _openResults: ReadonlySet<FieldId> = new Set();
+
+  /** The jump list's index, and what it was built from (`_searchIndex`). */
+  private _indexKept?: { deps: unknown[]; index: ReadonlyArray<Search.SearchEntry> };
+
+  /** A query typed while an input method composes it, applied once the composition ends. */
+  private _composing?: { held?: Filter.FilterCriteria };
 
   /** The one polite live region's queue (`announce.ts`). */
   private _announcer = new Announcer();
@@ -2661,18 +2673,21 @@ export class CalendarCardProEditor extends LitElement {
    *
    * @param hit - The result
    * @param focusKey - The result's `data-focus` key, which Back restores focus to
+   * @param search - Whether it was chosen from the results, which Back returns to
+   * @param say - What to announce instead of "Showing Time Format."
    */
   private _openResult(
-    hit: Pick<Search.SearchEntry, 'target' | 'label'>,
+    hit: { readonly target: Search.FieldTarget; readonly label: string },
     focusKey: string,
     search = true,
+    say?: () => string,
   ): void {
     const target = hit.target;
     const from: Navigation.TrailEntry = {
       route: this._nav.route,
       scrollTop: Focus.scrollPosition(this),
       focusKey,
-      search: search ? { query: this._filter.query, editHere: false } : undefined,
+      search: search ? { query: this._filter.query, editHere: this._editHere } : undefined,
     };
     const page =
       target.kind === 'button-field' ? 'card_header' : target.kind === 'field' && target.page;
@@ -2698,7 +2713,9 @@ export class CalendarCardProEditor extends LitElement {
       const field = this.renderRoot.querySelector<HTMLElement>('.jump');
       if (field) Focus.scrollToTopSettled(this, field);
       Focus.focusFirst(field ?? this.renderRoot, ['[tabindex="-1"]', '.page-title']);
-      this._say(interpolate(this._string(this._ctx, 'search.showing'), { label: hit.label }));
+      this._say(
+        say?.() ?? interpolate(this._string(this._ctx, 'search.showing'), { label: hit.label }),
+      );
       setTimeout(() => {
         if (this._jump === jump) this._jump = { ...jump, lit: false };
       }, 2000);
@@ -2718,6 +2735,7 @@ export class CalendarCardProEditor extends LitElement {
       restore = moved.restore;
     }
     // The query stays typed while a result's field shows, so the results come back with it.
+    if (restore?.search) this._editHere = restore.search.editHere;
     this._jump = this._resultsLeft = undefined;
     void this._afterMove(restore);
   };
@@ -3061,7 +3079,7 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _renderOverview(ctx: SchemaCtx, chassis: Subforms.ChassisSchemas): TemplateResult {
     const t = this._t(ctx);
-    const { present, shown } = this._drawing!;
+    const { present } = this._drawing!;
     const head = html`${this._renderNoticesRow(ctx)}
     ${
       this._banner
@@ -3077,7 +3095,7 @@ export class CalendarCardProEditor extends LitElement {
     // scope stays in view with the results: their values are the scope's.
     return html`<div class="overview">
       ${head} ${this._jumpDrawn() ? nothing : this._renderReturn(ctx)}
-      ${this._renderOverviewBody(ctx, chassis, present, shown)}
+      ${this._renderOverviewBody(ctx, chassis, present)}
     </div>`;
   }
 
@@ -3088,18 +3106,16 @@ export class CalendarCardProEditor extends LitElement {
    * @param ctx - Schema context
    * @param chassis - The chassis schemas
    * @param present - The fields built here
-   * @param shown - The ids search reaches
    * @returns The body
    */
   private _renderOverviewBody(
     ctx: SchemaCtx,
     chassis: Subforms.ChassisSchemas,
     present: ReadonlyMap<FieldId, IndexedField>,
-    shown: ReadonlySet<FieldId>,
   ): TemplateResult {
     const t = this._t(ctx);
     if (Filter.hasQuery(this._filter) && this._resultsLeft === undefined) {
-      return html`${this._renderScope(ctx)} ${this._renderResults(ctx, present, shown)}`;
+      return html`${this._renderScope(ctx)} ${this._renderResults(ctx, present)}`;
     }
     const rows = PAGES.filter(
       (page) => page.onlyIn === undefined || page.onlyIn === this._workspace,
@@ -3157,20 +3173,31 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * What a query finds, as the jump list: the count, the scope its values are for, and a row per
-   * field, which opens the field where it is drawn.
+   * The jump list's index for this render, built again only when what it reads has changed.
    *
    * @param ctx - Schema context
    * @param present - The fields built here
-   * @param shown - The ids search reaches
-   * @returns The results, or the line saying nothing matches
+   * @returns The index
    */
-  private _renderResults(
+  private _searchIndex(
     ctx: SchemaCtx,
     present: ReadonlyMap<FieldId, IndexedField>,
-    shown: ReadonlySet<FieldId>,
-  ): TemplateResult {
-    const query = this._filter.query.trim();
+  ): ReadonlyArray<Search.SearchEntry> {
+    const deps = [
+      present,
+      this._config,
+      this._rawConfig,
+      this._pending,
+      this._added,
+      ctx.workspace ?? ctx.view,
+      ctx.language,
+      this._entryKeys.join(),
+      this._buttonKeys.join(),
+      this.hass?.states,
+      this._prefs.every,
+    ];
+    const kept = this._indexKept;
+    if (kept && kept.deps.every((each, at) => each === deps[at])) return kept.index;
     const owners = (forms: ReadonlyArray<Search.SearchOwner>) =>
       forms.filter(({ schema }) => Filter.hasFields(schema));
     const calendars = PANELS.find((panel) => panel.id === 'calendars')!;
@@ -3185,7 +3212,7 @@ export class CalendarCardProEditor extends LitElement {
       ...ctx,
       hass: this.hass,
       present,
-      shown,
+      plan: this._planCtx(ctx),
       data: this._formData(),
       entries: entries ? owners(this._entrySchemas(entries, ctx)) : [],
       buttons:
@@ -3195,35 +3222,320 @@ export class CalendarCardProEditor extends LitElement {
       t: this._t(ctx),
       describe: this._describe,
     });
-    const hits = Search.search(index, query);
-    this._resultStatus = interpolate(this._string(ctx, 'search.results'), {
+    this._indexKept = { deps, index };
+    return index;
+  }
+
+  /**
+   * What a query finds, as the jump list: the count, the scope its values are for, Edit Here,
+   * and a row per result, which opens it where it is drawn; with Edit Here on, each card setting
+   * found is its live control instead.
+   *
+   * @param ctx - Schema context
+   * @param present - The fields built here
+   * @returns The results, or the lines saying nothing matches
+   */
+  private _renderResults(
+    ctx: SchemaCtx,
+    present: ReadonlyMap<FieldId, IndexedField>,
+  ): TemplateResult {
+    const query = this._filter.query.trim();
+    const t = this._t(ctx);
+    const hits = Search.search(this._searchIndex(ctx, present), query);
+    if (hits.length === 0) {
+      this._resultStatus = `${interpolate(t('filter.no_matches'), { query })} ${t('search.hint')}`;
+      return this._renderNoMatches(ctx);
+    }
+    // Counted as listed: one field of several calendars is one result (the D05 manifest).
+    const items = Search.collapse(hits);
+    this._resultStatus = interpolate(t('search.results'), {
       query,
-      count: String(hits.length),
+      count: String(items.length),
     });
-    if (hits.length === 0) return this._renderNoMatches(ctx);
     const workspace = ctx.workspace ?? ctx.view;
-    const rows = hits.map(({ entry }): SearchView.ResultRow => {
-      const { target } = entry;
-      const key = `result:${target.id}${target.kind === 'field' ? '' : `:${target.key}`}`;
-      return {
-        key,
-        label: entry.label,
-        marks: Search.highlight(entry.label, query),
-        crumbs: entry.crumbs,
-        value: entry.value,
-        yaml: interpolate(this._string(ctx, 'search.yaml'), { path: entry.yamlPath }),
-        onOpen: () => this._openResult(entry, key),
-      };
+    const pctx = this._planCtx(ctx);
+    const rows = items.map((item): SearchView.ResultItem => {
+      if (item.kind === 'calendars') return this._calendarsResult(item, query, ctx);
+      const { hit } = item;
+      const { entry } = hit;
+      const { target, status } = entry;
+      if (this._editHere && target.kind === 'field') {
+        const field = present.get(target.id);
+        const appearance = Plan.appearanceOf(target.id);
+        if (field && appearance && (status.kind === 'live' || status.kind === 'add')) {
+          return {
+            kind: 'field',
+            key: `edit:${target.id}`,
+            crumbs: entry.crumbs,
+            field: this._renderField(
+              field,
+              ctx,
+              this._fieldShow(field, appearance, pctx, ctx, CARD),
+            ),
+          };
+        }
+      }
+      return { kind: 'row', row: this._resultRow(hit, query, ctx) };
     });
     return SearchView.resultList(
-      this._resultStatus,
-      workspace === 'shared'
-        ? undefined
-        : interpolate(this._string(ctx, 'search.values_for'), {
-            layout: this._string(ctx, `editing_workspace.option.${workspace}.label`),
-          }),
+      {
+        status: this._resultStatus,
+        values:
+          workspace === 'shared'
+            ? undefined
+            : interpolate(t('search.values_for'), {
+                layout: t(`editing_workspace.option.${workspace}.label`),
+              }),
+        editHere: {
+          label: this._editHere ? t('search.show_list') : t('search.edit_here'),
+          pressed: this._editHere,
+          onToggle: () => {
+            this._editHere = !this._editHere;
+          },
+        },
+      },
       rows,
     );
+  }
+
+  /**
+   * The `data-focus` key of a result's row.
+   *
+   * @param target - What it opens
+   * @returns The key
+   */
+  private _resultKey(target: Search.SearchTarget): string {
+    switch (target.kind) {
+      case 'field':
+        return `result:${target.id}`;
+      case 'page':
+        return `result:page:${target.page}`;
+      case 'ha-tab':
+        return `result:ha:${target.tab}`;
+      default:
+        return `result:${target.id}:${target.key}`;
+    }
+  }
+
+  /**
+   * One result's row: its label with the query marked, where it is, its value, where the value
+   * comes from and its YAML path, its tag, the phrase a helper-only match was found by, and Add
+   * for a setting not shown yet.
+   *
+   * @param hit - The result
+   * @param query - The query
+   * @param ctx - Schema context
+   * @returns The row
+   */
+  private _resultRow(hit: Search.SearchHit, query: string, ctx: SchemaCtx): SearchView.ResultRow {
+    const t = this._t(ctx);
+    const { entry } = hit;
+    const key = this._resultKey(entry.target);
+    const open = entry.target.kind === 'ha-tab' ? undefined : () => this._chooseResult(entry, key);
+    return {
+      key,
+      label: entry.label,
+      marks: Search.highlight(entry.label, query),
+      crumbs: entry.crumbs,
+      meta: this._resultMeta(entry, ctx),
+      tag: entry.tag,
+      phrase: hit.phrase ? { template: t('search.helper'), ...hit.phrase } : undefined,
+      add:
+        entry.status.kind === 'add' && open
+          ? {
+              label: t('search.add'),
+              name: interpolate(t('search.add_named'), {
+                label: entry.label,
+                place: entry.crumbs.join(', '),
+              }),
+              key: `add-${key}`,
+              onAdd: open,
+            }
+          : undefined,
+      onOpen: open,
+    };
+  }
+
+  /**
+   * A result's line under its breadcrumb: its value, where the value comes from, and its YAML
+   * path, which a field's row always shows.
+   *
+   * @param entry - The result
+   * @param ctx - Schema context
+   * @returns The line
+   */
+  private _resultMeta(entry: Search.SearchEntry, ctx: SchemaCtx): string {
+    return [
+      entry.value,
+      entry.words,
+      entry.yamlPath === ''
+        ? undefined
+        : interpolate(this._string(ctx, 'search.yaml'), { path: entry.yamlPath }),
+    ]
+      .filter((part) => part !== undefined && part !== '')
+      .join(' · ');
+  }
+
+  /**
+   * One field of several calendar entries, folded into one result: how many set it, and, opened,
+   * a row per entry with its value, its source words and Go to Setting.
+   *
+   * @param item - The folded result
+   * @param query - The query
+   * @param ctx - Schema context
+   * @returns The result
+   */
+  private _calendarsResult(
+    item: Extract<Search.ResultItem, { kind: 'calendars' }>,
+    query: string,
+    ctx: SchemaCtx,
+  ): SearchView.ResultItem {
+    const t = this._t(ctx);
+    const [first] = item.hits;
+    const set = item.hits.filter(({ entry }) => entry.stored).length;
+    const open = this._openResults.has(item.id);
+    const key = `result:${item.id}`;
+    return {
+      kind: 'calendars',
+      row: {
+        key,
+        label: first.entry.label,
+        marks: Search.highlight(first.entry.label, query),
+        crumbs: [this._string(ctx, 'panel.calendars'), ...first.entry.crumbs.slice(1)],
+        meta:
+          set === 0
+            ? t('search.calendars_none')
+            : interpolate(t('search.calendars_set'), { count: String(set) }),
+        phrase: first.phrase ? { template: t('search.helper'), ...first.phrase } : undefined,
+        onOpen: () => {
+          const next = new Set(this._openResults);
+          if (open) next.delete(item.id);
+          else next.add(item.id);
+          this._openResults = next;
+        },
+      },
+      expanded: open,
+      entries: open
+        ? item.hits.map(({ entry }) => {
+            const subKey = this._resultKey(entry.target);
+            return {
+              key: subKey,
+              label: entry.crumbs[0],
+              crumbs: entry.crumbs,
+              meta: this._resultMeta(entry, ctx),
+              tag: entry.tag,
+              go: t('audit.go_setting'),
+              onOpen: () => this._chooseResult(entry, subKey),
+            };
+          })
+        : [],
+    };
+  }
+
+  /**
+   * Chooses a result (section 5.8): a setting shown or waiting in an Add row opens at the field,
+   * added where it waited; one a gate withholds opens at the setting that allows it; one stored
+   * but not in use opens at its gate line's Reset; another layout's switches the scope first; a
+   * page opens. Home Assistant's tabs open nothing.
+   *
+   * @param entry - The result
+   * @param focusKey - Its row's `data-focus` key, which Back restores focus to
+   */
+  private _chooseResult(entry: Search.SearchEntry, focusKey: string): void {
+    const { target, status } = entry;
+    const ctx = this._ctx;
+    if (target.kind === 'ha-tab') return;
+    if (target.kind === 'page') {
+      this._leaveResults({ kind: 'page', page: target.page }, focusKey);
+      void this._afterMove();
+      return;
+    }
+    switch (status.kind) {
+      case 'other-layout': {
+        this._pickScope(status.views[0] as Workspace.EditorWorkspace);
+        // Once the scope has changed, the setting is chosen as that scope finds it.
+        void this.updateComplete.then(() => {
+          const found = this._searchIndex(this._ctx, this._drawing!.present).find(
+            (each) => this._resultKey(each.target) === focusKey,
+          );
+          if (found && found.status.kind !== 'other-layout') this._chooseResult(found, focusKey);
+        });
+        return;
+      }
+      case 'gated': {
+        const by = status.by;
+        const labelOf = (id: FieldId): string => {
+          const field =
+            this._drawing!.present.get(id) ??
+            universeIndex(ctx.language, this._workspace).fields.get(id);
+          return field ? fieldLabel(field, ctx.language) : id;
+        };
+        const page = placementOf(by)?.page;
+        const gateTarget: Search.FieldTarget =
+          target.kind === 'entry-field' && by.startsWith('calendar:')
+            ? { kind: 'entry-field', id: by, key: target.key }
+            : {
+                kind: 'field',
+                id: by,
+                page: page === 'overview' || page === 'entry' ? undefined : page,
+              };
+        this._openResult({ target: gateTarget, label: labelOf(by) }, focusKey, true, () =>
+          interpolate(this._string(ctx, 'search.needs_said'), {
+            label: entry.label,
+            needs: entry.needs ?? '',
+          }),
+        );
+        return;
+      }
+      case 'inactive': {
+        const route: Navigation.Route =
+          target.kind === 'entry-field'
+            ? { kind: 'entry', key: target.key }
+            : {
+                kind: 'page',
+                page: target.kind === 'field' && target.page ? target.page : 'card_header',
+              };
+        this._leaveResults(route, focusKey);
+        void this.updateComplete.then(() => {
+          const root = this.renderRoot;
+          const line = Focus.focusFirst(root, [
+            Focus.byFocusKey(`reset:${target.id}`),
+            Focus.byFocusKey(`edit:${target.id}:shared`),
+            '.page-title',
+          ]);
+          if (line) Focus.scrollToTopSettled(this, line);
+          this._say(interpolate(this._string(ctx, 'search.showing'), { label: entry.label }));
+        });
+        return;
+      }
+      default:
+        this._openResult(
+          { target, label: entry.label },
+          focusKey,
+          true,
+          status.kind === 'add'
+            ? () => interpolate(this._string(ctx, 'announce.added'), { label: entry.label })
+            : undefined,
+        );
+    }
+  }
+
+  /**
+   * Opens a place from the results, which Return to Results and Back come back to.
+   *
+   * @param to - Where to go
+   * @param focusKey - The result's `data-focus` key
+   */
+  private _leaveResults(to: Navigation.Route, focusKey: string): void {
+    const from: Navigation.TrailEntry = {
+      route: this._nav.route,
+      scrollTop: Focus.scrollPosition(this),
+      focusKey,
+      search: { query: this._filter.query, editHere: this._editHere },
+    };
+    this._closeDisclosures();
+    this._nav = Navigation.go(this._nav, to, from);
+    this._jump = this._resultsLeft = undefined;
   }
 
   /**
@@ -3671,7 +3983,7 @@ export class CalendarCardProEditor extends LitElement {
   private _calendarModels(ctx: SchemaCtx): CalendarView.CalendarModel[] {
     const state = this._listState();
     const entities = state.entities;
-    // Folded as search folds a query: case and surrounding space ignored (`search.ts`).
+    // Case and surrounding space ignored.
     const query = this._calendarQuery.trim().toLowerCase();
     const matches = (texts: ReadonlyArray<unknown>): boolean =>
       texts.some((text) => typeof text === 'string' && text.toLowerCase().includes(query));
@@ -6223,6 +6535,8 @@ export class CalendarCardProEditor extends LitElement {
           .computeHelper=${this._helper('filter', ctx)}
           .localizeValue=${this._localizeValue}
           @value-changed=${this._filterChanged}
+          @compositionstart=${this._compositionStart}
+          @compositionend=${this._compositionEnd}
         ></ha-form>
       </div>
     `;
@@ -6240,14 +6554,43 @@ export class CalendarCardProEditor extends LitElement {
     if (!data) return;
 
     const next = Filter.toFilterCriteria(data);
+    // Korean and the other input methods: a word is not searched until it is composed.
+    if (this._composing) {
+      this._composing = { held: next };
+      return;
+    }
+    this._applyFilter(next);
+  };
+
+  /** An input method starts composing a word in the search field. */
+  private _compositionStart = (): void => {
+    this._composing = {};
+  };
+
+  /** The word is composed: the query it held is searched. */
+  private _compositionEnd = (): void => {
+    const held = this._composing?.held;
+    this._composing = undefined;
+    if (held) this._applyFilter(held);
+  };
+
+  /**
+   * Applies a query: the results follow, a field a result showed gives way to them, and the count
+   * is announced.
+   *
+   * @param next - The filter
+   */
+  private _applyFilter(next: Filter.FilterCriteria): void {
     if (next.query === this._filter.query) return;
     this._filter = next;
+    this._openResults = new Set();
+    if (!Filter.hasQuery(next)) this._editHere = false;
     this._jump = undefined;
     // Typing again leaves the field a result showed for the results.
     this._resultsLeft = undefined;
     // The count, through the queue, once the render that counts it is done.
     if (Filter.hasQuery(next)) void this.updateComplete.then(() => this._say(this._resultStatus));
-  };
+  }
 
   /**
    * Says that a query finds nothing.
@@ -6257,8 +6600,18 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _renderNoMatches(ctx: SchemaCtx): TemplateResult {
     const query = this._filter.query.trim();
-    return html`<div class="filter-empty">
-      ${interpolate(this._string(ctx, 'filter.no_matches'), { query })}
-    </div>`;
+    const t = this._t(ctx);
+    return SearchView.noMatches(
+      interpolate(t('filter.no_matches'), { query }),
+      t('search.hint'),
+      t('search.clear'),
+      () => {
+        this._applyFilter({ ...this._filter, query: '' });
+        // Focus stays out of forms (`views/focus.ts`): the overview's first list takes it.
+        void this.updateComplete.then(() =>
+          Focus.focusFirst(this.renderRoot, ['.row-group .heading', '.page-title']),
+        );
+      },
+    );
   }
 }

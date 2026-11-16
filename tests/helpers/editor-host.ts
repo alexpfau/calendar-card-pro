@@ -1231,6 +1231,10 @@ export interface ResultRowRead {
   readonly crumbs: string;
   /** "On · YAML: show_time". */
   readonly meta: string;
+  /** For one field of several calendars folded into one row, whether it is open. */
+  readonly expanded?: boolean;
+  /** Why it is not drawn here: "Needs Show Description", "Only in Grid". */
+  readonly tag?: string;
 }
 
 /**
@@ -1255,8 +1259,26 @@ export function resultRows(editor: EditorElement): ResultRowRead[] {
       marked: [...row.querySelectorAll('mark')].map((mark) => mark.textContent ?? ''),
       crumbs,
       meta,
+      tag: row.querySelector('.result-tag')?.textContent?.trim(),
+      expanded: row.hasAttribute('aria-expanded')
+        ? row.getAttribute('aria-expanded') === 'true'
+        : undefined,
     };
   });
+}
+
+/**
+ * Opens the row one field of several calendars is folded into, as a user taps it, so each
+ * calendar's row shows.
+ *
+ * @param editor - Editor element
+ * @param id - The field
+ */
+export async function openResultGroup(editor: EditorElement, id: FieldId): Promise<void> {
+  const row = resultRows(editor).find((each) => each.id === id && each.expanded !== undefined);
+  if (row === undefined || row.expanded) return;
+  await press(editor, `[data-focus="${CSS.escape(row.key)}"]`, `result group ${id}`);
+  await editor.updateComplete;
 }
 
 /**

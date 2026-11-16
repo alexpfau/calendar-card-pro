@@ -21,6 +21,7 @@ import {
   chooseResult,
   mountEditor,
   openPageOf,
+  openResultGroup,
   resultRows,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -206,7 +207,12 @@ describe('a search', () => {
     // Results are rows: no entry page is drawn, so no calendar form is mounted.
     expect(root.querySelectorAll('ha-form.entity-form')).toHaveLength(0);
 
-    const row = resultRows(editor).find((each) => each.id.startsWith('calendar:'))!;
+    // One field of several calendars is one row, which opens to a row per calendar.
+    const folded = resultRows(editor).find((each) => each.id.startsWith('calendar:'))!;
+    await openResultGroup(editor, folded.id);
+    const row = resultRows(editor).find(
+      (each) => each.id === folded.id && each.ownerKey !== undefined,
+    )!;
     await chooseResult(editor, row.key);
     const pages = [...root.querySelectorAll('.entry-page')];
     expect(pages.map((page) => page.getAttribute('data-entry-key'))).toEqual([

@@ -1257,6 +1257,60 @@ export default css`
     --mdc-icon-size: 20px;
   }
 
+  /* The jump list: Edit Here beside the count, Add beside a row, the tag saying why a setting
+     is not drawn, a helper-only match's phrase, and a calendar's row under its folded result. */
+  .result-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .result {
+    display: flex;
+    align-items: center;
+  }
+
+  .result-add {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    min-height: 44px;
+    margin-inline-end: 8px;
+  }
+
+  .result-tag,
+  .result-phrase {
+    color: var(--secondary-text-color);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .result-tag {
+    font-style: italic;
+  }
+
+  .result-entry {
+    padding-inline-start: 40px;
+  }
+
+  .result-go {
+    flex-shrink: 0;
+    color: var(--primary-color);
+    font-size: 14px;
+  }
+
+  .result--edit {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    padding: 8px 16px;
+  }
+
+  .result--info .nav-row {
+    cursor: default;
+  }
+
   /* The field a search result opened, Return to Results above it, highlighted for 2 s. */
   .jump {
     display: flex;

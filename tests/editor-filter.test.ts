@@ -67,12 +67,17 @@ function visibleFields(config: Types.Config, criteria: { readonly query: string 
   );
 }
 
-/** The fields of one panel the jump list lists for a query, by name. */
+/**
+ * The fields of one panel the jump list lists for a query, by name: those this layout offers,
+ * since another layout's are tagged as its own (`editor-search-full.test.ts`).
+ */
 function panelHits(config: Types.Config, panel: string, query: string): string[] {
   const workspace = config.view === 'column' ? 'column' : 'list';
-  return search(searchIndex(config, { workspace }), query).flatMap(({ entry: { target } }) =>
-    target.kind === 'field' && target.id.startsWith(`${panel}:`)
-      ? [target.id.split(/[:.]/).pop()!]
+  return search(searchIndex(config, { workspace }), query).flatMap(({ entry }) =>
+    entry.target.kind === 'field' &&
+    entry.target.id.startsWith(`${panel}:`) &&
+    entry.status.kind !== 'other-layout'
+      ? [entry.target.id.split(/[:.]/).pop()!]
       : [],
   );
 }
@@ -135,19 +140,18 @@ describe('editor filter: what search matches', () => {
   });
 
   /**
-   * A field the current configuration does not call for is not in the schema, so it
-   * cannot be found — and must not be, because the control genuinely is not there. What
-   * makes that honest rather than a dead end is the chassis saying so, which is the
-   * message tested further down.
+   * A field the current configuration does not call for has no control here, so the search
+   * finds it as what it is: waiting on another setting, which its tag names and choosing it
+   * opens (section 5.8). Once that setting allows it, it is found as an ordinary setting.
    */
-  it('does not offer a field that is gated off by another option', () => {
-    const off = buildConfig();
-    const on = buildConfig({ compact_events_to_show: 3 });
+  it('finds a field gated off by another option as waiting on it', () => {
+    const status = (config: Types.Config) =>
+      search(searchIndex(config, { workspace: 'list' }), 'compact_events_complete_days').map(
+        ({ entry }) => [entry.status.kind, entry.tag],
+      );
 
-    expect(visibleFields(off, { query: 'compact_events_complete_days' })).toEqual([]);
-    expect(visibleFields(on, { query: 'compact_events_complete_days' })).toContain(
-      'compact_events_complete_days',
-    );
+    expect(status(buildConfig())).toEqual([['gated', 'Needs an Events limit under Compact Mode']]);
+    expect(status(buildConfig({ compact_events_to_show: 3 }))).toEqual([['live', undefined]]);
   });
 });
 
@@ -198,20 +202,21 @@ describe('editor filter: the per-calendar settings', () => {
 
     // The denominator: a word that *is* under a heading still comes back, so the empty
     // result above is the rule working rather than the search finding nothing ever.
+    // Ranked: two labels starting with the word, then the one whose key holds it.
     expect(calendarHits(config, 'replace', schema)).toEqual([
       'replace_field',
-      'replace_pattern',
       'replace_with',
+      'replace_pattern',
     ]);
   });
 
   it('finds the label shape by searching for the label', () => {
     const config = buildConfig({ entities: [{ entity: 'calendar.a', label: 'Work' }] });
 
-    expect(calendarHits(config, 'label', entitySchemaFor(entitySchema(config), 'text'))).toEqual([
-      'label_type',
-      'label',
-    ]);
+    // The label itself first, then the shape, then what a label of another shape would use.
+    expect(
+      calendarHits(config, 'label', entitySchemaFor(entitySchema(config), 'text')).slice(0, 2),
+    ).toEqual(['label', 'label_type']);
   });
 
   it('lists a calendar whole when the search names it', () => {
@@ -313,15 +318,22 @@ describe('editor filter: the chassis', () => {
   it('says so when a search matches nothing', async () => {
     const { element, panels } = await mount({ entities: ['calendar.a'] });
 
-    // Column density is a Layout option of Columns, and the card is a list here.
+    // Column density is a Layout option of Columns and Grid, and the card is a list here: it is
+    // found as theirs, not as nothing.
     await changeField(element, `filter:${SEARCH_FIELD}`, 'min_day_width');
-    expect(panels()).toHaveLength(0);
+    expect(panels().map(({ id }) => id)).toEqual([
+      'layout:column.min_day_width',
+      'layout:time_grid.min_day_width',
+    ]);
     await changeField(element, `filter:${SEARCH_FIELD}`, 'zzzznotathing');
 
     expect(panels()).toHaveLength(0);
 
     const empty = element.shadowRoot!.querySelector('.filter-empty');
-    expect(empty?.textContent).toContain('zzzznotathing');
+    expect(empty?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Nothing matches “zzzznotathing”. Try fewer words, or an option name from YAML such as ' +
+        'show_location. Clear Search',
+    );
   });
 
   /**
@@ -371,9 +383,9 @@ describe('editor filter: section headings', () => {
 
     expect(panelHits(config, 'card', 'background')).toEqual(['background_color']);
 
-    // The title says what it becomes while the toolbar is shown, so the search finds it too.
+    // The title says what it becomes while the toolbar is shown, so the search finds it too,
+    // last, as a match in its help alone.
     expect(panelHits(config, 'card', 'toolbar')).toEqual([
-      'title',
       'show',
       'legend',
       'add_event',
@@ -382,6 +394,7 @@ describe('editor filter: section headings', () => {
       'refresh',
       'search',
       'navigation',
+      'title',
     ]);
   });
 

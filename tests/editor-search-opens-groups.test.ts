@@ -158,7 +158,7 @@ describe('the mounted editor', () => {
     // "day" names Day Header itself, so its whole section is listed, its two groups (Weekend
     // Colors, Past Days) with it.
     const all = [...index('list')]
-      .map(({ target }) => target.id)
+      .flatMap(({ target }) => ('id' in target ? [target.id] : []))
       .filter((id) => id.startsWith('day_header:'));
     expect(all).toEqual(
       expect.arrayContaining(['day_header:past_date_opacity', 'day_header:weekend_day_color']),
