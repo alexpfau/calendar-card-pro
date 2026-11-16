@@ -665,3 +665,58 @@ describe('What This Card Changes, the review’s findings', () => {
     expect(rows(editor).day_tap_action.value).not.toContain('[object Object]');
   });
 });
+
+describe('What This Card Changes, list and nested values', () => {
+  it('names the toolbar’s own buttons as their rows on the toolbar page do', async () => {
+    const editor = await mountEditor({
+      config_version: VERSION,
+      entities: ['calendar.anna'],
+      toolbar: {
+        show: true,
+        buttons: [
+          { icon: 'mdi:arrow-left', tap_action: { action: 'navigate', navigation_path: '/x' } },
+          { icon: 'mdi:calendar', name: 'Agenda' },
+          { tap_action: { action: 'none' } },
+        ],
+      },
+    });
+    await openAudit(editor);
+
+    expect(rows(editor)['toolbar.buttons'].value).toBe('Arrow left, Agenda, Button 3');
+  });
+
+  it('words a list or a nested value as one line of YAML, never as JSON', async () => {
+    const editor = await mountEditor({
+      config_version: VERSION,
+      entities: [
+        {
+          entity: 'calendar.anna',
+          visibility: [
+            { condition: 'screen', media_query: '(min-width: 600px)' },
+            { condition: 'user', users: ['a1', 'b2'] },
+          ],
+        },
+      ],
+      day_tap_action: {
+        action: 'perform-action',
+        perform_action: 'light.toggle',
+        target: { entity_id: ['light.hall', 'light.porch'] },
+      },
+      toolbar: { buttons: [] },
+      time_grid: { custom_thing: { value: 'keep', steps: [1, 2] } },
+      card_mod: { style: { 'ha-card': 'x' } },
+    });
+    await openAudit(editor);
+    const all = rows(editor);
+
+    expect(all['entities[0].visibility'].value).toBe(
+      '{condition: screen, media_query: (min-width: 600px)}, {condition: user, users: [a1, b2]}',
+    );
+    expect(all.day_tap_action.value).toBe(
+      'action: perform-action, perform_action: light.toggle, target: {entity_id: [light.hall, light.porch]}',
+    );
+    expect(all['toolbar.buttons'].value).toBe('[]');
+    expect(all['time_grid.custom_thing'].value).toBe('value: keep, steps: [1, 2]');
+    expect(all.card_mod.value).toBe('style: {ha-card: x}');
+  });
+});
