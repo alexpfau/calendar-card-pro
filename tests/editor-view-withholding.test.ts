@@ -442,11 +442,23 @@ describe('withholding is not a search filter or a config edit', () => {
         }
         continue;
       }
-      // A query lists rows: none of them a field Grid withholds.
-      const listed = resultRows(editor).map(({ id, ownerKey }) => ({
-        key: id.slice(id.indexOf(':') + 1),
-        calendar: ownerKey !== undefined,
-      }));
+      // A query lists rows: none of them a field Grid withholds, unless tagged as another
+      // layout's or as waiting on another setting, which it may only open, never edit here.
+      // Pages, Home Assistant's tabs, the calendar list and Split This Calendar are not fields.
+      const rows = resultRows(editor);
+      const onlyIn = rows.filter(({ tag }) => tag?.startsWith('Only in '));
+      expect(
+        onlyIn.filter(({ tag }) => tag!.includes('Grid')).map(({ id }) => id),
+        criteria.search,
+      ).toEqual([]);
+      const listed = rows
+        .filter(
+          ({ id, tag }) => tag === undefined && !/^(page|ha|overview):|^calendar:split$/.test(id),
+        )
+        .map(({ id }) => ({
+          key: id.slice(id.indexOf(':') + 1),
+          calendar: id.startsWith('calendar:'),
+        }));
       total += listed.length;
       expect(
         listed.filter(({ key, calendar }) => !(calendar ? calendarKeys : cardKeys).includes(key)),

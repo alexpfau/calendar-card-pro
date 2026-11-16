@@ -38,11 +38,11 @@ function hits(query: string, hass: Types.Hass | undefined = HASS): string[] {
 /** Whether a calendar's fields are all found, by its place in the list. */
 function calendarKept(at: number, query: string, hass?: Types.Hass): boolean {
   const config = buildConfig({ entities: ENTITIES });
-  const all = searchIndex(config, { hass: HASS }).filter(
-    ({ target }) => target.kind === 'entry-field' && target.key === at,
+  const all = searchIndex(config, { hass: HASS }).flatMap(({ target }) =>
+    target.kind === 'entry-field' && target.key === at ? [target.id] : [],
   );
   const found = hits(query, hass);
-  return all.length > 0 && all.every(({ target }) => found.includes(`${target.id}@${at}`));
+  return all.length > 0 && all.every((id) => found.includes(`${id}@${at}`));
 }
 
 afterEach(() => {

@@ -3,12 +3,17 @@
  * what a query finds reads, as `element.ts` › `_renderResults` builds it.
  */
 
+import * as Config from '../../src/config/config';
 import type * as Types from '../../src/config/types';
-import { buildFieldIndex, entrySchema, schemaCtx } from '../../src/rendering/editor/field-index';
+import {
+  buildFieldIndex,
+  entrySchema,
+  schemaCtx,
+  universeIndex,
+} from '../../src/rendering/editor/field-index';
 import { withholdInertFields } from '../../src/rendering/editor/filter';
 import type { HaFormSchema } from '../../src/rendering/editor/ha-form';
 import { lookup } from '../../src/rendering/editor/localize';
-import { placementOf } from '../../src/rendering/editor/pages';
 import { workspaceFormData } from '../../src/rendering/editor/routing';
 import {
   type SearchEntry,
@@ -16,6 +21,7 @@ import {
   buildSearchIndex,
   search,
 } from '../../src/rendering/editor/search';
+import { deepEqual } from '../../src/rendering/editor/value';
 import type { EditorWorkspace } from '../../src/rendering/editor/workspace';
 
 /** What the index is built for besides the configuration. */
@@ -25,6 +31,10 @@ export interface IndexOptions {
   readonly hass?: Types.Hass;
   /** Each calendar entry's fields, where a test hands its own; else as the editor builds them. */
   readonly entrySchemas?: ReadonlyArray<ReadonlyArray<HaFormSchema>>;
+  /** The configuration as stored; else the options that differ from the card's defaults. */
+  readonly raw?: Readonly<Record<string, unknown>>;
+  /** The session's added set. */
+  readonly added?: ReadonlySet<string>;
 }
 
 /**
@@ -40,8 +50,13 @@ export function searchIndex(
 ): ReadonlyArray<SearchEntry> {
   const { workspace = 'shared', language = 'en' } = options;
   const ctx = schemaCtx(config, workspace, language);
-  const present = buildFieldIndex(ctx).fields;
-  const shown = new Set([...present.keys()].filter((id) => placementOf(id) !== undefined));
+  const index = buildFieldIndex(ctx);
+  const defaults = Config.DEFAULT_CONFIG as unknown as Record<string, unknown>;
+  const raw =
+    options.raw ??
+    Object.fromEntries(
+      Object.entries(config).filter(([key, value]) => !deepEqual(value, defaults[key])),
+    );
   const entries: SearchOwner[] = (config.entities ?? []).map((entry, index) => ({
     entry,
     index,
@@ -53,8 +68,17 @@ export function searchIndex(
   return buildSearchIndex({
     ...ctx,
     hass: options.hass,
-    present,
-    shown,
+    present: index.fields,
+    plan: {
+      workspace,
+      config,
+      raw,
+      present: index,
+      universe: universeIndex('en', workspace),
+      added: options.added ?? new Set(),
+      showEverySetting: false,
+      entryKeys: (config.entities ?? []).map((_, at) => at),
+    },
     data: workspaceFormData(config, workspace),
     entries,
     buttons: [],
@@ -70,7 +94,8 @@ export function searchIndex(
  * @returns The ids, in the order the rows show them
  */
 export function hitIds(index: ReadonlyArray<SearchEntry>, query: string): string[] {
-  return search(index, query).map(({ entry: { target } }) =>
-    target.kind === 'field' ? target.id : `${target.id}@${target.key}`,
-  );
+  return search(index, query).flatMap(({ entry: { target } }) => {
+    if (!('id' in target)) return [];
+    return [target.kind === 'field' ? target.id : `${target.id}@${target.key}`];
+  });
 }

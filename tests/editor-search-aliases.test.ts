@@ -8,10 +8,18 @@
  * carries an `.aliases` string of such words, searched like its label and translated where a
  * language's words differ.
  *
+ * The full search (backlog item 307) adds the same kind of words where users' own missed: "week
+ * numbers" (forum, "how to add the week numbers in the week view") with German's "Wochennummern",
+ * "all-day events" (forum, "show all-day events in a different accent color than the timed
+ * events") with German's "Ganztagsereignisse", and "full width" (forum, "expand this card to take
+ * full width of the section"), which is a job of Home Assistant's Layout tab. A page carries the
+ * titles of the panels whose settings it took, on its title key: Layout and Separators on Size &
+ * Spacing, Time Range & Content on Which Events, Actions & Refresh on Taps & Refresh.
+ *
  * Three things are pinned. The families by value against `strings.ts`, so an alias string that
- * appears or disappears fails here. Each family's words finding its setting as a jump-list row,
- * on the card or on a calendar. And each language searching its own words where it has them and
- * the English ones where it has none.
+ * appears or disappears fails here. Each family's words finding its setting, page or tab as a
+ * jump-list row, on the card or on a calendar. And each language searching its own words where it
+ * has them and the English ones where it has none.
  */
 import { describe, expect, it } from 'vitest';
 
@@ -24,10 +32,10 @@ import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { EDITOR_LANGUAGE_STRINGS } from '../src/rendering/editor/translations';
 
 interface Family {
-  /** The setting, as its form names it. */
+  /** The setting, as its form names it; a page's id; a Home Assistant tab. */
   field: string;
-  /** Where it is set: on the card, or in one calendar's form. */
-  scope: 'card' | 'calendar';
+  /** Where it is set: on the card, or in one calendar's form; or a page, or a tab. */
+  scope: 'card' | 'calendar' | 'page' | 'ha-tab';
   /** Users' words for it, none of which its label, helper or key contains. */
   queries: ReadonlyArray<string>;
 }
@@ -60,22 +68,50 @@ const FAMILIES: Readonly<Record<string, Family>> = {
   },
   'show_past_events.aliases': { field: 'show_past_events', scope: 'card', queries: ['hide past'] },
   'time_format.aliases': { field: 'time_format', scope: 'card', queries: ['12h', 'AM/PM'] },
+  'event_type.aliases': { field: 'event_type', scope: 'card', queries: ['all-day events'] },
+  'week_number_mode.aliases': {
+    field: 'week_number_mode',
+    scope: 'card',
+    queries: ['week numbers'],
+  },
+  'search.ha_tab.layout.aliases': { field: 'layout', scope: 'ha-tab', queries: ['full width'] },
+  'page.size_spacing.aliases': {
+    field: 'size_spacing',
+    scope: 'page',
+    queries: ['Layout', 'Separators', 'separator'],
+  },
+  'page.which_events.aliases': {
+    field: 'which_events',
+    scope: 'page',
+    queries: ['Time Range & Content'],
+  },
+  'page.taps_refresh.aliases': {
+    field: 'taps_refresh',
+    scope: 'page',
+    queries: ['Actions & Refresh'],
+  },
 };
 
-/** The settings a search lists on the card, in the List workspace, and on its one calendar. */
-function rows(language: string, query: string): { card: string[]; calendar: string[] } {
+/**
+ * The settings a search lists on the card, in the List workspace, and on its one calendar, and
+ * the pages and Home Assistant's tabs it lists.
+ */
+function rows(language: string, query: string): Record<Family['scope'], string[]> {
   const config = { ...Config.DEFAULT_CONFIG, entities: ['calendar.anna'] } as Types.Config;
-  const found = { card: [] as string[], calendar: [] as string[] };
+  const found = { card: [], calendar: [], page: [], 'ha-tab': [] } as Record<
+    Family['scope'],
+    string[]
+  >;
   for (const { entry } of search(searchIndex(config, { workspace: 'list', language }), query)) {
-    const { name } = parseFieldId(entry.target.id);
-    found[entry.target.kind === 'field' ? 'card' : 'calendar'].push(name);
+    const { target } = entry;
+    if (target.kind === 'page') found.page.push(target.page);
+    else if (target.kind === 'ha-tab') found['ha-tab'].push(target.tab);
+    else if (target.kind === 'split' || target.kind === 'overview') continue;
+    else {
+      found[target.kind === 'field' ? 'card' : 'calendar'].push(parseFieldId(target.id).name);
+    }
   }
   return found;
-}
-
-/** What a search lists on the card. */
-function cardHits(language: string, query: string): string[] {
-  return rows(language, query).card;
 }
 
 /** What a search lists on the calendar. */
@@ -84,7 +120,7 @@ function calendarHits(language: string, query: string): string[] {
 }
 
 function hits(language: string, query: string, scope: Family['scope']): string[] {
-  return scope === 'card' ? cardHits(language, query) : calendarHits(language, query);
+  return rows(language, query)[scope];
 }
 
 describe('the alias families', () => {
@@ -107,7 +143,19 @@ describe('the alias families', () => {
   });
 
   it('control: a word no alias holds still finds nothing', () => {
-    expect([...cardHits('en', 'zebra'), ...calendarHits('en', 'zebra')]).toEqual([]);
+    expect(Object.values(rows('en', 'zebra')).flat()).toEqual([]);
+  });
+
+  it('control: the retired titles find nothing without the words on the pages', () => {
+    // Removing a page's words takes its old title with it: "Actions & Refresh" then finds no
+    // page, so the row above is the words working, not the title matching anyway.
+    const words = EDITOR_STRINGS['page.taps_refresh.aliases'];
+    try {
+      delete (EDITOR_STRINGS as Record<string, string>)['page.taps_refresh.aliases'];
+      expect(hits('en', 'Actions & Refresh', 'page')).toEqual([]);
+    } finally {
+      (EDITOR_STRINGS as Record<string, string>)['page.taps_refresh.aliases'] = words;
+    }
   });
 });
 
@@ -123,6 +171,15 @@ describe('aliases in each editor language', () => {
     );
     // The denominator: translated aliases exist, so the next test can tell the two apart.
     expect(translated.length).toBeGreaterThan(0);
+  });
+
+  it('find what German users call the settings where the labels say otherwise', () => {
+    // The words ia-final §6 names, which the German labels ("Nummerierung", "Nur ganztägige
+    // Termine") do not hold: without their German aliases each finds nothing.
+    expect(hits('de', 'Wochennummern', 'card')).toContain('week_number_mode');
+    expect(hits('de', 'Ganztagsereignisse', 'card')).toContain('event_type');
+    expect(hits('de', 'Ganztagsereignisse', 'calendar')).toContain('event_type');
+    expect(hits('en', 'Wochennummern', 'card')).toEqual([]);
   });
 
   it.each(LANGUAGES)(

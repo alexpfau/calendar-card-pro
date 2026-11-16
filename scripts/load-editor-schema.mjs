@@ -24,6 +24,7 @@ export async function loadEditorModule(root) {
         export { PAGES, OVERVIEW_FIELDS, ENTRY_GROUPS, FAMILIES, CALENDARS_BLOCK } from './src/rendering/editor/pages.js';
         export { GATES, ENTRY_GATES, corpus, whenKeyOf } from './src/rendering/editor/gates.js';
         export { schemaCtx } from './src/rendering/editor/field-index.js';
+        export { HA_TAB_KEYS } from './src/rendering/editor/search.js';
         export { EDITOR_STRINGS } from './src/rendering/editor/strings.js';
         export { COLOR_THEME_NAMES, SWATCH_TOKENS, swatchNameKey } from './src/rendering/editor/colors.js';
         export { LABELED_ACTIONS, cardActionLabelKey } from './src/rendering/editor/schemas/actions.js';

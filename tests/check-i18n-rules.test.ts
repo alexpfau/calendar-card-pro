@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+  aliasKeyProblem,
   capitalizedAgainst,
   capitalizedRunningTextWeekday,
   checkSeparators,
@@ -19,6 +20,8 @@ import {
   separatorProblem,
 } from '../scripts/check-i18n.mjs';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
+import { PAGES } from '../src/rendering/editor/pages';
+import { HA_TAB_KEYS } from '../src/rendering/editor/search';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { chassisSchemas } from '../src/rendering/editor/subforms';
 import deEditor from '../src/rendering/editor/translations/de.json';
@@ -319,5 +322,42 @@ describe('the keys an alias string may sit on', () => {
     expect(chassis).toEqual(expect.arrayContaining(['view', 'editing_workspace', 'search']));
     expect(aliasKeys.has('toolbar.search')).toBe(true);
     expect(chassis.filter((name) => name !== 'search' && aliasKeys.has(name))).toEqual([]);
+  });
+
+  it('take a page’s title key and a Home Assistant tab’s name, and nothing filed beside them', async () => {
+    const { aliasKeys, registry } = await readEditorSchemaKeys();
+
+    // Every page's words sit on its title key, which is not always `page.<id>`: Weather's is
+    // `panel.weather`, the title it kept from the panel it was.
+    for (const page of PAGES) {
+      expect(aliasKeyProblem(`${page.titleKey}.aliases`, aliasKeys), page.id).toBeUndefined();
+    }
+    for (const key of HA_TAB_KEYS)
+      expect(aliasKeyProblem(`${key}.aliases`, aliasKeys)).toBeUndefined();
+    // The words the full search added, each accepted where it sits.
+    for (const key of [
+      'page.size_spacing.aliases',
+      'page.which_events.aliases',
+      'page.taps_refresh.aliases',
+      'search.ha_tab.layout.aliases',
+      'event_type.aliases',
+      'week_number_mode.aliases',
+    ]) {
+      expect(EDITOR_STRINGS[key], key).toBeDefined();
+      expect(aliasKeyProblem(key, aliasKeys), key).toBeUndefined();
+      if (key.startsWith('page.')) expect(registry.named.has(key), key).toBe(true);
+    }
+
+    // Planted on a page's name rather than its title key, words are refused twice: as an alias
+    // nothing reads, and as a page-registry key no page names.
+    const weather = PAGES.find((page) => page.id === 'weather')!;
+    expect(weather.titleKey).toBe('panel.weather');
+    expect(aliasKeyProblem('page.weather.aliases', aliasKeys)).toMatch(/can never be searched/);
+    expect(registry.named.has('page.weather.aliases')).toBe(false);
+    expect(aliasKeyProblem('size_spacing.aliases', aliasKeys)).toMatch(/can never be searched/);
+    // Nor on a heading's title, which search reads as a field's place, not as its own words.
+    expect(aliasKeyProblem('heading_between_days.aliases', aliasKeys)).toMatch(
+      /can never be searched/,
+    );
   });
 });

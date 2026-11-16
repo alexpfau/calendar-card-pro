@@ -29,10 +29,13 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // other heading reuses today's heading or group title, so all of those arrive already
   // translated.
   'page.which_events': 'Which Events',
+  'page.which_events.aliases': 'time range, content',
   'page.which_events.note':
     'Hide events by words, or split one calendar, on that calendar’s own page.',
   'page.size_spacing': 'Size & Spacing',
+  'page.size_spacing.aliases': 'layout, separators',
   'page.taps_refresh': 'Taps & Refresh',
+  'page.taps_refresh.aliases': 'actions',
   'page.taps_refresh.note':
     'The preview does not run taps while you edit the card. Try them on the dashboard.',
   'heading.past_events': 'Past Events',
@@ -196,6 +199,23 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // The tag on a setting a gate withholds, around a gate phrase below or the label of the control
   // it waits on (`plan.ts` › `needsTag`): "Needs Show Description".
   'search.needs': 'Needs {needs}',
+  'search.not_in_use': 'Not in Use · Needs {needs}',
+  'search.needs_said': '{label} needs {needs}.',
+  'search.only_in': 'Only in {layouts}',
+  'search.help_phrase': 'Help: “{phrase}”',
+  'search.add': 'Add',
+  'search.add_named': 'Add {label}, {place}',
+  'search.edit_here': 'Edit Here',
+  'search.show_list': 'Show as a List',
+  'search.hint': 'Try fewer words, or an option name from YAML such as show_location.',
+  'search.clear': 'Clear Search',
+  'search.calendars_set': 'Set on Calendars: {count}',
+  'search.calendars_none': 'Not Set on Any Calendar',
+  'search.ha_tab.layout': 'Card Width',
+  'search.ha_tab.layout.aliases': 'full width',
+  'search.ha_tab.layout_note': 'In Home Assistant’s Layout Tab, Above This Editor',
+  'search.ha_tab.visibility': 'Who Sees the Card',
+  'search.ha_tab.visibility_note': 'In Home Assistant’s Visibility Tab, Above This Editor',
 
   // --- Colors ---------------------------------------------------------------
   //
@@ -1098,6 +1118,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'event_type.option.all.label': 'All events',
   'event_type.option.timed.label': 'Only events with a time',
   'event_type.option.all_day.label': 'Only all-day events',
+  'event_type.aliases': 'all-day events, timed events',
   'event_type.helper':
     'Whether the card shows every event, only those with a time, or only all-day ones. ' +
     'This is about the kind of event, not how long it lasts. Individual calendars can ' +
@@ -1289,6 +1310,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'week_number_mode.option.none.label': 'None',
   'week_number_mode.option.iso.label': 'ISO 8601',
   'week_number_mode.option.simple.label': 'Simple',
+  'week_number_mode.aliases': 'week numbers',
   'week_number_mode.helper':
     'ISO is the European and international standard: week one is the first with four ' +
     'days in the new year, so the numbering stays consistent from year to year. Simple ' +

@@ -481,6 +481,23 @@ describe('a word list', () => {
     expect(lastConfig(editor)!.list).toEqual({ remove_location_country: '' });
     expect(listForm(editor, field).data).toEqual({ location_country_pattern: [] });
   });
+
+  it('keeps Country Names on its page once Countries To Remove is emptied, reading Custom', async () => {
+    // Opened afresh on an emptied list: nothing was added this session, so only the blank being
+    // read as stored keeps the dropdown, and the empty list under it, on the page.
+    const editor = await mountEditor({
+      config_version: VERSION,
+      entities: ['calendar.anna'],
+      list: { remove_location_country: '' },
+    });
+    await openPageOf(editor, 'events:show_location');
+    expect(
+      root(editor).querySelector('[data-field="events:location_country_mode"]'),
+    ).not.toBeNull();
+    expect(listForm(editor, 'events:location_country_pattern').data).toEqual({
+      location_country_pattern: [],
+    });
+  });
 });
 
 describe('with the shown set and What This Card Changes', () => {

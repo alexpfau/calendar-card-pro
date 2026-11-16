@@ -6,6 +6,13 @@
  * compile is flagged at its field through `compiles`, which builds it exactly as the card does.
  */
 
+/** The word lists, drawn as one term at a time while their pattern reads as terms. */
+export const WORD_LIST_FIELDS: ReadonlySet<string> = new Set([
+  'calendar:blocklist',
+  'calendar:allowlist',
+  'events:location_country_pattern',
+]);
+
 /** The characters that mean something in a RegExp source, outside a character class. */
 const META = /[\\^$.*+?()[\]{}|]/g;
 

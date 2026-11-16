@@ -20,6 +20,7 @@ import {
   entry,
   fakeHass,
   mountEditor,
+  openResultGroup,
   resultRows,
   searchFor,
   valueOf,
@@ -104,7 +105,12 @@ describe('the results', () => {
     let checked = 0;
     for (const query of ['time', 'color', 'lights', 'exclude', 'ben']) {
       await searchFor(editor, query);
+      // A page's row, a row folding one field of several calendars, Split This Calendar and the
+      // calendar list are not one setting.
       for (const each of resultRows(editor)) {
+        if (/^(page|overview):|^calendar:split$/.test(each.id) || each.expanded !== undefined) {
+          continue;
+        }
         checked++;
         expect(each.crumbs, `${query}: ${each.key}`).not.toBe('');
         expect(each.meta, `${query}: ${each.key}`).toMatch(/(^|. · )YAML: [\w.[\]]+$/);
@@ -132,7 +138,7 @@ describe('the results', () => {
       '12h',
       'content:time_format',
       'Events › Event Details',
-      'Follow Home Assistant · YAML: time_24h',
+      'Follow Home Assistant · Whole Card · YAML: time_24h',
     ],
     ['days', 'content:days_to_show', 'Overview', '3 · YAML: list.days_to_show'],
     [
@@ -165,13 +171,19 @@ describe('the results', () => {
       { hass: fakeHass({ states: STATES }) },
     );
     await searchFor(editor, 'kids');
-    expect(row(editor, 'calendar:label', 0).meta).toBe('Kids · YAML: entities[0].label');
+    await openResultGroup(editor, 'calendar:label');
+    expect(row(editor, 'calendar:label', 0).meta).toBe(
+      'Kids · Set on This Calendar · YAML: entities[0].label',
+    );
     expect(row(editor, 'calendar:label_type', 0).meta).toBe(
-      'Text or Emoji · YAML: entities[0].label_type',
+      'Text or Emoji · Set on This Calendar · YAML: entities[0].label_type',
     );
     // Conditions have no words here, so the row says nothing of them, rather than Not Set.
     await searchFor(editor, 'who sees');
-    expect(row(editor, 'calendar:visibility', 1).meta).toBe('YAML: entities[1].visibility');
+    await openResultGroup(editor, 'calendar:visibility');
+    expect(row(editor, 'calendar:visibility', 1).meta).toBe(
+      'Set on This Calendar · YAML: entities[1].visibility',
+    );
     expect(row(editor, 'calendar:visibility', 0).meta).toBe(
       'Not Set · YAML: entities[0].visibility',
     );
@@ -180,9 +192,15 @@ describe('the results', () => {
   it('give each calendar its own rows, under its name, with its own value', async () => {
     const editor = await mount();
     await searchFor(editor, 'exclude');
+    // One field of two calendars is one result until it is opened.
+    expect(
+      resultRows(editor).map(({ crumbs, meta, expanded }) => [crumbs, meta, expanded]),
+    ).toEqual([['Calendars › Which Events', 'Set on Calendars: 1', false]]);
+    await openResultGroup(editor, 'calendar:blocklist');
     expect(resultRows(editor).map(({ crumbs, meta }) => [crumbs, meta])).toEqual([
+      ['Calendars › Which Events', 'Set on Calendars: 1'],
       ['Anna › Which Events', 'Not Set · YAML: entities[0].blocklist'],
-      ['Ben › Which Events', 'Dentist · YAML: entities[1].blocklist'],
+      ['Ben › Which Events', 'Dentist · Set on This Calendar · YAML: entities[1].blocklist'],
     ]);
   });
 
@@ -212,6 +230,7 @@ async function jump(
   owner?: number,
 ): Promise<string> {
   await searchFor(editor, query);
+  if (owner !== undefined) await openResultGroup(editor, id);
   const { key } = row(editor, id, owner);
   $(editor, `[data-focus="${key}"]`)!.focus();
   await chooseResult(editor, key);
@@ -231,7 +250,8 @@ describe('choosing a result', () => {
     // Return to Results sits directly above the field, and only there.
     expect(field?.previousElementSibling?.getAttribute('data-focus')).toBe('return');
     expect(editor.shadowRoot!.querySelectorAll('[data-focus="return"]')).toHaveLength(1);
-    expect(spoken(editor)).toBe('Showing Time Font Size.');
+    // It waited in its heading's Add row, so choosing it added it.
+    expect(spoken(editor)).toBe('Added Time Font Size.');
   });
 
   it('lets the highlight go after 2 s and keeps Return to Results', async () => {
@@ -347,6 +367,9 @@ describe('Return to Results', () => {
     await jump(editor, 'exclude', 'calendar:blocklist', 0);
     await searchFor(editor, 'excl');
     expect($(editor, '[data-focus="return"]')).toBeNull();
-    expect(resultRows(editor).length).toBe(2);
+    // Typed again, the calendars' rows fold back into one.
+    expect(resultRows(editor).map(({ id, expanded }) => [id, expanded])).toEqual([
+      ['calendar:blocklist', false],
+    ]);
   });
 });

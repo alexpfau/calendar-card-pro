@@ -59,6 +59,9 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     // The field a search result showed, and the results it left.
     '_jump',
     '_resultsLeft',
+    // How the results are drawn: Edit Here, and the calendars' rows a folded result opened.
+    '_editHere',
+    '_openResults',
     // What a page shows besides what is stored (section 5.1): the settings added this session,
     // the Add row open, and the two preferences, which this browser remembers instead.
     '_added',
@@ -121,6 +124,8 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_cancelQuickSetup',
     '_applyQuickSetup',
     '_filterChanged',
+    '_compositionStart',
+    '_compositionEnd',
     '_cardColors',
     '_entryColors',
     '_defaultData',
