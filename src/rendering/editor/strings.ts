@@ -80,6 +80,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'value.from_yaml': '{value} (From YAML)',
   'quick_setup.dismiss': 'Dismiss Quick Setup',
   'nav.back': 'Back',
+  // A page's foot: its page on the documentation site, which says what the helpers leave out.
+  'nav.docs': 'Documentation',
   // A link to the heading on another page that answers the neighboring question.
   'nav.crumb': '{page} › {heading}',
   'nav.cross_link.past_days': 'Dates of past days:',
@@ -138,13 +140,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'state.set_on_calendars': 'Set on Calendars:',
   'state.edit_layout': 'Edit {layout}',
   'state.edit_named': 'Edit {layout}: {label}',
-  // What Reset leaves, beside it, and the names of Reset and Remove.
-  'reset.gives_layout_default': 'Reset gives {layout}’s Default, {value}',
-  'reset.gives_layout_default_ignored':
-    'Reset gives {layout}’s Default, {value}, not the All Layouts value, {ignored}',
-  'reset.gives_all_layouts': 'Reset gives the All Layouts value, {value}',
-  'reset.gives_default': 'Reset gives the default, {value}',
-  'reset.gives_card': 'Reset follows the card: {value}',
+  // The button under a stored field, named for what it leaves: "Reset to Off", "Clear" where
+  // nothing comes back, "Remove" where the control goes; the rest name it for screen readers.
+  'reset.to': 'Reset to {value}',
+  'reset.clear': 'Clear',
+  'reset.named': '{action}: {label}',
   'reset.reset': 'Reset',
   'reset.reset_for': 'Reset {label} for {layout}',
   'reset.remove': 'Remove',
@@ -448,13 +448,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   day_spacing: 'Day Spacing',
   'day_spacing.helper': 'Gap between days. In column layout this is the gutter between columns.',
   event_gap: 'Event Gap',
-  'event_gap.helper':
-    "Space between a day's events. Zero keeps them together in one block. In list view, set a " +
-    'Day Rule Width under Separators to keep the days apart.',
+  'event_gap.helper': 'Zero joins a day’s events into one block.',
   event_spacing: 'Event Spacing',
   'event_spacing.helper': 'Space above and below the text inside each event.',
   additional_card_spacing: 'Additional Card Spacing',
-  'additional_card_spacing.helper': 'Extra padding above and below the card contents.',
 
   // --- Height ---------------------------------------------------------------
   //
@@ -469,11 +466,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'height_mode.option.maximum.label': 'Maximum height',
   card_height: 'Height',
   'card_height.helper':
-    'The calendar content area is always this tall. List and column views scroll if the events do not fit; ' +
-    'grid view compresses the time axis.',
+    'List and Columns scroll when the events do not fit; Grid compresses its hours.',
   card_max_height: 'Maximum Height',
-  'card_max_height.helper':
-    'The calendar content area grows with its content up to this height, then scrolls.',
+  'card_max_height.helper': 'Grows with its content up to this height, then scrolls.',
 
   // --- Column density -------------------------------------------------------
   'column.density': 'Column Density',
@@ -481,20 +476,14 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'How narrow a column may get before the card gives up a column, and what it does ' +
     'when it runs out.',
   'column.min_day_width': 'Minimum Day Width',
-  'column.min_day_width.helper':
-    'The narrowest a day column may be. Raising it makes the card demand more width ' +
-    'for the same number of columns.',
   'column.min_days_to_show': 'Fewest Day Columns',
   'column.min_days_to_show.helper':
-    'How far the card may reduce the column count to keep the layout. Defaults to the ' +
-    'number of days shown, which means it never reduces.',
+    'Defaults to the number of days shown, so the card never drops a column.',
   'column.min_days_fallback': 'When Too Narrow',
   'column.min_days_fallback.option.list.label': 'Fall back to a list',
   'column.min_days_fallback.option.cramp.label': 'Keep the columns, narrower',
   'column.day_header_gap': 'Day Header Gap',
-  'column.day_header_gap.helper': 'Space between a column heading and the events under it.',
   'time_grid.day_header_gap': 'Day Header Gap',
-  'time_grid.day_header_gap.helper': 'Space between a grid heading and the content below it.',
 
   // --- Calendars ------------------------------------------------------------
   //
@@ -574,8 +563,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entry.next_named': 'Next calendar: {name}',
   'entry.showing': 'Showing {name}.',
   'entry.calendar': 'Calendar',
-  'entry.calendar.helper':
-    'The calendar this entry reads. Picking another keeps this entry’s settings.',
+  'entry.calendar.helper': 'Picking another keeps this entry’s settings.',
   'entry.duplicate_warning':
     'Both entries show the same events until one sets Event Type or a word list, so each ' +
     'event shows twice for now.',
@@ -721,32 +709,25 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   'entity.name': 'Name',
   'entity.name.helper':
-    'Names this calendar in the calendar filter, when you open one of its events, and in ' +
-    'notices, and heads its row and its page here. Every entry for this calendar shares it. ' +
-    'Left empty, the card uses Home Assistant\u2019s name for it.',
+    'Every entry for this calendar shares it. Left empty, the card uses Home Assistant’s name.',
   'entity.show_in_legend': 'Show in Calendar Filter',
   'entity.show_in_legend.helper':
-    'Off leaves this calendar out of the calendar filter, as a chip and in the menu, so its ' +
-    'events always show. Every entry for this calendar shares it.',
+    'Off leaves this calendar out of the calendar filter, so its events always show. Every entry for it shares this.',
   'entity.label_type': 'Label Type',
   'entity.label_type.helper':
-    'Shown before every event from this calendar. An image label is a path the browser ' +
-    'can reach, such as /local/work.png.',
+    'An image label is a path the browser can reach, such as /local/work.png.',
   'entity.label_type.option.none.label': 'None',
   'entity.label_type.option.text.label': 'Text or Emoji',
   'entity.label_type.option.icon.label': 'An Icon',
   'entity.label_type.option.image.label': 'An Image',
   'entity.label_icon_source': 'Icon Source',
   'entity.label_icon_source.helper':
-    'Home Assistant holds an icon for each calendar, under Settings, Devices & Services, ' +
-    'Entities. Following it keeps the two in step; calendars it has no icon for show no ' +
-    'label at all.',
+    'Follows the icon under Settings, Devices & Services, Entities. Calendars without one show no label.',
   'entity.label_icon_source.option.home_assistant.label': 'Follow Home Assistant',
   'entity.label_icon_source.option.custom.label': 'Custom icon',
   'entity.label_image_source': 'Image Source',
   'entity.label_image_source.helper':
-    "A person's picture comes from Home Assistant, under Settings, People. Changing it " +
-    'there changes it here; people it holds no picture for show no label at all.',
+    'The person’s picture under Settings, People. People without one show no label.',
   'entity.label_image_source.option.custom.label': 'Custom image',
   'entity.label_image_source.option.person.label': "A person's picture",
   'entity.label': 'Label',
@@ -754,12 +735,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.color.helper': 'Event titles from this calendar. Overrides the card color.',
   'entity.accent_color': 'Custom Accent Color',
   'entity.accent_color.helper':
-    'The vertical line beside each event, and its background where the background ' +
-    'opacity is above zero.',
+    'The line beside each event, and its background where the opacity is above zero.',
   'entity.accent_color_mode': 'Accent Color',
   'entity.accent_color_mode.helper':
-    'Home Assistant can hold a color for each calendar, under Settings, Devices & ' +
-    'Services, Entities. Calendars it has no color for fall back to the card.',
+    'Home Assistant’s color under Settings, Devices & Services, Entities. Calendars without one fall back to the card.',
   'entity.accent_color_mode.option.inherit.label': 'Follow the card',
   'entity.accent_color_mode.option.home_assistant.label': 'Follow Home Assistant',
   'entity.accent_color_mode.option.custom.label': 'Custom color',
@@ -770,8 +749,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.text_scale': 'Text Scale',
   'entity.text_scale.aliases': 'text size, font size, bigger text, smaller text',
   'entity.text_scale.helper':
-    'Multiplies the size of the text and icons in this calendar\u2019s events: below 1 draws ' +
-    'them smaller, above 1 larger. Left empty, they match the card.',
+    'Below 1 draws this calendar’s events smaller, above 1 larger. Left empty, they match the card.',
 
   'entity.show_time': 'Event Times',
   'entity.show_time.option.inherit.label': 'Follow the card',
@@ -787,8 +765,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Never show also leaves them out when you open one of this calendar\u2019s events.',
   'entity.location_icon': 'Location Icon',
   'entity.location_icon.helper':
-    'Icon shown beside this calendar\u2019s locations, in place of the map marker. Left ' +
-    'empty, Microsoft Teams meetings get the Teams icon and everything else the marker.',
+    'In place of the map marker. Left empty, Microsoft Teams meetings get the Teams icon.',
   'entity.show_description': 'Event Descriptions',
   'entity.show_description.option.inherit.label': 'Follow the card',
   'entity.show_description.option.show.label': 'Always show',
@@ -800,9 +777,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.show_weather': 'Event Weather',
   'entity.show_weather.option.inherit.label': 'Follow the card',
   'entity.show_weather.option.hide.label': 'Never show',
-  'entity.show_weather.helper':
-    'Never show leaves the weather out beside this calendar\u2019s events. The forecast in ' +
-    'the day header stays.',
+  'entity.show_weather.helper': 'The forecast in the day header stays.',
 
   'entity.split_multiday_events': 'Split Across Days',
   'entity.split_multiday_events.option.inherit.label': 'Follow the card',
@@ -855,9 +830,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.visibility': 'Conditions',
   'entity.visibility.aliases': 'who sees it, specific users, per user, person',
   'entity.visibility.helper':
-    'Shows this calendar\u2019s events only while all of these conditions hold, the same ' +
-    'conditions a card\u2019s Visibility tab sets. With none, they always show. Not applied ' +
-    'while you edit the card.',
+    'Shows this calendar’s events only while all of these conditions hold. Not applied while you edit the card.',
 
   'entity.event_type': 'Event Type',
   'entity.event_type.option.inherit.label': 'Follow the card',
@@ -869,38 +842,27 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'its all-day and timed events different colors.',
 
   'entity.compact_events_to_show': 'Compact Events to Show',
-  'entity.compact_events_to_show.helper':
-    'How many of this calendar\u2019s events compact mode keeps. Left empty, the card ' +
-    'limit applies.',
+  'entity.compact_events_to_show.helper': 'Left empty, the card’s limit applies.',
   'entity.blocklist': 'Blocklist',
   'entity.blocklist.aliases': 'filter out, exclude, keywords',
   'entity.blocklist.helper': 'Hide events where the field above contains any of these terms.',
   'entity.allowlist': 'Allowlist',
   'entity.allowlist.aliases': 'filter, include only, keywords',
-  'entity.allowlist.helper':
-    'Show only events where the field above contains one of these terms. Left empty, every ' +
-    'event is shown.',
+  'entity.allowlist.helper': 'Show only events where the field above contains one of these terms.',
   'entity.filter_field': 'Match Against',
   'entity.filter_field.option.title.label': 'Event title',
   'entity.filter_field.option.location.label': 'Location',
   'entity.filter_field.option.description.label': 'Description',
   'entity.filter_field.helper':
-    'Which part of an event the two lists below read. One at a time \u2014 list the same ' +
-    'calendar twice to filter on a second.',
+    'One at a time: list the same calendar twice to filter on a second.',
   'entity.allday_expires_at': 'All-Day Events Expire At',
   'entity.allday_expires_at.helper':
-    'Time of day this calendar\u2019s all-day events stop counting as upcoming, on the ' +
-    'last day they cover. Left empty they last until midnight. Only applies while past ' +
-    'events are hidden, and takes effect at that time, without waiting for a refresh.',
+    'When this calendar’s all-day events stop counting as upcoming on their last day. Only while past events are hidden.',
   'entity.days_of_week': 'Days of the Week',
   'entity.days_of_week.option.inherit.label': 'Every day',
   'entity.days_of_week.option.weekdays.label': 'Every day except the weekend',
   'entity.days_of_week.option.weekends.label': 'Weekend days only',
-  'entity.days_of_week.helper':
-    'Which dates this calendar may show events on. Weekend days follow the country set in ' +
-    'Home Assistant, or its language when no country is set. Grid checks every covered ' +
-    'date. List and Columns check each day only when multi-day splitting is enabled; ' +
-    'otherwise they check the event’s display date.',
+  'entity.days_of_week.helper': 'Weekend days follow the country set in Home Assistant.',
 
   // --- Text replacement -----------------------------------------------------
   //
@@ -918,18 +880,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.replace_field.option.title.label': 'Event title',
   'entity.replace_field.option.location.label': 'Location',
   'entity.replace_field.option.description.label': 'Description',
-  'entity.replace_field.helper':
-    'Which part of an event the two fields below rewrite. One at a time \u2014 and unlike ' +
-    'the filters above, listing the calendar twice does not add a second, because both ' +
-    'copies would draw the same events.',
+  'entity.replace_field.helper': 'One at a time: listing the calendar twice does not add a second.',
   'entity.replace_pattern': 'Find',
   'entity.replace_pattern.helper':
-    'Text to find, as a regular expression. Every match is replaced, whatever its case. ' +
-    'Left empty, the whole field is replaced instead.',
+    'A regular expression, matched in any case. Left empty, the whole field is replaced.',
   'entity.replace_with': 'Replace With',
-  'entity.replace_with.helper':
-    'What to put in place of each match \u2014 or of the whole field, when nothing is ' +
-    'being searched for. Left empty, the match is removed.',
+  'entity.replace_with.helper': 'Left empty, the match is removed.',
 
   // --- The time grid's own block ----------------------------------------------
   //
@@ -940,48 +896,32 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'How narrow a day column may get before the grid gives up a day, and what it does ' +
     'when it runs out.',
   'time_grid.min_day_width': 'Minimum Day Width',
-  'time_grid.min_day_width.helper':
-    'The narrowest a day column may be. The default 100px keeps three days at 383px, ' +
-    'or 399px when entering from the list fallback.',
+  'time_grid.min_day_width.helper': 'The default, 100px, fits three days at 383px.',
   'time_grid.min_days_to_show': 'Fewest Day Columns',
-  'time_grid.min_days_to_show.helper':
-    'How far the grid may reduce the day count to keep the time layout. Defaults to 1, ' +
-    'because a one-day grid is still a useful day view with a now line.',
+  'time_grid.min_days_to_show.helper': 'Defaults to 1: a one-day grid is still a useful day view.',
   'time_grid.min_days_fallback': 'When Too Narrow',
   'time_grid.min_days_fallback.option.list.label': 'Fall back to a list',
   'time_grid.min_days_fallback.option.cramp.label': 'Keep the grid, narrower',
   'time_grid.axis': 'Time Axis',
   'time_grid.start_time': 'First Hour',
-  'time_grid.start_time.helper':
-    'As HH:mm. Events entirely before this are not drawn at all, so this decides what ' +
-    'the card shows and not only how it looks.',
+  'time_grid.start_time.helper': 'As HH:mm. Events entirely before it are not drawn at all.',
   'time_grid.end_time': 'Last Hour',
   'time_grid.end_time.helper':
-    'As HH:mm, or 24:00 for the end of the day. If either time cannot be read, both fall ' +
-    'back to 07:00 and 22:00 together.',
+    'As HH:mm, or 24:00. If either time cannot be read, both fall back to 07:00 and 22:00.',
   'time_grid.slot_minutes': 'Grid Lines Every',
-  'time_grid.slot_minutes.helper':
-    'Spacing of the rules across the axis. Ruling only — an hour is the same height ' +
-    'whichever you pick.',
+  'time_grid.slot_minutes.helper': 'Only the rules: an hour is the same height whichever you pick.',
   'time_grid.slot_minutes.option.15.label': '15 minutes',
   'time_grid.slot_minutes.option.20.label': '20 minutes',
   'time_grid.slot_minutes.option.30.label': '30 minutes',
   'time_grid.slot_minutes.option.60.label': '1 hour',
   'time_grid.weekend_background_color': 'Weekend Shading',
   'time_grid.weekend_background_color.helper':
-    'Tints a weekend day column from just under the date row down, so a week reads at a ' +
-    'glance. Any CSS color — keep it faint, since event text sits on top of it. Which days ' +
-    'count as the weekend follows the country set in Home Assistant, or its language when ' +
-    'no country is set.',
+    'Any CSS color; keep it faint, since event text sits on top. Weekend days follow the country set in Home Assistant.',
   'time_grid.today_background_color': 'Today Shading',
   'time_grid.today_background_color.helper':
-    "Tints today's column from just under the date row down, so today stands out at a " +
-    'glance. Off until a color is set. Any CSS color — keep it faint, since event text sits ' +
-    'on top of it. When today falls on the weekend, it replaces the weekend shading.',
+    'Any CSS color; keep it faint, since event text sits on top. On a weekend it replaces the weekend shading.',
   'time_grid.hour_height': 'Height Per Hour',
-  'time_grid.hour_height.helper':
-    "The calendar content area's natural height, one hour at a time. Ignored when a fixed height is set: " +
-    'the axis compresses to fit instead.',
+  'time_grid.hour_height.helper': 'Ignored when a fixed Height is set: the hours compress to fit.',
   'time_grid.hour_line_width': 'Hour Rule Width',
   'time_grid.hour_line_color': 'Hour Rule Color',
   'time_grid.allday_band_line_width': 'All-Day Band Rule Width',
@@ -990,34 +930,22 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'time_grid.show_axis_labels': 'Show Hour Labels',
   'time_grid.axis_label_minutes': 'Axis Labels Every',
   'time_grid.axis_label_minutes.helper':
-    'How often the gutter names a time. Independent of the grid lines, so a label can ' +
-    'sit where no rule is drawn. Below an hour every label carries minutes — 12:00, ' +
-    '12:30 — which widens the gutter.',
+    'Independent of the grid lines. Below an hour, labels carry minutes, which widens the gutter.',
   'time_grid.axis_label_minutes.option.30.label': '30 minutes',
   'time_grid.axis_label_minutes.option.60.label': '1 hour',
   'time_grid.axis_label_minutes.option.120.label': '2 hours',
   'time_grid.axis_label_minutes.option.180.label': '3 hours',
   'time_grid.show_now_line': 'Now Line',
-  'time_grid.show_now_line.helper':
-    "Marks the current time on today's column. Hidden when now falls outside the hours " +
-    'above, rather than pinned to an edge.',
+  'time_grid.show_now_line.helper': 'Hidden when now falls outside the hours shown.',
   'time_grid.allday_band_max_rows': 'Most All-Day Rows',
-  'time_grid.allday_band_max_rows.helper':
-    'How tall that band may grow. Banners past this are dropped — without a cap, a week ' +
-    'of long events would push the axis off the card.',
+  'time_grid.allday_band_max_rows.helper': 'Banners past this many rows are dropped.',
   'time_grid.overlap_layout': 'Overlapping Events',
   'time_grid.overlap_layout.helper':
-    'Stacked draws an event over a longer one it starts inside, slightly indented, the ' +
-    'way most calendar apps do, so a long event does not halve the width of everything ' +
-    'in it. Side by side splits the column instead, which makes it easy to count what ' +
-    'happens at once.',
+    'Stacked draws an event over a longer one it starts inside; Side by Side splits the column.',
   'time_grid.overlap_layout.option.cascade.label': 'Stacked',
   'time_grid.overlap_layout.option.columns.label': 'Side by side',
   'time_grid.max_simultaneous_events': 'Most Events Side By Side',
-  'time_grid.max_simultaneous_events.helper':
-    'The most events drawn side by side. The rest collapse into a narrow +N block at the ' +
-    'edge, so nothing is hidden without being counted. An event stacked over a longer one ' +
-    'does not count, because it sits on top of that event rather than beside it.',
+  'time_grid.max_simultaneous_events.helper': 'The rest collapse into a +N block at the edge.',
 
   // --- Defaults a view substitutes -------------------------------------------
   //
@@ -1039,9 +967,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   days_to_show: 'Days To Show',
   'days_to_show.aliases': 'how many days, number of days, weeks ahead, future weeks, date range',
   'days_to_show.helper':
-    'How many days the card covers from its start date. Each layout can set its own, such ' +
-    'as 14 in List and 7 in Grid. The card loads the longest of them once, so switching ' +
-    'layouts never reloads.',
+    'Each layout can set its own. The card loads the longest once, so switching layouts never reloads.',
   start_date_mode: 'Start Date',
   'start_date_mode.aliases': 'tomorrow, yesterday, begin on, first day shown',
   'start_date_mode.option.default.label': 'Today',
@@ -1052,9 +978,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   start_date_fixed: 'Date',
   start_date_offset: 'Expression',
   'start_date_offset.helper':
-    'An anchor — today, start_of_week, or a weekday name — followed by up to eight ' +
-    '+N or -N day offsets, +Nw week offsets, or +weekday jumps. For example today+7, ' +
-    '-3, start_of_week, saturday, monday+1w.',
+    'An anchor (today, start_of_week or a weekday), then +N or -N days, +Nw weeks or +weekday. For example today+7, saturday, monday+1w.',
   first_day_of_week: 'First Day Of Week',
   'first_day_of_week.option.system.label': 'Follow Home Assistant',
   'first_day_of_week.option.monday.label': 'Monday',
@@ -1063,14 +987,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'event_order.aliases': 'newest first, oldest first, reverse order, sort, descending',
   'event_order.option.earliest_first.label': 'Earliest first',
   'event_order.option.latest_first.label': 'Latest first',
-  'event_order.helper':
-    'Latest first puts the most recent day and event at the top, and the event limit then ' +
-    'keeps the most recent events. For a calendar used as a log.',
+  'event_order.helper': 'With Latest First, the event limit keeps the most recent events.',
 
   compact_mode: 'Compact Mode',
-  'compact_mode.helper':
-    'Shortens the card while it sits in a compact dashboard slot. Leaving both empty ' +
-    'means compact mode changes nothing.',
+  'compact_mode.helper': 'Shortens the card in a compact dashboard slot.',
   compact_days_to_show: 'Days',
   compact_events_to_show: 'Events',
   // Also a calendar's own limit, which has no words of its own and resolves to these.
@@ -1083,8 +1003,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'show_past_events.aliases': 'hide past events, finished events, ended events',
   skip_first_events: 'Skip First Events',
   'skip_first_events.helper':
-    'Leaves this many events off the top of the list, so this card can continue where another ' +
-    'card with the same calendars and that many events stops. Applies expanded too.',
+    'Leaves this many events off the top, so this card can continue where another stops.',
   show_empty_days: 'Show Empty Days',
   show_empty_today: 'Show Today When Empty',
   'show_empty_today.helper':
@@ -1093,8 +1012,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'empty_day_text.helper': 'Replaces the translated default, and drops the check mark before it.',
   empty_day_color: 'Empty Day Color',
   hide_when_empty: 'Hide The Card When Empty',
-  'hide_when_empty.helper':
-    'Removes the card from the dashboard entirely while it has nothing to show.',
   filter_duplicates_mode: 'Filter Duplicates',
   'filter_duplicates_mode.option.off.label': 'Off',
   'filter_duplicates_mode.option.exact.label': 'Same title, start, end and location',
@@ -1103,29 +1020,23 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // block of the same calendar rather than a different one. Colors only — since v4.2 a row
   // merged across two or more distinct calendars shows every one of their labels.
   'filter_duplicates_mode.helper':
-    'Hides an event that matches another on the fields chosen here. The copy from the ' +
-    'entry listed first is the one kept, along with its color. Leaving location out suits ' +
-    'a holiday that two regional calendars each carry under their own location.',
+    'Hides an event that matches another on these fields. The copy from the entry listed first is kept, with its color.',
   duplicate_accent_color: 'Shared Event Color',
   'duplicate_accent_color.helper':
-    'Accent color for an event kept from two or more different calendars, in place of ' +
-    'the first calendar\u2019s. Left empty it keeps that calendar\u2019s color.',
+    'For an event kept from two or more calendars. Left empty, it keeps the first calendar’s color.',
   split_multiday_events: 'Split Multi-Day Events',
   'split_multiday_events.helper':
     'Show an event on every day it covers rather than only on the day it starts.',
   multiday_banners: 'Banners Above the Hours',
   'multiday_banners.helper':
-    'Draws an event with a time that lasts a full day or longer as one banner above the ' +
-    'hours, its start and end times at its ends, instead of a block on every day it covers.',
+    'Draws an event with a time that lasts a day or longer as one banner above the hours.',
   event_type: 'Event Type',
   'event_type.option.all.label': 'All events',
   'event_type.option.timed.label': 'Only events with a time',
   'event_type.option.all_day.label': 'Only all-day events',
   'event_type.aliases': 'all-day events, timed events',
   'event_type.helper':
-    'Whether the card shows every event, only those with a time, or only all-day ones. ' +
-    'This is about the kind of event, not how long it lasts. Individual calendars can ' +
-    'depart from it below.',
+    'The kind of event, not how long it lasts. Each calendar can choose its own.',
 
   language_mode: 'Language',
   'language_mode.option.system.label': 'Follow Home Assistant',
@@ -1142,37 +1053,28 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'panel.card': 'Card & Header',
   title: 'Title',
   'title.helper':
-    'Text containing {{ or {% is a Home Assistant template and updates by itself. With the ' +
-    "toolbar shown, the title's size and color apply to the month.",
+    'Text with {{ or {% is a Home Assistant template. With the toolbar shown, the title’s size and color apply to the month.',
   title_font_size: 'Title Font Size',
   title_color: 'Title Color',
   background_color: 'Background Color',
   'toolbar.show': 'Show Toolbar',
   'toolbar.navigation': 'Date Navigation',
   'toolbar.navigation.helper':
-    'Arrows to page through the days, a button back to the days the card opens with, and a ' +
-    'date picker on the month. On a touch screen, a swipe across the days pages too.',
+    'Arrows, a button back to the starting days, and a date picker on the month. Swiping pages too.',
   'toolbar.view_switcher': 'View Switcher',
-  'toolbar.view_switcher.helper':
-    'Switch between List, Columns and Grid on the dashboard. Each device remembers its choice.',
+  'toolbar.view_switcher.helper': 'Each device remembers its choice.',
   'toolbar.reset': 'Reset Button',
   'toolbar.reset.helper':
-    "For a shared screen. One press undoes this device's changes to the days, the layout, the " +
-    'calendars and an expanded view.',
+    'Undoes this device’s changes to the days, the layout, the calendars and an expanded view.',
   'toolbar.refresh': 'Refresh Button',
-  'toolbar.refresh.helper':
-    'Loads the events again now, rather than at the next scheduled refresh.',
   'toolbar.search': 'Search Button',
   'toolbar.search.helper':
-    "Finds the card's events by title, location or description, a year back and a year " +
-    'ahead. A result opens its day on the card, so the button needs the date navigation.',
+    'Finds events by title, location or description, a year either way. Needs Date Navigation.',
   'toolbar.add_event': 'Add Event Button',
-  'toolbar.add_event.helper':
-    'Opens a new event, ready to fill in. Shown when a calendar on the card accepts new events.',
+  'toolbar.add_event.helper': 'Shown only when a calendar on the card accepts new events.',
   'toolbar.legend': 'Calendar Filter',
   'toolbar.legend.helper':
-    "Hides each calendar's events on this device. Menu opens a checkbox per calendar; Chips shows " +
-    'them beside the month, or the menu where they do not fit.',
+    'Hides calendars on this device. Chips fall back to the menu where they do not fit.',
   'toolbar.legend.option.off.label': 'Off',
   'toolbar.legend.option.menu.label': 'Menu',
   'toolbar.legend.option.chips.label': 'Chips',
@@ -1190,21 +1092,16 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // the line under a row's name, the action by Home Assistant's own name, then its target.
   'toolbar.buttons.heading': 'Your Own Buttons',
   'toolbar.buttons.icon': 'Icon',
-  'toolbar.buttons.icon.helper':
-    'The button shows its icon and nothing else. A button without one is left out of the toolbar.',
+  'toolbar.buttons.icon.helper': 'A button without an icon is left out of the toolbar.',
   'toolbar.buttons.name': 'Name',
   'toolbar.buttons.name.helper':
-    'Shown when you point at the button, read out by screen readers, and written beside the ' +
-    'icon in the menu a narrow card folds its buttons into. Left empty, the button is named ' +
-    'after its action or its icon.',
+    'Read out by screen readers and shown on hover. Left empty, the button is named after its action.',
   'toolbar.buttons.entity': 'Entity',
   'toolbar.buttons.entity.helper':
-    "The entity a toggle or a more-info action acts on. Left empty, they act on the card's " +
-    'first calendar.',
+    'What a toggle or more-info acts on. Left empty, the card’s first calendar.',
   'toolbar.buttons.tap_action': 'Tap Action',
   'toolbar.buttons.tap_action.helper':
-    'What a press does. Go Back returns to the page you came from, or to the first view of ' +
-    'this dashboard when there is none.',
+    'Go Back returns to the page you came from, or to this dashboard’s first view.',
   // A panel's heading for a button with neither a name nor an icon the editor can put words to.
   'toolbar.buttons.untitled': 'Button {number}',
   'toolbar.buttons.add': 'Add Button',
@@ -1229,12 +1126,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   accent_event_text: 'Use Calendar Colors For Event Text',
   'accent_event_text.helper':
-    'Draws each event\u2019s title, time, location, description and progress bar in the ' +
-    'color of the calendar it came from, rather than in one color for the whole card. ' +
-    'Grid does this by default. Each of those five options also takes the value ' +
-    'accent on its own, so one field can follow the calendar while the rest do not \u2014 ' +
-    'and switching this off returns all five to their standard colors rather than to ' +
-    'anything set before.',
+    'Draws each event’s title, time, location, description and progress bar in its calendar’s color. Grid does this by default.',
 
   weekend_colors: 'Weekend Colors',
   // 🚨 Deliberately free of the word this file spells Color, which is what
@@ -1243,18 +1135,14 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // carries the word and is always overridden, the helper does not and never is. Put it
   // back in and that test fails, on a claim about the generator rather than about wording.
   'weekend_colors.helper':
-    'Which days count as the weekend follows the country set in Home Assistant, or its ' +
-    'language when no country is set. Each of these falls back to its weekday equivalent ' +
-    'when left empty.',
+    'Weekend days follow the country set in Home Assistant. Each one left empty falls back to its weekday equivalent.',
   weekend_weekday_color: 'Weekend Weekday Color',
   weekend_day_color: 'Weekend Day Number Color',
   weekend_month_color: 'Weekend Month Color',
 
   heading_today: 'Today',
   today_date_scale: "Today's Date Scale",
-  'today_date_scale.helper':
-    "Draws today's whole date larger or smaller, the date tile with it: 1.25 is a quarter " +
-    'larger. 1 leaves it as it is.',
+  'today_date_scale.helper': '1.25 is a quarter larger; 1 leaves it as it is.',
   today_date_font_weight: "Today's Font Weight",
   'today_date_font_weight.option.default.label': 'Default',
   'today_date_font_weight.option.light.label': 'Light',
@@ -1263,24 +1151,18 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'today_date_font_weight.option.bold.label': 'Bold',
   today_weekday_color: "Today's Weekday Color",
   'today_weekday_color.helper':
-    "Left empty, each of today's colors falls back to its weekend equivalent on a weekend, and " +
-    'then to its usual one.',
+    'Left empty, it falls back to the weekend color on a weekend, then to the usual one.',
   today_day_color: "Today's Day Number Color",
   'today_day_color.helper':
     "Left empty, the digits on the date tile take a deeper shade of the tile's color.",
   today_month_color: "Today's Month Color",
 
   past_days: 'Past Days',
-  'past_days.helper':
-    'For the days before today, when the card starts earlier, as a week view starting on ' +
-    'Monday does.',
+  'past_days.helper': 'For the days before today, when the card starts earlier.',
   past_date_opacity: 'Past Date Opacity',
-  'past_date_opacity.helper':
-    'How strongly the dates of past days fade, from 0 to 100%. 100 leaves them as they are.',
+  'past_date_opacity.helper': '0 to 100%; 100 leaves them as they are.',
   past_date_scale: 'Past Date Scale',
-  'past_date_scale.helper':
-    'Draws the dates of past days larger or smaller: 0.85 is a little smaller. 1 leaves them ' +
-    'as they are.',
+  'past_date_scale.helper': '0.85 is a little smaller; 1 leaves them as they are.',
   past_date_font_weight: 'Past Font Weight',
   'past_date_font_weight.option.default.label': 'Default',
   'past_date_font_weight.option.light.label': 'Light',
@@ -1300,9 +1182,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   today_indicator_icon: 'Icon',
   today_indicator_custom: 'Emoji Or Image Path',
   'today_indicator_custom.helper':
-    'An emoji, an image path or URL, or any text but the words tile, dot, pulse and glow, ' +
-    'which are built-in styles in any casing. Words need a larger Indicator Size than the size ' +
-    'an emoji reads at.',
+    'An emoji, an image path or URL, or any text but tile, dot, pulse and glow, the built-in styles.',
   today_indicator_color: 'Indicator Color',
   today_indicator_size: 'Indicator Size',
   today_indicator_position: 'Indicator Position',
@@ -1315,10 +1195,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'week_number_mode.option.simple.label': 'Simple',
   'week_number_mode.aliases': 'week numbers',
   'week_number_mode.helper':
-    'ISO is the European and international standard: week one is the first with four ' +
-    'days in the new year, so the numbering stays consistent from year to year. Simple ' +
-    'counts from January 1st, which is common in North America and can leave a short ' +
-    'first week.',
+    'ISO: week one is the first with four days in the new year. Simple counts from January 1st.',
   show_current_week_number: 'Show The Current Week',
   week_number_font_size: 'Week Number Font Size',
   week_number_color: 'Week Number Color',
@@ -1329,12 +1206,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   event_font_size: 'Event Font Size',
   event_color: 'Event Color',
   accent_color: 'Custom Accent Color',
-  'accent_color.helper':
-    'The bar beside each event. A calendar can override it for its own events.',
+  'accent_color.helper': 'The bar beside each event.',
   accent_color_mode: 'Accent Color',
   'accent_color_mode.helper':
-    'Home Assistant can hold a color for each calendar, under Settings, Devices & ' +
-    'Services, Entities. Calendars it has no color for keep the card default.',
+    'Home Assistant’s color under Settings, Devices & Services, Entities. Calendars without one keep the card default.',
   'accent_color_mode.option.custom.label': 'Custom color',
   'accent_color_mode.option.home_assistant.label': 'Follow Home Assistant',
   vertical_line_width: 'Accent Bar Width',
@@ -1343,24 +1218,15 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Tints each event with its accent color. Zero leaves it untinted.',
   past_event_opacity: 'Past Event Opacity',
   'past_event_opacity.helper':
-    'Opacity of finished event contents and Grid banner titles, and of past-day notices in ' +
-    'List and Columns: 0-100%, including fractions. ' +
-    '60% is the default; 100% removes dimming; 0% makes contents transparent, not hidden. ' +
-    'Empty-day notices dim once their own local date has ended, whenever they are shown. ' +
-    'Backgrounds and accent stripes stay unchanged.',
+    '0 to 100%. 100% removes the dimming; 0% makes contents transparent, not hidden.',
   title_max_lines: 'Title Line Limit',
   'title_max_lines.helper': 'Zero means no limit. A truncated title ends in an ellipsis.',
   scroll_long_titles: 'Scroll Long Titles',
   'scroll_long_titles.helper':
-    'Where supported, visible overflowing titles start together, return quickly one by one, ' +
-    'and wait at their beginnings. Forces one line in either text direction and overrides ' +
-    'the title line limit. Never animates under reduced motion; older browsers keep independent scrolling. ' +
-    'With the time beside the title, this keeps the title on one line beside it, where it otherwise wraps.',
+    'Keeps a long title on one line and scrolls it, overriding Title Line Limit. Never animates under reduced motion.',
   allday_badge_position: 'All-Day Badge',
   'allday_badge_position.helper':
-    'Marks all-day events with a rounded badge in the calendar accent color. On the time ' +
-    'row it replaces the all-day label; on the title it wraps the event name. A title ' +
-    'badge is kept to one line and shortened with an ellipsis where it does not fit.',
+    'On the time row it replaces the all-day label; on the title it wraps the event name.',
   'allday_badge_position.option.off.label': 'Off',
   'allday_badge_position.option.time.label': 'Around The All-Day Label',
   'allday_badge_position.option.title.label': 'Around The Event Title',
@@ -1373,9 +1239,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'allday_badge_style.option.filled.label': 'Filled',
   allday_badge_color_mode: 'All-Day Badge Color',
   'allday_badge_color_mode.helper':
-    'Which color the badge is drawn in. The accent gives every calendar its own; the row ' +
-    'text color gives them all the color they already sit in, which is the time color on ' +
-    'the time row and the title color on the title.',
+    'The accent gives each calendar its own; the row text color matches the row it sits on.',
   'allday_badge_color_mode.option.accent.label': 'Calendar Accent Color',
   'allday_badge_color_mode.option.text.label': 'Row Text Color',
   'allday_badge_color_mode.option.custom.label': 'Custom Color',
@@ -1389,28 +1253,18 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   show_time: 'Show Time',
   time_position: 'Time Position',
   'time_position.helper':
-    "Puts the time on the title's line, without its clock. A long title wraps, and the time " +
-    'ends its last line, or takes a line of its own where it does not fit. Title Line Limit cuts ' +
-    'a longer title with the time at the end of its last line, so 1 keeps both on one line. ' +
-    'Scroll Long Titles keeps the title on one line and scrolls it. On one line, the title needs ' +
-    'a wide event row: in narrow cards or columns, and with extras such as countdowns, event ' +
-    'weather or long text labels, it can shrink to a few characters.',
+    'Puts the time on the title’s line, without its clock. Title Line Limit 1 or Scroll Long Titles keeps both on one line, which needs a wide event row.',
   'time_position.option.below.label': 'Below the title',
   'time_position.option.title.label': 'Beside the title',
   show_end_time: 'Show End Time',
   show_duration: 'Show Duration',
   'show_duration.helper':
-    'Adds how long each event lasts after its time, such as “(1 hr, 45 min)” or “(1 day)”. ' +
-    'Each day of an event split across days shows the whole event’s length, such as ' +
-    '“(3 days total)”.',
+    'Such as “(1 hr, 45 min)”. A split event shows its whole length on each day.',
   show_single_allday_time: 'Show Time For All-Day Events',
-  'show_single_allday_time.helper':
-    'Applies to all-day events that occupy a single day. Multi-day ones have their own ' +
-    'setting below, because their time row also carries the end date.',
+  'show_single_allday_time.helper': 'Multi-day all-day events have their own setting below.',
   show_multiday_allday_time: 'Show Time For Multi-Day All-Day Events',
   'show_multiday_allday_time.helper':
-    'Their time row reads "All day, until ..." and so carries the end date, which nothing ' +
-    'else on the row shows. Timed events spanning several days are unaffected.',
+    'Their time row reads “All day, until …” and carries the end date.',
   time_two_digit_hours: 'Pad Hours To Two Digits',
   time_font_size: 'Time Font Size',
   time_color: 'Time Color',
@@ -1443,28 +1297,20 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'progress.helper':
     'How long until an event starts or since it ended, and how far through it we are.',
   show_countdown: 'Show Countdown',
-  'show_countdown.helper':
-    'Shows how long until each event starts, such as “in 2 days”, and how long ago a ' +
-    'finished one ended, such as “2 days ago”.',
+  'show_countdown.helper': 'Such as “in 2 days”, and “2 days ago” for a finished event.',
   countdown_max_days: 'Count Down Only Within Days',
   'countdown_max_days.helper':
-    'Only events starting within this many days get a countdown, and only those that ended ' +
-    'within as many show how long ago: 0 is today alone, 7 a week either way. Left empty, ' +
-    'every event gets one.',
+    '0 is today alone, 7 a week either way. Left empty, every event gets one.',
   show_countdown_allday: 'Count Down To All-Day Events Too',
   countdown_once_per_day: 'Leave Out Repeated Countdowns',
   'countdown_once_per_day.helper':
-    'On a day with several events, a countdown or a “2 days ago” that reads the same as the ' +
-    'nearest one above it is left out. Ones in minutes or hours always show.',
+    'Leaves out a countdown that repeats the one above it. Minutes and hours always show.',
   countdown_exact_days: 'Count In Days Only',
   'countdown_exact_days.helper':
-    'Counts every date other than today in days: “in 30 days” rather than “in a month”, ' +
-    '“in 1 day” rather than “tomorrow”, and “1 day ago” rather than “yesterday”.',
+    '“in 30 days” rather than “in a month”, “in 1 day” rather than “tomorrow”.',
   show_progress_bar: 'Show Progress Bar',
   'show_progress_bar.helper':
-    'In list and column view, each row of an event lasting a day or longer shows a day counter, ' +
-    'such as “Day 2 of 3”, instead of the progress bar. Once the event starts, the counter also ' +
-    'replaces its countdown.',
+    'In List and Columns, an event lasting a day or longer shows a day counter, such as “Day 2 of 3”, instead.',
   show_now_indicator: 'Show Now Indicator',
   'show_now_indicator.helper':
     'Puts a green “Now” before the time of events that are happening right now.',
@@ -1490,13 +1336,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // key would have deleted it from the editor rather than relocated it.
   'column.day_header_separator_width': 'Day Header Rule Width',
   'column.day_header_separator_width.helper':
-    'The rule under a column heading. It sits inside the day header gap, so switching ' +
-    'it off does not move the events.',
+    'It sits inside the day header gap, so switching it off does not move the events.',
   'column.day_header_separator_color': 'Day Header Rule Color',
   'time_grid.day_header_separator_width': 'Day Header Rule Width',
   'time_grid.day_header_separator_width.helper':
-    'The one unbroken rule between the date row and the all-day band, running the day ' +
-    'columns and their gaps but not the hour gutter. Set the width to 0 to remove it.',
+    'The rule between the date row and the all-day band. 0 removes it.',
   'time_grid.day_header_separator_color': 'Day Header Rule Color',
 
   // --- Weather --------------------------------------------------------------
@@ -1532,9 +1376,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'weather.event.helper': "The forecast for each event's own start time.",
   'event.show_conditions': 'Show Conditions Beside Events',
   'event.show_conditions.helper':
-    'Shows the condition icon. In column and grid layouts the icon is always shown, ' +
-    'because the row shares an icon edge with the time and location, and this adds the ' +
-    'condition in words instead.',
+    'Columns and Grid always show the icon; there this adds the condition in words.',
   'event.show_temp': 'Show Temperature',
   'event.show_uv_index': 'Show UV Index Beside Events',
   'event.uv_index_threshold': 'UV Index Threshold Beside Events',
@@ -1546,10 +1388,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'event.font_size': 'Font Size Beside Events',
   'event.color': 'Color Beside Events',
   'event.max_lines': 'Weather Line Limit',
-  'event.max_lines.helper':
-    'Zero means no limit. Column and grid layouts write the condition out in words, so ' +
-    'only those layouts can make this row reach a second line. The temperature and UV ' +
-    'index are never truncated.',
+  'event.max_lines.helper': 'Zero means no limit. Only Columns and Grid can reach a second line.',
 
   // --- Actions & Refresh ----------------------------------------------------
   tap_action: 'Tap Action',
@@ -1582,35 +1421,25 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'day_tap_action_mode.option.none.label': 'Nothing',
   'day_tap_action_mode.option.add-event.label': 'Add Event',
   'day_tap_action_mode.helper':
-    'Add Event opens a new event, ready to fill in, when you tap a day where it shows no ' +
-    'event: its date, the space under its events, or in the grid layout the quarter hour you ' +
-    'tap. In the grid you can also draw the event: hold an empty spot and drag, or drag with a ' +
-    'mouse. With Nothing, such a tap runs the tap action.',
+    'Add Event opens a new event when you tap an empty spot of a day. In Grid you can also hold and drag to draw one.',
   // Home Assistant's action editor, as for the card's two. `details` is the one action only an
   // event takes, labeled as the dropdown's other card actions are; "Show Event Details" is the
   // wording the event's own two-choice dropdown carried before, in every language.
   'card_action.option.details.label': 'Show Event Details',
   event_opens_details: 'Tapping an Event Opens It',
   'event_opens_details.helper':
-    'Shows the event\u2019s details, where it can be changed or deleted. The preview does not ' +
-    'open events, so try it on the dashboard. Other tap actions are on Taps & Refresh.',
+    'Where it can be changed or deleted. The preview does not open events; try it on the dashboard.',
   event_tap_action: 'Event Tap Action',
   'event_tap_action.helper':
-    'Show Event Details opens the event beside it, where you can change or delete it if its ' +
-    "calendar allows. Home Assistant's own actions can use the tapped event's title, times, " +
-    'location and description. With Nothing, a tap on an event runs the tap action, as ' +
-    'anywhere else on the card.',
+    'Home Assistant’s own actions can use the tapped event’s title, times, location and description.',
   event_hold_action: 'Event Hold Action',
   'event_hold_action.helper':
-    "Show Event Details opens the event beside it when you hold it. Home Assistant's own " +
-    "actions can use the held event's title, times, location and description. With Nothing, " +
-    'holding an event runs the hold action, as anywhere else on the card.',
+    'Home Assistant’s own actions can use the held event’s title, times, location and description.',
   // Shown only while neither event action does anything of its own, directly under them. The
   // views it reaches are the applicability note's to say (`VIEW_SCOPE`): grid draws no links.
   open_links: 'Open Links in Events',
   'open_links.helper':
-    "Web addresses in an event's location and description become links, each opening in a " +
-    'new tab. Tapping one follows it instead of running the tap action.',
+    'Web addresses in locations and descriptions open in a new tab. Tapping one follows it.',
   // Shown only while the event tap or hold action is `details`, directly under them, so "the
   // event's details" needs no introduction. Each ends on the calendar because that is the
   // question a user with the switch on and no Edit button is asking: these can only take away.

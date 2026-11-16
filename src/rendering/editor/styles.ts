@@ -851,8 +851,30 @@ export default css`
   }
 
   .page-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0 16px;
     padding-top: 12px;
     border-top: 1px solid var(--divider-color);
+  }
+
+  /* The page's documentation, at the end of the foot's line: opens the site in a new tab. */
+  .docs-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 44px;
+    color: var(--primary-color);
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    --mdc-icon-size: 18px;
+  }
+
+  .docs-link:hover {
+    text-decoration: underline;
   }
 
   .page-foot .text-button {
@@ -886,9 +908,8 @@ export default css`
   }
 
   /* --- Show what applies -----------------------------------------------------
-     The line under a field with what its state words leave out, what Reset gives and its
-     actions; a heading's Add row and gate lines. The mark is decoration:
-     a filled dot for a value stored here, a ring otherwise. */
+     The line under a field with what its state words leave out and its Reset or Remove; a
+     heading's Add row and gate lines. */
   /* A family's Remove, under the heading it removes. */
   .heading-action {
     margin-top: -12px;
@@ -902,19 +923,6 @@ export default css`
     font-size: 12px;
     line-height: 1.45;
     --mdc-icon-size: 16px;
-  }
-
-  .mark {
-    flex: none;
-    width: 8px;
-    height: 8px;
-    margin-top: 16px;
-    border: 1.5px solid var(--primary-color);
-    border-radius: 50%;
-  }
-
-  .mark.stored {
-    background: var(--primary-color);
   }
 
   .field-line-body {
@@ -1009,18 +1017,25 @@ export default css`
     line-height: 1.45;
   }
 
+  /*
+    Reset or Remove under a field names what it leaves, "Reset to Follow Home Assistant", on one
+    line at any width: a value too long for the line ends in an ellipsis rather than wrapping
+    the button under its icon.
+  */
   .line-button {
     display: inline-flex;
     align-items: center;
     gap: 4px;
+    max-width: 100%;
     min-height: 44px;
     font-size: 13px;
+    white-space: nowrap;
     --mdc-icon-size: 16px;
   }
 
-  .other-layouts .line-button,
-  .field-note .line-button {
-    white-space: nowrap;
+  .line-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .add-row {

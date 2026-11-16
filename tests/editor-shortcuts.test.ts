@@ -521,16 +521,13 @@ describe('with the shown set and What This Card Changes', () => {
       start_date: 'today+1',
       event_tap_action: { action: 'navigate', navigation_path: '/lovelace/shopping' },
     });
-    expect(buttonsOf(editor, 'content:start_date_mode')).toContain('Reset Start Date');
+    expect(buttonsOf(editor, 'content:start_date_mode')).toContain('Reset to Today: Start Date');
     expect(buttonsOf(editor, 'actions:event_opens_details')).toEqual([
       'Change: Tapping an Event, navigate',
-      'Reset Tapping an Event Opens It',
+      'Reset to Off: Tapping an Event Opens It',
     ]);
     await openPageOf(editor, 'calendar:blocklist', entry(0));
-    expect(buttonsOf(editor, 'calendar:blocklist')).toEqual([
-      'Use a Pattern',
-      'Remove Blocklist and Reset It',
-    ]);
+    expect(buttonsOf(editor, 'calendar:blocklist')).toEqual(['Use a Pattern', 'Remove: Blocklist']);
   });
 
   it('resets Start Date to Today, releasing Relative to Today held over a shortcut', async () => {
@@ -542,7 +539,7 @@ describe('with the shown set and What This Card Changes', () => {
     await pressChip(editor, 'offset');
     expect(pressedChip(editor)).toBe('offset');
     const reset = [...root(editor).querySelectorAll<HTMLButtonElement>('button')].find(
-      (button) => button.getAttribute('aria-label') === 'Reset Start Date',
+      (button) => button.getAttribute('aria-label') === 'Reset to Today: Start Date',
     )!;
     reset.click();
     await editor.updateComplete;

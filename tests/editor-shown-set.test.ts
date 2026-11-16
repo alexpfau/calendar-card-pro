@@ -49,6 +49,8 @@ import {
 import { keepsControl, storedAt } from '../src/rendering/editor/plan';
 import { PREFS_KEY } from '../src/rendering/editor/prefs';
 import * as Reset from '../src/rendering/editor/reset';
+import * as Shown from '../src/rendering/editor/shown';
+import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { toStoredConfig } from '../src/rendering/editor/value';
 import { WORKSPACES } from '../src/rendering/editor/workspace';
 
@@ -259,7 +261,8 @@ describe('what a page shows of a fresh card', () => {
     expect(lastConfig(editor)).toEqual({ ...card, list: { time_font_size: '20px' } });
 
     const remove = $(editor, '[data-focus="remove:events:time_font_size"]')!;
-    expect(remove.getAttribute('aria-label')).toBe('Remove Time Font Size for List and Reset It');
+    expect(remove.textContent?.trim()).toBe('Remove');
+    expect(remove.getAttribute('aria-label')).toBe('Remove: Time Font Size');
     await click(editor, '[data-focus="remove:events:time_font_size"]');
     await editor.updateComplete;
 
@@ -382,24 +385,36 @@ describe('state words, by where they are drawn', () => {
     expect(lastConfig(editor)).toBeUndefined();
   });
 
-  it('say what Reset gives, which describes Reset, and Reset gives it', async () => {
-    const editor = await mount({
-      view: 'grid',
-      event_font_size: '14px',
-      time_grid: { event_font_size: '18px' },
-    });
-    await openPageOf(editor, 'events:event_font_size');
-    expect(words(editor, 'events:event_font_size')).toContain('Set for Grid.');
-    const outcome = $(editor, '[data-field="events:event_font_size"] .outcome')!;
-    expect(outcome.textContent).toBe(
-      `Reset gives Grid’s Default, ${View.TIME_GRID_DEFAULT_OVERRIDES.event_font_size}, not the All Layouts value, 14px`,
-    );
-    const reset = $(editor, '[data-focus="remove:events:event_font_size"]')!;
-    expect(reset.getAttribute('aria-describedby')).toBe(outcome.id);
+  it('name Reset for what it leaves, in its text and leading its name, and Reset leaves it', async () => {
+    const editor = await mount({ view: 'grid', start_date: 'today+1', event_font_size: '14px' });
+    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    const reset = $(editor, '[data-focus="reset:content:start_date_mode"]')!;
+    expect(reset.textContent?.trim()).toBe('Reset to Today');
+    expect(reset.getAttribute('aria-label')).toBe('Reset to Today: Start Date');
+    // One short button: no mark, no outcome sentence beside it.
+    const line = reset.closest('.field-line')!;
+    expect(line.querySelector('.mark, .outcome')).toBeNull();
+    expect(line.textContent?.replace(/\s+/g, ' ').trim()).toBe('Reset to Today');
 
-    await click(editor, '[data-focus="remove:events:event_font_size"]');
-    expect(lastConfig(editor)).not.toHaveProperty('time_grid');
-    expect(lastConfig(editor)?.event_font_size).toBe('14px');
+    await click(editor, '[data-focus="reset:content:start_date_mode"]');
+    expect(lastConfig(editor)).not.toHaveProperty('start_date');
+  });
+
+  it('word Reset as Clear where nothing comes back, and Remove where the control goes', () => {
+    const t = (key: string) => EDITOR_STRINGS[key];
+    const word = (value: unknown) => (value === undefined ? 'Not Set' : String(value));
+    expect(Shown.resetLabel('reset', { kind: 'default', value: 'off' }, t, () => 'Off')).toBe(
+      'Reset to Off',
+    );
+    // Before, an empty default left "Reset gives the default," hanging on its comma.
+    for (const value of [undefined, null, '', []]) {
+      expect(Shown.resetLabel('reset', { kind: 'default', value }, t, word)).toBe('Clear');
+    }
+    expect(Shown.resetLabel('reset', { kind: 'default', value: 'x' }, t, () => ' ')).toBe('Clear');
+    expect(
+      Shown.resetLabel('remove', { kind: 'layout-default', view: 'grid', value: 14 }, t, word),
+    ).toBe('Remove');
+    expect(Shown.resetLabel('reset', undefined, t, word)).toBe('Reset');
   });
 });
 
