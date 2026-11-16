@@ -11,6 +11,7 @@ import {
   formOf,
   formsOf,
   mountEditor,
+  openPanels,
   valueOf,
 } from './helpers/editor-host';
 import {
@@ -1503,6 +1504,8 @@ describe('editor: the chassis', () => {
       config_version: CURRENT_CONFIG_VERSION,
       ...config,
     });
+    // A closed panel mounts no form: open every panel, as this reads forms behind them.
+    await openPanels(element);
 
     const dispatched: Array<Record<string, unknown>> = [];
     element.addEventListener('config-changed', (event) => {
@@ -3437,6 +3440,8 @@ describe('editor: the weather block', () => {
   /** Mounts the editor on a raw config and returns the panel form data holding `weather`. */
   async function weatherFormData(weather: unknown): Promise<Record<string, unknown>> {
     const element = await mountEditor({ entities: ['calendar.a'], weather });
+    // A closed panel mounts no form: open every panel, as this reads forms behind them.
+    await openPanels(element);
 
     return valueOf(element, 'weather:weather') as Record<string, unknown>;
   }
@@ -3508,6 +3513,8 @@ describe('editor: per-calendar settings', () => {
 
   it('renders one collapsible form per configured calendar', async () => {
     const element = await mountEditor({ entities: ['calendar.a', 'calendar.b'] });
+    // A closed panel mounts no form: open every panel, as this reads forms behind them.
+    await openPanels(element);
 
     expect(formsOf(element, entry())).toHaveLength(2);
   });
@@ -3522,6 +3529,8 @@ describe('editor: per-calendar settings', () => {
     const element = await mountEditor({
       entities: [{ entity: 'calendar.a', label: 'mdi:home' }, 'calendar.b'],
     });
+    // A closed panel mounts no form: open every panel, as this reads forms behind them.
+    await openPanels(element);
 
     const names = [0, 1].map((index) =>
       schemaOf(formOf(element, 'calendar:label_type', entry(index))!).map((node) => node.name),
@@ -3551,6 +3560,8 @@ describe('editor: per-calendar settings', () => {
         { entity: 'calendar.b', label: '/local/work.png' },
       ],
     });
+    // A closed panel mounts no form: open every panel, as this reads forms behind them.
+    await openPanels(element);
 
     const first = formOf(element, 'calendar:label', entry(0))!;
 
@@ -3572,6 +3583,8 @@ describe('editor: per-calendar settings', () => {
 
   it('stores a label chosen through the shape dropdown, through the chassis', async () => {
     const element = await mountEditor({ entities: ['calendar.a'] });
+    // A closed panel mounts no form: open every panel, as this reads forms behind them.
+    await openPanels(element);
 
     const dispatched: Array<Record<string, unknown>> = [];
     element.addEventListener('config-changed', (event) => {
@@ -3614,6 +3627,8 @@ describe('editor: per-calendar settings', () => {
    */
   it('keeps the label field on screen while the text is cleared and retyped', async () => {
     const element = await mountEditor({ entities: ['calendar.a'] });
+    // A closed panel mounts no form: open every panel, as this reads forms behind them.
+    await openPanels(element);
 
     element.addEventListener('config-changed', (event) => {
       element.setConfig((event as CustomEvent).detail.config as Types.Config);
@@ -3657,6 +3672,8 @@ describe('editor: per-calendar settings', () => {
     const element = await mountEditor({
       entities: [{ entity: 'calendar.a', label: 'mdi:home' }],
     });
+    // A closed panel mounts no form: open every panel, as this reads forms behind them.
+    await openPanels(element);
 
     element.addEventListener('config-changed', (event) => {
       element.setConfig((event as CustomEvent).detail.config as Types.Config);
@@ -4688,6 +4705,8 @@ describe('editor: removing view overrides', () => {
 describe('editor: direct view controls in the chassis', () => {
   async function mountColumn(config: Partial<Types.Config>) {
     const element = await mountEditor({ view: 'column', ...config });
+    // A closed panel mounts no form: open every panel, as this reads forms behind them.
+    await openPanels(element);
 
     const dispatched: Array<Record<string, unknown>> = [];
     element.addEventListener('config-changed', (event) => {
@@ -4749,6 +4768,8 @@ describe('editor: direct view controls in the chassis', () => {
     } as Types.Config;
 
     const element = await mountEditor({ ...config, view: 'grid' });
+    // A closed panel mounts no form: open every panel, as this reads forms behind them.
+    await openPanels(element);
 
     const current = () => valueOf(element, 'events:event_font_size');
     expect(current()).toBe('23px');
@@ -4765,6 +4786,8 @@ describe('editor: direct view controls in the chassis', () => {
    */
   it('survives add, differ, revert and remove with Home Assistant echoing each write', async () => {
     const element = await mountEditor({ entities: ['calendar.a'], view: 'column' });
+    // A closed panel mounts no form: open every panel, as this reads forms behind them.
+    await openPanels(element);
 
     const dispatched: Array<Record<string, unknown>> = [];
     element.addEventListener('config-changed', (event) => {
@@ -4831,6 +4854,8 @@ describe('editor: stored and rendered union values', () => {
       view: 'column',
       show_week_numbers: 'iso',
     });
+    // A closed panel mounts no form: open every panel, as this reads forms behind them.
+    await openPanels(element);
 
     const dispatched: Array<Record<string, unknown>> = [];
     element.addEventListener('config-changed', (event) => {

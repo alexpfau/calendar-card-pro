@@ -14,6 +14,7 @@ import {
   formOf,
   formsOf,
   mountEditor,
+  openPanels,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -41,6 +42,8 @@ interface ExpandableCard extends HTMLElement {
 
 async function mount(config: Record<string, unknown>) {
   const editor = await mountEditor({ entities: ['calendar.anna'], ...config });
+  // A closed panel mounts no form: open every panel, as these tests read forms across the editor.
+  await openPanels(editor);
   const reports: Record<string, unknown>[] = [];
   editor.addEventListener('config-changed', (event) => {
     reports.push(
@@ -59,6 +62,8 @@ async function choose(editor: EditorHost, choice: 'keep-list' | 'shared-root'): 
   expect(buttons).toHaveLength(2);
   buttons[choice === 'keep-list' ? 0 : 1].click();
   await editor.updateComplete;
+  // The panels arrive with the choice, each closed and mounting no form until opened.
+  await openPanels(editor);
 }
 
 function merged(config: Record<string, unknown>): Types.Config {

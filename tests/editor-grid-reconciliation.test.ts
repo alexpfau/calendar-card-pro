@@ -7,11 +7,22 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { CARD, changeField, formOf, formsOf, mountEditor, valueOf } from './helpers/editor-host';
+import {
+  CARD,
+  changeField,
+  formOf,
+  formsOf,
+  mountEditor,
+  openPanels,
+  valueOf,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import * as View from '../src/config/view';
+import { parseFieldId } from '../src/rendering/editor/field-index';
+import { GATES, openingEdits } from '../src/rendering/editor/gates';
 import { lookup } from '../src/rendering/editor/localize';
-import { workspaceFields } from '../src/rendering/editor/routing';
+import { workspaceFields, workspaceFormData } from '../src/rendering/editor/routing';
+import { type EditorWorkspace, WORKSPACE_FIELD } from '../src/rendering/editor/workspace';
 
 interface EditorHost extends HTMLElement {
   hass: unknown;
@@ -25,6 +36,8 @@ async function mount(config: Record<string, unknown> = {}) {
     entities: ['calendar.anna'],
     ...config,
   });
+  // A closed panel mounts no form: open every panel, as these tests read forms across the editor.
+  await openPanels(editor);
   const reports: Record<string, unknown>[] = [];
   editor.addEventListener('config-changed', (event) => {
     const config = structuredClone(
@@ -91,6 +104,45 @@ const CASES = Object.entries(View.TIME_GRID_DEFAULT_OVERRIDES).map(([key, gridDe
   gridDefault,
   authored: authoredValue(key, gridDefault),
 }));
+
+/** The divergent options a fresh Grid card draws only once a gate opens, pinned by value. */
+const GATED = ['description_color', 'location_color', 'progress_bar_color', 'progress_bar_width'];
+
+/**
+ * Every top-level value the editor's forms hold, each from the first form drawing it.
+ *
+ * @param editor - Mounted editor
+ * @returns Values by option
+ */
+function shownValues(editor: EditorHost): Map<string, unknown> {
+  const shown = new Map<string, unknown>();
+  for (const form of formsOf(editor, CARD)) {
+    for (const { node, path } of workspaceFields(form.schema)) {
+      if (path.length === 0 && !shown.has(node.name)) shown.set(node.name, form.data[node.name]);
+    }
+  }
+  return shown;
+}
+
+/**
+ * A stored configuration's values, by dotted path, blocks opened.
+ *
+ * @param config - Stored configuration
+ * @param prefix - Path so far
+ * @returns Each leaf value by its path
+ */
+function storedLeaves(config: Record<string, unknown>, prefix = ''): Map<string, string> {
+  const leaves = new Map<string, string>();
+  for (const [name, value] of Object.entries(config)) {
+    const path = `${prefix}${name}`;
+    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      for (const [inner, leaf] of storedLeaves(value as Record<string, unknown>, `${path}.`)) {
+        leaves.set(inner, leaf);
+      }
+    } else leaves.set(path, JSON.stringify(value));
+  }
+  return leaves;
+}
 
 describe('per-option Grid reset memory', () => {
   it.each([false, true])(
@@ -466,10 +518,59 @@ describe('implicit defaults and first-switch boundaries', () => {
     const { editor, reports } = await mount();
     await changeField(editor, 'display:view', 'grid');
     expect(reports).toEqual([{ entities: ['calendar.anna'], view: 'grid' }]);
-    const data = formOf(editor, 'events:event_background_opacity')!.data;
-    for (const { key, gridDefault } of CASES) expect(data[key], key).toEqual(gridDefault);
+    // A form holds only the data its own fields read, so each default is read from the one form
+    // that draws it. The four a gate withholds are read by the test below, which shows that the
+    // edit opening a gate cannot move the value it reveals.
+    const shown = shownValues(editor);
+    expect(CASES.filter(({ key }) => !shown.has(key)).map(({ key }) => key)).toEqual(GATED);
+    for (const { key, gridDefault } of CASES.filter(({ key }) => shown.has(key))) {
+      expect(shown.get(key), key).toEqual(gridDefault);
+    }
     expect(notice(editor)).toBeNull();
   });
+
+  it.each(CASES.filter(({ key }) => GATED.includes(key)))(
+    'shows gated $key at its Grid default, which the edit opening its gate does not move',
+    async ({ key, gridDefault }) => {
+      const { editor, reports } = await mount();
+      await changeField(editor, 'display:view', 'grid');
+      const workspace = valueOf(editor, `workspace:${WORKSPACE_FIELD}`) as EditorWorkspace;
+      const gates = Object.values(GATES).filter(({ fields }) =>
+        fields.some((field) => field.endsWith(`:${key}`)),
+      );
+      expect(gates).toHaveLength(1);
+      const id = gates[0]!.fields.find((field) => field.endsWith(`:${key}`))!;
+      expect(formOf(editor, id)).toBeUndefined();
+
+      // Without the edit, the value is already decided by the stored YAML: the editor's data for
+      // the workspace, made from it as every form's was before a form held only its own fields.
+      const resolved = (stored: Record<string, unknown>) =>
+        workspaceFormData(
+          { ...Config.DEFAULT_CONFIG, config_version: Config.CURRENT_CONFIG_VERSION, ...stored },
+          workspace,
+        )[key];
+      const before = reports[reports.length - 1]!;
+      expect([...storedLeaves(before).keys()].filter((path) => path.endsWith(key))).toEqual([]);
+      expect(resolved(before)).toEqual(gridDefault);
+
+      const opening = openingEdits(gates[0]!);
+      for (const [field, value] of opening) await changeField(editor, field, value);
+
+      // The edit stores the gate's own conditions and nothing else...
+      const after = reports[reports.length - 1]!;
+      const conditions = new Set(opening.map(([field]) => parseFieldId(field).name));
+      const [was, now] = [storedLeaves(before), storedLeaves(after)];
+      const moved = [...new Set([...was.keys(), ...now.keys()])].filter(
+        (path) => was.get(path) !== now.get(path),
+      );
+      expect(moved.length).toBeGreaterThan(0);
+      expect(moved.filter((path) => !conditions.has(path.split('.').pop()!))).toEqual([]);
+      // ...so the form now drawing the option shows what the YAML decided without the edit.
+      expect(resolved(after)).toEqual(resolved(before));
+      expect(valueOf(editor, id)).toEqual(resolved(before));
+      expect(notice(editor)).toBeNull();
+    },
+  );
 
   it('does not turn merged defaults into authored values after an unrelated root edit', async () => {
     const { editor, reports } = await mount();

@@ -10,6 +10,7 @@ import {
   fakeHass,
   formsOf,
   mountEditor,
+  openPanels,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -149,7 +150,10 @@ async function mount(config: Types.Config, current = true): Promise<CalendarCard
   const raw = { ...config };
   if (current) raw.config_version = Config.CURRENT_CONFIG_VERSION;
   else delete raw.config_version;
-  return mountEditor(raw, { hass: fakeHass() });
+  const editor = await mountEditor(raw, { hass: fakeHass() });
+  // A closed panel mounts no form: open every panel, as these tests read forms across the editor.
+  await openPanels(editor);
+  return editor;
 }
 
 beforeEach(() => {

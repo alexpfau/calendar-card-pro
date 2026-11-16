@@ -820,8 +820,10 @@ export async function changeFields(
  * Opens what holds a field, as a user would before editing it: today every collapsed panel
  * around its form, outermost first. A panel opens as Home Assistant's does: it announces
  * `expanded-will-change`, lets a render pass (`nextRender`), expands and announces
- * `expanded-changed`. A card field whose panel draws no form while closed is found by its
- * panel, opened, and looked for again.
+ * `expanded-changed`. A closed panel draws no form, so a field not drawn yet is found by the
+ * panel its owner's forms belong in: one of the nine for a card field, by its icon; a calendar
+ * block's or a toolbar button's own panel, by its place. That panel is opened, with every panel
+ * around it, and the field looked for again.
  *
  * @param editor - Editor element
  * @param id - Field id
@@ -829,23 +831,71 @@ export async function changeFields(
  */
 export async function openPageOf(editor: EditorElement, id: FieldId, owner?: Owner): Promise<void> {
   let found = find(editor, id, owner);
-  const { scope } = parseFieldId(id);
-  if (found === undefined && (owner ?? impliedOwner(scope)).kind === 'card') {
-    const panel = panelOf(editor, scope);
-    if (panel !== undefined) {
-      await expand(panel);
+  if (found === undefined) {
+    const { scope } = parseFieldId(id);
+    const holders = holdersOf(editor, owner ?? impliedOwner(scope), scope);
+    for (const panel of holders) await openAround(panel);
+    if (holders.length > 0) {
       await editor.updateComplete;
       found = find(editor, id, owner);
     }
   }
   if (found === undefined) found = located(editor, id, owner);
 
+  await openAround(found.form);
+  await editor.updateComplete;
+}
+
+/**
+ * Opens every panel the editor draws, closed ones all together, each as Home Assistant's opens
+ * on a click (`expand`). A closed panel draws no form, so a test about every form the editor
+ * draws opens them first.
+ *
+ * @param editor - Editor element
+ */
+export async function openPanels(editor: EditorElement): Promise<void> {
+  const closed = [...(editor.shadowRoot?.querySelectorAll('ha-expansion-panel') ?? [])].filter(
+    (panel) => (panel as Element & { expanded?: boolean }).expanded !== true,
+  );
+  await Promise.all(closed.map((panel) => expand(panel)));
+  await editor.updateComplete;
+}
+
+/**
+ * The panels an owner's forms belong in, drawn or not: one of the nine for the card, found by its
+ * icon; each matching calendar block's or toolbar button's own panel, found by its place.
+ *
+ * @param editor - Editor element
+ * @param owner - The owner
+ * @param scope - The field id's scope, naming the card's panel
+ * @returns The panels, outermost first
+ */
+function holdersOf(editor: EditorElement, owner: Owner, scope: string): Element[] {
+  if (owner.kind === 'card') {
+    // The caption above the toolbar buttons is the card's, drawn in the Card & Header panel.
+    const panel = panelOf(editor, scope === 'button' ? 'card' : scope);
+    return panel === undefined ? [] : [panel];
+  }
+  const root = editor.shadowRoot;
+  if (root === null || owner.kind === 'chassis') return [];
+  checkOwner(editor, owner);
+  const places = owner.kind === 'entry' ? entryIndexes(editor, root) : buttonIndexes(editor, root);
+  return [...places]
+    .filter(([, index]) => owner.index === undefined || index === owner.index)
+    .map(([panel]) => panel);
+}
+
+/**
+ * Opens every collapsed panel around a node, the node itself included, outermost first.
+ *
+ * @param node - A panel, or anything inside one
+ */
+async function openAround(node: Element): Promise<void> {
   const panels: Element[] = [];
-  for (let at = found.form.parentElement; at !== null; at = at.parentElement) {
+  for (let at: Element | null = node; at !== null; at = at.parentElement) {
     if (at.localName === 'ha-expansion-panel') panels.unshift(at);
   }
   for (const panel of panels) await expand(panel);
-  await editor.updateComplete;
 }
 
 /**

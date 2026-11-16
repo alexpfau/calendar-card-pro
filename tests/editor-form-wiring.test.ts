@@ -25,6 +25,7 @@ import {
   formOf,
   formsOf,
   mountEditor,
+  openPanels,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -35,7 +36,10 @@ type EditorHost = MountedEditor;
 
 /** Mounts a configured editor and waits for its first render. */
 async function mount(config: Record<string, unknown>): Promise<EditorHost> {
-  return mountEditor({ config_version: Config.CURRENT_CONFIG_VERSION, ...config });
+  const editor = await mountEditor({ config_version: Config.CURRENT_CONFIG_VERSION, ...config });
+  // A closed panel mounts no form: open every panel, as these tests read forms across the editor.
+  await openPanels(editor);
+  return editor;
 }
 
 /** Collects every config the editor reports while `run` executes. */

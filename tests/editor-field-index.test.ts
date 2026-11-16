@@ -19,6 +19,7 @@ import {
   entry,
   fakeHass,
   formsOf,
+  openPanels,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -559,6 +560,8 @@ describe('the index builds what the editor draws today', () => {
       await changeField(host, `workspace:${WORKSPACE_FIELD}`, workspace);
     }
     expect(valueOf(host, `workspace:${WORKSPACE_FIELD}`)).toBe(workspace);
+    // A closed panel mounts no form, so every panel is opened before the forms are read.
+    await openPanels(host);
   };
 
   /**

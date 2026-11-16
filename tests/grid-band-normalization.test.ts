@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import '../src/calendar-card-pro';
 import { FROZEN_NOW } from './fixtures';
-import { changeField, formOf, mountEditor, valueOf } from './helpers/editor-host';
+import { changeField, formOf, mountEditor, openPanels, valueOf } from './helpers/editor-host';
 import type * as Types from '../src/config/types';
 import * as Logger from '../src/utils/logger';
 
@@ -95,6 +95,8 @@ it.each([
       entities: ['calendar.anna'],
       time_grid,
     });
+    // A closed panel mounts no form: open every panel, as this reads Layout and Card & Header.
+    await openPanels(editor);
     const reports: Record<string, unknown>[] = [];
     editor.addEventListener('config-changed', (event) =>
       reports.push((event as CustomEvent<{ config: Record<string, unknown> }>).detail.config),

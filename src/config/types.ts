@@ -1300,6 +1300,11 @@ export interface Hass {
   >;
   areas?: Record<string, { area_id: string; floor_id?: string | null; labels?: string[] }>;
   /**
+   * Home Assistant's services, by domain. Read by the editor's warm-up alone, which holds a
+   * configured action again once they move (`rendering/editor/element.ts` › `_finishWarmUp`).
+   */
+  services?: Record<string, unknown>;
+  /**
    * The language Home Assistant's own interface is drawn in. With `translationMetadata`, it
    * decides which way the dashboard runs: Home Assistant sets the document's `dir` from
    * `translationMetadata.translations[language].isRTL` (`computeRTLDirection` in its frontend),

@@ -24,6 +24,7 @@ import {
   lastConfig,
   mountEditor,
   openPageOf,
+  openPanels,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -57,6 +58,8 @@ describe('the owner of a form', () => {
       { entity: BEN, name: 'Ben' },
       { entity: LEO, name: 'Leo' },
     ]);
+    // A closed panel mounts no form: open the calendars' panels, as a user would to read them.
+    await openPanels(editor);
     expect([0, 1, 2].map((index) => valueOf(editor, 'calendar:name', entry(index)))).toEqual([
       'Anna',
       'Ben',
@@ -121,6 +124,8 @@ describe('the owner of a form', () => {
     },
   ])('is each repeated block’s own under $filter', async (row) => {
     const editor = await mount(row.entities);
+    // Essentials Only opens no panel by itself, and a closed panel mounts no form.
+    await openPanels(editor);
     await changeFields(editor, row.criteria);
 
     const drawn = row.shown.flatMap((value, index) => (value === undefined ? [] : [index]));
@@ -151,6 +156,7 @@ describe('the harness refuses to guess', () => {
 
   it('fails on an id two calendars draw when the test names neither, naming both', async () => {
     const editor = await mount([ANNA, BEN]);
+    await openPanels(editor);
 
     expect(() => valueOf(editor, 'calendar:name')).toThrow(
       "'calendar:name' is drawn by entry 0 and entry 1: name the one meant, as entry(index).",
@@ -159,6 +165,7 @@ describe('the harness refuses to guess', () => {
 
   it('fails on one owner drawing an id in two forms, naming both forms', async () => {
     const editor = await mount([ANNA]);
+    await openPageOf(editor, 'events:show_time');
     const events = formOf(editor, 'events:show_time')!;
     // Planted: a second form of the same panel holding the same fields.
     const twin = document.createElement('ha-form') as FormElement;
@@ -176,6 +183,7 @@ describe('the harness refuses to guess', () => {
 
   it('fails on a field asked of an owner of another kind, naming the one that draws it', async () => {
     const editor = await mount([ANNA], { toolbar: { show: true } });
+    await openPageOf(editor, 'button:heading', CARD);
 
     expect(() => formOf(editor, 'button:heading')).toThrow(
       "'button:heading' is drawn by the card, not by any button: pass CARD.",
@@ -198,6 +206,7 @@ describe('the harness refuses to guess', () => {
 describe('a change', () => {
   it('is the event ha-form emits: its whole data, the value at its data path', async () => {
     const editor = await mount([ANNA], { toolbar: { show: true } });
+    await openPageOf(editor, 'card:toolbar.reset');
     const form = formOf(editor, 'card:toolbar.reset')!;
     const before = form.data;
     const seen: CustomEvent[] = [];
@@ -220,6 +229,7 @@ describe('a change', () => {
 
   it('comes only from an id the form draws, scope and all, even once the form is gone', async () => {
     const editor = await mount([ANNA], { toolbar: { show: true, buttons: [BACK] } });
+    await openPageOf(editor, 'button:icon', button(0));
     const form = formOf(editor, 'button:icon', button(0))!;
     const refused =
       "The form does not draw 'buton:icon', so it cannot change it: its ids are button:….";

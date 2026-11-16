@@ -24,6 +24,7 @@ import {
   fakeHass,
   formsOf,
   mountEditor,
+  openPanels,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -144,6 +145,8 @@ describe('which editor a calendar panel shows', () => {
       { config_version: Config.CURRENT_CONFIG_VERSION, entities },
       { hass: HASS },
     );
+    // A closed panel mounts no form: open the calendars' panels, as these tests read them.
+    await openPanels(element);
 
     const emitted: Array<Record<string, unknown>> = [];
     element.addEventListener('config-changed', (event) => {

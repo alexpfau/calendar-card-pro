@@ -17,7 +17,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
-import { changeField, entry, formsOf, mountEditor, valueOf } from './helpers/editor-host';
+import {
+  changeField,
+  entry,
+  formsOf,
+  mountEditor,
+  openPanels,
+  valueOf,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as Entities from '../src/rendering/editor/entities';
@@ -268,6 +275,8 @@ describe('the filter switch in the rendered editor', () => {
       entities,
       ...(toolbar ? { toolbar } : {}),
     });
+    // A closed panel mounts no form: open the calendars' panels, as these tests read them.
+    await openPanels(element);
 
     const emitted: Array<Record<string, unknown>> = [];
     element.addEventListener('config-changed', (event) => {

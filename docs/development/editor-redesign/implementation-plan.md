@@ -330,9 +330,10 @@ form loses the card's own action labels (the engineering review's finding 4). He
 
 1. **The live feed**: `withCardActionLabels(this.hass, language)` for each `hass` Home Assistant
    delivers, so it carries fresh `states` and the action-label shim. It goes to every form whose
-   node uses an `entity`, `icon`, `ui_action` or `object` selector, to the Add Calendar and entry
-   Calendar pickers, and to the conditions editor; each such form's wrapper carries
-   `data-hass="live"`.
+   node uses an `entity`, `icon`, `ui_action` or `object` selector, and to the Add Calendar and
+   entry Calendar pickers; each such form's wrapper carries `data-hass="live"`. The conditions
+   editor is live too but keeps the editor's own `hass`, unwrapped, as
+   `tests/editor-visibility.test.ts` pins it.
 2. **The steady feed**: `hass-key.ts` › `steadyHass(hass, language)`, a shallow projection
    (`{ ...hass, localize }` with the same shim) cached on the language and the identities of
    `hass.localize`, `hass.locale` and `hass.themes`. Its `states` are stale by design. It goes to
@@ -2074,29 +2075,29 @@ add to the editor chunk, code, CSS and English strings, gzip -9 through `node:zl
 (section 10); a PR that would exceed it stops and reports instead of merging. The card chunk's
 sha256 never changes.
 
-| PR  | Title                                    | Step | Lines (est.)                               | New English strings                | Cap (gzip -9)         |
-| --- | ---------------------------------------- | ---- | ------------------------------------------ | ---------------------------------- | --------------------- |
-| 1   | Field Index, Page Registry & Gate Corpus | 1    | 1,600; built at 4,084, 2,098 of them tests | 19, ten gate phrases among them    | +0.43 KB, measured    |
-| 2   | Test Harness by Field Id                 | 1    | 1,700                                      | 0                                  | 0                     |
-| 3   | Render Cost & Identity                   | 1    | 1,100                                      | 0                                  | +0.8 KB               |
-| 4   | Write Owners & Frames                    | 1    | 1,200                                      | 0                                  | +0.5 KB               |
-| 5   | Overview, Pages & Navigation             | 1    | 2,000                                      | about 32; 16 changed               | +4.0 KB               |
-| 6   | Builders Hand Presentation to Pages      | 1    | 900                                        | minus 25 to 43                     | below 0               |
-| 7   | Undo & Redo                              | 1    | 1,200                                      | about 22                           | +1.7 KB               |
-| 8   | Jump List                                | 1    | 900                                        | about 8                            | +1.1 KB               |
-| 9   | Calendar List Algebra                    | 2    | 800                                        | about 10                           | +0.8 KB               |
-| 10  | Calendar List & Entry Pages              | 2    | 2,000                                      | about 42                           | +2.6 KB               |
-| 11  | Color Control                            | 2    | 1,300                                      | about 20, plus 19 English-only     | +2.6 KB               |
-| 12  | Split This Calendar                      | 2    | 2,300                                      | about 40                           | +4.8 KB               |
-| 13  | Reordering: Drag & Keyboard Grab         | 2    | 900                                        | about 5                            | +1.8 KB               |
-| 14  | Shown-Set Plan & One Reset Path          | 3    | 1,400                                      | about 1                            | +0.6 KB               |
-| 15  | Show What Applies                        | 3    | 2,200                                      | about 63                           | +3.2 KB               |
-| 16  | What This Card Changes & Notices         | 3    | 1,400                                      | about 24                           | +1.8 KB               |
-| 17  | Search, Full                             | 4    | 1,500                                      | about 11, plus about 14 alias keys | +2.0 KB               |
-| 18  | Event-Part Chips & Toolbar               | 5    | 1,500                                      | about 19                           | +1.5 KB               |
-| 19  | Start Date, Tapping & Word Lists         | 5    | 1,000                                      | about 9                            | +1.0 KB               |
-| 20  | Translations                             | 6    | 4,000 (data)                               | 0                                  | measured rate × count |
-| 21  | Docs, Accessibility Pass & Media         | 6    | 1,500                                      | fixes only                         | +0.3 KB               |
+| PR  | Title                                    | Step | Lines (est.)                               | New English strings                | Cap (gzip -9)                                   |
+| --- | ---------------------------------------- | ---- | ------------------------------------------ | ---------------------------------- | ----------------------------------------------- |
+| 1   | Field Index, Page Registry & Gate Corpus | 1    | 1,600; built at 4,084, 2,098 of them tests | 19, ten gate phrases among them    | +0.43 KB, measured                              |
+| 2   | Test Harness by Field Id                 | 1    | 1,700                                      | 0                                  | 0                                               |
+| 3   | Render Cost & Identity                   | 1    | 1,100                                      | 0                                  | +2.3 KB proposed; was 0.8 KB; measured +2.28 KB |
+| 4   | Write Owners & Frames                    | 1    | 1,200                                      | 0                                  | +0.5 KB                                         |
+| 5   | Overview, Pages & Navigation             | 1    | 2,000                                      | about 32; 16 changed               | +4.0 KB                                         |
+| 6   | Builders Hand Presentation to Pages      | 1    | 900                                        | minus 25 to 43                     | below 0                                         |
+| 7   | Undo & Redo                              | 1    | 1,200                                      | about 22                           | +1.7 KB                                         |
+| 8   | Jump List                                | 1    | 900                                        | about 8                            | +1.1 KB                                         |
+| 9   | Calendar List Algebra                    | 2    | 800                                        | about 10                           | +0.8 KB                                         |
+| 10  | Calendar List & Entry Pages              | 2    | 2,000                                      | about 42                           | +2.6 KB                                         |
+| 11  | Color Control                            | 2    | 1,300                                      | about 20, plus 19 English-only     | +2.6 KB                                         |
+| 12  | Split This Calendar                      | 2    | 2,300                                      | about 40                           | +4.8 KB                                         |
+| 13  | Reordering: Drag & Keyboard Grab         | 2    | 900                                        | about 5                            | +1.8 KB                                         |
+| 14  | Shown-Set Plan & One Reset Path          | 3    | 1,400                                      | about 1                            | +0.6 KB                                         |
+| 15  | Show What Applies                        | 3    | 2,200                                      | about 63                           | +3.2 KB                                         |
+| 16  | What This Card Changes & Notices         | 3    | 1,400                                      | about 24                           | +1.8 KB                                         |
+| 17  | Search, Full                             | 4    | 1,500                                      | about 11, plus about 14 alias keys | +2.0 KB                                         |
+| 18  | Event-Part Chips & Toolbar               | 5    | 1,500                                      | about 19                           | +1.5 KB                                         |
+| 19  | Start Date, Tapping & Word Lists         | 5    | 1,000                                      | about 9                            | +1.0 KB                                         |
+| 20  | Translations                             | 6    | 4,000 (data)                               | 0                                  | measured rate × count                           |
+| 21  | Docs, Accessibility Pass & Media         | 6    | 1,500                                      | fixes only                         | +0.3 KB                                         |
 
 Every PR also updates `docs/guide/installation.md`'s editor size sentence when its change crosses a
 kilobyte (`scripts/check-bundle.mjs` › `DOC_SIZES`), and states in its body the before and after
@@ -2257,16 +2258,35 @@ carrying PR 1], and the figures below are the ones they print.
 Behavior-preserving, on today's panels.
 
 - **Scope.** Section 3.6 and the identity half of section 3.3, applied to today's panel forms:
-  - a closed `ha-expansion-panel` mounts no form, and an opening one mounts its forms before Home
-    Assistant measures it: the panel's `_toggleContainer` reads the content's height before it fires
-    `expanded-changed`, so mounting on that event opens to the wrong height. The element mounts on
-    `expanded-will-change`, or, if 2026.11's panel fires nothing earlier, on the header's click in
-    the capture phase [unverified: the event's name and order on 2026.11; PR 3 reads the frontend's
-    source]. Search still opens the panels it matches, which then mount;
+  - a never-opened `ha-expansion-panel` mounts no form. An opening one mounts its forms on
+    `expanded-will-change`, before Home Assistant measures it: frontend `20261028.5`, which 2026.11
+    ships, fires that event, renders, awaits a frame and a timeout, measures the content and only
+    then fires `expanded-changed` [read]. A panel keeps its forms when it closes, so the groups
+    inside it keep their state. Search still opens the panels it matches, which then mount;
+  - a hidden warm-up, drawn as the editor opens: a form (`ha-form.ts` › `warmSchema`) holding a
+    node for each form and selector element the editor's schemas need, and a node for each value
+    its forms hold in a field of a type in `hass-key.ts` › `VALUE_SELECTORS`, holding that value
+    (today `ui_action`, whose element draws a `navigate` or `assist` action's form, or a service's
+    controls); and Home Assistant's Visibility editor holding every calendar's conditions, behind
+    the visible one's guard. It is drawn away once a search of everything below it, through every
+    shadow root, finds no element still undefined, or after ten searches or 10 s regardless, so a
+    panel opened before then can still open short. It takes the live `hass`, fresh while it is
+    drawn, since a service's controls draw a field only for a target that supports it, and holds a
+    value again once the services, or the attributes of an entity the value names, move. Each
+    warm-up is a run of its own, so an earlier one's search cannot end a later one holding the
+    same. Without it, 12 of 18 panels of a seven-calendar Grid card opened short on their first
+    click, at full width and at 400 px [measured, PR 3]. Warming the element types alone left what
+    a configured action or a `state` condition draws loading until its panel opened, 3 of 12 panels
+    of a card holding both short at each width; the full warm-up opens 0 of 12 short at full width
+    and 1 at 400 px [measured, PR 3]. That one is what no warm-up reaches: what a control loads for
+    itself once drawn. The assist pipeline picker asks for its pipeline list per instance and draws
+    nothing until it has it, about 50 ms after its panel is measured; at 400 px its 56 px are a row
+    of their own [measured, PR 3];
   - each panel's `build` memoized on its inputs, and each panel schema interned by structural key;
   - each form's `data`, `computeLabel` and `computeHelper` memoized on what they read;
   - `hass-key.ts`: the live feed for forms with `entity`, `icon`, `ui_action` or `object` selectors
-    and the conditions editor, the steady feed for the rest, the editor's `shouldUpdate`, and the
+    (the conditions editor keeps the editor's own `hass`), the steady feed for the rest, the
+    editor's `shouldUpdate`, and the
     `requestUpdate` override that carries an explicit update through it (section 3.6).
 - **Tests.**
   - `tests/editor-render-identity.test.ts`, two genuine renders: write one field through a real
@@ -2287,13 +2307,23 @@ Behavior-preserving, on today's panels.
     of `hass.config` in a render path fails it, and a member added to the wrapper's spread does not.
   - Lazy mounting: a closed panel holds no form; opening it mounts its forms in the same update that
     opens it, before the panel's `expanded-changed`.
+  - **The warm-up**, `tests/editor-warm-up.test.ts`: the element types it holds are those the forms
+    draw with every panel open, across the corpus, and those the builders use, a planted selector
+    type included; the values it holds are those the open forms hold in fields of
+    `VALUE_SELECTORS`; it writes nothing, and takes the live `hass`, fresh while it is drawn. With
+    stand-ins that draw as Home Assistant's do, it stays until what an event's action, a button's
+    action and a `state` condition pick is defined; it warms a service against its target as it
+    is when the action is configured, and again once that target's attributes or the services
+    move, not for a state alone, and forgets one no drawn form holds any more; its search and time
+    bounds draw it away regardless, and an earlier warm-up's search does not end a later one holding
+    the same.
 - **Done when.** The tests pass; the step 0 probe's idle measurement, re-run on this PR's dev build
   in Home Assistant, shows the editor rendering only for changes it draws (renders and milliseconds
   per idle 10 s, before and after, in the PR body); first-open geometry is checked in Home Assistant
   (each panel opens to its full height on the first click, at full width and at 400 px); the card's
   sha256 is unchanged.
 - **Live review.** Open the wall card's editor; open each panel once and watch it open to its full
-  height; rename a calendar entity in another tab: the name updates in the editor. Open Taps &
+  height, a calendar with a `state` condition and a button with a `navigate` action among them; rename a calendar entity in another tab: the name updates in the editor. Open Taps &
   Refresh: the action dropdown still names the card's own actions. Disable an entity used by a
   toolbar button: its picker shows it as unavailable. Search still opens matching panels.
 - **Must not regress.** Everything: the harness suite passes unchanged.
@@ -3150,6 +3180,8 @@ and invalid colors written) are reversed above and gone from this list.
 | 44  | Moves keep a calendar's entries in their order (5.6)                                                                                                                                                                                                                                                                                                    | Re-sort a group on each move, which changes whose copy wins under Filter Duplicates                                                                                                                                                                                    |
 | 45  | Gate lines and search tags each keep their approved form: PR 1's nouns stay for search's "Needs …" tags (the D05 mockup), and a clause beside each, `whenKey` next to `needsKey`, with "{label} is on" for a switch, gives the gate line's "Appears once …" (5.2; section 13, row F)                                                                    | Rewrite PR 1's nouns as clauses, which leaves search without the D05 mockup's "Needs Show Description"; or one noun form for both, the "Appears with …" that row F declines                                                                                            |
 | 46  | A chip's gate line is the clause `gate.when.pressed`, "{part} is pressed", inside the one `gate.line` template (5.2)                                                                                                                                                                                                                                    | `gate.line_pressed` and a bare twin of it, two more templates for the same sentence                                                                                                                                                                                    |
+| 47  | A panel keeps its forms after it closes (PR 3)                                                                                                                                                                                                                                                                                                          | Unmount on close, which discards the open state of the groups inside it                                                                                                                                                                                                |
+| 48  | A hidden warm-up on the live hass loads the elements Home Assistant imports on first use, and what each configured action and each calendar's conditions draw; it is drawn away once a search finds nothing below it left undefined, or after ten searches or ten seconds, and holds a value again once the services or entities it names move (PR 3)   | Mount every panel's forms as the editor opens, the cost PR 3 removes; accept panels opening short on their first click; or warm element types alone, which leaves what a configured action or condition draws loading on first open                                    |
 
 ## 13. Findings
 
@@ -3197,6 +3229,15 @@ point was settled.
     behavior, Back closing the dialog behind Home Assistant's unsaved-changes prompt after an edit,
     and the first live review on a phone, PR 5's, runs the check.
 12. **The stray branch that broke `git fetch` here is gone**; fetching works again in this worktree.
+13. **Two first opens stay short after PR 3, recorded with no code.** At 400 px a panel holding an
+    `assist` action opens 56 px short, 1,109 px against 1,165: the assist pipeline picker asks for
+    its pipeline list once per instance and draws nothing until it has it, about 20 ms after Home
+    Assistant has measured the panel, and the warm-up's own picker cannot lend it the list
+    [measured, PR 3]. Beside it, the warm-up watches only the entities a value names: one a
+    `perform-action` target reaches only through an area, a device or a label is not watched, so a
+    field such an entity comes to support, a color once its light reports `rgb`, loads on the
+    panel's first open [probe]. Same symptom, rarer still. PR 5 turns Actions & Refresh, where both
+    show, into a page with no measured open; a toolbar button's action keeps its panel until PR 18.
 
 ### Differences From the Approved Design, Decided
 

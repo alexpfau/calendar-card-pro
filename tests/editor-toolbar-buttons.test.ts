@@ -105,6 +105,9 @@ async function mount(
     },
     { hass: fakeHass({ localize: (key: string) => `HA:${key}` }) },
   );
+  // The Card & Header panel holds the buttons, opened as a user would to reach them: a closed
+  // panel mounts no form. Each button's own panel stays as it was, closed until a test opens it.
+  await openPageOf(element, 'card:title');
 
   const reported: Array<Record<string, unknown>> = [];
   element.addEventListener('config-changed', (event) => {
@@ -297,6 +300,7 @@ describe('the toolbar buttons in the editor', () => {
   it('writes a field into its own button, and drops a field emptied', async () => {
     const editor = await mount({ show: true, buttons: [BACK, LIGHTS, HOME] });
 
+    await openPageOf(editor.element, 'button:name', button(1));
     await changeField(editor.element, 'button:name', 'Kitchen lights', button(1));
     expect(editor.storedButtons()).toEqual([BACK, { ...LIGHTS, name: 'Kitchen lights' }, HOME]);
     expect(editor.headers()).toEqual(['Back', 'Kitchen lights', 'Home']);
@@ -318,6 +322,7 @@ describe('the toolbar buttons in the editor', () => {
     const editor = await mount({ show: true, buttons: [BACK, LIGHTS] });
 
     // Home Assistant's action editor writes Nothing as { action: 'none' }.
+    await openPageOf(editor.element, 'button:tap_action', button(1));
     await changeField(editor.element, 'button:tap_action', { action: 'none' }, button(1));
 
     expect(editor.storedButtons()).toEqual([
@@ -330,6 +335,7 @@ describe('the toolbar buttons in the editor', () => {
     const quiet = { icon: 'mdi:bell-off', name: 'Quiet', tap_action: { action: 'none' } };
     const editor = await mount({ show: true, buttons: [quiet] });
 
+    await openPageOf(editor.element, 'button:name', button(0));
     await changeField(editor.element, 'button:name', 'Silent', button(0));
 
     expect(editor.storedButtons()).toEqual([{ ...quiet, name: 'Silent' }]);
@@ -341,6 +347,7 @@ describe('the toolbar buttons in the editor', () => {
       buttons: [{ ...HOME, hold_action: { action: 'none' } }],
     });
 
+    await openPageOf(editor.element, 'button:name', button(0));
     await changeField(editor.element, 'button:name', 'House', button(0));
 
     expect(editor.storedButtons()).toEqual([
@@ -353,6 +360,7 @@ describe('the toolbar buttons in the editor', () => {
 
     expect(editor.headers()).toEqual(['Draft', 'Home']);
 
+    await openPageOf(editor.element, 'button:icon', button(1));
     await changeField(editor.element, 'button:icon', '', button(1));
     expect(editor.storedButtons()).toEqual([
       { name: 'Draft' },
@@ -373,6 +381,7 @@ describe('the toolbar buttons in the editor', () => {
     expect(editor.last().toolbar).toEqual({ ...toolbar, reset: true });
 
     const before = editor.last();
+    await openPageOf(editor.element, 'button:name', button(0));
     await changeField(editor.element, 'button:name', 'Go back', button(0));
     const after = editor.last();
     expect({ ...after, toolbar: undefined }).toEqual({ ...before, toolbar: undefined });
@@ -386,6 +395,7 @@ describe('the toolbar buttons in the editor', () => {
   it('reports nothing for a form change that leaves the button as it was', async () => {
     const editor = await mount({ show: true, buttons: [BACK] });
 
+    await openPageOf(editor.element, 'button:name', button(0));
     await changeField(editor.element, 'button:name', 'Back ', button(0));
     await changeField(
       editor.element,
@@ -406,6 +416,7 @@ describe('a toolbar button’s form', () => {
   it('edits icon, name, entity and tap action, each labeled and explained', async () => {
     const editor = await mount({ show: true, buttons: [BACK] });
 
+    await openPageOf(editor.element, 'button:icon', button(0));
     const form = formOf(editor.element, 'button:icon', button(0))!;
     expect(editor.fieldNames(form)).toEqual(['icon', 'name', 'entity', 'tap_action']);
     const fields = ['button:icon', 'button:name', 'button:entity', 'button:tap_action'];
@@ -422,6 +433,7 @@ describe('a toolbar button’s form', () => {
   it('offers every card action, back included, ahead of Home Assistant’s', async () => {
     const editor = await mount({ show: true, buttons: [BACK] });
 
+    await openPageOf(editor.element, 'button:tap_action', button(0));
     const node = formOf(editor.element, 'button:tap_action', button(0))!.schema.find(
       (candidate) => candidate.name === 'tap_action',
     );
@@ -434,6 +446,7 @@ describe('a toolbar button’s form', () => {
   it('names the card’s own actions through the editor’s hass, back among them', async () => {
     const editor = await mount({ show: true, buttons: [BACK] });
 
+    await openPageOf(editor.element, 'button:tap_action', button(0));
     const hass = formOf(editor.element, 'button:tap_action', button(0))!.hass;
     expect(hass?.localize?.(`${HA_ACTION_LABEL_PREFIX}back`)).toBe('Go Back');
     expect(hass?.localize?.(`${HA_ACTION_LABEL_PREFIX}refresh`)).toBe('Refresh Events');

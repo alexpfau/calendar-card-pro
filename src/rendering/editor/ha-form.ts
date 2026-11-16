@@ -129,3 +129,69 @@ export type HaFormSchema = SelectorSchema | ConstantSchema | GridSchema | Expand
 export function isGroupSchema(node: HaFormSchema): node is GridSchema | ExpandableSchema {
   return 'schema' in node;
 }
+
+/**
+ * The element Home Assistant draws a node with, which it imports the first time a form holds such
+ * a node (`LOAD_ELEMENTS` in `ha-form` and `ha-selector`, frontend 20261028.5): `ha-selector-`
+ * and the selector's key for a field, `ha-form-` and the node's type for anything else.
+ *
+ * @param node - Schema node
+ * @returns The element's tag
+ */
+export function elementOf(node: HaFormSchema): string {
+  return 'selector' in node
+    ? `ha-selector-${Object.keys(node.selector)[0]}`
+    : `ha-form-${node.type}`;
+}
+
+/**
+ * One node for each element some forms draw, a group without its children, in the order first
+ * met, and one for each value they hold in a field whose element draws what its value picks,
+ * holding that value: a form holding them has Home Assistant import every element those forms
+ * need, and draw each branch those values pick, so that it imports what those draw as well.
+ *
+ * A node is keyed by its element's tag, and a value's by the tag and the value as JSON, so each
+ * is held once. Values are read as `ha-form` reads them: a field's under its name, a group's
+ * children from its own under its name unless it has none or is flattened.
+ *
+ * @param forms - The schema and data of each form
+ * @param keep - Which nodes to hold, by key
+ * @param valued - The selector types whose element draws what its value picks
+ * @returns The keys held, the nodes, each value's renamed to its key, and the data holding each
+ *   value under its key
+ */
+export function warmSchema(
+  forms: Iterable<readonly [ReadonlyArray<HaFormSchema>, unknown]>,
+  keep: (key: string) => boolean,
+  valued: ReadonlyArray<string>,
+): [string[], HaFormSchema[], Record<string, unknown>] {
+  const nodes = new Map<string, HaFormSchema>();
+  const data: Record<string, unknown> = {};
+  const walk = (schema: ReadonlyArray<HaFormSchema>, values: unknown): void => {
+    for (const node of schema) {
+      const tag = elementOf(node);
+      const value =
+        !node.name || (isGroupSchema(node) && node.flatten)
+          ? values
+          : (values as Record<string, unknown> | undefined)?.[node.name];
+      const key =
+        'selector' in node && value !== undefined && valued.some((type) => type in node.selector)
+          ? `${tag} ${JSON.stringify(value)}`
+          : tag;
+      if (!nodes.has(key) && keep(key)) {
+        if (key !== tag) data[key] = value;
+        nodes.set(
+          key,
+          isGroupSchema(node)
+            ? { ...node, schema: [] }
+            : key === tag
+              ? node
+              : { ...node, name: key },
+        );
+      }
+      if (isGroupSchema(node)) walk(node.schema, value);
+    }
+  };
+  for (const [schema, values] of forms) walk(schema, values);
+  return [[...nodes.keys()], [...nodes.values()], data];
+}
