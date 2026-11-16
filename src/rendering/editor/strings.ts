@@ -122,6 +122,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'search.yaml': 'YAML: {path}',
   'search.return': 'Return to Results',
   'search.showing': 'Showing {label}.',
+  // The tag on a setting a gate withholds, around a gate phrase below or the label of the control
+  // it waits on (`plan.ts` › `needsTag`): "Needs Show Description".
+  'search.needs': 'Needs {needs}',
 
   // --- Gates ----------------------------------------------------------------
   //

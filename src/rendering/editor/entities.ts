@@ -79,7 +79,7 @@ const CALENDAR_OPTIONS: Readonly<Record<string, CalendarOption>> = {
  * @param key - Config key
  * @returns `true` for an option the calendar has once
  */
-function isCalendarOption(key: string): boolean {
+export function isCalendarOption(key: string): boolean {
   return Object.prototype.hasOwnProperty.call(CALENDAR_OPTIONS, key);
 }
 
@@ -265,6 +265,36 @@ export function removeEntity(
   }
 
   return next;
+}
+
+/**
+ * Deletes options from one block of a calendar, as a Reset does: the block's own lines go, and an
+ * option the calendar has once ({@link CALENDAR_OPTIONS}) goes from every block of the calendar,
+ * as {@link writeEntity} writes it, so no other block is left deciding it.
+ *
+ * @param entities - The list as stored
+ * @param index - Position of the block being reset
+ * @param keys - Configuration keys to delete
+ * @returns A new list; a block that held none of the keys is the same object
+ */
+export function resetEntry(
+  entities: ReadonlyArray<string | Types.EntityConfig>,
+  index: number,
+  keys: ReadonlyArray<string>,
+): Array<string | Types.EntityConfig> {
+  if (index < 0 || index >= entities.length) return [...entities];
+
+  const id = entityIdOf(entities[index]);
+  const shared = keys.filter(isCalendarOption);
+  return entities.map((entry, at) => {
+    const own = at === index ? keys : id !== '' && entityIdOf(entry) === id ? shared : [];
+    if (typeof entry !== 'object' || entry === null || !own.some((key) => key in entry)) {
+      return entry;
+    }
+    const next: Record<string, unknown> = { ...entry };
+    for (const key of own) delete next[key];
+    return next as unknown as Types.EntityConfig;
+  });
 }
 
 /**
