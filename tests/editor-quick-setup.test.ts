@@ -416,11 +416,9 @@ describe('Quick Setup', () => {
     ]);
     const [taps] = formsOf(editor, CHASSIS);
     expect(taps.classList.contains('boxed')).toBe(true);
-    expect(taps.schema.map((field) => Object.keys(field.selector ?? {}))).toEqual([
-      ['boolean'],
-      ['boolean'],
-      ['boolean'],
-    ]);
+    expect(
+      taps.schema.map((field) => ('selector' in field ? Object.keys(field.selector) : [])),
+    ).toEqual([['boolean'], ['boolean'], ['boolean']]);
   });
 
   it('draws exactly the forms subforms.ts declares for it, one per step, in order', async () => {
