@@ -3793,10 +3793,21 @@ export class CalendarCardProEditor extends LitElement {
     } else if (action === 'back') {
       this._back();
     } else if (action === 'clear') {
+      // Escape in the search field leaves focus there. Anywhere else, on a result row that goes
+      // with the results, focus moves to the overview's first list, never into a form
+      // (`views/focus.ts`), rather than falling to the page body.
+      const inField = event
+        .composedPath()
+        .some((each) => each instanceof Element && each.classList.contains('filter-form'));
       this._filter = { ...this._filter, query: '' };
       this._jump = undefined;
       void this.updateComplete.then(() =>
-        Focus.focusFirst(this.renderRoot, ['ha-form.filter-form']),
+        Focus.focusFirst(
+          this.renderRoot,
+          inField
+            ? ['ha-form.filter-form']
+            : ['[data-heading="calendars"] .heading', '.row-group .heading'],
+        ),
       );
     }
   };
@@ -5233,7 +5244,12 @@ export class CalendarCardProEditor extends LitElement {
         id: 'remove',
         label:
           total > 1 ? this._string(ctx, 'strip.remove_entry') : this._string(ctx, 'entity.remove'),
-        name: interpolate(this._string(ctx, 'strip.remove'), { name: entryName }),
+        name: interpolate(
+          total > 1
+            ? this._string(ctx, 'strip.remove_entry_named')
+            : this._string(ctx, 'strip.remove'),
+          { name: entryName },
+        ),
         danger: true,
         onPress: () => this._removeEntry(entryKey),
       },
@@ -7312,7 +7328,14 @@ export class CalendarCardProEditor extends LitElement {
               ? interpolate(this._string(ctx, 'entry.remove'), { name })
               : this._string(ctx, 'strip.remove_entry'),
             focus: 'entry-remove',
-            name: interpolate(this._string(ctx, 'strip.remove'), { name: this._entryName(key) }),
+            name: interpolate(
+              single
+                ? this._string(ctx, 'strip.remove')
+                : this._string(ctx, 'strip.remove_entry_named'),
+              {
+                name: this._entryName(key),
+              },
+            ),
             onPress: () => this._removeEntry(key),
           },
           ' destructive',

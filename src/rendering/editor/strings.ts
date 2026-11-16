@@ -136,7 +136,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'state.layout_own': '{layout} Sets Its Own: {value}',
   'state.set_on_calendars': 'Set on Calendars:',
   'state.edit_layout': 'Edit {layout}',
-  'state.edit_named': 'Edit {label} in {layout}',
+  'state.edit_named': 'Edit {layout}: {label}',
   // What Reset leaves, beside it, and the names of Reset and Remove.
   'reset.gives_layout_default': 'Reset gives {layout}’s Default, {value}',
   'reset.gives_layout_default_ignored':
@@ -525,10 +525,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'calendars.empty_note': 'Add the calendars this card shows.',
   'calendars.filter': 'Filter Calendars',
   'calendars.no_match': 'No calendars match.',
-  // The strip of actions under a row. Moves act on a whole calendar; the names say whose.
-  'strip.move_up': 'Move {name} up',
-  'strip.move_down': 'Move {name} down',
-  'strip.move_top': 'Move {name} to the top',
+  // The strip of actions under a row. Moves act on a whole calendar; the names say whose, after
+  // the words the button shows, so a name a person speaks to reach it holds them (WCAG 2.5.3).
+  'strip.move_up': 'Move Up: {name}',
+  'strip.move_down': 'Move Down: {name}',
+  'strip.move_top': 'Move to Top: {name}',
   'strip.move_top_label': 'Move to Top',
   'strip.duplicate': 'Duplicate {name}',
   'strip.copy': 'Copy settings from {name}',
@@ -538,6 +539,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'strip.remove': 'Remove {name}',
   'strip.remove_calendar': 'Remove {name}, Entries: {count}',
   'strip.remove_entry': 'Remove This Entry',
+  'strip.remove_entry_named': 'Remove This Entry: {name}',
   // The keys beside a move in an entry page's menu.
   'strip.key_up': 'Alt ↑',
   'strip.key_down': 'Alt ↓',

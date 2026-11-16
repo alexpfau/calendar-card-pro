@@ -310,17 +310,26 @@ export interface NavRow {
  * @returns The row
  */
 export function navRow(row: NavRow, onOpen: () => void): TemplateResult {
+  // The title names the row and the summary describes it, so a screen reader does not run the two
+  // together ("Which Events Show Past Events: On").
+  const id = `nav-${row.key.replace(/[^\w-]/g, '-')}`;
   return html`<button
     type="button"
     class="nav-row"
     data-focus=${row.key}
+    aria-labelledby=${`${id}-title`}
+    aria-describedby=${row.summary ? `${id}-summary` : nothing}
     ?data-quick-setup-open=${row.key === 'more:example'}
     @click=${onOpen}
   >
     ${icon(row.iconPath, 'nav-icon')}
     <span class="nav-text">
-      <span class="nav-title">${row.title}</span>
-      ${row.summary ? html`<span class="nav-summary">${row.summary}</span>` : nothing}
+      <span class="nav-title" id=${`${id}-title`}>${row.title}</span>
+      ${
+        row.summary
+          ? html`<span class="nav-summary" id=${`${id}-summary`}>${row.summary}</span>`
+          : nothing
+      }
     </span>
     ${icon(mdiChevronRight, 'nav-chevron')}
   </button>`;
@@ -359,12 +368,14 @@ export function quickSetupBanner(
       class="quick-setup-banner"
       data-quick-setup-open
       data-focus="quick-setup"
+      aria-labelledby="quick-setup-name"
+      aria-describedby="quick-setup-line"
       @click=${onOpen}
     >
       <span class="quick-setup-badge" aria-hidden="true">${icon(mdiCreation)}</span>
       <span class="quick-setup-text">
-        <span class="quick-setup-name">${t('quick_setup.open')}</span>
-        <span class="quick-setup-line">${t('quick_setup.open_note')}</span>
+        <span class="quick-setup-name" id="quick-setup-name">${t('quick_setup.open')}</span>
+        <span class="quick-setup-line" id="quick-setup-line">${t('quick_setup.open_note')}</span>
       </span>
     </button>
     <button
