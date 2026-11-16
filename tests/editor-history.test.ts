@@ -13,6 +13,7 @@ import {
   emitChange,
   fakeHass,
   formOf,
+  goOverview,
   goPage,
   keysOf,
   mountEditor,
@@ -289,6 +290,26 @@ describe('Undo restores exactly', () => {
     expect([...internals(editor)._gridResetKeys]).toEqual(['event_font_size']);
   });
 
+  it('a reset, with focus on the field it reset', async () => {
+    const { editor } = await mount({
+      config_version: VERSION,
+      entities: ['calendar.anna'],
+      view: 'grid',
+      event_font_size: '14px',
+      time_grid: { event_font_size: '18px' },
+    });
+    await openPageOf(editor, 'events:event_font_size');
+    $(editor, '[data-reset-keys="event_font_size"]')!.click();
+    await settle(editor);
+    await key(editor, $(editor, '[data-field="events:event_font_size"]')!, {
+      key: 'z',
+      ctrlKey: true,
+    });
+    expect(editor.shadowRoot!.activeElement?.getAttribute('data-field')).toBe(
+      'events:event_font_size',
+    );
+  });
+
   it('the Grid notice a layout switch brings, as one step with it', async () => {
     const { editor, last } = await mount({
       config_version: VERSION,
@@ -324,6 +345,27 @@ describe('Undo restores exactly', () => {
 
     await press(editor, 'undo');
     expect(internals(editor)._pending).toEqual(held);
+  });
+});
+
+describe('echoes after a step', () => {
+  it('are all known for what they are, however often Home Assistant sends them', async () => {
+    const stored = {
+      config_version: VERSION,
+      entities: ['calendar.anna'],
+      row_spacing: '8px',
+    };
+    const { editor, sent } = await mount(stored);
+    await changeField(editor, 'card:title', 'Family');
+    await press(editor, 'undo');
+    // Home Assistant may answer a write more than once, each time with its newest value.
+    for (let echo = 0; echo < 2; echo++) {
+      editor.setConfig(JSON.parse(sent[sent.length - 1]!));
+      await settle(editor);
+    }
+    expect(internals(editor)._history.canRedo).toBe(true);
+    await press(editor, 'redo');
+    expect(JSON.parse(sent[sent.length - 1]!)).toHaveProperty('title', 'Family');
   });
 });
 
@@ -618,5 +660,28 @@ describe('Quick Setup', () => {
     await press(editor, 'undo');
     expect(sent[sent.length - 1]).toBe(JSON.stringify(opening));
     expect(internals(editor)._history.canUndo).toBe(false);
+  });
+
+  it('leaves no line where Apply changed nothing, so nothing else is undone from it', async () => {
+    const { editor, sent } = await mount({ config_version: VERSION, entities: ['calendar.anna'] });
+    const click = async (selector: string) => {
+      $(editor, selector)!.click();
+      await settle(editor);
+    };
+    const apply = async () => {
+      await click('[data-quick-setup-open]');
+      await click('[data-story="family_hub"]');
+      for (let step = 0; step < 4; step++) await click('[data-quick-setup-next]');
+      await click('[data-quick-setup-apply]');
+    };
+    await apply();
+    await changeField(editor, 'card:title', 'Updated');
+    await goOverview(editor);
+    const before = sent.length;
+    // The same story again over what it already wrote: nothing to apply.
+    await apply();
+    expect(sent).toHaveLength(before);
+    expect($(editor, '[data-status-bar]')).toBeNull();
+    expect(undoLabel(editor)).toBe('Undo: Change Title');
   });
 });

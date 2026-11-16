@@ -747,6 +747,10 @@ export class CalendarCardProEditor extends LitElement {
     }
     this._banner ??= QuickSetup.isFreshCard(rawConfig);
 
+    // An echo leaves what was sent as it was sent: recomputed through the minimizing write, a
+    // restored deprecated option would drop out of it, and the next echo of the same YAML would
+    // read as a change from outside.
+    if (isEcho) return;
     this._lastDispatched = Value.toStoredConfig(
       this._config,
       this._authoredRootKeys,
@@ -873,6 +877,7 @@ export class CalendarCardProEditor extends LitElement {
    * @param run - Makes the change
    * @param focusKey - What Undo and Redo focus: `field:<id>`, `entry:<key>` or `button:<key>`
    * @param before - What the step goes back to, where that is not the editor as it is now
+   * @returns Whether a step was recorded
    */
   private _commit(
     label: string,
@@ -880,10 +885,10 @@ export class CalendarCardProEditor extends LitElement {
     run: () => void,
     focusKey?: string,
     before?: Snapshot,
-  ): void {
+  ): boolean {
     if (this._committing || !this._config) {
       run();
-      return;
+      return false;
     }
     before ??= this._snapshot();
     const where = { route: this._nav.route, workspace: this._selectedWorkspace, focusKey };
@@ -894,13 +899,14 @@ export class CalendarCardProEditor extends LitElement {
     } finally {
       this._committing = false;
     }
-    if (Value.equalConfigs(before.raw, this._rawConfig)) return;
+    if (Value.equalConfigs(before.raw, this._rawConfig)) return false;
     this._history.record(
       { label, before, after: this._snapshot(), where },
       coalesceKey,
       Date.now(),
     );
     if (this._status === status) this._closeStatus();
+    return true;
   }
 
   /**
@@ -2182,11 +2188,7 @@ export class CalendarCardProEditor extends LitElement {
     const empty = shown.size === 0 && calendars === nothing && Filter.isFiltering(this._filter);
     return html`${empty ? this._renderNoMatches(ctx) : nothing} ${this._renderScope(ctx)}
     ${calendars} ${this._renderDisplays(ctx, chassis)} ${this._renderFields(own, ctx)}
-    ${this._renderResetControls(
-      own.flatMap((field) => field.lifted),
-      ctx,
-    )}
-    ${Overview.rowGroup(t('overview.settings'), rows)}
+    ${this._renderResetControls(own, ctx)} ${Overview.rowGroup(t('overview.settings'), rows)}
     ${Overview.rowGroup(t('overview.more'), [Overview.exampleRow(t, this._openQuickSetup)])}`;
   }
 
@@ -2216,12 +2218,8 @@ export class CalendarCardProEditor extends LitElement {
     if (groups.length === 0 && own.length === 0 && calendars === nothing) {
       return this._renderNoMatches(ctx);
     }
-    return html`${this._renderFields(own, ctx)}
-    ${this._renderResetControls(
-      own.flatMap((field) => field.lifted),
-      ctx,
-    )}
-    ${calendars} ${groups}`;
+    return html`${this._renderFields(own, ctx)} ${this._renderResetControls(own, ctx)} ${calendars}
+    ${groups}`;
   }
 
   /**
@@ -2297,10 +2295,7 @@ export class CalendarCardProEditor extends LitElement {
       const extras = Filter.filterExtras(layout.extras?.(ctx) ?? [], layout, this._filterCtx);
       parts.push(...extras.map((extra) => this._renderExtra(extra)));
     }
-    const resets = this._renderResetControls(
-      drawn.flatMap((field) => field.lifted),
-      ctx,
-    );
+    const resets = this._renderResetControls(drawn, ctx);
     if (drawn.length === 0 && resets === nothing && parts.length === 0) return undefined;
     parts.push(resets);
     return parts;
@@ -3151,12 +3146,12 @@ export class CalendarCardProEditor extends LitElement {
    * shared base inherits from nothing. It is also what the root-writing workspace did
    * before `list:` existed, so this restores that behavior rather than inventing one.
    *
-   * @param schema - Fields currently shown
+   * @param fields - Fields currently shown
    * @param ctx - Editing context
    * @returns Per-option reset buttons, or nothing
    */
   private _renderResetControls(
-    schema: ReadonlyArray<HaFormSchema>,
+    fields: ReadonlyArray<IndexedField>,
     ctx: SchemaCtx,
   ): TemplateResult | typeof nothing {
     const view = this._destinationView(ctx);
@@ -3166,7 +3161,11 @@ export class CalendarCardProEditor extends LitElement {
     const stored = Value.storedViewBlocks(this._config!)[blockKey];
     if (!stored || typeof stored !== 'object') return nothing;
     const seen = new Set<string>();
-    const resets = [...Routing.workspaceFields(schema)].flatMap(({ node, path, labelPath }) => {
+    // Each with the field it belongs to, whose wrapper Undo focuses once the value is back.
+    const shown = fields.flatMap((field) =>
+      [...Routing.workspaceFields(field.lifted)].map((each) => ({ ...each, id: field.id })),
+    );
+    const resets = shown.flatMap(({ node, path, labelPath, id }) => {
       const keys = (
         path.length === 1 && path[0] === blockKey
           ? [node.name]
@@ -3178,18 +3177,18 @@ export class CalendarCardProEditor extends LitElement {
       ).filter((key) => Object.prototype.hasOwnProperty.call(stored, key) && !seen.has(key));
       if (keys.length === 0) return [];
       keys.forEach((key) => seen.add(key));
-      return [{ keys, label: EditorLocalize.computeLabel(ctx.language, node, labelPath) }];
+      return [{ keys, id, label: EditorLocalize.computeLabel(ctx.language, node, labelPath) }];
     });
     if (resets.length === 0) return nothing;
     return html`
       <div class="view-resets">
         ${resets.map(
-          ({ keys, label }) => html`
+          ({ keys, id, label }) => html`
             <button
               type="button"
               class="text-button"
               data-reset-keys=${keys.join(' ')}
-              @click=${() => this._resetViewValues(blockKey, view, keys, label)}
+              @click=${() => this._resetViewValues(blockKey, view, keys, label, id)}
             >
               ${interpolate(this._string(ctx, 'value_source.reset'), {
                 option: label,
@@ -3208,18 +3207,21 @@ export class CalendarCardProEditor extends LitElement {
    * @param view - View whose value is reset
    * @param keys - Options controlled by the field
    * @param label - The field's label, which names the undo step
+   * @param fieldId - The field, whose wrapper Undo and Redo focus
    */
   private _resetViewValues(
     blockKey: keyof Types.Config,
     view: Types.EffectiveView,
     keys: ReadonlyArray<string>,
     label: string,
+    fieldId: FieldId,
   ): void {
     if (!this._config) return;
     this._commit(
       interpolate(this._string(this._ctx, 'history.reset'), { setting: label }),
       undefined,
       () => this._resetValues(blockKey, view, keys),
+      `field:${fieldId}`,
     );
   }
 
@@ -3871,22 +3873,18 @@ export class CalendarCardProEditor extends LitElement {
     if (session?.answers === undefined || session.answers.calendars.length === 0) return;
     const ctx = this._ctx;
     const story = this._string(ctx, `quick_setup.story.${session.answers.story}`);
-    this._commit(
+    const applied = this._commit(
       interpolate(this._string(ctx, 'history.apply'), { story }),
       undefined,
-      () => {
-        this._applyStory(session);
-        this._showStatus(
-          {
-            kind: 'story',
-            text: interpolate(this._string(ctx, 'status.applied'), { story }),
-            at: 0,
-          },
-          interpolate(this._string(ctx, 'announce.applied'), { story }),
-        );
-      },
+      () => this._applyStory(session),
       undefined,
       session.openingSnapshot,
+    );
+    // An Apply that changed nothing is no step, and its line would offer to undo another.
+    if (!applied) return;
+    this._showStatus(
+      { kind: 'story', text: interpolate(this._string(ctx, 'status.applied'), { story }), at: 0 },
+      interpolate(this._string(ctx, 'announce.applied'), { story }),
     );
   };
 
