@@ -1815,9 +1815,10 @@ Five things are easy to get wrong:
   default change cannot move the card. That needs the stored YAML as its third argument
   (`_rawConfig`), and every editor write passes it. A new write path that omits it
   compiles, passes every type check, and silently drops `show_month: true` on the next
-  edit; `tests/editor-keeps-authored-defaults.test.ts` fails if `_report` does. Anything
-  that labels or resets a view value reads `storedViewBlocks`, the same rule, so a kept
-  line is never shown as inherited.
+  edit; `tests/editor-keeps-authored-defaults.test.ts` fails if `_report` does. What a page
+  shows and the words it labels a value with read the YAML as stored (`plan.ts` › `storedAt`),
+  never the merged configuration or the re-serialized view blocks, so a kept line is never
+  shown as inherited.
 - **`ha-form` fires one event for the whole form and never says which field moved**, so
   there is no place for a per-field `event.type` guard. Values that are invalid _while
   being typed_ — `start_date_offset` passing through `-` — are held in `synthetic.ts` and
@@ -1984,6 +1985,48 @@ Wherever it is drawn, a heading is the one thing that can **actively lie**, beca
 claim about what follows it: **a heading over a non-contiguous category is worse than no
 heading**. A heading named the same as its only field reads as a stutter, and a DOM probe cannot
 see that — only a screenshot can.
+
+### A page shows what applies, and every reset takes one path
+
+**What a page draws is `plan.ts`'s answer, and nothing else decides it.** A field is live when
+it applies here and is essential, stored, inherited with a value that differs from the default,
+added this session, or Show Every Setting is on; the rest of its heading waits in the heading's
+Add row, named. Applies here means the builders built it: they stay the one authority on
+presence, and `plan.ts` reads them through the present index. What a gate withholds is named in
+its heading's gate line, "Appears once {when}: {names}.", with any value stored for it all the
+same listed after it with its Reset; what only another layout offers is named at the page's foot.
+`element.ts` draws the plan (`_renderHeadings`) and never filters a form itself; there are no
+switches any more that narrow the editor.
+
+Four things follow for new code:
+
+- **A new field's appearance is a decision.** `'essential'` draws it on every card, so most new
+  fields are `'add'`. Placing one is the same question as under _Where a new option goes_ below.
+- **A new gate condition on anything but a switch needs a clause** (`Prereq.whenKey` or
+  `Gate.whenKey`), written to follow "Appears once". A switch reads "{label} is on" by itself.
+  `tests/editor-gate-lines.test.ts` reconciles every condition against the built schema, so a
+  dropdown condition without a clause fails there rather than reading "Style is on".
+- **A field edited this session stays where it is**, even once its value is cleared: an edit
+  adds it to the added set (`_valueChanged`), so a box emptied to type anew never leaves the page
+  under the cursor. Remove takes it back to its Add row.
+- **Every Reset and Remove goes through `reset.ts` › `reset`**, applied by `_applyReset`, which
+  updates the YAML, the authored root keys, the Grid reset keys, the held text and the added set
+  together, as one undo step. Do not delete a key from `_config` for a reset by hand: a root key
+  left among the authored ones is written back by the next unrelated edit, and a Grid default
+  that came back without its reset key is replaced the next time the card switches to Grid.
+  `plan.ts` › `resetAction` decides Reset (the control stays) or Remove (it leaves) by planning
+  the state the reset would leave; its one shortcut, Reset for an essential field, rests on
+  resetting a field's own line never withholding it, which `tests/editor-shown-set.test.ts`
+  checks over the gate corpus. A mode value's own reset can withhold it, so it takes the full
+  path.
+
+**Tests read the shown set as a user sees it, unless they ask otherwise.** A test about what every
+page can draw mounts with `mountEditor(config, { every: true })`, which switches Show Every
+Setting on through its own control, and `openPanels` visits the pages with it on. A test about
+the shown set mounts without it, and `changeField` on a field waiting in an Add row adds it there
+first, as a user would. `openPanels` yields one macrotask before its visit: happy-dom keeps the
+targets of `WeakRef`s reached during a job until the job ends, so a long run of microtask awaits
+holds every node earlier renders let go of, and the gate corpus ran out of heap without it.
 
 ### Where a new option goes is a decision, not a default
 

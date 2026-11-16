@@ -8,7 +8,7 @@ import { isPersonEntityId } from '../../../utils/person-pictures';
 import type { HaFormSchema, SelectorSchema } from '../ha-form';
 import { humanize, lookup } from '../localize';
 import type { SchemaCtx } from '../panels';
-import { text } from './common';
+import { color, text } from './common';
 
 export const INHERIT = 'inherit';
 
@@ -303,7 +303,7 @@ function labelFields(
         : [{ name: 'label', selector: { icon: {} } } as SelectorSchema]),
       // Kept in both modes on purpose: tinting an inherited icon is still the card's choice,
       // and the color is stored under a key of its own that the source never touches.
-      text('label_icon_color'),
+      color('label_icon_color'),
     ];
   }
 
@@ -366,10 +366,10 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     labelIconSource(ctx.language),
     labelImageSource(ctx.language),
     text('label'),
-    text('label_icon_color'),
-    text('color'),
+    color('label_icon_color'),
+    color('color'),
     accentColorMode(ctx.language),
-    text('accent_color'),
+    color('accent_color'),
     // Last in the section that says how this calendar's events look: after which label and
     // which colors, how large. No ceiling, as YAML has none, and a box rather than a slider,
     // which Home Assistant draws only with both bounds.

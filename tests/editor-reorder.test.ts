@@ -7,7 +7,14 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { fakeHass, keysOf, lastConfig, mountEditor } from './helpers/editor-host';
+import {
+  fakeHass,
+  goEntry,
+  goOverview,
+  keysOf,
+  lastConfig,
+  mountEditor,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import {
   dropTarget,
@@ -672,5 +679,73 @@ describe('the pointer drag', () => {
     const far = drag(1000);
     expect(far.scrolled).toBe(0);
     expect(far.outcome).toEqual({ ids: ['a', 'b', 'c', 'd'], from: 0, at: 0, dropped: true });
+  });
+});
+
+describe('moving a calendar Split This Calendar made two of', () => {
+  /**
+   * Presses one of the editor's own controls by its `data-focus` key.
+   *
+   * @param editor - The editor
+   * @param focus - The key
+   */
+  async function press(editor: Editor, focus: string): Promise<void> {
+    const control = editor.shadowRoot!.querySelector<HTMLElement>(`[data-focus="${focus}"]`);
+    if (control === null) throw new Error(`no control ${focus}`);
+    control.click();
+    await editor.updateComplete;
+    await editor.updateComplete;
+  }
+
+  it('moves both parts with their New tags as one step, and the audit lists them where they went', async () => {
+    const { editor, writes } = await mount([{ entity: BEN, accent_color: '#3f51b5' }, ANNA]);
+    await goEntry(editor, keysOf(editor, 'entry')[0]);
+    await press(editor, 'split-row');
+    await press(editor, 'split-next');
+    await press(editor, 'split-next');
+    for (let turn = 0; turn < 5; turn++) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await editor.updateComplete;
+    }
+    await press(editor, 'split-apply');
+    await goOverview(editor);
+    const split = lastConfig(editor)!.entities as ReadonlyArray<unknown>;
+    expect(split).toHaveLength(3);
+    const before = writes();
+
+    // Ben is a calendar with two entries now: one handle, on his calendar row.
+    const ben = handle(editor, BEN);
+    expect(ben.closest('.cal-row-head')).not.toBeNull();
+    ben.focus();
+    await key(editor, ben, ' ');
+    expect(said(editor)).toContain('Ben, position 1 of 2.');
+    await key(editor, ben, 'ArrowDown');
+    await key(editor, ben, ' ');
+
+    expect(writes() - before).toBe(1);
+    expect(lastConfig(editor)?.entities).toEqual([ANNA, split[0], split[1]]);
+    expect(said(editor)).toBe('Moved Ben to position 2 of 2.');
+    // The New tags went with the parts.
+    const tagged = [...editor.shadowRoot!.querySelectorAll('.cal-row')]
+      .filter((row) => row.querySelector('.tag') !== null)
+      .map((row) => row.closest<HTMLElement>('.cal-group')!.dataset.calendar);
+    expect(tagged).toEqual([BEN, BEN]);
+    expect(shown(editor)).toEqual(['Anna', 'Ben']);
+
+    // What This Card Changes lists Ben's parts at their new places.
+    await press(editor, 'more:audit');
+    const paths = [...editor.shadowRoot!.querySelectorAll<HTMLElement>('[data-audit]')].map(
+      (row) => row.dataset.audit!,
+    );
+    expect(paths).toContain('entities[1].event_type');
+    expect(paths).toContain('entities[2].event_type');
+    expect(paths.some((path) => path.startsWith('entities[0].'))).toBe(false);
+
+    // One Undo puts the split list back as it was, Ben first.
+    await goOverview(editor);
+    expect(undoButton(editor).getAttribute('aria-label')).toBe('Undo: Move Ben');
+    undoButton(editor).click();
+    await editor.updateComplete;
+    expect(lastConfig(editor)?.entities).toEqual(split);
   });
 });

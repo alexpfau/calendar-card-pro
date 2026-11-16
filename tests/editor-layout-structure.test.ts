@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
-import { CHASSIS, changeField, goEntry, keysOf, mountEditor } from './helpers/editor-host';
+import { changeField, goEntry, keysOf, mountEditor } from './helpers/editor-host';
 import type * as Types from '../src/config/types';
 import { schemaCtx } from '../src/rendering/editor/field-index';
 import * as Filter from '../src/rendering/editor/filter';
@@ -49,13 +49,10 @@ function outline(schema: ReadonlyArray<HaFormSchema>): string[] {
 /**
  * One calendar's sub-form as the editor renders it.
  *
- * 🚨 Go through `filterEntitySchema`, never `subform.schema`. View scoping is applied
+ * 🚨 Go through `withholdInertFields`, never `subform.schema`. View scoping is applied
  * there, one layer below the declaration, so a test reading the declared schema is
  * measuring something no user sees — and will happily fail on a duplicate call that
  * changes nothing, which is a green light dressed as a guard.
- *
- * `NO_FILTER` is the resting state: `filterEntitySchema` withholds before it consults the
- * criteria, so this is the schema shown to somebody who has typed nothing.
  *
  * @param subform - Sub-form as declared by its panel
  * @param ctx - Schema context, whose workspace decides the scoping
@@ -65,10 +62,7 @@ function renderedSubform(
   subform: { schema: ReadonlyArray<HaFormSchema>; path: ReadonlyArray<string> },
   ctx: SchemaCtx,
 ): HaFormSchema[] {
-  return Filter.filterEntitySchema(subform.schema, { entity: 'calendar.anna' }, subform.path, {
-    ...ctx,
-    criteria: Filter.NO_FILTER,
-  });
+  return Filter.withholdInertFields(subform.schema, ctx.workspace ?? ctx.view, 'entity');
 }
 
 /**
@@ -471,8 +465,9 @@ describe('No two adjacent fields share a label', () => {
   }
 
   // The accent mode and the color it governs were both `Accent Color`, on the card and again
-  // on the per-calendar subform. They now read "Accent Color Source" and "Custom Accent Color",
-  // so every name on a page is its own (`tests/editor-unique-names.test.ts`).
+  // on the per-calendar subform. The color now reads "Custom Accent Color", and the mode, which
+  // the color control draws as one "Accent Color", keeps that name, so every name on a page is
+  // its own (`tests/editor-unique-names.test.ts`).
   const KNOWN: string[] = [];
 
   for (const workspace of WORKSPACES) {
@@ -491,7 +486,7 @@ describe('Sub-forms are view-scoped like the panels above them', () => {
   //
   // 🚨 It asserts on `renderedSubform`, not on `subform.schema`, and the distinction is
   // the entire difference between coverage and decoration. The withholding happens in
-  // `filterEntitySchema`, one layer below the declaration — so a test reading
+  // `withholdInertFields`, one layer below the declaration — so a test reading
   // `subform.schema` measures a schema nobody renders. An earlier version of this file did
   // exactly that, and it "detected" a reverted duplicate call in `calendarsSubforms` that
   // was provably invisible to users: the live editor rendered byte-identical field and
@@ -548,9 +543,11 @@ describe('No entry page heading is left captioning nothing', () => {
   // the next section. `## Multi-Day Events` held exactly one control, `split_multiday_events`,
   // which grid withholds — so scoping a calendar's fields is the first change able to strand
   // one. The entry page draws its headings from `ENTRY_GROUPS` and each over the fields the
-  // workspace builds, so this reads the drawn page, where a stranded heading would show.
+  // workspace builds, so this reads the drawn page, where a stranded heading would show. A
+  // heading whose settings wait in its Add row or behind its gate line names them there, so it
+  // captions something too.
   for (const workspace of WORKSPACES) {
-    it(`draws a field under every heading in ${workspace}`, async () => {
+    it(`draws a field, an Add row or a gate line under every heading in ${workspace}`, async () => {
       const editor = await mountEditor({
         type: 'custom:calendar-card-pro',
         entities: ['calendar.anna'],
@@ -565,32 +562,10 @@ describe('No entry page heading is left captioning nothing', () => {
       expect(headings.length).toBeGreaterThan(2);
       expect(
         headings
-          .filter((heading) => heading.querySelector('[data-field]') === null)
+          .filter((heading) => heading.querySelector('[data-field], .add-row, .gate-line') === null)
           .map((heading) => heading.getAttribute('data-heading')),
       ).toEqual([]);
       editor.remove();
     });
   }
-
-  it('draws only the headings Customized Only leaves a field under', async () => {
-    // The state that does empty groups: only the color is set, so every heading but the one
-    // over it would caption nothing.
-    const editor = await mountEditor({
-      type: 'custom:calendar-card-pro',
-      entities: [{ entity: 'calendar.anna', color: '#ff0000' }],
-    });
-    await changeField(editor, 'filter:customized_only', true, CHASSIS);
-    await goEntry(editor, keysOf(editor, 'entry')[0]);
-    const page = editor.shadowRoot!.querySelector('.entry-page');
-
-    expect(
-      [...(page?.querySelectorAll('[data-heading]') ?? [])].map((heading) => [
-        heading.getAttribute('data-heading'),
-        [...heading.querySelectorAll('[data-field]')].map((field) =>
-          field.getAttribute('data-field'),
-        ),
-      ]),
-    ).toEqual([['heading.name_and_look', ['calendar:color']]]);
-    editor.remove();
-  });
 });

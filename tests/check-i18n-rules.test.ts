@@ -316,7 +316,7 @@ describe('the keys an alias string may sit on', () => {
     // its name with the toolbar's Search button, a panel field, whose words do reach the search.
     const { displayView, workspace, filter } = chassisSchemas();
     const chassis = [...names(displayView), ...names(workspace), ...names(filter)];
-    expect(chassis).toEqual(expect.arrayContaining(['view', 'customized_only', 'essentials_only']));
+    expect(chassis).toEqual(expect.arrayContaining(['view', 'editing_workspace', 'search']));
     expect(aliasKeys.has('toolbar.search')).toBe(true);
     expect(chassis.filter((name) => name !== 'search' && aliasKeys.has(name))).toEqual([]);
   });

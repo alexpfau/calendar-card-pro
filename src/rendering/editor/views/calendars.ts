@@ -120,6 +120,8 @@ export interface EntryRowModel {
   readonly badge?: string;
   /** Whether Home Assistant no longer has its calendar. */
   readonly missing: boolean;
+  /** A tag beside the title: "New", for an entry a split wrote this session. */
+  readonly tag?: string;
   /** The calendar Alt+Arrow moves from the row, where it can move. */
   readonly moves?: string;
   /** Its calendar's drag handle, on the row of a calendar with one entry. */
@@ -178,7 +180,9 @@ function entryRow(row: EntryRowModel, grouped: boolean): TemplateResult {
         ></span>
         ${row.badge ? html`<span class="cal-badge" aria-hidden="true">${row.badge}</span>` : nothing}
         <span class="cal-text">
-          <span class="cal-title">${row.title}</span>
+          <span class="cal-title"
+            >${row.title}${row.tag ? html` <span class="tag">${row.tag}</span>` : nothing}</span
+          >
           <span class="cal-summary"
             >${row.missing ? icon(mdiAlertOutline, 'cal-missing') : nothing}${row.summary}</span
           >

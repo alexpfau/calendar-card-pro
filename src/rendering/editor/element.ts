@@ -5,7 +5,7 @@
  * groups through `views/`.
  */
 
-import { mdiCheck, mdiDeleteOutline } from '@mdi/js';
+import { mdiCheck, mdiDeleteOutline, mdiFormatListChecks, mdiInformationOutline } from '@mdi/js';
 import {
   type ChildPart,
   LitElement,
@@ -22,22 +22,28 @@ import { keyed } from 'lit/directives/keyed.js';
 import { repeat } from 'lit/directives/repeat.js';
 
 import { Announcer } from './announce';
+import * as Audit from './audit';
 import * as Buttons from './buttons';
 import * as CalendarList from './calendar-list';
+import * as Colors from './colors';
+import * as Deprecated from './deprecated';
 import * as Entities from './entities';
-import * as Essentials from './essentials';
-import * as Exceptions from './exceptions';
 import {
   type FieldId,
+  type FieldIndex,
   type IndexedField,
   buildFieldIndex,
   builtSchema,
   buttonFieldIndex,
   entityFieldIndex,
-  fieldId,
+  entrySchema,
+  fieldHelper,
   fieldLabel,
+  parseFieldId,
+  universeIndex,
 } from './field-index';
 import * as Filter from './filter';
+import { whenText } from './gates';
 import { type HaFormSchema, warmSchema } from './ha-form';
 import * as HassKey from './hass-key';
 import { HA_ACTION_LABEL_PREFIX, withCardActionLabels } from './hass-localize';
@@ -46,25 +52,25 @@ import * as EditorLocalize from './localize';
 import * as Misplaced from './misplaced';
 import * as Navigation from './navigation';
 import {
+  type Appearance,
   CALENDARS_BLOCK,
-  ENTRY_GROUPS,
+  FAMILIES,
+  type FamilyId,
   type HeadingDef,
   OVERVIEW_FIELDS,
   PAGES,
   type PageDef,
+  type PageId,
   isWholeCard,
   placementOf,
 } from './pages';
-import {
-  PANELS,
-  type PanelDef,
-  type PanelExtra,
-  type SchemaCtx,
-  type SubformDef,
-  walkSchema,
-} from './panels';
+import { PANELS, type PanelDef, type PanelExtra, type SchemaCtx, type SubformDef } from './panels';
+import * as Plan from './plan';
+import * as Prefs from './prefs';
+import * as Preview from './preview';
 import * as QuickSetup from './quick-setup';
 import * as Reorder from './reorder';
+import * as Reset from './reset';
 import * as Routing from './routing';
 import { ENTITY_PATH } from './schemas/calendars';
 import { TOOLBAR_BUTTON_ICON, TOOLBAR_BUTTON_PATH, buildToolbarButtonSchema } from './schemas/card';
@@ -83,6 +89,9 @@ import {
   QUICK_SETUP_WEATHER_SCHEMA,
 } from './schemas/quick-setup';
 import * as Search from './search';
+import * as Shown from './shown';
+import * as Split from './split';
+import * as SplitReview from './split-review';
 import { DOCS_SITE, STORIES, type StoryId } from './stories';
 import { interpolate } from './strings';
 import styles from './styles';
@@ -90,7 +99,9 @@ import * as Subforms from './subforms';
 import * as Summary from './summary';
 import * as Synthetic from './synthetic';
 import * as Value from './value';
+import * as AuditView from './views/audit';
 import * as CalendarView from './views/calendars';
+import * as ColorView from './views/color';
 import * as Focus from './views/focus';
 import * as HistoryView from './views/history';
 import { icon } from './views/icon';
@@ -100,6 +111,9 @@ import * as PageView from './views/page';
 import * as ReorderView from './views/reorder';
 import { scrollContainer } from './views/scroll';
 import * as SearchView from './views/search';
+import * as ShownView from './views/shown';
+import * as SplitView from './views/split';
+import * as WordLists from './word-lists';
 import * as Workspace from './workspace';
 import * as WriteFrames from './write-frames';
 import * as Config from '../../config/config';
@@ -108,7 +122,7 @@ import * as ViewConfig from '../../config/view';
 import { loadIntlLocaleData } from '../../translations/intl-locale-data';
 import * as LanguageCodes from '../../translations/language-codes';
 import { configuredCalendarName } from '../../utils/calendar-names';
-import { isEntityColorSentinel } from '../../utils/entity-colors';
+import * as EntityColors from '../../utils/entity-colors';
 import * as Helpers from '../../utils/helpers';
 import * as Logger from '../../utils/logger';
 import { showsEventWeather } from '../../utils/weather-position';
@@ -318,23 +332,90 @@ const QUICK_SETUP_STEPS: ReadonlyArray<QuickSetupStep> = [
 ];
 
 /**
- * One run of Quick Setup, from opening it to Apply or Cancel (backlog item 188).
- *
- * 🚨 A transaction, not a cursor. Every preview is rebuilt from `opening`, never from a config
- * Home Assistant echoed back, and `previews` holds every one dispatched, so that an echo of an
- * earlier preview arriving after a later one is still known for what it is. Cancel dispatches
- * `opening` and restores the authorship it was opened with.
+ * One run of Quick Setup, from opening it to Apply or Cancel (backlog item 188): a preview
+ * transaction (`preview.ts`) and the wizard's own state.
  */
-interface QuickSetupSession {
-  /** The configuration as the YAML held it when Quick Setup opened. */
-  readonly opening: Readonly<Record<string, unknown>>;
-  readonly openingAuthoredRootKeys: ReadonlySet<string>;
+interface QuickSetupSession extends Preview.PreviewSession {
   /** Everything the editor held as Quick Setup opened: the `before` of Apply's undo step. */
   readonly openingSnapshot: Snapshot;
   readonly step: QuickSetupStep;
   /** Unset until a story is picked; nothing is previewed before that. */
   readonly answers?: QuickSetup.QuickSetupAnswers;
-  readonly previews: ReadonlyArray<Record<string, unknown>>;
+}
+
+/**
+ * One run of Split This Calendar on an entry's page (section 5.7), from opening it to Split or
+ * Cancel. From Colors on it previews both parts on the card (`preview.ts`); the editor itself
+ * keeps the configuration it opened on until Split writes, so any other change, Undo, or leaving
+ * the page cancels the run first.
+ */
+interface SplitSession extends Preview.PreviewSession {
+  /** The entry's key, which part 1 keeps. */
+  readonly key: number;
+  /** Part 2's key. */
+  readonly newKey: number;
+  /** 0 How, 1 Colors and Labels, 2 Review. */
+  readonly step: number;
+  readonly how?: 'type' | 'words';
+  readonly field: Types.FilterField;
+  /** The Word fields, as typed. */
+  readonly terms: ReadonlyArray<string>;
+  readonly parts: readonly [Split.SplitPart, Split.SplitPart];
+  /** The entry as it was opened on. */
+  readonly original: string | Types.EntityConfig;
+  /** Part 2's first color, the swatch no calendar uses. */
+  readonly free?: string;
+  /** The review's read: absent until Review opens, `null` once it failed. */
+  readonly events?: Types.CalendarEventData[] | null;
+  /** Which read the review waits for. */
+  readonly reading?: number;
+}
+
+/** What a color control writes for one of its rows or swatches (`colors.ts` › `ColorSpec`). */
+type ColorWrite = Colors.ColorSpec['sources'][number]['write'];
+
+/** Start Date's mode, drawn as the overview's chips (section 5.9). */
+const START_DATE_FIELD: FieldId = 'content:start_date_mode';
+
+/** Tapping an Event Opens It, which gives way to a line while another action is stored. */
+const OPENS_DETAILS_FIELD: FieldId = 'actions:event_opens_details';
+
+/** The word lists, drawn as one term at a time while their pattern reads as terms. */
+const WORD_LIST_FIELDS: ReadonlySet<FieldId> = new Set([
+  'calendar:blocklist',
+  'calendar:allowlist',
+  'events:location_country_pattern',
+]);
+
+/** What a color control is drawn for (`element.ts` › `_renderColor`). */
+interface ColorArgs {
+  readonly owner: WriteFrames.WriteOwner;
+  readonly spec: Colors.ColorSpec;
+  readonly ctx: SchemaCtx;
+  /** The control's name: the absorbed mode's label, else the field's. */
+  readonly name: string;
+  /** The field that stores the color, drawn or not. */
+  readonly valueField: IndexedField;
+  /** The owner's form data, where the value is read. */
+  readonly data: Readonly<Record<string, unknown>>;
+  /** What the field shows with nothing stored, for the card's fields. */
+  readonly fallback?: unknown;
+  /** The value as the YAML holds it at the place it would be written, if any. */
+  readonly stored: unknown;
+  /** Where the value would be stored, for its draft's key (`colors.ts` › `draftKey`). */
+  readonly destination: string;
+  /** The field the control is drawn for: the absorbed mode, else the color. */
+  readonly anchor: FieldId;
+  /** What Undo and Redo focus. */
+  readonly focusKey: string;
+  /** The field's helper: the color's own, else the mode's. */
+  readonly helper?: string;
+  /** Its state words (`shown.ts`), in its name and under it. */
+  readonly words?: string;
+  /** The calendar, for an entry's control. */
+  readonly entity?: { readonly id: string; readonly name: string };
+  /** Where its choice goes instead of the owner, for a control editing nothing stored yet. */
+  readonly write?: (write: ColorWrite) => void;
 }
 
 /** The line a removal or an applied story leaves under its list ("Removed Ben · Undo"). */
@@ -344,6 +425,17 @@ interface StatusLine {
   /** The removed calendar's place among the calendars, where the line stands in the list. */
   readonly at: number;
 }
+
+/** What a live field shows besides its control: its state words, and the line under it. */
+interface FieldShow {
+  readonly words?: string;
+  readonly line: TemplateResult | typeof nothing;
+}
+
+/** Whose page a heading is planned for: the card's, or one calendar entry's, by its key. */
+type PlanOwner = { readonly kind: 'card' } | { readonly kind: 'entry'; readonly key: number };
+
+const CARD: PlanOwner = { kind: 'card' };
 
 /**
  * Schema-driven configuration editor for Calendar Card Pro.
@@ -355,8 +447,15 @@ export class CalendarCardProEditor extends LitElement {
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
+    // Leaving the visual editor, for the code editor or by closing the dialog, cancels a split
+    // that has not been made, so the preview is never what is kept.
+    this._cancelSplit(false);
     awaitingConditionsEditor.delete(this);
     this._drag?.cancel();
+    // The last editor or card out closes the registry subscription (`entity-colors.ts`).
+    if (this._registryHeld) EntityColors.releaseEntityColors(this._registryChanged);
+    this._registryHeld = false;
+    this._registryWanted = false;
   }
 
   /**
@@ -443,6 +542,12 @@ export class CalendarCardProEditor extends LitElement {
    * the calendar it would edit against.
    */
   protected override updated(): void {
+    // Home Assistant's calendar colors, read through the card's own module once an entry's color
+    // control describes one, and watched while this editor is open.
+    if (this._registryWanted && !this._registryHeld && this.hass) {
+      this._registryHeld = true;
+      EntityColors.ensureEntityColors(this.hass, this._registryChanged);
+    }
     if (!this._drawn) return;
     // Every key the drawn forms hold, held or not: `warmSchema` asks about each one it meets.
     const drawn = new Set<string>();
@@ -553,11 +658,30 @@ export class CalendarCardProEditor extends LitElement {
 
   @state() private _pending: Record<string, string> = {};
 
-  // Essentials Only is remembered in this browser; search and Customized Only start clear.
-  @state() private _filter: Filter.FilterCriteria = {
-    ...Filter.NO_FILTER,
-    essentialsOnly: Essentials.rememberedEssentialsOnly(),
-  };
+  /** The word lists shown as a pattern by choice, by owner and field (`_wordKey`). */
+  @state() private _wordModes: ReadonlyMap<string, 'pattern'> = new Map();
+
+  /**
+   * The terms a word list's form last sent, by owner and field, shown while they still write the
+   * stored pattern: a term just added is empty, and writes nothing until it is typed.
+   */
+  @state() private _wordDrafts: ReadonlyMap<string, ReadonlyArray<string>> = new Map();
+
+  @state() private _filter: Filter.FilterCriteria = { ...Filter.NO_FILTER };
+
+  /** Show Every Setting and Show YAML Option Names, remembered in this browser (`prefs.ts`). */
+  @state() private _prefs: Prefs.Prefs = Prefs.readPrefs();
+
+  /**
+   * The settings added this session, which their pages draw although nothing is stored: field
+   * ids, `family:<id>`, `entry:<key>:<id>`, `entry:<key>:family:<id>` (`plan.ts`). A choice of
+   * what to look at, so outside the undo snapshot and outside any storage; replaced, never
+   * changed in place, so a render sees it move.
+   */
+  @state() private _added: ReadonlySet<string> = new Set();
+
+  /** The Add row open, by its `data-focus` key, and what its box narrows it to. */
+  @state() private _addOpen?: { readonly key: string; readonly query: string };
 
   @state() private _selectedWorkspace?: Workspace.EditorWorkspace;
 
@@ -566,6 +690,21 @@ export class CalendarCardProEditor extends LitElement {
   @state() private _migration: MigrationState = { kind: 'current' };
 
   @state() private _quickSetup?: QuickSetupSession;
+
+  /** Split This Calendar, while it is open on an entry's page. */
+  @state() private _split?: SplitSession;
+
+  /** The panel a split leaves, until the next change or until the page is left. */
+  @state() private _splitDone?: { readonly key: number; readonly newKey: number };
+
+  /** Entries a split wrote this session, which the overview tags "New". */
+  @state() private _newEntries: ReadonlySet<number> = new Set();
+
+  /** Set while Split writes, so its own change does not cancel it. */
+  private _splitting = false;
+
+  /** Counts the review's reads, so a late answer to an older one is dropped. */
+  private _reads = 0;
 
   /** Where the editor is, and where Back goes (`navigation.ts`). */
   @state() private _nav: Navigation.NavState = Navigation.OVERVIEW;
@@ -581,6 +720,15 @@ export class CalendarCardProEditor extends LitElement {
    * card's, and kept until Quick Setup is applied or the banner dismissed.
    */
   @state() private _banner?: boolean;
+
+  /**
+   * The line What This Card Changes is editing in place, and its group: kept drawn while it is
+   * edited, even once the edit takes it out of the YAML, so its control stays under the cursor.
+   */
+  @state() private _auditEdit?: {
+    readonly line: Audit.AuditLine;
+    readonly group: Audit.AuditGroup;
+  };
 
   /** The field a search result opened, highlighted while `lit` (`_openResult`). */
   @state() private _jump?: {
@@ -603,6 +751,26 @@ export class CalendarCardProEditor extends LitElement {
 
   /** The line a removal or an applied story leaves, until the next change. */
   @state() private _status?: StatusLine;
+
+  /**
+   * The color controls' state outside the configuration, by `colors.ts` › `draftKey`: Custom
+   * chosen, and the text typed there that the card cannot draw, which is kept here and never
+   * written. Kept across closing a control and changing pages; cleared by another choice in the
+   * control and by a configuration the editor did not send.
+   */
+  @state() private _colorDrafts: ReadonlyMap<string, { readonly text?: string }> = new Map();
+
+  /** The color control open, by owner and field (`_colorKey`). */
+  @state() private _openColor?: string;
+
+  /** Whether an entry's color control has described Home Assistant's color for its calendar. */
+  private _registryWanted = false;
+
+  /** Whether this editor is subscribed to Home Assistant's calendar colors. */
+  private _registryHeld = false;
+
+  /** Draws again once Home Assistant's calendar colors move. */
+  private _registryChanged = (): void => this.requestUpdate();
 
   /**
    * The action strip open: a row's, `entry:<key>` or `calendar:<entity id>`, which travels with
@@ -641,11 +809,15 @@ export class CalendarCardProEditor extends LitElement {
   /** What the live region last said. */
   private _spoken = '';
 
-  /** What this render draws from: the fields built here, and those the filter bar keeps. */
+  /** What this render draws from: the fields built here, and those search reaches. */
   private _drawing?: {
     readonly present: ReadonlyMap<FieldId, IndexedField>;
     readonly shown: ReadonlySet<FieldId>;
+    readonly index: FieldIndex;
   };
+
+  /** Each field's Reset or Remove, worked out once per state of the editor (`_resetActionOf`). */
+  private _actions?: { readonly from: ReadonlyArray<unknown>; readonly map: Map<string, unknown> };
 
   /** What Home Assistant's Visibility editor last sent for each entry, by key (`_conditionsFor`). */
   private _emittedConditions = new Map<
@@ -711,29 +883,6 @@ export class CalendarCardProEditor extends LitElement {
   private _warmed = new Map<string, () => boolean>();
 
   /**
-   * How many settings Essentials Only is hiding, counted as this render draws the panels and read
-   * by the line under the filter bar in the same render. Reset at the start of every render.
-   */
-  private _essentialsHidden = 0;
-
-  /**
-   * Adds what a filtered form leaves out to the count Essentials Only reports.
-   *
-   * Counted only while Essentials Only alone is narrowing the editor: with Customized Only on as
-   * well, what is missing is no longer what Essentials hides.
-   *
-   * @param offered - The form's fields before filtering, inert ones already withheld
-   * @param shown - The fields left after filtering
-   */
-  private _countHidden(
-    offered: ReadonlyArray<HaFormSchema>,
-    shown: ReadonlyArray<HaFormSchema>,
-  ): void {
-    if (!Filter.appliesEssentials(this._filter) || this._filter.customizedOnly) return;
-    this._essentialsHidden += Filter.countFields(offered) - Filter.countFields(shown);
-  }
-
-  /**
    * Resolves the configured view to one the editor understands.
    *
    * @param config - Merged configuration
@@ -764,6 +913,11 @@ export class CalendarCardProEditor extends LitElement {
    */
   protected override willUpdate(): void {
     if (!this._config) return;
+    // Leaving the entry's page, by Back, Previous or Next Calendar or a result, cancels a split.
+    const route = this._nav.route;
+    const here = (key: number): boolean => route.kind === 'entry' && route.key === key;
+    if (this._split !== undefined && !here(this._split.key)) this._cancelSplit(false);
+    if (this._splitDone !== undefined && !here(this._splitDone.key)) this._splitDone = undefined;
     const language = this._ctx.language;
     if (language === this._intlLanguage) return;
     this._intlLanguage = language;
@@ -778,13 +932,10 @@ export class CalendarCardProEditor extends LitElement {
   setConfig(config: Types.Config): void {
     const rawConfig = config as unknown as Record<string, unknown>;
 
+    // Split previews on the card alone; the editor keeps what it opened on until Split writes.
+    if (Preview.isPreviewEcho(this._split, rawConfig)) return;
     const session = this._quickSetup;
-    // Home Assistant answers each write with its editor's current value, read after an await
-    // (`_updateConfigElement` in its `hui-element-editor`), so echoes carry the newest preview.
-    // Recognizing every preview costs nothing and holds for a host that echoes in send order.
-    const isPreviewEcho =
-      session !== undefined &&
-      session.previews.some((preview) => Value.equalConfigs(rawConfig, preview));
+    const isPreviewEcho = Preview.isPreviewEcho(session, rawConfig);
     const isEcho =
       isPreviewEcho ||
       (this._lastDispatched !== undefined && Value.equalConfigs(rawConfig, this._lastDispatched));
@@ -803,6 +954,10 @@ export class CalendarCardProEditor extends LitElement {
         entities.length,
         this._mintEntryKey,
       );
+      // What the entries became cannot be known, so what was added to one is not carried over.
+      if ([...this._added].some((key) => key.startsWith('entry:'))) {
+        this._added = new Set([...this._added].filter((key) => !key.startsWith('entry:')));
+      }
     }
 
     if (!isEcho) this._authoredRootKeys = new Set(Object.keys(rawConfig));
@@ -821,6 +976,13 @@ export class CalendarCardProEditor extends LitElement {
       this._drag?.cancel();
       this._history.clear();
       this._status = undefined;
+      // The YAML changed under the split, which then has nothing to put back.
+      this._split = this._splitDone = undefined;
+      this._newEntries = new Set();
+      this._colorDrafts = new Map();
+      // Keyed by entry key, which a list from outside hands out by place again.
+      this._wordModes = new Map();
+      this._wordDrafts = new Map();
       this._entryNotice = undefined;
       this._selectedWorkspace = undefined;
       this._pending = {};
@@ -974,6 +1136,10 @@ export class CalendarCardProEditor extends LitElement {
       run();
       return false;
     }
+    if (!this._splitting) {
+      this._cancelSplit(false);
+      this._splitDone = undefined;
+    }
     before ??= this._snapshot();
     const where = { route: this._nav.route, workspace: this._selectedWorkspace, focusKey };
     const status = this._status;
@@ -1018,6 +1184,7 @@ export class CalendarCardProEditor extends LitElement {
     this._buttonKeys = [...snapshot.buttonKeys];
     this._status = undefined;
     this._entryNotice = undefined;
+    this._splitDone = undefined;
     const config = structuredClone(snapshot.raw) as Record<string, unknown>;
     this._lastDispatched = config;
     this.dispatchEvent(
@@ -1040,6 +1207,7 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _step(way: 'undo' | 'redo'): void {
     if (this._quickSetup !== undefined) return;
+    this._cancelSplit(false);
     const entry = way === 'undo' ? this._history.undo() : this._history.redo();
     if (entry === undefined) return;
     this._grab = undefined;
@@ -1213,8 +1381,28 @@ export class CalendarCardProEditor extends LitElement {
    * @returns Schema context for the current configuration
    */
   private get _ctx(): SchemaCtx {
-    return this._ctxFor(this._config!, this._workspace, this.hass?.locale);
+    return this._ctxFor(
+      this._config!,
+      this._workspace,
+      this.hass?.locale,
+      this._heldModes(this._pending, this._workspace),
+    );
   }
+
+  /**
+   * The mode choices held for a scope, by mode field name (`SchemaCtx.presentation`), kept while
+   * equal so held text elsewhere leaves the context as it was.
+   */
+  private _heldModes = Helpers.memoizeLast(
+    (pending: Readonly<Record<string, string>>, workspace: Workspace.EditorWorkspace): string => {
+      const held: Record<string, string> = {};
+      for (const name of Synthetic.MODE_FIELDS) {
+        const value = pending[Routing.pendingKey(name, workspace)];
+        if (value !== undefined) held[name] = value;
+      }
+      return JSON.stringify(held);
+    },
+  );
 
   /**
    * The schema context, made again only when the configuration, the workspace or Home
@@ -1226,6 +1414,7 @@ export class CalendarCardProEditor extends LitElement {
       rawConfig: Types.Config,
       workspace: Workspace.EditorWorkspace,
       locale: Types.Hass['locale'],
+      held: string,
     ): SchemaCtx => {
       const config = Routing.workspaceConfig(rawConfig, workspace);
       // Shared has no layout of its own, so its panels are built as list — the base every
@@ -1239,6 +1428,7 @@ export class CalendarCardProEditor extends LitElement {
         config,
         rawConfig,
         language: LanguageCodes.getEffectiveLanguage(config.language, locale),
+        presentation: JSON.parse(held) as Record<string, string>,
       };
     },
   );
@@ -1262,21 +1452,6 @@ export class CalendarCardProEditor extends LitElement {
     return HassKey.needsLiveHass(schema)
       ? [withCardActionLabels(this.hass, language), 'live']
       : [HassKey.steadyHass(this.hass, language), 'steady'];
-  }
-
-  /**
-   * Builds the context the filter matches against.
-   *
-   * @returns Matching context for the current configuration and criteria
-   */
-  private get _filterCtx(): Filter.FilterCtx {
-    const ctx = this._ctx;
-
-    return {
-      ...ctx,
-      criteria: this._filter,
-      stored: this._rawConfig,
-    };
   }
 
   /**
@@ -1340,49 +1515,77 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * A helper callback for a panel's form or a form above the panels: each field's helper, after
-   * the note on where its value comes from. Kept while nothing it reads moves: the language, the
-   * layout, and that note for each field the form draws, by the field's name. The callback reads
-   * the notes from that same record rather than from the configuration, so a kept one cannot
-   * answer from an older configuration, even where another form's notes happen to line up.
+   * A helper callback for a form above the pages: each field's helper, kept per language and
+   * layout.
    *
    * @param slot - Which form
-   * @param schema - The form's schema
    * @param ctx - Schema context
-   * @param labelPath - The label path every field takes, for a lifted field; else the one
-   * `ha-form` hands down
    * @returns The callback
    */
-  private _helper(
-    slot: string,
-    schema: ReadonlyArray<HaFormSchema>,
-    ctx: SchemaCtx,
-    labelPath?: ReadonlyArray<string>,
-  ) {
-    const workspace = ctx.workspace ?? ctx.view;
-    const sources: Record<string, string | undefined> = {};
-    for (const { node } of Routing.workspaceFields(schema)) {
-      sources[node.name] = Routing.valueSource(this._config!, workspace, node.name);
-    }
+  private _helper(slot: string, ctx: SchemaCtx) {
     return this._keep(
       `${slot}.helper`,
-      [ctx.language, ctx.view, sources],
+      [ctx.language, ctx.view],
       () =>
-        (node: HaFormSchema, options?: { path?: string[] }): string | undefined => {
-          const helper = EditorLocalize.computeHelper(
-            ctx.language,
-            ctx.view,
-            node,
-            labelPath ?? options?.path ?? [],
-            true,
-          );
-          const from = 'selector' in node ? sources[node.name] : undefined;
-          const note = from
-            ? EditorLocalize.lookup(ctx.language, `value_source.${from}`)
-            : undefined;
-          return [note, helper].filter((value) => value !== undefined).join(' ') || undefined;
-        },
+        (node: HaFormSchema, options?: { path?: string[] }): string | undefined =>
+          EditorLocalize.computeHelper(ctx.language, ctx.view, node, options?.path ?? [], true),
     );
+  }
+
+  /**
+   * A lifted field's label and helper callbacks, with its state words where its control shows
+   * them (`shown.ts` › `wordsPlace`), and its YAML option name before its helper while Show YAML
+   * Option Names is on. Kept while what they read stays equal.
+   *
+   * @param slot - Which form
+   * @param field - The field
+   * @param ctx - Schema context
+   * @param words - Its state words
+   * @returns The two callbacks
+   */
+  private _fieldText(slot: string, field: IndexedField, ctx: SchemaCtx, words?: string) {
+    const place = Shown.wordsPlace(field.node);
+    const yaml = this._prefs.yaml
+      ? interpolate(this._string(ctx, 'search.yaml'), { path: this._yamlPath(field, ctx) })
+      : undefined;
+    const helper =
+      [yaml, words && place === 'helper' ? `${words}.` : undefined, fieldHelper(field, ctx)]
+        .filter((part) => part !== undefined)
+        .join(' ') || undefined;
+    const label =
+      words && place === 'label'
+        ? `${fieldLabel(field, ctx.language)}${Summary.SUMMARY_SEPARATOR}${words}`
+        : undefined;
+    return this._keep(`${slot}.text`, [ctx.language, label, helper, field.labelPath], () => ({
+      group:
+        label !== undefined && Shown.wordsInGroup(field.node)
+          ? label
+          : fieldLabel(field, ctx.language),
+      label: (node: HaFormSchema, _data?: unknown, options?: { path?: string[] }): string =>
+        label !== undefined && node.name === field.node.name && 'selector' in node
+          ? label
+          : EditorLocalize.computeLabel(ctx.language, node, field.labelPath ?? options?.path ?? []),
+      helper: (node: HaFormSchema): string | undefined =>
+        node.name === field.node.name && 'selector' in node ? helper : undefined,
+    }));
+  }
+
+  /**
+   * The YAML option a field writes, where this scope writes it: `time_grid.event_font_size`.
+   *
+   * @param field - The field
+   * @param ctx - Schema context
+   * @returns The path
+   */
+  private _yamlPath(field: IndexedField, ctx: SchemaCtx): string {
+    const keys = field.configKeys;
+    const key = keys.includes(field.node.name) ? field.node.name : (keys[0] ?? field.node.name);
+    const { scope } = parseFieldId(field.id);
+    const block =
+      scope === 'calendar' || scope === 'button' || field.dataPath.length > 0
+        ? undefined
+        : Routing.destination(key, ctx.workspace ?? ctx.view);
+    return [...(block ? [block] : field.dataPath), key].join('.');
   }
 
   /**
@@ -1458,6 +1661,13 @@ export class CalendarCardProEditor extends LitElement {
       () => this._writeOwned(frame, incoming),
       focusKey,
     );
+    // A setting edited this session stays where it is, even once its value is cleared: a box
+    // emptied to type anew must not leave the page under the cursor.
+    if (focusKey?.startsWith('field:') && frame.owner.kind !== 'button') {
+      const id = focusKey.slice('field:'.length);
+      const added = frame.owner.kind === 'entry' ? `entry:${frame.owner.key}:${id}` : id;
+      if (!this._added.has(added)) this._added = new Set([...this._added, added]);
+    }
   }
 
   /**
@@ -1546,9 +1756,16 @@ export class CalendarCardProEditor extends LitElement {
    * @param owner - Whose field
    * @param fieldId - The field's id (`field-index.ts`), as the owner draws it now
    * @param value - Its new value
+   * @param workspace - The scope the control was drawn for, where a change can arrive after
+   * another scope was chosen; the scope now otherwise
    */
-  private _writeFieldValue(owner: WriteFrames.WriteOwner, fieldId: FieldId, value: unknown): void {
-    this._writeFieldValues(owner, { [fieldId]: value });
+  private _writeFieldValue(
+    owner: WriteFrames.WriteOwner,
+    fieldId: FieldId,
+    value: unknown,
+    workspace?: Workspace.EditorWorkspace,
+  ): void {
+    this._writeFieldValues(owner, { [fieldId]: value }, workspace);
   }
 
   /**
@@ -1557,10 +1774,12 @@ export class CalendarCardProEditor extends LitElement {
    *
    * @param owner - Whose fields
    * @param values - New values, by field id
+   * @param workspace - The scope the control was drawn for (`_writeFieldValue`)
    */
   private _writeFieldValues(
     owner: WriteFrames.WriteOwner,
     values: Readonly<Record<FieldId, unknown>>,
+    workspace?: Workspace.EditorWorkspace,
   ): void {
     if (!this._config) return;
     const ctx = this._ctx;
@@ -1571,7 +1790,7 @@ export class CalendarCardProEditor extends LitElement {
       owner,
       fields,
       this._writeState(),
-      ctx.workspace ?? ctx.view,
+      workspace ?? ctx.workspace ?? ctx.view,
     );
     if (frame === undefined) return;
     this._writeOwned(
@@ -1709,41 +1928,24 @@ export class CalendarCardProEditor extends LitElement {
     EditorLocalize.lookup(this._ctx.language, key);
 
   /**
-   * What the switches leave of every panel, and the field ids that survive: Essentials Only and
-   * Customized Only narrow every page and the jump list by them. A query narrows nothing: it
-   * sets Essentials Only aside and shows results. Counts what Essentials Only hides as it goes.
+   * A field's one-field schema, offering a value from YAML as an option of its own where the
+   * field is a dropdown none of whose options holds it (`audit.ts` › `withYamlOption`), so the
+   * value shows, "monthly (From YAML)", and stays until another is chosen.
    *
+   * @param field - The field
+   * @param data - The form data it reads from
    * @param ctx - Schema context
-   * @returns Each panel's filtered schema, and the ids it holds
+   * @returns The schema
    */
-  private _filtered(ctx: SchemaCtx): {
-    readonly schemas: ReadonlyMap<string, HaFormSchema[]>;
-    readonly shown: ReadonlySet<FieldId>;
-  } {
-    const filterCtx = this._filterCtx;
-    const schemas = new Map<string, HaFormSchema[]>();
-    const shown = new Set<FieldId>();
-    for (const panel of PANELS) {
-      const built = builtSchema(panel, ctx);
-      const schema = Filter.filterSchema(built, filterCtx);
-      this._countHidden(built, schema);
-      schemas.set(panel.id, schema);
-      for (const { node, dataPath } of walkSchema(schema)) {
-        if ('selector' in node) shown.add(fieldId(panel.id, dataPath, node.name));
-      }
-      // Calendars and toolbar buttons are counted here, whichever place draws them.
-      for (const subform of panel.subforms?.(ctx) ?? []) {
-        const path = subform.path.join('.');
-        const forms =
-          path === ENTITY_PATH.join('.')
-            ? this._entrySchemas(subform, ctx)
-            : path === TOOLBAR_BUTTON_PATH.join('.') && Config.resolveToolbar(ctx.config).show
-              ? this._buttonSchemas(subform)
-              : [];
-        for (const { offered, schema: kept } of forms) this._countHidden(offered, kept);
-      }
-    }
-    return { schemas, shown };
+  private _yamlSchema(
+    field: IndexedField,
+    data: Record<string, unknown>,
+    ctx: SchemaCtx,
+  ): ReadonlyArray<HaFormSchema> {
+    const value = Routing.atPath(data, field.dataPath, field.node.name);
+    if (!Audit.outsideOptions(field.node, value)) return field.lifted;
+    const label = interpolate(this._string(ctx, 'value.from_yaml'), { value: String(value) });
+    return Routing.nestedSchema(Audit.withYamlOption(field.node, value, label), field.dataPath);
   }
 
   /**
@@ -1757,27 +1959,53 @@ export class CalendarCardProEditor extends LitElement {
    *
    * @param field - The field, as the index lifted it
    * @param ctx - Schema context
+   * @param show - Its state words and the line under it
    * @returns The wrapper and its form
    */
-  private _renderField(field: IndexedField, ctx: SchemaCtx): TemplateResult {
-    const slot = `field.${field.id}`;
-    const schema = this._intern(slot, field.lifted);
-    const data = this._intern(`${slot}.data`, Routing.formDataFor(this._formData(), schema));
-    const [hass, feed] = this._feed(schema, ctx.language);
+  private _renderField(field: IndexedField, ctx: SchemaCtx, show?: FieldShow): TemplateResult {
+    const colors = this._cardColors(ctx);
+    const spec = colors.specs.get(field.id);
+    if (spec !== undefined) {
+      // A mode's value is drawn inside its mode's control where a page draws both; drawn alone
+      // (What This Card Changes' Edit), the value is the control.
+      const absorbed =
+        show !== undefined &&
+        spec.mode !== undefined &&
+        field.id === spec.value &&
+        this._drawing?.present.has(spec.mode) === true &&
+        this._drawing.shown.has(spec.mode);
+      return absorbed ? html`` : this._renderColorField(field, spec, colors, ctx, show);
+    }
+    const composed =
+      field.id === START_DATE_FIELD
+        ? this._renderStartDate(field, ctx, show)
+        : field.id === OPENS_DETAILS_FIELD && Synthetic.eventTapReading(ctx.config) === 'other'
+          ? this._renderTapLine(field, ctx, show)
+          : undefined;
+    if (composed !== undefined) return this._jumpedCardField(field, ctx, composed);
     const workspace = ctx.workspace ?? ctx.view;
+    const slot = `field.${workspace}.${field.id}`;
+    // The scope's data, which What This Card Changes draws a line's field in whatever the scope.
+    const all = this._formDataFor(this._config!, workspace, this._pending);
+    const schema = this._intern(slot, this._yamlSchema(field, all, ctx));
+    const data = this._intern(`${slot}.data`, Routing.formDataFor(all, schema));
+    const words = this._renderWords(WriteFrames.CARD_OWNER, field, all, ctx, slot, show);
+    if (words !== undefined) return this._jumpedCardField(field, ctx, words);
+    const [hass, feed] = this._feed(schema, ctx.language);
     const frame: WriteFrames.OwnedFrame = {
       owner: WriteFrames.CARD_OWNER,
       workspace,
       schema,
       data,
     };
+    const text = this._fieldText(slot, field, ctx, show?.words);
     // Focus goes to a field's wrapper, never into its form.
     const wrapper = html`<div
       class="field"
       data-field=${field.id}
       tabindex="-1"
       role="group"
-      aria-label=${fieldLabel(field, ctx.language)}
+      aria-label=${text.group}
     >
       ${keyed(
         // Keyed by scope as well: reusing a form would redirect its pending events into the
@@ -1787,20 +2015,340 @@ export class CalendarCardProEditor extends LitElement {
           class="field-form"
           data-hass=${feed}
           .hass=${hass}
+          .error=${this._patternError(slot, field, data, ctx)}
           .data=${data}
           .schema=${schema}
-          .computeLabel=${this._labeler(ctx.language, field.labelPath)}
-          .computeHelper=${this._helper(slot, schema, ctx, field.labelPath)}
+          .computeLabel=${text.label}
+          .computeHelper=${text.helper}
           .localizeValue=${this._localizeValue}
           @value-changed=${(event: CustomEvent) =>
             this._valueChanged(frame, event, field.labelPath, `field:${field.id}`)}
         ></ha-form>`,
       )}
+      ${this._wordToggle(WriteFrames.CARD_OWNER, field, data, ctx)} ${show?.line ?? nothing}
     </div>`;
+    return this._jumpedCardField(field, ctx, wrapper);
+  }
+
+  /**
+   * A card field as drawn, inside the group a search result opened it with where it is that one.
+   *
+   * @param field - The field
+   * @param ctx - Schema context
+   * @param wrapper - The field as drawn
+   * @returns The field, inside the group where a result opened it
+   */
+  private _jumpedCardField(
+    field: IndexedField,
+    ctx: SchemaCtx,
+    wrapper: TemplateResult,
+  ): TemplateResult {
     const jump = this._jump;
     return jump?.target.kind === 'field' && jump.target.id === field.id
       ? this._jumpTo(ctx, wrapper)
       : wrapper;
+  }
+
+  /**
+   * Start Date as the overview's radio chips: Today, Tomorrow, Start of Week, A Fixed Date and
+   * Relative to Today, the last two revealing their field below. The chosen chip is the mode as
+   * presented, so Relative to Today held over a shortcut stays chosen (`synthetic.ts` ›
+   * `start_date_mode`). Each choice writes through the field, one undo step.
+   *
+   * @param field - The mode field
+   * @param ctx - Schema context
+   * @param show - Its state words and the line under it
+   * @returns The chips
+   */
+  private _renderStartDate(field: IndexedField, ctx: SchemaCtx, show?: FieldShow): TemplateResult {
+    const name = field.node.name;
+    const workspace = ctx.workspace ?? ctx.view;
+    // The scope's data, as the field's own form would read it wherever it is drawn.
+    const all = this._formDataFor(this._config!, workspace, this._pending);
+    const value = String(Routing.formDataFor(all, field.lifted)[name] ?? '');
+    const selector = field.node.selector;
+    const options = 'select' in selector ? (selector.select?.options ?? []) : [];
+    const label = fieldLabel(field, ctx.language);
+    const text = this._fieldText(`field.${workspace}.${field.id}`, field, ctx, show?.words);
+    // Drawn alone (What This Card Changes' Edit), the chips bring the field their choice reveals,
+    // which a page draws beside them.
+    const revealed =
+      value === 'fixed'
+        ? 'content:start_date_fixed'
+        : value === 'offset'
+          ? 'content:start_date_offset'
+          : undefined;
+    const reveal =
+      show === undefined && revealed !== undefined
+        ? buildFieldIndex(ctx).fields.get(revealed)
+        : undefined;
+    return Overview.radioChips(
+      field.id,
+      name,
+      { name: text.group, legend: text.label(field.node), helper: text.helper(field.node) },
+      options.map((option) =>
+        typeof option === 'string' ? { value: option, label: option } : option,
+      ),
+      value,
+      reveal === undefined ? (show?.line ?? nothing) : this._renderField(reveal, ctx),
+      (mode) =>
+        this._commit(
+          interpolate(this._string(ctx, 'history.change'), { setting: label }),
+          undefined,
+          () => this._writeFieldValue(WriteFrames.CARD_OWNER, field.id, mode, workspace),
+          `field:${field.id}`,
+        ),
+    );
+  }
+
+  /**
+   * The line Tapping an Event Opens It gives way to while another action is stored, "Tapping an
+   * Event: Navigate", and Change, which opens Taps & Refresh at Event Tap Action. The switch would
+   * read that action as off, and turning it on or off would replace an action it never wrote.
+   *
+   * @param field - The switch's field
+   * @param ctx - Schema context
+   * @param show - Its state words and the line under it
+   * @returns The line
+   */
+  private _renderTapLine(field: IndexedField, ctx: SchemaCtx, show?: FieldShow): TemplateResult {
+    const stored = ctx.config.event_tap_action;
+    const action =
+      this._describe({ node: { name: 'event_tap_action', selector: { ui_action: {} } } }, stored) ??
+      String(stored?.action ?? '');
+    return Overview.tapLine(
+      field.id,
+      this._t(ctx),
+      action,
+      show?.words,
+      show?.line ?? nothing,
+      () => this._openField('taps_refresh', 'actions:event_tap_action', 'tap:change'),
+    );
+  }
+
+  /**
+   * Opens a page at one of its fields: the page as a row opens it, then the field brought to the
+   * top and focused on its wrapper.
+   *
+   * @param page - The page
+   * @param id - The field
+   * @param focusKey - The `data-focus` key of the control that opened it, which Back restores
+   */
+  private _openField(page: PageId, id: FieldId, focusKey: string): void {
+    this._open({ kind: 'page', page }, focusKey);
+    void this.updateComplete.then(() => {
+      const target = this.renderRoot.querySelector<HTMLElement>(`[data-field="${CSS.escape(id)}"]`);
+      if (target === null) return;
+      Focus.scrollToTop(this, target);
+      target.focus();
+    });
+  }
+
+  /**
+   * Which word list a choice or a draft is kept for: its owner and its field.
+   *
+   * @param owner - Whose list
+   * @param field - The field
+   * @returns The key
+   */
+  private _wordKey(owner: WriteFrames.WriteOwner, field: IndexedField): string {
+    return `${WriteFrames.ownerKey(owner)}|${field.id}`;
+  }
+
+  /**
+   * The terms a word list's stored value reads as, as its form shows them.
+   *
+   * @param value - The stored value
+   * @returns The terms; undefined for a pattern, which stays one
+   */
+  private _wordsOf(value: unknown): ReadonlyArray<string> | undefined {
+    if (value === undefined || value === null) return [];
+    return typeof value === 'string' ? WordLists.fromPattern(value) : undefined;
+  }
+
+  /**
+   * A word list as one term at a time (section 5.9): Home Assistant's text selector with
+   * `multiple`, while the stored value is empty or reads as plain terms and Use a Pattern has not
+   * been chosen. Terms are written as one pattern (`word-lists.ts` › `toPattern`), so an empty list
+   * writes an empty one, which deletes a calendar's line.
+   *
+   * @param owner - Whose list
+   * @param field - The field
+   * @param data - The owner's form data
+   * @param ctx - Schema context
+   * @param slot - The field's form slot
+   * @param show - Its state words and the line under it
+   * @param ownerName - The calendar's name, for the undo label
+   * @returns The field; undefined where it is drawn as a pattern
+   */
+  private _renderWords(
+    owner: WriteFrames.WriteOwner,
+    field: IndexedField,
+    data: Readonly<Record<string, unknown>>,
+    ctx: SchemaCtx,
+    slot: string,
+    show?: FieldShow,
+    ownerName?: string,
+  ): TemplateResult | undefined {
+    if (!WORD_LIST_FIELDS.has(field.id) || field.dataPath.length > 0) return undefined;
+    const key = this._wordKey(owner, field);
+    const name = field.node.name;
+    const stored = data[name];
+    const terms = this._wordsOf(stored);
+    if (terms === undefined || this._wordModes.has(key)) return undefined;
+    const draft = this._wordDrafts.get(key);
+    const pattern = typeof stored === 'string' ? stored : '';
+    const shown = draft !== undefined && WordLists.toPattern(draft) === pattern ? draft : terms;
+    const schema = this._intern(`${slot}.words`, [
+      { name, selector: { text: { multiple: true } } },
+    ] satisfies HaFormSchema[]);
+    const own = this._intern(`${slot}.words.data`, { [name]: [...shown] });
+    const [hass, feed] = this._feed(schema, ctx.language);
+    const label = fieldLabel(field, ctx.language);
+    // Its label, helper and state words as the field's own form would carry them.
+    const text = this._fieldText(`${slot}.words`, field, ctx, show?.words);
+    const workspace = ctx.workspace ?? ctx.view;
+    // The field's own frame, captured as its raw form's is, so an edit the form sends late is
+    // written for the owner and scope it was drawn for.
+    const lifted = this._intern(`${slot}.words.frame`, field.lifted);
+    const frame: WriteFrames.OwnedFrame = {
+      owner,
+      workspace,
+      schema: lifted,
+      data: this._intern(`${slot}.words.frame.data`, Routing.formDataFor(data, lifted)),
+    };
+    return html`<div
+      class="field"
+      data-field=${field.id}
+      data-composed="words"
+      tabindex="-1"
+      role="group"
+      aria-label=${owner.kind === 'card' ? text.group : label}
+    >
+      ${keyed(
+        workspace,
+        html`<ha-form
+          class=${owner.kind === 'card' ? 'field-form' : 'entity-form'}
+          data-hass=${feed}
+          .hass=${hass}
+          .data=${own}
+          .schema=${schema}
+          .computeLabel=${text.label}
+          .computeHelper=${text.helper}
+          .localizeValue=${this._localizeValue}
+          @value-changed=${(event: CustomEvent) =>
+            this._wordsChanged(frame, field, event, label, ownerName)}
+        ></ha-form>`,
+      )}
+      ${this._wordButton(key, 'pattern', this._string(ctx, 'word_list.use_pattern'))}
+      ${show?.line ?? nothing}
+    </div>`;
+  }
+
+  /**
+   * Use Words under a word list drawn as a pattern, offered only while that pattern reads as
+   * plain terms.
+   *
+   * @param owner - Whose list
+   * @param field - The field
+   * @param data - Its form's data
+   * @param ctx - Schema context
+   * @returns The button, or nothing
+   */
+  private _wordToggle(
+    owner: WriteFrames.WriteOwner,
+    field: IndexedField,
+    data: Readonly<Record<string, unknown>>,
+    ctx: SchemaCtx,
+  ): TemplateResult | typeof nothing {
+    if (!WORD_LIST_FIELDS.has(field.id)) return nothing;
+    if (this._wordsOf(data[field.node.name]) === undefined) return nothing;
+    return this._wordButton(
+      this._wordKey(owner, field),
+      'words',
+      this._string(ctx, 'word_list.use_words'),
+    );
+  }
+
+  /**
+   * Use a Pattern or Use Words: switches a word list's presentation for the session, writing
+   * nothing, and keeps focus on the button that takes its place.
+   *
+   * @param key - The list (`_wordKey`)
+   * @param to - The presentation it switches to
+   * @param text - Its label
+   * @returns The button
+   */
+  private _wordButton(key: string, to: 'pattern' | 'words', text: string): TemplateResult {
+    const focus = `words:${key}`;
+    return html`<button
+      type="button"
+      class="text-button word-mode"
+      data-focus=${focus}
+      @click=${() => {
+        const modes = new Map(this._wordModes);
+        if (to === 'pattern') modes.set(key, 'pattern');
+        else modes.delete(key);
+        this._wordModes = modes;
+        void this.updateComplete.then(() =>
+          this.renderRoot.querySelector<HTMLElement>(Focus.byFocusKey(focus))?.focus(),
+        );
+      }}
+    >
+      ${text}
+    </button>`;
+  }
+
+  /**
+   * A word list's terms, written as one pattern: coalesced like typing, so a word typed is one
+   * undo step. The terms are kept as sent, so a term just added stays shown while it is empty.
+   * A plain value, as a text field without `multiple` would send, is written as the pattern it is.
+   *
+   * @param frame - The field's frame, as drawn
+   * @param field - The field
+   * @param event - The form's `value-changed`
+   * @param setting - The field's label, for the undo label
+   * @param ownerName - The calendar's name, for the undo label
+   */
+  private _wordsChanged(
+    frame: WriteFrames.OwnedFrame,
+    field: IndexedField,
+    event: CustomEvent,
+    setting: string,
+    ownerName?: string,
+  ): void {
+    const { owner, workspace } = frame;
+    event.stopPropagation();
+    const incoming = event.detail?.value as Record<string, unknown> | undefined;
+    if (!incoming) return;
+    const value = incoming[field.node.name];
+    const key = this._wordKey(owner, field);
+    const drafts = new Map(this._wordDrafts);
+    let pattern: string;
+    if (Array.isArray(value)) {
+      const terms = value.map((term) => (typeof term === 'string' ? term : String(term ?? '')));
+      drafts.set(key, terms);
+      pattern = WordLists.toPattern(terms);
+    } else {
+      drafts.delete(key);
+      pattern = typeof value === 'string' ? value : '';
+    }
+    this._wordDrafts = drafts;
+    const ctx = this._ctx;
+    const label =
+      ownerName === undefined
+        ? interpolate(this._string(ctx, 'history.change'), { setting })
+        : interpolate(this._string(ctx, 'history.change_for'), { setting, name: ownerName });
+    this._commit(
+      label,
+      `${key}|words|${workspace}`,
+      () => this._writeOwned(frame, WriteFrames.withValue(frame.data, field, pattern)),
+      `field:${field.id}`,
+    );
+    // Edited this session, so it stays where it is once its last term is removed, as any
+    // field's form keeps it (`_valueChanged`).
+    const added = owner.kind === 'entry' ? `entry:${owner.key}:${field.id}` : field.id;
+    if (!this._added.has(added)) this._added = new Set([...this._added, added]);
   }
 
   /**
@@ -1902,40 +2450,1079 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * A run of fields, each kept with its own frame by its id: drawn by position, a field a gate
-   * takes away would hand its form to the field after it, and an edit that form sends late would
-   * be written for the wrong field.
+   * What the shown set is computed from, for the card in this scope (`plan.ts`).
    *
-   * @param fields - The fields
    * @param ctx - Schema context
-   * @returns The fields' frames
+   * @returns The context
    */
-  private _renderFields(fields: ReadonlyArray<IndexedField>, ctx: SchemaCtx): unknown {
-    return repeat(
-      fields,
-      (field) => field.id,
-      (field) => this._renderField(field, ctx),
+  private _planCtx(ctx: SchemaCtx): Plan.PlanCtx {
+    const workspace = ctx.workspace ?? ctx.view;
+    return {
+      workspace,
+      config: this._config!,
+      raw: this._rawConfig,
+      present: this._drawing!.index,
+      // Ids and structure only; labels and values are worded from `ctx.language`'s own fields.
+      universe: universeIndex('en', workspace),
+      added: this._added,
+      showEverySetting: this._prefs.every,
+      pending: this._pending,
+      entryKeys: this._entryKeysFor((this._config!.entities ?? []).length),
+    };
+  }
+
+  /**
+   * A layout's name, as Settings For words it: "Grid", "All Layouts".
+   *
+   * @param ctx - Schema context
+   * @returns The namer
+   */
+  private _layoutName(ctx: SchemaCtx): Shown.LayoutName {
+    return (view) => this._string(ctx, `editing_workspace.option.${view}.label`);
+  }
+
+  /**
+   * Words a field's value as its control shows it, for a state line, a Reset outcome or a stored
+   * line.
+   *
+   * @param field - The field
+   * @param ctx - Schema context
+   * @returns The words
+   */
+  private _wordOf(field: IndexedField, ctx: SchemaCtx): Shown.WordValue {
+    return (value) =>
+      Summary.wordValue(field, value, ctx.language, this._describe) ??
+      (value === undefined || value === null ? this._string(ctx, 'search.not_set') : String(value));
+  }
+
+  /**
+   * The added-set key for a field or a family on a page of an owner.
+   *
+   * @param id - Field id, or `family:<id>`
+   * @param owner - The card, or a calendar entry
+   * @returns The key
+   */
+  private _addedKey(id: string, owner: PlanOwner): string {
+    return owner.kind === 'entry' ? `entry:${owner.key}:${id}` : id;
+  }
+
+  /**
+   * Reset or Remove for a live field, worked out by `plan.ts` › `resetAction` once for each state
+   * of the editor, since it builds the fields the reset would leave.
+   *
+   * @param id - Field id
+   * @param appearance - How its page shows it
+   * @param pctx - Plan context, the entry's on an entry page
+   * @param owner - The card, or a calendar entry
+   * @returns `reset`, `remove`, or `undefined`
+   */
+  private _resetActionOf(
+    id: FieldId,
+    appearance: Appearance,
+    pctx: Plan.PlanCtx,
+    owner: PlanOwner,
+  ): 'reset' | 'remove' | undefined {
+    const from = [
+      this._rawConfig,
+      this._pending,
+      pctx.workspace,
+      this._added,
+      this._prefs.every,
+      this._entryKeys.join(),
+    ];
+    if (!this._actions || this._actions.from.some((each, at) => each !== from[at])) {
+      this._actions = { from, map: new Map() };
+    }
+    const key = `${this._addedKey(id, owner)}`;
+    const map = this._actions.map;
+    if (!map.has(key)) map.set(key, Plan.resetAction(id, appearance, pctx, this._writeState()));
+    return map.get(key) as 'reset' | 'remove' | undefined;
+  }
+
+  /**
+   * What a live field shows besides its control (section 5.3): its state words, and under it
+   * what they leave out, what Reset gives, and Reset or Remove.
+   *
+   * @param field - The field
+   * @param appearance - How its page shows it
+   * @param pctx - Plan context, the entry's on an entry page
+   * @param ctx - Schema context
+   * @param owner - The card, or a calendar entry
+   * @param heading - The heading's key, whose Add row or title takes focus after a Remove
+   * @returns What it shows
+   */
+  private _fieldShow(
+    field: IndexedField,
+    appearance: Appearance,
+    pctx: Plan.PlanCtx,
+    ctx: SchemaCtx,
+    owner: PlanOwner,
+    heading?: string,
+  ): FieldShow {
+    const t = this._t(ctx);
+    const layout = this._layoutName(ctx);
+    const word = this._wordOf(field, ctx);
+    const state = Plan.stateOf(field, pctx);
+    const words = Shown.stateText(state, t, layout, word);
+    const label = fieldLabel(field, ctx.language);
+    const notes: Array<{ text: string; button?: ShownView.LineButton }> = [];
+    const ignored = Shown.ignoredText(state, t, layout, word);
+    if (ignored) notes.push({ text: ignored });
+    for (const own of state?.layoutsOwn ?? []) {
+      notes.push({
+        text: interpolate(t('state.layout_own'), {
+          layout: layout(own.view),
+          value: word(own.value),
+        }),
+        button: {
+          label: interpolate(t('state.edit_layout'), { layout: layout(own.view) }),
+          name: interpolate(t('state.edit_named'), { label, layout: layout(own.view) }),
+          focus: `edit:${field.id}:${own.view}`,
+          onPress: () => this._pickScope(own.view),
+        },
+      });
+    }
+    const calendars =
+      state?.calendars === undefined
+        ? undefined
+        : {
+            label: t('state.set_on_calendars'),
+            links: state.calendars.map((key) => ({
+              label: this._entryName(key),
+              focus: `calendar-link:${field.id}:${key}`,
+              onPress: () => this._open({ kind: 'entry', key }, `calendar-link:${field.id}:${key}`),
+            })),
+          };
+    const outcomeText = Shown.outcomeText(Plan.resetOutcome(field, pctx), t, layout, word);
+    const outcomeId = `outcome-${field.id.replace(/[^\w-]/g, '-')}`;
+    const actions: ShownView.LineButton[] = [];
+    if (state?.words?.kind === 'from-all-layouts') {
+      actions.push({
+        label: interpolate(t('state.edit_layout'), { layout: layout('shared') }),
+        name: interpolate(t('state.edit_named'), { label, layout: layout('shared') }),
+        focus: `edit:${field.id}:shared`,
+        onPress: () => this._pickScope('shared'),
+      });
+    }
+    // A family member keeps its control while the family shows; its heading's ✕ removes them all.
+    const storedHere =
+      owner.kind === 'entry'
+        ? state?.words?.kind === 'set-entry'
+        : Plan.storedAt(this._rawConfig, field, pctx.workspace);
+    const action =
+      typeof appearance === 'object' && 'family' in appearance
+        ? storedHere
+          ? 'reset'
+          : undefined
+        : this._resetActionOf(field.id, appearance, pctx, owner);
+    if (action !== undefined) {
+      const forLayout = state?.words?.kind === 'set-layout' ? layout(state.words.view) : undefined;
+      actions.push({
+        label: action === 'reset' ? t('reset.reset') : t('reset.remove'),
+        name:
+          action === 'reset'
+            ? forLayout
+              ? interpolate(t('reset.reset_for'), { label, layout: forLayout })
+              : interpolate(t('value_source.reset'), { option: label })
+            : interpolate(forLayout ? t('reset.remove_for') : t('reset.remove_named'), {
+                label,
+                layout: forLayout ?? '',
+              }),
+        focus: `${action}:${field.id}`,
+        describedBy: outcomeText ? outcomeId : undefined,
+        kind: action,
+        resetKeys: this._storedKeys(field, pctx, owner),
+        onPress: () => this._resetField(field, owner, action, label, heading),
+      });
+    }
+    return {
+      words,
+      line: ShownView.fieldLine({
+        stored: state?.words !== undefined && state.words.kind.startsWith('set'),
+        notes,
+        calendars,
+        outcome: outcomeText && action ? { id: outcomeId, text: outcomeText } : undefined,
+        actions,
+      }),
+    };
+  }
+
+  /**
+   * The options a field stores where this page writes it, which its Reset deletes.
+   *
+   * @param field - The field
+   * @param pctx - Plan context
+   * @param owner - The card, or a calendar entry
+   * @returns The options, space-separated
+   */
+  private _storedKeys(field: IndexedField, pctx: Plan.PlanCtx, owner: PlanOwner): string {
+    if (owner.kind === 'entry') return field.configKeys.join(' ');
+    return field.configKeys
+      .filter((key) =>
+        Plan.storedAt(this._rawConfig, { ...field, configKeys: [key] }, pctx.workspace),
+      )
+      .join(' ');
+  }
+
+  /**
+   * Draws the headings of a page or of a calendar entry's page from their plans: each heading's
+   * title and line, its live fields in registry order, its Add row, its gate lines and the values
+   * stored for settings that are not in use (section 5.2). A heading with none of these, and
+   * nothing else to draw, is left out.
+   *
+   * @param plans - The headings' plans
+   * @param pctx - Plan context, the entry's on an entry page
+   * @param ctx - Schema context
+   * @param owner - The card, or a calendar entry
+   * @param present - The fields built here
+   * @param data - Form data the gates read
+   * @param draw - Draws one live field
+   * @param extra - What a heading draws besides its fields
+   * @param topTitle - The name a page's unheaded top run goes by in its Add row
+   * @returns The headings
+   */
+  private _renderHeadings(
+    plans: ReadonlyArray<Plan.HeadingPlan>,
+    pctx: Plan.PlanCtx,
+    ctx: SchemaCtx,
+    owner: PlanOwner,
+    present: ReadonlyMap<FieldId, IndexedField>,
+    data: { card: Record<string, unknown>; entry?: Record<string, unknown> },
+    draw: (field: IndexedField, show: FieldShow) => unknown,
+    extra: (heading: HeadingDef) => unknown,
+    topTitle: string,
+  ): unknown[] {
+    const t = this._t(ctx);
+    // Labels resolve through `ctx.language` whichever index a field comes from.
+    const known = (id: FieldId): IndexedField | undefined =>
+      present.get(id) ?? pctx.universe.fields.get(id);
+    const labelOf = (id: FieldId): string => {
+      const field = known(id);
+      return field ? fieldLabel(field, ctx.language) : id;
+    };
+    return plans.flatMap((plan) => {
+      const { heading } = plan;
+      const title = this._headingTitle(heading, ctx);
+      const name = title ?? topTitle;
+      const more = extra(heading);
+      const live = plan.live.flatMap(({ id, appearance }) => {
+        const field = present.get(id);
+        return field
+          ? [
+              keyed(
+                `${owner.kind === 'entry' ? owner.key : ''}:${id}`,
+                draw(field, this._fieldShow(field, appearance, pctx, ctx, owner, heading.key)),
+              ),
+            ]
+          : [];
+      });
+      const addKey = `add:${heading.key ?? 'top'}`;
+      const helper =
+        heading.helperKey === undefined ? undefined : this._string(ctx, heading.helperKey);
+      const crossLink = this._crossLink(heading, ctx);
+      // Where the title and the Add row would stack with nothing between, the row carries the
+      // title in place of the heading.
+      const named =
+        live.length === 0 && more === nothing && helper === undefined && crossLink === undefined;
+      const add =
+        plan.add.length === 0 || this._prefs.every
+          ? nothing
+          : this._renderAddRow(plan, addKey, name, named, owner, ctx, known);
+      // One line per condition waited on: the names still to come, else the line alone with the
+      // stored values after it.
+      const byWhen = new Map<string, { names: string[]; held: number }>();
+      const when = (gate: Plan.HeadingPlan['gated'][number]['gate']): string =>
+        whenText(gate, data, ctx.language, labelOf) ?? '';
+      for (const each of plan.gated) {
+        const clause = when(each.gate);
+        const line = byWhen.get(clause) ?? { names: [], held: 0 };
+        line.names.push(labelOf(each.id));
+        byWhen.set(clause, line);
+      }
+      for (const each of plan.inactive) {
+        if (each.gate.kind !== 'gate') continue;
+        const clause = when(each.gate);
+        const line = byWhen.get(clause) ?? { names: [], held: 0 };
+        line.held += 1;
+        byWhen.set(clause, line);
+      }
+      const gateLines = [...byWhen].map(([clause, line]) =>
+        line.names.length > 0
+          ? interpolate(t('gate.line'), { when: clause, names: line.names.join(', ') })
+          : interpolate(t('gate.line_bare'), { when: clause }),
+      );
+      const inactive = plan.inactive.flatMap((each) => {
+        const field = known(each.id);
+        if (field === undefined) return [];
+        const label = fieldLabel(field, ctx.language);
+        // A dropdown's value in this language's words: the universe in it holds its options.
+        const worded = universeIndex(ctx.language, pctx.workspace).fields.get(each.id) ?? field;
+        const value = this._wordOf(
+          worded,
+          ctx,
+        )(
+          owner.kind === 'entry'
+            ? data.entry?.[parseFieldId(field.id).name]
+            : Routing.atPath(
+                each.source === 'here'
+                  ? data.card
+                  : Routing.workspaceFormData(this._config!, 'shared', this._pending),
+                field.dataPath,
+                field.node.name,
+              ),
+        );
+        const top = each.source === 'all-layouts';
+        return [
+          {
+            text: interpolate(top ? t('inactive.line_top') : t('inactive.line'), { label, value }),
+            button: top
+              ? {
+                  label: interpolate(t('state.edit_layout'), {
+                    layout: this._layoutName(ctx)('shared'),
+                  }),
+                  name: interpolate(t('state.edit_named'), {
+                    label,
+                    layout: this._layoutName(ctx)('shared'),
+                  }),
+                  focus: `edit:${field.id}:shared`,
+                  onPress: () => this._pickScope('shared'),
+                }
+              : {
+                  label: t('reset.reset'),
+                  name: interpolate(t('value_source.reset'), { option: label }),
+                  focus: `reset:${field.id}`,
+                  kind: 'reset' as const,
+                  resetKeys: this._storedKeys(field, pctx, owner),
+                  onPress: () => this._resetField(field, owner, 'reset', label, heading.key),
+                },
+          },
+        ];
+      });
+      if (live.length === 0 && add === nothing && gateLines.length === 0 && inactive.length === 0) {
+        if (more === nothing) return [];
+      }
+      const family = this._liveFamily(plan);
+      return [
+        PageView.headingBlock({
+          title: named && add !== nothing ? undefined : title,
+          key: heading.key,
+          helper,
+          crossLink,
+          action:
+            family === undefined
+              ? undefined
+              : ShownView.lineButton({
+                  label: t('reset.remove'),
+                  name: interpolate(t('reset.remove_named'), {
+                    label: this._string(ctx, FAMILIES[family].titleKey),
+                  }),
+                  focus: `remove-family:${family}`,
+                  kind: 'remove',
+                  onPress: () => this._removeFamily(family, owner, ctx, heading.key),
+                }),
+          body: html`${live} ${more} ${add} ${ShownView.gateLines(gateLines, inactive)}`,
+        }),
+      ];
+    });
+  }
+
+  /**
+   * The family a heading shows because it is stored or was added, which its ✕ removes.
+   *
+   * @param plan - The heading's plan
+   * @returns The family, or `undefined`
+   */
+  private _liveFamily(plan: Plan.HeadingPlan): FamilyId | undefined {
+    for (const { appearance, why } of plan.live) {
+      if (typeof appearance === 'object' && 'family' in appearance) {
+        if (why === 'stored' || why === 'added') return appearance.family;
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * A heading's Add row: closed, its settings named; open, one button per setting.
+   *
+   * @param plan - The heading's plan
+   * @param key - The row's `data-focus` key
+   * @param heading - The heading's name
+   * @param named - Whether the row stands in for the heading: nothing live, no line between
+   * @param owner - The card, or a calendar entry
+   * @param ctx - Schema context
+   * @param known - A field by id
+   * @returns The row
+   */
+  private _renderAddRow(
+    plan: Plan.HeadingPlan,
+    key: string,
+    heading: string,
+    named: boolean,
+    owner: PlanOwner,
+    ctx: SchemaCtx,
+    known: (id: FieldId) => IndexedField | undefined,
+  ): TemplateResult {
+    const t = this._t(ctx);
+    const data = owner.kind === 'entry' ? undefined : this._formData();
+    const items = plan.add.flatMap((item): ShownView.AddItem[] => {
+      if (item.kind === 'family') {
+        const family = FAMILIES[item.family];
+        const added = this._addedKey(`family:${item.family}`, owner);
+        return [
+          {
+            key: `family:${item.family}`,
+            label: this._string(ctx, family.titleKey),
+            helper: Shown.firstSentence(
+              family.helperKey === undefined ? undefined : this._string(ctx, family.helperKey),
+            ),
+            onAdd: () =>
+              this._addSettings([added], this._string(ctx, family.titleKey), item.ids[0], ctx),
+          },
+        ];
+      }
+      const field = known(item.id);
+      if (field === undefined) return [];
+      const label = fieldLabel(field, ctx.language);
+      const value =
+        data === undefined
+          ? undefined
+          : Summary.wordValue(
+              field,
+              Routing.atPath(data, field.dataPath, field.node.name),
+              ctx.language,
+              this._describe,
+            );
+      return [
+        {
+          key: item.id,
+          label,
+          helper: Shown.firstSentence(fieldHelper(field, ctx)),
+          value,
+          onAdd: () => this._addSettings([this._addedKey(item.id, owner)], label, item.id, ctx),
+        },
+      ];
+    });
+    const open = this._addOpen?.key === key;
+    return ShownView.addRow(
+      {
+        key,
+        heading,
+        named,
+        names: Shown.namesText(
+          items.map((item) => item.label),
+          t,
+        ),
+        items,
+        open,
+        query: open ? this._addOpen!.query : '',
+        onToggle: () => {
+          this._addOpen = open ? undefined : { key, query: '' };
+        },
+        onShowAll: () => {
+          this._addSettings(
+            items.map((item) => this._addedKey(item.key, owner)),
+            undefined,
+            plan.add[0].kind === 'field' ? plan.add[0].id : plan.add[0].ids[0],
+            ctx,
+            heading,
+          );
+          this._addOpen = undefined;
+        },
+        onQuery: (query) => {
+          this._addOpen = { key, query };
+        },
+      },
+      t,
+    );
+  }
+
+  /** The card's color specs for a context (`colors.ts` › `cardColorFields`). */
+  private _cardColors = Helpers.memoizeLast(Colors.cardColorFields);
+
+  /** An entry's color specs for a context (`colors.ts` › `entryColorFields`). */
+  private _entryColors = Helpers.memoizeLast(Colors.entryColorFields);
+
+  /** The card's form data with nothing stored, for what a color field falls back to. */
+  private _defaultData = Helpers.memoizeLast((workspace: Workspace.EditorWorkspace) =>
+    Routing.workspaceFormData({ ...Config.DEFAULT_CONFIG } as Types.Config, workspace),
+  );
+
+  /**
+   * Home Assistant's own name for a theme color, from its color picker's strings.
+   *
+   * @param token - A theme color token, `deep-purple`
+   * @returns The name, or undefined where it has none
+   */
+  private _haColorName = (token: string): string | undefined => {
+    const key = `${Colors.HA_COLOR_NAME_PREFIX}${token}`;
+    const name = this.hass?.localize?.(key);
+    return typeof name === 'string' && name !== '' && name !== key ? name : undefined;
+  };
+
+  /**
+   * A card color field: its wrapper, the one place focus lands on it, and the composed control.
+   *
+   * @param field - The field drawn: the mode a control absorbs, else the color itself
+   * @param spec - Its spec
+   * @param colors - The card's color fields
+   * @param ctx - Schema context
+   * @returns The field
+   */
+  private _renderColorField(
+    field: IndexedField,
+    spec: Colors.ColorSpec,
+    colors: Colors.ColorFields,
+    ctx: SchemaCtx,
+    show?: FieldShow,
+  ): TemplateResult {
+    const valueField = colors.fields.get(spec.value)!;
+    const workspace = ctx.workspace ?? ctx.view;
+    const configKey = valueField.configKeys[0] ?? valueField.node.name;
+    const block =
+      valueField.dataPath.length === 0 ? Routing.destination(configKey, workspace) : undefined;
+    // Named for the mode it absorbs, as the page draws it, wherever it is drawn.
+    const name = fieldLabel(colors.fields.get(spec.mode ?? field.id) ?? field, ctx.language);
+    const wrapper = html`<div
+      class="field color-field"
+      data-field=${field.id}
+      tabindex="-1"
+      role="group"
+      aria-label=${name}
+    >
+      ${this._renderColor({
+        owner: WriteFrames.CARD_OWNER,
+        spec,
+        ctx,
+        name,
+        valueField,
+        // The scope's data, which What This Card Changes draws a line's field in whatever the scope.
+        data: this._formDataFor(this._config!, workspace, this._pending),
+        fallback: Routing.atPath(
+          this._defaultData(workspace),
+          valueField.dataPath,
+          valueField.node.name,
+        ),
+        stored: Routing.atPath(
+          this._rawConfig,
+          [...(block === undefined ? [] : [block]), ...valueField.dataPath],
+          valueField.node.name,
+        ),
+        destination: block ?? '',
+        anchor: field.id,
+        focusKey: `field:${field.id}`,
+        helper: fieldHelper(valueField, ctx) ?? fieldHelper(field, ctx),
+        words: show?.words,
+      })}
+      ${show?.line ?? nothing}
+    </div>`;
+    const jump = this._jump;
+    return jump?.target.kind === 'field' && jump.target.id === field.id
+      ? this._jumpTo(ctx, wrapper)
+      : wrapper;
+  }
+
+  /**
+   * An entry's color control, as its page draws it (`_renderEntryField`), writing to that entry
+   * alone.
+   *
+   * @param key - The entry's key
+   * @param id - The color field, or the mode it absorbs (`calendar:accent_color`)
+   * @param ctx - Schema context
+   * @param words - Its state words
+   * @returns The control; nothing for an entry that has left, or a field that is no color
+   */
+  private _renderEntryColor(
+    key: number,
+    id: FieldId,
+    ctx: SchemaCtx,
+    words?: string,
+  ): TemplateResult | typeof nothing {
+    const entry = this._entryOf(key);
+    const colors = this._entryColors(ctx);
+    const spec = colors.specs.get(id);
+    if (entry === undefined || spec === undefined) return nothing;
+    const owner: WriteFrames.WriteOwner = { kind: 'entry', key };
+    const anchor = spec.mode ?? spec.value;
+    const valueField = colors.fields.get(spec.value)!;
+    const entityId = Synthetic.entityIdOf(entry);
+    return this._renderColor({
+      owner,
+      spec,
+      ctx,
+      name: fieldLabel(colors.fields.get(anchor)!, ctx.language),
+      words,
+      valueField,
+      data: WriteFrames.projectionFor(owner, this._writeState(), ctx.workspace ?? ctx.view) ?? {},
+      stored: Entities.asEntityConfig(entry)[valueField.node.name as keyof Types.EntityConfig],
+      destination: String(key),
+      anchor,
+      // Undo focuses the field's wrapper on the entry's page, as its other fields'.
+      focusKey: `field:${id}`,
+      helper: fieldHelper(valueField, ctx) ?? fieldHelper(colors.fields.get(anchor)!, ctx),
+      entity: { id: entityId, name: Entities.entityDisplayName(entityId, this.hass) },
+    });
+  }
+
+  /**
+   * The composed color control for any owner (section 5.9, D13). Every row and swatch writes
+   * through `_writeFieldValue` for the owner, one undo step each; Custom's text is written only
+   * once it is a color the card can draw, and held as a draft until then.
+   *
+   * @param c - What the control is drawn for
+   * @returns The control
+   */
+  private _renderColor(c: ColorArgs): TemplateResult {
+    const { spec, ctx } = c;
+    const language = ctx.language;
+    const haName = this._haColorName;
+    const t = (key: string): string => this._string(ctx, key);
+    const value = Routing.atPath(c.data, c.valueField.dataPath, c.valueField.node.name);
+    const text = typeof value === 'string' ? value : '';
+    const draftKey = Colors.draftKey(c.owner, spec.value, c.destination);
+    const draft = this._colorDrafts.get(draftKey);
+    const typing = draft?.text !== undefined;
+    const choice = Colors.choiceOf(value, spec, c.fallback);
+    const customChosen = draft !== undefined || choice.kind === 'custom';
+    const storedInvalid = choice.kind === 'custom' && !Colors.validColor(text, spec);
+    const cardAccent = EntityColors.isEntityColorSentinel(this._config!.accent_color)
+      ? 'var(--primary-color)'
+      : (this._config!.accent_color ?? Config.DEFAULT_CONFIG.accent_color);
+    let registry: string | undefined;
+    if (c.entity !== undefined) {
+      this._registryWanted = true;
+      registry = EntityColors.entityColors().get(c.entity.id);
+    }
+    const paint = (source: Colors.ColorSource): string =>
+      source === 'default'
+        ? typeof c.fallback === 'string' && c.fallback !== ''
+          ? c.fallback
+          : 'transparent'
+        : source === 'row-text'
+          ? 'var(--primary-text-color)'
+          : source === 'follow-ha'
+            ? (registry ?? cardAccent)
+            : cardAccent;
+    const valueWords =
+      choice.kind === 'source'
+        ? Colors.sourceLabel(choice.source, spec, language)
+        : Colors.describeColor(value, spec, language, { haName });
+    const describe = (source: Colors.ColorSource): string | undefined => {
+      if (source === 'default') {
+        return typeof c.fallback === 'string' && c.fallback !== ''
+          ? Colors.describeColor(c.fallback, spec, language, { haName })
+          : undefined;
+      }
+      if (source === 'follow-card') {
+        return interpolate(t('color.follow_card.description'), {
+          value: Colors.describeColor(cardAccent, spec, language, { haName }),
+        });
+      }
+      if (source !== 'follow-ha') return undefined;
+      if (c.entity === undefined) return t('color.follow_ha.card');
+      return registry === undefined
+        ? interpolate(t('color.follow_ha.none'), { name: c.entity.name })
+        : interpolate(t('color.follow_ha.found'), {
+            name: c.entity.name,
+            value: Colors.describeColor(registry, spec, language, { haName }),
+          });
+    };
+    const pick = (write: ColorWrite): void => {
+      const drafts = new Map(this._colorDrafts);
+      drafts.delete(draftKey);
+      this._colorDrafts = drafts;
+      this._writeColor(c, write);
+    };
+    const key = this._colorKey(c);
+    const open = this._openColor === key;
+    const customLabel = interpolate(t('color.custom_field'), { setting: c.name });
+    const remove =
+      c.entity !== undefined && c.stored !== undefined && c.stored !== null && c.stored !== ''
+        ? {
+            label: interpolate(t('color.remove'), { name: c.entity.name, setting: c.name }),
+            onRemove: () => pick(spec.sources[0].write),
+          }
+        : undefined;
+    return ColorView.colorControl({
+      id: `color:${key}`,
+      focusKey: `color:${key}`,
+      name: c.name,
+      value: valueWords,
+      accessibleName:
+        c.words === undefined
+          ? interpolate(t('color.named'), { setting: c.name, value: valueWords })
+          : interpolate(t('color.named_state'), {
+              setting: c.name,
+              value: valueWords,
+              state: c.words,
+            }),
+      words: c.words,
+      color: storedInvalid ? undefined : choice.kind === 'source' ? paint(choice.source) : text,
+      open,
+      onToggle: () => {
+        this._openColor = open ? undefined : key;
+      },
+      remove,
+      helper: c.helper,
+      rows: spec.sources.map(({ source, write }) => ({
+        key: source,
+        label: Colors.sourceLabel(source, spec, language),
+        description: describe(source),
+        checked: !customChosen && choice.kind === 'source' && choice.source === source,
+        color: source === 'follow-ha' ? undefined : paint(source),
+        onPick: () => pick(write),
+      })),
+      swatchesLabel: t('color.swatches'),
+      swatches: Colors.SWATCH_TOKENS.map((token) => ({
+        token,
+        name: Colors.swatchName(token, language, haName),
+        color: Colors.swatchValue(token),
+        checked: !customChosen && choice.kind === 'swatch' && choice.token === token,
+        onPick: () => pick({ ...spec.custom, [spec.value]: Colors.swatchValue(token) }),
+      })),
+      custom: {
+        label: t('color.custom'),
+        description: t('color.custom.description'),
+        checked: customChosen,
+        onPick: () => {
+          if (!this._colorDrafts.has(draftKey)) {
+            this._colorDrafts = new Map(this._colorDrafts).set(draftKey, {});
+          }
+        },
+      },
+      field:
+        open && customChosen
+          ? {
+              form: this._renderColorText(c, draftKey, draft?.text ?? text, customLabel),
+              color: typing || storedInvalid || text === '' ? undefined : text,
+              invalid: typing || storedInvalid ? t('color.invalid') : undefined,
+            }
+          : undefined,
+      yaml: {
+        line:
+          c.stored === undefined || c.stored === null
+            ? undefined
+            : `${c.valueField.node.name}: ${String(c.stored)}`,
+        none: t('color.yaml_none'),
+        kept: typing ? t('color.kept') : undefined,
+      },
+    });
+  }
+
+  /**
+   * Custom's text field: the value field in a form of its own, showing a draft over the stored
+   * value, its changes taken by the control (`_colorTyped`) rather than written as typed.
+   *
+   * @param c - What the control is drawn for
+   * @param draftKey - Where its draft is kept
+   * @param shown - The text it shows
+   * @param label - Its label, "Custom Accent Color"
+   * @returns The field
+   */
+  private _renderColorText(
+    c: ColorArgs,
+    draftKey: string,
+    shown: string,
+    label: string,
+  ): TemplateResult {
+    const slot = `color.${draftKey}`;
+    const schema = this._intern(`${slot}.schema`, c.valueField.lifted);
+    const data = this._intern(`${slot}.data`, WriteFrames.withValue({}, c.valueField, shown));
+    const [hass, feed] = this._feed(schema, c.ctx.language);
+    const card = c.owner.kind === 'card';
+    // Keyed by where its value is stored: a form reused for another scope would hand its pending
+    // events, and the draft they make, to that scope.
+    return html`<div class="color-text-field">
+      ${keyed(
+        draftKey,
+        html`<ha-form
+          class=${card ? 'field-form' : c.write !== undefined ? 'split-form' : 'entity-form'}
+          data-hass=${feed}
+          .hass=${hass}
+          .data=${data}
+          .schema=${schema}
+          .computeLabel=${this._keep(`${slot}.label`, label, () => () => label)}
+          .localizeValue=${this._localizeValue}
+          @value-changed=${(event: CustomEvent) => this._colorTyped(c, draftKey, event)}
+        ></ha-form>`,
+      )}
+    </div>`;
+  }
+
+  /**
+   * Which control a color control is, by owner and the field it is drawn for.
+   *
+   * @param c - What the control is drawn for
+   * @returns The key, `card|events:accent_color_mode`
+   */
+  private _colorKey(c: ColorArgs): string {
+    return `${c.owner.kind === 'card' ? 'card' : `${c.owner.kind}:${c.owner.key}`}|${c.anchor}`;
+  }
+
+  /**
+   * The key of the color control a field is drawn as, for an owner, as `_colorKey` names it.
+   *
+   * @param owner - The card, or an entry
+   * @param id - The field drawn
+   * @param ctx - Schema context
+   * @returns The key; undefined for a field that is no color
+   */
+  private _colorKeyOf(
+    owner: WriteFrames.WriteOwner,
+    id: FieldId,
+    ctx: SchemaCtx,
+  ): string | undefined {
+    if (owner.kind === 'card') {
+      return this._cardColors(ctx).specs.has(id) ? `card|${id}` : undefined;
+    }
+    const spec = this._entryColors(ctx).specs.get(id);
+    return spec === undefined ? undefined : `${owner.kind}:${owner.key}|${spec.mode ?? spec.value}`;
+  }
+
+  /**
+   * Writes a color control's choice for its owner, one undo step: a source's values, or for
+   * `reset` the color taken off (an absorbed mode set to its custom value first, so its value
+   * field is drawn to clear). Fields are written in the order given, a mode before its value.
+   *
+   * @param c - What the control is drawn for
+   * @param write - What to write
+   * @param coalesceKey - The typing a write joins, for Custom's text
+   */
+  private _writeColor(c: ColorArgs, write: ColorWrite, coalesceKey?: string): void {
+    if (c.write !== undefined) {
+      c.write(write);
+      return;
+    }
+    const { spec, ctx } = c;
+    const steps: ReadonlyArray<readonly [FieldId, unknown]> =
+      write === 'reset'
+        ? [
+            ...(spec.mode === undefined ? [] : [[spec.mode, spec.custom[spec.mode]] as const]),
+            [spec.value, undefined] as const,
+          ]
+        : Object.entries(write);
+    const label =
+      c.entity === undefined
+        ? interpolate(this._string(ctx, 'history.change'), { setting: c.name })
+        : interpolate(this._string(ctx, 'history.change_for'), {
+            setting: c.name,
+            name: c.entity.name,
+          });
+    this._commit(
+      label,
+      coalesceKey,
+      () => {
+        for (const [id, value] of steps) {
+          this._writeFieldValue(c.owner, id, value, ctx.workspace ?? ctx.view);
+        }
+      },
+      c.focusKey,
     );
   }
 
   /**
-   * The fields a run of the registry draws here: each placed one present for this
-   * configuration and scope and kept by the filter bar, in the registry's order.
+   * Custom's text: written the moment it is a color the card can draw, coalesced like any typing;
+   * until then held as a draft, and the last color written stays in the configuration.
    *
-   * @param fields - The run's placements
-   * @param present - The fields built here
-   * @param shown - The ids the filter bar keeps
-   * @returns The fields
+   * @param c - What the control is drawn for
+   * @param draftKey - Where its draft is kept
+   * @param event - The text field's `value-changed`
    */
-  private _fieldsOf(
-    fields: HeadingDef['fields'],
-    present: ReadonlyMap<FieldId, IndexedField>,
-    shown: ReadonlySet<FieldId>,
-  ): IndexedField[] {
-    return fields.flatMap(([id]) => {
-      const field = present.get(id);
-      return field !== undefined && shown.has(id) ? [field] : [];
+  private _colorTyped(c: ColorArgs, draftKey: string, event: CustomEvent): void {
+    event.stopPropagation();
+    const incoming = event.detail?.value as Record<string, unknown> | undefined;
+    if (!incoming) return;
+    const typed = Routing.atPath(incoming, c.valueField.dataPath, c.valueField.node.name);
+    const text = typeof typed === 'string' ? typed : '';
+    const drafts = new Map(this._colorDrafts);
+    if (!Colors.validColor(text, c.spec)) {
+      this._colorDrafts = drafts.set(draftKey, { text });
+      return;
+    }
+    this._colorDrafts = drafts.set(draftKey, {});
+    // A word the card honors here is written as its row writes it, exactly as the card reads it.
+    const choice = Colors.choiceOf(text.trim(), c.spec);
+    const row =
+      choice.kind === 'source' && choice.source !== 'default'
+        ? c.spec.sources.find(({ source }) => source === choice.source)?.write
+        : undefined;
+    this._writeColor(
+      c,
+      row ?? { ...c.spec.custom, [c.spec.value]: text },
+      `${c.focusKey}|${draftKey}`,
+    );
+  }
+
+  /**
+   * Adds settings to the session's added set: their page draws them, and nothing is written
+   * (rule 3). Focus moves to the field's wrapper, never into its form, and the change is said.
+   *
+   * @param keys - Added-set keys
+   * @param label - The setting added, for "Added Time Font Size."; none for Show All
+   * @param focusId - The field whose wrapper takes focus
+   * @param ctx - Schema context
+   * @param heading - The heading, for "Showing every setting under Time."
+   */
+  private _addSettings(
+    keys: ReadonlyArray<string>,
+    label: string | undefined,
+    focusId: FieldId,
+    ctx: SchemaCtx,
+    heading?: string,
+  ): void {
+    this._added = new Set([...this._added, ...keys]);
+    this._say(
+      label === undefined
+        ? interpolate(this._string(ctx, 'announce.showing_all'), { heading: heading ?? '' })
+        : interpolate(this._string(ctx, 'announce.added'), { label }),
+    );
+    void this.updateComplete.then(() =>
+      Focus.focusFirst(this.renderRoot, [`[data-field="${CSS.escape(focusId)}"]`]),
+    );
+  }
+
+  /**
+   * Resets a field's line where this page writes it, through `reset.ts`, as one undo step. Reset
+   * keeps the control and focuses its wrapper; Remove also takes the field from the added set,
+   * so it goes back to its Add row, which takes focus, else its heading does.
+   *
+   * @param field - The field
+   * @param owner - The card, or a calendar entry
+   * @param action - Reset or Remove
+   * @param label - The field's label, which names the step
+   * @param heading - The heading's key
+   */
+  private _resetField(
+    field: IndexedField,
+    owner: PlanOwner,
+    action: 'reset' | 'remove',
+    label: string,
+    heading?: string,
+  ): void {
+    const ctx = this._ctx;
+    const target: Reset.ResetTarget =
+      owner.kind === 'entry'
+        ? { kind: 'entry', key: owner.key, keys: field.configKeys }
+        : { kind: 'field', field, workspace: ctx.workspace ?? ctx.view };
+    this._commit(
+      interpolate(this._string(ctx, 'history.reset'), { setting: label }),
+      undefined,
+      () => this._applyReset(target, [this._addedKey(field.id, owner)]),
+      `field:${field.id}`,
+    );
+    if (action === 'remove') {
+      this._say(interpolate(this._string(ctx, 'announce.removed_setting'), { label }));
+    }
+    this._focusAfterReset(field.id, heading);
+  }
+
+  /**
+   * Removes a family shown on a page: every member's line here, and the family from the added
+   * set, in one step.
+   *
+   * @param family - The family
+   * @param owner - The card, or a calendar entry
+   * @param ctx - Schema context
+   * @param heading - The heading's key
+   */
+  private _removeFamily(
+    family: FamilyId,
+    owner: PlanOwner,
+    ctx: SchemaCtx,
+    heading?: string,
+  ): void {
+    const name = this._string(ctx, FAMILIES[family].titleKey);
+    const target: Reset.ResetTarget =
+      owner.kind === 'entry'
+        ? { kind: 'entry-family', key: owner.key, family }
+        : { kind: 'family', family, workspace: ctx.workspace ?? ctx.view };
+    this._commit(
+      interpolate(this._string(ctx, 'history.reset'), { setting: name }),
+      undefined,
+      () => this._applyReset(target, []),
+    );
+    this._say(interpolate(this._string(ctx, 'announce.removed_setting'), { label: name }));
+    this._focusAfterReset(undefined, heading);
+  }
+
+  /**
+   * Applies a reset to everything the editor holds about the configuration, together, and
+   * reports it: the YAML, the authored root keys, the Grid reset keys and the held text, as
+   * `reset.ts` hands them back, and the added set without what the reset retires.
+   *
+   * @param target - What to reset, or several targets reset together
+   * @param retire - Added-set keys to retire besides the reset's own
+   */
+  private _applyReset(
+    target: Reset.ResetTarget | ReadonlyArray<Reset.ResetTarget>,
+    retire: ReadonlyArray<string>,
+  ): void {
+    if (!this._config || !this._prepareForWrite()) return;
+    let state = this._writeState();
+    const clearAdded: string[] = [];
+    for (const each of Array.isArray(target) ? target : [target]) {
+      const result = Reset.reset(state, each);
+      state = result.state;
+      clearAdded.push(...result.clearAdded);
+    }
+    this._config = state.config;
+    this._pending = { ...state.pending };
+    this._authoredRootKeys = new Set(state.authoredRootKeys);
+    this._gridResetKeys = new Set(state.gridResetKeys);
+    const gone = new Set([...clearAdded, ...retire]);
+    const kept = [...this._added].filter((key) => !gone.has(key));
+    if (kept.length !== this._added.size) this._added = new Set(kept);
+    this._report(this._config);
+  }
+
+  /**
+   * Focus after a Reset or a Remove (section 5.3): the field's wrapper while it is drawn, else
+   * its heading's Add row, which now names it, else the heading.
+   *
+   * @param id - The field, or none for a family
+   * @param heading - The heading's key
+   */
+  private _focusAfterReset(id: FieldId | undefined, heading?: string): void {
+    void this.updateComplete.then(() => {
+      const group = `.page-group[data-heading="${CSS.escape(heading ?? '')}"]`;
+      Focus.focusFirst(this.renderRoot, [
+        ...(id === undefined ? [] : [`[data-field="${CSS.escape(id)}"]`]),
+        `${group} .add-toggle`,
+        `${group} .heading`,
+        '.page-title',
+        // On the overview, which has no page headings: its own fields, then its first heading.
+        '.overview [data-field]',
+        '.overview .heading',
+      ]);
     });
+  }
+
+  /**
+   * A heading's link to the heading on another page that answers the neighboring question.
+   *
+   * @param heading - The heading
+   * @param ctx - Schema context
+   * @returns The link, or `undefined`
+   */
+  private _crossLink(heading: HeadingDef, ctx: SchemaCtx): PageView.CrossLink | undefined {
+    const link = heading.crossLink;
+    const target = link && PAGES.find((candidate) => candidate.id === link.page);
+    const targetHeading = target?.headings.find((each) => each.key === link!.heading);
+    if (!link || !target || !targetHeading) return undefined;
+    return {
+      text: this._string(ctx, link.textKey),
+      label: interpolate(this._string(ctx, 'nav.crumb'), {
+        page: this._pageTitle(target, ctx),
+        heading: this._headingTitle(targetHeading, ctx) ?? '',
+      }),
+      key: `xlink:${link.heading}`,
+      onOpen: () =>
+        this._open(
+          { kind: 'page', page: link.page },
+          `xlink:${link.heading}`,
+          'cross-link',
+          link.heading,
+        ),
+    };
   }
 
   /**
@@ -1968,7 +3555,8 @@ export class CalendarCardProEditor extends LitElement {
    * @returns `true` where it can be drawn
    */
   private _exists(route: Navigation.Route): boolean {
-    if (route.kind === 'overview') return true;
+    if (route.kind === 'overview' || route.kind === 'audit' || route.kind === 'notices')
+      return true;
     if (route.kind === 'entry') {
       return this._entryKeysFor((this._config?.entities ?? []).length).includes(route.key);
     }
@@ -2014,9 +3602,11 @@ export class CalendarCardProEditor extends LitElement {
 
   /** Closes the strip, Add Calendar and the keyboard grab, which belong to the place being left. */
   private _closeDisclosures(): void {
+    this._auditEdit = undefined;
     this._openStrip = undefined;
     this._adding = undefined;
     this._grab = undefined;
+    this._addOpen = undefined;
   }
 
   /**
@@ -2028,13 +3618,17 @@ export class CalendarCardProEditor extends LitElement {
    * @param hit - The result
    * @param focusKey - The result's `data-focus` key, which Back restores focus to
    */
-  private _openResult(hit: Search.SearchEntry, focusKey: string): void {
+  private _openResult(
+    hit: Pick<Search.SearchEntry, 'target' | 'label'>,
+    focusKey: string,
+    search = true,
+  ): void {
     const target = hit.target;
     const from: Navigation.TrailEntry = {
       route: this._nav.route,
       scrollTop: Focus.scrollPosition(this),
       focusKey,
-      search: { query: this._filter.query, editHere: false },
+      search: search ? { query: this._filter.query, editHere: false } : undefined,
     };
     const page =
       target.kind === 'button-field' ? 'card_header' : target.kind === 'field' && target.page;
@@ -2044,8 +3638,15 @@ export class CalendarCardProEditor extends LitElement {
       this._nav = Navigation.go(this._nav, { kind: 'entry', key: target.key }, from);
     } else if (page) {
       this._nav = Navigation.go(this._nav, { kind: 'page', page }, from);
-    } else {
+    } else if (search) {
       this._resultsLeft = from;
+    } else {
+      this._nav = Navigation.OVERVIEW;
+    }
+    // A result that waits in an Add row is added, as choosing it there would: it writes nothing.
+    if (target.kind !== 'button-field') {
+      const added = target.kind === 'entry-field' ? `entry:${target.key}:${target.id}` : target.id;
+      if (!this._added.has(added)) this._added = new Set([...this._added, added]);
     }
     const jump = { target, label: hit.label, lit: true };
     this._jump = jump;
@@ -2132,9 +3733,13 @@ export class CalendarCardProEditor extends LitElement {
         wizard === undefined &&
         (this._drag !== undefined ||
           grab !== undefined ||
+          this._colorOpenHere() ||
           this._scopeOpen ||
+          this._auditEdit !== undefined ||
           this._openStrip !== undefined ||
-          this._adding !== undefined),
+          this._adding !== undefined ||
+          this._addOpen !== undefined ||
+          this._split !== undefined),
       onPage:
         wizard !== undefined ||
         this._nav.route.kind !== 'overview' ||
@@ -2165,17 +3770,42 @@ export class CalendarCardProEditor extends LitElement {
     } else if (action === 'close' && grab !== undefined) {
       // The grab is innermost: the row goes back, focus stays on its handle.
       this._putBack(grab, true);
+    } else if (action === 'close' && this._colorOpenHere()) {
+      const open = this._openColor;
+      this._openColor = undefined;
+      void this.updateComplete.then(() =>
+        Focus.focusFirst(this.renderRoot, [Focus.byFocusKey(`color:${open}`)]),
+      );
+    } else if (
+      action === 'close' &&
+      this._split !== undefined &&
+      this._openStrip === undefined &&
+      this._adding === undefined &&
+      this._addOpen === undefined &&
+      this._auditEdit === undefined &&
+      !this._scopeOpen
+    ) {
+      // Escape cancels Split This Calendar from any of its steps, as Cancel does.
+      this._cancelSplit(true);
     } else if (action === 'close') {
       // The disclosure opened last closes, focus back on what opened it.
       const strip = this._openStrip;
+      const addRow = this._addOpen?.key;
+      const edited = this._auditEdit?.line.text;
       const opener =
-        strip !== undefined
-          ? `more:${strip}`
-          : this._adding !== undefined
-            ? 'add-calendar'
-            : 'scope-change';
-      if (strip !== undefined) this._openStrip = undefined;
+        edited !== undefined
+          ? `edit:${edited}`
+          : strip !== undefined
+            ? `more:${strip}`
+            : this._adding !== undefined
+              ? 'add-calendar'
+              : addRow !== undefined
+                ? addRow
+                : 'scope-change';
+      if (edited !== undefined) this._auditEdit = undefined;
+      else if (strip !== undefined) this._openStrip = undefined;
       else if (this._adding !== undefined) this._adding = undefined;
+      else if (addRow !== undefined) this._addOpen = undefined;
       else this._scopeOpen = false;
       void this.updateComplete.then(() =>
         Focus.focusFirst(this.renderRoot, [Focus.byFocusKey(opener)]),
@@ -2190,6 +3820,20 @@ export class CalendarCardProEditor extends LitElement {
       );
     }
   };
+
+  /**
+   * Whether the open color control is drawn where the editor is: one left open on another page
+   * stays open there, and Escape here is not its to take.
+   *
+   * @returns True while it is drawn
+   */
+  private _colorOpenHere(): boolean {
+    const open = this._openColor;
+    return (
+      open !== undefined &&
+      this.renderRoot.querySelector(Focus.byFocusKey(`color:${open}`)) !== null
+    );
+  }
 
   /**
    * Alt+ArrowUp and Alt+ArrowDown move the calendar of a focused row, or of the entry page open
@@ -2273,6 +3917,8 @@ export class CalendarCardProEditor extends LitElement {
   /** Change: Settings For opens as the four choices. */
   private _openScope = (): void => {
     this._scopeOpen = true;
+    // One disclosure at a time, so Escape closes the one just opened.
+    this._addOpen = undefined;
     void this.updateComplete.then(() =>
       Focus.focusFirst(this.renderRoot, [`input[name="scope"]:checked`, `input[name="scope"]`]),
     );
@@ -2350,6 +3996,37 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * A color field's spec, for describing its value: by the field's id where it has one, else by
+   * its node, the card's before an entry's, else by its name.
+   *
+   * @param field - The field
+   * @param ctx - Schema context
+   * @returns The spec; undefined for a node no spec names
+   */
+  private _colorSpecOf(
+    field: Pick<IndexedField, 'node'> & { readonly id?: FieldId },
+    ctx: SchemaCtx,
+  ): Colors.ColorSpec | undefined {
+    const owners = [this._cardColors(ctx), this._entryColors(ctx)];
+    if (field.id !== undefined) {
+      for (const { specs } of owners) {
+        const spec = specs.get(field.id);
+        if (spec !== undefined) return spec;
+      }
+    }
+    const find = (match: (node: IndexedField['node']) => boolean) => {
+      for (const { specs, fields } of owners) {
+        for (const spec of specs.values()) {
+          const node = fields.get(spec.value)?.node;
+          if (node !== undefined && match(node)) return spec;
+        }
+      }
+      return undefined;
+    };
+    return find((node) => node === field.node) ?? find((node) => node.name === field.node.name);
+  }
+
+  /**
    * Words a value a field cannot word itself, for a section row's summary: an action by Home
    * Assistant's name for it, an entity by its name.
    *
@@ -2359,6 +4036,11 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _describe = (field: Pick<IndexedField, 'node'>, value: unknown): string | undefined => {
     const selector = field.node.selector;
+    const ctx = this._ctx;
+    const spec = Colors.isColorNode(field.node) ? this._colorSpecOf(field, ctx) : undefined;
+    if (spec !== undefined) {
+      return Colors.describeColor(value, spec, ctx.language, { haName: this._haColorName });
+    }
     if ('ui_action' in selector) {
       const action = Helpers.isConfigBlock(value) ? value.action : undefined;
       if (typeof action !== 'string') return undefined;
@@ -2413,8 +4095,7 @@ export class CalendarCardProEditor extends LitElement {
   private _renderOverview(ctx: SchemaCtx, chassis: Subforms.ChassisSchemas): TemplateResult {
     const t = this._t(ctx);
     const { present, shown } = this._drawing!;
-    const own = this._fieldsOf(OVERVIEW_FIELDS, present, shown);
-    const head = html`${this._renderMisplaced(ctx)}
+    const head = html`${this._renderNoticesRow(ctx)}
     ${
       this._banner
         ? Overview.quickSetupBanner(t, this._openQuickSetup, () => {
@@ -2422,14 +4103,14 @@ export class CalendarCardProEditor extends LitElement {
           })
         : nothing
     }
-    ${this._renderFilterBar(ctx, chassis)} ${this._renderEssentialsNote(ctx)}`;
+    ${this._renderFilterBar(ctx, chassis)}`;
 
     // One template whatever the query, so the filter bar above it is never drawn anew and the
     // search field keeps focus as the first character turns the overview into results. The
     // scope stays in view with the results: their values are the scope's.
     return html`<div class="overview">
       ${head} ${this._jumpDrawn() ? nothing : this._renderReturn(ctx)}
-      ${this._renderOverviewBody(ctx, chassis, present, shown, own)}
+      ${this._renderOverviewBody(ctx, chassis, present, shown)}
     </div>`;
   }
 
@@ -2440,8 +4121,7 @@ export class CalendarCardProEditor extends LitElement {
    * @param ctx - Schema context
    * @param chassis - The chassis schemas
    * @param present - The fields built here
-   * @param shown - The ids the filter keeps
-   * @param own - The overview's own fields it keeps
+   * @param shown - The ids search reaches
    * @returns The body
    */
   private _renderOverviewBody(
@@ -2449,7 +4129,6 @@ export class CalendarCardProEditor extends LitElement {
     chassis: Subforms.ChassisSchemas,
     present: ReadonlyMap<FieldId, IndexedField>,
     shown: ReadonlySet<FieldId>,
-    own: ReadonlyArray<IndexedField>,
   ): TemplateResult {
     const t = this._t(ctx);
     if (Filter.hasQuery(this._filter) && this._resultsLeft === undefined) {
@@ -2469,15 +4148,45 @@ export class CalendarCardProEditor extends LitElement {
       ),
     );
     const calendars = this._renderCalendars(ctx);
-    // Only the switches can empty the editor without a query: say so, as the panels did.
-    const empty =
-      shown.size === 0 &&
-      Filter.isFiltering(this._filter) &&
-      this._calendarModels(ctx).length === 0;
-    return html`${empty ? this._renderNoMatches(ctx) : nothing} ${this._renderScope(ctx)}
-    ${calendars} ${this._renderDisplays(ctx, chassis)} ${this._renderFields(own, ctx)}
-    ${this._renderResetControls(own, ctx)} ${Overview.rowGroup(t('overview.settings'), rows)}
-    ${Overview.rowGroup(t('overview.more'), [Overview.exampleRow(t, this._openQuickSetup)])}`;
+    // The overview's own fields follow the shown set too: a mode value only with its mode.
+    const pctx = this._planCtx(ctx);
+    const own = repeat(
+      OVERVIEW_FIELDS.flatMap(([id, appearance]) => {
+        const field = present.get(id);
+        const state = Plan.fieldState(id, appearance, pctx);
+        return field && state.kind === 'live' ? [[field, appearance] as const] : [];
+      }),
+      ([field]) => field.id,
+      ([field, appearance]) =>
+        this._renderField(field, ctx, this._fieldShow(field, appearance, pctx, ctx, CARD)),
+    );
+    const prefs = (['every', 'yaml'] as const).map((key) =>
+      ShownView.prefRow({
+        key,
+        label: key === 'every' ? t('prefs.every') : t('prefs.yaml'),
+        helper: key === 'every' ? t('prefs.every_note') : t('prefs.yaml_note'),
+        on: this._prefs[key],
+        onToggle: () => {
+          this._prefs = { ...this._prefs, [key]: !this._prefs[key] };
+          Prefs.writePrefs(this._prefs);
+        },
+      }),
+    );
+    return html`${this._renderScope(ctx)} ${calendars} ${this._renderDisplays(ctx, chassis)} ${own}
+    ${Overview.rowGroup(t('overview.settings'), rows)}
+    ${Overview.rowGroup(t('overview.more'), [
+      Overview.navRow(
+        {
+          key: 'more:audit',
+          iconPath: mdiFormatListChecks,
+          title: t('more.audit'),
+          summary: this._auditSummary(t),
+        },
+        () => this._open({ kind: 'audit' }, 'more:audit'),
+      ),
+      Overview.exampleRow(t, this._openQuickSetup),
+      ...prefs,
+    ])}`;
   }
 
   /**
@@ -2486,7 +4195,7 @@ export class CalendarCardProEditor extends LitElement {
    *
    * @param ctx - Schema context
    * @param present - The fields built here
-   * @param shown - The ids the switches keep
+   * @param shown - The ids search reaches
    * @returns The results, or the line saying nothing matches
    */
   private _renderResults(
@@ -2508,7 +4217,6 @@ export class CalendarCardProEditor extends LitElement {
     const index = Search.buildSearchIndex({
       ...ctx,
       hass: this.hass,
-      customizedOnly: this._filter.customizedOnly,
       present,
       shown,
       data: this._formData(),
@@ -2552,74 +4260,76 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * What a page draws under its header: each heading with its fields, and what the page holds
-   * besides them (the toolbar's own buttons, the column width table, the reset buttons of the
-   * scope's own values).
+   * What a page draws under its header: each heading planned by `plan.ts` (section 5.2), what the
+   * page holds besides its fields (the toolbar's own buttons, the column width table), and at its
+   * foot one line per set of layouts that add settings here.
    *
    * @param page - The page
    * @param ctx - Schema context
-   * @param present - The fields built here
-   * @param shown - The ids the switches keep
-   * @returns The body, or `undefined` where the switches leave nothing of it
+   * @returns The body
    */
-  private _renderPageBody(
-    page: PageDef,
-    ctx: SchemaCtx,
-    present: ReadonlyMap<FieldId, IndexedField>,
-    shown: ReadonlySet<FieldId>,
-  ): unknown[] | undefined {
-    const parts: unknown[] = [];
-    const drawn: IndexedField[] = [];
-    for (const heading of page.headings) {
-      const fields = this._fieldsOf(heading.fields, present, shown);
-      const buttons = heading.extras?.includes('own-buttons')
-        ? this._renderToolbarButtons(
-            PANELS.find((panel) => panel.id === 'card')!,
-            ctx,
-          )
-        : nothing;
-      if (fields.length === 0 && buttons === nothing) continue;
-      drawn.push(...fields);
-      const body = html`${this._renderFields(fields, ctx)} ${buttons}`;
-      const link = heading.crossLink;
-      const target = link && PAGES.find((candidate) => candidate.id === link.page);
-      const targetHeading = target?.headings.find((each) => each.key === link!.heading);
-      parts.push(
-        PageView.headingBlock({
-          title: this._headingTitle(heading, ctx),
-          key: heading.key,
-          helper:
-            heading.helperKey === undefined ? undefined : this._string(ctx, heading.helperKey),
-          crossLink:
-            link && target && targetHeading
-              ? {
-                  text: this._string(ctx, link.textKey),
-                  label: interpolate(this._string(ctx, 'nav.crumb'), {
-                    page: this._pageTitle(target, ctx),
-                    heading: this._headingTitle(targetHeading, ctx) ?? '',
-                  }),
-                  key: `xlink:${link.heading}`,
-                  onOpen: () =>
-                    this._open(
-                      { kind: 'page', page: link.page },
-                      `xlink:${link.heading}`,
-                      'cross-link',
-                      link.heading,
-                    ),
-                }
-              : undefined,
-          body,
-        }),
-      );
-    }
+  private _renderPageBody(page: PageDef, ctx: SchemaCtx): unknown[] {
+    const t = this._t(ctx);
+    const pctx = this._planCtx(ctx);
+    const plan = Plan.planPage(page, pctx);
+    const present = this._drawing!.present;
+    const parts = this._renderHeadings(
+      plan.headings,
+      pctx,
+      ctx,
+      CARD,
+      present,
+      { card: this._formData() },
+      (field, show) => this._renderField(field, ctx, show),
+      (heading) =>
+        heading.extras?.includes('own-buttons')
+          ? this._renderToolbarButtons(
+              PANELS.find((panel) => panel.id === 'card')!,
+              ctx,
+            )
+          : nothing,
+      this._pageTitle(page, ctx),
+    );
     if (page.id === 'size_spacing') {
       const layout = PANELS.find((panel) => panel.id === 'layout')!;
-      const extras = Filter.filterExtras(layout.extras?.(ctx) ?? [], this._filterCtx);
-      parts.push(...extras.map((extra) => this._renderExtra(extra)));
+      parts.push(...(layout.extras?.(ctx) ?? []).map((extra) => this._renderExtra(extra)));
     }
-    const resets = this._renderResetControls(drawn, ctx);
-    if (drawn.length === 0 && resets === nothing && parts.length === 0) return undefined;
-    parts.push(resets);
+    const layout = this._layoutName(ctx);
+    // Each line's Edit goes to a layout no line before it goes to, so no two read the same.
+    const taken = new Set<Types.EffectiveView>();
+    for (const line of plan.otherLayouts) {
+      const target = line.views.find((view) => !taken.has(view)) ?? line.views[0];
+      taken.add(target);
+      const names = line.ids.map((id) => {
+        const field = universeIndex('en', line.views[0]).fields.get(id);
+        return field ? fieldLabel(field, ctx.language) : id;
+      });
+      const text =
+        line.views.length === 1
+          ? interpolate(t('other_layouts.one'), {
+              layout: layout(line.views[0]),
+              names: Shown.namesText(names, t),
+            })
+          : interpolate(t('other_layouts.many'), {
+              layouts: EditorLocalize.formatList(
+                ctx.language,
+                line.views.map(layout),
+                'conjunction',
+              ),
+              names: Shown.namesText(names, t),
+            });
+      parts.push(
+        ShownView.otherLayoutsLine(
+          text,
+          interpolate(t('add.count'), { count: String(names.length) }),
+          {
+            label: interpolate(t('state.edit_layout'), { layout: layout(target) }),
+            focus: `edit-layout:${line.views.join('-')}`,
+            onPress: () => this._pickScope(target),
+          },
+        ),
+      );
+    }
     return parts;
   }
 
@@ -2633,20 +4343,17 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _renderPage(page: PageDef, ctx: SchemaCtx): TemplateResult {
     const t = this._t(ctx);
-    const { present, shown } = this._drawing!;
     const scope =
       page.onlyIn !== undefined
         ? PageView.pageLine(t('settings_for.grid_only'))
         : isWholeCard(page)
           ? PageView.pageLine(this._string(ctx, 'value_source.card'))
           : this._renderScope(ctx);
-    const body = this._renderPageBody(page, ctx, present, shown);
     return html`<div class="page" data-page=${page.id}>
       ${PageView.pageHead(this._pageTitle(page, ctx), t, this._back, this._renderHistory(ctx))}
       ${this._jumpDrawn() ? nothing : this._renderReturn(ctx)} ${scope}
       ${page.noteKey ? PageView.pageLine(this._string(ctx, page.noteKey)) : nothing}
-      ${body ?? (Filter.isFiltering(this._filter) ? this._renderNoMatches(ctx) : nothing)}
-      ${PageView.footBack(t, this._back)}
+      ${this._renderPageBody(page, ctx)} ${PageView.footBack(t, this._back)}
     </div>`;
   }
 
@@ -2676,17 +4383,16 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Each calendar entry's form as the filter bar leaves it, with what was declared for it.
+   * Each calendar entry's form: what is declared for it, with what its layout ignores withheld.
    *
    * @param subform - The entries' sub-form
    * @param ctx - Schema context
-   * @returns Every entry, with its key, its declared fields (inert ones withheld) and its schema
+   * @returns Every entry, with its key and its schema
    */
   private _entrySchemas(
     subform: { path: ReadonlyArray<string>; schema: ReadonlyArray<HaFormSchema> },
     ctx: SchemaCtx,
   ) {
-    const filterCtx = this._filterCtx;
     const toolbar = Config.resolveToolbar(ctx.config);
     const hasLegend = toolbar.show && toolbar.legend !== false;
     const entries = this._config?.entities ?? [];
@@ -2702,14 +4408,13 @@ export class CalendarCardProEditor extends LitElement {
         hasLegend,
         showsEventWeather(ctx.config.weather),
       );
-      const schema = Filter.filterEntitySchema(declared, entry, subform.path, filterCtx);
-      const offered = Filter.withholdInertFields(declared, ctx.workspace ?? ctx.view, 'entity');
-      return { entry, index, key: keys[index], offered, schema };
+      const schema = Filter.withholdInertFields(declared, ctx.workspace ?? ctx.view, 'entity');
+      return { entry, index, key: keys[index], schema };
     });
   }
 
   /**
-   * Each toolbar button's form as the filter bar leaves it.
+   * Each toolbar button's form.
    *
    * @param subform - The buttons' sub-form
    * @returns Every button, with its key, its fields, its schema and its data
@@ -2718,7 +4423,6 @@ export class CalendarCardProEditor extends LitElement {
     path: ReadonlyArray<string>;
     schema: ReadonlyArray<HaFormSchema>;
   }) {
-    const filterCtx = this._filterCtx;
     const written = Buttons.writtenButtons(this._config!);
     const keys = this._buttonKeysFor(written.length);
     const fields = subform.schema.filter((node) => !Filter.isHeading(node));
@@ -2726,8 +4430,7 @@ export class CalendarCardProEditor extends LitElement {
       entry,
       index,
       key: keys[index],
-      offered: fields,
-      schema: Filter.filterButtonSchema(fields, entry, subform.path, filterCtx),
+      schema: fields,
       data: Buttons.toButtonFormData(entry),
     }));
   }
@@ -2830,7 +4533,11 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _rowColor(entry: string | Types.EntityConfig): string | undefined {
     for (const value of [Entities.asEntityConfig(entry).accent_color, this._config?.accent_color]) {
-      if (typeof value === 'string' && value.trim() !== '' && !isEntityColorSentinel(value)) {
+      if (
+        typeof value === 'string' &&
+        value.trim() !== '' &&
+        !EntityColors.isEntityColorSentinel(value)
+      ) {
         return value;
       }
     }
@@ -2904,6 +4611,15 @@ export class CalendarCardProEditor extends LitElement {
     }
     const entry = this._entryOf(entryKey)!;
     const entryName = this._entryName(entryKey);
+    if (onPage) {
+      // First in the page's ⋮, as the row under Which Events opens it too (D12).
+      actions.unshift({
+        id: 'split',
+        label: this._string(ctx, 'split.title'),
+        name: interpolate(this._string(ctx, 'split.named'), { name: entryName }),
+        onPress: () => this._openSplit(entryKey),
+      });
+    }
     const from = Entities.copiedFrom();
     const copied = Entities.copiedSettings() !== undefined;
     actions.push(
@@ -2993,8 +4709,7 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * The calendars the list draws, each with its rows: every entry, or while the editor is
-   * filtered those whose page keeps a field, narrowed further by Filter Calendars.
+   * The calendars the list draws, each with its rows: every entry, narrowed by Filter Calendars.
    *
    * @param ctx - Schema context
    * @returns The calendars, in list order
@@ -3002,14 +4717,6 @@ export class CalendarCardProEditor extends LitElement {
   private _calendarModels(ctx: SchemaCtx): CalendarView.CalendarModel[] {
     const state = this._listState();
     const entities = state.entities;
-    const filtering = Filter.isFiltering(this._filter);
-    const kept = filtering
-      ? new Set(
-          this._entrySchemas(this._entrySubform(ctx), ctx)
-            .filter(({ schema }) => Filter.hasFields(schema))
-            .map(({ index }) => index),
-        )
-      : undefined;
     // Folded as search folds a query: case and surrounding space ignored (`search.ts`).
     const query = this._calendarQuery.trim().toLowerCase();
     const matches = (texts: ReadonlyArray<unknown>): boolean =>
@@ -3029,7 +4736,6 @@ export class CalendarCardProEditor extends LitElement {
       const key = calendar.rows[0].key;
       const handle = this._handle(calendar.entityId, key, name, ctx);
       const rows = calendar.rows.flatMap((row): CalendarView.EntryRowModel[] => {
-        if (kept !== undefined && !kept.has(row.index)) return [];
         const entry = entities[row.index];
         const parts = this._rowParts(entry, ctx);
         const label = Entities.asEntityConfig(entry).label;
@@ -3071,6 +4777,7 @@ export class CalendarCardProEditor extends LitElement {
                 ? label
                 : undefined,
             missing,
+            tag: this._newEntries.has(row.key) ? this._string(ctx, 'split.new') : undefined,
             moves: grouped ? undefined : calendar.entityId,
             handle: grouped ? undefined : handle,
             more,
@@ -3880,6 +5587,7 @@ export class CalendarCardProEditor extends LitElement {
    * @param key - The entry's key
    * @param data - The entry's form data
    * @param ctx - Schema context
+   * @param show - Its state words and the line under it
    * @returns The wrapper and its form
    */
   private _renderEntryField(
@@ -3887,9 +5595,44 @@ export class CalendarCardProEditor extends LitElement {
     key: number,
     data: Record<string, unknown>,
     ctx: SchemaCtx,
+    show?: FieldShow,
   ): TemplateResult {
+    const spec = this._entryColors(ctx).specs.get(field.id);
+    if (spec !== undefined) {
+      // A mode's value is drawn inside its mode's control where the page draws both, as an
+      // entry's page always draws its accent's mode; drawn alone (What This Card Changes' Edit),
+      // the value is the control.
+      if (show !== undefined && spec.mode !== undefined && field.id === spec.value) {
+        return html``;
+      }
+      return this._jumpedEntryField(
+        ctx,
+        key,
+        field,
+        html`<div
+          class="field color-field"
+          data-field=${field.id}
+          tabindex="-1"
+          role="group"
+          aria-label=${fieldLabel(field, ctx.language)}
+        >
+          ${this._renderEntryColor(key, field.id, ctx, show?.words)} ${show?.line ?? nothing}
+        </div>`,
+      );
+    }
     const slot = `entry.${key}.${field.id}`;
-    const schema = this._intern(slot, field.lifted);
+    const words = this._renderWords(
+      { kind: 'entry', key },
+      field,
+      data,
+      ctx,
+      slot,
+      show,
+      this._calendarName(Synthetic.entityIdOf(this._entryOf(key) ?? '')),
+    );
+    if (words !== undefined) return this._jumpedEntryField(ctx, key, field, words);
+    const text = this._fieldText(slot, field, ctx, show?.words);
+    const schema = this._intern(slot, this._yamlSchema(field, data, ctx));
     // The field's own projection of the entry's data, as a card field gets, so a write to one
     // field hands no other form a new object.
     const own = this._intern(`${slot}.data`, Routing.formDataFor(data, schema));
@@ -3914,10 +5657,11 @@ export class CalendarCardProEditor extends LitElement {
           class="entity-form"
           data-hass=${feed}
           .hass=${hass}
+          .error=${this._patternError(slot, field, own, ctx)}
           .data=${own}
           .schema=${schema}
-          .computeLabel=${this._labeler(ctx.language, field.labelPath)}
-          .computeHelper=${this._subformHelper(ctx, field.labelPath, true)}
+          .computeLabel=${text.label}
+          .computeHelper=${text.helper}
           .localizeValue=${this._localizeValue}
           @value-changed=${(event: CustomEvent) =>
             this._valueChanged(
@@ -3929,6 +5673,7 @@ export class CalendarCardProEditor extends LitElement {
             )}
         ></ha-form>`,
       )}
+      ${this._wordToggle({ kind: 'entry', key }, field, own, ctx)} ${show?.line ?? nothing}
     </div>`;
     return this._jumpedEntryField(ctx, key, field, wrapper);
   }
@@ -3963,6 +5708,7 @@ export class CalendarCardProEditor extends LitElement {
    * @param entry - The entry
    * @param data - The entry's form data
    * @param ctx - Schema context
+   * @param show - Its state words and the line under it
    * @returns The control
    */
   private _renderVisibility(
@@ -3971,6 +5717,7 @@ export class CalendarCardProEditor extends LitElement {
     entry: string | Types.EntityConfig,
     data: Record<string, unknown>,
     ctx: SchemaCtx,
+    show?: FieldShow,
   ): TemplateResult {
     const entityId = Synthetic.entityIdOf(entry);
     const conditions = conditionsEditorDefined()
@@ -3980,7 +5727,7 @@ export class CalendarCardProEditor extends LitElement {
       // Defined before this editor opens wherever Home Assistant's card editor is; should it
       // arrive later, it takes over the YAML box then.
       awaitConditionsEditor(this);
-      return this._renderEntryField(field, key, data, ctx);
+      return this._renderEntryField(field, key, data, ctx, show);
     }
     const wrapper = html`<div
       class="field entity-visibility"
@@ -4000,8 +5747,767 @@ export class CalendarCardProEditor extends LitElement {
           @value-changed=${(event: CustomEvent) => this._visibilityChanged(key, event)}
         ></ha-card-conditions-editor>`,
       )}
+      ${show?.line ?? nothing}
     </div>`;
     return this._jumpedEntryField(ctx, key, field, wrapper);
+  }
+
+  /**
+   * The line under a word list the card cannot read (section 5.9): Blocklist and Allowlist, built
+   * as the card builds them, and Countries To Remove, which the card wraps (`formatLocation`).
+   * Drawn through `ha-form`'s own error map, above the field.
+   *
+   * @param slot - The form's slot, where the map is kept
+   * @param field - The field
+   * @param data - Its form's data
+   * @param ctx - Schema context
+   * @returns The map; undefined where the pattern reads, or the field is no word list
+   */
+  private _patternError(
+    slot: string,
+    field: IndexedField,
+    data: Readonly<Record<string, unknown>>,
+    ctx: SchemaCtx,
+  ): Record<string, string> | undefined {
+    const name = field.node.name;
+    const wrapped = field.id === 'events:location_country_pattern';
+    if (!wrapped && field.id !== 'calendar:blocklist' && field.id !== 'calendar:allowlist') {
+      return undefined;
+    }
+    const value = data[name];
+    if (typeof value !== 'string' || value === '') return undefined;
+    if (WordLists.compiles(wrapped ? `(${value})\\s*$` : value)) return undefined;
+    return this._intern(`${slot}.error`, { [name]: this._string(ctx, 'word_list.invalid') });
+  }
+
+  /**
+   * Opens Split This Calendar on an entry's page, from the row under Which Events or from the
+   * page's ⋮: All-Day vs. With a Time chosen unless it is refused, part 1 in the entry's color and
+   * part 2 in the first swatch no calendar uses (`colors.ts` › `freeSwatch`).
+   *
+   * @param key - The entry's key
+   */
+  private _openSplit(key: number): void {
+    const entry = this._entryOf(key);
+    if (!this._config || entry === undefined) return;
+    this._openStrip = undefined;
+    this._splitDone = undefined;
+    if (this._split?.key !== key) {
+      const own = Entities.asEntityConfig(entry);
+      const refused = Split.refusals(entry, this._config);
+      const free = Colors.freeSwatch(this._config.entities ?? [], this._config);
+      this._split = {
+        opening: structuredClone(this._rawConfig),
+        openingAuthoredRootKeys: new Set(this._authoredRootKeys),
+        previews: [],
+        key,
+        newKey: this._mintEntryKey(),
+        step: 0,
+        how:
+          refused.type === undefined
+            ? 'type'
+            : refused.words === undefined && refused.pattern === undefined
+              ? 'words'
+              : undefined,
+        field: refused.field ?? 'title',
+        terms: [''],
+        parts: [
+          { label: own.label, color: own.accent_color },
+          { label: own.label, color: free },
+        ],
+        original: structuredClone(entry),
+        free,
+      };
+    }
+    this._focusSplit();
+  }
+
+  /** Puts focus on the task's step title once it renders, the task scrolled into view. */
+  private _focusSplit(): void {
+    void this.updateComplete.then(() => {
+      const title = Focus.focusFirst(this.renderRoot, ['.split-title']);
+      title?.closest('.split-task')?.scrollIntoView?.({ block: 'nearest' });
+    });
+  }
+
+  /**
+   * Closes Split This Calendar and, where it previewed, sends the card the configuration it opened
+   * on, so the card shows the entry as it was.
+   *
+   * @param focus - Whether focus returns to the row that opens it
+   */
+  private _cancelSplit(focus: boolean): void {
+    const session = this._split;
+    if (session === undefined) return;
+    this._split = undefined;
+    if (session.previews.length > 0) {
+      const opening = structuredClone(this._rawConfig);
+      this._lastDispatched = opening;
+      this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: opening } }));
+    }
+    if (focus) {
+      void this.updateComplete.then(() =>
+        Focus.focusFirst(this.renderRoot, [Focus.byFocusKey('split-row'), '.page-title']),
+      );
+    }
+  }
+
+  /**
+   * The split as it would be written now.
+   *
+   * @param session - The run
+   * @returns How, and the two parts
+   */
+  private _splitPair(
+    session: SplitSession,
+  ): readonly [Types.EntityConfig, Types.EntityConfig] | undefined {
+    if (session.how === undefined) return undefined;
+    const how: Split.SplitHow =
+      session.how === 'type'
+        ? { kind: 'type' }
+        : { kind: 'words', terms: session.terms, field: session.field };
+    return Split.splitEntry(session.original, how, session.parts);
+  }
+
+  /**
+   * Changes the run and, from Colors on, shows both parts on the card: a preview rebuilt from the
+   * configuration it opened on, never from an echo. Back to How shows the entry as it was.
+   *
+   * @param patch - What changed
+   */
+  private _splitChange(patch: Partial<SplitSession>): void {
+    const current = this._split;
+    if (current === undefined) return;
+    let session: SplitSession = { ...current, ...patch };
+    const pair = this._splitPair(session);
+    const entities = (session.opening.entities ?? []) as Array<string | Types.EntityConfig>;
+    const keys = this._entryKeysFor(entities.length);
+    const index = keys.indexOf(session.key);
+    const preview =
+      session.step === 0 || pair === undefined || index < 0
+        ? session.previews.length > 0
+          ? structuredClone(session.opening)
+          : undefined
+        : {
+            ...structuredClone(session.opening),
+            entities: Split.splitInList({ entities, keys }, index, pair, session.newKey).entities,
+          };
+    if (preview !== undefined) {
+      const next = Preview.withPreview(session, preview as Record<string, unknown>);
+      if (next !== session) {
+        session = { ...session, ...next };
+        this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: preview } }));
+      }
+    }
+    this._split = session;
+  }
+
+  /**
+   * Moves the task to another step, reading the calendar's upcoming events as Review opens.
+   *
+   * @param step - The step to show
+   */
+  private _splitGo(step: number): void {
+    const session = this._split;
+    if (session === undefined) return;
+    const read = step === 2 && session.events === undefined && session.reading === undefined;
+    const reading = read ? ++this._reads : session.reading;
+    this._splitChange({ step, reading });
+    this._focusSplit();
+    if (!read) return;
+    const hass = this.hass;
+    const window = SplitReview.reviewWindow(
+      this._config!,
+      this._viewForConfig(this._config!),
+      hass ?? undefined,
+    );
+    const entityId = Synthetic.entityIdOf(session.original);
+    const done = (events: Types.CalendarEventData[] | null): void => {
+      const current = this._split;
+      if (current === undefined || current.reading !== reading) return;
+      this._split = { ...current, events };
+    };
+    if (!hass?.callApi) done(null);
+    else void SplitReview.readUpcoming(hass, entityId, window).then(done);
+  }
+
+  /**
+   * Splits the entry, as one undo step: part 1 in its place under its key, part 2 after it, both
+   * tagged New on the overview; then the panel saying so, focused, on the page that now edits
+   * part 1.
+   */
+  private _applySplit(): void {
+    const session = this._split;
+    const pair = session === undefined ? undefined : this._splitPair(session);
+    if (session === undefined || pair === undefined || !this._config) return;
+    const ctx = this._ctx;
+    const name = this._calendarName(Synthetic.entityIdOf(session.original));
+    this._splitting = true;
+    let done = false;
+    try {
+      done = this._commit(
+        interpolate(this._string(ctx, 'split.named'), { name }),
+        undefined,
+        () => {
+          if (!this._prepareForWrite()) return;
+          const state = this._listState();
+          const index = state.keys.indexOf(session.key);
+          if (index >= 0) this._writeList(Split.splitInList(state, index, pair, session.newKey));
+        },
+        `entry:${session.key}`,
+      );
+    } finally {
+      this._splitting = false;
+    }
+    if (!done) {
+      this._cancelSplit(true);
+      return;
+    }
+    this._split = undefined;
+    this._newEntries = new Set([...this._newEntries, session.key, session.newKey]);
+    this._splitDone = { key: session.key, newKey: session.newKey };
+    this._say(interpolate(this._string(ctx, 'split.done'), { name }));
+    void this.updateComplete.then(() =>
+      Focus.focusFirst(this.renderRoot, [Focus.byFocusKey('split-done')]),
+    );
+  }
+
+  /**
+   * A refusal's way out: Cancel, then the field the refusal names, highlighted, as a search
+   * result opens it.
+   *
+   * @param key - The entry's key
+   * @param id - The field
+   */
+  private _splitWayOut(key: number, id: FieldId): void {
+    this._cancelSplit(false);
+    const jump = {
+      target: { kind: 'entry-field' as const, id, key },
+      label: this._string(this._ctx, `entity.${id.slice(id.indexOf(':') + 1)}`),
+      lit: true,
+    };
+    this._jump = jump;
+    void this.updateComplete.then(() => {
+      const field = this.renderRoot.querySelector<HTMLElement>('.jump');
+      if (field) Focus.scrollToTopSettled(this, field);
+      Focus.focusFirst(field ?? this.renderRoot, ['[tabindex="-1"]', '.page-title']);
+      setTimeout(() => {
+        if (this._jump === jump) this._jump = { ...jump, lit: false };
+      }, 2000);
+    });
+  }
+
+  /**
+   * What a part shows in its title: "All-day events", or "Only: Training" and "Without:
+   * Training".
+   *
+   * @param session - The run
+   * @param part - Which part, 0 or 1
+   * @param ctx - Schema context
+   * @returns The words
+   */
+  private _splitPartTitle(session: SplitSession, part: number, ctx: SchemaCtx): string {
+    if (session.how === 'type') {
+      return this._string(ctx, part === 0 ? 'row.all_day' : 'row.timed');
+    }
+    return interpolate(this._string(ctx, part === 0 ? 'row.only' : 'row.without'), {
+      words: this._splitWords(session),
+    });
+  }
+
+  /**
+   * The words a split by words uses, as a list.
+   *
+   * @param session - The run
+   * @returns "Training, Piano"
+   */
+  private _splitWords(session: SplitSession): string {
+    return session.terms
+      .map((term) => term.trim())
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  /**
+   * One part's color control: the composed Accent Color control, writing to the part rather than
+   * to any entry, which the preview then shows.
+   *
+   * @param session - The run
+   * @param part - Which part, 0 or 1
+   * @param ctx - Schema context
+   * @returns The control
+   */
+  private _renderSplitColor(session: SplitSession, part: number, ctx: SchemaCtx): TemplateResult {
+    const colors = this._entryColors(ctx);
+    const spec = colors.specs.get('calendar:accent_color')!;
+    const color = session.parts[part].color;
+    const entityId = Synthetic.entityIdOf(session.original);
+    const name = this._calendarName(entityId);
+    const helper =
+      part === 0 && color === Entities.asEntityConfig(session.original).accent_color
+        ? interpolate(this._string(ctx, 'split.color_now'), { name })
+        : part === 1 && color === session.free
+          ? this._string(ctx, 'split.color_free')
+          : undefined;
+    return this._renderColor({
+      owner: { kind: 'entry', key: -1 - part },
+      spec,
+      ctx,
+      name: fieldLabel(colors.fields.get(spec.mode ?? spec.value)!, ctx.language),
+      valueField: colors.fields.get(spec.value)!,
+      data: { accent_color: color },
+      stored: color,
+      destination: 'split',
+      anchor: spec.mode ?? spec.value,
+      focusKey: `split-color:${part}`,
+      helper,
+      entity: { id: entityId, name: Entities.entityDisplayName(entityId, this.hass) },
+      write: (write) => {
+        const next =
+          write === 'reset'
+            ? undefined
+            : spec.mode !== undefined && write[spec.mode] === 'home_assistant'
+              ? EntityColors.ENTITY_COLOR_SENTINEL
+              : spec.mode !== undefined && write[spec.mode] === 'inherit'
+                ? undefined
+                : (write[spec.value] as string | undefined);
+        const current = this._split;
+        if (current?.newKey !== session.newKey) return;
+        const parts = [...current.parts] as [Split.SplitPart, Split.SplitPart];
+        parts[part] = { ...parts[part], color: next };
+        this._splitChange({ parts });
+      },
+    });
+  }
+
+  /**
+   * One part's Label field, prefilled with the entry's label.
+   *
+   * @param session - The run
+   * @param part - Which part, 0 or 1
+   * @param ctx - Schema context
+   * @returns The field
+   */
+  private _renderSplitLabel(session: SplitSession, part: number, ctx: SchemaCtx): TemplateResult {
+    const schema = this._intern('split.label.schema', [
+      { name: 'label', selector: { text: {} } },
+    ] as unknown as HaFormSchema[]);
+    const label = this._string(ctx, 'entity.label');
+    return html`<ha-form
+      class="split-form"
+      data-split-label=${part}
+      .hass=${this.hass}
+      .data=${this._intern(`split.label.${part}`, { label: session.parts[part].label ?? '' })}
+      .schema=${schema}
+      .computeLabel=${this._keep('split.label.label', label, () => () => label)}
+      @value-changed=${(event: CustomEvent) => {
+        event.stopPropagation();
+        const value = (event.detail?.value as { label?: unknown } | undefined)?.label;
+        // A form a canceled run left behind may still send a change; it is not this run's.
+        const current = this._split;
+        if (current?.newKey !== session.newKey) return;
+        const parts = [...current.parts] as [Split.SplitPart, Split.SplitPart];
+        parts[part] = { ...parts[part], label: typeof value === 'string' ? value : '' };
+        this._splitChange({ parts });
+      }}
+    ></ha-form>`;
+  }
+
+  /**
+   * Split This Calendar at the top of Which Events: the row that opens it, or the task while it
+   * is open on this entry.
+   *
+   * @param key - The entry's key
+   * @param ctx - Schema context
+   * @returns The row or the task
+   */
+  private _renderSplit(key: number, ctx: SchemaCtx): TemplateResult | typeof nothing {
+    const session = this._split;
+    if (session?.key === key) return this._renderSplitTask(session, ctx);
+    const entry = this._entryOf(key);
+    if (entry === undefined) return nothing;
+    return SplitView.splitRow(
+      this._string(ctx, 'split.title'),
+      this._string(ctx, 'split.row_helper'),
+      interpolate(this._string(ctx, 'split.named'), { name: this._entryName(key) }),
+      () => this._openSplit(key),
+    );
+  }
+
+  /**
+   * The task, at its step.
+   *
+   * @param session - The run
+   * @param ctx - Schema context
+   * @returns The task
+   */
+  private _renderSplitTask(session: SplitSession, ctx: SchemaCtx): TemplateResult {
+    const t = (key: string): string => this._string(ctx, key);
+    const entityId = Synthetic.entityIdOf(session.original);
+    const name = this._calendarName(entityId);
+    const own = Entities.asEntityConfig(session.original);
+    const refused = Split.refusals(session.original, this._config!);
+    const terms = session.terms.map((term) => term.trim()).filter(Boolean);
+    const steps = [t('split.step.how'), t('split.step.colors'), t('split.step.review')];
+    // Whole sentences, one per refusal, looked up by the key `split.ts` › `refusals` names.
+    const refusalText: Readonly<Record<string, string>> = {
+      'split.refused.all_day': t('split.refused.all_day'),
+      'split.refused.all_day_card': t('split.refused.all_day_card'),
+      'split.refused.timed': t('split.refused.timed'),
+      'split.refused.timed_card': t('split.refused.timed_card'),
+      'split.refused.words': t('split.refused.words'),
+      'split.refused.blocklist': t('split.refused.blocklist'),
+      'split.refused.allowlist': t('split.refused.allowlist'),
+      'split.refused.budget': t('split.refused.budget'),
+    };
+    const cancel = {
+      label: t('quick_setup.cancel'),
+      focus: 'split-cancel',
+      onPress: () => this._cancelSplit(true),
+    };
+    const back = {
+      label: t('quick_setup.back'),
+      focus: 'split-back',
+      onPress: () => this._splitGo(session.step - 1),
+    };
+    let title: string;
+    let intro: string;
+    let body: unknown;
+    let next: CalendarView.TextButton;
+    if (session.step === 0) {
+      title = interpolate(t('split.named'), { name });
+      intro = interpolate(t('split.how.intro'), { name, entity: entityId });
+      const way = (id: FieldId, label: string): CalendarView.TextButton => ({
+        label,
+        focus: `split-way:${id}`,
+        onPress: () => this._splitWayOut(session.key, id),
+      });
+      const words = refused.pattern ?? refused.words;
+      const typeRefusal: SplitView.Refusal | undefined =
+        refused.type === undefined
+          ? undefined
+          : {
+              text: interpolate(refusalText[refused.type], { name }),
+              action: {
+                label: t('entity.duplicate'),
+                focus: 'split-way:duplicate',
+                onPress: () => {
+                  this._cancelSplit(false);
+                  this._duplicateEntry(session.key);
+                },
+              },
+            };
+      const wordsRefusal: SplitView.Refusal | undefined =
+        words === undefined
+          ? undefined
+          : {
+              text: interpolate(refusalText[words], {
+                name,
+                words:
+                  WordLists.fromPattern(String(own.allowlist ?? ''))?.join(', ') ??
+                  String(own.allowlist ?? ''),
+              }),
+              action:
+                refused.pattern === 'split.refused.blocklist'
+                  ? way('calendar:blocklist', t('split.edit_blocklist'))
+                  : way('calendar:allowlist', t('split.edit_allowlist')),
+            };
+      const chosen =
+        session.how === 'words'
+          ? wordsRefusal === undefined
+          : session.how === 'type' && typeRefusal === undefined;
+      body = html`${
+        refused.budget === undefined
+          ? nothing
+          : SplitView.refusal(
+              {
+                text: interpolate(refusalText[refused.budget], { name }),
+                action: way('calendar:compact_events_to_show', t('split.go_budget')),
+              },
+              true,
+            )
+      }
+      ${SplitView.methods(t('split.step.how'), [
+        {
+          id: 'type',
+          label: t('split.how.type'),
+          description: t('split.how.type.description'),
+          checked: session.how === 'type' && typeRefusal === undefined,
+          refusal: typeRefusal,
+          onPick: () => this._splitChange({ how: 'type' }),
+        },
+        {
+          id: 'words',
+          label: t('split.how.words'),
+          description: t('split.how.words.description'),
+          checked: session.how === 'words' && wordsRefusal === undefined,
+          refusal: wordsRefusal,
+          onPick: () => this._splitChange({ how: 'words' }),
+        },
+      ])}
+      ${session.how === 'words' && wordsRefusal === undefined ? this._renderSplitWords(session, refused.field, ctx) : nothing}`;
+      next = {
+        label: t('quick_setup.next'),
+        focus: 'split-next',
+        disabled:
+          !chosen ||
+          refused.budget !== undefined ||
+          (session.how === 'words' && terms.length === 0),
+        onPress: () => this._splitGo(1),
+      };
+    } else {
+      const spec = this._entryColors(ctx).specs.get('calendar:accent_color')!;
+      const colorWords = (color: string | undefined): string => {
+        const choice = Colors.choiceOf(color, spec);
+        return choice.kind === 'source'
+          ? Colors.sourceLabel(choice.source, spec, ctx.language)
+          : Colors.describeColor(color, spec, ctx.language, { haName: this._haColorName });
+      };
+      const head = (part: number, sub: string): SplitView.PartHead => {
+        const given = session.parts[part];
+        return {
+          title: `${name}${Summary.SUMMARY_SEPARATOR}${this._splitPartTitle(session, part, ctx)}`,
+          sub,
+          color: this._rowColor({ entity: entityId, accent_color: given.color }),
+          badge:
+            Entities.labelTypeOf(session.original) === 'text' && given.label
+              ? given.label
+              : undefined,
+        };
+      };
+      if (session.step === 1) {
+        title = t('split.colors.title');
+        intro = interpolate(t('split.colors.intro'), { name });
+        body = [0, 1].map((part) =>
+          SplitView.partCard(
+            head(part, interpolate(t('split.part_of'), { part: String(part + 1), total: '2' })),
+            html`${this._renderSplitColor(session, part, ctx)}
+            ${this._renderSplitLabel(session, part, ctx)}`,
+          ),
+        );
+        next = {
+          label: t('quick_setup.next'),
+          focus: 'split-next',
+          onPress: () => this._splitGo(2),
+        };
+      } else {
+        title = t('split.step.review');
+        intro = interpolate(t('split.review.intro'), { name });
+        const pair = this._splitPair(session)!;
+        const window = SplitReview.reviewWindow(
+          this._config!,
+          this._viewForConfig(this._config!),
+          this.hass ?? undefined,
+        );
+        const reviewed =
+          session.events === undefined || session.events === null
+            ? undefined
+            : SplitReview.reviewParts(
+                session.events,
+                session.original,
+                pair,
+                window,
+                this._viewForConfig(this._config!),
+                this.hass,
+                ctx.language,
+              );
+        const days = String(window.config.days_to_show);
+        const wordRules: Readonly<Record<Types.FilterField, string>> = {
+          title: t('split.rule.words.title'),
+          location: t('split.rule.words.location'),
+          description: t('split.rule.words.description'),
+        };
+        body = html`${[0, 1].map((part) => {
+          const rule =
+            session.how === 'type'
+              ? part === 0
+                ? t('split.rule.all_day')
+                : t('split.rule.timed')
+              : part === 0
+                ? interpolate(wordRules[session.field], {
+                    words: this._splitWords(session),
+                  })
+                : t('split.rule.other');
+          const result = reviewed?.[part];
+          const lines =
+            session.events === undefined
+              ? [interpolate(t('split.review.loading'), { name })]
+              : result === undefined
+                ? [interpolate(t('split.review.failed'), { name })]
+                : result.count === 0
+                  ? [t('split.review.none')]
+                  : result.lines;
+          const writes =
+            session.how === 'words'
+              ? interpolate(
+                  part === 0 ? t('split.writes.allowlist') : t('split.writes.blocklist'),
+                  {
+                    words: this._splitWords(session),
+                    field: this._splitFieldWords(ctx)[session.field],
+                  },
+                )
+              : undefined;
+          return SplitView.partCard(
+            head(
+              part,
+              `${rule}${Summary.SUMMARY_SEPARATOR}${colorWords(session.parts[part].color)}`,
+            ),
+            SplitView.partReview(
+              result === undefined
+                ? undefined
+                : interpolate(t('split.review.counts'), { days, count: String(result.count) }),
+              lines,
+              writes,
+            ),
+          );
+        })}
+        ${
+          Array.isArray(own.visibility) && own.visibility.length > 0
+            ? SplitView.note(interpolate(t('split.review.conditions'), { name }))
+            : nothing
+        }
+        ${SplitView.note(interpolate(t('split.review.note'), { name }))}`;
+        next = {
+          label: t('split.apply'),
+          focus: 'split-apply',
+          name: interpolate(t('split.named'), { name }),
+          onPress: () => this._applySplit(),
+        };
+      }
+    }
+    return SplitView.splitTask({
+      name: t('split.title'),
+      steps,
+      step: session.step,
+      stepOf: interpolate(t('split.step_of'), { step: String(session.step + 1), total: '3' }),
+      closeName: t('quick_setup.cancel'),
+      onClose: () => this._cancelSplit(true),
+      title,
+      intro,
+      body,
+      back: session.step === 0 ? cancel : back,
+      next,
+    });
+  }
+
+  /**
+   * What each field is called inside a sentence: "event title", "location", "description".
+   *
+   * @param ctx - Schema context
+   * @returns The words, by field
+   */
+  private _splitFieldWords(ctx: SchemaCtx): Readonly<Record<Types.FilterField, string>> {
+    return {
+      title: this._string(ctx, 'split.field.title'),
+      location: this._string(ctx, 'split.field.location'),
+      description: this._string(ctx, 'split.field.description'),
+    };
+  }
+
+  /**
+   * By Words' fields: Match Against, held to the field the entry's Blocklist looks in where it has
+   * one, and the words, one per field, in Home Assistant's own list of text fields.
+   *
+   * @param session - The run
+   * @param locked - The field Match Against is held to
+   * @param ctx - Schema context
+   * @returns The fields
+   */
+  private _renderSplitWords(
+    session: SplitSession,
+    locked: Types.FilterField | undefined,
+    ctx: SchemaCtx,
+  ): TemplateResult {
+    const t = (key: string): string => this._string(ctx, key);
+    const options = (['title', 'location', 'description'] as const).map((value) => ({
+      value,
+      label: t(`entity.filter_field.option.${value}.label`),
+    }));
+    const schema = this._keep('split.words.schema', ctx.language, () => [
+      { name: 'filter_field', selector: { select: { mode: 'dropdown', options } } },
+      { name: 'words', selector: { text: { multiple: true } } },
+    ]) as unknown as HaFormSchema[];
+    const labels: Readonly<Record<string, string>> = {
+      filter_field: t('entity.filter_field'),
+      words: t('split.word'),
+    };
+    const helpers: Readonly<Record<string, string>> = {
+      filter_field:
+        locked === undefined
+          ? t('split.match_against_note')
+          : interpolate(t('split.locked'), {
+              field: t(`entity.filter_field.option.${locked}.label`),
+            }),
+      words: interpolate(t('split.words_note'), {
+        field: this._splitFieldWords(ctx)[session.field],
+      }),
+    };
+    return html`<ha-form
+      class="split-form split-words"
+      .hass=${this.hass}
+      .data=${this._intern('split.words.data', { filter_field: session.field, words: [...session.terms] })}
+      .schema=${schema}
+      .computeLabel=${this._keep('split.words.label', labels, () => (item: { name: string }) => labels[item.name])}
+      .computeHelper=${this._keep('split.words.helper', helpers, () => (item: { name: string }) => helpers[item.name])}
+      @value-changed=${(event: CustomEvent) => {
+        event.stopPropagation();
+        if (this._split?.newKey !== session.newKey) return;
+        const value = event.detail?.value as
+          { filter_field?: unknown; words?: unknown } | undefined;
+        const field = locked ?? Split.filterFieldOf(value?.filter_field);
+        const words = Array.isArray(value?.words)
+          ? value.words.map((word) => (typeof word === 'string' ? word : ''))
+          : [];
+        this._splitChange({ field, terms: words });
+      }}
+    ></ha-form>`;
+  }
+
+  /**
+   * The panel a split leaves: both entries as rows, tagged New, then Undo and Done. The first row
+   * only closes it, as this page already edits that entry.
+   *
+   * @param key - The page's entry
+   * @param ctx - Schema context
+   * @returns The panel; nothing once either entry has left
+   */
+  private _renderSplitDone(key: number, ctx: SchemaCtx): TemplateResult | typeof nothing {
+    const done = this._splitDone;
+    if (done?.key !== key) return nothing;
+    const first = this._entryOf(done.key);
+    const second = this._entryOf(done.newKey);
+    if (first === undefined || second === undefined) return nothing;
+    const t = (each: string): string => this._string(ctx, each);
+    const name = this._calendarName(Synthetic.entityIdOf(first));
+    const close = (): void => {
+      this._splitDone = undefined;
+      void this.updateComplete.then(() => Focus.focusFirst(this.renderRoot, ['.page-title']));
+    };
+    const row = (entryKey: number, entry: string | Types.EntityConfig): SplitView.DoneRow => {
+      const parts = CalendarList.rowParts(entry, ctx.language);
+      const label = Entities.asEntityConfig(entry).label;
+      return {
+        key: entryKey,
+        title: `${name}${Summary.SUMMARY_SEPARATOR}${parts[0]}`,
+        summary: [
+          ...parts.slice(1),
+          interpolate(t('summary.set'), { count: String(CalendarList.setCount(entry)) }),
+        ].join(Summary.SUMMARY_SEPARATOR),
+        tag: t('split.new'),
+        color: this._rowColor(entry),
+        badge:
+          Entities.labelTypeOf(entry) === 'text' && typeof label === 'string' && label !== ''
+            ? label
+            : undefined,
+        onOpen: entryKey === done.key ? close : () => this._showEntry(entryKey),
+      };
+    };
+    return SplitView.done(
+      interpolate(t('split.done'), { name }),
+      [row(done.key, first), row(done.newKey, second)],
+      { label: t('history.undo'), focus: 'split-undo', onPress: this._undo },
+      { label: t('split.done_button'), focus: 'split-done-button', onPress: close },
+    );
   }
 
   /**
@@ -4059,27 +6565,26 @@ export class CalendarCardProEditor extends LitElement {
     const data = this._intern(`entry.${key}`, Entities.toEntityFormData(entry, state.entities));
     const chassis = Subforms.chassisSchemas(ctx.language);
     const [pickHass, pickFeed] = this._feed(chassis.entryCalendar, ctx.language);
-    const groups = ENTRY_GROUPS.flatMap((heading) => {
-      const fields = this._fieldsOf(heading.fields, present, new Set(present.keys()));
-      if (fields.length === 0) return [];
-      const body = repeat(
-        fields,
-        (field) => field.id,
-        (field) =>
-          field.id === `calendar:${VISIBILITY}`
-            ? this._renderVisibility(field, key, entry, data, ctx)
-            : this._renderEntryField(field, key, data, ctx),
-      );
-      return [
-        PageView.headingBlock({
-          title: this._headingTitle(heading, ctx),
-          key: heading.key,
-          helper:
-            heading.helperKey === undefined ? undefined : this._string(ctx, heading.helperKey),
-          body,
-        }),
-      ];
-    });
+    const pctx: Plan.PlanCtx = {
+      ...this._planCtx(ctx),
+      present: { fields: present },
+      entry: key,
+    };
+    const groups = this._renderHeadings(
+      Plan.planEntry(entry, key, this._planCtx(ctx), pctx.present),
+      pctx,
+      ctx,
+      { kind: 'entry', key },
+      present,
+      { card: this._formData(), entry: data },
+      (field, show) =>
+        field.id === `calendar:${VISIBILITY}`
+          ? this._renderVisibility(field, key, entry, data, ctx, show)
+          : this._renderEntryField(field, key, data, ctx, show),
+      // Split This Calendar, at Which Events (D12): its row, or the task while it is open.
+      (heading) => (heading.extras?.includes('split') ? this._renderSplit(key, ctx) : nothing),
+      name,
+    );
     return html`<div
       class="page entry-page"
       data-page=${`entry:${key}`}
@@ -4124,7 +6629,7 @@ export class CalendarCardProEditor extends LitElement {
           : nothing
       }
       ${notice ? CalendarView.entryNotice(notice.text, notice.warning) : nothing}
-      ${this._renderScope(ctx)}
+      ${this._renderSplitDone(key, ctx)} ${this._renderScope(ctx)}
       <div
         class="field"
         data-focus="entry-calendar"
@@ -4151,7 +6656,7 @@ export class CalendarCardProEditor extends LitElement {
           @value-changed=${(event: CustomEvent) => this._entryCalendarChanged(key, event)}
         ></ha-form>
       </div>
-      ${groups.length > 0 ? groups : Filter.isFiltering(this._filter) ? this._renderNoMatches(ctx) : nothing}
+      ${groups}
       <div class="page-foot entry-remove">
         ${CalendarView.textButton(
           {
@@ -4274,13 +6779,8 @@ export class CalendarCardProEditor extends LitElement {
       ?.find((candidate) => candidate.path.join('.') === TOOLBAR_BUTTON_PATH.join('.'));
     if (subform === undefined || !Config.resolveToolbar(ctx.config).show) return nothing;
 
-    const filtering = Filter.isFiltering(this._filter);
     const written = Buttons.writtenButtons(this._config!);
-    const shown = this._buttonSchemas(subform).filter((candidate) =>
-      Filter.hasFields(candidate.schema),
-    );
-
-    if (filtering && shown.length === 0) return nothing;
+    const shown = this._buttonSchemas(subform);
     this._drawn?.push(...shown.map(({ schema, data }) => [schema, data] as const));
 
     const computeLabel = this._labeler(ctx.language, subform.path);
@@ -4300,11 +6800,7 @@ export class CalendarCardProEditor extends LitElement {
             data-button-key=${key}
             .header=${Buttons.buttonTitle(entry, index, untitled)}
             .leftChevron=${false}
-            .expanded=${
-              this._filter.customizedOnly ||
-              this._addedButtons.has(key) ||
-              this._jumpsTo('button-field', key)
-            }
+            .expanded=${this._addedButtons.has(key) || this._jumpsTo('button-field', key)}
           >
             <span slot="leading-icon" class="leading-icon">${icon(TOOLBAR_BUTTON_ICON)}</span>
             <div class="panel-body">
@@ -4382,15 +6878,9 @@ export class CalendarCardProEditor extends LitElement {
         `,
       )}
       ${this._renderStatus(ctx, ['button'])}
-      ${
-        filtering
-          ? nothing
-          : html`
-              <button type="button" class="text-button add-button" @click=${this._addButton}>
-                ${this._string(ctx, 'toolbar.buttons.add')}
-              </button>
-            `
-      }
+      <button type="button" class="text-button add-button" @click=${this._addButton}>
+        ${this._string(ctx, 'toolbar.buttons.add')}
+      </button>
     `;
   }
 
@@ -4556,129 +7046,6 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Offers reset actions for explicit values, without duplicating the editing controls.
-   *
-   * 🚨 Guards on where the *workspace writes*, never on `ctx.view`. Those agreed while list
-   * was blockless, so `ctx.view` read as a destination for free. It stopped being one the
-   * moment `list:` was registered: the shared workspace builds its panels as list — see
-   * {@link Workspace.baseViewForWorkspace} — so `ctx.view` is `'list'` there, and guarding on
-   * it offered Shared the reset buttons for `list:`. Clicking one deleted a List override
-   * from a workspace that cannot write to `list:` at all, leaving root untouched.
-   *
-   * Shared therefore offers none, which is the answer the reset *means* rather than a
-   * special case: {@link _resetViewValues} returns a value to what it inherits, and the
-   * shared base inherits from nothing. It is also what the root-writing workspace did
-   * before `list:` existed, so this restores that behavior rather than inventing one.
-   *
-   * @param fields - Fields currently shown
-   * @param ctx - Editing context
-   * @returns Per-option reset buttons, or nothing
-   */
-  private _renderResetControls(
-    fields: ReadonlyArray<IndexedField>,
-    ctx: SchemaCtx,
-  ): TemplateResult | typeof nothing {
-    const view = this._destinationView(ctx);
-    if (view === undefined) return nothing;
-    const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view];
-    if (blockKey === undefined) return nothing;
-    const stored = Value.storedViewBlocks(this._config!)[blockKey];
-    if (!stored || typeof stored !== 'object') return nothing;
-    const seen = new Set<string>();
-    // Each with the field it belongs to, whose wrapper Undo focuses once the value is back.
-    const shown = fields.flatMap((field) =>
-      [...Routing.workspaceFields(field.lifted)].map((each) => ({ ...each, id: field.id })),
-    );
-    const resets = shown.flatMap(({ node, path, labelPath, id }) => {
-      const keys = (
-        path.length === 1 && path[0] === blockKey
-          ? [node.name]
-          : path.length === 0
-            ? Synthetic.configKeysForField(node.name).filter(
-                (key) => Routing.destination(key, view) === blockKey,
-              )
-            : []
-      ).filter((key) => Object.prototype.hasOwnProperty.call(stored, key) && !seen.has(key));
-      if (keys.length === 0) return [];
-      keys.forEach((key) => seen.add(key));
-      return [{ keys, id, label: EditorLocalize.computeLabel(ctx.language, node, labelPath) }];
-    });
-    if (resets.length === 0) return nothing;
-    return html`
-      <div class="view-resets">
-        ${resets.map(
-          ({ keys, id, label }) => html`
-            <button
-              type="button"
-              class="text-button"
-              data-reset-keys=${keys.join(' ')}
-              @click=${() => this._resetViewValues(blockKey, view, keys, label, id)}
-            >
-              ${interpolate(this._string(ctx, 'value_source.reset'), {
-                option: label,
-              })}
-            </button>
-          `,
-        )}
-      </div>
-    `;
-  }
-
-  /**
-   * Returns one view value to its inherited or view-default value.
-   *
-   * @param blockKey - View's storage block
-   * @param view - View whose value is reset
-   * @param keys - Options controlled by the field
-   * @param label - The field's label, which names the undo step
-   * @param fieldId - The field, whose wrapper Undo and Redo focus
-   */
-  private _resetViewValues(
-    blockKey: keyof Types.Config,
-    view: Types.EffectiveView,
-    keys: ReadonlyArray<string>,
-    label: string,
-    fieldId: FieldId,
-  ): void {
-    if (!this._config) return;
-    this._commit(
-      interpolate(this._string(this._ctx, 'history.reset'), { setting: label }),
-      undefined,
-      () => this._resetValues(blockKey, view, keys),
-      `field:${fieldId}`,
-    );
-  }
-
-  /**
-   * `_resetViewValues`' change itself.
-   *
-   * @param blockKey - View's storage block
-   * @param view - View whose value is reset
-   * @param keys - Options controlled by the field
-   */
-  private _resetValues(
-    blockKey: keyof Types.Config,
-    view: Types.EffectiveView,
-    keys: ReadonlyArray<string>,
-  ): void {
-    if (!this._config || !this._prepareForWrite()) return;
-    if (blockKey === 'time_grid') {
-      for (const key of keys) {
-        if (ViewConfig.hasDivergentDefault(key, view)) this._gridResetKeys.add(key);
-      }
-    }
-    for (const key of keys) this._config = Exceptions.removeException(this._config, blockKey, key);
-    const pending = { ...this._pending };
-    for (const key of keys) delete pending[`${blockKey}.${key}`];
-    for (const name of Object.keys(Synthetic.SYNTHETIC_FIELDS)) {
-      if (Synthetic.configKeysForField(name).some((key) => keys.includes(key)))
-        delete pending[Routing.pendingKey(name, view)];
-    }
-    this._pending = pending;
-    this._report(this._config);
-  }
-
-  /**
    * Resolves a string the chassis renders itself, rather than through a schema.
    *
    * @param ctx - Schema context
@@ -4724,12 +7091,13 @@ export class CalendarCardProEditor extends LitElement {
     if (this._quickSetup !== undefined) {
       return this._renderQuickSetup(ctx, this._quickSetup);
     }
-    this._essentialsHidden = 0;
     this._drawn = [];
     this._drawnConditions = new Map();
-    const { shown } = this._filtered(ctx);
-    const present = buildFieldIndex(ctx).fields;
-    this._drawing = { present, shown };
+    const index = buildFieldIndex(ctx);
+    const present = index.fields;
+    // Search reaches every placed field built here; a page draws those the shown set keeps.
+    const shown = new Set([...present.keys()].filter((id) => placementOf(id) !== undefined));
+    this._drawing = { present, shown, index };
     // Every field's form, drawn on the open page or not, and every toolbar button's, so what a
     // page or a panel draws has loaded before it opens.
     const data = this._formData();
@@ -4798,13 +7166,17 @@ export class CalendarCardProEditor extends LitElement {
         @keydown=${this._onKeydown}
       >
         ${cache(
-          !this._exists(route) || (page === undefined && route.kind !== 'entry')
+          !this._exists(route) || route.kind === 'overview' || (route.kind === 'page' && !page)
             ? this._renderOverview(ctx, chassis)
             : keyed(
                 Navigation.routeKey(route),
                 route.kind === 'entry'
                   ? this._renderEntryPage(route.key, ctx)
-                  : this._renderPage(page!, ctx),
+                  : route.kind === 'audit'
+                    ? this._renderAudit(ctx)
+                    : route.kind === 'notices'
+                      ? this._renderNotices(ctx)
+                      : this._renderPage(page!, ctx),
               ),
         )}
         <div class="live-region" role="status" aria-live="polite">${this._spoken}</div>
@@ -4925,6 +7297,14 @@ export class CalendarCardProEditor extends LitElement {
       <div class="grid-reconciliation" data-grid-reconciliation role="status">
         <strong>${this._string(ctx, 'grid_reconciliation.title')}</strong>
         <div>${interpolate(this._string(ctx, 'grid_reconciliation.message'), { options })}</div>
+        <button
+          type="button"
+          class="text-button"
+          data-focus="grid-keeps"
+          @click=${() => this._open({ kind: 'audit', group: 'grid' }, 'grid-keeps', 'push', 'audit:grid')}
+        >
+          ${this._string(ctx, 'grid_reconciliation.see')}
+        </button>
         <button
           type="button"
           class="text-button"
@@ -5170,6 +7550,7 @@ export class CalendarCardProEditor extends LitElement {
 
   /** Opens Quick Setup on the card as it is now. */
   private _openQuickSetup = (): void => {
+    this._cancelSplit(false);
     this._quickSetup = {
       opening: structuredClone(this._rawConfig),
       openingAuthoredRootKeys: new Set(this._authoredRootKeys),
@@ -5264,14 +7645,9 @@ export class CalendarCardProEditor extends LitElement {
     const preview = QuickSetup.buildQuickSetupConfig(session.opening, answers);
     // Compared with Quick Setup's own last write, not `_lastDispatched`: an echo recomputes that
     // under the authorship Quick Setup opened with, so it no longer reads as the preview.
-    const shown = session.previews[session.previews.length - 1] ?? session.opening;
-    const changed = !Value.equalConfigs(preview, shown);
-    this._quickSetup = {
-      ...session,
-      answers,
-      previews: changed ? [...session.previews, preview] : session.previews,
-    };
-    if (!changed) return;
+    const next = Preview.withPreview(session, preview);
+    this._quickSetup = { ...session, ...next, answers };
+    if (next === session) return;
 
     this._lastDispatched = preview;
     this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: preview } }));
@@ -5417,6 +7793,463 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * The overview's notices row, where the YAML holds options the card ignores or options v3.0.0
+   * removed: "Options the Card Ignores: 2 · Old Options: 1", opening the notices page.
+   *
+   * @param ctx - Schema context
+   * @returns The row, or nothing
+   */
+  private _renderNoticesRow(ctx: SchemaCtx): TemplateResult | typeof nothing {
+    const t = this._t(ctx);
+    const parts = [
+      [t('notices.ignored'), ViewConfig.findMisplacedOptions(this._rawConfig).length],
+      [t('notices.old'), Deprecated.oldOptions(this._rawConfig).length],
+    ] as const;
+    const title = parts
+      .filter(([, count]) => count > 0)
+      .map(([words, count]) => interpolate(words, { count: String(count) }))
+      .join(Summary.SUMMARY_SEPARATOR);
+    return title
+      ? Overview.navRow({ key: 'notices', iconPath: mdiInformationOutline, title }, () =>
+          this._open({ kind: 'notices' }, 'notices'),
+        )
+      : nothing;
+  }
+
+  /**
+   * The notices page: the options the card ignores, each with its Move, then each option v3.0.0
+   * removed with its replacement and Move to it, which the next change would otherwise remove.
+   *
+   * @param ctx - Schema context
+   * @returns The page
+   */
+  private _renderNotices(ctx: SchemaCtx): TemplateResult {
+    const t = this._t(ctx);
+    const raw = this._rawConfig;
+    const old = Deprecated.oldOptions(raw);
+    const labelOf = (option: Deprecated.OldOption): string => {
+      const id = Audit.fieldFor(option.to, option.entry === undefined ? 'shared' : 'calendar');
+      const field = id && Audit.anyField(id, ctx.language);
+      return field ? fieldLabel(field, ctx.language) : option.to;
+    };
+    return html`<div class="page" data-page="notices">
+      ${PageView.pageHead(t('misplaced.title'), t, this._back, this._renderHistory(ctx), '')}
+      ${this._renderMisplaced(ctx)}
+      ${
+        old.length > 0
+          ? PageView.headingBlock({
+              title: t('notices.old_title'),
+              key: 'old',
+              helper: t('notices.old_note'),
+              body: html`<ul class="old-options">
+                ${old.map((option) => {
+                  const label = labelOf(option);
+                  return html`<li data-old=${option.path}>
+                    <code>${option.path}</code>
+                    <span>${interpolate(t('notices.replaced'), { label })}</span>
+                    ${
+                      Deprecated.canMove(raw, option)
+                        ? html`<button
+                            type="button"
+                            class="text-button"
+                            @click=${() => this._moveOld(option)}
+                          >
+                            ${interpolate(t('misplaced.move'), { place: label })}
+                          </button>`
+                        : html`<span class="misplaced-taken"
+                            >${interpolate(t('misplaced.taken'), { place: label })}</span
+                          >`
+                    }
+                  </li>`;
+                })}
+              </ul>`,
+            })
+          : nothing
+      }
+      ${PageView.footBack(t, this._back)}
+    </div>`;
+  }
+
+  /** What This Card Changes' groups, made again only when what they read moves. */
+  private _audit = Helpers.memoizeLast(
+    (
+      raw: Readonly<Record<string, unknown>>,
+      config: Types.Config,
+      pending: Readonly<Record<string, string>>,
+      keys: string,
+    ): Audit.AuditGroup[] =>
+      Audit.auditGroups({
+        raw,
+        config,
+        pending,
+        entryKeys: keys === '' ? [] : keys.split(',').map(Number),
+      }),
+  );
+
+  /**
+   * What This Card Changes' groups, for the YAML as it stands.
+   *
+   * @returns The groups
+   */
+  private _auditGroups(): Audit.AuditGroup[] {
+    const keys = this._entryKeysFor((this._config!.entities ?? []).length);
+    return this._audit(this._rawConfig, this._config!, this._pending, keys.join());
+  }
+
+  /**
+   * The audit's counts, "Set: 24 · Not in Use: 1", as its page and its More row show them.
+   *
+   * @param t - The editor's strings
+   * @returns The words
+   */
+  private _auditSummary(t: Overview.Translate): string {
+    const { set, inactive } = Audit.auditCounts(this._auditGroups());
+    return [
+      interpolate(t('summary.set'), { count: String(set) }),
+      ...(inactive > 0 ? [interpolate(t('audit.not_in_use'), { count: String(inactive) })] : []),
+    ].join(Summary.SUMMARY_SEPARATOR);
+  }
+
+  /**
+   * What This Card Changes (section 5.10): every stored line, grouped by where it lives, each a
+   * compact row whose Edit mounts its field's control in place and writes where the line lives,
+   * with Reset and Go to Setting; Reset All per layout, and the lines kept as written, read-only.
+   *
+   * @param ctx - Schema context
+   * @returns The page
+   */
+  private _renderAudit(ctx: SchemaCtx): TemplateResult {
+    const t = this._t(ctx);
+    const layout = this._layoutName(ctx);
+    const groups = [...this._auditGroups()];
+    const edit = this._auditEdit;
+    if (edit && !groups.some((group) => group.lines.some((line) => line.text === edit.line.text))) {
+      const at = groups.findIndex(
+        (group) =>
+          group.kind === edit.group.kind &&
+          group.workspace === edit.group.workspace &&
+          group.key === edit.group.key,
+      );
+      if (at < 0) groups.push({ ...edit.group, lines: [edit.line] });
+      else groups[at] = { ...groups[at], lines: [...groups[at].lines, edit.line] };
+    }
+    const view = (group: Audit.AuditGroup): TemplateResult => {
+      const count = interpolate(t('summary.set'), { count: String(group.lines.length) });
+      const rows = group.lines.map((line) => this._auditRow(line, group, ctx));
+      const key = group.key ?? 0;
+      const name = this._entryName(key);
+      const where = layout(group.workspace);
+      return group.kind === 'entry'
+        ? AuditView.auditGroup({
+            key: `audit:entry:${key}`,
+            title: name,
+            count,
+            sub: true,
+            action: {
+              label: interpolate(t('audit.go_to'), { name }),
+              focus: `audit-entry:${key}`,
+              onPress: () => this._open({ kind: 'entry', key }, `audit-entry:${key}`),
+            },
+            rows,
+          })
+        : AuditView.auditGroup({
+            key: `audit:${group.kind === 'layout' ? group.workspace : group.kind}`,
+            title:
+              group.kind === 'card'
+                ? t('audit.card')
+                : group.kind === 'kept'
+                  ? t('audit.kept')
+                  : where,
+            count,
+            note:
+              group.kind === 'card'
+                ? t('audit.card_note')
+                : group.kind === 'kept'
+                  ? t('audit.kept_note')
+                  : undefined,
+            action:
+              group.kind === 'layout'
+                ? {
+                    label: interpolate(t('audit.reset_all'), { layout: where }),
+                    focus: `reset-all:${group.workspace}`,
+                    onPress: () => {
+                      this._commit(
+                        interpolate(t('audit.reset_all'), { layout: where }),
+                        undefined,
+                        () =>
+                          this._applyReset(
+                            // Line by line, so a line kept as written in the block stays.
+                            group.lines.map((line) => ({ kind: 'path' as const, path: line.path })),
+                            [],
+                          ),
+                      );
+                      this._say(interpolate(t('audit.reset_all_done'), { layout: where }));
+                      void this.updateComplete.then(() =>
+                        Focus.focusFirst(this.renderRoot, ['.page-title']),
+                      );
+                    },
+                  }
+                : undefined,
+            rows,
+          });
+    };
+    const entries = groups.filter((group) => group.kind === 'entry');
+    return html`<div class="page audit" data-page="audit">
+      ${PageView.pageHead(t('more.audit'), t, this._back, this._renderHistory(ctx), t('overview.more'))}
+      <p class="hint">${t('audit.intro')}</p>
+      <p class="audit-count">${this._auditSummary(t)}</p>
+      ${groups.filter((group) => group.kind === 'card' || group.kind === 'layout').map(view)}
+      ${
+        entries.length > 0
+          ? html`<section class="page-group" data-heading="audit:calendars">
+              <h3 class="heading" tabindex="-1">${t('panel.calendars')}</h3>
+              ${entries.map(view)}
+            </section>`
+          : nothing
+      }
+      ${groups.filter((group) => group.kind === 'kept').map(view)}
+      ${PageView.footBack(t, this._back)}
+    </div>`;
+  }
+
+  /**
+   * A stored value as its row words it: as its control does, else as YAML would, where the
+   * control cannot (an action a mode collapses to Nothing).
+   *
+   * @param field - The line's field
+   * @param value - The value as stored
+   * @param ctx - Schema context
+   * @returns The words
+   */
+  private _auditWord(field: IndexedField, value: unknown, ctx: SchemaCtx): string {
+    const word = Summary.wordValue(field, value, ctx.language, this._describe);
+    return word === undefined || (typeof value === 'object' && word === String(value))
+      ? Audit.plainValue(value)
+      : word;
+  }
+
+  /**
+   * One line of What This Card Changes, as its row: label, value, YAML path, state words and
+   * tags; Edit, Reset and Go to Setting where the editor owns the line, none where it keeps it as
+   * written.
+   *
+   * @param line - The line
+   * @param group - Its group
+   * @param ctx - Schema context
+   * @returns The row
+   */
+  private _auditRow(
+    line: Audit.AuditLine,
+    group: Audit.AuditGroup,
+    ctx: SchemaCtx,
+  ): TemplateResult {
+    const t = this._t(ctx);
+    const layout = this._layoutName(ctx);
+    const key = line.path[line.path.length - 1];
+    const kept = (): TemplateResult =>
+      AuditView.auditRow({
+        path: line.text,
+        label: key,
+        value: Audit.plainValue(line.value),
+        words: t('audit.kept'),
+        tags: Audit.HA_LAYOUT_KEYS.has(key) ? [t('audit.ha_own')] : [],
+      });
+    if (line.page !== undefined) {
+      const label = this._string(ctx, key === 'view' ? 'view' : 'toolbar.buttons.heading');
+      const reset = interpolate(t('value_source.reset'), { option: label });
+      return AuditView.auditRow({
+        path: line.text,
+        label,
+        value:
+          key === 'view' ? layout(line.value as Types.EffectiveView) : Audit.plainValue(line.value),
+        words: t('state.set_all_layouts'),
+        tags: [],
+        reset: {
+          name: reset,
+          title: t('reset.reset'),
+          focus: `audit-reset:${line.text}`,
+          onPress: () =>
+            this._commit(interpolate(t('history.reset'), { setting: label }), undefined, () =>
+              this._applyReset({ kind: 'path', path: line.path }, []),
+            ),
+        },
+        go: {
+          name: interpolate(t('audit.go_to'), { name: label }),
+          title: t('audit.go_setting'),
+          focus: `audit-go:${line.text}`,
+          onPress: () =>
+            line.page === 'overview'
+              ? this._open({ kind: 'overview' }, `audit-go:${line.text}`)
+              : this._open(
+                  { kind: 'page', page: line.page! },
+                  `audit-go:${line.text}`,
+                  'push',
+                  key,
+                ),
+        },
+      });
+    }
+    if (line.field === undefined) return kept();
+
+    const entry = group.kind === 'entry' ? group.key! : undefined;
+    const wctx =
+      entry === undefined
+        ? this._ctxFor(
+            this._config!,
+            group.workspace,
+            this.hass?.locale,
+            this._heldModes(this._pending, group.workspace),
+          )
+        : ctx;
+    const stored = entry === undefined ? undefined : this._entryOf(entry);
+    const present =
+      stored === undefined ? buildFieldIndex(wctx) : entityFieldIndex(entrySchema(stored, wctx));
+    const field = present.fields.get(line.field) ?? Audit.anyField(line.field, ctx.language);
+    if (field === undefined) return kept();
+    const pctx: Plan.PlanCtx = {
+      ...this._planCtx(ctx),
+      workspace: group.workspace,
+      present,
+      universe: universeIndex('en', group.workspace),
+      entry,
+    };
+    const label = fieldLabel(field, ctx.language);
+    const named =
+      entry !== undefined
+        ? interpolate(t('audit.on_calendar'), { label, name: this._entryName(entry) })
+        : group.kind === 'layout'
+          ? interpolate(t('audit.in_layout'), { label, layout: layout(group.workspace) })
+          : label;
+    const value = Audit.outsideOptions(field.node, line.value)
+      ? interpolate(t('value.from_yaml'), { value: String(line.value) })
+      : this._auditWord(field, line.value, ctx);
+    const state = Plan.stateOf(field, pctx);
+    const outcome = Plan.resetOutcome(field, pctx);
+    const entryData =
+      stored === undefined
+        ? undefined
+        : this._intern(
+            `entry.${entry}`,
+            Entities.toEntityFormData(stored, this._config!.entities ?? []),
+          );
+    const data = {
+      card: this._formDataFor(this._config!, group.workspace, this._pending),
+      entry: entryData,
+    };
+    const labelOf = (id: FieldId): string => {
+      const each = universeIndex(ctx.language, group.workspace).fields.get(id);
+      return each ? fieldLabel(each, ctx.language) : id;
+    };
+    const editing = this._auditEdit?.line.text === line.text;
+    return AuditView.auditRow({
+      path: line.text,
+      label,
+      value,
+      words: Shown.stateText(state, t, layout, this._wordOf(field, ctx)) ?? t('state.set'),
+      tags:
+        state?.words?.kind !== 'set-layout' &&
+        (outcome?.kind === 'default' || outcome?.kind === 'layout-default') &&
+        Value.deepEqual(outcome.value, line.value)
+          ? [t('audit.same')]
+          : [],
+      warning: line.inactive
+        ? interpolate(t('audit.inactive'), {
+            when: whenText(line.inactive.gate, data, ctx.language, labelOf) ?? '',
+          })
+        : undefined,
+      edit: {
+        name: interpolate(t('audit.edit'), { label: named, value }),
+        onPress: () => {
+          this._auditEdit = { line, group };
+          // A color's line opens its control, as editing a dropdown's line opens no menu but
+          // shows its choices: here the choices are the control's rows and swatches.
+          const colorKey = this._colorKeyOf(
+            entry === undefined ? WriteFrames.CARD_OWNER : { kind: 'entry', key: entry },
+            field.id,
+            entry === undefined ? wctx : ctx,
+          );
+          if (colorKey !== undefined) this._openColor = colorKey;
+          void this.updateComplete.then(() =>
+            Focus.focusFirst(this.renderRoot, [
+              `[data-audit="${CSS.escape(line.text)}"] [data-field]`,
+            ]),
+          );
+        },
+      },
+      editing: editing
+        ? entry === undefined
+          ? this._renderField(field, wctx)
+          : this._renderEntryField(field, entry, entryData!, ctx)
+        : undefined,
+      reset: {
+        name: interpolate(t('value_source.reset'), { option: named }),
+        title: t('reset.reset'),
+        focus: `audit-reset:${line.text}`,
+        onPress: () => {
+          this._commit(interpolate(t('history.reset'), { setting: named }), undefined, () =>
+            this._applyReset(
+              entry === undefined
+                ? { kind: 'path', path: line.path }
+                : { kind: 'entry', key: entry, keys: [key] },
+              [],
+            ),
+          );
+          void this.updateComplete.then(() =>
+            Focus.focusFirst(this.renderRoot, [
+              `[data-heading="${CSS.escape(`audit:${entry === undefined ? (group.kind === 'layout' ? group.workspace : 'card') : `entry:${entry}`}`)}"] .heading`,
+              '.page-title',
+            ]),
+          );
+        },
+      },
+      go: {
+        name: interpolate(t('audit.go_to'), { name: named }),
+        title: t('audit.go_setting'),
+        focus: `audit-go:${line.text}`,
+        onPress: () => {
+          // A calendar's field opens where its page draws it: the scope, else the first that does.
+          const scope =
+            entry === undefined
+              ? group.workspace
+              : [this._workspace, ...Workspace.WORKSPACES].find((each) =>
+                  entityFieldIndex(
+                    entrySchema(
+                      stored!,
+                      this._ctxFor(
+                        this._config!,
+                        each,
+                        this.hass?.locale,
+                        this._heldModes(this._pending, each),
+                      ),
+                    ),
+                  ).fields.has(field.id),
+                );
+          if (scope !== undefined && scope !== this._workspace) {
+            this._selectedWorkspace = scope;
+            this._scopeChanged = true;
+          }
+          const page = placementOf(field.id)?.page;
+          this._openResult(
+            {
+              target:
+                entry === undefined
+                  ? {
+                      kind: 'field',
+                      id: field.id,
+                      page: page === 'overview' || page === 'entry' ? undefined : page,
+                    }
+                  : { kind: 'entry-field', id: field.id, key: entry },
+              label,
+            },
+            `audit-go:${line.text}`,
+            false,
+          );
+        },
+      },
+    });
+  }
+
+  /**
    * Moves one misplaced option to where it works, and reports the result.
    *
    * Edits the YAML's own configuration and adopts it as the authored baseline before any echo,
@@ -5442,13 +8275,53 @@ export class CalendarCardProEditor extends LitElement {
    * @param to - The place to move it to
    */
   private _moveOption(finding: ViewConfig.MisplacedOption, to: Misplaced.Place): void {
+    this._writeRaw(
+      (raw) => Misplaced.moveOption(raw, finding, to),
+      finding.from === null ? finding.key : undefined,
+      to === null ? finding.key : undefined,
+    );
+  }
+
+  /**
+   * Moves an option v3.0.0 removed to its replacement, as one undo step (`deprecated.ts`).
+   *
+   * @param old - The option
+   */
+  private _moveOld(old: Deprecated.OldOption): void {
+    // A pre-v5 card's first write migrates it and removes the option before the move reads it.
+    const at = old.entry === undefined ? this._rawConfig : this._config?.entities?.[old.entry];
+    const held = Helpers.isConfigBlock(at) ? at[old.key] : undefined;
+    this._commit(
+      interpolate(this._string(this._ctx, 'history.move'), { name: old.path }),
+      undefined,
+      () =>
+        this._writeRaw(
+          (raw) => Deprecated.moveOld(raw, old, held),
+          old.entry === undefined ? old.key : undefined,
+          old.entry === undefined ? old.to : undefined,
+        ),
+    );
+  }
+
+  /**
+   * Writes a change made to the YAML itself, adopted as the authored baseline before any echo:
+   * a move, which `_report` would minimize against a baseline that never held the moved line.
+   *
+   * @param make - The YAML after the change, from the YAML as it stands
+   * @param left - A root key the change takes away
+   * @param added - A root key the change writes
+   */
+  private _writeRaw(
+    make: (raw: Readonly<Record<string, unknown>>) => Record<string, unknown> | undefined,
+    left?: string,
+    added?: string,
+  ): void {
     if (!this._prepareForWrite()) return;
 
     // A first write can migrate a pre-v5 card; move within what that produced.
-    const next =
-      Misplaced.moveOption(this._rawConfig, finding, to) ?? structuredClone(this._rawConfig);
-    if (finding.from === null) this._authoredRootKeys.delete(finding.key);
-    if (to === null) this._authoredRootKeys.add(finding.key);
+    const next = make(this._rawConfig) ?? structuredClone(this._rawConfig);
+    if (left !== undefined) this._authoredRootKeys.delete(left);
+    if (added !== undefined) this._authoredRootKeys.add(added);
 
     this._rawConfig = structuredClone(next);
     this._config = { ...Config.DEFAULT_CONFIG, ...(next as unknown as Types.Config) };
@@ -5476,7 +8349,7 @@ export class CalendarCardProEditor extends LitElement {
           .data=${this._intern('filter', Filter.filterFormData(this._filter))}
           .schema=${chassis.filter}
           .computeLabel=${this._labeler(ctx.language)}
-          .computeHelper=${this._helper('filter', chassis.filter, ctx)}
+          .computeHelper=${this._helper('filter', ctx)}
           .localizeValue=${this._localizeValue}
           @value-changed=${this._filterChanged}
         ></ha-form>
@@ -5496,14 +8369,9 @@ export class CalendarCardProEditor extends LitElement {
     if (!data) return;
 
     const next = Filter.toFilterCriteria(data);
-    if (next.essentialsOnly !== this._filter.essentialsOnly) {
-      Essentials.rememberEssentialsOnly(next.essentialsOnly);
-    }
-    const typed = next.query !== this._filter.query;
+    if (next.query === this._filter.query) return;
     this._filter = next;
-    // A switch can take away the field a result showed, so Return to Results goes to the top.
     this._jump = undefined;
-    if (!typed) return;
     // Typing again leaves the field a result showed for the results.
     this._resultsLeft = undefined;
     // The count, through the queue, once the render that counts it is done.
@@ -5511,44 +8379,15 @@ export class CalendarCardProEditor extends LitElement {
   };
 
   /**
-   * Says how many settings Essentials Only is hiding, so a shorter editor never reads as the
-   * whole of it.
-   *
-   * @param ctx - Schema context
-   * @returns The line, or nothing while Essentials Only is not what narrows the editor
-   */
-  private _renderEssentialsNote(ctx: SchemaCtx): TemplateResult | typeof nothing {
-    if (!Filter.appliesEssentials(this._filter) || this._filter.customizedOnly) return nothing;
-    return html`<div class="filter-note" data-essentials-note>
-      ${interpolate(this._string(ctx, 'essentials_only.hidden'), {
-        count: String(this._essentialsHidden),
-      })}
-    </div>`;
-  }
-
-  /**
-   * Says why the editor is empty.
+   * Says that a query finds nothing.
    *
    * @param ctx - Schema context
    * @returns The message
    */
   private _renderNoMatches(ctx: SchemaCtx): TemplateResult {
     const query = this._filter.query.trim();
-
-    if (query === '') {
-      // Only Customized Only can empty the editor without a query: Essentials Only keeps the
-      // overview's essentials, and beside Customized Only it keeps everything the card sets,
-      // which is everything Customized Only keeps.
-      return html`
-        <div class="filter-empty">${this._string(ctx, 'filter.nothing_customized')}</div>
-      `;
-    }
-
-    return html`
-      <div class="filter-empty">
-        ${interpolate(this._string(ctx, 'filter.no_matches'), { query })}
-        <div class="filter-empty-note">${this._string(ctx, 'filter.gated_note')}</div>
-      </div>
-    `;
+    return html`<div class="filter-empty">
+      ${interpolate(this._string(ctx, 'filter.no_matches'), { query })}
+    </div>`;
   }
 }

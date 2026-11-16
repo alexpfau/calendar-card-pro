@@ -12,6 +12,8 @@ import {
   changeField,
   formOf,
   formsOf,
+  helperOf,
+  labelOf,
   mountEditor,
   openPanels,
   resetButton,
@@ -33,11 +35,15 @@ interface EditorHost extends HTMLElement {
 }
 
 async function mount(config: Record<string, unknown> = {}) {
-  const editor = await mountEditor({
-    config_version: Config.CURRENT_CONFIG_VERSION,
-    entities: ['calendar.anna'],
-    ...config,
-  });
+  const editor = await mountEditor(
+    {
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: ['calendar.anna'],
+      ...config,
+      // Every setting a page can draw: these read forms the shown set would leave in Add rows.
+    },
+    { every: true },
+  );
   // A closed panel mounts no form: open every panel, as these tests read forms across the editor.
   await openPanels(editor);
   const reports: Record<string, unknown>[] = [];
@@ -647,23 +653,17 @@ describe('implicit defaults and first-switch boundaries', () => {
     expect(valueOf(editor, 'events:event_background_opacity')).toBe(20);
   });
 
-  it('does not present implicit Grid defaults as customized values', async () => {
+  it('does not present implicit Grid defaults as values the card sets', async () => {
     const { editor, reports } = await mount();
     await changeField(editor, 'display:view', 'grid');
-    expect(valueOf(editor, 'events:event_background_opacity')).toBe(20);
-    await changeField(editor, 'filter:customized_only', true);
     expect(reports).toHaveLength(1);
-    // The positive control: the filter ran and drew its verdict, that nothing is customized.
-    // A bare calendar is customized in nothing either, so the Calendars block is left out with
-    // it, and the editor's whole answer is this line.
-    expect(editor.shadowRoot!.querySelector('.overview > .filter-empty')?.textContent?.trim()).toBe(
-      lookup('en', 'filter.nothing_customized'),
-    );
-    const fields = formsOf(editor, CARD).flatMap((form) =>
-      [...workspaceFields(form.schema)].map(({ node }) => node.name),
-    );
-    expect(fields).not.toContain('event_background_opacity');
-    expect(fields).not.toContain('event_font_size');
+    expect(reports[0]).not.toHaveProperty('time_grid');
+    // Grid's own default, worded as one, and never as a value set for Grid.
+    const words = (id: string) => `${labelOf(editor, id)} ${helperOf(editor, id) ?? ''}`;
+    for (const id of ['events:event_background_opacity', 'events:event_font_size']) {
+      expect(words(id), id).toContain('Grid’s Default');
+      expect(words(id), id).not.toContain('Set for Grid');
+    }
   });
 
   it('does not remove existing explicit defaults from an older Grid configuration', async () => {

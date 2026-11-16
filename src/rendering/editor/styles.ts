@@ -99,11 +99,20 @@ export default css`
     padding-inline-start: 20px;
   }
 
-  .misplaced-options li {
+  .old-options {
+    margin: 0;
+    padding-inline-start: 20px;
+    line-height: 1.4;
+  }
+
+  .misplaced-options li,
+  .old-options li {
     padding: 2px 0;
   }
 
-  .misplaced-options code {
+  .misplaced-options code,
+  .old-options code,
+  .audit-meta code {
     font-family: var(--code-font-family, monospace);
     overflow-wrap: anywhere;
   }
@@ -279,12 +288,6 @@ export default css`
     opacity: 0.5;
   }
 
-  .view-resets {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-
   ha-expansion-panel {
     margin: 8px 0;
   }
@@ -343,24 +346,10 @@ export default css`
     padding-bottom: 12px;
   }
 
-  .filter-note {
-    color: var(--secondary-text-color);
-    font-size: 12px;
-    line-height: 1.4;
-    padding: 8px 0 4px;
-  }
-
   .filter-empty {
     color: var(--primary-text-color);
     padding: 24px 8px;
     text-align: center;
-  }
-
-  .filter-empty-note {
-    color: var(--secondary-text-color);
-    font-size: 12px;
-    line-height: 1.4;
-    margin-top: 8px;
   }
 
   ha-expansion-panel.button-panel {
@@ -479,11 +468,13 @@ export default css`
   .icon-button:hover,
   .nav-row:hover,
   .display-choice:hover,
-  .scope-choice:hover {
+  .scope-choice:hover,
+  .chip-choice:hover {
     background: var(--secondary-background-color);
   }
 
   .icon-button:focus-visible,
+  .audit-edit:focus-visible,
   .nav-row:focus-visible,
   .text-button:focus-visible,
   .link:focus-visible,
@@ -491,7 +482,8 @@ export default css`
   .heading:focus-visible,
   .page-title:focus-visible,
   .display-choice:focus-within,
-  .scope-choice:focus-within {
+  .scope-choice:focus-within,
+  .chip-choice:focus-within {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
   }
@@ -524,7 +516,9 @@ export default css`
   }
 
   .scope,
-  .displays {
+  .displays,
+  .chips,
+  .tap-line {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -534,7 +528,8 @@ export default css`
     border: none;
   }
 
-  .scope-compact {
+  .scope-compact,
+  .tap-line {
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
@@ -545,18 +540,21 @@ export default css`
     color: var(--secondary-text-color);
   }
 
-  .scope-line b {
+  .scope-line b,
+  .tap-line b {
     color: var(--primary-text-color);
     font-weight: 500;
   }
 
-  .scope-choices {
+  .scope-choices,
+  .chip-choices {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
   }
 
-  .scope-choice {
+  .scope-choice,
+  .chip-choice {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -568,6 +566,7 @@ export default css`
   }
 
   .scope-choice:has(input:checked),
+  .chip-choice:has(input:checked),
   .display-choice:has(input:checked) {
     border-color: var(--primary-color);
   }
@@ -784,6 +783,282 @@ export default css`
     flex-direction: column;
     gap: 4px;
     border-radius: 4px;
+  }
+
+  /* Use a Pattern and Use Words sit under their list at their own width. */
+  .word-mode {
+    align-self: flex-start;
+  }
+
+  /* --- Show what applies -----------------------------------------------------
+     The line under a field with what its state words leave out, what Reset gives and its
+     actions; a heading's Add row and gate lines; the preferences. The mark is decoration:
+     a filled dot for a value stored here, a ring otherwise. */
+  /* A family's Remove, under the heading it removes. */
+  .heading-action {
+    margin-top: -12px;
+  }
+
+  .field-line {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    color: var(--secondary-text-color);
+    font-size: 12px;
+    line-height: 1.45;
+    --mdc-icon-size: 16px;
+  }
+
+  .mark {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    margin-top: 16px;
+    border: 1.5px solid var(--primary-color);
+    border-radius: 50%;
+  }
+
+  .mark.stored {
+    background: var(--primary-color);
+  }
+
+  .field-line-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* What This Card Changes: a compact row per stored line, its label and value as Edit. */
+  .audit-head,
+  .audit-row,
+  .audit-line,
+  .audit-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 8px;
+  }
+
+  .audit-head .heading {
+    flex: 1;
+  }
+
+  .audit-count,
+  .audit-meta {
+    color: var(--secondary-text-color);
+    font-size: 12px;
+  }
+
+  .audit-row {
+    flex-wrap: nowrap;
+    border-top: 1px solid var(--divider-color);
+  }
+
+  .audit-text {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 0;
+  }
+
+  .audit-edit {
+    width: 100%;
+    min-height: 44px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+  }
+
+  .audit-line {
+    justify-content: space-between;
+  }
+
+  .audit-value {
+    overflow-wrap: anywhere;
+  }
+
+  .tag {
+    padding: 0 6px;
+    border-radius: 8px;
+    background: var(--secondary-background-color);
+  }
+
+  .tag.warning {
+    color: var(--warning-color, #ffa600);
+  }
+
+  .field-note,
+  .gate-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 8px;
+    margin: 0;
+  }
+
+  .gate-line {
+    color: var(--secondary-text-color);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .line-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 44px;
+    font-size: 13px;
+    --mdc-icon-size: 16px;
+  }
+
+  .add-row {
+    border: 1px dashed var(--divider-color);
+    border-radius: var(--ha-card-border-radius, 12px);
+  }
+
+  .add-toggle,
+  .add-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 12px;
+    border: none;
+    border-radius: inherit;
+    background: none;
+    color: var(--primary-text-color);
+    cursor: pointer;
+    font: inherit;
+    text-align: start;
+  }
+
+  .add-toggle:hover,
+  .add-item:hover {
+    background: var(--secondary-background-color);
+  }
+
+  .add-toggle:focus-visible,
+  .add-item:focus-visible,
+  .pref-switch:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+
+  .add-text,
+  .add-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .add-text {
+    flex: 1;
+    display: flex;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .add-title {
+    color: var(--primary-color);
+    font-weight: 500;
+  }
+
+  .add-names,
+  .add-count,
+  .add-item-note,
+  .add-item-value {
+    color: var(--secondary-text-color);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .add-names {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+
+  .add-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0 8px 8px;
+    border-top: 1px solid var(--divider-color);
+  }
+
+  .add-item {
+    gap: 2px;
+  }
+
+  .add-filter {
+    margin: 8px 4px;
+    padding: 8px;
+    border: 1px solid var(--divider-color);
+    border-radius: 4px;
+    background: var(--card-background-color);
+    color: var(--primary-text-color);
+    font: inherit;
+  }
+
+  .pref-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 4px 16px 8px;
+  }
+
+  .pref-switch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 44px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--primary-text-color);
+    cursor: pointer;
+    font: inherit;
+    text-align: start;
+  }
+
+  .pref-track {
+    flex: none;
+    width: 36px;
+    height: 14px;
+    border-radius: 7px;
+    background: var(--secondary-text-color);
+    opacity: 0.5;
+    position: relative;
+  }
+
+  .pref-thumb {
+    position: absolute;
+    top: -3px;
+    inset-inline-start: 0;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--card-background-color);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  }
+
+  .pref-switch[aria-checked='true'] .pref-track {
+    background: var(--primary-color);
+  }
+
+  .pref-switch[aria-checked='true'] .pref-thumb {
+    inset-inline-start: 16px;
+    background: var(--primary-color);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .pref-thumb {
+      transition: inset-inline-start 0.15s;
+    }
   }
 
   /* --- The calendar list and entry pages ------------------------------------
@@ -1076,6 +1351,167 @@ export default css`
     --mdc-icon-size: 20px;
   }
 
+  /*
+   * Split This Calendar (D12): the row under Which Events, the task in place of it with its
+   * stepper, a refusal inside its method's card, a part's card, and the panel a split leaves.
+   * The task and the panel are outlined in the primary color, the way the mockups frame them.
+   */
+  .split-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 56px;
+    padding: 8px 4px 8px 16px;
+    border: 1px solid var(--divider-color);
+    border-radius: 12px;
+    background: none;
+    color: var(--primary-text-color);
+    cursor: pointer;
+    font: inherit;
+    text-align: start;
+  }
+
+  .split-task,
+  .split-done {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 16px;
+    border: 2px solid var(--primary-color);
+    border-radius: 12px;
+  }
+
+  .split-stepper,
+  .split-steps,
+  .split-step,
+  .split-actions,
+  .split-part-head,
+  .split-done-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .split-steps {
+    flex: 1;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--secondary-text-color);
+    font-size: 14px;
+  }
+
+  .split-step {
+    flex: 1;
+  }
+
+  .split-step.current {
+    color: var(--primary-text-color);
+    font-weight: 500;
+  }
+
+  .split-step-dot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    font-size: 12px;
+    --mdc-icon-size: 16px;
+  }
+
+  .split-step.current .split-step-dot,
+  .split-step.done .split-step-dot {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+  }
+
+  .split-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  .split-actions {
+    justify-content: space-between;
+  }
+
+  .split-methods,
+  .split-part,
+  .split-method {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .split-method,
+  .split-part {
+    padding: 12px;
+    border: 1px solid var(--divider-color);
+    border-radius: 12px;
+  }
+
+  .split-method.checked {
+    border-color: var(--primary-color);
+  }
+
+  .split-method label {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    cursor: pointer;
+  }
+
+  .split-method.refused label {
+    cursor: default;
+    opacity: 0.6;
+  }
+
+  .split-refusal {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: var(--secondary-background-color);
+    font-size: 14px;
+    --mdc-icon-size: 20px;
+  }
+
+  .split-refusal p,
+  .split-counts,
+  .split-writes,
+  .split-events {
+    margin: 0;
+  }
+
+  .split-refusal .icon {
+    fill: var(--warning-color);
+  }
+
+  .split-counts,
+  .split-writes,
+  .split-events {
+    color: var(--secondary-text-color);
+    font-size: 14px;
+  }
+
+  .split-events {
+    padding-inline-start: 0;
+    list-style: none;
+  }
+
+  .tag {
+    padding: 0 6px;
+    border-radius: 8px;
+    background: var(--primary-color);
+    color: var(--text-primary-color, #fff);
+    font-size: 11px;
+  }
+
   /* The field a search result opened, Return to Results above it, highlighted for 2 s. */
   .jump {
     display: flex;
@@ -1094,6 +1530,213 @@ export default css`
   .jumped {
     outline: 2px solid var(--primary-color);
     outline-offset: 4px;
+  }
+
+  .color-head {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .color-toggle {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    min-height: 56px;
+    padding: 0 8px 0 12px;
+    border: none;
+    border-bottom: 1px solid var(--divider-color);
+    border-radius: 4px 4px 0 0;
+    background: var(--secondary-background-color);
+    color: var(--primary-text-color);
+    cursor: pointer;
+    font: inherit;
+    text-align: start;
+  }
+
+  .color-control.open .color-toggle {
+    border-bottom-color: var(--primary-color);
+  }
+
+  .color-toggle:focus-visible,
+  .color-row:focus-within,
+  .color-swatch:has(input:focus-visible) {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+
+  .color-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .color-name {
+    color: var(--secondary-text-color);
+    font-size: 12px;
+  }
+
+  .color-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .color-dot {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--divider-color);
+    border-radius: 50%;
+    box-sizing: border-box;
+    background: var(--dot);
+    color: #fff;
+    --mdc-icon-size: 20px;
+  }
+
+  .color-dot.crossed {
+    background: linear-gradient(
+      135deg,
+      transparent 46%,
+      var(--secondary-text-color) 46% 54%,
+      transparent 54%
+    );
+  }
+
+  .color-dot .icon {
+    filter: drop-shadow(0 0 1px #000);
+  }
+
+  .color-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 4px 0 0;
+    padding: 8px;
+    border: 1px solid var(--divider-color);
+    border-radius: 12px;
+  }
+
+  .color-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .color-row:has(input:checked) {
+    background: var(--secondary-background-color);
+  }
+
+  .color-row input,
+  .color-swatch input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .color-row-label {
+    font-weight: 500;
+  }
+
+  .color-mark {
+    display: inline-grid;
+    place-items: center;
+    width: 32px;
+  }
+
+  .color-swatches {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 44px);
+    gap: 4px;
+    margin: 4px 0;
+    padding: 8px 0;
+    border: none;
+    border-top: 1px solid var(--divider-color);
+  }
+
+  .color-swatch {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+
+  .color-swatch .color-dot {
+    width: 36px;
+    height: 36px;
+  }
+
+  .color-swatch:has(input:checked) .color-dot {
+    outline: 2px solid var(--primary-text-color);
+    outline-offset: 2px;
+  }
+
+  .color-tip {
+    position: absolute;
+    bottom: calc(100% + 2px);
+    z-index: 1;
+    display: none;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--primary-text-color);
+    color: var(--card-background-color, #fff);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .color-swatch:hover .color-tip,
+  .color-swatch:active .color-tip,
+  .color-swatch:has(input:focus-visible) .color-tip {
+    display: block;
+  }
+
+  .color-custom {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 4px 12px;
+    padding-inline-start: 8px;
+  }
+
+  .color-invalid {
+    grid-column: 2;
+    margin: 0;
+    color: var(--error-color);
+    font-size: 12px;
+  }
+
+  .color-yaml {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 8px;
+    margin: 4px 0 0;
+    padding: 8px 8px 0;
+    border-top: 1px solid var(--divider-color);
+    color: var(--secondary-text-color);
+    font-size: 12px;
+  }
+
+  .color-yaml code {
+    color: var(--primary-text-color);
+    overflow-wrap: anywhere;
+  }
+
+  .color-kept {
+    flex-basis: 100%;
   }
 
   .live-region {
