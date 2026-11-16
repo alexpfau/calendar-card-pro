@@ -580,6 +580,11 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['actions:open_links', A],
           ['actions:allow_event_edit', E],
           ['actions:allow_event_delete', E],
+        ],
+      },
+      {
+        key: 'heading.refresh',
+        fields: [
           ['actions:refresh_interval', A],
           ['actions:refresh_on_navigate', A],
         ],
