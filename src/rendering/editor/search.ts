@@ -64,18 +64,16 @@ export interface SearchOwner {
   readonly entry: unknown;
   readonly index: number;
   readonly key: number;
-  /** Its fields, as the switches leave them. */
+  /** Its fields. */
   readonly schema: ReadonlyArray<HaFormSchema>;
 }
 
 /** Everything the index reads besides the fields themselves. */
 export interface SearchCtx extends SchemaCtx {
   readonly hass?: Types.Hass;
-  /** Customized Only: a title then finds nothing by itself. */
-  readonly customizedOnly: boolean;
   /** The card fields built here, by id. */
   readonly present: ReadonlyMap<FieldId, IndexedField>;
-  /** The ids the switches keep. */
+  /** The ids search reaches: every placed field built here. */
   readonly shown: ReadonlySet<FieldId>;
   /** The scope's form data. */
   readonly data: Readonly<Record<string, unknown>>;
@@ -130,10 +128,6 @@ function nodeTexts(
     ],
     [EditorLocalize.computeAliases(language, node, path), 'alias'],
   );
-  if (ctx.workspace !== undefined && 'selector' in node) {
-    const source = Routing.valueSource(ctx.rawConfig ?? ctx.config, ctx.workspace, node.name);
-    if (source) text.push([EditorLocalize.lookup(language, `value_source.${source}`), 'helper']);
-  }
   if ('value' in node && typeof node.value === 'string') text.push([node.value, 'label']);
   if ('selector' in node && 'select' in node.selector && node.selector.select !== null) {
     for (const option of node.selector.select.options) {
@@ -267,7 +261,7 @@ function at(data: unknown, path: ReadonlyArray<string>): unknown {
 }
 
 /**
- * The card fields' rows, by id: each field the switches keep and the registry places, found by
+ * The card fields' rows, by id: each field built here that the registry places, found by
  * its own text, its page's title, and its heading's title and the line under it.
  *
  * @param ctx - The index's context
@@ -290,7 +284,7 @@ function cardRows(ctx: SearchCtx): Map<FieldId, SearchEntry> {
         heading?.helperKey ??
         Object.values(FAMILIES).find((family) => family.titleKey === heading?.key)?.helperKey;
       const text: Texts = [...leaf.text];
-      if (page && !ctx.customizedOnly) {
+      if (page) {
         text.push(
           [page.id, 'heading'],
           [ctx.t(page.titleKey), 'heading'],

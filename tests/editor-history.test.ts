@@ -301,7 +301,9 @@ describe('Undo restores exactly', () => {
     await openPageOf(editor, 'events:event_font_size');
     $(editor, '[data-reset-keys="event_font_size"]')!.click();
     await settle(editor);
-    await key(editor, $(editor, '[data-field="events:event_font_size"]')!, {
+    // Grid's own default applies once the line is gone, so the field goes back to its Add row,
+    // which takes focus; Undo is pressed there.
+    await key(editor, editor.shadowRoot!.activeElement as HTMLElement, {
       key: 'z',
       ctrlKey: true,
     });

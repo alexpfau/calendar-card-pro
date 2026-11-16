@@ -81,7 +81,7 @@ describe('editor filter bar', () => {
     const before = formsOf(element, CARD).length;
     expect(before).toBeGreaterThan(1);
 
-    await changeFields(element, { 'filter:search': 'weather', 'filter:customized_only': false });
+    await changeFields(element, { 'filter:search': 'weather' });
 
     // What the search finds, as rows, which mount no form.
     expect(formsOf(element, CARD)).toHaveLength(0);
@@ -92,10 +92,10 @@ describe('editor filter bar', () => {
     const element = await mount({ entities: ['calendar.a'] });
     const before = formsOf(element, CARD).length;
 
-    await changeFields(element, { 'filter:search': 'weather', 'filter:customized_only': false });
+    await changeFields(element, { 'filter:search': 'weather' });
     expect(formsOf(element, CARD).length).toBeLessThan(before);
 
-    await changeFields(element, { 'filter:search': '', 'filter:customized_only': false });
+    await changeFields(element, { 'filter:search': '' });
     expect(formsOf(element, CARD)).toHaveLength(before);
   });
 
@@ -104,7 +104,7 @@ describe('editor filter bar', () => {
     let escaped = 0;
     document.addEventListener('value-changed', () => (escaped += 1));
 
-    await changeFields(element, { 'filter:search': 'weather', 'filter:customized_only': false });
+    await changeFields(element, { 'filter:search': 'weather' });
 
     expect(escaped).toBe(0);
   });
@@ -113,7 +113,7 @@ describe('editor filter bar', () => {
     const element = await mount({ entities: ['calendar.a'] });
     const seen = reported(element);
 
-    await changeFields(element, { 'filter:search': 'weather', 'filter:customized_only': false });
+    await changeFields(element, { 'filter:search': 'weather' });
 
     expect(seen).toHaveLength(0);
   });

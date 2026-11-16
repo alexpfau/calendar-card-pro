@@ -457,7 +457,8 @@ async function mount(extra: Record<string, unknown> = {}) {
       time_grid: { event_font_size: '23px' },
       ...extra,
     }),
-    { hass: fakeHass() },
+    // Every setting a page can draw: these read forms the shown set would leave in Add rows.
+    { hass: fakeHass(), every: true },
   );
   // A closed panel mounts no form: open every panel, as these tests read forms across the editor.
   await openPanels(editor);
@@ -747,17 +748,14 @@ describe('reset controls follow the workspace destination, not the built view', 
     expect(await resetKeys(editor)).toContain('event_font_size');
   });
 
-  it('offers no resets in the shared workspace, which inherits from nothing', async () => {
-    const { editor } = await mountListCard();
-    await select(editor, 'shared');
-    expect(await resetKeys(editor)).toEqual([]);
-  });
-
-  it('leaves a list override untouched when the shared workspace is open', async () => {
+  it('resets the top-level line in the shared workspace, and leaves the list override', async () => {
     const { editor, seen } = await mountListCard();
     await select(editor, 'shared');
-    expect(await resetButton(editor, 'event_font_size')).toBeNull();
-    expect(seen).toHaveLength(0);
+    (await resetButton(editor, 'event_font_size'))!.click();
+    await editor.updateComplete;
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).not.toHaveProperty('event_font_size');
+    expect(seen[0].list).toEqual({ event_font_size: '18px' });
   });
 });
 

@@ -23,7 +23,7 @@
  * | `field-form`                      | card    | its wrapper's `data-field` id                  |
  * | `entity-form`                     | entry   | `calendar`                                     |
  * | `button-form`                     | button  | `button`                                       |
- * | `filter-form`                     | chassis | `filter` (the search bar and its switches)     |
+ * | `filter-form`                     | chassis | `filter` (the search field)                    |
  * | `quick-setup-form`                | chassis | `quick_setup`                                  |
  * | `add-calendar-form`               | chassis | `add_calendar` (Add Calendar's picker)         |
  * | `entry-calendar-form`             | chassis | `entry_calendar` (an entry page's Calendar)    |
@@ -68,12 +68,12 @@ import {
   parseFieldId,
   universeIndex,
 } from '../../src/rendering/editor/field-index';
-import * as Filter from '../../src/rendering/editor/filter';
 import type { HaFormSchema } from '../../src/rendering/editor/ha-form';
 import * as HassKey from '../../src/rendering/editor/hass-key';
 import { withCardActionLabels } from '../../src/rendering/editor/hass-localize';
-import { PAGES, placementOf } from '../../src/rendering/editor/pages';
+import { ENTRY_GROUPS, PAGES, placementOf } from '../../src/rendering/editor/pages';
 import { type SchemaCtx, walkSchema } from '../../src/rendering/editor/panels';
+import { PREFS_KEY } from '../../src/rendering/editor/prefs';
 import * as Routing from '../../src/rendering/editor/routing';
 import {
   TOOLBAR_BUTTON_PATH,
@@ -207,8 +207,6 @@ interface EditorState {
   readonly _config?: Types.Config;
   /** The context every builder reads (`element.ts` › `_ctx`). */
   readonly _ctx: SchemaCtx;
-  /** The context the filter matches against (`element.ts` › `_filterCtx`). */
-  readonly _filterCtx: Filter.FilterCtx;
   /** A key per calendar entry, in list order (`element.ts` › `_entryKeysFor`). */
   readonly _entryKeys?: ReadonlyArray<number>;
   /** A key per toolbar button, in list order (`element.ts` › `_buttonKeysFor`). */
@@ -530,10 +528,17 @@ function colorForm(editor: EditorElement, control: Element): FormElement {
         return field === undefined ? '' : fieldLabel(field, stateOf(editor)._ctx.language);
       },
     },
+    // The state words the control shows under it lead its helper, as a text field's do.
     computeHelper: {
       value: (node: HaFormSchema) => {
         const field = fieldOf(node);
-        return field === undefined ? undefined : fieldHelper(field, stateOf(editor)._ctx);
+        if (field === undefined) return undefined;
+        const words = control.querySelector('.color-words')?.textContent?.trim();
+        return (
+          [words ? `${words}.` : undefined, fieldHelper(field, stateOf(editor)._ctx)]
+            .filter((part) => part !== undefined)
+            .join(' ') || undefined
+        );
       },
     },
   });
@@ -636,9 +641,16 @@ const visited = new WeakMap<EditorElement, Kept>();
  */
 function stampOf(editor: EditorElement): unknown[] {
   const state = editor as unknown as Record<string, unknown>;
-  return ['_config', '_pending', '_filter', '_workspace', '_rawConfig', 'hass'].map(
-    (member) => state[member],
-  );
+  return [
+    '_config',
+    '_pending',
+    '_filter',
+    '_workspace',
+    '_rawConfig',
+    'hass',
+    '_added',
+    '_prefs',
+  ].map((member) => state[member]);
 }
 
 /**
@@ -658,6 +670,7 @@ function keptForms(editor: EditorElement): Drawn[] {
 
   const element = editor as unknown as {
     _nav: unknown;
+    _prefs: { readonly every: boolean };
     requestUpdate(): void;
     performUpdate(): void;
   };
@@ -667,6 +680,10 @@ function keptForms(editor: EditorElement): Drawn[] {
     element.performUpdate();
   };
   const saved = element._nav;
+  const prefs = element._prefs;
+  // Every setting that applies, as Show Every Setting draws it: a change since the visit can
+  // bring settings a page names in its Add rows, and `openPanels` added what it found.
+  element._prefs = { ...prefs, every: true };
   const forms: Drawn[] = [];
   // The pages the overview offers now: the Grid page only while Grid is the scope.
   const scope = (editor as unknown as { _workspace: string })._workspace;
@@ -690,6 +707,7 @@ function keptForms(editor: EditorElement): Drawn[] {
     forms.push(...liveForms(editor, root, `entry:${key}`));
   }
   element._nav = saved;
+  element._prefs = prefs;
   draw();
   kept.forms = forms;
   kept.stamp = stampOf(editor);
@@ -1396,6 +1414,8 @@ export async function openPageOf(editor: EditorElement, id: FieldId, owner?: Own
     for (const panel of holders) await openAround(panel);
     await editor.updateComplete;
     found = find(editor, id, owner);
+    // A setting that applies but is not shown waits in its heading's Add row: add it there.
+    if (found === undefined && (await addFromRow(editor, id))) found = find(editor, id, owner);
   }
   if (found === undefined) found = located(editor, id, owner);
 
@@ -1505,7 +1525,12 @@ async function expandAll(editor: EditorElement): Promise<void> {
 export async function openPanels(editor: EditorElement): Promise<void> {
   const root = editor.shadowRoot;
   if (root === null) throw new Error('The editor has not rendered: mount it, and await it.');
+  // A macrotask first: the nodes earlier renders let go of are held until the job they were
+  // reached in ends (`WeakRef` targets are kept for the job), and a long run of awaits that are
+  // all microtasks is one job, which visiting every page would otherwise grow without bound.
+  await nextRender();
   await goOverview(editor);
+  const restore = await showEverySetting(editor);
   const kept: Drawn[] = [];
   const pages = [...root.querySelectorAll('[data-focus^="nav:"]')].map((row) =>
     row.getAttribute('data-focus')!.slice('nav:'.length),
@@ -1523,6 +1548,7 @@ export async function openPanels(editor: EditorElement): Promise<void> {
     kept.push(...liveForms(editor, root, `entry:${key}`));
   }
   await goOverview(editor);
+  await restore();
   await expandAll(editor);
   visited.set(editor, { forms: kept, stamp: stampOf(editor) });
 }
@@ -1543,6 +1569,7 @@ async function keepEntries(editor: EditorElement): Promise<void> {
   const kept: Drawn[] = current
     ? before.forms.filter((drawn) => !drawn.page?.startsWith('entry:'))
     : [];
+  const restore = await showEverySetting(editor);
   for (const key of keysOf(editor, 'entry')) {
     await goOverview(editor);
     if (root.querySelector(`[data-focus="row:${key}"]`) === null) continue;
@@ -1550,7 +1577,107 @@ async function keepEntries(editor: EditorElement): Promise<void> {
     kept.push(...liveForms(editor, root, `entry:${key}`));
   }
   await goOverview(editor);
+  await restore();
   visited.set(editor, { forms: kept, stamp: stampOf(editor) });
+}
+
+/**
+ * Turns on Show Every Setting from the overview, as a user would, so every page draws every
+ * setting that applies; a test reading every form visits them so. Its switch is pressed again
+ * afterwards, so what the browser remembers is left as it was.
+ *
+ * @param editor - Editor element, on the overview
+ * @returns Puts the preference back, from the overview
+ */
+async function showEverySetting(editor: EditorElement): Promise<() => Promise<void>> {
+  const control = editor.shadowRoot?.querySelector<HTMLElement>('[data-focus="pref:every"]');
+  if (
+    control === null ||
+    control === undefined ||
+    control.getAttribute('aria-checked') === 'true'
+  ) {
+    return async () => undefined;
+  }
+  control.click();
+  await editor.updateComplete;
+  return async () => {
+    await goOverview(editor);
+    await press(editor, '[data-focus="pref:every"]', 'Show Every Setting');
+  };
+}
+
+/**
+ * Adds every setting the open page names in its Add rows, as a user would through each row's
+ * Show All, or its one item. Adding writes nothing.
+ *
+ * @param editor - Editor element
+ */
+export async function addEverything(editor: EditorElement): Promise<void> {
+  const root = editor.shadowRoot!;
+  for (let guard = 0; guard < 80; guard++) {
+    const toggle = root.querySelector<HTMLElement>('.add-toggle');
+    if (toggle === null) return;
+    if (toggle.getAttribute('aria-expanded') !== 'true') {
+      toggle.click();
+      await editor.updateComplete;
+    }
+    const item =
+      root.querySelector<HTMLElement>('.add-row.open .add-all') ??
+      root.querySelector<HTMLElement>('.add-row.open .add-item');
+    if (item === null) return;
+    item.click();
+    await editor.updateComplete;
+  }
+}
+
+/**
+ * The family a setting is shown with, where it has one.
+ *
+ * @param id - Field id
+ * @returns The family
+ */
+function familyOf(id: FieldId): string | undefined {
+  for (const heading of [...PAGES.flatMap((page) => page.headings), ...ENTRY_GROUPS]) {
+    for (const [field, appearance] of heading.fields) {
+      if (field === id && typeof appearance === 'object' && 'family' in appearance) {
+        return appearance.family;
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Adds one setting through the Add row that names it on the open page, as a user would: the
+ * row opened, then its item, or its family's.
+ *
+ * @param editor - Editor element
+ * @param id - Field id
+ * @returns Whether a row named it
+ */
+export async function addFromRow(editor: EditorElement, id: FieldId): Promise<boolean> {
+  const root = editor.shadowRoot!;
+  const family = familyOf(id);
+  const keys = [...root.querySelectorAll<HTMLElement>('.add-toggle')].map(
+    (toggle) => toggle.dataset.focus!,
+  );
+  for (const key of keys) {
+    const toggle = root.querySelector<HTMLElement>(`.add-toggle[data-focus="${CSS.escape(key)}"]`);
+    if (toggle === null) continue;
+    if (toggle.getAttribute('aria-expanded') !== 'true') {
+      toggle.click();
+      await editor.updateComplete;
+    }
+    const item = root.querySelector<HTMLElement>(
+      `[data-focus="${CSS.escape(`${key}:${family === undefined ? id : `family:${family}`}`)}"]`,
+    );
+    if (item !== null) {
+      item.click();
+      await editor.updateComplete;
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -1737,6 +1864,11 @@ const HOST_TAG = 'calendar-card-pro-editor-host';
 export interface MountOptions {
   /** The `hass` it is handed, `fakeHass()` unless given. */
   readonly hass?: unknown;
+  /**
+   * Show Every Setting, switched on from the overview as a user would, for a test about what
+   * every page can draw rather than about what it shows by default. Not remembered after it.
+   */
+  readonly every?: boolean;
 }
 
 /**
@@ -1767,5 +1899,10 @@ export async function mountEditor(
   editor.setConfig(config);
   document.body.appendChild(editor);
   await editor.updateComplete;
+  if (options.every === true) {
+    await press(editor, '[data-focus="pref:every"]', 'Show Every Setting');
+    // What the browser remembers stays as the test found it.
+    localStorage.removeItem(PREFS_KEY);
+  }
   return editor;
 }
