@@ -643,7 +643,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'split.edit_allowlist': 'Edit Allowlist',
   'split.edit_blocklist': 'Edit Blocklist',
   'split.go_budget': 'Go to Compact Events to Show',
-  'split.colors.title': 'Colors and Labels',
   'split.colors.intro':
     'Both parts keep the name {name}, which every entry of a calendar shares. The calendar list ' +
     'and the card tell them apart by what they show and by these.',

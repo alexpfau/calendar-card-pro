@@ -7112,12 +7112,10 @@ export class CalendarCardProEditor extends LitElement {
       focus: 'split-back',
       onPress: () => this._splitGo(session.step - 1),
     };
-    let title: string;
     let intro: string;
     let body: unknown;
     let next: CalendarView.TextButton;
     if (session.step === 0) {
-      title = t('split.named', { name });
       intro = t('split.how.intro', { name, entity: entityId });
       const way = (id: FieldId, label: string): CalendarView.TextButton => ({
         label,
@@ -7218,7 +7216,6 @@ export class CalendarCardProEditor extends LitElement {
         };
       };
       if (session.step === 1) {
-        title = t('split.colors.title');
         intro = t('split.colors.intro', { name });
         body = [0, 1].map((part) =>
           SplitView.partCard(
@@ -7233,7 +7230,6 @@ export class CalendarCardProEditor extends LitElement {
           onPress: () => this._splitGo(2),
         };
       } else {
-        title = t('split.step.review');
         intro = t('split.review.intro', { name });
         const pair = this._splitPair(session)!;
         const window = SplitReview.reviewWindow(
@@ -7317,14 +7313,16 @@ export class CalendarCardProEditor extends LitElement {
         };
       }
     }
+    const stepOf = t('split.step_of', { step: session.step + 1, total: '3' });
     return SplitView.splitTask({
       name: t('split.title'),
       steps,
       step: session.step,
-      stepOf: t('split.step_of', { step: session.step + 1, total: '3' }),
+      stepOf,
+      stepLine: `${stepOf}${Summary.SUMMARY_SEPARATOR}${steps[session.step]}`,
       closeName: t('quick_setup.cancel'),
       onClose: () => this._cancelSplit(true),
-      title,
+      title: t('split.named', { name }),
       intro,
       body,
       back: session.step === 0 ? cancel : back,

@@ -409,7 +409,6 @@
   "split.edit_allowlist": "Rediger tillatelseslisten",
   "split.edit_blocklist": "Rediger blokkeringslisten",
   "split.go_budget": "Gå til «Kompakte hendelser å vise»",
-  "split.colors.title": "Farger og etiketter",
   "split.colors.intro": "Begge delene beholder navnet {name}, som alle oppføringer for en kalender deler. Kalenderlisten og kortet skiller dem fra hverandre på det de viser, og på disse.",
   "split.part_of": "Del {part} av {total}",
   "split.color_now": "Fargen til {name} nå.",

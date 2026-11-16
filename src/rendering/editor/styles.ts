@@ -1789,11 +1789,170 @@ export default css`
     cursor: default;
   }
 
+  /* --- The step-by-step tasks ----------------------------------------------
+     Quick Setup and Split This Calendar share one look (views/wizard.ts): a header with a round
+     badge, the task's heading and its step line, a segmented progress bar, choices as radio rows in
+     one card, a card for each thing a step holds, and the actions above a divider. Split sits among
+     a page's fields, so it is framed; Quick Setup takes the editor's place and is not. */
+  .wizard {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .wizard.framed {
+    padding: 12px 16px;
+    border: 1px solid var(--divider-color);
+    border-radius: var(--ha-card-border-radius, 12px);
+  }
+
+  .wizard-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .wizard-badge {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.14);
+    --mdc-icon-size: 22px;
+  }
+
+  .wizard-badge .icon {
+    fill: var(--primary-color);
+  }
+
+  .wizard-titles {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .wizard-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+
+  .wizard-step {
+    margin: 0;
+    color: var(--secondary-text-color);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .wizard-close {
+    margin-inline-end: -8px;
+  }
+
+  .wizard-progress {
+    display: flex;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .wizard-progress > li {
+    flex: 1;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--divider-color);
+  }
+
+  .wizard-progress > .done,
+  .wizard-progress > .current {
+    background: var(--primary-color);
+  }
+
+  /* No overflow clipping on the card, so a focused radio's ring is never cut: the rows round
+     their own outer corners instead. */
+  .wizard-options {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--divider-color);
+    border-radius: var(--ha-card-border-radius, 12px);
+  }
+
+  .wizard-option {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 16px;
+  }
+
+  .wizard-option + .wizard-option {
+    border-top: 1px solid var(--divider-color);
+  }
+
+  .wizard-option:first-child {
+    border-start-start-radius: inherit;
+    border-start-end-radius: inherit;
+  }
+
+  .wizard-option:last-child {
+    border-end-start-radius: inherit;
+    border-end-end-radius: inherit;
+  }
+
+  .wizard-option.checked {
+    background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
+  }
+
+  .wizard-option input[type='radio'] {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    margin: 0;
+  }
+
+  .wizard-option label {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    cursor: pointer;
+  }
+
+  .wizard-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 16px;
+    border: 1px solid var(--divider-color);
+    border-radius: var(--ha-card-border-radius, 12px);
+  }
+
+  .wizard-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--divider-color);
+  }
+
+  /* Read by assistive technology, not drawn: the progress bar's step names. */
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
   /*
-   * Split This Calendar (D12): the row under Which Events, the task in place of it with its
-   * stepper, a refusal inside its method's card, a part's card, and the panel a split leaves.
-   * The task is a card as the page's other groups are; the dashed frame round it in the D12
-   * mockups is the mockups' own annotation. The panel a split leaves is tinted, as a notice.
+   * Split This Calendar (D12): the row under Which Events, a refusal inside its method's row, and
+   * the panel a split leaves. The task itself is drawn in the step-by-step tasks' shared look
+   * above.
    */
   .split-row {
     display: flex;
@@ -1811,25 +1970,16 @@ export default css`
     text-align: start;
   }
 
-  .split-task,
+  /* The panel a split leaves, tinted as a notice. */
   .split-done {
     display: flex;
     flex-direction: column;
     gap: 12px;
     padding: 12px 16px;
-    border: 1px solid var(--divider-color);
     border-radius: 12px;
-  }
-
-  .split-done {
-    border-color: transparent;
     background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
   }
 
-  .split-stepper,
-  .split-steps,
-  .split-step,
-  .split-actions,
   .split-part-head,
   .split-done-line {
     display: flex;
@@ -1837,116 +1987,15 @@ export default css`
     gap: 8px;
   }
 
-  .split-steps {
-    flex: 1;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    color: var(--secondary-text-color);
-    font-size: 13px;
-  }
-
-  /* A line joins each step to the next. */
-  .split-step {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .split-step:last-child {
-    flex: none;
-  }
-
-  .split-step:not(:last-child)::after {
-    content: '';
-    flex: 1;
-    min-width: 8px;
-    height: 1px;
-    background: var(--divider-color);
-  }
-
-  .split-step.current {
-    color: var(--primary-text-color);
-    font-weight: 500;
-  }
-
-  .split-step-dot {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    border: 1px solid currentColor;
-    border-radius: 50%;
-    font-size: 12px;
-    --mdc-icon-size: 16px;
-  }
-
-  .split-step-dot {
-    flex: none;
-  }
-
-  .split-step.current .split-step-dot {
-    border-color: var(--primary-color);
-    color: var(--primary-color);
-  }
-
-  .split-step.done .split-step-dot {
-    border-color: var(--primary-color);
-    background: var(--primary-color);
-    color: var(--text-primary-color, #fff);
-  }
-
-  .split-step.done .split-step-dot .icon {
-    fill: currentcolor;
-  }
-
-  .split-title {
-    margin: 0;
-    font-size: 16px;
-    font-weight: 500;
-  }
-
-  .split-actions {
-    justify-content: space-between;
-  }
-
-  .split-methods,
-  .split-part,
-  .split-method {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .split-method,
-  .split-part {
-    padding: 12px;
-    border: 1px solid var(--divider-color);
-    border-radius: 12px;
-  }
-
-  .split-method.checked {
-    border-color: var(--primary-color);
-    background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
-  }
-
-  .split-method input {
-    flex: none;
-    width: 20px;
-    height: 20px;
-    margin: 0;
-  }
-
-  .split-method label {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    cursor: pointer;
-  }
-
   .split-method.refused label {
     cursor: default;
     opacity: 0.6;
+  }
+
+  /* Review's counts under a part's head, set apart from it as a card's rows are. */
+  .split-part .split-counts {
+    padding-top: 8px;
+    border-top: 1px solid var(--divider-color);
   }
 
   .split-refusal {
