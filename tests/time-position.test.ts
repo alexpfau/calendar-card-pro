@@ -172,24 +172,14 @@ describe('time_position', () => {
       ]);
       expect(lookup('en', 'time_position')).toBe('Time Position');
       const helper = lookup('en', 'time_position.helper');
-      expect(helper).toMatch(/^Puts the time on the title's line, without its clock\./);
-      // The wrap, and where the time goes when the last line has no room.
-      expect(helper).toMatch(
-        /A long title wraps, and the time ends its last line, or takes a line of its own where it does not fit\./,
-      );
-      // The two settings that keep it shorter, by the names the editor gives them.
-      expect(helper).toMatch(
-        /Title Line Limit cuts a longer title with the time at the end of its last line, so 1 keeps both on one line\./,
-      );
-      expect(helper).toMatch(/Scroll Long Titles keeps the title on one line and scrolls it\./);
-      // The warning, now about the one line only: it needs width, and the extras that raise how
-      // much.
-      expect(helper).toMatch(/On one line, the title needs a wide event row: in narrow cards/);
-      expect(helper).toMatch(/countdowns, event weather or long text labels/);
-      expect(helper).toMatch(/it can shrink to a few characters\.$/);
+      expect(helper).toMatch(/^Puts the time on the title’s line, without its clock\./);
+      // The two settings that keep both on one line, by the names the editor gives them, and
+      // the width that one line needs.
+      expect(helper).toMatch(/Title Line Limit 1 or Scroll Long Titles keeps both on one line/);
+      expect(helper).toMatch(/needs a wide event row\.$/);
       // And the option that keeps a title on one line says so where a reader looks for why.
       expect(lookup('en', 'scroll_long_titles.helper')).toMatch(
-        /With the time beside the title, this keeps the title on one line beside it, where it otherwise wraps\.$/,
+        /^Keeps a long title on one line and scrolls it/,
       );
     });
   });

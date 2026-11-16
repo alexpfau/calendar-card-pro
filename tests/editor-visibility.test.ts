@@ -70,9 +70,8 @@ describe('the visibility field', () => {
       heading: 'Who Sees It',
       label: 'Conditions',
       helper:
-        'Shows this calendar\u2019s events only while all of these conditions hold, the same ' +
-        'conditions a card\u2019s Visibility tab sets. With none, they always show. Not applied ' +
-        'while you edit the card.',
+        'Shows this calendar\u2019s events only while all of these conditions hold. Not ' +
+        'applied while you edit the card.',
     });
   });
 

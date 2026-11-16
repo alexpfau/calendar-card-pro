@@ -65,6 +65,9 @@ position and focus where you left them. Nothing goes deeper than a page.
   how the dates of past days look is the other.
 - The editor adds nothing to the browser's history, so the browser's Back closes the dialog as
   it does for any card, behind Home Assistant's question about unsaved changes.
+- The line under a setting says only what its name does not: a default, a format, or how it
+  works with another setting. **Documentation**, at the foot of every page, opens the part of
+  this site that covers the page's settings in full, in a new tab.
 
 ## 🪄 Quick Setup
 
@@ -200,8 +203,10 @@ the state is never told by color alone and a screen reader reads it with the con
 | **Set on This Calendar**   | A calendar's own value, on its page                          |
 | **Follows the Card: 14px** | A calendar that sets nothing uses the card's value           |
 
-Where a value is stored, a **Reset** beside it says what resetting gives, as in **Reset gives
-Grid's Default, 20** or **Reset gives the All Layouts value, 14px**.
+Where a value is stored, a button under the setting names what resetting leaves: **Reset to
+20** or **Reset to Off** brings a default or the All Layouts value back, **Clear** empties a
+setting whose default is empty, and **Remove** resets the setting and takes it off the page
+until you add it again. The words above it say which value that is.
 
 ### Upgrading a Card From Before v5
 

@@ -84,8 +84,8 @@ describe('the filter switch', () => {
     }).toEqual({
       label: 'Show in Calendar Filter',
       helper:
-        'Off leaves this calendar out of the calendar filter, as a chip and in the menu, so ' +
-        'its events always show. Every entry for this calendar shares it.',
+        'Off leaves this calendar out of the calendar filter, so its events always show. ' +
+        'Every entry for it shares this.',
     });
   });
 
