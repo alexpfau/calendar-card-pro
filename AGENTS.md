@@ -1771,9 +1771,10 @@ The visual editor is **schema-driven**: each field is an `<ha-form>` of its own,
 schema object, and a schema names a **selector** rather than an element. That is
 the whole point — Home Assistant renames its input components without notice (`ha-textfield`
 became `ha-input` in 2026.5 and cost us a runtime-detection shim), and a card that names
-selectors is not exposed to it. The element names two Home Assistant components in total,
-`ha-form` and `ha-expansion-panel`, plus one exception below; its icons are inline SVG
-(`views/icon.ts`), sized by the `--mdc-icon-size` Home Assistant's own icons read.
+selectors is not exposed to it. The element names one Home Assistant component, `ha-form`, plus
+one exception below; its icons are inline SVG (`views/icon.ts`), sized by the `--mdc-icon-size`
+Home Assistant's own icons read. The last `ha-expansion-panel`, each toolbar button's, became a
+row of the editor's own in v6.
 
 **Never name an HA input element in a schema.** If a panel seems to need one, that is the
 signal to stop, not to reach for `static-html`.
@@ -1827,7 +1828,7 @@ Five things are easy to get wrong:
   custom properties and has no such step. See the note in `ha-form.ts`.
 - **A calendar's or a toolbar button's write names its owner by key, never by place.** Each
   entry and button carries a key the editor keeps beside its list (`_entryKeys`,
-  `_buttonKeys`). An entry's page is keyed by its key, and a button's panel is drawn with Lit's
+  `_buttonKeys`). An entry's page is keyed by its key, and a button's row is drawn with Lit's
   keyed `repeat` by it, so a removal above either cannot hand it another's forms and listeners.
   What Home Assistant's Visibility editor last sent is kept by entry key too
   (`_emittedConditions`), so a move keeps an open condition open. Its forms write through a frame
@@ -1836,9 +1837,20 @@ Five things are easy to get wrong:
   writes the same way, through `_writeFieldValue(owner, fieldId, value)`: never through the
   card's write path, which would put a calendar's color at the card's root, and never through
   `writeEntity` or `writeButton` with partial data, which keeps only the keys it is handed.
-  A row or panel drawn by key also takes its focused control with it when its owner leaves, so
+  A row drawn by key also takes its focused control with it when its owner leaves, so
   Remove puts focus back itself: on the line the removal left, then on the row now in its place
   (`_focusAfterRemove`). `tests/editor-write-owners.test.ts` pins each of these.
+
+**Some fields are drawn as the editor's own controls rather than forms**, by their appearance in
+the page registry: the event parts and the toolbar's built-in controls as toggle chips
+(`{ chips: 'parts' | 'toolbar' }`, `chips.ts`, `views/chips.ts`), and Calendar Filter as a segmented
+radio group (`'segmented'`). Each writes through `_writeFieldValue`, one undo step, and carries
+`data-field` with its field's id, so Undo and a search's jump find it as they find a form. A chip
+whose field the scope offers but a gate withholds is still drawn, `aria-disabled` with its reason
+("Needs Time"), and focusable. The test harness treats them as a user would: `changeField` presses
+a chip where it is not already as asked (true or false only) or picks a radio, `valueOf` reads it,
+and `controlsOf` lists the fields drawn this way, so a test that counts the fields the editor draws
+counts forms and `controlsOf` together. Counting forms alone drops these fields without a word.
 
 ### The editor renders only what it draws
 
@@ -1854,18 +1866,17 @@ the card's rule above, with four consequences for new code and tests:
   by design. A selector found reading `states` belongs in `LIVE_SELECTORS`.
   `tests/editor-hass-read-set.test.ts` records every `hass` read the editor makes from its first
   render on, through both feeds, and fails on one outside the key.
-- **A page draws only its own fields, and a panel mounts its forms the first time it opens**, on
-  `expanded-will-change`, before Home Assistant measures its height, and keeps them when it
-  closes, so the groups inside it keep their state. A test reaches a form as a user does, through
+- **A page draws only its own fields, and a toolbar button's row draws its forms only while it is
+  open**, in the update its toggle asks for. A test reaches a form as a user does, through
   `tests/helpers/editor-host.ts` by field id and owner: `openPageOf` clicks the overview's row for
-  the field's page, or an entry's row for a calendar field (and opens a button's panel),
+  the field's page, or an entry's row for a calendar field (and opens a button's row),
   `openPanels` visits every page and every entry's, and `changeField` does the first for you. A form read off a page the editor has since left is
   kept by the harness and redrawn when the editor changes, so a test may still read it.
   `tests/editor-reachability.test.ts` walks every present field to its page over the gate corpus
   in every scope, which is what proves no field was lost to a page.
 - **The warm-up is load-bearing.** `ha-form` and `ha-selector` import an element the first time a
-  form needs it, so a panel mounting its forms as it opens would be measured while those modules
-  still load, and open short. The editor therefore draws one hidden form (`ha-form.ts` ›
+  form needs it, so a page or a row drawing its forms as it opens would draw them while those
+  modules still load, and fill in late. The editor therefore draws one hidden form (`ha-form.ts` ›
   `warmSchema`) holding a node for each element its schemas need that is not defined yet, and a node
   for each value its forms hold in a field whose element draws what that value picks, holding the
   value: a `navigate` or `assist` action draws a form of its own, a `perform-action` a service's
@@ -1878,9 +1889,9 @@ the card's rule above, with four consequences for new code and tests:
   reaches, since Home Assistant keeps it per instance. It reads the element types from the schemas,
   so a new selector type needs nothing here; a selector whose subtree depends on its value goes in
   `VALUE_SELECTORS` (`hass-key.ts`), which nothing can derive. Removing any of it as dead code, or
-  leaving such a selector out of that list, brings the short first opens back, and only Home
-  Assistant shows them: the test suite cannot measure a panel's height, and its stand-ins draw only
-  what they are written to draw.
+  leaving such a selector out of that list, brings the late first draws back, and only Home
+  Assistant shows them: the test suite cannot see a control fill in late, and its stand-ins draw
+  only what they are written to draw.
 
 ### The calendar list shows entries, grouped by calendar
 
