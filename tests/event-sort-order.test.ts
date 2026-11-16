@@ -113,6 +113,36 @@ describe('groupEventsByDay event order', () => {
     expect(order(events)).toEqual(['B-second', 'A-first']);
   });
 
+  it("draws a calendar listed twice's events at the same instant in the order they arrived", () => {
+    // Each entry keeps one, the later arrival reaching grouping first, as the second part of a
+    // split does; the order Home Assistant sent them in decides.
+    const events = [
+      { ...timed('09:00', 'A-later'), _arrival: 4 },
+      { ...timed('09:00', 'B-earlier'), _arrival: 1 },
+    ];
+
+    expect(order(events, [ENTITY, ENTITY])).toEqual(['B-earlier', 'A-later']);
+    // Listed once, the calendar's events keep the order they reach grouping in, as they did.
+    expect(order(events)).toEqual(['A-later', 'B-earlier']);
+  });
+
+  it('keeps timed events of calendars listed once at the same instant in the order they reach it', () => {
+    // Search hands over events it already held ahead of those a calendar just answered with, so
+    // the order they reach grouping, not the list, decides; even where a calendar's events at
+    // other times came first.
+    const events = [
+      { ...timed('11:00', 'personal-later', ENTITY), _arrival: 0 },
+      { ...timed('09:00', 'from-work', OTHER), _arrival: 9 },
+      { ...timed('09:00', 'from-personal', ENTITY), _arrival: 1 },
+    ];
+
+    expect(order(events, [ENTITY, OTHER])).toEqual([
+      'from-work',
+      'from-personal',
+      'personal-later',
+    ]);
+  });
+
   it('breaks a same-start all-day tie on configured entity order', () => {
     // Both start on the same day, so only the entity rung can decide. The second entity
     // is listed first in the input to prove the config order is what wins, not arrival.

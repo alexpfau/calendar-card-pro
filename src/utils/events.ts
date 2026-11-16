@@ -1182,6 +1182,8 @@ function deduplicateEvents(
   const seen = new Set<string>();
   const keep = new Set<Types.CalendarEventData>();
   const contributors = new Map<string, Types.MergedCalendar[]>();
+  // The earliest arrival among each calendar's copies, which the kept copy is drawn at.
+  const arrived = new Map<string, number>();
 
   for (const entityConfig of config.entities) {
     const entityId = typeof entityConfig === 'string' ? entityConfig : entityConfig.entity;
@@ -1190,6 +1192,8 @@ function deduplicateEvents(
       if (event._entityId !== entityId) continue;
 
       const signature = signatureFor(event);
+      const own = `${signature}\n${entityId}`;
+      arrived.set(own, Math.min(arrived.get(own) ?? Infinity, event._arrival ?? Infinity));
 
       // Recorded *before* the duplicate test below, because a copy about to be dropped is
       // precisely what this has to remember. One entry per distinct calendar, taken from
@@ -1220,9 +1224,12 @@ function deduplicateEvents(
     if (!keep.has(event) && seen.has(signature)) continue;
 
     const mergedFrom = contributors.get(signature);
-    survivors.push(
-      mergedFrom && mergedFrom.length > 1 ? { ...event, _mergedFrom: mergedFrom } : event,
-    );
+    const merged = mergedFrom && mergedFrom.length > 1 ? { _mergedFrom: mergedFrom } : undefined;
+    // A later copy kept over an earlier one of its own calendar, as a calendar listed twice can
+    // keep, is drawn where the earlier one arrived (`groupEventsByDay`).
+    const first = arrived.get(`${signature}\n${event._entityId}`) ?? Infinity;
+    const earlier = first < (event._arrival ?? Infinity) ? { _arrival: first } : undefined;
+    survivors.push(merged || earlier ? { ...event, ...merged, ...earlier } : event);
   }
 
   return survivors;
@@ -1878,6 +1885,7 @@ export function groupEventsByDay(
         _sourceStart: event._sourceStart,
         _sourceEnd: event._sourceEnd,
         _splitFromTimedEvent: event._splitFromTimedEvent,
+        _arrival: event._arrival,
         _dayOfEvent: stampsDayOfEvent
           ? (resolveDayOfEvent(event, displayDate) ?? undefined)
           : undefined,
@@ -1898,7 +1906,24 @@ export function groupEventsByDay(
     day.monthNumber = dayDate.getMonth();
   });
 
+  // A calendar listed more than once has its events in this day put back in the order it sent
+  // them, in the places they hold, so the sort below draws events sharing a start as the
+  // calendar listed once would, whichever entry kept them, and a card-wide event limit or Skip
+  // First Events keeps the same ones after Split This Calendar. A calendar listed once is left
+  // exactly as it arrives.
+  const entityIds = config.entities.map((entry) =>
+    typeof entry === 'string' ? entry : entry.entity,
+  );
+  const listedTwice = new Set(entityIds.filter((id, at) => entityIds.indexOf(id) !== at));
+
   Object.values(eventsByDay).forEach((day) => {
+    listedTwice.forEach((entityId) => {
+      const places = day.events.flatMap((event, at) => (event._entityId === entityId ? [at] : []));
+      const own = places
+        .map((place) => day.events[place])
+        .sort((a, b) => (a._arrival ?? 0) - (b._arrival ?? 0));
+      places.forEach((place, at) => (day.events[place] = own[at]));
+    });
     day.events.sort((a, b) => {
       const aIsAllDay = !a.start.dateTime;
       const bIsAllDay = !b.start.dateTime;
@@ -2285,6 +2310,7 @@ export function processEvents(
   const processedEvents: Types.CalendarEventData[] = [];
 
   const wellFormed = keepWellFormedEvents(events);
+  const arrival = new Map(wellFormed.map((event, at) => [event, at]));
 
   config.entities.forEach((entityConfig) => {
     const entityId = typeof entityConfig === 'string' ? entityConfig : entityConfig.entity;
@@ -2299,6 +2325,7 @@ export function processEvents(
         // A repaired event already carries the stamp, taken before its end was rewritten.
         _source: event._source ?? sourceEvent(event),
         _matchedConfig: typeof entityConfig === 'object' ? entityConfig : undefined,
+        _arrival: arrival.get(event),
       };
       decorated._entityLabel = getEntityLabel(entityId, config, decorated);
       return decorated;

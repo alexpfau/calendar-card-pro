@@ -539,6 +539,50 @@ describe('what the card draws, before and after', () => {
     expect(() => expectRedWins(reversed)).toThrow();
   });
 
+  it("draws the first entry's copy of two matching events, whichever Home Assistant sends first", () => {
+    // Two events alike but for their descriptions, which only the first entry tells apart: the
+    // first entry's copy wins whichever arrives first, even where the second entry would then
+    // draw nothing. Drawing events that share a start in their calendar's order must not change it.
+    const lunch = (description: string): Types.CalendarEventData => ({
+      summary: 'Lunch',
+      description,
+      start: { dateTime: EVENT_START },
+      end: { dateTime: EVENT_END },
+      _entityId: 'calendar.family',
+    });
+    const first = { ...FAMILY_RED, filter_field: 'description', allowlist: 'priority' } as const;
+    for (const second of [FAMILY_BLUE, { ...FAMILY_BLUE, compact_events_to_show: 0 }]) {
+      const config = buildConfig({
+        entities: [first, second],
+        filter_duplicates: true,
+        days_to_show: 1,
+      });
+      for (const view of ['list', 'column', 'grid'] as const) {
+        for (const raw of [
+          [lunch('normal'), lunch('priority')],
+          [lunch('priority'), lunch('normal')],
+        ]) {
+          const rows = EventUtils.groupEventsByDay(
+            EventUtils.processEvents(raw, config),
+            config,
+            false,
+            'en',
+            view,
+          )
+            .flatMap((day) => day.events)
+            .filter((row) => !row._isEmptyDay);
+          expect(
+            rows.map((row) => [
+              row._source?.description,
+              row._matchedConfig === config.entities[0],
+            ]),
+            `${view}, ${raw[0].description} first`,
+          ).toEqual([['priority', true]]);
+        }
+      }
+    }
+  });
+
   it('requests the same calendars from Home Assistant, each once', async () => {
     async function requested(list: List.ListState): Promise<string[]> {
       const paths: string[] = [];

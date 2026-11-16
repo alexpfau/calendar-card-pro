@@ -3,12 +3,14 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { buildConfig } from './fixtures';
 import {
   PLANTED,
+  budgetDisagreements,
   cardFirstDays,
   disagreements,
   mirrorFirstDays,
   reviewCases,
   reviewEvents,
   reviewNow,
+  tiedEvents,
 } from './helpers/split-review-cases';
 import type * as Types from '../src/config/types';
 import * as Days from '../src/rendering/editor/calendar-days';
@@ -196,6 +198,49 @@ describe("Split's review names what the card shows, under UTC", () => {
     );
 
     expect(found.length).toBeGreaterThan(0);
+  });
+});
+
+describe("Split's review rests on a card-wide limit keeping the same events, ties included, under UTC", () => {
+  // List's cases: the event limit and Skip First Events act in List alone.
+  const cases = reviewCases().filter((each) => each.view === 'list');
+  const events = tiedEvents();
+
+  beforeAll(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(reviewNow());
+  });
+  afterAll(() => {
+    vi.useRealTimers();
+  });
+
+  it('draws what the entry drew, in its order, each event in the part the review assigns', () => {
+    let rows = 0;
+    let cut = 0;
+    const found = cases.flatMap((each) => {
+      const result = budgetDisagreements(each, events);
+      rows += result.rows;
+      cut += result.cut;
+      return result.lines.map((line) => `${each.name}: ${line}`);
+    });
+
+    // The denominators beside the verdict: the limits cut rows in most cases, not in none.
+    expect({ cases: cases.length, rows: rows > cases.length * 4, cut: cut > cases.length }).toEqual(
+      {
+        cases: 674,
+        rows: true,
+        cut: true,
+      },
+    );
+    expect(found).toEqual([]);
+    // Draws every List case four times over, twice split; the limit is set for CI's slower
+    // runner under load rather than for a hang.
+  }, 30_000);
+
+  it('disagrees where every event is assigned to the first part', () => {
+    expect(cases.some((each) => budgetDisagreements(each, events, () => 0).lines.length)).toBe(
+      true,
+    );
   });
 });
 
