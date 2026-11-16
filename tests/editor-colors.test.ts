@@ -589,7 +589,8 @@ describe('a change that arrives late, or a word typed', () => {
   it('lets Escape go Back on a page where the open control is not drawn', async () => {
     const editor = await mountEditor({ ...BASE, title_color: '#123456' });
     await openColor(editor, 'card:title_color');
-    await openPageOf(editor, 'events:event_font_size');
+    // A field Events shows of a fresh card, so no Add row is left open to close first.
+    await openPageOf(editor, 'events:show_time');
     const page = editor.shadowRoot!.querySelector<HTMLElement>('.page[data-page="events"]')!;
     page.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }),
@@ -635,9 +636,11 @@ describe('what each owner’s control writes', () => {
     await pick(editor, at, '[data-swatch="amber"]');
     expect(value()).toBe('var(--amber-color)');
     at = control(editor, 'events:allday_badge_color_mode');
+    // Its state words follow the choice in its name, as they follow any field's label.
     expect(at.querySelector('.color-toggle')?.getAttribute('aria-label')).toBe(
-      'All-Day Badge Color, Amber',
+      'All-Day Badge Color, Amber, Set for List',
     );
+    expect(at.querySelector('.color-words')?.textContent).toBe('Set for List');
     await pick(editor, at, '[data-color-row="calendar-accent"]');
     expect(value() ?? 'accent').toBe('accent');
   });
@@ -691,7 +694,7 @@ describe('what each owner’s control writes', () => {
     expect(lastConfig(editor)?.accent_color).toBe('#123456');
     expect(internals(editor)._history.peekUndo()?.label).toBe('Change Accent Color for Anna');
     expect(at.querySelector('.color-toggle')?.getAttribute('aria-label')).toBe(
-      'Accent Color, Pink',
+      'Accent Color, Pink, Set on This Calendar',
     );
     // Its own color gets a way off, which follows the card again.
     const remove = at.querySelector<HTMLButtonElement>('.color-head .icon-button')!;
@@ -708,6 +711,60 @@ describe('what each owner’s control writes', () => {
     internals(editor)._undo();
     await editor.updateComplete;
     expect(entities()[0]).not.toHaveProperty('accent_color');
+    expect(internals(editor)._history.peekUndo()).toBeUndefined();
+  });
+});
+
+describe('a color control’s state line', () => {
+  beforeEach(stubSupports);
+
+  it('resets the card’s badge color from the line under its control, one undo step', async () => {
+    const editor = await mountEditor({
+      ...BASE,
+      allday_badge: 'title',
+      list: { allday_badge_color: 'var(--amber-color)' },
+    });
+    await openPageOf(editor, 'events:allday_badge_color_mode');
+    const at = control(editor, 'events:allday_badge_color_mode');
+    expect(at.querySelector('.color-words')?.textContent).toBe('Set for List');
+    const reset = at.querySelector<HTMLButtonElement>(
+      '[data-focus="reset:events:allday_badge_color_mode"]',
+    );
+    expect(reset?.textContent?.trim()).toBe('Reset');
+    reset!.click();
+    await editor.updateComplete;
+    expect(lastConfig(editor)).not.toHaveProperty('list');
+    expect(lastConfig(editor)).not.toHaveProperty('allday_badge_color');
+    internals(editor)._undo();
+    await editor.updateComplete;
+    expect(lastConfig(editor)?.list).toEqual({ allday_badge_color: 'var(--amber-color)' });
+    expect(internals(editor)._history.peekUndo()).toBeUndefined();
+  });
+
+  it('resets an entry’s own Accent Color from the line under its control, one undo step', async () => {
+    const editor = await mountEditor(
+      {
+        ...BASE,
+        entities: [{ entity: 'calendar.anna', accent_color: 'var(--pink-color)' }],
+      },
+      {
+        hass: fakeHass({ states: { 'calendar.anna': { attributes: { friendly_name: 'Anna' } } } }),
+      },
+    );
+    const [anna] = keysOf(editor, 'entry');
+    const at = await openEntryColor(editor, anna);
+    expect(at.querySelector('.color-words')?.textContent).toBe('Set on This Calendar');
+    const line = at.querySelector<HTMLButtonElement>(
+      '[data-focus="reset:calendar:accent_color_mode"], [data-focus="remove:calendar:accent_color_mode"]',
+    );
+    expect(line).not.toBeNull();
+    line!.click();
+    await editor.updateComplete;
+    const entities = () => lastConfig(editor)?.entities as ReadonlyArray<unknown>;
+    expect(entities()[0]).not.toEqual(expect.objectContaining({ accent_color: expect.anything() }));
+    internals(editor)._undo();
+    await editor.updateComplete;
+    expect(entities()[0]).toEqual({ entity: 'calendar.anna', accent_color: 'var(--pink-color)' });
     expect(internals(editor)._history.peekUndo()).toBeUndefined();
   });
 });

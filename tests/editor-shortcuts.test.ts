@@ -158,9 +158,10 @@ describe('Start Date on the overview', () => {
       'Relative to Today',
     ]);
     expect(pressedChip(editor)).toBe('default');
-    expect(
-      root(editor).querySelector('[data-field="content:start_date_mode"] legend')!.textContent,
-    ).toBe('Start Date');
+    // Named as the field, its state words in its legend as a dropdown carries them in its label.
+    const group = root(editor).querySelector('[data-field="content:start_date_mode"]')!;
+    expect(group.getAttribute('aria-label')).toBe('Start Date');
+    expect(group.querySelector('legend')!.textContent).toBe('Start Date · Whole Card');
   });
 
   it('keeps Relative to Today pressed over Tomorrow’s expression until another is chosen', async () => {
@@ -259,7 +260,7 @@ describe('Tapping an Event Opens It', () => {
       '[data-field="actions:event_opens_details"]',
     )!;
     expect(line.querySelector('ha-form')).toBeNull();
-    expect(line.getAttribute('aria-label')).toBe('Tapping an Event: navigate');
+    expect(line.getAttribute('aria-label')).toBe('Tapping an Event: navigate · Whole Card · Set');
     expect(line.querySelector('[data-focus="tap:change"]')!.textContent!.trim()).toBe('Change');
 
     await changeField(editor, 'card:title', 'Family');
@@ -283,7 +284,7 @@ describe('Tapping an Event Opens It', () => {
       },
     );
     const line = root(editor).querySelector('[data-field="actions:event_opens_details"]')!;
-    expect(line.getAttribute('aria-label')).toBe('Tapping an Event: Navigate');
+    expect(line.getAttribute('aria-label')).toBe('Tapping an Event: Navigate · Whole Card · Set');
     expect(line.querySelector('b')!.textContent).toBe('Navigate');
     expect(
       root(editor).querySelector('[data-focus="tap:change"]')!.getAttribute('aria-label'),
@@ -371,12 +372,12 @@ describe('a word list', () => {
     expect(listForm(editor).data).toEqual({ blocklist: ['Soccer', 'School', 'C++'] });
   });
 
-  it('deletes the line when the last term is removed', async () => {
+  it('deletes the line when the last term is removed, and stays on the page', async () => {
     const editor = await onAnnasPage('Soccer');
     await sendTerms(editor, []);
     // With nothing else set, Anna is a bare id again.
     expect(lastConfig(editor)!.entities).toEqual(['calendar.anna']);
-    // Still words, now with none.
+    // Still words, now with none, where it was: edited this session, as any field keeps its place.
     expect(listForm(editor).data).toEqual({ blocklist: [] });
   });
 
@@ -461,21 +462,136 @@ describe('a word list', () => {
     expect(listForm(editor).data).toEqual({ blocklist: ['School'] });
   });
 
-  it('shows Countries To Remove as words while it is empty', async () => {
+  it('shows Countries To Remove as words, and as none once its last name is removed', async () => {
     const editor = await mountEditor({
       config_version: VERSION,
       entities: ['calendar.anna'],
-      remove_location_country: '',
+      list: { remove_location_country: 'Germany' },
     });
-    await openPageOf(editor, 'events:location_country_pattern');
     const field = 'events:location_country_pattern';
-    expect(listForm(editor, field).data).toEqual({ location_country_pattern: [] });
+    await openPageOf(editor, field);
+    expect(listForm(editor, field).data).toEqual({ location_country_pattern: ['Germany'] });
 
     await sendTerms(editor, ['Germany', 'Austria'], field);
     // Written where Settings For says, List here, as any of its settings is.
     expect(lastConfig(editor)!.list).toEqual({ remove_location_country: 'Germany|Austria' });
-    expect(listForm(editor, field).data).toEqual({
-      location_country_pattern: ['Germany', 'Austria'],
+
+    // An empty list writes the empty pattern clearing its raw field writes, and stays drawn.
+    await sendTerms(editor, [], field);
+    expect(lastConfig(editor)!.list).toEqual({ remove_location_country: '' });
+    expect(listForm(editor, field).data).toEqual({ location_country_pattern: [] });
+  });
+});
+
+describe('with the shown set and What This Card Changes', () => {
+  /**
+   * The buttons a field's wrapper draws, by their names.
+   *
+   * @param editor - Editor
+   * @param id - The field
+   * @returns Their accessible names
+   */
+  function buttonsOf(editor: MountedEditor, id: string): string[] {
+    return [...root(editor).querySelectorAll(`[data-field="${id}"] button`)].map(
+      (button) => button.getAttribute('aria-label') ?? button.textContent!.trim(),
+    );
+  }
+
+  it('gives each composed control the state words and Reset any field has', async () => {
+    const editor = await mountEditor({
+      config_version: VERSION,
+      entities: [{ entity: 'calendar.anna', blocklist: 'Soccer' }],
+      start_date: 'today+1',
+      event_tap_action: { action: 'navigate', navigation_path: '/lovelace/shopping' },
     });
+    expect(buttonsOf(editor, 'content:start_date_mode')).toContain('Reset Start Date');
+    expect(buttonsOf(editor, 'actions:event_opens_details')).toEqual([
+      'Change: Tapping an Event, navigate',
+      'Reset Tapping an Event Opens It',
+    ]);
+    await openPageOf(editor, 'calendar:blocklist', entry(0));
+    expect(buttonsOf(editor, 'calendar:blocklist')).toEqual([
+      'Use a Pattern',
+      'Remove Blocklist and Reset It',
+    ]);
+  });
+
+  it('resets Start Date to Today, releasing Relative to Today held over a shortcut', async () => {
+    const editor = await mountEditor({
+      config_version: VERSION,
+      entities: ['calendar.anna'],
+      start_date: 'today+1',
+    });
+    await pressChip(editor, 'offset');
+    expect(pressedChip(editor)).toBe('offset');
+    const reset = [...root(editor).querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.getAttribute('aria-label') === 'Reset Start Date',
+    )!;
+    reset.click();
+    await editor.updateComplete;
+    await editor.updateComplete;
+    expect(pressedChip(editor)).toBe('default');
+    expect(lastConfig(editor)).not.toHaveProperty('start_date');
+    expect(formOf(editor, 'content:start_date_offset')).toBeUndefined();
+  });
+
+  it('edits a Start Date shortcut in What This Card Changes, the field a choice reveals in place', async () => {
+    const editor = await mountEditor({
+      config_version: VERSION,
+      entities: ['calendar.anna'],
+      start_date: 'today+1',
+    });
+    await press(editor, 'more:audit');
+    await press(editor, 'edit:start_date');
+    const row = (): Element => root(editor).querySelector('[data-audit="start_date"]')!;
+    const fields = (): Array<string | null> =>
+      [...row().querySelectorAll('[data-field]')].map((each) => each.getAttribute('data-field'));
+    const pick = async (value: string): Promise<void> => {
+      const input = row().querySelector<HTMLInputElement>(`input[value="${value}"]`)!;
+      input.checked = true;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      await editor.updateComplete;
+      await editor.updateComplete;
+    };
+    expect(fields()).toEqual(['content:start_date_mode']);
+    expect(row().querySelector<HTMLInputElement>('input:checked')!.value).toBe('tomorrow');
+
+    await pick('offset');
+    expect(fields()).toEqual(['content:start_date_mode', 'content:start_date_offset']);
+    expect(
+      (
+        row().querySelector('[data-field="content:start_date_offset"] ha-form') as never as {
+          data: Record<string, unknown>;
+        }
+      ).data,
+    ).toEqual({ start_date_offset: 'today+1' });
+    expect(lastConfig(editor)).toBeUndefined();
+
+    await pick('start_of_week');
+    expect(lastConfig(editor)!.start_date).toBe('start_of_week');
+  });
+
+  it('edits a word list in What This Card Changes as words, written where the line lives', async () => {
+    const editor = await mountEditor({
+      config_version: VERSION,
+      entities: [{ entity: 'calendar.anna', blocklist: 'Soccer' }],
+    });
+    await press(editor, 'more:audit');
+    await press(editor, 'edit:entities[0].blocklist');
+    const form = root(editor).querySelector(
+      '[data-audit="entities[0].blocklist"] [data-composed="words"] ha-form',
+    ) as never as HTMLElement & { data: Record<string, unknown> };
+    expect(form.data).toEqual({ blocklist: ['Soccer'] });
+    form.dispatchEvent(
+      new CustomEvent('value-changed', {
+        detail: { value: { blocklist: ['Soccer', 'Piano'] } },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await editor.updateComplete;
+    expect(lastConfig(editor)!.entities).toEqual([
+      { entity: 'calendar.anna', blocklist: 'Soccer|Piano' },
+    ]);
   });
 });

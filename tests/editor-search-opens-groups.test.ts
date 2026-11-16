@@ -20,13 +20,7 @@ import { hitIds, searchIndex } from './helpers/search-index';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { fieldId } from '../src/rendering/editor/field-index';
-import {
-  type FilterCriteria,
-  type FilterCtx,
-  NO_FILTER,
-  filterSchema,
-  withholdInertFields,
-} from '../src/rendering/editor/filter';
+import { withholdInertFields } from '../src/rendering/editor/filter';
 import { type HaFormSchema, isGroupSchema } from '../src/rendering/editor/ha-form';
 import { computeLabel } from '../src/rendering/editor/localize';
 import { PANELS, type SchemaCtx, walkSchema } from '../src/rendering/editor/panels';
@@ -55,11 +49,7 @@ function leaves(schema: ReadonlyArray<HaFormSchema>, open = true, depth = 0): Le
   });
 }
 
-function ctxFor(
-  workspace: EditorWorkspace,
-  criteria: Partial<FilterCriteria>,
-  raw: Partial<Types.Config> = {},
-): FilterCtx {
+function ctxFor(workspace: EditorWorkspace, raw: Partial<Types.Config> = {}): SchemaCtx {
   const config = { ...Config.DEFAULT_CONFIG, entities: ['calendar.anna'], ...raw } as Types.Config;
   const ctx: SchemaCtx = {
     view: workspace === 'shared' ? 'list' : workspace,
@@ -68,14 +58,12 @@ function ctxFor(
     rawConfig: config,
     language: 'en',
   };
-  return { ...ctx, criteria: { ...NO_FILTER, ...criteria } };
+  return ctx;
 }
 
-/** What every card panel shows, filtered as the editor filters it. */
-function filtered(ctx: FilterCtx): Leaf[] {
-  return PANELS.flatMap((panel) =>
-    leaves(filterSchema(withholdInertFields(panel.build(ctx), ctx.workspace!), ctx)),
-  );
+/** What every card panel shows, with what the scope ignores withheld. */
+function filtered(ctx: SchemaCtx): Leaf[] {
+  return PANELS.flatMap((panel) => leaves(withholdInertFields(panel.build(ctx), ctx.workspace!)));
 }
 
 /**
@@ -87,7 +75,7 @@ function filtered(ctx: FilterCtx): Leaf[] {
  * @returns The ids
  */
 function namedBy(workspace: EditorWorkspace, query: string): string[] {
-  const ctx = ctxFor(workspace, {});
+  const ctx = ctxFor(workspace);
   const wanted = query.toLowerCase();
   return PANELS.flatMap((panel) =>
     [...walkSchema(withholdInertFields(panel.build(ctx), workspace))].flatMap(
@@ -122,26 +110,12 @@ describe.each(WORKSPACES)('a search in the %s workspace', (workspace) => {
       const listed = hitIds(index(workspace), query);
       expect(named.filter((id) => !listed.includes(id))).toEqual([]);
       // The builders emit no collapsible for a field to hide behind.
-      expect(filtered(ctxFor(workspace, {})).filter((leaf) => leaf.depth > 0)).toEqual([]);
+      expect(filtered(ctxFor(workspace)).filter((leaf) => leaf.depth > 0)).toEqual([]);
     },
   );
 });
 
 describe('what a group once opened', () => {
-  it('leaves what Customized Only keeps in no collapsible', () => {
-    const shown = filtered(
-      ctxFor('shared', { customizedOnly: true }, {
-        time_color: '#ff0000',
-      } as Partial<Types.Config>),
-    );
-
-    expect(shown.find((leaf) => leaf.name === 'time_color')).toEqual({
-      name: 'time_color',
-      open: true,
-      depth: 0,
-    });
-  });
-
   it('is listed whole for a query naming its heading, and none of its fields', () => {
     expect(namedBy('list', 'weekend colors')).toEqual([]);
     expect(WEEKEND.filter((id) => !hitIds(index('list'), 'weekend colors').includes(id))).toEqual(

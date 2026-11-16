@@ -13,7 +13,14 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { fakeHass, goEntry, keysOf, lastConfig, mountEditor } from './helpers/editor-host';
+import {
+  fakeHass,
+  goEntry,
+  goOverview,
+  keysOf,
+  lastConfig,
+  mountEditor,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { freeSwatch } from '../src/rendering/editor/colors';
@@ -521,6 +528,49 @@ describe('Split This Calendar on an entry’s page', () => {
     await press(editor, 'split-way:calendar:allowlist');
     expect(task(editor)).toBeNull();
     expect(root(editor).querySelector('.jump [data-field="calendar:allowlist"]')).not.toBeNull();
+  });
+});
+
+describe('Split This Calendar in What This Card Changes', () => {
+  /** The audit's rows, by YAML path, with their group. */
+  async function audit(editor: Editor): Promise<Record<string, string>> {
+    await goOverview(editor);
+    await press(editor, 'more:audit');
+    return Object.fromEntries(
+      [...root(editor).querySelectorAll<HTMLElement>('[data-audit]')].map((row) => [
+        row.dataset.audit!,
+        row.closest<HTMLElement>('.audit-group')!.dataset.heading!,
+      ]),
+    );
+  }
+
+  it('lists both parts after Split, as one undo step, and the one entry again after Undo', async () => {
+    const { editor } = await onBensPage({ entity: 'calendar.ben', days_of_week: 'weekdays' });
+    await press(editor, 'split-row');
+    await press(editor, 'split-next');
+    await press(editor, 'split-next');
+    await press(editor, 'split-apply');
+    const history = (editor as unknown as { _history: { undo(): unknown; redo(): unknown } })
+      ._history;
+
+    const split = await audit(editor);
+    expect(Object.keys(split).filter((path) => path.startsWith('entities'))).toEqual([
+      'entities[0].days_of_week',
+      'entities[0].event_type',
+      // Part 1 keeps Ben's color, which follows the card; part 2 takes a free swatch.
+      'entities[1].days_of_week',
+      'entities[1].event_type',
+      'entities[1].accent_color',
+    ]);
+    expect(split['entities[0].event_type']).not.toBe(split['entities[1].event_type']);
+
+    // One step: Undo takes the whole split back, and nothing further is left to undo.
+    await press(editor, 'undo');
+    const undone = await audit(editor);
+    expect(Object.keys(undone).filter((path) => path.startsWith('entities'))).toEqual([
+      'entities[0].days_of_week',
+    ]);
+    expect(history.undo()).toBeUndefined();
   });
 });
 

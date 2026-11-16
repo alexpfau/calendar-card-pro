@@ -10,6 +10,7 @@ import { type TemplateResult, html, nothing } from 'lit';
 
 import { icon } from './icon';
 import { interpolate } from '../strings';
+import { SUMMARY_SEPARATOR } from '../summary';
 import type { EditorWorkspace } from '../workspace';
 
 /** Resolves one of the editor's own strings by its literal key. */
@@ -140,21 +141,25 @@ export interface ChipChoice {
 /**
  * A field drawn as radio chips, as Start Date is on the overview: native radios inside the
  * field's own wrapper, so arrow keys move within the group, drawn as Settings For's choices are.
+ * Named, labeled and explained as the field's own form would be, state words included, with the
+ * line under a field after it.
  *
  * @param id - The field's id, which its wrapper names
  * @param name - The radios' name
- * @param label - The group's name
+ * @param text - The group's accessible name, its visible legend and the helper under it
  * @param choices - The chips, in order
  * @param value - The chosen one
+ * @param line - The line under the field: what Reset gives, and its actions
  * @param onPick - A chip was chosen
  * @returns The group
  */
 export function radioChips(
   id: string,
   name: string,
-  label: string,
+  text: { readonly name: string; readonly legend: string; readonly helper?: string },
   choices: ReadonlyArray<ChipChoice>,
   value: string,
+  line: TemplateResult | typeof nothing,
   onPick: (value: string) => void,
 ): TemplateResult {
   return html`<fieldset
@@ -162,9 +167,9 @@ export function radioChips(
     data-field=${id}
     data-composed="chips"
     tabindex="-1"
-    aria-label=${label}
+    aria-label=${text.name}
   >
-    <legend class="label">${label}</legend>
+    <legend class="label">${text.legend}</legend>
     <div class="chip-choices">
       ${choices.map(
         (choice) =>
@@ -181,16 +186,20 @@ export function radioChips(
           </label>`,
       )}
     </div>
+    ${text.helper ? html`<p class="hint">${text.helper}</p>` : nothing} ${line}
   </fieldset>`;
 }
 
 /**
  * The line a switch over an action gives way to while another action is stored, "Tapping an
- * Event: **Navigate**", with Change, laid out as Settings For's compact line.
+ * Event: **Navigate**", with Change, laid out as Settings For's compact line, its state words in
+ * its name and the line under a field after it.
  *
  * @param id - The field's id, which its wrapper names
  * @param t - The editor's strings
  * @param action - The stored action's name
+ * @param words - The field's state words, where it has any
+ * @param below - The line under the field: what Reset gives, and its actions
  * @param onChange - Change was pressed
  * @returns The line
  */
@@ -198,6 +207,8 @@ export function tapLine(
   id: string,
   t: Translate,
   action: string,
+  words: string | undefined,
+  below: TemplateResult | typeof nothing,
   onChange: () => void,
 ): TemplateResult {
   const line = interpolate(t('tap.line'), { action });
@@ -208,7 +219,7 @@ export function tapLine(
     data-composed="line"
     tabindex="-1"
     role="group"
-    aria-label=${line}
+    aria-label=${words ? `${line}${SUMMARY_SEPARATOR}${words}` : line}
   >
     <div class="tap-line">
       <span>${before}<b>${action}</b>${after}</span>
@@ -222,6 +233,7 @@ export function tapLine(
         ${t('settings_for.change')}
       </button>
     </div>
+    ${below}
   </div>`;
 }
 

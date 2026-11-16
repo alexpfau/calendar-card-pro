@@ -111,7 +111,8 @@ async function mountOpen(hass: Types.Hass = haWith()) {
  * @returns The editor
  */
 async function mountEntry(hass: Types.Hass = haWith()) {
-  const editor = await mountEditor(CONFIG, { hass });
+  // Every setting a page can draw, so each kind of selector is fed.
+  const editor = await mountEditor(CONFIG, { hass, every: true });
   await openPageOf(editor, 'calendar:name', entry(1));
   await openPageOf(editor, 'calendar:name', entry(0));
   return editor;
@@ -230,7 +231,8 @@ describe('hass-key.ts', () => {
 
 describe('the feeds in the rendered editor', () => {
   it('feeds each form by the selectors it draws, and Home Assistant’s Visibility editor live', async () => {
-    const editor = await mountEditor(CONFIG, { hass: haWith() });
+    // Every setting a page can draw, so each kind of selector is fed.
+    const editor = await mountEditor(CONFIG, { hass: haWith(), every: true });
     const feed = (selector: string) =>
       editor.shadowRoot!.querySelector<HTMLElement>(selector)?.dataset.hass;
     const field = (id: string) => feed(`[data-field="${id}"] > ha-form`);

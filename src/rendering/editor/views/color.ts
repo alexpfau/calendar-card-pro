@@ -65,6 +65,8 @@ export interface ColorControlView {
   };
   /** The field's helper, under the control. */
   readonly helper?: string;
+  /** Its state words, under the helper. */
+  readonly words?: string;
   /** The configuration as written: the line, or what stands for none, and the kept note. */
   readonly yaml: { readonly line?: string; readonly none: string; readonly kept?: string };
 }
@@ -200,5 +202,6 @@ export function colorControl(view: ColorControlView): TemplateResult {
         : nothing
     }
     ${view.helper ? html`<p class="hint">${view.helper}</p>` : nothing}
+    ${view.words ? html`<p class="hint color-words">${view.words}</p>` : nothing}
   </div>`;
 }

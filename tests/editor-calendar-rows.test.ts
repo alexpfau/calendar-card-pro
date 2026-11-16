@@ -22,7 +22,6 @@ import {
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import * as Entities from '../src/rendering/editor/entities';
-import { ESSENTIALS_STORAGE_KEY } from '../src/rendering/editor/essentials';
 
 type Editor = Awaited<ReturnType<typeof mountEditor>>;
 
@@ -153,7 +152,6 @@ beforeAll(() => {
 beforeEach(() => Entities.clearCopiedSettings());
 afterEach(() => {
   document.body.replaceChildren();
-  localStorage.removeItem(ESSENTIALS_STORAGE_KEY);
 });
 
 describe('a row', () => {
@@ -526,13 +524,8 @@ describe('Add Calendar', () => {
     expect(editor.shadowRoot!.querySelector('.entry-page .page-title')?.textContent).toBe('Anna');
   });
 
-  it('stays offered under Essentials Only and Customized Only, withheld only while a query is typed', async () => {
-    // Essentials Only is remembered in the browser: hiding Add Calendar under it would leave a
-    // card no way to gain a calendar.
+  it('stays offered, withheld only while a query is typed', async () => {
     const editor = await mount([ANNA]);
-    await changeField(editor, 'filter:essentials_only', true, CHASSIS);
-    expect(control(editor, 'add-calendar')).not.toBeNull();
-    await changeField(editor, 'filter:customized_only', true, CHASSIS);
     expect(control(editor, 'add-calendar')).not.toBeNull();
     await changeField(editor, 'filter:search', 'anna', CHASSIS);
     expect(control(editor, 'add-calendar')).toBeNull();
