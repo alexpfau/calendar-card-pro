@@ -44,6 +44,18 @@ export function wordsPlace(node: HaFormSchema): 'helper' | 'label' {
 }
 
 /**
+ * Whether a control's label names nothing a screen reader reaches: Home Assistant draws a number
+ * slider's label as plain text beside an unnamed slider and box, so the words that follow the label
+ * go in the name of the field's group as well.
+ *
+ * @param node - The control
+ * @returns Whether the group carries the words
+ */
+export function wordsInGroup(node: HaFormSchema): boolean {
+  return 'selector' in node && 'number' in node.selector && wordsPlace(node) === 'label';
+}
+
+/**
  * The words a field carries in its label or helper (section 5.3): "Set for Grid", "Grid's
  * Default", "Follows the Card: Hide".
  *

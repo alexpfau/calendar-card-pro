@@ -1355,6 +1355,10 @@ export class CalendarCardProEditor extends LitElement {
         ? `${fieldLabel(field, ctx.language)}${Summary.SUMMARY_SEPARATOR}${words}`
         : undefined;
     return this._keep(`${slot}.text`, [ctx.language, label, helper, field.labelPath], () => ({
+      group:
+        label !== undefined && Shown.wordsInGroup(field.node)
+          ? label
+          : fieldLabel(field, ctx.language),
       label: (node: HaFormSchema, _data?: unknown, options?: { path?: string[] }): string =>
         label !== undefined && node.name === field.node.name && 'selector' in node
           ? label
@@ -1745,7 +1749,7 @@ export class CalendarCardProEditor extends LitElement {
       data-field=${field.id}
       tabindex="-1"
       role="group"
-      aria-label=${fieldLabel(field, ctx.language)}
+      aria-label=${text.group}
     >
       ${keyed(
         // Keyed by scope as well: reusing a form would redirect its pending events into the
@@ -2138,10 +2142,17 @@ export class CalendarCardProEditor extends LitElement {
           : [];
       });
       const addKey = `add:${heading.key ?? 'top'}`;
+      const helper =
+        heading.helperKey === undefined ? undefined : this._string(ctx, heading.helperKey);
+      const crossLink = this._crossLink(heading, ctx);
+      // Where the title and the Add row would stack with nothing between, the row carries the
+      // title in place of the heading.
+      const named =
+        live.length === 0 && more === nothing && helper === undefined && crossLink === undefined;
       const add =
         plan.add.length === 0 || this._prefs.every
           ? nothing
-          : this._renderAddRow(plan, addKey, name, live.length === 0, owner, ctx, known);
+          : this._renderAddRow(plan, addKey, name, named, owner, ctx, known);
       // One line per condition waited on: the names still to come, else the line alone with the
       // stored values after it.
       const byWhen = new Map<string, { names: string[]; held: number }>();
@@ -2218,11 +2229,10 @@ export class CalendarCardProEditor extends LitElement {
       const family = this._liveFamily(plan);
       return [
         PageView.headingBlock({
-          title,
+          title: named && add !== nothing ? undefined : title,
           key: heading.key,
-          helper:
-            heading.helperKey === undefined ? undefined : this._string(ctx, heading.helperKey),
-          crossLink: this._crossLink(heading, ctx),
+          helper,
+          crossLink,
           action:
             family === undefined
               ? undefined
@@ -2262,7 +2272,7 @@ export class CalendarCardProEditor extends LitElement {
    * @param plan - The heading's plan
    * @param key - The row's `data-focus` key
    * @param heading - The heading's name
-   * @param named - Whether nothing under the heading is live
+   * @param named - Whether the row stands in for the heading: nothing live, no line between
    * @param owner - The card, or a calendar entry
    * @param ctx - Schema context
    * @param known - A field by id

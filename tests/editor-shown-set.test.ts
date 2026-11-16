@@ -147,6 +147,40 @@ describe('what a page shows of a fresh card', () => {
     expect(row.getAttribute('aria-expanded')).toBe('false');
   });
 
+  it('names an Add row with its heading only where the row stands in for it', async () => {
+    const editor = await mount();
+    await goPage(editor, 'events');
+    const state = $(editor, '.page-group[data-heading="heading_event_state"]')!;
+    expect(state.querySelector('h3')).toBeNull();
+    expect(state.querySelector('.add-title')!.textContent).toBe('Event State · Add Setting');
+    // Over every page of a fresh card: a heading drawn with nothing between it and its Add row
+    // never stutters, and a row under a heading's line or fields stays plain.
+    let named = 0;
+    let plain = 0;
+    // Every page a List card opens; Grid's page is Grid's alone.
+    for (const page of PAGES.filter((each) => each.id !== 'grid')) {
+      await goPage(editor, page.id);
+      for (const group of editor.shadowRoot!.querySelectorAll('.page-group')) {
+        const title = group.querySelector('.add-title')?.textContent;
+        if (title === undefined) continue;
+        const h3 = group.querySelector('h3');
+        const between = group.querySelector('[data-field], .hint, .page-line') !== null;
+        if (title === 'Add Setting') {
+          plain += 1;
+          expect(h3 === null || between, `${page.id} ${group.getAttribute('data-heading')}`).toBe(
+            true,
+          );
+        } else {
+          named += 1;
+          expect(h3, title).toBeNull();
+          expect(between, title).toBe(false);
+        }
+      }
+    }
+    expect(named).toBeGreaterThan(0);
+    expect(plain).toBeGreaterThan(0);
+  });
+
   it('adds a setting without writing, keeps the list open and focuses the new field', async () => {
     const editor = await mount();
     await goPage(editor, 'events');
@@ -248,6 +282,26 @@ describe('state words, by where they are drawn', () => {
     await goPage(editor, 'events');
     expect(labelOf(editor, 'events:show_location')).toBe('Show Location · From All Layouts');
     expect(helperOf(editor, 'events:event_font_size')).toMatch(/^From All Layouts\./);
+  });
+
+  it('name a slider’s group with them, where the slider has no name of its own', async () => {
+    const editor = await mount({
+      view: 'grid',
+      days_to_show: 3,
+      show_location: false,
+      time_grid: { min_days_to_show: 2, show_location: true },
+    });
+    await openPageOf(editor, 'layout:time_grid.min_days_to_show');
+    const group = (id: string): string | null =>
+      $(editor, `[data-field="${id}"]`)!.getAttribute('aria-label');
+    expect(labelOf(editor, 'layout:time_grid.min_days_to_show')).toBe(
+      'Fewest Day Columns · Set for Grid',
+    );
+    expect(group('layout:time_grid.min_days_to_show')).toBe('Fewest Day Columns · Set for Grid');
+    // A switch is named by its label, words and all, so its group keeps the bare label.
+    await openPageOf(editor, 'events:show_location');
+    expect(labelOf(editor, 'events:show_location')).toBe('Show Location · Set for Grid');
+    expect(group('events:show_location')).toBe('Show Location');
   });
 
   it('carry “Set for All Layouts” on a dropdown’s label', async () => {
