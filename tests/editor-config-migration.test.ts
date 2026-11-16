@@ -15,6 +15,7 @@ import {
   formsOf,
   mountEditor,
   openPanels,
+  reportsOf,
   resetButton,
   valueOf,
 } from './helpers/editor-host';
@@ -45,25 +46,32 @@ async function mount(config: Record<string, unknown>) {
   const editor = await mountEditor({ entities: ['calendar.anna'], ...config });
   // A closed panel mounts no form: open every panel, as these tests read forms across the editor.
   await openPanels(editor);
-  const reports: Record<string, unknown>[] = [];
-  editor.addEventListener('config-changed', (event) => {
-    reports.push(
-      structuredClone((event as CustomEvent<{ config: Record<string, unknown> }>).detail.config),
-    );
-  });
-  return { editor, reports };
+  // What it reported since it was created: an upgrade on opening is the first.
+  return { editor, reports: reportsOf(editor) };
 }
 
+/** The message a configuration version the editor cannot edit puts in its place. */
 function blocker(editor: EditorHost): HTMLElement | null {
   return editor.shadowRoot!.querySelector('[data-config-migration]');
 }
 
+/** The receipt the upgrade on opening leaves. */
+function receipt(editor: EditorHost): HTMLElement | null {
+  return editor.shadowRoot!.querySelector('[data-upgrade-receipt]');
+}
+
+/**
+ * The upgrade's answer: List, as the editor writes on opening, or every layout, through the
+ * receipt's Use Them for Every Layout.
+ *
+ * @param editor - Editor
+ * @param choice - The answer
+ */
 async function choose(editor: EditorHost, choice: 'keep-list' | 'shared-root'): Promise<void> {
-  const buttons = [...blocker(editor)!.querySelectorAll<HTMLButtonElement>('button')];
-  expect(buttons).toHaveLength(2);
-  buttons[choice === 'keep-list' ? 0 : 1].click();
-  await editor.updateComplete;
-  // The panels arrive with the choice, each closed and mounting no form until opened.
+  if (choice === 'shared-root') {
+    receipt(editor)!.querySelector<HTMLButtonElement>('[data-focus="upgrade-share"]')!.click();
+    await editor.updateComplete;
+  }
   await openPanels(editor);
 }
 
@@ -77,19 +85,32 @@ afterEach(() => {
 });
 
 describe('ambiguous legacy configurations', () => {
-  it('blocks List edits only when authored divergent root keys exist', async () => {
+  it('keeps authored divergent roots for List on opening, and says so', async () => {
     const { editor, reports } = await mount({
       view: 'list',
       event_font_size: '18px',
       show_past_events: false,
     });
 
-    expect(blocker(editor)).not.toBeNull();
-    expect(formsOf(editor)).toHaveLength(0);
-    expect(blocker(editor)!.textContent).toContain('Event Font Size');
-    expect(blocker(editor)!.textContent).toContain('Show Past Events');
-    expect(blocker(editor)!.textContent).toContain('Keep my existing List appearance');
-    expect(blocker(editor)!.textContent).toContain('Use these settings for all layouts');
+    expect(blocker(editor)).toBeNull();
+    expect(formsOf(editor).length).toBeGreaterThan(0);
+    expect(receipt(editor)!.textContent!.replace(/\s+/g, ' ').trim()).toBe(
+      'Upgraded. Event Font Size and Show Past Events now apply to List, as before. The card ' +
+        'looks the same. Use Them for Every Layout Undo',
+    );
+    expect(reports).toEqual([
+      {
+        config_version: Config.CURRENT_CONFIG_VERSION,
+        entities: ['calendar.anna'],
+        view: 'list',
+        list: { event_font_size: '18px', show_past_events: false },
+      },
+    ]);
+  });
+
+  it('upgrades nothing when the card has no divergent root', async () => {
+    const { editor, reports } = await mount({ view: 'list', title: 'Family' });
+    expect(receipt(editor)).toBeNull();
     expect(reports).toEqual([]);
   });
 
@@ -201,7 +222,7 @@ describe('ambiguous legacy configurations', () => {
         'grid',
       );
 
-      expect(blocker(editor)!.textContent).toContain('Either choice keeps Grid looking the same');
+      expect(receipt(editor)!.textContent).toContain('The card looks the same.');
       await choose(editor, choice);
       const after = View.resolveEffectiveConfig(merged(reports.slice(-1)[0]!), 'grid');
 
@@ -303,12 +324,11 @@ describe('configuration version states', () => {
         language,
         event_font_size: '18px',
       });
-      const panel = blocker(editor)!;
-      expect(panel.textContent).toContain(expected('config_migration.title'));
-      expect(
-        [...panel.querySelectorAll('button')].map((button) => button.textContent?.trim()),
-      ).toEqual([expected('config_migration.keep_list'), expected('config_migration.use_shared')]);
-      await choose(editor, 'keep-list');
+      const panel = receipt(editor)!;
+      expect(panel.textContent).toContain(expected('upgrade.title'));
+      expect(panel.querySelector('[data-focus="upgrade-share"]')!.textContent!.trim()).toBe(
+        expected('upgrade.share_one'),
+      );
       expect(reports[0]).toMatchObject({
         language,
         list: { event_font_size: '18px' },
@@ -329,7 +349,6 @@ describe('configuration version states', () => {
   );
 
   it.each([
-    { event_font_size: '18px' },
     { config_version: 6, list: { event_font_size: '18px' } },
     { config_version: '5', list: { event_font_size: '18px' } },
   ])('rejects stale form events and reset clicks while blocked by %j', async (blockedConfig) => {
@@ -366,9 +385,16 @@ describe('configuration version states', () => {
   });
 
   it('sends an older integer marker through the legacy ambiguity path', async () => {
-    const { editor } = await mount({ config_version: 4, event_font_size: '18px' });
-    expect(blocker(editor)).not.toBeNull();
-    expect(blocker(editor)!.textContent).toContain('Choose How to Upgrade This Card');
+    const { editor, reports } = await mount({ config_version: 4, event_font_size: '18px' });
+    expect(blocker(editor)).toBeNull();
+    expect(receipt(editor)).not.toBeNull();
+    expect(reports).toEqual([
+      {
+        config_version: Config.CURRENT_CONFIG_VERSION,
+        entities: ['calendar.anna'],
+        list: { event_font_size: '18px' },
+      },
+    ]);
   });
 
   it('blocks a newer integer marker without rewriting it', async () => {
@@ -389,7 +415,7 @@ describe('configuration version states', () => {
     },
   );
 
-  it('does not rerun migration after the choice is echoed', async () => {
+  it('does not rerun migration after the upgrade is echoed', async () => {
     const { editor, reports } = await mount({ event_font_size: '18px' });
     await choose(editor, 'keep-list');
     const migrated = reports[0];
@@ -398,6 +424,7 @@ describe('configuration version states', () => {
     await editor.updateComplete;
 
     expect(blocker(editor)).toBeNull();
+    expect(reports).toHaveLength(1);
     await changeField(editor, 'card:title', 'Echoed');
     expect(reports.slice(-1)[0]).toMatchObject({
       config_version: Config.CURRENT_CONFIG_VERSION,

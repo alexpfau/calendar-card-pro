@@ -18,6 +18,7 @@
  * Free of Lit and the DOM, like every editor module but the element and its styles.
  */
 
+import { type AuditGroup, type AuditLine, auditGroups } from './audit';
 import { type Story, type StoryId, storyById } from './stories';
 import * as Synthetic from './synthetic';
 import * as Value from './value';
@@ -87,6 +88,40 @@ export function isFreshCard(raw: Readonly<Record<string, unknown>>): boolean {
 }
 
 /**
+ * The calendar Home Assistant's card picker started a fresh card with, while that is all the card
+ * holds: the picker's stub (`getStubConfig`) takes the first calendar Home Assistant lists, so the
+ * card's preview has something to draw, and nobody chose it. A calendar given as a bare id and
+ * equal to that first one is read as the stub's; once it is changed, another is added or the card
+ * stores anything else of its own, it is the user's.
+ *
+ * @param raw - Configuration as the YAML holds it
+ * @param first - The first calendar Home Assistant lists (`firstCalendar`)
+ * @returns The calendar's entity id, or `undefined`
+ */
+export function startedWith(
+  raw: Readonly<Record<string, unknown>>,
+  first: string | undefined,
+): string | undefined {
+  if (!isFreshCard(raw) || !Array.isArray(raw.entities) || raw.entities.length !== 1) {
+    return undefined;
+  }
+  const [only] = raw.entities as unknown[];
+  return typeof only === 'string' && only === first ? only : undefined;
+}
+
+/**
+ * The first calendar Home Assistant lists, which its card picker starts a new card with
+ * (`getStubConfig` › `findCalendarEntity`). It walks every state, so it is read outside a render.
+ *
+ * @param states - Home Assistant's `hass.states`
+ * @returns Its entity id, or `undefined`
+ */
+export function firstCalendar(states: unknown): string | undefined {
+  if (states === null || typeof states !== 'object') return undefined;
+  return Config.findCalendarEntity({ states } as never) ?? undefined;
+}
+
+/**
  * The calendars a configuration lists, each once, in the order it first lists them.
  *
  * @param config - Configuration as the YAML holds it
@@ -103,9 +138,10 @@ export function calendarsOf(config: Readonly<Record<string, unknown>>): string[]
 /**
  * A story's starting answers for a card.
  *
- * The title and calendars come from the card. The weather entity is the card's own, else for a
- * story that shows weather the home's only one, else none. The toolbar and the taps come from
- * the story.
+ * The title and calendars come from the card, except the calendar a fresh card was started with
+ * (`startedWith`), which nobody chose and is left for the user to choose. The weather entity is
+ * the card's own, else for a story that shows weather the home's only one, else none. The
+ * toolbar and the taps come from the story.
  *
  * @param opening - The configuration as Quick Setup found it
  * @param storyId - The story picked
@@ -125,7 +161,8 @@ export function initialAnswers(
   return {
     story: storyId,
     title: textOf(opening.title) || textOf(shell.title),
-    calendars: calendarsOf(opening),
+    calendars:
+      startedWith(opening, firstCalendar(states)) === undefined ? calendarsOf(opening) : [],
     weather: textOf(ownWeather) || (storyWeather ? (Config.findWeatherEntity(states) ?? '') : ''),
     toolbar: Helpers.isConfigBlock(shell.toolbar) && shell.toolbar.show === true,
     eventDetails: actionOf(shell.event_tap_action) === 'details',
@@ -312,4 +349,62 @@ function textOf(value: unknown): string {
 
 function actionOf(value: unknown): unknown {
   return Helpers.isConfigBlock(value) ? value.action : undefined;
+}
+
+/** One setting Apply replaces: the card's line as it was, and what Apply leaves there. */
+export interface Replacement {
+  readonly line: AuditLine;
+  /** Where the line lives: the card's top level or a layout's block. */
+  readonly group: AuditGroup;
+  /** The value Apply leaves at the line's path; `undefined` where it leaves none. */
+  readonly next: unknown;
+}
+
+/**
+ * The settings Apply replaces on a card that has some: each line the card stores for a control of
+ * its own, at its top level or in a layout's block, that the built configuration holds otherwise
+ * or not at all. Calendars keep their own settings, and Home Assistant's lines stay, so neither is
+ * listed; the card's type, version and calendar list are no setting.
+ *
+ * @param opening - The configuration as Quick Setup found it, as the YAML holds it
+ * @param built - What Apply writes
+ * @returns The replacements, in the order What This Card Changes lists them
+ */
+export function replacements(
+  opening: Readonly<Record<string, unknown>>,
+  built: Readonly<Record<string, unknown>>,
+): Replacement[] {
+  const groups = auditGroups({
+    raw: opening,
+    config: { ...Config.DEFAULT_CONFIG, ...opening } as unknown as Types.Config,
+    entryKeys: [],
+  });
+  const replaced: Replacement[] = [];
+  for (const group of groups) {
+    if (group.kind !== 'card' && group.kind !== 'layout') continue;
+    for (const line of group.lines) {
+      if (line.field === undefined && line.page === undefined) continue;
+      const next = valueAt(built, line.path);
+      if (!Value.equalConfigs({ value: line.value }, { value: next })) {
+        replaced.push({ line, group, next });
+      }
+    }
+  }
+  return replaced;
+}
+
+/**
+ * The value at a path of keys.
+ *
+ * @param config - Configuration
+ * @param path - Keys, outermost first
+ * @returns The value, or `undefined`
+ */
+function valueAt(config: Readonly<Record<string, unknown>>, path: ReadonlyArray<string>): unknown {
+  let at: unknown = config;
+  for (const key of path) {
+    if (!Helpers.isConfigBlock(at)) return undefined;
+    at = at[key];
+  }
+  return at;
 }

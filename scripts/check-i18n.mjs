@@ -1327,6 +1327,14 @@ const IDENTICAL_TO_ENGLISH_OK = new Set([
   // `Layout` is the ordinary Swedish and Norwegian word.
   'sv:view',
   'nb:view',
+
+  // Quick Setup's review row naming the layout: `Layout` is the word German, Italian, Swedish and
+  // Norwegian use for it elsewhere in the editor ("Alle Layouts", "Tutti i layout", "Alla
+  // layouter", "Alle layouter").
+  'de:quick_setup.review.layout',
+  'it:quick_setup.review.layout',
+  'sv:quick_setup.review.layout',
+  'nb:quick_setup.review.layout',
 ]);
 
 /**

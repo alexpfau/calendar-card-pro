@@ -90,7 +90,7 @@ src/
 │   │   ├── split.ts              # Split This Calendar: when an entry can split, and what it writes
 │   │   ├── split-review.ts       # Where an entry's upcoming events land after a split
 │   │   ├── calendar-days.ts      # The card's day arithmetic, mirrored for Split's review
-│   │   ├── word-lists.ts         # Blocklist and Allowlist read as words, and written back
+│   │   ├── word-lists.ts         # blocklist and allowlist read as words, and written back
 │   │   ├── reorder.ts            # Keyboard and pointer reordering as data
 │   │   ├── chips.ts              # Toggle chips: the event parts and the toolbar's controls
 │   │   ├── chip-labels.ts        # Each chip's label
@@ -221,12 +221,14 @@ renders through the second. A change to the rule changes both.
   `configVersionState` reads a missing marker or an older nonnegative integer as legacy, accepts
   the current version, and blocks visual-editor writes for a future version or any other value,
   negative, fractional or not a number; it does not coerce `'5'` to a number.
-- **Adoption.** For an ambiguous legacy List or Grid card the editor asks once whether authored
-  divergent roots keep the List appearance (moved into `list:`) or apply to all layouts (kept at
-  the root). Both answers move the List-only roots into `list:`, keep a value the block already
-  holds over the older root, and stamp the format (`migrateListConfig`). Legacy Column cards,
-  unambiguous cards and versionless cards already carrying `list:` or `time_grid:` adopt on their
-  first real edit, without the question. Opening the editor writes nothing.
+- **Adoption.** An ambiguous legacy List or Grid card is upgraded when the editor opens, as one
+  undo step: authored divergent roots keep the List appearance (moved into `list:`), and the
+  receipt offers to apply them to all layouts instead (kept at the root), as a second step. Both
+  move the List-only roots into `list:`, keep a value the block already holds over the older
+  root, and stamp the format (`migrateListConfig`). After an Undo of the upgrade, the next edit
+  upgrades the same way, inside its own step. Legacy Column cards, unambiguous cards and
+  versionless cards already carrying `list:` or `time_grid:` adopt on their first real edit, and
+  opening the editor writes nothing for them.
 - **Authored values.** Authorship is captured from raw input before defaults are merged, so
   migration sees `false`, zero and default-equal values, and `_report` updates the editor's own
   state before forms reopen or Home Assistant echoes the save. `toStoredConfig` takes the stored
