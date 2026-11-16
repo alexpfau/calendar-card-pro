@@ -362,7 +362,7 @@ export interface Replacement {
 
 /**
  * The settings Apply replaces on a card that has some: each line the card stores for a control of
- * its own, at its top level or in a layout's block, that the built configuration holds otherwise
+ * its own, at its top level (whole-card or shared) or in a layout's block, that the built configuration holds otherwise
  * or not at all. Calendars keep their own settings, and Home Assistant's lines stay, so neither is
  * listed; the card's type, version and calendar list are no setting.
  *
@@ -381,7 +381,7 @@ export function replacements(
   });
   const replaced: Replacement[] = [];
   for (const group of groups) {
-    if (group.kind !== 'card' && group.kind !== 'layout') continue;
+    if (group.kind !== 'whole' && group.kind !== 'card' && group.kind !== 'layout') continue;
     for (const line of group.lines) {
       if (line.field === undefined && line.page === undefined) continue;
       const next = valueAt(built, line.path);

@@ -9464,6 +9464,30 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * A stored value as the dropdown standing in for its option offers it: Filter Duplicates reads
+   * `filter_duplicates: true` as its Same title, start, end and location. Only where choosing that
+   * offer writes the stored value back exactly; any other value, such as a tap action the dropdown
+   * has no choice for, stays as stored.
+   *
+   * @param field - The line's field
+   * @param value - The value as stored
+   * @returns What the field's own control holds for it
+   */
+  private _throughMode(field: IndexedField, value: unknown): unknown {
+    const name = field.node.name;
+    if (!Synthetic.isSyntheticKey(name) || !Helpers.hasOwn(Synthetic.SYNTHETIC_FIELDS, name)) {
+      return value;
+    }
+    const keys = Synthetic.configKeysForField(name);
+    if (keys.length !== 1) return value;
+    const mode = Synthetic.SYNTHETIC_FIELDS[name];
+    const config = { ...Config.DEFAULT_CONFIG, [keys[0]]: value } as Types.Config;
+    const offered = mode.derive(config);
+    const back = mode.apply(offered, config).changes as Record<string, unknown>;
+    return Value.equalConfigs({ value: back[keys[0]] }, { value }) ? offered : value;
+  }
+
+  /**
    * A stored value as its row words it: as its control does, else as YAML would, where the
    * control cannot (an action a mode collapses to Nothing).
    *
@@ -9473,7 +9497,12 @@ export class CalendarCardProEditor extends LitElement {
    * @returns The words
    */
   private _auditWord(field: IndexedField, value: unknown, ctx: SchemaCtx): string {
-    const word = Summary.wordValue(field, value, ctx.language, this._describe);
+    const word = Summary.wordValue(
+      field,
+      this._throughMode(field, value),
+      ctx.language,
+      this._describe,
+    );
     return word === undefined || (typeof value === 'object' && word === String(value))
       ? Audit.plainValue(value)
       : word;
