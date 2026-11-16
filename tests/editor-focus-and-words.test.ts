@@ -193,12 +193,11 @@ describe('focus', () => {
 
     await press(editor, `more:entry:${anna}`);
     await press(editor, `strip:entry:${anna}:duplicate`);
-    expect(checked()).toBe('grid');
     await press(editor, 'back-top');
     expect(checked()).toBe('grid');
 
-    // The browser can uncheck a radio behind Lit's back, as the page's own Settings For did to the
-    // overview's in Home Assistant: the next render checks it again.
+    // The browser can uncheck a radio behind Lit's back, as Home Assistant showed after
+    // Duplicate and Back: the next render checks it again.
     radios().find((input) => input.value === 'grid')!.checked = false;
     editor.requestUpdate();
     await editor.updateComplete;

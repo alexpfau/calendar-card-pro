@@ -1,8 +1,7 @@
 /**
  * What a page draws around its live fields (backlog item 307): the line under a field with its
  * notes and its Reset or Remove, a heading's Add row, its gate line and the values stored for
- * settings that are not in use, and the page's line naming what other layouts add. Templates
- * only, as `overview.ts`.
+ * settings that are not in use. Templates only, as `overview.ts`.
  */
 
 import { mdiChevronDown, mdiChevronUp, mdiClose, mdiPlus, mdiRestore } from '@mdi/js';
@@ -244,19 +243,4 @@ export function gateLines(
         <span>${line.text}</span>${line.button ? lineButton(line.button) : nothing}
       </p>`,
   )}`;
-}
-
-/**
- * The page's foot line for the layouts that add settings here: "List and Columns add here: Now,
- * Time Position, +7. Settings: 10." with Edit List.
- *
- * @param text - The sentence
- * @param count - "Settings: 10"
- * @param button - Edit, for the first of the layouts
- * @returns The line
- */
-export function otherLayoutsLine(text: string, count: string, button: LineButton): TemplateResult {
-  return html`<p class="page-line other-layouts">
-    <span>${text} ${count}</span>${lineButton(button)}
-  </p>`;
 }

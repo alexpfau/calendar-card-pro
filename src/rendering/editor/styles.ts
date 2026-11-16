@@ -626,10 +626,6 @@ export default css`
     fill: currentcolor;
   }
 
-  .scope-choice:has(input:checked) .scope-count {
-    color: inherit;
-  }
-
   .display-choice:has(input:checked) {
     border-color: var(--primary-color);
     background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
@@ -645,11 +641,6 @@ export default css`
   .displays > legend,
   .segmented > legend {
     margin-bottom: 8px;
-  }
-
-  .scope-count {
-    color: var(--secondary-text-color);
-    font-size: 12px;
   }
 
   /* Orange, as the mockup draws it, so the line stands out: the warning color mixed toward the
@@ -668,6 +659,19 @@ export default css`
 
   .scope-preview .icon {
     fill: currentcolor;
+  }
+
+  /* The switch keeps the button's own color, and wraps under the sentence on a narrow editor. */
+  .scope-preview {
+    flex-wrap: wrap;
+  }
+
+  .scope-preview-text {
+    flex: 1 1 12em;
+  }
+
+  .scope-preview-switch {
+    color: var(--primary-color);
   }
 
   @supports (color: color-mix(in oklab, red, blue)) {

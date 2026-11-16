@@ -90,12 +90,14 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'settings_for.compact': 'Settings for {layout}',
   'settings_for.change': 'Change',
   'settings_for.change_named': 'Change: settings for {layout}',
-  'settings_for.option_set': '{layout}, Set: {count}',
-  'settings_for.help_shared':
-    'Shared starting values. A layout’s own settings or built-in defaults can take precedence.',
+  'settings_for.help_shared': 'Every layout uses these unless it has its own value.',
   'settings_for.help_layout':
     'Edits here are written for {layout} and apply when the card shows it.',
   'settings_for.preview': 'Editing {layout} · Preview Shows {displayed}',
+  // The preview switch beside it, and the line while it is on. Nothing is saved by either.
+  'settings_for.preview_switch': 'Preview {layout}',
+  'settings_for.previewing':
+    'Editing {layout} · Preview Shows {layout} · The Card Opens in {displayed}',
   'settings_for.grid_only': 'Applies when the card shows Grid.',
   'announce.scope': 'Now editing settings for {layout}.',
   'summary.pair': '{label}: {value}',
@@ -117,50 +119,53 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // --- Show What Applies ----------------------------------------------------
   //
   // A page draws what applies here and is essential, stored, inherited with a different value or
-  // added; the rest of a heading waits in its Add row, named. Counts are a label and a number, and
-  // a list that does not fit ends "{names}, +{count}", which inflects nothing.
+  // added; the rest of a heading waits in its Add row, named. Counts are a label and a number,
+  // which inflects nothing.
   'add.setting': 'Add Setting',
   'add.setting_under': '{heading} · Add Setting',
   'add.name': 'Add Setting under {heading}, Settings: {count}',
-  'add.names_more': '{names}, +{count}',
   'add.count': 'Settings: {count}',
   'add.group': 'Settings to Add under {heading}',
   'add.show_all': 'Show All',
   'add.filter': 'Filter Settings',
-  // What a field says about where its value comes from, after its label or before its helper.
+  // What a field says about where its value comes from, after its label or before its helper: one
+  // vocabulary on every page, since Settings For already names the layout. "Default" is a layout's
+  // own default; a field following the card's says nothing.
   'state.set': 'Set',
-  'state.set_all_layouts': 'Set for All Layouts',
+  'state.default': 'Default',
   'state.whole_card': 'Whole Card',
   'state.whole_card_set': 'Whole Card · Set',
-  'state.set_layout': 'Set for {layout}',
-  'state.set_layout_same': 'Set for {layout}, Same as the Default',
-  'state.layout_default': '{layout}’s Default',
   'state.ignored': 'The All Layouts value, {value}, does not apply in {layout}.',
   'state.from_all_layouts': 'From All Layouts',
-  'state.set_entry': 'Set on This Calendar',
-  'state.set_entry_shared': 'Set on This Calendar · Shared by Its Entries',
-  'state.follows_card': 'Follows the Card: {value}',
-  'state.layout_own': '{layout} Sets Its Own: {value}',
+  // A calendar option the calendar's entries share, and an entry's value that comes from the card.
+  'state.set_shared': 'Set · Shared by Its Entries',
+  'state.from_card': 'From the Card',
+  // Under a field in All Layouts, for each layout the All Layouts value does not reach.
+  'state.layout_own': '{layout} Has Its Own: {value}',
   'state.set_on_calendars': 'Set on Calendars:',
-  'state.edit_layout': 'Edit {layout}',
-  // The button under a stored field, named for what it leaves: "Reset to Off", "Clear" where
-  // nothing comes back, "Remove" where the control goes; the rest name it for screen readers.
-  'reset.to': 'Reset to {value}',
-  'reset.clear': 'Clear',
-  'reset.named': '{action}: {label}',
+  // The button under a stored field. Reset keeps the setting on the page and names the value it
+  // goes back to, "Reset (Off)", or "Reset (Empty)" where nothing comes back. Remove Setting takes
+  // the setting back to its heading's Add row. The `named` ones are their names for screen
+  // readers, which name the setting too.
+  'reset.to': 'Reset ({value})',
+  'reset.empty': 'Reset (Empty)',
   'reset.reset': 'Reset',
-  'reset.reset_for': 'Reset {label} for {layout}',
+  'reset.named': 'Reset {label}',
+  'reset.named_to': 'Reset {label} to {value}',
+  'reset.named_empty': 'Reset {label} to Empty',
+  'reset.remove_setting': 'Remove Setting',
   'reset.remove': 'Remove',
   'reset.remove_named': 'Remove {label} and Reset It',
-  'reset.remove_for': 'Remove {label} for {layout} and Reset It',
+  'reset.remove_named_to': 'Remove {label} and Reset It to {value}',
+  // One Reset per group of chips, for every chip stored in this scope; its name lists them.
+  'reset.parts': 'Reset Parts',
+  'reset.controls': 'Reset Controls',
+  'reset.group_named': '{action}: {names}',
   // A value the YAML holds for a setting a gate withholds; the gate line above it says why.
   'inactive.line': 'Stored but not in use: {label} ({value})',
   'inactive.line_top': 'Stored but not in use: {label} ({value}), from All Layouts',
   'inactive.line_bare': 'Stored but not in use: {label}',
   'inactive.line_top_bare': 'Stored but not in use: {label}, from All Layouts',
-  // The page's foot: what the layouts this scope is not add to it.
-  'other_layouts.one': '{layout} adds here: {names}.',
-  'other_layouts.many': '{layouts} add here: {names}.',
   // The two preferences under More, remembered in this browser (`prefs.ts`).
   'prefs.every': 'Show Every Setting',
   'prefs.every_note':

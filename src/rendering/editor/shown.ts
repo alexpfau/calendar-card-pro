@@ -56,43 +56,33 @@ export function wordsInGroup(node: HaFormSchema): boolean {
 }
 
 /**
- * The words a field carries in its label or helper (section 5.3): "Set for Grid", "Grid's
- * Default", "Follows the Card: Hide".
+ * The words a field carries in its label or helper, one vocabulary on every page: "Set", "Default"
+ * (a layout's own), "From All Layouts", "Whole Card", and on a calendar's page "From the Card".
+ * Which layout is Settings For's to say, and the value is the control's, never the words'.
  *
  * @param state - What `plan.ts` › `stateOf` found
  * @param t - The editor's strings
- * @param layout - Names a layout
- * @param word - Words a value
  * @returns The words, or `undefined` where the field says nothing
  */
-export function stateText(
-  state: StateWords | undefined,
-  t: Translate,
-  layout: LayoutName,
-  word: WordValue,
-): string | undefined {
+export function stateText(state: StateWords | undefined, t: Translate): string | undefined {
   const words = state?.words;
   switch (words?.kind) {
     case undefined:
       return undefined;
     case 'set':
-      return t('state.set');
     case 'set-all-layouts':
-      return t('state.set_all_layouts');
+    case 'set-layout':
+      return t('state.set');
     case 'whole-card':
       return words.stored ? t('state.whole_card_set') : t('state.whole_card');
-    case 'set-layout':
-      return interpolate(words.sameAsDefault ? t('state.set_layout_same') : t('state.set_layout'), {
-        layout: layout(words.view),
-      });
     case 'layout-default':
-      return interpolate(t('state.layout_default'), { layout: layout(words.view) });
+      return t('state.default');
     case 'from-all-layouts':
       return t('state.from_all_layouts');
     case 'set-entry':
-      return words.shared ? t('state.set_entry_shared') : t('state.set_entry');
+      return words.shared ? t('state.set_shared') : t('state.set');
     case 'follows-card':
-      return interpolate(t('state.follows_card'), { value: word(words.value) });
+      return t('state.from_card');
   }
 }
 
@@ -121,48 +111,50 @@ export function ignoredText(
 }
 
 /**
- * The Reset button under a field, named for what it leaves (section 5.3): "Reset to Off" where
- * a value comes back, "Clear" where nothing does, and "Remove" where the control goes with it.
- * Which default or layout gives the value is the field's state words' to say, not the button's.
+ * The words of the button under a field (section 5.3): Reset keeps the control and names the value
+ * it goes back to, "Reset (In the Day Header)", or "Reset (Empty)" where nothing comes back;
+ * Remove takes the control back to its heading's Add row, "Remove Setting". Its accessible name
+ * also names the setting: "Reset Show The Forecast to In the Day Header".
  *
  * @param action - Reset keeps the control; Remove takes it away
  * @param outcome - What `plan.ts` › `resetOutcome` found
+ * @param label - The setting's label
  * @param t - The editor's strings
  * @param word - Words a value
- * @returns The button's label
+ * @returns The button's label and its accessible name
  */
-export function resetLabel(
+export function resetText(
   action: 'reset' | 'remove',
   outcome: ResetOutcome | undefined,
+  label: string,
   t: Translate,
   word: WordValue,
-): string {
-  if (action === 'remove') return t('reset.remove');
-  if (outcome === undefined) return t('reset.reset');
-  const value = outcome.value;
+): { readonly label: string; readonly name: string } {
+  const value = outcome?.value;
   const empty =
     value === undefined ||
     value === null ||
     value === '' ||
     (Array.isArray(value) && value.length === 0);
-  const worded = empty ? '' : word(value).trim();
-  return worded === '' ? t('reset.clear') : interpolate(t('reset.to'), { value: worded });
-}
-
-/**
- * Names joined for the other-layouts line: the first `fit`, then "{names}, +{count}" where more
- * did not fit.
- *
- * @param names - Every name, in order
- * @param t - The editor's strings
- * @param fit - How many fit
- * @returns The names
- */
-export function namesText(names: ReadonlyArray<string>, t: Translate, fit = 4): string {
-  const shown = names.slice(0, fit).join(' · ');
-  return names.length <= fit
-    ? shown
-    : interpolate(t('add.names_more'), { names: shown, count: String(names.length - fit) });
+  const worded = outcome === undefined || empty ? '' : word(value).trim();
+  if (action === 'remove') {
+    return {
+      label: t('reset.remove_setting'),
+      name:
+        worded === ''
+          ? interpolate(t('reset.remove_named'), { label })
+          : interpolate(t('reset.remove_named_to'), { label, value: worded }),
+    };
+  }
+  if (outcome === undefined) {
+    return { label: t('reset.reset'), name: interpolate(t('reset.named'), { label }) };
+  }
+  return worded === ''
+    ? { label: t('reset.empty'), name: interpolate(t('reset.named_empty'), { label }) }
+    : {
+        label: interpolate(t('reset.to'), { value: worded }),
+        name: interpolate(t('reset.named_to'), { label, value: worded }),
+      };
 }
 
 /**

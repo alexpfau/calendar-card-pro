@@ -266,8 +266,9 @@ describe('what a page shows of a fresh card', () => {
     expect(lastConfig(editor)).toEqual({ ...card, list: { time_font_size: '20px' } });
 
     const remove = $(editor, '[data-focus="remove:events:time_font_size"]')!;
-    expect(remove.textContent?.trim()).toBe('Remove');
-    expect(remove.getAttribute('aria-label')).toBe('Remove: Time Font Size');
+    // Remove names the setting leaving, so it never reads as a Reset.
+    expect(remove.textContent?.trim()).toBe('Remove Setting');
+    expect(remove.getAttribute('aria-label')).toMatch(/^Remove Time Font Size and Reset It to /);
     await click(editor, '[data-focus="remove:events:time_font_size"]');
     await editor.updateComplete;
 
@@ -292,18 +293,16 @@ describe('what the card sets stays on its page', () => {
     expect(live(editor)).toContain('actions:refresh_interval');
   });
 
-  it('gives a value from All Layouts no button of its own, and keeps the other layouts’ Edit', async () => {
+  it('gives a value from All Layouts no button of its own, and no other layouts’ line', async () => {
     const editor = await mount({ view: 'grid', filter_duplicates: true });
     await changeField(editor, 'workspace:editing_workspace', 'column');
     await openPageOf(editor, 'content:filter_duplicates_mode');
     expect(words(editor, 'content:filter_duplicates_mode')).toContain('· From All Layouts |');
     expect(lineButtons(editor, 'content:filter_duplicates_mode')).toEqual([]);
-    // The page's foot still names what only another layout offers here, with Edit for it.
+    // What only another layout offers is search's to name; the page's foot switches no scope.
     expect(
-      [...editor.shadowRoot!.querySelectorAll('[data-focus^="edit-layout:"]')].map((button) =>
-        button.textContent!.trim(),
-      ),
-    ).toEqual(['Edit List', 'Edit Grid']);
+      editor.shadowRoot!.querySelector('[data-focus^="edit-layout:"], .other-layouts'),
+    ).toBeNull();
   });
 
   it('names a layout’s own value under the field in All Layouts, with only its Reset', async () => {
@@ -316,7 +315,7 @@ describe('what the card sets stays on its page', () => {
     await openPageOf(editor, 'content:filter_duplicates_mode');
     const field = $(editor, '[data-field="content:filter_duplicates_mode"]')!;
     expect(field.querySelector('.field-note')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
-      'Columns Sets Its Own: Off',
+      'Columns Has Its Own: Off',
     );
     expect(lineButtons(editor, 'content:filter_duplicates_mode')).toEqual([
       'remove:content:filter_duplicates_mode',
@@ -333,15 +332,16 @@ describe('what the card sets stays on its page', () => {
   });
 
   it.each([
-    [{ view: 'column', column: { event_font_size: 14 } }, 'events:event_font_size', 'Columns'],
-    [{ view: 'grid', time_grid: { time_font_size: 12 } }, 'events:time_font_size', 'Grid'],
+    [{ view: 'column', column: { event_font_size: 14 } }, 'events:event_font_size'],
+    [{ view: 'grid', time_grid: { time_font_size: 12 } }, 'events:time_font_size'],
   ] as const)(
     'draws a line the layout’s block holds, unitless at its default: %j',
-    async (config, id, layout) => {
+    async (config, id) => {
       const editor = await mount(config);
       await openPageOf(editor, id);
       expect(live(editor)).toContain(id);
-      expect(words(editor, id)).toContain(`Set for ${layout}, Same as the Default.`);
+      // Settings For names the layout, so the field says only that it is set.
+      expect(words(editor, id)).toMatch(/\| Set\.$/);
     },
   );
 
@@ -350,7 +350,7 @@ describe('what the card sets stays on its page', () => {
     await goEntry(editor, keysOf(editor, 'entry')[0]);
     expect(live(editor)).toContain('calendar:blocklist');
     expect(live(editor)).not.toContain('calendar:allowlist');
-    expect(helperOf(editor, 'calendar:blocklist')).toMatch(/^Set on This Calendar\. /);
+    expect(helperOf(editor, 'calendar:blocklist')).toMatch(/^Set\. /);
   });
 
   it('draws each toolbar button’s own fields', async () => {
@@ -380,24 +380,22 @@ describe('state words, by where they are drawn', () => {
     await openPageOf(editor, 'layout:time_grid.min_days_to_show');
     const group = (id: string): string | null =>
       $(editor, `[data-field="${id}"]`)!.getAttribute('aria-label');
-    expect(labelOf(editor, 'layout:time_grid.min_days_to_show')).toBe(
-      'Fewest Day Columns · Set for Grid',
-    );
-    expect(group('layout:time_grid.min_days_to_show')).toBe('Fewest Day Columns · Set for Grid');
+    expect(labelOf(editor, 'layout:time_grid.min_days_to_show')).toBe('Fewest Day Columns · Set');
+    expect(group('layout:time_grid.min_days_to_show')).toBe('Fewest Day Columns · Set');
     // An event part is a chip (PR 18), named by its label and its words.
     await openPageOf(editor, 'events:show_location');
-    expect(chipName(editor, 'events:show_location')).toBe('Location, Set for Grid');
-    expect(group('events:show_location')).toBe('Location, Set for Grid');
+    expect(chipName(editor, 'events:show_location')).toBe('Location, Set');
+    expect(group('events:show_location')).toBe('Location, Set');
   });
 
-  it('carry “Set for All Layouts” on a dropdown’s label', async () => {
+  it('carry “Set” under All Layouts on a dropdown’s label, never naming the scope', async () => {
     const editor = await mount({ show_week_numbers: 'iso' });
     await changeField(editor, 'workspace:editing_workspace', 'shared');
     await openPageOf(editor, 'day_header:week_number_mode');
-    expect(labelOf(editor, 'day_header:week_number_mode')).toMatch(/ · Set for All Layouts$/);
+    expect(labelOf(editor, 'day_header:week_number_mode')).toMatch(/ · Set$/);
   });
 
-  it('read “Grid’s Default” on every field Grid defaults differently while Grid stores nothing', async () => {
+  it('read “Default” on every field Grid defaults differently while Grid stores nothing', async () => {
     const editor = await mountEditor(
       { config_version: VERSION, entities: ['calendar.anna'], view: 'grid' },
       { every: true },
@@ -413,7 +411,8 @@ describe('state words, by where they are drawn', () => {
     const wrong: string[] = [];
     for (const field of fields) {
       await openPageOf(editor, field.id);
-      if (!words(editor, field.id).includes('Grid’s Default')) wrong.push(field.id);
+      // After the label, " · Default", leading the helper, "| Default.", or in a chip's name.
+      if (!/(· |\| |, )Default\b/.test(words(editor, field.id))) wrong.push(field.id);
     }
     expect(wrong).toEqual([]);
     expect(lastConfig(editor)).toBeUndefined();
@@ -423,32 +422,55 @@ describe('state words, by where they are drawn', () => {
     const editor = await mount({ view: 'grid', start_date: 'today+1', event_font_size: '14px' });
     await changeField(editor, 'workspace:editing_workspace', 'shared');
     const reset = $(editor, '[data-focus="reset:content:start_date_mode"]')!;
-    expect(reset.textContent?.trim()).toBe('Reset to Today');
-    expect(reset.getAttribute('aria-label')).toBe('Reset to Today: Start Date');
+    expect(reset.textContent?.trim()).toBe('Reset (Today)');
+    expect(reset.getAttribute('aria-label')).toBe('Reset Start Date to Today');
     // One short button: no mark, no outcome sentence beside it.
     const line = reset.closest('.field-line')!;
     expect(line.querySelector('.mark, .outcome')).toBeNull();
-    expect(line.textContent?.replace(/\s+/g, ' ').trim()).toBe('Reset to Today');
+    expect(line.textContent?.replace(/\s+/g, ' ').trim()).toBe('Reset (Today)');
 
     await click(editor, '[data-focus="reset:content:start_date_mode"]');
     expect(lastConfig(editor)).not.toHaveProperty('start_date');
   });
 
-  it('word Reset as Clear where nothing comes back, and Remove where the control goes', () => {
+  it('words Reset by the value it leaves, Empty where none comes back, and names the setting', () => {
     const t = (key: string) => EDITOR_STRINGS[key];
     const word = (value: unknown) => (value === undefined ? 'Not Set' : String(value));
-    expect(Shown.resetLabel('reset', { kind: 'default', value: 'off' }, t, () => 'Off')).toBe(
-      'Reset to Off',
-    );
+    expect(
+      Shown.resetText('reset', { kind: 'default', value: 'off' }, 'Show Time', t, () => 'Off'),
+    ).toEqual({ label: 'Reset (Off)', name: 'Reset Show Time to Off' });
     // Before, an empty default left "Reset gives the default," hanging on its comma.
     for (const value of [undefined, null, '', []]) {
-      expect(Shown.resetLabel('reset', { kind: 'default', value }, t, word)).toBe('Clear');
+      expect(Shown.resetText('reset', { kind: 'default', value }, 'Title', t, word)).toEqual({
+        label: 'Reset (Empty)',
+        name: 'Reset Title to Empty',
+      });
     }
-    expect(Shown.resetLabel('reset', { kind: 'default', value: 'x' }, t, () => ' ')).toBe('Clear');
     expect(
-      Shown.resetLabel('remove', { kind: 'layout-default', view: 'grid', value: 14 }, t, word),
-    ).toBe('Remove');
-    expect(Shown.resetLabel('reset', undefined, t, word)).toBe('Reset');
+      Shown.resetText('reset', { kind: 'default', value: 'x' }, 'Title', t, () => ' '),
+    ).toEqual({ label: 'Reset (Empty)', name: 'Reset Title to Empty' });
+    expect(Shown.resetText('reset', undefined, 'Label', t, word)).toEqual({
+      label: 'Reset',
+      name: 'Reset Label',
+    });
+  });
+
+  it('words Remove by the setting it takes away, so it never reads as a Reset', () => {
+    const t = (key: string) => EDITOR_STRINGS[key];
+    const word = (value: unknown) => String(value);
+    expect(
+      Shown.resetText(
+        'remove',
+        { kind: 'layout-default', view: 'grid', value: 14 },
+        'Event Font Size',
+        t,
+        word,
+      ),
+    ).toEqual({ label: 'Remove Setting', name: 'Remove Event Font Size and Reset It to 14' });
+    expect(Shown.resetText('remove', undefined, 'Label', t, word)).toEqual({
+      label: 'Remove Setting',
+      name: 'Remove Label and Reset It',
+    });
   });
 });
 
@@ -457,9 +479,10 @@ describe('Reset and Remove', () => {
     const editor = await mount({ show_time: false });
     await changeField(editor, 'workspace:editing_workspace', 'shared');
     await goPage(editor, 'events');
-    const reset = $(editor, '[data-focus="reset:events:show_time"]')!;
-    expect(reset.getAttribute('aria-label')).toBe('Reset Show Time');
-    await click(editor, '[data-focus="reset:events:show_time"]');
+    // Show Time is a chip, reset with its group.
+    const reset = $(editor, '[data-focus="reset-chips:parts"]')!;
+    expect(reset.getAttribute('aria-label')).toBe('Reset Parts: Time');
+    await click(editor, '[data-focus="reset-chips:parts"]');
     await editor.updateComplete;
 
     expect(lastConfig(editor)).not.toHaveProperty('show_time');

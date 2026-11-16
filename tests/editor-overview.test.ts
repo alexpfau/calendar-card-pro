@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { mountEditor } from './helpers/editor-host';
+import { goEntry, keysOf, lastConfig, mountEditor } from './helpers/editor-host';
 import { CURRENT_CONFIG_VERSION, DEFAULT_CONFIG } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { buildFieldIndex, schemaCtx } from '../src/rendering/editor/field-index';
@@ -68,7 +68,7 @@ describe('Settings For', () => {
     });
     const root = editor.shadowRoot!;
     const line = () =>
-      root.querySelector('.scope-preview')?.textContent?.replace(/\s+/g, ' ').trim();
+      root.querySelector('.scope-preview-text')?.textContent?.replace(/\s+/g, ' ').trim();
     const pick = async (workspace: EditorWorkspace) => {
       const radio = root.querySelector<HTMLInputElement>(`[data-focus="scope:${workspace}"]`)!;
       radio.checked = true;
@@ -86,6 +86,59 @@ describe('Settings For', () => {
     );
     await pick('list');
     expect(line()).toBeUndefined();
+    document.body.replaceChildren();
+  });
+
+  it('offers a preview switch for a layout the card does not show, which writes nothing', async () => {
+    const editor = await mountEditor({
+      config_version: CURRENT_CONFIG_VERSION,
+      entities: ['calendar.anna'],
+      column: { event_font_size: '13px' },
+    });
+    const root = editor.shadowRoot!;
+    const line = () =>
+      root.querySelector('.scope-preview-text')?.textContent?.replace(/\s+/g, ' ').trim();
+    const toggle = () => root.querySelector<HTMLButtonElement>('[data-focus="scope-preview"]');
+    const pick = async (workspace: EditorWorkspace) => {
+      const radio = root.querySelector<HTMLInputElement>(`[data-focus="scope:${workspace}"]`)!;
+      radio.checked = true;
+      radio.dispatchEvent(new Event('change'));
+      await editor.updateComplete;
+    };
+    // All Layouts is no layout the preview can draw.
+    await pick('shared');
+    expect(toggle()).toBeNull();
+    // No counts on the choices, visible or named.
+    expect(root.querySelector('.scope-count')).toBeNull();
+    expect(
+      root.querySelector('[data-focus="scope:column"]')?.getAttribute('aria-label'),
+    ).toBeNull();
+
+    await pick('grid');
+    expect(toggle()?.textContent?.trim()).toBe('Preview Grid');
+    expect(toggle()?.getAttribute('aria-pressed')).toBe('false');
+    toggle()!.click();
+    await editor.updateComplete;
+    expect(toggle()?.getAttribute('aria-pressed')).toBe('true');
+    expect(line()).toBe('Editing Grid · Preview Shows Grid · The Card Opens in List');
+    // It stays on, and follows the scope.
+    await pick('column');
+    expect(line()).toBe('Editing Columns · Preview Shows Columns · The Card Opens in List');
+    expect(lastConfig(editor)).toBeUndefined();
+    document.body.replaceChildren();
+  });
+
+  it('draws no Settings For on a calendar’s page, whose settings apply to every layout', async () => {
+    const editor = await mountEditor({
+      config_version: CURRENT_CONFIG_VERSION,
+      view: 'grid',
+      entities: ['calendar.anna'],
+      column: { event_font_size: '13px' },
+    });
+    expect(editor.shadowRoot!.querySelector('.scope')).not.toBeNull();
+    await goEntry(editor, keysOf(editor, 'entry')[0]);
+    expect(editor.shadowRoot!.querySelector('.entry-page')).not.toBeNull();
+    expect(editor.shadowRoot!.querySelector('.scope, .scope-preview')).toBeNull();
     document.body.replaceChildren();
   });
 
