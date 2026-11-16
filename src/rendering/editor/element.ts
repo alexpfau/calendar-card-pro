@@ -798,7 +798,7 @@ export class CalendarCardProEditor extends LitElement {
   @state() private _previewScope = false;
 
   /** Draws the preview in the layout being edited while the switch is on. */
-  private _scopePreview = new ScopePreview(() => PickView.findPreviewCard(this));
+  private _scopePreview = new ScopePreview(() => PickView.findPreviewCard(this), this);
 
   /**
    * Whether Quick Setup's banner shows: decided by the session's first configuration, a fresh

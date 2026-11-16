@@ -83,7 +83,7 @@
   "add.show_all": "Zobraziť všetko",
   "add.filter": "Filtrovať nastavenia",
   "state.set": "Nastavené",
-  "state.default": "Predvolené",
+  "state.default": "Predvolený",
   "state.whole_card": "Celá karta",
   "state.whole_card_set": "Celá karta · Nastavené",
   "state.ignored": "Hodnota pre všetky rozloženia, {value}, neplatí v rozložení {layout}.",

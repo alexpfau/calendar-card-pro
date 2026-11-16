@@ -83,7 +83,7 @@
   "add.show_all": "Kuva kõik",
   "add.filter": "Filtreeri seadeid",
   "state.set": "Määratud",
-  "state.default": "Vaikeväärtus",
+  "state.default": "Vaikimisi",
   "state.whole_card": "Kogu kaart",
   "state.whole_card_set": "Kogu kaart · määratud",
   "state.ignored": "Kõigi paigutuste väärtus {value} ei kehti paigutuses {layout}.",
