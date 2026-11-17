@@ -2047,15 +2047,28 @@ see that — only a screenshot can.
 
 ### A page shows what applies, and every reset takes one path
 
-**What a page draws is `plan.ts`'s answer, and nothing else decides it.** A field is live when
-it applies here and is essential, stored, inherited with a value that differs from the default,
-added this session, or Show Every Setting is on; the rest of its heading waits in the heading's
-Add row, named. Applies here means the builders built it: they stay the one authority on
-presence, and `plan.ts` reads them through the present index. What a gate withholds is named in
-its heading's gate line, "Appears once {when}: {names}.", with any value stored for it all the
-same listed after it with its Reset; what only another layout offers is named at the page's foot.
-`element.ts` draws the plan (`_renderHeadings`) and never filters a form itself; there are no
-switches any more that narrow the editor.
+**What a page draws is `plan.ts`'s answer, and nothing else decides it.** Every field that
+applies here is drawn (the editor always plans with `showEverySetting`), each under a 44 px head
+row of its own (`views/shown.ts` › `settingHead`): its name, while folded its value, its ⓘ, its
+state pill and a chevron. A field the plan draws only because every setting is (`why: 'every'`),
+at its default and not opened this session, is folded to that head; pressing the head opens Home
+Assistant's control below it and adds the field's own key to the added set, which leaving a page
+clears. Applies here means the builders built it: they stay the one authority on presence, and
+`plan.ts` reads them through the present index. What a gate withholds stays in its place, "Appears
+once {when}.", consecutive ones on one condition sharing a line, with any value stored for it all
+the same listed at the heading's end with its Reset. `element.ts` draws the plan
+(`_renderHeadings`) and never filters a form itself; there are no switches any more that narrow
+the editor.
+
+🚨 **Nothing of the editor's sits inside Home Assistant's field box, and nothing in a head moves
+when its setting opens.** Home Assistant owns its box: the arrow, the ✕, a number's spinner, a
+suffix, the switch. An earlier version overlaid the pill there and collided with all of them, and
+the pill and chevron jumped on opening, so a second press missed. The head is one template in both
+states, so its toggle is the same element and keeps focus; a folded head's toggle carries
+`data-field`, and the open control's wrapper carries it once open, so `[data-field="id"]` finds
+exactly one element either way. A family's members open and fold one at a time, by their own key,
+or opening one moves the head of another. Measure a layout change in Home Assistant, not here: the
+test suite cannot see an overlap.
 
 Four things follow for new code:
 
@@ -2065,9 +2078,9 @@ Four things follow for new code:
   `Gate.whenKey`), written to follow "Appears once". A switch reads "{label} is on" by itself.
   `tests/editor-gate-lines.test.ts` reconciles every condition against the built schema, so a
   dropdown condition without a clause fails there rather than reading "Style is on".
-- **A field edited this session stays where it is**, even once its value is cleared: an edit
-  adds it to the added set (`_valueChanged`), so a box emptied to type anew never leaves the page
-  under the cursor. Remove takes it back to its Add row.
+- **A field edited this session stays open**, even once its value is cleared: an edit adds it to
+  the added set (`_valueChanged`), so a box emptied to type anew never folds under the cursor. A
+  Reset from the pill adds it back after the reset retires it, for the same reason.
 - **Every Reset and Remove goes through `reset.ts` › `reset`**, applied by `_applyReset`, which
   updates the YAML, the authored root keys, the Grid reset keys, the held text and the added set
   together, as one undo step. Do not delete a key from `_config` for a reset by hand: a root key
@@ -2079,11 +2092,11 @@ Four things follow for new code:
   checks over the gate corpus. A mode value's own reset can withhold it, so it takes the full
   path.
 
-**Tests read the shown set as a user sees it, unless they ask otherwise.** A test about what every
-page can draw mounts with `mountEditor(config, { every: true })`, which switches Show Every
-Setting on through its own control, and `openPanels` visits the pages with it on. A test about
-the shown set mounts without it, and `changeField` on a field waiting in an Add row adds it there
-first, as a user would. `openPanels` yields one macrotask before its visit: happy-dom keeps the
+**Tests read a page as a user sees it, folded settings folded.** A test about every form a page
+can draw opens them first with `unfoldAll`, as `openPanels` does on every page it visits, and
+`changeField` on a folded setting opens it first, as a user would. A state word is read off the
+setting's pill (`pillOf`), and a Reset through its menu (`openPill`); `resetButtons` opens each
+pill in turn. `openPanels` yields one macrotask before its visit: happy-dom keeps the
 targets of `WeakRef`s reached during a job until the job ends, so a long run of microtask awaits
 holds every node earlier renders let go of, and the gate corpus ran out of heap without it.
 

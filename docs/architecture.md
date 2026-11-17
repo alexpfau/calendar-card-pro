@@ -69,7 +69,7 @@ src/
 │   │   ├── panels.ts             # Builder registry and schema walking
 │   │   ├── schemas/              # One field builder per section, plus their shared vocabulary
 │   │   ├── field-index.ts        # Every built field, by a stable id
-│   │   ├── plan.ts               # The shown set: live fields, Add Setting rows and gate lines
+│   │   ├── plan.ts               # The shown set: live fields, folded settings and gate lines
 │   │   ├── shown.ts              # The shown set in words: value sources, what Reset leaves
 │   │   ├── gates.ts              # Why a field is withheld, and the setting that opens it
 │   │   ├── filter.ts             # Withholds the fields a layout ignores
@@ -82,7 +82,7 @@ src/
 │   │   ├── audit.ts              # What This Card Changes
 │   │   ├── misplaced.ts          # Moves an option the card ignores to where it works
 │   │   ├── deprecated.ts         # Removed options a card still holds, and their replacements
-│   │   ├── prefs.ts              # Show Every Setting and Show YAML Option Names
+│   │   ├── prefs.ts              # Show YAML Option Names
 │   │   ├── quick-setup.ts        # Quick Setup's answers and the configuration they build
 │   │   ├── stories.ts            # The Example Stories Quick Setup starts from
 │   │   ├── preview.ts            # Configurations previewed before a change is made
@@ -326,11 +326,13 @@ The editor opens on an overview and shows each section on a page of its own. The
 `schemas/` stay the authority on whether a field exists; the page registry (`pages.ts`) places each
 field they build, by its id (`field-index.ts`), on the overview, a section page or a calendar
 entry's page, under a heading and with an appearance, and `tests/editor-page-registry.test.ts`
-fails on a built field no page places. `plan.ts` decides what a page draws: a field is live when it
-applies here and is essential, stored, inherited with a value that differs from the default, added
-this session, or Show Every Setting is on, and the rest wait in their heading's Add Setting row.
-`element.ts` draws that plan and never filters a form itself, and every Reset and Remove goes
-through `reset.ts`. A calendar entry's or a toolbar button's write names its owner by key, never by
+fails on a built field no page places. `plan.ts` decides what a page draws: every field that applies
+here (the editor always plans with `showEverySetting`), each under a head row of its own
+(`views/shown.ts` › `settingHead`) that holds its name, its state pill, its ⓘ and a chevron, outside
+Home Assistant's field box. A field whose plan says only `every`, at its default and not opened this
+session, is folded to that head; opening it adds it to the session's added set, which leaving the
+page clears. `element.ts` draws that plan and never filters a form itself, and every Reset and
+Remove goes through `reset.ts`, from the state pill's menu. A calendar entry's or a toolbar button's write names its owner by key, never by
 place (`write-frames.ts`), so a removal above it cannot hand its form another owner. `hass-key.ts`
 skips a `hass` that changes nothing the editor draws, and hands a fresh `hass` only to forms whose
 selectors read states (`LIVE_SELECTORS`); every other form gets a steady one.

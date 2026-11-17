@@ -1,7 +1,8 @@
 /**
- * The editor's two preferences (backlog item 307): Show Every Setting and Show YAML Option Names,
- * remembered in this browser under one key, read and written inside `try`, since private browsing
- * throws on storage, and the key Essentials Only remembered removed on the first read.
+ * The editor's preference (backlog item 307): Show YAML Option Names, remembered in this browser
+ * under one key, read and written inside `try`, since private browsing throws on storage, and the
+ * key Essentials Only remembered removed on the first read. Every page draws every setting, so the
+ * "every" a browser still holds from Show Every Setting is not read.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -21,19 +22,15 @@ afterEach(() => {
 describe('the editor’s preferences', () => {
   it('are off until set, and remembered as written', () => {
     expect(readPrefs()).toEqual(NO_PREFS);
-    writePrefs({ every: true, yaml: false });
-    expect(JSON.parse(localStorage.getItem(PREFS_KEY)!)).toEqual({
-      v: 1,
-      every: true,
-      yaml: false,
-    });
-    expect(readPrefs()).toEqual({ every: true, yaml: false });
+    writePrefs({ yaml: true });
+    expect(JSON.parse(localStorage.getItem(PREFS_KEY)!)).toEqual({ v: 1, yaml: true });
+    expect(readPrefs()).toEqual({ yaml: true });
   });
 
   it('remove the key Essentials Only remembered, and keep their own', () => {
     localStorage.setItem(RETIRED_KEY, 'true');
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ v: 1, every: false, yaml: true }));
-    expect(readPrefs()).toEqual({ every: false, yaml: true });
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ v: 1, every: true, yaml: true }));
+    expect(readPrefs()).toEqual({ yaml: true });
     expect(localStorage.getItem(RETIRED_KEY)).toBeNull();
   });
 
@@ -58,7 +55,7 @@ describe('the editor’s preferences', () => {
     };
     vi.stubGlobal('localStorage', refusing);
     expect(readPrefs()).toEqual(NO_PREFS);
-    expect(() => writePrefs({ every: true, yaml: true })).not.toThrow();
+    expect(() => writePrefs({ yaml: true })).not.toThrow();
   });
 
   it('carry on where reaching storage at all throws, as a sandboxed frame’s does', () => {
@@ -71,7 +68,7 @@ describe('the editor’s preferences', () => {
     });
     try {
       expect(readPrefs()).toEqual(NO_PREFS);
-      expect(() => writePrefs({ every: true, yaml: true })).not.toThrow();
+      expect(() => writePrefs({ yaml: true })).not.toThrow();
     } finally {
       if (own) Object.defineProperty(globalThis, 'localStorage', own);
     }

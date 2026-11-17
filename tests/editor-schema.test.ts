@@ -14,6 +14,7 @@ import {
   mountEditor,
   openPanels,
   resetButton,
+  unfoldAll,
   valueOf,
 } from './helpers/editor-host';
 import {
@@ -3497,7 +3498,8 @@ describe('editor: per-calendar settings', () => {
       { entity: 'calendar.a', label_type: 'icon' },
     ]);
 
-    // The picker is now on screen, empty, with the color that only applies to it.
+    // The picker is now on screen, empty, with the color that only applies to it, once opened.
+    await unfoldAll(element);
     expect(entryNames(element, 0)).toContain('label_icon_color');
 
     expect(valueOf(element, 'calendar:label_type', entry(0))).toBe('icon');
@@ -3575,6 +3577,7 @@ describe('editor: per-calendar settings', () => {
     });
 
     await changeField(element, 'calendar:label', '', entry(0));
+    await unfoldAll(element);
 
     const names = entryNames(element, 0);
 

@@ -378,7 +378,7 @@ describe('what a result says it is', () => {
 });
 
 describe('choosing a result', () => {
-  it('waiting in an Add row: choosing it adds it and opens it, writing nothing', async () => {
+  it('folded to its head: choosing it opens it at the setting, writing nothing', async () => {
     const editor = await mount(LIST);
     await searchFor(editor, 'time font size');
     await chooseResult(editor, 'result:events:time_font_size');
@@ -386,9 +386,9 @@ describe('choosing a result', () => {
     const field = $(editor, '[data-field="events:time_font_size"]');
     expect(openPage(editor)).toBe('events');
     expect(editor.shadowRoot!.activeElement).toBe(field);
-    expect(spoken(editor)).toBe('Added Time Font Size.');
+    expect(spoken(editor)).toBe('Showing Time Font Size.');
     expect(lastConfig(editor)).toBeUndefined();
-    // Added for the session: back on the page after the results, it is still drawn.
+    // Every setting is drawn, so the result carries no tag of a place it waits in.
     $(editor, '[data-focus="return"]')!.click();
     await editor.updateComplete;
     await searchFor(editor, '');

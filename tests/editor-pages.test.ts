@@ -19,6 +19,7 @@ import {
   mountEditor,
   openPageOf,
   resultRows,
+  unfoldAll,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import styles from '../src/rendering/editor/styles';
@@ -407,6 +408,7 @@ describe('a nested field’s own data', () => {
       toolbar: { show: true },
     });
     await openPageOf(editor, id);
+    await unfoldAll(editor);
     const before = dataOf(editor, prefix);
     expect(before.size).toBeGreaterThan(3);
 

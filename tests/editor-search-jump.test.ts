@@ -246,8 +246,8 @@ describe('choosing a result', () => {
     // Return to Results sits directly above the field, and only there.
     expect(field?.previousElementSibling?.getAttribute('data-focus')).toBe('return');
     expect(editor.shadowRoot!.querySelectorAll('[data-focus="return"]')).toHaveLength(1);
-    // It waited in its heading's Add row, so choosing it added it.
-    expect(spoken(editor)).toBe('Added Time Font Size.');
+    // It was folded to its head, which the jump opens.
+    expect(spoken(editor)).toBe('Showing Time Font Size.');
   });
 
   it('lets the highlight go after 2 s and keeps Return to Results', async () => {

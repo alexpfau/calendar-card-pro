@@ -18,6 +18,7 @@ import {
   keysOf,
   mountEditor,
   openPageOf,
+  openPill,
   reportsOf,
   resetButton,
 } from './helpers/editor-host';
@@ -300,10 +301,13 @@ describe('Undo restores exactly', () => {
       time_grid: { event_font_size: '18px' },
     });
     await openPageOf(editor, 'events:event_font_size');
-    $(editor, '[data-reset-keys="event_font_size"]')!.click();
+    // The Reset is in the setting's pill.
+    (await openPill(editor, 'events:event_font_size'))!
+      .querySelector<HTMLElement>('[data-reset-keys="event_font_size"]')!
+      .click();
     await settle(editor);
-    // Grid's own default applies once the line is gone, so the field goes back to its Add row,
-    // which takes focus; Undo is pressed there.
+    // Grid's own default applies once the line is gone; the setting stays open where it was,
+    // and Undo is pressed from wherever focus went.
     await key(editor, editor.shadowRoot!.activeElement as HTMLElement, {
       key: 'z',
       ctrlKey: true,

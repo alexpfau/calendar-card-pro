@@ -26,19 +26,15 @@ import {
   lastConfig,
   mountEditor,
   openPageOf,
+  openPill,
+  pillOf,
   prefItem,
   togglePref,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as View from '../src/config/view';
-import {
-  type FieldId,
-  buildFieldIndex,
-  fieldLabel,
-  schemaCtx,
-  universeIndex,
-} from '../src/rendering/editor/field-index';
+import { type FieldId, buildFieldIndex, schemaCtx } from '../src/rendering/editor/field-index';
 import { corpus } from '../src/rendering/editor/gates';
 import {
   type Appearance,
@@ -55,9 +51,6 @@ import { toStoredConfig } from '../src/rendering/editor/value';
 import { WORKSPACES } from '../src/rendering/editor/workspace';
 
 const VERSION = Config.CURRENT_CONFIG_VERSION;
-
-/** Every field the List scope can build. */
-const EVERY = universeIndex('en', 'list').fields;
 
 /** Each card field's appearance in the registry. */
 const APPEARANCE = new Map<FieldId, Appearance>([
@@ -90,13 +83,6 @@ const live = (editor: MountedEditor): FieldId[] =>
   );
 
 /**
- * The words a field gives Home Assistant: its label, then its helper; for a chip the editor draws
- * in its place (PR 18), the chip's own name, which carries them.
- */
-const words = (editor: MountedEditor, id: FieldId): string =>
-  chipName(editor, id) ?? `${labelOf(editor, id)} | ${helperOf(editor, id) ?? ''}`;
-
-/**
  * A toggle chip's accessible name, where the open place draws the field as one.
  *
  * @param editor - The editor
@@ -124,159 +110,141 @@ async function click(editor: MountedEditor, selector: string): Promise<void> {
   await editor.updateComplete;
 }
 
-/** The `data-focus` keys of the buttons in the line under a field. */
-const lineButtons = (editor: MountedEditor, id: FieldId): string[] =>
-  [...($(editor, `[data-field="${id}"]`)?.querySelectorAll('.line-button') ?? [])].map(
-    (button) => button.getAttribute('data-focus') ?? '',
-  );
+/** Whether a setting's head starts with Home Assistant's own switch row. */
+const isSwitch = (editor: MountedEditor, id: FieldId): boolean =>
+  editor.shadowRoot!.querySelector(`[data-setting="${id}"] > .setting-head .setting-control`) !==
+  null;
 
 /** The live region's last words, once what queued them has rendered. */
 const said = (editor: MountedEditor): string =>
   $(editor, '.live-region')?.textContent?.trim() ?? '';
 
-describe('what a page shows of a fresh card', () => {
-  it('draws exactly the essentials that apply on Events, and names the rest', async () => {
+describe('every setting on a fresh card', () => {
+  it('draws every setting that applies on Events, folding each one at its default', async () => {
     const editor = await mount();
     await goPage(editor, 'events');
-    // The eight event parts as chips (PR 18), then the essential fields under them.
-    expect(live(editor)).toEqual([
-      'events:show_time',
-      'events:show_end_time',
-      'events:show_location',
-      'events:show_description',
-      'events:show_countdown',
-      'events:show_progress_bar',
-      'events:show_duration',
-      'events:show_now_indicator',
-      'content:time_format',
-    ]);
-    // Reconciled against the registry, read the other way: every setting that keeps its control
-    // (an essential one, a chip) present here.
     const held = (editor as unknown as { _config: Types.Config })._config;
     const present = buildFieldIndex(schemaCtx(held, 'list', 'en')).fields;
-    const essentials = PAGES.find((page) => page.id === 'events')!
+    const placed = PAGES.find((page) => page.id === 'events')!
       .headings.flatMap((heading) => heading.fields)
-      .filter(([id, appearance]) => keepsControl(appearance) && present.has(id))
-      .map(([id]) => id);
-    expect([...live(editor)].sort()).toEqual([...essentials].sort());
-    expect(editor.shadowRoot!.querySelectorAll('.add-row').length).toBeGreaterThan(4);
-    expect(lastConfig(editor)).toBeUndefined();
-  });
-
-  it('names every setting of an Add row, and counts them beside the names', async () => {
-    const editor = await mount();
-    await goPage(editor, 'events');
-    const row = $(editor, '.page-group[data-heading="time"] .add-toggle')!;
-    const names = PAGES.find((page) => page.id === 'events')!
-      .headings.find((heading) => heading.key === 'time')!
-      .fields.filter(([, appearance]) => appearance === 'add')
-      .map(([id]) => fieldLabel(EVERY.get(id)!, 'en'));
-    // Seven since End Time and Duration became chips under Event Details (PR 18).
-    expect(names).toHaveLength(7);
-    // Every name, which the two-line clamp cuts with an ellipsis; the count carries the total, so
-    // no "+N" follows them to be stranded where they wrap.
-    expect(row.querySelector('.add-names')!.textContent).toBe(names.join(' · '));
-    expect(row.querySelector('.add-names')!.children).toHaveLength(0);
-    expect(row.querySelector('.add-count')!.textContent).toBe('Settings: 7');
-    expect(row.getAttribute('aria-label')).toBe('Add Setting under Time, Settings: 7');
-    expect(row.getAttribute('aria-expanded')).toBe('false');
-  });
-
-  it("names a family's members in its closed Add row, and the family in the open one", async () => {
-    const editor = await mount();
-    await goPage(editor, 'day_header');
-    const group = $(editor, '.page-group[data-heading="past_days"]')!;
-    const members = [
-      'day_header:past_date_opacity',
-      'day_header:past_date_scale',
-      'day_header:past_date_font_weight',
-    ].map((id) => fieldLabel(EVERY.get(id as FieldId)!, 'en'));
-    // The heading is "Past Days", so naming the family there would only say it twice.
-    expect(group.querySelector('.add-names')!.textContent).toBe(members.join(' · '));
-    // The count counts what the row names, the family's members each.
-    expect(group.querySelector('.add-count')!.textContent).toBe('Settings: 3');
-    (group.querySelector('.add-toggle') as HTMLButtonElement).click();
-    await editor.updateComplete;
-    const items = [...group.querySelectorAll('.add-item .add-item-label')].map(
-      (each) => each.textContent,
-    );
-    expect(items).toEqual(['Past Days']);
-  });
-
-  it('names an Add row with its heading only where the row stands in for it', async () => {
-    const editor = await mount();
-    await goPage(editor, 'events');
-    const state = $(editor, '.page-group[data-heading="heading_event_state"]')!;
-    expect(state.querySelector('h3')).toBeNull();
-    expect(state.querySelector('.add-title')!.textContent).toBe('Event State · Add Setting');
-    // Over every page of a fresh card: a heading drawn with nothing between it and its Add row
-    // never stutters, and a row under a heading's line or fields stays plain.
-    let named = 0;
-    let plain = 0;
-    // Every page a List card opens; Grid's page is Grid's alone.
-    for (const page of PAGES.filter((each) => each.id !== 'grid')) {
-      await goPage(editor, page.id);
-      for (const group of editor.shadowRoot!.querySelectorAll('.page-group')) {
-        const title = group.querySelector('.add-title')?.textContent;
-        if (title === undefined) continue;
-        const h3 = group.querySelector('h3');
-        const between = group.querySelector('[data-field], .hint, .page-line') !== null;
-        if (title === 'Add Setting') {
-          plain += 1;
-          expect(h3 === null || between, `${page.id} ${group.getAttribute('data-heading')}`).toBe(
-            true,
-          );
-        } else {
-          named += 1;
-          expect(h3, title).toBeNull();
-          expect(between, title).toBe(false);
-        }
+      .filter(([id]) => present.has(id));
+    // Every setting that applies is drawn: as a chip, or under a head row of its own, except a
+    // color's value, which its mode's control holds.
+    const missing = placed.map(([id]) => id).filter((id) => !live(editor).includes(id));
+    expect(missing).toEqual(['events:accent_color']);
+    expect(editor.shadowRoot!.querySelectorAll('.add-row, .add-toggle')).toHaveLength(0);
+    // An essential one is drawn open; every other one folds to its head.
+    for (const [id, appearance] of placed) {
+      const toggle = $(editor, `[data-setting="${id}"] .setting-toggle`);
+      if (keepsControl(appearance)) expect(toggle, id).toBeNull();
+      else if ($(editor, `[data-setting="${id}"]`) !== null && !isSwitch(editor, id)) {
+        expect(toggle?.getAttribute('aria-expanded'), id).toBe('false');
       }
     }
-    expect(named).toBeGreaterThan(0);
-    expect(plain).toBeGreaterThan(0);
+    expect(lastConfig(editor)).toBeUndefined();
   });
 
-  it('adds a setting without writing, keeps the list open and focuses the new field', async () => {
+  it('opens a folded setting in place, focus kept on its head, and folds it again', async () => {
     const editor = await mount();
     await goPage(editor, 'events');
-    await click(editor, '.page-group[data-heading="time"] .add-toggle');
-    expect($(editor, '[aria-label="Settings to Add under Time"]')).not.toBeNull();
-    await click(editor, '[data-focus="add:time:events:time_font_size"]');
-    await editor.updateComplete;
+    const id = 'events:time_font_size';
+    const toggle = $(editor, `[data-setting="${id}"] .setting-toggle`)!;
+    expect(toggle.getAttribute('aria-label')).toBe('Time Font Size, 12px');
+    // Folded, the head is what a search, an undo or a pick lands on.
+    expect(toggle.dataset.field).toBe(id);
+    expect($(editor, `[data-setting="${id}"] ha-form`)).toBeNull();
+    toggle.focus();
+    await click(editor, `[data-setting="${id}"] .setting-toggle`);
 
+    // The same head, still focused, opened: nothing in it moves, Home Assistant's control below.
+    expect($(editor, `[data-setting="${id}"] .setting-toggle`)).toBe(toggle);
+    expect(editor.shadowRoot!.activeElement).toBe(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(toggle.hasAttribute('data-field')).toBe(false);
+    expect($(editor, `[data-setting="${id}"] .field[data-field="${id}"] ha-form`)).not.toBeNull();
     expect(lastConfig(editor)).toBeUndefined();
-    expect(live(editor)).toContain('events:time_font_size');
-    expect(editor.shadowRoot!.activeElement?.getAttribute('data-field')).toBe(
-      'events:time_font_size',
-    );
-    expect(said(editor)).toBe('Added Time Font Size.');
-    // The rest stay offered, the one added gone from them.
-    expect($(editor, '[data-focus="add:time:events:time_color"]')).not.toBeNull();
-    expect($(editor, '[data-focus="add:time:events:time_font_size"]')).toBeNull();
+
+    await click(editor, `[data-setting="${id}"] .setting-toggle`);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect($(editor, `[data-setting="${id}"] ha-form`)).toBeNull();
   });
 
-  it('puts the YAML back as it was when an added setting is changed, then removed', async () => {
+  it('opens one member of a family alone, so no other head moves', async () => {
+    const editor = await mount();
+    await goPage(editor, 'day_header');
+    await click(editor, '[data-setting="day_header:past_date_scale"] .setting-toggle');
+    const expanded = (id: string) =>
+      $(editor, `[data-setting="${id}"] .setting-toggle`)?.getAttribute('aria-expanded');
+    expect(expanded('day_header:past_date_scale')).toBe('true');
+    expect(expanded('day_header:past_date_opacity')).toBe('false');
+    expect(expanded('day_header:past_date_font_weight')).toBe('false');
+  });
+
+  it('keeps a changed setting open through its Reset, and folds it on leaving the page', async () => {
     const card = { config_version: VERSION, entities: ['calendar.anna'], title: 'Family' };
     const editor = await mountEditor(card);
     await goPage(editor, 'events');
-    await click(editor, '.page-group[data-heading="time"] .add-toggle');
-    await click(editor, '[data-focus="add:time:events:time_font_size"]');
-    await changeField(editor, 'events:time_font_size', '20px');
+    const id = 'events:time_font_size';
+    await click(editor, `[data-setting="${id}"] .setting-toggle`);
+    await changeField(editor, id, '20px');
     expect(lastConfig(editor)).toEqual({ ...card, list: { time_font_size: '20px' } });
+    expect(pillOf(editor, id)).toBe('Set');
 
-    const remove = $(editor, '[data-focus="remove:events:time_font_size"]')!;
-    // Remove names the setting leaving, so it never reads as a Reset.
-    expect(remove.textContent?.trim()).toBe('Remove Setting');
-    expect(remove.getAttribute('aria-label')).toMatch(/^Remove Time Font Size and Reset It to /);
-    await click(editor, '[data-focus="remove:events:time_font_size"]');
+    // The pill holds the Reset the line under the field used to.
+    const menu = (await openPill(editor, id))!;
+    const reset = menu.querySelector<HTMLButtonElement>(`[data-focus="reset:${id}"]`)!;
+    expect(reset.textContent?.trim()).toMatch(/^Reset \(/);
+    expect(reset.getAttribute('aria-label')).toMatch(/^Reset Time Font Size to /);
+    reset.click();
     await editor.updateComplete;
 
     expect(lastConfig(editor)).toEqual(card);
-    expect(live(editor)).not.toContain('events:time_font_size');
-    // Focus goes to the Add row that names it again.
-    expect(editor.shadowRoot!.activeElement?.classList.contains('add-toggle')).toBe(true);
-    expect(said(editor)).toBe('Removed Time Font Size and reset it.');
+    expect(pillOf(editor, id)).toBe('Default');
+    expect($(editor, `[data-setting="${id}"] .setting-menu`)).toBeNull();
+    expect($(editor, `[data-setting="${id}"] ha-form`)).not.toBeNull();
+    await goPage(editor, 'day_header');
+    await goPage(editor, 'events');
+    expect($(editor, `[data-setting="${id}"] .setting-toggle`)?.getAttribute('aria-expanded')).toBe(
+      'false',
+    );
+  });
+
+  it('keeps a helper behind ⓘ, as the setting’s accessible description', async () => {
+    const editor = await mount();
+    await goPage(editor, 'day_header');
+    const id = 'day_header:today_date_scale';
+    await click(editor, `[data-setting="${id}"] .setting-toggle`);
+    const info = $(editor, `[data-setting="${id}"] .setting-info`)!;
+    expect(info.getAttribute('aria-label')).toBe(`About ${labelOf(editor, id)}`);
+    const help = $(editor, `[data-setting="${id}"] .setting-help`)!;
+    expect(help.hidden).toBe(true);
+    expect($(editor, `.field[data-field="${id}"]`)!.getAttribute('aria-describedby')).toBe(help.id);
+    // The form shows none of its own.
+    const form = $(editor, `.field[data-field="${id}"] ha-form`) as unknown as {
+      computeHelper(node: unknown): string | undefined;
+      schema: Array<{ name: string }>;
+    };
+    expect(form.computeHelper(form.schema[0])).toBeUndefined();
+    await click(editor, `[data-setting="${id}"] .setting-info`);
+    expect(help.hidden).toBe(false);
+    expect(help.textContent?.trim()).toBe(helperOf(editor, id));
+  });
+
+  it('draws the editor’s tools in the head, never inside Home Assistant’s field box', async () => {
+    const editor = await mount({ event_font_size: '30px', show_time: false });
+    for (const page of ['events', 'day_header', 'taps_refresh']) {
+      await goPage(editor, page);
+      for (const toggle of editor.shadowRoot!.querySelectorAll<HTMLElement>(
+        '.setting-toggle[aria-expanded="false"]',
+      )) {
+        toggle.click();
+      }
+      await editor.updateComplete;
+      expect(editor.shadowRoot!.querySelectorAll('.field .setting-tools')).toHaveLength(0);
+      expect(editor.shadowRoot!.querySelectorAll('.setting-head .setting-tools').length).toBe(
+        editor.shadowRoot!.querySelectorAll('.setting').length,
+      );
+    }
   });
 });
 
@@ -287,8 +255,9 @@ describe('what the card sets stays on its page', () => {
     const editor = await mount({ event_font_size: '30px', refresh_interval: 30 });
     await openPageOf(editor, 'events:event_font_size');
     expect(live(editor)).toContain('events:event_font_size');
-    expect(words(editor, 'events:event_font_size')).toContain('From All Layouts.');
-    expect(lineButtons(editor, 'events:event_font_size')).toEqual([]);
+    expect(pillOf(editor, 'events:event_font_size')).toBe('From All Layouts');
+    // Nothing here resets it, so its pill opens no menu.
+    expect($(editor, '[data-setting="events:event_font_size"] .setting-pill-button')).toBeNull();
     await goPage(editor, 'taps_refresh');
     expect(live(editor)).toContain('actions:refresh_interval');
   });
@@ -297,8 +266,10 @@ describe('what the card sets stays on its page', () => {
     const editor = await mount({ view: 'grid', filter_duplicates: true });
     await changeField(editor, 'workspace:editing_workspace', 'column');
     await openPageOf(editor, 'content:filter_duplicates_mode');
-    expect(words(editor, 'content:filter_duplicates_mode')).toContain('· From All Layouts |');
-    expect(lineButtons(editor, 'content:filter_duplicates_mode')).toEqual([]);
+    expect(pillOf(editor, 'content:filter_duplicates_mode')).toBe('From All Layouts');
+    expect(
+      $(editor, '[data-setting="content:filter_duplicates_mode"] .setting-pill-button'),
+    ).toBeNull();
     // What only another layout offers is search's to name; the page's foot switches no scope.
     expect(
       editor.shadowRoot!.querySelector('[data-focus^="edit-layout:"], .other-layouts'),
@@ -313,13 +284,17 @@ describe('what the card sets stays on its page', () => {
     });
     await changeField(editor, 'workspace:editing_workspace', 'shared');
     await openPageOf(editor, 'content:filter_duplicates_mode');
-    const field = $(editor, '[data-field="content:filter_duplicates_mode"]')!;
-    expect(field.querySelector('.field-note')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+    const id = 'content:filter_duplicates_mode';
+    expect(
+      $(editor, `[data-setting="${id}"] .setting-pill.tone-warning`)?.textContent?.trim(),
+    ).toBe('Columns Has Its Own');
+    const menu = (await openPill(editor, id))!;
+    expect(menu.querySelector('.setting-menu-note')?.textContent?.trim()).toBe(
       'Columns Has Its Own: Off',
     );
-    expect(lineButtons(editor, 'content:filter_duplicates_mode')).toEqual([
-      'remove:content:filter_duplicates_mode',
-    ]);
+    expect(
+      [...menu.querySelectorAll('.line-button')].map((each) => each.getAttribute('data-focus')),
+    ).toEqual([`reset:${id}`]);
   });
 
   it('draws a value held at a nested path', async () => {
@@ -327,8 +302,14 @@ describe('what the card sets stays on its page', () => {
       weather: { entity: 'weather.home', position: 'date', date: { color: '#ff0000' } },
     });
     await goPage(editor, 'weather');
-    expect(live(editor)).toContain('weather:weather.date.color');
-    expect(live(editor)).not.toContain('weather:weather.date.font_size');
+    expect(pillOf(editor, 'weather:weather.date.color')).toBe('Set');
+    expect($(editor, '[data-setting="weather:weather.date.color"] .field')).not.toBeNull();
+    // Its neighbor at its default is folded to its head.
+    expect(
+      $(editor, '[data-setting="weather:weather.date.font_size"] .setting-toggle')?.getAttribute(
+        'aria-expanded',
+      ),
+    ).toBe('false');
   });
 
   it.each([
@@ -340,17 +321,21 @@ describe('what the card sets stays on its page', () => {
       const editor = await mount(config);
       await openPageOf(editor, id);
       expect(live(editor)).toContain(id);
-      // Settings For names the layout, so the field says only that it is set.
-      expect(words(editor, id)).toMatch(/\| Set\.$/);
+      // Settings For names the layout, so the pill says only that it is set.
+      expect(pillOf(editor, id)).toBe('Set');
     },
   );
 
-  it('draws what a calendar sets on its page, and what it does not in an Add row', async () => {
+  it('draws what a calendar sets on its page open, and what it does not folded', async () => {
     const editor = await mount({ entities: [{ entity: 'calendar.anna', blocklist: 'Birthday' }] });
     await goEntry(editor, keysOf(editor, 'entry')[0]);
-    expect(live(editor)).toContain('calendar:blocklist');
-    expect(live(editor)).not.toContain('calendar:allowlist');
-    expect(helperOf(editor, 'calendar:blocklist')).toMatch(/^Set\. /);
+    expect(pillOf(editor, 'calendar:blocklist')).toBe('Set');
+    expect($(editor, '[data-setting="calendar:blocklist"] ha-form')).not.toBeNull();
+    expect(
+      $(editor, '[data-setting="calendar:allowlist"] .setting-toggle')?.getAttribute(
+        'aria-expanded',
+      ),
+    ).toBe('false');
   });
 
   it('draws each toolbar button’s own fields', async () => {
@@ -367,7 +352,7 @@ describe('state words, by where they are drawn', () => {
     const editor = await mount({ show_location: false, event_font_size: '30px' });
     await goPage(editor, 'events');
     expect(chipName(editor, 'events:show_location')).toBe('Location, From All Layouts');
-    expect(helperOf(editor, 'events:event_font_size')).toMatch(/^From All Layouts\./);
+    expect(pillOf(editor, 'events:event_font_size')).toBe('From All Layouts');
   });
 
   it('name a slider’s group with them, where the slider has no name of its own', async () => {
@@ -380,8 +365,15 @@ describe('state words, by where they are drawn', () => {
     await openPageOf(editor, 'layout:time_grid.min_days_to_show');
     const group = (id: string): string | null =>
       $(editor, `[data-field="${id}"]`)!.getAttribute('aria-label');
-    expect(labelOf(editor, 'layout:time_grid.min_days_to_show')).toBe('Fewest Day Columns · Set');
-    expect(group('layout:time_grid.min_days_to_show')).toBe('Fewest Day Columns · Set');
+    // The pill carries the words, outside the slider, which keeps its own label.
+    expect(pillOf(editor, 'layout:time_grid.min_days_to_show')).toBe('Set');
+    expect(
+      $(
+        editor,
+        '[data-setting="layout:time_grid.min_days_to_show"] .setting-pill-button',
+      )?.getAttribute('aria-label'),
+    ).toBe('Fewest Day Columns: Set');
+    expect(labelOf(editor, 'layout:time_grid.min_days_to_show')).toBe('Fewest Day Columns');
     // An event part is a chip (PR 18), named by its label and its words.
     await openPageOf(editor, 'events:show_location');
     expect(chipName(editor, 'events:show_location')).toBe('Location, Set');
@@ -392,7 +384,8 @@ describe('state words, by where they are drawn', () => {
     const editor = await mount({ show_week_numbers: 'iso' });
     await changeField(editor, 'workspace:editing_workspace', 'shared');
     await openPageOf(editor, 'day_header:week_number_mode');
-    expect(labelOf(editor, 'day_header:week_number_mode')).toMatch(/ · Set$/);
+    expect(pillOf(editor, 'day_header:week_number_mode')).toBe('Set');
+    expect(labelOf(editor, 'day_header:week_number_mode')).toBe('Numbering');
   });
 
   it('read “Default” on every field Grid defaults differently while Grid stores nothing', async () => {
@@ -411,8 +404,9 @@ describe('state words, by where they are drawn', () => {
     const wrong: string[] = [];
     for (const field of fields) {
       await openPageOf(editor, field.id);
-      // After the label, " · Default", leading the helper, "| Default.", or in a chip's name.
-      if (!/(· |\| |, )Default\b/.test(words(editor, field.id))) wrong.push(field.id);
+      // On its pill, or in a chip's name.
+      const said = chipName(editor, field.id) ?? pillOf(editor, field.id) ?? '';
+      if (!/(^|, )Default\b/.test(said)) wrong.push(field.id);
     }
     expect(wrong).toEqual([]);
     expect(lastConfig(editor)).toBeUndefined();
@@ -492,7 +486,7 @@ describe('Reset and Remove', () => {
     expect(lastConfig(editor)?.show_time).toBe(false);
   });
 
-  it('removes a family with the ✕ on its heading, every member in one step', async () => {
+  it('resets a family from its heading, every member in one step, and keeps them drawn', async () => {
     const card = { config_version: VERSION, entities: ['calendar.anna'], title: 'Family' };
     const editor = await mountEditor(card);
     await changeField(editor, 'content:compact_days_to_show', 2);
@@ -501,14 +495,14 @@ describe('Reset and Remove', () => {
     expect(live(editor)).toEqual(
       expect.arrayContaining(['content:compact_days_to_show', 'content:compact_events_to_show']),
     );
-    const remove = $(editor, '[data-focus="remove-family:compact_mode"]')!;
-    expect(remove.getAttribute('aria-label')).toBe('Remove Compact Mode and Reset It');
+    const reset = $(editor, '[data-focus="remove-family:compact_mode"]')!;
+    expect(reset.getAttribute('aria-label')).toBe('Reset Compact Mode');
     await click(editor, '[data-focus="remove-family:compact_mode"]');
     await editor.updateComplete;
 
     expect(lastConfig(editor)).toEqual(card);
-    expect(live(editor)).not.toContain('content:compact_days_to_show');
-    expect(said(editor)).toBe('Removed Compact Mode and reset it.');
+    expect(pillOf(editor, 'content:compact_days_to_show')).toBe('Default');
+    expect(said(editor)).toBe('Reset Compact Mode');
     // One step: Undo brings both back.
     await click(editor, '[data-focus="undo"]');
     expect(lastConfig(editor)).toEqual(stored);
@@ -589,11 +583,15 @@ describe('gate lines and stored values not in use', () => {
     const editor = await mount({ show_description: false, description_font_size: '20px' });
     await goPage(editor, 'events');
     const lines = [
-      ...editor.shadowRoot!.querySelectorAll('.page-group[data-heading="description"] .gate-line'),
+      ...editor.shadowRoot!.querySelectorAll(
+        '.page-group[data-heading="description"] :is(.gate-line, .setting-gated)',
+      ),
     ].map((line) => line.textContent!.replace(/\s+/g, ' ').trim());
+    // In place, once: the stored value's line says nothing more about the condition.
     expect(lines[0]).toMatch(
       /^Appears once Description is pressed: Show Description For All-Day Events, /,
     );
+    expect(lines.filter((line) => line.startsWith('Appears once'))).toHaveLength(1);
     expect(lines).toContain(
       'Stored but not in use: Description Font Size (20px), from All Layouts',
     );
@@ -604,30 +602,13 @@ describe('gate lines and stored values not in use', () => {
 });
 
 describe('the preferences in the overview header’s ⋯ menu', () => {
-  it('Show Every Setting draws every setting that applies, with no Add row, and is remembered', async () => {
+  it('offers no Show Every Setting: every page draws every setting', async () => {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ v: 1, every: false, yaml: false }));
     const editor = await mount();
+    expect(await prefItem(editor, 'every')).toBeUndefined();
+    expect(await prefItem(editor, 'yaml')).not.toBeUndefined();
     await goPage(editor, 'events');
-    const shown = live(editor).length;
-    await click(editor, '[data-focus="back-top"]');
-    // Not under More any more: a checkbox item of the menu, writing nothing to the card.
-    expect(editor.shadowRoot!.querySelector('ha-form.pref-form')).toBeNull();
-    const item = (await prefItem(editor, 'every'))!;
-    expect(item.getAttribute('role')).toBe('menuitemcheckbox');
-    expect(item.getAttribute('aria-checked')).toBe('false');
-    item.click();
-    await editor.updateComplete;
-    expect((await prefItem(editor, 'every'))!.getAttribute('aria-checked')).toBe('true');
-    expect(JSON.parse(localStorage.getItem(PREFS_KEY)!)).toEqual({
-      v: 1,
-      every: true,
-      yaml: false,
-    });
-
-    await goPage(editor, 'events');
-    expect(editor.shadowRoot!.querySelectorAll('.add-row')).toHaveLength(0);
     expect(live(editor)).toContain('events:time_font_size');
-    expect(live(editor).length).toBeGreaterThan(shown * 3);
-    expect(lastConfig(editor)).toBeUndefined();
   });
 
   it('is a menu button the keyboard opens, walks and closes, with focus back on the button', async () => {
@@ -656,23 +637,16 @@ describe('the preferences in the overview header’s ⋯ menu', () => {
     expect(button.getAttribute('aria-controls')).toBe(menu.id);
     expect(menu.getAttribute('role')).toBe('menu');
     const items = [...menu.querySelectorAll<HTMLElement>('[role="menuitemcheckbox"]')];
-    // Each item is named by its label and described by the line under it.
+    // Its item is named by its label and described by the line under it.
     const named = (item: HTMLElement, attribute: string): string =>
       root.getElementById(item.getAttribute(attribute)!)!.textContent!.trim();
-    expect(items.map((item) => named(item, 'aria-labelledby'))).toEqual([
-      'Show Every Setting',
-      'Show YAML Option Names',
-    ]);
-    expect(named(items[1], 'aria-describedby')).toMatch(/option name/);
+    expect(items.map((item) => named(item, 'aria-labelledby'))).toEqual(['Show YAML Option Names']);
+    expect(named(items[0], 'aria-describedby')).toMatch(/option name/);
     expect(root.activeElement).toBe(items[0]);
     await key(items[0], 'ArrowDown');
-    expect(root.activeElement).toBe(items[1]);
-    await key(items[1], 'ArrowDown');
     expect(root.activeElement).toBe(items[0]);
-    await key(items[0], 'End');
-    expect(root.activeElement).toBe(items[1]);
-    // Pressing an item turns it over and leaves the menu open on it.
-    items[1].click();
+    // Pressing the item turns it over and leaves the menu open on it.
+    items[0].click();
     await editor.updateComplete;
     expect(root.querySelector('[data-pref="yaml"]')!.getAttribute('aria-checked')).toBe('true');
     await key(root.querySelector('[data-pref="yaml"]')!, 'Escape');
@@ -690,9 +664,7 @@ describe('the preferences in the overview header’s ⋯ menu', () => {
     const editor = await mount({ event_font_size: '30px' });
     await togglePref(editor, 'yaml');
     await openPageOf(editor, 'events:event_font_size');
-    expect(helperOf(editor, 'events:event_font_size')).toMatch(
-      /^YAML: list\.event_font_size From All Layouts\./,
-    );
+    expect(helperOf(editor, 'events:event_font_size')).toMatch(/^YAML: list\.event_font_size\b/);
     expect(helperOf(editor, 'events:show_time')).toMatch(/^YAML: list\.show_time/);
   });
 });
@@ -711,42 +683,42 @@ describe('the review’s findings', () => {
     expect(focused?.hasAttribute('data-field')).toBe(true);
   });
 
-  it('removes one calendar’s family, and leaves another calendar’s added one', async () => {
+  it('opens a setting on one calendar’s page, and leaves another calendar’s folded', async () => {
     const editor = await mount({ entities: ['calendar.anna', 'calendar.ben'] });
     const [anna, ben] = keysOf(editor, 'entry');
-    for (const key of [anna, ben]) {
-      await goEntry(editor, key);
-      await click(editor, '.page-group[data-heading="heading_replace"] .add-toggle');
-      await click(editor, '[data-focus="add:heading_replace:family:replace"]');
-      expect(live(editor)).toContain('calendar:replace_pattern');
-    }
-    await click(editor, '[data-focus="remove-family:replace"]');
-    expect(live(editor)).not.toContain('calendar:replace_pattern');
+    const expanded = () =>
+      $(editor, '[data-setting="calendar:replace_pattern"] .setting-toggle')?.getAttribute(
+        'aria-expanded',
+      );
     await goEntry(editor, anna);
-    expect(live(editor)).toContain('calendar:replace_pattern');
+    await click(editor, '[data-setting="calendar:replace_pattern"] .setting-toggle');
+    expect(expanded()).toBe('true');
+    await goEntry(editor, ben);
+    expect(expanded()).toBe('false');
   });
 
-  it('forgets what was added to a calendar once the YAML replaces it from outside', async () => {
+  it('forgets what was opened on a calendar once the YAML replaces it from outside', async () => {
     const editor = await mount();
     await goEntry(editor, keysOf(editor, 'entry')[0]);
-    await click(editor, '.page-group[data-heading="heading_details"] .add-toggle');
-    await click(editor, '[data-focus="add:heading_details:calendar:show_description"]');
-    expect(live(editor)).toContain('calendar:show_description');
+    await click(editor, '[data-setting="calendar:show_description"] .setting-toggle');
+    expect($(editor, '[data-setting="calendar:show_description"] ha-form')).not.toBeNull();
     editor.setConfig({ config_version: VERSION, entities: ['calendar.ben'] });
     await editor.updateComplete;
     await goEntry(editor, keysOf(editor, 'entry')[0]);
-    expect(live(editor)).not.toContain('calendar:show_description');
+    expect($(editor, '[data-setting="calendar:show_description"] ha-form')).toBeNull();
   });
 });
 
-describe('an open Add row', () => {
-  it('closes on Escape, focus back on its row, and does not stay open on the next page', async () => {
-    const editor = await mount();
+describe('an open pill', () => {
+  it('closes on Escape, focus back on its pill, and does not stay open on the next page', async () => {
+    const editor = await mount({ event_font_size: '30px' });
+    await changeField(editor, 'workspace:editing_workspace', 'shared');
     await goPage(editor, 'events');
-    await click(editor, '.page-group[data-heading="time"] .add-toggle');
-    const item = $(editor, '[data-focus="add:time:events:time_font_size"]')!;
-    item.focus();
-    item.dispatchEvent(
+    const id = 'events:event_font_size';
+    const menu = (await openPill(editor, id))!;
+    const reset = menu.querySelector<HTMLElement>('.line-button')!;
+    reset.focus();
+    reset.dispatchEvent(
       new KeyboardEvent('keydown', {
         key: 'Escape',
         bubbles: true,
@@ -756,12 +728,13 @@ describe('an open Add row', () => {
     );
     await editor.updateComplete;
     await editor.updateComplete;
-    expect($(editor, '.add-row.open')).toBeNull();
-    expect(editor.shadowRoot!.activeElement?.getAttribute('data-focus')).toBe('add:time');
+    expect($(editor, '.setting-menu')).toBeNull();
+    expect(editor.shadowRoot!.activeElement?.getAttribute('data-focus')).toBe(`pill:${id}`);
     expect($(editor, '.page[data-page="events"]')).not.toBeNull();
 
-    await click(editor, '.page-group[data-heading="time"] .add-toggle');
+    await openPill(editor, id);
     await goPage(editor, 'day_header');
-    expect($(editor, '.add-row.open')).toBeNull();
+    await goPage(editor, 'events');
+    expect($(editor, '.setting-menu')).toBeNull();
   });
 });

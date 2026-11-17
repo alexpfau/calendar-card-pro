@@ -402,24 +402,15 @@ describe('the event tap action in the editor', () => {
   });
 
   // Home Assistant's `ui_action` selector draws no helper, so the editor draws it under the form.
-  it('draws the helper an action field has under its form', async () => {
+  it('keeps an action field’s helper behind its ⓘ, as any setting’s', async () => {
     const { element } = await mount({ event_tap_action: { action: 'more-info' } });
     await openPageOf(element, 'actions:event_tap_action');
-    const helper = element.shadowRoot!.querySelector(
-      '[data-field="actions:event_tap_action"] .action-helper',
+    const help = element.shadowRoot!.querySelector(
+      '[data-setting="actions:event_tap_action"] > .setting-help',
     );
-    expect(helper?.textContent?.trim()).toBe(EDITOR_STRINGS['event_tap_action.helper']);
-    // Only under an action field: any other selector's helper is Home Assistant's to draw.
-    const drawn = [...element.shadowRoot!.querySelectorAll('.action-helper')];
-    expect(drawn.length).toBeGreaterThan(0);
-    for (const line of drawn) {
-      const form = line.closest('[data-field]')!.querySelector('ha-form') as FormElement;
-      expect(
-        [...walkSchema(form.schema)].some(
-          ({ node }) => 'selector' in node && 'ui_action' in node.selector,
-        ),
-      ).toBe(true);
-    }
+    expect(help?.textContent?.trim()).toBe(EDITOR_STRINGS['event_tap_action.helper']);
+    // Not drawn a second time under the form, as a toolbar button's action field draws it.
+    expect(element.shadowRoot!.querySelector('.setting .action-helper')).toBeNull();
   });
 
   it.each(['allow_event_edit', 'allow_event_delete'])(

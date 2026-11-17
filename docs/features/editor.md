@@ -20,7 +20,7 @@ rest. Top to bottom:
 | **Notices**                    | Only when the YAML holds [options the card ignores](#options-the-card-ignores) or [removed options](#deprecated-options) |
 | **Quick Setup**                | On a fresh card, a banner offering [Quick Setup](#quick-setup), which takes focus as the editor opens                    |
 | **Search**, **Undo**, **Redo** | [Search](#search) every setting; [Undo and Redo](#undo-redo) the last change                                             |
-| **⋯ Editor Preferences**       | [Show Every Setting](#show-every-setting) and Show YAML Option Names, at the end of the search row                       |
+| **⋯ Editor Preferences**       | Show YAML Option Names, at the end of the search row                                                                     |
 | **Settings For**               | Which layout's settings the pages edit; see [Options for the Selected View](#options-for-the-selected-view)              |
 | **Calendars**                  | The card's [calendars](#calendars), a row each                                                                           |
 | **Card Displays**              | List, Columns or Grid, the layout the card opens with                                                                    |
@@ -49,10 +49,10 @@ of Week writes `start_of_week`, and Relative to Today takes any offset, such as 
 action is stored, such as a navigation, the switch gives way to a line naming it, and **Change**
 opens Taps & Refresh, where the full action editor is.
 
-The **⋯** menu at the end of the search row holds **Show Every Setting** and **Show YAML Option
-Names**, each remembered in this browser for every card. The second shows each setting's YAML
-option name beside its label, and the YAML path in search results and in What This Card Changes,
-which helps when you move between the editor and YAML. Down Arrow opens the menu from its button,
+The **⋯** menu at the end of the search row holds **Show YAML Option Names**, remembered in this
+browser for every card. It shows each setting's YAML option name beside its label, and the YAML
+path in search results and in What This Card Changes, which helps when you move between the
+editor and YAML. Down Arrow opens the menu from its button,
 and Escape closes it.
 
 ### Pages & Back
@@ -61,7 +61,7 @@ A row opens its page with focus on the page's title. **Back**, at the top and at
 every page, returns to where you came from, the overview or the search results, with its scroll
 position and focus where you left them. Nothing goes deeper than a page.
 
-- **Escape** closes whatever the editor has open first, such as an Add Setting row or a row's
+- **Escape** closes whatever the editor has open first, such as a setting's state menu or a row's
   actions, then goes Back. On the overview it clears a search, and only then lets Home Assistant
   close the dialog. A picker Home Assistant opened keeps its own Escape.
 - **Which Events** and **Day Header** link to each other: whether past events show is one, and
@@ -200,28 +200,27 @@ empty_day_color: '#607d8b'
 
 ### State in Words
 
-Every setting that holds a value says where the value comes from, in words beside its label, so
-the state is never told by color alone and a screen reader reads it with the control. The words
+Every setting says where its value comes from on a pill at the end of its row, in words, so the
+state is never told by color alone and a screen reader reads it with the setting's name. The words
 are the same on every page; Settings For says which layout they are about.
 
-| Words                | Means                                                               |
-| -------------------- | ------------------------------------------------------------------- |
-| **Set**              | Stored where you are editing: the layout, All Layouts or a calendar |
-| **Default**          | The layout uses its built-in default, whatever All Layouts holds    |
-| **From All Layouts** | The layout has no value of its own and uses the shared one          |
-| **Whole Card**       | A card-wide option, the same in every layout                        |
-| **From the Card**    | A calendar that sets nothing, where the card's value is not default |
+| Words                | Means                                                                  |
+| -------------------- | ---------------------------------------------------------------------- |
+| **Set**              | Stored where you are editing: the layout, All Layouts or a calendar    |
+| **Default**          | The built-in default; in a layout, its own, whatever All Layouts holds |
+| **From All Layouts** | The layout has no value of its own and uses the shared one             |
+| **Whole Card**       | A card-wide option, the same in every layout                           |
+| **From the Card**    | A calendar that sets nothing, where the card's value is not default    |
 
-A setting that says nothing has its default. While you edit All Layouts, a line under a setting
-names each layout the shared value does not reach, as in **Grid Has Its Own: 12px**, whether Grid
-stores that value or defaults to it.
+While you edit All Layouts, a pill under a setting names each layout the shared value does not
+reach, as in **Grid Has Its Own**, whether Grid stores its own value or defaults to it; the
+setting's pill opens the value, **Grid Has Its Own: 12px**.
 
-Where a value is stored, a button under the setting resets it. **Reset (In the Day Header)** keeps
-the setting on the page and names the value it goes back to, or **Reset (Empty)** where nothing
-comes back. **Remove Setting** resets it and takes it off the page until you add it again. A group
-of chips has one button for all of its chips stored here, **Reset Parts** for an event's parts and
-**Reset Controls** for the toolbar's. A dropdown may also show Home Assistant's own ✕, which
-empties it, the same as its Reset.
+Where a value is stored, its **Set** pill opens a small menu with the reset. **Reset (In the Day
+Header)** keeps the setting open and names the value it goes back to, or **Reset (Empty)** where
+nothing comes back. A group of chips has one button for all of its chips stored here, **Reset
+Parts** for an event's parts and **Reset Controls** for the toolbar's. A dropdown may also show
+Home Assistant's own ✕, which empties it, the same as its Reset.
 
 ### Upgrading a Card From Before v5
 
@@ -526,39 +525,31 @@ Home Assistant** or **Calendar Color**, then Home Assistant's named colors as sw
 **→ [Using the Colors From Home Assistant](/features/core-settings#using-the-colors-from-home-assistant)**
 — what Follow Home Assistant reads.
 
-## ➕ Adding Settings
+## 🗂️ Every Setting on Its Page
 
-Each page shows its essential settings, plus every setting this card holds a value for, whether
-it is stored here or inherited. The rest of a heading's settings wait in its **Add Setting**
-row, which names them and counts them, as in **Accent · Add Setting** over **Use Calendar
-Colors For Event Text · Accent Color · Accent Bar Width · Event Background Opacity**, **Settings:
-4**; a long list names the first few and ends **+3**. The count counts the settings it names. Opening it lists every one, with
-**Show All** to add them together; choosing one adds its control with
-focus in it, ready to type into, and writes nothing until you change it.
+Every page shows every setting that applies here, each on a row of its own: its name, its value,
+an **ⓘ**, its state pill and a chevron, as in **Week Number Color · Primary Text · Default**. A
+setting at its default is just that row. Press the row to open Home Assistant's control for it
+below the row; press the same spot again to fold it. Nothing is written until you change a value.
 
-- **Removing** a setting you added, or one that holds a value, resets it: its line leaves the
-  YAML, and it goes back to its Add Setting row. Its control offers **Remove Setting** where
-  resetting it takes it off the page, and **Reset** where the control stays, such as an essential
-  one.
-- **A setting that needs another one** is named under its heading until it applies, as in
-  **Appears once Description is pressed: Description Font Size, …**. Turning the
-  other setting on brings it in.
+- **The row never moves.** Opening a setting draws its control under the row, so the pill, the
+  **ⓘ** and the chevron stay where they were, and a second press always lands on the same row.
+- **Settings you set stay open.** So do the few every card needs, such as Time Format. Leaving a
+  page folds again what you opened there without changing it.
+- **ⓘ** shows the setting's help under it. A screen reader reads the help as the setting's
+  description.
+- **A switch** is Home Assistant's own switch row, with its **ⓘ** and pill after it.
+- **A setting that needs another one** stays in its place until it applies, as in **Indicator
+  Size · Appears once the Style is a dot, an icon or an emoji**. Several in a row waiting on the
+  same setting share one line. Turning the other setting on brings them in.
 - **A value stored but not in use**, such as a description size while descriptions are off, is
   listed under its heading, as in **Stored but not in use: Description Font Size (16px)**, with its
-  **Reset**. The feature is never switched on
-  to show it.
-
-### Show Every Setting
-
-**Show Every Setting**, in the **⋯** menu beside the search field, opens every page with all its settings
-that apply as controls, rather than naming the rest in Add Setting rows. It is off at first, and
-remembered in this browser for every card. Turn it on to browse what a page offers; leave it off
-to see what this card actually does.
+  **Reset**. The feature is never switched on to show it.
 
 ## 🔎 Search
 
-The search field at the top of the overview reaches every setting, including the ones not on
-their page yet, the ones waiting on another setting, the ones only another layout offers, and
+The search field at the top of the overview reaches every setting, including the folded ones,
+the ones waiting on another setting, the ones only another layout offers, and
 values stored but not in use. Typing turns the overview into a list of results, each with its
 name, the page and heading it lives under, its current value, and where the value comes from;
 with Show YAML Option Names on, its YAML path too. **Search Settings** at the top of every page
@@ -615,8 +606,7 @@ a search result opens one.
 - The preview's own taps, holds and Grid's drag do nothing while it is on.
 - A legend chip opens its calendar's page. A part only one layout has, such as the Grid's hour
   labels, switches **Settings For** to that layout first and says so.
-- Where every setting under a heading still waits in its **Add Setting** row, that row takes
-  focus instead.
+- A heading's first setting opens there, as a search result does, even where it was folded.
 - On a phone the preview sits below the editor. Tap a part once to outline it, then tap it again
   to open it; the editor scrolls back up to the setting.
 
@@ -804,9 +794,9 @@ those controls has a new home, and searching for its old name still finds it.
 
 ### Essentials Only
 
-The **Essentials Only** switch is gone, because every page now opens on its essentials and on
-what the card sets, with the rest named in [Add Setting rows](#adding-settings). To see every
-setting a page offers, turn on [Show Every Setting](#show-every-setting).
+The **Essentials Only** switch is gone, because every page now shows
+[every setting on its page](#every-setting-on-its-page), each one at its default folded to a
+single row.
 
 ### Search & Customized Only
 

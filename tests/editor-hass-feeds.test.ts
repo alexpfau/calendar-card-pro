@@ -25,6 +25,7 @@ import {
   mountEditor,
   openPageOf,
   openPanels,
+  unfoldAll,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
@@ -114,7 +115,9 @@ async function mountEntry(hass: Types.Hass = haWith()) {
   // Every setting a page can draw, so each kind of selector is fed.
   const editor = await mountEditor(CONFIG, { hass, every: true });
   await openPageOf(editor, 'calendar:name', entry(1));
+  await unfoldAll(editor);
   await openPageOf(editor, 'calendar:name', entry(0));
+  await unfoldAll(editor);
   return editor;
 }
 
@@ -258,6 +261,7 @@ describe('the feeds in the rendered editor', () => {
     // editor. Anna's label is a person, picked by entity, and every page draws the location icon;
     // every other field is steady.
     await openPageOf(editor, 'calendar:name', entry(0));
+    await unfoldAll(editor);
     expect(live()).toEqual([
       'entry-calendar-form live',
       'calendar:label live',
@@ -268,6 +272,7 @@ describe('the feeds in the rendered editor', () => {
     expect(field('calendar:name')).toBe('steady');
     // Ben's label is none, so his page draws no live selector for it.
     await openPageOf(editor, 'calendar:name', entry(1));
+    await unfoldAll(editor);
     expect(live()).toEqual([
       'entry-calendar-form live',
       'calendar:visibility ha-card-conditions-editor live',
@@ -276,9 +281,11 @@ describe('the feeds in the rendered editor', () => {
 
     // Pages: a field takes the live feed by its own selector, one form apiece.
     await openPageOf(editor, 'weather:weather.entity');
+    await unfoldAll(editor);
     expect(field('weather:weather.entity')).toBe('live');
     expect(field('weather:weather.position')).toBe('steady');
     await openPageOf(editor, 'actions:tap_action');
+    await unfoldAll(editor);
     expect(field('actions:tap_action')).toBe('live');
     expect(field('actions:refresh_interval')).toBe('steady');
     await openPageOf(editor, 'button:icon', button(0));

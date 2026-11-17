@@ -871,7 +871,7 @@ function keptForms(editor: EditorElement): Drawn[] {
 
   const element = editor as unknown as {
     _nav: unknown;
-    _prefs: { readonly every: boolean };
+    _added: ReadonlySet<string>;
     requestUpdate(): void;
     performUpdate(): void;
   };
@@ -880,11 +880,14 @@ function keptForms(editor: EditorElement): Drawn[] {
     element.requestUpdate();
     element.performUpdate();
   };
+  // Every setting open, as `openPanels` opened what it found: each folded head pressed.
+  const unfold = (): void => {
+    const heads = [...root.querySelectorAll<HTMLElement>('.setting-toggle[aria-expanded="false"]')];
+    for (const head of heads) head.click();
+    if (heads.length > 0) draw();
+  };
   const saved = element._nav;
-  const prefs = element._prefs;
-  // Every setting that applies, as Show Every Setting draws it: a change since the visit can
-  // bring settings a page names in its Add rows, and `openPanels` added what it found.
-  element._prefs = { ...prefs, every: true };
+  const added = element._added;
   const forms: Drawn[] = [];
   // The pages the overview offers now: the Grid page only while Grid is the scope.
   const scope = (editor as unknown as { _workspace: string })._workspace;
@@ -898,6 +901,7 @@ function keptForms(editor: EditorElement): Drawn[] {
     const open = rows._openButtons;
     rows._openButtons = new Set(keysOf(editor, 'button'));
     draw();
+    unfold();
     forms.push(...liveForms(editor, root, page));
     rows._openButtons = open;
   }
@@ -905,10 +909,11 @@ function keptForms(editor: EditorElement): Drawn[] {
     element._nav = { route: { kind: 'entry', key }, trail: [], fromResults: false };
     draw();
     if (root.querySelector(`.entry-page[data-entry-key="${key}"]`) === null) continue;
+    unfold();
     forms.push(...liveForms(editor, root, `entry:${key}`));
   }
   element._nav = saved;
-  element._prefs = prefs;
+  element._added = added;
   draw();
   kept.forms = forms;
   kept.stamp = stampOf(editor);
@@ -1387,10 +1392,19 @@ export function labelOf(editor: EditorElement, id: FieldId, owner?: Owner): stri
  */
 export function helperOf(editor: EditorElement, id: FieldId, owner?: Owner): string | undefined {
   const { form, visit } = located(editor, id, owner);
-  if (form.computeHelper === undefined) return undefined;
-  return visit.path.length > 0
-    ? form.computeHelper(visit.node, { path: [...visit.path] })
-    : form.computeHelper(visit.node);
+  const drawn =
+    form.computeHelper === undefined
+      ? undefined
+      : visit.path.length > 0
+        ? form.computeHelper(visit.node, { path: [...visit.path] })
+        : form.computeHelper(visit.node);
+  // A setting under a head row has its helper behind ⓘ, its form none of its own but the YAML
+  // option name.
+  const behind = form
+    .closest('.setting')
+    ?.querySelector(':scope > .setting-help')
+    ?.textContent?.trim();
+  return [drawn, behind].filter((part) => part !== undefined && part !== '').join(' ') || undefined;
 }
 
 /**
@@ -1721,13 +1735,26 @@ export async function chooseResult(editor: EditorElement, key: string): Promise<
 }
 
 /**
- * Opens every toolbar button's row the place open draws, as a user does, by its toggle.
+ * Opens every setting folded to its head on the open place, as a user presses each, so its control
+ * is drawn: a test about every form a page can draw opens them first.
+ *
+ * @param editor - Editor element
+ */
+export async function unfoldAll(editor: EditorElement): Promise<void> {
+  await expandAll(editor);
+  // A word list opened puts focus in its text box once drawn; let that settle.
+  await editor.updateComplete;
+}
+
+/**
+ * Opens every toolbar button's row and every folded setting on the open place, as a user presses
+ * each.
  *
  * @param editor - Editor element
  */
 async function expandAll(editor: EditorElement): Promise<void> {
   for (const toggle of editor.shadowRoot?.querySelectorAll<HTMLElement>(
-    '.button-row [aria-expanded="false"]',
+    '.button-row [aria-expanded="false"], .setting-toggle[aria-expanded="false"]',
   ) ?? []) {
     toggle.click();
   }
@@ -1750,7 +1777,6 @@ export async function openPanels(editor: EditorElement): Promise<void> {
   // all microtasks is one job, which visiting every page would otherwise grow without bound.
   await nextRender();
   await goOverview(editor);
-  const restore = await showEverySetting(editor);
   const kept: Drawn[] = [];
   const pages = [...root.querySelectorAll('[data-focus^="nav:"]')].map((row) =>
     row.getAttribute('data-focus')!.slice('nav:'.length),
@@ -1765,10 +1791,10 @@ export async function openPanels(editor: EditorElement): Promise<void> {
     // A search or Filter Calendars can leave an entry's row out, and its page with it.
     if (root.querySelector(`[data-focus="row:${key}"]`) === null) continue;
     await goEntry(editor, key);
+    await expandAll(editor);
     kept.push(...liveForms(editor, root, `entry:${key}`));
   }
   await goOverview(editor);
-  await restore();
   await expandAll(editor);
   visited.set(editor, { forms: kept, stamp: stampOf(editor) });
 }
@@ -1789,15 +1815,14 @@ async function keepEntries(editor: EditorElement): Promise<void> {
   const kept: Drawn[] = current
     ? before.forms.filter((drawn) => !drawn.page?.startsWith('entry:'))
     : [];
-  const restore = await showEverySetting(editor);
   for (const key of keysOf(editor, 'entry')) {
     await goOverview(editor);
     if (root.querySelector(`[data-focus="row:${key}"]`) === null) continue;
     await goEntry(editor, key);
+    await expandAll(editor);
     kept.push(...liveForms(editor, root, `entry:${key}`));
   }
   await goOverview(editor);
-  await restore();
   visited.set(editor, { forms: kept, stamp: stampOf(editor) });
 }
 
@@ -1865,26 +1890,6 @@ export async function togglePref(editor: EditorElement, key: 'every' | 'yaml'): 
 }
 
 /**
- * Turns on Show Every Setting from the overview, as a user would, so every page draws every
- * setting that applies; a test reading every form visits them so. Its switch is turned off
- * again afterwards, so what the browser remembers is left as it was.
- *
- * @param editor - Editor element, on the overview
- * @returns Puts the preference back, from the overview
- */
-async function showEverySetting(editor: EditorElement): Promise<() => Promise<void>> {
-  if (editor.shadowRoot!.querySelector('[data-focus="prefs-menu"]') === null) {
-    return async () => undefined;
-  }
-  if (await prefOn(editor, 'every')) return async () => undefined;
-  await togglePref(editor, 'every');
-  return async () => {
-    await goOverview(editor);
-    await togglePref(editor, 'every');
-  };
-}
-
-/**
  * Adds every setting the open page names in its Add rows, as a user would through each row's
  * Show All, or its one item. Adding writes nothing.
  *
@@ -1892,6 +1897,7 @@ async function showEverySetting(editor: EditorElement): Promise<() => Promise<vo
  */
 export async function addEverything(editor: EditorElement): Promise<void> {
   const root = editor.shadowRoot!;
+  await expandAll(editor);
   for (let guard = 0; guard < 80; guard++) {
     const toggle = root.querySelector<HTMLElement>('.add-toggle');
     if (toggle === null) return;
@@ -1935,6 +1941,17 @@ function familyOf(id: FieldId): string | undefined {
  */
 export async function addFromRow(editor: EditorElement, id: FieldId): Promise<boolean> {
   const root = editor.shadowRoot!;
+  // Every setting is drawn; one at its default is folded to its head row: open it there.
+  const head = root.querySelector<HTMLElement>(
+    `[data-setting="${CSS.escape(id)}"] .setting-toggle`,
+  );
+  if (head !== null) {
+    if (head.getAttribute('aria-expanded') !== 'true') {
+      head.click();
+      await editor.updateComplete;
+    }
+    return true;
+  }
   const family = familyOf(id);
   const keys = [...root.querySelectorAll<HTMLElement>('.add-toggle')].map(
     (toggle) => toggle.dataset.focus!,
@@ -1970,6 +1987,7 @@ export async function resetButtons(editor: EditorElement): Promise<HTMLButtonEle
   const root = editor.shadowRoot;
   if (root === null) throw new Error('The editor has not rendered: mount it, and await it.');
   const found = [...root.querySelectorAll<HTMLButtonElement>('[data-reset-keys]')];
+  found.push(...(await pillResets(editor)));
   await goOverview(editor);
   const pages = [...root.querySelectorAll('[data-focus^="nav:"]')].map((row) =>
     row.getAttribute('data-focus')!.slice('nav:'.length),
@@ -1977,9 +1995,72 @@ export async function resetButtons(editor: EditorElement): Promise<HTMLButtonEle
   for (const page of pages) {
     await goPage(editor, page);
     found.push(...root.querySelectorAll<HTMLButtonElement>('[data-reset-keys]'));
+    found.push(...(await pillResets(editor)));
   }
   await goOverview(editor);
   return [...new Set(found)];
+}
+
+/**
+ * The reset buttons every state pill on the open page holds in its menu, each pill opened in turn
+ * as a user opens it, and closed again. A button kept once its menu closes still resets, as its
+ * listener stays its own.
+ *
+ * @param editor - Editor element
+ * @returns The buttons
+ */
+async function pillResets(editor: EditorElement): Promise<HTMLButtonElement[]> {
+  const root = editor.shadowRoot!;
+  const found: HTMLButtonElement[] = [];
+  const keys = [...root.querySelectorAll<HTMLElement>('.setting-pill-button')].map(
+    (pill) => pill.dataset.focus!,
+  );
+  for (const key of keys) {
+    const pill = root.querySelector<HTMLElement>(
+      `.setting-pill-button[data-focus="${CSS.escape(key)}"]`,
+    );
+    if (pill === null) continue;
+    pill.click();
+    await editor.updateComplete;
+    found.push(...root.querySelectorAll<HTMLButtonElement>('.setting-menu [data-reset-keys]'));
+    pill.click();
+    await editor.updateComplete;
+  }
+  return found;
+}
+
+/**
+ * Opens the state pill's menu of a setting on the open page, as a user presses it, where it is
+ * not open already: its notes and its Reset are drawn in it.
+ *
+ * @param editor - Editor element
+ * @param id - Field id
+ * @returns The menu, or null where the setting has no pill with a menu
+ */
+export async function openPill(editor: EditorElement, id: FieldId): Promise<HTMLElement | null> {
+  const root = editor.shadowRoot!;
+  const setting = root.querySelector<HTMLElement>(`[data-setting="${CSS.escape(id)}"]`);
+  const pill = setting?.querySelector<HTMLElement>(':scope > .setting-head .setting-pill-button');
+  if (!pill) return null;
+  if (pill.getAttribute('aria-expanded') !== 'true') {
+    pill.click();
+    await editor.updateComplete;
+  }
+  return root.querySelector<HTMLElement>(`[data-setting="${CSS.escape(id)}"] .setting-menu`);
+}
+
+/**
+ * The words a setting's state pill shows: "Set", "Default", "From All Layouts".
+ *
+ * @param editor - Editor element
+ * @param id - Field id
+ * @returns The pill's words, or undefined where the setting has no head on the open page
+ */
+export function pillOf(editor: EditorElement, id: FieldId): string | undefined {
+  const pill = editor.shadowRoot?.querySelector(
+    `[data-setting="${CSS.escape(id)}"] > .setting-head .setting-tools .setting-pill:not(.tone-warning)`,
+  );
+  return pill?.textContent?.trim();
 }
 
 /**
@@ -2177,6 +2258,11 @@ export async function mountEditor(
   await editor.updateComplete;
   for (const key of ['every', 'yaml'] as const) {
     if (options[key] !== true) continue;
+    // Every page draws every setting: no Show Every Setting is left to turn on.
+    if (key === 'every' && (await prefItem(editor, key)) === undefined) {
+      await closePrefs(editor);
+      continue;
+    }
     await togglePref(editor, key);
     // What the browser remembers stays as the test found it.
     localStorage.removeItem(PREFS_KEY);

@@ -12,10 +12,10 @@ import {
   changeField,
   formOf,
   formsOf,
-  helperOf,
-  labelOf,
   mountEditor,
+  openPageOf,
   openPanels,
+  pillOf,
   resetButton,
   resetButtons,
   valueOf,
@@ -576,6 +576,8 @@ describe('implicit defaults and first-switch boundaries', () => {
       expect(moved.filter((path) => !conditions.has(path.split('.').pop()!))).toEqual([]);
       // ...so the form now drawing the option shows what the YAML decided without the edit.
       expect(resolved(after)).toEqual(resolved(before));
+      // Opened, as a setting at its default is folded to its head.
+      await openPageOf(editor, id);
       expect(valueOf(editor, id)).toEqual(resolved(before));
       expect(notice(editor)).toBeNull();
     },
@@ -661,12 +663,10 @@ describe('implicit defaults and first-switch boundaries', () => {
     await changeField(editor, 'display:view', 'grid');
     expect(reports).toHaveLength(1);
     expect(reports[0]).not.toHaveProperty('time_grid');
-    // Grid's own default, worded as one, and never as a value set for Grid.
-    const words = (id: string) => `${labelOf(editor, id)} ${helperOf(editor, id) ?? ''}`;
+    // Grid's own default, worded as one on its pill, and never as a value set for Grid.
     for (const id of ['events:event_background_opacity', 'events:event_font_size']) {
-      // After the label, " · Default", or before the helper, "Default.".
-      expect(words(id), id).toMatch(/( · | )Default\b/);
-      expect(words(id), id).not.toMatch(/( · | )Set\b/);
+      await openPageOf(editor, id);
+      expect(pillOf(editor, id), id).toBe('Default');
     }
   });
 

@@ -244,7 +244,8 @@ describe("which editor a calendar entry's page shows", () => {
     const editor = await render([ANNA]);
     const conditions = drawn(await editor.editorOn(0));
     const container = conditions.parentElement!;
-    const section = container.parentElement!;
+    // The field sits under its head row, in its setting, in the heading's section.
+    const section = container.closest('.page-group')!;
     const sections = (at: Element | null) =>
       at?.getAttribute('data-heading') ?? at?.localName ?? null;
 
@@ -434,13 +435,13 @@ describe('the line under Who Sees It', () => {
     expect(line.textContent!.replace(/\s+/g, ' ').trim()).toBe(
       'Which days its events show: Which Events › Days of the Week',
     );
-    // Days of the Week waits in an Add row until something is stored.
-    expect(root.querySelector('[data-field="calendar:days_of_week"]')).toBeNull();
+    // Days of the Week is folded to its head until something is stored.
+    expect(root.querySelector('.field[data-field="calendar:days_of_week"]')).toBeNull();
 
     line.querySelector<HTMLElement>('button.link')!.click();
     await editor.updateComplete;
     await editor.updateComplete;
-    const field = root.querySelector('[data-field="calendar:days_of_week"]');
+    const field = root.querySelector('.field[data-field="calendar:days_of_week"]');
     expect(field).not.toBeNull();
     expect(root.activeElement).toBe(field);
     expect(reported).toBe(0);

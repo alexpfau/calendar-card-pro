@@ -18,6 +18,7 @@ import {
   lastConfig,
   mountEditor,
   openPageOf,
+  openPill,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -378,7 +379,8 @@ describe('a word list', () => {
   it('holds one empty box once added, and puts focus in it, writing nothing', async () => {
     const editor = await mountEditor({ config_version: VERSION, entities: ['calendar.anna'] });
     await goEntry(editor, keysOf(editor, 'entry')[0]);
-    expect(root(editor).querySelector('[data-field="calendar:blocklist"]')).toBeNull();
+    // Folded to its head: no form until it is opened.
+    expect(root(editor).querySelector('.field[data-field="calendar:blocklist"]')).toBeNull();
 
     expect(await addFromRow(editor, 'calendar:blocklist')).toBe(true);
     // One box to type in, rather than Home Assistant's button that adds one.
@@ -551,10 +553,12 @@ describe('with the shown set and What This Card Changes', () => {
       'Reset Tapping an Event Opens It to Off',
     ]);
     await openPageOf(editor, 'calendar:blocklist', entry(0));
-    expect(buttonsOf(editor, 'calendar:blocklist')).toEqual([
-      'Use a Pattern',
-      'Remove Hide Events Containing and Reset It',
-    ]);
+    expect(buttonsOf(editor, 'calendar:blocklist')).toEqual(['Use a Pattern']);
+    // Its Reset is in its pill, as any setting's under a head row.
+    const menu = (await openPill(editor, 'calendar:blocklist'))!;
+    expect(
+      [...menu.querySelectorAll('.line-button')].map((button) => button.getAttribute('aria-label')),
+    ).toEqual(['Reset Hide Events Containing']);
   });
 
   it('resets Start Date to Today, releasing Relative to Today held over a shortcut', async () => {

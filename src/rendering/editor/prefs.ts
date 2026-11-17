@@ -1,8 +1,7 @@
 /**
- * The editor's two preferences, remembered in this browser (backlog item 307): Show Every
- * Setting, which draws every setting that applies as a control instead of naming the rest in Add
- * Setting rows, and Show YAML Option Names, which puts each setting's option name before its
- * helper.
+ * The editor's preference, remembered in this browser (backlog item 307): Show YAML Option
+ * Names, which puts each setting's option name before its helper. Every page draws every setting
+ * that applies, so the "every" a browser may still hold from Show Every Setting is not read.
  *
  * Read and written inside `try`, because private browsing throws on storage. The first read also
  * removes the key Essentials Only remembered, which nothing reads any more.
@@ -12,19 +11,17 @@
 
 /** What the editor remembers. */
 export interface Prefs {
-  /** Show Every Setting. */
-  readonly every: boolean;
   /** Show YAML Option Names. */
   readonly yaml: boolean;
 }
 
-/** Where the preferences live: `{ "v": 1, "every": false, "yaml": false }`. */
+/** Where the preferences live: `{ "v": 1, "yaml": false }`. */
 export const PREFS_KEY = 'calendar-card-pro-editor-ui';
 
 /** The key Essentials Only remembered, removed on the first read. */
 export const RETIRED_KEY = 'calendar-card-pro-editor-essentials-only';
 
-export const NO_PREFS: Prefs = { every: false, yaml: false };
+export const NO_PREFS: Prefs = { yaml: false };
 
 /**
  * The browser's storage, where it can be reached.
@@ -56,7 +53,7 @@ export function readPrefs(): Prefs {
     const parsed: unknown = JSON.parse(store?.getItem(PREFS_KEY) ?? 'null');
     if (typeof parsed !== 'object' || parsed === null) return NO_PREFS;
     const read = parsed as Record<string, unknown>;
-    return { every: read.every === true, yaml: read.yaml === true };
+    return { yaml: read.yaml === true };
   } catch {
     return NO_PREFS;
   }
@@ -69,7 +66,7 @@ export function readPrefs(): Prefs {
  */
 export function writePrefs(prefs: Prefs): void {
   try {
-    storage()?.setItem(PREFS_KEY, JSON.stringify({ v: 1, every: prefs.every, yaml: prefs.yaml }));
+    storage()?.setItem(PREFS_KEY, JSON.stringify({ v: 1, yaml: prefs.yaml }));
   } catch {
     // Private browsing: kept for this session only.
   }
