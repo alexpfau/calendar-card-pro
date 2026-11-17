@@ -108,7 +108,8 @@ function resets(editor: Editor): string[] {
  */
 function lines(editor: Editor): string[] {
   const heading = editor.shadowRoot!.querySelector('[data-heading="heading_details"]')!;
-  return [...heading.querySelectorAll(':scope > p.hint')].map(
+  // The chips' facts, a line each, then the hints.
+  return [...heading.querySelectorAll(':scope > .chip-source .fact, :scope > p.hint')].map(
     (line) => line.textContent?.replace(/\s+/g, ' ').trim() ?? '',
   );
 }
@@ -223,7 +224,8 @@ describe('the event-part chips', () => {
     const editor = await mount({ view: 'grid' });
     await goPage(editor, 'events');
     expect(read(editor, 'Event Details')[2]).toBe('Location');
-    expect(lines(editor)).toContain('Default: Location');
+    // Each part says whether it is on, so its source never reads as "on".
+    expect(lines(editor)).toContain('Grid Default: Location (Off)');
 
     const stored = await mount({ view: 'grid', time_grid: { show_location: true } });
     await goPage(stored, 'events');
@@ -267,19 +269,19 @@ describe('the event-part chips', () => {
     await changeField(editor, 'workspace:editing_workspace', 'shared');
     await goPage(editor, 'events');
     expect(read(editor, 'Event Details')[2]).toBe('Location');
-    expect(lines(editor)[0]).toBe('Set: Location');
+    expect(lines(editor)[0]).toBe('Chosen Here: Location (Off)');
 
     await changeField(editor, 'workspace:editing_workspace', 'column');
     await goPage(editor, 'events');
     expect(read(editor, 'Event Details')[2]).toBe('Location ✓');
-    expect(lines(editor)[0]).toBe('Set: Location');
+    expect(lines(editor)[0]).toBe('Chosen Here: Location (On)');
     // A chip's name carries its state words, as any field's does.
     expect(chips(editor, 'Event Details')[2].getAttribute('aria-label')).toBe('Location, Set');
 
     await changeField(editor, 'workspace:editing_workspace', 'list');
     await goPage(editor, 'events');
     expect(read(editor, 'Event Details')[2]).toBe('Location');
-    expect(lines(editor)[0]).toBe('From All Layouts: Location');
+    expect(lines(editor)[0]).toBe('From All Layouts: Location (Off)');
     expect(chips(editor, 'Event Details')[2].getAttribute('aria-label')).toBe(
       'Location, From All Layouts',
     );
@@ -296,7 +298,10 @@ describe('the event-part chips', () => {
       column: { show_location: true },
       list: { show_countdown: true },
     });
-    expect(lines(editor)[0]).toBe('From All Layouts: Location · Set: Countdown');
+    expect(lines(editor).slice(0, 2)).toEqual([
+      'Chosen Here: Countdown (On)',
+      'From All Layouts: Location (Off)',
+    ]);
     expect(
       editor.shadowRoot!.querySelector('[data-focus="undo"]')?.getAttribute('aria-label'),
     ).toBe('Undo: Change Show Countdown');
@@ -398,10 +403,17 @@ describe('the toolbar on Card & Header', () => {
         '[data-focus="reset:card:toolbar.legend"]',
       );
 
-    // Its state words follow its name, as any field's do.
+    // Its facts are on the line under it, as any control's with no head row of its own.
     expect(group().querySelector('legend')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
-      'Calendar Filter · Set',
+      'Calendar Filter',
     );
+    expect(
+      editor
+        .shadowRoot!.querySelector(
+          '[data-field="card:toolbar.legend"] ~ .field-line .fact, [data-field="card:toolbar.legend"] .field-line .fact',
+        )
+        ?.textContent?.trim(),
+    ).toBe('Set');
     expect(reset()?.getAttribute('aria-label')).toBe('Reset Calendar Filter to Menu');
     expect(reset()?.textContent?.trim()).toBe('Reset (Menu)');
     expect(radios().map((radio) => [radio.value, radio.checked])).toEqual([

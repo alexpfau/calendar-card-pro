@@ -1979,6 +1979,7 @@ export async function addFromRow(editor: EditorElement, id: FieldId): Promise<bo
  * Every reset button the editor offers for the scope's own values, on whichever page holds the
  * field it resets: each page is visited, as `openPanels` does, and the editor comes back to the
  * overview. A button kept from a page no longer open still resets, as its listener stays its own.
+ * Reset and Remove are buttons in plain view on the line under a stored setting's control.
  *
  * @param editor - Editor element
  * @returns The buttons, page by page
@@ -1987,7 +1988,6 @@ export async function resetButtons(editor: EditorElement): Promise<HTMLButtonEle
   const root = editor.shadowRoot;
   if (root === null) throw new Error('The editor has not rendered: mount it, and await it.');
   const found = [...root.querySelectorAll<HTMLButtonElement>('[data-reset-keys]')];
-  found.push(...(await pillResets(editor)));
   await goOverview(editor);
   const pages = [...root.querySelectorAll('[data-focus^="nav:"]')].map((row) =>
     row.getAttribute('data-focus')!.slice('nav:'.length),
@@ -1995,72 +1995,55 @@ export async function resetButtons(editor: EditorElement): Promise<HTMLButtonEle
   for (const page of pages) {
     await goPage(editor, page);
     found.push(...root.querySelectorAll<HTMLButtonElement>('[data-reset-keys]'));
-    found.push(...(await pillResets(editor)));
   }
   await goOverview(editor);
   return [...new Set(found)];
 }
 
 /**
- * The reset buttons every state pill on the open page holds in its menu, each pill opened in turn
- * as a user opens it, and closed again. A button kept once its menu closes still resets, as its
- * listener stays its own.
- *
- * @param editor - Editor element
- * @returns The buttons
- */
-async function pillResets(editor: EditorElement): Promise<HTMLButtonElement[]> {
-  const root = editor.shadowRoot!;
-  const found: HTMLButtonElement[] = [];
-  const keys = [...root.querySelectorAll<HTMLElement>('.setting-pill-button')].map(
-    (pill) => pill.dataset.focus!,
-  );
-  for (const key of keys) {
-    const pill = root.querySelector<HTMLElement>(
-      `.setting-pill-button[data-focus="${CSS.escape(key)}"]`,
-    );
-    if (pill === null) continue;
-    pill.click();
-    await editor.updateComplete;
-    found.push(...root.querySelectorAll<HTMLButtonElement>('.setting-menu [data-reset-keys]'));
-    pill.click();
-    await editor.updateComplete;
-  }
-  return found;
-}
-
-/**
- * Opens the state pill's menu of a setting on the open page, as a user presses it, where it is
- * not open already: its notes and its Reset are drawn in it.
+ * The line under a setting's control on the open page: "Set on Calendars" with its links, and
+ * Reset or Remove, each a button in plain view.
  *
  * @param editor - Editor element
  * @param id - Field id
- * @returns The menu, or null where the setting has no pill with a menu
+ * @returns The line, or null where the setting draws none
  */
-export async function openPill(editor: EditorElement, id: FieldId): Promise<HTMLElement | null> {
-  const root = editor.shadowRoot!;
-  const setting = root.querySelector<HTMLElement>(`[data-setting="${CSS.escape(id)}"]`);
-  const pill = setting?.querySelector<HTMLElement>(':scope > .setting-head .setting-pill-button');
-  if (!pill) return null;
-  if (pill.getAttribute('aria-expanded') !== 'true') {
-    pill.click();
-    await editor.updateComplete;
-  }
-  return root.querySelector<HTMLElement>(`[data-setting="${CSS.escape(id)}"] .setting-menu`);
+export function lineOf(editor: EditorElement, id: FieldId): HTMLElement | null {
+  return (
+    editor.shadowRoot?.querySelector<HTMLElement>(
+      `[data-setting="${CSS.escape(id)}"] .field-line`,
+    ) ?? null
+  );
 }
 
 /**
- * The words a setting's state pill shows: "Set", "Default", "From All Layouts".
+ * The state a setting's facts say under its name: "Set", "From All Layouts", "From the Card", or
+ * "Default", which only a screen reader hears.
  *
  * @param editor - Editor element
  * @param id - Field id
- * @returns The pill's words, or undefined where the setting has no head on the open page
+ * @returns The state, or undefined where the setting has no head on the open page
  */
-export function pillOf(editor: EditorElement, id: FieldId): string | undefined {
-  const pill = editor.shadowRoot?.querySelector(
-    `[data-setting="${CSS.escape(id)}"] > .setting-head .setting-tools .setting-pill:not(.tone-warning)`,
+export function stateWordOf(editor: EditorElement, id: FieldId): string | undefined {
+  const state = editor.shadowRoot?.querySelector(
+    `[data-setting="${CSS.escape(id)}"] > .setting-head .setting-state`,
   );
-  return pill?.textContent?.trim();
+  return state?.textContent?.trim();
+}
+
+/**
+ * Everything a setting's facts say under its name, fact by fact.
+ *
+ * @param editor - Editor element
+ * @param id - Field id
+ * @returns The facts' words, in order; empty where it shows none
+ */
+export function factsOf(editor: EditorElement, id: FieldId): string[] {
+  return [
+    ...(editor.shadowRoot?.querySelectorAll(
+      `[data-setting="${CSS.escape(id)}"] > .setting-head > .setting-facts > .fact`,
+    ) ?? []),
+  ].map((fact) => fact.textContent?.trim() ?? '');
 }
 
 /**

@@ -581,7 +581,7 @@ describe('the editor names each view once', () => {
       'state.default',
       'state.from_all_layouts',
       'state.whole_card',
-      'state.whole_card_set',
+      'state.layout_default',
       'state.from_card',
     ] as const;
     const names = VIEWS.map((view) => EDITOR_STRINGS[`view.option.${view}.label`]);

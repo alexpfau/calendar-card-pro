@@ -200,30 +200,32 @@ empty_day_color: '#607d8b'
 
 ### State in Words
 
-A setting whose value is not its default says where the value comes from on a pill at the end
-of its row, in words, so the state is never told by color alone. A setting at its default shows
-no pill; a screen reader still reads **Default** with its name. The words are the same on every
-page; Settings For says which layout they are about.
+Under a setting's name, its facts say where its value lives, in words, so the state is never told
+by color alone. Each kind of fact has a form of its own, and none of them can be pressed. A
+setting at its default shows none; a screen reader still reads **Default** with its name. The
+words are the same on every page; Settings For says which layout they are about.
 
-| Words                | Means                                                                  |
-| -------------------- | ---------------------------------------------------------------------- |
-| **Set**              | Stored where you are editing: the layout, All Layouts or a calendar    |
-| **From All Layouts** | The layout has no value of its own and uses the shared one             |
-| **From the Card**    | A calendar that sets nothing, where the card's value is not default    |
-| no pill              | The built-in default; in a layout, its own, whatever All Layouts holds |
+| Fact                                           | Form                    | Means                                                                     |
+| ---------------------------------------------- | ----------------------- | ------------------------------------------------------------------------- |
+| **Set**                                        | a dot before the word   | Stored where you are editing: the layout, All Layouts or a calendar       |
+| **Whole Card**                                 | after a card icon       | One value for every layout, whatever Settings For shows                   |
+| **Also Applies to Entry 2**                    | after a calendars icon  | A calendar's name or filter setting, shared by its entries                |
+| **From All Layouts**, **From the Card**        | after ↳                 | Nothing is stored here; the value comes from All Layouts, or the card     |
+| **Grid Has Its Own: 12px**                     | after the layout's icon | Under All Layouts: Grid stores a value of its own, which applies there    |
+| **Grid Default: 12px**                         | after the layout's icon | Under All Layouts: Grid stores nothing and uses its own default           |
+| **Uses Grid's Default, Not All Layouts' 15px** | after the layout's icon | Under Grid: All Layouts stores a value Grid's own default takes over from |
 
-The pill names a state only. A card-wide option, with one value for every layout, carries a
-small link mark after its name instead.
+A setting with a stored value is always open, with **Reset** in plain view on the line under its
+control. **Reset (In the Day Header)** keeps the setting open and names the value it goes back
+to, or **Reset (Empty)** where nothing comes back; **Remove Setting** resets a setting and folds
+it. A group of chips has one button for all of its chips stored here, **Reset Parts** for an
+event's parts and **Reset Controls** for the toolbar's, and its line says where each chip's state
+comes from: **Chosen Here**, **From All Layouts** or a layout's **Default**. A dropdown may also
+show Home Assistant's own ✕, which empties it, the same as its Reset.
 
-While you edit All Layouts, a line inside a setting's row, under its name, names each layout the
-shared value does not reach and the value it uses, as in **Grid Has Its Own: 12px**, whether Grid
-stores its own value or defaults to it.
-
-Where a value is stored, its **Set** pill opens a small menu with the reset. **Reset (In the Day
-Header)** keeps the setting open and names the value it goes back to, or **Reset (Empty)** where
-nothing comes back. A group of chips has one button for all of its chips stored here, **Reset
-Parts** for an event's parts and **Reset Controls** for the toolbar's. A dropdown may also show
-Home Assistant's own ✕, which empties it, the same as its Reset.
+A folded setting shows the value that applies. Where nothing is stored, it names it: a setting
+that follows another says so, as in **Same as Weekday Color**, and any other names what it does,
+such as **No Limit**, **None** or **Theme Default**.
 
 ### Upgrading a Card From Before v5
 

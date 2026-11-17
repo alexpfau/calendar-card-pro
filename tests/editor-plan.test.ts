@@ -407,10 +407,10 @@ describe('state words: every row of the stateOf table', () => {
     });
     expect(
       words({ time_grid: { time_font_size: '20px' } }, 'shared', 'events:time_font_size'),
-    ).toEqual({ layoutsOwn: [{ view: 'grid', value: '20px' }] });
+    ).toEqual({ layoutsOwn: [{ view: 'grid', value: '20px', stored: true }] });
     // A layout that defaults the field otherwise has its own too, until the values agree.
     expect(words({}, 'shared', 'events:event_font_size')).toEqual({
-      layoutsOwn: [{ view: 'grid', value: '12px' }],
+      layoutsOwn: [{ view: 'grid', value: '12px', stored: false }],
     });
     expect(words({ event_font_size: '12px' }, 'shared', 'events:event_font_size')).toEqual({
       words: { kind: 'set-all-layouts' },
@@ -428,8 +428,8 @@ describe('state words: every row of the stateOf table', () => {
     ).toEqual({
       words: { kind: 'set-all-layouts' },
       layoutsOwn: [
-        { view: 'list', value: '16px' },
-        { view: 'grid', value: '20px' },
+        { view: 'list', value: '16px', stored: true },
+        { view: 'grid', value: '20px', stored: true },
       ],
     });
   });

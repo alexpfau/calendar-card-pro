@@ -89,6 +89,15 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'notices.old_note': 'The next change removes these.',
   'notices.replaced': 'Replaced by {label}.',
   'value.from_yaml': '{value} (From YAML)',
+  // What a folded setting says it uses while no value is set (`unset.ts`): one that follows another
+  // setting names it; any other names what applies.
+  'value.same_as': 'Same as {label}',
+  'value.tile_ink': "Matches Today's Tile",
+  'value.follow_card': 'Follow the card',
+  'value.end_of_day': 'End of Day',
+  'value.none': 'None',
+  'value.no_limit': 'No Limit',
+  'value.theme_default': 'Theme Default',
   'quick_setup.dismiss': 'Dismiss Quick Setup',
   'nav.back': 'Back',
   // A page's foot: its page on the documentation site, which says what the helpers leave out.
@@ -132,20 +141,25 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // A page draws every setting that applies; one at its default folds to its head row, which
   // opens it. Its ⓘ, named for the setting, shows its helper.
   'setting.about': 'About {label}',
-  // What a field says about where its value comes from, after its label or before its helper: one
-  // vocabulary on every page, since Settings For already names the layout. "Default" is a layout's
-  // own default; a field following the card's says nothing.
+  // What a setting says under its name, one vocabulary on every page, since Settings For already
+  // names the layout: whether a value is stored here, what it reaches, where it comes from, and
+  // what each other layout uses. A setting at its default says nothing; a screen reader hears
+  // "Default".
   'state.set': 'Set',
   'state.default': 'Default',
   'state.whole_card': 'Whole Card',
-  'state.whole_card_set': 'Whole Card · Set',
-  'state.ignored': 'The All Layouts value, {value}, does not apply in {layout}.',
+  // Under a Grid setting while All Layouts stores a value Grid's own default overrides.
+  'state.ignored': "Uses {layout}'s Default, Not All Layouts' {value}",
   'state.from_all_layouts': 'From All Layouts',
-  // A calendar option the calendar's entries share, and an entry's value that comes from the card.
-  'state.set_shared': 'Set · Shared by Its Entries',
+  // A calendar option the calendar's entries share, naming the other entries by number.
+  'state.shared_entry': 'Also Applies to Entry {entries}',
+  'state.shared_entries': 'Also Applies to Entries {entries}',
+  // An entry's value that comes from the card.
   'state.from_card': 'From the Card',
-  // Under a field in All Layouts, for each layout the All Layouts value does not reach.
+  // Under a field in All Layouts, for each layout the All Layouts value does not reach: one that
+  // stores its own value, and one whose own default differs.
   'state.layout_own': '{layout} Has Its Own: {value}',
+  'state.layout_default': '{layout} Default: {value}',
   'state.set_on_calendars': 'Set on Calendars:',
   // The button under a stored field. Reset keeps the setting on the page and names the value it
   // goes back to, "Reset (Off)", or "Reset (Empty)" where nothing comes back. Remove Setting takes
@@ -590,6 +604,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     "Each event shows the parts that are pressed. A pressed part's settings follow below.",
   'chip.needs': 'Needs {part}',
   'chip.not_in': 'Not in {layout}: {names}.',
+  // The chips stored where Settings For points, under the chips with where the others come from.
+  'chip.chosen_here': 'Chosen Here: {names}',
+  // A part in those lines, with whether it is on: "Countdown (Off)".
+  'chip.part_state': '{part} ({state})',
   // A calendar entry's page.
   'entry.back': 'Back to the overview',
   'entry.previous': 'Previous Calendar',
@@ -1217,7 +1235,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   today_date_scale: "Today's Date Scale",
   'today_date_scale.helper': '1.25 is a quarter larger; 1 leaves it as it is.',
   today_date_font_weight: "Today's Font Weight",
-  'today_date_font_weight.option.default.label': 'Default',
+  'today_date_font_weight.option.default.label': 'Same as Other Days',
   'today_date_font_weight.option.light.label': 'Light',
   'today_date_font_weight.option.regular.label': 'Regular',
   'today_date_font_weight.option.medium.label': 'Medium',
@@ -1237,7 +1255,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   past_date_scale: 'Past Date Scale',
   'past_date_scale.helper': '0.85 is a little smaller; 1 leaves them as they are.',
   past_date_font_weight: 'Past Font Weight',
-  'past_date_font_weight.option.default.label': 'Default',
+  'past_date_font_weight.option.default.label': 'Same as Other Days',
   'past_date_font_weight.option.light.label': 'Light',
   'past_date_font_weight.option.regular.label': 'Regular',
   'past_date_font_weight.option.medium.label': 'Medium',

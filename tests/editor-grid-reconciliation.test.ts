@@ -15,9 +15,9 @@ import {
   mountEditor,
   openPageOf,
   openPanels,
-  pillOf,
   resetButton,
   resetButtons,
+  stateWordOf,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -675,7 +675,7 @@ describe('implicit defaults and first-switch boundaries', () => {
     // Grid's own default, worded as one on its pill, and never as a value set for Grid.
     for (const id of ['events:event_background_opacity', 'events:event_font_size']) {
       await openPageOf(editor, id);
-      expect(pillOf(editor, id), id).toBe('Default');
+      expect(stateWordOf(editor, id), id).toBe('Default');
     }
     // Over a second in a full local run; the limit is set for CI's slower runner under load
     // rather than for a hang.

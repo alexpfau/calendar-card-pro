@@ -28,7 +28,7 @@ import {
   mountEditor,
   openPageOf,
   openPanels,
-  pillOf,
+  stateWordOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import { PANELS } from '../src/rendering/editor/panels';
@@ -219,11 +219,11 @@ describe('a kept helper', () => {
     const editor = await mountEditor(CONFIG);
     await changeField(editor, `workspace:${WORKSPACE_FIELD}`, 'list');
     await openPageOf(editor, 'events:event_font_size');
-    expect(pillOf(editor, 'events:event_font_size')).not.toBe(EDITOR_STRINGS['state.set']);
+    expect(stateWordOf(editor, 'events:event_font_size')).not.toBe(EDITOR_STRINGS['state.set']);
 
     await changeField(editor, 'events:event_font_size', '18px');
 
-    expect(pillOf(editor, 'events:event_font_size')).toBe(EDITOR_STRINGS['state.set']);
+    expect(stateWordOf(editor, 'events:event_font_size')).toBe(EDITOR_STRINGS['state.set']);
   });
 
   it('answers for the fields drawn now, where the notes line up with the fields drawn before', async () => {
@@ -234,11 +234,11 @@ describe('a kept helper', () => {
     await changeField(editor, `workspace:${WORKSPACE_FIELD}`, 'list');
     await openPageOf(editor, 'layout:card_height');
     const own = EDITOR_STRINGS['state.set'];
-    expect(pillOf(editor, 'layout:card_height')).toBe(own);
+    expect(stateWordOf(editor, 'layout:card_height')).toBe(own);
 
     await changeField(editor, 'layout:height_mode', 'maximum');
 
     await openPageOf(editor, 'layout:card_max_height');
-    expect(pillOf(editor, 'layout:card_max_height')).toBe(own);
+    expect(stateWordOf(editor, 'layout:card_max_height')).toBe(own);
   });
 });

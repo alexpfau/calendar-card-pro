@@ -92,6 +92,7 @@ import * as Routing from './routing';
 import { ENTITY_PATH } from './schemas/calendars';
 import { TOOLBAR_BUTTON_PATH, buildToolbarButtonSchema } from './schemas/card';
 import {
+  ENTITY_TRISTATE_STORED,
   VISIBILITY,
   accentColorModeOf,
   buildEntitySchema,
@@ -115,6 +116,7 @@ import styles from './styles';
 import * as Subforms from './subforms';
 import * as Summary from './summary';
 import * as Synthetic from './synthetic';
+import * as Unset from './unset';
 import * as Value from './value';
 import * as AuditView from './views/audit';
 import * as CalendarView from './views/calendars';
@@ -695,46 +697,7 @@ export class CalendarCardProEditor extends LitElement {
     }
   }
 
-  /** The language the pill column was last measured in. */
-  private _pillsSizedFor?: string;
-
-  /**
-   * Measures the pill column once per language: as wide as the widest state pill the editor can
-   * draw, its menu's chevron included, so values and pills line up down every page and nothing
-   * moves when a setting's state changes.
-   */
-  private _sizePills(): void {
-    if (!this._config || !this.isConnected) return;
-    // Measured once laid out: an editor with no width yet has nothing to measure, and is asked
-    // again on its next update.
-    const root = this.renderRoot.querySelector<HTMLElement>('.card-config');
-    if (!root || root.getBoundingClientRect().width === 0) return;
-    const language = this._ctx.language ?? '';
-    if (this._pillsSizedFor === language) return;
-    const t = this._t(this._ctx);
-    const words = ['state.default', 'state.set', 'state.from_all_layouts', 'state.from_card'];
-    const probe = document.createElement('span');
-    probe.setAttribute('aria-hidden', 'true');
-    probe.style.cssText = 'position:absolute;visibility:hidden;inset-inline-start:0;top:0';
-    root.append(probe);
-    let widest = 0;
-    for (const key of words) {
-      const pill = document.createElement('span');
-      pill.className = 'setting-pill tone-set';
-      pill.textContent = t(key);
-      // The menu's chevron, 16 px and the pill's gap.
-      pill.style.paddingInlineEnd = '26px';
-      probe.append(pill);
-      widest = Math.max(widest, pill.getBoundingClientRect().width);
-    }
-    probe.remove();
-    if (widest === 0) return;
-    this._pillsSizedFor = language;
-    this.style.setProperty('--pill-col', `${Math.ceil(widest) + 4}px`);
-  }
-
   protected override updated(): void {
-    this._sizePills();
     // A switch row is fitted once Home Assistant has drawn it, as the observer reports its size.
     this._watchSizes();
     // Written once attached, where Home Assistant hears it: `setConfig` comes while detached.
@@ -898,8 +861,6 @@ export class CalendarCardProEditor extends LitElement {
   @state() private _added: ReadonlySet<string> = new Set();
 
   /** The Add row open, by its `data-focus` key, and what its box narrows it to. */
-  /** The state pill whose menu is open, by its `data-focus` key. */
-  @state() private _menuOpen?: string;
   /** The settings whose helper is shown behind its ⓘ, by added-set key. */
   @state() private _helpOpen: ReadonlySet<string> = new Set();
 
@@ -3137,8 +3098,19 @@ export class CalendarCardProEditor extends LitElement {
    * @returns The words
    */
   private _wordOf(field: IndexedField, ctx: SchemaCtx): Shown.WordValue {
+    // A calendar's three-way option stores a value its dropdown offers under another name: words
+    // the option the stored value stands for, "Never show", never the stored `false`.
+    const stored =
+      parseFieldId(field.id).scope === 'calendar'
+        ? ENTITY_TRISTATE_STORED[parseFieldId(field.id).name]
+        : undefined;
+    const asOption = (value: unknown): unknown => {
+      if (stored === undefined) return value;
+      const option = Object.entries(stored).find(([, each]) => each === value);
+      return option === undefined ? value : option[0];
+    };
     return (value) =>
-      Summary.wordValue(field, value, ctx.language, this._describe) ??
+      Summary.wordValue(field, asOption(value), ctx.language, this._describe) ??
       (value === undefined || value === null ? this._string(ctx, 'search.not_set') : String(value));
   }
 
@@ -3213,16 +3185,8 @@ export class CalendarCardProEditor extends LitElement {
     const layout = this._layoutName(ctx);
     const word = this._wordOf(field, ctx);
     const state = Plan.stateOf(field, pctx);
-    const words = Shown.stateText(state, t);
     const label = fieldLabel(field, ctx.language);
-    const notes: Array<{ text: string }> = [];
-    const ignored = Shown.ignoredText(state, t, layout, word);
-    if (ignored) notes.push({ text: ignored });
-    const owns = (state?.layoutsOwn ?? []).map((own) =>
-      t('state.layout_own', { layout: layout(own.view), value: word(own.value) }),
-    );
-    // A head row says it under the name; the line under a field says it among its notes.
-    if (why === undefined) for (const text of owns) notes.push({ text });
+    const facts = Shown.stateFacts(state, t, layout, word, this._siblingEntries(owner));
     const calendars =
       state?.calendars === undefined
         ? undefined
@@ -3263,33 +3227,64 @@ export class CalendarCardProEditor extends LitElement {
         appearance,
         state,
         owner,
-        owns,
-        notes,
+        facts,
         calendars,
         actions,
         ctx,
         why,
       );
     }
-    return {
-      words,
-      line: ShownView.fieldLine({ notes, calendars, actions }),
-    };
+    // A control with no head row of its own (the overview's) says its facts on the line under it.
+    return { line: ShownView.fieldLine({ notes: [], calendars, actions, facts }) };
   }
 
   /**
-   * A setting's head row (backlog item 307): its name, while folded its value, ⓘ with its helper,
-   * its state pill in the one vocabulary (Default, Set, From All Layouts, Whole Card, From the
-   * Card, and under All Layouts "Grid Has Its Own"), and a chevron where it folds. The pill opens
-   * the notes and the Reset the line under a field used to hold. A setting at its default folds to
-   * its head until opened; opening adds it to the session's added set, so a value cleared while it
-   * is open does not fold it under the cursor.
+   * Whether today's date is drawn as a tile, whose digits take the tile's own ink unless a color
+   * is named for them.
+   *
+   * @returns Whether the card's today indicator is the tile
+   */
+  private _todayTile(): boolean {
+    const indicator = this._config?.today_indicator;
+    return (
+      indicator !== undefined &&
+      Boolean(indicator) &&
+      Helpers.getTodayIndicatorType(indicator) === 'tile'
+    );
+  }
+
+  /**
+   * The positions of the other entries of a calendar entry's calendar, which an option the
+   * calendar's entries share also applies to: [2] for entry 1 of 2.
+   *
+   * @param owner - The card, or a calendar entry
+   * @returns The positions, 1-based in list order; empty for the card or a calendar listed once
+   */
+  private _siblingEntries(owner: PlanOwner): number[] {
+    if (owner.kind !== 'entry') return [];
+    const { entities, keys } = this._listState();
+    const index = keys.indexOf(owner.key);
+    if (index < 0) return [];
+    const id = Synthetic.entityIdOf(entities[index]);
+    const same = entities.flatMap((entry, at) =>
+      Synthetic.entityIdOf(entry) === id ? [keys[at]] : [],
+    );
+    return same.flatMap((key, at) => (key === owner.key ? [] : [at + 1]));
+  }
+
+  /**
+   * A setting's head row (backlog item 307): its name, while folded its value, its facts under the
+   * name (Set, Whole Card, From All Layouts, From the Card, each layout's own), a chevron where it
+   * folds and ⓘ with its helper. Reset or Remove is a button in plain view on the line under its
+   * control, with "Set on Calendars" and its links. A setting at its default folds to its head until
+   * opened; opening adds it to the session's added set, so a value cleared while it is open does not
+   * fold it under the cursor. A stored setting never folds, so its Reset is always in view.
    *
    * @param field - The field
    * @param appearance - How its page shows it
    * @param state - What `plan.ts` › `stateOf` found
    * @param owner - The card, or a calendar entry
-   * @param notes - What the state words leave out
+   * @param facts - What it says under its name
    * @param calendars - "Set on Calendars:" with a link per entry
    * @param actions - Reset or Remove
    * @param ctx - Schema context
@@ -3301,15 +3296,13 @@ export class CalendarCardProEditor extends LitElement {
     appearance: Appearance,
     state: Plan.StateWords | undefined,
     owner: PlanOwner,
-    owns: ReadonlyArray<string>,
-    notes: ReadonlyArray<{ text: string }>,
+    facts: ReadonlyArray<Shown.Fact>,
     calendars: { label: string; links: ShownView.LineButton[] } | undefined,
     actions: ReadonlyArray<ShownView.LineButton>,
     ctx: SchemaCtx,
     why: Extract<Plan.FieldState, { kind: 'live' }>['why'],
   ): FieldShow {
     const t = this._t(ctx);
-    const layout = this._layoutName(ctx);
     const label = fieldLabel(field, ctx.language);
     const key = this._addedKey(field.id, owner);
     const words = state?.words;
@@ -3317,39 +3310,19 @@ export class CalendarCardProEditor extends LitElement {
       words === undefined ||
       words.kind === 'layout-default' ||
       (words.kind === 'whole-card' && !words.stored);
-    // The pill names a state only; a whole-card setting says its scope with a mark by its name.
-    // The pill names a state only; a whole-card setting says its scope with a mark by its name.
-    const pillText =
-      words?.kind === 'whole-card'
-        ? t(words.stored ? 'state.set' : 'state.default')
-        : (Shown.stateText(state, t) ?? t('state.default'));
-    const wholeCard = words?.kind === 'whole-card' ? { name: t('state.whole_card') } : undefined;
-    const pillTone: ShownView.PillTone = atDefault
-      ? 'default'
-      : words.kind === 'from-all-layouts' || words.kind === 'follows-card'
-        ? 'inherited'
-        : 'set';
-    const own = owns.length > 0 ? owns.join(' · ') : undefined;
-    void layout;
-    const menuKey = `pill:${key}`;
-    const menuOpen = this._menuOpen === menuKey;
-    const notesOf = [...notes.map((note) => note.text), ...(calendars ? [calendars.label] : [])];
-    const closing = (press: () => void) => () => {
-      this._menuOpen = undefined;
-      press();
-    };
-    const buttons = [
-      ...(calendars?.links ?? []).map((link) => ({ ...link, onPress: closing(link.onPress) })),
-      ...actions.map((action) => ({
-        ...action,
-        onPress: closing(() => {
-          action.onPress();
-          // The control stays open where it was, now at its default: added after the reset,
-          // which retires the setting's own key.
-          this._added = new Set([...this._added, key]);
-        }),
-      })),
-    ];
+    // A screen reader hears "Default" where no fact says Set or where the value comes from.
+    const quiet = facts.some((fact) => fact.kind === 'set' || fact.kind === 'source')
+      ? undefined
+      : t('state.default');
+    const buttons = actions.map((action) => ({
+      ...action,
+      onPress: () => {
+        action.onPress();
+        // The control stays open where it was, now at its default: added after the reset, which
+        // retires the setting's own key.
+        this._added = new Set([...this._added, key]);
+      },
+    }));
     // A calendar's setting whose helper explains one of its values shows it only for that value.
     const helpedValue =
       owner.kind === 'entry' ? Entities.HELPER_FOR_VALUE[parseFieldId(field.id).name] : undefined;
@@ -3385,41 +3358,31 @@ export class CalendarCardProEditor extends LitElement {
       owner.kind === 'entry'
         ? data[parseFieldId(field.id).name]
         : Routing.atPath(data, field.dataPath, field.node.name);
-    // Only what reads as words: an action or a list no summary words shows no value.
+    // Only what reads as words: an action or a list no summary words shows no value. Where nothing
+    // names a value, the row says what applies (`unset.ts`).
     const worded =
       !folds || raw === undefined || raw === null || raw === ''
         ? undefined
         : (Summary.wordValue(field, raw, ctx.language, this._describe) ??
           (typeof raw === 'object' ? undefined : String(raw)));
-    // A value worded as the pill already reads ("Default · Default") says nothing more.
-    const value =
-      worded === undefined || worded.trim().toLowerCase() === pillText.toLowerCase()
-        ? undefined
-        : worded;
+    const value = !folds
+      ? undefined
+      : (worded ??
+        Unset.unsetWord(
+          field.id,
+          (k, values) => this._string(ctx, k, values),
+          (name) => this._string(ctx, name),
+          this._todayTile(),
+        ));
     const family =
       typeof appearance === 'object' && 'family' in appearance ? appearance.family : undefined;
-    const hasMenu = notesOf.length > 0 || buttons.length > 0;
     const head: ShownView.SettingHead = {
       id: field.id,
       label,
       lang: ctx.language,
       value,
-      // At its default a setting shows no pill, so the pills mark what is not; a screen reader
-      // still hears "Default".
-      pill: { text: pillText, tone: pillTone, quiet: pillTone === 'default' && !hasMenu },
-      wholeCard,
-      own,
-      menu: hasMenu
-        ? {
-            key: menuKey,
-            open: menuOpen,
-            notes: notesOf,
-            buttons,
-            onToggle: () => {
-              this._menuOpen = menuOpen ? undefined : menuKey;
-            },
-          }
-        : undefined,
+      facts,
+      quiet,
       help: helper
         ? {
             id: helpId,
@@ -3448,7 +3411,7 @@ export class CalendarCardProEditor extends LitElement {
       open: open && !isSwitch,
       switchRow: isSwitch,
       describedBy: helper ? helpId : undefined,
-      line: nothing,
+      line: ShownView.fieldLine({ notes: [], calendars, actions: buttons }),
     };
   }
 
@@ -3619,9 +3582,11 @@ export class CalendarCardProEditor extends LitElement {
             `${prefix}:${id}`,
             html`<div class="setting${show.open ? ' open' : ''}" data-setting=${id}>
               ${ShownView.settingHead(
-                show.switchRow ? { ...head, control: draw(field, show) } : head,
+                show.switchRow
+                  ? { ...head, control: draw(field, { ...show, line: nothing }) }
+                  : head,
               )}
-              ${show.open ? draw(field, show) : nothing}
+              ${show.open ? draw(field, show) : show.switchRow ? show.line : nothing}
               ${
                 head.help
                   ? ShownView.settingHelp(head.help.id, fieldHelper(field, ctx)!, head.help.open)
@@ -4534,7 +4499,6 @@ export class CalendarCardProEditor extends LitElement {
     this._openStrip = undefined;
     this._adding = undefined;
     this._grab = undefined;
-    this._menuOpen = undefined;
   }
 
   /**
@@ -4707,7 +4671,6 @@ export class CalendarCardProEditor extends LitElement {
           this._auditEdit !== undefined ||
           this._openStrip !== undefined ||
           this._adding !== undefined ||
-          this._menuOpen !== undefined ||
           this._split !== undefined),
       onPage:
         wizard !== undefined ||
@@ -4742,7 +4705,6 @@ export class CalendarCardProEditor extends LitElement {
       this._split !== undefined &&
       this._openStrip === undefined &&
       this._adding === undefined &&
-      this._menuOpen === undefined &&
       this._auditEdit === undefined &&
       !this._scopeOpen
     ) {
@@ -4751,7 +4713,6 @@ export class CalendarCardProEditor extends LitElement {
     } else if (action === 'close') {
       // The disclosure opened last closes, focus back on what opened it.
       const strip = this._openStrip;
-      const pill = this._menuOpen;
       const edited = this._auditEdit?.line.text;
       const opener =
         edited !== undefined
@@ -4760,13 +4721,10 @@ export class CalendarCardProEditor extends LitElement {
             ? `more:${strip}`
             : this._adding !== undefined
               ? 'add-calendar'
-              : pill !== undefined
-                ? pill
-                : 'scope-change';
+              : 'scope-change';
       if (edited !== undefined) this._auditEdit = undefined;
       else if (strip !== undefined) this._openStrip = undefined;
       else if (this._adding !== undefined) this._adding = undefined;
-      else if (pill !== undefined) this._menuOpen = undefined;
       else this._scopeOpen = false;
       this._focusSoon([Focus.byFocusKey(opener)]);
     } else if (action === 'back') {
@@ -4899,8 +4857,6 @@ export class CalendarCardProEditor extends LitElement {
   /** Change: Settings For opens as the four choices. */
   private _openScope = (): void => {
     this._scopeOpen = true;
-    // One disclosure at a time, so Escape closes the one just opened.
-    this._menuOpen = undefined;
     this._focusSoon([`input[name="scope"]:checked`, `input[name="scope"]`]);
   };
 
@@ -5662,8 +5618,9 @@ export class CalendarCardProEditor extends LitElement {
       ([, appearance]) =>
         typeof appearance === 'object' && 'chips' in appearance && appearance.chips === kind,
     );
-    // The chips with state words, by those words: "Set: Countdown, End Time".
-    const sources = new Map<string, string[]>();
+    // The chips by where their state comes from: stored here, from All Layouts, this layout's own
+    // default. A chip a layout defaults otherwise reads as wrongly off without its fact.
+    const sources = new Map<'set' | 'source' | 'layout', string[]>();
     // The chips stored here, which the group's one Reset resets.
     const stored: IndexedField[] = [];
     const chips = placed.flatMap(([id, appearance]): ChipsView.ChipModel[] => {
@@ -5691,8 +5648,22 @@ export class CalendarCardProEditor extends LitElement {
       }
       const pressed = Chips.isPressed(Routing.atPath(data, field.dataPath, field.node.name));
       const state = Plan.stateOf(field, pctx);
-      const words = Shown.stateText(state, t);
-      if (words !== undefined) sources.set(words, [...(sources.get(words) ?? []), label(id)]);
+      const stateKind = state?.words?.kind;
+      const words = stateKind === 'layout-default' ? t('state.default') : Shown.stateText(state, t);
+      const where =
+        stateKind === 'from-all-layouts'
+          ? 'source'
+          : stateKind === 'layout-default'
+            ? 'layout'
+            : words === undefined
+              ? undefined
+              : 'set';
+      // Each part says whether it is on, so where its state comes from never reads as "on".
+      const named = t('chip.part_state', {
+        part: label(id),
+        state: t(pressed ? 'summary.on' : 'summary.off'),
+      });
+      if (where !== undefined) sources.set(where, [...(sources.get(where) ?? []), named]);
       if (this._resetActionOf(id, appearance, pctx, CARD) !== undefined) stored.push(field);
       return [
         {
@@ -5716,11 +5687,31 @@ export class CalendarCardProEditor extends LitElement {
     if (chips.length === 0) return nothing;
     const absent = placed.map(([id]) => id).filter((id) => !Chips.inScope(id, workspace));
     const view = Workspace.viewForWorkspace(workspace);
-    // A chip a layout defaults otherwise reads as wrongly off without its words: "Default:
-    // Location".
-    const source = [...sources].map(([where, names]) =>
-      t('summary.pair', { label: where, value: names.join(', ') }),
-    );
+    // In the order a setting's facts take: stored here, then where the rest come from.
+    const order = ['set', 'source', 'layout'] as const;
+    const facts: Shown.Fact[] = order
+      .filter((where) => sources.has(where))
+      .map((where) => [where, sources.get(where)!] as const)
+      .map(([where, names]) =>
+        where === 'set'
+          ? { kind: 'set', text: t('chip.chosen_here', { names: names.join(', ') }) }
+          : where === 'source'
+            ? {
+                kind: 'source',
+                text: t('summary.pair', {
+                  label: t('state.from_all_layouts'),
+                  value: names.join(', '),
+                }),
+              }
+            : {
+                kind: 'layout',
+                view,
+                text:
+                  view === undefined
+                    ? t('summary.pair', { label: t('state.default'), value: names.join(', ') })
+                    : t('state.layout_default', { layout: layout(view), value: names.join(', ') }),
+              },
+      );
     const action = kind === 'parts' ? t('reset.parts') : t('reset.controls');
     const names = stored.map((field) => label(field.id));
     const actions: ShownView.LineButton[] =
@@ -5746,8 +5737,8 @@ export class CalendarCardProEditor extends LitElement {
     );
     return html`${jumped ? this._jumpTo(ctx, group) : group}
       ${
-        source.length > 0
-          ? html`<p class="hint chip-source">${source.join(Summary.SUMMARY_SEPARATOR)}</p>`
+        facts.length > 0
+          ? html`<div class="chip-source">${ShownView.factLine(facts)}</div>`
           : nothing
       }
       ${ShownView.fieldLine({ notes: [], actions })}

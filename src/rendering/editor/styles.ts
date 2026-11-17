@@ -527,7 +527,6 @@ export default css`
   .icon-button:hover,
   .nav-row:hover,
   .display-choice:hover,
-  .scope-choice:not(:has(input:checked)):hover,
   .chip-choice:not(:has(input:checked)):hover {
     background: var(--secondary-background-color);
   }
@@ -542,7 +541,6 @@ export default css`
   .page-title:focus-visible,
   .wizard-title:focus-visible,
   .display-choice:has(input:focus-visible),
-  .scope-choice:has(input:focus-visible),
   .chip-choice:has(input:focus-visible) {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
@@ -616,17 +614,16 @@ export default css`
     font-weight: 500;
   }
 
-  .scope-choices,
   .chip-choices {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
   }
 
-  /* Settings For's choices and Start Date's are native radios drawn as the toggle chips are:
-     the circle hidden, the chosen one tinted with a check, so the state never rests on color
-     alone. The radio keeps the arrow keys and the group's name; it takes no pointer events. */
-  .scope-choice,
+  /* Start Date's choices are native radios drawn as the toggle chips are: the circle hidden, the
+     chosen one tinted with a check, so the state never rests on color alone. The radio keeps the
+     arrow keys and the group's name; it takes no pointer events. Settings For is a segmented row,
+     as Calendar Filter is, so it never reads as chips that change the card. */
   .chip-choice {
     position: relative;
     display: inline-flex;
@@ -641,21 +638,18 @@ export default css`
     --mdc-icon-size: 18px;
   }
 
-  .scope-choice input,
   .chip-choice input {
     position: absolute;
     opacity: 0;
     pointer-events: none;
   }
 
-  .scope-choice:has(input:checked),
   .chip-choice:has(input:checked) {
     border-color: transparent;
     background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.18);
     color: var(--primary-color);
   }
 
-  .scope-choice:has(input:checked) .icon,
   .chip-choice:has(input:checked) .icon {
     fill: currentcolor;
   }
@@ -1271,14 +1265,14 @@ export default css`
   }
 
   /* --- A setting's head row -------------------------------------------------
-     Every setting has a 44 px head row drawn the same folded and open, one grid of four columns:
-     name and, while folded, value; the state pill; the chevron; ⓘ, at the row's end on every row,
-     so it lines up down every page. Nothing of the editor's sits
-     inside Home Assistant's field box, which an open setting draws below its head, so nothing
-     covers the box's arrow, clear button, spinner or suffix, and nothing in the head moves when
-     the setting opens: a second press lands where the first did. A switch keeps Home Assistant's
-     own row, label and switch, across the name and chevron columns, so every switch ends where
-     the chevrons end. */
+     Every setting has a 44 px head row drawn the same folded and open, one grid of three columns:
+     name and, while folded, value, which ends next to the chevron; the chevron; ⓘ, at the row's
+     end on every row, so it lines up down every page. Under the name, the setting's facts, none of
+     them pressable. Nothing of the editor's sits inside Home Assistant's field box, which an open
+     setting draws below its head, so nothing covers the box's arrow, clear button, spinner or
+     suffix, and nothing in the head moves when the setting opens: a second press lands where the
+     first did. A switch keeps Home Assistant's own row, label and switch, across the name and
+     chevron columns, so every switch ends where the chevrons end. */
   .setting {
     display: flex;
     flex-direction: column;
@@ -1298,7 +1292,7 @@ export default css`
   .setting-head {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto 32px 44px;
+    grid-template-columns: minmax(0, 1fr) 32px 44px;
     align-items: start;
     min-height: 44px;
     border-radius: 4px;
@@ -1316,32 +1310,11 @@ export default css`
 
   /* A switch has no chevron: Home Assistant's switch row takes its column. */
   .setting-head.switch > .setting-control {
-    grid-column: 1 / 4;
+    grid-column: 1 / 3;
   }
 
   .setting-head.switch .setting-end {
     display: none;
-  }
-
-  /* What a layout keeps of its own, under the name, inside the row it belongs to. */
-  .setting-own {
-    display: flex;
-    grid-column: 1 / 3;
-    grid-row: 3;
-    align-items: flex-start;
-    gap: 4px;
-    margin-top: -8px;
-    padding: 0 0 10px;
-    padding-inline-start: 4px;
-    color: var(--secondary-text-color);
-    font-size: 12px;
-    line-height: 16px;
-    pointer-events: none;
-    --mdc-icon-size: 16px;
-  }
-
-  .setting-head.switch .setting-own {
-    margin-top: 0;
   }
 
   /* Home Assistant centers its switch on a label that wraps, so ⓘ follows it. */
@@ -1349,12 +1322,71 @@ export default css`
     align-self: center;
   }
 
-  .setting-own .icon {
-    fill: var(--warning-color, #ffa600);
-  }
-
   .setting-head.folds:hover {
     background: var(--secondary-background-color);
+  }
+
+  /* A setting's facts, under its name, inside the row they belong to: Set, what the value
+     reaches, where it comes from, each in a form of its own, and a line for each layout that uses
+     something else. None of them can be pressed, so none of them is drawn as a button: no fill, no
+     border, no link color. They let a press through to the row's toggle. */
+  .setting-head > .setting-facts {
+    grid-column: 1 / 3;
+    grid-row: 2;
+    margin-top: -10px;
+    padding: 0 0 10px;
+    padding-inline-start: 4px;
+    pointer-events: none;
+  }
+
+  .setting-head.switch > .setting-facts {
+    margin-top: 0;
+  }
+
+  .setting-facts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 2px 12px;
+    color: var(--secondary-text-color);
+    font-size: 12px;
+    line-height: 16px;
+    --mdc-icon-size: 14px;
+  }
+
+  .fact {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .fact .icon {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    margin-top: 1px;
+    fill: currentcolor;
+  }
+
+  /* Set: a dot in the primary color and the word, in the text color. A status, never a link. */
+  .fact-set {
+    align-items: center;
+    color: var(--primary-text-color);
+    font-weight: 500;
+  }
+
+  .fact-set::before {
+    content: '';
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--primary-color);
+  }
+
+  /* A layout's own value: a line of its own, after that layout's icon. */
+  .fact-layout {
+    flex-basis: 100%;
   }
 
   .setting-text {
@@ -1376,7 +1408,7 @@ export default css`
     cursor: pointer;
   }
 
-  /* The whole row is the toggle; the pill and ⓘ sit above it. */
+  /* The whole row is the toggle; ⓘ sits above it. */
   .setting-toggle::after {
     content: '';
     position: absolute;
@@ -1393,7 +1425,6 @@ export default css`
     outline-offset: 2px;
   }
 
-  /* A name and the mark of a whole-card setting. */
   /* At least as wide as the name's longest word, so the value gives way before a word splits. */
   .setting-name {
     flex: 1 1 0;
@@ -1407,21 +1438,8 @@ export default css`
     hyphens: manual;
   }
 
-  /* Inline, so the word joiner before the mark keeps it on the line of the name's last word. */
-  .setting-scope {
-    margin-inline-start: 6px;
-    color: var(--secondary-text-color);
-    --mdc-icon-size: 16px;
-  }
-
-  .setting-scope .icon {
-    display: inline-block;
-    vertical-align: -2px;
-    fill: currentcolor;
-  }
-
   /* One line, cut with an ellipsis, so a folded head is as tall open as folded and an opened
-     setting leaves no gap where a long value wrapped. */
+     setting leaves no gap where a long value wrapped. It ends next to the chevron. */
   .setting-value {
     flex: 0 1 auto;
     max-width: 45%;
@@ -1439,10 +1457,10 @@ export default css`
     visibility: hidden;
   }
 
-  /* A switch: Home Assistant's own row, label and switch, starts the head, and the pill and ⓘ
-     sit on its line. Home Assistant draws that line, 24 px, at the top of a 56 px box it keeps
-     out of reach, so the box is moved down to center the line in the 44 px head, and the empty
-     part below it is taken back. Centering the box instead put the pill under the switch. */
+  /* A switch: Home Assistant's own row, label and switch, starts the head, and ⓘ sits on its
+     line. Home Assistant draws that line, 24 px, at the top of a 56 px box it keeps out of reach,
+     so the box is moved down to center the line in the 44 px head, and the empty part below it is
+     taken back. */
   .setting-head.switch {
     align-items: flex-start;
   }
@@ -1456,7 +1474,7 @@ export default css`
     min-width: 0;
   }
 
-  /* The pill, the chevron and ⓘ each take a column of the head; they sit above the toggle. */
+  /* The chevron and ⓘ each take a column of the head; they sit above the toggle. */
   .setting-tools {
     display: contents;
   }
@@ -1467,30 +1485,13 @@ export default css`
     grid-row: 1;
   }
 
-  .setting-head > .setting-tools > .setting-pill-col {
-    grid-column: 2;
-  }
-
   .setting-head > .setting-tools > .setting-end {
-    grid-column: 3;
+    grid-column: 2;
   }
 
   .setting-head > .setting-tools > .setting-info,
   .setting-head > .setting-tools > .setting-slot {
-    grid-column: 4;
-  }
-
-  /* A pill goes under the name where the column it would take is not the pill's: on a switch
-     row, whose switch spans it, and on a phone. "Default", read but not drawn, takes no room. */
-  .setting-head.switch > .setting-tools > .setting-pill-col:not(.quiet),
-  :host([narrow]) .setting-head > .setting-tools > .setting-pill-col:not(.quiet) {
-    grid-column: 1;
-    grid-row: 2;
-    justify-content: flex-start;
-    width: auto;
-    min-height: 0;
-    margin: -10px 0 4px;
-    padding-inline-start: 2px;
+    grid-column: 3;
   }
 
   .setting-target {
@@ -1526,28 +1527,7 @@ export default css`
     width: 44px;
   }
 
-  /* One width for every pill on every page, measured from the words the pill can take, so
-     values and pills line up down the page and nothing moves when a state changes. */
-  .setting-pill-col {
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-end;
-    width: var(--pill-col, auto);
-    min-height: 44px;
-  }
-
-  /* "Default", read but not drawn, takes no room. */
-  .setting-pill.visually-hidden {
-    height: 1px;
-    padding: 0;
-    border: 0;
-  }
-
-  .setting-pill-col > .setting-pill-button {
-    padding: 0;
-  }
-
-  /* The chevron's slot is kept where nothing folds, so pills line up down the page. */
+  /* The chevron's slot is kept where nothing folds, so ⓘ lines up down the page. */
   .setting-end {
     display: inline-flex;
     align-items: center;
@@ -1559,68 +1539,14 @@ export default css`
     --mdc-icon-size: 20px;
   }
 
-  .setting-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    height: 24px;
-    padding: 0 8px;
-    border: 1px solid transparent;
-    border-radius: 12px;
-    color: var(--secondary-text-color);
-    font-size: 12px;
-    font-weight: 500;
-    line-height: 22px;
-    white-space: nowrap;
-    box-sizing: border-box;
-    --mdc-icon-size: 16px;
-  }
-
-  .setting-pill.tone-default {
-    border-color: var(--divider-color);
-  }
-
-  .setting-pill.tone-set {
-    background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
-    color: var(--primary-text-color);
-    font-weight: 600;
-  }
-
-  .setting-pill.tone-inherited {
-    background: var(--secondary-background-color);
-    color: var(--primary-text-color);
-  }
-
-  /* Text in the primary text color on a warning tint, as Not in Use's tag. */
-  .setting-pill.tone-warning {
-    background: rgba(var(--rgb-warning-color, 255, 166, 0), 0.28);
-    color: var(--primary-text-color);
-  }
-
-  .setting-menu {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    align-self: flex-end;
-    max-width: 100%;
-    margin-top: -4px;
-    padding: 0 12px 4px;
-    border: 1px solid var(--divider-color);
-    border-radius: 8px;
-    background: var(--card-background-color);
-    box-sizing: border-box;
-  }
-
-  .setting-menu-note {
-    margin: 8px 0 0;
-    color: var(--secondary-text-color);
-    font-size: 12px;
-    line-height: 1.45;
-  }
-
+  /* A helper, set apart from the facts above it: the body's own text, after a rule, with no box
+     around it, so it reads as words about the setting rather than as a control. */
   .setting-help {
-    margin: 0;
-    padding-inline: 4px;
+    margin: 0 4px 4px;
+    padding-inline-start: 10px;
+    border-inline-start: 2px solid var(--divider-color);
+    color: var(--primary-text-color);
+    font-size: 13px;
   }
 
   .setting-help[hidden] {
@@ -1635,10 +1561,6 @@ export default css`
   /* No value to give way: a word longer than the whole line is the one that breaks. */
   :host([narrow]) .setting-name {
     min-width: 0;
-  }
-
-  :host([narrow]) .setting-head > .setting-tools > .setting-pill-col.quiet {
-    width: 0;
   }
 
   /* A setting a gate withholds, in its place. */
@@ -1953,6 +1875,43 @@ export default css`
   .segment:has(input:checked) {
     background: var(--primary-color);
     color: var(--text-primary-color, #fff);
+  }
+
+  /* Settings For: as many segments as layouts, each as wide as its word, on one line where they
+     fit. */
+  .scope-segments {
+    flex: none;
+    width: fit-content;
+    max-width: 100%;
+  }
+
+  .scope-segments > .segment {
+    flex: 0 1 auto;
+    padding: 0 14px;
+    white-space: nowrap;
+  }
+
+  /* A stored value that does nothing now: the warning's icon, the words in the text color. */
+  .inactive-line {
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    color: var(--primary-text-color);
+    --mdc-icon-size: 16px;
+  }
+
+  .inactive-line > .icon {
+    flex: none;
+    margin-top: 1px;
+    fill: var(--warning-color, #ffa600);
+  }
+
+  .inactive-line > span {
+    flex: 1 1 auto;
+  }
+
+  /* The facts of a control with no head row, first on the line under it. */
+  .field-line .setting-facts {
+    margin-bottom: 4px;
   }
 
   .button-row {

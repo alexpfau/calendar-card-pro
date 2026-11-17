@@ -75,10 +75,9 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_editHere',
     '_openResults',
     // What a page shows besides what is stored (section 5.1): the settings opened this session,
-    // the state pill whose menu is open, the helpers shown behind their ⓘ, and the preference,
+    // the helpers shown behind their ⓘ, and the preference,
     // which this browser remembers instead.
     '_added',
-    '_menuOpen',
     '_helpOpen',
     '_prefs',
     // The ⋯ menu holding the preferences, and the page Search Settings left for the overview.

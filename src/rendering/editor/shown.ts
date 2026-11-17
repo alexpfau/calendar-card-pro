@@ -56,58 +56,120 @@ export function wordsInGroup(node: HaFormSchema): boolean {
 }
 
 /**
- * The words a field carries in its label or helper, one vocabulary on every page: "Set", "Default"
- * (a layout's own), "From All Layouts", "Whole Card", and on a calendar's page "From the Card".
- * Which layout is Settings For's to say, and the value is the control's, never the words'.
- *
- * @param state - What `plan.ts` › `stateOf` found
- * @param t - The editor's strings
- * @returns The words, or `undefined` where the field says nothing
+ * One fact a setting shows under its name (backlog item 307), by the question it answers, each
+ * drawn in its own form and none of them pressable: `set`, that a value is stored where Settings
+ * For points; `scope`, what the value reaches (the whole card, or this calendar's other entries);
+ * `source`, where a value not stored here comes from; `layout`, what one layout uses instead.
  */
-export function stateText(state: StateWords | undefined, t: Translate): string | undefined {
-  const words = state?.words;
-  switch (words?.kind) {
-    case undefined:
-      return undefined;
-    case 'set':
-    case 'set-all-layouts':
-    case 'set-layout':
-      return t('state.set');
-    case 'whole-card':
-      return words.stored ? t('state.whole_card_set') : t('state.whole_card');
-    case 'layout-default':
-      return t('state.default');
-    case 'from-all-layouts':
-      return t('state.from_all_layouts');
-    case 'set-entry':
-      return words.shared ? t('state.set_shared') : t('state.set');
-    case 'follows-card':
-      return t('state.from_card');
-  }
+export interface Fact {
+  readonly kind: 'set' | 'scope' | 'source' | 'layout';
+  readonly text: string;
+  /** A layout fact's layout, which picks its icon. */
+  readonly view?: Types.EffectiveView;
+  /** A scope fact about a calendar's entries rather than the whole card. */
+  readonly entries?: boolean;
 }
 
 /**
- * The note under a field whose layout ignores the All Layouts value: "The All Layouts value, 5,
- * does not apply in Grid."
+ * A setting's facts, in the order they are drawn: stored here, what it reaches, where its value
+ * comes from, then a line for each layout that uses something else. Nothing for a setting at its
+ * default; the view says "Default" to a screen reader alone.
  *
  * @param state - What `plan.ts` › `stateOf` found
  * @param t - The editor's strings
  * @param layout - Names a layout
  * @param word - Words a value
- * @returns The note, or `undefined`
+ * @param siblings - For a calendar option its entries share, the other entries' positions
+ * @returns The facts
  */
-export function ignoredText(
+export function stateFacts(
   state: StateWords | undefined,
   t: Translate,
   layout: LayoutName,
   word: WordValue,
-): string | undefined {
+  siblings: ReadonlyArray<number> = [],
+): Fact[] {
+  const facts: Fact[] = [];
   const words = state?.words;
-  if (words?.kind !== 'layout-default' || words.ignored === undefined) return undefined;
-  return interpolate(t('state.ignored'), {
-    value: word(words.ignored),
-    layout: layout(words.view),
-  });
+  switch (words?.kind) {
+    case 'set':
+    case 'set-all-layouts':
+    case 'set-layout':
+      facts.push({ kind: 'set', text: t('state.set') });
+      break;
+    case 'whole-card':
+      if (words.stored) facts.push({ kind: 'set', text: t('state.set') });
+      facts.push({ kind: 'scope', text: t('state.whole_card') });
+      break;
+    case 'set-entry':
+      facts.push({ kind: 'set', text: t('state.set') });
+      if (words.shared && siblings.length > 0) {
+        const text = siblings.length === 1 ? t('state.shared_entry') : t('state.shared_entries');
+        facts.push({
+          kind: 'scope',
+          entries: true,
+          text: interpolate(text, { entries: siblings.join(', ') }),
+        });
+      }
+      break;
+    case 'from-all-layouts':
+      facts.push({ kind: 'source', text: t('state.from_all_layouts') });
+      break;
+    case 'follows-card':
+      facts.push({ kind: 'source', text: t('state.from_card') });
+      break;
+    case 'layout-default':
+      if (words.ignored !== undefined) {
+        facts.push({
+          kind: 'layout',
+          view: words.view,
+          text: interpolate(t('state.ignored'), {
+            layout: layout(words.view),
+            value: word(words.ignored),
+          }),
+        });
+      }
+      break;
+    case undefined:
+      break;
+  }
+  for (const own of state?.layoutsOwn ?? []) {
+    const text = own.stored ? t('state.layout_own') : t('state.layout_default');
+    facts.push({
+      kind: 'layout',
+      view: own.view,
+      text: interpolate(text, { layout: layout(own.view), value: word(own.value) }),
+    });
+  }
+  return facts;
+}
+
+/**
+ * The one word a search result says about a setting's state, as its facts do: "Set", "Whole Card",
+ * "From All Layouts", "From the Card", or nothing at the default.
+ *
+ * @param state - What `plan.ts` › `stateOf` found
+ * @param t - The editor's strings
+ * @returns The word, or `undefined`
+ */
+export function stateText(state: StateWords | undefined, t: Translate): string | undefined {
+  const words = state?.words;
+  switch (words?.kind) {
+    case undefined:
+    case 'layout-default':
+      return undefined;
+    case 'set':
+    case 'set-all-layouts':
+    case 'set-layout':
+    case 'set-entry':
+      return t('state.set');
+    case 'whole-card':
+      return words.stored ? t('state.set') : t('state.whole_card');
+    case 'from-all-layouts':
+      return t('state.from_all_layouts');
+    case 'follows-card':
+      return t('state.from_card');
+  }
 }
 
 /**
