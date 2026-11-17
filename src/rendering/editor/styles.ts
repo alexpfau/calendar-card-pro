@@ -1048,12 +1048,20 @@ export default css`
     gap: 12px;
   }
 
-  /* A line above each heading of a page, so which settings belong together reads at a glance on
-     a long page. */
-  .page > .page-group:not(.audit-group) + .page-group:not(.audit-group) {
-    margin-top: 4px;
-    padding-top: 20px;
-    border-top: 1px solid var(--divider-color);
+  /* Each heading of a page and what it holds is a card, as Home Assistant draws its own, so which
+     settings belong together reads at a glance on a long page. Its text sits 16 px inside the
+     edge, as in Home Assistant's cards: 12 px here and the 4 px every row keeps. */
+  .page > .page-group:not(.audit-group) {
+    padding: 12px;
+    border: 1px solid var(--ha-card-border-color, var(--divider-color));
+    border-radius: var(--ha-card-border-radius, 12px);
+  }
+
+  .page > .page-group:not(.audit-group) > .heading,
+  .page > .page-group:not(.audit-group) > .hint,
+  .page > .page-group:not(.audit-group) > .page-line,
+  .page > .page-group:not(.audit-group) > .gate-line {
+    padding-inline: 4px;
   }
 
   .page > .page-group > .heading {

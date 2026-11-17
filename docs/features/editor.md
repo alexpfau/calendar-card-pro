@@ -532,9 +532,9 @@ Home Assistant** or **Calendar Color**, then Home Assistant's named colors as sw
 
 Every page shows every setting that applies here, each on a row of its own: its name, its value,
 its state pill where it has one, an **ⓘ** and a chevron, as in **Week Number Color · Primary
-Text**. A setting at its default is just that row. A line above each heading groups a page's
-settings. Press the row to open Home Assistant's control for it
-below the row; press the same spot again to fold it. Nothing is written until you change a value.
+Text**. A setting at its default is just that row. Each heading and its settings sit in a card
+of their own. Press the row to open Home Assistant's control for it below the row; press the
+same spot again to fold it. Nothing is written until you change a value.
 
 - **The row never moves.** Opening a setting draws its control under the row, so the pill, the
   **ⓘ** and the chevron stay where they were, and a second press always lands on the same row.
@@ -542,8 +542,9 @@ below the row; press the same spot again to fold it. Nothing is written until yo
   page folds again what you opened there without changing it.
 - **ⓘ** shows the setting's help under it. A screen reader reads the help as the setting's
   description.
-- **A switch** is Home Assistant's own switch row, with its pill and **ⓘ** after it. A row grows
-  with a name that wraps, and the pill and **ⓘ** stay level with the switch.
+- **A switch** is Home Assistant's own switch row, with its pill and **ⓘ** after it. Every switch
+  ends where the values end, so switches and values share one column. A row grows with a name
+  that wraps, and the pill and **ⓘ** stay level with the switch.
 - **On a phone** the name gets the row's width: the value shows once you open the setting, and a
   pill sits under the name. On a wider screen the values, pills and **ⓘ** line up in columns
   down every page.
