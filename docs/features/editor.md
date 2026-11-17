@@ -544,9 +544,9 @@ below the row; press the same spot again to fold it. Nothing is written until yo
   description.
 - **A switch** is Home Assistant's own switch row, with its pill and **ⓘ** after it. A row grows
   with a name that wraps, and the pill and **ⓘ** stay level with the switch.
-- **On a phone** the value gives its room to the name: the row shows the name, the pill and the
-  chevron, and the value shows once you open the setting. The values, pills and **ⓘ** line up
-  in columns down every page.
+- **On a phone** the name gets the row's width: the value shows once you open the setting, and a
+  pill sits under the name. On a wider screen the values, pills and **ⓘ** line up in columns
+  down every page.
 - **A setting that needs another one** stays in its place until it applies, as in **Indicator
   Size · Appears once the Style is a dot, an icon or an emoji**. Several in a row waiting on the
   same setting share one line. Turning the other setting on brings them in.

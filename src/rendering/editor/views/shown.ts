@@ -220,7 +220,7 @@ export function settingHead(head: SettingHead): TemplateResult {
       }
       ${own ? html`<span class="setting-own">${icon(mdiAlertCircleOutline)}<span>${own}</span></span>` : nothing}
       <span class="setting-tools">
-        <span class="setting-pill-col">${pillEl}</span>
+        <span class="setting-pill-col${pill.quiet ? ' quiet' : ''}">${pillEl}</span>
         ${
           help
             ? html`<button

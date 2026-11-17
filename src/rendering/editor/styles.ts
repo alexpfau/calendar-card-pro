@@ -1373,9 +1373,10 @@ export default css`
   }
 
   /* A name and the mark of a whole-card setting. */
+  /* At least as wide as the name's longest word, so the value gives way before a word splits. */
   .setting-name {
     flex: 1 1 0;
-    min-width: 0;
+    min-width: min-content;
   }
 
   /* A long label breaks between words only; a word longer than the whole line is the one case
@@ -1385,15 +1386,16 @@ export default css`
     hyphens: manual;
   }
 
+  /* Inline, so the word joiner before the mark keeps it on the line of the name's last word. */
   .setting-scope {
-    display: inline-flex;
     margin-inline-start: 6px;
-    vertical-align: -2px;
     color: var(--secondary-text-color);
     --mdc-icon-size: 16px;
   }
 
   .setting-scope .icon {
+    display: inline-block;
+    vertical-align: -2px;
     fill: currentcolor;
   }
 
@@ -1588,8 +1590,62 @@ export default css`
     display: none;
   }
 
-  :host([narrow]) .setting-pill-col {
+  /* No value to give way: a word longer than the whole line is the one that breaks. */
+  :host([narrow]) .setting-name {
+    min-width: 0;
+  }
+
+  /* The pill, where a setting has one, goes under the name, so it never takes the name's width;
+     ⓘ and the chevron keep their columns. "Default", read but not drawn, takes no room at all. */
+  :host([narrow]) .setting-head {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  :host([narrow]) .setting-tools {
+    display: contents;
+  }
+
+  :host([narrow]) .setting-tools > * {
+    position: relative;
+    z-index: 1;
+    grid-row: 1;
+  }
+
+  :host([narrow]) .setting-head > .setting-tools > .setting-info,
+  :host([narrow]) .setting-head > .setting-tools > .setting-slot {
+    grid-column: 2;
+  }
+
+  :host([narrow]) .setting-head > .setting-tools > .setting-end {
+    grid-column: 3;
+  }
+
+  :host([narrow]) .setting-head > .setting-tools > .setting-pill-col {
+    grid-column: 1;
+    grid-row: 2;
+    justify-content: flex-start;
     width: auto;
+    margin: -10px 0 -2px;
+    padding-inline-start: 2px;
+  }
+
+  :host([narrow]) .setting-head > .setting-tools > .setting-pill-col.quiet {
+    grid-row: 1;
+    width: 0;
+    min-height: 0;
+    margin: 0;
+  }
+
+  :host([narrow]) .setting-head > .setting-own {
+    grid-row: 3;
+  }
+
+  :host([narrow]) .setting-head.switch > .setting-tools > * {
+    align-self: center;
+  }
+
+  :host([narrow]) .setting-head.switch > .setting-tools > .setting-pill-col {
+    margin-top: 0;
   }
 
   /* A setting a gate withholds, in its place. */
