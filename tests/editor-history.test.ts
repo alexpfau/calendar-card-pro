@@ -16,6 +16,7 @@ import {
   goOverview,
   goPage,
   keysOf,
+  lastConfig,
   lineOf,
   mountEditor,
   openPageOf,
@@ -712,8 +713,12 @@ describe('the line a removal leaves', () => {
     const [anna] = keysOf(editor, 'entry');
     await remove(editor, anna!);
     expect($(editor, '[data-status-bar]')).not.toBeNull();
-    emitChange(formOf(editor, 'content:days_to_show')!, { 'content:days_to_show': 9 });
+    // A change on the overview itself, which never leaves it: Card Displays.
+    const columns = $(editor, '[data-focus="view:column"]') as HTMLInputElement;
+    columns.checked = true;
+    columns.dispatchEvent(new Event('change'));
     await settle(editor);
+    expect(lastConfig(editor)?.view).toBe('column');
     expect($(editor, '[data-status-bar]')).toBeNull();
   });
 

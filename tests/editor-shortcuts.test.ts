@@ -10,10 +10,8 @@ import {
   addFromRow,
   changeField,
   entry,
-  fakeHass,
   formOf,
   goEntry,
-  goOverview,
   keysOf,
   lastConfig,
   lineOf,
@@ -148,9 +146,10 @@ describe('Start Date’s Expression', () => {
   });
 });
 
-describe('Start Date on the overview', () => {
+describe('Start Date on Which Events', () => {
   it('offers the five chips in order', async () => {
     const editor = await mountEditor({ config_version: VERSION, entities: ['calendar.anna'] });
+    await openPageOf(editor, 'content:start_date_mode');
     const chips = [
       ...root(editor).querySelectorAll<HTMLInputElement>('input[name="start_date_mode"]'),
     ];
@@ -175,6 +174,7 @@ describe('Start Date on the overview', () => {
       entities: ['calendar.anna'],
       start_date: 'today+1',
     });
+    await openPageOf(editor, 'content:start_date_mode');
     const reported = (): number => (lastConfig(editor) === undefined ? 0 : 1);
     expect(pressedChip(editor)).toBe('tomorrow');
     expect(formOf(editor, 'content:start_date_offset')).toBeUndefined();
@@ -189,7 +189,7 @@ describe('Start Date on the overview', () => {
     await changeField(editor, 'card:title', 'Family');
     editor.setConfig(lastConfig(editor));
     await editor.updateComplete;
-    await goOverview(editor);
+    await openPageOf(editor, 'content:start_date_mode');
     expect(pressedChip(editor)).toBe('offset');
     expect(valueOf(editor, 'content:start_date_offset')).toBe('today+1');
     expect(lastConfig(editor)!.start_date).toBe('today+1');
@@ -211,6 +211,7 @@ describe('Start Date on the overview', () => {
       entities: ['calendar.anna'],
       start_date: '+2',
     });
+    await openPageOf(editor, 'content:start_date_mode');
     expect(pressedChip(editor)).toBe('offset');
     await changeField(editor, 'content:start_date_offset', '+1');
     expect(lastConfig(editor)!.start_date).toBe('+1');
@@ -223,87 +224,11 @@ describe('Start Date on the overview', () => {
 
   it('writes Start of Week, and Today removes the line', async () => {
     const editor = await mountEditor({ config_version: VERSION, entities: ['calendar.anna'] });
+    await openPageOf(editor, 'content:start_date_mode');
     await pressChip(editor, 'start_of_week');
     expect(lastConfig(editor)!.start_date).toBe('start_of_week');
     await pressChip(editor, 'default');
     expect(lastConfig(editor)).not.toHaveProperty('start_date');
-  });
-});
-
-describe('Tapping an Event Opens It', () => {
-  it('reads off with no action, writes the details action on, and removes the line off', async () => {
-    const editor = await mountEditor({ config_version: VERSION, entities: ['calendar.anna'] });
-    expect(valueOf(editor, 'actions:event_opens_details')).toBe(false);
-
-    await changeField(editor, 'actions:event_opens_details', true);
-    expect(lastConfig(editor)!.event_tap_action).toEqual({ action: 'details' });
-    expect(valueOf(editor, 'actions:event_opens_details')).toBe(true);
-
-    await changeField(editor, 'actions:event_opens_details', false);
-    expect(lastConfig(editor)).not.toHaveProperty('event_tap_action');
-    expect(valueOf(editor, 'actions:event_opens_details')).toBe(false);
-  });
-
-  it.each([[{ action: 'none' }], [null]])('reads %j as off', async (stored) => {
-    const editor = await mountEditor({
-      config_version: VERSION,
-      entities: ['calendar.anna'],
-      event_tap_action: stored,
-    });
-    expect(valueOf(editor, 'actions:event_opens_details')).toBe(false);
-    expect(root(editor).querySelector('[data-focus="tap:change"]')).toBeNull();
-  });
-
-  it('gives way to a line for any other action, which an unrelated edit leaves untouched', async () => {
-    const navigate = { action: 'navigate', navigation_path: '/lovelace/shopping', extra: [1, 2] };
-    const editor = await mountEditor({
-      config_version: VERSION,
-      entities: ['calendar.anna'],
-      event_tap_action: navigate,
-    });
-    const line = root(editor).querySelector<HTMLElement>(
-      '[data-field="actions:event_opens_details"]',
-    )!;
-    expect(line.querySelector('ha-form')).toBeNull();
-    expect(line.getAttribute('aria-label')).toBe('Tapping an Event: navigate');
-    expect(
-      [...line.querySelectorAll('.field-line .fact')].map((fact) => fact.textContent!.trim()),
-    ).toEqual(['Set', 'Whole Card']);
-    expect(line.querySelector('[data-focus="tap:change"]')!.textContent!.trim()).toBe('Change');
-
-    await changeField(editor, 'card:title', 'Family');
-    expect(lastConfig(editor)!.title).toBe('Family');
-    expect(lastConfig(editor)!.event_tap_action).toEqual(navigate);
-  });
-
-  it('names the action as Home Assistant does, and Change opens Taps & Refresh at it', async () => {
-    const editor = await mountEditor(
-      {
-        config_version: VERSION,
-        entities: ['calendar.anna'],
-        event_tap_action: { action: 'navigate', navigation_path: '/lovelace/shopping' },
-      },
-      {
-        hass: {
-          ...fakeHass(),
-          localize: (key: string) =>
-            key === 'ui.panel.lovelace.editor.action-editor.actions.navigate' ? 'Navigate' : key,
-        } as unknown as Types.Hass,
-      },
-    );
-    const line = root(editor).querySelector('[data-field="actions:event_opens_details"]')!;
-    expect(line.getAttribute('aria-label')).toBe('Tapping an Event: Navigate');
-    expect(line.querySelector('b')!.textContent).toBe('Navigate');
-    expect(
-      root(editor).querySelector('[data-focus="tap:change"]')!.getAttribute('aria-label'),
-    ).toBe('Change: Tapping an Event, Navigate');
-
-    await press(editor, 'tap:change');
-    await editor.updateComplete;
-    expect(root(editor).querySelector('.page')!.getAttribute('data-page')).toBe('taps_refresh');
-    expect(root(editor).activeElement).toBe(
-      root(editor).querySelector('[data-field="actions:event_tap_action"]'),
-    );
   });
 });
 
@@ -549,19 +474,13 @@ describe('with the shown set and What This Card Changes', () => {
       config_version: VERSION,
       entities: [{ entity: 'calendar.anna', blocklist: 'Soccer' }],
       start_date: 'today+1',
-      event_tap_action: { action: 'navigate', navigation_path: '/lovelace/shopping' },
     });
+    await openPageOf(editor, 'content:start_date_mode');
     expect(buttonsOf(editor, 'content:start_date_mode')).toContain('Reset Start Date to Today');
-    expect(buttonsOf(editor, 'actions:event_opens_details')).toEqual([
-      'Change: Tapping an Event, navigate',
-      'Reset Tapping an Event Opens It to Off',
-    ]);
     await openPageOf(editor, 'calendar:blocklist', entry(0));
-    // Its Reset is in plain view on the line under it, as any stored setting's.
-    expect(buttonsOf(editor, 'calendar:blocklist')).toEqual([
-      'Use a Pattern',
-      'Reset Hide Events Containing',
-    ]);
+    // Its Reset is in plain view right after Set, as any stored setting's, and its own control
+    // keeps only Use a Pattern.
+    expect(buttonsOf(editor, 'calendar:blocklist')).toEqual(['Use a Pattern']);
     const line = lineOf(editor, 'calendar:blocklist')!;
     expect(
       [...line.querySelectorAll('.line-button')].map((button) => button.getAttribute('aria-label')),
@@ -574,6 +493,7 @@ describe('with the shown set and What This Card Changes', () => {
       entities: ['calendar.anna'],
       start_date: 'today+1',
     });
+    await openPageOf(editor, 'content:start_date_mode');
     await pressChip(editor, 'offset');
     expect(pressedChip(editor)).toBe('offset');
     const reset = [...root(editor).querySelectorAll<HTMLButtonElement>('button')].find(

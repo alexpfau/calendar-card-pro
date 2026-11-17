@@ -8,7 +8,7 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { changeField, mountEditor } from './helpers/editor-host';
+import { changeField, goPage, mountEditor } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type { Snapshot } from '../src/rendering/editor/history';
 
@@ -177,6 +177,8 @@ describe('the undo state policy', () => {
       entities: ['calendar.anna'],
       toolbar: { show: true, buttons: [{ icon: 'mdi:home', tap_action: { action: 'none' } }] },
     });
+    // A page draws fields, which fills the caches only fields read; the overview draws none.
+    await goPage(editor, 'which_events');
     const own = Object.keys(editor).filter((key) => /^_[a-zA-Z]/.test(key));
     const reactive = [
       ...(

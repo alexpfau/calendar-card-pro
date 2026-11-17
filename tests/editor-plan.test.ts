@@ -21,12 +21,7 @@ import {
   universeIndex,
 } from '../src/rendering/editor/field-index';
 import { GATES } from '../src/rendering/editor/gates';
-import {
-  type Appearance,
-  ENTRY_GROUPS,
-  OVERVIEW_FIELDS,
-  PAGES,
-} from '../src/rendering/editor/pages';
+import { type Appearance, ENTRY_GROUPS, PAGES } from '../src/rendering/editor/pages';
 import {
   type FieldState,
   type PlanCtx,
@@ -46,7 +41,6 @@ import type { WriteState } from '../src/rendering/editor/write-frames';
 
 const APPEARANCE = new Map<FieldId, Appearance>(
   [
-    ...OVERVIEW_FIELDS,
     ...PAGES.flatMap((page) => page.headings.flatMap((heading) => heading.fields)),
     ...ENTRY_GROUPS.flatMap((heading) => heading.fields),
   ].reverse(),

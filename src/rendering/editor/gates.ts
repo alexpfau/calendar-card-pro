@@ -456,15 +456,10 @@ export const GATES: Readonly<Record<string, Gate>> = {
     needsKey: 'gate.needs.events_limit',
     whenKey: 'gate.when.events_limit',
   },
-  // Neither action may run anything, as `synthetic.ts` › `eventHasOwnAction` reads them; the
-  // overview's Tapping an Event Opens It is the tap's shortcut, on only while it opens details.
+  // Neither action may run anything, as `synthetic.ts` › `eventHasOwnAction` reads them.
   open_links: {
     fields: ['actions:open_links'],
-    requires: [
-      runsNothing('actions:event_tap_action'),
-      runsNothing('actions:event_hold_action'),
-      off('actions:event_opens_details'),
-    ],
+    requires: [runsNothing('actions:event_tap_action'), runsNothing('actions:event_hold_action')],
     kind: 'gate',
     needsKey: 'gate.needs.no_event_actions',
     whenKey: 'gate.when.no_event_actions',

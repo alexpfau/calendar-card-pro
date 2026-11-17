@@ -18,7 +18,6 @@ import { live } from 'lit/directives/live.js';
 
 import { icon } from './icon';
 import { interpolate } from '../strings';
-import { SUMMARY_SEPARATOR } from '../summary';
 import type { EditorWorkspace } from '../workspace';
 
 /** Resolves one of the editor's own strings by its literal key. */
@@ -105,25 +104,27 @@ export function scopeControl(
       : interpolate(t('settings_for.help_layout'), { layout: name });
   return html`<fieldset class="scope">
     <legend class="label">${t('settings_for.label')}</legend>
-    <div class="segments scope-segments">
-      ${model.choices.map(
-        (choice) =>
-          html`<label class="segment">
-            <input
-              type="radio"
-              name="scope"
-              value=${choice.value}
-              data-focus=${`scope:${choice.value}`}
-              .checked=${
-                // Compared with the radio as it is, not as Lit last set it: after Duplicate and
-                // Back, Home Assistant showed this group with nothing checked.
-                live(choice.value === model.workspace)
-              }
-              @change=${() => onPick(choice.value)}
-            />
-            <span>${choice.label}</span>
-          </label>`,
-      )}
+    <div class="segmented-row">
+      <div class="segments">
+        ${model.choices.map(
+          (choice) =>
+            html`<label class="segment">
+              <input
+                type="radio"
+                name="scope"
+                value=${choice.value}
+                data-focus=${`scope:${choice.value}`}
+                .checked=${
+                  // Compared with the radio as it is, not as Lit last set it: after Duplicate and
+                  // Back, Home Assistant showed this group with nothing checked.
+                  live(choice.value === model.workspace)
+                }
+                @change=${() => onPick(choice.value)}
+              />
+              <span>${choice.label}</span>
+            </label>`,
+        )}
+      </div>
     </div>
     <p class="hint">${help}</p>
     ${
@@ -164,7 +165,7 @@ export interface ChipChoice {
 
 /**
  * A field drawn as radio chips, as Start Date is on the overview: native radios inside the
- * field's own wrapper, so arrow keys move within the group, drawn as Settings For's choices are.
+ * field's own wrapper, so arrow keys move within the group, drawn as the toggle chips are.
  * Named, labeled and explained as the field's own form would be, state words included, with the
  * line under a field after it.
  *
@@ -213,53 +214,6 @@ export function radioChips(
     </div>
     ${text.helper ? html`<p class="hint">${text.helper}</p>` : nothing} ${line}
   </fieldset>`;
-}
-
-/**
- * The line a switch over an action gives way to while another action is stored, "Tapping an
- * Event: **Navigate**", with Change, laid out as Settings For's compact line, its state words in
- * its name and the line under a field after it.
- *
- * @param id - The field's id, which its wrapper names
- * @param t - The editor's strings
- * @param action - The stored action's name
- * @param words - The field's state words, where it has any
- * @param below - The line under the field: its notes, and Reset or Remove
- * @param onChange - Change was pressed
- * @returns The line
- */
-export function tapLine(
-  id: string,
-  t: Translate,
-  action: string,
-  words: string | undefined,
-  below: TemplateResult | typeof nothing,
-  onChange: () => void,
-): TemplateResult {
-  const line = interpolate(t('tap.line'), { action });
-  const [before, after = ''] = t('tap.line').split('{action}');
-  return html`<div
-    class="field"
-    data-field=${id}
-    data-composed="line"
-    tabindex="-1"
-    role="group"
-    aria-label=${words ? `${line}${SUMMARY_SEPARATOR}${words}` : line}
-  >
-    <div class="tap-line">
-      <span>${before}<b>${action}</b>${after}</span>
-      <button
-        type="button"
-        class="text-button"
-        data-focus="tap:change"
-        aria-label=${interpolate(t('tap.change_named'), { action })}
-        @click=${onChange}
-      >
-        ${t('settings_for.change')}
-      </button>
-    </div>
-    ${below}
-  </div>`;
 }
 
 /** One illustrated choice of Card Displays. */

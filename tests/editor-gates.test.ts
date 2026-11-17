@@ -53,7 +53,7 @@ import {
 } from '../src/rendering/editor/gates';
 import type { SelectorSchema } from '../src/rendering/editor/ha-form';
 import { computeLabel } from '../src/rendering/editor/localize';
-import { ENTRY_GROUPS, OVERVIEW_FIELDS, PAGES } from '../src/rendering/editor/pages';
+import { ENTRY_GROUPS, PAGES } from '../src/rendering/editor/pages';
 import * as Routing from '../src/rendering/editor/routing';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { deepEqual } from '../src/rendering/editor/value';
@@ -70,7 +70,6 @@ const ALL_GATES: ReadonlyArray<readonly [string, Gate]> = [
 
 /** Card and calendar fields the registry places; a toolbar button's fields are in no universe. */
 const PLACED: ReadonlyArray<FieldId> = [
-  ...OVERVIEW_FIELDS,
   ...PAGES.flatMap((page) => page.headings.flatMap((heading) => heading.fields)),
   ...ENTRY_GROUPS.flatMap((heading) => heading.fields),
 ]
@@ -765,10 +764,10 @@ describe('the universe', () => {
       );
     }
     expect(sizes).toEqual({
-      shared: { card: 151, calendar: 27 },
-      list: { card: 158, calendar: 28 },
-      column: { card: 157, calendar: 27 },
-      grid: { card: 156, calendar: 27 },
+      shared: { card: 150, calendar: 27 },
+      list: { card: 157, calendar: 28 },
+      column: { card: 156, calendar: 27 },
+      grid: { card: 155, calendar: 27 },
     });
   });
 
@@ -1128,7 +1127,6 @@ describe('the gate table', () => {
         requires: [
           p('actions:event_tap_action', NOTHING[0], NOTHING),
           p('actions:event_hold_action', NOTHING[0], NOTHING),
-          p('actions:event_opens_details', false, [false]),
         ],
         needsKey: 'gate.needs.no_event_actions',
       },

@@ -585,8 +585,7 @@ export default css`
 
   .scope,
   .displays,
-  .chips,
-  .tap-line {
+  .chips {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -596,8 +595,7 @@ export default css`
     border: none;
   }
 
-  .scope-compact,
-  .tap-line {
+  .scope-compact {
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
@@ -608,8 +606,7 @@ export default css`
     color: var(--secondary-text-color);
   }
 
-  .scope-line b,
-  .tap-line b {
+  .scope-line b {
     color: var(--primary-text-color);
     font-weight: 500;
   }
@@ -617,7 +614,7 @@ export default css`
   .chip-choices {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 8px;
   }
 
   /* Start Date's choices are native radios drawn as the toggle chips are: the circle hidden, the
@@ -626,6 +623,7 @@ export default css`
      as Calendar Filter is, so it never reads as chips that change the card. */
   .chip-choice {
     position: relative;
+    box-sizing: border-box;
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -1343,6 +1341,28 @@ export default css`
     margin-top: 0;
   }
 
+  /* Reset or Remove after Set: a 44 px target, so its line is 44 px tall, starting in the space
+     under the name, which is never a target on a stored setting. It stays 16 px clear of the ⓘ
+     column, and under a switch, whose whole label row toggles it, 16 px below that row. */
+  .setting-facts.has-actions {
+    align-items: center;
+    min-height: 44px;
+    padding-inline-end: 16px;
+  }
+
+  .setting-head > .setting-facts.has-actions {
+    margin-top: -12px;
+    padding-bottom: 0;
+  }
+
+  .setting-head.switch > .setting-facts.has-actions {
+    margin-top: 8px;
+  }
+
+  .setting-facts .line-button {
+    pointer-events: auto;
+  }
+
   .setting-facts {
     display: flex;
     flex-wrap: wrap;
@@ -1619,17 +1639,21 @@ export default css`
      by a divider rather than by a border of their own. The divider is each calendar's bottom
      edge, so it follows the order the keyboard grab previews, which moves rows by CSS order.
      The toolbar's button list keeps a bordered card per row. */
-  .cal-block {
+  /* The overview's framed blocks: Calendars, and Starting Layout around Card Displays. */
+  .cal-block,
+  .layout-block {
     padding: 4px 0 12px;
     border: 1px solid var(--divider-color);
     border-radius: var(--ha-card-border-radius, 12px);
   }
 
-  .cal-block > .heading {
+  .cal-block > .heading,
+  .layout-block > .heading {
     padding-top: 8px;
   }
 
-  .cal-block > :not(.cal-list) {
+  .cal-block > :not(.cal-list),
+  .layout-block > * {
     margin-inline: 16px;
   }
 
@@ -1758,6 +1782,7 @@ export default css`
   /* --- Chips and the toolbar (section 5.9) ------------------------------------
      Toggle chips: native buttons, pressed with a check and the primary color, so the state never
      rests on color alone. An unpressable chip stays focusable and shows its reason inside it.
+     Toggle chips and Start Date's radio chips share one size, 44px tall with 8px between them.
      Calendar Filter is a segmented row of native radios. The toolbar's own buttons are the
      calendar list's rows, each bordered as one card that opens in place. The group is not .chips,
      which Start Date's radio chips use as a column. */
@@ -1771,10 +1796,10 @@ export default css`
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    min-height: 40px;
+    min-height: 44px;
     padding: 0 14px;
     border: 1px solid var(--divider-color);
-    border-radius: 20px;
+    border-radius: 22px;
     background: none;
     color: var(--primary-text-color);
     cursor: pointer;
@@ -1850,16 +1875,22 @@ export default css`
     border-radius: 22px;
   }
 
+  /* Settings For and Calendar Filter alike: the row takes the editor's width and every segment an
+     equal share of it, whatever its word. A word wider than its share wraps, hyphenated in the
+     page's language where the browser can, and broken only where it cannot (Lithuanian at 320px). */
   .segment {
-    flex: 1;
+    flex: 1 1 0;
     display: flex;
     align-items: center;
     justify-content: center;
+    min-width: 0;
     min-height: 44px;
     padding: 0 8px;
     color: var(--primary-color);
     cursor: pointer;
     text-align: center;
+    hyphens: auto;
+    overflow-wrap: break-word;
   }
 
   .segment + .segment {
@@ -1875,20 +1906,6 @@ export default css`
   .segment:has(input:checked) {
     background: var(--primary-color);
     color: var(--text-primary-color, #fff);
-  }
-
-  /* Settings For: as many segments as layouts, each as wide as its word, on one line where they
-     fit. */
-  .scope-segments {
-    flex: none;
-    width: fit-content;
-    max-width: 100%;
-  }
-
-  .scope-segments > .segment {
-    flex: 0 1 auto;
-    padding: 0 14px;
-    white-space: nowrap;
   }
 
   /* A stored value that does nothing now: the warning's icon, the words in the text color. */

@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { goEntry, keysOf, lastConfig, mountEditor } from './helpers/editor-host';
+import { goEntry, keysOf, lastConfig, mountEditor, openPageOf } from './helpers/editor-host';
 import { CURRENT_CONFIG_VERSION, DEFAULT_CONFIG } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { buildFieldIndex, schemaCtx } from '../src/rendering/editor/field-index';
@@ -142,6 +142,39 @@ describe('Settings For', () => {
     document.body.replaceChildren();
   });
 
+  // Both are one choice among a few words, so they share one row: the editor's width, an equal
+  // segment per choice (`styles.ts` › `.segment`). Settings For once sized each to its word.
+  it('draws Settings For as Calendar Filter’s segmented row, a segment per choice', async () => {
+    const editor = await mountEditor({
+      config_version: CURRENT_CONFIG_VERSION,
+      entities: ['calendar.anna'],
+      column: { event_font_size: '13px' },
+    });
+    const path = (radio: Element) => {
+      const classes: string[] = [];
+      for (let el = radio.parentElement; el && el.localName !== 'fieldset'; el = el.parentElement) {
+        classes.unshift(el.className);
+      }
+      return classes;
+    };
+    const scope = [...editor.shadowRoot!.querySelectorAll('fieldset.scope input[type="radio"]')];
+    expect(scope.map((radio) => (radio as HTMLInputElement).value)).toEqual([
+      'shared',
+      'list',
+      'column',
+      'grid',
+    ]);
+    expect(scope.map(path)).toEqual(scope.map(() => ['segmented-row', 'segments', 'segment']));
+    expect(editor.shadowRoot!.querySelector('.scope-segments')).toBeNull();
+    document.body.replaceChildren();
+
+    const filter = await mountEditor({ toolbar: { show: true, legend: 'menu' } });
+    await openPageOf(filter, 'card:toolbar.legend');
+    const legend = filter.shadowRoot!.querySelector('fieldset.segmented input[type="radio"]')!;
+    expect(path(legend)).toEqual(['segmented-row', 'segments', 'segment']);
+    document.body.replaceChildren();
+  });
+
   it('turns full for the session once the scope was changed or Change pressed', () => {
     expect(isCompactScope(LIST_CARD, merged(LIST_CARD), 'list', true)).toBe(false);
   });
@@ -233,11 +266,11 @@ describe('section row summaries', () => {
   it('pairs labels with values and counts what the page stores in this scope', () => {
     const raw = { ...LIST_CARD, list: { show_past_events: true } };
     expect(summaryOf(page('which_events'), raw, 'list')).toBe(
-      'Show Past Events: On · Show Empty Days: Off · Set: 1',
+      'Days To Show: 3 · Start Date: Today · Show Past Events: On · Show Empty Days: Off · Set: 1',
     );
     // At the top level nothing on the page is stored, and List's own value is not shown there.
     expect(summaryOf(page('which_events'), raw, 'shared')).toBe(
-      'Show Past Events: Off · Show Empty Days: Off',
+      'Days To Show: 3 · Start Date: Today · Show Past Events: Off · Show Empty Days: Off',
     );
   });
 

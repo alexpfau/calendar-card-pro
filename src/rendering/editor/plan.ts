@@ -45,7 +45,6 @@ import {
   ENTRY_GROUPS,
   type FamilyId,
   type HeadingDef,
-  OVERVIEW_FIELDS,
   PAGES,
   type PageDef,
   isWholeCard,
@@ -265,7 +264,6 @@ export function appearanceOf(id: FieldId): Appearance | undefined {
     const each = (fields: HeadingDef['fields']): void => {
       for (const [field, appearance] of fields) if (!map.has(field)) map.set(field, appearance);
     };
-    each(OVERVIEW_FIELDS);
     for (const page of PAGES) for (const heading of page.headings) each(heading.fields);
     for (const heading of ENTRY_GROUPS) each(heading.fields);
     appearances = map;
@@ -763,6 +761,18 @@ export function fieldState(id: FieldId, appearance: Appearance, ctx: PlanCtx): F
     const gate = gateOf(id);
     const unmet = gate && firstUnmet(gate, gateData(ctx));
     if (gate === undefined || unmet === undefined) return NONE;
+    // A mode's value stores nothing of its own where its mode reads the same option: Start Date
+    // reads the `start_date` A Fixed Date and Relative to Today write, so `start_of_week` is in use.
+    const mode = ctx.universe.fields.get(unmet.field);
+    if (
+      mode !== undefined &&
+      !isEntryField(id) &&
+      field.dataPath.length === 0 &&
+      field.configKeys.length > 0 &&
+      field.configKeys.every((key) => mode.configKeys.includes(key))
+    ) {
+      return { kind: 'gated', gate, unmet };
+    }
     if (holdsOwnValue(field, ctx)) return { kind: 'inactive', gate, unmet, source: 'here' };
     const view = viewForWorkspace(ctx.workspace);
     if (

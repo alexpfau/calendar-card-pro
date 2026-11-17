@@ -25,7 +25,6 @@ import {
   FAMILIES,
   type FamilyId,
   type HeadingDef,
-  OVERVIEW_FIELDS,
   PAGES,
   isWholeCard,
   placementOf,
@@ -96,12 +95,6 @@ const PLACED: ReadonlyArray<{
   page: string;
   heading: HeadingDef | undefined;
 }> = [
-  ...OVERVIEW_FIELDS.map(([id, appearance]) => ({
-    id,
-    appearance,
-    page: 'overview',
-    heading: undefined,
-  })),
   ...PAGES.flatMap((page) =>
     page.headings.flatMap((heading) =>
       heading.fields.map(([id, appearance]) => ({ id, appearance, page: page.id, heading })),
@@ -136,25 +129,25 @@ function familyOf(appearance: Appearance): FamilyId | undefined {
 /**
  * The approved page map, heading by heading: page, heading, family, and each field in order
  * with its marker (E essential, A Add, W a mode value, F a family member, B a toolbar button's
- * row, P an event part's chip, T a toolbar control's chip, R Calendar Filter's radio group) and the workspaces that offer it (S All Layouts, L List, C Columns, G Grid; none means
- * all four). Typed out from the approved map, never read from `pages.ts`, so a field moved to
- * another page, heading or marker fails here even where every count still agrees. The
- * overview's two blocks are one run, as the registry keeps them.
+ * row, P an event part's chip, T a toolbar control's chip, R a radio group drawn with no head
+ * row: Calendar Filter's and Start Date's) and the workspaces that offer it (S All Layouts, L
+ * List, C Columns, G Grid; none means all four). Typed out from the approved map, never read from
+ * `pages.ts`, so a field moved to another page, heading or marker fails here even where every
+ * count still agrees. The overview edits no field of the registry's: Card Displays is its own.
  */
 const APPROVED_MAP: ReadonlyArray<
   readonly [page: string, heading: string, family: string, fields: ReadonlyArray<string>]
 > = [
   [
-    'Overview',
-    '',
+    'Which Events',
+    'Date Range',
     '',
     [
       'content:days_to_show E',
-      'content:start_date_mode E',
+      // Start Date's chips, drawn as Calendar Filter is, with no head row.
+      'content:start_date_mode R',
       'content:start_date_fixed W',
       'content:start_date_offset W',
-      // Outside candidate A's 223 (Appendix A): the synthetic shortcut over the event's tap.
-      'actions:event_opens_details E',
     ],
   ],
   [
@@ -649,8 +642,8 @@ describe('the page registry places every built field exactly once', () => {
         `${WORKSPACES.length} workspaces; ${PLACED.length} placements.`,
     );
     expect(WORKSPACES).toHaveLength(4);
-    expect(BUILT.size).toBe(222);
-    expect(PLACED).toHaveLength(222);
+    expect(BUILT.size).toBe(221);
+    expect(PLACED).toHaveLength(221);
   });
 
   it('has no field built but unplaced', () => {
@@ -671,12 +664,8 @@ describe('the page registry places every built field exactly once', () => {
     for (const { id, page, heading } of PLACED) {
       const at = placementOf(id);
       expect(at?.page, id).toBe(page);
-      if (page === 'overview') expect(at?.heading, id).toBe(0);
-      else {
-        const headings =
-          page === 'entry' ? ENTRY_GROUPS : PAGES.find((p) => p.id === page)!.headings;
-        expect(headings[at!.heading], id).toBe(heading);
-      }
+      const headings = page === 'entry' ? ENTRY_GROUPS : PAGES.find((p) => p.id === page)!.headings;
+      expect(headings[at!.heading], id).toBe(heading);
     }
   });
 
@@ -698,7 +687,7 @@ describe('the page registry places every built field exactly once', () => {
       if (appearance === 'essential') return 'E';
       if (appearance === 'add') return 'A';
       if (appearance === 'button-rows') return 'B';
-      // Calendar Filter's Off, Menu and Chips.
+      // Calendar Filter's Off, Menu and Chips, and Start Date's chips.
       if (appearance === 'segmented') return 'R';
       if ('with' in appearance) return 'W';
       if ('family' in appearance) return 'F';
@@ -715,7 +704,6 @@ describe('the page registry places every built field exactly once', () => {
     ];
 
     const registry = [
-      row('Overview', '', OVERVIEW_FIELDS),
       ...PAGES.flatMap((page) =>
         page.headings.map((heading) =>
           row(words(page.titleKey), words(heading.key), heading.fields),

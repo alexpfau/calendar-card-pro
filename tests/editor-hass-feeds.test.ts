@@ -249,13 +249,9 @@ describe('the feeds in the rendered editor', () => {
       );
     const live = (): string[] => feeds().filter((each) => each.endsWith(' live'));
 
-    // The overview: the filter bar, Days to Show and Tapping an Event Opens It; Start Date is the
-    // editor's own chips, its calendars are rows, and the preferences are the ⋯ menu's items.
-    expect(feeds()).toEqual([
-      'filter-form steady',
-      'content:days_to_show steady',
-      'actions:event_opens_details steady',
-    ]);
+    // The overview: the filter bar alone; Card Displays is the editor's own radios, its calendars
+    // are rows, and the preferences are the ⋯ menu's items.
+    expect(feeds()).toEqual(['filter-form steady']);
 
     // An entry's page: its Calendar picker, each field in a form of its own, and the Visibility
     // editor. Anna's label is a person, picked by entity, and every page draws the location icon;

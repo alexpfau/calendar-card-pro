@@ -48,8 +48,8 @@ export type FamilyId =
  *   so it names both, and either asks for it.
  * - `family`: shown, added and removed with its family.
  * - `chips`: drawn as a toggle chip (`chips.ts`), with the other chips of its kind on its page.
- * - `segmented`: drawn as a card-built radio group of its options, Calendar Filter's Off, Menu
- *   and Chips.
+ * - `segmented`: drawn as a card-built radio group of its options with no head row: Calendar
+ *   Filter's Off, Menu and Chips, and Start Date's chips.
  * - `button-rows`: one of the toolbar's own buttons' fields, drawn in each button's row.
  */
 export type Appearance =
@@ -135,23 +135,29 @@ function member(family: FamilyId): Appearance {
 
 const W = 'weather:weather.';
 
-/** The fields the overview edits itself, above the section rows. */
-export const OVERVIEW_FIELDS: ReadonlyArray<readonly [FieldId, Appearance]> = [
-  ['content:days_to_show', E],
-  ['content:start_date_mode', E],
-  ['content:start_date_fixed', withMode('content:start_date_mode')],
-  ['content:start_date_offset', withMode('content:start_date_mode')],
-  ['actions:event_opens_details', E],
-];
-
 export const PAGES: ReadonlyArray<PageDef> = [
   {
     id: 'which_events',
     titleKey: 'page.which_events',
     iconPath: mdiCalendarFilterOutline,
     noteKey: 'page.which_events.note',
-    summary: ['content:show_past_events', 'content:show_empty_days'],
+    summary: [
+      'content:days_to_show',
+      'content:start_date_mode',
+      'content:show_past_events',
+      'content:show_empty_days',
+    ],
     headings: [
+      {
+        // First: how many days, and from when, is the widest question this page answers.
+        key: 'heading.date_range',
+        fields: [
+          ['content:days_to_show', E],
+          ['content:start_date_mode', 'segmented'],
+          ['content:start_date_fixed', withMode('content:start_date_mode')],
+          ['content:start_date_offset', withMode('content:start_date_mode')],
+        ],
+      },
       {
         key: 'heading.selection_and_order',
         fields: [
@@ -702,7 +708,6 @@ export function placementOf(id: FieldId): Placement | undefined {
     const place = (fields: HeadingDef['fields'], at: Placement): void => {
       for (const [field] of fields) if (!map.has(field)) map.set(field, at);
     };
-    place(OVERVIEW_FIELDS, { page: 'overview', heading: 0 });
     for (const page of PAGES) {
       page.headings.forEach((heading, index) =>
         place(heading.fields, { page: page.id, heading: index }),

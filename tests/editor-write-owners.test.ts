@@ -715,6 +715,20 @@ describe("focus after a calendar's Remove", () => {
     );
 
   /**
+   * A change made on the overview that moves no focus: Card Displays to Columns, as a radio
+   * changes.
+   *
+   * @param editor - Editor element
+   */
+  function changeOnOverview(editor: EditorElement): void {
+    const columns = editor.shadowRoot!.querySelector<HTMLInputElement>(
+      '[data-focus="view:column"]',
+    )!;
+    columns.checked = true;
+    columns.dispatchEvent(new Event('change'));
+  }
+
+  /**
    * Closes the line a removal left while focus is still on its Undo, as the next change does,
    * and waits until focus has moved.
    *
@@ -722,10 +736,8 @@ describe("focus after a calendar's Remove", () => {
    */
   async function closeLine(editor: EditorElement): Promise<void> {
     expect(editor.shadowRoot!.activeElement).toBe(lineUndo(editor));
-    // Found first: finding a form the harness keeps can move focus.
-    const form = formOf(editor, 'content:days_to_show')!;
     lineUndo(editor)!.focus();
-    emitChange(form, { 'content:days_to_show': 9 });
+    changeOnOverview(editor);
     await editor.updateComplete;
     await new Promise((resolve) => setTimeout(resolve));
     expect(lineUndo(editor)).toBeNull();
@@ -789,7 +801,7 @@ describe("focus after a calendar's Remove", () => {
     await new Promise((resolve) => setTimeout(resolve));
     const add = editor.shadowRoot!.querySelector<HTMLElement>('[data-focus="add-calendar"]')!;
     add.focus();
-    emitChange(formOf(editor, 'content:days_to_show')!, { 'content:days_to_show': 9 });
+    changeOnOverview(editor);
     await editor.updateComplete;
     await new Promise((resolve) => setTimeout(resolve));
 
