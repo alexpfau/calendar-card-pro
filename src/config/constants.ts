@@ -325,13 +325,13 @@ export const UI = {
    * How far the action row's content stands in from the card's own edges, both sides together,
    * in each view: Home Assistant's 1px card border on either side, the card's inline padding, and
    * the row's own start padding, which stands for the title's margin. List pads the card 8px at
-   * its start and 16px at its end, and the row 8px more; column and grid pad the card 16px on
-   * both sides and drop the row's. The three come to the same width because each lines the
-   * toolbar up with the days, and are kept apart so a view that changes its padding changes one
-   * entry. A theme with another border width moves the row by the difference, which the card
+   * its start and 16px at its end, and the row 8px more; column, grid and month pad the card
+   * 16px on both sides and drop the row's. The four come to the same width because each lines
+   * the toolbar up with the days, and are kept apart so a view that changes its padding changes
+   * one entry. A theme with another border width moves the row by the difference, which the card
    * notices once it has drawn the row (`_syncStartFoldFit`).
    */
-  TOOLBAR_ROW_INSET: { list: 34, column: 34, grid: 34 },
+  TOOLBAR_ROW_INSET: { list: 34, column: 34, grid: 34, month: 34 },
 
   /**
    * How much wider than its chips need the card must be before a folded legend draws them

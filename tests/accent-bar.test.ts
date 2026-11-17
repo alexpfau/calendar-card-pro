@@ -90,7 +90,10 @@ function render(
   overrides: Partial<Types.Config> = {},
   eventsTappable = false,
 ): HTMLElement {
-  const config = buildConfig({ view, ...BASE, ...overrides });
+  // Month draws the six weeks from Monday, June 1, as the card hands them to it.
+  const rowsStart = new Date(2026, 5, 1);
+  const month = view === 'month' ? { start_date: '2026-06-01', days_to_show: 42 } : {};
+  const config = buildConfig({ view, ...BASE, ...overrides, ...month });
   const effective = ViewConfig.resolveEffectiveConfig(config, view);
   const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', view);
   const container = document.createElement('div');
@@ -100,7 +103,9 @@ function render(
       ? Grid.renderGridGroupedEvents(days, effective, 'en', undefined, null, NOW)
       : view === 'column'
         ? Column.renderColumnGroupedEvents(days, effective, 'en', undefined, null, eventsTappable)
-        : Render.renderGroupedEvents(days, effective, 'en', undefined, null, eventsTappable),
+        : view === 'month'
+          ? Render.renderMonthGroupedEvents(days, rowsStart, effective, 'en', 4, null)
+          : Render.renderGroupedEvents(days, effective, 'en', undefined, null, eventsTappable),
     container,
   );
 
@@ -108,17 +113,18 @@ function render(
 }
 
 /**
- * The nodes in each view that are an event with an accent, and so must draw a bar. Month draws
- * with the list renderer until its own lands, which brings its entry here.
+ * The nodes in each view that are an event with an accent, and so must draw a bar. A month's
+ * bars are Grid's banners, which draw none.
  */
-const EVENT_SELECTOR: Record<Exclude<Types.EffectiveView, 'month'>, string> = {
+const EVENT_SELECTOR: Record<Types.EffectiveView, string> = {
   list: 'td.event',
   column: '.column-events > .event',
   grid: '.grid-event:not(.grid-event-overflow)',
+  month: '.month-line',
 };
 
 describe('the element', () => {
-  it.each(['list', 'column', 'grid'] as const)(
+  it.each(['list', 'column', 'grid', 'month'] as const)(
     'is the first child of every %s event, once',
     (view) => {
       const container = render(view, { event_gap: '6px' });
@@ -342,11 +348,12 @@ describe('the stylesheet', () => {
     ).toBe(false);
   });
 
-  it('reads the bar width in exactly three places: the bar and the two text starts', () => {
+  it('reads the bar width in exactly four places: the bar and the three text starts', () => {
     // A reconciliation of every declaration that reads the width, so a border put back on
     // an event, or a geometry that forgets the bar's room, fails here rather than in a
     // screenshot. The list text starts 12px past the bar's room, as it did past the border;
-    // the grid text 6px past it, the bar's 3px inset and 3px clear of it.
+    // the grid text 6px past it, the bar's 3px inset and 3px clear of it, and a month line's
+    // and its "+N more" the same, from one property on the month.
     const readers = innermost.flatMap((rule) =>
       rule.declarations
         .filter(([, value]) => value.includes('--calendar-card-line-width-vertical'))
@@ -357,6 +364,7 @@ describe('the stylesheet', () => {
       '.event { padding-inline-start: calc(12px + var(--calendar-card-line-width-vertical)) }',
       '.event-accent-bar { border-inline-start: var(--calendar-card-line-width-vertical) solid var(--calendar-card-event-accent-bar-color) }',
       '.grid-event, .grid-event-backdrop { --calendar-card-grid-text-start: calc(6px + var(--calendar-card-line-width-vertical)) }',
+      '.month-container { --calendar-card-month-text-start: calc(6px + var(--calendar-card-line-width-vertical)) }',
     ]);
   });
 

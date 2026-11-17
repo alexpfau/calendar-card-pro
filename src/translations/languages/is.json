@@ -18,6 +18,7 @@
   "viewColumns": "Dálkar",
   "viewGrid": "Tímatafla",
   "viewMonth": "Mánuður",
+  "moreEvents": "+{count} í viðbót",
   "endsToday": "lýkur í dag",
   "endsTomorrow": "lýkur á morgun",
   "dayOfEvent": "Dagur {day} af {days}",

@@ -18,6 +18,7 @@
   "viewColumns": "Stulpeliai",
   "viewGrid": "Laiko tinklelis",
   "viewMonth": "Mėnuo",
+  "moreEvents": "+{count} daugiau",
   "endsToday": "baigiasi šiandien",
   "endsTomorrow": "baigiasi rytoj",
   "dayOfEvent": "Diena {day} iš {days}",

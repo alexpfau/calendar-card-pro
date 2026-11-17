@@ -328,7 +328,8 @@ export const VIEW_LABEL_KEYS = {
 //-----------------------------------------------------------------------------
 
 /**
- * Keep a press on a toolbar control from also becoming a press on the card.
+ * Keep a press on a toolbar control from also becoming a press on the card. Month view's
+ * "+N more" keeps its presses the same way.
  *
  * Only the controls keep their presses: each button, and the two groups drawn as one, the view
  * switcher's track and the date arrows, whose gaps are a near miss rather than room. The rows
@@ -345,7 +346,7 @@ export const VIEW_LABEL_KEYS = {
  *
  * @param ev - The event to keep inside the control
  */
-function stopCardGesture(ev: Event): void {
+export function stopCardGesture(ev: Event): void {
   ev.stopPropagation();
 }
 

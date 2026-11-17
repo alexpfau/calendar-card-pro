@@ -1619,6 +1619,11 @@ export interface Translations {
   viewColumns: string;
   viewGrid: string;
   viewMonth: string;
+  /**
+   * What a month day says in its last line about the events it has no room for, with `{count}`
+   * where their number goes: "+{count} more", "+2 more".
+   */
+  moreEvents: string;
   /** The calendar filter's menu: the buttons that show every calendar it lists, or hide them. */
   showAll: string;
   hideAll: string;

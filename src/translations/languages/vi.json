@@ -10,6 +10,7 @@
   "viewColumns": "Cột",
   "viewGrid": "Lưới",
   "viewMonth": "Tháng",
+  "moreEvents": "+{count} nữa",
   "endsToday": "kết thúc hôm nay",
   "endsTomorrow": "kết thúc ngày mai",
   "dayOfEvent": "Ngày thứ {day}/{days}",

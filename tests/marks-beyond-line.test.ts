@@ -403,6 +403,11 @@ const CUTS_INLINE_AXIS: Record<string, string[] | string> = {
   // The row a title is cut in beside its time, which clamps in place of its summary.
   [CUT_ROW]: [CUT_ROW],
   '.grid-banner-title': ['.grid-banner-title'],
+  '.month-weekday': 'a weekday name, whose own padding is its room',
+  '.month-week': 'a row of day cells, whose lines, bars and dates keep their own',
+  '.month-line': 'a line, whose own padding is its room',
+  '.month-line-title': ['.month-line-title'],
+  '.month-more': 'a button, whose own padding is its room',
   '.grid-event-disclosure .summary-row': ['.grid-event-disclosure .summary-row'],
   '.grid-event-disclosure .event-title': ['.grid-event-disclosure .event-title'],
   '.grid-event-disclosure .title-word': ['.grid-event-disclosure .title-word'],
@@ -485,6 +490,7 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
       '.grid-event-disclosure': { '--calendar-card-time-inline-room': '0px' },
       [SPANS]: ROOM,
       '.grid-banner-title': ROOM,
+      '.month-line-title': ROOM,
       // The row around a grid title, in the title's size rather than its own.
       '.grid-event-disclosure .summary-row': {
         'padding-inline': EVENT_ROOM,
@@ -675,7 +681,7 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
         );
       }
     }
-    expect(pairs).toBe(12);
+    expect(pairs).toBe(13);
   });
 });
 

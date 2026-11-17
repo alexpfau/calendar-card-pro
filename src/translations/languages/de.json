@@ -18,6 +18,7 @@
   "viewColumns": "Spalten",
   "viewGrid": "Zeitraster",
   "viewMonth": "Monat",
+  "moreEvents": "+{count} weitere",
   "endsToday": "endet heute",
   "endsTomorrow": "endet morgen",
   "dayOfEvent": "Tag {day} von {days}",

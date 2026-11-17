@@ -10,6 +10,7 @@
   "viewColumns": "Stupci",
   "viewGrid": "Mreža",
   "viewMonth": "Mjesec",
+  "moreEvents": "+{count} više",
   "endsToday": "završava danas",
   "endsTomorrow": "završava sutra",
   "dayOfEvent": "Dan {day} od {days}",

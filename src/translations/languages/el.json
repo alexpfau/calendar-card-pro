@@ -18,6 +18,7 @@
   "viewColumns": "Στήλες",
   "viewGrid": "Πλέγμα",
   "viewMonth": "Μήνας",
+  "moreEvents": "+{count} ακόμη",
   "endsToday": "λήγει σήμερα",
   "endsTomorrow": "λήγει αύριο",
   "dayOfEvent": "Ημέρα {day} από {days}",

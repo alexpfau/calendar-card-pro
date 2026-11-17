@@ -61,13 +61,13 @@ describe('the month block', () => {
     );
   });
 
-  it('takes Grid’s daily coverage, and is drawn by the list until its own renderer lands', () => {
+  it('takes Grid’s daily coverage, and draws under a layout class of its own', () => {
     expect(
       Object.fromEntries(
         ViewConfig.VIEWS.map((view) => [view, ViewConfig.multidaySplitPolicy(view)]),
       ),
     ).toEqual({ list: 'inherit', column: 'inherit', grid: 'never', month: 'never' });
-    expect(ViewConfig.viewCssClass('month')).toBe('');
+    expect(ViewConfig.viewCssClass('month')).toBe('month-view');
   });
 });
 

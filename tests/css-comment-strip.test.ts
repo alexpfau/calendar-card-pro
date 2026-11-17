@@ -279,8 +279,14 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(232_000);
-    // The struts for today's and past days' own date scales moved the ceiling last, from 227,000
+    expect(saved).toBeLessThan(237_000);
+    // The month view moved the ceiling last, from 232,000 to 237,000: the notes on why its rows
+    // are one height whatever they hold, why nothing in a month sets a font size for the text
+    // inside it, what the probe the card measures the line capacity from stands for, and why a
+    // day's date is an item of the row rather than of its cell. The reading went from 228,224 to
+    // 232,900, taken with stripComments after the last comment was written.
+    //
+    // The struts for today's and past days' own date scales moved the ceiling before that, from 227,000
     // to 232,000: the note on why every column and grid header has to lay out as tall as the
     // largest date a day can be drawn at, why a minimum height on the header was tried first and
     // missed (a month larger than the number, or a weather badge, made today's header taller

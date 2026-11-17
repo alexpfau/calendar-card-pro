@@ -18,6 +18,7 @@
   "viewColumns": "Colunas",
   "viewGrid": "Grade",
   "viewMonth": "Mês",
+  "moreEvents": "+{count} mais",
   "endsToday": "termina hoje",
   "endsTomorrow": "termina amanhã",
   "dayOfEvent": "Dia {day} de {days}",

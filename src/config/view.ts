@@ -403,7 +403,8 @@ export const VIEWS_WITH_WIDTH_FALLBACK: ReadonlySet<Types.EffectiveView> =
  * Month draws its cells from its own rows and lines, and every event's details in the day list
  * it opens, which is List's rows with Month's options. So an option a List row reads reaches
  * Month too, unless it shapes the list as a whole, and the scopes below say so wherever they
- * name List and not Month. The month renderer is checked against this table when it lands.
+ * name List and not Month. The month grid itself reads fewer: it rules its cells itself and sets
+ * their dates in the event font. Which of those the day list reads is settled here when it lands.
  */
 export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView>>> = {
   date_vertical_alignment: new Set<Types.EffectiveView>(['list']),
@@ -1021,11 +1022,12 @@ export function resolveTimeGridOption<K extends keyof typeof TIME_GRID_DEFAULTS>
  * Defaults for month-only options.
  *
  * `row_height` is a week row's natural height, a CSS length so it can follow the font in `em`;
- * under a fixed card `height` the six rows share the card's instead. `min_day_width` is the
- * day-cell width below which the month draws its compact form. Week scrolling takes wheel and
- * swipe gestures from the page, so it ships off, and `week_scroll_min_width: 0` applies it at any
- * card width once it is on. The two sizes are first estimates, tuned once the month renderer
- * measures them.
+ * under a fixed card `height` the six rows share the card's instead. At the shipped 14px event
+ * size it holds four lines under the date, as measured in Chromium: a 22.8px date line and four
+ * 20.8px lines take 106px of its 111 inside the rule above it, where a fifth would need 127px.
+ * `min_day_width` is the day-cell width below which the month draws its compact form, a first
+ * estimate until that form exists. Week scrolling takes wheel and swipe gestures from the page,
+ * so it ships off, and `week_scroll_min_width: 0` applies it at any card width once it is on.
  */
 export const MONTH_DEFAULTS = {
   row_height: '112px',
@@ -1943,9 +1945,8 @@ export function viewCssClass(view: Types.EffectiveView): string {
       return 'column-view';
     case 'grid':
       return 'grid-view';
-    // Drawn by the list renderer, under List's rules, until the month renderer lands with a
-    // class of its own.
     case 'month':
+      return 'month-view';
     case 'list':
       return '';
   }

@@ -31,6 +31,7 @@
   "viewColumns": "คอลัมน์",
   "viewGrid": "ตาราง",
   "viewMonth": "เดือน",
+  "moreEvents": "อีก {count} รายการ",
   "endsToday": "สิ้นสุดวันนี้",
   "endsTomorrow": "สิ้นสุดพรุ่งนี้",
   "dayOfEvent": "วันที่ {day} จาก {days}",

@@ -10,6 +10,7 @@
   "viewColumns": "Coloane",
   "viewGrid": "Grilă",
   "viewMonth": "Lună",
+  "moreEvents": "+{count} în plus",
   "endsToday": "se încheie astăzi",
   "endsTomorrow": "se încheie mâine",
   "dayOfEvent": "Ziua {day} din {days}",

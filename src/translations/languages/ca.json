@@ -18,6 +18,7 @@
   "viewColumns": "Columnes",
   "viewGrid": "Quadrícula",
   "viewMonth": "Mes",
+  "moreEvents": "+{count} més",
   "endsToday": "acaba avui",
   "endsTomorrow": "acaba demà",
   "dayOfEvent": "Dia {day} de {days}",

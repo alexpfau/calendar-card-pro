@@ -121,7 +121,8 @@ describe('color-mix() where Safari before 16.2 has none', () => {
   // states (three selectors) and its failed one, the filled all-day pill, the progress bar's
   // track, the spinner, and a raised grid block's edge. And the custom properties the stylesheet
   // mixes for others to read: the toolbar's three fills, the accent and Now inks, and the
-  // all-day pill's ink and its two washes.
+  // all-day pill's ink and its two washes. Month view's two: a pressed day's add wash, and
+  // "+N more" under the pointer.
   it('gives each a fallback', () => {
     expect(covered).toEqual([
       '.allday-badge { --badge-ink }',
@@ -158,6 +159,8 @@ describe('color-mix() where Safari before 16.2 has none', () => {
       '.legend-menu-row:active { background }',
       '.legend-menu-row:hover { background }',
       '.loading-indicator .spinner { border }',
+      '.month-day[data-add-pressed] { background-color }',
+      '.month-more:hover { background-color }',
       '.progress-bar { background-color }',
       ".result[aria-selected='true'] { background }",
       '.toolbar-button.refresh-button.refresh-done { background }',

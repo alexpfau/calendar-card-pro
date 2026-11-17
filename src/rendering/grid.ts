@@ -1222,9 +1222,12 @@ function renderOverflow(
  * @param eventsTappable - Whether the banner is a tap target of its own
  * @param dayLabelId - The id of the header of the first day the banner covers on screen,
  *   which describes a tappable banner
+ * @param layout - Where its columns start and the class it adds, for a view that draws the
+ *   banner in a grid of its own: Grid's first day column is its second, after the hour axis,
+ *   and Month's is its first, with `month-bar`
  * @returns Rendered banner
  */
-function renderBanner(
+export function renderBanner(
   event: Types.CalendarEventData,
   placement: Grid.BannerPlacement,
   row: number | undefined,
@@ -1233,6 +1236,7 @@ function renderBanner(
   hass?: Types.Hass | null,
   eventsTappable = false,
   dayLabelId?: string,
+  layout: { firstColumn: number; className?: string } = { firstColumn: 2 },
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
@@ -1261,9 +1265,10 @@ function renderBanner(
         'event-interactive': tap !== undefined,
         'search-ring': event._searchRing === true,
         [TextScale.TEXT_SCALED_CLASS]: presentation.textScaled,
+        ...(layout.className ? { [layout.className]: true } : {}),
       })}
       style=${styleMap({
-        gridColumn: `${placement.columnIndex + 2} / span ${placement.span}`,
+        gridColumn: `${placement.columnIndex + layout.firstColumn} / span ${placement.span}`,
         ...(row === undefined ? {} : { gridRow: String(row) }),
         backgroundColor: presentation.entityAccentBackgroundColor,
         ...presentation.accentTextProperties,
@@ -1494,7 +1499,8 @@ export function renderNewBanner(
  *
  * Greedy first-fit on columns, which is the same shape as the timed lane packing one
  * axis over. Banners beyond `allday_band_max_rows` are dropped, so the band cannot grow
- * without bound on a week containing a long holiday.
+ * without bound on a week containing a long holiday. The runs and the first fit are
+ * `resolveBannerRuns` and `lowestFreeRows` in `utils/grid.ts`, which Month's bars share.
  *
  * Nothing marks the ones that did not fit, which is the opposite of the timed path's
  * `+N` block, and the asymmetry is forced rather than chosen: a timed overflow marker
@@ -1512,50 +1518,10 @@ function layoutBanners(
   days: Types.EventsByDay[],
   maxRows: number,
 ): Array<{ event: Types.CalendarEventData; placement: Grid.BannerPlacement; row: number }> {
-  const banners: Array<{ event: Types.CalendarEventData; placement: Grid.BannerPlacement }> = [];
-  const visibleDayStarts = days.map((day) => Grid.startOfDay(new Date(day.timestamp)));
-  const sources = new Map<
-    Pick<Types.CalendarEventData, 'start' | 'end'>,
-    Map<string, { event: Types.CalendarEventData; columns: number[] }>
-  >();
-  days.forEach((day, column) => {
-    for (const event of sortDayEvents(day).allDay) {
-      const source = event._gridSource ?? event;
-      let variants = sources.get(source);
-      if (!variants) {
-        variants = new Map();
-        sources.set(source, variants);
-      }
-      // Per-day filters can change which calendars contribute while the winning
-      // source stays the same. Keep their shared-color boundaries in the banner band.
-      const contributors = JSON.stringify(event._mergedFrom?.map((entry) => entry.entityId) ?? []);
-      const existing = variants.get(contributors);
-      if (existing) {
-        existing.columns.push(column);
-      } else {
-        variants.set(contributors, { event: { ...event, ...source }, columns: [column] });
-      }
-    }
-  });
-
-  const bannerRuns = [...sources.values()].flatMap((variants) => [...variants.values()]);
-  for (const { event, columns } of bannerRuns) {
-    const runs: Array<{ first: number; last: number }> = [];
-    for (const column of columns) {
-      const previous = runs[runs.length - 1];
-      if (previous && previous.last + 1 === column) previous.last = column;
-      else runs.push({ first: column, last: column });
-    }
-    for (const { first, last } of runs) {
-      const placement = Grid.computeBannerPlacement(event, visibleDayStarts.slice(first, last + 1));
-      if (placement) {
-        banners.push({
-          event,
-          placement: { ...placement, columnIndex: placement.columnIndex + first },
-        });
-      }
-    }
-  }
+  const banners = Grid.resolveBannerRuns(
+    days.map((day) => sortDayEvents(day).allDay),
+    days.map((day) => Grid.startOfDay(new Date(day.timestamp))),
+  );
 
   // Longest first, so a week-long banner takes the top row and the short ones tuck in
   // beneath it rather than the other way round.
@@ -1564,35 +1530,17 @@ function layoutBanners(
       b.placement.span - a.placement.span || a.placement.columnIndex - b.placement.columnIndex,
   );
 
-  const rowSpans: Array<Array<[number, number]>> = [];
-  const placed: Array<{
-    event: Types.CalendarEventData;
-    placement: Grid.BannerPlacement;
-    row: number;
-  }> = [];
+  const rows = Grid.lowestFreeRows(
+    banners.map(({ placement }) => ({
+      start: placement.columnIndex,
+      end: placement.columnIndex + placement.span,
+    })),
+    maxRows,
+  );
 
-  for (const banner of banners) {
-    const start = banner.placement.columnIndex;
-    const end = start + banner.placement.span;
-
-    let row = rowSpans.findIndex((occupied) =>
-      occupied.every(([from, to]) => end <= from || start >= to),
-    );
-
-    if (row < 0) {
-      if (rowSpans.length >= maxRows) {
-        continue;
-      }
-
-      row = rowSpans.length;
-      rowSpans.push([]);
-    }
-
-    rowSpans[row].push([start, end]);
-    placed.push({ ...banner, row: row + 1 });
-  }
-
-  return placed;
+  return banners.flatMap((banner, index) =>
+    rows[index] < 0 ? [] : [{ ...banner, row: rows[index] + 1 }],
+  );
 }
 
 /**

@@ -127,6 +127,7 @@ src/
 │   ├── column.ts                 # The column view
 │   ├── grid.ts                   # The timed grid and spanning all-day band
 │   ├── grid-accessibility.ts     # Full configured names for timed Grid events
+│   ├── month.ts                  # The month view: six week rows, bars, lines and "+N more"
 │   ├── leaves.ts                 # Leaf renderers shared across the three views
 │   ├── presentation.ts           # Layout-independent per-event presentation models
 │   ├── accent-text.ts            # The `accent` text sentinel's fields and properties; CSS-free
@@ -148,6 +149,7 @@ src/
     ├── grid-time-fit.ts          # Picks each grid time row's degradation step
     ├── grid-cascade-threshold.ts # Measured cascade threshold, in minutes, for `utils/grid.ts`
     ├── grid-overflow-strip.ts    # Measured `+N` strip width, as a column share
+    ├── month-layout.ts           # A month row's lines, and what each day hides behind "+N"
     ├── content-box.ts            # A clipping text box's width without its inline room
     ├── format.ts                 # Date and text formatting
     ├── event-age.ts              # The `YEAR=` marker: ages and anniversary counts

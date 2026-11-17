@@ -23,6 +23,7 @@
   "viewColumns": "Колони",
   "viewGrid": "Решетка",
   "viewMonth": "Месец",
+  "moreEvents": "+{count} още",
   "endsToday": "приключва днес",
   "endsTomorrow": "приключва утре",
   "dayOfEvent": "Ден {day} от {days}",

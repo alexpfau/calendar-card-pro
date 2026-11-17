@@ -18,6 +18,7 @@
   "viewColumns": "Kolonnas",
   "viewGrid": "Laika režģis",
   "viewMonth": "Mēnesis",
+  "moreEvents": "+{count} vēl",
   "endsToday": "beidzas šodien",
   "endsTomorrow": "beidzas rīt",
   "dayOfEvent": "Diena {day} no {days}",

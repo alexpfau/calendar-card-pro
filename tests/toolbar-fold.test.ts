@@ -78,7 +78,7 @@ describe('the widths the plan rests on', () => {
   });
 
   it('stands the row 34px in from the card in every view', () => {
-    expect(Constants.UI.TOOLBAR_ROW_INSET).toEqual({ list: 34, column: 34, grid: 34 });
+    expect(Constants.UI.TOOLBAR_ROW_INSET).toEqual({ list: 34, column: 34, grid: 34, month: 34 });
   });
 
   it('adds the inset, both groups, the switcher and the gaps between the three', () => {

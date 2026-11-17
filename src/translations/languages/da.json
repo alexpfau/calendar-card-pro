@@ -10,6 +10,7 @@
   "viewColumns": "Kolonner",
   "viewGrid": "Gitter",
   "viewMonth": "Måned",
+  "moreEvents": "+{count} mere",
   "endsToday": "slutter i dag",
   "endsTomorrow": "slutter i morgen",
   "dayOfEvent": "Dag {day} af {days}",

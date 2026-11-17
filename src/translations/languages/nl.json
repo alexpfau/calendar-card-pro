@@ -18,6 +18,7 @@
   "viewColumns": "Kolommen",
   "viewGrid": "Rooster",
   "viewMonth": "Maand",
+  "moreEvents": "+{count} meer",
   "endsToday": "eindigt vandaag",
   "endsTomorrow": "eindigt morgen",
   "dayOfEvent": "Dag {day} van {days}",

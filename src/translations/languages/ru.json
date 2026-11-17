@@ -18,6 +18,7 @@
   "viewColumns": "Столбцы",
   "viewGrid": "Сетка",
   "viewMonth": "Месяц",
+  "moreEvents": "+{count} ещё",
   "endsToday": "заканчивается сегодня",
   "endsTomorrow": "заканчивается завтра",
   "dayOfEvent": "День {day} из {days}",

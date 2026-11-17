@@ -28,6 +28,7 @@ import * as TextDirection from '../utils/text-direction';
  */
 export { renderColumnGroupedEvents } from './column';
 export { renderGridGroupedEvents } from './grid';
+export { renderMonthGroupedEvents } from './month';
 
 /**
  * Whether a view draws at least one event for these days, rather than only empty-day
@@ -68,7 +69,13 @@ export function drawsLink(
   days: Types.EventsByDay[],
   config: Types.Config,
 ): boolean {
-  if (!ViewConfig.VIEW_SCOPE.open_links.has(view) || !Presentation.rowLinksOn(config)) {
+  // A month's cells draw a title and a time alone; its rows, with their links, are the day
+  // list's, which is drawn in a panel of its own rather than in the card.
+  if (
+    view === 'month' ||
+    !ViewConfig.VIEW_SCOPE.open_links.has(view) ||
+    !Presentation.rowLinksOn(config)
+  ) {
     return false;
   }
   return days.some((day) =>

@@ -565,7 +565,7 @@ const BASE: Record<string, unknown> = {
   ],
 };
 
-const VIEWS = ['list', 'column', 'grid'] as const;
+const VIEWS = ['list', 'column', 'grid', 'month'] as const;
 
 /** Options that change what is drawn, each on top of the base. */
 const VARIANTS: Array<[string, Record<string, unknown>]> = [
@@ -704,15 +704,24 @@ function corpusConfig(view: (typeof VIEWS)[number], variant: Record<string, unkn
 
 /** Render one view of the card, title included, the way the host does. */
 function renderCard(view: (typeof VIEWS)[number], config: Types.Config): HTMLElement {
-  const effective = ViewConfig.resolveEffectiveConfig(config, view);
+  // Month draws the six weeks of the month the card starts in, Mondays first, as the card hands
+  // it them (`_drawnConfig`).
+  const rowsStart = ViewConfig.monthHomeRowsStart(FROZEN_NOW, 1);
+  const drawn =
+    view === 'month'
+      ? { ...config, start_date: Paging.pageKey(rowsStart), days_to_show: ViewConfig.MONTH_DAYS }
+      : config;
+  const effective = ViewConfig.resolveEffectiveConfig(drawn, view);
   const toolbar = config.toolbar?.show ? headerToolbar(view, config) : undefined;
-  const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', view);
+  const days = EventUtils.groupEventsByDay(EVENTS, drawn, false, 'en', view);
   const content =
     view === 'grid'
       ? Render.renderGridGroupedEvents(days, effective, 'en', WEATHER, null, FROZEN_NOW)
       : view === 'column'
         ? Render.renderColumnGroupedEvents(days, effective, 'en', WEATHER, null)
-        : Render.renderGroupedEvents(days, effective, 'en', WEATHER, null);
+        : view === 'month'
+          ? Render.renderMonthGroupedEvents(days, rowsStart, effective, 'en', 4, null)
+          : Render.renderGroupedEvents(days, effective, 'en', WEATHER, null);
   const container = document.createElement('div');
   litRender(
     Render.renderMainCardStructure(
@@ -1060,6 +1069,9 @@ describe('every piece of text is sized by its own option', () => {
       'card-header in toolbar-identity': ['--ha-font-size-m'],
       'day in column-date-content': ['day_font_size'],
       'day in date-column': ['day_font_size'],
+      // A month cell's date is set in the event font, as its lines are, so the date line and a
+      // line are measured in one font (the probe the card reads them from).
+      'day in month-date': ['event_font_size'],
       'event-title in summary': ['event_font_size'],
       'event-title-scroll in event-title': ['event_font_size'],
       'grid-axis-label in grid-axis': ['time_font_size'],
@@ -1081,6 +1093,15 @@ describe('every piece of text is sized by its own option', () => {
       'legend-menu-label in legend-menu-row': ['--ha-font-size-m'],
       'month in column-date-content': ['month_font_size'],
       'month in date-column': ['month_font_size'],
+      // The month named on a month's first day, beside its number and in its size.
+      'month-date-month in month-date': ['event_font_size'],
+      // A month line's title and its time, each in its own option, side by side as a list row's.
+      'month-line-time in event': ['time_font_size'],
+      'month-line-title in event': ['event_font_size'],
+      // "+N more" in the time's size, as the secondary text beside a title is.
+      'month-more in month-week': ['time_font_size'],
+      'month-week-number in month-week': ['week_number_font_size'],
+      'month-weekday in month-weekdays': ['weekday_font_size'],
       'now-indicator in now-time': ['time_font_size'],
       'span in description': ['description_font_size'],
       'span in event-weather-text': ['weather.event.font_size'],
@@ -1147,17 +1168,30 @@ describe('the check can fail', () => {
     );
   }
 
-  it('catches the event size declared again on the title, in every view', () => {
-    // The v4.2.0 shape, planted back.
+  it('catches the event size declared again on the title, in every view that draws one', () => {
+    // The v4.2.0 shape, planted back. A month cell's line draws a title of its own, which the
+    // next case plants against.
     const { repeated } = analyzeAll([...DECLARATIONS, planted('.event-title', EVENT)]);
     const title = repeated.filter((entry) => entry.includes('span.event-title inside'));
 
-    for (const view of VIEWS) {
+    for (const view of VIEWS.filter((view) => view !== 'month')) {
       expect(
         title.some((entry) => entry.startsWith(`${view},`)),
         view,
       ).toBe(true);
     }
+  });
+
+  it('catches the event size set on a month row, around the lines that set it again', () => {
+    // The tempting shape: the rows set in the event font, so the line pitch is in its em. The
+    // titles and dates inside would then apply it a second time, and the times and "+N" be
+    // measured against it.
+    const declared = [...DECLARATIONS, planted('.month-week', EVENT)];
+    const { repeated, crossed } = analyzeAll(declared);
+
+    expect(repeated.some((entry) => entry.includes('span.month-line-title inside'))).toBe(true);
+    expect(repeated.some((entry) => entry.includes('div.month-date inside'))).toBe(true);
+    expect(crossed.some((entry) => entry.includes('span.month-line-time'))).toBe(true);
   });
 
   it('catches a size declared on a pseudo-element inside its own element', () => {

@@ -23,6 +23,7 @@
   "viewColumns": "欄",
   "viewGrid": "網格",
   "viewMonth": "月",
+  "moreEvents": "還有 {count} 項",
   "endsToday": "今天 {at} 結束",
   "endsTomorrow": "明天 {at} 結束",
   "dayOfEvent": "第{day}天，共{days}天",

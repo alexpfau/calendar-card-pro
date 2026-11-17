@@ -14,6 +14,7 @@
   "viewColumns": "Oszlopok",
   "viewGrid": "Rács",
   "viewMonth": "Hónap",
+  "moreEvents": "+{count} további",
   "noEvents": "Nincs esemény",
   "loading": "Naptárbejegyzések betöltése...",
   "error": "Hiba: Naptár entitás nem található vagy nem megfelelően konfigutált",

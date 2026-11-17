@@ -18,6 +18,7 @@
   "viewColumns": "Kolumny",
   "viewGrid": "Siatka czasu",
   "viewMonth": "Miesiąc",
+  "moreEvents": "+{count} więcej",
   "endsToday": "kończy się dziś",
   "endsTomorrow": "kończy się jutro",
   "dayOfEvent": "Dzień {day} z {days}",

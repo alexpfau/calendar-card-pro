@@ -121,21 +121,22 @@ const CROSS_VIEW_ACKNOWLEDGEMENTS: Readonly<
       why: 'Deliberately absent from TIME_GRID_DEFAULT_OVERRIDES rather than defaulted off: a default in that table is overridable from the view block, so time_grid: { split_multiday_events: true } would imply the upstream list splitter could be switched back on. Grid answers never via multidaySplitPolicy and derives its own daily coverage before filtering.',
     },
   },
-  // Month diverges on `show_past_events` alone. Its lines and its day list paint on the card
-  // background as a column row does; its bars take Grid's banner from the calendar's color. The
-  // month renderer checks these verdicts against what it draws when it lands.
+  // Month diverges on `show_past_events` alone. Its lines paint on the card background with the
+  // card's ink, as a column row does. Its bars are Grid's banner, which takes Grid's tint and ink
+  // where the card leaves event_background_opacity, event_color and time_color at their shipped
+  // values (`barConfig` in `rendering/month.ts`), so none of the three needs a divergent default.
   month: {
     day_separator_color: {
       verdict: 'inherits',
-      why: 'The rule between two day cells is the boundary the option has always named, so the card-wide color describes it. Grid diverges because its rules run vertically down a shared time axis and needed a rule gray.',
+      why: 'The month grid draws hairline rules of its own between its cells and reads neither separator option, so no divergent default would change what it draws. Whether the day list reads it is settled with VIEW_SCOPE when the day list lands.',
     },
     day_separator_width: {
       verdict: 'inherits',
-      why: 'Same boundary between two days as in list and column. Grid diverges because a shared time axis needs its day boundaries drawn to read as separate columns at all, which a month of separate cells does not.',
+      why: 'As day_separator_color: the month grid rules its cells itself. Grid diverges because a shared time axis needs its day boundaries drawn to read as separate columns at all.',
     },
     day_spacing: {
       verdict: 'inherits',
-      why: 'The room between two day cells is the space between days the card already sets. Grid narrows it to 1px so its tinted blocks meet their rule; a month line is no tinted block.',
+      why: 'The month grid sets its cells edge to edge, ruled, as macOS Calendar does, so it reads no gap. Grid narrows it to 1px so its tinted blocks meet their rule; the day list, one day long, has no gap between days to take.',
     },
     description_color: {
       verdict: 'inherits',

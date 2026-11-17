@@ -24,6 +24,10 @@ each renderer.
   each all-day event's columns into one banner and placing blocks from `utils/grid.ts`. A timed
   event a full day or longer is a banner too (`multiday_banners`): grouping stamps its days
   `_gridBanner`, and the band draws its times at its ends.
+- **`month.ts`** draws six week rows of seven days: Grid's banner as a bar across each all-day or
+  multi-day event's days, and each timed event as one line. Which line each takes, and what a day
+  hides behind "+N more", is `utils/month-layout.ts`, from the lines the card measures fit under a
+  date.
 - **`leaves.ts`** holds the axis-agnostic pieces: the date block, the event body, weather badges,
   the today indicator and the accent bar.
 - **`presentation.ts`** computes everything about an event that does not depend on layout: ended,

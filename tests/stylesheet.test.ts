@@ -3566,7 +3566,7 @@ describe('the toolbar layout', () => {
     expect(sides).toEqual(['calc', '16px', 'calc', '8px']);
     const list =
       border + px(sides[1]) + px(sides[3]) + px(declared('.card-toolbar', 'padding-inline-start'));
-    // Column and grid pad the card alike on both sides, and drop the row's own padding.
+    // Column, grid and month pad the card alike on both sides, and drop the row's own padding.
     const column =
       border +
       2 * px(declared('.calendar-card-pro.column-view', 'padding-inline')) +
@@ -3578,7 +3578,12 @@ describe('the toolbar layout', () => {
       border +
       2 * px(declared('.calendar-card-pro.grid-view', '--calendar-card-grid-inset')) +
       px(declared('.calendar-card-pro.grid-view .card-toolbar', 'padding-inline-start'));
-    expect({ list, column, grid }).toEqual(UI.TOOLBAR_ROW_INSET);
+    // Month pads the card as column does.
+    const month =
+      border +
+      2 * px(declared('.calendar-card-pro.month-view', 'padding-inline')) +
+      px(declared('.calendar-card-pro.month-view .card-toolbar', 'padding-inline-start'));
+    expect({ list, column, grid, month }).toEqual(UI.TOOLBAR_ROW_INSET);
   });
 
   it('draws the arrows as three round buttons apart, each a pill of its own', () => {

@@ -10,6 +10,7 @@
   "viewColumns": "Columnas",
   "viewGrid": "Rejilla",
   "viewMonth": "Mes",
+  "moreEvents": "+{count} más",
   "endsToday": "termina hoy",
   "endsTomorrow": "termina mañana",
   "dayOfEvent": "Día {day} de {days}",

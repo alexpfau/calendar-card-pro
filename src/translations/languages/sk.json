@@ -10,6 +10,7 @@
   "viewColumns": "Stĺpce",
   "viewGrid": "Časová mriežka",
   "viewMonth": "Mesiac",
+  "moreEvents": "+{count} ďalšie",
   "endsToday": "končí dnes",
   "endsTomorrow": "končí zajtra",
   "dayOfEvent": "Deň {day} z {days}",

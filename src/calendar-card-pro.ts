@@ -54,6 +54,7 @@ import * as EventPopover from './rendering/event-popover';
 import * as GridRender from './rendering/grid';
 import * as Legend from './rendering/legend';
 import * as Menu from './rendering/menu';
+import * as MonthRender from './rendering/month';
 import * as Render from './rendering/render';
 import * as SearchPanel from './rendering/search-panel';
 import * as Styles from './rendering/styles';
@@ -1759,6 +1760,12 @@ class CalendarCardPro extends LitElement {
    */
   private _overflowStripPct = Infinity;
 
+  /**
+   * Lines that fit under a month day's date, as last measured off a rendered row; the default
+   * until a first measurement. See `_syncMonthCapacity`.
+   */
+  private _monthCapacity = MonthRender.MONTH_LINE_CAPACITY_DEFAULT;
+
   private _gridScaleRaf: number | null = null;
 
   private _resizeObserver: ResizeObserver | null = null;
@@ -3392,6 +3399,7 @@ class CalendarCardPro extends LitElement {
       this._gridScaleRaf = null;
       this._syncCascadeThreshold();
       this._syncOverflowStrip();
+      this._syncMonthCapacity();
     });
   }
 
@@ -3470,6 +3478,25 @@ class CalendarCardPro extends LitElement {
       this._overflowStripPct = next;
       this.requestUpdate();
     }
+  }
+
+  /**
+   * Re-reads how many lines fit under a month day's date and re-renders once if that moved.
+   *
+   * Stable by construction: a row's height is `row_height` or a share of the card's fixed
+   * `height`, and the line pitch and date line are lengths in the event font, so nothing the
+   * render this triggers draws can change what it reads. Nothing is read while the month
+   * is not on screen or not laid out, which keeps the last capacity rather than collapsing it.
+   */
+  private _syncMonthCapacity(): void {
+    if (!this.isConnected || this.effectiveView !== 'month') return;
+
+    const next = MonthRender.measureMonthCapacity(this.renderRoot);
+    if (next === null || next === this._monthCapacity) return;
+
+    Logger.debug(`Month line capacity ${this._monthCapacity} -> ${next}`);
+    this._monthCapacity = next;
+    this.requestUpdate();
   }
 
   /**
@@ -4186,6 +4213,7 @@ class CalendarCardPro extends LitElement {
       this._syncCascadeThreshold();
       this._syncOverflowStrip();
     }
+    this._syncMonthCapacity();
 
     const hassJustAvailable = changedProps.has('hass') && this.hass && !changedProps.get('hass');
 
@@ -7746,7 +7774,18 @@ class CalendarCardPro extends LitElement {
         );
       }
 
-      // Month draws its 42 days with the list renderer until the month renderer replaces it.
+      if (this.effectiveView === 'month') {
+        return Render.renderMonthGroupedEvents(
+          days,
+          this._monthRowsStart(this._pageShown),
+          this.effectiveConfig,
+          this.effectiveLanguage,
+          this._monthCapacity,
+          this.safeHass,
+          this._eventsActivatable,
+        );
+      }
+
       return this.effectiveView === 'column'
         ? Render.renderColumnGroupedEvents(
             days,
@@ -7790,11 +7829,19 @@ class CalendarCardPro extends LitElement {
       this._searchRingDrawn = ringed.found;
       const days = ringed.days;
       content = renderDays(days);
+      // A month draws no day's add button, and its "+N more" is a control of its own.
+      const month = this.effectiveView === 'month';
       drawsEventTarget =
-        (dayAdd !== undefined && days.length > 0) ||
+        (dayAdd !== undefined && days.length > 0 && !month) ||
         (this._eventsActivatable &&
           Render.drawsEvent(this.effectiveView, days, this.effectiveConfig)) ||
-        Render.drawsLink(this.effectiveView, days, this.effectiveConfig);
+        Render.drawsLink(this.effectiveView, days, this.effectiveConfig) ||
+        (month &&
+          MonthRender.monthDrawsMore(
+            days,
+            this._monthRowsStart(this._pageShown),
+            this._monthCapacity,
+          ));
     }
 
     const toolbar = this._headerToolbar();
@@ -9404,11 +9451,7 @@ class CalendarCardPro extends LitElement {
       start: Toolbar.startControls(controls),
       end,
       views: controls.viewSwitcher?.views.length ?? 0,
-      // Month draws with the list renderer, and so the list's padding, until its own lands.
-      insetPx:
-        Constants.UI.TOOLBAR_ROW_INSET[
-          this.effectiveView === 'month' ? 'list' : this.effectiveView
-        ],
+      insetPx: Constants.UI.TOOLBAR_ROW_INSET[this.effectiveView],
     };
   }
 

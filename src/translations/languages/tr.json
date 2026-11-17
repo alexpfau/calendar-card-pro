@@ -10,6 +10,7 @@
   "viewColumns": "Sütunlar",
   "viewGrid": "Izgara",
   "viewMonth": "Ay",
+  "moreEvents": "+{count} daha",
   "endsToday": "bitiş: bugün",
   "endsTomorrow": "bitiş: yarın",
   "dayOfEvent": "{days} günün {day}. günü",

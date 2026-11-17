@@ -7551,4 +7551,334 @@ export const cardStyles = css`
     pointer-events: none;
     z-index: 2;
   }
+
+  /* ===== MONTH VIEW STYLES ===== */
+
+  /* The same 16px inset as column and grid view, which the toolbar's row counts on
+     (UI.TOOLBAR_ROW_INSET): the first day's cell starts at the card's padding, so the title's
+     margin and the toolbar's would put both past it. */
+  .calendar-card-pro.month-view {
+    padding-inline: 16px;
+  }
+
+  .calendar-card-pro.month-view .card-header {
+    margin-inline-start: 0;
+  }
+
+  .calendar-card-pro.month-view .card-toolbar {
+    padding-inline-start: 0;
+  }
+
+  .calendar-card-pro.month-view .fetch-error {
+    margin-inline-start: 0;
+  }
+
+  /* The weekday names, then six week rows of one height each: row_height, which the renderer
+     writes as --calendar-card-month-row-height, or under a fixed card height an equal share of
+     what the names leave. A row's height never depends on its events, so the card stays one
+     height from page to page and the line capacity the card measures cannot move the rows it
+     was measured from.
+
+     Nothing here sets a font size. Each piece of text sets its own option once, as a list row's
+     do, so a relative size is measured against the card's text and never against another
+     option's (tests/font-size-nesting.test.ts).
+
+     The text of a line and of "+N more" starts 6px past the accent stripe's width, the stripe's
+     3px inset and 3px clear of it, as a grid block's does; both read it from here. */
+  .month-container {
+    display: grid;
+    grid-template-rows: auto repeat(6, var(--calendar-card-month-row-height, 112px));
+    position: relative;
+    box-sizing: border-box;
+    --calendar-card-month-rule: var(--divider-color, rgba(127, 127, 127, 0.25));
+    --calendar-card-month-text-start: calc(6px + var(--calendar-card-line-width-vertical));
+    border-block-end: 1px solid var(--calendar-card-month-rule);
+  }
+
+  /* What the card measures the line capacity from (measureMonthCapacity), drawn nowhere: in the
+     event font the lines and dates are set in, its width is a line's height and its height the
+     date line's. A line is the title's line box, 1.2em, with 1px of padding and 1px of margin
+     above and below, which a bar takes as well (Grid's banner pads 1px); the date line is the
+     today tile's 1.2em with 4px above it and 2px below. tests/month-dom.test.ts pins the four
+     against each other. */
+  .month-probe {
+    position: absolute;
+    top: 0;
+    inset-inline-start: 0;
+    width: calc(1.2em + 4px);
+    height: calc(1.2em + 6px);
+    font-size: var(--calendar-card-font-size-event);
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .month-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    padding-block-end: 4px;
+  }
+
+  /* Over its column's date, at the inline end, as macOS Calendar sets them. Its own padding is
+     the room for marks leaning past its ends. */
+  .month-weekday {
+    min-width: 0;
+    padding-inline: 6px;
+    overflow: hidden;
+    font-size: var(--calendar-card-font-size-weekday);
+    line-height: 1.2;
+    color: var(--calendar-card-color-weekday);
+    text-align: end;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* One row: seven day columns, and the lines the renderer writes inline: the date line, then
+     one per line the capacity holds, then whatever is left. Each line is as tall as what is on
+     it, a line everywhere empty taking none. Every cell, date, bar, line and "+N" is placed on
+     it explicitly. Clipped, so a row the card has not measured yet, or one whose events
+     text_scale draws larger, never grows past its height. */
+  .month-week {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    min-height: 0;
+    overflow: hidden;
+    border-block-start: 1px solid var(--calendar-card-month-rule);
+  }
+
+  /* The day's own box, behind its events, spanning every line of its column. Its empty space is
+     the day's target, for day_tap_action. The rule between two days is its start edge. */
+  .month-day {
+    grid-row: 1 / -1;
+    min-width: 0;
+    border-inline-start: 1px solid var(--calendar-card-month-rule);
+  }
+
+  .month-day:first-child {
+    border-inline-start: none;
+  }
+
+  /* The date at the top inline end of its day, on the row's first line, in the event font. The
+     1st of a month carries its month, whose literal spaces and dots are kept: the parts are flex
+     items, which would otherwise lose a space standing on its own. A press goes through it to
+     the day beneath. */
+  .month-date {
+    display: flex;
+    grid-row: 1;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 0;
+    height: 1.2em;
+    padding: 4px 6px 2px;
+    font-size: var(--calendar-card-font-size-event);
+    line-height: 1;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  .month-date > .day {
+    font-size: inherit;
+    font-weight: 400;
+  }
+
+  .month-date-month {
+    white-space: pre;
+  }
+
+  /* The existing tile, set in the date's size. Its own centering margin would push it to the
+     middle of the line, so it sits at the end like any date. */
+  .month-date > .day.today-tile {
+    margin: 0;
+    font-weight: 500;
+  }
+
+  /* Today without the tile, where today_indicator names another style or none: its number in
+     the indicator's color, so today still reads as today. */
+  .month-day.today + .month-date > .day:not(.today-tile) {
+    color: var(--calendar-card-today-indicator-color);
+    font-weight: 600;
+  }
+
+  /* Days of the months either side of the one the header names. Their events stay as they are;
+     only the date steps back. */
+  .month-day.other-month + .month-date {
+    opacity: 0.45;
+  }
+
+  /* The week number, dimmed in the first cell's corner, across the date line from the date. It
+     answers no press, which belongs to the day beneath it. */
+  .month-week-number {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+    justify-self: start;
+    padding: 4px 6px 0;
+    font-size: var(--calendar-card-week-number-font-size);
+    line-height: 1.2;
+    color: var(--calendar-card-week-number-color);
+    opacity: 0.55;
+    pointer-events: none;
+  }
+
+  /* A bar is Grid's banner, set on a line: 1px clear of the line above and below, and 3px of the
+     day's rules at an end where its event starts or ends. Where it carries on into the next row
+     or came from the one before, it runs to the cell's edge, so the two pieces line up. */
+  .month-bar {
+    margin: 1px 3px;
+  }
+
+  .month-bar.continues-before {
+    margin-inline-start: 0;
+  }
+
+  .month-bar.continues-after {
+    margin-inline-end: 0;
+  }
+
+  /* A timed event: Column's row trimmed to one line. Its accent bar, a short stripe with round
+     ends, its title cut with an ellipsis, and its start time at the line's end in the time's
+     size and color. The text starts where "+N more" does, past the stripe. A line is a box of
+     its own, whose padding is its room. */
+  .month-line {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    margin: 1px 3px;
+    padding-block: 1px;
+    padding-inline: var(--calendar-card-month-text-start) 3px;
+    border-radius: 4px;
+    overflow: hidden;
+    line-height: 1.2;
+    white-space: nowrap;
+    container: calendar-card-month-line / inline-size;
+  }
+
+  .month-line > .event-accent-bar {
+    inset-block: 3px;
+    inset-inline-start: 3px;
+    border-radius: 999px;
+  }
+
+  .month-line-label {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    font-size: var(--calendar-card-font-size-event);
+  }
+
+  .month-line-label > * {
+    margin-inline-end: 4px;
+  }
+
+  .month-line-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    font-size: var(--calendar-card-font-size-event);
+    color: var(--calendar-card-color-event);
+    text-overflow: ellipsis;
+    /* Room at its inline edges; see "Marks above and below the line". */
+    padding-inline: var(--calendar-card-inline-room);
+    margin-inline: calc(-1 * var(--calendar-card-inline-room));
+  }
+
+  .month-line-time {
+    flex: none;
+    margin-inline-start: 4px;
+    font-size: var(--calendar-card-font-size-time);
+    color: var(--calendar-card-color-time);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* An event under way writes its time in the now ink, as a list or column row does. */
+  .month-line.event-now .month-line-time {
+    color: var(--calendar-card-now-ink);
+  }
+
+  /* The time gives way before the title, so a narrow day still names its events: below about
+     a dozen letters of room, measured in the line's own width. Without container queries,
+     before Safari 16, the time always shows. */
+  @container calendar-card-month-line (width < 7.5em) {
+    .month-line-time {
+      display: none;
+    }
+  }
+
+  /* Past events dim as a row's content does (.past-event .event-content), the stripe kept. */
+  .month-line.past-event > :not(.event-accent-bar) {
+    opacity: var(--calendar-card-past-event-opacity, 0.6);
+  }
+
+  /* "+N more", on a day's last line: plain secondary text, starting where the lines' titles do.
+     A button, whose own padding is its room. */
+  .month-more {
+    align-self: center;
+    justify-self: start;
+    min-width: 0;
+    max-width: 100%;
+    margin: 0 3px;
+    padding-block: 1px;
+    padding-inline: var(--calendar-card-month-text-start) 3px;
+    overflow: hidden;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    font: inherit;
+    font-size: var(--calendar-card-font-size-time);
+    line-height: 1.2;
+    color: var(--secondary-text-color);
+    text-align: start;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  @media (hover: hover) {
+    .month-more:hover {
+      background-color: color-mix(in srgb, var(--ha-ripple-hover-color) 8%, transparent);
+    }
+  }
+
+  .month-more:focus {
+    outline: none;
+  }
+
+  .month-more:focus-visible {
+    outline: 2px solid var(--calendar-card-line-color-vertical);
+    outline-offset: -2px;
+  }
+
+  .month-line.search-ring {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -2px;
+    animation: ccp-search-ring 2s ease-out forwards;
+  }
+
+  .month-line.search-ring:focus-visible {
+    animation-name: ccp-search-ring-to-focus;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .month-line.search-ring,
+    .month-line.search-ring:focus-visible {
+      animation: none;
+    }
+  }
+
+  /* A day pressed where a tap on it adds an event washes as a column's header does. */
+  .month-day[data-add-pressed] {
+    background-color: color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent);
+  }
+
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .month-day[data-add-pressed] {
+      background-color: rgba(128, 128, 128, 0.16);
+    }
+
+    @media (hover: hover) {
+      .month-more:hover {
+        background-color: rgba(128, 128, 128, 0.08);
+      }
+    }
+  }
 `;
