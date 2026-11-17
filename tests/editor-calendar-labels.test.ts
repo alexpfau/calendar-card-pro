@@ -8,10 +8,12 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { declarations } from './helpers/css-declarations';
 import { fakeHass, mountEditor } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { resolvedLabel } from '../src/rendering/editor/entities';
+import styles from '../src/rendering/editor/styles';
 import { resolveEntityLabel } from '../src/utils/events';
 import { resolveLabelType } from '../src/utils/helpers';
 
@@ -161,5 +163,48 @@ describe('the editor’s label resolution', () => {
       const expected = !card || type === 'none' ? undefined : { value: card, type };
       expect(resolvedLabel(entry, hass), JSON.stringify(entry)).toEqual(expected);
     }
+  });
+});
+
+describe('the calendar list’s geometry', () => {
+  /**
+   * The last px value a selector's declaration of a property takes, in cascade order.
+   *
+   * @param selector - The selector, as written
+   * @param property - The property
+   * @returns Its px value
+   */
+  function px(selector: string, property: string): number {
+    const found = declarations(styles.cssText).filter(
+      (each) => each.selectors.includes(selector) && each.property === property,
+    );
+    const value = found[found.length - 1]?.value ?? '';
+    if (!/^\d+px$/.test(value))
+      throw new Error(`${selector} { ${property} } is ${value || 'unset'}`);
+    return Number.parseFloat(value);
+  }
+
+  it('starts an indented entry’s dot, label and name where a single row’s start', () => {
+    // A single row: its drag handle, the row's gap, then the body's own padding.
+    const single =
+      px('.drag-handle', 'width') +
+      px('.cal-row', 'gap') +
+      px('.drag-handle + .cal-body', 'padding-inline-start');
+    // An entry of a calendar listed twice: its margin, the line it hangs from, its body's padding.
+    const entry =
+      px('.cal-block .cal-row-entry', 'margin-inline-start') +
+      Number.parseFloat(
+        /^(\d+)px/.exec(
+          declarations(styles.cssText).filter(
+            (each) =>
+              each.selectors.includes('.cal-block .cal-row-entry') &&
+              each.property === 'border-inline-start',
+          )[0]?.value ?? '',
+        )?.[1] ?? 'NaN',
+      ) +
+      px('.cal-block .cal-row-entry > .cal-body', 'padding-inline-start');
+
+    expect(single).toBe(48);
+    expect(entry).toBe(single);
   });
 });

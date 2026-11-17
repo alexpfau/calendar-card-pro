@@ -1411,8 +1411,10 @@ export default css`
     border-inline-start: 2px solid var(--divider-color);
   }
 
+  /* Its dot, label and name start where a single row's do: the handle's 40px, the row's 4px gap
+     and the body's own 4px, 48px in all, less the 19px margin and the 2px line. */
   .cal-block .cal-row-entry > .cal-body {
-    padding-inline-start: 23px;
+    padding-inline-start: 27px;
   }
 
   .cal-block .strip {
