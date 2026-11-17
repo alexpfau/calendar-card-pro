@@ -492,7 +492,7 @@ describe('the search row', () => {
 
   it('holds the search field, then Undo and Redo, then the preferences, on one row', async () => {
     const { editor } = await mount({ config_version: VERSION, entities: ['calendar.anna'] });
-    expect(row(editor)).toEqual(['filter-form', 'history-controls', 'menu-wrap']);
+    expect(row(editor)).toEqual(['search-field', 'history-controls', 'menu-wrap']);
     expect(
       [...$(editor, '.search-row .history-controls')!.children].map(
         (button) => (button as HTMLElement).dataset.focus,
@@ -509,8 +509,13 @@ describe('the search row', () => {
     await changeField(editor, 'filter:search', 'color');
     await settle(editor);
     expect($(editor, '.result-status, .filter-empty')).not.toBeNull();
+    expect(row(editor)).toEqual(['search-field', 'history-controls', 'menu-wrap']);
     // The field's ✕ beside it while it holds a query.
-    expect(row(editor)).toEqual(['filter-form', 'search-clear', 'history-controls', 'menu-wrap']);
+    expect(
+      [...$(editor, '.search-field')!.children].map(
+        (child) => (child as HTMLElement).dataset.focus ?? child.className,
+      ),
+    ).toEqual(['filter-form', 'search-clear']);
     expect($(editor, '.search-row [data-focus="undo"]')!.hasAttribute('disabled')).toBe(false);
   });
 });

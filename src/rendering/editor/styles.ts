@@ -370,8 +370,21 @@ export default css`
      buttons are aligned with the box rather than with the form: 4px down from its top. */
   .search-row {
     display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0 6px;
+  }
+
+  /* The field and, while it holds a query, its ✕. Where the row is narrower than 340px, as on a
+     320px phone, the field takes the whole row and the tools move to a line under it, at its end:
+     beside them and the ✕ the field kept no room to type in. Wider, the basis is negative, which
+     counts as 0, and the field shares the row as before. */
+  .search-field {
+    display: flex;
+    flex: 1 1 calc((340px - 100%) * 999);
     align-items: flex-start;
     gap: 6px;
+    min-width: 0;
   }
 
   .search-row .filter-form {
@@ -381,6 +394,7 @@ export default css`
 
   .search-row .history-controls {
     margin-top: 4px;
+    margin-inline-start: auto;
   }
 
   /* The search field's ✕, beside Home Assistant's box rather than in it, centered on its 56px. */

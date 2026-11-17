@@ -10173,33 +10173,35 @@ export class CalendarCardProEditor extends LitElement {
     const [hass, feed] = this._feed(chassis.filter, ctx.language);
     return html`
       <div class="filter-bar search-row">
-        <ha-form
-          class="filter-form"
-          data-hass=${feed}
-          .hass=${hass}
-          .data=${this._intern('filter', Filter.filterFormData(this._filter))}
-          .schema=${chassis.filter}
-          .computeLabel=${this._labeler(ctx.language)}
-          .computeHelper=${this._helper('filter', ctx)}
-          .localizeValue=${this._localizeValue}
-          @value-changed=${this._filterChanged}
-          @compositionstart=${this._compositionStart}
-          @compositionend=${this._compositionEnd}
-        ></ha-form>
-        ${
-          this._filter.query === ''
-            ? nothing
-            : html`<button
-                type="button"
-                class="icon-button search-clear"
-                data-focus="search-clear"
-                aria-label=${this._string(ctx, 'search.clear')}
-                title=${this._string(ctx, 'search.clear')}
-                @click=${this._clearSearch}
-              >
-                ${icon(mdiClose)}
-              </button>`
-        }
+        <div class="search-field">
+          <ha-form
+            class="filter-form"
+            data-hass=${feed}
+            .hass=${hass}
+            .data=${this._intern('filter', Filter.filterFormData(this._filter))}
+            .schema=${chassis.filter}
+            .computeLabel=${this._labeler(ctx.language)}
+            .computeHelper=${this._helper('filter', ctx)}
+            .localizeValue=${this._localizeValue}
+            @value-changed=${this._filterChanged}
+            @compositionstart=${this._compositionStart}
+            @compositionend=${this._compositionEnd}
+          ></ha-form>
+          ${
+            this._filter.query === ''
+              ? nothing
+              : html`<button
+                  type="button"
+                  class="icon-button search-clear"
+                  data-focus="search-clear"
+                  aria-label=${this._string(ctx, 'search.clear')}
+                  title=${this._string(ctx, 'search.clear')}
+                  @click=${this._clearSearch}
+                >
+                  ${icon(mdiClose)}
+                </button>`
+          }
+        </div>
         ${this._renderHistory(ctx)} ${this._renderPrefsMenu(ctx)}
       </div>
     `;

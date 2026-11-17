@@ -485,6 +485,21 @@ describe('the stylesheet', () => {
   });
 });
 
+describe('the search row', () => {
+  it('moves its buttons under the field where the row is narrower than 340px', () => {
+    const all = declarations(styles.cssText);
+    const on = (selector: string, property: string) =>
+      all.filter((each) => each.selectors.includes(selector) && each.property === property);
+    expect(on('.search-row', 'flex-wrap').map(({ value }) => value)).toEqual(['wrap']);
+    expect(on('.search-field', 'flex').map(({ value }) => value)).toEqual([
+      '1 1 calc((340px - 100%) * 999)',
+    ]);
+    expect(
+      on('.search-row .history-controls', 'margin-inline-start').map(({ value }) => value),
+    ).toEqual(['auto']);
+  });
+});
+
 describe('add actions', () => {
   it('draw Add Calendar and Add Button as the same tonal pill', async () => {
     const editor = await mountEditor({ ...CARD, toolbar: { show: true } });

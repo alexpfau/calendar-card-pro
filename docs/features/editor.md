@@ -566,7 +566,8 @@ with Show YAML Option Names on, its YAML path too. A value is the one its page o
 layout Settings For last chose, and where layouts hold different values it names that layout, as
 in **Grid: 12px**. **Search Settings** at the top of every page takes you to the field, and
 **Back**, or Escape in an empty field, returns to the page. The **✕** beside the field, or Escape
-in it, clears the search.
+in it, clears the search. On a very narrow screen, Undo, Redo and the other buttons sit on a line
+under the field, so the field keeps room to type in.
 
 Results that match alike list a page's main settings first, so `past` leads with **Show Past
 Events**. Choosing a result opens its page at the setting, highlighted, with **Return to
