@@ -202,13 +202,14 @@ describe('the end time in a sentence', () => {
   it('writes a Japanese time inside the end phrase, and bare after a date', () => {
     // Japanese sets the time off with a space on each side, as Chinese does, and writes a date
     // and time side by side. The weekday is the short day in full-width brackets, as Japanese
-    // writes it after a date.
+    // writes it after a date. The range mark is the fullwidth tilde (U+FF5E) that CLDR's
+    // Japanese ranges use, so it matches the range the toolbar names a page by.
     expect(events.map((event) => timeOf(event, 'ja'))).toEqual([
       '22:30、明日 0:30 終了',
-      '9:00 〜 10月23日（金） 17:00',
+      '9:00 ～ 10月23日（金） 17:00',
       '今日 12:00 終了',
       '明日 8:00 終了',
-      '〜 10月23日（金） 17:00',
+      '～ 10月23日（金） 17:00',
     ]);
   });
 
@@ -216,7 +217,7 @@ describe('the end time in a sentence', () => {
     expect(allDays.map((event) => timeOf(event, 'ja'))).toEqual([
       '終日、今日終了',
       '終日、明日終了',
-      '終日、〜 10月25日（日）',
+      '終日、～ 10月25日（日）',
     ]);
   });
 
