@@ -1,5 +1,5 @@
 /**
- * The notices page (backlog item 307, the editor redesign's PR 16): one overview row names the
+ * The notices page (backlog item 307): one overview row names the
  * options the card ignores and the options v3.0.0 removed, and the page it opens moves each to
  * where it works, as one undo step. A removed option goes to its replacement while that is free;
  * the next change would otherwise remove it (`value.ts` › `pruneDeprecatedKeys`).

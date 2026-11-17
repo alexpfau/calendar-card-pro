@@ -438,7 +438,7 @@ describe('a nested field’s own data', () => {
 
   it.each([
     ['weather:weather.', 'weather:weather.date.font_size', '15px'],
-    // The toolbar's controls, once a second case here, are chips that hold no form (PR 18).
+    // The toolbar's controls, once a second case here, are chips that hold no form.
     ['weather:weather.', 'weather:weather.event.font_size', '13px'],
   ] as const)('leaves every other %s form its very data on a write', async (prefix, id, value) => {
     const editor = await mountEditor({

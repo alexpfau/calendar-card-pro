@@ -1,5 +1,5 @@
 /**
- * The full search (backlog item 307, section 5.8's second stage).
+ * The full search (backlog item 307, its second stage).
  *
  * The jump list now reaches every setting the editor knows, each saying where it stands: one a
  * page draws, one waiting in an Add row with Add beside it, one a gate withholds ("Needs Show

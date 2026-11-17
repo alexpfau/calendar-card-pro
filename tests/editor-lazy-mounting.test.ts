@@ -4,7 +4,7 @@
  * Today's dialog built every panel's forms, 124 of them behind closed panels, at every open and
  * on every render. Now the card's settings sit on pages, a calendar entry's on a page of its own,
  * and only the place open draws its forms. The last of Home Assistant's collapsible panels, the
- * toolbar buttons', became the editor's own rows (PR 18): a row draws its forms while it is open,
+ * toolbar buttons', became the editor's own rows: a row draws its forms while it is open,
  * in the update its toggle asks for, and no other row's.
  */
 

@@ -1,5 +1,5 @@
 /**
- * The jump list (backlog item 307, section 5.8's first stage).
+ * The jump list (backlog item 307, its first stage).
  *
  * Typing a query replaces the overview below the search field with rows: each names the setting,
  * with the query marked, says where it is, what it holds and what its YAML path is. Choosing one

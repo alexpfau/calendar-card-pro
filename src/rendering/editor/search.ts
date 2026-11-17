@@ -1,5 +1,5 @@
 /**
- * The jump list's index, matching and ranking (section 5.8): every setting the editor knows, as one
+ * The jump list's index, matching and ranking: every setting the editor knows, as one
  * row with its label, a breadcrumb, its value, where the value comes from and its YAML path,
  * whether its page draws it, keeps it in an Add row, waits on another setting for it, holds it
  * without using it, or offers it only in another layout; besides them each page that a query
@@ -243,7 +243,7 @@ function foldMapped(text: string): {
 
 /**
  * Folds text for matching, the same for a query and for what it is matched against: case,
- * diacritics, ß, ø, æ, ł, đ and œ, and `_`, `-` and other punctuation as spaces (section 5.8).
+ * diacritics, ß, ø, æ, ł, đ and œ, and `_`, `-` and other punctuation as spaces.
  * Korean is left as it is.
  *
  * @param text - As written

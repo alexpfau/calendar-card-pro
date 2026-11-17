@@ -3,7 +3,7 @@
  * stored, inherited with a value that differs, or added this session; the rest of each heading
  * waits in its Add row, named; what a gate withholds is named in its gate line, with any value
  * stored for it all the same; and each field says where its value comes from, with Reset or
- * Remove beside it (sections 5.1 to 5.3 of the plan).
+ * Remove beside it.
  *
  * Every case reads the editor as drawn: the fields a page's frames hold, the words their forms
  * give Home Assistant, the lines and buttons around them, and what the editor reports. #834's
@@ -362,7 +362,7 @@ describe('state words, by where they are drawn', () => {
     // The facts carry the words, outside the slider, which keeps its own label.
     expect(stateWordOf(editor, 'layout:time_grid.min_days_to_show')).toBe('Set');
     expect(labelOf(editor, 'layout:time_grid.min_days_to_show')).toBe('Fewest Day Columns');
-    // An event part is a chip (PR 18), named by its label and its words.
+    // An event part is a chip, named by its label and its words.
     await openPageOf(editor, 'events:show_location');
     expect(chipName(editor, 'events:show_location')).toBe('Location, Set');
     expect(group('events:show_location')).toBe('Location, Set');

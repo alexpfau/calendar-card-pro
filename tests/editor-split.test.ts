@@ -1,5 +1,5 @@
 /**
- * Split This Calendar (section 5.7, D12): when it refuses and why, what it writes, and the task on
+ * Split This Calendar: when it refuses and why, what it writes, and the task on
  * an entry's page that writes it.
  *
  * What it promises about the card, that every event lands in exactly one part, is proven through
@@ -344,7 +344,7 @@ describe('Split This Calendar on an entry’s page', () => {
     }
   });
 
-  // Plan section 5.6: first the row, then the fields the entry stores under Which Events.
+  // First the row, then the fields the entry stores under Which Events.
   it('draws its row first under Which Events, above the fields stored there', async () => {
     const { editor } = await onBensPage({
       entity: 'calendar.ben',

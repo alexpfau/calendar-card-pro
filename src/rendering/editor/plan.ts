@@ -141,7 +141,7 @@ export interface HeadingPlan {
   }>;
 }
 
-/** What a field says about its value (section 5.3), in data; the words are drawn from it. */
+/** What a field says about its value, in data; the words are drawn from it. */
 export interface StateWords {
   readonly words?:
     | { readonly kind: 'set' }
@@ -175,7 +175,7 @@ export interface StateWords {
   readonly calendars?: ReadonlyArray<number>;
 }
 
-/** What applies once Reset deletes the line (section 5.3). */
+/** What applies once Reset deletes the line. */
 export type ResetOutcome =
   | {
       readonly kind: 'layout-default';
@@ -739,7 +739,7 @@ function otherLayouts(id: FieldId, ctx: PlanCtx): Types.EffectiveView[] {
 }
 
 /**
- * A field's place in the shown set (section 5.1).
+ * A field's place in the shown set.
  *
  * @param id - Field id
  * @param appearance - How its page shows it
@@ -931,7 +931,7 @@ function overridingEntries(field: IndexedField, ctx: PlanCtx): number[] {
 }
 
 /**
- * What a field says about its value (section 5.3): the prototype's `stateOf`, plus the lines for
+ * What a field says about its value: the prototype's `stateOf`, plus the lines for
  * the layouts and the calendars that store their own.
  *
  * @param field - The field
@@ -1045,7 +1045,7 @@ function defaultHere(field: IndexedField, ctx: PlanCtx): unknown {
 }
 
 /**
- * What applies once Reset deletes a field's line here (section 5.3): the layout's default, else
+ * What applies once Reset deletes a field's line here: the layout's default, else
  * the All Layouts value, else the card's default; on a calendar entry, the card's value.
  *
  * @param field - The field
@@ -1125,7 +1125,7 @@ function afterReset(ctx: PlanCtx, result: Reset.ResetResult): PlanCtx {
 }
 
 /**
- * Whether a field carries Reset or Remove (section 5.3), decided by the state Reset would leave:
+ * Whether a field carries Reset or Remove, decided by the state Reset would leave:
  * a field still live once its line is gone (essential, or still inheriting a value that differs)
  * gets Reset, which keeps the control; one that would leave the page gets Remove, which deletes
  * the line and returns it to its Add row. A field stored nowhere here gets neither, unless it was

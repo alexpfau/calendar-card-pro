@@ -66,7 +66,7 @@ describe('Settings For', () => {
     expect(isCompactScope(hidden, merged(hidden), 'list', false)).toBe(true);
   });
 
-  // Plan section 5.10: the line shows whenever the scope is not the displayed layout, and a
+  // The line shows whenever the scope is not the displayed layout, and a
   // value List keeps of its own is exactly what All Layouts cannot show in the preview.
   it('says the preview shows another layout in every scope but the displayed one', async () => {
     const editor = await mountEditor({

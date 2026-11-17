@@ -1,5 +1,5 @@
 /**
- * The composed color control (backlog item 307, D13; the plan's section 5.9).
+ * The composed color control (backlog item 307).
  *
  * Every color field is one control: its own rows, Home Assistant's named swatches and Custom, whose
  * text is written only once it is a color the card can draw. What is reconciled here, and how:

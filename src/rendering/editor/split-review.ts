@@ -1,6 +1,6 @@
 /**
  * Split This Calendar's review: which of an entry's upcoming events the card shows in the layout
- * displayed, and the part each of them lands in once the entry is split (section 5.7).
+ * displayed, and the part each of them lands in once the entry is split.
  *
  * DOM-free. The window and the per-entry eligibility are the card's own, mirrored from
  * `events.ts` rather than imported, because importing the card's filter would carry most of its

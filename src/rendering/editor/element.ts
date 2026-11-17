@@ -327,7 +327,7 @@ interface QuickSetupSession extends Preview.PreviewSession {
 }
 
 /**
- * One run of Split This Calendar on an entry's page (section 5.7), from opening it to Split or
+ * One run of Split This Calendar on an entry's page, from opening it to Split or
  * Cancel. From Colors on it previews both parts on the card (`preview.ts`); the editor itself
  * keeps the configuration it opened on until Split writes, so any other change, Undo, or leaving
  * the page cancels the run first.
@@ -357,12 +357,12 @@ interface SplitSession extends Preview.PreviewSession {
 /** What a color control writes for one of its rows or swatches (`colors.ts` › `ColorSpec`). */
 type ColorWrite = Colors.ColorSpec['sources'][number]['write'];
 
-/** Start Date's mode, drawn as the overview's chips (section 5.9). */
+/** Start Date's mode, drawn as the overview's chips. */
 const START_DATE_FIELD: FieldId = 'content:start_date_mode';
 
 /** Tapping an Event Opens It, which gives way to a line while another action is stored. */
 
-/** Calendar Filter, drawn as a radio group of its options (section 5.9). */
+/** Calendar Filter, drawn as a radio group of its options. */
 const LEGEND_FIELD: FieldId = 'card:toolbar.legend';
 
 const { WORD_LIST_FIELDS } = WordLists;
@@ -398,7 +398,7 @@ interface ColorArgs {
   readonly write?: (write: ColorWrite) => void;
 }
 
-/** A list whose rows reorder (section 5.11): the calendars, or the toolbar's own buttons. */
+/** A list whose rows reorder: the calendars, or the toolbar's own buttons. */
 type ReorderList = 'calendar' | 'button';
 
 /** The keyboard grab, and the list it holds a row of. */
@@ -967,7 +967,7 @@ export class CalendarCardProEditor extends LitElement {
   /** The jump list's count line, as the last render drew it, announced as the query changes. */
   private _resultStatus = '';
 
-  /** Edit Here: the card settings found are drawn as their live controls (section 5.8). */
+  /** Edit Here: the card settings found are drawn as their live controls. */
   @state() private _editHere = false;
 
   /** The folded results opened to a row per calendar entry, by field id. */
@@ -2581,7 +2581,7 @@ export class CalendarCardProEditor extends LitElement {
    * One field in a form of its own, inside the editor's own wrapper named after it: the one
    * place focus lands on a field, since nothing inside a form takes it.
    *
-   * Every input the form is handed is kept while it is equal (PR 3's identity rules, carried to
+   * Every input the form is handed is kept while it is equal (the identity rules, carried to
    * lifted fields): the lifted schema is interned by the index, the data is the field's own
    * projection of the scope's data, and the label and helper callbacks resolve through the
    * label path the field had inside its panel, so every string key stays what it was.
@@ -2757,7 +2757,7 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * A word list as one term at a time (section 5.9): Home Assistant's text selector with
+   * A word list as one term at a time: Home Assistant's text selector with
    * `multiple`, while the stored value is empty or reads as plain terms and Use a Pattern has not
    * been chosen. Terms are written as one pattern (`word-lists.ts` › `toPattern`), so an empty list
    * writes an empty one, which deletes a calendar's line.
@@ -3119,7 +3119,7 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * What a live field shows besides its control (section 5.3): its state words, and under it
+   * What a live field shows besides its control: its state words, and under it
    * what they leave out, and Reset or Remove named for what it leaves.
    *
    * @param field - The field
@@ -3498,7 +3498,7 @@ export class CalendarCardProEditor extends LitElement {
         return typeof appearance === 'object' && 'chips' in appearance;
       };
       // Every setting in registry order: the chips of one kind together where the first of them
-      // is placed, Calendar Filter as its radio group (section 5.9), every other setting under its
+      // is placed, Calendar Filter as its radio group, every other setting under its
       // head row, and a setting a gate withholds in its place, saying when it appears.
       const order = new Map(heading.fields.map(([id], at) => [id, at]));
       const prefix = owner.kind === 'entry' ? owner.key : '';
@@ -3710,7 +3710,7 @@ export class CalendarCardProEditor extends LitElement {
                   kind: 'reset',
                   onPress: () => this._removeFamily(family, owner, ctx, heading.key),
                 }),
-          // Split This Calendar opens Which Events (plan section 5.6); every other extra follows
+          // Split This Calendar opens Which Events; every other extra follows
           // its heading's fields.
           body: heading.extras?.includes('split')
             ? html`${more} ${live} ${ShownView.gateLines(gateLines, inactive)}`
@@ -3964,7 +3964,7 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * The composed color control for any owner (section 5.9, D13). Every row and swatch writes
+   * The composed color control for any owner. Every row and swatch writes
    * through `_writeFieldValue` for the owner, one undo step each; Custom's text is written only
    * once it is a color the card can draw, and held as a draft until then.
    *
@@ -4371,7 +4371,7 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Focus after a Reset or a Remove (section 5.3): the field's wrapper while it is drawn, else
+   * Focus after a Reset or a Remove: the field's wrapper while it is drawn, else
    * its heading's Add row, which now names it, else the heading.
    *
    * @param id - The field, or none for a family
@@ -4577,7 +4577,7 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Opens what a result names (section 5.8): its page at the field, or, for a field the overview
+   * Opens what a result names: its page at the field, or, for a field the overview
    * draws, the overview with the field shown in place of the results. Either way Return to
    * Results sits above the field, which is scrolled to the top, highlighted for 2 s and focused
    * on its wrapper, and the move is announced.
@@ -5520,7 +5520,7 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Chooses a result (section 5.8): a setting shown or waiting in an Add row opens at the field,
+   * Chooses a result: a setting shown or waiting in an Add row opens at the field,
    * added where it waited; one a gate withholds opens at the setting that allows it; one stored
    * but not in use opens at its gate line's Reset; another layout's switches the scope first; a
    * page opens; Split This Calendar opens its entry's page at its row, and the calendar list the
@@ -5669,7 +5669,7 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * What a page draws under its header: each heading planned by `plan.ts` (section 5.2), what the
+   * What a page draws under its header: each heading planned by `plan.ts`, what the
    * page holds besides its fields (the toolbar's own buttons, the column width table).
    *
    * @param page - The page
@@ -5699,14 +5699,14 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * A heading's chips of one kind (section 5.9): the event parts, or the toolbar's controls.
+   * A heading's chips of one kind: the event parts, or the toolbar's controls.
    *
    * A chip is drawn where its field is offered in the scope at all (`chips.ts` › `inScope`), so
    * Now is absent in Grid and a line says so. A part offered but withheld by its gate is drawn
    * unpressable with its reason, so End Time and Duration stay in sight while Time is off; a
    * toolbar control is drawn only while the toolbar is. Pressed is the field's effective value in
    * the scope, and a press writes the other value through `_writeFieldValue`, one undo step. Each
-   * chip's name carries its state words, as any field's does (section 5.3); under the chips, the
+   * chip's name carries its state words, as any field's does; under the chips, the
    * chips named by those words ("Set: Countdown, End Time · Default: Location") with one Reset for
    * every chip stored here, the not-in-scope line, and the hint.
    *
@@ -5870,7 +5870,7 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * A radio group of a field's options with no head row: Calendar Filter's Off, Menu and Chips
-   * (section 5.9), or Start Date's chips. Its state words are in its name, and the line under it
+   * or Start Date's chips. Its state words are in its name, and the line under it
    * holds its facts with Reset after Set, named for what it leaves. Picking writes through
    * `_writeFieldValue`, one undo step.
    *
@@ -6573,7 +6573,7 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * A row's drag handle (section 5.11), a calendar's or a toolbar button's: Space picks it up and
+   * A row's drag handle, a calendar's or a toolbar button's: Space picks it up and
    * drops it, the arrow keys move it while held, Alt+Arrow moves it at once, and a pointer drags
    * it.
    *
@@ -7572,7 +7572,7 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * The line under a word list the card cannot read (section 5.9): Blocklist and Allowlist, built
+   * The line under a word list the card cannot read: Blocklist and Allowlist, built
    * as the card builds them, and Countries To Remove, which the card wraps (`formatLocation`).
    * Drawn through `ha-form`'s own error map, above the field.
    *
@@ -9764,7 +9764,7 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * What This Card Changes (section 5.10): every stored line, grouped as Whole Card, All Layouts,
+   * What This Card Changes: every stored line, grouped as Whole Card, All Layouts,
    * each layout, each calendar and the lines kept as written. Each line is one button opening a
    * strip with Change Here, which mounts its field's control in place and writes where the line
    * lives, Open in its page, and Reset or Remove; Reset All per layout. The lines kept as written

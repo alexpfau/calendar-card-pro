@@ -592,7 +592,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // The keys beside a move in an entry page's menu.
   'strip.key_up': 'Alt ↑',
   'strip.key_down': 'Alt ↓',
-  // Reordering (section 5.11): a calendar's drag handle, and the keyboard grab's line under the
+  // Reordering: a calendar's drag handle, and the keyboard grab's line under the
   // list, which the announcement queue also speaks. In `reorder.keys` each `{…}` is drawn as a key
   // cap: `{up}` and `{down}` as arrows, `{space}` and `{esc}` as `reorder.space` and `reorder.esc`.
   'reorder.handle': 'Move {name}',
@@ -602,7 +602,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'reorder.space': 'Space',
   'reorder.esc': 'Esc',
   'reorder.put_back': 'Put {name} back at position {position} of {total}.',
-  // The event-part chips at the top of Events (section 5.9, D08). Time, Location and Description
+  // The event-part chips at the top of Events. Time, Location and Description
   // are their headings' words. The stored parts are grouped under the chips by their state words
   // (`state.*`): "Set for List · Countdown: On · End Time: Off".
   'chip.end_time': 'End Time',
@@ -638,7 +638,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   // --- Split This Calendar --------------------------------------------------
   //
-  // The task on an entry's page that turns it into two (section 5.7, D12). Every refusal is a
+  // The task on an entry's page that turns it into two. Every refusal is a
   // whole sentence naming the entry, and the event type's four are four sentences rather than one
   // with a clause added, so a translator writes each in its own word order. Counts are a label
   // and a number ("Days Ahead: 7 · Events: 1"), never an assembled plural.

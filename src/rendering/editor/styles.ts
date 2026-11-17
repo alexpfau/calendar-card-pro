@@ -1880,7 +1880,7 @@ export default css`
     color: var(--primary-color);
   }
 
-  /* --- Chips and the toolbar (section 5.9) ------------------------------------
+  /* --- Chips and the toolbar ------------------------------------
      Toggle chips: native buttons, pressed with a check and the primary color, so the state never
      rests on color alone. An unpressable chip stays focusable and shows its reason inside it.
      Toggle chips and Start Date's radio chips share one size, 44px tall with 8px between them.
