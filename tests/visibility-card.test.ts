@@ -507,6 +507,30 @@ describe('judging again', () => {
     expect(card._visibilityQueries.size).toBe(0);
     expect(card._visibilityTimerId).toBeNull();
   });
+
+  it('leaves the card’s own visibility to Home Assistant, untouched', async () => {
+    // A condition that holds nowhere: judged by the card, it would hide everything.
+    const media = stubMatchMedia(new Set());
+    const own = [{ condition: 'screen', media_query: '(max-width: 1023px)' }];
+    const given = configFor({ entities: [ANNA, BEN], visibility: own } as never);
+    const before = structuredClone(given);
+    vi.mocked(Logger.warn).mockClear();
+
+    const card = document.createElement('calendar-card-pro-dev') as unknown as CardUnderTest;
+    card.setConfig(given);
+    card.hass = makeHass();
+    document.body.appendChild(card);
+    await settle(card);
+
+    expect(titles(card)).toEqual(['Dentist', 'Football', 'Holiday']);
+    expect(card.hidden).toBe(false);
+    expect(media.listeners.size).toBe(0);
+    expect(card._visibilityQueries.size).toBe(0);
+    expect(given).toEqual(before);
+    expect(
+      vi.mocked(Logger.warn).mock.calls.filter((call) => String(call[0]).includes('visibility')),
+    ).toEqual([]);
+  });
 });
 
 describe('conditions only core can judge', () => {

@@ -1531,10 +1531,10 @@ repeatedly. A language is only fully wired up when **all** of these are done:
 1. `src/translations/languages/<code>.json` — must contain every **top-level** key present
    in `en.json`. `en.json` is the reference. **Card strings only.** An `editor` section
    here is now a `check:i18n` error, because these files are imported statically for all
-   38 languages and land on every dashboard load.
+   39 languages and land on every dashboard load.
 
 2. `src/rendering/editor/translations/<code>.json` — the editor's strings, **optional and
-   may be partial**. Eleven of the 38 languages translate the editor; the other 27 have no
+   may be partial**. Eleven of the 39 languages translate the editor; the other 28 have no
    file here at all and the editor renders in English. Both are supported — `lookup()` in
    `src/rendering/editor/localize.ts` resolves each key on its own, falling back
    **requested language → English**, where English is `strings.ts`.

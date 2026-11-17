@@ -100,6 +100,29 @@ describe('the misplaced-option notice', () => {
     expect(notice(editor)).toBeNull();
   });
 
+  it('leaves Home Assistant’s card visibility alone, through an unrelated edit', async () => {
+    const visibility = [
+      { condition: 'screen', media_query: '(min-width: 0px) and (max-width: 1023px)' },
+    ];
+    const { editor, reports } = await mount({
+      type: 'custom:calendar-card-pro',
+      title: 'Before',
+      grid_options: { columns: 'full' },
+      visibility,
+    });
+    await openNotices(editor);
+
+    expect(editor.shadowRoot!.querySelector('[data-focus="notices"]')).toBeNull();
+    expect(notice(editor)).toBeNull();
+
+    await changeField(editor, 'card:title', 'After');
+
+    const last = reports[reports.length - 1];
+    expect(last.title).toBe('After');
+    expect(last.visibility).toEqual(visibility);
+    expect(last.grid_options).toEqual({ columns: 'full' });
+  });
+
   it('lists each misplaced option with where it works and a button per free place', async () => {
     const { editor } = await mount({
       min_day_width: '100px',
