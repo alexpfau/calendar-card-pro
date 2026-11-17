@@ -105,25 +105,27 @@ export function scopeControl(
       : interpolate(t('settings_for.help_layout'), { layout: name });
   return html`<fieldset class="scope">
     <legend class="label">${t('settings_for.label')}</legend>
-    <div class="segments scope-segments">
-      ${model.choices.map(
-        (choice) =>
-          html`<label class="segment">
-            <input
-              type="radio"
-              name="scope"
-              value=${choice.value}
-              data-focus=${`scope:${choice.value}`}
-              .checked=${
-                // Compared with the radio as it is, not as Lit last set it: after Duplicate and
-                // Back, Home Assistant showed this group with nothing checked.
-                live(choice.value === model.workspace)
-              }
-              @change=${() => onPick(choice.value)}
-            />
-            <span>${choice.label}</span>
-          </label>`,
-      )}
+    <div class="segmented-row">
+      <div class="segments">
+        ${model.choices.map(
+          (choice) =>
+            html`<label class="segment">
+              <input
+                type="radio"
+                name="scope"
+                value=${choice.value}
+                data-focus=${`scope:${choice.value}`}
+                .checked=${
+                  // Compared with the radio as it is, not as Lit last set it: after Duplicate and
+                  // Back, Home Assistant showed this group with nothing checked.
+                  live(choice.value === model.workspace)
+                }
+                @change=${() => onPick(choice.value)}
+              />
+              <span>${choice.label}</span>
+            </label>`,
+        )}
+      </div>
     </div>
     <p class="hint">${help}</p>
     ${
@@ -164,7 +166,7 @@ export interface ChipChoice {
 
 /**
  * A field drawn as radio chips, as Start Date is on the overview: native radios inside the
- * field's own wrapper, so arrow keys move within the group, drawn as Settings For's choices are.
+ * field's own wrapper, so arrow keys move within the group, drawn as the toggle chips are.
  * Named, labeled and explained as the field's own form would be, state words included, with the
  * line under a field after it.
  *

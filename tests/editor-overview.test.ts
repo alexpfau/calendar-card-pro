@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { goEntry, keysOf, lastConfig, mountEditor } from './helpers/editor-host';
+import { goEntry, keysOf, lastConfig, mountEditor, openPageOf } from './helpers/editor-host';
 import { CURRENT_CONFIG_VERSION, DEFAULT_CONFIG } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { buildFieldIndex, schemaCtx } from '../src/rendering/editor/field-index';
@@ -139,6 +139,39 @@ describe('Settings For', () => {
     await goEntry(editor, keysOf(editor, 'entry')[0]);
     expect(editor.shadowRoot!.querySelector('.entry-page')).not.toBeNull();
     expect(editor.shadowRoot!.querySelector('.scope, .scope-preview')).toBeNull();
+    document.body.replaceChildren();
+  });
+
+  // Both are one choice among a few words, so they share one row: the editor's width, an equal
+  // segment per choice (`styles.ts` › `.segment`). Settings For once sized each to its word.
+  it('draws Settings For as Calendar Filter’s segmented row, a segment per choice', async () => {
+    const editor = await mountEditor({
+      config_version: CURRENT_CONFIG_VERSION,
+      entities: ['calendar.anna'],
+      column: { event_font_size: '13px' },
+    });
+    const path = (radio: Element) => {
+      const classes: string[] = [];
+      for (let el = radio.parentElement; el && el.localName !== 'fieldset'; el = el.parentElement) {
+        classes.unshift(el.className);
+      }
+      return classes;
+    };
+    const scope = [...editor.shadowRoot!.querySelectorAll('fieldset.scope input[type="radio"]')];
+    expect(scope.map((radio) => (radio as HTMLInputElement).value)).toEqual([
+      'shared',
+      'list',
+      'column',
+      'grid',
+    ]);
+    expect(scope.map(path)).toEqual(scope.map(() => ['segmented-row', 'segments', 'segment']));
+    expect(editor.shadowRoot!.querySelector('.scope-segments')).toBeNull();
+    document.body.replaceChildren();
+
+    const filter = await mountEditor({ toolbar: { show: true, legend: 'menu' } });
+    await openPageOf(filter, 'card:toolbar.legend');
+    const legend = filter.shadowRoot!.querySelector('fieldset.segmented input[type="radio"]')!;
+    expect(path(legend)).toEqual(['segmented-row', 'segments', 'segment']);
     document.body.replaceChildren();
   });
 
