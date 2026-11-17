@@ -598,6 +598,22 @@ describe('What This Card Changes, its actions', () => {
     expect($(editor, '[data-status-bar]')).toBeNull();
   });
 
+  it('words the line Remove leaves as the strip did', async () => {
+    const editor = await mountEditor(WALL);
+    await openAudit(editor);
+    // A calendar's label leaves its page with its line, so the strip offers Remove.
+    const [, , reset] = await strip(editor, 'entities[0].label');
+    expect(reset.label).toBe('Remove');
+    await act(editor, 'entities[0].label', 'reset');
+
+    const bar = $(editor, '[data-status-bar]')!;
+    expect(text(bar)).toBe('Removed Label on calendar.anna Undo');
+    expect(text($(editor, '.live-region'))).toBe('Removed Label on calendar.anna.');
+    expect($(editor, '[data-focus="undo"]')!.getAttribute('aria-label')).toBe(
+      'Undo: Remove Label on calendar.anna',
+    );
+  });
+
   it('goes to a setting on its page, in its group’s scope', async () => {
     const editor = await mountEditor(WALL);
     await openAudit(editor);
