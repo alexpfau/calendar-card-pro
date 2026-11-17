@@ -776,7 +776,9 @@ describe('reset controls follow the workspace destination, not the built view', 
     expect(seen).toHaveLength(1);
     expect(seen[0]).not.toHaveProperty('event_font_size');
     expect(seen[0].list).toEqual({ event_font_size: '18px' });
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 });
 
 /**

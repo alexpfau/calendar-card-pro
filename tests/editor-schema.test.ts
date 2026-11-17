@@ -3504,7 +3504,9 @@ describe('editor: per-calendar settings', () => {
 
     expect(valueOf(element, 'calendar:label_type', entry(0))).toBe('icon');
     expect(valueOf(element, 'calendar:label', entry(0)) ?? '').toBe('');
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   /**
    * The reported bug, as reported: pick *Text or Emoji*, type a label, clear it, and the
@@ -3556,7 +3558,9 @@ describe('editor: per-calendar settings', () => {
     // And the user can now type the label they wanted all along.
     await changeField(element, 'calendar:label', 'Familienkalender', entry(0));
     expect(valueOf(element, 'calendar:label', entry(0))).toBe('Familienkalender');
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   /**
    * The same failure one door along. An icon label's color field is shown only while the
@@ -4714,7 +4718,9 @@ describe('editor: direct view controls in the chassis', () => {
     await element.updateComplete;
     expect(dispatched.slice(-1)[0]).not.toHaveProperty('column');
     expect(rowShown()).toBe(true);
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('deletes the key and the block when the exception is taken away again', async () => {
     const { element, dispatched } = await mountColumn({
@@ -4767,7 +4773,9 @@ describe('editor: stored and rendered union values', () => {
 
     // The row survives the echo, and still shows the shape that was chosen.
     expect(valueOf(element, 'day_header:week_number_mode')).toBe('none');
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 });
 
 /**

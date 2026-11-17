@@ -462,49 +462,55 @@ describe('adoption waits for a real edit', () => {
 });
 
 describe('All Layouts follows shared values rather than List', () => {
-  it.each([true, false])('gates dependent controls on root switches set to %s', async (enabled) => {
-    const switches = (on: boolean) => ({
-      show_time: on,
-      show_location: on,
-      show_description: on,
-      show_countdown: on,
-      show_progress_bar: on,
-      show_empty_days: on,
-      filter_duplicates: on,
-      allday_badge: on ? 'title' : false,
-    });
-    const children = [
-      'time_font_size',
-      'location_font_size',
-      'description_font_size',
-      'show_countdown_allday',
-      'progress_bar_height',
-      'empty_day_text',
-      'duplicate_accent_color',
-      'allday_badge_style',
-    ];
-    const { editor, reports } = await mount({
-      config_version: Config.CURRENT_CONFIG_VERSION,
-      ...switches(enabled),
-      list: switches(!enabled),
-    });
+  it.each([true, false])(
+    'gates dependent controls on root switches set to %s',
+    async (enabled) => {
+      const switches = (on: boolean) => ({
+        show_time: on,
+        show_location: on,
+        show_description: on,
+        show_countdown: on,
+        show_progress_bar: on,
+        show_empty_days: on,
+        filter_duplicates: on,
+        allday_badge: on ? 'title' : false,
+      });
+      const children = [
+        'time_font_size',
+        'location_font_size',
+        'description_font_size',
+        'show_countdown_allday',
+        'progress_bar_height',
+        'empty_day_text',
+        'duplicate_accent_color',
+        'allday_badge_style',
+      ];
+      const { editor, reports } = await mount({
+        config_version: Config.CURRENT_CONFIG_VERSION,
+        ...switches(enabled),
+        list: switches(!enabled),
+      });
 
-    const visible = () => {
-      const calendars = formsOf(editor, entry());
-      return new Set(
-        formsOf(editor)
-          .filter((form) => !calendars.includes(form))
-          .flatMap((form) => [...workspaceFields(form.schema)].map(({ node }) => node.name)),
-      );
-    };
-    await changeField(editor, 'workspace:editing_workspace', 'shared');
-    expect(valueOf(editor, 'events:show_location')).toBe(enabled);
-    for (const key of children) expect(visible().has(key), `Shared ${key}`).toBe(enabled);
+      const visible = () => {
+        const calendars = formsOf(editor, entry());
+        return new Set(
+          formsOf(editor)
+            .filter((form) => !calendars.includes(form))
+            .flatMap((form) => [...workspaceFields(form.schema)].map(({ node }) => node.name)),
+        );
+      };
+      await changeField(editor, 'workspace:editing_workspace', 'shared');
+      expect(valueOf(editor, 'events:show_location')).toBe(enabled);
+      for (const key of children) expect(visible().has(key), `Shared ${key}`).toBe(enabled);
 
-    await changeField(editor, 'workspace:editing_workspace', 'list');
-    for (const key of children) expect(visible().has(key), `List ${key}`).toBe(!enabled);
-    expect(reports).toEqual([]);
-  });
+      await changeField(editor, 'workspace:editing_workspace', 'list');
+      for (const key of children) expect(visible().has(key), `List ${key}`).toBe(!enabled);
+      expect(reports).toEqual([]);
+      // Over a second in a full local run; the limit is set for CI's slower runner under load
+      // rather than for a hang.
+    },
+    30_000,
+  );
 
   it('preserves default-valued Shared intent after closing and reopening', async () => {
     const { editor, reports } = await mount({ config_version: Config.CURRENT_CONFIG_VERSION });

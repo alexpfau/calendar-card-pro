@@ -705,10 +705,12 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _sizePills(): void {
     if (!this._config || !this.isConnected) return;
+    // Measured once laid out: an editor with no width yet has nothing to measure, and is asked
+    // again on its next update.
+    const root = this.renderRoot.querySelector<HTMLElement>('.card-config');
+    if (!root || root.getBoundingClientRect().width === 0) return;
     const language = this._ctx.language ?? '';
     if (this._pillsSizedFor === language) return;
-    const root = this.renderRoot.querySelector<HTMLElement>('.card-config');
-    if (!root) return;
     const t = this._t(this._ctx);
     const words = ['state.default', 'state.set', 'state.from_all_layouts', 'state.from_card'];
     const probe = document.createElement('span');

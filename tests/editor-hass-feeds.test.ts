@@ -457,5 +457,7 @@ describe('an update that carries an irrelevant hass and a bare request together'
     expect((formsOf(editor).find((form) => 'title' in form.data) as FormElement).data.title).toBe(
       'Family',
     );
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 });
