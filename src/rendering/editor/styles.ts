@@ -1350,9 +1350,17 @@ export default css`
   }
 
   /* A switch: Home Assistant's own row, label and switch, starts the head, and the pill and ⓘ
-     sit on its line. */
+     sit on its line. Home Assistant draws that line, 24 px, at the top of a 56 px box it keeps
+     out of reach, so the box is moved down to center the line in the 44 px head, and the empty
+     part below it is taken back. Centering the box instead put the pill under the switch. */
   .setting-head.switch {
-    align-items: center;
+    align-items: flex-start;
+  }
+
+  .setting-head.switch .setting-control {
+    align-self: flex-start;
+    margin-block: 10px -22px;
+    padding-inline-start: 4px;
   }
 
   .setting-control {
