@@ -606,6 +606,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'chip.not_in': 'Not in {layout}: {names}.',
   // The chips stored where Settings For points, under the chips with where the others come from.
   'chip.chosen_here': 'Chosen Here: {names}',
+  // A part in those lines, with whether it is on: "Countdown (Off)".
+  'chip.part_state': '{part} ({state})',
   // A calendar entry's page.
   'entry.back': 'Back to the overview',
   'entry.previous': 'Previous Calendar',

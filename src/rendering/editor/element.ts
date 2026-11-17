@@ -92,6 +92,7 @@ import * as Routing from './routing';
 import { ENTITY_PATH } from './schemas/calendars';
 import { TOOLBAR_BUTTON_PATH, buildToolbarButtonSchema } from './schemas/card';
 import {
+  ENTITY_TRISTATE_STORED,
   VISIBILITY,
   accentColorModeOf,
   buildEntitySchema,
@@ -3097,8 +3098,19 @@ export class CalendarCardProEditor extends LitElement {
    * @returns The words
    */
   private _wordOf(field: IndexedField, ctx: SchemaCtx): Shown.WordValue {
+    // A calendar's three-way option stores a value its dropdown offers under another name: words
+    // the option the stored value stands for, "Never show", never the stored `false`.
+    const stored =
+      parseFieldId(field.id).scope === 'calendar'
+        ? ENTITY_TRISTATE_STORED[parseFieldId(field.id).name]
+        : undefined;
+    const asOption = (value: unknown): unknown => {
+      if (stored === undefined) return value;
+      const option = Object.entries(stored).find(([, each]) => each === value);
+      return option === undefined ? value : option[0];
+    };
     return (value) =>
-      Summary.wordValue(field, value, ctx.language, this._describe) ??
+      Summary.wordValue(field, asOption(value), ctx.language, this._describe) ??
       (value === undefined || value === null ? this._string(ctx, 'search.not_set') : String(value));
   }
 
@@ -5646,7 +5658,12 @@ export class CalendarCardProEditor extends LitElement {
             : words === undefined
               ? undefined
               : 'set';
-      if (where !== undefined) sources.set(where, [...(sources.get(where) ?? []), label(id)]);
+      // Each part says whether it is on, so where its state comes from never reads as "on".
+      const named = t('chip.part_state', {
+        part: label(id),
+        state: t(pressed ? 'summary.on' : 'summary.off'),
+      });
+      if (where !== undefined) sources.set(where, [...(sources.get(where) ?? []), named]);
       if (this._resetActionOf(id, appearance, pctx, CARD) !== undefined) stored.push(field);
       return [
         {

@@ -783,6 +783,21 @@ describe('a stored setting', () => {
     expect(factsOf(editor, id)[0]).toBe('Set');
   });
 
+  it('names a calendar’s three-way option by its words in Reset’s name, never its stored value', async () => {
+    const editor = await mountEditor({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      show_location: false,
+      entities: [{ entity: 'calendar.anna', show_location: true }],
+    });
+    await goEntry(editor, keysOf(editor, 'entry')[0]);
+    const reset = lineOf(editor, 'calendar:show_location')!.querySelector<HTMLButtonElement>(
+      '[data-reset-keys]',
+    )!;
+    // The calendar goes back to following the card, which hides locations.
+    expect(reset.textContent?.trim()).not.toMatch(/false|true/);
+    expect(reset.getAttribute('aria-label')).not.toMatch(/false|true/);
+  });
+
   it('carries no button among its facts: only Reset, under the control, is pressable', async () => {
     const editor = await mount({
       view: 'grid',

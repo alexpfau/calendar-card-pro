@@ -224,7 +224,8 @@ describe('the event-part chips', () => {
     const editor = await mount({ view: 'grid' });
     await goPage(editor, 'events');
     expect(read(editor, 'Event Details')[2]).toBe('Location');
-    expect(lines(editor)).toContain('Grid Default: Location');
+    // Each part says whether it is on, so its source never reads as "on".
+    expect(lines(editor)).toContain('Grid Default: Location (Off)');
 
     const stored = await mount({ view: 'grid', time_grid: { show_location: true } });
     await goPage(stored, 'events');
@@ -268,19 +269,19 @@ describe('the event-part chips', () => {
     await changeField(editor, 'workspace:editing_workspace', 'shared');
     await goPage(editor, 'events');
     expect(read(editor, 'Event Details')[2]).toBe('Location');
-    expect(lines(editor)[0]).toBe('Chosen Here: Location');
+    expect(lines(editor)[0]).toBe('Chosen Here: Location (Off)');
 
     await changeField(editor, 'workspace:editing_workspace', 'column');
     await goPage(editor, 'events');
     expect(read(editor, 'Event Details')[2]).toBe('Location ✓');
-    expect(lines(editor)[0]).toBe('Chosen Here: Location');
+    expect(lines(editor)[0]).toBe('Chosen Here: Location (On)');
     // A chip's name carries its state words, as any field's does.
     expect(chips(editor, 'Event Details')[2].getAttribute('aria-label')).toBe('Location, Set');
 
     await changeField(editor, 'workspace:editing_workspace', 'list');
     await goPage(editor, 'events');
     expect(read(editor, 'Event Details')[2]).toBe('Location');
-    expect(lines(editor)[0]).toBe('From All Layouts: Location');
+    expect(lines(editor)[0]).toBe('From All Layouts: Location (Off)');
     expect(chips(editor, 'Event Details')[2].getAttribute('aria-label')).toBe(
       'Location, From All Layouts',
     );
@@ -298,8 +299,8 @@ describe('the event-part chips', () => {
       list: { show_countdown: true },
     });
     expect(lines(editor).slice(0, 2)).toEqual([
-      'Chosen Here: Countdown',
-      'From All Layouts: Location',
+      'Chosen Here: Countdown (On)',
+      'From All Layouts: Location (Off)',
     ]);
     expect(
       editor.shadowRoot!.querySelector('[data-focus="undo"]')?.getAttribute('aria-label'),
