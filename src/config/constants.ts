@@ -15,6 +15,23 @@ export const VERSION = {
 // CORE CONFIGURATION
 //-----------------------------------------------------------------------------
 
+/**
+ * The top-level keys Home Assistant takes on every card, as its frontend's `LovelaceCardConfig`
+ * declares them. Its card wrapper reads them, never the card: `visibility` hides the whole card,
+ * `grid_options` sizes it, `disabled` turns it off. So at the top level none of them is a
+ * misplaced option of this card, even where a calendar takes an option of the same name.
+ */
+export const HA_CARD_KEYS: ReadonlySet<string> = new Set([
+  'type',
+  'index',
+  'view_index',
+  'view_layout',
+  'layout_options',
+  'grid_options',
+  'visibility',
+  'disabled',
+]);
+
 export const CACHE = {
   DEFAULT_DATA_REFRESH_MINUTES: 30,
 

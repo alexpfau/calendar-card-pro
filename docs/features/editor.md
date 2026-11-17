@@ -738,6 +738,9 @@ The editor lists five kinds:
 - **A name the card does not know inside a layout's block**, often a typo. It has no Move
   button; fix it in YAML.
 
+Home Assistant's own options at the top level, such as `visibility`, `grid_options` and
+`view_layout`, are never listed: Home Assistant applies them to the whole card.
+
 **Move** appears only where the destination holds no value for the option yet. Where it does,
 moving would replace something you wrote, so the editor names the conflict and leaves it to you.
 An option that belongs to two layouts, such as `min_day_width` at the top level, gets a Move
