@@ -171,7 +171,7 @@ describe('Day.js source API guard', () => {
     const code = readFileSync(join(process.cwd(), 'src/translations/dayjs.ts'), 'utf8');
     const imports = validateDayjsUsage(code, 'dayjs.ts');
     expect(imports).toContain('dayjs/plugin/relativeTime');
-    expect(imports.filter((id: string) => id.startsWith('dayjs/locale/'))).toHaveLength(37);
+    expect(imports.filter((id: string) => id.startsWith('dayjs/locale/'))).toHaveLength(38);
     expect(() =>
       validateDayjsUsage(
         source('const target=dayjs(date).locale(locale);return target.from(dayjs(date));'),
@@ -393,7 +393,7 @@ describe('fail-closed locale trimming', () => {
       },
     });
     const payloads = watched.filter((file) => /dayjs[/\\]locale[/\\].+\.js$/.test(file));
-    expect(payloads).toHaveLength(37);
+    expect(payloads).toHaveLength(38);
     expect(watched).toContain(join(process.cwd(), 'src/calendar-card-pro.ts'));
     expect(watched).toContain(join(process.cwd(), 'src'));
     for (const file of payloads) {
