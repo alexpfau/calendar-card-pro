@@ -883,21 +883,23 @@ export default css`
     line-height: 1.45;
   }
 
-  /* A header too narrow for its title beside its actions, a phone's, puts the actions on a line
-     of their own at its end rather than squeezing the title into a column of single words. */
+  /* A page header is two rows at every width: Back and the title, which keeps the whole first
+     row, then the actions at the second row's end. Sharing one row, a long title wrapped beside
+     them, at some widths and not others, and the actions dropped to a row of their own at others. */
   .page-head {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
     align-items: center;
     gap: 0 8px;
     margin-inline-start: -8px;
   }
 
-  /* A page header's actions, Search Settings first, sit together at its end and wrap together. */
+  /* A page header's actions, Search Settings first, sit together at the second row's end. */
   .head-actions {
     display: flex;
+    grid-column: 1 / -1;
+    justify-self: end;
     align-items: center;
-    margin-inline-start: auto;
   }
 
   .head-actions .history-controls {
@@ -1085,7 +1087,6 @@ export default css`
 
   .page-titles {
     display: flex;
-    flex: 1 1 6rem;
     flex-direction: column;
     min-width: 0;
   }
@@ -1651,28 +1652,65 @@ export default css`
     min-width: 0;
   }
 
-  /* A setting a gate withholds, in its place. */
+  /* A setting a gate withholds, in its place: its name, and under it, where its facts would be,
+     when it appears. Beside the name, the sentence sat where values sit and read on from it. */
   .setting-gated {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0 8px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
     min-height: 44px;
-    padding-inline-start: 4px;
+    padding: 12px 0 10px;
+    padding-inline: 4px 76px;
     color: var(--secondary-text-color);
   }
 
-  .setting-gated-when {
-    margin-inline-start: auto;
-    font-size: 12px;
-    line-height: 1.45;
-    text-align: end;
+  .setting-gated > .setting-label {
+    line-height: 20px;
   }
 
-  /* A gate line shared by several settings reads as a sentence. */
+  .setting-gated-when {
+    font-size: 12px;
+    line-height: 16px;
+  }
+
+  /* A gate line shared by several settings reads as a sentence, the width of the card. */
   .setting-gated > .setting-gated-when:only-child {
-    margin-inline-start: 0;
-    text-align: start;
+    padding: 0;
+    line-height: 1.45;
+  }
+
+  .setting-gated:has(> .setting-gated-when:only-child) {
+    padding-inline-end: 0;
+  }
+
+  /* A heading with nothing to edit until its part is on, or an entity chosen: Off or No Entity
+     beside its title, then the button that changes that, then one line naming what it holds. */
+  .heading-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 12px;
+  }
+
+  .heading-row > .heading {
+    flex: 1 1 auto;
+    padding-inline: 4px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .heading-state {
+    color: var(--secondary-text-color);
+    font-size: 13px;
+  }
+
+  .heading-row > .line-button {
+    margin-inline-end: -8px;
+  }
+
+  .off-group > .gate-summary {
+    margin: -8px 0 0;
   }
 
   /* --- The calendar list and entry pages ------------------------------------

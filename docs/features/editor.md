@@ -53,7 +53,9 @@ menu, Down Arrow opens it from the button, and Escape closes it.
 
 A row opens its page with focus on the page's title. **Back**, at the top and at the foot of
 every page, returns to where you came from, the overview or the search results, with its scroll
-position and focus where you left them. Nothing goes deeper than a page.
+position and focus where you left them. Nothing goes deeper than a page. At the top, Back and the
+title share the first row, and **Search Settings**, **Undo**, **Redo** and **Pick From Preview**
+sit on the row under it, at every width.
 
 - **Escape** closes whatever the editor has open first, such as a setting's state menu or a row's
   actions, then goes Back. On the overview it clears a search, and only then lets Home Assistant
@@ -381,8 +383,8 @@ builds it in one step.
 ### Entry Pages
 
 A calendar's row opens its page; for a calendar with several entries, each entry's row opens
-that entry's page. Its heading names the calendar and,
-where there are several, which entry it is, as in **Anna · Entry 2 of 3**. **Previous Calendar** and
+that entry's page. Its heading names the calendar; where there are several, the line under it
+says which entry it is, as in **Entry 2 of 3 · calendar.anna**. **Previous Calendar** and
 **Next Calendar** step through the list without going Back. The page holds these headings:
 
 | Heading              | What it holds                                                                                                                                                                       |
@@ -549,9 +551,15 @@ same spot again to fold it. Nothing is written until you change a value.
 - **On a phone** the name gets the row's width: the value shows once you open the setting, and a
   pill sits under the name. On a wider screen the values and pills line up in columns down every
   page, and **ⓘ** is always the last column.
-- **A setting that needs another one** stays in its place until it applies, as in **Indicator
-  Size · Appears once the Style is a dot, an icon or an emoji**. Several in a row waiting on the
-  same setting share one line. Turning the other setting on brings them in.
+- **A setting that needs another one** stays in its place until it applies, with what it waits
+  for under its name, as in **Indicator Size** over **Appears once the Style is a dot, an icon or
+  an emoji**. Several in a row waiting on the same setting share one line. Turning the other
+  setting on brings them in.
+- **A heading with nothing to edit yet** says why beside its title. While a part of each event is
+  off, such as Location, its heading says **Off** with **Turn On**, which does what pressing the
+  part under Event Details does, for the layout shown. Before a weather entity is chosen, the
+  weather headings say **No Entity** with **Choose Weather Entity**, which goes to the picker. One
+  line under the title names the settings it holds.
 - **A value stored but not in use**, such as a description size while descriptions are off, is
   listed under its heading, as in **Stored but not in use: Description Font Size (16px)**, with its
   **Reset**. The feature is never switched on to show it.

@@ -159,6 +159,9 @@ const CALENDAR_FILTER_ROWS = 8;
 /** The settings Quick Setup's review lists Apply replacing before Show All. */
 const REVIEW_SHOWN = 5;
 
+/** The weather entity, which a weather heading's settings wait on until one is chosen. */
+const WEATHER_ENTITY = 'weather:weather.entity' as FieldId;
+
 /** Home Assistant's own Visibility editor: the element under a card's Visibility tab. */
 const CONDITIONS_EDITOR = 'ha-card-conditions-editor';
 
@@ -3563,6 +3566,15 @@ export class CalendarCardProEditor extends LitElement {
         items.push({ at: order.get(each.id) ?? 0, gated: each.id, clause });
       }
       items.sort((a, b) => a.at - b.at);
+      const off = this._offCard(
+        plan,
+        items.every((item) => 'gated' in item) && more === nothing,
+        owner,
+        pctx,
+        ctx,
+        labelOf,
+        isChip,
+      );
       const live: unknown[] = [];
       for (let at = 0; at < items.length; at++) {
         const item = items[at];
@@ -3664,6 +3676,18 @@ export class CalendarCardProEditor extends LitElement {
           },
         ];
       });
+      if (off !== undefined) {
+        return [
+          PageView.headingBlock({
+            title,
+            key: heading.key,
+            crossLink,
+            off: { state: off.state, actions: off.actions.map(ShownView.lineButton) },
+            body: html`${off.summary ? html`<p class="hint gate-summary">${off.summary}</p>` : nothing}
+            ${ShownView.gateLines([], inactive)}`,
+          }),
+        ];
+      }
       if (live.length === 0 && gateLines.length === 0 && inactive.length === 0) {
         if (more === nothing) return [];
       }
@@ -3694,6 +3718,99 @@ export class CalendarCardProEditor extends LitElement {
         }),
       ];
     });
+  }
+
+  /**
+   * A heading that holds nothing to edit while the part it belongs to is off, or before a weather
+   * entity is chosen (backlog item 307): what its heading says in place of its gate lines, Off
+   * with Turn On, or No Entity with Choose Weather Entity, and the one line naming what it holds.
+   * Turn On writes what the part's chip writes, in the scope shown, as one undo step.
+   *
+   * @param plan - The heading's plan
+   * @param empty - Whether it draws no setting and nothing else of its own
+   * @param owner - Whose page
+   * @param pctx - Plan context
+   * @param ctx - Schema context
+   * @param labelOf - A setting's label
+   * @param isChip - Whether a setting is drawn as a chip
+   * @returns What it shows, or `undefined` where it holds something to edit or waits on anything
+   * else
+   */
+  private _offCard(
+    plan: Plan.HeadingPlan,
+    empty: boolean,
+    owner: PlanOwner,
+    pctx: Plan.PlanCtx,
+    ctx: SchemaCtx,
+    labelOf: (id: FieldId) => string,
+    isChip: (id: FieldId) => boolean,
+  ): { state: string; actions: ShownView.LineButton[]; summary: string } | undefined {
+    if (!empty || owner.kind === 'entry') return undefined;
+    const present = this._drawing!.present;
+    const waits = [
+      ...plan.gated,
+      ...plan.inactive.filter((each) => each.gate.kind === 'gate'),
+    ].filter((each) => !isChip(each.id));
+    if (waits.length === 0) return undefined;
+    const opens = new Map<FieldId, unknown>();
+    for (const { unmet } of waits) {
+      const part = unmet.field in Chips.CHIP_LABELS && Chips.inScope(unmet.field, pctx.workspace);
+      if (!(part || unmet.field === WEATHER_ENTITY) || !present.has(unmet.field)) return undefined;
+      opens.set(unmet.field, unmet.opens);
+    }
+    const weather = opens.has(WEATHER_ENTITY);
+    if (weather && opens.size > 1) return undefined;
+    const t = this._t(ctx);
+    const title = this._headingTitle(plan.heading, ctx) ?? '';
+    const key = plan.heading.key;
+    const partOf = (id: FieldId): string => this._string(ctx, Chips.CHIP_LABELS[id]);
+    const actions = [...opens].map(([id, value]): ShownView.LineButton => {
+      if (weather) {
+        const label = labelOf(id);
+        return {
+          label: t('gate.choose', { label }),
+          name: t('gate.choose_named', { label, heading: title }),
+          focus: `choose:${key}`,
+          kind: 'go-up',
+          onPress: () => this._land({ kind: 'field', id }, label, []),
+        };
+      }
+      const part = partOf(id);
+      return {
+        label: opens.size === 1 ? t('gate.turn_on') : t('gate.turn_on_part', { part }),
+        name: t('gate.turn_on_part', { part }),
+        focus: `turn-on:${id}`,
+        kind: 'turn-on',
+        onPress: () => {
+          this._commit(
+            t('history.change', { setting: labelOf(id) }),
+            undefined,
+            () => this._writeFieldValue(WriteFrames.CARD_OWNER, id, value),
+            `field:${id}`,
+          );
+          // The button leaves with the card's Off: focus goes to its heading.
+          this._focusSoon([`.page-group[data-heading="${CSS.escape(key ?? '')}"] .heading`]);
+        },
+      };
+    });
+    // A card waiting on one part drops that part's word where a name starts or ends with it:
+    // "Location Font Size" reads "Font Size" under Location. A name with the word inside it, or in
+    // a language that puts it elsewhere, stays whole.
+    const only = !weather && opens.size === 1 ? partOf([...opens.keys()][0]) : undefined;
+    const shorten = (name: string): string => {
+      if (only === undefined || name.length <= only.length + 1) return name;
+      const lower = name.toLocaleLowerCase(ctx.language);
+      const word = only.toLocaleLowerCase(ctx.language);
+      if (lower.startsWith(`${word} `)) return name.slice(word.length + 1);
+      if (lower.endsWith(` ${word}`)) return name.slice(0, name.length - word.length - 1);
+      return name;
+    };
+    const names = plan.gated.filter((each) => !isChip(each.id)).map((each) => labelOf(each.id));
+    return {
+      state: weather ? t('gate.no_entity') : t('summary.off'),
+      actions,
+      summary: names.map(shorten).join(Summary.SUMMARY_SEPARATOR),
+    };
   }
 
   /**
@@ -8236,13 +8353,14 @@ export class CalendarCardProEditor extends LitElement {
       open: pageOpen,
       onToggle: () => this._toggleStrip('page'),
     });
-    // Inside a calendar listed more than once, the heading says which entry this is.
-    const title = single
-      ? name
-      : `${name}${Summary.SUMMARY_SEPARATOR}${this._string(ctx, 'entity.occurrence', {
-          position: row.position,
-          total: row.total,
-        })}`;
+    // Inside a calendar listed more than once, the line under the heading says which entry this
+    // is, before the calendar's id, so the heading keeps to one line on a phone.
+    const occurrence = single
+      ? undefined
+      : this._string(ctx, 'entity.occurrence', { position: row.position, total: row.total });
+    const title = name;
+    const sub =
+      occurrence === undefined ? entityId : `${occurrence}${Summary.SUMMARY_SEPARATOR}${entityId}`;
     const notice = this._entryNotice?.key === key ? this._entryNotice : undefined;
     const declared = this._entrySchemas(this._entrySubform(ctx), ctx).find(
       (each) => each.key === key,
@@ -8280,8 +8398,12 @@ export class CalendarCardProEditor extends LitElement {
         title,
         t,
         this._back,
-        html`${this._renderHeadActions(ctx, title)} ${more}`,
-        entityId,
+        html`${this._renderHeadActions(
+          ctx,
+          occurrence === undefined ? title : `${title}${Summary.SUMMARY_SEPARATOR}${occurrence}`,
+        )}
+        ${more}`,
+        sub,
         this._string(ctx, 'entry.back'),
       )}
       ${this._renderPickBanner(ctx)}
