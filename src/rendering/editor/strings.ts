@@ -1115,6 +1115,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'language_mode.option.hu.label': 'Magyar (hu)',
   'language_mode.option.is.label': 'Íslenska (is)',
   'language_mode.option.it.label': 'Italiano (it)',
+  'language_mode.option.ja.label': '日本語 (ja)',
   'language_mode.option.ko.label': '한국어 (ko)',
   'language_mode.option.lt.label': 'Lietuvių (lt)',
   'language_mode.option.lv.label': 'Latviešu (lv)',

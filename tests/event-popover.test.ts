@@ -1018,6 +1018,51 @@ describe('placing', () => {
   });
 });
 
+describe('a panel taller than the screen', () => {
+  // The panel scrolls once its rows run past its height. A row allowed to shrink was squeezed
+  // instead: a long description spilled out of its cell under the foot, and the map and the
+  // sheet's grabber, which have no automatic minimum, were squeezed to nothing. Layout is out of
+  // reach here, so this reads what the browser lays out by: every row, in each state it can be
+  // in, computes flex-shrink 0.
+  it('keeps every row at its height, so the panel scrolls instead', async () => {
+    const width = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+    try {
+      const description = Array.from({ length: 40 }, (_, i) => `${i + 1}. Stir and wait`).join(
+        '\n',
+      );
+      const { root, press, button } = await open(
+        {
+          entry: { ...SWIM, description },
+          display: { title: 'Swim', location: SWIM.location, description },
+        },
+        { states: POOL_ZONE },
+      );
+      await vi.waitFor(() => expect(root.querySelector('.map')).not.toBeNull());
+      const rows = () => Array.from(root.querySelector('.panel')!.children);
+      const shrinking = () =>
+        rows()
+          .filter((row) => getComputedStyle(row).flexShrink !== '0')
+          .map((row) => row.className || row.tagName);
+      const holds = (selector: string) =>
+        expect(rows().some((row) => row.matches(selector))).toBe(true);
+
+      for (const selector of ['.grabber', 'div.notes', '.map', '.foot']) holds(selector);
+      expect(shrinking()).toEqual([]);
+
+      await press(root.querySelector('.notes')!);
+      holds('textarea.notes');
+      expect(shrinking()).toEqual([]);
+
+      await press(button('Delete'));
+      holds('.ask');
+      expect(shrinking()).toEqual([]);
+    } finally {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+    }
+  });
+});
+
 /** A write Home Assistant answers only when the test says so. */
 function deferredWrite() {
   let settle!: (fail?: unknown) => void;
