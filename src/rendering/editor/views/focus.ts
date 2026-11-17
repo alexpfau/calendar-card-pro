@@ -105,6 +105,33 @@ export function focusTextBox(form: Element): boolean {
 }
 
 /**
+ * What has focus, through every shadow root: `undefined` where nothing does but the page's body.
+ *
+ * @returns The element
+ */
+export function deepActive(): Element | undefined {
+  let active: Element | null = document.activeElement;
+  while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+  return active === null || active === document.body ? undefined : active;
+}
+
+/**
+ * Whether an element sits inside one of a tag's, across shadow roots.
+ *
+ * @param element - The element
+ * @param tag - The tag
+ * @returns Whether it does
+ */
+export function within(element: Element, tag: string): boolean {
+  let node: Node | null = element;
+  while (node) {
+    if (node instanceof Element && node.localName === tag) return true;
+    node = node.parentNode ?? (node instanceof ShadowRoot ? node.host : null);
+  }
+  return false;
+}
+
+/**
  * The selector for the control a `data-focus` key names.
  *
  * @param key - The key

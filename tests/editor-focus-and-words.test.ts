@@ -166,6 +166,32 @@ describe('focus', () => {
     );
   });
 
+  it('waits for Home Assistant’s card picker to close before starting a fresh card', async () => {
+    // The picker holds focus as the editor first draws, then closes and leaves it on the body.
+    const picker = document.createElement('hui-dialog-create-card');
+    const card = document.createElement('button');
+    picker.appendChild(card);
+    document.body.appendChild(picker);
+    card.focus();
+    const editor = await mountEditor({ type: 'custom:calendar-card-pro' }, { hass: fakeHass() });
+    expect(document.activeElement).toBe(card);
+
+    // Home Assistant then focuses its edit dialog's frame, and drops that on the body too.
+    picker.remove();
+    const frame = document.createElement('dialog');
+    frame.tabIndex = -1;
+    document.body.appendChild(frame);
+    frame.focus();
+    await frames(2);
+    expect(document.activeElement).toBe(frame);
+    frame.remove();
+    await frames(2);
+
+    expect((editor.shadowRoot!.activeElement as HTMLElement | null)?.dataset.focus).toBe(
+      'quick-setup',
+    );
+  });
+
   it('leaves focus where it is on a fresh card when something already has it', async () => {
     const outside = document.createElement('button');
     document.body.appendChild(outside);

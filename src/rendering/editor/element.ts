@@ -574,16 +574,32 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * A fresh card opens from Home Assistant's card picker, which leaves focus on the page's body
-   * as it goes. The editor then puts it on Start From an Example, its first control, so the
-   * keyboard starts inside the dialog. Anything Home Assistant focused stays focused.
+   * A fresh card opens from Home Assistant's card picker, which hands focus to the edit dialog's
+   * frame a moment after the editor first draws, and then drops it on the page's body. The editor
+   * puts it on Start From an Example, its first control, so the keyboard starts inside the dialog.
+   * It watches for a second, frame by frame, and stops at the first focus on a control anywhere:
+   * what Home Assistant or the user focused stays focused.
    */
   private _greet(): void {
     if (this._greeted || !this._config) return;
     this._greeted = true;
-    const active = document.activeElement;
-    if (!this._banner || (active !== null && active !== document.body)) return;
-    Focus.focusFirst(this.renderRoot, [Focus.byFocusKey('quick-setup')]);
+    if (!this._banner) return;
+    const until = Date.now() + 1000;
+    const greet = (): void => {
+      Focus.focusFirst(this.renderRoot, [Focus.byFocusKey('quick-setup')]);
+    };
+    const step = (): void => {
+      if (!this.isConnected) return;
+      const active = Focus.deepActive();
+      if (active === undefined) return greet();
+      // Still the picker, or the dialog's frame rather than a control in it.
+      const passing =
+        active.localName === 'dialog' || Focus.within(active, 'hui-dialog-create-card');
+      if (!passing) return;
+      if (Date.now() < until) requestAnimationFrame(step);
+      else if (active.localName === 'dialog') greet();
+    };
+    step();
   }
 
   /**
@@ -9689,16 +9705,28 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * Resets one line of What This Card Changes, as one undo step, and leaves the line that says so
-   * at the top of its group, with Undo, which takes focus.
+   * at the top of its group, with Undo, which takes focus. The line words it as the strip did:
+   * "Reset Last Hour in Grid", or "Removed Language" where the strip said Remove.
    *
    * @param named - The setting, as the row names it
    * @param groupKey - Its group's key
    * @param target - What to reset
+   * @param verb - Whether the strip offered Reset or Remove
    */
-  private _auditReset(named: string, groupKey: string, target: Reset.ResetTarget): void {
-    const text = this._string(this._ctx, 'history.reset', { setting: named });
+  private _auditReset(
+    named: string,
+    groupKey: string,
+    target: Reset.ResetTarget,
+    verb: 'reset' | 'remove' = 'reset',
+  ): void {
+    const ctx = this._ctx;
+    const step =
+      verb === 'remove'
+        ? this._string(ctx, 'history.remove', { name: named })
+        : this._string(ctx, 'history.reset', { setting: named });
+    const text = verb === 'remove' ? this._string(ctx, 'status.removed', { name: named }) : step;
     this._openStrip = undefined;
-    const done = this._commit(text, undefined, () => this._applyReset(target, []));
+    const done = this._commit(step, undefined, () => this._applyReset(target, []));
     if (done) this._showStatus({ kind: 'audit', text, at: 0, group: groupKey }, `${text}.`);
   }
 
@@ -9935,6 +9963,7 @@ export class CalendarCardProEditor extends LitElement {
                 entry === undefined
                   ? { kind: 'path', path: line.path }
                   : { kind: 'entry', key: entry, keys: [key] },
+                verb,
               ),
           ),
         ],
