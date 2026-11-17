@@ -169,7 +169,9 @@ the dashboard can read its configuration, conditions included.
 - Written by hand, a `state` or `numeric_state` condition naming its entity with `entity` rather
   than `entity_id` cannot wait (`for`) or use a `value_template`. Its calendar stays hidden, and
   the browser console says why. Home Assistant's editor writes `entity_id`.
-- Conditions belong to one entry in `entities`. A calendar listed twice, as
+- Conditions belong to one entry in `entities`. `visibility` at the top level, beside `type`, is
+  Home Assistant's own and hides the whole card, as it does for any card; this card leaves it
+  alone. A calendar listed twice, as
   [splitting it by event type](#separating-all-day-from-timed-events) does, needs them on each
   entry, and one entry can show while the other does not. The calendar leaves the filter, adding
   events and the "Couldn't load" line only while all its entries are hidden.

@@ -82,7 +82,10 @@ const OWNED: Readonly<Record<string, PageId | 'overview'>> = {
   'toolbar.buttons': 'card_header',
 };
 
-/** Home Assistant's own keys, which its Layout tab writes. */
+/**
+ * Home Assistant's own keys, which its Layout tab writes: the part of `HA_CARD_KEYS` that tab
+ * edits, so the tag can name it.
+ */
 export const HA_LAYOUT_KEYS: ReadonlySet<string> = new Set([
   'grid_options',
   'layout_options',
