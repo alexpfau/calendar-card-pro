@@ -75,6 +75,10 @@ The visual editor's search matched only what is on screen and the option names, 
 
 ## 🐛 Bug Fixes
 
+### Older iPhones & iPads
+
+- **No Event Text on Safari 15.4 to 16.x** - Since v5.2.0, iPhones and iPads on iOS or iPadOS 15.4 to 16.x, among them iPads that stop at iPadOS 15 or 16 and run the Companion app, drew each day's date and accent bar but no event titles and no `empty_day_text`, in list, column and grid view. The card now draws them there as it did in v5.1. (Thanks @adamdougal, #877)
+
 ### Home Assistant Restarts
 
 - **A Restart Could Freeze the Dashboard** - On a card that takes its colors from Home Assistant (`accent_color: home-assistant`, card-wide or on a calendar), a failed read of Home Assistant's entity registry made the card redraw, and every redraw read it again, with no pause between. Where a card appeared while Home Assistant was restarting, such as on switching views or opening the editor, the browser tab could freeze for good, and stayed frozen after Home Assistant was back. A failed read now waits a minute before trying again, longer each time, and tries again at once when the connection returns
@@ -105,6 +109,7 @@ The visual editor's search matched only what is on screen and the option names, 
 - [#619](https://github.com/alexpfau/calendar-card-pro/issues/619) - Style past, today and future day headings separately, including weight and size, by @codetalker78. Today's and past days' size and weight shipped, and past days fade; italic and a color of their own for past days are possible with card-mod through the new `past-day` class
 - [#222](https://github.com/alexpfau/calendar-card-pro/issues/222) - Skip the first N events, so a second card can continue the list, by @loryanstrant
 - [#820](https://github.com/alexpfau/calendar-card-pro/issues/820) - 1 hour event wont scroll title text by @kaikri31
+- [#876](https://github.com/alexpfau/calendar-card-pro/issues/876) - No event text in any view on Safari 15.4–16.x (iPadOS 15/16) since v5.2.0 by @adamdougal
 
 **Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v5.2.0...v5.3.0
 

@@ -140,8 +140,10 @@ describe('under an Icelandic Home Assistant', () => {
       expect(files.asked, language).toEqual(ALL.map((name) => path(name, file)));
       expect(await intlStrings(language), language).toEqual(expected.get(language));
     }
-    // Over a second in a full local run; the limit is set for CI's slower runner under load
-    // rather than for a hang.
+    // About a second on a quiet machine, and 6 s beside three other full runs: it reloads the
+    // translation modules twice per card language. The timeout leaves room for that rather
+    // than tracking the usual duration. A timeout here also failed the tests after it, since
+    // this loop kept installing and removing the polyfill underneath them.
   }, 30_000);
 
   it('a Nynorsk card loads Nynorsk, and Bokmål where Home Assistant has no Nynorsk', async () => {
