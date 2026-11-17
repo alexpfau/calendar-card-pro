@@ -342,9 +342,10 @@ describe('focus and announcements', () => {
       'Both entries show the same events until one sets Event Type or a word list, so each event ' +
         'shows twice for now.',
     );
-    // Which entry this is sits in the page's heading; the line under it names the calendar.
-    expect(page.querySelector('.page-title')?.textContent).toBe('Anna · Entry 2 of 2');
-    expect(page.querySelector('.page-sub')?.textContent).toBe(ANNA);
+    // The heading names the calendar alone, so it keeps to one line on a phone; the line under
+    // it says which entry this is, then the calendar's id.
+    expect(page.querySelector('.page-title')?.textContent).toBe('Anna');
+    expect(page.querySelector('.page-sub')?.textContent).toBe(`Entry 2 of 2 · ${ANNA}`);
 
     await press(editor, 'back-top');
     expect(focused(editor)).toBe(`row:${anna}`);

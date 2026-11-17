@@ -321,6 +321,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // every other condition has a clause of its own, or its gate's (`gates.ts` › `whenText`).
   'gate.line': 'Appears once {when}: {names}.',
   'gate.line_bare': 'Appears once {when}.',
+  'gate.turn_on': 'Turn On',
+  'gate.turn_on_part': 'Turn On {part}',
+  'gate.no_entity': 'No Entity',
+  'gate.choose': 'Choose {label}',
+  'gate.choose_named': 'Choose {label} for {heading}',
   'gate.when.on': '{label} is on',
   'gate.when.pressed': '{part} is pressed',
   'gate.when.indicator_shown': 'a Style other than None is chosen',

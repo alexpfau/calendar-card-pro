@@ -563,7 +563,7 @@ describe('Reset and Remove', () => {
 });
 
 describe('gate lines and stored values not in use', () => {
-  it('draws the line alone, then each stored value with its Reset, where all are stored', async () => {
+  it('says Off with Turn On in place of the gate line, then each stored value with its Reset', async () => {
     const editor = await mount({
       show_description: false,
       show_description_allday: true,
@@ -574,12 +574,18 @@ describe('gate lines and stored values not in use', () => {
     });
     await changeField(editor, 'workspace:editing_workspace', 'shared');
     await goPage(editor, 'events');
-    const lines = [
-      ...editor.shadowRoot!.querySelectorAll('.page-group[data-heading="description"] .gate-line'),
-    ].map((line) => line.textContent!.replace(/\s+/g, ' ').trim());
-    // Show Description is drawn as the Description chip, so the line says it is pressed (PR 18).
-    expect(lines[0]).toBe('Appears once Description is pressed.');
-    expect(lines.slice(1)).toEqual([
+    const group = $(editor, '.page-group[data-heading="description"]')!;
+    expect(group.classList.contains('off-group')).toBe(true);
+    const row = group.querySelector('.heading-row')!;
+    expect(row.querySelector('.heading')?.textContent).toBe('Description');
+    expect(row.querySelector('.heading-state')?.textContent).toBe('Off');
+    expect(row.querySelector('button')?.textContent?.trim()).toBe('Turn On');
+    // Every setting is stored, so nothing waits unstored and there is no line naming them.
+    expect(group.querySelector('.gate-summary')).toBeNull();
+    const lines = [...group.querySelectorAll('.gate-line')].map((line) =>
+      line.textContent!.replace(/\s+/g, ' ').trim(),
+    );
+    expect(lines).toEqual([
       'Stored but not in use: Show Description For All-Day Events (On) Reset',
       'Stored but not in use: Description Font Size (20px) Reset',
       'Stored but not in use: Description Color (#ff0000) Reset',
@@ -588,25 +594,103 @@ describe('gate lines and stored values not in use', () => {
     ]);
   });
 
-  it('names what waits, and the stored value, from All Layouts in a layout', async () => {
+  it('names what waits once, without the part’s own word, and the stored value from All Layouts', async () => {
     const editor = await mount({ show_description: false, description_font_size: '20px' });
     await goPage(editor, 'events');
-    const lines = [
-      ...editor.shadowRoot!.querySelectorAll(
-        '.page-group[data-heading="description"] :is(.gate-line, .setting-gated)',
+    const group = $(editor, '.page-group[data-heading="description"]')!;
+    expect(group.querySelector('.gate-summary')?.textContent).toBe(
+      'Show Description For All-Day Events · Color · Icon Size · Line Limit',
+    );
+    expect(group.querySelectorAll('.setting-gated')).toHaveLength(0);
+    expect(
+      [...group.querySelectorAll('.gate-line')].map((line) =>
+        line.textContent!.replace(/\s+/g, ' ').trim(),
       ),
-    ].map((line) => line.textContent!.replace(/\s+/g, ' ').trim());
-    // In place, once: the stored value's line says nothing more about the condition.
-    expect(lines[0]).toMatch(
-      /^Appears once Description is pressed: Show Description For All-Day Events, /,
-    );
-    expect(lines.filter((line) => line.startsWith('Appears once'))).toHaveLength(1);
-    expect(lines).toContain(
-      'Stored but not in use: Description Font Size (20px), from All Layouts',
-    );
+    ).toEqual(['Stored but not in use: Description Font Size (20px), from All Layouts']);
     // No Reset here reaches All Layouts' value, so the line has no button; Settings For does.
     const line = $(editor, '[data-focus="inactive:events:description_font_size"]')!;
     expect(line.querySelector('button')).toBeNull();
+  });
+});
+
+describe('a heading with nothing to edit', () => {
+  const turnOns = (editor: MountedEditor): Array<[string, string | null]> =>
+    [...editor.shadowRoot!.querySelectorAll<HTMLElement>('[data-focus^="turn-on:"]')].map(
+      (each) => [each.textContent!.trim(), each.getAttribute('aria-label')],
+    );
+
+  it('turns its part on in the scope shown, as the chip would, in one undo step', async () => {
+    const editor = await mount({ show_location: false });
+    await changeField(editor, 'workspace:editing_workspace', 'list');
+    await goPage(editor, 'events');
+    expect(turnOns(editor)).toContainEqual(['Turn On', 'Turn On Location']);
+    await click(editor, '[data-focus="turn-on:events:show_location"]');
+    await editor.updateComplete;
+    expect(lastConfig(editor)).toEqual({
+      config_version: VERSION,
+      entities: ['calendar.anna'],
+      show_location: false,
+      list: { show_location: true },
+    });
+    const group = $(editor, '.page-group[data-heading="location"]')!;
+    expect(group.classList.contains('off-group')).toBe(false);
+    expect(group.querySelector('[data-field="events:location_font_size"]')).not.toBeNull();
+    // The button left with the Off: focus is on the heading it stood beside.
+    expect(editor.shadowRoot!.activeElement).toBe(group.querySelector('.heading'));
+    expect($(editor, '[data-focus="undo"]')?.getAttribute('aria-label')).toBe(
+      'Undo: Change Show Location',
+    );
+  });
+
+  it('names each button by its part where a heading waits on two', async () => {
+    const editor = await mount({ show_countdown: false, show_progress_bar: false });
+    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await goPage(editor, 'events');
+    const group = $(editor, '.page-group[data-heading="progress"]');
+    expect(group?.classList.contains('off-group')).toBe(true);
+    expect(
+      [...group!.querySelectorAll<HTMLElement>('.heading-row .line-button')].map((each) => [
+        each.textContent!.trim(),
+        each.getAttribute('aria-label'),
+      ]),
+    ).toEqual([
+      ['Turn On Countdown', 'Turn On Countdown'],
+      ['Turn On Progress Bar', 'Turn On Progress Bar'],
+    ]);
+  });
+
+  it('says No Entity on weather headings until an entity is chosen, and goes to its picker', async () => {
+    const editor = await mount();
+    await goPage(editor, 'weather');
+    const groups = [...editor.shadowRoot!.querySelectorAll<HTMLElement>('.off-group')];
+    expect(groups.map((group) => group.querySelector('.heading-state')?.textContent)).toEqual([
+      'No Entity',
+      'No Entity',
+    ]);
+    const choose = groups.map((group) => group.querySelector<HTMLElement>('.heading-row button')!);
+    expect(choose.map((each) => each.textContent!.trim())).toEqual([
+      'Choose Weather Entity',
+      'Choose Weather Entity',
+    ]);
+    // Two buttons on one page, named apart by their heading.
+    expect(choose.map((each) => each.getAttribute('aria-label'))).toEqual([
+      'Choose Weather Entity for In the Day Header',
+      'Choose Weather Entity for Beside Each Event',
+    ]);
+    choose[1].click();
+    await editor.updateComplete;
+    await editor.updateComplete;
+    expect($(editor, '.jump [data-field="weather:weather.entity"]')).not.toBeNull();
+  });
+
+  it('keeps its gate line where it waits on anything but a part or a weather entity', async () => {
+    const editor = await mount({ weather: { entity: 'weather.home', position: 'date' } });
+    await goPage(editor, 'weather');
+    const group = $(editor, '.page-group[data-heading="weather.event"]');
+    expect(group?.classList.contains('off-group')).toBe(false);
+    expect(group?.querySelector('.setting-gated, .gate-line')?.textContent).toMatch(
+      /Appears once the forecast shows beside events/,
+    );
   });
 });
 

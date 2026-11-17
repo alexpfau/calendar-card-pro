@@ -500,6 +500,37 @@ describe('the search row', () => {
   });
 });
 
+describe('a page header', () => {
+  it('keeps Back and the title on its first row and its actions on a second, at every width', () => {
+    const all = declarations(styles.cssText);
+    const on = (selector: string, property: string) =>
+      all.filter((each) => each.selectors.includes(selector) && each.property === property);
+    expect(on('.page-head', 'display').map(({ value }) => value)).toEqual(['grid']);
+    expect(on('.page-head', 'grid-template-columns').map(({ value }) => value)).toEqual([
+      '48px minmax(0, 1fr)',
+    ]);
+    expect(on('.head-actions', 'grid-column').map(({ value }) => value)).toEqual(['1 / -1']);
+    expect(on('.head-actions', 'justify-self').map(({ value }) => value)).toEqual(['end']);
+    // No width query brings the actions back beside the title.
+    expect(
+      all.filter(
+        (each) => each.at.length > 0 && /page-head|head-actions/.test(each.selectors.join()),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('a setting a gate withholds', () => {
+  it('says when it appears under its name, never where a value sits', () => {
+    const all = declarations(styles.cssText);
+    const on = (selector: string, property: string) =>
+      all.filter((each) => each.selectors.includes(selector) && each.property === property);
+    expect(on('.setting-gated', 'flex-direction').map(({ value }) => value)).toEqual(['column']);
+    expect(on('.setting-gated-when', 'text-align')).toEqual([]);
+    expect(on('.setting-gated-when', 'margin-inline-start')).toEqual([]);
+  });
+});
+
 describe('add actions', () => {
   it('draw Add Calendar and Add Button as the same tonal pill', async () => {
     const editor = await mountEditor({ ...CARD, toolbar: { show: true } });
