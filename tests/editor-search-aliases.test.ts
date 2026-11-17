@@ -34,8 +34,9 @@ import { EDITOR_LANGUAGE_STRINGS } from '../src/rendering/editor/translations';
 interface Family {
   /** The setting, as its form names it; a page's id; a Home Assistant tab. */
   field: string;
-  /** Where it is set: on the card, or in one calendar's form; or a page, or a tab. */
-  scope: 'card' | 'calendar' | 'page' | 'ha-tab';
+  /** Where it is set: on the card, or in one calendar's form; or a page, a tab, or a block of the
+   * overview's own. */
+  scope: 'card' | 'calendar' | 'page' | 'ha-tab' | 'overview';
   /** Users' words for it, none of which its label, helper or key contains. */
   queries: ReadonlyArray<string>;
 }
@@ -100,6 +101,8 @@ const FAMILIES: Readonly<Record<string, Family>> = {
     scope: 'page',
     queries: ['Actions & Refresh'],
   },
+  // Starting Layout's name before v6.
+  'view.aliases': { field: 'starting_layout', scope: 'overview', queries: ['card displays'] },
 };
 
 /**
@@ -108,7 +111,7 @@ const FAMILIES: Readonly<Record<string, Family>> = {
  */
 function rows(language: string, query: string): Record<Family['scope'], string[]> {
   const config = { ...Config.DEFAULT_CONFIG, entities: ['calendar.anna'] } as Types.Config;
-  const found = { card: [], calendar: [], page: [], 'ha-tab': [] } as Record<
+  const found = { card: [], calendar: [], page: [], 'ha-tab': [], overview: [] } as Record<
     Family['scope'],
     string[]
   >;
@@ -116,7 +119,8 @@ function rows(language: string, query: string): Record<Family['scope'], string[]
     const { target } = entry;
     if (target.kind === 'page') found.page.push(target.page);
     else if (target.kind === 'ha-tab') found['ha-tab'].push(target.tab);
-    else if (target.kind === 'split' || target.kind === 'overview') continue;
+    else if (target.kind === 'overview') found.overview.push(target.block);
+    else if (target.kind === 'split') continue;
     else {
       found[target.kind === 'field' ? 'card' : 'calendar'].push(parseFieldId(target.id).name);
     }

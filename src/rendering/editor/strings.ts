@@ -60,8 +60,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // holds them to. Counts are a label and a number ("Set: 3"), so no language inflects for one.
   'overview.settings': 'Settings',
   'overview.more': 'More',
-  // The frame around Card Displays.
-  'overview.starting_layout': 'Starting Layout',
   'more.example': 'Start From an Example',
   'more.example_note': 'Quick Setup: an example card and a few questions',
   'more.audit': 'What This Card Changes',
@@ -234,7 +232,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'status.applied': 'Applied {story}',
   // The jump list: its count line, the scope it shows values for, and what a row and a jump say.
   'search.results': 'Results for “{query}”: {count}',
-  'search.values_for': 'Values for {layout}',
+  // A result's value where layouts hold different ones: the layout its page opens in.
+  'search.value_in': '{layout}: {value}',
   'search.overview': 'Overview',
   'search.not_set': 'Not Set',
   'search.yaml': 'YAML: {path}',
@@ -354,17 +353,19 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'gate.needs.calendar_filter': 'a calendar filter in the toolbar',
 
   // --- View -----------------------------------------------------------------
-  view: 'Card Displays',
+  // The overview's frame heading as well, over a group with no visible label of its own.
+  view: 'Starting Layout',
+  // Its name before v6.
+  'view.aliases': 'card displays',
   'view.option.list.label': 'List',
   'view.option.list.description': 'Days stacked, one per row',
   'view.option.column.label': 'Columns',
   'view.option.column.description': 'Days side by side',
   'view.option.grid.label': 'Grid',
   'view.option.grid.description': 'Days side by side on an hour axis',
-  'view.helper':
-    'The card’s starting layout. Side-by-side layouts can fall back to List when space is tight.',
+  'view.helper': 'Side-by-side layouts can fall back to List when space is tight.',
   editing_workspace: 'Editing Settings For',
-  'editing_workspace.helper': 'Choose which layout to edit without changing Card Displays.',
+  'editing_workspace.helper': 'Choose which layout to edit without changing Starting Layout.',
   'editing_workspace.shared_note':
     'These are the shared starting values. A layout’s own settings or built-in defaults can take precedence.',
   'value_source.card': 'Applies to the whole card.',

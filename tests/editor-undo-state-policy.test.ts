@@ -149,6 +149,7 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_cancelQuickSetup',
     '_applyQuickSetup',
     '_filterChanged',
+    '_clearSearch',
     '_compositionStart',
     '_compositionEnd',
     '_cardColors',

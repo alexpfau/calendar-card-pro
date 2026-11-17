@@ -316,14 +316,18 @@ describe('the keys an alias string may sit on', () => {
     expect(used.length).toBeGreaterThan(0);
     expect(used.filter((key) => !aliasKeys.has(key))).toEqual([]);
 
-    // The view picker, the workspace picker and the filter bar sit above the panels, where the
-    // search never looks, so words filed under them would find nothing. The search box shares
-    // its name with the toolbar's Search button, a panel field, whose words do reach the search.
+    // The workspace picker and the filter bar sit above the panels, where the search never looks,
+    // so words filed under them would find nothing. The search box shares its name with the
+    // toolbar's Search button, a panel field, whose words do reach the search. Starting Layout,
+    // the overview's `view` picker, is the one chassis control search reads (`startingLayoutRow`).
     const { displayView, workspace, filter } = chassisSchemas();
     const chassis = [...names(displayView), ...names(workspace), ...names(filter)];
     expect(chassis).toEqual(expect.arrayContaining(['view', 'editing_workspace', 'search']));
     expect(aliasKeys.has('toolbar.search')).toBe(true);
-    expect(chassis.filter((name) => name !== 'search' && aliasKeys.has(name))).toEqual([]);
+    expect(aliasKeys.has('view')).toBe(true);
+    expect(
+      chassis.filter((name) => name !== 'search' && name !== 'view' && aliasKeys.has(name)),
+    ).toEqual([]);
     // Over a second in a full local run; the limit is set for CI's slower runner under load
     // rather than for a hang.
   }, 30_000);

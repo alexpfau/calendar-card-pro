@@ -100,10 +100,11 @@ async function escape(
 }
 
 describe('the overview', () => {
-  it('draws its blocks in order', async () => {
+  it('draws its blocks in order, and no Settings For', async () => {
     const editor = await mountEditor(CARD);
+    // Nothing on the overview is edited for a scope: Settings For is the pages'.
+    expect($(editor, '.scope')).toBeNull();
     const blocks = [
-      '.scope',
       'section[data-heading="calendars"]',
       'section[data-heading="starting_layout"] > h3',
       'section[data-heading="starting_layout"] fieldset.displays',
@@ -122,10 +123,10 @@ describe('the overview', () => {
     });
   });
 
-  it('names its two radio groups, each option with a value', async () => {
+  it('names its radio group, each option with a value', async () => {
     const editor = await mountEditor({ ...CARD, toolbar: { show: true } });
-    // Settings For and Card Displays; Start Date's chips are on Which Events.
-    for (const name of ['scope', 'view']) {
+    // Starting Layout; Start Date's chips are on Which Events, Settings For on every page.
+    for (const name of ['view']) {
       const radios = [
         ...editor.shadowRoot!.querySelectorAll<HTMLInputElement>(`input[type="radio"]`),
       ].filter((radio) => radio.name === name);
@@ -201,27 +202,31 @@ describe('a search by a page’s title', () => {
 describe('Settings For', () => {
   it('stays compact after a List card’s edit lands in list:', async () => {
     const editor = await mountEditor({ ...CARD, view: 'list' });
+    await goPage(editor, 'events');
     expect(compact(editor)).toBe(true);
 
     await changeField(editor, 'events:event_font_size', '20px');
     const written = lastConfig(editor)!;
     expect(written.list).toMatchObject({ event_font_size: '20px' });
-    await goOverview(editor);
+    await goPage(editor, 'day_header');
     expect(compact(editor)).toBe(true);
   });
 
   it('is full when column: stores a value', async () => {
     const editor = await mountEditor({ ...CARD, column: { event_font_size: '13px' } });
+    await goPage(editor, 'events');
     expect(compact(editor)).toBe(false);
   });
 
   it('is full while the toolbar shows its View Switcher', async () => {
     const editor = await mountEditor({ ...CARD, toolbar: { show: true } });
+    await goPage(editor, 'events');
     expect(compact(editor)).toBe(false);
   });
 
   it('is full after Change, for the rest of the session', async () => {
     const editor = await mountEditor(CARD);
+    await goPage(editor, 'events');
     expect(compact(editor)).toBe(true);
     await click(editor, '[data-focus="scope-change"]');
     expect(compact(editor)).toBe(false);
@@ -229,8 +234,42 @@ describe('Settings For', () => {
     // Choosing the scope it already had, moving about and editing: it stays full.
     await changeField(editor, 'workspace:editing_workspace', 'shared');
     await changeField(editor, 'card:title', 'Home');
-    await goOverview(editor);
+    await goPage(editor, 'day_header');
     expect(compact(editor)).toBe(false);
+  });
+
+  it('is chosen on a page and kept on the overview and the next page', async () => {
+    const editor = await mountEditor({ ...CARD, view: 'list' });
+    await goPage(editor, 'events');
+    await changeField(editor, 'workspace:editing_workspace', 'column');
+    await goOverview(editor);
+    expect($(editor, '.scope')).toBeNull();
+    await goPage(editor, 'day_header');
+    expect(
+      editor.shadowRoot!.querySelector<HTMLInputElement>('input[name="scope"]:checked')?.value,
+    ).toBe('column');
+  });
+});
+
+describe('the Grid page’s row', () => {
+  it('is listed while the card shows Grid, and opening it makes Grid the scope', async () => {
+    const editor = await mountEditor({ ...CARD, view: 'grid' });
+    await goPage(editor, 'events');
+    await changeField(editor, 'workspace:editing_workspace', 'list');
+    await goOverview(editor);
+    expect($(editor, '[data-focus="nav:grid"]')).not.toBeNull();
+    await click(editor, '[data-focus="nav:grid"]');
+    expect($(editor, '.page[data-page="grid"]')).not.toBeNull();
+    expect((editor as unknown as { _workspace: string })._workspace).toBe('grid');
+  });
+
+  it('is listed on a List card only once Grid is the scope', async () => {
+    const editor = await mountEditor({ ...CARD, view: 'list' });
+    expect($(editor, '[data-focus="nav:grid"]')).toBeNull();
+    await goPage(editor, 'events');
+    await changeField(editor, 'workspace:editing_workspace', 'grid');
+    await goOverview(editor);
+    expect($(editor, '[data-focus="nav:grid"]')).not.toBeNull();
   });
 });
 
@@ -428,5 +467,46 @@ describe('the stylesheet', () => {
     );
     expect(declarations(styles.cssText).length).toBeGreaterThan(100);
     expect(sticky).toEqual([]);
+  });
+
+  it('draws an inline text action’s fill as a pill inside its 44px target', () => {
+    const all = declarations(styles.cssText);
+    const inline = '.text-button:not(.filled, .add-action)';
+    const on = (selector: string, property: string) =>
+      all.filter((each) => each.selectors.includes(selector) && each.property === property);
+    expect(on('.text-button', 'min-height').map(({ value }) => value)).toEqual(['44px']);
+    expect(on(`${inline}::before`, 'inset').map(({ value }) => value)).toEqual(['6px 0']);
+    expect(on('.strip-button::before', 'inset').map(({ value }) => value)).toEqual(['6px 0']);
+    // The fill and the focus ring are the pill's, never the whole target's.
+    expect(on(`${inline}:hover:not(:disabled)`, 'background')).toEqual([]);
+    expect(on(`${inline}:hover:not(:disabled)::before`, 'background')).toHaveLength(1);
+    expect(on(`${inline}:focus-visible`, 'outline').map(({ value }) => value)).toEqual(['none']);
+    expect(on(`${inline}:focus-visible::before`, 'box-shadow')).toHaveLength(1);
+  });
+});
+
+describe('the search row', () => {
+  it('moves its buttons under the field where the row is narrower than 340px', () => {
+    const all = declarations(styles.cssText);
+    const on = (selector: string, property: string) =>
+      all.filter((each) => each.selectors.includes(selector) && each.property === property);
+    expect(on('.search-row', 'flex-wrap').map(({ value }) => value)).toEqual(['wrap']);
+    expect(on('.search-field', 'flex').map(({ value }) => value)).toEqual([
+      '1 1 calc((340px - 100%) * 999)',
+    ]);
+    expect(
+      on('.search-row .history-controls', 'margin-inline-start').map(({ value }) => value),
+    ).toEqual(['auto']);
+  });
+});
+
+describe('add actions', () => {
+  it('draw Add Calendar and Add Button as the same tonal pill', async () => {
+    const editor = await mountEditor({ ...CARD, toolbar: { show: true } });
+    expect($(editor, '[data-focus="add-calendar"]')!.classList.contains('add-action')).toBe(true);
+    await goPage(editor, 'card_header');
+    const add = $(editor, 'button.add-button');
+    expect(add, 'Add Button').not.toBeNull();
+    expect(add!.classList.contains('add-action')).toBe(true);
   });
 });

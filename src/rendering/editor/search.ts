@@ -35,7 +35,7 @@ import {
 } from './field-index';
 import { type GateData, needsText } from './gates';
 import * as EditorLocalize from './localize';
-import { CALENDARS_BLOCK } from './pages';
+import { CALENDARS_BLOCK, STARTING_LAYOUT_BLOCK } from './pages';
 import { type Appearance, ENTRY_GROUPS, FAMILIES, PAGES, type PageDef, type PageId } from './pages';
 import type { SchemaCtx } from './panels';
 import * as Plan from './plan';
@@ -69,7 +69,7 @@ export type SearchTarget =
   /** Split This Calendar, at the top of an entry's Which Events. */
   | { readonly kind: 'split'; readonly key: number }
   /** A block of the overview's own: the calendar list, where calendars are also reordered. */
-  | { readonly kind: 'overview'; readonly block: 'calendars' };
+  | { readonly kind: 'overview'; readonly block: 'calendars' | 'starting_layout' };
 
 /** A result that opens a field. */
 export type FieldTarget = Extract<
@@ -904,6 +904,39 @@ function calendarsRow(ctx: SearchCtx): SearchEntry {
 }
 
 /**
+ * The overview's Starting Layout: found by its label, its words from before it had that name, and
+ * its layouts, with the layout the card opens in as its value.
+ *
+ * @param ctx - The index's context
+ * @returns Its row
+ */
+function startingLayoutRow(ctx: SearchCtx): SearchEntry {
+  const key = STARTING_LAYOUT_BLOCK.titleKey;
+  const label = ctx.t(key);
+  const views = ['list', 'column', 'grid'] as const;
+  const shown = views.find((view) => view === ctx.config.view) ?? 'list';
+  return {
+    target: { kind: 'overview', block: 'starting_layout' },
+    label,
+    yamlPath: 'view',
+    crumbs: [ctx.t('search.overview')],
+    value: ctx.t(`view.option.${shown}.label`),
+    status: { kind: 'live' },
+    tier: 0,
+    essential: true,
+    text: folded([
+      [label, 'label'],
+      [EditorLocalize.lookup('en', key), 'label'],
+      ['view', 'key'],
+      [EditorLocalize.lookup(ctx.language, `${key}.aliases`), 'alias'],
+      [EditorLocalize.lookup('en', `${key}.aliases`), 'alias'],
+      [EditorLocalize.lookup(ctx.language, `${key}.helper`), 'helper'],
+      ...views.map((view): [string, 'option'] => [ctx.t(`view.option.${view}.label`), 'option']),
+    ]),
+  };
+}
+
+/**
  * Rows for each field of one toolbar button, found by its own text and by the button's identity.
  *
  * @param owner - The button
@@ -948,7 +981,7 @@ export function buildSearchIndex(ctx: SearchCtx): ReadonlyArray<SearchEntry> {
     const row = cardRow(place, ctx);
     if (row) rows.push(row);
   };
-  rows.push(calendarsRow(ctx));
+  rows.push(calendarsRow(ctx), startingLayoutRow(ctx));
   const workspace = ctx.workspace ?? ctx.view;
   for (const page of PAGES) {
     if (page.onlyIn === undefined || page.onlyIn === workspace) rows.push(pageRow(page, ctx));
