@@ -194,21 +194,6 @@ export function modeFor<T extends string>(
 }
 
 /**
- * What a tap on an event does, as the overview's switch reads it: `on` for exactly the details
- * action, `off` for none or nothing stored, `other` for anything else, which the switch gives
- * way to rather than rewrite.
- *
- * @param config - Current configuration
- * @returns Which of the three readings applies
- */
-export function eventTapReading(config: Readonly<Types.Config>): 'on' | 'off' | 'other' {
-  const tap: Types.ActionConfig | null | undefined = config.event_tap_action;
-  const action = tap?.action;
-  if (action === EVENT_DETAILS_ACTION) return 'on';
-  return action === undefined || action === 'none' ? 'off' : 'other';
-}
-
-/**
  * Derives the height mode from which of the two height keys is set.
  *
  * @param config - Current configuration
@@ -767,22 +752,6 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
         ? { changes: { today_indicator: text }, pending: { today_indicator_custom: null } }
         : { changes: {}, pending: { today_indicator_custom: text } };
     },
-  },
-
-  /**
-   * Tapping an Event Opens It: on stores `{ action: details }`, off removes the line, since the
-   * default is `{ action: none }`. It reads on for the details action alone; any other stored
-   * action is shown as a line instead of the switch (`eventTapReading`), so the switch never
-   * rewrites an action it did not write.
-   */
-  event_opens_details: {
-    configKeys: ['event_tap_action'],
-    derive: (config) => eventTapReading(config) === 'on',
-    apply: (value) => ({
-      changes: {
-        event_tap_action: value === true ? { action: EVENT_DETAILS_ACTION } : undefined,
-      },
-    }),
   },
 
   /**

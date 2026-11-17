@@ -266,11 +266,11 @@ describe('section row summaries', () => {
   it('pairs labels with values and counts what the page stores in this scope', () => {
     const raw = { ...LIST_CARD, list: { show_past_events: true } };
     expect(summaryOf(page('which_events'), raw, 'list')).toBe(
-      'Show Past Events: On · Show Empty Days: Off · Set: 1',
+      'Days To Show: 3 · Start Date: Today · Show Past Events: On · Show Empty Days: Off · Set: 1',
     );
     // At the top level nothing on the page is stored, and List's own value is not shown there.
     expect(summaryOf(page('which_events'), raw, 'shared')).toBe(
-      'Show Past Events: Off · Show Empty Days: Off',
+      'Days To Show: 3 · Start Date: Today · Show Past Events: Off · Show Empty Days: Off',
     );
   });
 

@@ -13,6 +13,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   changeField,
   chooseResult,
+  goOverview,
   goPage,
   mountEditor,
   openPageOf,
@@ -66,8 +67,8 @@ function toggle(row: HTMLElement): HTMLButtonElement {
 describe('a closed button row', () => {
   it('holds no form, and the editor draws none of Home Assistant’s collapsible panels', async () => {
     const editor = await mountEditor(CONFIG);
-    // The overview's own forms are drawn: the filter bar, Days to Show and Start Date.
-    expect(editor.shadowRoot!.querySelectorAll('ha-form').length).toBeGreaterThanOrEqual(3);
+    // The overview's one form is drawn: the filter bar.
+    expect(editor.shadowRoot!.querySelectorAll('ha-form')).toHaveLength(1);
     for (const { id } of PAGES.filter((page) => page.onlyIn === undefined)) {
       await goPage(editor, id);
       expect(editor.shadowRoot!.querySelectorAll('ha-expansion-panel'), id).toHaveLength(0);
@@ -115,14 +116,14 @@ describe('a closed button row', () => {
 });
 
 describe('a page', () => {
-  it('draws its own fields only, and the overview’s come back with it', async () => {
+  it('draws its own fields only, and none of them is left on the overview', async () => {
     const editor = await mountEditor(CONFIG);
     const ids = (): string[] =>
       [...editor.shadowRoot!.querySelectorAll('[data-field]')].map((field) =>
         field.getAttribute('data-field')!,
       );
-    const overview = ids();
-    expect(overview).toContain('content:days_to_show');
+    // The overview edits only Card Displays, which is no field of a page's.
+    expect(ids()).toEqual([]);
 
     await openPageOf(editor, 'events:show_time');
     expect(ids().length).toBeGreaterThan(1);
@@ -130,7 +131,11 @@ describe('a page', () => {
     expect(ids()).not.toContain('content:days_to_show');
 
     await openPageOf(editor, 'content:days_to_show');
-    expect(ids()).toEqual(overview);
+    expect(ids()).toContain('content:days_to_show');
+    expect(ids()).not.toContain('events:show_time');
+
+    await goOverview(editor);
+    expect(ids()).toEqual([]);
   });
 });
 

@@ -299,7 +299,7 @@ describe('a change', () => {
 });
 
 describe('opening a page', () => {
-  it('goes to a card field’s page from the overview’s row, and back for an overview field', async () => {
+  it('goes to a card field’s page from the overview’s row, and from one page to another', async () => {
     const editor = await mount([ANNA]);
     expect(formOf(editor, 'content:time_format')).toBeUndefined();
 
@@ -308,7 +308,9 @@ describe('opening a page', () => {
     expect(formOf(editor, 'content:time_format')).toBeDefined();
 
     await openPageOf(editor, 'content:days_to_show');
-    expect(editor.shadowRoot!.querySelector('.page')).toBeNull();
+    expect(editor.shadowRoot!.querySelector('.page')!.getAttribute('data-page')).toBe(
+      'which_events',
+    );
     expect(formOf(editor, 'content:days_to_show')).toBeDefined();
   });
 

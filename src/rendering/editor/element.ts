@@ -74,7 +74,6 @@ import {
   FAMILIES,
   type FamilyId,
   type HeadingDef,
-  OVERVIEW_FIELDS,
   PAGES,
   type PageDef,
   type PageId,
@@ -357,7 +356,6 @@ type ColorWrite = Colors.ColorSpec['sources'][number]['write'];
 const START_DATE_FIELD: FieldId = 'content:start_date_mode';
 
 /** Tapping an Event Opens It, which gives way to a line while another action is stored. */
-const OPENS_DETAILS_FIELD: FieldId = 'actions:event_opens_details';
 
 /** Calendar Filter, drawn as a radio group of its options (section 5.9). */
 const LEGEND_FIELD: FieldId = 'card:toolbar.legend';
@@ -456,7 +454,6 @@ interface StatusLine {
 function isSwitchRow(field: IndexedField): boolean {
   return (
     'boolean' in field.node.selector &&
-    field.id !== OPENS_DETAILS_FIELD &&
     field.id !== LEGEND_FIELD &&
     !(field.id in Chips.CHIP_LABELS)
   );
@@ -2604,13 +2601,11 @@ export class CalendarCardProEditor extends LitElement {
     const composed =
       field.id === START_DATE_FIELD
         ? this._renderStartDate(field, ctx, show)
-        : field.id === OPENS_DETAILS_FIELD && Synthetic.eventTapReading(ctx.config) === 'other'
-          ? this._renderTapLine(field, ctx, show)
-          : field.id in Chips.CHIP_LABELS
-            ? this._renderLoneChip(field, ctx)
-            : field.id === LEGEND_FIELD
-              ? html`${this._segmentedControl(field, ctx, show?.words)} ${show?.line ?? nothing}`
-              : undefined;
+        : field.id in Chips.CHIP_LABELS
+          ? this._renderLoneChip(field, ctx)
+          : field.id === LEGEND_FIELD
+            ? html`${this._segmentedControl(field, ctx, show?.words)} ${show?.line ?? nothing}`
+            : undefined;
     if (composed !== undefined) return this._jumpedCardField(field, ctx, composed);
     const workspace = ctx.workspace ?? ctx.view;
     const slot = `field.${workspace}.${field.id}`;
@@ -2681,7 +2676,7 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Start Date as the overview's radio chips: Today, Tomorrow, Start of Week, A Fixed Date and
+   * Start Date as radio chips on Which Events: Today, Tomorrow, Start of Week, A Fixed Date and
    * Relative to Today, the last two revealing their field below. The chosen chip is the mode as
    * presented, so Relative to Today held over a shortcut stays chosen (`synthetic.ts` ›
    * `start_date_mode`). Each choice writes through the field, one undo step.
@@ -2730,49 +2725,6 @@ export class CalendarCardProEditor extends LitElement {
           `field:${field.id}`,
         ),
     );
-  }
-
-  /**
-   * The line Tapping an Event Opens It gives way to while another action is stored, "Tapping an
-   * Event: Navigate", and Change, which opens Taps & Refresh at Event Tap Action. The switch would
-   * read that action as off, and turning it on or off would replace an action it never wrote.
-   *
-   * @param field - The switch's field
-   * @param ctx - Schema context
-   * @param show - Its state words and the line under it
-   * @returns The line
-   */
-  private _renderTapLine(field: IndexedField, ctx: SchemaCtx, show?: FieldShow): TemplateResult {
-    const stored = ctx.config.event_tap_action;
-    const action =
-      this._describe({ node: { name: 'event_tap_action', selector: { ui_action: {} } } }, stored) ??
-      String(stored?.action ?? '');
-    return Overview.tapLine(
-      field.id,
-      this._t(ctx),
-      action,
-      show?.words,
-      show?.line ?? nothing,
-      () => this._openField('taps_refresh', 'actions:event_tap_action', 'tap:change'),
-    );
-  }
-
-  /**
-   * Opens a page at one of its fields: the page as a row opens it, then the field brought to the
-   * top and focused on its wrapper.
-   *
-   * @param page - The page
-   * @param id - The field
-   * @param focusKey - The `data-focus` key of the control that opened it, which Back restores
-   */
-  private _openField(page: PageId, id: FieldId, focusKey: string): void {
-    this._open({ kind: 'page', page }, focusKey);
-    void this.updateComplete.then(() => {
-      const target = this.renderRoot.querySelector<HTMLElement>(`[data-field="${CSS.escape(id)}"]`);
-      if (target === null) return;
-      Focus.scrollToTop(this, target);
-      target.focus();
-    });
   }
 
   /**
@@ -3274,11 +3226,12 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * A setting's head row (backlog item 307): its name, while folded its value, its facts under the
-   * name (Set, Whole Card, From All Layouts, From the Card, each layout's own), a chevron where it
-   * folds and ⓘ with its helper. Reset or Remove is a button in plain view on the line under its
-   * control, with "Set on Calendars" and its links. A setting at its default folds to its head until
-   * opened; opening adds it to the session's added set, so a value cleared while it is open does not
-   * fold it under the cursor. A stored setting never folds, so its Reset is always in view.
+   * name (Set, Whole Card, From All Layouts, From the Card, each layout's own) with Reset or Remove
+   * after Set, a button in plain view, a chevron where it folds and ⓘ with its helper. "Set on
+   * Calendars" and its links are on the line under its control. A setting at its default folds to
+   * its head until opened; opening adds it to the session's added set, so a value cleared while it
+   * is open does not fold it under the cursor. A stored setting never folds, so its Reset is always
+   * in view.
    *
    * @param field - The field
    * @param appearance - How its page shows it
@@ -3382,6 +3335,7 @@ export class CalendarCardProEditor extends LitElement {
       lang: ctx.language,
       value,
       facts,
+      actions: buttons,
       quiet,
       help: helper
         ? {
@@ -3411,7 +3365,7 @@ export class CalendarCardProEditor extends LitElement {
       open: open && !isSwitch,
       switchRow: isSwitch,
       describedBy: helper ? helpId : undefined,
-      line: ShownView.fieldLine({ notes: [], calendars, actions: buttons }),
+      line: ShownView.fieldLine({ notes: [], calendars, actions: [] }),
     };
   }
 
@@ -4893,8 +4847,9 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Card Displays: the three illustrated layouts, written through the frame the card's own
-   * display form always had, and the Grid notice under it.
+   * Starting Layout, a frame as Calendars is: Card Displays, the three illustrated layouts,
+   * written through the frame the card's own display form always had, and the Grid notice under
+   * it.
    *
    * @param ctx - Schema context
    * @param chassis - The chassis schemas
@@ -4904,31 +4859,34 @@ export class CalendarCardProEditor extends LitElement {
     const node = chassis.displayView[0] as { selector: { select: { options: unknown } } };
     const options = node.selector.select.options as ReadonlyArray<Overview.DisplayChoice>;
     const value = this._viewForConfig(this._config!);
-    return html`${Overview.displayControl(
-      this._string(ctx, 'view'),
-      EditorLocalize.lookup(ctx.language, 'view.helper'),
-      options,
-      value,
-      (view) => {
-        const data = { view: value };
-        // The view and the Grid notice it brings are one step.
-        this._commit(
-          this._string(ctx, 'history.change', { setting: this._string(ctx, 'view') }),
-          undefined,
-          () =>
-            this._writeOwned(
-              {
-                owner: WriteFrames.CARD_OWNER,
-                workspace: 'list',
-                schema: chassis.displayView,
-                data,
-              },
-              { view },
-            ),
-        );
-      },
-    )}
-    ${this._renderGridReconciliation(ctx)}`;
+    return html`<section class="page-group layout-block" data-heading="starting_layout">
+      <h3 class="heading" tabindex="-1">${this._string(ctx, 'overview.starting_layout')}</h3>
+      ${Overview.displayControl(
+        this._string(ctx, 'view'),
+        EditorLocalize.lookup(ctx.language, 'view.helper'),
+        options,
+        value,
+        (view) => {
+          const data = { view: value };
+          // The view and the Grid notice it brings are one step.
+          this._commit(
+            this._string(ctx, 'history.change', { setting: this._string(ctx, 'view') }),
+            undefined,
+            () =>
+              this._writeOwned(
+                {
+                  owner: WriteFrames.CARD_OWNER,
+                  workspace: 'list',
+                  schema: chassis.displayView,
+                  data,
+                },
+                { view },
+              ),
+          );
+        },
+      )}
+      ${this._renderGridReconciliation(ctx)}
+    </section>`;
   }
 
   /**
@@ -5097,19 +5055,7 @@ export class CalendarCardProEditor extends LitElement {
       ),
     );
     const calendars = this._renderCalendars(ctx);
-    // The overview's own fields follow the shown set too: a mode value only with its mode.
-    const pctx = this._planCtx(ctx);
-    const own = repeat(
-      OVERVIEW_FIELDS.flatMap(([id, appearance]) => {
-        const field = present.get(id);
-        const state = Plan.fieldState(id, appearance, pctx);
-        return field && state.kind === 'live' ? [[field, appearance] as const] : [];
-      }),
-      ([field]) => field.id,
-      ([field, appearance]) =>
-        this._renderField(field, ctx, this._fieldShow(field, appearance, pctx, ctx, CARD)),
-    );
-    return html`${this._renderScope(ctx)} ${calendars} ${this._renderDisplays(ctx, chassis)} ${own}
+    return html`${this._renderScope(ctx)} ${calendars} ${this._renderDisplays(ctx, chassis)}
     ${Overview.rowGroup(t('overview.settings'), rows)}
     ${Overview.rowGroup(t('overview.more'), [
       Overview.navRow(
@@ -5738,10 +5684,9 @@ export class CalendarCardProEditor extends LitElement {
     return html`${jumped ? this._jumpTo(ctx, group) : group}
       ${
         facts.length > 0
-          ? html`<div class="chip-source">${ShownView.factLine(facts)}</div>`
-          : nothing
+          ? html`<div class="chip-source">${ShownView.factLine(facts, actions)}</div>`
+          : ShownView.fieldLine({ notes: [], actions })
       }
-      ${ShownView.fieldLine({ notes: [], actions })}
       ${
         absent.length > 0 && view !== undefined
           ? html`<p class="hint">
@@ -5756,11 +5701,12 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Calendar Filter as a segmented radio group of its options, Off, Menu and Chips (section
-   * 5.9), its state words in its name, and under it the line every field has (section 5.3):
-   * Reset named for what it leaves. Picking writes through `_writeFieldValue`, one undo step.
+   * A radio group of a field's options with no head row: Calendar Filter's Off, Menu and Chips
+   * (section 5.9), or Start Date's chips. Its state words are in its name, and the line under it
+   * holds its facts with Reset after Set, named for what it leaves. Picking writes through
+   * `_writeFieldValue`, one undo step.
    *
-   * @param field - `card:toolbar.legend`
+   * @param field - `card:toolbar.legend` or Start Date's mode
    * @param appearance - Its appearance
    * @param pctx - Plan context
    * @param ctx - Schema context
@@ -5775,7 +5721,10 @@ export class CalendarCardProEditor extends LitElement {
     heading?: string,
   ): TemplateResult {
     const show = this._fieldShow(field, appearance, pctx, ctx, CARD, heading);
-    const drawn = html`${this._segmentedControl(field, ctx, show.words)} ${show.line}`;
+    const drawn =
+      field.id === START_DATE_FIELD
+        ? this._renderStartDate(field, ctx, show)
+        : html`${this._segmentedControl(field, ctx, show.words)} ${show.line}`;
     return this._jump?.target.kind === 'field' && this._jump.target.id === field.id
       ? this._jumpTo(ctx, drawn)
       : drawn;

@@ -337,7 +337,7 @@ with its label at the top, so `_fitSwitchRows` takes back the part below the lab
 `ResizeObserver` reports each switch row drawn. A field whose plan says only `every`, at its default and not opened this
 session, is folded to that head; opening it adds it to the session's added set, which leaving the
 page clears. `element.ts` draws that plan and never filters a form itself, and every Reset and
-Remove goes through `reset.ts`, from a button in plain view on the line under the control. A calendar entry's or a toolbar button's write names its owner by key, never by
+Remove goes through `reset.ts`, from a button in plain view right after the setting's Set. A calendar entry's or a toolbar button's write names its owner by key, never by
 place (`write-frames.ts`), so a removal above it cannot hand its form another owner. `hass-key.ts`
 skips a `hass` that changes nothing the editor draws, and hands a fresh `hass` only to forms whose
 selectors read states (`LIVE_SELECTORS`); every other form gets a steady one.

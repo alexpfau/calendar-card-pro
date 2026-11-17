@@ -11,9 +11,8 @@ To open it, click the three dots (⋮) in the top-right corner of the card and s
 
 ## 🗺️ The Overview
 
-The overview is the first thing the editor shows. It holds the settings almost every card sets,
-so a simple card can be finished without leaving it, and a row for each page that holds the
-rest. Top to bottom:
+The overview is the first thing the editor shows. It holds the card's calendars and the layout it
+opens with, and a row for each page that holds the rest. Top to bottom:
 
 | Part                           | What it does                                                                                                             |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
@@ -23,31 +22,27 @@ rest. Top to bottom:
 | **⋯ Editor Preferences**       | Show YAML Option Names, at the end of the search row                                                                     |
 | **Settings For**               | Which layout's settings the pages edit; see [Options for the Selected View](#options-for-the-selected-view)              |
 | **Calendars**                  | The card's [calendars](#calendars), a row each                                                                           |
-| **Card Displays**              | List, Columns or Grid, the layout the card opens with                                                                    |
-| **Days to Show**               | How many days the card covers                                                                                            |
-| **Start Date**                 | Today, Tomorrow, Start of Week, A Fixed Date, or Relative to Today                                                       |
-| **Tapping an Event Opens It**  | Opens an event's details on a tap                                                                                        |
+| **Starting Layout**            | Card Displays: List, Columns or Grid, the layout the card opens with                                                     |
 | **Settings**                   | A row per page, saying in one line what the page holds for this card                                                     |
 | **More**                       | [What This Card Changes](#what-this-card-changes) and Start From an Example                                              |
 
 The settings rows open these pages:
 
-| Page                 | What it holds                                                                                                    |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| **Which Events**     | Event Type, duplicates, event order, past events, multi-day events, empty days and Compact Mode                  |
-| **Card & Header**    | The title, the card's background and language, the toolbar and your own toolbar buttons                          |
-| **Day Header**       | How each day announces itself: its date, weeks and week numbers, today and its indicator, past days and weekends |
-| **Event Appearance** | What each event shows, the time format, and how each part looks                                                  |
-| **Size & Spacing**   | The card's height and spacing, the density of Columns and Grid, and the rules between days, weeks and months     |
-| **Grid**             | Only while you edit Grid: the hours it shows, its hour labels, and what it draws on the grid                     |
-| **Weather**          | The weather entity, and the forecast in the day header and beside each event                                     |
-| **Taps & Refresh**   | What a tap or a hold on the card, a day or an event does, and how often the card reads its calendars again       |
+| Page                 | What it holds                                                                                                                |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **Which Events**     | Days to Show and Start Date, Event Type, duplicates, event order, past events, multi-day events, empty days and Compact Mode |
+| **Card & Header**    | The title, the card's background and language, the toolbar and your own toolbar buttons                                      |
+| **Day Header**       | How each day announces itself: its date, weeks and week numbers, today and its indicator, past days and weekends             |
+| **Event Appearance** | What each event shows, the time format, and how each part looks                                                              |
+| **Size & Spacing**   | The card's height and spacing, the density of Columns and Grid, and the rules between days, weeks and months                 |
+| **Grid**             | Only while you edit Grid: the hours it shows, its hour labels, and what it draws on the grid                                 |
+| **Weather**          | The weather entity, and the forecast in the day header and beside each event                                                 |
+| **Taps & Refresh**   | What a tap or a hold on the card, a day or an event does, and how often the card reads its calendars again                   |
 
-**Start Date**'s choices write the existing `start_date` option: Tomorrow writes `today+1`, Start
-of Week writes `start_of_week`, and Relative to Today takes any offset, such as `today-29`.
-**Tapping an Event Opens It** writes `event_tap_action: { action: details }`. While another tap
-action is stored, such as a navigation, the switch gives way to a line naming it, and **Change**
-opens Taps & Refresh, where the full action editor is.
+**Which Events** opens with **Date Range**: Days to Show, and Start Date's choices, which write
+the existing `start_date` option. Tomorrow writes `today+1`, Start of Week writes
+`start_of_week`, and Relative to Today takes any offset, such as `today-29`. To open an event's
+details on a tap, choose Show Event Details under **Event Tap Action** on Taps & Refresh.
 
 The **⋯** menu at the end of the search row holds **Show YAML Option Names**, remembered in this
 browser for every card. It shows each setting's YAML option name beside its label, and the YAML
@@ -215,12 +210,12 @@ words are the same on every page; Settings For says which layout they are about.
 | **Grid Default: 12px**                         | after the layout's icon | Under All Layouts: Grid stores nothing and uses its own default           |
 | **Uses Grid's Default, Not All Layouts' 15px** | after the layout's icon | Under Grid: All Layouts stores a value Grid's own default takes over from |
 
-A setting with a stored value is always open, with **Reset** in plain view on the line under its
-control. **Reset (In the Day Header)** keeps the setting open and names the value it goes back
-to, or **Reset (Empty)** where nothing comes back; **Remove Setting** resets a setting and folds
-it. A group of chips has one button for all of its chips stored here, **Reset Parts** for an
-event's parts and **Reset Controls** for the toolbar's, and its line says where each chip's state
-comes from: **Chosen Here**, **From All Layouts** or a layout's **Default**. A dropdown may also
+A setting with a stored value is always open, with **Reset** in plain view right after **Set**,
+on the side away from ⓘ. **Reset (In the Day Header)** keeps the setting open and names the value
+it goes back to, or **Reset (Empty)** where nothing comes back; **Remove Setting** resets a
+setting and folds it. A group of chips has one button for all of its chips stored here, **Reset
+Parts** for an event's parts and **Reset Controls** for the toolbar's, after a line saying where
+each chip's state comes from: **Chosen Here**, **From All Layouts** or a layout's **Default**. A dropdown may also
 show Home Assistant's own ✕, which empties it, the same as its Reset.
 
 A folded setting shows the value that applies. Where nothing is stored, it names it: a setting
@@ -791,18 +786,18 @@ A string not yet translated appears in English, so a partial translation is usef
 Before v6 the editor was nine collapsible panels, with switches that narrowed them. Each of
 those controls has a new home, and searching for its old name still finds it.
 
-| Before v6                | Now                                                                                                         |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| **Calendars**            | The overview's calendar list, and a page per entry                                                          |
-| **Layout**               | Card Displays on the overview; Size & Spacing; the Grid page                                                |
-| **Time Range & Content** | Days to Show and Start Date on the overview; Which Events; Language on Card & Header; Time Format on Events |
-| **Card & Header**        | Card & Header                                                                                               |
-| **Day Header**           | Day Header, now with First Day of Week                                                                      |
-| **Events**               | Event Appearance, with what each event shows as a row of parts to press                                     |
-| **Separators**           | Size & Spacing                                                                                              |
-| **Weather**              | Weather                                                                                                     |
-| **Actions & Refresh**    | Taps & Refresh, and Tapping an Event Opens It on the overview                                               |
-| **Editing Settings For** | Settings For                                                                                                |
+| Before v6                | Now                                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------ |
+| **Calendars**            | The overview's calendar list, and a page per entry                                               |
+| **Layout**               | Card Displays on the overview; Size & Spacing; the Grid page                                     |
+| **Time Range & Content** | Which Events, with Days to Show and Start Date; Language on Card & Header; Time Format on Events |
+| **Card & Header**        | Card & Header                                                                                    |
+| **Day Header**           | Day Header, now with First Day of Week                                                           |
+| **Events**               | Event Appearance, with what each event shows as a row of parts to press                          |
+| **Separators**           | Size & Spacing                                                                                   |
+| **Weather**              | Weather                                                                                          |
+| **Actions & Refresh**    | Taps & Refresh                                                                                   |
+| **Editing Settings For** | Settings For                                                                                     |
 
 ### Essentials Only
 

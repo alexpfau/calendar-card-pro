@@ -115,9 +115,6 @@ const actionsSchema = Helpers.memoizeLast(
     { name: 'tap_action', selector: { ui_action: { actions: ACTION_OPTIONS } } },
     { name: 'hold_action', selector: { ui_action: { actions: ACTION_OPTIONS } } },
     select(language, 'day_tap_action_mode', DAY_TAP_CHOICES),
-    // The overview's shortcut for the event's tap (`event_opens_details` in `SYNTHETIC_FIELDS`),
-    // placed there by the page registry; the full action stays below.
-    bool('event_opens_details'),
     { name: 'event_tap_action', selector: { ui_action: { actions: EVENT_ACTION_OPTIONS } } },
     { name: 'event_hold_action', selector: { ui_action: { actions: EVENT_ACTION_OPTIONS } } },
     // What a press on an event's text can do when the event does nothing of its own: follow a

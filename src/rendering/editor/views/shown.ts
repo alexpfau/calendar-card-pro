@@ -1,6 +1,6 @@
 /**
  * What a page draws around its settings (backlog item 307): each setting's head row with its
- * facts, chevron and ⓘ, the line under its control with Reset or Remove, a setting a gate
+ * facts, Reset or Remove, chevron and ⓘ, the line under its control, a setting a gate
  * withholds in its place, and the values stored for settings that are not in use. Templates only,
  * as `overview.ts`.
  */
@@ -70,8 +70,8 @@ export interface FieldLine {
 }
 
 /**
- * The line under a live field: its facts where it has no head row, the calendars that store
- * their own, and Reset or Remove, a button in plain view named for what it leaves.
+ * The line under a live field: its facts where it has no head row, with Reset or Remove after Set,
+ * a button in plain view named for what it leaves, and the calendars that store their own.
  *
  * @param line - What it shows
  * @returns The line, or nothing where it has nothing to say
@@ -86,9 +86,11 @@ export function fieldLine(line: FieldLine): TemplateResult | typeof nothing {
   ) {
     return nothing;
   }
+  // Where the facts are drawn here, Reset or Remove joins them, after Set.
+  const inFacts = line.facts !== undefined && line.actions.length > 0;
   return html`<div class="field-line">
     <div class="field-line-body">
-      ${facts.length > 0 ? factLine(facts) : nothing}
+      ${facts.length > 0 || inFacts ? factLine(facts, inFacts ? line.actions : []) : nothing}
       ${line.notes.map(
         (note) =>
           html`<p class="field-note">
@@ -103,7 +105,7 @@ export function fieldLine(line: FieldLine): TemplateResult | typeof nothing {
           : nothing
       }
       ${
-        line.actions.length > 0
+        line.actions.length > 0 && !inFacts
           ? html`<p class="field-note">${line.actions.map(lineButton)}</p>`
           : nothing
       }
@@ -150,13 +152,22 @@ function factView(fact: Fact): TemplateResult {
 
 /**
  * A setting's facts, as one block: the first line holds Set, the scope and the source; each
- * layout's value takes a line of its own.
+ * layout's value takes a line of its own. Reset or Remove follows Set, or leads where nothing says
+ * Set, on the side away from ⓘ: a button among the facts, never drawn as one of them.
  *
  * @param facts - The facts
+ * @param actions - Reset or Remove
  * @returns The block
  */
-export function factLine(facts: ReadonlyArray<Fact>): TemplateResult {
-  return html`<div class="setting-facts">${facts.map(factView)}</div>`;
+export function factLine(
+  facts: ReadonlyArray<Fact>,
+  actions: ReadonlyArray<LineButton> = [],
+): TemplateResult {
+  const set = facts.findIndex((fact) => fact.kind === 'set');
+  const at = set < 0 ? 0 : set + 1;
+  return html`<div class="setting-facts${actions.length > 0 ? ' has-actions' : ''}">
+    ${facts.slice(0, at).map(factView)}${actions.map(lineButton)}${facts.slice(at).map(factView)}
+  </div>`;
 }
 
 /** What a setting's head row shows. */
@@ -169,6 +180,8 @@ export interface SettingHead {
   readonly value?: string;
   /** What it says under its name: Set, what it reaches, where its value comes from. */
   readonly facts: ReadonlyArray<Fact>;
+  /** Reset or Remove, after Set. */
+  readonly actions?: ReadonlyArray<LineButton>;
   /** "Default", read by a screen reader where no fact says Set or where a value comes from. */
   readonly quiet?: string;
   /** The helper behind ⓘ, its button named "About {label}". */
@@ -190,8 +203,8 @@ export interface SettingHead {
 /**
  * A setting's head row (backlog item 307): drawn the same folded and open, so nothing in it moves
  * when the setting opens. The name and, while folded, the value; the chevron; ⓘ at the row's end;
- * and under the name its facts, none of which can be pressed. A stored setting never folds, and
- * its Reset is a button in plain view under its control. Home Assistant's control is drawn below
+ * and under the name its facts, none of which can be pressed, with Reset or Remove after Set. A
+ * stored setting never folds, so its Reset is always in plain view. Home Assistant's control is drawn below
  * the head while the setting is open, so nothing of the editor's sits inside Home Assistant's field
  * box. Where the setting folds the whole row is its toggle, except ⓘ, which sits above it; while
  * folded, the toggle is what `[data-field]` finds, as the control is once open.
@@ -201,6 +214,7 @@ export interface SettingHead {
  */
 export function settingHead(head: SettingHead): TemplateResult {
   const { help, fold, facts } = head;
+  const actions = head.actions ?? [];
   // The value is isolated, so a color or a length reads in its own order right to left.
   const text = html`<span class="setting-name"
       ><span class="setting-label" lang=${head.lang ?? nothing}>${head.label}</span></span
@@ -214,7 +228,7 @@ export function settingHead(head: SettingHead): TemplateResult {
     .join(', ');
   return html`<div
     class="setting-head${fold ? ' folds' : ''}${head.control !== undefined ? ' switch' : ''}${
-      facts.length > 0 ? ' has-facts' : ''
+      facts.length > 0 || actions.length > 0 ? ' has-facts' : ''
     }"
   >
     ${
@@ -233,12 +247,6 @@ export function settingHead(head: SettingHead): TemplateResult {
         : head.control !== undefined
           ? html`<div class="setting-control">${head.control}</div>`
           : html`<span class="setting-text">${text}</span>`
-    }
-    ${facts.length > 0 ? factLine(facts) : nothing}
-    ${
-      head.quiet === undefined
-        ? nothing
-        : html`<span class="setting-state visually-hidden">${head.quiet}</span>`
     }
     <span class="setting-tools">
       <span class="setting-end" aria-hidden="true"
@@ -260,6 +268,12 @@ export function settingHead(head: SettingHead): TemplateResult {
             html`<span class="setting-slot" aria-hidden="true"></span>`
       }
     </span>
+    ${facts.length > 0 || actions.length > 0 ? factLine(facts, actions) : nothing}
+    ${
+      head.quiet === undefined
+        ? nothing
+        : html`<span class="setting-state visually-hidden">${head.quiet}</span>`
+    }
   </div>`;
 }
 

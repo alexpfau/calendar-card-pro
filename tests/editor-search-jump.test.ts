@@ -140,7 +140,7 @@ describe('the results', () => {
       'Event Appearance › Event Details',
       'Follow Home Assistant · Whole Card · YAML: time_24h',
     ],
-    ['days', 'content:days_to_show', 'Overview', '3 · YAML: list.days_to_show'],
+    ['days', 'content:days_to_show', 'Which Events › Date Range', '3 · YAML: list.days_to_show'],
     [
       'lights',
       'button:name',
@@ -295,11 +295,11 @@ describe('choosing a result', () => {
     ).toMatch(/^\[\{"name":"entity"/);
   });
 
-  it('opens a field of the overview’s own on the overview', async () => {
+  it('opens Days To Show on Which Events, under Date Range', async () => {
     const editor = await mount();
     await jump(editor, 'days', 'content:days_to_show');
 
-    expect($(editor, '[data-focus^="nav:"]')).not.toBeNull();
+    expect($(editor, '.page')?.dataset.page).toBe('which_events');
     expect(editor.shadowRoot!.activeElement).toBe($(editor, '[data-field="content:days_to_show"]'));
     expect($(editor, '.jump [data-focus="return"]')).not.toBeNull();
   });

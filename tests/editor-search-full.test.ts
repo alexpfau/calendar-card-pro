@@ -684,15 +684,15 @@ describe('the review’s findings', () => {
     });
   });
 
-  it('opens a value the overview holds back at the overview’s own setting', async () => {
-    // A relative start date is stored where the fixed date's control writes, which Start Date's
-    // mode holds back; the overview draws no gate line to open.
+  it('opens a date Start Date holds back at Start Date, on Which Events', async () => {
+    // A relative start date is stored in the option the fixed date's control writes, and Start
+    // Date reads it, so the fixed date only waits on Start Date: no value of its own is unused.
     const editor = await mount({ ...LIST, start_date: '+1' });
     await searchFor(editor, 'start date');
     const fixed = row(editor, 'content:start_date_fixed');
-    expect(fixed.tag).toMatch(/^Not in Use · Needs /);
+    expect(fixed.tag).toBe('Needs Start Date');
     await chooseResult(editor, fixed.key);
-    expect(openPage(editor)).toBeUndefined();
+    expect(openPage(editor)).toBe('which_events');
     expect(editor.shadowRoot!.activeElement).toBe(
       $(editor, '[data-field="content:start_date_mode"]'),
     );
@@ -856,13 +856,12 @@ describe('the controls the stack below added', () => {
     );
   });
 
-  it('words Start Date’s shortcut and Tapping an Event as the overview shows them', async () => {
+  it('words Start Date’s shortcut and the event’s tap as their controls show them', async () => {
     const editor = await stack();
     await searchFor(editor, 'tomorrow');
     expect(row(editor, 'content:start_date_mode').meta).toMatch(/^Tomorrow( · |$)/);
     await searchFor(editor, 'tapping');
-    // Another action stored in its place: the switch gives way to it, and so does its value.
-    expect(row(editor, 'actions:event_opens_details').meta).toMatch(/^Navigate( · |$)/);
+    expect(row(editor, 'actions:event_tap_action').meta).toMatch(/^Navigate( · |$)/);
   });
 
   it('reaches the event-part chips and the toolbar’s controls, and opens at the chip', async () => {

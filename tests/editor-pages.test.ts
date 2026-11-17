@@ -105,8 +105,8 @@ describe('the overview', () => {
     const blocks = [
       '.scope',
       'section[data-heading="calendars"]',
-      'fieldset.displays',
-      '[data-field="content:days_to_show"]',
+      'section[data-heading="starting_layout"] > h3',
+      'section[data-heading="starting_layout"] fieldset.displays',
       '.row-group [data-focus="nav:card_header"]',
       '[data-quick-setup-open]',
     ].map((selector) => {
@@ -122,10 +122,10 @@ describe('the overview', () => {
     });
   });
 
-  it('names its three radio groups, each option with a value', async () => {
+  it('names its two radio groups, each option with a value', async () => {
     const editor = await mountEditor({ ...CARD, toolbar: { show: true } });
-    // Settings For, Card Displays, and Start Date's chips.
-    for (const name of ['scope', 'view', 'start_date_mode']) {
+    // Settings For and Card Displays; Start Date's chips are on Which Events.
+    for (const name of ['scope', 'view']) {
       const radios = [
         ...editor.shadowRoot!.querySelectorAll<HTMLInputElement>(`input[type="radio"]`),
       ].filter((radio) => radio.name === name);
@@ -138,7 +138,7 @@ describe('the overview', () => {
     }
     expect(
       [...editor.shadowRoot!.querySelectorAll<HTMLInputElement>('input[type="radio"]')].every(
-        (radio) => ['scope', 'view', 'start_date_mode'].includes(radio.name),
+        (radio) => ['scope', 'view'].includes(radio.name),
       ),
     ).toBe(true);
   });

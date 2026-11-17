@@ -36,22 +36,13 @@ import {
 import { type GateData, needsText } from './gates';
 import * as EditorLocalize from './localize';
 import { CALENDARS_BLOCK } from './pages';
-import {
-  type Appearance,
-  ENTRY_GROUPS,
-  FAMILIES,
-  OVERVIEW_FIELDS,
-  PAGES,
-  type PageDef,
-  type PageId,
-} from './pages';
+import { type Appearance, ENTRY_GROUPS, FAMILIES, PAGES, type PageDef, type PageId } from './pages';
 import type { SchemaCtx } from './panels';
 import * as Plan from './plan';
 import * as Routing from './routing';
 import * as Shown from './shown';
 import { interpolate } from './strings';
 import { type Describe, wordValue } from './summary';
-import { eventTapReading } from './synthetic';
 import { WORD_LIST_FIELDS, fromPattern } from './word-lists';
 import type { EditorWorkspace } from './workspace';
 import * as Config from '../../config/config';
@@ -173,9 +164,6 @@ export interface SearchCtx extends SchemaCtx {
   readonly t: (key: string) => string;
   readonly describe?: Describe;
 }
-
-/** Tapping an Event Opens It, which reads as the action stored in its place. */
-const OPENS_DETAILS: FieldId = 'actions:event_opens_details';
 
 /** Letters NFD leaves whole, as they fold. */
 const FOLD_TABLE: Readonly<Record<string, string>> = {
@@ -386,14 +374,6 @@ function valueWords(field: IndexedField, value: unknown, ctx: SearchCtx): string
   if (WORD_LIST_FIELDS.has(field.id) && typeof value === 'string' && value !== '') {
     const terms = fromPattern(value);
     if (terms !== undefined) return terms.join(', ');
-  }
-  // Tapping an Event Opens It gives way to the action stored in its place.
-  if (field.id === OPENS_DETAILS && eventTapReading(ctx.config) === 'other') {
-    const action = ctx.config.event_tap_action;
-    return (
-      ctx.describe?.({ node: { name: 'event_tap_action', selector: { ui_action: {} } } }, action) ??
-      String(action?.action)
-    );
   }
   const empty =
     value === undefined ||
@@ -969,7 +949,6 @@ export function buildSearchIndex(ctx: SearchCtx): ReadonlyArray<SearchEntry> {
     if (row) rows.push(row);
   };
   rows.push(calendarsRow(ctx));
-  for (const [id, appearance] of OVERVIEW_FIELDS) take({ id, appearance });
   const workspace = ctx.workspace ?? ctx.view;
   for (const page of PAGES) {
     if (page.onlyIn === undefined || page.onlyIn === workspace) rows.push(pageRow(page, ctx));

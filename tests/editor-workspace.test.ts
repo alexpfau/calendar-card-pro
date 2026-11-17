@@ -274,13 +274,14 @@ describe('displayed view and editing workspace are separate controls', () => {
     expect(editor.shadowRoot!.querySelector('.scope legend')!.textContent!.trim()).toBe(
       'Settings For',
     );
-    // The overview, top to bottom: the filter bar, Settings For, Calendars, Card Displays.
+    // The overview, top to bottom: the filter bar, Settings For, Calendars, and Starting Layout
+    // around Card Displays.
     const order = [
       ...editor.shadowRoot!.querySelectorAll(
-        '.overview > .filter-bar, .overview > .scope, .overview > [data-heading="calendars"], .overview > .displays',
+        '.overview > .filter-bar, .overview > .scope, .overview > [data-heading], .overview > [data-heading] > .displays',
       ),
-    ].map((element) => element.className.split(' ')[0] || element.getAttribute('data-heading'));
-    expect(order).toEqual(['filter-bar', 'scope', 'page-group', 'displays']);
+    ].map((element) => element.getAttribute('data-heading') ?? element.className.split(' ')[0]);
+    expect(order).toEqual(['filter-bar', 'scope', 'calendars', 'starting_layout', 'displays']);
     expect(chassisSubforms().flatMap((subform) => names(subform.schema))).toEqual([
       'view',
       WORKSPACE_FIELD,

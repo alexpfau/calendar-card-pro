@@ -46,6 +46,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'heading.refresh': 'Refresh',
   // The first group of a page, a card of its own like every other heading.
   'heading.selection_and_order': 'Selection & Order',
+  // Which Events' first heading: Days To Show and Start Date.
+  'heading.date_range': 'Date Range',
   'heading.general': 'General',
   'heading.date': 'Date',
   'heading.forecast': 'Forecast',
@@ -58,6 +60,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // holds them to. Counts are a label and a number ("Set: 3"), so no language inflects for one.
   'overview.settings': 'Settings',
   'overview.more': 'More',
+  // The frame around Card Displays.
+  'overview.starting_layout': 'Starting Layout',
   'more.example': 'Start From an Example',
   'more.example_note': 'Quick Setup: an example card and a few questions',
   'more.audit': 'What This Card Changes',
@@ -725,8 +729,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'word_list.invalid': 'This pattern cannot be read, so the card ignores it.',
   'word_list.use_pattern': 'Use a Pattern',
   'word_list.use_words': 'Use Words',
-  'tap.line': 'Tapping an Event: {action}',
-  'tap.change_named': 'Change: Tapping an Event, {action}',
 
   // --- Calendar list rows ---------------------------------------------------
   //
@@ -1518,10 +1520,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // event takes, labeled as the dropdown's other card actions are; "Show Event Details" is the
   // wording the event's own two-choice dropdown carried before, in every language.
   'card_action.option.details.label': 'Show Event Details',
-  event_opens_details: 'Tapping an Event Opens It',
-  'event_opens_details.helper':
-    'Where it can be changed or deleted. The preview does not open events; try it on the dashboard.',
   event_tap_action: 'Event Tap Action',
+  'event_tap_action.aliases': 'open event, tapping an event, event details',
   'event_tap_action.helper':
     'Home Assistant’s own actions can use the tapped event’s title, times, location and description.',
   event_hold_action: 'Event Hold Action',

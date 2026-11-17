@@ -585,8 +585,7 @@ export default css`
 
   .scope,
   .displays,
-  .chips,
-  .tap-line {
+  .chips {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -596,8 +595,7 @@ export default css`
     border: none;
   }
 
-  .scope-compact,
-  .tap-line {
+  .scope-compact {
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
@@ -608,8 +606,7 @@ export default css`
     color: var(--secondary-text-color);
   }
 
-  .scope-line b,
-  .tap-line b {
+  .scope-line b {
     color: var(--primary-text-color);
     font-weight: 500;
   }
@@ -1344,6 +1341,28 @@ export default css`
     margin-top: 0;
   }
 
+  /* Reset or Remove after Set: a 44 px target, so its line is 44 px tall, starting in the space
+     under the name, which is never a target on a stored setting. It stays 16 px clear of the ⓘ
+     column, and under a switch, whose whole label row toggles it, 16 px below that row. */
+  .setting-facts.has-actions {
+    align-items: center;
+    min-height: 44px;
+    padding-inline-end: 16px;
+  }
+
+  .setting-head > .setting-facts.has-actions {
+    margin-top: -12px;
+    padding-bottom: 0;
+  }
+
+  .setting-head.switch > .setting-facts.has-actions {
+    margin-top: 8px;
+  }
+
+  .setting-facts .line-button {
+    pointer-events: auto;
+  }
+
   .setting-facts {
     display: flex;
     flex-wrap: wrap;
@@ -1620,17 +1639,21 @@ export default css`
      by a divider rather than by a border of their own. The divider is each calendar's bottom
      edge, so it follows the order the keyboard grab previews, which moves rows by CSS order.
      The toolbar's button list keeps a bordered card per row. */
-  .cal-block {
+  /* The overview's framed blocks: Calendars, and Starting Layout around Card Displays. */
+  .cal-block,
+  .layout-block {
     padding: 4px 0 12px;
     border: 1px solid var(--divider-color);
     border-radius: var(--ha-card-border-radius, 12px);
   }
 
-  .cal-block > .heading {
+  .cal-block > .heading,
+  .layout-block > .heading {
     padding-top: 8px;
   }
 
-  .cal-block > :not(.cal-list) {
+  .cal-block > :not(.cal-list),
+  .layout-block > * {
     margin-inline: 16px;
   }
 

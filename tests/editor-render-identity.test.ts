@@ -25,6 +25,7 @@ import {
   entry,
   fakeHass,
   formOf,
+  goOverview,
   mountEditor,
   openPageOf,
   openPanels,
@@ -174,23 +175,19 @@ describe.each<{
 });
 
 describe('a visit to a page', () => {
-  it('leaves the overview’s forms as they were, the very elements with the very inputs', async () => {
-    // A start offset draws a fourth form on the overview, beside the search bar, Days To Show and
-    // Tapping an Event Opens It; Start Date's chips are no form. Not `+1`, which reads as Tomorrow.
-    const editor = await mountEditor({
-      ...CONFIG,
-      start_date: '+2',
-    });
+  it('leaves the overview’s form as it was, the very element with the very inputs', async () => {
+    // The search bar is the overview's one form: Card Displays is radios, and the calendars rows.
+    const editor = await mountEditor(CONFIG);
     const forms = drawnHere(editor);
     const before = inputsOf(forms);
-    expect(forms.length).toBeGreaterThan(3);
+    expect(forms).toHaveLength(1);
 
     // A calendar's page, then a section's.
     await openPageOf(editor, 'calendar:name', entry(0));
     expect(drawnHere(editor).some((form) => forms.includes(form))).toBe(false);
     await openPageOf(editor, 'events:show_time');
     expect(drawnHere(editor).some((form) => forms.includes(form))).toBe(false);
-    await openPageOf(editor, 'content:days_to_show');
+    await goOverview(editor);
 
     expect(drawnHere(editor)).toEqual(forms);
     expect(moved(before, inputsOf(drawnHere(editor)))).toEqual([]);

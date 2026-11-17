@@ -88,16 +88,18 @@ function read(editor: Editor, group: string): string[] {
 }
 
 /**
- * The Reset and Remove buttons in the line under the event-part chips.
+ * The Reset and Remove buttons under the event-part chips, after the line saying where they come from.
  *
  * @param editor - The editor
  * @returns Each as `<visible text>: <accessible name>`
  */
 function resets(editor: Editor): string[] {
   const heading = editor.shadowRoot!.querySelector('[data-heading="heading_details"]')!;
-  return [...heading.querySelectorAll<HTMLButtonElement>(':scope > .field-line .line-button')].map(
-    (button) => `${button.textContent?.trim()}: ${button.getAttribute('aria-label')}`,
-  );
+  return [
+    ...heading.querySelectorAll<HTMLButtonElement>(
+      ':scope > .chip-source .line-button, :scope > .field-line .line-button',
+    ),
+  ].map((button) => `${button.textContent?.trim()}: ${button.getAttribute('aria-label')}`);
 }
 
 /**

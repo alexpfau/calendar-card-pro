@@ -37,12 +37,7 @@ import type * as Types from '../src/config/types';
 import * as View from '../src/config/view';
 import { type FieldId, buildFieldIndex, schemaCtx } from '../src/rendering/editor/field-index';
 import { corpus } from '../src/rendering/editor/gates';
-import {
-  type Appearance,
-  OVERVIEW_FIELDS,
-  PAGES,
-  placementOf,
-} from '../src/rendering/editor/pages';
+import { type Appearance, PAGES, placementOf } from '../src/rendering/editor/pages';
 import { keepsControl, storedAt } from '../src/rendering/editor/plan';
 import { PREFS_KEY } from '../src/rendering/editor/prefs';
 import * as Reset from '../src/rendering/editor/reset';
@@ -55,7 +50,6 @@ const VERSION = Config.CURRENT_CONFIG_VERSION;
 
 /** Each card field's appearance in the registry. */
 const APPEARANCE = new Map<FieldId, Appearance>([
-  ...OVERVIEW_FIELDS,
   ...PAGES.flatMap((page) => page.headings.flatMap((heading) => heading.fields)),
 ]);
 
@@ -191,7 +185,7 @@ describe('every setting on a fresh card', () => {
     expect(lastConfig(editor)).toEqual({ ...card, list: { time_font_size: '20px' } });
     expect(stateWordOf(editor, id)).toBe('Set');
 
-    // Reset is a button in plain view on the line under the control, named for what it leaves.
+    // Reset is a button in plain view after Set, named for what it leaves.
     const menu = lineOf(editor, id)!;
     const reset = menu.querySelector<HTMLButtonElement>(`[data-focus="reset:${id}"]`)!;
     expect(reset.textContent?.trim()).toMatch(/^Reset \(/);
@@ -277,7 +271,7 @@ describe('what the card sets stays on its page', () => {
     ).toBeNull();
   });
 
-  it('names a layout’s own value under the name in All Layouts, its line holding only Reset', async () => {
+  it('names a layout’s own value under the name in All Layouts, Reset after Set', async () => {
     const editor = await mount({
       view: 'grid',
       filter_duplicates: true,
@@ -288,11 +282,13 @@ describe('what the card sets stays on its page', () => {
     const id = 'content:filter_duplicates_mode';
     // A line of the head itself, under the name, so it is read with its own row.
     expect(factsOf(editor, id)).toEqual(['Set', 'Columns Has Its Own: Off']);
-    const menu = lineOf(editor, id)!;
-    expect(menu.querySelectorAll('.field-note')).toHaveLength(1);
+    // Reset follows Set, before the layout's own line.
+    const line = lineOf(editor, id)!;
     expect(
-      [...menu.querySelectorAll('.line-button')].map((each) => each.getAttribute('data-focus')),
-    ).toEqual([`reset:${id}`]);
+      [...line.children].map(
+        (each) => each.getAttribute('data-focus') ?? each.textContent?.replace(/\s+/g, ' ').trim(),
+      ),
+    ).toEqual(['Set', `reset:${id}`, 'Columns Has Its Own: Off']);
   });
 
   it('draws a value held at a nested path', async () => {
@@ -425,13 +421,16 @@ describe('state words, by where they are drawn', () => {
   it('name Reset for what it leaves, in its text and leading its name, and Reset leaves it', async () => {
     const editor = await mount({ view: 'grid', start_date: 'today+1', event_font_size: '14px' });
     await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await openPageOf(editor, 'content:start_date_mode');
     const reset = $(editor, '[data-focus="reset:content:start_date_mode"]')!;
     expect(reset.textContent?.trim()).toBe('Reset (Today)');
     expect(reset.getAttribute('aria-label')).toBe('Reset Start Date to Today');
-    // One short button after the facts: no mark, no outcome sentence beside it.
-    const line = reset.closest('.field-note')!;
+    // One short button right after Set, among the facts: no mark, no outcome sentence beside it.
+    const line = reset.closest('.setting-facts')!;
     expect(line.querySelector('.mark, .outcome')).toBeNull();
-    expect(line.textContent?.replace(/\s+/g, ' ').trim()).toBe('Reset (Today)');
+    expect([...line.children].map((each) => each.textContent?.replace(/\s+/g, ' ').trim())).toEqual(
+      ['Set', 'Reset (Today)', 'Whole Card'],
+    );
 
     await click(editor, '[data-focus="reset:content:start_date_mode"]');
     expect(lastConfig(editor)).not.toHaveProperty('start_date');
@@ -680,17 +679,19 @@ describe('the preferences in the overview header’s ⋯ menu', () => {
 });
 
 describe('the review’s findings', () => {
-  it('keeps focus in the editor after a Remove on the overview', async () => {
+  it('keeps focus in the editor after a Remove of a mode value', async () => {
     const editor = await mount({ start_date: '2026-11-15' });
     await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await openPageOf(editor, 'content:start_date_mode');
     expect(live(editor)).toContain('content:start_date_fixed');
     $(editor, '[data-focus="remove:content:start_date_fixed"]')!.focus();
     await click(editor, '[data-focus="remove:content:start_date_fixed"]');
     await editor.updateComplete;
     expect(live(editor)).not.toContain('content:start_date_fixed');
+    // On its page, focus goes to its heading, which stays.
     const focused = editor.shadowRoot!.activeElement;
     expect(focused?.isConnected).toBe(true);
-    expect(focused?.hasAttribute('data-field')).toBe(true);
+    expect(focused?.textContent?.trim()).toBe('Date Range');
   });
 
   it('opens a setting on one calendar’s page, and leaves another calendar’s folded', async () => {
@@ -771,7 +772,7 @@ describe('a stored setting', () => {
     expect(lastConfig(editor)).not.toHaveProperty('event_font_size');
   });
 
-  it('puts a switch’s Reset under its row, not inside Home Assistant’s', async () => {
+  it('puts a switch’s Reset after Set under its row, not inside Home Assistant’s', async () => {
     const editor = await mount({ scroll_long_titles: true });
     await changeField(editor, 'workspace:editing_workspace', 'shared');
     await goPage(editor, 'events');
@@ -779,7 +780,8 @@ describe('a stored setting', () => {
     const setting = $(editor, `[data-setting="${id}"]`)!;
     expect(setting.querySelector('.setting-head.switch')).not.toBeNull();
     expect(setting.querySelector('.setting-control [data-reset-keys]')).toBeNull();
-    expect(setting.querySelector(':scope > .field-line [data-reset-keys]')).not.toBeNull();
+    expect(lineOf(editor, id)?.querySelector('[data-reset-keys]')).not.toBeNull();
+    expect(setting.querySelector(':scope > .field-line [data-reset-keys]')).toBeNull();
     expect(factsOf(editor, id)[0]).toBe('Set');
   });
 
@@ -798,7 +800,7 @@ describe('a stored setting', () => {
     expect(reset.getAttribute('aria-label')).not.toMatch(/false|true/);
   });
 
-  it('carries no button among its facts: only Reset, under the control, is pressable', async () => {
+  it('presses nothing among its facts but Reset or Remove, right after Set', async () => {
     const editor = await mount({
       view: 'grid',
       event_font_size: '15px',
@@ -806,8 +808,25 @@ describe('a stored setting', () => {
     });
     await changeField(editor, 'workspace:editing_workspace', 'shared');
     await goPage(editor, 'events');
-    const facts = editor.shadowRoot!.querySelectorAll('.setting-facts');
+    const facts = [...editor.shadowRoot!.querySelectorAll('.setting-facts')];
     expect(facts.length).toBeGreaterThan(0);
-    for (const each of facts) expect(each.querySelector('button, a, [tabindex]')).toBeNull();
+    let resets = 0;
+    for (const each of facts) {
+      // A fact is words: nothing in one presses.
+      expect(each.querySelector('.fact button, .fact a, .fact [tabindex]')).toBeNull();
+      for (const pressable of each.querySelectorAll('button, a, [tabindex]')) {
+        expect(
+          pressable.matches(
+            '.line-button[data-focus^="reset:"], .line-button[data-focus^="remove:"]',
+          ),
+        ).toBe(true);
+        // It follows Set where a fact says Set, and leads where none does.
+        const before = pressable.previousElementSibling;
+        if (each.querySelector('.fact-set')) expect(before?.classList).toContain('fact-set');
+        else expect(before).toBeNull();
+        resets++;
+      }
+    }
+    expect(resets).toBeGreaterThan(0);
   });
 });

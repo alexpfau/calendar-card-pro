@@ -2001,17 +2001,17 @@ export async function resetButtons(editor: EditorElement): Promise<HTMLButtonEle
 }
 
 /**
- * The line under a setting's control on the open page: "Set on Calendars" with its links, and
- * Reset or Remove, each a button in plain view.
+ * The line holding a setting's Reset or Remove on the open page, a button in plain view: its
+ * facts under its name, where Reset follows Set.
  *
  * @param editor - Editor element
  * @param id - Field id
- * @returns The line, or null where the setting draws none
+ * @returns The line, or null where the setting offers neither
  */
 export function lineOf(editor: EditorElement, id: FieldId): HTMLElement | null {
   return (
     editor.shadowRoot?.querySelector<HTMLElement>(
-      `[data-setting="${CSS.escape(id)}"] .field-line`,
+      `[data-setting="${CSS.escape(id)}"] > .setting-head > .setting-facts.has-actions`,
     ) ?? null
   );
 }

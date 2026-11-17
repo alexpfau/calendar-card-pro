@@ -1866,11 +1866,11 @@ Five things are easy to get wrong:
 
 **Some fields are drawn as the editor's own controls rather than forms**, by their appearance in
 the page registry: the event parts and the toolbar's built-in controls as toggle chips
-(`{ chips: 'parts' | 'toolbar' }`, `chips.ts`, `views/chips.ts`), and Calendar Filter as a segmented
-radio group (`'segmented'`). Each writes through `_writeFieldValue`, one undo step, and carries
+(`{ chips: 'parts' | 'toolbar' }`, `chips.ts`, `views/chips.ts`), and Calendar Filter's segments and
+Start Date's chips as radio groups with no head row (`'segmented'`). Each writes through `_writeFieldValue`, one undo step, and carries
 `data-field` with its field's id, so Undo and a search's jump find it as they find a form; a jump
 to a chip focuses that chip, not its group. A chip's name carries its state words, and the line
-under the chips holds a Reset or Remove for each part stored in the scope, as a form's line does.
+under the chips holds one Reset for the parts stored in the scope, after Chosen Here.
 Drawn alone, as What This Card Changes' Edit mounts a line, `_renderField` draws a chip or the
 radio group rather than a switch or a dropdown. A chip whose field the scope offers but a gate
 withholds is still drawn, `aria-disabled` with its reason ("Needs Time"), and focusable, and it
@@ -2078,9 +2078,11 @@ draws its own helper only where `show.describedBy` is undefined, i.e. where no h
 **Only what can be pressed looks pressable.** A setting's facts (Set, Whole Card, From All
 Layouts, a layout's own value) are words in a form of their kind, never a pill, a link color or a
 button; at a default the state is a `visually-hidden` "Default", read but not seen. Reset and
-Remove are buttons in plain view on the line under the control (`views/shown.ts` › `fieldLine`),
-a switch's after its head. A stored setting never folds, so its Reset is always in view.
-`tests/editor-shown-set.test.ts` fails on a button among the facts. **A folded row is never
+Remove are the one exception: buttons in plain view among the facts, right after Set
+(`views/shown.ts` › `factLine`), on the side away from ⓘ, and 16 px below a switch's row, whose
+whole label toggles it. A stored setting never folds, so its Reset is always in view.
+`tests/editor-shown-set.test.ts` fails on any other pressable among the facts, and on a Reset
+anywhere but after Set. **A folded row is never
 empty**: where nothing is stored, it names what applies (`unset.ts`: "Same as …" for a setting
 that follows another, what it does for any other), and `tests/editor-folded-values.test.ts` walks
 every page, scope and entry for an empty one.
@@ -2110,8 +2112,7 @@ Four things follow for new code:
 **Tests read a page as a user sees it, folded settings folded.** A test about every form a page
 can draw opens them first with `unfoldAll`, as `openPanels` does on every page it visits, and
 `changeField` on a folded setting opens it first, as a user would. A state word is read off the
-setting's facts (`stateWordOf`, `factsOf`), and a Reset from the line under its control
-(`lineOf`); `resetButtons` collects them page by page. `openPanels` yields one macrotask before its visit: happy-dom keeps the
+setting's facts (`stateWordOf`, `factsOf`), and a Reset from its facts, after Set (`lineOf`); `resetButtons` collects them page by page. `openPanels` yields one macrotask before its visit: happy-dom keeps the
 targets of `WeakRef`s reached during a job until the job ends, so a long run of microtask awaits
 holds every node earlier renders let go of, and the gate corpus ran out of heap without it.
 

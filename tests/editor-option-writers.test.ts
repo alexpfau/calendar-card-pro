@@ -88,8 +88,6 @@ const SHARED: Readonly<Record<string, ReadonlyArray<ReadonlyArray<FieldId>>>> = 
     ['day_header:today_indicator_custom', 'day_header:today_indicator_style'],
     ['day_header:today_indicator_icon', 'day_header:today_indicator_style'],
   ],
-  // The overview's shortcut over the event's tap: on, it stores the details action.
-  event_tap_action: [['actions:event_opens_details', 'actions:event_tap_action']],
   // A switch that refines the setting beside it: on, it stores `once_per_day`.
   show_countdown: [['events:countdown_once_per_day', 'events:show_countdown']],
   // A switch that writes several text colors at once, beside each of them.
