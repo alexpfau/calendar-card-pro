@@ -479,6 +479,9 @@ type PlanOwner = { readonly kind: 'card' } | { readonly kind: 'entry'; readonly 
 
 const CARD: PlanOwner = { kind: 'card' };
 
+/** Below this width of its own, the editor draws its narrow layout. */
+const NARROW_WIDTH = 440;
+
 /** What a string's placeholders are filled with (`strings.ts` › `interpolate`). */
 type Words = Record<string, string | number>;
 
@@ -493,8 +496,42 @@ export class CalendarCardProEditor extends LitElement {
     return styles;
   }
 
+  /** Whether the editor is narrower than `NARROW_WIDTH`, a phone's dialog: its `narrow` attribute. */
+  private _narrow = false;
+
+  private _widthObserver?: ResizeObserver;
+
+  override connectedCallback(): void {
+    super.connectedCallback();
+    if (typeof ResizeObserver === 'undefined') return;
+    this._widthObserver ??= new ResizeObserver(() => {
+      const root = this.renderRoot.querySelector('.card-config');
+      const width = root?.getBoundingClientRect().width ?? 0;
+      const narrow = width > 0 && width < NARROW_WIDTH;
+      if (narrow !== this._narrow) {
+        this._narrow = narrow;
+        this.toggleAttribute('narrow', narrow);
+      }
+      this._fitSwitchRows();
+    });
+  }
+
+  /** Watches the editor's own width and each switch row's control, which Home Assistant draws. */
+  private _watchSizes(): void {
+    const observer = this._widthObserver;
+    if (!observer) return;
+    const root = this.renderRoot.querySelector('.card-config');
+    if (root) observer.observe(root);
+    for (const control of this.renderRoot.querySelectorAll(
+      '.setting-head.switch .setting-control',
+    )) {
+      observer.observe(control);
+    }
+  }
+
   override disconnectedCallback(): void {
     super.disconnectedCallback();
+    this._widthObserver?.disconnect();
     // Leaving the visual editor, for the code editor or by closing the dialog, cancels a split
     // that has not been made, so the preview is never what is kept.
     this._cancelSplit(false);
@@ -626,7 +663,80 @@ export class CalendarCardProEditor extends LitElement {
    * service controls draw a field only for a target that supports it. Its Visibility editor is told
    * the calendar it would edit against.
    */
+  /**
+   * Fits each switch's head to the lines Home Assistant's label takes: Home Assistant draws its
+   * switch row at least 56 px tall with its label at the top, so the box is moved down to center
+   * a one-line label in the 44 px head, and the empty part below the label is taken back. A label
+   * that wraps keeps every line it takes, so nothing spills into the row below.
+   */
+  private _fitSwitchRows(): void {
+    for (const control of this.renderRoot.querySelectorAll<HTMLElement>(
+      '.setting-head.switch .setting-control',
+    )) {
+      const box = control.getBoundingClientRect();
+      if (box.height === 0) continue;
+      let bottom = 0;
+      const walk = (node: Node): void => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          if (!node.nodeValue?.trim()) return;
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          for (const rect of range.getClientRects()) bottom = Math.max(bottom, rect.bottom);
+          return;
+        }
+        const element = node as Element;
+        if (element.shadowRoot) walk(element.shadowRoot);
+        for (const child of node.childNodes) walk(child);
+      };
+      walk(control);
+      // Unknown until Home Assistant has drawn its label: the whole box stays.
+      const take = bottom === 0 ? 0 : Math.max(0, Math.floor(box.bottom - bottom - 12));
+      control.style.marginBottom = `${-take}px`;
+    }
+  }
+
+  /** The language the pill column was last measured in. */
+  private _pillsSizedFor?: string;
+
+  /**
+   * Measures the pill column once per language: as wide as the widest state pill the editor can
+   * draw, its menu's chevron included, so values and pills line up down every page and nothing
+   * moves when a setting's state changes.
+   */
+  private _sizePills(): void {
+    if (!this._config || !this.isConnected) return;
+    // Measured once laid out: an editor with no width yet has nothing to measure, and is asked
+    // again on its next update.
+    const root = this.renderRoot.querySelector<HTMLElement>('.card-config');
+    if (!root || root.getBoundingClientRect().width === 0) return;
+    const language = this._ctx.language ?? '';
+    if (this._pillsSizedFor === language) return;
+    const t = this._t(this._ctx);
+    const words = ['state.default', 'state.set', 'state.from_all_layouts', 'state.from_card'];
+    const probe = document.createElement('span');
+    probe.setAttribute('aria-hidden', 'true');
+    probe.style.cssText = 'position:absolute;visibility:hidden;inset-inline-start:0;top:0';
+    root.append(probe);
+    let widest = 0;
+    for (const key of words) {
+      const pill = document.createElement('span');
+      pill.className = 'setting-pill tone-set';
+      pill.textContent = t(key);
+      // The menu's chevron, 16 px and the pill's gap.
+      pill.style.paddingInlineEnd = '26px';
+      probe.append(pill);
+      widest = Math.max(widest, pill.getBoundingClientRect().width);
+    }
+    probe.remove();
+    if (widest === 0) return;
+    this._pillsSizedFor = language;
+    this.style.setProperty('--pill-col', `${Math.ceil(widest) + 4}px`);
+  }
+
   protected override updated(): void {
+    this._sizePills();
+    // A switch row is fitted once Home Assistant has drawn it, as the observer reports its size.
+    this._watchSizes();
     // Written once attached, where Home Assistant hears it: `setConfig` comes while detached.
     if (this._pendingUpgrade && this.hass && this.isConnected) {
       this._pendingUpgrade = false;
@@ -3109,14 +3219,11 @@ export class CalendarCardProEditor extends LitElement {
     const notes: Array<{ text: string }> = [];
     const ignored = Shown.ignoredText(state, t, layout, word);
     if (ignored) notes.push({ text: ignored });
-    for (const own of state?.layoutsOwn ?? []) {
-      notes.push({
-        text: t('state.layout_own', {
-          layout: layout(own.view),
-          value: word(own.value),
-        }),
-      });
-    }
+    const owns = (state?.layoutsOwn ?? []).map((own) =>
+      t('state.layout_own', { layout: layout(own.view), value: word(own.value) }),
+    );
+    // A head row says it under the name; the line under a field says it among its notes.
+    if (why === undefined) for (const text of owns) notes.push({ text });
     const calendars =
       state?.calendars === undefined
         ? undefined
@@ -3157,6 +3264,7 @@ export class CalendarCardProEditor extends LitElement {
         appearance,
         state,
         owner,
+        owns,
         notes,
         calendars,
         actions,
@@ -3194,6 +3302,7 @@ export class CalendarCardProEditor extends LitElement {
     appearance: Appearance,
     state: Plan.StateWords | undefined,
     owner: PlanOwner,
+    owns: ReadonlyArray<string>,
     notes: ReadonlyArray<{ text: string }>,
     calendars: { label: string; links: ShownView.LineButton[] } | undefined,
     actions: ReadonlyArray<ShownView.LineButton>,
@@ -3205,36 +3314,24 @@ export class CalendarCardProEditor extends LitElement {
     const label = fieldLabel(field, ctx.language);
     const key = this._addedKey(field.id, owner);
     const words = state?.words;
-    const pillText = Shown.stateText(state, t) ?? t('state.default');
     const atDefault =
       words === undefined ||
       words.kind === 'layout-default' ||
       (words.kind === 'whole-card' && !words.stored);
-    const pill: ShownView.Pill = {
-      text: pillText,
-      tone: atDefault
-        ? 'default'
-        : words.kind === 'from-all-layouts' || words.kind === 'follows-card'
-          ? 'inherited'
-          : 'set',
-    };
-    const own = state?.layoutsOwn ?? [];
-    const warn: ShownView.Pill | undefined =
-      own.length === 0
-        ? undefined
-        : {
-            text:
-              own.length === 1
-                ? t('state.has_its_own', { layout: layout(own[0].view) })
-                : t('state.have_their_own', {
-                    layouts: EditorLocalize.formatList(
-                      ctx.language,
-                      own.map((each) => layout(each.view)),
-                      'conjunction',
-                    ),
-                  }),
-            tone: 'warning',
-          };
+    // The pill names a state only; a whole-card setting says its scope with a mark by its name.
+    // The pill names a state only; a whole-card setting says its scope with a mark by its name.
+    const pillText =
+      words?.kind === 'whole-card'
+        ? t(words.stored ? 'state.set' : 'state.default')
+        : (Shown.stateText(state, t) ?? t('state.default'));
+    const wholeCard = words?.kind === 'whole-card' ? { name: t('state.whole_card') } : undefined;
+    const pillTone: ShownView.PillTone = atDefault
+      ? 'default'
+      : words.kind === 'from-all-layouts' || words.kind === 'follows-card'
+        ? 'inherited'
+        : 'set';
+    const own = owns.length > 0 ? owns.join(' · ') : undefined;
+    void layout;
     const menuKey = `pill:${key}`;
     const menuOpen = this._menuOpen === menuKey;
     const notesOf = [...notes.map((note) => note.text), ...(calendars ? [calendars.label] : [])];
@@ -3302,25 +3399,28 @@ export class CalendarCardProEditor extends LitElement {
         : worded;
     const family =
       typeof appearance === 'object' && 'family' in appearance ? appearance.family : undefined;
+    const hasMenu = notesOf.length > 0 || buttons.length > 0;
     const head: ShownView.SettingHead = {
       id: field.id,
       label,
       lang: ctx.language,
       value,
-      pill,
-      warn,
-      menu:
-        notesOf.length > 0 || buttons.length > 0
-          ? {
-              key: menuKey,
-              open: menuOpen,
-              notes: notesOf,
-              buttons,
-              onToggle: () => {
-                this._menuOpen = menuOpen ? undefined : menuKey;
-              },
-            }
-          : undefined,
+      // At its default a setting shows no pill, so the pills mark what is not; a screen reader
+      // still hears "Default".
+      pill: { text: pillText, tone: pillTone, quiet: pillTone === 'default' && !hasMenu },
+      wholeCard,
+      own,
+      menu: hasMenu
+        ? {
+            key: menuKey,
+            open: menuOpen,
+            notes: notesOf,
+            buttons,
+            onToggle: () => {
+              this._menuOpen = menuOpen ? undefined : menuKey;
+            },
+          }
+        : undefined,
       help: helper
         ? {
             id: helpId,
@@ -3763,7 +3863,11 @@ export class CalendarCardProEditor extends LitElement {
         destination: block ?? '',
         anchor: field.id,
         focusKey: `field:${field.id}`,
-        helper: fieldHelper(valueField, ctx) ?? fieldHelper(field, ctx),
+        // Behind its head's ⓘ where it has one, so it is never shown twice.
+        helper:
+          show?.describedBy === undefined
+            ? (fieldHelper(valueField, ctx) ?? fieldHelper(field, ctx))
+            : undefined,
         words: show?.words,
       })}
       ${show?.line ?? nothing}
@@ -3782,6 +3886,7 @@ export class CalendarCardProEditor extends LitElement {
    * @param id - The color field, or the mode it absorbs (`calendar:accent_color`)
    * @param ctx - Schema context
    * @param words - Its state words
+   * @param withHelper - Whether it draws its helper, which a head row's ⓘ otherwise holds
    * @returns The control; nothing for an entry that has left, or a field that is no color
    */
   private _renderEntryColor(
@@ -3789,6 +3894,7 @@ export class CalendarCardProEditor extends LitElement {
     id: FieldId,
     ctx: SchemaCtx,
     words?: string,
+    withHelper = true,
   ): TemplateResult | typeof nothing {
     const entry = this._entryOf(key);
     const colors = this._entryColors(ctx);
@@ -3811,7 +3917,9 @@ export class CalendarCardProEditor extends LitElement {
       anchor,
       // Undo focuses the field's wrapper on the entry's page, as its other fields'.
       focusKey: `field:${id}`,
-      helper: fieldHelper(valueField, ctx) ?? fieldHelper(colors.fields.get(anchor)!, ctx),
+      helper: withHelper
+        ? (fieldHelper(valueField, ctx) ?? fieldHelper(colors.fields.get(anchor)!, ctx))
+        : undefined,
       entity: { id: entityId, name: Entities.entityDisplayName(entityId, this.hass) },
     });
   }
@@ -7202,7 +7310,8 @@ export class CalendarCardProEditor extends LitElement {
           role="group"
           aria-label=${fieldLabel(field, ctx.language)}
         >
-          ${this._renderEntryColor(key, field.id, ctx, show?.words)} ${show?.line ?? nothing}
+          ${this._renderEntryColor(key, field.id, ctx, show?.words, show?.describedBy === undefined)}
+          ${show?.line ?? nothing}
         </div>`,
       );
     }
@@ -7333,7 +7442,14 @@ export class CalendarCardProEditor extends LitElement {
       aria-label=${fieldLabel(field, ctx.language)}
       @context-request=${(event: Event) => provideCalendar(event, entityId)}
     >
-      <div class="entity-visibility-helper">${this._string(ctx, 'entity.visibility.helper')}</div>
+      ${
+        // Behind its head's ⓘ where it has one, so it is never shown twice.
+        show?.describedBy === undefined
+          ? html`<div class="entity-visibility-helper">
+              ${this._string(ctx, 'entity.visibility.helper')}
+            </div>`
+          : nothing
+      }
       ${keyed(
         entityId,
         html`<ha-card-conditions-editor

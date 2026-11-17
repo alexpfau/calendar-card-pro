@@ -247,7 +247,9 @@ describe('per-option Grid reset memory', () => {
     await changeField(editor, 'display:view', 'list');
     await changeField(editor, 'display:view', 'grid');
     expect(reports.slice(-1)[0]).not.toHaveProperty('time_grid.event_font_size');
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('keeps reset memory across an echo but starts fresh after reopening', async () => {
     const { editor, reports } = await mount({
@@ -295,7 +297,9 @@ describe('per-option Grid reset memory', () => {
       day_spacing: '2rem',
       event_color: '#654321',
     });
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('a later Shared derived-control edit reauthors each of its reset keys', async () => {
     const { editor, reports } = await mount({
@@ -477,7 +481,9 @@ describe('first-switch reconciliation regressions', () => {
     expect(reports.slice(-1)[0]).not.toHaveProperty('time_grid.event_background_opacity');
     expect(valueOf(editor, 'events:event_background_opacity')).toBe(20);
     expect(notice(editor)).toBeNull();
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('coerces authored lengths without changing unrelated stored values', async () => {
     const { editor, reports } = await mount({ day_spacing: 4, event_background_opacity: 5 });
@@ -581,6 +587,9 @@ describe('implicit defaults and first-switch boundaries', () => {
       expect(valueOf(editor, id)).toEqual(resolved(before));
       expect(notice(editor)).toBeNull();
     },
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+    30_000,
   );
 
   it('does not turn merged defaults into authored values after an unrelated root edit', async () => {
@@ -668,7 +677,9 @@ describe('implicit defaults and first-switch boundaries', () => {
       await openPageOf(editor, id);
       expect(pillOf(editor, id), id).toBe('Default');
     }
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('does not remove existing explicit defaults from an older Grid configuration', async () => {
     const { editor, reports } = await mount({

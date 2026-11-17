@@ -159,11 +159,13 @@ describe("which editor a calendar entry's page shows", () => {
         }
         return found;
       },
-      /** The helpers the page open draws for the conditions. */
+      /** The helpers the page open draws for the conditions, shown or behind ⓘ. */
       helpers: () =>
-        Array.from(root.querySelectorAll('.entity-visibility-helper')).map((node) =>
-          node.textContent?.trim(),
-        ),
+        Array.from(
+          root.querySelectorAll(
+            '.entity-visibility-helper, [data-setting="calendar:visibility"] > .setting-help',
+          ),
+        ).map((node) => node.textContent?.trim()),
     };
   }
 
@@ -240,7 +242,7 @@ describe("which editor a calendar entry's page shows", () => {
     expect(redrawn).not.toHaveBeenCalled();
   });
 
-  it('sits alone under Who Sees It, between Name & Look and Which Events, under the helper', async () => {
+  it('sits alone under Who Sees It, between Name & Look and Which Events, its helper behind ⓘ', async () => {
     const editor = await render([ANNA]);
     const conditions = drawn(await editor.editorOn(0));
     const container = conditions.parentElement!;
@@ -252,8 +254,9 @@ describe("which editor a calendar entry's page shows", () => {
     // The conditions are the field itself, in place of its YAML form.
     expect(container.getAttribute('data-field')).toBe('calendar:visibility');
     expect(container.querySelector('ha-form')).toBeNull();
-    expect(container.firstElementChild?.className).toBe('entity-visibility-helper');
-    expect(conditions.previousElementSibling).toBe(container.firstElementChild);
+    // Its helper is behind its head's ⓘ alone, never shown a second time above the editor.
+    expect(container.querySelector('.entity-visibility-helper')).toBeNull();
+    expect(conditions).toBe(container.firstElementChild);
     expect([...section.querySelectorAll('[data-field]')]).toEqual([container]);
     expect(section.querySelector('h3')?.textContent?.trim()).toBe('Who Sees It');
     expect([

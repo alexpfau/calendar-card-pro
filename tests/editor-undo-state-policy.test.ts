@@ -124,6 +124,9 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_resultStatus',
     // The card picker's calendar, read from Home Assistant as the configuration arrived.
     '_pickerCalendar',
+    // The editor's own width, which draws its narrow layout, and the observer reading it.
+    '_narrow',
+    '_widthObserver',
   ],
   // The history itself, and whether a change is being recorded.
   history: ['_history', '_committing', '_splitting'],

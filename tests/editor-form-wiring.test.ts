@@ -196,7 +196,9 @@ describe('editor panel option forms', () => {
     expect(seen).toHaveLength(2);
     expect(seen[1].first_day_of_week).toBe('sunday');
     expect(seen[1].list).toHaveProperty('title_max_lines', 3);
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('keeps the panel event inside the editor', async () => {
     const element = await mount({ entities: ['calendar.a'] });
@@ -298,7 +300,9 @@ describe('direct view forms and resets', () => {
     await openPageOf(element, 'layout:day_spacing');
     expect(valueOf(element, 'layout:day_spacing')).toBe('10px');
     expect(await resetButton(element, 'day_spacing')).toBeNull();
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('writes an override value into the view block', async () => {
     const element = await mount({ entities: ['calendar.a'], view: 'column' });

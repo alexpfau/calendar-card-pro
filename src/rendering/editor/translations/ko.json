@@ -83,8 +83,6 @@
   "state.set_shared": "설정됨 · 모든 항목이 공유",
   "state.from_card": "카드에서 가져옴",
   "state.layout_own": "{layout} 자체 값: {value}",
-  "state.has_its_own": "{layout}에 자체 값 있음",
-  "state.have_their_own": "{layouts}에 자체 값 있음",
   "state.set_on_calendars": "설정된 캘린더:",
   "reset.to": "초기화 ({value})",
   "reset.reset": "초기화",

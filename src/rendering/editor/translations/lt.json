@@ -83,8 +83,6 @@
   "state.set_shared": "Nustatyta · bendra jo įrašams",
   "state.from_card": "Iš kortelės",
   "state.layout_own": "Išdėstymas „{layout}“ turi savą: {value}",
-  "state.has_its_own": "{layout} turi savo reikšmę",
-  "state.have_their_own": "{layouts} turi savo reikšmes",
   "state.set_on_calendars": "Nustatyta kalendoriams:",
   "reset.to": "Atkurti ({value})",
   "reset.reset": "Atkurti",

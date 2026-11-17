@@ -595,7 +595,9 @@ describe('the warm-up form', () => {
     // Home Assistant's Visibility editor is not defined, so the calendars' conditions are held by
     // none: behind its guard, as the visible one is.
     expect(warmConditions(editor)).toBeNull();
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('warms a selector a builder starts to use, in a panel, a calendar or a button', async () => {
     plant.on = true;

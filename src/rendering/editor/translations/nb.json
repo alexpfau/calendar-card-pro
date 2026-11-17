@@ -83,8 +83,6 @@
   "state.set_shared": "Angitt · Delt av oppføringene",
   "state.from_card": "Fra kortet",
   "state.layout_own": "«{layout}» har sin egen: {value}",
-  "state.has_its_own": "{layout} har sin egen",
-  "state.have_their_own": "{layouts} har sine egne",
   "state.set_on_calendars": "Angitt på kalendere:",
   "reset.to": "Tilbakestill ({value})",
   "reset.reset": "Tilbakestill",

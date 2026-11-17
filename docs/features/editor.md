@@ -175,7 +175,7 @@ choices.
   base. Editing All Layouts therefore changes only the layouts that inherit that option, never
   their explicit choices or built-in defaults ([YAML & View Defaults](#yaml-view-defaults)).
 - Card-wide options such as calendars, title, language and actions stay card-wide whatever is
-  chosen, and say **Whole Card**.
+  chosen, and carry a small link mark after their name, **Whole Card** to a screen reader.
 
 The choice follows your selection, not the preview's width-dependent fallback. When the two
 differ, a line says so, as in **Editing List · Preview Shows Grid**, and **Preview List** beside
@@ -200,21 +200,24 @@ empty_day_color: '#607d8b'
 
 ### State in Words
 
-Every setting says where its value comes from on a pill at the end of its row, in words, so the
-state is never told by color alone and a screen reader reads it with the setting's name. The words
-are the same on every page; Settings For says which layout they are about.
+A setting whose value is not its default says where the value comes from on a pill at the end
+of its row, in words, so the state is never told by color alone. A setting at its default shows
+no pill; a screen reader still reads **Default** with its name. The words are the same on every
+page; Settings For says which layout they are about.
 
 | Words                | Means                                                                  |
 | -------------------- | ---------------------------------------------------------------------- |
 | **Set**              | Stored where you are editing: the layout, All Layouts or a calendar    |
-| **Default**          | The built-in default; in a layout, its own, whatever All Layouts holds |
 | **From All Layouts** | The layout has no value of its own and uses the shared one             |
-| **Whole Card**       | A card-wide option, the same in every layout                           |
 | **From the Card**    | A calendar that sets nothing, where the card's value is not default    |
+| no pill              | The built-in default; in a layout, its own, whatever All Layouts holds |
 
-While you edit All Layouts, a pill under a setting names each layout the shared value does not
-reach, as in **Grid Has Its Own**, whether Grid stores its own value or defaults to it; the
-setting's pill opens the value, **Grid Has Its Own: 12px**.
+The pill names a state only. A card-wide option, with one value for every layout, carries a
+small link mark after its name instead.
+
+While you edit All Layouts, a line inside a setting's row, under its name, names each layout the
+shared value does not reach and the value it uses, as in **Grid Has Its Own: 12px**, whether Grid
+stores its own value or defaults to it.
 
 Where a value is stored, its **Set** pill opens a small menu with the reset. **Reset (In the Day
 Header)** keeps the setting open and names the value it goes back to, or **Reset (Empty)** where
@@ -528,9 +531,10 @@ Home Assistant** or **Calendar Color**, then Home Assistant's named colors as sw
 ## 🗂️ Every Setting on Its Page
 
 Every page shows every setting that applies here, each on a row of its own: its name, its value,
-an **ⓘ**, its state pill and a chevron, as in **Week Number Color · Primary Text · Default**. A
-setting at its default is just that row. Press the row to open Home Assistant's control for it
-below the row; press the same spot again to fold it. Nothing is written until you change a value.
+its state pill where it has one, an **ⓘ** and a chevron, as in **Week Number Color · Primary
+Text**. A setting at its default is just that row. Each heading and its settings sit in a card
+of their own. Press the row to open Home Assistant's control for it below the row; press the
+same spot again to fold it. Nothing is written until you change a value.
 
 - **The row never moves.** Opening a setting draws its control under the row, so the pill, the
   **ⓘ** and the chevron stay where they were, and a second press always lands on the same row.
@@ -538,7 +542,12 @@ below the row; press the same spot again to fold it. Nothing is written until yo
   page folds again what you opened there without changing it.
 - **ⓘ** shows the setting's help under it. A screen reader reads the help as the setting's
   description.
-- **A switch** is Home Assistant's own switch row, with its **ⓘ** and pill after it.
+- **A switch** is Home Assistant's own switch row, with its pill and **ⓘ** after it. Every switch
+  ends where the values end, so switches and values share one column. A row grows with a name
+  that wraps, and the pill and **ⓘ** stay level with the switch.
+- **On a phone** the name gets the row's width: the value shows once you open the setting, and a
+  pill sits under the name. On a wider screen the values, pills and **ⓘ** line up in columns
+  down every page.
 - **A setting that needs another one** stays in its place until it applies, as in **Indicator
   Size · Appears once the Style is a dot, an icon or an emoji**. Several in a row waiting on the
   same setting share one line. Turning the other setting on brings them in.

@@ -83,8 +83,6 @@
   "state.set_shared": "Iestatīts · kopīgs visiem tā ierakstiem",
   "state.from_card": "No kartes",
   "state.layout_own": "Izkārtojumam „{layout}“ ir sava vērtība: {value}",
-  "state.has_its_own": "{layout} ir sava vērtība",
-  "state.have_their_own": "{layouts} ir savas vērtības",
   "state.set_on_calendars": "Iestatīts kalendāros:",
   "reset.to": "Atiestatīt ({value})",
   "reset.reset": "Atiestatīt",

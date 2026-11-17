@@ -59,24 +59,30 @@ describe.each(['list', 'column', 'grid'] as const)('%s serialized editor state',
   );
 });
 
-it.each([false, true])('retains an explicit divergent Grid default (echo=%s)', async (echo) => {
-  const { editor, reports } = await mount({
-    view: 'grid',
-    time_grid: { event_font_size: '18px' },
-  });
-  await changeField(editor, 'events:event_font_size', '12px');
-  expect(reports.slice(-1)[0]).toHaveProperty('time_grid.event_font_size', '12px');
-  if (echo) {
-    editor.setConfig(reports.slice(-1)[0]!);
-    await editor.updateComplete;
-  }
-  await changeField(editor, 'workspace:editing_workspace', 'shared');
-  await changeField(editor, 'events:event_font_size', '20px');
-  await changeField(editor, 'workspace:editing_workspace', 'grid');
-  expect(reports.slice(-1)[0]).toHaveProperty('event_font_size', '20px');
-  expect(reports.slice(-1)[0]).toHaveProperty('time_grid.event_font_size', '12px');
-  expect(valueOf(editor, 'events:event_font_size')).toBe('12px');
-});
+it.each([false, true])(
+  'retains an explicit divergent Grid default (echo=%s)',
+  async (echo) => {
+    const { editor, reports } = await mount({
+      view: 'grid',
+      time_grid: { event_font_size: '18px' },
+    });
+    await changeField(editor, 'events:event_font_size', '12px');
+    expect(reports.slice(-1)[0]).toHaveProperty('time_grid.event_font_size', '12px');
+    if (echo) {
+      editor.setConfig(reports.slice(-1)[0]!);
+      await editor.updateComplete;
+    }
+    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await changeField(editor, 'events:event_font_size', '20px');
+    await changeField(editor, 'workspace:editing_workspace', 'grid');
+    expect(reports.slice(-1)[0]).toHaveProperty('event_font_size', '20px');
+    expect(reports.slice(-1)[0]).toHaveProperty('time_grid.event_font_size', '12px');
+    expect(valueOf(editor, 'events:event_font_size')).toBe('12px');
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  },
+  30_000,
+);
 
 it('keeps incomplete scoped text through a save and an echo', async () => {
   const { editor, reports } = await mount({
@@ -91,4 +97,6 @@ it('keeps incomplete scoped text through a save and an echo', async () => {
   editor.setConfig(reports.slice(-1)[0]!);
   await editor.updateComplete;
   expect(valueOf(editor, 'layout:card_height')).toBe('');
-});
+  // Over a second in a full local run; the limit is set for CI's slower runner under load
+  // rather than for a hang.
+}, 30_000);
