@@ -9510,16 +9510,28 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * Resets one line of What This Card Changes, as one undo step, and leaves the line that says so
-   * at the top of its group, with Undo, which takes focus.
+   * at the top of its group, with Undo, which takes focus. The line words it as the strip did:
+   * "Reset Last Hour in Grid", or "Removed Language" where the strip said Remove.
    *
    * @param named - The setting, as the row names it
    * @param groupKey - Its group's key
    * @param target - What to reset
+   * @param verb - Whether the strip offered Reset or Remove
    */
-  private _auditReset(named: string, groupKey: string, target: Reset.ResetTarget): void {
-    const text = this._string(this._ctx, 'history.reset', { setting: named });
+  private _auditReset(
+    named: string,
+    groupKey: string,
+    target: Reset.ResetTarget,
+    verb: 'reset' | 'remove' = 'reset',
+  ): void {
+    const ctx = this._ctx;
+    const step =
+      verb === 'remove'
+        ? this._string(ctx, 'history.remove', { name: named })
+        : this._string(ctx, 'history.reset', { setting: named });
+    const text = verb === 'remove' ? this._string(ctx, 'status.removed', { name: named }) : step;
     this._openStrip = undefined;
-    const done = this._commit(text, undefined, () => this._applyReset(target, []));
+    const done = this._commit(step, undefined, () => this._applyReset(target, []));
     if (done) this._showStatus({ kind: 'audit', text, at: 0, group: groupKey }, `${text}.`);
   }
 
@@ -9756,6 +9768,7 @@ export class CalendarCardProEditor extends LitElement {
                 entry === undefined
                   ? { kind: 'path', path: line.path }
                   : { kind: 'entry', key: entry, keys: [key] },
+                verb,
               ),
           ),
         ],
