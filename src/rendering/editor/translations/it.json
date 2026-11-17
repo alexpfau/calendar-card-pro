@@ -738,7 +738,7 @@
   "toolbar.legend.option.chips.label": "Chip",
   "toolbar.size": "Dimensione di frecce e chip",
   "toolbar.size.aliases": "touch, tocco, pulsanti più grandi",
-  "toolbar.size.helper": "Grande li rende grandi quanto gli altri pulsanti della barra strumenti, per uno schermo touch.",
+  "toolbar.size.helper": "L’opzione «Grande» li rende grandi quanto gli altri pulsanti della barra strumenti, per facilitarne l’uso su uno schermo touch.",
   "toolbar.size.option.normal.label": "Piccola",
   "toolbar.size.option.large.label": "Grande",
   "toolbar.controls": "Controlli",
