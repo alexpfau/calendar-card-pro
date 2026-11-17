@@ -18,6 +18,7 @@ import {
   mountEditor,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
+import { HA_CARD_KEYS } from '../src/config/constants';
 import type * as Types from '../src/config/types';
 import * as Audit from '../src/rendering/editor/audit';
 import { corpus } from '../src/rendering/editor/gates';
@@ -398,6 +399,10 @@ describe('What This Card Changes, its groups', () => {
     );
     const fresh = await mountEditor({ config_version: VERSION, entities: ['calendar.anna'] });
     expect(text($(fresh, '[data-focus="more:audit"] .nav-summary'))).toBe('Nothing Changed');
+  });
+
+  it('tags as Home Assistant’s only keys Home Assistant takes on every card', () => {
+    expect([...Audit.HA_LAYOUT_KEYS].filter((key) => !HA_CARD_KEYS.has(key))).toEqual([]);
   });
 });
 

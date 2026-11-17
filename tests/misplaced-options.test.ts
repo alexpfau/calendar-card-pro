@@ -15,11 +15,34 @@ vi.mock('../src/utils/logger', () => ({
 }));
 
 import { DEFAULT_CONFIG, normalizeEntities } from '../src/config/config';
+import { HA_CARD_KEYS } from '../src/config/constants';
 import * as Types from '../src/config/types';
 import { findMisplacedOptions, validateColumnOverrides } from '../src/config/view';
 import * as Logger from '../src/utils/logger';
 
 const warnMock = vi.mocked(Logger.warn);
+
+/**
+ * Every key Home Assistant's `LovelaceCardConfig` declares for any card, written out rather than
+ * read from `HA_CARD_KEYS`, so a key dropped from that set fails here.
+ */
+const HA_CARD_CONFIG = {
+  type: 'custom:calendar-card-pro',
+  index: 0,
+  view_index: 0,
+  view_layout: { position: 'main' },
+  layout_options: { grid_columns: 4 },
+  grid_options: { columns: 'full' },
+  visibility: [{ condition: 'screen', media_query: '(max-width: 1023px)' }],
+  disabled: false,
+};
+
+/** The calendar-only options, read the way the existing projection test reads them. */
+function calendarOnlyKeys(): string[] {
+  return Object.keys(normalizeEntities([{ entity: 'calendar.anna' }])[0]).filter(
+    (key) => key !== 'entity' && !Object.prototype.hasOwnProperty.call(DEFAULT_CONFIG, key),
+  );
+}
 
 describe('findMisplacedOptions', () => {
   it('finds nothing in a configuration that puts every option where it works', () => {
@@ -103,6 +126,41 @@ describe('findMisplacedOptions', () => {
   });
 });
 
+describe('Home Assistant’s own card keys', () => {
+  it('names every key Home Assistant takes on any card', () => {
+    expect([...HA_CARD_KEYS].sort()).toEqual(Object.keys(HA_CARD_CONFIG).sort());
+  });
+
+  it('reports none of them at the top level, where Home Assistant applies them to the card', () => {
+    expect(findMisplacedOptions(HA_CARD_CONFIG)).toEqual([]);
+  });
+
+  it('covers a calendar option that shares a name with one of them', () => {
+    // Without a collision the test above would pass with no exclusion at all. A calendar option
+    // added later under another of these names is covered by it the same way.
+    expect(calendarOnlyKeys().filter((key) => HA_CARD_KEYS.has(key))).toContain('visibility');
+  });
+
+  it('still reports a calendar option written beside them', () => {
+    expect(findMisplacedOptions({ ...HA_CARD_CONFIG, show_in_legend: false })).toEqual([
+      { kind: 'calendar', key: 'show_in_legend', from: null, to: [] },
+    ]);
+  });
+
+  it('still reports visibility written in a layout’s block, where neither reads it', () => {
+    expect(findMisplacedOptions({ list: { visibility: HA_CARD_CONFIG.visibility } })).toEqual([
+      { kind: 'calendar', key: 'visibility', from: 'list', to: [] },
+    ]);
+  });
+
+  it('keeps a calendar’s own visibility under entities', () => {
+    const entities = [{ entity: 'calendar.anna', visibility: HA_CARD_CONFIG.visibility }];
+
+    expect(findMisplacedOptions({ ...HA_CARD_CONFIG, entities })).toEqual([]);
+    expect(normalizeEntities(entities)[0].visibility).toEqual(HA_CARD_CONFIG.visibility);
+  });
+});
+
 describe('the card warns from the same findings', () => {
   beforeEach(() => warnMock.mockClear());
 
@@ -143,5 +201,11 @@ describe('the card warns from the same findings', () => {
     expect(warnMock.mock.calls.map((call) => call[0])).toEqual([
       expect.stringContaining('"show_in_legend": it is an option of one calendar'),
     ]);
+  });
+
+  it('says nothing about Home Assistant’s own card keys', () => {
+    validateColumnOverrides({ ...DEFAULT_CONFIG, ...HA_CARD_CONFIG } as unknown as Types.Config);
+
+    expect(warnMock).not.toHaveBeenCalled();
   });
 });

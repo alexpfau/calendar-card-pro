@@ -18,6 +18,7 @@ import {
   validateFoldedLength,
   validatePastEventOpacity,
 } from './config';
+import { HA_CARD_KEYS } from './constants';
 import * as Types from './types';
 import * as EntityColors from '../utils/entity-colors';
 import * as Logger from '../utils/logger';
@@ -2107,8 +2108,12 @@ export function findMisplacedOptions(config: Readonly<Record<string, unknown>>):
 
   // A calendar's option written for the whole card, such as `show_in_legend: false`, does nothing
   // there: no calendar reads the top level for it. It goes on the calendar it is for, so no Move.
+  // Home Assistant's own card keys are the exception: its card wrapper reads `visibility` at the
+  // top level whatever a calendar's `visibility` means under `entities:`.
   for (const key of Object.keys(config)) {
-    if (calendarOnlyKeySet().has(key)) findings.push({ kind: 'calendar', key, from: null, to: [] });
+    if (calendarOnlyKeySet().has(key) && !HA_CARD_KEYS.has(key)) {
+      findings.push({ kind: 'calendar', key, from: null, to: [] });
+    }
   }
 
   for (const block of Object.values(VIEW_BLOCKS)) {
