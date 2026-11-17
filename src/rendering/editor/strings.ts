@@ -1171,6 +1171,16 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'toolbar.legend.option.off.label': 'Off',
   'toolbar.legend.option.menu.label': 'Menu',
   'toolbar.legend.option.chips.label': 'Chips',
+  // Only the date navigation and the calendar chips change size; the label says so, since the
+  // option's own name, `size`, leaves room for more. `normal` is named Small: they are small
+  // beside the action row's buttons, and Normal reads as the font weight's Regular in most of
+  // the editor's languages.
+  'toolbar.size': 'Arrow & Chip Size',
+  'toolbar.size.aliases': 'touch, bigger buttons, larger buttons',
+  'toolbar.size.helper':
+    'Large makes them as big as the toolbar’s other buttons, for a touch screen.',
+  'toolbar.size.option.normal.label': 'Small',
+  'toolbar.size.option.large.label': 'Large',
   // The toolbar's built-in controls, drawn as chips (D09): shorter than their fields' labels,
   // which the search still finds them by. View Switcher and Date Navigation keep theirs.
   'toolbar.controls': 'Controls',

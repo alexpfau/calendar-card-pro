@@ -1165,6 +1165,7 @@ describe('the resolved toolbar the card reads', () => {
       refresh: false,
       search: false,
       legend: false,
+      size: 'normal',
       buttons: [],
     });
     // What it switches off: a shown toolbar draws every control but reset by default, search
@@ -1178,6 +1179,7 @@ describe('the resolved toolbar the card reads', () => {
       refresh: true,
       search: true,
       legend: 'menu',
+      size: 'normal',
       buttons: [],
     });
   });

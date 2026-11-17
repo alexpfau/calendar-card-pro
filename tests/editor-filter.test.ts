@@ -420,6 +420,7 @@ describe('editor filter: section headings', () => {
       'search',
       'navigation',
       'legend',
+      'size',
       'title',
     ]);
   });

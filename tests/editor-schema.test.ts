@@ -2731,6 +2731,7 @@ describe('editor: the Card & Header panel', () => {
         'refresh',
         'search',
         'navigation',
+        'size',
       ]);
     }
   });

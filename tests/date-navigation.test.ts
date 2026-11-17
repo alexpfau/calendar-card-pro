@@ -1427,6 +1427,27 @@ describe("the month's short form", () => {
     expect(month(card)).toBe('Jun 2026');
   });
 
+  it('draws the arrows large under size: large, and measures the month beside them again', async () => {
+    // Large arrows take 40px more of the row, so at this width only the usual ones leave every
+    // month room in full.
+    const width = fullFrom();
+    layout.navigation = 140;
+    const card = await mount({ toolbar: { ...NAVIGATION_ONLY, size: 'large' } });
+    await measure(card, width);
+    expect(heading(card).className).toBe('card-toolbar toolbar-heading short-month large-controls');
+    expect(month(card)).toBe('Jun 2026');
+
+    // Back to the usual size: the first render draws the month in full rather than in the form
+    // measured beside the large arrows, and the measurement after it agrees.
+    layout.navigation = 100;
+    card.setConfig(buildConfig({ ...BASE, toolbar: { ...NAVIGATION_ONLY, size: 'normal' } }));
+    await card.updateComplete;
+    expect(heading(card).className).toBe('card-toolbar toolbar-heading');
+    expect(month(card)).toBe('June 2026');
+    await settle(card);
+    expect(month(card)).toBe('June 2026');
+  });
+
   it("keeps the gap before the row's end without the arrows, where the end group stays empty", async () => {
     // The group at the row's end is drawn without navigation too, so the month still loses the
     // gap before it, and is shortened rather than cut off in the band of widths that gap costs.

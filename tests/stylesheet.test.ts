@@ -3637,6 +3637,65 @@ describe('the toolbar layout', () => {
     expect(declared('.toolbar-month-button::before', 'inset-inline')).toBe('0');
   });
 
+  describe('under toolbar.size: large', () => {
+    const L = '.large-controls';
+    /** The action row's buttons, which the large controls match. */
+    const button = () => px(declared('.toolbar-button', 'height'));
+
+    it('draws the arrows, home and the chips as large as the action row, the month as it is', () => {
+      expect(px(declared(`${L} .date-navigation`, 'height'))).toBe(button());
+      expect(px(declared(`${L} .date-navigation-segment`, 'width'))).toBe(button());
+      expect(px(declared(`${L} .date-navigation-segment`, 'height'))).toBe(button());
+      expect(declared(`${L} .date-navigation-segment`, 'border-radius')).toBe(`${button() / 2}px`);
+      expect(px(declared(`${L} .legend-chip`, 'height'))).toBe(button());
+      expect(declared(`${L} .legend-chip`, 'border-radius')).toBe(`${button() / 2}px`);
+      // The chevrons fill the same share of the larger button, and the chips keep their text.
+      const arrow = px(
+        declared(`${L} .date-navigation-segment .date-navigation-direction`, 'width'),
+      );
+      expect(arrow / 2 / button()).toBeCloseTo(0.44, 2);
+      expect(declared(`${L} .legend-chip`, 'font-size')).toBe('');
+      // Nothing else in either row changes size.
+      const enlarged = RULES.flatMap((rule) => rule.selectors).filter((s) => s.includes(L));
+      expect(
+        enlarged.every((s) =>
+          /\.(date-navigation|legend-chip|toolbar-legend|toolbar-heading-end)/.test(s),
+        ),
+      ).toBe(true);
+    });
+
+    it("centers them on the month's capitals by half their own height, as at the usual size", () => {
+      const half = (selector: string) => px(declared(`${L} ${selector}`, 'height')) / 2;
+      expect(
+        flat(declared(`.toolbar-heading${L} > .toolbar-heading-end`, 'margin-block-end')),
+      ).toBe(`calc(var(--calendar-card-heading-middle, 15px) - ${half('.date-navigation')}px)`);
+      const pad = declared(`${L} .toolbar-legend`, 'padding');
+      expect(flat(declared(`${L} .toolbar-legend`, 'margin-block-end'))).toBe(
+        `calc(var(--calendar-card-heading-middle, 15px) - ${half('.legend-chip') + px(pad)}px)`,
+      );
+      expect(declared(`${L} .toolbar-legend`, 'margin')).toBe(`-${pad}`);
+    });
+
+    it('gives each a 44px square touch target that never overlaps a neighbor or is clipped', () => {
+      const reach = -px(declared(`${L} .legend-chip::before`, 'inset'));
+      for (const selector of [
+        `${L} .date-navigation-segment::before`,
+        `${L} .date-navigation-segment:first-child::before`,
+        `${L} .date-navigation-segment:last-child::before`,
+      ]) {
+        expect(declared(selector, 'inset')).toBe(`-${reach}px`);
+      }
+      expect(button() + 2 * reach).toBe(44);
+      expect(px(declared(`${L} .date-navigation`, 'gap'))).toBeGreaterThanOrEqual(2 * reach);
+      expect(px(declared(`${L} .legend-chips`, 'gap'))).toBeGreaterThanOrEqual(2 * reach);
+      // An outer arrow and the chip beside it, each reaching across the row's gap.
+      expect(px(declared('.card-toolbar.toolbar-heading', 'gap'))).toBeGreaterThanOrEqual(
+        2 * reach,
+      );
+      expect(px(declared(`${L} .toolbar-legend`, 'padding'))).toBe(reach);
+    });
+  });
+
   it('measures the months in full in a box of no size, so the measurement widens nothing', () => {
     expect(declared('.toolbar-month-measure', 'position')).toBe('absolute');
     expect(declared('.toolbar-month-measure', 'width')).toBe('0');

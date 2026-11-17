@@ -40,6 +40,10 @@ it.
 - **44px targets.** Each control answers a 44px-tall press through an invisible `::before` box that
   never overlaps a neighbor's. The month is the exception: its target reaches only 2px up and 10px
   down, about 41px at the default title size, so the title keeps its line for the card's tap.
+- **Large controls.** `toolbar.size: large` puts `large-controls` on the heading row, which draws
+  the arrows, home and the chips 36px, as the action row's buttons, each reaching 4px every way to
+  a 44px square. Nothing reads the size but the stylesheet and the fit signatures, so the month's
+  form and the chips' fold are measured again after a change of size.
 - **The card stops being a button.** While the render draws a control or a tappable event
   (`_hostsControls`), `ha-card` drops `role="button"`, because a button may not contain another, and
   `tap_action` moves to an invisible native button drawn first (`TapControl`).

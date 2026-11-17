@@ -1135,6 +1135,63 @@ export const cardStyles = css`
     inset-inline: 0;
   }
 
+  /* toolbar.size: large, for a finger on a touch screen: the arrows, home and the chips are drawn
+     as large as the action row's buttons, 36px, the month and the action row as they always are.
+     The icons keep the share of their button they have at 24px, and the chips their text size.
+     Each is centered on the month's capitals by half its own height, as at 24px: beside a title
+     over the month, at the default title size, that reaches 3px below the row's foot into the gap
+     above the days, and the header is no taller; without a title the row grows by the 4px or so
+     they stand above the month. Their touch targets are the action row's: 4px out on every side,
+     so 44px square, inside 8px gaps. The chips' box pads itself by that 4px, so it clips none of
+     them. */
+  .toolbar-heading.large-controls > .toolbar-heading-end {
+    margin-block-end: calc(var(--calendar-card-heading-middle, 15px) - 18px);
+  }
+
+  .large-controls .date-navigation {
+    gap: 8px;
+    height: 36px;
+  }
+
+  .large-controls .date-navigation-segment {
+    width: 36px;
+    height: 36px;
+    border-radius: 18px;
+  }
+
+  .large-controls .date-navigation-segment .toolbar-button-icon {
+    width: 23px;
+    height: 23px;
+  }
+
+  .large-controls .date-navigation-segment .date-navigation-direction {
+    width: 32px;
+    height: 32px;
+  }
+
+  .large-controls .toolbar-legend {
+    margin: -4px;
+    margin-block-end: calc(var(--calendar-card-heading-middle, 15px) - 22px);
+    padding: 4px;
+  }
+
+  .large-controls .legend-chips {
+    gap: 8px;
+  }
+
+  .large-controls .legend-chip {
+    height: 36px;
+    padding: 0 16px;
+    border-radius: 18px;
+  }
+
+  .large-controls .legend-chip::before,
+  .large-controls .date-navigation-segment::before,
+  .large-controls .date-navigation-segment:first-child::before,
+  .large-controls .date-navigation-segment:last-child::before {
+    inset: -4px;
+  }
+
   /* While the card loads, the refresh button's icon turns, as the corner spinner it stands in
      for does. */
   .refresh-button.busy .toolbar-button-icon {
