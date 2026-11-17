@@ -501,7 +501,7 @@ describe('one field of several calendars', () => {
     });
     expect(resultRows(editor).filter(({ id }) => id === 'calendar:color')).toHaveLength(1);
     expect(text($(editor, '.result-status'))).toMatch(
-      new RegExp(`^Results for “color”: ${resultRows(editor).length} · Values for Grid$`),
+      new RegExp(`^Results for “color”: ${resultRows(editor).length}$`),
     );
 
     await openResultGroup(editor, 'calendar:color');

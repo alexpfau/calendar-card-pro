@@ -4,7 +4,7 @@ Configure the card with Home Assistant's visual editor and see a live preview as
 editor opens on an overview of the card, edits what most cards need right there, and leads to a
 page for everything else.
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_editor_v6.png" alt="The visual editor in dark mode beside a live preview of the card: the overview, with search, Undo and Redo at the top, then the card's calendars, Card Displays, Days to Show and Start Date, and a row for each page of settings"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_editor_v6.png" alt="The visual editor in dark mode beside a live preview of the card: the overview, with search, Undo and Redo at the top, then the card's calendars, its starting layout, and a row for each page of settings"><br>
 
 To open it, click the three dots (⋮) in the top-right corner of the card and select
 **Configure**. If you have not added a card yet, start with [Usage](/guide/usage).
@@ -20,9 +20,8 @@ opens with, and a row for each page that holds the rest. Top to bottom:
 | **Quick Setup**                | On a fresh card, a banner offering [Quick Setup](#quick-setup), which takes focus as the editor opens                    |
 | **Search**, **Undo**, **Redo** | [Search](#search) every setting; [Undo and Redo](#undo-redo) the last change                                             |
 | **⋯ Editor Preferences**       | Show YAML Option Names, at the end of the search row                                                                     |
-| **Settings For**               | Which layout's settings the pages edit; see [Options for the Selected View](#options-for-the-selected-view)              |
 | **Calendars**                  | The card's [calendars](#calendars), a row each                                                                           |
-| **Starting Layout**            | Card Displays: List, Columns or Grid, the layout the card opens with                                                     |
+| **Starting Layout**            | List, Columns or Grid, the layout the card opens with                                                                    |
 | **Settings**                   | A row per page, saying in one line what the page holds for this card                                                     |
 | **More**                       | [What This Card Changes](#what-this-card-changes) and Start From an Example                                              |
 
@@ -35,7 +34,7 @@ The settings rows open these pages:
 | **Day Header**       | How each day announces itself: its date, weeks and week numbers, today and its indicator, past days and weekends             |
 | **Event Appearance** | What each event shows, the time format, and how each part looks                                                              |
 | **Size & Spacing**   | The card's height and spacing, the density of Columns and Grid, and the rules between days, weeks and months                 |
-| **Grid**             | Only while you edit Grid: the hours it shows, its hour labels, and what it draws on the grid                                 |
+| **Grid**             | While the card opens in Grid or you edit Grid: the hours it shows, its hour labels, and what it draws on the grid            |
 | **Weather**          | The weather entity, and the forecast in the day header and beside each event                                                 |
 | **Taps & Refresh**   | What a tap or a hold on the card, a day or an event does, and how often the card reads its calendars again                   |
 
@@ -45,10 +44,10 @@ the existing `start_date` option. Tomorrow writes `today+1`, Start of Week write
 details on a tap, choose Show Event Details under **Event Tap Action** on Taps & Refresh.
 
 The **⋯** menu at the end of the search row holds **Show YAML Option Names**, remembered in this
-browser for every card. It shows each setting's YAML option name beside its label, and the YAML
-path in search results and in What This Card Changes, which helps when you move between the
-editor and YAML. Down Arrow opens the menu from its button,
-and Escape closes it.
+browser for every card, with a box that is checked while it is on. It shows each setting's YAML
+option name beside its label, and the YAML path in search results and in What This Card Changes,
+which helps when you move between the editor and YAML. The **⋯** button opens and closes the
+menu, Down Arrow opens it from the button, and Escape closes it.
 
 ### Pages & Back
 
@@ -149,12 +148,14 @@ entities:
 
 ## 🧭 Options for the Selected View
 
-Two controls on the overview decide what you see and what you edit. **Card Displays** chooses
-the card's starting layout and writes the existing `view` option. **Settings For** chooses
-which settings the pages edit: **All Layouts**, **List**, **Columns** or **Grid**. It starts on the
-layout the card displays and stays where you put it for the rest of the session. It is never
-saved to YAML. A calendar's page has no Settings For, since a calendar's settings apply to every
-layout.
+Two controls decide what you see and what you edit. **Starting Layout**, on the overview, chooses
+the layout the card opens with and writes the existing `view` option. **Settings For**, at the top
+of each page, chooses which settings the pages edit: **All Layouts**, **List**, **Columns** or
+**Grid**. It starts on the layout the card displays and stays where you put it, from page to page,
+for the rest of the session. It is never saved to YAML. A calendar's page has no Settings For,
+since a calendar's settings apply to every layout, and nor does a page whose settings all apply to
+the whole card. The overview edits nothing a layout holds, so it has none either: its section rows
+and search results show the values for the layout Settings For last chose.
 
 On a card that stores values only for the layout it shows, and has no view switcher in its
 toolbar, Settings For takes one line, **Settings for List · Change**; **Change** opens the four
@@ -165,7 +166,8 @@ choices.
   where only one view reads it.
 - **List**, **Columns** and **Grid** each write to their own block, `list:`, `column:` and
   `time_grid:`, and leave out the controls, per-calendar ones included, that cannot affect that
-  view. The **Grid** page appears only while Grid is chosen.
+  view. The **Grid** row is on the overview while the card opens in Grid or Grid is chosen, and
+  opening it chooses Grid.
 - A layout with no value of its own uses its own default when it has one, otherwise the shared
   base. Editing All Layouts therefore changes only the layouts that inherit that option, never
   their explicit choices or built-in defaults ([YAML & View Defaults](#yaml-view-defaults)).
@@ -175,10 +177,11 @@ choices.
 The choice follows your selection, not the preview's width-dependent fallback. When the two
 differ, a line says so, as in **Editing List · Preview Shows Grid**, and **Preview List** beside
 it draws List in Home Assistant's preview while you edit it. The card still opens in the layout
-Card Displays names, and nothing is saved by the switch; it stays on for the session and follows
-the layout you choose. To edit a List-only option used by a responsive fallback, choose List under
-Settings For; Card Displays stays unchanged. [Search](#search) finds the settings only another
-layout offers.
+Starting Layout names, and nothing is saved by the switch; it stays on for the session and follows
+the layout you choose. On the overview the preview shows the card as it opens, and returns to the
+layout you edit on the next page. To edit a List-only option used by a responsive fallback, choose
+List under Settings For; Starting Layout stays unchanged. [Search](#search) finds the settings only
+another layout offers.
 
 Hiding a control does not delete its stored value. For example, these empty-day options remain
 available to the List fallback, even though their controls are absent while editing Grid:
@@ -279,7 +282,7 @@ config_version: 5
 
 ### Switching an Existing Card to Grid
 
-On a v5-format card, changing **Card Displays** from List or Column to Grid keeps values
+On a v5-format card, changing **Starting Layout** from List or Column to Grid keeps values
 you explicitly set through All Layouts, including a value equal to the List default. For
 options where Grid has a different default, the editor copies your value into `time_grid:`
 rather than replacing it. Options you did not set use Grid's defaults without writing
@@ -303,7 +306,7 @@ time_grid:
   event_background_opacity: 5
 ```
 
-One notice under Card Displays, **Existing Values Kept for Grid**, lists the options kept
+One notice under Starting Layout, **Existing Values Kept for Grid**, lists the options kept
 instead of Grid's defaults. Use the option's **Reset** while editing Grid to return to its
 default; switching away and back in the same editing session does not recreate a reset value.
 
@@ -559,8 +562,11 @@ The search field at the top of the overview reaches every setting, including the
 the ones waiting on another setting, the ones only another layout offers, and
 values stored but not in use. Typing turns the overview into a list of results, each with its
 name, the page and heading it lives under, its current value, and where the value comes from;
-with Show YAML Option Names on, its YAML path too. **Search Settings** at the top of every page
-takes you to the field, and **Back**, or Escape in an empty field, returns to the page.
+with Show YAML Option Names on, its YAML path too. A value is the one its page opens with, for the
+layout Settings For last chose, and where layouts hold different values it names that layout, as
+in **Grid: 12px**. **Search Settings** at the top of every page takes you to the field, and
+**Back**, or Escape in an empty field, returns to the page. The **✕** beside the field, or Escape
+in it, clears the search.
 
 Results that match alike list a page's main settings first, so `past` leads with **Show Past
 Events**. Choosing a result opens its page at the setting, highlighted, with **Return to
@@ -581,7 +587,7 @@ It also knows a few words people use for a setting whose name says something els
 `AM/PM` finds **Time Format**, `hide past` finds **Show Past Events**, `newest first` finds
 **Event Order**, `tomorrow` finds **Start Date**, and `exclude` or `blocklist` finds a calendar's **Hide Events Containing**.
 A translated editor searches by its own language's words for these, and by the English ones
-where it has none. Earlier names still lead somewhere, such as `separators` to **Size & Spacing**, and the British
+where it has none. Earlier names still lead somewhere, such as `separators` to **Size & Spacing** and `card displays` to **Starting Layout**, and the British
 spelling of color finds every color setting.
 
 Two jobs belong to Home Assistant rather than to this card, and search names them where they
@@ -789,7 +795,7 @@ those controls has a new home, and searching for its old name still finds it.
 | Before v6                | Now                                                                                              |
 | ------------------------ | ------------------------------------------------------------------------------------------------ |
 | **Calendars**            | The overview's calendar list, and a page per entry                                               |
-| **Layout**               | Card Displays on the overview; Size & Spacing; the Grid page                                     |
+| **Layout**               | Starting Layout on the overview; Size & Spacing; the Grid page                                   |
 | **Time Range & Content** | Which Events, with Days to Show and Start Date; Language on Card & Header; Time Format on Events |
 | **Card & Header**        | Card & Header                                                                                    |
 | **Day Header**           | Day Header, now with First Day of Week                                                           |
@@ -797,7 +803,7 @@ those controls has a new home, and searching for its old name still finds it.
 | **Separators**           | Size & Spacing                                                                                   |
 | **Weather**              | Weather                                                                                          |
 | **Actions & Refresh**    | Taps & Refresh                                                                                   |
-| **Editing Settings For** | Settings For                                                                                     |
+| **Editing Settings For** | Settings For, at the top of each page                                                            |
 
 ### Essentials Only
 

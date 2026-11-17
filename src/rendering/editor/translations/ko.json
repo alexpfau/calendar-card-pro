@@ -22,7 +22,6 @@
   "heading.taps": "탭",
   "overview.settings": "설정",
   "overview.more": "더 보기",
-  "overview.starting_layout": "시작 레이아웃",
   "more.example": "예시에서 시작",
   "more.example_note": "빠른 설정: 예시 카드와 몇 가지 질문",
   "more.audit": "이 카드의 변경 사항",
@@ -144,7 +143,7 @@
   "status.removed_calendar": "{name} 제거됨 · 항목: {count}",
   "status.applied": "{story} 적용됨",
   "search.results": "“{query}” 검색 결과: {count}",
-  "search.values_for": "{layout} 값",
+  "search.value_in": "{layout}: {value}",
   "search.overview": "개요",
   "search.not_set": "설정되지 않음",
   "search.return": "결과로 돌아가기",
@@ -810,5 +809,6 @@
   "past_event_opacity": "지난 이벤트 불투명도",
   "past_event_opacity.helper": "0-100%입니다. 100%는 흐리게 표시하지 않고, 0%는 내용을 숨기지 않고 투명하게 만듭니다.",
   "setting.about": "{label} 정보",
-  "color.emerald": "에메랄드"
+  "color.emerald": "에메랄드",
+  "view": "시작 레이아웃"
 }

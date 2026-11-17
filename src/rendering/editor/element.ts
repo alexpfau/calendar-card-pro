@@ -10,6 +10,7 @@ import {
   mdiArrowUp,
   mdiCallSplit,
   mdiCheck,
+  mdiClose,
   mdiContentCopy,
   mdiContentDuplicate,
   mdiContentPaste,
@@ -77,6 +78,7 @@ import {
   PAGES,
   type PageDef,
   type PageId,
+  STARTING_LAYOUT_BLOCK,
   isWholeCard,
   placementOf,
 } from './pages';
@@ -1132,7 +1134,8 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * The layout the preview draws other than the one the card opens in: the layout being edited,
-   * while the preview switch is on and nothing else is being previewed.
+   * while the preview switch is on, a page is open and nothing else is being previewed. The
+   * overview has no Settings For to say so, so it previews the card as it opens.
    *
    * @returns The layout and the configuration it is laid over, or `undefined`
    */
@@ -1140,6 +1143,7 @@ export class CalendarCardProEditor extends LitElement {
     { view: Types.EffectiveView; config: Record<string, unknown> } | undefined {
     if (!this._previewScope || !this._config) return undefined;
     if (this._quickSetup !== undefined || this._split !== undefined) return undefined;
+    if (this._nav.route.kind === 'overview') return undefined;
     const view = Workspace.viewForWorkspace(this._workspace);
     if (view === undefined || view === this._viewForConfig(this._config)) return undefined;
     return { view, config: this._rawConfig };
@@ -1967,7 +1971,7 @@ export class CalendarCardProEditor extends LitElement {
       const config = Routing.workspaceConfig(rawConfig, workspace);
       // Shared has no layout of its own, so its panels are built as list — the base every
       // other view widens. `config.view` stays the card's real displayed view, because that
-      // is the value the Card Displays control edits; see `baseViewForWorkspace`.
+      // is the value the Starting Layout control edits; see `baseViewForWorkspace`.
       const view = Workspace.baseViewForWorkspace(workspace);
 
       return {
@@ -2876,7 +2880,7 @@ export class CalendarCardProEditor extends LitElement {
     const focus = `words:${key}`;
     return html`<button
       type="button"
-      class="link word-mode"
+      class="text-button word-mode"
       data-focus=${focus}
       @click=${() => {
         const modes = new Map(this._wordModes);
@@ -4770,8 +4774,8 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Settings For, compact or full, as the overview and every page that depends on the scope
-   * draw it.
+   * Settings For, compact or full, as every page that depends on the scope draws it. The
+   * overview has none: it edits nothing a scope holds.
    *
    * @param ctx - Schema context
    * @returns The control
@@ -4847,9 +4851,9 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Starting Layout, a frame as Calendars is: Card Displays, the three illustrated layouts,
-   * written through the frame the card's own display form always had, and the Grid notice under
-   * it.
+   * Starting Layout, a frame as Calendars is: its heading, the three illustrated layouts under it
+   * with no visible label of their own, written through the frame the card's own display form
+   * always had, and the Grid notice under it.
    *
    * @param ctx - Schema context
    * @param chassis - The chassis schemas
@@ -4860,7 +4864,7 @@ export class CalendarCardProEditor extends LitElement {
     const options = node.selector.select.options as ReadonlyArray<Overview.DisplayChoice>;
     const value = this._viewForConfig(this._config!);
     return html`<section class="page-group layout-block" data-heading="starting_layout">
-      <h3 class="heading" tabindex="-1">${this._string(ctx, 'overview.starting_layout')}</h3>
+      <h3 class="heading" tabindex="-1">${this._string(ctx, STARTING_LAYOUT_BLOCK.titleKey)}</h3>
       ${Overview.displayControl(
         this._string(ctx, 'view'),
         EditorLocalize.lookup(ctx.language, 'view.helper'),
@@ -4985,8 +4989,7 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * The overview: notices, Quick Setup's banner, the filter bar, then either what a query finds,
-   * grouped by page, or Settings For, Calendars, Card Displays, the overview's own fields, a row
-   * per section page and More.
+   * grouped by page, or Calendars, Starting Layout, a row per section page and More.
    *
    * @param ctx - Schema context
    * @param chassis - The chassis schemas
@@ -5015,8 +5018,7 @@ export class CalendarCardProEditor extends LitElement {
     ${this._renderFilterBar(ctx, chassis)}`;
 
     // One template whatever the query, so the filter bar above it is never drawn anew and the
-    // search field keeps focus as the first character turns the overview into results. The
-    // scope stays in view with the results: their values are the scope's.
+    // search field keeps focus as the first character turns the overview into results.
     return html`<div class="overview">
       ${head} ${this._jumpDrawn() ? nothing : this._renderReturn(ctx)}
       ${this._renderOverviewBody(ctx, chassis, present)}
@@ -5024,8 +5026,9 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * What the overview draws below its filter bar: what a query finds, or Settings For,
-   * Calendars, Card Displays, the overview's own fields, a row per section page and More.
+   * What the overview draws below its filter bar: what a query finds, or Calendars, Starting
+   * Layout, a row per section page and More. Its summaries and results follow the scope the
+   * pages they open are edited in, which a page's Settings For chooses.
    *
    * @param ctx - Schema context
    * @param chassis - The chassis schemas
@@ -5039,10 +5042,14 @@ export class CalendarCardProEditor extends LitElement {
   ): TemplateResult {
     const t = this._t(ctx);
     if (Filter.hasQuery(this._filter) && this._resultsLeft === undefined) {
-      return html`${this._renderScope(ctx)} ${this._renderResults(ctx, present)}`;
+      return this._renderResults(ctx, present);
     }
+    const displayed = this._viewForConfig(this._config!);
+    // A layout's own page is listed while the card shows that layout or it is the scope, and
+    // opening it makes it the scope: the overview has no Settings For of its own.
     const rows = PAGES.filter(
-      (page) => page.onlyIn === undefined || page.onlyIn === this._workspace,
+      (page) =>
+        page.onlyIn === undefined || page.onlyIn === this._workspace || page.onlyIn === displayed,
     ).map((page) =>
       Overview.navRow(
         {
@@ -5051,11 +5058,16 @@ export class CalendarCardProEditor extends LitElement {
           title: this._pageTitle(page, ctx),
           summary: this._summary(page, ctx, present),
         },
-        () => this._open({ kind: 'page', page: page.id }, `nav:${page.id}`),
+        () => {
+          if (page.onlyIn !== undefined && page.onlyIn !== this._workspace) {
+            this._pickScope(page.onlyIn);
+          }
+          this._open({ kind: 'page', page: page.id }, `nav:${page.id}`);
+        },
       ),
     );
     const calendars = this._renderCalendars(ctx);
-    return html`${this._renderScope(ctx)} ${calendars} ${this._renderDisplays(ctx, chassis)}
+    return html`${calendars} ${this._renderDisplays(ctx, chassis)}
     ${Overview.rowGroup(t('overview.settings'), rows)}
     ${Overview.rowGroup(t('overview.more'), [
       Overview.navRow(
@@ -5177,8 +5189,8 @@ export class CalendarCardProEditor extends LitElement {
       query,
       count: items.length,
     });
-    const workspace = ctx.workspace ?? ctx.view;
     const pctx = this._planCtx(ctx);
+    const layoutOf = this._resultLayouts(ctx, present);
     const rows = items.map((item): SearchView.ResultItem => {
       if (item.kind === 'calendars') return this._calendarsResult(item, query, ctx);
       const { hit } = item;
@@ -5188,10 +5200,11 @@ export class CalendarCardProEditor extends LitElement {
         const field = present.get(target.id);
         const appearance = Plan.appearanceOf(target.id);
         if (field && appearance && (status.kind === 'live' || status.kind === 'add')) {
+          const layout = layoutOf(entry);
           return {
             kind: 'field',
             key: `edit:${target.id}`,
-            crumbs: entry.crumbs,
+            crumbs: layout === undefined ? entry.crumbs : [...entry.crumbs, layout],
             field: this._renderField(
               field,
               ctx,
@@ -5200,17 +5213,11 @@ export class CalendarCardProEditor extends LitElement {
           };
         }
       }
-      return { kind: 'row', row: this._resultRow(hit, query, ctx) };
+      return { kind: 'row', row: this._resultRow(hit, query, ctx, layoutOf(entry)) };
     });
     return SearchView.resultList(
       {
         status: this._resultStatus,
-        values:
-          workspace === 'shared'
-            ? undefined
-            : t('search.values_for', {
-                layout: t(`editing_workspace.option.${workspace}.label`),
-              }),
         editHere: {
           label: this._editHere ? t('search.show_list') : t('search.edit_here'),
           pressed: this._editHere,
@@ -5221,6 +5228,42 @@ export class CalendarCardProEditor extends LitElement {
       },
       rows,
     );
+  }
+
+  /**
+   * Names the layout a card setting's result holds its value for, where layouts hold different
+   * values for it: the scope its page opens in, "Grid" or "All Layouts". Where every layout reads
+   * the same, the value needs no layout, and nor does a setting of the whole card or a calendar's.
+   *
+   * @param ctx - Schema context
+   * @param present - The fields built here
+   * @returns The namer: the layout's name, or `undefined`
+   */
+  private _resultLayouts(
+    ctx: SchemaCtx,
+    present: ReadonlyMap<FieldId, IndexedField>,
+  ): (entry: Search.SearchEntry) => string | undefined {
+    const workspace = this._workspace;
+    const data = new Map<Workspace.EditorWorkspace, Record<string, unknown>>();
+    const read = (each: Workspace.EditorWorkspace, field: IndexedField): unknown => {
+      let values = data.get(each);
+      if (values === undefined) {
+        values = Routing.workspaceFormData(this._config!, each, this._pending);
+        data.set(each, values);
+      }
+      return Routing.atPath(values, field.dataPath, field.node.name);
+    };
+    return (entry) => {
+      const { target, status } = entry;
+      if (target.kind !== 'field' || (status.kind !== 'live' && status.kind !== 'add')) {
+        return undefined;
+      }
+      const field = present.get(target.id);
+      if (field === undefined) return undefined;
+      const here = read(workspace, field);
+      const differs = ViewConfig.VIEWS.some((view) => !Value.deepEqual(read(view, field), here));
+      return differs ? this._layoutName(ctx)(workspace) : undefined;
+    };
   }
 
   /**
@@ -5256,7 +5299,12 @@ export class CalendarCardProEditor extends LitElement {
    * @param ctx - Schema context
    * @returns The row
    */
-  private _resultRow(hit: Search.SearchHit, query: string, ctx: SchemaCtx): SearchView.ResultRow {
+  private _resultRow(
+    hit: Search.SearchHit,
+    query: string,
+    ctx: SchemaCtx,
+    layout?: string,
+  ): SearchView.ResultRow {
     const t = this._t(ctx);
     const { entry } = hit;
     const key = this._resultKey(entry.target);
@@ -5266,7 +5314,7 @@ export class CalendarCardProEditor extends LitElement {
       label: entry.label,
       marks: Search.highlight(entry.label, query),
       crumbs: entry.crumbs,
-      meta: this._resultMeta(entry, ctx),
+      meta: this._resultMeta(entry, ctx, layout),
       tag: entry.tag,
       phrase: hit.phrase ? { template: t('search.help_phrase'), ...hit.phrase } : undefined,
       onOpen: open,
@@ -5279,11 +5327,14 @@ export class CalendarCardProEditor extends LitElement {
    *
    * @param entry - The result
    * @param ctx - Schema context
+   * @param layout - The layout its value is for, where layouts differ (`_resultLayouts`)
    * @returns The line
    */
-  private _resultMeta(entry: Search.SearchEntry, ctx: SchemaCtx): string {
+  private _resultMeta(entry: Search.SearchEntry, ctx: SchemaCtx, layout?: string): string {
     return [
-      entry.value,
+      layout === undefined || entry.value === undefined || entry.value === ''
+        ? entry.value
+        : this._string(ctx, 'search.value_in', { layout, value: entry.value }),
       entry.words,
       entry.yamlPath === '' || !this._prefs.yaml
         ? undefined
@@ -5387,7 +5438,7 @@ export class CalendarCardProEditor extends LitElement {
         const place =
           target.kind === 'split'
             ? root.querySelector<HTMLElement>(Focus.byFocusKey('split-row'))
-            : root.querySelector<HTMLElement>('[data-heading="calendars"] > .heading');
+            : root.querySelector<HTMLElement>(`[data-heading="${target.block}"] > .heading`);
         if (place) {
           Focus.scrollToTopSettled(this, place);
           place.focus({ preventScroll: true });
@@ -6781,7 +6832,7 @@ export class CalendarCardProEditor extends LitElement {
             });
           },
         },
-        ' add-calendar-button',
+        ' add-action',
       );
     }
     const chassis = Subforms.chassisSchemas(ctx.language);
@@ -8468,7 +8519,11 @@ export class CalendarCardProEditor extends LitElement {
     return html`
       ${ChipsView.buttonList(rows)} ${this._renderGrabStatus(ctx, 'button')}
       ${this._renderStatus(ctx, ['button'])}
-      <button type="button" class="text-button with-icon add-button" @click=${this._addButton}>
+      <button
+        type="button"
+        class="text-button with-icon add-action add-button"
+        @click=${this._addButton}
+      >
         ${icon(mdiPlus)}${this._string(ctx, 'toolbar.buttons.add')}
       </button>
     `;
@@ -10131,10 +10186,34 @@ export class CalendarCardProEditor extends LitElement {
           @compositionstart=${this._compositionStart}
           @compositionend=${this._compositionEnd}
         ></ha-form>
+        ${
+          this._filter.query === ''
+            ? nothing
+            : html`<button
+                type="button"
+                class="icon-button search-clear"
+                data-focus="search-clear"
+                aria-label=${this._string(ctx, 'search.clear')}
+                title=${this._string(ctx, 'search.clear')}
+                @click=${this._clearSearch}
+              >
+                ${icon(mdiClose)}
+              </button>`
+        }
         ${this._renderHistory(ctx)} ${this._renderPrefsMenu(ctx)}
       </div>
     `;
   }
+
+  /**
+   * The search row's ✕: clears the query as Escape in the field does, which leaves the overview
+   * (and its Back to the page a search came from) in place of the results, and puts focus back in
+   * the field.
+   */
+  private _clearSearch = (): void => {
+    this._applyFilter({ ...this._filter, query: '' });
+    void this._focusSearchField();
+  };
 
   /**
    * Takes a change from the filter bar.

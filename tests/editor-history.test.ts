@@ -509,7 +509,8 @@ describe('the search row', () => {
     await changeField(editor, 'filter:search', 'color');
     await settle(editor);
     expect($(editor, '.result-status, .filter-empty')).not.toBeNull();
-    expect(row(editor)).toEqual(['filter-form', 'history-controls', 'menu-wrap']);
+    // The field's ✕ beside it while it holds a query.
+    expect(row(editor)).toEqual(['filter-form', 'search-clear', 'history-controls', 'menu-wrap']);
     expect($(editor, '.search-row [data-focus="undo"]')!.hasAttribute('disabled')).toBe(false);
   });
 });

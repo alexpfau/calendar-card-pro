@@ -1376,7 +1376,7 @@ keeps it for List when it opens and offers **Use Them for Every Layout** instead
 - An All Layouts value for an option whose default differs between layouts stays in the saved
   YAML even when it equals the card default. Removing it lets Column or Grid go back to its
   own default.
-- Switching **Card Displays** to Grid copies such values into `time_grid:`, so the grid keeps
+- Switching **Starting Layout** to Grid copies such values into `time_grid:`, so the grid keeps
   showing them. That is something the editor does for you; the YAML precedence above is
   unchanged.
 

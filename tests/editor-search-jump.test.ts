@@ -19,6 +19,8 @@ import {
   chooseResult,
   entry,
   fakeHass,
+  goOverview,
+  goPage,
   mountEditor,
   openResultGroup,
   resultRows,
@@ -87,7 +89,8 @@ describe('the results', () => {
     expect($(editor, '[data-focus^="nav:"]')).toBeNull();
     expect($(editor, 'ha-form.filter-form')).not.toBeNull();
     const status = `Results for “time”: ${rows.length}`;
-    expect(text($(editor, '.result-status'))).toBe(`${status} · Values for List`);
+    // No line names a scope: a row names its layout where layouts differ.
+    expect(text($(editor, '.result-status'))).toBe(status);
     expect(spoken(editor)).toBe(status);
   });
 
@@ -98,6 +101,47 @@ describe('the results', () => {
     expect(text($(editor, '.result-status'))).toBe(
       `Results for “time”: ${resultRows(editor).length}`,
     );
+  });
+
+  it('clear with the field’s ✕, shown only while it holds a query, back to where Escape goes', async () => {
+    const editor = await mount();
+    const clear = () => $(editor, '.search-row [data-focus="search-clear"]') as HTMLButtonElement;
+    expect(clear()).toBeNull();
+    await goPage(editor, 'events');
+    await (async () => {
+      $(editor, '[data-focus="search-open"]')!.click();
+      await editor.updateComplete;
+    })();
+    await searchFor(editor, 'time');
+    expect(clear()?.getAttribute('aria-label')).toBe('Clear Search');
+    // Its own control beside Home Assistant's box, not inside it.
+    expect(clear()?.closest('ha-form')).toBeNull();
+    clear()!.click();
+    await editor.updateComplete;
+    expect(valueOf(editor, 'filter:search')).toBe('');
+    expect(resultRows(editor)).toEqual([]);
+    expect(clear()).toBeNull();
+    // As Escape in the field leaves it: the overview, with Back to the page the search came from.
+    expect($(editor, '[data-focus="search-back"]')).not.toBeNull();
+  });
+
+  it('name a value’s layout only where layouts differ, the scope its page opens in', async () => {
+    const editor = await mountEditor(
+      { ...CARD, column: { event_font_size: '13px' } },
+      { hass: fakeHass({ states: STATES }) },
+    );
+    await searchFor(editor, 'event font size');
+    expect(row(editor, 'events:event_font_size').meta).toMatch(/^List: /);
+    // The same everywhere: no layout.
+    await searchFor(editor, 'days to show');
+    expect(row(editor, 'content:days_to_show').meta).toBe('3');
+    // Chosen on a page, the scope is what the next result names and opens in.
+    await changeField(editor, 'filter:search', '');
+    await goPage(editor, 'events');
+    await changeField(editor, 'workspace:editing_workspace', 'column');
+    await goOverview(editor);
+    await searchFor(editor, 'event font size');
+    expect(row(editor, 'events:event_font_size').meta).toMatch(/^Columns: 13px/);
   });
 
   it('give every row a breadcrumb, a value and, with Show YAML Option Names on, a YAML path', async () => {
@@ -126,13 +170,13 @@ describe('the results', () => {
       'day_spacing',
       'layout:day_spacing',
       'Size & Spacing › Between Days',
-      '10px · YAML: list.day_spacing',
+      'List: 10px · YAML: list.day_spacing',
     ],
     [
       'show_location',
       'events:show_location',
       'Event Appearance › Event Details',
-      'On · YAML: list.show_location',
+      'List: On · YAML: list.show_location',
     ],
     [
       '12h',

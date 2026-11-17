@@ -73,7 +73,7 @@ import {
 import type { HaFormSchema } from '../../src/rendering/editor/ha-form';
 import * as HassKey from '../../src/rendering/editor/hass-key';
 import { withCardActionLabels } from '../../src/rendering/editor/hass-localize';
-import { ENTRY_GROUPS, PAGES, placementOf } from '../../src/rendering/editor/pages';
+import { ENTRY_GROUPS, PAGES, isWholeCard, placementOf } from '../../src/rendering/editor/pages';
 import { type SchemaCtx, walkSchema } from '../../src/rendering/editor/panels';
 import { PREFS_KEY } from '../../src/rendering/editor/prefs';
 import * as Routing from '../../src/rendering/editor/routing';
@@ -1552,7 +1552,9 @@ function mergeDeep(a: unknown, b: unknown): unknown {
 
 /**
  * Chooses an option of a radio group of the editor's own, as a user does: where the open place
- * draws it, else on the overview; after Change where Settings For is its compact line.
+ * draws it, else Starting Layout on the overview, and Settings For on the first page that draws it,
+ * Back to the overview after where that is where the choice began; after Change where Settings For
+ * is its compact line.
  *
  * @param editor - Editor element
  * @param id - `display:view` or `workspace:editing_workspace`
@@ -1564,8 +1566,16 @@ async function choose(editor: EditorElement, id: FieldId, value: unknown): Promi
   const drawn = (): boolean =>
     root?.querySelector(`input[name="${name}"]`) !== null ||
     (name === 'scope' && root?.querySelector('[data-focus="scope-change"]') !== null);
-  // Settings For sits on every page the scope matters to as well; Card Displays only here.
-  if (!drawn()) await goOverview(editor);
+  let back = false;
+  if (!drawn()) {
+    // Starting Layout is the overview's; Settings For is every page's the scope matters to.
+    await goOverview(editor);
+    if (name === 'scope') {
+      const page = PAGES.find((each) => each.onlyIn === undefined && !isWholeCard(each))!;
+      await goPage(editor, page.id);
+      back = true;
+    }
+  }
   if (name === 'scope' && root?.querySelector('input[name="scope"]') === null) {
     await press(editor, '[data-focus="scope-change"]', 'Change for Settings For');
   }
@@ -1576,6 +1586,7 @@ async function choose(editor: EditorElement, id: FieldId, value: unknown): Promi
   input.checked = true;
   input.dispatchEvent(new Event('change', { bubbles: true }));
   await editor.updateComplete;
+  if (back) await goOverview(editor);
 }
 
 /**
@@ -1762,7 +1773,7 @@ async function expandAll(editor: EditorElement): Promise<void> {
 }
 
 /**
- * Visits every page the overview offers a row for, opening every panel on each, keeps the forms
+ * Visits every page the overview offers a row for in the scope, opening every panel on each, keeps the forms
  * each draws for the helpers to read, and comes back to the overview with its own panels open. A
  * test about every form the editor draws visits them first. Kept forms hold what their page drew
  * when it was last visited; `changeFields` visits again after every change.
@@ -1778,9 +1789,15 @@ export async function openPanels(editor: EditorElement): Promise<void> {
   await nextRender();
   await goOverview(editor);
   const kept: Drawn[] = [];
-  const pages = [...root.querySelectorAll('[data-focus^="nav:"]')].map((row) =>
-    row.getAttribute('data-focus')!.slice('nav:'.length),
-  );
+  // A layout's own page is offered while the card shows that layout, and opening it makes that
+  // layout the scope: a visit leaves the scope as it is, so it visits only the scope's pages.
+  const scope = (editor as unknown as { _workspace: string })._workspace;
+  const pages = [...root.querySelectorAll('[data-focus^="nav:"]')]
+    .map((row) => row.getAttribute('data-focus')!.slice('nav:'.length))
+    .filter((id) => {
+      const onlyIn = PAGES.find((page) => page.id === id)?.onlyIn;
+      return onlyIn === undefined || onlyIn === scope;
+    });
   for (const page of pages) {
     await goPage(editor, page);
     await expandAll(editor);

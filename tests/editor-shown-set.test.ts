@@ -669,6 +669,49 @@ describe('the preferences in the overview header’s ⋯ menu', () => {
     expect(root.activeElement).toBe(root.querySelector('[data-pref="yaml"]'));
   });
 
+  it('closes on a second press of its button, where the press takes no focus as in Safari', async () => {
+    const editor = await mount();
+    const root = editor.shadowRoot!;
+    const button = root.querySelector<HTMLElement>('[data-focus="prefs-menu"]')!;
+    /** A press as Safari makes it: focus leaves the menu for nowhere unless the press keeps it. */
+    const press = async (): Promise<void> => {
+      const down = new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true });
+      button.dispatchEvent(down);
+      if (!down.defaultPrevented) {
+        (root.activeElement as HTMLElement | null)?.blur();
+        await editor.updateComplete;
+      }
+      button.click();
+      await editor.updateComplete;
+    };
+    await press();
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    expect(root.activeElement).toBe(root.querySelector('[data-pref="yaml"]'));
+    await press();
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(root.querySelector('.menu')).toBeNull();
+    expect(root.activeElement).toBe(button);
+    await press();
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('draws its item’s state as a box, empty while off and checked while on', async () => {
+    const editor = await mount();
+    const root = editor.shadowRoot!;
+    root.querySelector<HTMLElement>('[data-focus="prefs-menu"]')!.click();
+    await editor.updateComplete;
+    const item = () => root.querySelector<HTMLElement>('[data-pref="yaml"]')!;
+    const box = () => item().querySelector('.menu-check')!;
+    expect(item().getAttribute('aria-checked')).toBe('false');
+    expect(box().classList.contains('checked')).toBe(false);
+    expect(box().querySelector('svg')).toBeNull();
+    item().click();
+    await editor.updateComplete;
+    expect(item().getAttribute('aria-checked')).toBe('true');
+    expect(box().classList.contains('checked')).toBe(true);
+    expect(box().querySelector('svg')).not.toBeNull();
+  });
+
   it('Show YAML Option Names puts each setting’s option, where this scope writes it, first', async () => {
     const editor = await mount({ event_font_size: '30px' });
     await togglePref(editor, 'yaml');
