@@ -83,8 +83,6 @@
   "state.set_shared": "Festgelegt · Gilt für alle seine Einträge",
   "state.from_card": "Von der Karte",
   "state.layout_own": "„{layout}“ hat einen eigenen Wert: {value}",
-  "state.has_its_own": "{layout} hat einen eigenen Wert",
-  "state.have_their_own": "{layouts} haben eigene Werte",
   "state.set_on_calendars": "Für Kalender festgelegt:",
   "reset.to": "Zurücksetzen ({value})",
   "reset.reset": "Zurücksetzen",

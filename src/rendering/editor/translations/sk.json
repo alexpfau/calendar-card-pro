@@ -83,8 +83,6 @@
   "state.set_shared": "Nastavené · Spoločné pre jeho položky",
   "state.from_card": "Z karty",
   "state.layout_own": "Rozloženie {layout} má vlastnú hodnotu: {value}",
-  "state.has_its_own": "{layout} má vlastnú hodnotu",
-  "state.have_their_own": "{layouts} majú vlastné hodnoty",
   "state.set_on_calendars": "Nastavené v kalendároch:",
   "reset.to": "Resetovať ({value})",
   "reset.reset": "Resetovať",

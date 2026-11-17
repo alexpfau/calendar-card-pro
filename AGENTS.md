@@ -2070,6 +2070,12 @@ exactly one element either way. A family's members open and fold one at a time, 
 or opening one moves the head of another. Measure a layout change in Home Assistant, not here: the
 test suite cannot see an overlap.
 
+**A helper is shown once, behind ⓘ.** A control the editor composes itself (a color, Who Sees It)
+draws its own helper only where `show.describedBy` is undefined, i.e. where no head row carries the
+ⓘ; a new composed control follows the same rule, or its helper shows twice. The pill names a state
+only, and at a default it is drawn `visually-hidden`, read but not seen; a whole-card setting's
+scope is a mark by its name, never pill words.
+
 Four things follow for new code:
 
 - **A new field's appearance is a decision.** `'essential'` draws it on every card, so most new

@@ -140,9 +140,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'state.from_card': 'From the Card',
   // Under a field in All Layouts, for each layout the All Layouts value does not reach.
   'state.layout_own': '{layout} Has Its Own: {value}',
-  // Under All Layouts, beside the pill of a setting a layout does not take the shared value for.
-  'state.has_its_own': '{layout} Has Its Own',
-  'state.have_their_own': '{layouts} Have Their Own',
   'state.set_on_calendars': 'Set on Calendars:',
   // The button under a stored field. Reset keeps the setting on the page and names the value it
   // goes back to, "Reset (Off)", or "Reset (Empty)" where nothing comes back. Remove Setting takes

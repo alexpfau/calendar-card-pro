@@ -1048,6 +1048,19 @@ export default css`
     gap: 12px;
   }
 
+  /* A line above each heading of a page, so which settings belong together reads at a glance on
+     a long page. */
+  .page > .page-group:not(.audit-group) + .page-group:not(.audit-group) {
+    margin-top: 4px;
+    padding-top: 20px;
+    border-top: 1px solid var(--divider-color);
+  }
+
+  .page > .page-group > .heading {
+    font-size: 15px;
+    font-weight: 600;
+  }
+
   .page-foot {
     display: flex;
     flex-wrap: wrap;
@@ -1274,11 +1287,49 @@ export default css`
 
   .setting-head {
     position: relative;
-    display: flex;
-    align-items: flex-start;
-    gap: 0 4px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    column-gap: 4px;
     min-height: 44px;
     border-radius: 4px;
+  }
+
+  .setting-head > .setting-text,
+  .setting-head > .setting-control {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  /* What a layout keeps of its own, under the name, inside the row it belongs to. */
+  .setting-own {
+    display: flex;
+    grid-column: 1;
+    grid-row: 2;
+    align-items: flex-start;
+    gap: 4px;
+    margin-top: -8px;
+    padding: 0 0 10px;
+    padding-inline-start: 4px;
+    color: var(--secondary-text-color);
+    font-size: 12px;
+    line-height: 16px;
+    pointer-events: none;
+    --mdc-icon-size: 16px;
+  }
+
+  .setting-head.switch .setting-own {
+    margin-top: 0;
+  }
+
+  /* Home Assistant centers its switch on a label that wraps, so the pill and ⓘ follow it. */
+  .setting-head.switch > .setting-tools {
+    grid-row: 1;
+    align-self: center;
+  }
+
+  .setting-own .icon {
+    fill: var(--warning-color, #ffa600);
   }
 
   .setting-head.folds:hover {
@@ -1287,7 +1338,6 @@ export default css`
 
   .setting-text {
     display: flex;
-    flex: 1 1 auto;
     align-items: baseline;
     gap: 0 8px;
     min-width: 0;
@@ -1322,13 +1372,29 @@ export default css`
     outline-offset: 2px;
   }
 
-  /* A long label breaks between words, or where its language hyphenates, never letter by
-     letter. */
-  .setting-label {
-    flex: 1 1 auto;
+  /* A name and the mark of a whole-card setting. */
+  .setting-name {
+    flex: 1 1 0;
     min-width: 0;
+  }
+
+  /* A long label breaks between words only; a word longer than the whole line is the one case
+     that breaks inside it. */
+  .setting-label {
     overflow-wrap: break-word;
-    hyphens: auto;
+    hyphens: manual;
+  }
+
+  .setting-scope {
+    display: inline-flex;
+    margin-inline-start: 6px;
+    vertical-align: -2px;
+    color: var(--secondary-text-color);
+    --mdc-icon-size: 16px;
+  }
+
+  .setting-scope .icon {
+    fill: currentcolor;
   }
 
   /* One line, cut with an ellipsis, so a folded head is as tall open as folded and an opened
@@ -1359,22 +1425,20 @@ export default css`
   }
 
   .setting-head.switch .setting-control {
-    align-self: flex-start;
-    margin-block: 10px -22px;
+    margin-top: 10px;
     padding-inline-start: 4px;
   }
 
   .setting-control {
-    flex: 1 1 auto;
     min-width: 0;
-    align-self: center;
   }
 
   .setting-tools {
     position: relative;
     z-index: 1;
     display: flex;
-    flex: none;
+    grid-column: 2;
+    grid-row: 1 / span 2;
     align-items: center;
     min-height: 44px;
     pointer-events: none;
@@ -1417,16 +1481,25 @@ export default css`
     width: 44px;
   }
 
-  .setting-warn {
-    margin: -8px 0 0;
-    padding-inline-start: 4px;
-  }
-
-  .setting-pill-plain {
+  /* One width for every pill on every page, measured from the words the pill can take, so
+     values and pills line up down the page and nothing moves when a state changes. */
+  .setting-pill-col {
     display: inline-flex;
     align-items: center;
+    justify-content: flex-end;
+    width: var(--pill-col, auto);
     min-height: 44px;
-    padding: 0 2px;
+  }
+
+  /* "Default", read but not drawn, takes no room. */
+  .setting-pill.visually-hidden {
+    height: 1px;
+    padding: 0;
+    border: 0;
+  }
+
+  .setting-pill-col > .setting-pill-button {
+    padding: 0;
   }
 
   /* The chevron's slot is kept where nothing folds, so pills line up down the page. */
@@ -1507,6 +1580,16 @@ export default css`
 
   .setting-help[hidden] {
     display: none;
+  }
+
+  /* A phone's dialog: the value gives its width to the name, which matters more, and the pill
+     column takes only what its pill needs, since no value is left to line up with it. */
+  :host([narrow]) .setting-value {
+    display: none;
+  }
+
+  :host([narrow]) .setting-pill-col {
+    width: auto;
   }
 
   /* A setting a gate withholds, in its place. */

@@ -83,8 +83,6 @@
   "state.set_shared": "Määratud · ühine kõigile selle kirjetele",
   "state.from_card": "Kaardilt",
   "state.layout_own": "Paigutusel {layout} on oma: {value}",
-  "state.has_its_own": "{layout} kasutab oma väärtust",
-  "state.have_their_own": "{layouts} kasutavad oma väärtust",
   "state.set_on_calendars": "Määratud kalendrites:",
   "reset.to": "Lähtesta ({value})",
   "reset.reset": "Lähtesta",

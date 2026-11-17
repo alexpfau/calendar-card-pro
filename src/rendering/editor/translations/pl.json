@@ -83,8 +83,6 @@
   "state.set_shared": "Ustawione · wspólne dla jego wpisów",
   "state.from_card": "Z karty",
   "state.layout_own": "Własna wartość ({layout}): {value}",
-  "state.has_its_own": "{layout} ma własną wartość",
-  "state.have_their_own": "{layouts} mają własne wartości",
   "state.set_on_calendars": "Ustawione w kalendarzach:",
   "reset.to": "Resetuj ({value})",
   "reset.reset": "Resetuj",

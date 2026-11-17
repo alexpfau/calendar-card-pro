@@ -83,8 +83,6 @@
   "state.set_shared": "Inställd · delas av dess poster",
   "state.from_card": "Från kortet",
   "state.layout_own": "{layout} har ett eget värde: {value}",
-  "state.has_its_own": "{layout} har ett eget värde",
-  "state.have_their_own": "{layouts} har egna värden",
   "state.set_on_calendars": "Inställd för kalendrar:",
   "reset.to": "Återställ ({value})",
   "reset.reset": "Återställ",

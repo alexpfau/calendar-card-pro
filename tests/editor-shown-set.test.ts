@@ -276,7 +276,7 @@ describe('what the card sets stays on its page', () => {
     ).toBeNull();
   });
 
-  it('names a layout’s own value under the field in All Layouts, with only its Reset', async () => {
+  it('names a layout’s own value in its row in All Layouts, its pill holding only Reset', async () => {
     const editor = await mount({
       view: 'grid',
       filter_duplicates: true,
@@ -285,13 +285,12 @@ describe('what the card sets stays on its page', () => {
     await changeField(editor, 'workspace:editing_workspace', 'shared');
     await openPageOf(editor, 'content:filter_duplicates_mode');
     const id = 'content:filter_duplicates_mode';
+    // A line of the head itself, under the name, so it is read with its own row.
     expect(
-      $(editor, `[data-setting="${id}"] .setting-pill.tone-warning`)?.textContent?.trim(),
-    ).toBe('Columns Has Its Own');
+      $(editor, `[data-setting="${id}"] > .setting-head > .setting-own`)?.textContent?.trim(),
+    ).toBe('Columns Has Its Own: Off');
     const menu = (await openPill(editor, id))!;
-    expect(menu.querySelector('.setting-menu-note')?.textContent?.trim()).toBe(
-      'Columns Has Its Own: Off',
-    );
+    expect(menu.querySelector('.setting-menu-note')).toBeNull();
     expect(
       [...menu.querySelectorAll('.line-button')].map((each) => each.getAttribute('data-focus')),
     ).toEqual([`reset:${id}`]);
@@ -378,6 +377,25 @@ describe('state words, by where they are drawn', () => {
     await openPageOf(editor, 'events:show_location');
     expect(chipName(editor, 'events:show_location')).toBe('Location, Set');
     expect(group('events:show_location')).toBe('Location, Set');
+  });
+
+  it('draw no pill at a default, and mark a whole-card setting by its name instead', async () => {
+    const id = 'content:first_day_of_week';
+    const head = (editor: MountedEditor) => $(editor, `[data-setting="${id}"] > .setting-head`)!;
+    const fresh = await mount({ view: 'grid' });
+    await openPageOf(fresh, id);
+    // "Default" is read, not drawn; the scope is a mark by the name, never a pill's words.
+    expect(pillOf(fresh, id)).toBe('Default');
+    expect(head(fresh).querySelector('.setting-pill')!.classList).toContain('visually-hidden');
+    expect(head(fresh).querySelector('.setting-scope')?.getAttribute('aria-label')).toBe(
+      'Whole Card',
+    );
+
+    const stored = await mount({ view: 'grid', first_day_of_week: 'monday' });
+    await openPageOf(stored, id);
+    expect(pillOf(stored, id)).toBe('Set');
+    expect(head(stored).querySelector('.setting-pill')!.classList).not.toContain('visually-hidden');
+    expect(head(stored).querySelector('.setting-scope')).not.toBeNull();
   });
 
   it('carry “Set” under All Layouts on a dropdown’s label, never naming the scope', async () => {
@@ -706,6 +724,41 @@ describe('the review’s findings', () => {
     await editor.updateComplete;
     await goEntry(editor, keysOf(editor, 'entry')[0]);
     expect($(editor, '[data-setting="calendar:show_description"] ha-form')).toBeNull();
+  });
+});
+
+describe('a helper shown once', () => {
+  it('keeps a color’s helper behind its ⓘ alone, never under its control as well', async () => {
+    const editor = await mount();
+    await goPage(editor, 'events');
+    const id = 'events:now_color';
+    await click(editor, `[data-setting="${id}"] .setting-toggle`);
+    const setting = $(editor, `[data-setting="${id}"]`)!;
+    expect(setting.querySelector('.color-field')).not.toBeNull();
+    const helper = EDITOR_STRINGS['now_color.helper'];
+    const shown = (): number =>
+      [...setting.querySelectorAll<HTMLElement>('.hint')].filter(
+        (hint) => !hint.hidden && hint.textContent?.trim() === helper,
+      ).length;
+    expect(shown()).toBe(0);
+    await click(editor, `[data-setting="${id}"] .setting-info`);
+    expect(shown()).toBe(1);
+  });
+
+  it('does the same for a calendar’s own color', async () => {
+    const editor = await mount();
+    await goEntry(editor, keysOf(editor, 'entry')[0]);
+    const id = 'calendar:accent_color_mode';
+    const setting = $(editor, `[data-setting="${id}"]`)!;
+    expect(setting.querySelector('.color-field')).not.toBeNull();
+    const helper = EDITOR_STRINGS['entity.accent_color_mode.helper'];
+    const shown = (): number =>
+      [...setting.querySelectorAll<HTMLElement>('.hint')].filter(
+        (hint) => !hint.hidden && hint.textContent?.trim() === helper,
+      ).length;
+    expect(shown()).toBe(0);
+    await click(editor, `[data-setting="${id}"] .setting-info`);
+    expect(shown()).toBe(1);
   });
 });
 

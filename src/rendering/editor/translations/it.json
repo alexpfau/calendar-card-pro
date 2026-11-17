@@ -83,8 +83,6 @@
   "state.set_shared": "Impostato · Condiviso dalle sue voci",
   "state.from_card": "Dalla scheda",
   "state.layout_own": "{layout} ha un valore proprio: {value}",
-  "state.has_its_own": "{layout} ha il suo valore",
-  "state.have_their_own": "{layouts} hanno il loro valore",
   "state.set_on_calendars": "Impostato nei calendari:",
   "reset.to": "Ripristina ({value})",
   "reset.reset": "Ripristina",

@@ -5,7 +5,15 @@
  * `overview.ts`.
  */
 
-import { mdiChevronDown, mdiChevronUp, mdiClose, mdiInformationOutline, mdiRestore } from '@mdi/js';
+import {
+  mdiAlertCircleOutline,
+  mdiChevronDown,
+  mdiChevronUp,
+  mdiClose,
+  mdiInformationOutline,
+  mdiLinkVariant,
+  mdiRestore,
+} from '@mdi/js';
 import { type TemplateResult, html, nothing } from 'lit';
 
 import { icon } from './icon';
@@ -90,10 +98,12 @@ export function fieldLine(line: FieldLine): TemplateResult | typeof nothing {
 /** A state pill's tone: outlined for Default, tinted for Set, gray for a value from elsewhere. */
 export type PillTone = 'default' | 'set' | 'inherited' | 'warning';
 
-/** A state pill: "Default", "Set", "From All Layouts", "Grid Has Its Own". */
+/** A state pill: "Default", "Set", "From All Layouts", "From the Card". */
 export interface Pill {
   readonly text: string;
   readonly tone: PillTone;
+  /** Read by a screen reader but not drawn: a setting at its default shows no pill. */
+  readonly quiet?: boolean;
 }
 
 /** The menu a pill opens: the notes and the Reset the line under a field used to hold. */
@@ -109,13 +119,18 @@ export interface PillMenu {
 export interface SettingHead {
   readonly id: string;
   readonly label: string;
-  /** The editor's language, so a long label breaks where that language hyphenates. */
+  /** The editor's language, so a long label breaks where that language puts spaces. */
   readonly lang?: string;
   /** Its value in words, while it is folded; never the pill's own word. */
   readonly value?: string;
   readonly pill: Pill;
-  /** "Grid Has Its Own", on a line of its own under the head, under All Layouts. */
-  readonly warn?: Pill;
+  /**
+   * A setting with one value for the whole card: a mark after its name, which says so to a
+   * screen reader as well.
+   */
+  readonly wholeCard?: { readonly name: string };
+  /** "Grid Has Its Own: 20", under All Layouts: a line of the head, under the name. */
+  readonly own?: string;
   readonly menu?: PillMenu;
   /** The helper behind ⓘ, its button named "About {label}". */
   readonly help?: {
@@ -134,42 +149,57 @@ export interface SettingHead {
 }
 
 /**
- * A setting's head row (backlog item 307): one 44 px line, drawn the same folded and open, so
- * nothing in it moves when the setting opens. The name and, while folded, the value at the start;
- * ⓘ, the state pill and the chevron at the end. Home Assistant's control is drawn below it while
- * the setting is open, so nothing of the editor's sits inside Home Assistant's field box. Where
- * the setting folds the whole row is its toggle, except the pill and ⓘ, which sit above it; while
- * folded, the toggle is what `[data-field]` finds, as the control is once open.
+ * A setting's head row (backlog item 307): drawn the same folded and open, so nothing in it moves
+ * when the setting opens. The name and, while folded, the value at the start, and under the name
+ * what a layout keeps of its own; ⓘ, the state pill and the chevron at the end, each in a column
+ * of its own width, so values and pills line up down the page. Home Assistant's control is drawn
+ * below it while the setting is open, so nothing of the editor's sits inside Home Assistant's
+ * field box. Where the setting folds the whole row is its toggle, except the pill and ⓘ, which
+ * sit above it; while folded, the toggle is what `[data-field]` finds, as the control is once
+ * open.
  *
  * @param head - What it shows
  * @returns The row, and the pill's menu while open
  */
 export function settingHead(head: SettingHead): TemplateResult {
-  const { menu, help, fold, pill, warn } = head;
+  const { menu, help, fold, pill, own, wholeCard } = head;
   // The value is isolated, so a color or a length reads in its own order right to left.
-  const text = html`<span class="setting-label" lang=${head.lang ?? nothing}>${head.label}</span>${
+  const text = html`<span class="setting-name"
+      ><span class="setting-label" lang=${head.lang ?? nothing}>${head.label}</span>${
+        wholeCard
+          ? html`<span
+              class="setting-scope"
+              role="img"
+              aria-label=${wholeCard.name}
+              title=${wholeCard.name}
+              >⁠${icon(mdiLinkVariant)}</span
+            >`
+          : nothing
+      }</span
+    >${
       head.value === undefined
         ? nothing
         : html`<bdi class="setting-value${fold?.open ? ' setting-kept' : ''}">${head.value}</bdi>`
     }`;
-  const pillEl = menu
-    ? html`<button
-        type="button"
-        class="setting-target setting-pill-button"
-        data-focus=${menu.key}
-        aria-expanded=${menu.open ? 'true' : 'false'}
-        aria-label=${`${head.label}: ${pill.text}`}
-        @click=${menu.onToggle}
-      >
-        <span class="setting-pill tone-${pill.tone}"
-          >${pill.text}${icon(menu.open ? mdiChevronUp : mdiChevronDown)}</span
+  const pillEl = pill.quiet
+    ? html`<span class="setting-pill tone-${pill.tone} visually-hidden">${pill.text}</span>`
+    : menu
+      ? html`<button
+          type="button"
+          class="setting-target setting-pill-button"
+          data-focus=${menu.key}
+          aria-expanded=${menu.open ? 'true' : 'false'}
+          aria-label=${`${head.label}: ${pill.text}`}
+          @click=${menu.onToggle}
         >
-      </button>`
-    : html`<span class="setting-pill-plain"
-        ><span class="setting-pill tone-${pill.tone}">${pill.text}</span></span
-      >`;
+          <span class="setting-pill tone-${pill.tone}"
+            >${pill.text}${icon(menu.open ? mdiChevronUp : mdiChevronDown)}</span
+          >
+        </button>`
+      : html`<span class="setting-pill tone-${pill.tone}">${pill.text}</span>`;
+  const accessible = [head.label, wholeCard?.name, head.value, own].filter(Boolean).join(', ');
   return html`<div
-      class="setting-head${fold ? ' folds' : ''}${head.control !== undefined ? ' switch' : ''}"
+      class="setting-head${fold ? ' folds' : ''}${head.control !== undefined ? ' switch' : ''}${own ? ' owned' : ''}"
     >
       ${
         fold
@@ -179,7 +209,7 @@ export function settingHead(head: SettingHead): TemplateResult {
               data-focus=${fold.key}
               data-field=${fold.open ? nothing : head.id}
               aria-expanded=${fold.open ? 'true' : 'false'}
-              aria-label=${head.value === undefined ? head.label : `${head.label}, ${head.value}`}
+              aria-label=${accessible}
               @click=${fold.onToggle}
             >
               ${text}
@@ -188,7 +218,9 @@ export function settingHead(head: SettingHead): TemplateResult {
             ? html`<div class="setting-control">${head.control}</div>`
             : html`<span class="setting-text">${text}</span>`
       }
+      ${own ? html`<span class="setting-own">${icon(mdiAlertCircleOutline)}<span>${own}</span></span>` : nothing}
       <span class="setting-tools">
+        <span class="setting-pill-col">${pillEl}</span>
         ${
           help
             ? html`<button
@@ -204,19 +236,11 @@ export function settingHead(head: SettingHead): TemplateResult {
             : // The slot is kept, so pills line up down the page.
               html`<span class="setting-slot" aria-hidden="true"></span>`
         }
-        ${pillEl}
         <span class="setting-end" aria-hidden="true"
           >${fold ? icon(fold.open ? mdiChevronUp : mdiChevronDown) : nothing}</span
         >
       </span>
     </div>
-    ${
-      warn
-        ? html`<p class="setting-warn">
-            <span class="setting-pill tone-${warn.tone}">${warn.text}</span>
-          </p>`
-        : nothing
-    }
     ${
       menu?.open
         ? html`<div class="setting-menu" role="group" aria-label=${`${head.label}: ${pill.text}`}>
