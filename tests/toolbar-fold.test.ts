@@ -19,6 +19,7 @@ import {
   cardWidthFor,
   groupWidth,
   planStartGroup,
+  switcherLabelWidth,
   switcherWidth,
 } from '../src/utils/toolbar-fold';
 
@@ -29,8 +30,8 @@ const buttons = (count: number): StartControl[] =>
   Array.from({ length: count }, (_unused, index) => button(index));
 
 /**
- * A list card's row as a shown toolbar draws it by default with four buttons: the filter folded
- * into its button, add, the four, the switcher, and refresh. The same row a real dashboard holds.
+ * A list card's row as a shown toolbar draws it with four buttons and three layouts on its
+ * switcher: the filter folded into its button, add, the four, the switcher, and refresh.
  */
 const ROW: ActionRow = {
   start: [FILTER, ADD, ...buttons(4)],
@@ -60,6 +61,20 @@ describe('the widths the plan rests on', () => {
 
   it('takes the switcher as its pictograms on their track, and nothing without views', () => {
     expect([0, 2, 3].map(switcherWidth)).toEqual([0, 74, 108]);
+  });
+
+  it('names every view in words from 320px, and each view left out gives back its segment', () => {
+    expect(switcherLabelWidth(['list', 'column', 'grid', 'month'])).toBe(320);
+    // Month's word, 41px, and its segment's padding, 2 × 14px.
+    expect(switcherLabelWidth(['list', 'column', 'grid'])).toBe(251);
+    // Columns, 56px, and Grid, 26px, each with its padding.
+    expect(switcherLabelWidth(['list', 'month'])).toBe(182);
+    expect(Constants.UI.TOOLBAR_SWITCHER_WORD_WIDTH).toEqual({
+      list: 23,
+      column: 56,
+      grid: 26,
+      month: 41,
+    });
   });
 
   it('stands the row 34px in from the card in every view', () => {

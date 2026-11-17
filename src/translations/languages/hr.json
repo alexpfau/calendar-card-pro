@@ -9,6 +9,7 @@
   "viewList": "Popis",
   "viewColumns": "Stupci",
   "viewGrid": "Mreža",
+  "viewMonth": "Mjesec",
   "endsToday": "završava danas",
   "endsTomorrow": "završava sutra",
   "dayOfEvent": "Dan {day} od {days}",

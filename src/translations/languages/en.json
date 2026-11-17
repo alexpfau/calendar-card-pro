@@ -9,6 +9,7 @@
   "viewList": "List",
   "viewColumns": "Columns",
   "viewGrid": "Grid",
+  "viewMonth": "Month",
   "endsToday": "ends today",
   "endsTomorrow": "ends tomorrow",
   "dayOfEvent": "Day {day} of {days}",

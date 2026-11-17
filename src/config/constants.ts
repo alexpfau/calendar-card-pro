@@ -286,13 +286,24 @@ export const UI = {
 
   /**
    * Card width, in CSS pixels, from which the view switcher names its views in words rather than
-   * pictograms, with no command beside it in the action row. "List", "Columns" and "Grid" need a
-   * card of 242px; German needs 274px, Italian 300px and Lithuanian 330px. Measured in English,
-   * so the switcher shows its words wherever they fit there: a language whose words do not fit
-   * draws them once, finds the row overflowing and keeps the pictograms until the card is wider
+   * pictograms, with no command beside it in the action row. "List", "Columns", "Grid" and "Month"
+   * need a card of 314px; German needs 347px, Italian 366px and Lithuanian 406px. Measured in
+   * Roboto at the segment's 14px medium, from the switcher's padding, its segments' and the row's
+   * inset and gaps, which `stylesheet.test.ts` reconciles. Measured in English, so the switcher
+   * shows its words wherever they fit there: a language whose words do not fit draws them once,
+   * finds the row overflowing and keeps the pictograms until the card is wider
    * (`_syncToolbarLabelFit`), all before anything is painted.
    */
-  TOOLBAR_SWITCHER_LABEL_MIN_WIDTH: 248,
+  TOOLBAR_SWITCHER_LABEL_MIN_WIDTH: 320,
+
+  /**
+   * Each view's word in English, in CSS pixels at the segment's font, rounded up, and the padding
+   * on either side of a segment drawn as words, the stylesheet's. A switcher offering fewer views
+   * shows its words from a narrower card by the segments it leaves out
+   * (`utils/toolbar-fold.ts` › `switcherLabelWidth`).
+   */
+  TOOLBAR_SWITCHER_WORD_WIDTH: { list: 23, column: 56, grid: 26, month: 41 },
+  TOOLBAR_SWITCHER_SEGMENT_PADDING: 14,
 
   /**
    * The width of each command in the action row, the folded filter, add, reset or refresh, all

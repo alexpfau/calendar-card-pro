@@ -53,7 +53,7 @@ const baseConfig = (overrides: Record<string, unknown> = {}): Types.Config =>
 
 describe('the registry is the single source', () => {
   it('registers exactly the views that own a block', () => {
-    expect(Object.keys(VIEW_BLOCKS).sort()).toEqual(['column', 'grid', 'list']);
+    expect(Object.keys(VIEW_BLOCKS).sort()).toEqual(['column', 'grid', 'list', 'month']);
   });
 
   // List's entry is what makes the three views symmetric, and it is the only one whose

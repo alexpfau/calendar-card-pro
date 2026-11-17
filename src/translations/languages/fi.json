@@ -30,6 +30,7 @@
   "viewList": "Lista",
   "viewColumns": "Sarakkeet",
   "viewGrid": "Ruudukko",
+  "viewMonth": "Kuukausi",
   "endsToday": "päättyy tänään",
   "endsTomorrow": "päättyy huomenna",
   "dayOfEvent": "Päivä {day}/{days}",

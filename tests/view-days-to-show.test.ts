@@ -39,18 +39,27 @@ const PER_VIEW: Partial<Types.Config> = {
 
 const SWITCHER = { show: true, view_switcher: true };
 
+/** A shown switcher without month, whose weeks widen the load past any count (`loadConfig`). */
+const COUNTED_SWITCHER: Types.ToolbarConfig = {
+  show: true,
+  view_switcher: ['list', 'column', 'grid'],
+};
+
 function config(overrides: Partial<Types.Config> = {}): Types.Config {
   return buildConfig({ ...PER_VIEW, ...overrides } as Partial<Types.Config>);
 }
 
 describe('each view draws its own count', () => {
-  it('is an override in every view block, and in no fetch-time list', () => {
-    for (const view of ViewConfig.VIEWS) {
+  it('is an override in every view block but month’s, and in no fetch-time list', () => {
+    for (const view of ['list', 'column', 'grid'] as const) {
       expect(ViewConfig.viewBlockFor(view)!.overrideKeys, view).toContain('days_to_show');
     }
+    // A month draws its six weeks whatever the count says, so its block has none to override.
+    expect(ViewConfig.viewBlockFor('month')!.overrideKeys).not.toContain('days_to_show');
     expect(ViewConfig.FETCH_TIME_KEYS.has('days_to_show')).toBe(false);
-    // It reaches every view, so it carries no scope.
+    // It reaches every view but month, which is still more than one.
     expect(ViewConfig.appliesToView('days_to_show', 'grid')).toBe(true);
+    expect(ViewConfig.appliesToView('days_to_show', 'month')).toBe(false);
     expect(ViewConfig.appliesToSharedBase('days_to_show')).toBe(true);
   });
 
@@ -116,7 +125,33 @@ describe('the views a card can show', () => {
     // The shipped toolbar is hidden with its switcher flag on, so the flag alone means nothing.
     ['the shipped toolbar, list', {}, ['list']],
     ['a hidden toolbar with the switcher', { toolbar: { view_switcher: true } }, ['list']],
-    ['the switcher shown', { toolbar: SWITCHER }, ['list', 'column', 'grid']],
+    ['the switcher shown', { toolbar: SWITCHER }, ['list', 'column', 'grid', 'month']],
+    [
+      'a switcher offering some layouts, and the one the card opens in',
+      { view: 'column', toolbar: { show: true, view_switcher: ['month', 'grid'] } },
+      ['column', 'grid', 'month', 'list'],
+    ],
+    [
+      'a switcher offering month and the list the card opens in',
+      { toolbar: { show: true, view_switcher: ['month'] } },
+      ['list', 'month'],
+    ],
+    [
+      'a switcher whose list names no layout, as no switcher',
+      { view: 'grid', toolbar: { show: true, view_switcher: [] } },
+      ['grid', 'list'],
+    ],
+    [
+      'a hidden toolbar whose switcher names month',
+      { toolbar: { show: false, view_switcher: ['month'] } },
+      ['list'],
+    ],
+    ['a month card', { view: 'month' }, ['month']],
+    [
+      'a month card whose switcher offers grid, which falls back to list',
+      { view: 'month', toolbar: { show: true, view_switcher: ['grid'] } },
+      ['grid', 'month', 'list'],
+    ],
     [
       'a toolbar without the switcher',
       { view: 'grid', toolbar: { show: true, view_switcher: false } },
@@ -163,17 +198,47 @@ describe('the card loads the longest view it can show', () => {
   });
 
   it('loads exactly the card-wide count of a card that sets no per-view one', () => {
-    // A fraction too: nothing here may round what a pre-v5 card has always loaded.
+    // A fraction too: nothing here may round what a pre-v5 card has always loaded. Month is left
+    // off the switcher, since its weeks are loaded by date rather than by count.
     for (const days of [1, 3, 7.5, 31]) {
-      const plain = buildConfig({ days_to_show: days, toolbar: SWITCHER });
+      const plain = buildConfig({ days_to_show: days, toolbar: COUNTED_SWITCHER });
       expect(ViewConfig.loadedDaysToShow(plain)).toBe(days);
-      expect(ViewConfig.loadConfig(plain)).toBe(plain);
+      for (const home of [true, false]) {
+        expect(ViewConfig.loadConfig(plain, 1, home)).toBe(plain);
+      }
     }
+  });
+
+  it('loads a card month cannot reach as before, whatever the weekday, the page or the day', () => {
+    // Pinned by value: the configuration with the longest count, and its own start date, which
+    // neither the first weekday nor the moment it is asked at can move.
+    const original = config({
+      view: 'grid',
+      start_date: 'start_of_week',
+      time_grid: { days_to_show: 21 },
+    });
+    expect(ViewConfig.reachesMonth(original)).toBe(false);
+    const expected = { ...original, days_to_show: 21 };
+    for (const firstDayOfWeek of [0, 1, 6]) {
+      for (const home of [true, false]) {
+        for (const now of [new Date(2026, 0, 1), new Date(2026, 6, 15, 23, 30)]) {
+          const loaded = ViewConfig.loadConfig(original, firstDayOfWeek, home, now);
+          expect(loaded).toEqual(expected);
+          expect(loaded.start_date).toBe('start_of_week');
+        }
+      }
+    }
+  });
+
+  it('counts no days for month, which draws its weeks whatever the count', () => {
+    expect(ViewConfig.loadedDaysToShow(config({ toolbar: SWITCHER }))).toBe(14);
+    expect(ViewConfig.loadedDaysToShow(config({ view: 'month' }))).toBe(14);
+    expect(ViewConfig.loadedDaysToShow(buildConfig({ view: 'month', days_to_show: 3 }))).toBe(3);
   });
 
   it('hands the load to the fetch path as a copy, leaving the card’s own config alone', () => {
     const original = config({ view: 'grid', time_grid: { days_to_show: 21 } });
-    const loaded = ViewConfig.loadConfig(original);
+    const loaded = ViewConfig.loadConfig(original, 1, true);
 
     expect(loaded).not.toBe(original);
     expect(loaded.days_to_show).toBe(21);

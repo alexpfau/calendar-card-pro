@@ -9,6 +9,7 @@
   "viewList": "Liste",
   "viewColumns": "Kolonner",
   "viewGrid": "Gitter",
+  "viewMonth": "Måned",
   "endsToday": "slutter i dag",
   "endsTomorrow": "slutter i morgen",
   "dayOfEvent": "Dag {day} af {days}",

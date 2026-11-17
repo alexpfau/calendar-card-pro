@@ -42,7 +42,8 @@ src/
 │   ├── config.ts                 # DEFAULT_CONFIG and config helpers
 │   ├── constants.ts              # Application constants and defaults
 │   ├── types.ts                  # TypeScript interface definitions
-│   └── view.ts                   # List/Column/Grid blocks, defaults, density, fallback
+│   ├── view.ts                   # View blocks, defaults, density, fallback, the load window
+│   └── views.ts                  # The views, in order, free of imports
 ├── interaction/                  # User interaction handling
 │   ├── actions.ts                # Runs the card's tap and hold actions
 │   ├── add-event.ts              # Add button: writable calendars, label, new-event times
@@ -151,7 +152,7 @@ src/
     ├── format.ts                 # Date and text formatting
     ├── event-age.ts              # The `YEAR=` marker: ages and anniversary counts
     ├── text-replace.ts           # Per-calendar `replace_pattern` / `replace_with`
-    ├── start-date.ts             # The `start_date` relative-date grammar
+    ├── start-date.ts             # The `start_date` grammar, and the window it opens
     ├── paging.ts                 # Paging through dates: page length, home, the range's name
     ├── helpers.ts                # Generic utilities (color, ID generation)
     ├── entity-colors.ts          # Calendar colors from HA's entity registry, over WebSocket

@@ -9,6 +9,7 @@
   "viewList": "Lista",
   "viewColumns": "Kolone",
   "viewGrid": "Mreža",
+  "viewMonth": "Mesec",
   "endsToday": "završava se danas",
   "endsTomorrow": "završava se sutra",
   "dayOfEvent": "Dan {day} od {days}",

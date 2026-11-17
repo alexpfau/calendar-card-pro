@@ -17,6 +17,7 @@
   "viewList": "Lista",
   "viewColumns": "Colunas",
   "viewGrid": "Grade",
+  "viewMonth": "Mês",
   "endsToday": "termina hoje",
   "endsTomorrow": "termina amanhã",
   "dayOfEvent": "Dia {day} de {days}",

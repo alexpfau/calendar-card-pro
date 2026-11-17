@@ -12,7 +12,7 @@ import * as Helpers from './helpers';
 import * as LiveCalendars from './live-calendars';
 import * as Logger from './logger';
 import * as PersonPictures from './person-pictures';
-import { parseStartDateExpression } from './start-date';
+import { getTimeWindow } from './start-date';
 import * as TextReplace from './text-replace';
 import * as Config from '../config/config';
 import * as Constants from '../config/constants';
@@ -1528,13 +1528,17 @@ export function groupEventsByDay(
   const byDay = (a: Types.EventsByDay, b: Types.EventsByDay): number =>
     latestFirst ? b.timestamp - a.timestamp : a.timestamp - b.timestamp;
 
+  // Grid and month take Grid's daily coverage in place of the List splitter
+  // (`multidaySplitPolicy`).
+  const splitsForGrid = ViewConfig.multidaySplitPolicy(effectiveView) === 'never';
+
   // Which day of its event a row stands for, only where it is drawn, and only while the progress
   // bar is on, whose form the counter is on an event a day or more long, so a card without it
-  // keeps its rows as they were. Not in grid, whose all-day banners already span their days and
-  // whose later blocks of a timed event draw a title alone; the gate decides nothing there today,
-  // since its splitter hands this function one-day segments, which never count. It is here so
-  // that stays a decision.
-  const stampsDayOfEvent = Boolean(config.show_progress_bar) && effectiveView !== 'grid';
+  // keeps its rows as they were. Not in grid or month, whose all-day banners and bars already
+  // span their days and whose later blocks of a timed event draw a title alone; the gate decides
+  // nothing there today, since their splitter hands this function one-day segments, which never
+  // count. It is here so that stays a decision.
+  const stampsDayOfEvent = Boolean(config.show_progress_bar) && !splitsForGrid;
 
   const referenceDate = getStartDateReference(
     config,
@@ -1556,7 +1560,6 @@ export function groupEventsByDay(
   const sourceSignatures = new Map<Types.CalendarEventData, string>();
   const displayDays = new Map<Types.CalendarEventData, string>();
   const ignoreLocation = config.filter_duplicates === Constants.DUPLICATES_IGNORE_LOCATION;
-  const splitsForGrid = ViewConfig.multidaySplitPolicy(effectiveView) === 'never';
   const gridBanners = splitsForGrid ? resolveGridBanners(events, config) : undefined;
   const splitEvents = events.flatMap((event) => {
     const split = splitsForGrid
@@ -1687,8 +1690,10 @@ export function groupEventsByDay(
   // Eligibility must precede choosing a duplicate's winner. Otherwise a filtered first
   // calendar also discards the eligible copy behind it. Compare original intervals, not
   // sliced endpoints: distinct multi-day events can share an identical middle day.
+  // Not under Grid's coverage, whose daily segments are never `_isMultiDaySegment`: an unsplit
+  // winner there would key every day of an event alike and keep one of them.
   const firstEligible = new Map<string, Types.CalendarEventData>();
-  if (config.filter_duplicates && effectiveView !== 'grid') {
+  if (config.filter_duplicates && !splitsForGrid) {
     for (const event of upcomingEvents) {
       const signature = sourceSignatures.get(event)!;
       const previous = firstEligible.get(signature);
@@ -3316,101 +3321,9 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-/**
- * Calculate time window for event fetching
- *
- * Half-open, like the window `processRawEvents` keeps: from local midnight on the first day
- * to local midnight after the last, which Home Assistant's calendar API treats as an
- * exclusive end. The end used to be the close of the day after the last one, so every card
- * asked for one day more than it could draw.
- *
- * @param daysToShow - Number of days to show in the calendar
- * @param startDate - Optional start date: a relative expression (`today+7`,
- *   `start_of_week`, `monday+1w`, …), an ISO string, or `YYYY-MM-DD`
- * @param firstDayOfWeek - Resolved first day of week (0 = Sunday, 1 = Monday),
- *   required by week-relative expressions such as `start_of_week`
- * @param now - The moment a relative start date is resolved against
- * @returns Object containing start and end dates for the calendar window
- */
-export function getTimeWindow(
-  daysToShow: number,
-  startDate: string | undefined,
-  firstDayOfWeek: number,
-  now: Date = new Date(),
-): { start: Date; end: Date } {
-  let start: Date;
-
-  const today = (): Date => new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-  const rawStartDate = startDate === undefined || startDate === null ? '' : String(startDate);
-
-  if (rawStartDate.trim() !== '') {
-    try {
-      const trimmed = rawStartDate.trim();
-
-      const parsed = parseStartDateExpression(trimmed, firstDayOfWeek, now);
-
-      if (parsed.kind === 'ok') {
-        start = parsed.date;
-
-        if (isNaN(start.getTime())) {
-          Logger.warn(
-            `start_date "${trimmed}" resolved outside the supported date range. Falling back to today.`,
-          );
-          start = today();
-        } else {
-          Logger.info(`Resolved start_date "${trimmed}" to ${FormatUtils.getLocalDateKey(start)}`);
-        }
-      } else if (parsed.kind === 'error') {
-        Logger.warn(`Invalid start_date "${trimmed}": ${parsed.message}. Falling back to today.`);
-        start = today();
-      } else if (trimmed.includes('T')) {
-        start = new Date(trimmed);
-
-        if (isNaN(start.getTime())) {
-          Logger.warn(`Invalid ISO date: ${trimmed}, falling back to today`);
-          start = today();
-        }
-      } else {
-        const [year, month, day] = trimmed.split('-').map(Number);
-
-        if (year && month && day && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-          start = new Date(year, month - 1, day);
-
-          // `new Date(y, m - 1, d)` cannot fail on numbers this guard already bounded —
-          // it rolls a day past the end of its month forward instead, so `2025-02-30`
-          // becomes March 2 and an `isNaN` check here never fires. Reading the parts back
-          // is the only way to tell a real date from one JavaScript quietly moved.
-          if (
-            start.getFullYear() !== year ||
-            start.getMonth() !== month - 1 ||
-            start.getDate() !== day
-          ) {
-            Logger.warn(`Impossible date: ${trimmed}, falling back to today`);
-            start = today();
-          }
-        } else {
-          Logger.warn(`Malformed date: ${trimmed}, falling back to today`);
-          start = today();
-        }
-      }
-    } catch (error) {
-      Logger.warn(`Error parsing date: ${rawStartDate}, falling back to today`, error);
-      start = today();
-    }
-  } else {
-    start = today();
-  }
-
-  start.setHours(0, 0, 0, 0);
-
-  // Built from local fields, so a window spanning a DST change still ends at midnight.
-  const end = new Date(start);
-  const days = parseInt(daysToShow.toString()) || 3;
-  end.setDate(start.getDate() + days);
-
-  return { start, end };
-}
+// The window a `start_date` opens. It lives in `start-date.ts`, which `config/view.ts` can import
+// without this module, and stays reachable here for every caller that always read it here.
+export { getTimeWindow };
 
 /**
  * Whether a start date resolves against today, so the window it opens moves as days pass: no

@@ -19,6 +19,7 @@ import {
   TOOLBAR_LEGEND_VALUES,
   resolveToolbar,
   undrawableToolbarButtons,
+  unknownSwitcherViews,
 } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { workspaceFormData } from '../src/rendering/editor/routing';
@@ -30,6 +31,7 @@ const DEFAULTS = {
   navigation: true,
   addEvent: true,
   viewSwitcher: true,
+  switcherViews: ['list', 'column', 'grid', 'month'],
   reset: false,
   refresh: true,
   search: true,
@@ -63,6 +65,7 @@ describe('the toolbar configuration', () => {
       ...DEFAULTS,
       show: true,
       viewSwitcher: false,
+      switcherViews: [],
     });
     expect(resolveToolbar({ toolbar: { show: true, navigation: false } })).toEqual({
       ...DEFAULTS,
@@ -118,6 +121,50 @@ describe('the toolbar configuration', () => {
     };
 
     expect(resolveToolbar(config as unknown as Pick<Types.Config, 'toolbar'>)).toEqual(DEFAULTS);
+  });
+
+  describe('the layouts the switcher offers', () => {
+    const offered = (view_switcher: unknown) => {
+      const { viewSwitcher, switcherViews } = resolveToolbar({
+        toolbar: { show: true, view_switcher } as Types.ToolbarConfig,
+      });
+      return { viewSwitcher, switcherViews };
+    };
+
+    it.each([
+      ['true, every layout', true, true, ['list', 'column', 'grid', 'month']],
+      ['false, none', false, false, []],
+      ['a list, in the layouts’ own order', ['month', 'list'], true, ['list', 'month']],
+      ['a list of one', ['grid'], true, ['grid']],
+      ['a list naming a layout twice, once', ['grid', 'grid', 'list'], true, ['list', 'grid']],
+      [
+        'a list with members that name no layout, without them',
+        ['grid', 'Month', 'week', 3, null],
+        true,
+        ['grid'],
+      ],
+      ['an empty list, as false', [], false, []],
+      ['a list naming no layout at all, as false', ['week', 'agenda'], false, []],
+      [
+        'a value of another kind, as the default',
+        'month',
+        true,
+        ['list', 'column', 'grid', 'month'],
+      ],
+    ] as const)('reads %s', (_name, value, viewSwitcher, switcherViews) => {
+      expect(offered(value)).toEqual({ viewSwitcher, switcherViews });
+    });
+
+    it('names each member it leaves out, as written, and no other', () => {
+      expect(
+        unknownSwitcherViews({
+          toolbar: { view_switcher: ['grid', 'Month', 'week', 3, 'grid'] },
+        } as never),
+      ).toEqual(['Month', 'week', 3]);
+      expect(unknownSwitcherViews({ toolbar: { view_switcher: true } })).toEqual([]);
+      expect(unknownSwitcherViews({ toolbar: { view_switcher: ['list', 'month'] } })).toEqual([]);
+      expect(unknownSwitcherViews({ toolbar: null } as never)).toEqual([]);
+    });
   });
 
   it('has no switch for labels: which control is an icon and which is words is fixed', () => {

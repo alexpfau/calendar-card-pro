@@ -17,6 +17,7 @@
   "viewList": "Lijst",
   "viewColumns": "Kolommen",
   "viewGrid": "Rooster",
+  "viewMonth": "Maand",
   "endsToday": "eindigt vandaag",
   "endsTomorrow": "eindigt morgen",
   "dayOfEvent": "Dag {day} van {days}",

@@ -1160,10 +1160,19 @@ describe('a write while the panel is open', () => {
 });
 
 describe('a pick whose page the card left before it loaded', () => {
+  /**
+   * Holds the load of the page a pick on December 8 opens. The default switcher offers month, so
+   * that load starts with the weeks a month view of the page would show, which begin in November.
+   */
+  const holdDecemberPage = () => {
+    heldMonths.add('2026-11');
+    heldMonths.add('2026-12');
+  };
+
   it('rings nothing when that page is shown later', async () => {
     const card = await mount(configFor({ event_tap_action: { action: 'details' } }));
     await openSearch(card);
-    heldMonths.add('2026-12');
+    holdDecemberPage();
     await pickWithKeyboard(card, 'check');
     await afterClose(card);
     expect(ringed(card)).toBeNull();
@@ -1185,7 +1194,7 @@ describe('a pick whose page the card left before it loaded', () => {
   it('still rings once the page it asked for loads late, where the card stayed', async () => {
     const card = await mount(configFor({ event_tap_action: { action: 'details' } }));
     await openSearch(card);
-    heldMonths.add('2026-12');
+    holdDecemberPage();
     await pickWithKeyboard(card, 'check');
     await afterClose(card);
     expect(ringed(card)).toBeNull();

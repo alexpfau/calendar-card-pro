@@ -4,6 +4,7 @@
 
 import * as Constants from './constants';
 import * as Types from './types';
+import { VIEWS } from './views';
 import * as Helpers from '../utils/helpers';
 import * as Logger from '../utils/logger';
 import { normalizeVisibility } from '../utils/visibility';
@@ -215,6 +216,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   list: undefined,
   column: undefined,
   time_grid: undefined,
+  month: undefined,
 };
 
 export type ConfigVersionState =
@@ -396,7 +398,13 @@ export interface ResolvedToolbar {
   show: boolean;
   navigation: boolean;
   addEvent: boolean;
+  /** Whether a layout switcher may be drawn: `switcherViews` names at least one layout. */
   viewSwitcher: boolean;
+  /**
+   * The layouts `view_switcher` names, in `VIEWS` order: every one for `true`, none for `false`.
+   * The switcher offers these and the card's own `view`.
+   */
+  switcherViews: ReadonlyArray<Types.EffectiveView>;
   reset: boolean;
   refresh: boolean;
   search: boolean;
@@ -431,8 +439,11 @@ export function resolveToolbar(config: Readonly<Pick<Types.Config, 'toolbar'>>):
   const block: Readonly<Types.ToolbarConfig> = Helpers.isConfigBlock(config.toolbar)
     ? config.toolbar
     : {};
-  const read = (key: Exclude<keyof Types.ToolbarConfig, 'legend' | 'buttons'>): boolean =>
+  const read = (
+    key: Exclude<keyof Types.ToolbarConfig, 'legend' | 'buttons' | 'view_switcher'>,
+  ): boolean =>
     typeof block[key] === 'boolean' ? (block[key] as boolean) : (defaults[key] as boolean);
+  const switcherViews = resolveSwitcherViews(block.view_switcher, defaults.view_switcher);
   const legend = TOOLBAR_LEGEND_VALUES.includes(block.legend as false | Types.ToolbarLegendMode)
     ? (block.legend as false | Types.ToolbarLegendMode)
     : defaults.legend;
@@ -441,13 +452,46 @@ export function resolveToolbar(config: Readonly<Pick<Types.Config, 'toolbar'>>):
     show: read('show'),
     navigation: read('navigation'),
     addEvent: read('add_event'),
-    viewSwitcher: read('view_switcher'),
+    viewSwitcher: switcherViews.length > 0,
+    switcherViews,
     reset: read('reset'),
     refresh: read('refresh'),
     search: read('search'),
     legend,
     buttons: Array.isArray(block.buttons) ? block.buttons.filter(isToolbarButton) : [],
   };
+}
+
+/**
+ * The layouts a `view_switcher` value names, in `VIEWS` order: every layout for `true`, none for
+ * `false`, and for a list its members that name a layout, each once. A value of any other kind
+ * reads as the default. A list naming no layout, empty or not, reads as `false`.
+ *
+ * @param value - `view_switcher` as written
+ * @param fallback - The shipped default, for a value of the wrong kind
+ * @returns The layouts named
+ */
+function resolveSwitcherViews(
+  value: unknown,
+  fallback: boolean | Types.EffectiveView[],
+): ReadonlyArray<Types.EffectiveView> {
+  const named = typeof value === 'boolean' || Array.isArray(value) ? value : fallback;
+  if (named === true) return VIEWS;
+  if (named === false) return [];
+  return VIEWS.filter((view) => named.includes(view));
+}
+
+/**
+ * The `toolbar.view_switcher` members the card leaves out, as written: each that names no layout.
+ *
+ * @param config - Configuration, merged or raw
+ * @returns The members left out, in the order written
+ */
+export function unknownSwitcherViews(config: Readonly<Pick<Types.Config, 'toolbar'>>): unknown[] {
+  const list = Helpers.isConfigBlock(config.toolbar) ? config.toolbar.view_switcher : undefined;
+  return Array.isArray(list)
+    ? list.filter((member) => !VIEWS.includes(member as Types.EffectiveView))
+    : [];
 }
 
 /**

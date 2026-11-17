@@ -9,6 +9,7 @@
   "viewList": "リスト",
   "viewColumns": "列",
   "viewGrid": "グリッド",
+  "viewMonth": "月",
   "endsToday": "今日 {at} 終了",
   "endsTomorrow": "明日 {at} 終了",
   "dayOfEvent": "{day}日目（全{days}日）",

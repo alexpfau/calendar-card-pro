@@ -17,6 +17,7 @@
   "viewList": "Λίστα",
   "viewColumns": "Στήλες",
   "viewGrid": "Πλέγμα",
+  "viewMonth": "Μήνας",
   "endsToday": "λήγει σήμερα",
   "endsTomorrow": "λήγει αύριο",
   "dayOfEvent": "Ημέρα {day} από {days}",

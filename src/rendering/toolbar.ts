@@ -320,6 +320,7 @@ export const VIEW_LABEL_KEYS = {
   list: 'viewList',
   column: 'viewColumns',
   grid: 'viewGrid',
+  month: 'viewMonth',
 } as const satisfies Record<Types.EffectiveView, keyof Types.Translations>;
 
 //-----------------------------------------------------------------------------

@@ -20,8 +20,12 @@ import {
 } from './config';
 import { HA_CARD_KEYS } from './constants';
 import * as Types from './types';
+import { VIEWS } from './views';
 import * as EntityColors from '../utils/entity-colors';
 import * as Logger from '../utils/logger';
+import { addDays, calendarDayDiff, getTimeWindow, localDateKey } from '../utils/start-date';
+
+export { VIEWS };
 
 //-----------------------------------------------------------------------------
 // KEY CLASSIFICATION
@@ -230,6 +234,61 @@ export const LIST_OVERRIDE_KEYS = [
 export const LIST_ONLY_KEYS = [] as const;
 
 /**
+ * The shared options a month grid draws nothing for (`Types.MonthIgnoredSharedKeys`): it shows
+ * its six weeks whatever their events, so it has no day count, no empty-day placeholder and no
+ * List splitting, and it lines its events up by rows rather than by gaps between them.
+ */
+export const MONTH_IGNORED_SHARED_KEYS = [
+  'days_to_show',
+  'show_empty_days',
+  'show_empty_today',
+  'empty_day_text',
+  'empty_day_color',
+  'split_multiday_events',
+  'event_gap',
+] as const satisfies ReadonlyArray<Types.MonthIgnoredSharedKeys>;
+
+/**
+ * A key list without some of its keys, typed as exactly what it keeps.
+ *
+ * 🚨 Typed, not a bare `.filter()`. A bare filter types as the whole union it started from,
+ * which would make the month partition assertions below read every excluded key as classified
+ * while the array no longer held it: the hazard `TIME_GRID_OVERRIDE_KEYS` describes.
+ *
+ * @param keys - The keys to start from
+ * @param excluded - The keys to leave out
+ * @returns The rest, in order
+ */
+function withoutKeys<K extends string, E extends string>(
+  keys: ReadonlyArray<K>,
+  excluded: ReadonlyArray<E>,
+): Array<Exclude<K, E>> {
+  const left = new Set<string>(excluded);
+  return keys.filter((key): key is Exclude<K, E> => !left.has(key));
+}
+
+/**
+ * Options a `month:` block may override, each with a top-level counterpart.
+ *
+ * Column's list without the options a month grid draws nothing for, plus `multiday_banners`,
+ * which Month reads as Grid does: a timed event a full day or longer is a bar across its days.
+ * The presentation options stay, because the day list a month opens draws List's rows with
+ * them.
+ */
+export const MONTH_OVERRIDE_KEYS = [
+  ...withoutKeys(COLUMN_OVERRIDE_KEYS, MONTH_IGNORED_SHARED_KEYS),
+  'multiday_banners',
+] as const;
+
+/** Month-only options — a week row's height, the compact form's width and week scrolling. */
+export const MONTH_ONLY_KEYS = [
+  'row_height',
+  'min_day_width',
+  'week_scroll',
+  'week_scroll_min_width',
+] as const;
+
+/**
  * Compile-time partition check for a view's two key arrays.
  *
  * The arrays are the only thing that decides whether an override reaches the renderer:
@@ -317,7 +376,19 @@ export type _AssertListOnlyKeysHaveNoCounterpart = AssertNever<
   OnlyKeysWithCounterpart<typeof LIST_ONLY_KEYS>
 >;
 
-export const VIEWS: ReadonlyArray<Types.EffectiveView> = ['list', 'column', 'grid'];
+export type _AssertEveryMonthKeyClassified = AssertNever<
+  UnclassifiedKeys<Types.MonthOverrides, typeof MONTH_OVERRIDE_KEYS, typeof MONTH_ONLY_KEYS>
+>;
+export type _AssertEveryMonthOverrideKeyHoistable = AssertNever<
+  OverrideKeysWithoutCounterpart<Types.MonthOverrides, typeof MONTH_OVERRIDE_KEYS>
+>;
+export type _AssertMonthOnlyKeysHaveNoCounterpart = AssertNever<
+  OnlyKeysWithCounterpart<typeof MONTH_ONLY_KEYS>
+>;
+/** The keys a month grid ignores are exactly the ones its block type leaves out. */
+export type _AssertMonthIgnoresWhatItsTypeOmits = AssertNever<
+  Exclude<Types.MonthIgnoredSharedKeys, (typeof MONTH_IGNORED_SHARED_KEYS)[number]>
+>;
 
 export const VIEWS_WITH_WIDTH_FALLBACK: ReadonlySet<Types.EffectiveView> =
   new Set<Types.EffectiveView>(['column', 'grid']);
@@ -328,6 +399,11 @@ export const VIEWS_WITH_WIDTH_FALLBACK: ReadonlySet<Types.EffectiveView> =
  * Keyed by view so callers can say where an option applies, not merely that it is
  * inert somewhere. Compact limits apply only to list view for the same reason as
  * `viewAppliesCompactLimits`.
+ *
+ * Month draws its cells from its own rows and lines, and every event's details in the day list
+ * it opens, which is List's rows with Month's options. So an option a List row reads reaches
+ * Month too, unless it shapes the list as a whole, and the scopes below say so wherever they
+ * name List and not Month. The month renderer is checked against this table when it lands.
  */
 export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView>>> = {
   date_vertical_alignment: new Set<Types.EffectiveView>(['list']),
@@ -341,14 +417,21 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   // than continue a list.
   skip_first_events: new Set<Types.EffectiveView>(['list']),
 
+  // A month always draws its six weeks, every day of them, whatever their events: it has no day
+  // count to set and no empty day to hide or fill.
+  days_to_show: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  show_empty_days: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  show_empty_today: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+
   // Inert as a card-level grid override: the grid never uses the upstream list splitter.
   // All-day multi-day events become spanning banners. Grid's own daily coverage keeps
   // every timed segment timed before filters and empty-day omission run.
   split_multiday_events: new Set<Types.EffectiveView>(['list', 'column']),
 
-  // Only grid has an all-day band above an hour axis for a timed event to move into. A list
-  // or column row of the same event already reads as one row per day.
-  multiday_banners: new Set<Types.EffectiveView>(['grid']),
+  // Only grid has an all-day band above an hour axis for a timed event to move into, and month
+  // draws its all-day events as bars across their days in the same way. A list or column row of
+  // the same event already reads as one row per day.
+  multiday_banners: new Set<Types.EffectiveView>(['grid', 'month']),
 
   // Grid discards _isEmptyDay rows in sortDayEvents. show_empty_days controls which columns exist;
   // only the placeholder's text and color are irrelevant there.
@@ -357,7 +440,7 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
 
   // Grid shows "now" with its now line, and draws no chip: `gridTimedEventContentParts`
   // clears the label whatever this resolves to.
-  show_now_indicator: new Set<Types.EffectiveView>(['list', 'column']),
+  show_now_indicator: new Set<Types.EffectiveView>(['list', 'column', 'month']),
 
   // Grid draws an all-day event as a banner in its own band, and `renderBanner` emits the
   // summary and nothing else — no time, no location, no description, no countdown. So the
@@ -370,21 +453,21 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   // value leaves all 302 elements identical on every computed longhand and both
   // pseudo-elements, while the same flip changes the element count outright in list and
   // column. See tests/view-scope-inert.test.ts, which is that comparison as a gate.
-  show_single_allday_time: new Set<Types.EffectiveView>(['list', 'column']),
-  show_multiday_allday_time: new Set<Types.EffectiveView>(['list', 'column']),
-  show_location_allday: new Set<Types.EffectiveView>(['list', 'column']),
-  show_description_allday: new Set<Types.EffectiveView>(['list', 'column']),
-  show_countdown_allday: new Set<Types.EffectiveView>(['list', 'column']),
+  show_single_allday_time: new Set<Types.EffectiveView>(['list', 'column', 'month']),
+  show_multiday_allday_time: new Set<Types.EffectiveView>(['list', 'column', 'month']),
+  show_location_allday: new Set<Types.EffectiveView>(['list', 'column', 'month']),
+  show_description_allday: new Set<Types.EffectiveView>(['list', 'column', 'month']),
+  show_countdown_allday: new Set<Types.EffectiveView>(['list', 'column', 'month']),
 
   // Grid banners are title-only; its timed blocks never qualify for an all-day badge.
-  allday_badge: new Set<Types.EffectiveView>(['list', 'column']),
-  allday_badge_style: new Set<Types.EffectiveView>(['list', 'column']),
-  allday_badge_color: new Set<Types.EffectiveView>(['list', 'column']),
+  allday_badge: new Set<Types.EffectiveView>(['list', 'column', 'month']),
+  allday_badge_style: new Set<Types.EffectiveView>(['list', 'column', 'month']),
+  allday_badge_color: new Set<Types.EffectiveView>(['list', 'column', 'month']),
 
   // A grid block lays out its own rows and fits its time itself, so it has no title row for
   // the time to join: `renderTimedEvent` never passes the placement down, and the leaf never
   // reads the option for itself. tests/view-scope-inert.test.ts pins it.
-  time_position: new Set<Types.EffectiveView>(['list', 'column']),
+  time_position: new Set<Types.EffectiveView>(['list', 'column', 'month']),
 
   // 🚨 Not the reason it looks like. `.event` IS emitted in grid — on the timed block, on
   // the banner and on the "+N more" overflow chip — so a grep for the class finds it and
@@ -395,7 +478,7 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   //
   // Recorded at this length because the class match is genuinely convincing and cost one
   // wrong verdict in review before the cascade was checked.
-  event_spacing: new Set<Types.EffectiveView>(['list', 'column']),
+  event_spacing: new Set<Types.EffectiveView>(['list', 'column', 'month']),
 
   // A grid block is already a block of its own, placed by its time; the gap it keeps from
   // its neighbors belongs to the grid's own layout. Nothing in grid reads
@@ -407,14 +490,14 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   // and `.grid-event-disclosure` resets the two properties the folded-countdown span reads
   // to what an unset option writes. Before that reset a clamp on the folded span hid the
   // whole time row. tests/view-scope-inert.test.ts pins both.
-  time_max_lines: new Set<Types.EffectiveView>(['list', 'column']),
+  time_max_lines: new Set<Types.EffectiveView>(['list', 'column', 'month']),
 
   // A grid block draws its words for the eye only, behind an accessible name of its own
   // (`.grid-event-disclosure` is aria-hidden), and reveals or withdraws its rows as it grows
   // and shrinks. A link in it would be a tab stop assistive technology cannot see, inside a
   // box often too small to aim at, so the grid draws its text as text. Its banners draw
   // titles alone.
-  open_links: new Set<Types.EffectiveView>(['list', 'column']),
+  open_links: new Set<Types.EffectiveView>(['list', 'column', 'month']),
 };
 
 /**
@@ -932,6 +1015,96 @@ export function resolveTimeGridOption<K extends keyof typeof TIME_GRID_DEFAULTS>
   }
 
   return TIME_GRID_DEFAULTS[key] as TimeGridOptionValue<K>;
+}
+
+/**
+ * Defaults for month-only options.
+ *
+ * `row_height` is a week row's natural height, a CSS length so it can follow the font in `em`;
+ * under a fixed card `height` the six rows share the card's instead. `min_day_width` is the
+ * day-cell width below which the month draws its compact form. Week scrolling takes wheel and
+ * swipe gestures from the page, so it ships off, and `week_scroll_min_width: 0` applies it at any
+ * card width once it is on. The two sizes are first estimates, tuned once the month renderer
+ * measures them.
+ */
+export const MONTH_DEFAULTS = {
+  row_height: '112px',
+  min_day_width: 64,
+  week_scroll: false,
+  week_scroll_min_width: 0,
+} as const;
+
+/**
+ * Value type a month-only option resolves to, derived from {@link MONTH_DEFAULTS}.
+ */
+type MonthOptionValue<K extends keyof typeof MONTH_DEFAULTS> =
+  (typeof MONTH_DEFAULTS)[K] extends boolean
+    ? boolean
+    : (typeof MONTH_DEFAULTS)[K] extends number
+      ? number
+      : string;
+
+/**
+ * Normalizes a month-only option to a usable value of its declared type.
+ *
+ * These values never pass through `normalizeConfig`, so a malformed one is caught here. A
+ * length accepts a bare number from YAML or the editor's text field and gains `px`, for the
+ * reason {@link normalizeColumnValue} gives. `min_day_width` is a width above zero, and
+ * `week_scroll_min_width` any width from zero, which means no limit.
+ *
+ * @param key - Option being resolved
+ * @param value - Raw configured value
+ * @returns A value of the key's declared type
+ */
+export function normalizeMonthValue(
+  key: keyof typeof MONTH_DEFAULTS,
+  value: unknown,
+): string | number | boolean {
+  const fallback = MONTH_DEFAULTS[key];
+
+  if (typeof fallback === 'boolean') {
+    return typeof value === 'boolean' ? value : fallback;
+  }
+
+  if (typeof fallback === 'number') {
+    const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value));
+    if (!Number.isFinite(parsed)) return fallback;
+    return key === 'week_scroll_min_width'
+      ? parsed >= 0
+        ? parsed
+        : fallback
+      : parsed > 0
+        ? parsed
+        : fallback;
+  }
+
+  return String(coercePixelLengthAgainst(fallback, value, key));
+}
+
+/**
+ * Resolves a month-only option.
+ *
+ * No inheritance step: the value is in the `month:` block or falls back to
+ * {@link MONTH_DEFAULTS}.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @param key - Month-only option to resolve
+ * @returns The configured value, or its default
+ */
+export function resolveMonthOption<K extends keyof typeof MONTH_DEFAULTS>(
+  config: Types.Config,
+  key: K,
+): MonthOptionValue<K> {
+  const overrides = blockValues(config, 'month');
+
+  if (overrides && hasOverride(overrides, key as keyof Types.ColumnOverrides)) {
+    return normalizeMonthValue(
+      key,
+      (overrides as Record<string, unknown>)[key],
+    ) as MonthOptionValue<K>;
+  }
+
+  return MONTH_DEFAULTS[key] as MonthOptionValue<K>;
 }
 
 /**
@@ -1515,12 +1688,25 @@ export const TIME_GRID_DEFAULT_OVERRIDES: {
   show_past_events: true,
 };
 
+/**
+ * Options whose shipped default differs in month view.
+ *
+ * `show_past_events` is on: a month shows its past days, dimmed, rather than emptying the weeks
+ * behind today, as Grid keeps today's finished blocks on its axis.
+ */
+export const MONTH_DEFAULT_OVERRIDES: {
+  readonly [K in keyof Types.MonthOverrides & keyof Types.Config]?: Types.Config[K];
+} = {
+  show_past_events: true,
+};
+
 /** Views whose defaults depart from the top level, mapped to what they substitute. */
 export const DEFAULT_OVERRIDES_BY_VIEW: Readonly<
   Partial<Record<Types.EffectiveView, Readonly<Record<string, unknown>>>>
 > = {
   column: COLUMN_DEFAULT_OVERRIDES,
   grid: TIME_GRID_DEFAULT_OVERRIDES,
+  month: MONTH_DEFAULT_OVERRIDES,
 };
 
 //-----------------------------------------------------------------------------
@@ -1582,6 +1768,13 @@ export const VIEW_BLOCKS: Readonly<Partial<Record<Types.EffectiveView, ViewBlock
     onlyKeys: TIME_GRID_ONLY_KEYS,
     onlyDefaults: TIME_GRID_DEFAULTS,
     defaultOverrides: TIME_GRID_DEFAULT_OVERRIDES,
+  },
+  month: {
+    blockKey: 'month',
+    overrideKeys: MONTH_OVERRIDE_KEYS,
+    onlyKeys: MONTH_ONLY_KEYS,
+    onlyDefaults: MONTH_DEFAULTS,
+    defaultOverrides: MONTH_DEFAULT_OVERRIDES,
   },
 };
 
@@ -1714,8 +1907,9 @@ export function viewAppliesCompactLimits(view: Types.EffectiveView): boolean {
  * always been able to turn it off card-wide, and a per-calendar value can now do the
  * same for one calendar.
  *
- * Grid view returns `never`: grouping uses Grid's daily coverage instead of the List
- * splitter, which would rewrite the middle day of a timed event as all-day data.
+ * Grid and month view return `never`: grouping uses Grid's daily coverage instead of the List
+ * splitter, which would rewrite the middle day of a timed event as all-day data. A month draws
+ * its all-day and multi-day events as bars across their days, as Grid's banners are.
  *
  * @param view - View currently being rendered
  * @returns Split policy for the shared event processor
@@ -1725,6 +1919,7 @@ export type MultidaySplitPolicy = 'inherit' | 'never';
 export function multidaySplitPolicy(view: Types.EffectiveView): MultidaySplitPolicy {
   switch (view) {
     case 'grid':
+    case 'month':
       return 'never';
     case 'column':
     case 'list':
@@ -1748,6 +1943,9 @@ export function viewCssClass(view: Types.EffectiveView): string {
       return 'column-view';
     case 'grid':
       return 'grid-view';
+    // Drawn by the list renderer, under List's rules, until the month renderer lands with a
+    // class of its own.
+    case 'month':
     case 'list':
       return '';
   }
@@ -2514,67 +2712,156 @@ export function resolveMinDaysFallback(
 /**
  * The views this configuration can put on screen, whatever the width or the device.
  *
- * Every view while the toolbar's view switcher is drawn. Otherwise `view`, plus list when
- * `view` falls back to it for lack of room — that fallback draws list's own options,
- * `days_to_show` included, so list's count has to be loaded too.
+ * While the toolbar's view switcher is drawn, the layouts it offers: those `view_switcher` names
+ * and `view`, in `VIEWS` order. Otherwise `view`. Either way, plus list when one of them falls
+ * back to it for lack of room — that fallback draws list's own options, `days_to_show` included,
+ * so list's count has to be loaded too.
  *
  * 🚨 The switcher counts only when the toolbar is shown. The shipped toolbar has
  * `view_switcher: true` and `show: false`, so reading the switcher flag alone would load
- * every view's count for nearly every card. Mirrors the card's `_wantsViewSwitcher`.
+ * every view's range for nearly every card. Mirrors the card's `_wantsViewSwitcher`.
  *
  * Decided by configuration alone, never by width: a load that followed the width would
  * refetch whenever a tablet turned.
  *
  * @param config - Merged configuration, defaults already applied
- * @returns The reachable views, the configured `view` first
+ * @returns The reachable views, the configured `view` first when the switcher is not drawn
  */
 export function reachableViews(config: Types.Config): ReadonlyArray<Types.EffectiveView> {
   const toolbar = resolveToolbar(config);
-  if (toolbar.show && toolbar.viewSwitcher) return VIEWS;
-
   const view = config.view;
-  return VIEWS_WITH_WIDTH_FALLBACK.has(view) && resolveMinDaysFallback(config, view) === 'list'
-    ? [view, 'list']
-    : [view];
+  const shown =
+    toolbar.show && toolbar.viewSwitcher
+      ? VIEWS.filter((candidate) => candidate === view || toolbar.switcherViews.includes(candidate))
+      : [view];
+  const fallsBack = shown.some(
+    (candidate) =>
+      VIEWS_WITH_WIDTH_FALLBACK.has(candidate) &&
+      resolveMinDaysFallback(config, candidate) === 'list',
+  );
+
+  return fallsBack && !shown.includes('list') ? [...shown, 'list'] : shown;
 }
 
 /**
- * How many days the card loads: the longest `days_to_show` among the views it can show.
+ * The longest `days_to_show` among the views the card can show that draw a count of days:
+ * every view but month, which draws its six weeks whatever the count says. A card that can show
+ * month alone draws no count, and this is its top-level `days_to_show`.
  *
- * Each view then draws a prefix of that one load, which is why switching views never
+ * Each of those views then draws a prefix of one load, which is why switching views never
  * refetches. Resolved through {@link resolveViewOption}, so an invalid block value counts
  * exactly as the view will draw it, and a card that sets no per-view count loads its
- * top-level value unchanged.
+ * top-level value unchanged. Month's weeks join the load in {@link loadConfig}.
  *
  * @param config - Merged configuration, defaults already applied
  * @returns Days to load from the start date
  */
 export function loadedDaysToShow(config: Types.Config): number {
-  return Math.max(
-    ...reachableViews(config).map((view) => resolveViewOption(config, 'days_to_show', view)),
-  );
+  const counted = reachableViews(config).filter((view) => view !== 'month');
+  if (counted.length === 0) return config.days_to_show;
+  return Math.max(...counted.map((view) => resolveViewOption(config, 'days_to_show', view)));
+}
+
+/** Week rows a month grid always draws: enough for any month, however its first day falls. */
+export const MONTH_ROWS = 6;
+
+/** Days a month grid always draws. */
+export const MONTH_DAYS = MONTH_ROWS * 7;
+
+/**
+ * The first day of the week row holding a day: that day, or the last first weekday before it.
+ *
+ * From local calendar fields, so the answer is a date whatever daylight-saving change lies
+ * between them. On a day with no midnight, where the clocks spring forward at 00:00, it is that
+ * day's first moment.
+ *
+ * @param day - Any moment on the day
+ * @param firstDayOfWeek - First day of the week, 0 for Sunday
+ * @returns The row's first day, at local midnight
+ */
+export function monthRowsStart(day: Date, firstDayOfWeek: number): Date {
+  const first = ((Math.trunc(firstDayOfWeek) % 7) + 7) % 7;
+  return addDays(day, -((day.getDay() - first + 7) % 7));
 }
 
 /**
- * The configuration events are loaded with: this one, with `days_to_show` set to
- * {@link loadedDaysToShow}.
+ * The first day of the month grid a card opens on: the week row holding the 1st of the month
+ * its first day falls in.
  *
- * Everything that identifies or shapes a request reads `days_to_show` off the config it is
- * handed — the cache key, the window, the fetch-side trim, the card's instance id and
- * `hasConfigChanged` — so handing them this config is what makes them load for every view at
- * once, without any of them learning about views. The same derive-a-config pattern as a
- * page's `start_date`.
- *
- * Never draw from it: its top-level `days_to_show` is the load, not any view's count.
+ * @param start - The card's first day, its resolved `start_date`
+ * @param firstDayOfWeek - First day of the week, 0 for Sunday
+ * @returns The grid's first day, at local midnight
+ */
+export function monthHomeRowsStart(start: Date, firstDayOfWeek: number): Date {
+  return monthRowsStart(new Date(start.getFullYear(), start.getMonth(), 1), firstDayOfWeek);
+}
+
+/**
+ * Whether month is one of the views the card can show (`reachableViews`), which widens its
+ * load to the month's weeks.
  *
  * @param config - Merged configuration, defaults already applied
- * @returns The same object when the load is already the top-level count, else a copy
+ * @returns True when month is reachable
  */
-export function loadConfig(config: Types.Config): Types.Config {
+export function reachesMonth(config: Types.Config): boolean {
+  return reachableViews(config).includes('month');
+}
+
+/**
+ * The configuration events are loaded with.
+ *
+ * Where month is not reachable, this one with `days_to_show` set to {@link loadedDaysToShow}:
+ * the same object when that is already the top-level count. Everything that identifies or shapes
+ * a request reads `days_to_show` off the config it is handed — the cache key, the window, the
+ * fetch-side trim, the card's instance id and `hasConfigChanged` — so handing them this config
+ * is what makes them load for every view at once, without any of them learning about views.
+ *
+ * Where month is reachable, the load also covers the month's six weeks, which start before
+ * `start_date`: at home the weeks of the month `start_date` falls in, on a page the weeks from
+ * the row holding the page's first day, since a page key is already a row's first day and
+ * another view's key snaps to its week. The other reachable views keep their window from the
+ * resolved start. The result names the union of the two by a concrete date and its length,
+ * `start_date` as `YYYY-MM-DD`, so the request, its cache key and its identity hold the weeks
+ * exactly, and at home they move only when the month or the other views' end moves. All of it
+ * is counted in local calendar days.
+ *
+ * Never draw from it: its top-level `start_date` and `days_to_show` are the load, not any
+ * view's.
+ *
+ * @param config - Merged configuration, defaults already applied; a page's, for a page
+ * @param firstDayOfWeek - Resolved first day of the week, 0 for Sunday
+ * @param home - True for the window the card opens on, false for a page
+ * @param now - The moment a relative `start_date` is resolved against
+ * @returns The configuration to load with
+ */
+export function loadConfig(
+  config: Types.Config,
+  firstDayOfWeek: number,
+  home: boolean,
+  now: Date = new Date(),
+): Types.Config {
   const days = loadedDaysToShow(config);
-  return !Number.isFinite(days) || days === config.days_to_show
-    ? config
-    : { ...config, days_to_show: days };
+  const views = reachableViews(config);
+  if (!views.includes('month')) {
+    return !Number.isFinite(days) || days === config.days_to_show
+      ? config
+      : { ...config, days_to_show: days };
+  }
+
+  const window = getTimeWindow(days, config.start_date, firstDayOfWeek, now);
+  const rows = home
+    ? monthHomeRowsStart(window.start, firstDayOfWeek)
+    : monthRowsStart(window.start, firstDayOfWeek);
+  const rowsEnd = addDays(rows, MONTH_DAYS);
+  const others = views.some((view) => view !== 'month');
+  const from = others && calendarDayDiff(window.start, rows) > 0 ? window.start : rows;
+  const until = others && calendarDayDiff(rowsEnd, window.end) > 0 ? window.end : rowsEnd;
+
+  return {
+    ...config,
+    start_date: localDateKey(from),
+    days_to_show: calendarDayDiff(from, until),
+  };
 }
 
 //-----------------------------------------------------------------------------

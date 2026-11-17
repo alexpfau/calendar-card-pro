@@ -107,8 +107,11 @@ function render(
   return container;
 }
 
-/** The nodes in each view that are an event with an accent, and so must draw a bar. */
-const EVENT_SELECTOR: Record<Types.EffectiveView, string> = {
+/**
+ * The nodes in each view that are an event with an accent, and so must draw a bar. Month draws
+ * with the list renderer until its own lands, which brings its entry here.
+ */
+const EVENT_SELECTOR: Record<Exclude<Types.EffectiveView, 'month'>, string> = {
   list: 'td.event',
   column: '.column-events > .event',
   grid: '.grid-event:not(.grid-event-overflow)',

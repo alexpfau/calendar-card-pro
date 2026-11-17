@@ -68,7 +68,8 @@ describe('findMisplacedOptions', () => {
         time_grid: { event_tap_action: { action: 'details' }, compact_events_to_show: 2 },
       }),
     ).toEqual([
-      { kind: 'view-only', key: 'min_day_width', from: null, to: ['column', 'time_grid'] },
+      // Month has a `min_day_width` of its own, the width its compact form starts below.
+      { kind: 'view-only', key: 'min_day_width', from: null, to: ['column', 'time_grid', 'month'] },
       { kind: 'view-only', key: 'hour_height', from: null, to: ['time_grid'] },
       { kind: 'card-wide', key: 'toolbar', from: 'list', to: [null] },
       { kind: 'wrong-view', key: 'start_time', from: 'list', to: ['time_grid'] },

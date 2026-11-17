@@ -698,47 +698,47 @@ describe('a press on a button', () => {
 //-----------------------------------------------------------------------------
 
 describe("what the buttons cost the switcher's words", () => {
-  /** Add, the switcher and refresh: words from 248 + 36 + 36 = 320px with no button. */
+  /** Add, the switcher and refresh: words from 320 + 36 + 36 = 392px with no button. */
   const ROW: Types.ToolbarConfig = { show: true, navigation: false, reset: false, legend: false };
   const words = (card: CardUnderTest) => root(card).querySelector('.toolbar-button-label') !== null;
 
   it('counts each button as one more icon beside the switcher', async () => {
     const plain = await mount(withButtons([], ROW));
-    await measure(plain, 320);
+    await measure(plain, 392);
     expect(words(plain)).toBe(true);
 
     // Two buttons take 2 × 36 + 2 × 8 = 88px more.
     const card = await mount(withButtons([BACK, DASHBOARD], ROW));
-    await measure(card, 320);
+    await measure(card, 392);
     expect(words(card)).toBe(false);
-    await measure(card, 407);
+    await measure(card, 479);
     expect(words(card)).toBe(false);
-    await measure(card, 408);
+    await measure(card, 480);
     expect(words(card)).toBe(true);
   });
 
   it('counts every button, so the words give way before any control folds', async () => {
-    // Add, four buttons and refresh: words from 248 + 5 × 36 + 4 × 8 + 36 = 496px. Below that the
-    // switcher draws pictograms, and the row holds every control down to 406px.
+    // Add, four buttons and refresh: words from 320 + 5 × 36 + 4 × 8 + 36 = 568px. Below that the
+    // switcher draws pictograms, and the row holds every control down to 440px.
     const card = await mount(withButtons([BACK, DASHBOARD, LAMP, WEATHER], ROW));
-    await measure(card, 496);
+    await measure(card, 568);
     expect([words(card), menuButton(card)]).toEqual([true, null]);
-    await measure(card, 495);
+    await measure(card, 567);
     expect([words(card), menuButton(card)]).toEqual([false, null]);
-    await measure(card, 406);
+    await measure(card, 440);
     expect([words(card), menuButton(card)]).toEqual([false, null]);
-    await measure(card, 405);
+    await measure(card, 439);
     expect(words(card)).toBe(false);
     expect(menuButton(card)).not.toBeNull();
   });
 
   it('counts the magnifier as one more icon at the end, beside refresh', async () => {
-    // Add, the switcher, refresh and the magnifier: words from 248 + 36 + 36 + 8 + 36 = 364px.
+    // Add, the switcher, refresh and the magnifier: words from 320 + 36 + 36 + 8 + 36 = 436px.
     // The date navigation the magnifier needs sits in the heading row, not in this one.
     const card = await mount(withButtons([], { ...ROW, navigation: true, search: true }));
-    await measure(card, 363);
+    await measure(card, 435);
     expect(words(card)).toBe(false);
-    await measure(card, 364);
+    await measure(card, 436);
     expect(words(card)).toBe(true);
   });
 
@@ -773,9 +773,10 @@ describe("what the buttons cost the switcher's words", () => {
 
 /**
  * The filter folded, add, the switcher and refresh, as a shown toolbar draws them by default with
- * the date navigation and reset off. With three buttons the start group is five controls, which
- * need 34 + 5 × 36 + 4 × 8 + 8 + 108 + 8 + 36 = 406px on one line; three and the menu button,
- * 362px; two and the menu button, 318px; the filter and the menu button, 274px.
+ * the date navigation and reset off; the switcher's four pictograms take 4 × 34 + 2 × 3 = 142px.
+ * With three buttons the start group is five controls, which need
+ * 34 + 5 × 36 + 4 × 8 + 8 + 142 + 8 + 36 = 440px on one line; three and the menu button, 396px;
+ * two and the menu button, 352px; the filter and the menu button, 308px.
  */
 const FOLD_ROW: Types.ToolbarConfig = { show: true, navigation: false, reset: false };
 const THREE = [BACK, DASHBOARD, LAMP];
@@ -798,7 +799,7 @@ function startShape(card: CardUnderTest): [number, boolean, number] {
 describe('the start group where the row runs out of room', () => {
   it('draws every control while the row holds them, and no menu', async () => {
     const card = await mount(withButtons(THREE, FOLD_ROW));
-    await measure(card, 406);
+    await measure(card, 440);
 
     expect(controls(card, '.toolbar-start')).toEqual([
       'toolbar-button legend-button',
@@ -818,22 +819,22 @@ describe('the start group where the row runs out of room', () => {
       return startShape(card);
     };
 
-    expect(await at(406)).toEqual([3, true, 0]);
-    expect(await at(405)).toEqual([1, true, 2]);
-    expect(await at(362)).toEqual([1, true, 2]);
-    expect(await at(361)).toEqual([0, true, 3]);
-    expect(await at(318)).toEqual([0, true, 3]);
-    expect(await at(317)).toEqual([0, false, 4]);
-    expect(await at(274)).toEqual([0, false, 4]);
+    expect(await at(440)).toEqual([3, true, 0]);
+    expect(await at(439)).toEqual([1, true, 2]);
+    expect(await at(396)).toEqual([1, true, 2]);
+    expect(await at(395)).toEqual([0, true, 3]);
+    expect(await at(352)).toEqual([0, true, 3]);
+    expect(await at(351)).toEqual([0, false, 4]);
+    expect(await at(308)).toEqual([0, false, 4]);
     // Back by the same thresholds, the last two together.
-    expect(await at(318)).toEqual([0, true, 3]);
-    expect(await at(362)).toEqual([1, true, 2]);
-    expect(await at(406)).toEqual([3, true, 0]);
+    expect(await at(352)).toEqual([0, true, 3]);
+    expect(await at(396)).toEqual([1, true, 2]);
+    expect(await at(440)).toEqual([3, true, 0]);
   });
 
   it('draws the menu button where the folded controls were, after the ones it keeps', async () => {
     const card = await mount(withButtons(THREE, FOLD_ROW));
-    await measure(card, 405);
+    await measure(card, 439);
 
     expect(controls(card, '.toolbar-start')).toEqual([
       'toolbar-button legend-button',
@@ -881,10 +882,10 @@ describe('the start group where the row runs out of room', () => {
   });
 
   it('counts the magnifier beside refresh as reset is, and never folds it', async () => {
-    // At 362px refresh alone leaves room for three and the menu; refresh and the magnifier for
+    // At 396px refresh alone leaves room for three and the menu; refresh and the magnifier for
     // two, as reset and refresh do.
     const card = await mount(withButtons(THREE, { ...FOLD_ROW, navigation: true, search: true }));
-    await measure(card, 362);
+    await measure(card, 396);
     expect(startShape(card)).toEqual([0, true, 3]);
 
     await measure(card, 200);
@@ -914,11 +915,11 @@ describe('the start group where the row runs out of room', () => {
   });
 
   it('never folds one control alone into a menu', async () => {
-    // The filter, add and one button need 318px; narrower, add and the button fold together.
+    // The filter, add and one button need 352px; narrower, add and the button fold together.
     const card = await mount(withButtons([BACK], FOLD_ROW));
-    await measure(card, 318);
+    await measure(card, 352);
     expect(startShape(card)).toEqual([1, true, 0]);
-    await measure(card, 317);
+    await measure(card, 351);
     expect(startShape(card)).toEqual([0, false, 2]);
     expect(menuRows(card).map((row) => row.textContent!.trim())).toEqual(['Add event', 'Back']);
 
@@ -937,12 +938,12 @@ describe('the start group where the row runs out of room', () => {
     await measure(noSwitcher, 302);
     expect(startShape(noSwitcher)).toEqual([3, true, 0]);
 
-    // At 362px refresh alone leaves room for three and the menu, reset and refresh for two.
+    // At 396px refresh alone leaves room for three and the menu, reset and refresh for two.
     const withReset = await mount(withButtons(THREE, { ...FOLD_ROW, reset: true }));
-    await measure(withReset, 362);
+    await measure(withReset, 396);
     expect(startShape(withReset)).toEqual([0, true, 3]);
     const without = await mount(withButtons(THREE, FOLD_ROW));
-    await measure(without, 362);
+    await measure(without, 396);
     expect(startShape(without)).toEqual([1, true, 2]);
   });
 
@@ -981,25 +982,25 @@ describe('the start group where the row runs out of room', () => {
 describe('a control that holds focus as it folds', () => {
   it('hands focus to the menu button', async () => {
     const card = await mount(withButtons(THREE, FOLD_ROW));
-    await measure(card, 406);
+    await measure(card, 440);
     customButtons(card)[2].focus();
     expect(root(card).activeElement).toBe(customButtons(card)[2]);
 
-    await measure(card, 405);
+    await measure(card, 439);
 
     expect(root(card).activeElement).toBe(menuButton(card));
   });
 
   it('hands it over from add as well, and leaves a control that stays where it is', async () => {
     const card = await mount(withButtons(THREE, FOLD_ROW));
-    await measure(card, 405);
+    await measure(card, 439);
     const add = root(card).querySelector<HTMLButtonElement>('.toolbar-start > .add-event-button')!;
     add.focus();
 
-    await measure(card, 361);
+    await measure(card, 395);
     expect(root(card).activeElement).toBe(add);
 
-    await measure(card, 317);
+    await measure(card, 351);
     expect(root(card).activeElement).toBe(menuButton(card));
   });
 });
@@ -1020,7 +1021,7 @@ describe('a row that wraps where the arithmetic says it fits', () => {
     // Back and the menu button, the row wraps, and Back follows the others into the menu.
     const card = await mount(withButtons(THREE, FOLD_ROW));
     layout.startCapacity = 3;
-    await measure(card, 405);
+    await measure(card, 439);
     expect(startShape(card)).toEqual([0, true, 3]);
 
     // Another render at the same width keeps it, even with the theme gone: never the other way.
@@ -1033,7 +1034,7 @@ describe('a row that wraps where the arithmetic says it fits', () => {
   it('folds two at once where nothing was folded, and on until the row fits', async () => {
     const card = await mount(withButtons(THREE, FOLD_ROW));
     layout.startCapacity = 3;
-    await measure(card, 406);
+    await measure(card, 440);
 
     expect(startShape(card)).toEqual([0, true, 3]);
     expect(debugged()).toBe(2);
@@ -1051,14 +1052,14 @@ describe('a row that wraps where the arithmetic says it fits', () => {
   it('brings controls back through a new width alone', async () => {
     const card = await mount(withButtons(THREE, FOLD_ROW));
     layout.startCapacity = 3;
-    await measure(card, 405);
+    await measure(card, 439);
     expect(startShape(card)).toEqual([0, true, 3]);
 
     layout.startCapacity = null;
-    await measure(card, 406);
+    await measure(card, 440);
     expect(startShape(card)).toEqual([3, true, 0]);
     // The width it was recorded at plans afresh too: a new width cleared the record.
-    await measure(card, 405);
+    await measure(card, 439);
     expect(startShape(card)).toEqual([1, true, 2]);
   });
 
@@ -1099,14 +1100,14 @@ describe("the start group's menu", () => {
   ];
 
   /**
-   * A card at 344px, where the filter and add keep their places and the three buttons fold: two
-   * and the menu button need 318px, three 362px.
+   * A card at 378px, where the filter and add keep their places and the three buttons fold: two
+   * and the menu button need 352px, three 396px.
    */
   async function mountFolded(
     buttons: unknown[] = BUTTONS,
     toolbar: Types.ToolbarConfig = ROW,
     overrides: Partial<Types.Config> = {},
-    width = 344,
+    width = 378,
   ): Promise<CardUnderTest> {
     stubLayout();
     const card = await mount(withButtons(buttons, toolbar, overrides));
@@ -1314,7 +1315,7 @@ describe("the start group's menu", () => {
 
     card.setConfig(withButtons(BUTTONS, ROW));
     await settle(card);
-    await measure(card, 344);
+    await measure(card, 378);
     await open(card);
     expect(menu(card).open).toBe(true);
     const again = menu(card);

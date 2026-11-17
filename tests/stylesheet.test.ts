@@ -3530,6 +3530,10 @@ describe('the toolbar layout', () => {
     // The card adds each command's width and the gaps between them to the switcher's own
     // threshold, so its numbers must be the ones the row is drawn with.
     expect(declared('.toolbar-button', 'width')).toBe(`${Constants.UI.TOOLBAR_COMMAND_WIDTH}px`);
+    // A switcher offering fewer views gives back each one's word and its segment's padding.
+    expect(declared('.view-switcher-segment', 'padding')).toBe(
+      `0 ${Constants.UI.TOOLBAR_SWITCHER_SEGMENT_PADDING}px`,
+    );
     for (const gap of [
       declared('.card-toolbar.toolbar-actions', 'gap'),
       declared('.toolbar-start', 'gap'),

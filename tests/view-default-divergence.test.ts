@@ -121,6 +121,67 @@ const CROSS_VIEW_ACKNOWLEDGEMENTS: Readonly<
       why: 'Deliberately absent from TIME_GRID_DEFAULT_OVERRIDES rather than defaulted off: a default in that table is overridable from the view block, so time_grid: { split_multiday_events: true } would imply the upstream list splitter could be switched back on. Grid answers never via multidaySplitPolicy and derives its own daily coverage before filtering.',
     },
   },
+  // Month diverges on `show_past_events` alone. Its lines and its day list paint on the card
+  // background as a column row does; its bars take Grid's banner from the calendar's color. The
+  // month renderer checks these verdicts against what it draws when it lands.
+  month: {
+    day_separator_color: {
+      verdict: 'inherits',
+      why: 'The rule between two day cells is the boundary the option has always named, so the card-wide color describes it. Grid diverges because its rules run vertically down a shared time axis and needed a rule gray.',
+    },
+    day_separator_width: {
+      verdict: 'inherits',
+      why: 'Same boundary between two days as in list and column. Grid diverges because a shared time axis needs its day boundaries drawn to read as separate columns at all, which a month of separate cells does not.',
+    },
+    day_spacing: {
+      verdict: 'inherits',
+      why: 'The room between two day cells is the space between days the card already sets. Grid narrows it to 1px so its tinted blocks meet their rule; a month line is no tinted block.',
+    },
+    description_color: {
+      verdict: 'inherits',
+      why: 'A description is drawn only in the day list, whose rows are list rows on the card background, so card-wide ink stays legible there.',
+    },
+    event_background_opacity: {
+      verdict: 'inherits',
+      why: 'A month line carries its calendar by an accent bar, as list and column rows do, so the shipped 0 is right for it. Grid tints a block because its area is what carries meaning there.',
+    },
+    event_color: {
+      verdict: 'inherits',
+      why: 'A month line and the day list paint on the card background, where card-wide ink is legible. Grid substitutes the accent because its blocks are tinted.',
+    },
+    event_font_size: {
+      verdict: 'inherits',
+      why: 'A month line holds one title on one line, and row_height is set for four of them at the card-wide size. Grid drops to 12px for blocks that wrap their title in a seventh of the card.',
+    },
+    location_color: {
+      verdict: 'inherits',
+      why: 'A location is drawn only in the day list, on the card background, so the card-wide secondary hue keeps its contrast there.',
+    },
+    progress_bar_color: {
+      verdict: 'inherits',
+      why: 'The progress bar is drawn only in the day list, against the card background, where the card-wide hue reads as it does in list.',
+    },
+    progress_bar_width: {
+      verdict: 'inherits',
+      why: 'The progress bar is drawn only in the day list, whose rows are list rows, so the unset sentinel resolves there as it does in list. Grid needs 100% because a block is a box with an edge.',
+    },
+    show_empty_days: {
+      verdict: 'ignores',
+      why: 'A month always draws every day of its six weeks, whatever their events, so VIEW_SCOPE keeps the option out of it; there is no empty day to hide or keep.',
+    },
+    show_location: {
+      verdict: 'inherits',
+      why: 'A month line draws a title and a start time only, so the option decides the day list rows alone, where the card-wide answer stands as it does in list.',
+    },
+    split_multiday_events: {
+      verdict: 'ignores',
+      why: 'Month takes Grid daily coverage through multidaySplitPolicy and draws multi-day events as bars across their days, so the List splitter never runs for it and VIEW_SCOPE keeps the option out.',
+    },
+    time_color: {
+      verdict: 'inherits',
+      why: 'A month line paints its start time on the card background, as a column row does, so card-wide ink stays legible without substitution.',
+    },
+  },
 };
 
 /**

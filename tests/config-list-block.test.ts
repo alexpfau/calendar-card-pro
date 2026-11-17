@@ -51,7 +51,7 @@ function listBlock(): NonNullable<(typeof ViewConfig.VIEW_BLOCKS)['list']> {
 
 describe('the list block is a registered peer', () => {
   it('registers alongside the other views and claims the `list` key', () => {
-    expect(Object.keys(ViewConfig.VIEW_BLOCKS).sort()).toEqual(['column', 'grid', 'list']);
+    expect(Object.keys(ViewConfig.VIEW_BLOCKS).sort()).toEqual(['column', 'grid', 'list', 'month']);
     expect(listBlock().blockKey).toBe('list');
   });
 

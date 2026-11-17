@@ -5,6 +5,7 @@
 
 import * as Helpers from './helpers';
 import * as Logger from './logger';
+import { localDateKey } from './start-date';
 import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import { getRelativeTimeString, getRelativeUnitString } from '../translations/dayjs';
@@ -1014,7 +1015,7 @@ export function parseAllDayDate(dateString: string): Date {
  * @returns Date key string in YYYY-MM-DD format
  */
 export function getLocalDateKey(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  return localDateKey(date);
 }
 
 /**

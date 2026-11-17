@@ -30,6 +30,7 @@
   "viewList": "Loetelu",
   "viewColumns": "Veerud",
   "viewGrid": "Ajaraster",
+  "viewMonth": "Kuu",
   "endsToday": "lõpeb täna",
   "endsTomorrow": "lõpeb homme",
   "dayOfEvent": "Päev {day}/{days}",

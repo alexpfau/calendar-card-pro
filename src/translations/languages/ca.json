@@ -17,6 +17,7 @@
   "viewList": "Llista",
   "viewColumns": "Columnes",
   "viewGrid": "Quadrícula",
+  "viewMonth": "Mes",
   "endsToday": "acaba avui",
   "endsTomorrow": "acaba demà",
   "dayOfEvent": "Dia {day} de {days}",

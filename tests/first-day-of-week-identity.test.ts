@@ -37,6 +37,7 @@ interface CardUnderTest extends HTMLElement {
   _failureCountHint: number;
   _requestPage(page: string | null): void;
   _loadPage(): void;
+  _instanceIdForPage(page: string | null): string;
 }
 
 const EVENTS = [
@@ -239,7 +240,13 @@ describe('cards that ask for the same window share one load', () => {
   });
 
   it('shares a page, whose first day is a date, between system and monday', async () => {
-    const toolbar = { show: true, navigation: true };
+    // Month left off the switcher: its weeks start on the first weekday, which the next case is
+    // about.
+    const toolbar: Types.ToolbarConfig = {
+      show: true,
+      navigation: true,
+      view_switcher: ['list', 'column', 'grid'],
+    };
     const a = await mount({ toolbar, first_day_of_week: 'system' }, SUNDAY);
     const b = await mount({ toolbar, first_day_of_week: 'monday' }, SUNDAY);
     asked = [];
@@ -253,6 +260,29 @@ describe('cards that ask for the same window share one load', () => {
     expect({ asked, picnic: drawn(b).includes('Picnic') }).toEqual({
       asked: ['2026-06-22'],
       picnic: true,
+    });
+  });
+
+  it('keeps a page apart between the weekdays where month can show it', async () => {
+    // The default switcher offers month, whose weeks hold the page's first day from the week it
+    // falls in: Sunday 21 June on a Sunday profile, Monday 22 June under `monday`.
+    const toolbar = { show: true, navigation: true };
+    const a = await mount({ toolbar, first_day_of_week: 'system' }, SUNDAY);
+    const b = await mount({ toolbar, first_day_of_week: 'monday' }, SUNDAY);
+    asked = [];
+
+    for (const card of [a, b]) {
+      card._requestPage('2026-06-22');
+      card._loadPage();
+      await settle(card);
+    }
+
+    expect({
+      sameId: a._instanceIdForPage('2026-06-22') === b._instanceIdForPage('2026-06-22'),
+      asked,
+    }).toEqual({
+      sameId: false,
+      asked: ['2026-06-21', '2026-06-22'],
     });
   });
 });

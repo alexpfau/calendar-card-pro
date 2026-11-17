@@ -239,10 +239,13 @@ export interface Config {
 
   // Grid view
   time_grid?: TimeGridOverrides;
+
+  // Month view
+  month?: MonthOverrides;
 }
 
 /** Views the card can render. */
-export type EffectiveView = 'list' | 'column' | 'grid';
+export type EffectiveView = 'list' | 'column' | 'grid' | 'month';
 
 /** How finely the grid rules its time axis. */
 export type TimeGridSlotMinutes = 15 | 20 | 30 | 60;
@@ -685,6 +688,45 @@ export interface TimeGridOverrides extends SharedViewOverrides {
   show_axis_labels?: boolean;
 }
 
+/**
+ * The shared options a month grid draws nothing for: it always shows its six weeks whatever
+ * their events, never cuts a list short and never splits an event the List way.
+ */
+export type MonthIgnoredSharedKeys =
+  | 'days_to_show'
+  | 'show_empty_days'
+  | 'show_empty_today'
+  | 'empty_day_text'
+  | 'empty_day_color'
+  | 'split_multiday_events'
+  | 'event_gap';
+
+/**
+ * The `month:` block — the shared options a month grid reads, plus its own row and width keys.
+ *
+ * The month-only keys below have no top-level counterpart and are read with
+ * `resolveMonthOption`, not `resolveViewOption`.
+ */
+export interface MonthOverrides extends Omit<SharedViewOverrides, MonthIgnoredSharedKeys> {
+  /** Whether a timed event a full day or longer is drawn as a bar, as Grid's banners are. */
+  multiday_banners?: boolean;
+
+  /**
+   * A week row's natural height, as a CSS length. Under a fixed card `height` the six rows
+   * share the card's instead, and this does nothing.
+   */
+  row_height?: string;
+
+  /** Day-cell width in pixels below which the month draws its compact form. */
+  min_day_width?: number;
+
+  /** Whether a vertical swipe, the mouse wheel or a trackpad moves the rows by whole weeks. */
+  week_scroll?: boolean;
+
+  /** Card width in pixels from which `week_scroll` applies; `0` for any width. */
+  week_scroll_min_width?: number;
+}
+
 /** Calendar entity configuration. */
 export interface EntityConfig {
   entity: string;
@@ -895,8 +937,11 @@ export interface ToolbarConfig {
   navigation?: boolean;
   /** The add-event button, at the start of the action row, after the filter. */
   add_event?: boolean;
-  /** The List / Columns / Grid switcher, in the middle of the action row. */
-  view_switcher?: boolean;
+  /**
+   * The layout switcher, in the middle of the action row: `true` for every layout, `false` for
+   * none, or the layouts to offer. The layout the card opens in is always offered.
+   */
+  view_switcher?: boolean | EffectiveView[];
   /**
    * A button that brings the card back to its configuration on this device: the days it opens
    * with, `view`, every calendar shown and a compact card collapsed. At the end of the action
@@ -1573,6 +1618,7 @@ export interface Translations {
   viewList: string;
   viewColumns: string;
   viewGrid: string;
+  viewMonth: string;
   /** The calendar filter's menu: the buttons that show every calendar it lists, or hide them. */
   showAll: string;
   hideAll: string;

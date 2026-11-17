@@ -1516,7 +1516,7 @@ describe("the view switcher's words", () => {
     );
   }
 
-  const ALL_LABELS = ['List', 'Columns', 'Grid'];
+  const ALL_LABELS = ['List', 'Columns', 'Grid', 'Month'];
 
   it('are drawn from their own threshold, whatever the navigation', async () => {
     for (const navigation of [true, false]) {

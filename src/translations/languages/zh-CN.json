@@ -22,6 +22,7 @@
   "viewList": "列表",
   "viewColumns": "列",
   "viewGrid": "网格",
+  "viewMonth": "月",
   "endsToday": "今天 {at} 结束",
   "endsTomorrow": "明天 {at} 结束",
   "dayOfEvent": "第{day}天，共{days}天",

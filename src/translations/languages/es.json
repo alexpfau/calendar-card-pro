@@ -9,6 +9,7 @@
   "viewList": "Lista",
   "viewColumns": "Columnas",
   "viewGrid": "Rejilla",
+  "viewMonth": "Mes",
   "endsToday": "termina hoy",
   "endsTomorrow": "termina mañana",
   "dayOfEvent": "Día {day} de {days}",

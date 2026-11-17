@@ -411,6 +411,16 @@ const FOCUSABLE_EVENT = '[role="button"][tabindex]';
 /** No calendar hidden: the one empty set, so an unchanged answer keeps its identity. */
 const NO_HIDDEN_CALENDARS: ReadonlySet<string> = new Set();
 
+/** The window a complete load was asked for (`_loadedWindowShown`), as its load config names it. */
+interface LoadedWindow {
+  /** The load's `start_date`: the configuration's own, or for a month's load its first day. */
+  readonly startDate: string | undefined;
+  /** The load's `days_to_show`, counted from `startDate`. */
+  readonly days: number;
+  /** Whether the load spans a month's weeks, and so names a first day of its own. */
+  readonly spansMonth: boolean;
+}
+
 /** What the card drew of a complete load (`_commitEvents`), and the query it was loaded for. */
 interface CompleteDrawing {
   /** Query identity the events were loaded for (`_eventsInstanceId`). */
@@ -547,7 +557,8 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Home's query identity (`_instanceIdForPage`), as of now: it follows the configuration and,
-   * under `first_day_of_week: system` with a week-relative `start_date`, the profile.
+   * under `first_day_of_week: system` with a week-relative `start_date` or a reachable month,
+   * the profile.
    */
   private get _instanceId(): string {
     return this._instanceIdForPage(null);
@@ -705,7 +716,9 @@ class CalendarCardPro extends LitElement {
   private _effectiveConfigCache?: {
     config: Types.Config;
     view: Types.EffectiveView;
-    loadedDays: number | null;
+    loaded: LoadedWindow | null;
+    /** The day and first weekday a month's rows, or a clamp against a month's load, read. */
+    dayKey: string;
     resolved: Types.Config;
     /** The view's own `days_to_show`, before the days drawn wait for a wider load. */
     configuredDays: number;
@@ -1693,8 +1706,8 @@ class CalendarCardPro extends LitElement {
   private _pageShown: string | null = null;
 
   /**
-   * How many days the events in `events` were loaded for, or null before any load has put
-   * events there.
+   * The window the events in `events` were loaded for, or null before any load has put events
+   * there.
    *
    * Lags the configuration while a wider load is out, as `_pageShown` lags a page: raising
    * `days_to_show` past the days loaded keeps the days on screen those the events cover, rather
@@ -1702,7 +1715,14 @@ class CalendarCardPro extends LitElement {
    * complete load moves it, failures included, since the card names a calendar that failed; a
    * partial one has not heard from every calendar yet.
    */
-  private _loadedDaysShown: number | null = null;
+  private _loadedWindowShown: LoadedWindow | null = null;
+
+  /** The configuration each page is loaded with, for one configuration, day and first weekday. */
+  private _loadConfigs: {
+    config: Types.Config;
+    key: string;
+    pages: Map<string, Types.Config>;
+  } | null = null;
 
   /** The configuration a page is drawn and fetched with, per page, for one configuration. */
   private _pageConfigs: { config: Types.Config; pages: Map<string, Types.Config> } | null = null;
@@ -2112,29 +2132,122 @@ class CalendarCardPro extends LitElement {
    */
   get effectiveConfig(): Types.Config {
     const view = this.effectiveView;
-    const config = this._configForPage(this._pageShown);
-    const loadedDays = this._loadedDaysShown;
+    const page = this._pageShown;
+    const config = this._configForPage(page);
+    const loaded = this._loadedWindowShown;
+    const now = new Date();
+    // A month's rows follow the day and the first weekday, and so does a clamp against a load
+    // that spans a month; nothing else here does.
+    const dayKey = view === 'month' || loaded?.spansMonth ? this._dayKey(now) : '';
     const cache = this._effectiveConfigCache;
 
     if (
       cache &&
       cache.config === config &&
       cache.view === view &&
-      cache.loadedDays === loadedDays
+      cache.loaded === loaded &&
+      cache.dayKey === dayKey
     ) {
       return cache.resolved;
     }
 
-    let resolved = ViewConfig.resolveEffectiveConfig(config, view);
+    let resolved = this._drawnConfig(page, view, now);
     const configuredDays = resolved.days_to_show;
     // Days past those the events were loaded for are drawn once a load covering them lands.
-    if (loadedDays !== null && configuredDays > loadedDays) {
-      resolved = { ...resolved, days_to_show: loadedDays };
+    const room = loaded === null ? null : this._loadedRoom(loaded, page, view, now);
+    if (room !== null && configuredDays > room) {
+      resolved = { ...resolved, days_to_show: room };
     }
 
-    this._effectiveConfigCache = { config, view, loadedDays, resolved, configuredDays };
+    this._effectiveConfigCache = { config, view, loaded, dayKey, resolved, configuredDays };
 
     return resolved;
+  }
+
+  /**
+   * The configuration a view draws a page with: the page's own, resolved for the view. For month
+   * it is its six weeks, from the page's first row (`_monthRowsStart`), so grouping holds exactly
+   * the grid's days.
+   *
+   * @param page - First day of the page, or null for home
+   * @param view - The view drawing it
+   * @param now - The current moment
+   * @returns The configuration the view draws with, before any wait for a wider load
+   */
+  private _drawnConfig(
+    page: string | null,
+    view: Types.EffectiveView,
+    now: Date = new Date(),
+  ): Types.Config {
+    const resolved = ViewConfig.resolveEffectiveConfig(this._configForPage(page), view);
+    if (view !== 'month') return resolved;
+    return {
+      ...resolved,
+      start_date: Paging.pageKey(this._monthRowsStart(page, now)),
+      days_to_show: ViewConfig.MONTH_DAYS,
+    };
+  }
+
+  /**
+   * The first day of a month page's rows: at home the weeks of the month home starts in, on a
+   * page the row holding the page's key, which is already a row's first day unless another view
+   * left it there.
+   *
+   * @param page - First day of the page, or null for home
+   * @param now - The current moment
+   * @returns The first row's first day, at local midnight
+   */
+  private _monthRowsStart(page: string | null, now: Date = new Date()): Date {
+    const firstDayOfWeek = this._firstDayOfWeek;
+    return page === null
+      ? ViewConfig.monthHomeRowsStart(this._homeWindowStart(now), firstDayOfWeek)
+      : ViewConfig.monthRowsStart(Paging.pageStart(page), firstDayOfWeek);
+  }
+
+  /** The first day of the week, 0 for Sunday, from the configuration or the profile as it is now. */
+  private get _firstDayOfWeek(): number {
+    return FormatUtils.getFirstDayOfWeek(this.config.first_day_of_week, this.hass?.locale);
+  }
+
+  /**
+   * The day and first weekday as one key, for what a month's rows depend on.
+   *
+   * @param now - The current moment
+   * @returns The key
+   */
+  private _dayKey(now: Date): string {
+    return `${FormatUtils.getLocalDateKey(now)}|${this._firstDayOfWeek}`;
+  }
+
+  /**
+   * How many of a view's days, from its first, the events loaded cover.
+   *
+   * A load that does not span a month starts where every view does, at `start_date`, so its
+   * length is the answer, as it always was. A month's load starts on a first day of its own,
+   * before the view's first day wherever the month's weeks begin earlier, so the days between
+   * the two are taken off.
+   *
+   * @param loaded - The window the events were loaded for
+   * @param page - First day of the page drawn, or null for home
+   * @param view - The view drawing it
+   * @param now - The current moment
+   * @returns Days from the view's first day that the load covers, at least one
+   */
+  private _loadedRoom(
+    loaded: LoadedWindow,
+    page: string | null,
+    view: Types.EffectiveView,
+    now: Date,
+  ): number {
+    if (!loaded.spansMonth || loaded.startDate === undefined) return loaded.days;
+    const viewStart =
+      view === 'month'
+        ? this._monthRowsStart(page, now)
+        : page === null
+          ? this._homeWindowStart(now)
+          : Paging.pageStart(page);
+    const offset = FormatUtils.getCalendarDayDiff(Paging.pageStart(loaded.startDate), viewStart);
+    return Math.max(1, loaded.days - offset);
   }
 
   /**
@@ -2178,36 +2291,58 @@ class CalendarCardPro extends LitElement {
   /**
    * The query identity a page's events are fetched and cached under: home's is the card's
    * own; a page's is that of a card configured to open on its first day, so two cards on one
-   * page share its request and its entry. Keyed by the days loaded, which span every view the
-   * card can show, so switching views never changes it.
+   * page share its request and its entry. Keyed by the window loaded (`_loadConfigForPage`),
+   * which spans every view the card can show, so switching views never changes it.
    *
    * The first weekday is resolved here, from the profile as it is now, and counts only where it
    * moves the window (`Helpers.firstDayKeyPart`). So `system` and the weekday it resolves to
-   * share a query, a page never depends on it, and home's identity moves when a profile change
-   * moves its week. Resolved on every call rather than kept from `setConfig`, which usually runs
-   * before Home Assistant hands over `hass`.
+   * share a query, and home's identity moves when a profile change moves its week. A load that
+   * spans a month names its first day as a date, which already says where its weeks begin.
+   * Resolved on every call rather than kept from `setConfig`, which usually runs before Home
+   * Assistant hands over `hass`.
    *
    * @param page - First day of the page, or null for home
    * @returns The instance id
    */
   private _instanceIdForPage(page: string | null): string {
+    const load = this._loadConfigForPage(page);
     return Helpers.generateDeterministicId(
       this.config.entities,
-      ViewConfig.loadedDaysToShow(this.config),
-      page ?? this.config.start_date,
-      FormatUtils.getFirstDayOfWeek(this.config.first_day_of_week, this.hass?.locale),
+      load.days_to_show,
+      load.start_date,
+      this._firstDayOfWeek,
     );
   }
 
   /**
-   * The configuration a page's events are loaded with: the page's own, with `days_to_show`
-   * as long as the longest view the card can show, so every view draws from one load.
+   * The configuration a page's events are loaded with (`ViewConfig.loadConfig`): the page's own,
+   * with `days_to_show` as long as the longest view the card can show, so every view draws from
+   * one load, and where month is reachable, widened to the month's weeks.
+   *
+   * Memoized per configuration, day and first weekday, which are all a month's weeks depend on,
+   * so the caches downstream that compare configurations by identity keep hitting, and resolving
+   * a relative `start_date`, which logs, happens once a day.
    *
    * @param page - First day of the page, or null for home
    * @returns The configuration to fetch and read the cache with
    */
   private _loadConfigForPage(page: string | null): Types.Config {
-    return ViewConfig.loadConfig(this._configForPage(page));
+    const now = new Date();
+    const key = this._dayKey(now);
+    if (this._loadConfigs?.config !== this.config || this._loadConfigs.key !== key) {
+      this._loadConfigs = { config: this.config, key, pages: new Map() };
+    }
+    const cached = this._loadConfigs.pages.get(page ?? '');
+    if (cached) return cached;
+
+    const load = ViewConfig.loadConfig(
+      this._configForPage(page),
+      this._firstDayOfWeek,
+      page === null,
+      now,
+    );
+    this._loadConfigs.pages.set(page ?? '', load);
+    return load;
   }
 
   /**
@@ -2266,10 +2401,7 @@ class CalendarCardPro extends LitElement {
    * @returns The configured window's first day
    */
   private _homeWindowStart(now: Date): Date {
-    const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(
-      this.config.first_day_of_week,
-      this.hass?.locale,
-    );
+    const firstDayOfWeek = this._firstDayOfWeek;
     const key = [
       FormatUtils.getLocalDateKey(now),
       this.config.start_date ?? '',
@@ -2289,12 +2421,16 @@ class CalendarCardPro extends LitElement {
 
   /**
    * The page the card opens with, as drawn now: the configured window, or the slice of it the
-   * card draws while the layout drops columns.
+   * card draws while the layout drops columns. For month, the six weeks of the month the
+   * configured window starts in.
    *
    * @param now - The current moment
    * @returns Home
    */
   private _homeRange(now: Date = new Date()): Paging.PageRange {
+    if (this.effectiveView === 'month') {
+      return { start: this._monthRowsStart(null, now), days: ViewConfig.MONTH_DAYS };
+    }
     return Paging.homeRange(this._homeWindowStart(now), this._viewDays, this._shedColumns, now);
   }
 
@@ -2308,7 +2444,8 @@ class CalendarCardPro extends LitElement {
 
   /**
    * The days a page covers as drawn now: as many as the view on screen shows, so switching
-   * views keeps a page's first day and changes how far it runs.
+   * views keeps a page's first day and changes how far it runs. Month draws six weeks from the
+   * row holding the page's first day.
    *
    * @param page - First day of the page, or null for home
    * @param now - The current moment
@@ -2316,6 +2453,9 @@ class CalendarCardPro extends LitElement {
    */
   private _pageRange(page: string | null, now: Date = new Date()): Paging.PageRange {
     if (page === null) return this._homeRange(now);
+    if (this.effectiveView === 'month') {
+      return { start: this._monthRowsStart(page, now), days: ViewConfig.MONTH_DAYS };
+    }
     return {
       start: Paging.pageStart(page),
       days: Paging.pageSpan(this._viewDays, this._shedColumns),
@@ -2406,22 +2546,26 @@ class CalendarCardPro extends LitElement {
    * its own would draw the grid's seven days instead of the card's fourteen. Home only, as
    * its one caller is, so the raw configuration is home's.
    *
+   * Month counts only from the configured start on, as List would (`_monthCountConfig`), so the
+   * weeks of the month before it never keep an otherwise empty card visible. So it never answers
+   * from the view on screen, whose count covers those weeks.
+   *
    * @returns True when some reachable view has an event to draw
    */
   private _anyReachableViewHasEvents(): boolean {
-    if (this.visibleEventCount > 0) return true;
+    const shown = this.effectiveView;
+    if (shown !== 'month' && this.visibleEventCount > 0) return true;
 
     const events = this._shownEvents;
     if (events.length === 0) return false;
 
-    const shown = this.effectiveView;
     return ViewConfig.reachableViews(this.config).some(
       (view) =>
-        view !== shown &&
+        (view !== shown || view === 'month') &&
         countRealEvents(
           EventUtils.groupEventsByDay(
             events,
-            this.config,
+            view === 'month' ? this._monthCountConfig() : this.config,
             true,
             this.effectiveLanguage,
             view,
@@ -2429,6 +2573,22 @@ class CalendarCardPro extends LitElement {
           ),
         ) > 0,
     );
+  }
+
+  /**
+   * Home's month, as `hide_when_empty` counts it: Month's own options, from the configured start
+   * to the end of its six weeks, so an event in the weeks before the start does not count.
+   *
+   * @returns The configuration to count Month's events with
+   */
+  private _monthCountConfig(): Types.Config {
+    const now = new Date();
+    const start = this._homeWindowStart(now);
+    const end = Paging.addDays(this._monthRowsStart(null, now), ViewConfig.MONTH_DAYS);
+    return {
+      ...ViewConfig.resolveEffectiveConfig(this.config, 'month'),
+      days_to_show: FormatUtils.getCalendarDayDiff(start, end),
+    };
   }
 
   //-----------------------------------------------------------------------------
@@ -2612,9 +2772,11 @@ class CalendarCardPro extends LitElement {
    */
   private _syncToolbarLabels(widthPx: number): void {
     // The switcher's own threshold, the one the row drawn last needs, and the width the month
-    // fits in full from.
+    // fits in full from. The first is there without a switcher too: a card's first measurement
+    // crosses it from none, which draws the row the later measurements read.
+    const views = this._switcherViews;
     const thresholds = [
-      Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH,
+      ToolbarFold.switcherLabelWidth(views.length > 0 ? views : ViewConfig.VIEWS),
       this._toolbarLabelMinWidthPx,
       this._monthFit?.fullFromPx,
     ].filter((threshold): threshold is number => typeof threshold === 'number');
@@ -3819,8 +3981,9 @@ class CalendarCardPro extends LitElement {
    * is left at the language's default. Under a week-relative `start_date` a profile change therefore
    * moves home, which the card draws at once, and moves home's query identity and cache key, which
    * both follow the resolved weekday, while nothing asked for the new window: the card drew it with
-   * the old window's events, without any on the day it gained, until its next refresh. A page is not
-   * asked for again, since its first day is a date; home loads when the card goes back to it.
+   * the old window's events, without any on the day it gained, until its next refresh. Where month
+   * is reachable the same holds for any `start_date`, since a month's weeks begin on the first
+   * weekday. A page is not asked for again; home loads when the card goes back to it.
    *
    * @param changedProps - Properties changed in this update
    * @returns True when home now starts on another day of the week
@@ -3829,7 +3992,11 @@ class CalendarCardPro extends LitElement {
     const previous = changedProps.get('hass') as Types.Hass | undefined;
     const startDate = this.config?.start_date;
     if (!previous || !this.hass || this._pageRequested !== null) return false;
-    if (typeof startDate !== 'string' || !StartDate.isWeekRelative(startDate)) return false;
+    // A month's weeks start on the first weekday whatever `start_date` is.
+    const weekMovesHome =
+      ViewConfig.reachesMonth(this.config) ||
+      (typeof startDate === 'string' && StartDate.isWeekRelative(startDate));
+    if (!weekMovesHome) return false;
 
     const setting = this.config.first_day_of_week;
     return (
@@ -6756,6 +6923,12 @@ class CalendarCardPro extends LitElement {
           'Each needs an icon; a name and an entity are text, and a tap_action is an action.',
       );
     }
+    for (const member of Config.unknownSwitcherViews(this.config)) {
+      Logger.warn(
+        `Layout left out of toolbar.view_switcher, as it names none: ${JSON.stringify(member)}. ` +
+          `Expected ${ViewConfig.VIEWS.map((view) => `"${view}"`).join(', ')}.`,
+      );
+    }
     for (const entry of this.config.entities) {
       const unjudged =
         typeof entry === 'string' || !entry.visibility
@@ -6820,10 +6993,14 @@ class CalendarCardPro extends LitElement {
     }
 
     // Compared as loaded, not as configured: a view's own count that leaves the longest one
-    // where it was changes what is drawn, never what is fetched, and needs no request.
+    // where it was changes what is drawn, never what is fetched, and needs no request. Home's
+    // load, which is the one a configuration change asks for.
+    const now = new Date();
+    const firstDayOfWeek = (config: Types.Config): number =>
+      FormatUtils.getFirstDayOfWeek(config.first_day_of_week, this.hass?.locale);
     const configChanged = Config.hasConfigChanged(
-      ViewConfig.loadConfig(previousConfig),
-      ViewConfig.loadConfig(this.config),
+      ViewConfig.loadConfig(previousConfig, firstDayOfWeek(previousConfig), true, now),
+      ViewConfig.loadConfig(this.config, firstDayOfWeek(this.config), true, now),
     );
     if (configChanged) {
       Logger.debug('Configuration changed, refreshing data');
@@ -6868,7 +7045,11 @@ class CalendarCardPro extends LitElement {
     this._configFingerprint = fingerprint;
     const remembered = this._wantsViewSwitcher ? ViewChoice.readViewChoice(fingerprint) : undefined;
     this._viewChoice =
-      remembered !== undefined && remembered !== this.config.view ? remembered : null;
+      remembered !== undefined &&
+      remembered !== this.config.view &&
+      this._switcherViews.includes(remembered)
+        ? remembered
+        : null;
 
     const calendars = new Set(Legend.legendCalendarIds(this.config.entities));
     const stored = this._wantsLegend
@@ -6966,7 +7147,7 @@ class CalendarCardPro extends LitElement {
         }, 1500);
       } else {
         // Nothing to load, and so nothing failing either, and no wider load to draw days for.
-        this._loadedDaysShown = null;
+        this._loadedWindowShown = null;
         this._setFailures([]);
         this.isInitialLoad = false;
       }
@@ -7011,7 +7192,7 @@ class CalendarCardPro extends LitElement {
 
     if (draws && snapshot) {
       Logger.info(`Drawing ${snapshot.events.length} cached events`);
-      this._commitEvents(snapshot, instanceId, page, config.days_to_show);
+      this._commitEvents(snapshot, instanceId, page, config);
     } else if (isAppearLoad && this.events.length > 0) {
       // The element itself still holds events from before it was detached. With nothing
       // cached to replace them, they would be drawn under a config they were not fetched
@@ -7097,7 +7278,7 @@ class CalendarCardPro extends LitElement {
         mayKeepDrawn ? this._keepFailedCalendars(hass, config, result, drawnBefore) : result,
         instanceId,
         page,
-        config.days_to_show,
+        config,
       );
 
       this.isLoading = false;
@@ -7142,20 +7323,21 @@ class CalendarCardPro extends LitElement {
    * @param result Events and what is known about them
    * @param instanceId Query identity the events were loaded for
    * @param page The page they belong to, null for home; it becomes the page on screen
-   * @param loadedDays How many days they were loaded for (`_loadedDaysShown`)
+   * @param loaded The configuration they were loaded with, which names the window
+   *   (`_loadedWindowShown`)
    */
   private _commitEvents(
     result: Types.EventFetchResult,
     instanceId: string,
     page: string | null,
-    loadedDays: number,
+    loaded: Types.Config,
   ): void {
     const failedEntities = result.failedEntities ?? [];
 
     this.events = [...(result.events ?? [])];
     this._eventsInstanceId = instanceId;
     this._pageShown = page;
-    this._loadedDaysShown = loadedDays;
+    this._recordLoadedWindow(loaded);
     this._eventsFetchedAt = result.loadedAt ?? result.fetchedAt ?? Date.now();
     this._drawnRaw = result.raw ?? [];
     this._drawnLoadedAt = result.lastSuccess ?? {};
@@ -7177,6 +7359,30 @@ class CalendarCardPro extends LitElement {
       // run of failures this card had counted.
       this._failureCountHint = 0;
     }
+  }
+
+  /**
+   * Records the window a complete load was asked for, keeping the record already held where the
+   * window is the same, so the drawn configuration it clamps stays the same object.
+   *
+   * @param loaded The configuration the load was made with
+   */
+  private _recordLoadedWindow(loaded: Types.Config): void {
+    const previous = this._loadedWindowShown;
+    const spansMonth = ViewConfig.reachesMonth(loaded);
+    if (
+      previous !== null &&
+      previous.startDate === loaded.start_date &&
+      previous.days === loaded.days_to_show &&
+      previous.spansMonth === spansMonth
+    ) {
+      return;
+    }
+    this._loadedWindowShown = {
+      startDate: loaded.start_date,
+      days: loaded.days_to_show,
+      spansMonth,
+    };
   }
 
   /**
@@ -7367,7 +7573,7 @@ class CalendarCardPro extends LitElement {
    */
   private _partialDrawsAnEvent(events: Types.CalendarEventData[], page: string | null): boolean {
     const shown = events.filter((event) => this._eventShown(event));
-    const config = ViewConfig.resolveEffectiveConfig(this._configForPage(page), this.effectiveView);
+    const config = this._drawnConfig(page, this.effectiveView);
     const days = EventUtils.groupEventsByDay(
       shown,
       config,
@@ -7540,6 +7746,7 @@ class CalendarCardPro extends LitElement {
         );
       }
 
+      // Month draws its 42 days with the list renderer until the month renderer replaces it.
       return this.effectiveView === 'column'
         ? Render.renderColumnGroupedEvents(
             days,
@@ -7736,7 +7943,8 @@ class CalendarCardPro extends LitElement {
   /**
    * The card width from which the view switcher shows its words, or null without a switcher.
    *
-   * `UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH` holds for the switcher alone in its row. The commands
+   * `ToolbarFold.switcherLabelWidth` holds for the switcher alone in its row, by the views it
+   * offers. The commands
    * beside it add their two groups' widths exactly: the folded filter, add and the
    * configuration's own buttons at the start, one icon each and none in the menu, since the words
    * give way before any control folds; and reset, refresh and search at the end, each an icon,
@@ -7751,7 +7959,7 @@ class CalendarCardPro extends LitElement {
       members.filter((member) => member !== undefined).length;
     const end = count([controls.reset, controls.refresh, controls.search]);
     return (
-      Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH +
+      ToolbarFold.switcherLabelWidth(controls.viewSwitcher.views.map((option) => option.view)) +
       ToolbarFold.groupWidth(Toolbar.startControls(controls).length) +
       ToolbarFold.groupWidth(end)
     );
@@ -8060,7 +8268,8 @@ class CalendarCardPro extends LitElement {
    * It names the page asked for, so a press on the arrows answers at once; the days below stay
    * those of the page whose events have arrived, dimmed, until the new page's land. The month is
    * that of the day the page's list starts from (its first day, or its last for a list read
-   * latest first; `Paging.leadingDay`), in full while every month in full fits beside the
+   * latest first; `Paging.leadingDay`), and for month the month holding most of its weeks
+   * (`_headerMonth`), in full while every month in full fits beside the
    * arrows and in the language's short form while it does not (`_syncMonthFit`), and always in
    * full while the chips show, since they are drawn only where the full month leaves them room.
    * Everything comes from `Intl` in the card's language, so no card string is needed.
@@ -8078,17 +8287,27 @@ class CalendarCardPro extends LitElement {
     const form: Paging.MonthForm = short ? 'short' : 'long';
 
     return {
-      text: Paging.monthHeadingParts(
-        Paging.leadingDay(page, this._listsLatestFirst),
-        language,
-        form,
-      ),
+      text: Paging.monthHeadingParts(this._headerMonth(page), language, form),
       reserve: Paging.monthHeadings(language, form),
       full: Paging.monthHeadings(language, 'long'),
       short,
       range: Paging.rangeLabel(page, language, now),
       languageMark: TextDirection.languageMark(language, this.hass),
     };
+  }
+
+  /**
+   * The day the heading names a page's month by: the day its list starts from
+   * (`Paging.leadingDay`), and for month the first day of the month holding most of its weeks
+   * (`Paging.majorityMonth`), since its first row often begins in the month before.
+   *
+   * @param page - The page's days
+   * @returns A day of the month to name
+   */
+  private _headerMonth(page: Paging.PageRange): Date {
+    return this.effectiveView === 'month'
+      ? Paging.majorityMonth(page)
+      : Paging.leadingDay(page, this._listsLatestFirst);
   }
 
   /**
@@ -8237,7 +8456,7 @@ class CalendarCardPro extends LitElement {
       previousName: this._haString('ui.common.previous'),
       nextName: this._haString('ui.common.next'),
       inert: this._isBeingEdited,
-      pickerValue: Paging.pageKey(Paging.leadingDay(page, latestFirst)),
+      pickerValue: Paging.pageKey(this._headerMonth(page)),
       // Only while the card is still home: paging away ends it at once.
       homeConfirming: this._homeConfirming && this._pageRequested === null,
       onPrevious: () => this._stepPage(-1),
@@ -8274,7 +8493,8 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Moves one page back or forward, by exactly the days on screen.
+   * Moves one page back or forward, by exactly the days on screen; for month, to the weeks of
+   * the month before or after the one the heading names.
    *
    * From the page asked for rather than the one shown, so quick presses add up while a page
    * is still loading.
@@ -8283,12 +8503,23 @@ class CalendarCardPro extends LitElement {
    */
   private _stepPage(direction: -1 | 1): void {
     const from = this._pageRange(this._pageRequested);
+    if (this.effectiveView === 'month') {
+      const month = Paging.majorityMonth(from);
+      this._goToPage(
+        ViewConfig.monthHomeRowsStart(
+          new Date(month.getFullYear(), month.getMonth() + direction, 1),
+          this._firstDayOfWeek,
+        ),
+      );
+      return;
+    }
     this._goToPage(Paging.stepPage(from.start, from.days, direction));
   }
 
   /**
    * Opens the page holding a day picked in the date picker, lined up with home, or home when
-   * the day is one of its own.
+   * the day is one of its own. For month, the weeks of the picked day's month, or home when
+   * those are home's.
    *
    * @param value - The picked day, `YYYY-MM-DD`
    */
@@ -8296,6 +8527,11 @@ class CalendarCardPro extends LitElement {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return;
     const date = Paging.pageStart(value);
     if (isNaN(date.getTime())) return;
+
+    if (this.effectiveView === 'month') {
+      this._goToPage(ViewConfig.monthHomeRowsStart(date, this._firstDayOfWeek));
+      return;
+    }
 
     const home = this._homeRange();
     this._goToPage(
@@ -9168,7 +9404,11 @@ class CalendarCardPro extends LitElement {
       start: Toolbar.startControls(controls),
       end,
       views: controls.viewSwitcher?.views.length ?? 0,
-      insetPx: Constants.UI.TOOLBAR_ROW_INSET[this.effectiveView],
+      // Month draws with the list renderer, and so the list's padding, until its own lands.
+      insetPx:
+        Constants.UI.TOOLBAR_ROW_INSET[
+          this.effectiveView === 'month' ? 'list' : this.effectiveView
+        ],
     };
   }
 
@@ -9350,6 +9590,16 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * The views the switcher offers, fitting or not: those `view_switcher` names and `view`, in
+   * `VIEWS` order. Empty without a switcher.
+   */
+  private get _switcherViews(): ReadonlyArray<Types.EffectiveView> {
+    if (!this._wantsViewSwitcher) return [];
+    const named = Config.resolveToolbar(this.config).switcherViews;
+    return ViewConfig.VIEWS.filter((view) => view === this.config.view || named.includes(view));
+  }
+
+  /**
    * Whether picking a view would draw it at the card's current width, rather than the list
    * a narrow card falls back to.
    *
@@ -9379,16 +9629,16 @@ class CalendarCardPro extends LitElement {
    * @returns One letter per view that fits
    */
   private _offeredViewsKey(): string {
-    if (!this._wantsViewSwitcher) return '';
-    return ViewConfig.VIEWS.filter((view) => this._viewFits(view)).join(',');
+    return this._switcherViews.filter((view) => this._viewFits(view)).join(',');
   }
 
   /**
    * The view switcher, when the card asks for one and more than one view fits.
    *
-   * While the card is being edited it marks `view`, the layout the dashboard opens with, and
-   * offers every view; pressing one does nothing. Otherwise it marks the view on screen,
-   * which for a remembered view too wide for this card is the list it fell back to.
+   * It offers the views `view_switcher` names and `view` (`_switcherViews`). While the card is
+   * being edited it marks `view`, the layout the dashboard opens with, and offers each of them;
+   * pressing one does nothing. Otherwise it marks the view on screen, which for a remembered
+   * view too wide for this card is the list it fell back to.
    *
    * @returns Switcher description for the wrapper, or undefined for none
    */
@@ -9397,7 +9647,7 @@ class CalendarCardPro extends LitElement {
 
     const editing = this._isBeingEdited;
     const translations = Localize.getTranslations(this.effectiveLanguage);
-    const views = ViewConfig.VIEWS.map((view) => ({
+    const views = this._switcherViews.map((view) => ({
       view,
       label: translations[Toolbar.VIEW_LABEL_KEYS[view]],
       available: editing || this._viewFits(view),
@@ -9429,13 +9679,19 @@ class CalendarCardPro extends LitElement {
       Logger.debug('Not switching views while the card is being edited');
       return;
     }
-    if (!this._wantsViewSwitcher || !this._viewFits(view)) return;
+    if (!this._switcherViews.includes(view) || !this._viewFits(view)) return;
 
     const choice = view === this.config.view ? null : view;
     if (this._configFingerprint !== null) {
       ViewChoice.writeViewChoice(this._configFingerprint, choice ?? undefined);
     }
     if (choice === this._viewChoice && view === this._effectiveView) return;
+
+    // Read before the view changes, since a month page's range is the month's.
+    const leftMonth =
+      this._effectiveView === 'month' && this._pageRequested !== null
+        ? Paging.majorityMonth(this._pageRange(this._pageRequested))
+        : null;
 
     this._viewChoice = choice;
     const fit = ViewConfig.resolveColumnFitIfPicked(
@@ -9446,7 +9702,22 @@ class CalendarCardPro extends LitElement {
     Logger.debug(`Switched to ${view}, drawn as ${fit.view}/${fit.columns}`);
     this._effectiveView = fit.view;
     this._columnCount = fit.columns;
+    if (leftMonth !== null && fit.view !== 'month') this._leaveMonthPage(leftMonth);
     this.requestUpdate();
+  }
+
+  /**
+   * Re-keys a page month was showing for the view that replaces it: the month the heading named,
+   * from its first day, or home where that is home's month. A page's key is kept the other way
+   * round, entering month, whose rows snap to the key's week.
+   *
+   * @param month - The first day of the month the heading named
+   */
+  private _leaveMonthPage(month: Date): void {
+    const home = this._homeWindowStart(new Date());
+    const homeMonth =
+      home.getFullYear() === month.getFullYear() && home.getMonth() === month.getMonth();
+    this._goToPage(homeMonth ? null : month);
   }
 
   //-----------------------------------------------------------------------------
