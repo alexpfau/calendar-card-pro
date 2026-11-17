@@ -133,6 +133,7 @@ the languages **Calendar Card Pro** currently supports:
 - **Hungarian** (`hu`)
 - **Icelandic** (`is`)
 - **Italian** (`it`)
+- **Japanese** (`ja`)
 - **Korean** (`ko`)
 - **Latvian** (`lv`)
 - **Lithuanian** (`lt`)
@@ -287,9 +288,9 @@ and `saat`, which reads "bitiş: yarın saat 0:30".
 
 The visual editor's strings are optional and live separately, in
 `src/rendering/editor/translations/[lang-code].json`. The editor is available in 12 of the
-38 languages: English, which lives in code, and the eleven with a file here — nine translated
+39 languages: English, which lives in code, and the eleven with a file here — nine translated
 in full, Korean in part, plus British English, which carries only the strings where it
-differs from US English. The other 26 render the editor in English, which is fully supported.
+differs from US English. The other 27 render the editor in English, which is fully supported.
 
 Keep the editor's strings out of `src/translations/languages/`; `npm run check:i18n` fails if
 they are there. English lives only in `src/rendering/editor/strings.ts`, and a translation file

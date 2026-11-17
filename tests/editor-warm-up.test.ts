@@ -521,48 +521,65 @@ describe('the warm-up form', () => {
   });
 
   // Every page is visited in every corpus state with every setting shown, each live field's Reset
-  // outcome and its Reset or Remove worked out, which takes longer than the default allows; the
-  // limit is set for CI's slower runner under load rather than for a hang.
-  it('holds each element and each value the forms draw with every panel open, across the corpus and the builders', async () => {
-    const editor = await mountEditor(ANNA);
-    const states = [
-      ...new Map(
-        corpus().map((state) => [`${state.workspace} ${JSON.stringify(state.config)}`, state]),
-      ).values(),
-    ];
-    const warmedAll = new Set<string>();
-    const builtAll = new Set<string>();
-    let values = 0;
-    for (const state of states) {
-      // A task between states, so what each state's visit to every page left behind is let go.
-      await new Promise((resolve) => nodeTimeout(resolve, 0));
-      editor.setConfig({ ...state.config, config_version: Config.CURRENT_CONFIG_VERSION });
-      await editor.updateComplete;
-      if (valueOf(editor, `workspace:${WORKSPACE_FIELD}`) !== state.workspace) {
-        await changeField(editor, `workspace:${WORKSPACE_FIELD}`, state.workspace);
-      }
-      const warm = warmed(editor);
-      const held = warmValues(editor);
-      const label = `${state.workspace} ${state.display} ${state.gate ?? 'fresh'}`;
-      expect(warm, label).toEqual(await drawn(editor));
-      expect(held, label).toEqual(await drawnValues(editor));
-      warm.forEach((tag) => warmedAll.add(tag));
-      values += held.length;
+  // outcome and its Reset or Remove worked out. That took over four minutes on CI's runner in one
+  // test, close to any limit worth setting, so the corpus runs in shards of its own, each on a
+  // fresh editor, and a last test checks the union once every shard has run. Vitest runs a file's
+  // tests in order, so that last test sees them all.
+  const states = [
+    ...new Map(
+      corpus().map((state) => [`${state.workspace} ${JSON.stringify(state.config)}`, state]),
+    ).values(),
+  ];
+  const SHARDS = 6;
+  const warmedAll = new Set<string>();
+  const builtAll = new Set<string>();
+  const visited: number[] = [];
+  let values = 0;
 
-      const ctx = schemaCtx(state.config, state.workspace, 'en');
-      // Each field is drawn lifted out of its panel, in a form of its own, and so is each of a
-      // calendar entry's on its page; buttons keep their sub-forms, less the sub-heading their
-      // panels caption.
-      const lifted = [...buildFieldIndex(ctx).fields.values()].map((field) => field.lifted);
-      for (const panel of PANELS) {
-        const subforms = (panel.subforms?.(ctx) ?? []).flatMap((subform) =>
-          subform.path.join() === ENTITY_PATH.join()
-            ? [...entityFieldIndex(subform.schema).fields.values()].map((field) => field.lifted)
-            : [subform.schema.filter((node) => !isHeading(node))],
-        );
-        for (const tag of elements([...lifted, ...subforms])) builtAll.add(tag);
+  for (let shard = 0; shard < SHARDS; shard++) {
+    // Each shard takes about a sixth of the corpus; the limit is set for CI's slower runner under
+    // load rather than for a hang.
+    it(`holds each element and each value the forms draw with every panel open, across corpus shard ${shard + 1} of ${SHARDS}`, async () => {
+      const editor = await mountEditor(ANNA);
+      for (let index = shard; index < states.length; index += SHARDS) {
+        const state = states[index]!;
+        visited.push(index);
+        // A task between states, so what each state's visit to every page left behind is let go.
+        await new Promise((resolve) => nodeTimeout(resolve, 0));
+        editor.setConfig({ ...state.config, config_version: Config.CURRENT_CONFIG_VERSION });
+        await editor.updateComplete;
+        if (valueOf(editor, `workspace:${WORKSPACE_FIELD}`) !== state.workspace) {
+          await changeField(editor, `workspace:${WORKSPACE_FIELD}`, state.workspace);
+        }
+        const warm = warmed(editor);
+        const held = warmValues(editor);
+        const label = `${state.workspace} ${state.display} ${state.gate ?? 'fresh'}`;
+        expect(warm, label).toEqual(await drawn(editor));
+        expect(held, label).toEqual(await drawnValues(editor));
+        warm.forEach((tag) => warmedAll.add(tag));
+        values += held.length;
+
+        const ctx = schemaCtx(state.config, state.workspace, 'en');
+        // Each field is drawn lifted out of its panel, in a form of its own, and so is each of a
+        // calendar entry's on its page; buttons keep their sub-forms, less the sub-heading their
+        // panels caption.
+        const lifted = [...buildFieldIndex(ctx).fields.values()].map((field) => field.lifted);
+        for (const panel of PANELS) {
+          const subforms = (panel.subforms?.(ctx) ?? []).flatMap((subform) =>
+            subform.path.join() === ENTITY_PATH.join()
+              ? [...entityFieldIndex(subform.schema).fields.values()].map((field) => field.lifted)
+              : [subform.schema.filter((node) => !isHeading(node))],
+          );
+          for (const tag of elements([...lifted, ...subforms])) builtAll.add(tag);
+        }
       }
-    }
+    }, 150_000);
+  }
+
+  it('holds, across every shard, each element the builders build, once every corpus state has run', () => {
+    // Each state ran in exactly one shard, so sharding dropped none, and no shard ran empty.
+    expect(states.length).toBeGreaterThanOrEqual(SHARDS);
+    expect([...visited].sort((a, b) => a - b)).toEqual(states.map((_, index) => index));
     for (const tag of elements(Object.values(chassisSchemas('en')))) builtAll.add(tag);
     console.info(
       `Warm-up: ${states.length} corpus states, ${values} values held, ${warmedAll.size} elements: ${[...warmedAll].sort().join(' ')}`,
@@ -571,7 +588,7 @@ describe('the warm-up form', () => {
     expect(warmedAll.size).toBeGreaterThan(3);
     expect(values).toBeGreaterThan(0);
     expect([...warmedAll].sort()).toEqual([...builtAll].sort());
-  }, 300_000);
+  });
 
   it('holds each element and each value the forms draw for calendars and buttons of every kind, in every workspace', async () => {
     const editor = await mountEditor(KINDS);

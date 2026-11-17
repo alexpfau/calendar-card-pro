@@ -199,6 +199,28 @@ describe('the end time in a sentence', () => {
     ]);
   });
 
+  it('writes a Japanese time inside the end phrase, and bare after a date', () => {
+    // Japanese sets the time off with a space on each side, as Chinese does, and writes a date
+    // and time side by side. The weekday is the short day in full-width brackets, as Japanese
+    // writes it after a date. The range mark is the fullwidth tilde (U+FF5E) that CLDR's
+    // Japanese ranges use, so it matches the range the toolbar names a page by.
+    expect(events.map((event) => timeOf(event, 'ja'))).toEqual([
+      '22:30、明日 0:30 終了',
+      '9:00 ～ 10月23日（金） 17:00',
+      '今日 12:00 終了',
+      '明日 8:00 終了',
+      '～ 10月23日（金） 17:00',
+    ]);
+  });
+
+  it('reads a Japanese all-day end without the time or its spaces', () => {
+    expect(allDays.map((event) => timeOf(event, 'ja'))).toEqual([
+      '終日、今日終了',
+      '終日、明日終了',
+      '終日、～ 10月25日（日）',
+    ]);
+  });
+
   it('writes a Turkish end as a label, with "saat" before the time', () => {
     // A Turkish time before a verb takes a locative suffix whose vowel follows how the number
     // is read ("0:30'da", "17:00'de", "3:05'te"), so "sona eriyor" needs one string per reading.
@@ -255,10 +277,10 @@ describe('the end time in a sentence', () => {
     return [t.at, t.endsToday, t.endsTomorrow].some((text) => /\{\w+\}/.test(text));
   };
 
-  it('is a template in Hungarian, Korean, Lithuanian and Chinese alone', () => {
+  it('is a template in Hungarian, Japanese, Korean, Lithuanian and Chinese alone', () => {
     // A language that takes up the template gets a test of its own above or below, rather
     // than passing the one after this by being skipped.
-    expect(LANGUAGES.filter(templated)).toEqual(['hu', 'ko', 'lt', 'zh-cn', 'zh-tw']);
+    expect(LANGUAGES.filter(templated)).toEqual(['hu', 'ja', 'ko', 'lt', 'zh-cn', 'zh-tw']);
   });
 
   it('ends every other language with `at`, a space and the time', () => {
@@ -274,7 +296,7 @@ describe('the end time in a sentence', () => {
         compared++;
       }
     }
-    expect(compared).toBe((LANGUAGES.length - 5) * shapes.length);
+    expect(compared).toBe((LANGUAGES.length - 6) * shapes.length);
   });
 
   it('leaves no placeholder behind in any language, on either clock', () => {

@@ -1,0 +1,23 @@
+{
+  "daysOfWeek": ["日", "月", "火", "水", "木", "金", "土"],
+  "fullDaysOfWeek": ["（日）", "（月）", "（火）", "（水）", "（木）", "（金）", "（土）"],
+  "months": ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"],
+  "allDay": "終日",
+  "multiDay": "～",
+  "at": "{time}",
+  "separator": "、",
+  "viewList": "リスト",
+  "viewColumns": "列",
+  "viewGrid": "グリッド",
+  "endsToday": "今日 {at} 終了",
+  "endsTomorrow": "明日 {at} 終了",
+  "dayOfEvent": "{day}日目（全{days}日）",
+  "durationTotal": "合計{duration}",
+  "noEvents": "予定なし",
+  "loading": "カレンダーの予定を読み込み中...",
+  "error": "エラー: カレンダーエンティティが見つからないか、設定が正しくありません",
+  "loadFailed": "読み込めませんでした:",
+  "newEvent": "新しい予定",
+  "showAll": "すべて表示",
+  "hideAll": "すべて非表示"
+}
