@@ -105,10 +105,10 @@ export function scopeControl(
       : interpolate(t('settings_for.help_layout'), { layout: name });
   return html`<fieldset class="scope">
     <legend class="label">${t('settings_for.label')}</legend>
-    <div class="scope-choices">
+    <div class="segments scope-segments">
       ${model.choices.map(
         (choice) =>
-          html`<label class="scope-choice">
+          html`<label class="segment">
             <input
               type="radio"
               name="scope"
@@ -121,7 +121,6 @@ export function scopeControl(
               }
               @change=${() => onPick(choice.value)}
             />
-            ${choice.value === model.workspace ? icon(mdiCheck) : nothing}
             <span>${choice.label}</span>
           </label>`,
       )}

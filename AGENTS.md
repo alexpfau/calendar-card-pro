@@ -2049,8 +2049,9 @@ see that — only a screenshot can.
 
 **What a page draws is `plan.ts`'s answer, and nothing else decides it.** Every field that
 applies here is drawn (the editor always plans with `showEverySetting`), each under a 44 px head
-row of its own (`views/shown.ts` › `settingHead`): its name, while folded its value, its state
-pill, a chevron and its ⓘ, the last column on every row; a switch takes the chevron's column. A field the plan draws only because every setting is (`why: 'every'`),
+row of its own (`views/shown.ts` › `settingHead`): its name, while folded its value, a chevron and
+its ⓘ, the last column on every row, with the setting's facts under the name (`shown.ts` ›
+`stateFacts`); a switch takes the chevron's column. A field the plan draws only because every setting is (`why: 'every'`),
 at its default and not opened this session, is folded to that head; pressing the head opens Home
 Assistant's control below it and adds the field's own key to the added set, which leaving a page
 clears. Applies here means the builders built it: they stay the one authority on presence, and
@@ -2062,8 +2063,8 @@ the editor.
 
 🚨 **Nothing of the editor's sits inside Home Assistant's field box, and nothing in a head moves
 when its setting opens.** Home Assistant owns its box: the arrow, the ✕, a number's spinner, a
-suffix, the switch. An earlier version overlaid the pill there and collided with all of them, and
-the pill and chevron jumped on opening, so a second press missed. The head is one template in both
+suffix, the switch. An earlier version overlaid a state pill there and collided with all of them,
+and the pill and chevron jumped on opening, so a second press missed. The head is one template in both
 states, so its toggle is the same element and keeps focus; a folded head's toggle carries
 `data-field`, and the open control's wrapper carries it once open, so `[data-field="id"]` finds
 exactly one element either way. A family's members open and fold one at a time, by their own key,
@@ -2072,9 +2073,17 @@ test suite cannot see an overlap.
 
 **A helper is shown once, behind ⓘ.** A control the editor composes itself (a color, Who Sees It)
 draws its own helper only where `show.describedBy` is undefined, i.e. where no head row carries the
-ⓘ; a new composed control follows the same rule, or its helper shows twice. The pill names a state
-only, and at a default it is drawn `visually-hidden`, read but not seen; a whole-card setting's
-scope is a mark by its name, never pill words.
+ⓘ; a new composed control follows the same rule, or its helper shows twice.
+
+**Only what can be pressed looks pressable.** A setting's facts (Set, Whole Card, From All
+Layouts, a layout's own value) are words in a form of their kind, never a pill, a link color or a
+button; at a default the state is a `visually-hidden` "Default", read but not seen. Reset and
+Remove are buttons in plain view on the line under the control (`views/shown.ts` › `fieldLine`),
+a switch's after its head. A stored setting never folds, so its Reset is always in view.
+`tests/editor-shown-set.test.ts` fails on a button among the facts. **A folded row is never
+empty**: where nothing is stored, it names what applies (`unset.ts`: "Same as …" for a setting
+that follows another, what it does for any other), and `tests/editor-folded-values.test.ts` walks
+every page, scope and entry for an empty one.
 
 Four things follow for new code:
 
@@ -2086,7 +2095,7 @@ Four things follow for new code:
   dropdown condition without a clause fails there rather than reading "Style is on".
 - **A field edited this session stays open**, even once its value is cleared: an edit adds it to
   the added set (`_valueChanged`), so a box emptied to type anew never folds under the cursor. A
-  Reset from the pill adds it back after the reset retires it, for the same reason.
+  setting's Reset adds it back after the reset retires it, for the same reason.
 - **Every Reset and Remove goes through `reset.ts` › `reset`**, applied by `_applyReset`, which
   updates the YAML, the authored root keys, the Grid reset keys, the held text and the added set
   together, as one undo step. Do not delete a key from `_config` for a reset by hand: a root key
@@ -2101,8 +2110,8 @@ Four things follow for new code:
 **Tests read a page as a user sees it, folded settings folded.** A test about every form a page
 can draw opens them first with `unfoldAll`, as `openPanels` does on every page it visits, and
 `changeField` on a folded setting opens it first, as a user would. A state word is read off the
-setting's pill (`pillOf`), and a Reset through its menu (`openPill`); `resetButtons` opens each
-pill in turn. `openPanels` yields one macrotask before its visit: happy-dom keeps the
+setting's facts (`stateWordOf`, `factsOf`), and a Reset from the line under its control
+(`lineOf`); `resetButtons` collects them page by page. `openPanels` yields one macrotask before its visit: happy-dom keeps the
 targets of `WeakRef`s reached during a job until the job ends, so a long run of microtask awaits
 holds every node earlier renders let go of, and the gate corpus ran out of heap without it.
 

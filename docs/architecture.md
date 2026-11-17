@@ -328,15 +328,16 @@ field they build, by its id (`field-index.ts`), on the overview, a section page 
 entry's page, under a heading and with an appearance, and `tests/editor-page-registry.test.ts`
 fails on a built field no page places. `plan.ts` decides what a page draws: every field that applies
 here (the editor always plans with `showEverySetting`), each under a head row of its own
-(`views/shown.ts` › `settingHead`) that holds its name, its state pill, a chevron and its ⓘ, outside
-Home Assistant's field box. The pill column is one width on every page, measured once per language
-from the pill's words (`_sizePills`), so values and pills line up; below `NARROW_WIDTH` the editor
-carries a `narrow` attribute, drops the value and puts the pill under the name. Home Assistant draws a switch at least 56 px tall
+(`views/shown.ts` › `settingHead`) that holds its name, its value while folded, a chevron and its
+ⓘ, outside Home Assistant's field box, and under the name the setting's facts (`shown.ts` ›
+`stateFacts`), none of them pressable. Where no value is stored, a folded row still names what
+applies (`unset.ts`). Below `NARROW_WIDTH` the editor carries a `narrow` attribute and drops the
+value. Home Assistant draws a switch at least 56 px tall
 with its label at the top, so `_fitSwitchRows` takes back the part below the label as a
 `ResizeObserver` reports each switch row drawn. A field whose plan says only `every`, at its default and not opened this
 session, is folded to that head; opening it adds it to the session's added set, which leaving the
 page clears. `element.ts` draws that plan and never filters a form itself, and every Reset and
-Remove goes through `reset.ts`, from the state pill's menu. A calendar entry's or a toolbar button's write names its owner by key, never by
+Remove goes through `reset.ts`, from a button in plain view on the line under the control. A calendar entry's or a toolbar button's write names its owner by key, never by
 place (`write-frames.ts`), so a removal above it cannot hand its form another owner. `hass-key.ts`
 skips a `hass` that changes nothing the editor draws, and hands a fresh `hass` only to forms whose
 selectors read states (`LIVE_SELECTORS`); every other form gets a steady one.

@@ -16,9 +16,9 @@ import {
   goOverview,
   goPage,
   keysOf,
+  lineOf,
   mountEditor,
   openPageOf,
-  openPill,
   reportsOf,
   resetButton,
 } from './helpers/editor-host';
@@ -301,8 +301,8 @@ describe('Undo restores exactly', () => {
       time_grid: { event_font_size: '18px' },
     });
     await openPageOf(editor, 'events:event_font_size');
-    // The Reset is in the setting's pill.
-    (await openPill(editor, 'events:event_font_size'))!
+    // The Reset is on the line under the setting's control.
+    lineOf(editor, 'events:event_font_size')!
       .querySelector<HTMLElement>('[data-reset-keys="event_font_size"]')!
       .click();
     await settle(editor);

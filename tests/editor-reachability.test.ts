@@ -93,7 +93,7 @@ function sharedNames(editor: MountedEditor): string[] {
   }
   const buttons = new Map<string, number>();
   for (const control of editor.shadowRoot!.querySelectorAll<HTMLElement>(
-    '.line-button, .setting-toggle, .setting-info, .setting-pill-button',
+    '.line-button, .setting-toggle, .setting-info',
   )) {
     const name = (control.getAttribute('aria-label') ?? control.textContent ?? '')
       .replace(/\s+/g, ' ')

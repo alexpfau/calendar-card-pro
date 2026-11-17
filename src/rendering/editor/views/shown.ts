@@ -1,22 +1,28 @@
 /**
  * What a page draws around its settings (backlog item 307): each setting's head row with its
- * state pill, ⓘ and chevron, the pill's menu with the notes and Reset, a setting a gate withholds
- * in its place, and the values stored for settings that are not in use. Templates only, as
- * `overview.ts`.
+ * facts, chevron and ⓘ, the line under its control with Reset or Remove, a setting a gate
+ * withholds in its place, and the values stored for settings that are not in use. Templates only,
+ * as `overview.ts`.
  */
 
 import {
   mdiAlertCircleOutline,
+  mdiCalendarMultiple,
+  mdiCardTextOutline,
   mdiChevronDown,
   mdiChevronUp,
   mdiClose,
+  mdiFormatListBulleted,
   mdiInformationOutline,
-  mdiLinkVariant,
   mdiRestore,
+  mdiSubdirectoryArrowRight,
+  mdiTimelineClockOutline,
+  mdiViewColumnOutline,
 } from '@mdi/js';
 import { type TemplateResult, html, nothing } from 'lit';
 
 import { icon } from './icon';
+import type { Fact } from '../shown';
 
 /** A button of the editor's own, in a field's line or a heading's. */
 export interface LineButton {
@@ -53,26 +59,36 @@ export function lineButton(button: LineButton): TemplateResult {
 
 /** What the line under a live field shows. */
 export interface FieldLine {
-  /** Lines of their own: "Grid Sets Its Own: 20", the ignored All Layouts value. */
+  /** Lines of their own. */
   readonly notes: ReadonlyArray<{ readonly text: string }>;
   /** "Set on Calendars:" with a link per entry. */
   readonly calendars?: { readonly label: string; readonly links: ReadonlyArray<LineButton> };
   /** Reset or Remove, named for what it leaves. */
   readonly actions: ReadonlyArray<LineButton>;
+  /** A control without a head row of its own (the overview's): its facts, first. */
+  readonly facts?: ReadonlyArray<Fact>;
 }
 
 /**
- * The line under a live field: what it adds to the words in the form, and its actions.
+ * The line under a live field: its facts where it has no head row, the calendars that store
+ * their own, and Reset or Remove, a button in plain view named for what it leaves.
  *
  * @param line - What it shows
  * @returns The line, or nothing where it has nothing to say
  */
 export function fieldLine(line: FieldLine): TemplateResult | typeof nothing {
-  if (line.notes.length === 0 && line.calendars === undefined && line.actions.length === 0) {
+  const facts = line.facts ?? [];
+  if (
+    facts.length === 0 &&
+    line.notes.length === 0 &&
+    line.calendars === undefined &&
+    line.actions.length === 0
+  ) {
     return nothing;
   }
   return html`<div class="field-line">
     <div class="field-line-body">
+      ${facts.length > 0 ? factLine(facts) : nothing}
       ${line.notes.map(
         (note) =>
           html`<p class="field-note">
@@ -95,24 +111,52 @@ export function fieldLine(line: FieldLine): TemplateResult | typeof nothing {
   </div>`;
 }
 
-/** A state pill's tone: outlined for Default, tinted for Set, gray for a value from elsewhere. */
-export type PillTone = 'default' | 'set' | 'inherited' | 'warning';
+const LAYOUT_ICONS: Readonly<Record<string, string>> = {
+  list: mdiFormatListBulleted,
+  column: mdiViewColumnOutline,
+  grid: mdiTimelineClockOutline,
+};
 
-/** A state pill: "Default", "Set", "From All Layouts", "From the Card". */
-export interface Pill {
-  readonly text: string;
-  readonly tone: PillTone;
-  /** Read by a screen reader but not drawn: a setting at its default shows no pill. */
-  readonly quiet?: boolean;
+/**
+ * One fact, in the form of its kind, none of them pressable: Set as a dot and the word; a scope
+ * as the words after an icon of what it reaches; a source as the words after ↳; a layout's value
+ * as the words after that layout's icon, on a line of its own.
+ *
+ * @param fact - The fact
+ * @returns The fact
+ */
+function factView(fact: Fact): TemplateResult {
+  switch (fact.kind) {
+    case 'set':
+      return html`<span class="fact fact-set setting-state">${fact.text}</span>`;
+    case 'scope':
+      return html`<span class="fact fact-scope"
+        >${icon(fact.entries ? mdiCalendarMultiple : mdiCardTextOutline)}<span
+          >${fact.text}</span
+        ></span
+      >`;
+    case 'source':
+      return html`<span class="fact fact-source setting-state"
+        >${icon(mdiSubdirectoryArrowRight)}<span>${fact.text}</span></span
+      >`;
+    case 'layout':
+      return html`<span class="fact fact-layout"
+        >${icon(LAYOUT_ICONS[fact.view ?? ''] ?? mdiTimelineClockOutline)}<span
+          >${fact.text}</span
+        ></span
+      >`;
+  }
 }
 
-/** The menu a pill opens: the notes and the Reset the line under a field used to hold. */
-export interface PillMenu {
-  readonly key: string;
-  readonly open: boolean;
-  readonly notes: ReadonlyArray<string>;
-  readonly buttons: ReadonlyArray<LineButton>;
-  readonly onToggle: () => void;
+/**
+ * A setting's facts, as one block: the first line holds Set, the scope and the source; each
+ * layout's value takes a line of its own.
+ *
+ * @param facts - The facts
+ * @returns The block
+ */
+export function factLine(facts: ReadonlyArray<Fact>): TemplateResult {
+  return html`<div class="setting-facts">${facts.map(factView)}</div>`;
 }
 
 /** What a setting's head row shows. */
@@ -121,17 +165,12 @@ export interface SettingHead {
   readonly label: string;
   /** The editor's language, so a long label breaks where that language puts spaces. */
   readonly lang?: string;
-  /** Its value in words, while it is folded; never the pill's own word. */
+  /** Its value in words, while it is folded. */
   readonly value?: string;
-  readonly pill: Pill;
-  /**
-   * A setting with one value for the whole card: a mark after its name, which says so to a
-   * screen reader as well.
-   */
-  readonly wholeCard?: { readonly name: string };
-  /** "Grid Has Its Own: 20", under All Layouts: a line of the head, under the name. */
-  readonly own?: string;
-  readonly menu?: PillMenu;
+  /** What it says under its name: Set, what it reaches, where its value comes from. */
+  readonly facts: ReadonlyArray<Fact>;
+  /** "Default", read by a screen reader where no fact says Set or where a value comes from. */
+  readonly quiet?: string;
   /** The helper behind ⓘ, its button named "About {label}". */
   readonly help?: {
     readonly id: string;
@@ -139,116 +178,89 @@ export interface SettingHead {
     readonly open: boolean;
     readonly onToggle: () => void;
   };
-  /** The chevron of a setting that folds; otherwise the slot is kept, so pills line up. */
+  /** The chevron of a setting that folds; otherwise the slot is kept, so ⓘ lines up. */
   readonly fold?: { readonly key: string; readonly open: boolean; readonly onToggle: () => void };
   /**
    * Home Assistant's own control in place of the name, for a switch: its row, label and switch
-   * start the head, and the pill and ⓘ follow it outside its box.
+   * span the name and chevron columns, so every switch ends where the chevrons end.
    */
   readonly control?: unknown;
 }
 
 /**
  * A setting's head row (backlog item 307): drawn the same folded and open, so nothing in it moves
- * when the setting opens. The name and, while folded, the value at the start, and under the name
- * what a layout keeps of its own; then the state pill, the chevron and ⓘ, each in a column of its
- * own width, so values, pills and ⓘ line up down the page. A switch spans the chevron's column. Home Assistant's control is drawn
- * below it while the setting is open, so nothing of the editor's sits inside Home Assistant's
- * field box. Where the setting folds the whole row is its toggle, except the pill and ⓘ, which
- * sit above it; while folded, the toggle is what `[data-field]` finds, as the control is once
- * open.
+ * when the setting opens. The name and, while folded, the value; the chevron; ⓘ at the row's end;
+ * and under the name its facts, none of which can be pressed. A stored setting never folds, and
+ * its Reset is a button in plain view under its control. Home Assistant's control is drawn below
+ * the head while the setting is open, so nothing of the editor's sits inside Home Assistant's field
+ * box. Where the setting folds the whole row is its toggle, except ⓘ, which sits above it; while
+ * folded, the toggle is what `[data-field]` finds, as the control is once open.
  *
  * @param head - What it shows
- * @returns The row, and the pill's menu while open
+ * @returns The row
  */
 export function settingHead(head: SettingHead): TemplateResult {
-  const { menu, help, fold, pill, own, wholeCard } = head;
+  const { help, fold, facts } = head;
   // The value is isolated, so a color or a length reads in its own order right to left.
   const text = html`<span class="setting-name"
-      ><span class="setting-label" lang=${head.lang ?? nothing}>${head.label}</span>${
-        wholeCard
-          ? html`<span
-              class="setting-scope"
-              role="img"
-              aria-label=${wholeCard.name}
-              title=${wholeCard.name}
-              >⁠${icon(mdiLinkVariant)}</span
-            >`
-          : nothing
-      }</span
+      ><span class="setting-label" lang=${head.lang ?? nothing}>${head.label}</span></span
     >${
       head.value === undefined
         ? nothing
         : html`<bdi class="setting-value${fold?.open ? ' setting-kept' : ''}">${head.value}</bdi>`
     }`;
-  const pillEl = pill.quiet
-    ? html`<span class="setting-pill tone-${pill.tone} visually-hidden">${pill.text}</span>`
-    : menu
-      ? html`<button
-          type="button"
-          class="setting-target setting-pill-button"
-          data-focus=${menu.key}
-          aria-expanded=${menu.open ? 'true' : 'false'}
-          aria-label=${`${head.label}: ${pill.text}`}
-          @click=${menu.onToggle}
-        >
-          <span class="setting-pill tone-${pill.tone}"
-            >${pill.text}${icon(menu.open ? mdiChevronUp : mdiChevronDown)}</span
-          >
-        </button>`
-      : html`<span class="setting-pill tone-${pill.tone}">${pill.text}</span>`;
-  const accessible = [head.label, wholeCard?.name, head.value, own].filter(Boolean).join(', ');
+  const accessible = [head.label, ...facts.map((fact) => fact.text), head.value]
+    .filter(Boolean)
+    .join(', ');
   return html`<div
-      class="setting-head${fold ? ' folds' : ''}${head.control !== undefined ? ' switch' : ''}${own ? ' owned' : ''}"
-    >
+    class="setting-head${fold ? ' folds' : ''}${head.control !== undefined ? ' switch' : ''}${
+      facts.length > 0 ? ' has-facts' : ''
+    }"
+  >
+    ${
+      fold
+        ? html`<button
+            type="button"
+            class="setting-text setting-toggle"
+            data-focus=${fold.key}
+            data-field=${fold.open ? nothing : head.id}
+            aria-expanded=${fold.open ? 'true' : 'false'}
+            aria-label=${accessible}
+            @click=${fold.onToggle}
+          >
+            ${text}
+          </button>`
+        : head.control !== undefined
+          ? html`<div class="setting-control">${head.control}</div>`
+          : html`<span class="setting-text">${text}</span>`
+    }
+    ${facts.length > 0 ? factLine(facts) : nothing}
+    ${
+      head.quiet === undefined
+        ? nothing
+        : html`<span class="setting-state visually-hidden">${head.quiet}</span>`
+    }
+    <span class="setting-tools">
+      <span class="setting-end" aria-hidden="true"
+        >${fold ? icon(fold.open ? mdiChevronUp : mdiChevronDown) : nothing}</span
+      >
       ${
-        fold
+        help
           ? html`<button
               type="button"
-              class="setting-text setting-toggle"
-              data-focus=${fold.key}
-              data-field=${fold.open ? nothing : head.id}
-              aria-expanded=${fold.open ? 'true' : 'false'}
-              aria-label=${accessible}
-              @click=${fold.onToggle}
+              class="setting-target setting-info"
+              aria-expanded=${help.open ? 'true' : 'false'}
+              aria-controls=${help.id}
+              aria-label=${help.name}
+              @click=${help.onToggle}
             >
-              ${text}
+              ${icon(mdiInformationOutline)}
             </button>`
-          : head.control !== undefined
-            ? html`<div class="setting-control">${head.control}</div>`
-            : html`<span class="setting-text">${text}</span>`
+          : // The slot is kept, so ⓘ lines up down the page.
+            html`<span class="setting-slot" aria-hidden="true"></span>`
       }
-      ${own ? html`<span class="setting-own">${icon(mdiAlertCircleOutline)}<span>${own}</span></span>` : nothing}
-      <span class="setting-tools">
-        <span class="setting-pill-col${pill.quiet ? ' quiet' : ''}">${pillEl}</span>
-        ${
-          help
-            ? html`<button
-                type="button"
-                class="setting-target setting-info"
-                aria-expanded=${help.open ? 'true' : 'false'}
-                aria-controls=${help.id}
-                aria-label=${help.name}
-                @click=${help.onToggle}
-              >
-                ${icon(mdiInformationOutline)}
-              </button>`
-            : // The slot is kept, so pills line up down the page.
-              html`<span class="setting-slot" aria-hidden="true"></span>`
-        }
-        <span class="setting-end" aria-hidden="true"
-          >${fold ? icon(fold.open ? mdiChevronUp : mdiChevronDown) : nothing}</span
-        >
-      </span>
-    </div>
-    ${
-      menu?.open
-        ? html`<div class="setting-menu" role="group" aria-label=${`${head.label}: ${pill.text}`}>
-            ${menu.notes.map((note) => html`<p class="setting-menu-note">${note}</p>`)}
-            ${menu.buttons.map(lineButton)}
-          </div>`
-        : nothing
-    }`;
+    </span>
+  </div>`;
 }
 
 /**
@@ -312,7 +324,7 @@ export function gateLines(
         data-focus=${line.focus ?? nothing}
         tabindex=${line.focus ? '-1' : nothing}
       >
-        <span>${line.text}</span>${line.button ? lineButton(line.button) : nothing}
+        ${icon(mdiAlertCircleOutline)}<span>${line.text}</span>${line.button ? lineButton(line.button) : nothing}
       </p>`,
   )}`;
 }

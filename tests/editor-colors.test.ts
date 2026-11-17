@@ -28,10 +28,10 @@ import {
   fakeHass,
   keysOf,
   lastConfig,
+  lineOf,
   mountEditor,
   openPageOf,
-  openPill,
-  pillOf,
+  stateWordOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import * as Colors from '../src/rendering/editor/colors';
@@ -642,7 +642,7 @@ describe('what each owner’s control writes', () => {
     expect(at.querySelector('.color-toggle')?.getAttribute('aria-label')).toBe(
       'All-Day Badge Color, Amber',
     );
-    expect(pillOf(editor, 'events:allday_badge_color_mode')).toBe('Set');
+    expect(stateWordOf(editor, 'events:allday_badge_color_mode')).toBe('Set');
     await pick(editor, at, '[data-color-row="calendar-accent"]');
     expect(value() ?? 'accent').toBe('accent');
   });
@@ -698,7 +698,7 @@ describe('what each owner’s control writes', () => {
     expect(at.querySelector('.color-toggle')?.getAttribute('aria-label')).toBe(
       'Accent Color, Pink',
     );
-    expect(pillOf(editor, 'calendar:accent_color_mode')).toBe('Set');
+    expect(stateWordOf(editor, 'calendar:accent_color_mode')).toBe('Set');
     // Its own color gets a way off, which follows the card again.
     const remove = at.querySelector<HTMLButtonElement>('.color-head .icon-button')!;
     expect(remove.getAttribute('aria-label')).toBe("Remove Anna's Accent Color");
@@ -728,8 +728,8 @@ describe('a color control’s state pill', () => {
       list: { allday_badge_color: 'var(--amber-color)' },
     });
     await openPageOf(editor, 'events:allday_badge_color_mode');
-    expect(pillOf(editor, 'events:allday_badge_color_mode')).toBe('Set');
-    const menu = await openPill(editor, 'events:allday_badge_color_mode');
+    expect(stateWordOf(editor, 'events:allday_badge_color_mode')).toBe('Set');
+    const menu = lineOf(editor, 'events:allday_badge_color_mode');
     const reset = menu?.querySelector<HTMLButtonElement>(
       '[data-focus="reset:events:allday_badge_color_mode"]',
     );
@@ -756,8 +756,8 @@ describe('a color control’s state pill', () => {
     );
     const [anna] = keysOf(editor, 'entry');
     await openEntryColor(editor, anna);
-    expect(pillOf(editor, 'calendar:accent_color_mode')).toBe('Set');
-    const menu = await openPill(editor, 'calendar:accent_color_mode');
+    expect(stateWordOf(editor, 'calendar:accent_color_mode')).toBe('Set');
+    const menu = lineOf(editor, 'calendar:accent_color_mode');
     const line = menu!.querySelector<HTMLButtonElement>(
       '[data-focus="reset:calendar:accent_color_mode"], [data-focus="remove:calendar:accent_color_mode"]',
     );

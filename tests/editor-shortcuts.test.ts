@@ -16,9 +16,9 @@ import {
   goOverview,
   keysOf,
   lastConfig,
+  lineOf,
   mountEditor,
   openPageOf,
-  openPill,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -162,10 +162,11 @@ describe('Start Date on the overview', () => {
       'Relative to Today',
     ]);
     expect(pressedChip(editor)).toBe('default');
-    // Named as the field, its state words in its legend as a dropdown carries them in its label.
+    // Named as the field; what it reaches is a fact on the line under it.
     const group = root(editor).querySelector('[data-field="content:start_date_mode"]')!;
     expect(group.getAttribute('aria-label')).toBe('Start Date');
-    expect(group.querySelector('legend')!.textContent).toBe('Start Date · Whole Card');
+    expect(group.querySelector('legend')!.textContent).toBe('Start Date');
+    expect(group.querySelector('.field-line .fact')!.textContent!.trim()).toBe('Whole Card');
   });
 
   it('keeps Relative to Today pressed over Tomorrow’s expression until another is chosen', async () => {
@@ -264,7 +265,10 @@ describe('Tapping an Event Opens It', () => {
       '[data-field="actions:event_opens_details"]',
     )!;
     expect(line.querySelector('ha-form')).toBeNull();
-    expect(line.getAttribute('aria-label')).toBe('Tapping an Event: navigate · Whole Card · Set');
+    expect(line.getAttribute('aria-label')).toBe('Tapping an Event: navigate');
+    expect(
+      [...line.querySelectorAll('.field-line .fact')].map((fact) => fact.textContent!.trim()),
+    ).toEqual(['Set', 'Whole Card']);
     expect(line.querySelector('[data-focus="tap:change"]')!.textContent!.trim()).toBe('Change');
 
     await changeField(editor, 'card:title', 'Family');
@@ -288,7 +292,7 @@ describe('Tapping an Event Opens It', () => {
       },
     );
     const line = root(editor).querySelector('[data-field="actions:event_opens_details"]')!;
-    expect(line.getAttribute('aria-label')).toBe('Tapping an Event: Navigate · Whole Card · Set');
+    expect(line.getAttribute('aria-label')).toBe('Tapping an Event: Navigate');
     expect(line.querySelector('b')!.textContent).toBe('Navigate');
     expect(
       root(editor).querySelector('[data-focus="tap:change"]')!.getAttribute('aria-label'),
@@ -553,11 +557,14 @@ describe('with the shown set and What This Card Changes', () => {
       'Reset Tapping an Event Opens It to Off',
     ]);
     await openPageOf(editor, 'calendar:blocklist', entry(0));
-    expect(buttonsOf(editor, 'calendar:blocklist')).toEqual(['Use a Pattern']);
-    // Its Reset is in its pill, as any setting's under a head row.
-    const menu = (await openPill(editor, 'calendar:blocklist'))!;
+    // Its Reset is in plain view on the line under it, as any stored setting's.
+    expect(buttonsOf(editor, 'calendar:blocklist')).toEqual([
+      'Use a Pattern',
+      'Reset Hide Events Containing',
+    ]);
+    const line = lineOf(editor, 'calendar:blocklist')!;
     expect(
-      [...menu.querySelectorAll('.line-button')].map((button) => button.getAttribute('aria-label')),
+      [...line.querySelectorAll('.line-button')].map((button) => button.getAttribute('aria-label')),
     ).toEqual(['Reset Hide Events Containing']);
   });
 

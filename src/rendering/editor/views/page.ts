@@ -6,13 +6,7 @@
  * Assistant does not expose those as headings to assistive technology (`spike/ha-probe.md` §3).
  */
 
-import {
-  mdiArrowRight,
-  mdiChevronLeft,
-  mdiInformationOutline,
-  mdiMagnify,
-  mdiOpenInNew,
-} from '@mdi/js';
+import { mdiArrowRight, mdiChevronLeft, mdiMagnify, mdiOpenInNew } from '@mdi/js';
 import { type TemplateResult, html, nothing } from 'lit';
 
 import { icon } from './icon';
@@ -128,7 +122,7 @@ export function footBack(t: Translate, onBack: () => void, docs?: string): Templ
  * @returns The line
  */
 export function pageLine(text: string): TemplateResult {
-  return html`<p class="page-line">${icon(mdiInformationOutline)}<span>${text}</span></p>`;
+  return html`<p class="page-line"><span>${text}</span></p>`;
 }
 
 /** A link to a heading on another page. */

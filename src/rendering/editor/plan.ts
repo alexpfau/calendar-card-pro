@@ -169,6 +169,8 @@ export interface StateWords {
   readonly layoutsOwn?: ReadonlyArray<{
     readonly view: Types.EffectiveView;
     readonly value: unknown;
+    /** Whether the layout stores the value, rather than defaulting to it. */
+    readonly stored: boolean;
   }>;
   /** "Set on Calendars: Ben, Bin Day": the keys of the entries storing their own. */
   readonly calendars?: ReadonlyArray<number>;
@@ -962,12 +964,12 @@ export function stateOf(field: IndexedField, ctx: PlanCtx): StateWords | undefin
     const top = shownValue(ctx.config, 'shared', field);
     const own = ViewConfig.VIEWS.flatMap((each) => {
       const value = shownValue(ctx.config, each, field);
-      if (storedAt(ctx.raw, field, each)) return [{ view: each, value }];
+      if (storedAt(ctx.raw, field, each)) return [{ view: each, value, stored: true }];
       const ownDefault =
         divergent(field, each) &&
         universeIndex('en', each).fields.has(field.id) &&
         !deepEqual(value, top);
-      return ownDefault ? [{ view: each, value }] : [];
+      return ownDefault ? [{ view: each, value, stored: false }] : [];
     });
     if (own.length > 0) layoutsOwn = own;
   } else if (here) {
