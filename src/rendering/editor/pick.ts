@@ -20,8 +20,8 @@ import type { PageId } from './pages';
 export type PickTarget =
   | {
       readonly page: PageId;
-      /** A heading on the page, by its `data-heading` key; absent for the page's top run. */
-      readonly heading?: string;
+      /** A heading on the page, by its `data-heading` key. */
+      readonly heading: string;
       /** The layout whose scope the heading lives in, which a pick switches to. */
       readonly scope?: 'column' | 'grid';
     }
@@ -36,7 +36,7 @@ export type PickTarget =
 export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: PickTarget]> = [
   ['.legend-chip', { calendar: true }],
   ['.custom-button', { page: 'card_header', heading: 'toolbar.buttons.heading' }],
-  ['.card-header', { page: 'card_header' }],
+  ['.card-header', { page: 'card_header', heading: 'heading.general' }],
   ['.card-toolbar', { page: 'card_header', heading: 'heading_toolbar' }],
   ['.today-indicator-container', { page: 'day_header', heading: 'today_indicator' }],
   [
@@ -45,7 +45,10 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
   ],
   ['.event-weather', { page: 'weather', heading: 'weather.event' }],
   ['.weather', { page: 'weather', heading: 'weather.date' }],
-  ['.date-column, .column-day-header, .grid-day-header', { page: 'day_header' }],
+  [
+    '.date-column, .column-day-header, .grid-day-header',
+    { page: 'day_header', heading: 'heading.date' },
+  ],
   [
     '.separator, .separator-cell, .column-separator, .grid-separator',
     { page: 'size_spacing', heading: 'heading_between_days' },
@@ -74,7 +77,7 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
   ['.grid-container', { page: 'grid', heading: 'time_grid.axis', scope: 'grid' }],
   ['.day-column', { page: 'size_spacing', heading: 'column.density', scope: 'column' }],
   ['.content-container', { page: 'size_spacing', heading: 'heading_card_size' }],
-  ['.header-container, ha-card', { page: 'card_header' }],
+  ['.header-container, ha-card', { page: 'card_header', heading: 'heading.general' }],
 ];
 
 /** The catch-alls: a part found only through one of these was not mapped on its own. */

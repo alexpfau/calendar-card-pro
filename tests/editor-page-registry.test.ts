@@ -159,7 +159,7 @@ const APPROVED_MAP: ReadonlyArray<
   ],
   [
     'Which Events',
-    '',
+    'Selection & Order',
     '',
     [
       'content:event_type A',
@@ -205,7 +205,7 @@ const APPROVED_MAP: ReadonlyArray<
   ],
   [
     'Card & Header',
-    '',
+    'General',
     '',
     [
       'card:title E',
@@ -238,7 +238,7 @@ const APPROVED_MAP: ReadonlyArray<
   ],
   [
     'Day Header',
-    '',
+    'Date',
     '',
     [
       'day_header:date_vertical_alignment A L',
@@ -522,7 +522,7 @@ const APPROVED_MAP: ReadonlyArray<
       'layout:time_grid.max_simultaneous_events A G',
     ],
   ],
-  ['Weather', '', '', ['weather:weather.entity E', 'weather:weather.position E']],
+  ['Weather', 'Forecast', '', ['weather:weather.entity E', 'weather:weather.position E']],
   [
     'Weather',
     'In the Day Header',
@@ -556,7 +556,7 @@ const APPROVED_MAP: ReadonlyArray<
   ],
   [
     'Taps & Refresh',
-    '',
+    'Taps',
     '',
     [
       'actions:tap_action E',
@@ -737,6 +737,19 @@ describe('the page registry places every built field exactly once', () => {
 });
 
 describe('the page registry is consistent with itself', () => {
+  it('heads every group of settings, on every page and every calendar’s page', () => {
+    // Each group is drawn as a card, and a card without a title reads as part of its neighbor.
+    const untitled = [
+      ...PAGES.flatMap((page) =>
+        page.headings.map((heading, at) => ({ where: page.id, heading, at })),
+      ),
+      ...ENTRY_GROUPS.map((heading, at) => ({ where: 'entry', heading, at })),
+    ]
+      .filter(({ heading }) => heading.key === undefined || !(heading.key in EDITOR_STRINGS))
+      .map(({ where, at }) => `${where} #${at}`);
+    expect(untitled).toEqual([]);
+  });
+
   it('orders the pages as the approved map does', () => {
     expect(PAGES.map((page) => page.id)).toEqual([
       'which_events',

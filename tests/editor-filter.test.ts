@@ -586,9 +586,9 @@ describe('editor: the order of the two panels', () => {
     expect(optionsUnder('heading_multiday')).toEqual(['split_multiday_events', 'multiday_banners']);
     expect(cardUnder('heading_multiday')).toEqual(['split_multiday_events', 'multiday_banners']);
 
-    // The calendar's filters, and the card's filters in the page's unheaded opening run.
+    // The calendar's filters, and the card's filters under the page's opening heading.
     const entityFilters = optionsUnder('page.which_events');
-    const contentFilters = cardUnder(undefined);
+    const contentFilters = cardUnder('heading.selection_and_order');
 
     expect(entityFilters).toEqual([
       'days_of_week',

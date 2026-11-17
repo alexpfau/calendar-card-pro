@@ -151,8 +151,8 @@ export interface SettingHead {
 /**
  * A setting's head row (backlog item 307): drawn the same folded and open, so nothing in it moves
  * when the setting opens. The name and, while folded, the value at the start, and under the name
- * what a layout keeps of its own; ⓘ, the state pill and the chevron at the end, each in a column
- * of its own width, so values and pills line up down the page. Home Assistant's control is drawn
+ * what a layout keeps of its own; then the state pill, the chevron and ⓘ, each in a column of its
+ * own width, so values, pills and ⓘ line up down the page. A switch spans the chevron's column. Home Assistant's control is drawn
  * below it while the setting is open, so nothing of the editor's sits inside Home Assistant's
  * field box. Where the setting folds the whole row is its toggle, except the pill and ⓘ, which
  * sit above it; while folded, the toggle is what `[data-field]` finds, as the control is once

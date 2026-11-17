@@ -143,7 +143,7 @@ export interface CrossLink {
 
 /** One heading of a page and what it holds. */
 export interface HeadingBlock {
-  /** Absent for a page's unheaded top run. */
+  /** Absent only for a group that is not a page's heading. */
   readonly title?: string;
   /** The heading's `data-heading` key, which a cross-link scrolls to. */
   readonly key?: string;

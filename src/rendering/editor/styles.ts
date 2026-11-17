@@ -1271,12 +1271,14 @@ export default css`
   }
 
   /* --- A setting's head row -------------------------------------------------
-     Every setting has a 44 px head row drawn the same folded and open: name and, while folded,
-     value at the start; ⓘ, the state pill and a chevron at the end. Nothing of the editor's sits
+     Every setting has a 44 px head row drawn the same folded and open, one grid of four columns:
+     name and, while folded, value; the state pill; the chevron; ⓘ, at the row's end on every row,
+     so it lines up down every page. Nothing of the editor's sits
      inside Home Assistant's field box, which an open setting draws below its head, so nothing
      covers the box's arrow, clear button, spinner or suffix, and nothing in the head moves when
      the setting opens: a second press lands where the first did. A switch keeps Home Assistant's
-     own row, label and switch, at the head's start. */
+     own row, label and switch, across the name and chevron columns, so every switch ends where
+     the chevrons end. */
   .setting {
     display: flex;
     flex-direction: column;
@@ -1296,9 +1298,8 @@ export default css`
   .setting-head {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto 32px 44px;
     align-items: start;
-    column-gap: 4px;
     min-height: 44px;
     border-radius: 4px;
   }
@@ -1309,11 +1310,24 @@ export default css`
     grid-row: 1;
   }
 
+  .setting-head > .setting-text {
+    margin-inline-end: 4px;
+  }
+
+  /* A switch has no chevron: Home Assistant's switch row takes its column. */
+  .setting-head.switch > .setting-control {
+    grid-column: 1 / 4;
+  }
+
+  .setting-head.switch .setting-end {
+    display: none;
+  }
+
   /* What a layout keeps of its own, under the name, inside the row it belongs to. */
   .setting-own {
     display: flex;
-    grid-column: 1;
-    grid-row: 2;
+    grid-column: 1 / 3;
+    grid-row: 3;
     align-items: flex-start;
     gap: 4px;
     margin-top: -8px;
@@ -1330,9 +1344,8 @@ export default css`
     margin-top: 0;
   }
 
-  /* Home Assistant centers its switch on a label that wraps, so the pill and ⓘ follow it. */
-  .setting-head.switch > .setting-tools {
-    grid-row: 1;
+  /* Home Assistant centers its switch on a label that wraps, so ⓘ follows it. */
+  .setting-head.switch > .setting-tools > * {
     align-self: center;
   }
 
@@ -1443,19 +1456,41 @@ export default css`
     min-width: 0;
   }
 
+  /* The pill, the chevron and ⓘ each take a column of the head; they sit above the toggle. */
   .setting-tools {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    grid-column: 2;
-    grid-row: 1 / span 2;
-    align-items: center;
-    min-height: 44px;
-    pointer-events: none;
+    display: contents;
   }
 
   .setting-tools > * {
-    pointer-events: auto;
+    position: relative;
+    z-index: 1;
+    grid-row: 1;
+  }
+
+  .setting-head > .setting-tools > .setting-pill-col {
+    grid-column: 2;
+  }
+
+  .setting-head > .setting-tools > .setting-end {
+    grid-column: 3;
+  }
+
+  .setting-head > .setting-tools > .setting-info,
+  .setting-head > .setting-tools > .setting-slot {
+    grid-column: 4;
+  }
+
+  /* A pill goes under the name where the column it would take is not the pill's: on a switch
+     row, whose switch spans it, and on a phone. "Default", read but not drawn, takes no room. */
+  .setting-head.switch > .setting-tools > .setting-pill-col:not(.quiet),
+  :host([narrow]) .setting-head > .setting-tools > .setting-pill-col:not(.quiet) {
+    grid-column: 1;
+    grid-row: 2;
+    justify-content: flex-start;
+    width: auto;
+    min-height: 0;
+    margin: -10px 0 4px;
+    padding-inline-start: 2px;
   }
 
   .setting-target {
@@ -1592,8 +1627,7 @@ export default css`
     display: none;
   }
 
-  /* A phone's dialog: the value gives its width to the name, which matters more, and the pill
-     column takes only what its pill needs, since no value is left to line up with it. */
+  /* A phone's dialog: the value gives its width to the name, which matters more. */
   :host([narrow]) .setting-value {
     display: none;
   }
@@ -1603,57 +1637,8 @@ export default css`
     min-width: 0;
   }
 
-  /* The pill, where a setting has one, goes under the name, so it never takes the name's width;
-     ⓘ and the chevron keep their columns. "Default", read but not drawn, takes no room at all. */
-  :host([narrow]) .setting-head {
-    grid-template-columns: minmax(0, 1fr) auto auto;
-  }
-
-  :host([narrow]) .setting-tools {
-    display: contents;
-  }
-
-  :host([narrow]) .setting-tools > * {
-    position: relative;
-    z-index: 1;
-    grid-row: 1;
-  }
-
-  :host([narrow]) .setting-head > .setting-tools > .setting-info,
-  :host([narrow]) .setting-head > .setting-tools > .setting-slot {
-    grid-column: 2;
-  }
-
-  :host([narrow]) .setting-head > .setting-tools > .setting-end {
-    grid-column: 3;
-  }
-
-  :host([narrow]) .setting-head > .setting-tools > .setting-pill-col {
-    grid-column: 1;
-    grid-row: 2;
-    justify-content: flex-start;
-    width: auto;
-    margin: -10px 0 -2px;
-    padding-inline-start: 2px;
-  }
-
   :host([narrow]) .setting-head > .setting-tools > .setting-pill-col.quiet {
-    grid-row: 1;
     width: 0;
-    min-height: 0;
-    margin: 0;
-  }
-
-  :host([narrow]) .setting-head > .setting-own {
-    grid-row: 3;
-  }
-
-  :host([narrow]) .setting-head.switch > .setting-tools > * {
-    align-self: center;
-  }
-
-  :host([narrow]) .setting-head.switch > .setting-tools > .setting-pill-col {
-    margin-top: 0;
   }
 
   /* A setting a gate withholds, in its place. */

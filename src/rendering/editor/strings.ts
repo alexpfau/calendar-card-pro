@@ -44,6 +44,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'heading.name_and_look': 'Name & Look',
   'heading.who_sees_it': 'Who Sees It',
   'heading.refresh': 'Refresh',
+  // The first group of a page, a card of its own like every other heading.
+  'heading.selection_and_order': 'Selection & Order',
+  'heading.general': 'General',
+  'heading.date': 'Date',
+  'heading.forecast': 'Forecast',
+  'heading.taps': 'Taps',
 
   // --- Overview & navigation ------------------------------------------------
   //

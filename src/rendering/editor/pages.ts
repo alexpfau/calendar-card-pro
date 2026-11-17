@@ -66,7 +66,7 @@ export type HeadingExtra = 'own-buttons' | 'weather-calendar-links' | 'split';
 
 /** One heading of a page, and the fields under it in order. */
 export interface HeadingDef {
-  /** String key of the heading; absent for a page's unheaded top run. */
+  /** String key of the heading. */
   readonly key?: string;
   /** A different heading in one layout: Icon & Badge is Icons in Grid. */
   readonly keyByView?: Partial<Record<Types.EffectiveView, string>>;
@@ -153,6 +153,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
     summary: ['content:show_past_events', 'content:show_empty_days'],
     headings: [
       {
+        key: 'heading.selection_and_order',
         fields: [
           ['content:event_type', A],
           ['content:filter_duplicates_mode', A],
@@ -207,6 +208,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
     summary: ['card:title', 'card:toolbar.show', 'card:toolbar.add_event'],
     headings: [
       {
+        key: 'heading.general',
         fields: [
           ['card:title', E],
           ['card:title_font_size', A],
@@ -247,6 +249,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
     summary: ['day_header:week_number_mode', 'day_header:today_indicator_style'],
     headings: [
       {
+        key: 'heading.date',
         fields: [
           ['day_header:date_vertical_alignment', A],
           ['day_header:weekday_font_size', A],
@@ -531,6 +534,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
     summary: [`${W}entity`, `${W}position`],
     headings: [
       {
+        key: 'heading.forecast',
         fields: [
           [`${W}entity`, E],
           [`${W}position`, E],
@@ -576,6 +580,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
     summary: ['actions:event_tap_action', 'actions:day_tap_action_mode'],
     headings: [
       {
+        key: 'heading.taps',
         fields: [
           ['actions:tap_action', E],
           ['actions:hold_action', A],

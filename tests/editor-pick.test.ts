@@ -217,17 +217,17 @@ describe('Pick From Preview', () => {
     const day = card.shadowRoot!.querySelector('.date-column .day')!;
     fire(day, 'pointermove', { pointerType: 'mouse' });
     expect(card.shadowRoot!.querySelector('.ccp-pick-label')!.textContent).toBe(
-      'Day Header · Click to Edit',
+      'Day Header › Date · Click to Edit',
     );
     fire(day, 'click');
     await settle(editor, card);
     expect($(editor, '.page[data-page="day_header"]')).not.toBeNull();
     // Every setting is drawn, so the heading's first in the registry, opened by the jump.
-    const jump = $(editor, '.page-group[data-heading=""] .jump [data-field]');
+    const jump = $(editor, '.page-group[data-heading="heading.date"] .jump [data-field]');
     expect(jump?.getAttribute('data-field')).toBe('day_header:date_vertical_alignment');
     expect($(editor, '[data-pick-banner]')).toBeNull();
     expect(card.shadowRoot!.querySelector('.ccp-pick-layer')).toBeNull();
-    expect(said).toContain('Showing Day Header.');
+    expect(said).toContain('Showing Day Header › Date.');
   });
 
   it('opens a heading whose settings are all folded at its first, opened', async () => {

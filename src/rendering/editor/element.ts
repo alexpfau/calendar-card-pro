@@ -1838,8 +1838,7 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * What a part opens, in words: "Events › Location", the page alone for its top run, or the
-   * calendar a legend chip names.
+   * What a part opens, in words: "Events › Location", or the calendar a legend chip names.
    *
    * @param part - The part
    * @returns The name
@@ -4437,7 +4436,7 @@ export class CalendarCardProEditor extends LitElement {
    *
    * @param heading - The heading
    * @param ctx - Schema context
-   * @returns The title, or `undefined` for a page's unheaded top run
+   * @returns The title, or `undefined` for a heading with no key
    */
   private _headingTitle(heading: HeadingDef, ctx: SchemaCtx): string | undefined {
     const key = heading.keyByView?.[ctx.view] ?? heading.key;
