@@ -531,7 +531,7 @@ Home Assistant** or **Calendar Color**, then Home Assistant's named colors as sw
 ## 🗂️ Every Setting on Its Page
 
 Every page shows every setting that applies here, each on a row of its own: its name, its value,
-its state pill where it has one, an **ⓘ** and a chevron, as in **Week Number Color · Primary
+its state pill where it has one, a chevron and an **ⓘ**, as in **Week Number Color · Primary
 Text**. A setting at its default is just that row. Each heading and its settings sit in a card
 of their own. Press the row to open Home Assistant's control for it below the row; press the
 same spot again to fold it. Nothing is written until you change a value.
@@ -542,12 +542,13 @@ same spot again to fold it. Nothing is written until you change a value.
   page folds again what you opened there without changing it.
 - **ⓘ** shows the setting's help under it. A screen reader reads the help as the setting's
   description.
-- **A switch** is Home Assistant's own switch row, with its pill and **ⓘ** after it. Every switch
-  ends where the values end, so switches and values share one column. A row grows with a name
-  that wraps, and the pill and **ⓘ** stay level with the switch.
+- **A switch** is Home Assistant's own switch row. A switch never opens, so it sits where the
+  chevron sits on other rows, at the end of the row before its **ⓘ**; its pill, where it has one,
+  is under its name. A row grows with a name that wraps, and the **ⓘ** stays level with the
+  switch.
 - **On a phone** the name gets the row's width: the value shows once you open the setting, and a
-  pill sits under the name. On a wider screen the values, pills and **ⓘ** line up in columns
-  down every page.
+  pill sits under the name. On a wider screen the values and pills line up in columns down every
+  page, and **ⓘ** is always the last column.
 - **A setting that needs another one** stays in its place until it applies, as in **Indicator
   Size · Appears once the Style is a dot, an icon or an emoji**. Several in a row waiting on the
   same setting share one line. Turning the other setting on brings them in.

@@ -328,7 +328,7 @@ field they build, by its id (`field-index.ts`), on the overview, a section page 
 entry's page, under a heading and with an appearance, and `tests/editor-page-registry.test.ts`
 fails on a built field no page places. `plan.ts` decides what a page draws: every field that applies
 here (the editor always plans with `showEverySetting`), each under a head row of its own
-(`views/shown.ts` › `settingHead`) that holds its name, its state pill, its ⓘ and a chevron, outside
+(`views/shown.ts` › `settingHead`) that holds its name, its state pill, a chevron and its ⓘ, outside
 Home Assistant's field box. The pill column is one width on every page, measured once per language
 from the pill's words (`_sizePills`), so values and pills line up; below `NARROW_WIDTH` the editor
 carries a `narrow` attribute, drops the value and puts the pill under the name. Home Assistant draws a switch at least 56 px tall

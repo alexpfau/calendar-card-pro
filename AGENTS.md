@@ -2049,8 +2049,8 @@ see that — only a screenshot can.
 
 **What a page draws is `plan.ts`'s answer, and nothing else decides it.** Every field that
 applies here is drawn (the editor always plans with `showEverySetting`), each under a 44 px head
-row of its own (`views/shown.ts` › `settingHead`): its name, while folded its value, its ⓘ, its
-state pill and a chevron. A field the plan draws only because every setting is (`why: 'every'`),
+row of its own (`views/shown.ts` › `settingHead`): its name, while folded its value, its state
+pill, a chevron and its ⓘ, the last column on every row; a switch takes the chevron's column. A field the plan draws only because every setting is (`why: 'every'`),
 at its default and not opened this session, is folded to that head; pressing the head opens Home
 Assistant's control below it and adds the field's own key to the added set, which leaving a page
 clears. Applies here means the builders built it: they stay the one authority on presence, and
