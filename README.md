@@ -56,7 +56,7 @@ This motivated me to build a **dedicated calendar card**, fast by design. It has
 - 🌦️ **Weather** – [Forecasts](https://calendar-card-pro.alexpfau.com/features/weather) beside the date or each event.
 - 🎨 **Fits Your Theme** – Follows your theme's colors, with [custom properties](https://calendar-card-pro.alexpfau.com/features/theming) for finer styling.
 - ⚡ **Optimized Performance** – Cached events on screen the moment a dashboard opens.
-- 🌍 **Multi-Language Support** – [Available in 38 languages](https://calendar-card-pro.alexpfau.com/contributing#adding-translations), with the visual editor in 12. Community contributions welcome!
+- 🌍 **Multi-Language Support** – [Available in 39 languages](https://calendar-card-pro.alexpfau.com/contributing#adding-translations), with the visual editor in 12. Community contributions welcome!
 
 ### 🔗 Requirements
 
@@ -155,6 +155,7 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 - ⏳ **Countdowns That Say What You Need**: Count [in days](https://calendar-card-pro.alexpfau.com/features/event-content#counting-in-days), only [as an event draws near](https://calendar-card-pro.alexpfau.com/features/event-content#countdown-range) and [once per day](https://calendar-card-pro.alexpfau.com/features/event-content#repeated-countdowns), and [`show_duration`](https://calendar-card-pro.alexpfau.com/features/event-content#event-duration) says how long each event lasts
 - 🔉 **A Quieter Calendar**: [`text_scale`](https://calendar-card-pro.alexpfau.com/features/core-settings#scaling-one-calendars-text) draws one calendar's events smaller, and [`show_weather: false`](https://calendar-card-pro.alexpfau.com/features/weather#turning-weather-off-for-one-calendar) leaves the weather out beside them
 - ⚠️ **Long Events Drawn for How Long They Are**: An event that runs a full day or longer into a second date [no longer shows "Now"](https://calendar-card-pro.alexpfau.com/features/multi-day-events#day-counter) and reads "Day 2 of 3" with `show_progress_bar` on, and grid view draws a long timed one as [one banner above the hours](https://calendar-card-pro.alexpfau.com/features/grid-view#long-timed-events-as-banners) by default; the [release notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) list every change to existing cards
+- 🐛 **Event Text Is Back on Older iPhones & iPads**: Since v5.2, Safari 15.4 to 16.x drew the dates but no event text, in every view; it draws it again, on [every supported browser](https://calendar-card-pro.alexpfau.com/guide/installation#browser-support)
 - 🐛 **A Restart No Longer Freezes the Dashboard**: A card taking its colors from Home Assistant could freeze the browser tab for good when it appeared while Home Assistant was restarting; it now waits and tries again
 
 ### v5.2
@@ -198,7 +199,7 @@ and translations to new features. Pull requests go against the `dev` branch.
 
 - 📋 [Contributing guide](https://calendar-card-pro.alexpfau.com/contributing) — setup, workflow, coding standards, and how to add a translation
 - 🏗️ [Architecture documentation](https://calendar-card-pro.alexpfau.com/architecture) — module responsibilities, data flow, and performance design
-- 🌍 **Adding a translation?** The card speaks [38 languages](https://calendar-card-pro.alexpfau.com/contributing#adding-translations) and the visual editor 12 — new ones are always welcome.
+- 🌍 **Adding a translation?** The card speaks [39 languages](https://calendar-card-pro.alexpfau.com/contributing#adding-translations) and the visual editor 12 — new ones are always welcome.
 - 🐛 **Found a bug or have an idea?** [Open an issue](https://github.com/alexpfau/calendar-card-pro/issues/new/choose).
 - 💬 **Questions?** Ask in the [community forum thread](https://community.home-assistant.io/t/calendar-card-pro-a-beautiful-high-performance-calendar-card-for-home-assistant/863711).
 

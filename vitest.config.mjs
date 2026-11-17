@@ -1,5 +1,12 @@
 import { defineConfig } from 'vitest/config';
 
+import { startGuard } from './scripts/vitest-guard.mjs';
+import { resolveMaxWorkers } from './scripts/vitest-limits.mjs';
+
+// Every test process, this one and each fork, is killed once it holds more memory than any
+// test here needs. See the module for how, and AGENTS.md for why.
+startGuard();
+
 /**
  * Test configuration for Calendar Card Pro.
  *
@@ -21,6 +28,10 @@ export default defineConfig({
     // Lit needs a DOM to render into. Pure-logic tests do not care either way, so
     // setting this once avoids per-file environment annotations later.
     environment: 'happy-dom',
+
+    // Several worktrees often run the suite at once, so each run takes a share of the
+    // machine beside the other runs testing on it. See the module for how.
+    maxWorkers: resolveMaxWorkers(),
 
     projects: [
       {

@@ -1317,6 +1317,15 @@ export class EventPopover extends Shell.PopoverShell {
   static styles = css`
     ${Shell.shellStyles}
     ${Shell.cellStyles}
+    /* The panel scrolls once its rows run past its height; no row shrinks to fit instead. A flex
+       row keeps its content's height only through its automatic minimum, which .notes replaces
+       with its own min-height and .map and the sheet's grabber do not have, so a long
+       description was squeezed and spilled out of its cell under the foot, and a short screen
+       squeezed the map. The search panel shares the shell and its results do shrink, so this
+       stays here rather than in it. */
+    .panel > * {
+      flex-shrink: 0;
+    }
     .title {
       font-size: 21px;
       font-weight: 500;

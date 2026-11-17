@@ -509,9 +509,62 @@ them survives contact with the suite.
 
 `node_modules` is absent in a fresh worktree; run `npm ci` first. `dist/` is gitignored.
 
+### Parallel runs share the machine, and a leaking test dies alone
+
+Several worktrees often run the suite at once on one machine, and Vitest's run-mode default
+of one worker per core but one lets each run claim all of it. Measured on an 18-core
+machine, three runs holding 51 workers between them all failed: Vitest timed out starting
+workers and dropped test files without running them, so a red run did not even list every
+file. Separately, a test process once grew to 368 GiB, nearly all of it compressed memory
+beyond anything V8's heap limit governs, and macOS killed some 1,500 processes to recover.
+Two modules imported by `vitest.config.mjs` now guard against both, with Vitest's default
+process pool; a threads pool shares one process, so the guard stands down and sharing cannot
+see it.
+
+**`scripts/vitest-limits.mjs` sizes each run.** It counts the other runs that have workers
+and takes an equal share of a budget of cores less two: 12 alone (the ceiling, about 10%
+slower than 17 and a quarter less memory), 8 beside one other run, 5 beside two, never fewer
+than 2, and otherwise never past twice the budget across all runs. Elevated macOS memory
+pressure takes it to 2, critical to 1. Nothing waits for another run. It prints one
+`[vitest-limits]` line saying what it chose and why. `CI`, `VITEST_MAX_WORKERS` and
+`--maxWorkers` bypass it, the last two through Vitest itself. With three runs started three
+seconds apart it finished all three in 192 s with every run complete, against 225 s and
+three failed runs at Vitest's default. A run decides once, at start: it cannot see a run
+whose workers have not started yet, a watch-mode run keeps its count when it resumes, and on
+Windows, which has no `ps`, every run sizes itself as if alone.
+
+**`scripts/vitest-guard.mjs` kills a process that holds more than 4 GiB**, the Vitest main
+process and each fork alike, in CI as well; the heaviest file here peaks near 1.2 GiB. Forks
+also get a 3 GiB V8 heap limit, so a heap leak ends with V8's own out-of-memory message.
+Buffers escape that limit and compressed pages escape RSS, which is why the guard reads V8's
+heap-plus-external count on the process's own thread and RSS from a worker thread that runs
+while a test is stuck in a synchronous loop. Under macOS memory pressure, when pages are
+being compressed, the main process also reads its own and its forks' physical footprint from
+`top`; at normal pressure it does not, since that read costs half a second of system time.
+On macOS and Linux a fork whose Vitest has died ends itself too; one used to live on with
+pid 1 as its parent. The forks get the guard through `NODE_OPTIONS`, from which Vitest
+builds every fork's environment whatever `execArgv` a run is given; Node processes a test
+starts inherit the heap limit with it, unless `NODE_OPTIONS` already sets one. Each fork
+pays about 3 ms to start the guard and 16 MiB to hold it.
+
+What that means when you work here:
+
+- **Iterate on the files you are changing** (`npx vitest run tests/x.test.ts`)
+  and run the whole suite once before you push. A full run costs every other session a
+  share of the machine for a minute or more.
+- **A `[vitest-guard]` line naming a cap, or V8's heap out-of-memory, is a leak to fix.**
+  Never raise `VITEST_MEMORY_CAP_GB` to make a test pass. Lowering it is the safe way to
+  reproduce a leak (`VITEST_MEMORY_CAP_GB=1`), and reproduce one only through Vitest, where
+  the guard runs; a bare `node` script has no cap.
+- **Set `VITEST_MAX_WORKERS` only to measure**, and never to a large number while other
+  sessions are testing; it opts that run out of sharing.
+- **A timeout under load is load until proven otherwise.** Contended runs time out tests
+  that pass in a fraction of their limit when the machine is quiet; rerun the file alone
+  before treating it as a regression.
+
 ### `scripts/`
 
-Eleven files, and only three are reachable through `package.json`, so the rest are easy to
+Thirteen files, and only three are reachable through `package.json`, so the rest are easy to
 mistake for leftovers. They are not. What each one is:
 
 | Script                      | Kind           | How it runs                          |
@@ -527,6 +580,8 @@ mistake for leftovers. They are not. What each one is:
 | `load-editor-schema.mjs`    | library        | imported by the i18n gate            |
 | `l10n-oracle.mjs`           | authoring tool | by hand, needs an HA frontend wheel  |
 | `l10n-handoff.mjs`          | authoring tool | by hand, needs an HA frontend wheel  |
+| `vitest-guard.mjs`          | test library   | `vitest.config.mjs` and every fork   |
+| `vitest-limits.mjs`         | test library   | imported by `vitest.config.mjs`      |
 
 `compact-payloads.mjs` subsets Day.js locale data for the card's relative-time-only API
 and packs the editor's English and translated string maps behind one shared key vector.
@@ -1476,10 +1531,10 @@ repeatedly. A language is only fully wired up when **all** of these are done:
 1. `src/translations/languages/<code>.json` — must contain every **top-level** key present
    in `en.json`. `en.json` is the reference. **Card strings only.** An `editor` section
    here is now a `check:i18n` error, because these files are imported statically for all
-   38 languages and land on every dashboard load.
+   39 languages and land on every dashboard load.
 
 2. `src/rendering/editor/translations/<code>.json` — the editor's strings, **optional and
-   may be partial**. Eleven of the 38 languages translate the editor; the other 27 have no
+   may be partial**. Eleven of the 39 languages translate the editor; the other 28 have no
    file here at all and the editor renders in English. Both are supported — `lookup()` in
    `src/rendering/editor/localize.ts` resolves each key on its own, falling back
    **requested language → English**, where English is `strings.ts`.

@@ -31,6 +31,7 @@ export const CARD_LANGUAGES = [
   'hu',
   'is',
   'it',
+  'ja',
   'ko',
   'lt',
   'lv',

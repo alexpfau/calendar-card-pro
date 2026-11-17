@@ -19,6 +19,7 @@ public release in January 2025 to today.
 - ⏭️ **A Second Card That Carries On**: [`skip_first_events`](/features/core-settings#continuing-a-list-on-a-second-card) leaves the first events off a list card, so a second card continues where the first one stops
 - 🔎 **Search by the Words You Use**: the editor's [search](/features/editor#search-customized-only) finds a setting by the words people use for it, such as `AM/PM` for Time Format or `newest first` for Event Order, and [Essentials Only](/features/editor#essentials-only) now keeps every setting a card sets
 - ⚠️ **Changes to Existing Cards**: an event that runs a full day or longer into a second date no longer shows "Now", grid view draws long timed events as banners by default (`multiday_banners: false` keeps the blocks), and on a card with countdowns, finished events say how long ago they ended. The [release notes](/RELEASE_NOTES) list every change
+- 🐛 **Event Text Is Back on Older iPhones & iPads**: since v5.2, Safari 15.4 to 16.x drew each day's date but no event text; it draws it again, as on [every supported browser](/guide/installation#browser-support)
 - 🐛 **A Restart No Longer Freezes the Dashboard**: a card taking its colors from Home Assistant could freeze the browser tab for good when it appeared while Home Assistant was restarting; it now waits and tries again
 
 ## v5.2

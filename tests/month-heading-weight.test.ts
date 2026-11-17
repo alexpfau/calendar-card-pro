@@ -130,12 +130,14 @@ describe("the month heading's runs", () => {
         }
       }
     }
-    expect(CARD_LANGUAGES).toHaveLength(38);
-    expect(checked).toBe(38 * 2 * 12);
+    expect(CARD_LANGUAGES).toHaveLength(39);
+    expect(checked).toBe(39 * 2 * 12);
     expect(wrong).toEqual([]);
     // Which languages write a month unit as a literal of its own, pinned by value, so a unit that
     // stops being absorbed, or a separator that starts to be, cannot pass unnoticed.
     expect([...new Set(units)]).toEqual([
+      'ja long: 月',
+      'ja short: 月',
       'zh-CN long: 月',
       'zh-CN short: 月',
       'zh-TW long: 月',
@@ -206,7 +208,7 @@ describe('the drawn month heading', () => {
         }
       }
     }
-    expect(checked).toBe(38 * 2 * 2);
+    expect(checked).toBe(39 * 2 * 2);
     expect(wrong).toEqual([]);
   });
 

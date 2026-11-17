@@ -94,6 +94,7 @@ describe('the separator between two parts of an event time', () => {
       hu: comma,
       is: comma,
       it: comma,
+      ja: '、',
       ko: comma,
       lt: comma,
       lv: comma,
