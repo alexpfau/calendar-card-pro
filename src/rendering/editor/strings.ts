@@ -52,6 +52,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'heading.date': 'Date',
   'heading.forecast': 'Forecast',
   'heading.taps': 'Taps',
+  // Taps & Refresh's heading for Month's week scrolling: what a wheel or a swipe does.
+  'heading.wheel_and_swipe': 'Wheel & Swipe',
 
   // --- Overview & navigation ------------------------------------------------
   //
@@ -100,6 +102,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'value.none': 'None',
   'value.no_limit': 'No Limit',
   'value.theme_default': 'Theme Default',
+  'value.map_marker': 'Map Marker',
   'quick_setup.dismiss': 'Dismiss Quick Setup',
   'nav.back': 'Back',
   // A page's foot: its page on the documentation site, which says what the helpers leave out.
@@ -368,6 +371,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'view.option.column.description': 'Days side by side',
   'view.option.grid.label': 'Grid',
   'view.option.grid.description': 'Days side by side on an hour axis',
+  'view.option.month.label': 'Month',
+  'view.option.month.description': 'A whole month, a row per week',
   'view.helper': 'Side-by-side layouts can fall back to List when space is tight.',
   editing_workspace: 'Editing Settings For',
   'editing_workspace.helper': 'Choose which layout to edit without changing Starting Layout.',
@@ -379,6 +384,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'editing_workspace.option.list.label': 'List',
   'editing_workspace.option.column.label': 'Columns',
   'editing_workspace.option.grid.label': 'Grid',
+  'editing_workspace.option.month.label': 'Month',
   'grid_reconciliation.title': 'Existing Values Kept for Grid',
   'grid_reconciliation.message':
     'Grid kept your existing values for: {options}. Use Reset in Grid to use its default for an option.',
@@ -522,7 +528,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'height_mode.option.maximum.label': 'Maximum height',
   card_height: 'Height',
   'card_height.helper':
-    'List and Columns scroll when the events do not fit; Grid compresses its hours.',
+    'List and Columns scroll when the events do not fit; Grid compresses its hours, and Month its weeks.',
   card_max_height: 'Maximum Height',
   'card_max_height.helper': 'Grows with its content up to this height, then scrolls.',
 
@@ -1009,6 +1015,24 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'time_grid.max_simultaneous_events': 'Most Events Side By Side',
   'time_grid.max_simultaneous_events.helper': 'The rest collapse into a +N block at the edge.',
 
+  // --- The month's own block --------------------------------------------------
+  //
+  // Options stored in `month:`, labeled under its prefix (`schemas/common.ts` › `blockScope`).
+  // Height Per Week follows Grid's Height Per Hour, and Month Density the other two layouts'.
+  'month.row_height': 'Height Per Week',
+  'month.row_height.helper': 'Ignored when a fixed Height is set: the six weeks share it.',
+  'month.density': 'Month Density',
+  'month.density.helper':
+    'Narrower days show a dot per event instead, and list the tapped day’s events under the weeks.',
+  'month.min_day_width': 'Minimum Day Width',
+  'month.week_scroll': 'Week Scrolling',
+  'month.week_scroll.helper':
+    'The wheel, a trackpad or a vertical swipe then moves the weeks rather than the dashboard, ' +
+    'except in the compact month.',
+  'month.week_scroll_min_width': 'Minimum Card Width',
+  'month.week_scroll_min_width.helper':
+    'Narrower cards leave the wheel and swipes to the dashboard; 0 means any width.',
+
   // --- Defaults a view substitutes -------------------------------------------
   //
   // Said beside the shared control rather than as an exception row of its own. The
@@ -1024,6 +1048,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'view_default.column.split_multiday_events':
     'Column layout splits multi-day events whatever this is set to, so that every day ' +
     'an event covers shows it. Add an exception below to change that.',
+  'view_default.month.show_past_events':
+    'Month layout shows past events whatever this is set to, dimmed, so that its past days ' +
+    'are not left blank. Change it in Month’s own settings.',
 
   // --- Time Range & Content -------------------------------------------------
   days_to_show: 'Days To Show',
@@ -1557,12 +1584,20 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // Phrased as what the option *does* apply to, never as "this does nothing".
   // A column card renders as a list on a narrow screen, so a list-only option on a
   // column card is still the live control for what that card shows on a phone.
-  'scope.column_list_only': 'Applies to the list and column layouts, not to the time grid.',
+  'scope.column_list_only':
+    'Applies to the list and column layouts, not to the time grid or the month.',
   'scope.column_list_only.split_multiday_events':
-    'Grid derives daily coverage itself. All-day events use spanning banners across included ' +
-    'columns; timed events use a block per included day.',
+    'Grid and Month derive daily coverage themselves. All-day events span the days they ' +
+    'cover; timed events are drawn on each day they touch.',
+  'scope.column_list_month_only':
+    'Applies to the list, column and month layouts, not to the time grid.',
+  'scope.column_grid_list_only': 'Applies to every layout but the month.',
+  'scope.column_grid_list_only.days_to_show':
+    'Applies to every layout but the month, which always shows six whole weeks.',
+  'scope.column_grid_list_only.show_empty_days':
+    'Applies to every layout but the month, which always draws every day of its weeks.',
+  'scope.grid_month_only': 'Applies to the time grid and month layouts.',
   'scope.list_only': 'Applies to the list layout, which this card also uses on narrow screens.',
-  'scope.grid_only': 'Applies to the time grid layout.',
   'scope.list_only.today_indicator_position':
     'Applies to the list layout — column layout places the indicator for you.',
   'scope.list_only.compact_events_to_show':
