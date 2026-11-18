@@ -21,6 +21,7 @@ import { buildFieldIndex, schemaCtx } from '../src/rendering/editor/field-index'
 import { PAGES, type PageDef, placementOf } from '../src/rendering/editor/pages';
 import { isFreshCard } from '../src/rendering/editor/quick-setup';
 import { workspaceFormData } from '../src/rendering/editor/routing';
+import styles from '../src/rendering/editor/styles';
 import { SUMMARY_SEPARATOR, pageStoredCount, summaryParts } from '../src/rendering/editor/summary';
 import {
   type EditorWorkspace,
@@ -171,9 +172,10 @@ describe('Settings For', () => {
     document.body.replaceChildren();
   });
 
-  // Both are one choice among a few words, so they share one row: the editor's width, an equal
-  // segment per choice (`styles.ts` › `.segment`). Settings For once sized each to its word.
-  it('draws Settings For as Calendar Filter’s segmented row, a segment per choice', async () => {
+  // Both are one choice among a few words, drawn as segments of one frame (`styles.ts` ›
+  // `.segment`). Settings For once sized each to its word; since Month it puts All Layouts on a
+  // row of its own over the four layouts (`.segment-all`), one radio group in that order.
+  it('draws Settings For as Calendar Filter’s segments, All Layouts over the layouts', async () => {
     const editor = await mountEditor({
       config_version: CURRENT_CONFIG_VERSION,
       entities: ['calendar.anna'],
@@ -188,9 +190,8 @@ describe('Settings For', () => {
       return classes;
     };
     const scope = [...editor.shadowRoot!.querySelectorAll('fieldset.scope input[type="radio"]')];
-    // Five since Month, as the row derives them from `WORKSPACES`. How five segments are
-    // arranged, a 320px card included, awaits a maintainer decision; this pins only what the
-    // derived row draws today.
+    // Five since Month, derived from `WORKSPACES`, in the order the arrow keys take them: one
+    // group of native radios, so one tab stop.
     expect(scope.map((radio) => (radio as HTMLInputElement).value)).toEqual([
       'shared',
       'list',
@@ -198,7 +199,13 @@ describe('Settings For', () => {
       'grid',
       'month',
     ]);
-    expect(scope.map(path)).toEqual(scope.map(() => ['segmented-row', 'segments', 'segment']));
+    expect(new Set(scope.map((radio) => (radio as HTMLInputElement).name))).toEqual(
+      new Set(['scope']),
+    );
+    expect(scope.map(path)).toEqual([
+      ['segmented-row', 'segments', 'segment segment-all'],
+      ...scope.slice(1).map(() => ['segmented-row', 'segments', 'segment']),
+    ]);
     expect(editor.shadowRoot!.querySelector('.scope-segments')).toBeNull();
     document.body.replaceChildren();
 
@@ -207,6 +214,19 @@ describe('Settings For', () => {
     const legend = filter.shadowRoot!.querySelector('fieldset.segmented input[type="radio"]')!;
     expect(path(legend)).toEqual(['segmented-row', 'segments', 'segment']);
     document.body.replaceChildren();
+  });
+
+  // One frame, two rows: All Layouts across the top and the four layouts under it, each a
+  // quarter of the width. Native radios of one name, in that order, so the arrow keys run across
+  // both rows and the group is one stop for Tab; the order and the name are pinned above, and how
+  // the rows lay out is the stylesheet's, which a DOM without layout cannot show.
+  it('lays All Layouts across the top of the frame and the four layouts under it', () => {
+    const css = styles.cssText.replace(/\s+/g, ' ');
+    expect(css).toMatch(/\.scope \.segments \{ flex-wrap: wrap; \}/);
+    expect(css).toMatch(/\.scope \.segment-all \{ flex-basis: 100%; border-bottom: [^}]*\}/);
+    expect(css).toMatch(/\.scope \.segment-all \+ \.segment \{ border-inline-start: none; \}/);
+    // Calendar Filter keeps its one row.
+    expect(css).not.toMatch(/\.segmented \.segments \{[^}]*flex-wrap/);
   });
 
   it('turns full for the session once the scope was changed or Change pressed', () => {
@@ -230,6 +250,50 @@ describe('Settings For', () => {
       WORKSPACES.map((workspace) => [workspace, storedCount(raw, workspace)]),
     );
     expect(counts).toEqual({ shared: 2, list: 1, column: 0, grid: 2, month: 1 });
+  });
+});
+
+// A row per layout, each the shape of Quick Setup's example rows (the approved Starting Layout
+// option C): a native radio, the layout's picture, then its name over its description.
+describe('Starting Layout', () => {
+  it('draws a row per layout: its radio, its picture, then its name over its description', async () => {
+    const editor = await mountEditor({
+      config_version: CURRENT_CONFIG_VERSION,
+      entities: ['calendar.anna'],
+      view: 'grid',
+    });
+    const rows = [...editor.shadowRoot!.querySelectorAll('fieldset.displays label.display-choice')];
+    expect(
+      rows.map((row) =>
+        [...row.children].map((child) =>
+          child.localName === 'input'
+            ? `radio ${(child as HTMLInputElement).value}${(child as HTMLInputElement).checked ? ' checked' : ''}`
+            : child.localName === 'img'
+              ? 'picture'
+              : [...child.children].map((line) => line.textContent?.trim()).join(' / '),
+        ),
+      ),
+    ).toEqual([
+      ['radio list', 'picture', 'List / Days stacked, one per row'],
+      ['radio column', 'picture', 'Columns / Days side by side'],
+      ['radio grid checked', 'picture', 'Grid / Days side by side on an hour axis'],
+      ['radio month', 'picture', 'Month / A whole month, a row per week'],
+    ]);
+    // One group of native radios, so the arrow keys move from row to row and Tab stops once.
+    const names = rows.map((row) => row.querySelector('input')!.name);
+    expect(new Set(names)).toEqual(new Set(['view']));
+    // The pictures are the switcher's own pictograms, and say nothing a name does not.
+    expect(rows.every((row) => row.querySelector('img')!.getAttribute('alt') === '')).toBe(true);
+  });
+
+  it('stacks the rows at every width, sharing Quick Setup’s row, text and line rules', () => {
+    const css = styles.cssText.replace(/\s+/g, ' ');
+    expect(css).toMatch(/\.display-choices \{ display: flex; flex-direction: column; gap: 8px; \}/);
+    expect(css).not.toMatch(/grid-template-columns: repeat\(3/);
+    expect(css).toMatch(/\.story-tile, \.display-choice \{ display: flex; align-items: center;/);
+    expect(css).toMatch(/\.story-text, \.display-choice > \.display-text \{ flex: 1;/);
+    expect(css).toMatch(/\.story-detail, \.display-choice \.display-description \{/);
+    expect(css).toMatch(/\.display-image \{ flex: none; width: 48px; height: 32px;/);
   });
 });
 

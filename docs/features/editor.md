@@ -21,7 +21,7 @@ opens with, and a row for each page that holds the rest. Top to bottom:
 | **Search**, **Undo**, **Redo** | [Search](#search) every setting; [Undo and Redo](#undo-redo) the last change                                             |
 | **⋯ Editor Preferences**       | Show YAML Option Names, at the end of the search row                                                                     |
 | **Calendars**                  | The card's [calendars](#calendars), a row each                                                                           |
-| **Starting Layout**            | List, Columns, Grid or Month, the layout the card opens with                                                             |
+| **Starting Layout**            | List, Columns, Grid or Month, the layout the card opens with, a row each with its picture                                |
 | **Settings**                   | A row per page, saying in one line what the page holds for this card                                                     |
 | **More**                       | [What This Card Changes](#what-this-card-changes) and Start From an Example                                              |
 
@@ -152,8 +152,9 @@ entities:
 
 Two controls decide what you see and what you edit. **Starting Layout**, on the overview, chooses
 the layout the card opens with and writes the existing `view` option. **Settings For**, at the top
-of each page, chooses which settings the pages edit: **All Layouts**, **List**, **Columns**,
-**Grid** or **Month**. It starts on the layout the card displays and stays where you put it, from page to page,
+of each page, chooses which settings the pages edit: **All Layouts**, across the top, or **List**,
+**Columns**, **Grid** or **Month**, in a row under it. The arrow keys move through all five in that
+order. It starts on the layout the card displays and stays where you put it, from page to page,
 for the rest of the session. It is never saved to YAML. A calendar's page has no Settings For,
 since a calendar's settings apply to every layout, and nor does a page whose settings all apply to
 the whole card. The overview edits nothing a layout holds, so it has none either: its section rows

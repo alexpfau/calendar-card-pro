@@ -14,9 +14,9 @@ import { interpolate } from '../strings';
 import * as Synthetic from '../synthetic';
 
 /**
- * The picker's tile for a view: the card's shared pictogram in a fixed gray, which reads on
- * both light and dark editor themes. The toolbar's view switcher draws the same shapes in
- * the text color instead.
+ * Starting Layout's picture for a view: the card's shared pictogram in a fixed gray, which
+ * reads on both light and dark editor themes. The toolbar's view switcher draws the same shapes
+ * in the text color instead.
  *
  * @param view - The view to draw
  * @returns Standalone SVG markup

@@ -1733,8 +1733,8 @@ const SUGGESTION_COLUMN_LABEL = 'Columns';
  * `view: grid` value, because the block is what they will edit. Untranslated for
  * the same reason as the column label above.
  *
- * Deliberately still "Time Grid" where the editor's own view tile now reads "Grid". The
- * tile sits beside "List" and "Columns" and is read by someone already inside the card,
+ * Deliberately still "Time Grid" where the editor's own Starting Layout row now reads "Grid".
+ * The row sits among "List" and "Columns" and is read by someone already inside the card,
  * where the extra word is noise; this label is read in Home Assistant's card picker by
  * someone who has never seen the card, beside a "Columns" entry it has to be told apart
  * from. Grep for "Time Grid" and you will find both — that is the split, and it is meant.

@@ -175,12 +175,17 @@ export default css`
     padding: 0 4px 0 0;
   }
 
-  .story-tile {
-    flex: 1;
+  /* The row Starting Layout's choices share: its mark, its picture and its lines in a line. */
+  .story-tile,
+  .display-choice {
     display: flex;
     align-items: center;
     gap: 12px;
     min-width: 0;
+  }
+
+  .story-tile {
+    flex: 1;
     min-height: 64px;
     padding: 10px 8px 10px 16px;
     border: none;
@@ -227,19 +232,22 @@ export default css`
     fill: var(--primary-color);
   }
 
-  .story-text {
+  .story-text,
+  .display-choice > .display-text {
     flex: 1;
     display: flex;
     flex-direction: column;
     gap: 2px;
     min-width: 0;
+    padding: 0;
   }
 
   .story-name {
     font-weight: 500;
   }
 
-  .story-detail {
+  .story-detail,
+  .display-choice .display-description {
     color: var(--secondary-text-color);
     font-size: 12px;
     line-height: 1.4;
@@ -761,45 +769,44 @@ export default css`
     }
   }
 
-  /* Three across at every width, as Home Assistant's box select draws its options. */
+  /* Starting Layout: a row per layout, stacked, each in the shape of Quick Setup's example rows
+     (the row, text and line rules there are shared): the radio, the layout's picture, then its
+     name over its description, so every name and description stays whole in every language at
+     any width. Native radios, so the arrow keys move from row to row. Each row is a frame of its
+     own, the chosen one in the primary color and tinted. */
   .display-choices {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    display: flex;
+    flex-direction: column;
     gap: 8px;
   }
 
   .display-choice {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    align-items: start;
-    gap: 4px 6px;
-    padding: 8px;
+    box-sizing: border-box;
+    min-height: 44px;
+    padding: 8px 12px;
     border: 1px solid var(--divider-color);
     border-radius: 12px;
     cursor: pointer;
   }
 
   .display-choice input {
+    flex: none;
     width: 20px;
     height: 20px;
     margin: 0;
+  }
+
+  .display-image {
+    flex: none;
+    width: 48px;
+    height: 32px;
+    object-fit: contain;
   }
 
   .display-text {
     display: flex;
     flex-direction: column;
     padding-top: 2px;
-  }
-
-  /* The label beside the radio, and the description under both, across the card's width: three
-     across leaves each card about 118px at 372px, and the longest translations (German) would
-     otherwise run to five lines. */
-  .display-choice > .display-text {
-    display: contents;
-  }
-
-  .display-label {
-    align-self: center;
   }
 
   .display-label {
@@ -813,16 +820,7 @@ export default css`
   }
 
   .display-choice .display-description {
-    grid-column: 1 / -1;
-    min-width: 0;
     overflow-wrap: break-word;
-  }
-
-  .display-image {
-    grid-column: 1 / -1;
-    width: 100%;
-    max-height: 72px;
-    object-fit: contain;
   }
 
   .row-group {
@@ -1978,7 +1976,8 @@ export default css`
 
   /* Settings For and Calendar Filter alike: the row takes the editor's width and every segment an
      equal share of it, whatever its word. A word wider than its share wraps, hyphenated in the
-     page's language where the browser can, and broken only where it cannot (Lithuanian at 320px). */
+     page's language where the browser can, and broken only where it cannot. Settings For puts All
+     Layouts on a row of its own (.segment-all, below). */
   .segment {
     flex: 1 1 0;
     display: flex;
@@ -2007,6 +2006,23 @@ export default css`
   .segment:has(input:checked) {
     background: var(--primary-color);
     color: var(--text-primary-color, #fff);
+  }
+
+  /* Settings For: All Layouts across the top, the four layouts sharing the row under it, in one
+     frame and one radio group, so the arrow keys still go All Layouts, List, Columns, Grid,
+     Month. One shared default over four layouts that can override it, and each layout keeps a
+     quarter of the width rather than a fifth, which holds a German or Finnish word at 272px. */
+  .scope .segments {
+    flex-wrap: wrap;
+  }
+
+  .scope .segment-all {
+    flex-basis: 100%;
+    border-bottom: 1px solid var(--divider-color);
+  }
+
+  .scope .segment-all + .segment {
+    border-inline-start: none;
   }
 
   /* A stored value that does nothing now: the warning's icon, the words in the text color. */

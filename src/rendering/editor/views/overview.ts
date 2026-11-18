@@ -58,11 +58,11 @@ function withBold(template: string, value: string): TemplateResult {
 }
 
 /**
- * Settings For: one compact line, "Settings for List · Change", or the four choices, a line on what
- * the chosen one means, and the preview line where the card shows another layout, with the switch
- * that draws the layout being edited in the preview instead. Native radios, so arrow keys move
- * within the group and focus stays on the chosen one; choosing writes nothing, and nor does the
- * switch.
+ * Settings For: one compact line, "Settings for List · Change", or the five choices, All Layouts
+ * on a row of its own over the four layouts, a line on what the chosen one means, and the preview
+ * line where the card shows another layout, with the switch that draws the layout being edited in
+ * the preview instead. One group of native radios in that order, so arrow keys move across both
+ * rows and focus stays on the chosen one; choosing writes nothing, and nor does the switch.
  *
  * @param model - What it shows
  * @param t - The editor's strings
@@ -108,7 +108,7 @@ export function scopeControl(
       <div class="segments">
         ${model.choices.map(
           (choice) =>
-            html`<label class="segment">
+            html`<label class="segment${choice.value === 'shared' ? ' segment-all' : ''}">
               <input
                 type="radio"
                 name="scope"
@@ -225,8 +225,9 @@ export interface DisplayChoice {
 }
 
 /**
- * Starting Layout: the three illustrated layouts as native radios, labels that wrap, and the
- * helper line. Its frame's heading already says its name, so the legend is read and not seen.
+ * Starting Layout: a row per layout, as Quick Setup draws its examples: a native radio, the
+ * layout's picture, its name over its description, then the helper line. Its frame's heading
+ * already says its name, so the legend is read and not seen.
  *
  * @param label - The group's name
  * @param helper - The line under it
@@ -259,6 +260,7 @@ export function displayControl(
               }
               @change=${() => onPick(choice.value)}
             />
+            ${choice.image ? html`<img class="display-image" src=${choice.image} alt="" />` : nothing}
             <span class="display-text">
               <span class="display-label">${choice.label}</span>
               ${
@@ -267,7 +269,6 @@ export function displayControl(
                   : nothing
               }
             </span>
-            ${choice.image ? html`<img class="display-image" src=${choice.image} alt="" />` : nothing}
           </label>`,
       )}
     </div>

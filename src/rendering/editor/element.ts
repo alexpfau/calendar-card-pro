@@ -5013,9 +5013,9 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Starting Layout, a frame as Calendars is: its heading, the three illustrated layouts under it
-   * with no visible label of their own, written through the frame the card's own display form
-   * always had, and the Grid notice under it.
+   * Starting Layout, a frame as Calendars is: its heading, a row per layout under it with its
+   * picture, the group with no visible label of its own, written through the frame the card's own
+   * display form always had, and the Grid notice under it.
    *
    * @param ctx - Schema context
    * @param chassis - The chassis schemas

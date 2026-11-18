@@ -1296,15 +1296,15 @@ describe('editor: displayed view and the Layout panel', () => {
    * Pinned by value, as a whole ordered set. The test above walks `viewOptions()` and so
    * cannot notice one leaving it — the `Object.keys` trap `AGENTS.md` records — and the
    * one two above pins the option *values*, which are the config vocabulary rather than
-   * the words on the tile. Nothing else asserts what a user reads.
+   * the words on the row. Nothing else asserts what a user reads.
    *
    * Built through `buildDisplayViewSchema` rather than read out of `strings.ts`, so a
    * lookup wired to the wrong key fails here too: the fallback is `humanize(view)`, which
    * yields `Grid` for grid either way but `Column` — not `Columns` — for column.
    */
-  // A tile per layout, derived from `VIEWS`: four since Month. How the four are arranged awaits a
-  // maintainer decision; this pins only their labels, in the order the selector derives.
-  it('labels the tiles List, Columns, Grid and Month', () => {
+  // A row per layout, derived from `VIEWS`: four since Month, each drawn as Quick Setup draws its
+  // examples (`tests/editor-overview.test.ts`); this pins their labels, in the selector's order.
+  it('labels the rows List, Columns, Grid and Month', () => {
     expect(viewOptions().map((option) => option.label)).toEqual([
       'List',
       'Columns',
@@ -1314,10 +1314,10 @@ describe('editor: displayed view and the Layout panel', () => {
   });
 
   /**
-   * The tile deliberately disagrees with Home Assistant's card-picker entry, which stays
+   * The row deliberately disagrees with Home Assistant's card-picker entry, which stays
    * "Time Grid" — the reasoning is on `SUGGESTION_TIME_GRID_LABEL` in `config.ts`. Pinned
    * from both sides so the split stays a decision somebody has to revisit rather than
-   * drift somebody has to notice, and so the descriptive word the tile gave up is still
+   * drift somebody has to notice, and so the descriptive word the row gave up is still
    * carried somewhere the user meets it.
    */
   it('drops the word the card picker keeps, and leaves it in the description', () => {
