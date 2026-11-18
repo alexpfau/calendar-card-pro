@@ -186,6 +186,17 @@ export interface Config {
   description_icon_size: string;
 
   // Weather
+  /**
+   * The weather entity whose forecast every layout draws from, where its own `weather:` block
+   * shows one. Each layout is off until it does. Ignored while `weather` below names an entity.
+   */
+  weather_entity?: string;
+  /**
+   * Weather as written before v6: one block for every layout, with its entity. While it names
+   * an entity, List, Columns and Grid draw it as before, Month draws none, and the layouts'
+   * own `weather:` blocks and `weather_entity` are ignored (`readsWeatherAsBefore`). After
+   * resolving for a view (`resolveViewWeather`), it is that view's weather, entity included.
+   */
   weather?: WeatherConfig;
 
   // Actions
@@ -463,6 +474,13 @@ export interface SharedViewOverrides {
   week_separator_color?: string;
   month_separator_width?: string;
   month_separator_color?: string;
+
+  /**
+   * How this layout draws the forecast of `weather_entity`; without it, the layout draws none.
+   * Read by `resolveViewWeather`, never hoisted as the other keys are, and ignored while the
+   * top-level `weather` names an entity.
+   */
+  weather?: WeatherPresentationConfig;
 }
 
 /**
@@ -1075,13 +1093,22 @@ export interface ToolbarButtonConfig {
   tap_action?: ActionConfig;
 }
 
-/** Weather configuration. */
+/**
+ * Weather configuration: the top-level block as written before v6, and each view's weather
+ * once resolved, with the entity it draws from.
+ */
 export interface WeatherConfig {
   entity?: string;
   position?: 'none' | 'date' | 'event' | 'both';
   date?: WeatherPositionConfig;
   event?: WeatherPositionConfig;
 }
+
+/** Where a layout draws the weather: nowhere, beside each day, beside each event, or both. */
+export type WeatherPosition = NonNullable<WeatherConfig['position']>;
+
+/** How one layout draws the weather: a layout block's `weather:`, which names no entity. */
+export type WeatherPresentationConfig = Omit<WeatherConfig, 'entity'>;
 
 /** Raw weather forecast data from Home Assistant. */
 export interface WeatherForecast {

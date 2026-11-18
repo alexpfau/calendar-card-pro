@@ -971,7 +971,7 @@ of these, choose a layout they apply to under **Settings For**, without changing
 [Options for the Selected View](/features/editor#options-for-the-selected-view).
 
 The other detail-row options still shape timed blocks but never reach the all-day band:
-`show_progress_bar`, `weather.position: event`, per-calendar `label`, `label_type`,
+`show_progress_bar`, the grid's `weather → position: event`, per-calendar `label`, `label_type`,
 `label_icon_color` and the title and weather line limits. `show_time` reaches it only to decide
 whether a [timed banner](#long-timed-events-as-banners) draws its times.
 

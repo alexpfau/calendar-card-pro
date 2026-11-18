@@ -33,14 +33,15 @@ const NOT_OPTIONS_OF_A_VIEW = new Set(['config_version', 'view']);
 /**
  * Every option a view block ignores, from the code.
  *
- * @returns The card-wide `DEFAULT_CONFIG` keys
+ * @returns The card-wide `DEFAULT_CONFIG` keys, and the fetch-time keys, which are card-wide by
+ *   definition whether or not they ship a default (`weather_entity` ships none)
  */
 function cardWideOptions(): Set<string> {
   const blocks = Object.values(VIEW_BLOCKS);
   const hoisted = new Set(blocks.flatMap((block) => [...(block?.overrideKeys ?? [])]));
   const blockKeys = new Set<string>(blocks.map((block) => String(block?.blockKey)));
   return new Set(
-    Object.keys(DEFAULT_CONFIG).filter(
+    [...Object.keys(DEFAULT_CONFIG), ...FETCH_TIME_KEYS].filter(
       (key) => !hoisted.has(key) && !blockKeys.has(key) && !NOT_OPTIONS_OF_A_VIEW.has(key),
     ),
   );

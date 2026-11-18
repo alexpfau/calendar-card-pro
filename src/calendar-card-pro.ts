@@ -695,6 +695,11 @@ class CalendarCardPro extends LitElement {
    */
   private _weatherSetupVersion = 0;
   private _weatherSetupPending = false;
+  /** What the weather subscriptions were last set up for (`_weatherPlan`). */
+  private _weatherPlanned: { entity: string | undefined; types: Array<'daily' | 'hourly'> } = {
+    entity: undefined,
+    types: [],
+  };
   /**
    * Subscription that keeps `renderedTitle` in step with a templated `title`.
    */
@@ -2338,12 +2343,15 @@ class CalendarCardPro extends LitElement {
     view: Types.EffectiveView,
     now: Date = new Date(),
   ): Types.Config {
-    const resolved = ViewConfig.resolveEffectiveConfig(this._configForPage(page), view);
+    const config = this._configForPage(page);
+    const resolved = ViewConfig.resolveEffectiveConfig(config, view);
     if (view !== 'month') return resolved;
     return {
       ...resolved,
       start_date: Paging.pageKey(this._monthRowsStart(page, now)),
       days_to_show: ViewConfig.MONTH_DAYS,
+      // Month draws none of the weather written before v6.
+      weather: ViewConfig.drawnViewWeather(config, 'month'),
     };
   }
 
@@ -4999,13 +5007,16 @@ class CalendarCardPro extends LitElement {
       this.updateEvents('cache');
     }
 
-    const prevConfig = changedProps.get('config') as Types.Config | undefined;
-    const weatherEntityChanged =
-      changedProps.has('config') && this.config?.weather?.entity !== prevConfig?.weather?.entity;
+    // The entity and the forecasts every view the card can show needs, together: a layout
+    // switch, a narrow screen's list and paging change neither, so none of them subscribes again.
+    const weatherPlan =
+      changedProps.has('config') || changedProps.has('preview')
+        ? this._weatherPlan()
+        : this._weatherPlanned;
+    const weatherEntityChanged = weatherPlan.entity !== this._weatherPlanned.entity;
     const weatherConfigChanged =
-      weatherEntityChanged ||
-      (changedProps.has('config') &&
-        this.config?.weather?.position !== prevConfig?.weather?.position);
+      weatherEntityChanged || weatherPlan.types.join() !== this._weatherPlanned.types.join();
+    this._weatherPlanned = weatherPlan;
 
     // The forecast we are holding belongs to the entity we are leaving. Tearing down its
     // subscription does not remove the data, so without this the old entity's forecast is
@@ -5028,7 +5039,7 @@ class CalendarCardPro extends LitElement {
       this._scheduleWeatherSetup();
     }
 
-    if (this.config?.weather?.entity) {
+    if (weatherPlan.types.length > 0) {
       WeatherI18n.ensureConditionTranslations(this.hass, this.config.language, () =>
         this.requestUpdate(),
       );
@@ -5799,6 +5810,22 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * The weather entity and the forecasts the card subscribes to (`weatherForecastTypes`): every
+   * view it can show, or every view in the editor's preview, which draws the layout being edited
+   * on this one card (`ScopePreview`). A dashboard in edit mode draws `view`, which is reachable.
+   *
+   * @returns The entity, and the forecast types; none without an entity or a configuration
+   */
+  private _weatherPlan(): { entity: string | undefined; types: Array<'daily' | 'hourly'> } {
+    if (!this.config) return { entity: undefined, types: [] };
+    const entity = Weather.weatherEntityOf(this.config);
+    return {
+      entity,
+      types: entity === undefined ? [] : ViewConfig.weatherForecastTypes(this.config, this.preview),
+    };
+  }
+
+  /**
    * Set up weather forecast subscriptions
    */
   private async _setupWeatherSubscriptions(): Promise<void> {
@@ -5806,11 +5833,10 @@ class CalendarCardPro extends LitElement {
 
     this._cleanupWeatherSubscriptions();
 
-    if (!this.config?.weather?.entity || !this.hass) {
+    const { entity, types: forecastTypes } = this._weatherPlan();
+    if (!entity || !this.hass) {
       return;
     }
-
-    const forecastTypes = Weather.getRequiredForecastTypes(this.config.weather);
 
     for (const type of forecastTypes) {
       if (this._weatherSetupVersion !== version) {

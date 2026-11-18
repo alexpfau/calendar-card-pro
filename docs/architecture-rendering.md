@@ -72,7 +72,10 @@ What a row shows is resolved on the display copy, one module per step; `_source`
   `YEAR=` marker into an age; `format.ts` formats dates, times and locations; `links.ts` returns
   text and link pieces, never markup, and links only `http` and `https`.
 - **Weather.** `weather.ts` matches forecasts to events; `weather-i18n.ts` words conditions in the
-  card's language, not the user's.
+  card's language, not the user's. Each view's weather is resolved with the rest of its
+  configuration (`resolveViewWeather` in `config/view.ts`), so a renderer reads `config.weather`
+  and draws per layout without knowing it; the card subscribes once to every forecast the views
+  it can show need (`weatherForecastTypes`), so switching views never subscribes again.
 
 ## 🧩 Stable DOM & Accessibility
 

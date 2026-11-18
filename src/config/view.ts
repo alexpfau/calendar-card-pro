@@ -9,7 +9,9 @@ import {
   FOLDED_OPTIONS,
   coercePixelLength,
   coercePixelLengthAgainst,
+  mergeConfig,
   normalizeEntities,
+  normalizeLengthOptions,
   normalizeNumericOptions,
   switcherOffers,
   toFontWeightCss,
@@ -25,8 +27,15 @@ import { HA_CARD_KEYS } from './constants';
 import * as Types from './types';
 import { VIEWS } from './views';
 import * as EntityColors from '../utils/entity-colors';
+import * as Helpers from '../utils/helpers';
 import * as Logger from '../utils/logger';
 import { addDays, calendarDayDiff, getTimeWindow, localDateKey } from '../utils/start-date';
+import {
+  getRequiredForecastTypes,
+  monthWeatherPosition,
+  readsWeatherAsBefore,
+  weatherEntityOf,
+} from '../utils/weather-position';
 
 export { VIEWS };
 
@@ -369,7 +378,10 @@ type UnclassifiedKeys<
   Overrides,
   OverrideKeys extends readonly PropertyKey[],
   OnlyKeys extends readonly PropertyKey[],
-> = Exclude<keyof Overrides, OverrideKeys[number] | OnlyKeys[number]>;
+> = Exclude<
+  keyof Overrides,
+  OverrideKeys[number] | OnlyKeys[number] | (typeof RESOLVED_BLOCK_KEYS)[number]
+>;
 
 /** Hoisted keys lacking the top-level counterpart hoisting assumes. */
 type OverrideKeysWithoutCounterpart<
@@ -430,6 +442,17 @@ export type _AssertMonthOnlyKeysHaveNoCounterpart = AssertNever<
 export type _AssertMonthIgnoresWhatItsTypeOmits = AssertNever<
   Exclude<Types.MonthIgnoredSharedKeys, (typeof MONTH_IGNORED_SHARED_KEYS)[number]>
 >;
+
+/**
+ * Keys every view block holds that are neither hoisted onto the effective configuration nor
+ * view-only: `weather`, which a view's block holds whole and `resolveViewWeather` resolves into
+ * the view's `weather`, with the card's entity.
+ *
+ * Kept out of the override arrays on purpose. Hoisting would lay a block's raw `weather:` over
+ * the top-level one, entity and all, and the editor routes every override key into the block
+ * (`routeForKey`), which would send its writes of the top-level `weather:` there too.
+ */
+export const RESOLVED_BLOCK_KEYS = ['weather'] as const;
 
 export const VIEWS_WITH_WIDTH_FALLBACK: ReadonlySet<Types.EffectiveView> =
   new Set<Types.EffectiveView>(['column', 'grid']);
@@ -692,11 +715,17 @@ export function entityScopeFor(key: string): ReadonlySet<Types.EffectiveView> | 
 // removal direction only: adding an eighth key here and to `COLUMN_OVERRIDE_KEYS` left a
 // literal list of seven unchanged and nothing failed, so the override was accepted, stored,
 // and then ignored at fetch time — a no-op wearing the costume of a feature.
+//
+// `weather` here is the top-level block written before v6, and `weather_entity` the entity
+// every layout draws from: each decides the forecast subscription, which is shared by every
+// view. A view block's own `weather:` is per view (`RESOLVED_BLOCK_KEYS`), and the forecasts it
+// needs are subscribed for every view the card can show at once (`weatherForecastTypes`).
 export const FETCH_TIME_KEYS: ReadonlySet<string> = new Set([
   'entities',
   'start_date',
   'first_day_of_week',
   'weather',
+  'weather_entity',
   'refresh_interval',
   'refresh_on_navigate',
 ]);
@@ -2179,6 +2208,10 @@ export function resolveViewOption<K extends keyof Types.ColumnOverrides & keyof 
   key: K,
   effectiveView: Types.EffectiveView,
 ): Types.Config[K] {
+  if (key === 'weather') {
+    return resolveViewWeather(config, effectiveView) as Types.Config[K];
+  }
+
   const block = VIEW_BLOCKS[effectiveView];
 
   if (!block) {
@@ -2242,6 +2275,10 @@ export function resolveEffectiveConfig(
     }
   }
 
+  // Only where it differs, so a card whose weather every view reads alike keeps its identity.
+  const weather = resolveViewWeather(config, effectiveView);
+  if (weather !== config.weather) applied.weather = weather;
+
   // Identity on the no-op path. List's block has no divergent defaults, so an unpopulated
   // `list:` leaves nothing to apply — and the card memoizes on configuration identity and
   // hands the result to caches that compare by reference. A fresh equal object would still
@@ -2249,6 +2286,150 @@ export function resolveEffectiveConfig(
   return Object.keys(applied).length === 0
     ? config
     : normalizeNumericOptions({ ...config, ...applied } as Types.Config);
+}
+
+//-----------------------------------------------------------------------------
+// WEATHER
+//-----------------------------------------------------------------------------
+
+/** The weather a view's block starts from: off, with the shipped details of each part. */
+const LAYOUT_WEATHER_BASE: Readonly<Types.WeatherPresentationConfig> = {
+  date: DEFAULT_CONFIG.weather?.date,
+  event: DEFAULT_CONFIG.weather?.event,
+  position: 'none',
+};
+
+/** The last answers of {@link resolveViewWeather}, by configuration, then by view. */
+const viewWeathers = new WeakMap<
+  object,
+  Map<string, { inputs: readonly unknown[]; weather: Types.WeatherConfig }>
+>();
+
+/**
+ * A view's weather, with the entity it draws from: the one `weather` every renderer reads off the
+ * configuration resolved for that view (`resolveEffectiveConfig`).
+ *
+ * - A card whose top-level `weather:` names an entity holds its weather as written before v6
+ *   (`readsWeatherAsBefore`): every view keeps that block, the same object, as it always has, so
+ *   List, Columns and Grid draw it and the editor reads it as before. Month draws none of it,
+ *   which the card decides where it draws (`drawnViewWeather`). The views' own `weather:` blocks
+ *   and `weather_entity` are ignored (`validateWeather` says so).
+ * - Any other card draws from `weather_entity`, and each view as its own block's `weather:`
+ *   says, over every part's shipped details with the position `none`: a view without one draws
+ *   none. A block's `entity` is ignored, so the entity is the card's whatever a view says.
+ *   Month draws the forecast beside events only (`monthWeatherPosition`).
+ * - A card with no entity at all draws no weather in any view, and keeps its `weather` as is.
+ *
+ * A block's lengths are coerced and folded as the top-level block's are, under the same option
+ * paths (`weather.event.icon_size`), so a quoted number in a view's block works as it does at the
+ * top level. Remembered per configuration and view, so the same inputs give the same object.
+ *
+ * Takes the unresolved card configuration. A resolved one reads as weather written before v6,
+ * because its `weather` names the entity, so resolving it again changes nothing.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @param view - View drawing it
+ * @returns The view's weather, or the configuration's own `weather` where nothing differs
+ */
+export function resolveViewWeather(
+  config: Types.Config,
+  view: Types.EffectiveView,
+): Types.WeatherConfig | undefined {
+  if (readsWeatherAsBefore(config)) return config.weather;
+
+  const entity = weatherEntityOf(config);
+  if (entity === undefined) return config.weather;
+
+  const own = blockValues(config, view)?.weather;
+  return remembered(config, view, [config.weather, own, entity], () => {
+    const written: Record<string, unknown> = Helpers.isConfigBlock(own) ? { ...own } : {};
+    delete written.entity;
+    const presentation = mergeConfig(
+      LAYOUT_WEATHER_BASE as Record<string, unknown>,
+      written,
+    ) as Types.WeatherPresentationConfig;
+    // A blank or cleared position is none here, where the top-level block's meant `date`.
+    const positionWritten = presentation.position as unknown;
+    const stated =
+      typeof positionWritten === 'string' && positionWritten !== ''
+        ? presentation.position
+        : 'none';
+    const position = view === 'month' ? monthWeatherPosition(stated) : stated;
+    return normalizeLengthOptions({
+      weather: { ...presentation, position, entity },
+    } as Types.Config).weather as Types.WeatherConfig;
+  });
+}
+
+/**
+ * The weather a view draws: its own (`resolveViewWeather`), except Month's from weather written
+ * before v6, which is none. Month never drew that block, and a card converted from it starts with
+ * Month off, so the two agree.
+ *
+ * Decided here rather than in `resolveEffectiveConfig`, which the editor reads to show what each
+ * layout's settings hold: its weather pages edit that block as one, for every layout.
+ *
+ * @param config - Merged configuration, defaults already applied, never resolved for a view
+ * @param view - View drawing it
+ * @returns The weather the view draws
+ */
+export function drawnViewWeather(
+  config: Types.Config,
+  view: Types.EffectiveView,
+): Types.WeatherConfig | undefined {
+  const weather = resolveViewWeather(config, view);
+  if (view !== 'month' || !readsWeatherAsBefore(config)) return weather;
+  return remembered(config, 'month-drawn', [weather], () => ({ ...weather, position: 'none' }));
+}
+
+/**
+ * A weather resolved once per configuration and key, again only where an input has changed.
+ *
+ * @param config - The configuration it belongs to
+ * @param key - A view, or another name for a second answer per configuration
+ * @param inputs - What it was resolved from, compared by identity
+ * @param resolve - Resolves it
+ * @returns The same object for the same inputs
+ */
+function remembered(
+  config: Types.Config,
+  key: string,
+  inputs: readonly unknown[],
+  resolve: () => Types.WeatherConfig,
+): Types.WeatherConfig {
+  const known = viewWeathers.get(config)?.get(key);
+  if (known && known.inputs.every((input, index) => input === inputs[index])) {
+    return known.weather;
+  }
+  const weather = resolve();
+  const byKey = viewWeathers.get(config) ?? new Map();
+  byKey.set(key, { inputs, weather });
+  viewWeathers.set(config, byKey);
+  return weather;
+}
+
+/**
+ * The forecasts the card subscribes to: every one a view it can show needs, together, so
+ * switching views, falling back to the list on a narrow screen and paging never subscribe again.
+ * The same idea as `loadedDaysToShow`, which loads every view's days at once.
+ *
+ * The views are the ones the card can show (`reachableViews`), or every view in the editor's
+ * preview, which draws the layout being edited in place of the one the card opens in
+ * (`ScopePreview`), on the same card, and must not subscribe again for each.
+ *
+ * @param config - Merged configuration, defaults already applied, never resolved for a view
+ * @param everyView - Whether to count every view rather than the reachable ones
+ * @returns The forecast types, daily first; empty for none
+ */
+export function weatherForecastTypes(
+  config: Types.Config,
+  everyView = false,
+): Array<'daily' | 'hourly'> {
+  const views = everyView ? VIEWS : reachableViews(config);
+  const types = new Set(
+    views.flatMap((view) => getRequiredForecastTypes(drawnViewWeather(config, view))),
+  );
+  return (['daily', 'hourly'] as const).filter((type) => types.has(type));
 }
 
 //-----------------------------------------------------------------------------
@@ -2304,6 +2485,87 @@ export function validateColumnOverrides(config: Types.Config): void {
   for (const view of Object.keys(VIEW_BLOCKS) as Types.EffectiveView[]) {
     validateViewOverrides(config, view);
   }
+  validateWeather(config);
+}
+
+/**
+ * Reports weather options the card ignores where they are written, and unusable lengths in a
+ * view's own `weather:`. A view block's `weather:` beside a top-level block that names an entity
+ * is reported with the other misplaced options (`misplacedInBlock`).
+ *
+ * @param config - Merged configuration to inspect
+ */
+export function validateWeather(config: Types.Config): void {
+  const raw = config as unknown as Record<string, unknown>;
+
+  if (readsWeatherAsBefore(config)) {
+    if (raw.weather_entity !== undefined) {
+      Logger.warn(
+        'Ignoring "weather_entity": the top-level "weather:" names an entity, so it is the ' +
+          "weather as written before v6 and decides every layout's. Remove its entity to use " +
+          '"weather_entity" and each layout\'s own "weather:".',
+      );
+    }
+    return;
+  }
+
+  if (
+    weatherEntityOf(config) !== undefined &&
+    Helpers.isConfigBlock(config.weather) &&
+    !deepEqualPlain(config.weather, DEFAULT_CONFIG.weather)
+  ) {
+    Logger.warn(
+      'Ignoring the top-level "weather:" options: without an entity of its own it no longer ' +
+        'sets the weather. Set it in each layout\'s "weather:" instead.',
+    );
+  }
+
+  for (const block of Object.values(VIEW_BLOCKS)) {
+    const values = config[block.blockKey];
+    if (!Helpers.isConfigBlock(values)) continue;
+    const weather = (values as Record<string, unknown>).weather;
+    const where = `${block.blockKey}.weather`;
+    if (weather === undefined || weather === null) continue;
+    if (!Helpers.isConfigBlock(weather)) {
+      Logger.warn(`Ignoring "${where}": expected an object of weather options.`);
+      continue;
+    }
+    if (Helpers.hasOwn(weather, 'entity')) {
+      Logger.warn(
+        `Ignoring "${where}.entity": every layout draws from one weather entity. ` +
+          'Set it as "weather_entity" at the top level.',
+      );
+    }
+    for (const key of FOLDED_OPTIONS) {
+      if (!key.startsWith('weather.')) continue;
+      const value = key
+        .slice('weather.'.length)
+        .split('.')
+        .reduce<unknown>(
+          (level, step) =>
+            Helpers.isConfigBlock(level) ? (level as Record<string, unknown>)[step] : undefined,
+          weather,
+        );
+      if (value !== undefined) validateFoldedLength(key, value, `${block.blockKey}.${key}`);
+    }
+  }
+}
+
+/**
+ * Whether two plain values are equal, key by key; enough for comparing a merged block with its
+ * defaults.
+ *
+ * @param a - One value
+ * @param b - The other
+ * @returns Whether they hold the same values
+ */
+function deepEqualPlain(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (!Helpers.isConfigBlock(a) || !Helpers.isConfigBlock(b)) return false;
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+  return [...keys].every((key) => deepEqualPlain(left[key], right[key]));
 }
 
 /**
@@ -2466,6 +2728,10 @@ function misplacedInBlock(config: Record<string, unknown>, block: ViewBlock): Mi
 
   for (const key of Object.keys(values)) {
     if (ownKeys.has(key)) continue;
+    // A view's own weather, unless the top-level block written before v6 decides every view's.
+    if (key === 'weather' && !readsWeatherAsBefore(config as Pick<Types.Config, 'weather'>)) {
+      continue;
+    }
 
     // Ownership before the top level: a List-only option such as `compact_events_to_show` is a
     // top-level key too, but at the top level it still reaches List alone, so `list:` is where
@@ -2543,6 +2809,14 @@ function warnAboutMisplacedOption(finding: MisplacedOption): void {
 
   switch (finding.kind) {
     case 'fetch-time':
+      if (key === 'weather') {
+        Logger.warn(
+          `Ignoring "${where}": the top-level "weather:" names an entity, so it is the weather ` +
+            `as written before v6 and decides every layout's. To set weather per layout, move ` +
+            `its entity to "weather_entity" and its other options into each layout's "weather:".`,
+        );
+        return;
+      }
       Logger.warn(
         `Ignoring "${where}": it determines which events are loaded from Home Assistant, ` +
           `so it cannot differ between views — switching views would have to refetch. ` +

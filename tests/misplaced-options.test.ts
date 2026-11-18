@@ -63,8 +63,10 @@ describe('findMisplacedOptions', () => {
       findMisplacedOptions({
         min_day_width: '120px',
         hour_height: '40px',
+        // Weather as written before v6, which decides every layout's, so a layout's is ignored.
+        weather: { entity: 'weather.home' },
         list: { toolbar: { show: true }, start_time: '07:00', shwo_location: true },
-        column: { weather: { entity: 'weather.home' }, min_day_width: '100px' },
+        column: { weather: { position: 'event' }, min_day_width: '100px' },
         time_grid: { event_tap_action: { action: 'details' }, compact_events_to_show: 2 },
       }),
     ).toEqual([
@@ -77,6 +79,24 @@ describe('findMisplacedOptions', () => {
       { kind: 'fetch-time', key: 'weather', from: 'column', to: [null] },
       { kind: 'card-wide', key: 'event_tap_action', from: 'time_grid', to: [null] },
       { kind: 'wrong-view', key: 'compact_events_to_show', from: 'time_grid', to: ['list'] },
+    ]);
+  });
+
+  it('leaves a layout’s weather alone where the card sets weather per layout', () => {
+    expect(
+      findMisplacedOptions({
+        weather_entity: 'weather.home',
+        column: { weather: { position: 'event' } },
+        month: { weather: { position: 'event' } },
+      }),
+    ).toEqual([]);
+    // A top-level block without an entity drew nothing before v6, so it decides nothing.
+    expect(findMisplacedOptions({ weather: { position: 'both' }, list: { weather: {} } })).toEqual(
+      [],
+    );
+    // `weather_entity` is the card's, like the block written before v6.
+    expect(findMisplacedOptions({ list: { weather_entity: 'weather.home' } })).toEqual([
+      { kind: 'fetch-time', key: 'weather_entity', from: 'list', to: [null] },
     ]);
   });
 
@@ -181,6 +201,7 @@ describe('the card warns from the same findings', () => {
       ...DEFAULT_CONFIG,
       list: { toolbar: { show: true } },
       column: { shwo_location: true },
+      weather: { entity: 'weather.home' },
       time_grid: { weather: {} },
     } as unknown as Types.Config;
 
