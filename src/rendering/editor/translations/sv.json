@@ -680,6 +680,7 @@
   "view_default.column.split_multiday_events": "Kolumnlayouten delar upp flerdagshändelser oavsett vad det här står på, så att varje dag som en händelse sträcker sig över visar den. Lägg till ett undantag nedan för att ändra det.",
   "view_default.month.show_past_events": "Månadslayouten visar passerade händelser, nedtonade, oavsett vad det här står på, så att dess passerade dagar inte blir tomma. Ändra det i månadens egna inställningar.",
   "view_default.month.event_gap": "Månadslayouten håller isär händelserna i en dags lista, oavsett vad det här står på, så att var och en blir ett eget block. Ändra det i månadens egna inställningar.",
+  "view_default.month.day_font_size": "Månadslayouten visar dagnumren i 14px, oavsett vad det här står på, så att vart och ett får plats i hörnet av sin dag. Ändra det i månadens egna inställningar.",
   "days_to_show": "Dagar att visa",
   "days_to_show.aliases": "antal dagar, dagar framåt, veckor framåt, kommande veckor, datumintervall, period",
   "days_to_show.helper": "Varje layout kan ha ett eget antal. Kortet läser in det längsta en gång, så ett byte av layout läser aldrig in på nytt.",

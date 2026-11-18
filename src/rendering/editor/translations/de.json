@@ -681,6 +681,7 @@
   "view_default.column.split_multiday_events": "Das Spaltenlayout teilt mehrtägige Termine unabhängig von dieser Einstellung auf, damit jeder Tag, den ein Termin abdeckt, ihn auch zeigt. Füge unten eine Ausnahme hinzu, um das zu ändern.",
   "view_default.month.show_past_events": "Das Monatslayout zeigt vergangene Termine unabhängig von dieser Einstellung abgeblendet, damit seine vergangenen Tage nicht leer bleiben. Ändere das in den eigenen Einstellungen des Monats.",
   "view_default.month.event_gap": "Das Monatslayout setzt die Termine einer Tagesliste unabhängig von dieser Einstellung voneinander ab, damit jeder als eigener Block erscheint. Ändere das in den eigenen Einstellungen des Monats.",
+  "view_default.month.day_font_size": "Das Monatslayout setzt die Tagesnummern unabhängig von dieser Einstellung in 14px, damit jede in die Ecke ihres Tages passt. Ändere das in den eigenen Einstellungen des Monats.",
   "days_to_show": "Angezeigte Tage",
   "days_to_show.aliases": "Anzahl Tage, Zeitraum, Tage im Voraus, Wochen im Voraus, kommende Wochen, Datumsbereich",
   "days_to_show.helper": "Jedes Layout kann eine eigene Anzahl haben. Die Karte lädt die längste einmal, daher lädt ein Wechsel des Layouts nie nach.",

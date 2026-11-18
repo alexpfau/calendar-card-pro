@@ -15,6 +15,7 @@ import {
   toFontWeightCss,
   toValidCardHeight,
   toValidCardMaxHeight,
+  toValidFontSize,
   toValidNumber,
   toValidPercentage,
   validateFoldedLength,
@@ -249,7 +250,7 @@ export const LIST_ONLY_KEYS = [] as const;
  *   List splitter's switch nor the multi-day all-day time row decides anything.
  * - It rules its days with hairlines of its own and lists one day at a time, so the spacing and
  *   the rules between days, weeks and months have nothing to separate.
- * - It sets its dates in the event font, unscaled, with today's indicator drawn only as the tile,
+ * - It sets its dates at one scale on every day, with today's indicator drawn only as the tile,
  *   and its week numbers as plain text without a background.
  * - Its day list always puts each row's time beside its title (`MonthDay.monthRowsConfig`).
  */
@@ -271,8 +272,6 @@ export const MONTH_IGNORED_SHARED_KEYS = [
   'month_separator_width',
   'month_separator_color',
   'week_number_background_color',
-  'day_font_size',
-  'month_font_size',
   'today_date_scale',
   'past_date_scale',
   'today_indicator_size',
@@ -328,6 +327,8 @@ export const MONTH_ONLY_KEYS = [
   'week_scroll_min_width',
   'weekend_background_color',
   'today_background_color',
+  'cell_event_font_size',
+  'cell_time_font_size',
 ] as const;
 
 /**
@@ -447,8 +448,8 @@ export const VIEWS_WITH_WIDTH_FALLBACK: ReadonlySet<Types.EffectiveView> =
  * month's weeks. So an option a List row reads reaches Month too, unless it shapes the list as a
  * whole, and the scopes below say so wherever they name List and not Month. What Month draws
  * around its events reads fewer: it sizes its card with its own heights, rules its days itself,
- * lists one day at a time and sets its dates in the event font, so the shared heights, the
- * spacing, the rules and the date sizes below leave it out.
+ * lists one day at a time and sets its dates at one scale on every day, so the shared heights,
+ * the spacing, the rules and the date scales below leave it out.
  */
 export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView>>> = {
   date_vertical_alignment: new Set<Types.EffectiveView>(['list']),
@@ -491,10 +492,9 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   // A month's week numbers are plain text, in a cell's corner or a compact form's gutter.
   week_number_background_color: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
 
-  // A month sets its dates in the event font, so a line and a date are measured in one font,
-  // at one scale on every day; the 1st's month rides in the date's size.
-  day_font_size: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
-  month_font_size: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  // A month sets its dates at one scale on every day, so the date line the card measures its
+  // capacity from is the same in every week. Its dates take day_font_size and the 1st's month
+  // month_font_size, as other layouts' do.
   today_date_scale: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
   past_date_scale: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
 
@@ -1131,6 +1131,11 @@ export function resolveTimeGridOption<K extends keyof typeof TIME_GRID_DEFAULTS>
  * The two tints are Grid's, read from {@link TIME_GRID_DEFAULTS} so the two layouts cannot ship
  * different ones: the weekend's a faint mix of the theme's text color, which darkens a light theme
  * and lightens a dark one, and today's `transparent`, off.
+ *
+ * `cell_event_font_size` and `cell_time_font_size` size what the wide month draws in its days, a
+ * line's or a bar's title and its time, a step under the list's 14px and 12px, since a day is a
+ * seventh of the card wide and holds its lines one under another. A day's list and the panel keep
+ * `event_font_size` and `time_font_size`.
  */
 export const MONTH_DEFAULTS = {
   card_height: 'auto',
@@ -1142,6 +1147,8 @@ export const MONTH_DEFAULTS = {
   week_scroll_min_width: 0,
   weekend_background_color: TIME_GRID_DEFAULTS.weekend_background_color,
   today_background_color: TIME_GRID_DEFAULTS.today_background_color,
+  cell_event_font_size: '13px',
+  cell_time_font_size: '11px',
 } as const;
 
 /**
@@ -1163,7 +1170,8 @@ type MonthOptionValue<K extends keyof typeof MONTH_DEFAULTS> =
  * well, and fold anything else that is not a length to them. `min_day_width` is a width above
  * zero, `week_scroll_min_width` any width from zero, which means no limit, and `day_list_events`
  * a whole number of events from zero, which means every event, a fraction rounded down. The two
- * tints take any string, as Grid's do ({@link normalizeTimeGridValue}).
+ * tints take any string, as Grid's do ({@link normalizeTimeGridValue}), and the two cell sizes any
+ * font size the card's own take.
  *
  * @param key - Option being resolved
  * @param value - Raw configured value
@@ -1190,6 +1198,11 @@ export function normalizeMonthValue(
       : parsed > 0
         ? parsed
         : fallback;
+  }
+
+  // Font sizes, judged as the card's own are, and folded to the block's default.
+  if (key === 'cell_event_font_size' || key === 'cell_time_font_size') {
+    return toValidFontSize(value) ?? fallback;
   }
 
   // Colors, not lengths, for the reason Grid's normalizer gives: the pixel coercion below infers
@@ -1897,10 +1910,14 @@ export const TIME_GRID_DEFAULT_OVERRIDES: {
  * draws its events. A list card keeps List's 0px, which joins a day's events into one block
  * beside its date; a month's list holds one day under its name, with nothing beside it to join
  * against, so its events read better apart.
+ *
+ * `day_font_size` is 14px: a day's number sits in its cell's corner over the lines, at the size
+ * of the list's titles rather than the 26px a list's date column holds alone.
  */
 export const MONTH_DEFAULT_OVERRIDES: {
   readonly [K in keyof Types.MonthOverrides & keyof Types.Config]?: Types.Config[K];
 } = {
+  day_font_size: '14px',
   event_gap: '6px',
   show_past_events: true,
 };

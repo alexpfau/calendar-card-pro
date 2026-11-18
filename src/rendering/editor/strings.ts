@@ -1077,6 +1077,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'view_default.month.event_gap':
     'Month layout keeps the events of a day’s list apart whatever this is set to, so that ' +
     'each reads as a block of its own. Change it in Month’s own settings.',
+  'view_default.month.day_font_size':
+    'Month layout sets its day numbers at 14px whatever this is set to, so that each fits ' +
+    'its day’s corner. Change it in Month’s own settings.',
 
   // --- Time Range & Content -------------------------------------------------
   days_to_show: 'Days To Show',

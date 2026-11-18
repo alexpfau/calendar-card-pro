@@ -1342,7 +1342,7 @@ column:
 
 A block names what you want that layout to use explicitly. The example above shows
 locations in List, Column and Month, where Grid's own default hides them, and the event font
-sizes are **14px in List and Month, 11px in Column, and 12px in Grid**: Grid's own typography
+sizes are **14px in List and in Month's day list, 11px in Column, and 12px in Grid**: Grid's own typography
 default takes precedence over the shared font size. Set `time_grid.event_font_size` as well if
 you want to change it there.
 See the [Column defaults](/features/column-view#options-that-start-from-a-different-default),

@@ -817,7 +817,9 @@ export const LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set(
  * stylesheet, which no font size feeds.
  *
  * Entries are option paths, as in the icon-size table, so the two weather `font_size`
- * options are named by where they live.
+ * options are named by where they live. The last two live in the `month:` block only and are
+ * named bare, as its other options are; the top-level check skips them and the block's reports
+ * them, with the block's default.
  */
 export const FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set([
   'title_font_size',
@@ -832,6 +834,8 @@ export const FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new S
   'description_font_size',
   'weather.date.font_size',
   'weather.event.font_size',
+  'cell_event_font_size',
+  'cell_time_font_size',
 ]);
 
 /**
@@ -1312,6 +1316,8 @@ export function validateFoldedLength(
 export function validateFoldedLengths(config: Types.Config): void {
   for (const key of FOLDED_OPTIONS) {
     if (CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)) continue;
+    // A view block's own option, which the top level does not hold.
+    if (!Helpers.hasOwn(DEFAULT_CONFIG, key.split('.')[0])) continue;
     validateFoldedLength(key, valueAtPath(config, key));
   }
 }

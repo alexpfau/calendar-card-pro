@@ -678,6 +678,7 @@
   "view_default.column.split_multiday_events": "Układ kolumnowy dzieli wydarzenia wielodniowe niezależnie od tego ustawienia, aby każdy dzień objęty wydarzeniem je pokazywał. Dodaj poniżej wyjątek, aby to zmienić.",
   "view_default.month.show_past_events": "Układ miesiąca pokazuje minione wydarzenia, przygaszone, niezależnie od tego ustawienia, aby jego minione dni nie zostały puste. Zmień to w ustawieniach samego miesiąca.",
   "view_default.month.event_gap": "Układ miesiąca oddziela od siebie wydarzenia na liście dnia, niezależnie od tego ustawienia, aby każde było osobnym blokiem. Zmień to w ustawieniach samego miesiąca.",
+  "view_default.month.day_font_size": "Układ miesiąca pokazuje numery dni w rozmiarze 14px, niezależnie od tego ustawienia, aby każdy mieścił się w rogu swojego dnia. Zmień to w ustawieniach samego miesiąca.",
   "days_to_show": "Dni do wyświetlenia",
   "days_to_show.aliases": "liczba dni, dni do przodu, tygodnie do przodu, kolejne tygodnie, zakres dat, okres",
   "days_to_show.helper": "Każdy układ może mieć własną liczbę. Karta wczytuje najdłuższy zakres raz, więc przełączenie układu nigdy nie wczytuje danych ponownie.",

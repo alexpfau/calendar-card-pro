@@ -932,9 +932,7 @@ describe('editor: applicability', () => {
       month_separator_color: ['column', 'grid', 'list'],
       // A month's week numbers are plain text, with no background.
       week_number_background_color: ['column', 'grid', 'list'],
-      // A month sets its dates in the event font, unscaled.
-      day_font_size: ['column', 'grid', 'list'],
-      month_font_size: ['column', 'grid', 'list'],
+      // A month sets its dates at one scale on every day.
       today_date_scale: ['column', 'grid', 'list'],
       past_date_scale: ['column', 'grid', 'list'],
       // A month marks today with the tile and draws none of the indicators this sizes.

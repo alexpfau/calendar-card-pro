@@ -62,6 +62,10 @@ const CROSS_VIEW_ACKNOWLEDGEMENTS: Readonly<
   Record<string, Readonly<Record<string, Acknowledgement>>>
 > = {
   column: {
+    day_font_size: {
+      verdict: 'inherits',
+      why: 'A column header names its day above the events, alone on its row as a list date is, so the card-wide 26px reads there. Month diverges because its day number sits in a cell corner over the lines, at the size of their titles.',
+    },
     day_separator_color: {
       verdict: 'inherits',
       why: 'Column keeps horizontal rules between days, the same thing the option has always named, so the card-wide color still describes them. Grid diverges because its rules turned vertical and needed a rule gray rather than a text hue.',
@@ -120,6 +124,10 @@ const CROSS_VIEW_ACKNOWLEDGEMENTS: Readonly<
     },
   },
   grid: {
+    day_font_size: {
+      verdict: 'inherits',
+      why: 'A grid header names its day above its column, as a column header does, so the card-wide 26px reads there. Month diverges because its day number sits in a cell corner over the lines, at the size of their titles.',
+    },
     event_gap: {
       verdict: 'ignores',
       why: 'A grid block is placed by its time and kept apart by the grid layout itself, and nothing in grid reads the gap, so VIEW_SCOPE keeps it out; Month diverges for its day list alone.',
@@ -129,8 +137,8 @@ const CROSS_VIEW_ACKNOWLEDGEMENTS: Readonly<
       why: 'Deliberately absent from TIME_GRID_DEFAULT_OVERRIDES rather than defaulted off: a default in that table is overridable from the view block, so time_grid: { split_multiday_events: true } would imply the upstream list splitter could be switched back on. Grid answers never via multidaySplitPolicy and derives its own daily coverage before filtering.',
     },
   },
-  // Month diverges on `show_past_events`, and on `event_gap` for its day list, whose events read
-  // better apart under one day's name. Its lines paint on the card background with the
+  // Month diverges on `show_past_events`, on `event_gap` for its day list, whose events read
+  // better apart under one day's name, and on `day_font_size`, a number in a cell's corner. Its lines paint on the card background with the
   // card's ink, as a column row does. Its bars are Grid's banner, which takes Grid's tint and ink
   // where the card leaves event_background_opacity, event_color and time_color at their shipped
   // values (`barConfig` in `rendering/month.ts`), so none of the three needs a divergent default.
@@ -161,7 +169,7 @@ const CROSS_VIEW_ACKNOWLEDGEMENTS: Readonly<
     },
     event_font_size: {
       verdict: 'inherits',
-      why: 'A month line holds one title on one line, and the default card height holds four of them a week at the card-wide size. Grid drops to 12px for blocks that wrap their title in a seventh of the card.',
+      why: 'In a month it sizes the day list and the panel, whose rows are list rows, so the card-wide 14px reads as it does in list. The lines and bars in its days take cell_event_font_size, a block option of its own. Grid drops to 12px for blocks that wrap their title in a seventh of the card.',
     },
     location_color: {
       verdict: 'inherits',

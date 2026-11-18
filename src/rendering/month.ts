@@ -712,7 +712,7 @@ function renderMore(
  * @param week - The row
  * @param index - Its place among the six, from 0
  * @param headerMonth - The 1st of the month the header names
- * @param config - Card configuration, resolved for month
+ * @param config - Card configuration, resolved for month, in the cells' sizes ({@link cellConfig})
  * @param language - Card language
  * @param capacity - Lines under a date
  * @param hass - Home Assistant instance
@@ -880,6 +880,54 @@ function renderWeekdays(
   </div>`;
 }
 
+/** The configuration each configuration's cells are drawn with, so a render builds each once. */
+const cellConfigs = new WeakMap<Types.Config, Types.Config>();
+
+/**
+ * The configuration the wide month's lines and bars are drawn with: the card's, its event and time
+ * sizes replaced by the month's cell sizes (`cell_event_font_size`, `cell_time_font_size`). Drawn
+ * from it, an event's presentation and its `text_scale` start from the size its line is set in, so
+ * a line at 1.5 is one and a half times the cell's size rather than the list's.
+ *
+ * @param config - Card configuration, resolved for month
+ * @returns The configuration for the wide month's days
+ */
+export function cellConfig(config: Types.Config): Types.Config {
+  const known = cellConfigs.get(config);
+  if (known) return known;
+  const cells: Types.Config = {
+    ...config,
+    event_font_size: ViewConfig.resolveMonthOption(config, 'cell_event_font_size'),
+    time_font_size: ViewConfig.resolveMonthOption(config, 'cell_time_font_size'),
+  };
+  cellConfigs.set(config, cells);
+  return cells;
+}
+
+/** What each configuration's wide month writes on itself for its cells' sizes. */
+const cellStyles = new WeakMap<Types.Config, Readonly<Record<string, string>>>();
+
+/**
+ * The custom properties the wide month writes on itself over the card's: each the card writes
+ * differently for the cells' configuration ({@link cellConfig}), so every rule inside the weeks
+ * that reads the event or time size, and the room derived from them, takes the cell's, while the
+ * day's list and the panel, outside the month, keep the card's.
+ *
+ * @param config - Card configuration, resolved for month
+ * @returns The properties, by name
+ */
+function cellStyle(config: Types.Config): Readonly<Record<string, string>> {
+  const known = cellStyles.get(config);
+  if (known) return known;
+  const card = generateCustomPropertiesObject(config);
+  const cells = generateCustomPropertiesObject(cellConfig(config));
+  const style = Object.fromEntries(
+    Object.entries(cells).filter(([property, value]) => card[property] !== value),
+  );
+  cellStyles.set(config, style);
+  return style;
+}
+
 /**
  * The weekend's and today's tints as the month's custom properties, which a day's cell reads in
  * either form. Each is written only where it paints, so the stylesheet's transparent fallback is
@@ -941,17 +989,18 @@ export function renderMonthGroupedEvents(
     );
   }
   const weeks = monthWeeks(days, rowsStart, capacity);
+  const cells = cellConfig(config);
 
   // The weeks share the card's height, which the stylesheet hands them: the card writes no
-  // height here, and the floors it measures go onto this element's style beside the tints
-  // (`MONTH_FLOOR_PROPERTIES`), where no render binds them.
+  // height here, and the floors it measures go onto this element's style beside the tints and the
+  // cells' sizes (`MONTH_FLOOR_PROPERTIES`), where no render binds them.
   return html`
     <div
       class=${classMap({ 'month-container': true, 'week-scroll': options.weekScroll !== undefined })}
       role="grid"
       aria-label=${Paging.monthHeading(headerMonth, language)}
       @wheel=${options.weekScroll ?? nothing}
-      style=${styleMap(tintProperties(config))}
+      style=${styleMap({ ...tintProperties(config), ...cellStyle(config) })}
     >
       ${renderWeekdays(weeks[0].starts, config, language, hass)}
       ${weeks.map((week, index) =>
@@ -959,7 +1008,7 @@ export function renderMonthGroupedEvents(
           week,
           index,
           headerMonth,
-          config,
+          cells,
           language,
           capacity,
           hass,

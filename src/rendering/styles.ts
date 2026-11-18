@@ -7715,7 +7715,10 @@ export const cardStyles = css`
 
      Nothing here sets a font size. Each piece of text sets its own option once, as a list row's
      do, so a relative size is measured against the card's text and never against another
-     option's (tests/font-size-nesting.test.ts).
+     option's (tests/font-size-nesting.test.ts). The wide month writes the event and time sizes
+     again on itself, from cell_event_font_size and cell_time_font_size (cellConfig), so its
+     lines, bars and "+N more" read the cells' sizes while a day's list and the panel, outside
+     it, read the card's.
 
      The text of a line and of "+N more" starts 6px past the accent stripe's width, the stripe's
      3px inset and 3px clear of it, as a grid block's does; both read it from here. */
@@ -7736,7 +7739,7 @@ export const cardStyles = css`
 
   /* What the card measures the line capacity from (measureMonthCapacity), drawn nowhere: three
      empty boxes, each as tall as what it stands for, in the font that is set in. The date line is
-     the today tile's 1.2em with 4px above it and 2px below, in the event font the dates are set
+     the today tile's 1.2em with 4px above it and 2px below, in the day's size the dates are set
      in. A line is its 1.2em line box with 1px of padding and 1px of margin above and below, which
      a bar takes as well (Grid's banner pads 1px), and is as tall as the taller of its title and
      its time, so one box is set in each one's font and the card takes the taller. Boxes rather
@@ -7752,7 +7755,7 @@ export const cardStyles = css`
 
   .month-probe[data-probe='date'] {
     height: calc(1.2em + 6px);
-    font-size: var(--calendar-card-font-size-event);
+    font-size: var(--calendar-card-font-size-day);
   }
 
   .month-probe[data-probe='title'] {
@@ -7875,30 +7878,39 @@ export const cardStyles = css`
     border-inline-start: none;
   }
 
-  /* The date at the top inline end of its day, on the row's first line, in the event font. The
-     1st of a month carries its month, whose literal spaces and dots are kept: the parts are flex
-     items, which would otherwise lose a space standing on its own. A press goes through it to
-     the day beneath. */
+  /* The date at the top inline end of its day, on the row's first line. The 1st of a month
+     carries its month, whose literal spaces and dots are kept: the parts are flex items, which
+     would otherwise lose a space standing on its own. A press goes through it to the day beneath.
+
+     The number takes day_font_size and the month month_font_size, each on its own part, so
+     neither is measured against the other, as in a list's date column. The line itself sets no
+     size: its height is an empty strut's, the tile's 1.2em in the day's size, which is the date
+     line the card measures its capacity from. */
   .month-date {
     display: flex;
     grid-row: 1;
     align-items: center;
     justify-content: flex-end;
     min-width: 0;
-    height: 1.2em;
     padding: 4px 6px 2px;
-    font-size: var(--calendar-card-font-size-event);
     line-height: 1;
     white-space: nowrap;
     pointer-events: none;
   }
 
+  .month-date::before {
+    content: '';
+    height: 1.2em;
+    font-size: var(--calendar-card-font-size-day);
+  }
+
   .month-date > .day {
-    font-size: inherit;
+    font-size: var(--calendar-card-font-size-day);
     font-weight: 400;
   }
 
   .month-date-month {
+    font-size: var(--calendar-card-font-size-month);
     white-space: pre;
   }
 
@@ -7950,6 +7962,25 @@ export const cardStyles = css`
 
   .month-bar.continues-after {
     margin-inline-end: 0;
+  }
+
+  /* A bar's times and length are the time's, as a line's time is, and its title the event's.
+     So the timed and lasting banner, which in Grid sets the event size for its title and times
+     to inherit, sets none here, and each part reads its own: none is measured against another,
+     and the banner's container queries measure in the card's em. */
+  .month-bar.grid-banner-timed,
+  .month-bar.grid-banner-lasts {
+    font-size: inherit;
+  }
+
+  .month-bar.grid-banner-timed .grid-banner-title,
+  .month-bar.grid-banner-lasts .grid-banner-title {
+    font-size: var(--calendar-card-font-size-event);
+  }
+
+  .month-bar .grid-banner-time,
+  .month-bar .grid-banner-duration {
+    font-size: var(--calendar-card-font-size-time);
   }
 
   /* A timed event: Column's row trimmed to one line. Its accent bar, a short stripe with round
@@ -8157,9 +8188,13 @@ export const cardStyles = css`
   }
 
   .month-compact .month-date {
-    height: auto;
     padding: 0;
     justify-content: center;
+  }
+
+  /* A compact day's number box is taller than the date line, so it needs no strut. */
+  .month-compact .month-date::before {
+    content: none;
   }
 
   /* Every number sits in the same box, so today's tile and the selected day's mark draw

@@ -51,6 +51,15 @@ const FONT_SIZES = [
 
 type FontSize = (typeof FONT_SIZES)[number][0];
 
+/**
+ * The month's own font sizes, which live in its block alone and reach CSS through the event and
+ * time properties the wide month writes again on itself (`cellConfig` in `rendering/month.ts`).
+ */
+const MONTH_CELL_FONT_SIZES = [
+  ['cell_event_font_size', '--calendar-card-font-size-event'],
+  ['cell_time_font_size', '--calendar-card-font-size-time'],
+] as const;
+
 /** The ones a view block can override. The title and the weather pair are card-wide. */
 const OVERRIDABLE = FONT_SIZES.map(([path]) => path).filter(
   (path): path is Extract<FontSize, keyof Types.ColumnOverrides> =>
@@ -108,14 +117,18 @@ describe('the font-size table', () => {
   it('names every font-size option, and nothing else', () => {
     // Reconciled against the shipped defaults rather than only listed, so a font-size option
     // added later fails here instead of passing an unusable value through.
-    const fontSizes = optionPaths(Config.DEFAULT_CONFIG as unknown as Record<string, unknown>)
+    // A view block's own options are named bare, as its other options are.
+    const fontSizes = [
+      ...optionPaths(Config.DEFAULT_CONFIG as unknown as Record<string, unknown>),
+      ...View.MONTH_ONLY_KEYS,
+    ]
       .filter((path) => /(?:^|[._])font_size$/.test(path))
       .sort();
 
-    expect(fontSizes.length).toBeGreaterThanOrEqual(11);
+    expect(fontSizes.length).toBeGreaterThanOrEqual(13);
     expect([...Config.FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE].sort()).toEqual(fontSizes);
     expect([...Config.FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE]).toEqual(
-      FONT_SIZES.map(([path]) => path),
+      [...FONT_SIZES, ...MONTH_CELL_FONT_SIZES].map(([path]) => path),
     );
   });
 
@@ -352,8 +365,7 @@ describe('the folded value reaches the stylesheet by every path', () => {
   });
 
   describe.each(OVERRIDABLE)('%s inside a view block', (key) => {
-    // Every block that holds the option. Month draws its dates in the event font, so its block
-    // refuses the date sizes (`MONTH_IGNORED_SHARED_KEYS`), which the case after this pins.
+    // Every block that holds the option, Month's included.
     it.each(blocksHolding(key))('folds an override in the %s block', (view) => {
       const blockKey = View.OVERRIDE_BLOCK_BY_VIEW[view]!;
 
@@ -601,6 +613,28 @@ describe('a folded font size is reported', () => {
       warn.mockRestore();
     }
   });
+
+  it.each(MONTH_CELL_FONT_SIZES)(
+    'is reported for %s in the month block alone, with the block’s default',
+    (key) => {
+      const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+      const fallback = View.MONTH_DEFAULTS[key];
+
+      View.validateColumnOverrides(buildConfig({ month: { [key]: 'big' } }));
+      // Written at the top level it is no font size the card reads there, which the misplaced
+      // finding says; the fold check does not judge it a second time.
+      Config.validateFoldedLengths(buildConfig({ [key]: 'big' } as Partial<Types.Config>));
+
+      expect(warn.mock.calls.map(([message]) => String(message))).toEqual([
+        `Invalid month.${key} "big": expected a CSS font size such as "14px", "1.2em", "120%" ` +
+          `or "large". Falling back to "${fallback}".`,
+      ]);
+      expect(View.resolveMonthOption(buildConfig({ month: { [key]: 'big' } }), key)).toBe(fallback);
+      expect(View.resolveMonthOption(buildConfig({ month: { [key]: '1.1 rem' } }), key)).toBe(
+        '1.1rem',
+      );
+    },
+  );
 });
 
 /**
