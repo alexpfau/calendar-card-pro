@@ -744,7 +744,7 @@
   "toolbar.legend.option.chips.label": "Tlačidlá",
   "toolbar.size": "Veľkosť šípok a tlačidiel kalendárov",
   "toolbar.size.aliases": "dotyk, dotyková obrazovka, väčšie tlačidlá",
-  "toolbar.size.helper": "Možnosť „Veľká“ ich zväčší na veľkosť ostatných tlačidiel panela nástrojov, aby sa ľahšie ovládali na dotykovej obrazovke.",
+  "toolbar.size.helper": "Možnosť „Veľká“ ich zväčší, aby sa ľahšie ovládali na dotykovej obrazovke.",
   "toolbar.size.option.normal.label": "Malá",
   "toolbar.size.option.large.label": "Veľká",
   "toolbar.controls": "Ovládacie prvky",

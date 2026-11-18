@@ -1184,8 +1184,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // the editor's languages.
   'toolbar.size': 'Arrow & Chip Size',
   'toolbar.size.aliases': 'touch, bigger buttons, larger buttons',
-  'toolbar.size.helper':
-    'Large makes them as big as the toolbar’s other buttons, and easier to tap on a touch screen.',
+  'toolbar.size.helper': 'Large makes them bigger and easier to tap on a touch screen.',
   'toolbar.size.option.normal.label': 'Small',
   'toolbar.size.option.large.label': 'Large',
   // The toolbar's built-in controls, drawn as chips (D09): shorter than their fields' labels,

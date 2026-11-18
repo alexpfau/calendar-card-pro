@@ -746,7 +746,7 @@
   "toolbar.legend.option.chips.label": "Kalender-Chips",
   "toolbar.size": "Größe von Pfeilen und Kalender-Chips",
   "toolbar.size.aliases": "Touch, Touchscreen, größere Knöpfe, größere Schaltflächen",
-  "toolbar.size.helper": "Mit „Groß“ werden sie so groß wie die anderen Knöpfe der Symbolleiste und lassen sich auf einem Touchscreen leichter bedienen.",
+  "toolbar.size.helper": "Mit „Groß“ werden sie größer und lassen sich auf einem Touchscreen leichter bedienen.",
   "toolbar.size.option.normal.label": "Klein",
   "toolbar.size.option.large.label": "Groß",
   "toolbar.controls": "Bedienelemente",

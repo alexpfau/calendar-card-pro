@@ -701,8 +701,8 @@ nothing.
 ### Larger Arrows & Chips
 
 For a touch screen, `size: large` draws the arrows, the home button and the calendar chips beside
-the month as large as the buttons in the top row, so a finger finds them easily. Each answers a
-press 44px square.
+the month nearly as large as the buttons in the top row, so a finger finds them easily. They are
+spaced as those buttons are, and their icons are drawn with the same lines.
 
 ```yaml
 type: custom:calendar-card-pro

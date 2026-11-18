@@ -744,7 +744,7 @@
   "toolbar.legend.option.chips.label": "Pogas",
   "toolbar.size": "Bultiņu un kalendāru pogu izmērs",
   "toolbar.size.aliases": "skāriens, skārienekrāns, lielākas pogas",
-  "toolbar.size.helper": "Iestatījums „Liels“ palielina tās līdz pārējo rīkjoslas pogu izmēram, lai tās būtu ērtāk lietot skārienekrānā.",
+  "toolbar.size.helper": "Iestatījums „Liels“ tās palielina, lai tās būtu ērtāk lietot skārienekrānā.",
   "toolbar.size.option.normal.label": "Mazs",
   "toolbar.size.option.large.label": "Liels",
   "toolbar.controls": "Vadīklas",

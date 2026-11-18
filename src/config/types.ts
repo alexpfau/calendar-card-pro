@@ -879,8 +879,8 @@ export type ToolbarLegendMode = 'menu' | 'chips';
 
 /**
  * How large the toolbar draws the controls in the month's row, the date navigation and the
- * calendar chips: `normal`, smaller than the action row's buttons, or `large`, as large as they
- * are, for a touch screen.
+ * calendar chips: `normal`, or `large`, nearly as large as the action row's buttons, for a touch
+ * screen.
  */
 export type ToolbarSize = 'normal' | 'large';
 
@@ -925,8 +925,8 @@ export interface ToolbarConfig {
   legend?: false | ToolbarLegendMode;
   /**
    * How large the month's row draws the date navigation and the calendar chips: `normal`, or
-   * `large`, as large as the action row's buttons, each with a 44px square touch target. The
-   * action row is the same size either way.
+   * `large`, 32px, spaced and with icons as the action row's buttons are. The action row is the
+   * same size either way.
    */
   size?: ToolbarSize;
   /**

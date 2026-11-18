@@ -743,7 +743,7 @@
   "toolbar.legend.option.chips.label": "Mygtukai",
   "toolbar.size": "Rodyklių ir kalendorių mygtukų dydis",
   "toolbar.size.aliases": "lietimas, jutiklinis ekranas, didesni mygtukai",
-  "toolbar.size.helper": "Pasirinkus „Didelis“, jie tampa tokio pat dydžio kaip kiti įrankių juostos mygtukai, kad juos būtų patogiau naudoti jutikliniame ekrane.",
+  "toolbar.size.helper": "Pasirinkus „Didelis“, jie tampa didesni, kad juos būtų patogiau naudoti jutikliniame ekrane.",
   "toolbar.size.option.normal.label": "Mažas",
   "toolbar.size.option.large.label": "Didelis",
   "toolbar.controls": "Valdikliai",

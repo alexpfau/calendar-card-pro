@@ -41,8 +41,8 @@ it.
   never overlaps a neighbor's. The month is the exception: its target reaches only 2px up and 10px
   down, about 41px at the default title size, so the title keeps its line for the card's tap.
 - **Large controls.** `toolbar.size: large` puts `large-controls` on the heading row, which draws
-  the arrows, home and the chips 36px, as the action row's buttons, each reaching 4px every way to
-  a 44px square. Nothing reads the size but the stylesheet and the fit signatures, so the month's
+  the arrows, home and the chips 32px, with the action row's 8px gaps and 20px icons, each
+  reaching 4px across as the action row's do and 6px up and down to keep the 44px height. Nothing reads the size but the stylesheet and the fit signatures, so the month's
   form and the chips' fold are measured again after a change of size.
 - **The card stops being a button.** While the render draws a control or a tappable event
   (`_hostsControls`), `ha-card` drops `role="button"`, because a button may not contain another, and

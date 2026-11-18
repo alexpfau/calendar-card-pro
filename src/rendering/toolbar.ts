@@ -249,8 +249,8 @@ export interface HeaderToolbar {
    */
   labeled?: boolean;
   /**
-   * Whether the heading row draws its date navigation and chips as large as the action row's
-   * buttons (`toolbar.size: large`), for a touch screen. They are smaller otherwise.
+   * Whether the heading row draws its date navigation and chips nearly as large as the action
+   * row's buttons (`toolbar.size: large`), for a touch screen. They are smaller otherwise.
    */
   large?: boolean;
   /** The month heading, which the heading row carries whenever the toolbar is drawn. */

@@ -743,7 +743,7 @@
   "toolbar.legend.option.chips.label": "Przyciski",
   "toolbar.size": "Rozmiar strzałek i przycisków filtra",
   "toolbar.size.aliases": "dotyk, ekran dotykowy, większe przyciski",
-  "toolbar.size.helper": "Opcja „Duży” powiększa je do rozmiaru pozostałych przycisków paska narzędzi, z myślą o ekranie dotykowym.",
+  "toolbar.size.helper": "Opcja „Duży” powiększa je, by łatwiej było ich używać na ekranie dotykowym.",
   "toolbar.size.option.normal.label": "Mały",
   "toolbar.size.option.large.label": "Duży",
   "toolbar.controls": "Sterowanie",

@@ -746,7 +746,7 @@
   "toolbar.legend.option.chips.label": "Brikker",
   "toolbar.size": "Størrelse på piler og brikker",
   "toolbar.size.aliases": "berøring, berøringsskjerm, større knapper",
-  "toolbar.size.helper": "Med «Stor» blir de like store som de andre knappene på verktøylinjen og enklere å bruke på en berøringsskjerm.",
+  "toolbar.size.helper": "Med «Stor» blir de større og enklere å bruke på en berøringsskjerm.",
   "toolbar.size.option.normal.label": "Liten",
   "toolbar.size.option.large.label": "Stor",
   "toolbar.controls": "Kontroller",

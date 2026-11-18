@@ -573,7 +573,7 @@
   "toolbar.legend.option.chips.label": "칩",
   "toolbar.size": "화살표 및 칩 크기",
   "toolbar.size.aliases": "터치, 터치스크린, 큰 버튼",
-  "toolbar.size.helper": "‘크게’를 선택하면 도구 모음의 다른 버튼만큼 커져 터치스크린에서 누르기 쉽습니다.",
+  "toolbar.size.helper": "‘크게’를 선택하면 더 커져서 터치스크린에서 누르기 쉽습니다.",
   "toolbar.size.option.normal.label": "작게",
   "toolbar.size.option.large.label": "크게",
   "toolbar.controls": "컨트롤",

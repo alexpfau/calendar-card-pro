@@ -745,7 +745,7 @@
   "toolbar.legend.option.chips.label": "Brickor",
   "toolbar.size": "Storlek på pilar och brickor",
   "toolbar.size.aliases": "pekskärm, beröring, större knappar",
-  "toolbar.size.helper": "Med ”Stor” blir de lika stora som de andra knapparna i verktygsfältet och lättare att använda på en pekskärm.",
+  "toolbar.size.helper": "Med ”Stor” blir de större och lättare att använda på en pekskärm.",
   "toolbar.size.option.normal.label": "Liten",
   "toolbar.size.option.large.label": "Stor",
   "toolbar.controls": "Kontroller",
