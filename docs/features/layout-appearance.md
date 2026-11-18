@@ -25,7 +25,9 @@ The card offers two distinct height control mechanisms:
 
 In list and column views, both options scroll when content exceeds the available space.
 In grid view a fixed `height` compresses the time axis instead — see
-[Height in Grid View](#height-in-grid-view). `max_height` still scrolls in every view.
+[Height in Grid View](#height-in-grid-view). `max_height` still scrolls in every view but month
+view, which takes neither and sizes the whole card from its own block; see
+[How Tall the Month Is](/features/month-view#how-tall-the-month-is).
 
 Scrollbars are modern and clean, appearing only during hover or scrolling, and behave the
 same on desktop and mobile.

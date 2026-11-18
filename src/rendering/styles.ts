@@ -7683,11 +7683,30 @@ export const cardStyles = css`
     margin-inline-start: 0;
   }
 
-  /* The weekday names, then six week rows of one height each: row_height, which the renderer
-     writes as --calendar-card-month-row-height, or under a fixed card height an equal share of
-     what the names leave. A row's height never depends on its events, so the card stays one
-     height from page to page and the line capacity the card measures cannot move the rows it
-     was measured from.
+  /* A month is one height, which the card has before anything is drawn: a Sections dashboard's
+     slot, which ha-card fills, or the height the month: block asks for, which the card writes on
+     ha-card (monthCardStyle). The content area takes what the title, the toolbar and a notice
+     leave of it, so the shared height and max_height, which size the content area in the other
+     views, do nothing here. It scrolls only where the card is too short for the month's floors
+     below. */
+  .calendar-card-pro.month-view .content-container {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-height: 0;
+    height: auto;
+    max-height: none;
+  }
+
+  /* The weekday names, then six week rows sharing what the names leave of the content area, each
+     at least a date and one line under its rule, which the card measures from the probes below and
+     writes here as --calendar-card-month-week-min, and the month at least the names and six such
+     weeks, --calendar-card-month-min, both in the card's own pixels (measureMonthFloors). Until it
+     has, each is reckoned in the card's em. Never a bare 1fr and never a basis taken from the
+     content: either would let a week's lines size the week the line capacity is read from. So a
+     row's height never depends on its events, the card stays one height from page to page, and the
+     capacity the card measures cannot move the rows it was measured from. Below the floors the
+     content area scrolls, and no text shrinks.
 
      Nothing here sets a font size. Each piece of text sets its own option once, as a list row's
      do, so a relative size is measured against the card's text and never against another
@@ -7697,7 +7716,12 @@ export const cardStyles = css`
      3px inset and 3px clear of it, as a grid block's does; both read it from here. */
   .month-container {
     display: grid;
-    grid-template-rows: auto repeat(6, var(--calendar-card-month-row-height, 112px));
+    flex: 1 1 0;
+    min-height: var(--calendar-card-month-min, calc(6 * (2.4em + 11px) + 1.2em + 5px));
+    grid-template-rows: auto repeat(
+        6,
+        minmax(var(--calendar-card-month-week-min, calc(2.4em + 11px)), 1fr)
+      );
     position: relative;
     box-sizing: border-box;
     --calendar-card-month-rule: var(--divider-color, rgba(127, 127, 127, 0.25));
@@ -8081,11 +8105,14 @@ export const cardStyles = css`
    *
    * Below month -> min_day_width a day, as a phone's calendar draws its month: the weekday names
    * centered over their days, and each day its number with one capsule under it, a segment per
-   * event in its calendar's color, a single event a dot. Rows are as tall as their days, so
-   * row_height, the wide form's, does nothing here. Week numbers sit in a narrow gutter before
-   * the first day, UI.MONTH_WEEK_GUTTER wide, which the card counts when it decides the form.
-   * The day selected is listed under the weeks (.month-day-list). */
+   * event in its calendar's color, a single event a dot. Rows are as tall as their days, and the
+   * weeks as tall as their rows, whatever the card's height; the wide form's floors do nothing
+   * here. Week numbers sit in a narrow gutter before the first day, UI.MONTH_WEEK_GUTTER wide,
+   * which the card counts when it decides the form. The day selected is listed under the weeks
+   * (.month-day-list). */
   .month-container.month-compact {
+    flex: none;
+    min-height: 0;
     grid-template-rows: auto repeat(6, auto);
     --calendar-card-month-week-gutter: 22px;
   }

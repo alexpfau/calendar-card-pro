@@ -16,8 +16,8 @@ view: month
 
 In the [visual editor](/features/editor#the-overview), **Starting Layout** on the overview
 chooses the layout the card opens with. Select **Month** under **Settings For**, at the top of a
-page, to change how the month looks: its height under **Size & Spacing**, and week scrolling
-under **Taps & Refresh**.
+page, to change how the month looks, such as week scrolling under **Taps & Refresh**. Its height
+is set in YAML, under [How Tall the Month Is](#how-tall-the-month-is).
 
 ## 📅 The Six Weeks
 
@@ -25,8 +25,9 @@ The weeks start on the first day of the week, `first_day_of_week` or your Home A
 locale's, and the first row is the week holding the 1st of the month `start_date` falls in, today
 unless you set one.
 
-- **Always six rows.** Six weeks hold any month, whichever day its 1st falls on, so the card's
-  height never changes from one month to the next.
+- **Always six rows.** Six weeks hold any month, whichever day its 1st falls on: the 1st is
+  always in the first row, and the weeks after the month's last are drawn below it. The six share
+  the card's height, which paging never changes.
 - **The heading names one month:** the one with the most days on screen. Its tooltip gives the
   exact dates the six weeks span.
 - **Days of the months around it** are dimmed and keep their events, and the 1st of each month
@@ -83,30 +84,73 @@ A bar breaks where a calendar's [`days_of_week`](/features/core-settings#showing
 leaves a day out, and starts again after it, so a weekday-only trip never covers the weekend.
 :::
 
-## 📏 How Tall a Week Is
+## 📏 How Tall the Month Is
 
-`row_height` sets a week's height, `112px` by default, which holds four events under each date
-at the default text size. A taller week holds more:
+A month is one height whatever its events, so a busy month is as tall as a quiet one, and its six
+weeks share that height evenly. On a Sections dashboard it fills the rows it is given, ten unless
+you choose others; anywhere else `card_height` sets the whole card's height, `44rem` by default,
+at which a week holds four events under its date at the default text sizes.
+
+```yaml
+# On a Sections dashboard: the month fills its rows
+type: custom:calendar-card-pro
+entities:
+  - calendar.anna
+view: month
+grid_options:
+  rows: 10
+```
+
+```yaml
+# A wall tablet: a taller month, with more events a day
+view: month
+month:
+  card_height: 50rem
+```
+
+```yaml
+# A phone: a taller compact month, for a longer day's list
+view: month
+month:
+  compact_card_height: 40rem
+```
+
+| Option                            | Type   | Default           | Description                                                                                                          |
+| --------------------------------- | ------ | ----------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `month → card_height`             | string | `auto`            | The whole card's height in the wide month, its title, toolbar and notices included; `auto` is `44rem`                |
+| `month → card_max_height`         | string | `none`            | Tallest the wide month's card may be; it clamps `card_height`                                                        |
+| `month → compact_card_height`     | string | `card_height`     | The same for the [compact month](#the-compact-month), which takes `card_height` until this is set; `auto` is `36rem` |
+| `month → compact_card_max_height` | string | `card_max_height` | The same cap for the compact month, which takes `card_max_height` until this is set                                  |
+
+- **The whole card.** The heights include the title, the toolbar and any notice, which take their
+  room from the weeks: at `44rem` a week holds four events without a header, three with the
+  toolbar or a title.
+- **A Sections row count wins.** A month that sets none of the four asks a Sections dashboard for
+  ten rows. Once one is set the card sizes itself, and rows chosen in the dashboard's Layout tab
+  always win, the four then doing nothing. A card that opens as a month keeps its rows when you
+  switch it to another layout, which scrolls within them.
+- **The compact month follows the wide one** until its own two are set, and an explicit `auto` or
+  `none` there gives it its own default back.
+- **Too short to fit**, each week keeps room for its date and one line, and the card's content
+  scrolls rather than any text shrinking, so every day still shows its date and "+N more".
+  [`week_scroll`](#scrolling-by-weeks) stands down while it does, so the wheel reaches the hidden
+  weeks.
+- **`height` and `max_height` do not apply.** They size the events area of the other layouts;
+  a month takes its height from the four above.
+
+::: details Lengths the Heights Take
+A height takes `auto` or a length: `600px`, `50rem`, a viewport unit such as `dvh`, or a `calc()`
+with a `var()`. A bare number is read in pixels. A percentage, or a word such as `fit-content`,
+would let the events size the month, so the card warns and uses `auto`; a cap takes `none` the
+same way. In a panel view, where the card is the whole page, this fills the screen under the
+dashboard's header:
 
 ```yaml
 view: month
 month:
-  row_height: 160px
+  card_height: calc(100dvh - var(--header-height, 56px))
 ```
 
-| Option               | Type   | Default | Description                                                                                         |
-| -------------------- | ------ | ------- | --------------------------------------------------------------------------------------------------- |
-| `month → row_height` | string | `112px` | A week's height, as a CSS length; ignored under a fixed `height`, which the six weeks share instead |
-
-The weeks never grow with their events, so a busy month is as tall as a quiet one. With a fixed
-`height`, the six weeks divide it between them, and each day holds as many events as its share
-fits.
-
-::: details Heights the Weeks Cannot Take
-`row_height` takes a length, such as `112px` or `8em`. A percentage, or a word such as `auto`,
-would let the events size the weeks, so the card warns and uses `112px` instead. A fixed `height`
-in percent only works where the card's container has a height of its own; where it does not, the
-weeks take `row_height`.
 :::
 
 ### More Than Fits
@@ -184,10 +228,10 @@ In the visual editor, that is Events in Day List under Size & Spacing › Card S
   [below](#options-that-start-from-a-different-default).
 - **"+N more" is a button** in the tab order, after the month. Closing the panel it opens brings
   you back to it.
-- **With a fixed `height`**, the list's room counts toward the card's content, which scrolls as a
-  whole; nothing inside the list scrolls.
+- **Past the card's height**, the weeks and the list's room scroll as a whole inside the card;
+  nothing inside the list scrolls.
 - **`day_list_events: 0`** lists every event at its full height, its title wrapping beside its
-  time, and the card grows and shrinks with the day.
+  time, and the card's content scrolls past its height.
 
 The panel "+N more" opens, here or on a wide month, lists a day the same way, without the room or
 the one-line limit.

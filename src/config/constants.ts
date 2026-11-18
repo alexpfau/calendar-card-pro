@@ -362,6 +362,20 @@ export const UI = {
   MONTH_COMPACT_MARKS: 4,
 
   /**
+   * A month card's height where nothing sets one (`month → card_height: auto`), the whole card's
+   * border box, its title and toolbar included, in each form. The wide form's holds four lines
+   * under each date at the default text sizes on a card without a title or toolbar, as measured
+   * in Chromium (`MonthRender.monthCardStyle`).
+   */
+  MONTH_CARD_HEIGHT: { wide: '44rem', compact: '36rem' },
+
+  /**
+   * The rows a month asks a Sections dashboard for while none of its four height keys is set
+   * (`Sections.cardGridOptions`): 632px at Home Assistant's default 56px row and 8px gap.
+   */
+  MONTH_SECTIONS_ROWS: 10,
+
+  /**
    * How far the wheel or a trackpad scrolls, in CSS pixels, for a month to step one week while
    * `week_scroll` applies (`_wheelWeeks`): one notch of a mouse wheel, which Chromium and Safari
    * report as 100px, so a notch is a week and a trackpad steps a week every 100px of its glide.
@@ -376,8 +390,8 @@ export const UI = {
 
   /**
    * How far a finger travels up or down a month for it to step one week while `week_scroll`
-   * applies, where the card has not measured its rows: the shipped `row_height`. Measured, a week
-   * is a row's own height, so the weeks keep pace with the finger.
+   * applies, where the card has not measured its rows: about a week's height at the default card
+   * height. Measured, a week is a row's own height, so the weeks keep pace with the finger.
    */
   WEEK_SCROLL_TOUCH_STEP: 112,
 

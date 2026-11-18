@@ -1267,6 +1267,30 @@ export function resolveMonthCardSize(config: Types.Config, form: MonthCardForm):
   };
 }
 
+/** The four `month:` keys that size the whole card, wide and compact. */
+export const MONTH_CARD_SIZE_KEYS = [
+  'card_height',
+  'card_max_height',
+  'compact_card_height',
+  'compact_card_max_height',
+] as const;
+
+/**
+ * Whether the `month:` block names any of the four keys that size the whole card, whatever it
+ * names them as. While none is written a month asks a Sections dashboard for rows of its own
+ * (`Sections.cardGridOptions`); once one is, it sizes itself.
+ *
+ * @param config - Merged configuration
+ * @returns `true` when one of {@link MONTH_CARD_SIZE_KEYS} is written in the block
+ */
+export function monthCardSizeAuthored(config: Types.Config): boolean {
+  const overrides = blockValues(config, 'month');
+  return (
+    overrides !== undefined &&
+    MONTH_CARD_SIZE_KEYS.some((key) => hasOverride(overrides, key as keyof Types.ColumnOverrides))
+  );
+}
+
 /**
  * Reports whether a resolved CSS length means "none".
  *

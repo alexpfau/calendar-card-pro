@@ -161,7 +161,7 @@ const CROSS_VIEW_ACKNOWLEDGEMENTS: Readonly<
     },
     event_font_size: {
       verdict: 'inherits',
-      why: 'A month line holds one title on one line, and row_height is set for four of them at the card-wide size. Grid drops to 12px for blocks that wrap their title in a seventh of the card.',
+      why: 'A month line holds one title on one line, and the default card height holds four of them a week at the card-wide size. Grid drops to 12px for blocks that wrap their title in a seventh of the card.',
     },
     location_color: {
       verdict: 'inherits',

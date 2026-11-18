@@ -36,7 +36,12 @@ each renderer.
   itself, since the card's title fitting stops at its own shadow root. Under the weeks the list
   keeps room for `month → day_list_events` rows, measured off a hidden row beside it
   (`MonthDay.monthListProbe`) and written on the list by the card (`_syncMonthListRow`), with
-  every part of a row kept to one line there and "+N more" in its last row.
+  every part of a row kept to one line there and "+N more" in its last row. A month is one height
+  before anything is drawn: a Sections dashboard's slot, which it fills (`utils/sections.ts`), or
+  the height its `month:` block resolves to (`ViewConfig.resolveMonthCardSize`), which the card
+  writes on `ha-card` (`monthCardStyle`). The six wide weeks share what the header leaves, each at
+  least a date and one line, floors the card measures from the probes and writes on the month
+  (`measureMonthFloors`); below them the content scrolls.
 - **`leaves.ts`** holds the axis-agnostic pieces: the date block, the event body, weather badges,
   the today indicator and the accent bar.
 - **`presentation.ts`** computes everything about an event that does not depend on layout: ended,

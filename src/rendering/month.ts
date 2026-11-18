@@ -10,11 +10,11 @@
  * that after a render (`MONTH_LINE_CAPACITY_DEFAULT` until it has) and hands it in, and a day
  * past it shows "+N more" on its last line.
  *
- * A row's height never depends on what is in it: `row_height`, which is folded to its default
- * where it is a percentage or a keyword, or under a fixed card `height` a sixth of what the
- * weekday names leave, and six `row_height`s where that height cannot be worked out. So the
- * capacity cannot feed back into the size it is measured from, and the card's height does not
- * change from page to page.
+ * A row's height never depends on what is in it. The card is one height, a Sections dashboard's
+ * slot or what the `month:` block asks for (`monthCardStyle`), and the six weeks share what the
+ * weekday names leave of it, each at least as tall as a date and one line (`measureMonthFloors`).
+ * So the capacity cannot feed back into the size it is measured from, and the card's height does
+ * not change from page to page.
  *
  * Below `month → min_day_width` a day the card draws the compact form instead, as a phone's
  * calendar draws its month: each day its number and one capsule, a segment per event in its
@@ -57,7 +57,7 @@ import * as TextDirection from '../utils/text-direction';
 
 /**
  * Lines a month day is laid out for before the card has measured how many fit under its date:
- * as many as the shipped `row_height` holds at the shipped text size.
+ * as many as a week holds at the default card height and text sizes.
  */
 export const MONTH_LINE_CAPACITY_DEFAULT = 4;
 
@@ -932,32 +932,17 @@ export function renderMonthGroupedEvents(
     );
   }
   const weeks = monthWeeks(days, rowsStart, capacity);
-  // A fixed card height is a real length; `height` defaults to the string `'auto'`.
-  const fixedHeight = config.height != null && config.height !== '' && config.height !== 'auto';
-  const rowHeight = ViewConfig.resolveMonthOption(config, 'row_height');
 
+  // The weeks share the card's height, which the stylesheet hands them: the card writes no
+  // height here, and the floors it measures go onto this element's style beside the tints
+  // (`MONTH_FLOOR_PROPERTIES`), where no render binds them.
   return html`
     <div
       class=${classMap({ 'month-container': true, 'week-scroll': options.weekScroll !== undefined })}
       role="grid"
       aria-label=${Paging.monthHeading(headerMonth, language)}
       @wheel=${options.weekScroll ?? nothing}
-      style=${styleMap({
-        // Handed to CSS as written, so `8em` and `calc()` survive. Under a fixed card height
-        // the rows share it instead: the month is as tall as the height it fills, through its
-        // bounds. Where that height cannot be worked out, a percentage of a box with no height of
-        // its own, both bounds resolve to nothing, and the month is six weeks of `row_height`
-        // rather than as tall as its weeks' events, which would let them size the rows.
-        '--calendar-card-month-row-height': fixedHeight ? 'minmax(0, 1fr)' : rowHeight,
-        ...(fixedHeight
-          ? {
-              height: `calc(${ViewConfig.MONTH_ROWS} * ${rowHeight})`,
-              'min-height': '100%',
-              'max-height': '100%',
-            }
-          : {}),
-        ...tintProperties(config),
-      })}
+      style=${styleMap(tintProperties(config))}
     >
       ${renderWeekdays(weeks[0].starts, config, language, hass)}
       ${weeks.map((week, index) =>
@@ -1115,7 +1100,7 @@ function renderCompactDay(
 /**
  * The compact form: the weekday names, six weeks of days drawn as a number and a capsule, the
  * week numbers in a narrow gutter with the current week's emphasized, and under them the
- * selected day's list. The rows take their content's height; `row_height` is the wide form's.
+ * selected day's list. The rows take their content's height.
  *
  * @param rowsStart - The first row's first day
  * @param config - Card configuration, resolved for month
@@ -1576,9 +1561,9 @@ export function renderMonthDayList(
  * transform or a zoom, scales them all alike and cancels in the quotient. A layout height such as
  * `clientHeight` would not scale, and beside scaled boxes it read the capacity high.
  *
- * A row's height depends on `row_height` or the card's, never on what is in it
- * (`renderMonthGroupedEvents`), so a capacity read here holds for the render it causes, and an
- * empty week reads the same as a full one.
+ * A row's height depends on the card's and on the floors, never on what is in it
+ * (`measureMonthFloors`), so a capacity read here holds for the render it causes, and an empty
+ * week reads the same as a full one.
  *
  * @param root - The card's render root
  * @returns The lines, from 0, or null
@@ -1602,4 +1587,112 @@ export function measureMonthCapacity(root: ParentNode): number | null {
   // A hundredth of a line of give, so a row sized for exactly four lines holds four whatever
   // the rounding of fractional pixels.
   return Math.max(0, Math.floor((room - dateLine) / pitch + 0.01));
+}
+
+//-----------------------------------------------------------------------------
+// THE CARD'S HEIGHT
+//-----------------------------------------------------------------------------
+
+/**
+ * The height and the cap a month writes on its card where no Sections slot sizes it, from its
+ * `month:` block in the form drawn (`ViewConfig.resolveMonthCardSize`). `auto` is the form's own
+ * default (`UI.MONTH_CARD_HEIGHT`); a length is handed to CSS as written, so `rem`, `dvh` and a
+ * `calc()` with a `var()` survive.
+ *
+ * The whole card's, its title, toolbar and notices included, so the weeks share what those leave
+ * and never take their height from their events.
+ *
+ * @param config - Card configuration
+ * @param form - The form drawn
+ * @returns The declarations to write on `ha-card`
+ */
+export function monthCardStyle(
+  config: Types.Config,
+  form: ViewConfig.MonthCardForm,
+): Record<string, string> {
+  const { height, max } = ViewConfig.resolveMonthCardSize(config, form);
+  return {
+    height: height === 'auto' ? Constants.UI.MONTH_CARD_HEIGHT[form] : height,
+    'max-height': max,
+  };
+}
+
+/**
+ * The custom properties the card writes on a wide month for its floors, in the card's own
+ * pixels: the least a week may be, a date and one line under its rule, and the least the month
+ * may be, the weekday names and six such weeks.
+ */
+export const MONTH_FLOOR_PROPERTIES = {
+  week: '--calendar-card-month-week-min',
+  month: '--calendar-card-month-min',
+} as const;
+
+/** A wide month's floors, in the card's own pixels (`MONTH_FLOOR_PROPERTIES`). */
+export interface MonthFloors {
+  readonly week: number;
+  readonly month: number;
+}
+
+/**
+ * The least a wide month's week and the whole month may be, or null where it is not laid out.
+ *
+ * A week holds its date line and one line, the taller of a title and a time, under its rule, so
+ * a day the card is too short for still shows its date and "+N more"; the month holds the weekday
+ * names, six such weeks and its own closing rule. Below them the card's content scrolls rather
+ * than any text shrinking.
+ *
+ * Read from what fonts alone decide: the three probes (`measureMonthCapacity`), the weekday row
+ * and the rules. Never from a week's height, so writing them cannot move what they were read
+ * from. Boxes come in the page's pixels and the floors are written in the card's own, so each box
+ * is divided by the scale an ancestor draws the card at, the month's box against its layout
+ * width; the closing rule is read in the card's own pixels already. Rounded up to whole pixels,
+ * so a week at its floor is never a fraction short of its line, except for the hundredth of a
+ * pixel a scale's division leaves over a whole one, which would otherwise cost a pixel more.
+ *
+ * @param container - The wide month (`.month-container`)
+ * @returns The floors, or null
+ */
+export function measureMonthFloors(container: HTMLElement): MonthFloors | null {
+  const weeks = container.querySelectorAll<HTMLElement>(':scope > .month-week');
+  const cell = weeks[0]?.querySelector<HTMLElement>('.month-day');
+  const probe = (name: 'date' | 'title' | 'time') =>
+    container
+      .querySelector<HTMLElement>(`:scope > .${MONTH_PROBE_CLASS}[data-probe="${name}"]`)
+      ?.getBoundingClientRect().height;
+  const date = probe('date');
+  const title = probe('title');
+  const time = probe('time');
+  if (!cell || date === undefined || title === undefined || time === undefined) return null;
+
+  const box = container.getBoundingClientRect();
+  const pitch = Math.max(title, time);
+  if (!(box.width > 0) || !(date > 0) || !(pitch > 0)) return null;
+  const scale =
+    container.offsetWidth > 0 && Math.abs(box.width - container.offsetWidth) >= 1
+      ? box.width / container.offsetWidth
+      : 1;
+  const first = weeks[0].getBoundingClientRect();
+  const rule = Math.max(0, cell.getBoundingClientRect().top - first.top);
+  const names = Math.max(0, first.top - box.top);
+  // The closing rule, as a border, in layout pixels: the month sets no overflow, so no scroll bar
+  // stands between its border box and its padding box.
+  const closing = Math.max(0, container.offsetHeight - container.clientHeight);
+  // A hundredth of a pixel of give before rounding up, so a scale that leaves 43.00000001 of a
+  // 43px week does not floor it at 44.
+  const up = (pixels: number) => Math.ceil(pixels - 0.01);
+  const week = up((date + pitch + rule) / scale);
+  return { week, month: up(names / scale + ViewConfig.MONTH_ROWS * week + closing) };
+}
+
+/**
+ * Whether the card's content scrolls: a month the card is too short for, below its floors. More
+ * than a pixel over, as `gridContentOverflows` forgives one, since fractional layout puts content
+ * that fits a pixel over its box. False where nothing is laid out.
+ *
+ * @param root - The card's render root
+ * @returns `true` while the content scrolls
+ */
+export function monthContentScrolls(root: ParentNode): boolean {
+  const content = root.querySelector<HTMLElement>('.content-container');
+  return content !== null && content.scrollHeight > content.clientHeight + 1;
 }

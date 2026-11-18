@@ -41,6 +41,7 @@ interface CardUnderTest extends HTMLElement {
   hass: Types.Hass;
   readonly updateComplete: Promise<boolean>;
   updateEvents(force?: boolean): Promise<void>;
+  requestUpdate(): void;
 }
 
 /** Answers the resize observer the card starts, with any width a test reports. */
@@ -387,6 +388,29 @@ describe('where the weeks do not scroll', () => {
     (card as unknown as { editMode: boolean }).editMode = true;
     await settle(card);
     expect(await scrolls(card)).toEqual([false, false]);
+  });
+
+  it('stands down while the card is too short for its weeks, whose scroll the wheel needs', async () => {
+    const card = await mount();
+    expect(await scrolls(card)).toEqual([true, true]);
+    // The content area holding more than it shows, as below the month's floors: by more than a
+    // pixel, which fractional layout forgives.
+    const content = root(card).querySelector<HTMLElement>('.content-container')!;
+    const contentHeight = (scroll: number) => {
+      Object.defineProperty(content, 'clientHeight', { configurable: true, value: 150 });
+      Object.defineProperty(content, 'scrollHeight', { configurable: true, value: scroll });
+    };
+    for (const [scroll, applies] of [
+      [293, false],
+      [151, true],
+      [152, false],
+      [150, true],
+    ] as const) {
+      contentHeight(scroll);
+      card.requestUpdate();
+      await settle(card);
+      expect(await scrolls(card)).toEqual([applies, applies]);
+    }
   });
 });
 

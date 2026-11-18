@@ -907,13 +907,19 @@ describe('the passes that measure titles, on a month', () => {
     const card = await mount(MEASURED);
     expect(root(card).querySelectorAll('.month-line').length).toBeGreaterThan(0);
     expect(root(card).querySelector('.event-title, .summary-row, .summary')).toBeNull();
-    expect(watched(card)).toEqual([]);
+    // Only the three probes the floors and the line capacity are read from, which the card
+    // watches for a font loading (`_watchMonthProbes`), not any title pass.
+    expect(watched(card)).toEqual(['month-probe', 'month-probe', 'month-probe']);
   });
 
   it('measure a compact month’s list as they measure List’s rows, and nothing in its weeks', async () => {
     const card = await mount(MEASURED, 375);
-    const inWeeks = RecordingResizeObserver.observed.filter((element) =>
-      element.closest('.month-container'),
+    // The wide form's probes aside, which the card watched while it drew that form before it
+    // knew its width (`_watchMonthProbes`).
+    const inWeeks = RecordingResizeObserver.observed.filter(
+      (element) =>
+        element.closest('.month-container') &&
+        !element.classList.contains(MonthRender.MONTH_PROBE_CLASS),
     );
     expect(inWeeks).toEqual([]);
     const inList = RecordingResizeObserver.observed.filter((element) =>

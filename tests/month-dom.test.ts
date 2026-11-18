@@ -172,10 +172,11 @@ interface Layout {
 
 /**
  * Lays a mounted month out as a browser would at a scale an ancestor applies: every box
- * `getBoundingClientRect` reports is scaled, and the week's own layout heights are not, as a
- * browser reports them. The single probe the card measured from before the probes were split is
- * answered too, its width the line pitch and its height the date line, so a measurement that
- * mixes a layout height with scaled boxes reads differently at another scale.
+ * `getBoundingClientRect` reports is scaled, and the layout sizes are not, as a browser reports
+ * them. The single probe the card measured from before the probes were split is answered too, its
+ * width the line pitch and its height the date line, so a measurement that mixes a layout height
+ * with scaled boxes reads differently at another scale. The month is 700px wide, its weekday
+ * names take the 40px above the first week, and its closing rule is 1px.
  */
 function layOut(card: CardUnderTest, layout: Layout = {}): void {
   const { scale = 1, week = 64, rule = 1, date = 22, title = 20, time = 16 } = layout;
@@ -186,6 +187,16 @@ function layOut(card: CardUnderTest, layout: Layout = {}): void {
       height: height * scale,
       width: width * scale,
     }) as DOMRect;
+  const container = month(card);
+  const height = 40 + 6 * week + 1;
+  container.getBoundingClientRect = () => box(0, height, 700);
+  for (const [name, value] of [
+    ['offsetWidth', 700],
+    ['offsetHeight', Math.round(height)],
+    ['clientHeight', Math.round(height) - 1],
+  ] as const) {
+    Object.defineProperty(container, name, { configurable: true, value });
+  }
   const row = month(card).querySelector<HTMLElement>('.month-week')!;
   // The week starts 40px down the month, its first cell under its rule.
   row.getBoundingClientRect = () => box(40, week);
@@ -540,31 +551,100 @@ describe('the line pitch and the date line the card measures', () => {
 });
 
 describe('the rows’ height', () => {
-  it('is row_height, whatever the rows hold', async () => {
-    const card = await mount();
-    expect(month(card).style.getPropertyValue('--calendar-card-month-row-height')).toBe('112px');
-
-    const taller = await mount({ month: { row_height: '9em' } });
-    expect(month(taller).style.getPropertyValue('--calendar-card-month-row-height')).toBe('9em');
-  });
-
-  it('is a share of a fixed card height, which row_height does not change', async () => {
-    const card = await mount({ height: '600px', month: { row_height: '9em' } });
-    expect(month(card).style.getPropertyValue('--calendar-card-month-row-height')).toBe(
-      'minmax(0, 1fr)',
+  /** A rule's declarations, by property, for one exact selector, spaces inside brackets closed. */
+  const rule = (selector: string): Record<string, string> =>
+    Object.fromEntries(
+      declarations(cardStyles.cssText)
+        .filter((d) => d.at.length === 0 && d.selectors.length === 1 && d.selectors[0] === selector)
+        .map((d) => [d.property, d.value.replace(/\(\s+/g, '(').replace(/\s+\)/g, ')')]),
     );
-    // The month is exactly as tall as the height it fills, through its bounds.
-    expect([month(card).style.minHeight, month(card).style.maxHeight]).toEqual(['100%', '100%']);
+
+  /** The floors the card wrote on the month, a week's and the whole month's. */
+  const floors = (card: CardUnderTest) =>
+    [MonthRender.MONTH_FLOOR_PROPERTIES.week, MonthRender.MONTH_FLOOR_PROPERTIES.month].map(
+      (property) => month(card).style.getPropertyValue(property),
+    );
+
+  it('shares the content area among six weeks, each at least its floor, none sized by events', () => {
+    // The content area takes what the header leaves of the card, whatever height and max_height
+    // say, and scrolls only below the floors.
+    expect(rule('.calendar-card-pro.month-view .content-container')).toEqual({
+      display: 'flex',
+      flex: '1 1 0',
+      'flex-direction': 'column',
+      'min-height': '0',
+      height: 'auto',
+      'max-height': 'none',
+    });
+    // Never a bare 1fr, and never a basis from the content: either would let a week's lines size
+    // the week the capacity is read from. Until the card has measured, the floors are reckoned in
+    // em: a 1.2em date line and 6px, a 1.2em line and 4px, the 1px rule.
+    expect(rule('.month-container')).toMatchObject({
+      display: 'grid',
+      flex: '1 1 0',
+      'min-height': 'var(--calendar-card-month-min, calc(6 * (2.4em + 11px) + 1.2em + 5px))',
+      'grid-template-rows':
+        'auto repeat(6, minmax(var(--calendar-card-month-week-min, calc(2.4em + 11px)), 1fr))',
+    });
+    // The compact form's weeks are as tall as their days.
+    expect(rule('.month-container.month-compact')).toMatchObject({
+      flex: 'none',
+      'min-height': '0',
+      'grid-template-rows': 'auto repeat(6, auto)',
+    });
   });
 
-  it('never takes its height from the weeks, even where a fixed height cannot be worked out', async () => {
-    // A percentage of a box with no height of its own resolves to nothing, and the bounds above
-    // with it. Then the month is six times row_height rather than as tall as its weeks' events:
-    // sized by them, an empty week had no room for a line, so the capacity read from it was 0,
-    // and a month laid out for 0 lines drew no event anywhere, and stayed that way.
-    const card = await mount({ height: '100%', month: { row_height: '9em' } });
-    expect(month(card).style.height).toBe('calc(6 * 9em)');
-    expect([month(card).style.minHeight, month(card).style.maxHeight]).toEqual(['100%', '100%']);
+  it('takes nothing from row_height, height or max_height', async () => {
+    const card = await mount({
+      height: '600px',
+      max_height: '300px',
+      month: { row_height: '9em' },
+    });
+    const style = month(card).style;
+    expect([
+      style.height,
+      style.minHeight,
+      style.maxHeight,
+      style.getPropertyValue('--calendar-card-month-row-height'),
+    ]).toEqual(['', '', '', '']);
+    // The card is the month's own default height instead (month-sizing.test.ts).
+    expect(card.shadowRoot!.querySelector<HTMLElement>('ha-card')!.style.height).toBe('44rem');
+  });
+
+  it('floors a week at its date and one line, and the month at six, at any scale', async () => {
+    const card = await mount();
+    // happy-dom lays nothing out, as a hidden card is not: nothing is written.
+    expect(floors(card)).toEqual(['', '']);
+
+    const at = async (layout: Layout) => {
+      layOut(card, layout);
+      card.requestUpdate();
+      await card.updateComplete;
+      return floors(card);
+    };
+    // A 22px date line, a 20px line and the 1px rule make a 43px week; the 40px of weekday names,
+    // six such weeks and the 1px closing rule a 299px month. Every box scales alike, so the scale
+    // cancels.
+    expect(await at({ scale: 1 })).toEqual(['43px', '299px']);
+    expect(await at({ scale: 0.5 })).toEqual(['43px', '299px']);
+    expect(await at({ scale: 0.8 })).toEqual(['43px', '299px']);
+    // A time set taller than the title is the line, as the capacity takes it.
+    expect(await at({ time: 24 })).toEqual(['47px', '323px']);
+  });
+
+  it('writes the floors only when they change', async () => {
+    const card = await mount();
+    layOut(card);
+    card.requestUpdate();
+    await card.updateComplete;
+    const write = vi.spyOn(month(card).style, 'setProperty');
+    card.requestUpdate();
+    await card.updateComplete;
+    // The render writes the tints again, as styleMap does; the card leaves the floors alone.
+    const names: ReadonlyArray<string> = Object.values(MonthRender.MONTH_FLOOR_PROPERTIES);
+    const floorWrites = write.mock.calls.filter(([property]) => names.includes(property));
+    expect(floorWrites).toEqual([]);
+    expect(floors(card)).toEqual(['43px', '299px']);
   });
 });
 

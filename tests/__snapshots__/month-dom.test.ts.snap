@@ -1,7 +1,7 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`a representative month > matches its snapshot 1`] = `
-"<div role="grid" class=" month-container " aria-label="November 2026" style="--calendar-card-month-row-height:112px;--calendar-card-month-weekend:color-mix(in srgb, var(--primary-text-color) 4%, transparent);">
+"<div role="grid" class=" month-container " aria-label="November 2026" style="--calendar-card-month-weekend:color-mix(in srgb, var(--primary-text-color) 4%, transparent);">
 <div class="month-weekdays" role="row">
 <div role="columnheader" class=" month-weekday " aria-label="Monday">
           Mon

@@ -82,6 +82,7 @@ import * as Logger from './utils/logger';
 import * as MonthDay from './utils/month-day';
 import * as Paging from './utils/paging';
 import * as Search from './utils/search';
+import * as Sections from './utils/sections';
 import * as StartDate from './utils/start-date';
 import * as Templates from './utils/templates';
 import * as TextDirection from './utils/text-direction';
@@ -514,6 +515,13 @@ class CalendarCardPro extends LitElement {
   @property({ type: Boolean }) editMode = false;
 
   /**
+   * How Home Assistant lays the card out, which it sets itself: `grid` on a Sections dashboard,
+   * `panel` in a panel view, and nothing elsewhere. A month fills a slot the grid gives it
+   * (`Sections.holdsSlot`) and sizes itself anywhere else.
+   */
+  @property({ attribute: false }) layout?: string;
+
+  /**
    * Tells `hui-card` to keep this element in the DOM while it is hidden.
    */
   public connectedWhileHidden = true;
@@ -550,12 +558,13 @@ class CalendarCardPro extends LitElement {
   static getStubConfig = Config.getStubConfig;
 
   /**
-   * Declares the card's default size to a Home Assistant sections dashboard.
+   * Declares the card's default size to a Home Assistant sections dashboard: the whole width, and
+   * rows of its own for a month that sets no height (`Sections.cardGridOptions`).
    *
    * @returns Default grid sizing for a sections-view dashboard
    */
-  public getGridOptions(): { columns: 'full'; rows: 'auto' } {
-    return { columns: 'full', rows: 'auto' };
+  public getGridOptions(): Sections.CardGridOptions {
+    return Sections.cardGridOptions(this.config);
   }
 
   /**
@@ -1802,6 +1811,22 @@ class CalendarCardPro extends LitElement {
   /** The probe it watches, as last drawn. */
   private _monthListProbe: HTMLElement | null = null;
 
+  /**
+   * Watches a wide month's three probes, which change size when a font loads or a theme changes
+   * one, so the floors and the line capacity follow (`_watchMonthProbes`).
+   */
+  private _monthProbeWatch: ResizeObserver | null = null;
+
+  /** The probes it watches, as last drawn. */
+  private _monthProbes: ReadonlyArray<HTMLElement> = [];
+
+  /**
+   * Whether the card's content scrolls a wide month the card is too short for, below its floors,
+   * as last measured (`_syncMonthCapacity`). While it does, `week_scroll` stands down and the
+   * wheel and a finger scroll the content instead.
+   */
+  private _monthContentScrolls = false;
+
   /** Whether the day panel open was opened from a compact month, whose form it goes with. */
   private _dayPanelCompact = false;
 
@@ -2751,6 +2776,7 @@ class CalendarCardPro extends LitElement {
     this._stopTitleScrollObserver();
     this._stopTitleFits();
     this._stopMonthListRow();
+    this._stopMonthProbes();
     Menu.closeMenus(this.renderRoot);
     this._search?.close();
     this._dayPanel?.close();
@@ -3585,23 +3611,86 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Re-reads how many lines fit under a month day's date and re-renders once if that moved.
+   * Writes a wide month's floors, re-reads whether the card's content scrolls and how many lines
+   * fit under a month day's date, and re-renders once if either moved.
    *
-   * Stable by construction: a row's height is `row_height` or a share of the card's fixed
-   * `height`, and the line pitch and date line are lengths in the event and time fonts, so
-   * nothing the render this triggers draws can change what it reads. Nothing is read while the
-   * month is not on screen or not laid out, which keeps the last capacity rather than collapsing
-   * it.
+   * Stable by construction. The card's height is a slot's or a declared one, known before
+   * anything is drawn; the floors are read from fonts alone (`MonthRender.measureMonthFloors`)
+   * and written only when they change, onto the month's style where no render binds them; and a
+   * row's height follows from those, never from the capacity, so nothing the render this
+   * triggers draws can change what it reads. Whether the content scrolls decides only whether
+   * `week_scroll` applies, which moves no box. Nothing is read while the month is not on screen
+   * or not laid out, which keeps the last floors and capacity rather than collapsing them.
    */
   private _syncMonthCapacity(): void {
     if (!this.isConnected || this.effectiveView !== 'month') return;
 
+    this._writeMonthFloors();
+    const weekScrolled = this._weekScrollApplies;
+    this._monthContentScrolls =
+      !this._monthCompact && MonthRender.monthContentScrolls(this.renderRoot);
     const next = MonthRender.measureMonthCapacity(this.renderRoot);
-    if (next === null || next === this._monthCapacity) return;
+    const moved = next !== null && next !== this._monthCapacity;
+    if (moved) {
+      Logger.debug(`Month line capacity ${this._monthCapacity} -> ${next}`);
+      this._monthCapacity = next;
+    }
+    if (moved || this._weekScrollApplies !== weekScrolled) this.requestUpdate();
+  }
 
-    Logger.debug(`Month line capacity ${this._monthCapacity} -> ${next}`);
-    this._monthCapacity = next;
-    this.requestUpdate();
+  /**
+   * Writes a wide month's floors on it (`MonthRender.MONTH_FLOOR_PROPERTIES`), straight onto its
+   * style and only where they changed, as `_writeMonthListRow` writes the day list's row, so it
+   * costs no render. A month not laid out writes nothing and keeps what it had, or the
+   * stylesheet's estimate before the first.
+   */
+  private _writeMonthFloors(): void {
+    const month = this.renderRoot.querySelector<HTMLElement>(
+      '.month-container:not(.month-compact)',
+    );
+    const floors = month ? MonthRender.measureMonthFloors(month) : null;
+    if (!month || !floors) return;
+    for (const key of ['week', 'month'] as const) {
+      const value = `${floors[key]}px`;
+      const property = MonthRender.MONTH_FLOOR_PROPERTIES[key];
+      if (month.style.getPropertyValue(property) !== value) {
+        month.style.setProperty(property, value);
+      }
+    }
+  }
+
+  /**
+   * Watches a wide month's three probes for a change of size, as a font loading or a theme makes,
+   * and syncs the floors and the capacity from its callback. Re-aimed whenever the probes drawn
+   * are other elements, as after a switch between the forms; no month, no watch.
+   */
+  private _watchMonthProbes(): void {
+    const probes =
+      this.isConnected && this.effectiveView === 'month'
+        ? [
+            ...this.renderRoot.querySelectorAll<HTMLElement>(
+              `.month-container > .${MonthRender.MONTH_PROBE_CLASS}`,
+            ),
+          ]
+        : [];
+    if (
+      probes.length === this._monthProbes.length &&
+      probes.every((probe, index) => probe === this._monthProbes[index])
+    ) {
+      return;
+    }
+    this._stopMonthProbes();
+    this._monthProbes = probes;
+    if (probes.length === 0 || typeof ResizeObserver === 'undefined') return;
+    this._monthProbeWatch = new ResizeObserver(() => this._syncMonthCapacity());
+    for (const probe of probes) this._monthProbeWatch.observe(probe);
+  }
+
+  /** Stops watching a wide month's probes. */
+  private _stopMonthProbes(): void {
+    this._monthProbeWatch?.disconnect();
+    this._monthProbeWatch = null;
+    this._monthProbes = [];
   }
 
   /**
@@ -4771,6 +4860,7 @@ class CalendarCardPro extends LitElement {
       this._syncOverflowStrip();
     }
     this._syncMonthCapacity();
+    this._watchMonthProbes();
     this._syncMonthListRow();
     // An open day panel draws its rows from what this update drew from: the events, the
     // configuration and the time.
@@ -5323,9 +5413,21 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Generate style properties from configuration. Returns a style object for use with styleMap.
+   * A month adds the card's height and cap from its `month:` block, in the form it draws, except
+   * in a Sections slot, which it fills (`_holdsSectionsSlot`).
    */
   private getCustomStyles(): Record<string, string> {
-    return Styles.generateCustomPropertiesObject(this.effectiveConfig);
+    const styles = Styles.generateCustomPropertiesObject(this.effectiveConfig);
+    if (this.effectiveView !== 'month' || this._holdsSectionsSlot) return styles;
+    return {
+      ...styles,
+      ...MonthRender.monthCardStyle(this.config, this._monthCompact ? 'compact' : 'wide'),
+    };
+  }
+
+  /** Whether a Sections dashboard gives the card a slot of its own to fill (`Sections.holdsSlot`). */
+  private get _holdsSectionsSlot(): boolean {
+    return Sections.holdsSlot(this.layout, this.config);
   }
 
   /**
@@ -7324,12 +7426,14 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Whether `month → week_scroll` steps a month's rows by whole weeks now: on the wide form only,
-   * never the compact one a phone draws, on a card at least `week_scroll_min_width` wide, and not
-   * while Home Assistant edits it. Only then does the card take the wheel and a vertical finger
-   * from the page.
+   * never the compact one a phone draws, on a card at least `week_scroll_min_width` wide, not
+   * while Home Assistant edits it, and not while the card's content scrolls a month it is too
+   * short for, whose hidden weeks the wheel and a finger have to reach. Only then does the card
+   * take the wheel and a vertical finger from the page.
    */
   private get _weekScrollApplies(): boolean {
     if (this.effectiveView !== 'month' || this._monthCompact || this._isBeingEdited) return false;
+    if (this._monthContentScrolls) return false;
     if (!ViewConfig.resolveMonthOption(this.config, 'week_scroll')) return false;
     const minWidth = ViewConfig.resolveMonthOption(this.config, 'week_scroll_min_width');
     return minWidth <= 0 || (this._monthWidthPx !== null && this._monthWidthPx >= minWidth);

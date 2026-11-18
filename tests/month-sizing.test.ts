@@ -7,13 +7,16 @@
  * the wide one, and an absent or unusable one takes the wide one. Every case is pinned by value.
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import { memoryStorage } from './memory-storage';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Logger from '../src/utils/logger';
+import * as Sections from '../src/utils/sections';
+import '../src/calendar-card-pro';
 
 /** The month block written, and the card size each form resolves it to. */
 type Case = readonly [
@@ -250,5 +253,236 @@ describe('the four height keys', () => {
     } finally {
       warn.mockRestore();
     }
+  });
+});
+
+describe('the rows a card asks a Sections dashboard for', () => {
+  it.each<readonly [string, Partial<Types.Config>, number | 'auto']>([
+    ['a month', { view: 'month' }, 10],
+    ['a month with an empty block', { view: 'month', month: {} }, 10],
+    ['a month with other options', { view: 'month', month: { week_scroll: true } }, 10],
+    ['a month with card_height', { view: 'month', month: { card_height: '50rem' } }, 'auto'],
+    ['a month with card_max_height', { view: 'month', month: { card_max_height: 'none' } }, 'auto'],
+    [
+      'a month with compact_card_height',
+      { view: 'month', month: { compact_card_height: 'auto' } },
+      'auto',
+    ],
+    [
+      'a month with compact_card_max_height',
+      { view: 'month', month: { compact_card_max_height: '40rem' } },
+      'auto',
+    ],
+    // Written is written, even as something the card cannot use.
+    ['a month with an unusable height', { view: 'month', month: { card_height: '50%' } }, 'auto'],
+    ['a list', { view: 'list' }, 'auto'],
+    ['a grid with a month block', { view: 'grid', month: {} }, 'auto'],
+    ['a column', { view: 'column' }, 'auto'],
+  ])('%s', (_name, config, rows) => {
+    expect(Sections.cardGridOptions(buildConfig(config))).toEqual({ columns: 'full', rows });
+  });
+});
+
+describe('a Sections slot the card fills', () => {
+  const MONTH = { view: 'month' } as const;
+  it.each<readonly [string, string | undefined, Record<string, unknown>, boolean]>([
+    ['a month on the grid', 'grid', MONTH, true],
+    ['a month in a masonry view', undefined, MONTH, false],
+    ['a month in a panel view', 'panel', MONTH, false],
+    ['a month that sets its height', 'grid', { ...MONTH, month: { card_height: '50rem' } }, false],
+    // The dashboard's row count wins over the card's, key by key.
+    [
+      'a row count over a set height',
+      'grid',
+      { ...MONTH, month: { card_height: '50rem' }, grid_options: { rows: 8 } },
+      true,
+    ],
+    ['auto rows over the month’s ten', 'grid', { ...MONTH, grid_options: { rows: 'auto' } }, false],
+    ['columns alone, keeping the ten', 'grid', { ...MONTH, grid_options: { columns: 6 } }, true],
+    ['a list with a row count', 'grid', { view: 'list', grid_options: { rows: 6 } }, true],
+    ['a list without one', 'grid', { view: 'list' }, false],
+    // The older layout_options, whose grid_rows are the rows, where there are no grid_options.
+    [
+      'layout_options rows',
+      'grid',
+      { ...MONTH, month: { card_height: '50rem' }, layout_options: { grid_rows: 4 } },
+      true,
+    ],
+    [
+      'layout_options without rows',
+      'grid',
+      { ...MONTH, month: { card_height: '50rem' }, layout_options: { grid_columns: 2 } },
+      false,
+    ],
+    [
+      'grid_options over layout_options',
+      'grid',
+      { ...MONTH, grid_options: { rows: 'auto' }, layout_options: { grid_rows: 4 } },
+      false,
+    ],
+  ])('%s', (_name, layout, config, holds) => {
+    expect(Sections.holdsSlot(layout, buildConfig(config as Partial<Types.Config>))).toBe(holds);
+  });
+});
+
+//-----------------------------------------------------------------------------
+// THE HEIGHT A CARD WRITES
+//-----------------------------------------------------------------------------
+
+interface CardUnderTest extends HTMLElement {
+  setConfig(config: Record<string, unknown>): void;
+  getGridOptions(): Sections.CardGridOptions;
+  hass: Types.Hass;
+  layout?: string;
+  readonly updateComplete: Promise<boolean>;
+  updateEvents(force?: boolean): Promise<void>;
+}
+
+/** Answers the resize observers the card starts, with any width a test reports. */
+class RecordingResizeObserver {
+  static instances: RecordingResizeObserver[] = [];
+  constructor(readonly callback: (entries: Array<{ contentRect: { width: number } }>) => void) {
+    RecordingResizeObserver.instances.push(this);
+  }
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
+
+function hass(): Types.Hass {
+  return {
+    states: {
+      'calendar.anna': {
+        entity_id: 'calendar.anna',
+        state: 'off',
+        attributes: { friendly_name: 'Anna' },
+      },
+    },
+    locale: { language: 'en', first_weekday: 'monday', time_format: '24' },
+    config: { country: 'DE' },
+    themes: { darkMode: false },
+    entities: {},
+    connection: {
+      // A Home Assistant before 2026.5, which the card asks over REST instead.
+      subscribeMessage: vi.fn((_callback: unknown, message: { type: string }) =>
+        message.type === 'calendar/event/subscribe'
+          ? Promise.reject({ code: 'unknown_command' })
+          : Promise.resolve(() => {}),
+      ),
+      subscribeEvents: vi.fn().mockResolvedValue(() => {}),
+    },
+    callWS: vi.fn().mockResolvedValue({}),
+    localize: (key: string) => key,
+    formatEntityState: (_stateObj: unknown, value?: string) => String(value ?? ''),
+    callApi: vi.fn().mockResolvedValue([]),
+    callService: vi.fn(),
+  } as unknown as Types.Hass;
+}
+
+/**
+ * A card at a width, laid out as Home Assistant says: the default 900px draws a wide month, 375px
+ * a compact one.
+ */
+async function mount(
+  config: Record<string, unknown>,
+  { layout, width = 900 }: { layout?: string; width?: number } = {},
+): Promise<CardUnderTest> {
+  const card = document.createElement('calendar-card-pro-dev') as unknown as CardUnderTest;
+  if (layout !== undefined) card.layout = layout;
+  card.setConfig({ view: 'month', entities: ['calendar.anna'], ...config });
+  card.hass = hass();
+  document.body.appendChild(card);
+  await card.updateEvents(true);
+  await card.updateComplete;
+  for (const observer of RecordingResizeObserver.instances) {
+    observer.callback([{ contentRect: { width } }]);
+  }
+  for (let pass = 0; pass < 3; pass += 1) {
+    await vi.advanceTimersByTimeAsync(0);
+    await card.updateComplete;
+  }
+  return card;
+}
+
+/** The height and the cap written on the card's `ha-card`, `''` where none is. */
+const written = (card: CardUnderTest): [string, string] => {
+  const style = card.shadowRoot!.querySelector<HTMLElement>('ha-card')!.style;
+  return [style.height, style.maxHeight];
+};
+
+describe('the height a month writes on its card', () => {
+  const originalResizeObserver = globalThis.ResizeObserver;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-18T10:00:00Z'));
+    vi.stubGlobal('localStorage', memoryStorage());
+    RecordingResizeObserver.instances = [];
+    globalThis.ResizeObserver = RecordingResizeObserver as unknown as typeof ResizeObserver;
+  });
+
+  afterEach(() => {
+    document.body.replaceChildren();
+    globalThis.ResizeObserver = originalResizeObserver;
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it.each<readonly [string, Record<string, unknown>, number, [string, string]]>([
+    // The forms' own defaults.
+    ['wide, by default', {}, 900, ['44rem', 'none']],
+    ['compact, by default', {}, 375, ['36rem', 'none']],
+    // Each form's keys, the compact one following the wide one where unset.
+    [
+      'wide, set',
+      { month: { card_height: '50rem', card_max_height: '40rem' } },
+      900,
+      ['50rem', '40rem'],
+    ],
+    ['compact, following wide', { month: { card_height: '50rem' } }, 375, ['50rem', 'none']],
+    [
+      'compact, set',
+      { month: { card_height: '50rem', compact_card_height: '30rem' } },
+      375,
+      ['30rem', 'none'],
+    ],
+    ['compact, capped', { month: { compact_card_max_height: '30rem' } }, 375, ['36rem', '30rem']],
+    [
+      'a panel’s height',
+      { month: { card_height: 'calc(100dvh - var(--header-height, 56px))' } },
+      900,
+      ['calc(100dvh - var(--header-height, 56px))', 'none'],
+    ],
+    // The shared options size the content area of the other views, and nothing here.
+    ['the shared options', { height: '300px', max_height: '200px' }, 900, ['44rem', 'none']],
+    // Any other view writes none.
+    ['a list', { view: 'list', month: { card_height: '50rem' } }, 900, ['', '']],
+  ])('%s', async (_name, config, width, expected) => {
+    const card = await mount(config, { width });
+    expect(written(card)).toEqual(expected);
+  });
+
+  it('writes none in a Sections slot, which it fills, and asks for ten rows', async () => {
+    const card = await mount({ grid_options: { rows: 10 } }, { layout: 'grid' });
+    expect(card.getGridOptions()).toEqual({ columns: 'full', rows: 10 });
+    expect(written(card)).toEqual(['', '']);
+
+    // A compact month fills it too.
+    const compact = await mount({}, { layout: 'grid', width: 375 });
+    expect(written(compact)).toEqual(['', '']);
+  });
+
+  it('sizes itself again once the dashboard lays it out elsewhere, or a height is set', async () => {
+    const card = await mount({}, { layout: 'grid' });
+    expect(written(card)).toEqual(['', '']);
+    card.layout = 'panel';
+    await card.updateComplete;
+    expect(written(card)).toEqual(['44rem', 'none']);
+
+    card.layout = 'grid';
+    card.setConfig({ view: 'month', entities: ['calendar.anna'], month: { card_height: '40rem' } });
+    await card.updateComplete;
+    expect(card.getGridOptions()).toEqual({ columns: 'full', rows: 'auto' });
+    expect(written(card)).toEqual(['40rem', 'none']);
   });
 });
