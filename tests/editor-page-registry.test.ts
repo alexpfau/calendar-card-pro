@@ -433,6 +433,8 @@ const APPROVED_MAP: ReadonlyArray<
       'layout:card_max_height W',
       // Month's own height, beside the Height it yields to.
       'layout:month.row_height A M',
+      // The compact form's height beside the wide form's, both under the card's Height.
+      'layout:month.day_list_events A M',
       'layout:additional_card_spacing A',
       'layout:event_gap A SLCM',
       'layout:event_spacing A SLCM',
@@ -649,15 +651,15 @@ const HEADINGS: ReadonlyArray<HeadingDef> = [
 describe('the page registry places every built field exactly once', () => {
   it('walks the whole corpus', () => {
     // The denominators, beside the verdicts below. A short walk shows here first: the approved
-    // map places 226 ids, Month's own four and Layouts in Switcher among them, and every one of them is built under some
-    // workspace and state.
+    // map places 227 ids, Month's own five and Layouts in Switcher among them, and every one of
+    // them is built under some workspace and state.
     console.info(
       `Page registry: ${BUILT.size} ids built over ${STATES.length} corpus states in ` +
         `${WORKSPACES.length} workspaces; ${PLACED.length} placements.`,
     );
     expect(WORKSPACES).toHaveLength(5);
-    expect(BUILT.size).toBe(226);
-    expect(PLACED).toHaveLength(226);
+    expect(BUILT.size).toBe(227);
+    expect(PLACED).toHaveLength(227);
   });
 
   it('has no field built but unplaced', () => {

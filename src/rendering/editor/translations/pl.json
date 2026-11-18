@@ -664,6 +664,8 @@
   "month.density": "Gęstość miesiąca",
   "month.density.helper": "Węższe dni pokazują zamiast tego kropkę na każde wydarzenie, a wydarzenia dotkniętego dnia wypisują pod tygodniami.",
   "month.min_day_width": "Minimalna szerokość dnia",
+  "month.day_list_events": "Wydarzenia na liście dnia",
+  "month.day_list_events.helper": "0 wypisuje wszystkie wydarzenia, a karta rośnie i maleje wtedy razem z dniem.",
   "month.week_scroll": "Przewijanie tygodniami",
   "month.week_scroll.helper": "Kółko myszy, gładzik lub pionowe przesunięcie palcem przesuwa wtedy tygodnie zamiast panelu, z wyjątkiem kompaktowego miesiąca.",
   "month.week_scroll_min_width": "Minimalna szerokość karty",

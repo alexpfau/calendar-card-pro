@@ -133,8 +133,9 @@ function timeAxisFields(blockKey: string, language: string): HaFormSchema[] {
 
 /**
  * Everything the `month:` block owns that has no top-level counterpart: a week row's height, the
- * day width below which the compact form draws, and week scrolling, whose card-width limit is
- * built only while it is on, since it limits nothing otherwise.
+ * day width below which the compact form draws, the events its day list keeps room for, and week
+ * scrolling, whose card-width limit is built only while it is on, since it limits nothing
+ * otherwise.
  *
  * @param blockKey - Config key holding this view's override block
  * @param weekScroll - Whether week scrolling is on
@@ -150,6 +151,11 @@ function monthFields(blockKey: string, weekScroll: boolean): HaFormSchema[] {
       {
         name: 'min_day_width',
         selector: { number: { min: 1, step: 1, mode: 'box', unit_of_measurement: 'px' } },
+      },
+      // From 0, which the runtime reads as no room and every event listed.
+      {
+        name: 'day_list_events',
+        selector: { number: { min: 0, step: 1, mode: 'box' } },
       },
       bool('week_scroll'),
       ...(weekScroll

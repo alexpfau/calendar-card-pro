@@ -664,6 +664,8 @@
   "month.density": "Mėnesio tankis",
   "month.density.helper": "Siauresnėse dienose vietoj to rodomas taškas kiekvienam įvykiui, o paliestos dienos įvykiai išvardijami po savaitėmis.",
   "month.min_day_width": "Mažiausias dienos plotis",
+  "month.day_list_events": "Įvykiai dienos sąraše",
+  "month.day_list_events.helper": "0 išvardija visus įvykius, ir kortelė tada didėja bei mažėja pagal dieną.",
   "month.week_scroll": "Slinkimas savaitėmis",
   "month.week_scroll.helper": "Pelės ratukas, jutiklinis kilimėlis ar vertikalus braukimas tada slenka savaites, o ne skydelį, išskyrus suglaudintą mėnesį.",
   "month.week_scroll_min_width": "Mažiausias kortelės plotis",

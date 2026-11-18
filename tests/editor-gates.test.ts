@@ -136,6 +136,7 @@ const GRID_AND_MONTH = ['content:multiday_banners', 'calendar:multiday_banners']
 const MONTH_ONLY = [
   'layout:month.row_height',
   'layout:month.min_day_width',
+  'layout:month.day_list_events',
   'layout:month.week_scroll',
   'layout:month.week_scroll_min_width',
 ];
@@ -813,14 +814,14 @@ describe('the universe', () => {
     // All Layouts gained Multi-Day Banners on the card and on a calendar once Month read them
     // beside Grid; Month offers its own four and leaves out what it does not draw (`LACKS`).
     // Every workspace gained Layouts in Switcher, a whole-card setting. Month lost Time Position,
-    // since its day list puts every time beside its title, and gained Space Between Events, which
-    // sets that list's events apart.
+    // since its day list puts every time beside its title, and gained Event Gap, which sets that
+    // list's events apart, and Events in Day List, the room that list keeps.
     expect(sizes).toEqual({
       shared: { card: 152, calendar: 28 },
       list: { card: 158, calendar: 28 },
       column: { card: 157, calendar: 27 },
       grid: { card: 156, calendar: 27 },
-      month: { card: 135, calendar: 27 },
+      month: { card: 136, calendar: 27 },
     });
   });
 

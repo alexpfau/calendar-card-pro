@@ -329,12 +329,16 @@ describe('Pick From Preview part map', () => {
         ).toContain(target.field);
       }
     }
-    // The one part that names its setting: the switcher, Layouts in Switcher.
+    // The two parts that name their setting: the switcher, Layouts in Switcher, and a compact
+    // month's day list, Events in Day List.
     expect(
       PICK_PARTS.flatMap(([selector, target]) =>
         'field' in target && target.field !== undefined ? [`${selector} ${target.field}`] : [],
       ),
-    ).toEqual(['.view-switcher card:toolbar.view_switcher_layouts']);
+    ).toEqual([
+      '.view-switcher card:toolbar.view_switcher_layouts',
+      '.month-day-list-more, .month-day-list-rows, .month-day-list layout:month.day_list_events',
+    ]);
   });
 
   it('decides an element by its innermost part', async () => {

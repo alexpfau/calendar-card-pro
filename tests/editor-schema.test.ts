@@ -1340,11 +1340,13 @@ describe('editor: displayed view and the Layout panel', () => {
     expect(own(buildConfig({ view: 'month' }))).toEqual([
       'row_height',
       'min_day_width',
+      'day_list_events',
       'week_scroll',
     ]);
     expect(own(buildConfig({ view: 'month', month: { week_scroll: true } }))).toEqual([
       'row_height',
       'min_day_width',
+      'day_list_events',
       'week_scroll',
       'week_scroll_min_width',
     ]);

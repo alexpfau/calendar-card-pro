@@ -664,6 +664,8 @@
   "month.density": "Densità mese",
   "month.density.helper": "I giorni più stretti mostrano invece un punto per evento ed elencano sotto le settimane gli eventi del giorno toccato.",
   "month.min_day_width": "Larghezza minima giorno",
+  "month.day_list_events": "Eventi nell’elenco del giorno",
+  "month.day_list_events.helper": "0 elenca tutti gli eventi, e la scheda cresce e si riduce con il giorno.",
   "month.week_scroll": "Scorrimento per settimane",
   "month.week_scroll.helper": "La rotella, un trackpad o uno scorrimento verticale spostano allora le settimane invece della plancia, tranne nel mese compatto.",
   "month.week_scroll_min_width": "Larghezza minima scheda",

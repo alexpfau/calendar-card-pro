@@ -667,6 +667,8 @@
   "month.density": "Månedstetthet",
   "month.density.helper": "Smalere dager viser i stedet en prikk per hendelse, og lister hendelsene for dagen du trykker på under ukene.",
   "month.min_day_width": "Minste dagbredde",
+  "month.day_list_events": "Hendelser i dagslisten",
+  "month.day_list_events.helper": "0 lister alle hendelser, og kortet vokser og krymper da med dagen.",
   "month.week_scroll": "Rulling per uke",
   "month.week_scroll.helper": "Musehjulet, en styreflate eller et loddrett sveip flytter da ukene i stedet for dashbordet, unntatt i den kompakte måneden.",
   "month.week_scroll_min_width": "Minste kortbredde",

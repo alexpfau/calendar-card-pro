@@ -452,8 +452,10 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['layout:height_mode', E],
           ['layout:card_height', withMode('layout:height_mode')],
           ['layout:card_max_height', withMode('layout:height_mode')],
-          // Month's own height, beside the Height it yields to: a fixed one replaces it.
+          // Month's own height, beside the Height it yields to: a fixed one replaces it. Then the
+          // compact form's, which its day list's room sets, and which a fixed Height scrolls.
           ['layout:month.row_height', A],
+          ['layout:month.day_list_events', A],
           ['layout:additional_card_spacing', A],
           ['layout:event_gap', A],
           ['layout:event_spacing', A],

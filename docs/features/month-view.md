@@ -167,6 +167,9 @@ month:
 | ------------------------- | ------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `month → day_list_events` | number | `4`     | Events the compact month's list keeps room for on every day, past which it lists one fewer and "+N more"; `0` lists every event, and the card follows the day |
 
+In the visual editor, that is Events in Day List under Size & Spacing › Card Size & Spacing, with
+**Settings For** on Month.
+
 - **Times sit beside the titles**, whatever `time_position` says, as a phone's day list puts them:
   a row is a line shorter, and the times line up at its end.
 - **Each detail keeps to one line**: a title too long for the line beside its time ends in "…",

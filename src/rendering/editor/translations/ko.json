@@ -832,6 +832,8 @@
   "month.density": "월 밀도",
   "month.density.helper": "더 좁은 날짜에는 대신 이벤트마다 점이 표시되고, 탭한 날짜의 이벤트가 주 아래에 나열됩니다.",
   "month.min_day_width": "최소 일자 너비",
+  "month.day_list_events": "일자 목록의 이벤트",
+  "month.day_list_events.helper": "0이면 모든 이벤트를 나열하고, 카드 높이가 날짜에 따라 달라집니다.",
   "month.week_scroll": "주 단위 스크롤",
   "month.week_scroll.helper": "휠, 트랙패드 또는 세로 스와이프로 대시보드 대신 주가 이동합니다. 컴팩트 월 보기는 제외됩니다.",
   "month.week_scroll_min_width": "최소 카드 너비",

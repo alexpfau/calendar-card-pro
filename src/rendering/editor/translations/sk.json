@@ -665,6 +665,8 @@
   "month.density": "Hustota mesiaca",
   "month.density.helper": "Užšie dni namiesto toho zobrazia bodku za každú udalosť a udalosti klepnutého dňa vypíšu pod týždňami.",
   "month.min_day_width": "Minimálna šírka dňa",
+  "month.day_list_events": "Udalosti v zozname dňa",
+  "month.day_list_events.helper": "0 vypíše všetky udalosti a karta sa potom zväčšuje a zmenšuje podľa dňa.",
   "month.week_scroll": "Posúvanie po týždňoch",
   "month.week_scroll.helper": "Koliesko myši, touchpad alebo zvislé potiahnutie potom posúva týždne namiesto panela, okrem kompaktného mesiaca.",
   "month.week_scroll_min_width": "Minimálna šírka karty",
