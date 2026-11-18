@@ -133,7 +133,9 @@ another event still refreshes the calendar it wrote to, but neither closes nor c
 one. Any new asynchronous step in the popover needs the same check.
 :::
 
-`popover-shell.ts` (`PopoverShell`) holds what the popover and the search panel share, including a
+`popover-shell.ts` (`PopoverShell`) holds what the popover, the search panel and the day panel share
+(`day-panel.ts`, a wide month's "+N more": a day's List rows, where pressing a row closes the panel
+and then runs what a tap on the event runs on the card), including a
 scroll guard on the window (`_guardScroll`), which Chromium needs because it scrolls the page under
 a modal's backdrop, and placement by inline position alone (`inset: auto`), which right-to-left
 pages need.

@@ -124,6 +124,7 @@ src/
 │   ├── event-popover.ts          # The event popover: details, editing in place, new events
 │   ├── popover-shell.ts          # The popover's shell: opening, placing, its look, closing
 │   ├── search-panel.ts           # The search panel: its field, its results, the keyboard
+│   ├── day-panel.ts              # The day panel a wide month's "+N more" opens: List's rows
 │   ├── column.ts                 # The column view
 │   ├── grid.ts                   # The timed grid and spanning all-day band
 │   ├── grid-accessibility.ts     # Full configured names for timed Grid events
@@ -150,6 +151,7 @@ src/
     ├── grid-cascade-threshold.ts # Measured cascade threshold, in minutes, for `utils/grid.ts`
     ├── grid-overflow-strip.ts    # Measured `+N` strip width, as a column share
     ├── month-layout.ts           # A month row's lines, and what each day hides behind "+N"
+    ├── month-day.ts              # A month day's list, the compact form and the selected day
     ├── content-box.ts            # A clipping text box's width without its inline room
     ├── format.ts                 # Date and text formatting
     ├── event-age.ts              # The `YEAR=` marker: ages and anniversary counts
@@ -372,10 +374,13 @@ both happen. It reads the target at pointer-down and runs the innermost target's
 | ---------------------------------------------------- | ------------------ | ------------------- |
 | An event                                             | `event_tap_action` | `event_hold_action` |
 | An empty slot: a day's empty space, a grid time slot | `day_tap_action`   | draws, in a grid    |
+| A compact month's day                                | selects the day    | `hold_action`       |
 | The card: everything else, title and toolbar rows    | `tap_action`       | `hold_action`       |
 
 - **Precedence.** A tap or a hold runs the innermost target's action, else the next target out's.
-  An event covers its slot: a press on an event falls through to the card, never to the slot.
+  An event covers its slot: a press on an event falls through to the card, never to the slot. A
+  compact month's day covers its day too: a tap selects it and runs nothing else, and
+  `day_tap_action` is its list's, under the weeks.
 - **Not targets.** Toolbar controls and the filter menu keep their presses (`stopCardGesture`), and
   a press that begins on a link in an event row arms nothing.
 - **Endings.** Every armed press ends in exactly one way at pointer-up (`_handlePointerUp`):

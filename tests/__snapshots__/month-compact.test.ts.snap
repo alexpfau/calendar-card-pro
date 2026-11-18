@@ -1,0 +1,279 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`a compact day > matches its snapshot 1`] = `
+"<div class=" month-container month-compact with-week-numbers ">
+<div class="month-weekdays">
+<div class="month-weekday-gutter"></div>
+<div class=" month-weekday ">
+          Mon
+        </div><div class=" month-weekday ">
+          Tue
+        </div><div class=" month-weekday ">
+          Wed
+        </div><div class=" month-weekday ">
+          Thu
+        </div><div class=" month-weekday ">
+          Fri
+        </div><div class=" month-weekday weekend ">
+          Sat
+        </div><div class=" month-weekday weekend ">
+          Sun
+        </div>
+</div>
+<div class="month-week">
+<div class=" month-week-number ">
+                  44
+                </div>
+<div class=" month-day past-day other-month ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">26</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day past-day other-month ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">27</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day past-day other-month ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">28</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day past-day other-month ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">29</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day past-day other-month ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">30</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day past-day other-month weekend ">
+<span class="month-date"><span class="day" style="color:var(--secondary-text-color);">31</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day past-day weekend ">
+<span class="month-date"><span class="day" style="color:var(--secondary-text-color);">1</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div>
+</div><div class="month-week">
+<div class=" month-week-number ">
+                  45
+                </div>
+<div class=" month-day past-day ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">2</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day past-day ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">3</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day past-day ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">4</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day past-day ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">5</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day past-day ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">6</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day past-day weekend ">
+<span class="month-date"><span class="day" style="color:var(--secondary-text-color);">7</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day past-day weekend ">
+<span class="month-date"><span class="day" style="color:var(--secondary-text-color);">8</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div>
+</div><div class="month-week">
+<div class=" month-week-number ">
+                  46
+                </div>
+<div class=" month-day past-day ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">9</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day past-day ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">10</span></span>
+<span class="month-compact-marks" aria-hidden="true"><span class="month-compact-mark" style="background-color:#3b82f6;"></span><span class="month-compact-mark" style="background-color:#16a34a;"></span><span class="month-compact-mark" style="background-color:#3b82f6;"></span><span class="month-compact-mark" style="background-color:#16a34a;"></span></span>
+</div><div class=" month-day past-day ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">11</span></span>
+<span class="month-compact-marks" aria-hidden="true"><span class="month-compact-mark" style="background-color:#3b82f6;"></span><span class="month-compact-mark" style="background-color:#16a34a;"></span><span class="month-compact-mark" style="background-color:#3b82f6;"></span></span>
+</div><div class=" month-day past-day ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">12</span></span>
+<span class="month-compact-marks" aria-hidden="true"><span class="month-compact-mark" style="background-color:#3b82f6;"></span><span class="month-compact-mark" style="background-color:#16a34a;"></span></span>
+</div><div class=" month-day past-day ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">13</span></span>
+<span class="month-compact-marks" aria-hidden="true"><span class="month-compact-mark" style="background-color:#3b82f6;"></span></span>
+</div><div class=" month-day past-day weekend ">
+<span class="month-date"><span class="day" style="color:var(--secondary-text-color);">14</span></span>
+<span class="month-compact-marks" aria-hidden="true"><span class="month-compact-mark" style="background-color:#3b82f6;"></span></span>
+</div><div class=" month-day past-day weekend ">
+<span class="month-date"><span class="day" style="color:var(--secondary-text-color);">15</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div>
+</div><div class="month-week">
+<div class=" month-week-number current ">
+                  47
+                </div>
+<div class=" month-day past-day ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">16</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day past-day ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">17</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day today month-selected " aria-current="date">
+<span class="month-date"><span class="day today-tile" style="">18</span></span>
+<span class="month-compact-marks" aria-hidden="true"><span class="month-compact-mark" style="background-color:#16a34a;"></span><span class="month-compact-mark" style="background-color:#3b82f6;"></span><span class="month-compact-mark" style="background-color:#16a34a;"></span><span class="month-compact-mark" style="background-color:#3b82f6;"></span></span>
+</div><div class=" month-day tomorrow ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">19</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">20</span></span>
+<span class="month-compact-marks" aria-hidden="true"><span class="month-compact-mark" style="background-color:#16a34a;"></span></span>
+</div><div class=" month-day weekend ">
+<span class="month-date"><span class="day" style="color:var(--secondary-text-color);">21</span></span>
+<span class="month-compact-marks" aria-hidden="true"><span class="month-compact-mark" style="background-color:#16a34a;"></span></span>
+</div><div class=" month-day weekend ">
+<span class="month-date"><span class="day" style="color:var(--secondary-text-color);">22</span></span>
+<span class="month-compact-marks" aria-hidden="true"><span class="month-compact-mark" style="background-color:#16a34a;"></span></span>
+</div>
+</div><div class="month-week">
+<div class=" month-week-number ">
+                  48
+                </div>
+<div class=" month-day ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">23</span></span>
+<span class="month-compact-marks" aria-hidden="true"><span class="month-compact-mark" style="background-color:#16a34a;"></span></span>
+</div><div class=" month-day ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">24</span></span>
+<span class="month-compact-marks" aria-hidden="true"><span class="month-compact-mark" style="background-color:#16a34a;"></span></span>
+</div><div class=" month-day ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">25</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">26</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">27</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day weekend ">
+<span class="month-date"><span class="day" style="color:var(--secondary-text-color);">28</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day weekend ">
+<span class="month-date"><span class="day" style="color:var(--secondary-text-color);">29</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div>
+</div><div class="month-week">
+<div class=" month-week-number ">
+                  49
+                </div>
+<div class=" month-day ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">30</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day other-month ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">1</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day other-month ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">2</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day other-month ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">3</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day other-month ">
+<span class="month-date"><span class="day" style="color:var(--primary-text-color);">4</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day other-month weekend ">
+<span class="month-date"><span class="day" style="color:var(--secondary-text-color);">5</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div><div class=" month-day other-month weekend ">
+<span class="month-date"><span class="day" style="color:var(--secondary-text-color);">6</span></span>
+<span class="month-compact-marks" aria-hidden="true"></span>
+</div>
+</div>
+</div>
+<div class="month-day-list">
+<div class="month-day-list-header"><span class="month-day-list-date">Wednesday, November 18, 2026</span></div>
+<table class="month-day-table">
+<tr>
+<td class=" event event-first " style="--calendar-card-event-accent-bar-color:#16a34a;">
+<span class="event-accent-bar"></span>
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Holiday
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr><tr>
+<td class=" event event-middle past-event " style="--calendar-card-event-accent-bar-color:#3b82f6;">
+<span class="event-accent-bar"></span>
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Swim
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>7:00 - 8:00</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr><tr>
+<td class=" event event-middle past-event " style="--calendar-card-event-accent-bar-color:#16a34a;">
+<span class="event-accent-bar"></span>
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Standup
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>9:00 - 9:15</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr><tr>
+<td class=" event event-last " style="--calendar-card-event-accent-bar-color:#3b82f6;">
+<span class="event-accent-bar"></span>
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Lunch
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>12:00 - 13:00</span>
+</div>
+</div>
+<div class="location">
+<ha-icon icon="mdi:map-marker-outline"></ha-icon>
+<span>Cafe Anna</span>
+</div>
+</div>
+</div>
+</td>
+</tr>
+</table>
+</div>"
+`;

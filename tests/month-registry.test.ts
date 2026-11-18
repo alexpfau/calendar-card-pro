@@ -31,13 +31,13 @@ describe('the month block', () => {
     ]);
     expect(ViewConfig.MONTH_DEFAULTS).toEqual({
       row_height: '112px',
-      min_day_width: 64,
+      min_day_width: 80,
       week_scroll: false,
       week_scroll_min_width: 0,
     });
   });
 
-  it('overrides column’s shared options but the seven it draws nothing for, and the bars', () => {
+  it('overrides column’s shared options but the twenty it draws nothing for, and the bars', () => {
     const ignored = [
       'days_to_show',
       'show_empty_days',
@@ -46,11 +46,24 @@ describe('the month block', () => {
       'empty_day_color',
       'split_multiday_events',
       'event_gap',
+      'day_spacing',
+      'day_separator_width',
+      'day_separator_color',
+      'week_separator_width',
+      'week_separator_color',
+      'month_separator_width',
+      'month_separator_color',
+      'week_number_background_color',
+      'day_font_size',
+      'month_font_size',
+      'today_date_scale',
+      'past_date_scale',
+      'today_indicator_size',
     ];
     expect(ViewConfig.MONTH_IGNORED_SHARED_KEYS).toEqual(ignored);
     const month: ReadonlyArray<string> = ViewConfig.MONTH_OVERRIDE_KEYS;
     const column: ReadonlyArray<string> = ViewConfig.COLUMN_OVERRIDE_KEYS;
-    expect(column.filter((key) => !month.includes(key))).toEqual(ignored);
+    expect(column.filter((key) => !month.includes(key)).sort()).toEqual([...ignored].sort());
     expect(month.filter((key) => !column.includes(key))).toEqual(['multiday_banners']);
   });
 
@@ -82,17 +95,43 @@ describe('the options month reads', () => {
       'compact_events_complete_days',
       'compact_events_to_show',
       'date_vertical_alignment',
+      'day_font_size',
+      'day_separator_color',
+      'day_separator_width',
+      'day_spacing',
       'days_to_show',
       'empty_day_color',
       'empty_day_text',
       'event_gap',
       'event_order',
+      'month_font_size',
+      'month_separator_color',
+      'month_separator_width',
+      'past_date_scale',
       'show_empty_days',
       'show_empty_today',
       'skip_first_events',
       'split_multiday_events',
+      'today_date_scale',
       'today_indicator_position',
+      'today_indicator_size',
+      'today_weekday_color',
+      'week_number_background_color',
+      'week_separator_color',
+      'week_separator_width',
     ]);
+  });
+
+  it('keeps out of its block exactly the shared options VIEW_SCOPE keeps out of it', () => {
+    // Reconciled rather than listed twice: an option month cannot draw must neither be written
+    // into `month:` nor offered there, and one its block refuses must be one it does not draw.
+    const column: ReadonlyArray<string> = ViewConfig.COLUMN_OVERRIDE_KEYS;
+    const scopedAway = Object.entries(ViewConfig.VIEW_SCOPE)
+      .filter(([key, views]) => !views.has('month') && column.includes(key))
+      .map(([key]) => key)
+      .sort();
+    expect(scopedAway.length).toBeGreaterThan(10);
+    expect([...ViewConfig.MONTH_IGNORED_SHARED_KEYS].sort()).toEqual(scopedAway);
   });
 
   it('reads these scoped ones, which the day list draws or the bars follow', () => {
@@ -135,9 +174,9 @@ describe('a month-only option', () => {
     ['row_height', 120, '120px'],
     ['row_height', '8em', '8em'],
     ['min_day_width', '72', 72],
-    ['min_day_width', 0, 64],
-    ['min_day_width', -5, 64],
-    ['min_day_width', 'wide', 64],
+    ['min_day_width', 0, 80],
+    ['min_day_width', -5, 80],
+    ['min_day_width', 'wide', 80],
     ['week_scroll', true, true],
     ['week_scroll', 'yes', false],
     ['week_scroll_min_width', 0, 0],

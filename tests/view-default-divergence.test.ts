@@ -127,16 +127,16 @@ const CROSS_VIEW_ACKNOWLEDGEMENTS: Readonly<
   // values (`barConfig` in `rendering/month.ts`), so none of the three needs a divergent default.
   month: {
     day_separator_color: {
-      verdict: 'inherits',
-      why: 'The month grid draws hairline rules of its own between its cells and reads neither separator option, so no divergent default would change what it draws. Whether the day list reads it is settled with VIEW_SCOPE when the day list lands.',
+      verdict: 'ignores',
+      why: 'The month grid draws hairline rules of its own between its cells, and its day list holds one day, so there is no rule between days for the option to color; VIEW_SCOPE keeps it out.',
     },
     day_separator_width: {
-      verdict: 'inherits',
-      why: 'As day_separator_color: the month grid rules its cells itself. Grid diverges because a shared time axis needs its day boundaries drawn to read as separate columns at all.',
+      verdict: 'ignores',
+      why: 'As day_separator_color: the month grid rules its cells itself and its day list holds one day. Grid diverges because a shared time axis needs its day boundaries drawn to read as separate columns at all.',
     },
     day_spacing: {
-      verdict: 'inherits',
-      why: 'The month grid sets its cells edge to edge, ruled, as macOS Calendar does, so it reads no gap. Grid narrows it to 1px so its tinted blocks meet their rule; the day list, one day long, has no gap between days to take.',
+      verdict: 'ignores',
+      why: 'The month grid sets its cells edge to edge, ruled, as macOS Calendar does, and its day list, one day long, has no gap between days to take, so VIEW_SCOPE keeps it out. Grid narrows it to 1px so its tinted blocks meet their rule.',
     },
     description_color: {
       verdict: 'inherits',

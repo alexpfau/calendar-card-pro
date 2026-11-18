@@ -234,9 +234,16 @@ export const LIST_OVERRIDE_KEYS = [
 export const LIST_ONLY_KEYS = [] as const;
 
 /**
- * The shared options a month grid draws nothing for (`Types.MonthIgnoredSharedKeys`): it shows
- * its six weeks whatever their events, so it has no day count, no empty-day placeholder and no
- * List splitting, and it lines its events up by rows rather than by gaps between them.
+ * The shared options a month draws nothing for (`Types.MonthIgnoredSharedKeys`), each kept out of
+ * it in `VIEW_SCOPE` too, which `tests/month-registry.test.ts` reconciles.
+ *
+ * - It shows its six weeks whatever their events, so it has no day count and no empty-day
+ *   placeholder, and its day list splits every multi-day event across its days, so the List
+ *   splitter's switch decides nothing. It lines its events up by rows rather than by gaps.
+ * - It rules its days with hairlines of its own and lists one day at a time, so the spacing and
+ *   the rules between days, weeks and months have nothing to separate.
+ * - It sets its dates in the event font, unscaled, with today's indicator drawn only as the tile,
+ *   and its week numbers as plain text without a background.
  */
 export const MONTH_IGNORED_SHARED_KEYS = [
   'days_to_show',
@@ -246,6 +253,19 @@ export const MONTH_IGNORED_SHARED_KEYS = [
   'empty_day_color',
   'split_multiday_events',
   'event_gap',
+  'day_spacing',
+  'day_separator_width',
+  'day_separator_color',
+  'week_separator_width',
+  'week_separator_color',
+  'month_separator_width',
+  'month_separator_color',
+  'week_number_background_color',
+  'day_font_size',
+  'month_font_size',
+  'today_date_scale',
+  'past_date_scale',
+  'today_indicator_size',
 ] as const satisfies ReadonlyArray<Types.MonthIgnoredSharedKeys>;
 
 /**
@@ -400,11 +420,12 @@ export const VIEWS_WITH_WIDTH_FALLBACK: ReadonlySet<Types.EffectiveView> =
  * inert somewhere. Compact limits apply only to list view for the same reason as
  * `viewAppliesCompactLimits`.
  *
- * Month draws its cells from its own rows and lines, and every event's details in the day list
- * it opens, which is List's rows with Month's options. So an option a List row reads reaches
- * Month too, unless it shapes the list as a whole, and the scopes below say so wherever they
- * name List and not Month. The month grid itself reads fewer: it rules its cells itself and sets
- * their dates in the event font. Which of those the day list reads is settled here when it lands.
+ * Month draws its cells from its own rows and lines, and every event's details in its day list,
+ * which is List's rows with Month's options, in the panel "+N more" opens and under a compact
+ * month's weeks. So an option a List row reads reaches Month too, unless it shapes the list as a
+ * whole, and the scopes below say so wherever they name List and not Month. What Month draws
+ * around its events reads fewer: it rules its days itself, lists one day at a time and sets its
+ * dates in the event font, so the spacing, the rules and the date sizes below leave it out.
  */
 export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView>>> = {
   date_vertical_alignment: new Set<Types.EffectiveView>(['list']),
@@ -423,6 +444,34 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   days_to_show: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
   show_empty_days: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
   show_empty_today: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+
+  // A month rules its days with hairlines of its own, and its day list holds one day, so there
+  // is no space or rule between days, weeks or months for these to set.
+  day_spacing: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  day_separator_width: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  day_separator_color: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  week_separator_width: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  week_separator_color: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  month_separator_width: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  month_separator_color: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+
+  // A month's week numbers are plain text, in a cell's corner or a compact form's gutter.
+  week_number_background_color: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+
+  // A month sets its dates in the event font, so a line and a date are measured in one font,
+  // at one scale on every day; the 1st's month rides in the date's size.
+  day_font_size: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  month_font_size: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  today_date_scale: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  past_date_scale: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+
+  // A month marks today with the tile, or with its number in the indicator's color; it draws
+  // none of the indicators this sizes.
+  today_indicator_size: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+
+  // A month names its weekdays once, over their columns, and no day by its weekday, so there is
+  // no weekday of today's to color. A weekend's names take weekend_weekday_color.
+  today_weekday_color: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
 
   // Inert as a card-level grid override: the grid never uses the upstream list splitter.
   // All-day multi-day events become spanning banners. Grid's own daily coverage keeps
@@ -1025,13 +1074,17 @@ export function resolveTimeGridOption<K extends keyof typeof TIME_GRID_DEFAULTS>
  * under a fixed card `height` the six rows share the card's instead. At the shipped 14px event
  * size it holds four lines under the date, as measured in Chromium: a 22.8px date line and four
  * 20.8px lines take 106px of its 111 inside the rule above it, where a fifth would need 127px.
- * `min_day_width` is the day-cell width below which the month draws its compact form, a first
- * estimate until that form exists. Week scrolling takes wheel and swipe gestures from the page,
- * so it ships off, and `week_scroll_min_width: 0` applies it at any card width once it is on.
+ * `min_day_width` is the day width below which the month draws its compact form. At the shipped
+ * sizes a wide day 64px across cuts every title to four or five letters and drops every time,
+ * which reads worse than the compact form's list; from about 80px a title keeps a word or two,
+ * so the compact form takes every card narrower than 594px, a phone's and a narrow column's,
+ * and the wide one comes back from 622px (`UI.MONTH_COMPACT_HYSTERESIS`). Week scrolling takes
+ * wheel and swipe gestures from the page, so it ships off, and `week_scroll_min_width: 0`
+ * applies it at any card width once it is on.
  */
 export const MONTH_DEFAULTS = {
   row_height: '112px',
-  min_day_width: 64,
+  min_day_width: 80,
   week_scroll: false,
   week_scroll_min_width: 0,
 } as const;

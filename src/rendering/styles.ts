@@ -7881,4 +7881,175 @@ export const cardStyles = css`
       }
     }
   }
+
+  /* ===== MONTH VIEW: THE COMPACT FORM =====
+   *
+   * Below month -> min_day_width a day, as a phone's calendar draws its month: the weekday names
+   * centered over their days, and each day its number with one capsule under it, a segment per
+   * event in its calendar's color, a single event a dot. Rows are as tall as their days, so
+   * row_height, the wide form's, does nothing here. Week numbers sit in a narrow gutter before
+   * the first day, UI.MONTH_WEEK_GUTTER wide, which the card counts when it decides the form.
+   * The day selected is listed under the weeks (.month-day-list). */
+  .month-container.month-compact {
+    grid-template-rows: auto repeat(6, auto);
+    --calendar-card-month-week-gutter: 22px;
+  }
+
+  .month-compact.with-week-numbers > .month-weekdays,
+  .month-compact.with-week-numbers > .month-week {
+    grid-template-columns: var(--calendar-card-month-week-gutter) repeat(7, minmax(0, 1fr));
+  }
+
+  .month-compact .month-weekday {
+    padding-inline: 0;
+    text-align: center;
+  }
+
+  /* A weekend's names and numbers step back, unless the card names a color for them, which
+     the renderer writes inline. */
+  .month-compact .month-weekday.weekend {
+    color: var(--secondary-text-color);
+  }
+
+  .month-compact > .month-week {
+    overflow: visible;
+  }
+
+  /* A day: its number, and its capsule under it. The whole day is what a tap selects, so its
+     box spans its column; the rules between days are the wide form's alone. */
+  .month-compact .month-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    grid-row: auto;
+    padding-block: 6px;
+    border-inline-start: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .month-compact .month-date {
+    height: auto;
+    padding: 0;
+    justify-content: center;
+  }
+
+  /* Every number sits in the same box, so today's tile and the selected day's mark draw
+     around it without moving it. The tile centers its digits its own way, on their cap height
+     where the browser can, so only the other numbers are made flex boxes here. */
+  .month-compact .month-date > .day {
+    box-sizing: border-box;
+    width: 2em;
+    height: 2em;
+    margin: 0;
+    border-radius: 0.6em;
+  }
+
+  .month-compact .month-date > .day:not(.today-tile) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* The day selected, where it is not today: a neutral mark, the theme's text color with the
+     card's background as its ink, as distinct from today's tile as a phone's. */
+  .month-compact .month-day.month-selected:not(.today) .month-date > .day {
+    background: var(--primary-text-color);
+    color: var(--calendar-card-background-color, var(--card-background-color));
+    font-weight: 600;
+  }
+
+  /* Today selected: the tile filled, in the indicator's color, with Home Assistant's text on it. */
+  .month-compact .month-day.month-selected.today .month-date > .day {
+    background: var(--calendar-card-today-indicator-color);
+    color: var(--text-primary-color, #fff);
+    font-weight: 600;
+  }
+
+  .month-compact .month-day.other-month > * {
+    opacity: 0.45;
+  }
+
+  .month-compact-marks {
+    display: flex;
+    height: 6px;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .month-compact-mark {
+    flex: none;
+    width: 6px;
+  }
+
+  /* The week number, centered in its gutter beside its week, the current week's at full
+     strength. */
+  .month-compact .month-week-number {
+    grid-column: auto;
+    grid-row: auto;
+    align-self: center;
+    justify-self: center;
+    padding: 0;
+  }
+
+  .month-compact .month-week-number.current {
+    opacity: 1;
+    font-weight: 600;
+  }
+
+  /* ===== MONTH VIEW: THE DAY LIST =====
+   *
+   * The selected day's events under a compact month's weeks: its name in full, then List's rows
+   * without their date column, drawn as a list row is in every respect (td.event), or the card's
+   * "no events". Its own space is the day's, for day_tap_action; where that adds, its name is a
+   * button. */
+  .month-day-list {
+    padding-block: 12px 4px;
+  }
+
+  .month-day-list-header {
+    padding-block: 2px 8px;
+    border-radius: 6px;
+  }
+
+  .month-day-list-date {
+    font-size: var(--calendar-card-font-size-weekday);
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--calendar-card-color-weekday);
+  }
+
+  .month-day-table {
+    margin: 0;
+  }
+
+  .month-day-list-empty {
+    padding-block: 4px 8px;
+    font-size: var(--calendar-card-font-size-event);
+    line-height: 1.2;
+    color: var(--secondary-text-color);
+  }
+
+  @media (hover: hover) {
+    .month-day-list-header.day-add-button:hover {
+      background-color: color-mix(in srgb, var(--ha-ripple-hover-color) 8%, transparent);
+    }
+  }
+
+  .month-day-list[data-add-pressed] > .month-day-list-header {
+    background-color: color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent);
+  }
+
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    @media (hover: hover) {
+      .month-day-list-header.day-add-button:hover {
+        background-color: rgba(128, 128, 128, 0.08);
+      }
+    }
+
+    .month-day-list[data-add-pressed] > .month-day-list-header {
+      background-color: rgba(128, 128, 128, 0.16);
+    }
+  }
 `;

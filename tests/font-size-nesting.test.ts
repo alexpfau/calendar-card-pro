@@ -33,17 +33,19 @@
  * measured in Chromium, are in the pull request that added this file.
  */
 
-import { render as litRender } from 'lit';
+import { html, render as litRender } from 'lit';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW, WEATHER, buildConfig } from './fixtures';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
+import * as MonthRender from '../src/rendering/month';
 import * as Render from '../src/rendering/render';
 import { cardStyles, generateCustomPropertiesObject } from '../src/rendering/styles';
 import * as Toolbar from '../src/rendering/toolbar';
 import * as EventUtils from '../src/utils/events';
+import * as MonthDay from '../src/utils/month-day';
 import * as Paging from '../src/utils/paging';
 
 //-----------------------------------------------------------------------------
@@ -720,7 +722,7 @@ function renderCard(view: (typeof VIEWS)[number], config: Types.Config): HTMLEle
       : view === 'column'
         ? Render.renderColumnGroupedEvents(days, effective, 'en', WEATHER, null)
         : view === 'month'
-          ? Render.renderMonthGroupedEvents(days, rowsStart, effective, 'en', 4, null)
+          ? monthForms(days, rowsStart, effective)
           : Render.renderGroupedEvents(days, effective, 'en', WEATHER, null);
   const container = document.createElement('div');
   litRender(
@@ -740,6 +742,30 @@ function renderCard(view: (typeof VIEWS)[number], config: Types.Config): HTMLEle
     container,
   );
   return container;
+}
+
+/**
+ * A month in both its forms: wide, then compact with the list of a day that has events under
+ * it, then the list of a day with none, so the compact form's and the day list's sizes are
+ * reached in every pass a month draws.
+ */
+function monthForms(days: Types.EventsByDay[], rowsStart: Date, effective: Types.Config) {
+  const dayLists = MonthDay.monthDayLists(
+    EVENTS,
+    effective,
+    rowsStart,
+    ViewConfig.MONTH_DAYS,
+    'en',
+  );
+  const busiest = dayLists.reduce(
+    (best, list, index) => (list.length > dayLists[best].length ? index : best),
+    0,
+  );
+  return html`${Render.renderMonthGroupedEvents(days, rowsStart, effective, 'en', 4, null)}
+  ${Render.renderMonthGroupedEvents(days, rowsStart, effective, 'en', 4, null, false, {
+    compact: { selected: Paging.addDays(rowsStart, busiest), dayLists, weatherForecasts: WEATHER },
+  })}
+  ${MonthRender.renderMonthDayList(Paging.addDays(rowsStart, 41), [], effective, 'en', null)}`;
 }
 
 /**
@@ -1095,6 +1121,10 @@ describe('every piece of text is sized by its own option', () => {
       'month in date-column': ['month_font_size'],
       // The month named on a month's first day, beside its number and in its size.
       'month-date-month in month-date': ['event_font_size'],
+      // A month day's list: the day named as the weekday names are, and its "no events" in the
+      // event font, as the list's rows set their titles.
+      'month-day-list-date in month-day-list-header': ['weekday_font_size'],
+      'month-day-list-empty in month-day-list': ['event_font_size'],
       // A month line's title and its time, each in its own option, side by side as a list row's.
       'month-line-time in event': ['time_font_size'],
       'month-line-title in event': ['event_font_size'],

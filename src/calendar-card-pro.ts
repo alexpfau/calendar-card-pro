@@ -49,6 +49,7 @@ import * as GridMove from './interaction/grid-move';
 import type * as PopoverModel from './interaction/popover-model';
 import { type SearchHost, SearchSession } from './interaction/search-session';
 import * as Activation from './rendering/activation';
+import * as DayPanel from './rendering/day-panel';
 import type * as Editor from './rendering/editor/index';
 import * as EventPopover from './rendering/event-popover';
 import * as GridRender from './rendering/grid';
@@ -78,6 +79,7 @@ import * as HassRelevance from './utils/hass-relevance';
 import * as Helpers from './utils/helpers';
 import * as LiveCalendars from './utils/live-calendars';
 import * as Logger from './utils/logger';
+import * as MonthDay from './utils/month-day';
 import * as Paging from './utils/paging';
 import * as Search from './utils/search';
 import * as StartDate from './utils/start-date';
@@ -797,6 +799,11 @@ class CalendarCardPro extends LitElement {
   private _pointerAddContext: Activation.DayHit | null = null;
   /** The day's add button the active press began on, if any; see `_derivedClick`. */
   private _pointerDayAdd: EventTarget | null = null;
+  /**
+   * The compact month day the active press began on, which a tap on it selects
+   * (`_selectMonthDay`); null otherwise.
+   */
+  private _pointerMonthPick: { element: EventTarget; timestamp: number } | null = null;
   /**
    * The event a browser handed the active press to while the finger was on something else,
    * which the press is read from instead (`_pressPath`). A browser that aims the click it
@@ -1766,6 +1773,24 @@ class CalendarCardPro extends LitElement {
    */
   private _monthCapacity = MonthRender.MONTH_LINE_CAPACITY_DEFAULT;
 
+  /**
+   * Whether a month draws its compact form, decided from the card's width with a band either
+   * side of `min_day_width` (`_syncMonthForm`); the wide form until the card has been measured.
+   */
+  private _monthCompact = false;
+
+  /** The card's width the month's form was last decided at, or null before it was measured. */
+  private _monthWidthPx: number | null = null;
+
+  /**
+   * The day selected on a compact month, on this device only: never configuration, and gone with
+   * a page, Home or Reset (`MonthDay.selectedMonthDay`).
+   */
+  private _monthSelection: MonthDay.MonthSelection | null = null;
+
+  /** The open day panel, while one is (`_openDayPanel`). */
+  private _dayPanel: DayPanel.DayPanelHandle | null = null;
+
   private _gridScaleRaf: number | null = null;
 
   private _resizeObserver: ResizeObserver | null = null;
@@ -2663,6 +2688,7 @@ class CalendarCardPro extends LitElement {
     this._stopTitleFits();
     Menu.closeMenus(this.renderRoot);
     this._search?.close();
+    this._dayPanel?.close();
     this._settleSearchRing();
     this._toolbarFontsCleanup?.();
     this._toolbarFontsCleanup = null;
@@ -2749,8 +2775,10 @@ class CalendarCardPro extends LitElement {
         if (this._toolbarWidthPx !== null && Math.abs(width - this._toolbarWidthPx) > 0.5) {
           Menu.closeMenus(this.renderRoot);
           this._search?.close();
+          this._dayPanel?.close();
         }
         this._syncToolbarLabels(width);
+        if (this._syncMonthForm(width) && this.effectiveView === 'month') this.requestUpdate();
         this._scheduleLegendFit();
         this._scheduleWidthMeasurement(width);
       }
@@ -3500,6 +3528,166 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * Decides the month's form at the card's width: compact below `month → min_day_width` a day,
+   * wide again only once a day is `MONTH_COMPACT_HYSTERESIS` past it (`MonthDay.monthCompactAt`).
+   * Its own state, apart from shedding columns and from List's fallback, neither of which a
+   * month uses. Decided whatever the view, so a switch to month draws the form the width asks
+   * for at once; and from the card's width alone, which its content does not set, so the form
+   * cannot feed back into the width it was decided from.
+   *
+   * @param widthPx - The card's width, or the width last measured
+   * @returns Whether the form changed
+   */
+  private _syncMonthForm(widthPx: number | null = this._monthWidthPx): boolean {
+    this._monthWidthPx = widthPx;
+    if (widthPx === null) return false;
+    const weekNumbers =
+      ViewConfig.resolveViewOption(this.config, 'show_week_numbers', 'month') !== null;
+    const dayWidth = MonthDay.monthDayWidth(widthPx, weekNumbers);
+    const next = MonthDay.monthCompactAt(
+      dayWidth,
+      ViewConfig.resolveMonthOption(this.config, 'min_day_width'),
+      this._monthCompact,
+    );
+    if (next === this._monthCompact) return false;
+    Logger.debug(`Month ${next ? 'compact' : 'wide'} at ${Math.round(widthPx)}px`);
+    this._monthCompact = next;
+    return true;
+  }
+
+  /** Whether the card draws a compact month now. */
+  private get _drawsCompactMonth(): boolean {
+    return this.effectiveView === 'month' && this._monthCompact;
+  }
+
+  /**
+   * The day a compact month lists under its weeks: the one selected on the page shown, else the
+   * page's own (`MonthDay.selectedMonthDay`).
+   *
+   * @param now - The current moment
+   * @returns The day, at local midnight
+   */
+  private _monthSelectedDay(now: Date = new Date()): Date {
+    return MonthDay.selectedMonthDay(
+      this._monthSelection,
+      this._pageShown,
+      this._monthRowsStart(this._pageShown, now),
+      now,
+    );
+  }
+
+  /**
+   * Whether the day a compact month lists is another than its page would list by itself: what
+   * Reset brings back. Never while the month is wide, where nothing shows the selection.
+   */
+  private get _monthSelectionAway(): boolean {
+    if (!this._drawsCompactMonth || this._monthSelection === null) return false;
+    const now = new Date();
+    const own = MonthDay.defaultMonthDay(this._monthRowsStart(this._pageShown, now), now);
+    return this._monthSelectedDay(now).getTime() !== own.getTime();
+  }
+
+  /**
+   * Selects a compact month's day for a tap on it. Selecting is all a tap on a day does there:
+   * adding is the toolbar's add, dated on the day selected, and `day_tap_action` the list's.
+   *
+   * @param timestamp - The day, any moment of it
+   */
+  private _selectMonthDay(timestamp: number): void {
+    if (this._isBeingEdited) return;
+    this._monthSelection = MonthDay.monthSelectionOf(new Date(timestamp), this._pageShown);
+    Logger.debug(`Month: selected ${this._monthSelection.day}`);
+    this.requestUpdate();
+  }
+
+  /**
+   * What a compact month draws besides its weeks: the day selected, and every day's events as
+   * the day model lists them, which its capsules count and its list draws. Undefined for a wide
+   * month.
+   *
+   * @param rowsStart - The page's first row's first day
+   * @returns The compact form's options, or undefined
+   */
+  private _monthCompactView(rowsStart: Date): MonthRender.MonthCompact | undefined {
+    if (!this._drawsCompactMonth) return undefined;
+    return {
+      selected: this._monthSelectedDay(),
+      dayLists: MonthDay.monthDayLists(
+        this._shownEvents,
+        this.effectiveConfig,
+        rowsStart,
+        ViewConfig.MONTH_DAYS,
+        this.effectiveLanguage,
+        this.hass,
+      ),
+      weatherForecasts: this.weatherForecasts,
+      dayAdd: this._dayAddButtons,
+    };
+  }
+
+  /**
+   * Opens a wide month day's panel from its "+N more": the day's events as the day model lists
+   * them, through Home Assistant's dialog manager as the search panel is, beside the button.
+   *
+   * The button takes focus first, so focus comes back to it when the panel closes, as the search
+   * panel's magnifier does. A row pressed in the panel closes it and runs what a tap on the event
+   * runs on the card, once the panel has gone (`_activate`). Nothing opens while the card is
+   * being edited.
+   *
+   * @param day - The day, at local midnight
+   * @param button - Its "+N more"
+   */
+  private _openDayPanel(day: Date, button: HTMLElement): void {
+    if (this._isBeingEdited) {
+      Logger.debug('Not opening a day panel while the card is being edited');
+      return;
+    }
+    this._dayPanel?.close();
+    button.focus({ preventScroll: true });
+    const language = this.effectiveLanguage;
+    const at = originOf(button);
+    const params: DayPanel.DayPanelParams = {
+      source: {
+        rows: () =>
+          MonthRender.renderMonthDayRows(
+            MonthDay.monthDayEvents(
+              this._shownEvents,
+              this.effectiveConfig,
+              day,
+              this.effectiveLanguage,
+              this.hass,
+            ),
+            this.effectiveConfig,
+            this.effectiveLanguage,
+            this.safeHass,
+            this._eventsActivatable,
+            this.weatherForecasts,
+          ),
+        styles: () => this.getCustomStyles(),
+        attach: (panel) => {
+          this._dayPanel = panel;
+          return () => {
+            if (this._dayPanel === panel) this._dayPanel = null;
+          };
+        },
+        activate: (target, origin) => this._activate({ event: target }, origin),
+      },
+      title: MonthRender.monthDayTitle(day, language),
+      anchor: at && { ...at, rect: at.rect ?? button.getBoundingClientRect() },
+      dark: this._panelsDark(),
+      language,
+    };
+    const showDialog = new Event('show-dialog', { bubbles: true, composed: true });
+    (showDialog as Event & { detail?: unknown }).detail = {
+      dialogTag: DayPanel.DAY_PANEL_TAG,
+      dialogImport: () => customElements.whenDefined(DayPanel.DAY_PANEL_TAG),
+      dialogParams: params,
+    };
+    this.dispatchEvent(showDialog);
+    Logger.debug(`Opened the day panel for ${FormatUtils.getLocalDateKey(day)}`);
+  }
+
+  /**
    * Stops observing grid disclosure targets and cancels any document.fonts work.
    *
    * Clears the ResizeObserver, the pending rAF, the loadingdone listener, and the
@@ -4138,6 +4326,15 @@ class CalendarCardPro extends LitElement {
     if (this._search?.isOpen && (this._isBeingEdited || this.hidden || !this._searchButton())) {
       this._search.close();
     }
+    // A configuration change can move the month's form at the width it already has.
+    this._syncMonthForm();
+    // The day panel belongs to a wide month's "+N more", and goes with it.
+    if (
+      this._dayPanel &&
+      (this._isBeingEdited || this.hidden || this.effectiveView !== 'month' || this._monthCompact)
+    ) {
+      this._dayPanel.close();
+    }
     this._focusBeforeFold = this._focusedStartControl();
     this._tapFocusBefore = this._focusedTapTarget();
 
@@ -4214,6 +4411,9 @@ class CalendarCardPro extends LitElement {
       this._syncOverflowStrip();
     }
     this._syncMonthCapacity();
+    // An open day panel draws its rows from what this update drew from: the events, the
+    // configuration and the time.
+    this._dayPanel?.changed();
 
     const hassJustAvailable = changedProps.has('hass') && this.hass && !changedProps.get('hass');
 
@@ -5170,13 +5370,15 @@ class CalendarCardPro extends LitElement {
     const path = press?.path;
     const onLink = this._startsOnRowLink(ev, path);
     const tapTarget = onLink ? undefined : this._eventTapAt(ev, path);
-    const dayHit = onLink || tapTarget ? undefined : this._dayHitAt(ev, path);
+    // A compact month's day selects, and so covers whatever its day would otherwise do.
+    const monthPick = onLink || tapTarget ? undefined : this._monthPickAt(ev, path);
+    const dayHit = onLink || tapTarget || monthPick ? undefined : this._dayHitAt(ev, path);
     // A press on an event, a day or a link is theirs, so the card's ripple stays still for it
     // from start to end; the stylesheet reads the mark, and the next press anywhere else clears
     // it.
     (ev.currentTarget as Element | null)?.toggleAttribute?.(
       'data-own-press',
-      Boolean(onLink || tapTarget || dayHit),
+      Boolean(onLink || tapTarget || dayHit || monthPick),
     );
     const swipeable = this._swipeStartsAt(ev);
     const draftFrom = this._draftAnchorFor(dayHit);
@@ -5189,7 +5391,9 @@ class CalendarCardPro extends LitElement {
     // A press arms only when it could end in something: the card's own tap or hold, the
     // event's own, the day under it, or a swipe. Any other press is left wholly to the browser.
     if (
-      onLink ? !swipeable : !this._hasTapAction && !holds && !tapTarget && !dayHit && !swipeable
+      onLink
+        ? !swipeable
+        : !this._hasTapAction && !holds && !tapTarget && !dayHit && !monthPick && !swipeable
     ) {
       return;
     }
@@ -5203,6 +5407,7 @@ class CalendarCardPro extends LitElement {
     this._holdTriggered = false;
     this._pointerTapTarget = tapTarget ?? null;
     this._pointerDayHit = dayHit ?? null;
+    this._pointerMonthPick = monthPick ?? null;
     this._pointerAddContext = onLink ? null : (this._addContextAt(ev, path) ?? null);
     this._pointerDayAdd = onLink ? null : (this._dayAddAt(ev, path)?.element ?? null);
     this._pointerHandedTo = press?.handedTo ?? null;
@@ -6211,6 +6416,22 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * The compact month day an input event started on, which a tap on it selects. Undefined on any
+   * other card, and while the card is being edited.
+   *
+   * @param ev - An input event dispatched to `ha-card` or inside it
+   * @param path - The path the press is read from (`_pressPath`)
+   * @returns The day's element and its local midnight, or undefined
+   */
+  private _monthPickAt(
+    ev: Event,
+    path: ReadonlyArray<EventTarget> | undefined,
+  ): { element: EventTarget; timestamp: number } | undefined {
+    if (!this._drawsCompactMonth || this._isBeingEdited || !path) return undefined;
+    return Activation.findMonthPick(path, ev.currentTarget);
+  }
+
+  /**
    * Where a press landed, events walked past, for the card's own `add-event` action: read only
    * while `tap_action` or `hold_action` is `add-event`, so a hold on an event on Thursday adds
    * on Thursday.
@@ -6378,12 +6599,12 @@ class CalendarCardPro extends LitElement {
     // popover, and a hold on an event a drag may move lifts it, which the release drops where it
     // is let go; one that never left its place runs the event's hold instead. Otherwise the
     // event's own hold where it has one, else the card's, wherever it landed. Stayed: a tap, run
-    // by the innermost target that has one: the event's, else the day's where the press was on a
-    // day and not on an event, else the card's. Moved: never a tap or a hold on anything; a mouse
-    // in a grid draws or moves at once, and otherwise it is a swipe when it can be one. Canceled:
-    // `_handlePointerCancel` ends it and runs nothing. A hold cannot fire once the pointer has
-    // moved, and movement after it fired only carries what it drew or lifted, so the four never
-    // overlap.
+    // by the innermost target that has one: the event's, else a compact month day's selection,
+    // else the day's where the press was on a day and not on an event, else the card's. Moved:
+    // never a tap or a hold on anything; a mouse in a grid draws or moves at once, and otherwise
+    // it is a swipe when it can be one. Canceled: `_handlePointerCancel` ends it and runs
+    // nothing. A hold cannot fire once the pointer has moved, and movement after it fired only
+    // carries what it drew or lifted, so the four never overlap.
     const tapTarget = this._pointerTapTarget;
     const dayHit = this._pointerDayHit;
     // Where the press went down: a pointer that moved after a hold fired still acts on what it
@@ -6435,6 +6656,9 @@ class CalendarCardPro extends LitElement {
       } else if (tapTarget && this._eventTapRuns) {
         this._releasePressFocus();
         this._runEventAction(tapTarget.target, 'tap', origin);
+      } else if (this._pointerMonthPick) {
+        this._selectMonthDay(this._pointerMonthPick.timestamp);
+        ranOffEvents = true;
       } else if (dayHit && this._dayTapsActive) {
         Logger.debug('Executing day tap action');
         this._releasePressFocus();
@@ -6516,6 +6740,7 @@ class CalendarCardPro extends LitElement {
     this._holdTriggered = false;
     this._pointerTapTarget = null;
     this._pointerDayHit = null;
+    this._pointerMonthPick = null;
     this._pointerAddContext = null;
     this._pointerDayAdd = null;
     this._pointerHandedTo = null;
@@ -6893,10 +7118,11 @@ class CalendarCardPro extends LitElement {
   private _handleClick(ev: MouseEvent) {
     const eventHit = this._eventTapAt(ev);
     const dayHit = eventHit ? undefined : this._dayAddAt(ev);
+    const pickHit = eventHit || dayHit ? undefined : this._monthPickAt(ev, this._pathOf(ev));
     const owed = this._derivedClick;
     if (owed && Date.now() > owed.deadline) this._derivedClick = null;
 
-    const element = eventHit?.element ?? dayHit?.element ?? null;
+    const element = eventHit?.element ?? dayHit?.element ?? pickHit?.element ?? null;
     if (this._derivedClick && (element === null || element === this._derivedClick.element)) {
       this._derivedClick = null;
       if (element) ev.stopPropagation();
@@ -6909,6 +7135,8 @@ class CalendarCardPro extends LitElement {
       this._activate({ event: eventHit.target }, originOf(eventHit.element));
     } else if (dayHit) {
       this._activate({ day: dayHit.timestamp }, originOf(dayHit.element));
+    } else if (pickHit) {
+      this._selectMonthDay(pickHit.timestamp);
     }
   }
 
@@ -7756,6 +7984,8 @@ class CalendarCardPro extends LitElement {
 
     const shownDays = (days: Types.EventsByDay[]): Types.EventsByDay[] =>
       this._daysOnScreen(days, this._pageShown);
+    // A compact month's selected day and every day's list, decided once the events are in.
+    let monthCompact: MonthRender.MonthCompact | undefined;
 
     const renderDays = (days: Types.EventsByDay[]): TemplateResult => {
       if (this.effectiveView === 'grid') {
@@ -7783,6 +8013,10 @@ class CalendarCardPro extends LitElement {
           this._monthCapacity,
           this.safeHass,
           this._eventsActivatable,
+          {
+            more: (day, button) => this._openDayPanel(day, button),
+            compact: monthCompact,
+          },
         );
       }
 
@@ -7828,20 +8062,23 @@ class CalendarCardPro extends LitElement {
       );
       this._searchRingDrawn = ringed.found;
       const days = ringed.days;
-      content = renderDays(days);
-      // A month draws no day's add button, and its "+N more" is a control of its own.
       const month = this.effectiveView === 'month';
-      drawsEventTarget =
-        (dayAdd !== undefined && days.length > 0 && !month) ||
-        (this._eventsActivatable &&
-          Render.drawsEvent(this.effectiveView, days, this.effectiveConfig)) ||
-        Render.drawsLink(this.effectiveView, days, this.effectiveConfig) ||
-        (month &&
-          MonthRender.monthDrawsMore(
-            days,
-            this._monthRowsStart(this._pageShown),
-            this._monthCapacity,
-          ));
+      const rowsStart = month ? this._monthRowsStart(this._pageShown) : undefined;
+      monthCompact = rowsStart && this._monthCompactView(rowsStart);
+      content = renderDays(days);
+      if (monthCompact) {
+        // A compact month's days are targets of their own, which a tap selects.
+        drawsEventTarget = true;
+      } else {
+        // A wide month draws no day's add button, and its "+N more" is a control of its own.
+        drawsEventTarget =
+          (dayAdd !== undefined && days.length > 0 && !month) ||
+          (this._eventsActivatable &&
+            Render.drawsEvent(this.effectiveView, days, this.effectiveConfig)) ||
+          Render.drawsLink(this.effectiveView, days, this.effectiveConfig) ||
+          (rowsStart !== undefined &&
+            MonthRender.monthDrawsMore(days, rowsStart, this._monthCapacity));
+      }
     }
 
     const toolbar = this._headerToolbar();
@@ -8212,7 +8449,11 @@ class CalendarCardPro extends LitElement {
     origin?: Feedback.PressOrigin,
     dayTimestamp?: number,
   ): void {
-    const timestamp = hit?.timestamp ?? dayTimestamp;
+    // A compact month adds on the day it lists, wherever nothing names another.
+    const timestamp =
+      hit?.timestamp ??
+      dayTimestamp ??
+      (this._drawsCompactMonth ? this._monthSelectedDay().getTime() : undefined);
     const times =
       timestamp === undefined
         ? AddEvent.newEventTimes(this._newEventDate())
@@ -8520,6 +8761,11 @@ class CalendarCardPro extends LitElement {
    */
   private _pressHome(): void {
     const away = this._pageRequested !== null;
+    // Home lists today on a compact month, whichever day was selected, on home's page or not.
+    if (this._monthSelection !== null && !this._isBeingEdited) {
+      this._monthSelection = null;
+      this.requestUpdate();
+    }
     this._goToPage(null);
     if (!away || this._pageRequested !== null) return;
 
@@ -8619,6 +8865,8 @@ class CalendarCardPro extends LitElement {
    */
   private _requestPage(page: string | null): void {
     this._pageRequested = page;
+    // Another page lists its own day.
+    if (this._monthSelection && this._monthSelection.page !== page) this._monthSelection = null;
     // A page asked for any way at all ends the slide a swipe's page was waiting for. A swipe
     // asks through here as well, and records its arrival only once this returns.
     this._swipeArrival = null;
@@ -9827,7 +10075,8 @@ class CalendarCardPro extends LitElement {
       this._pageRequested !== null ||
       this._viewChoiceShows ||
       this._legendHidesAShownCalendar ||
-      (this.isExpanded && this.hasCompactModeLimits())
+      (this.isExpanded && this.hasCompactModeLimits()) ||
+      this._monthSelectionAway
     );
   }
 
@@ -9938,6 +10187,7 @@ class CalendarCardPro extends LitElement {
     }
 
     this.isExpanded = false;
+    this._monthSelection = null;
     this._goToPage(null);
     // The check belongs to the button; a card reset by its action alone has none to show it.
     if (this._wantsReset) this._confirmReset();

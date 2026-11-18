@@ -689,8 +689,11 @@ export interface TimeGridOverrides extends SharedViewOverrides {
 }
 
 /**
- * The shared options a month grid draws nothing for: it always shows its six weeks whatever
- * their events, never cuts a list short and never splits an event the List way.
+ * The shared options a month draws nothing for, in its grid, its compact form or its day list:
+ * it always shows its six weeks whatever their events, never cuts a list short and splits every
+ * multi-day event across its days; it rules its days itself and lists one day at a time, so it
+ * has no gap or rule between days, weeks or months; and it sets its dates in the event font, with
+ * today's indicator only as the tile, and its week numbers as plain text.
  */
 export type MonthIgnoredSharedKeys =
   | 'days_to_show'
@@ -699,7 +702,20 @@ export type MonthIgnoredSharedKeys =
   | 'empty_day_text'
   | 'empty_day_color'
   | 'split_multiday_events'
-  | 'event_gap';
+  | 'event_gap'
+  | 'day_spacing'
+  | 'day_separator_width'
+  | 'day_separator_color'
+  | 'week_separator_width'
+  | 'week_separator_color'
+  | 'month_separator_width'
+  | 'month_separator_color'
+  | 'week_number_background_color'
+  | 'day_font_size'
+  | 'month_font_size'
+  | 'today_date_scale'
+  | 'past_date_scale'
+  | 'today_indicator_size';
 
 /**
  * The `month:` block — the shared options a month grid reads, plus its own row and width keys.

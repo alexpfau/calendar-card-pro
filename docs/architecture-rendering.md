@@ -27,7 +27,11 @@ each renderer.
 - **`month.ts`** draws six week rows of seven days: Grid's banner as a bar across each all-day or
   multi-day event's days, and each timed event as one line. Which line each takes, and what a day
   hides behind "+N more", is `utils/month-layout.ts`, from the lines the card measures fit under a
-  date.
+  date. Below `month → min_day_width` a day, it draws the compact form instead: each day a number
+  and a capsule of up to four segments, and under the weeks the selected day's list. A day's list,
+  there and in the panel "+N more" opens (`day-panel.ts`), is List's rows from one day model,
+  `utils/month-day.ts`, which groups the card's filtered source events rather than the grid's
+  display copies, so the capsules, the list and the panel agree.
 - **`leaves.ts`** holds the axis-agnostic pieces: the date block, the event body, weather badges,
   the today indicator and the accent bar.
 - **`presentation.ts`** computes everything about an event that does not depend on layout: ended,

@@ -91,6 +91,18 @@ function optionPaths(source: Record<string, unknown>, parent?: string): string[]
   });
 }
 
+/**
+ * The views whose block holds an option, so an override written there reaches the card.
+ *
+ * @param key - The option
+ * @returns The views, in `VIEWS` order
+ */
+function blocksHolding(key: string): Types.EffectiveView[] {
+  return View.VIEWS.filter((view) =>
+    (View.viewBlockFor(view)?.overrideKeys as ReadonlyArray<string> | undefined)?.includes(key),
+  );
+}
+
 describe('the font-size table', () => {
   it('names every font-size option, and nothing else', () => {
     // Reconciled against the shipped defaults rather than only listed, so a font-size option
@@ -338,7 +350,9 @@ describe('the folded value reaches the stylesheet by every path', () => {
   });
 
   describe.each(OVERRIDABLE)('%s inside a view block', (key) => {
-    it.each(View.VIEWS)('folds an override in the %s block', (view) => {
+    // Every block that holds the option. Month draws its dates in the event font, so its block
+    // refuses the date sizes (`MONTH_IGNORED_SHARED_KEYS`), which the case after this pins.
+    it.each(blocksHolding(key))('folds an override in the %s block', (view) => {
       const blockKey = View.OVERRIDE_BLOCK_BY_VIEW[view]!;
 
       for (const [input, size] of [
@@ -571,7 +585,7 @@ describe('a folded font size is reported', () => {
   });
 
   it.each(OVERRIDABLE)('is reported for an override of %s under the block path', (key) => {
-    for (const view of View.VIEWS) {
+    for (const view of blocksHolding(key)) {
       const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
       const blockKey = View.OVERRIDE_BLOCK_BY_VIEW[view]!;
 
