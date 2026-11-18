@@ -112,21 +112,38 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'nav.cross_link.past_days': 'Dates of past days:',
   'nav.cross_link.past_events': 'Whether past events show:',
   'nav.cross_link.days_of_week': 'Which days its events show:',
-  'settings_for.label': 'Settings For',
-  'settings_for.compact': 'Settings for {layout}',
-  'settings_for.change': 'Change',
-  'settings_for.change_named': 'Change: settings for {layout}',
+  // Layout Defaults' page line.
   'settings_for.help_shared': 'Every layout uses these unless it has its own value.',
-  'settings_for.help_layout':
-    'Edits here are written for {layout} and apply when the card shows it.',
-  'settings_for.help_overview':
-    'Chooses the layout the pages edit, where a setting can differ by layout. Nothing on the card changes.',
-  // Under Settings For, and alone on a page that draws none, while the preview draws another
-  // layout than the card opens in. Nothing is saved by it.
+  // On a layout's page and its topics while the preview draws another layout than the card opens
+  // in. Nothing is saved by it.
   'settings_for.preview': 'Preview shows {layout} · The card opens in {displayed}',
-  'announce.scope': 'Now editing settings for {layout}.',
+  // The overview: Whole Card's frame, Shared Across Layouts' row and page, then Layouts.
+  'overview.whole_card': 'Whole Card',
+  'overview.whole_card.hint': 'The same in every layout.',
+  'overview.shared_across': 'Shared Across Layouts',
+  'overview.shared_across.summary': 'Start date, event type, day colors, time format',
+  'overview.shared_across.note':
+    'The same in every layout. Each also sits on its layout pages; a change here changes it there.',
+  'overview.layouts': 'Layouts',
+  'overview.layout_defaults.summary': 'What a layout uses where it has no value of its own',
+  // The help above the layouts' rows. {link} is layouts.help_switch_link, a link to the toolbar.
+  'layouts.help_pick': 'The circle picks the layout the card opens in.',
+  'layouts.help_switch': 'With the {link} on, people can switch layouts on the card.',
+  'layouts.help_switch_link': 'layout switcher',
+  'layouts.help_open': 'Select a layout to change its own settings.',
+  // A layout row's button, which opens the layout's page.
+  'layouts.settings_named': '{layout} Settings',
+  // Under a layout's name on its page, and the line there.
+  'layouts.layout': 'Layout',
+  'layouts.page_note': "This layout's own settings. Opening them changes nothing on the card.",
+  // A topic page under a layout: the jump to the same topic in another layout, and the walk on.
+  'layouts.also_for': 'Also for:',
+  'layouts.continue_with': 'Continue with',
   'summary.pair': '{label}: {value}',
   'summary.set': 'Set: {count}',
+  // Card & Header's row on the overview names the layout switcher's state last.
+  'summary.switcher_off': 'Layout Switcher: Off',
+  'summary.switcher_on': 'Layout Switcher: {layouts}',
   'summary.on': 'On',
   'summary.off': 'Off',
   // Words typed into a text field, as a summary quotes them: Title: “Our Week”.
@@ -154,15 +171,17 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'state.set': 'Set',
   'state.default': 'Default',
   'state.whole_card': 'Whole Card',
-  // Under a Grid setting while All Layouts stores a value Grid's own default overrides.
-  'state.ignored': "Uses {layout}'s Default, Not All Layouts' {value}",
-  'state.from_all_layouts': 'From All Layouts',
+  // Under a Grid setting while Layout Defaults stores a value Grid's own default overrides.
+  'state.ignored': "Uses {layout}'s Default, Not {value} From Layout Defaults",
+  'state.from_all_layouts': 'From Layout Defaults',
+  // Under a whole-card setting some layout draws nothing for: "Not in Grid".
+  'state.not_in': 'Not in {layouts}',
   // A calendar option the calendar's entries share, naming the other entries by number.
   'state.shared_entry': 'Also Applies to Entry {entries}',
   'state.shared_entries': 'Also Applies to Entries {entries}',
   // An entry's value that comes from the card.
   'state.from_card': 'From the Card',
-  // Under a field in All Layouts, for each layout the All Layouts value does not reach: one that
+  // Under a field in Layout Defaults, for each layout its value does not reach: one that
   // stores its own value, and one whose own default differs.
   'state.layout_own': '{layout} Has Its Own: {value}',
   'state.layout_default': '{layout} Default: {value}',
@@ -187,9 +206,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'reset.group_named': '{action}: {names}',
   // A value the YAML holds for a setting a gate withholds; the gate line above it says why.
   'inactive.line': 'Stored but not in use: {label} ({value})',
-  'inactive.line_top': 'Stored but not in use: {label} ({value}), from All Layouts',
+  'inactive.line_top': 'Stored but not in use: {label} ({value}), from Layout Defaults',
   'inactive.line_bare': 'Stored but not in use: {label}',
-  'inactive.line_top_bare': 'Stored but not in use: {label}, from All Layouts',
+  'inactive.line_top_bare': 'Stored but not in use: {label}, from Layout Defaults',
   // The preference under More, remembered in this browser (`prefs.ts`).
   'prefs.yaml': 'Show YAML Option Names',
   'prefs.yaml_note':
@@ -244,6 +263,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'search.return': 'Return to Results',
   'search.back_to': 'Back to {place}',
   'search.showing': 'Showing {label}.',
+  // A result another layout offers, opened on that layout's page.
+  'search.showing_in': 'Showing {label} in {layout}.',
   // The tag on a setting a gate withholds, around a gate phrase below or the label of the control
   // it waits on (`plan.ts` › `needsTag`): "Needs Show Description".
   'search.needs': 'Needs {needs}',
@@ -382,7 +403,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'These are the shared starting values. A layout’s own settings or built-in defaults can take precedence.',
   'value_source.card': 'Applies to the whole card.',
   'value_source.reset': 'Reset {option}',
-  'editing_workspace.option.shared.label': 'All Layouts',
+  'editing_workspace.option.shared.label': 'Layout Defaults',
   'editing_workspace.option.list.label': 'List',
   'editing_workspace.option.column.label': 'Columns',
   'editing_workspace.option.grid.label': 'Grid',

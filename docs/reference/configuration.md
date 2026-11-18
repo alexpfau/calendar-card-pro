@@ -156,7 +156,7 @@ into `list:` automatically.
 These describe a date cell, a compact budget, a list's order and continuation, words on a
 horizontal month rule, or a grid's all-day band, which the column layout does not have. The first ten
 keep working in list view, including when a `view: column` card falls back to it on a
-narrow dashboard, and `multiday_banners` in grid and month view. The editor hides their controls while **Settings For** is Columns, without
+narrow dashboard, and `multiday_banners` in grid and month view. The editor hides their controls on Columns' pages, without
 deleting stored values; see [Options for the Selected View](/features/editor#options-for-the-selected-view).
 
 **→ [Options That Do Nothing in Column View](/features/column-view#options-that-do-nothing-in-column-view)** — why each one, and what to use instead.
@@ -173,8 +173,8 @@ deleting stored values; see [Options for the Selected View](/features/editor#opt
 `event_spacing` · `event_gap` · `time_max_lines` · `open_links`
 
 They are inert only while the card draws a grid, and apply again when the default
-`min_days_fallback: list` drops it to the list layout; the editor hides their controls while
-**Settings For** is Grid, without deleting stored values.
+`min_days_fallback: list` drops it to the list layout; the editor hides their controls on Grid's
+pages, without deleting stored values.
 
 **→ [Options That Do Nothing in Grid View](/features/grid-view#options-that-do-nothing-in-grid-view)** — why each one.
 
@@ -195,8 +195,7 @@ A month sizes its whole card with the heights in `month:`, always draws six whol
 every multi-day event across the days of its day list, rules its days itself, with no month
 separator to carry a month's name, sets its dates at one size on every day and puts each time beside its
 title in a day's list, so these have nothing to act on there. They keep working in the other
-layouts, and the editor hides their controls while **Settings For** is Month, without deleting
-stored values.
+layouts, and the editor hides their controls on Month's pages, without deleting stored values.
 
 **→ [Options That Do Nothing in Month View](/features/month-view#options-that-do-nothing-in-month-view)** — why each one.
 
@@ -336,8 +335,8 @@ whole card with `card_height` and `card_max_height` in `month:`; see
 ## 📅 Event Column
 
 Grid view uses its own values for [fourteen shared options](/features/grid-view#options-that-start-from-a-different-default),
-even where the top level sets them, so set those in `time_grid:` or in the editor with Grid
-chosen under **Settings For**. A top-level `show_past_events: false`, for one, still hides past events in list and
+even where the top level sets them, so set those in `time_grid:` or on Grid's pages in the
+editor. A top-level `show_past_events: false`, for one, still hides past events in list and
 column view, but not in grid view.
 
 | Option                          | Type              | Default                       | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |

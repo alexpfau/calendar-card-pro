@@ -73,7 +73,14 @@ import {
 import type { HaFormSchema } from '../../src/rendering/editor/ha-form';
 import * as HassKey from '../../src/rendering/editor/hass-key';
 import { withCardActionLabels } from '../../src/rendering/editor/hass-localize';
-import { ENTRY_GROUPS, PAGES, placementOf } from '../../src/rendering/editor/pages';
+import {
+  ENTRY_GROUPS,
+  PAGES,
+  type PageId,
+  TOPIC_PAGES,
+  WHOLE_CARD_PAGES,
+  placementOf,
+} from '../../src/rendering/editor/pages';
 import { type SchemaCtx, walkSchema } from '../../src/rendering/editor/panels';
 import { PREFS_KEY } from '../../src/rendering/editor/prefs';
 import * as Routing from '../../src/rendering/editor/routing';
@@ -225,6 +232,25 @@ interface EditorState {
  */
 function stateOf(editor: EditorElement): EditorState {
   return editor as unknown as EditorState;
+}
+
+/**
+ * The schema context a kept form was drawn in, by what it holds: the editor's own, else the first
+ * layout's that builds it. A layout's topics draw in that layout, and Whole Card's pages in the
+ * shared scope, while the editor may since have moved on.
+ *
+ * @param editor - Editor element
+ * @param builds - Whether a context builds what the form draws
+ * @returns The context
+ */
+function drawnCtx(editor: EditorElement, builds: (ctx: SchemaCtx) => boolean): SchemaCtx {
+  const reads = editor as unknown as { _ctx: SchemaCtx; _ctxIn(scope: string): SchemaCtx };
+  if (builds(reads._ctx)) return reads._ctx;
+  for (const scope of WORKSPACES) {
+    const ctx = reads._ctxIn(scope);
+    if (builds(ctx)) return ctx;
+  }
+  return reads._ctx;
 }
 
 /**
@@ -504,12 +530,14 @@ function colorFieldsOf(
   readonly fields: ReadonlyArray<IndexedField>;
   readonly data: Record<string, unknown>;
 } {
-  const ctx = stateOf(editor)._ctx;
   const config = heldConfig(editor);
   const key = keyOf(control.closest('.entry-page'));
   const entities = config?.entities ?? [];
   const entry = key === undefined ? undefined : entities[keysOf(editor, 'entry').indexOf(key)];
-  const colors = key === undefined ? Colors.cardColorFields(ctx) : Colors.entryColorFields(ctx);
+  const colorsIn = (each: SchemaCtx) =>
+    key === undefined ? Colors.cardColorFields(each) : Colors.entryColorFields(each);
+  const ctx = drawnCtx(editor, (each) => colorsIn(each).specs.has(anchor));
+  const colors = colorsIn(ctx);
   const spec = colors.specs.get(anchor);
   if (spec === undefined) outOfStep(`'${anchor}' is drawn as a color control but is no color`);
   if (key !== undefined && entry === undefined) outOfStep(`No entry is keyed ${key}`);
@@ -680,16 +708,16 @@ function composedFieldOf(
   control: Element,
 ): { readonly field: IndexedField; readonly data: Record<string, unknown> } {
   const id = control.getAttribute('data-field')!;
-  const ctx = stateOf(editor)._ctx;
   const entities = heldConfig(editor)?.entities ?? [];
   const key = keyOf(control.closest('.entry-page'));
   const entry = key === undefined ? undefined : entities[keysOf(editor, 'entry').indexOf(key)];
   if (key !== undefined && entry === undefined) outOfStep(`No entry is keyed ${key}`);
-  const field = (
+  const fieldsIn = (each: SchemaCtx) =>
     entry === undefined
-      ? buildFieldIndex(ctx).fields
-      : entityFieldIndex(entrySchema(entry, ctx)).fields
-  ).get(id);
+      ? buildFieldIndex(each).fields
+      : entityFieldIndex(entrySchema(entry, each)).fields;
+  const ctx = drawnCtx(editor, (each) => fieldsIn(each).has(id as FieldId));
+  const field = fieldsIn(ctx).get(id as FieldId);
   if (field === undefined) outOfStep(`'${id}' is drawn as a composed control but is not built`);
   const data =
     entry === undefined
@@ -987,7 +1015,77 @@ function keptForms(editor: EditorElement): Drawn[] {
  * @returns Its id, or undefined on the overview
  */
 function openPage(editor: EditorElement): string | undefined {
-  return editor.shadowRoot?.querySelector('.page')?.getAttribute('data-page') ?? undefined;
+  const page = editor.shadowRoot?.querySelector('.page');
+  const layout = page?.getAttribute('data-layout');
+  if (layout) return `layout:${layout}`;
+  return page?.getAttribute('data-page') ?? undefined;
+}
+
+/**
+ * The pages a visit of every page goes through, from the overview: Whole Card's, by their rows,
+ * then each topic under the layout being edited. Shared Across Layouts draws the topics' own
+ * whole-card fields again, so it is not one of them.
+ *
+ * @param root - The editor's shadow root, on the overview
+ * @returns The page ids
+ */
+function pagesToVisit(root: ShadowRoot): string[] {
+  return [
+    ...[...root.querySelectorAll('[data-focus^="nav:"]')]
+      .map((row) => row.getAttribute('data-focus')!.slice('nav:'.length))
+      .filter((page) => page !== 'shared'),
+    // An editor that draws no layouts, a blocked one, has no topics to visit either.
+    ...(root.querySelector('[data-focus^="layout:"]') === null
+      ? []
+      : TOPIC_PAGES.map((page) => page.id)),
+  ];
+}
+
+/** The layout each editor's topic pages are opened under, once a test has chosen one. */
+const scopes = new WeakMap<EditorElement, string>();
+
+/** The editor's internals the helpers read for the layout being edited. */
+interface ScopeReads {
+  readonly _workspace: string;
+  readonly _config?: Readonly<Record<string, unknown>>;
+  _viewForConfig(config: Readonly<Record<string, unknown>>): string;
+}
+
+/**
+ * The layout a test chose, while the editor still edits it: a configuration Home Assistant hands
+ * in from outside clears the choice in the editor (`setConfig`), and here with it.
+ *
+ * @param editor - Editor element
+ * @returns The layout, or undefined where none is chosen
+ */
+function chosenScope(editor: EditorElement): string | undefined {
+  const held = (editor as unknown as { _selectedWorkspace?: string })._selectedWorkspace;
+  if (scopes.get(editor) !== held) scopes.delete(editor);
+  return scopes.get(editor);
+}
+
+/**
+ * The layout a topic page opens under: the one a test chose, else the layout the card opens in,
+ * as the editor itself edits it.
+ *
+ * @param editor - Editor element
+ * @returns The layout, `shared` for Layout Defaults
+ */
+function scopeFor(editor: EditorElement): string {
+  const chosen = chosenScope(editor);
+  if (chosen !== undefined) return chosen;
+  const reads = editor as unknown as ScopeReads;
+  return reads._config ? reads._viewForConfig(reads._config) : 'list';
+}
+
+/**
+ * Whether a page is one of the layouts' topics rather than a Whole Card page.
+ *
+ * @param page - Page id
+ * @returns `true` for a topic
+ */
+function isTopic(page: string): boolean {
+  return TOPIC_PAGES.some((each) => each.id === page);
 }
 
 /**
@@ -1022,9 +1120,19 @@ export async function goOverview(editor: EditorElement): Promise<void> {
  * @param page - The page's id
  */
 export async function goPage(editor: EditorElement, page: string): Promise<void> {
-  if (openPage(editor) === page) return;
+  const reads = editor as unknown as ScopeReads;
+  if (openPage(editor) === page && (!isTopic(page) || reads._workspace === scopeFor(editor))) {
+    return;
+  }
   await goOverview(editor);
-  await press(editor, `[data-focus="nav:${page}"]`, `row for the ${page} page`);
+  if (!isTopic(page) || WHOLE_CARD_PAGES.has(page as PageId)) {
+    await press(editor, `[data-focus="nav:${page}"]`, `row for the ${page} page`);
+    return;
+  }
+  // A topic is a layout's: its page first, then the topic's row there.
+  const scope = scopeFor(editor);
+  await press(editor, `[data-focus="layout:${scope}"]`, `row for the ${scope} layout`);
+  await press(editor, `[data-focus="nav:${page}"]`, `row for the ${page} page in ${scope}`);
 }
 
 /**
@@ -1583,13 +1691,13 @@ export async function changeFields(
  * @returns The chosen option's value
  */
 function chosen(editor: EditorElement, id: FieldId): unknown {
+  if (id === 'workspace:editing_workspace') {
+    return chosenScope(editor) ?? (editor as unknown as ScopeReads)._workspace;
+  }
   const input = editor.shadowRoot?.querySelector<HTMLInputElement>(
     `input[name="${RADIO_GROUPS[id]}"]:checked`,
   );
   if (input) return input.value;
-  if (id === 'workspace:editing_workspace') {
-    return (editor as unknown as { _workspace: string })._workspace;
-  }
   return outOfStep(`The editor draws no ${id} to read`);
 }
 
@@ -1620,6 +1728,34 @@ function mergeDeep(a: unknown, b: unknown): unknown {
  * @param value - The option
  */
 async function choose(editor: EditorElement, id: FieldId, value: unknown): Promise<void> {
+  if (id === 'workspace:editing_workspace') {
+    // Choosing the layout already edited, before any other, chooses nothing: the editor goes on
+    // following the layout the card opens in.
+    if (
+      chosenScope(editor) === undefined &&
+      (editor as unknown as ScopeReads)._workspace === value
+    ) {
+      return;
+    }
+    // The layout is the place's: a topic page open in another moves to the same topic there, by
+    // its Also For line, and a layout's page to that layout's.
+    scopes.set(editor, String(value));
+    // The editor reads the places that carry no layout of their own (the overview, a calendar's
+    // page) in the layout last chosen, as a step it undoes or a line of What This Card Changes
+    // sets it; forms the helpers keep from a layout's topics are read in that layout too.
+    (editor as unknown as { _selectedWorkspace?: string })._selectedWorkspace = String(value);
+    (editor as unknown as { requestUpdate(): void }).requestUpdate();
+    await editor.updateComplete;
+    const open = openPage(editor);
+    const reads = editor as unknown as ScopeReads;
+    if (open !== undefined && isTopic(open) && reads._workspace !== value) {
+      await press(editor, `[data-focus="also:${String(value)}"]`, `Also for ${String(value)}`);
+    } else if (open?.startsWith('layout:') && open !== `layout:${String(value)}`) {
+      await goOverview(editor);
+      await press(editor, `[data-focus="layout:${String(value)}"]`, `row for ${String(value)}`);
+    }
+    return;
+  }
   const name = RADIO_GROUPS[id];
   const root = editor.shadowRoot;
   const drawn = (): boolean =>
@@ -1840,9 +1976,7 @@ export async function openPanels(editor: EditorElement): Promise<void> {
   await nextRender();
   await goOverview(editor);
   const kept: Drawn[] = [];
-  const pages = [...root.querySelectorAll('[data-focus^="nav:"]')].map((row) =>
-    row.getAttribute('data-focus')!.slice('nav:'.length),
-  );
+  const pages = pagesToVisit(root);
   for (const page of pages) {
     await goPage(editor, page);
     await expandAll(editor);
@@ -2051,10 +2185,7 @@ export async function resetButtons(editor: EditorElement): Promise<HTMLButtonEle
   if (root === null) throw new Error('The editor has not rendered: mount it, and await it.');
   const found = [...root.querySelectorAll<HTMLButtonElement>('[data-reset-keys]')];
   await goOverview(editor);
-  const pages = [...root.querySelectorAll('[data-focus^="nav:"]')].map((row) =>
-    row.getAttribute('data-focus')!.slice('nav:'.length),
-  );
-  for (const page of pages) {
+  for (const page of pagesToVisit(root)) {
     await goPage(editor, page);
     found.push(...root.querySelectorAll<HTMLButtonElement>('[data-reset-keys]'));
   }

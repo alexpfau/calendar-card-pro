@@ -336,17 +336,17 @@ Each press redraws the same two days: as Columns, then as List, then as Grid aga
   loads its six weeks too, so leaving `month` out keeps the card's load to its own days. A list
   that comes to one layout, or none, draws no switcher. `view_switcher: false` turns the switcher
   off and keeps the list for when it is turned back on. In the visual editor, the View Switcher
-  chip turns it on and off, and while it is pressed, **View Switcher offers**, under the controls,
-  has a checkbox per layout; the starting layout's stays checked, and so does the last other one.
-  Changing **Starting Layout** to the one other layout the list names adds the layout it leaves,
-  so the switcher stays. A list written in YAML that offers the starting layout alone shows a line
+  chip on Card & Header turns it on and off, and while it is pressed, **View Switcher offers**,
+  under the controls, has a checkbox per layout; the starting layout's stays checked, and so does
+  the last other one. Making the one other layout the list names the one the card opens in adds
+  the layout it leaves, so the switcher stays. A list written in YAML that offers the starting layout alone shows a line
   under the checkboxes saying no switcher is drawn until a second layout is checked.
 
 ::: tip Nothing Switches While You Edit
 In the card editor's preview, and on a dashboard in edit mode, a press on the switcher does
-nothing. The editor's preview shows the layout chosen under
-[Settings For](/features/editor#options-for-the-selected-view), so choose another layout there
-to see it without changing the card; on the dashboard the card shows its configured `view`.
+nothing. The editor's preview shows the layout whose
+[pages you open](/features/editor#options-for-the-selected-view), so open another layout to see
+it without changing the card; on the dashboard the card shows its configured `view`.
 :::
 
 ### Refreshing the Events
@@ -1081,7 +1081,7 @@ as a week number, a quarter or a sprint name.
 Find it under **Days → Today Indicator**, where **Style** offers **None**,
 **Date Tile**, **Dot**, **Pulsing Dot**, **Glowing Dot**, **An Icon** and
 **An Emoji or Image**. The date tile takes only an **Indicator Color**; the other styles add
-an **Indicator Size**, and while **Settings For** is List an **Indicator Position**.
+an **Indicator Size**, and on List's pages an **Indicator Position**.
 :::
 
 ::: warning Changed In v5

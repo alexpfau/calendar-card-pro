@@ -711,7 +711,7 @@ describe("the card's ripple and a press on an event", () => {
 
 describe('the card around events that are buttons', () => {
   const haCard = (card: Card) => card.shadowRoot!.querySelector('ha-card')!;
-  const TAPPABLE = { tap_action: { action: 'expand' } } as const;
+  const TAPPABLE = { tap_action: { action: 'more-info' } } as const;
 
   /**
    * Mount without waiting for an event to show, for cards that show none. A `pending` fetch
@@ -754,7 +754,7 @@ describe('the card around events that are buttons', () => {
 
   it('runs its tap action for Enter on the card itself, and the event its own', async () => {
     const { card, dialogs } = await mount({
-      ...TAPPABLE,
+      tap_action: { action: 'expand' },
       ...DETAILS,
       list: { compact_events_to_show: 1 },
     });

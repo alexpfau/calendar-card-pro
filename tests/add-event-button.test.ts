@@ -441,7 +441,7 @@ describe('the card around the add-event button', () => {
     return card.shadowRoot!.querySelector('ha-card')!;
   }
 
-  const TAPPABLE = { tap_action: { action: 'expand' as const } };
+  const TAPPABLE = { tap_action: { action: 'expand' as const }, compact_events_to_show: 9 };
 
   it('is not a button while the add-event button is in it, and hands its tap to a control', async () => {
     const card = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY, ...TAPPABLE });
@@ -677,6 +677,7 @@ describe('pressing the add-event button', () => {
       entities: [WRITABLE],
       toolbar: ADD_ONLY,
       tap_action: { action: 'expand' },
+      compact_events_to_show: 9,
     });
     const el = button(card)!;
     // Nothing above the card may take the press for a tap on the card either.
@@ -707,6 +708,7 @@ describe('pressing the add-event button', () => {
       entities: [WRITABLE],
       toolbar: ADD_ONLY,
       hold_action: { action: 'expand' },
+      compact_events_to_show: 9,
     });
     const el = button(card)!;
 
@@ -729,6 +731,7 @@ describe('pressing the add-event button', () => {
       entities: [WRITABLE],
       toolbar: ADD_ONLY,
       tap_action: { action: 'expand' },
+      compact_events_to_show: 9,
     });
     const seen: string[] = [];
     const listener = (ev: Event) => seen.push((ev as KeyboardEvent).key);

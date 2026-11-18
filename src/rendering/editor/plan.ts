@@ -47,7 +47,7 @@ import {
   type HeadingDef,
   PAGES,
   type PageDef,
-  isWholeCard,
+  WHOLE_CARD_PAGES,
   placementOf,
 } from './pages';
 import * as Reset from './reset';
@@ -173,6 +173,8 @@ export interface StateWords {
   }>;
   /** "Set on Calendars: Ben, Bin Day": the keys of the entries storing their own. */
   readonly calendars?: ReadonlyArray<number>;
+  /** For a whole-card setting, the layouts it does nothing in: "Not in Grid". */
+  readonly notIn?: ReadonlyArray<Types.EffectiveView>;
 }
 
 /** What applies once Reset deletes the line. */
@@ -889,24 +891,30 @@ export function planEntry(
 }
 
 /**
- * Whether a card field sits on a page that applies to the whole card (`pages.ts` › `isWholeCard`).
+ * Whether a card field sits on one of Whole Card's pages (`pages.ts` › `WHOLE_CARD_PAGES`), where
+ * every setting is the whole card's and none says so.
  *
  * @param id - Field id
- * @returns `true` on Card & Header and Weather
+ * @returns `true` on Card & Header, Taps & Refresh and Weather
  */
 function onWholeCardPage(id: FieldId): boolean {
   const page = placementOf(id)?.page;
-  if (page === undefined) return false;
-  let whole = wholeCardPages.get(page);
-  if (whole === undefined) {
-    const def = PAGES.find((each) => each.id === page);
-    wholeCardPages.set(page, (whole = def !== undefined && isWholeCard(def)));
-  }
-  return whole;
+  return page !== undefined && WHOLE_CARD_PAGES.has(page as never);
 }
 
-/** Whether each page applies to the whole card, worked out once (`pages.ts` › `isWholeCard`). */
-const wholeCardPages = new Map<string, boolean>();
+/**
+ * The layouts a whole-card field does nothing in: Grid for Open Links, Month for Today's Weekday
+ * Color. Empty where it reaches every layout.
+ *
+ * @param field - A card field with no layout copy
+ * @returns The layouts, in the card's order
+ */
+function layoutsIgnoring(field: Pick<IndexedField, 'configKeys'>): Types.EffectiveView[] {
+  if (field.configKeys.length === 0) return [];
+  return ViewConfig.VIEWS.filter((view) =>
+    field.configKeys.every((key) => !ViewConfig.appliesToView(key, view)),
+  );
+}
 
 /**
  * The entries storing their own value for the calendar option a card field is overridden by.
@@ -963,10 +971,13 @@ export function stateOf(field: IndexedField, ctx: PlanCtx): StateWords | undefin
   let words: StateWords['words'];
   let layoutsOwn: StateWords['layoutsOwn'];
 
+  let notIn: StateWords['notIn'];
   if (!hasLayoutCopy(field)) {
     // A whole-card setting on a page of per-layout ones says so in every scope, All Layouts too.
     if (onWholeCardPage(field.id)) words = here ? { kind: 'set' } : undefined;
     else words = { kind: 'whole-card', stored: here };
+    const ignoring = layoutsIgnoring(field);
+    if (ignoring.length > 0) notIn = ignoring;
   } else if (view === undefined) {
     if (here) words = { kind: 'set-all-layouts' };
     // Each layout that stores its own, and each that offers the field and defaults it otherwise:
@@ -1005,11 +1016,19 @@ export function stateOf(field: IndexedField, ctx: PlanCtx): StateWords | undefin
     words = { kind: 'from-all-layouts' };
   }
 
-  if (words === undefined && layoutsOwn === undefined && calendars.length === 0) return undefined;
+  if (
+    words === undefined &&
+    layoutsOwn === undefined &&
+    calendars.length === 0 &&
+    notIn === undefined
+  ) {
+    return undefined;
+  }
   return {
     ...(words ? { words } : {}),
     ...(layoutsOwn ? { layoutsOwn } : {}),
     ...(calendars.length > 0 ? { calendars } : {}),
+    ...(notIn ? { notIn } : {}),
   };
 }
 

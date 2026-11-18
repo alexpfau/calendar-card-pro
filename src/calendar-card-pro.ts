@@ -926,9 +926,10 @@ class CalendarCardPro extends LitElement {
   /**
    * Whether the card's own action of this kind would run: one is configured, and it is not
    * `add-event` on a card that cannot add one now (`_canAddEvents`), `reset` on a card
-   * with nothing a reset could ever undo (`_canReset`), nor `back` while the card is being
-   * edited, when leaving the page would take the editor with it. Such an action is no action
-   * at all: no tab stop, ripple or hold indicator promises what a press then refuses.
+   * with nothing a reset could ever undo (`_canReset`), `expand` where nothing folds: a layout
+   * other than List, or no compact limits (`hasCompactModeLimits`), nor `back` while the card is
+   * being edited, when leaving the page would take the editor with it. Such an action is no
+   * action at all: no tab stop, ripple or hold indicator promises what a press then refuses.
    *
    * @param kind - Which of the card's actions
    * @returns Whether a press of that kind runs something
@@ -938,6 +939,7 @@ class CalendarCardPro extends LitElement {
     if (!action || action.action === 'none') return false;
     if (action.action === Constants.ADD_EVENT_ACTION) return this._canAddEvents;
     if (action.action === Constants.RESET_ACTION) return this._canReset;
+    if (action.action === 'expand') return this.hasCompactModeLimits();
     if (action.action === Constants.BACK_ACTION) return !this._isBeingEdited;
     return true;
   }

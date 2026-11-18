@@ -971,7 +971,7 @@ progress bars.
 :::
 
 In the [editor](/features/editor), find **Past Event Opacity** under **Which Events → Past
-Events**, whichever layout **Settings For** names.
+Events**, in every layout.
 
 ::: details More About Past Events
 

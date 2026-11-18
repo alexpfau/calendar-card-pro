@@ -74,11 +74,15 @@ describe('routes', () => {
   });
 
   it('replaces a page reached by a cross-link when it cross-links again', () => {
-    const page = go(OVERVIEW, whichEvents, from(OVERVIEW.route));
+    // Overview, a layout's page, its topic: a cross-link from the topic still returns to it.
+    const grid = { kind: 'layout', layout: 'grid' } as const;
+    const layout = go(OVERVIEW, grid, from(OVERVIEW.route));
+    const page = go(layout, whichEvents, from(grid));
     const linked = go(page, dayHeader, from(whichEvents), 'cross-link');
+    expect(back(linked).nav.route).toEqual(whichEvents);
     const again = go(linked, events, from(dayHeader), 'cross-link');
     expect(again.route).toEqual(events);
-    expect(again.trail.map((entry) => entry.route)).toEqual([OVERVIEW.route, whichEvents]);
+    expect(again.trail.map((entry) => entry.route)).toEqual([OVERVIEW.route, grid, whichEvents]);
     expect(back(again).nav.route).toEqual(whichEvents);
   });
 

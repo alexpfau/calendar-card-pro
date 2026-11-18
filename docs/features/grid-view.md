@@ -15,12 +15,12 @@ view: grid
 days_to_show: 3
 ```
 
-In the [visual editor](/features/editor#the-overview), **Starting Layout** on the overview
-chooses the layout the card opens with. Select **Grid** under **Settings For**, on the overview
-or at the top of a page, to configure Grid's own settings where their topics live, without
-changing **Starting Layout**: its hours under **Which Events → Hours**, its hour height, hour
-labels and lines on **Size & Spacing**, its weekend and today shading on **Days**, and its now
-line and overlapping events on **Event Appearance**.
+In the [visual editor](/features/editor#options-for-the-selected-view), the circle on a layout's
+row under **Layouts** chooses the layout the card opens with. Select the **Grid** row itself to
+configure Grid's own settings on its topic pages, without changing the card: its hours under
+**Which Events → Hours**, its hour height, hour labels and lines on **Size & Spacing**, its
+weekend and today shading on **Days**, and its now line and overlapping events on **Event
+Appearance**.
 
 ::: tip Start With Three Days
 Seven columns need a wide card to stay readable. Three is a good default on a dashboard
@@ -838,8 +838,8 @@ time_grid:
 ```
 
 Anything the block does not mention keeps its top-level value, except for the fourteen
-options listed below. In the visual editor, choose Grid under **Settings For** to edit these
-values directly without changing **Starting Layout**.
+options listed below. In the visual editor, open Grid under **Layouts** to edit these values
+directly without changing the card.
 
 Options that decide which events the card loads, such as `start_date` and `entities`, are
 card-wide and ignored inside `time_grid:`, and so are others that act on the card as a whole,
@@ -947,7 +947,8 @@ column view; see [Grid Lines](#grid-lines) above.
 ## 🚫 Options That Do Nothing in Grid View
 
 These options have no effect while the card renders as a grid, and the visual editor leaves
-them out while **Settings For** is Grid. Stored values are kept for the layouts they apply to.
+them out of Grid's pages; Open Links, a whole-card setting on Taps & Refresh, says **Not in
+Grid** instead. Stored values are kept for the layouts they apply to.
 
 | Options                                                                                                                            | In Grid View                                                                                                                                                                          |
 | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -966,8 +967,8 @@ them out while **Settings For** is Grid. Stored values are kept for the layouts 
 | `open_links`                                                                                                                       | Location and description stay text in a block; [Links in Events](/features/actions#links-in-events) has the list and column behavior                                                  |
 
 The editor also leaves out the per-calendar compact limit and multi-day splitting. To edit any
-of these, choose a layout they apply to under **Settings For**, without changing
-**Starting Layout** (the all-day badge controls are in **All Layouts** too); see
+of these, open a layout they apply to under **Layouts**, which leaves the card's layout as it is
+(the all-day badge controls are in **Layout Defaults** too); see
 [Options for the Selected View](/features/editor#options-for-the-selected-view).
 
 The other detail-row options still shape timed blocks but never reach the all-day band:

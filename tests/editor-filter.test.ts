@@ -13,7 +13,12 @@ import {
   toFilterCriteria,
 } from '../src/rendering/editor/filter';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
-import { ENTRY_GROUPS, type HeadingDef, PAGES } from '../src/rendering/editor/pages';
+import {
+  ENTRY_GROUPS,
+  type HeadingDef,
+  PAGES,
+  WHOLE_CARD_PAGES,
+} from '../src/rendering/editor/pages';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 import { keepsControl } from '../src/rendering/editor/plan';
 import { buildEntitySchema, entitySchemaFor } from '../src/rendering/editor/schemas/entity';
@@ -317,8 +322,9 @@ describe('editor filter: the chassis', () => {
   it('shows results in place of the page rows', async () => {
     const { element, panels, rows } = await mount({ entities: ['calendar.a'] });
 
-    // A row per page before; a row per result after, and no page row.
-    expect(rows()).toHaveLength(PAGES.length);
+    // A row per Whole Card page and Shared Across Layouts before; a row per result after, and no
+    // page row.
+    expect(rows()).toHaveLength(WHOLE_CARD_PAGES.size + 1);
 
     await changeField(element, `filter:${SEARCH_FIELD}`, 'week');
 
