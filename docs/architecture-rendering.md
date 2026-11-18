@@ -4,10 +4,10 @@ title: Rendering & Views
 
 # Rendering & Views
 
-This page is for contributors changing how events look, how one of the three layouts arranges them,
+This page is for contributors changing how events look, how one of the four layouts arranges them,
 or how grid view measures and fits its blocks. The rule that matters most is on the overview: the
-three views share one pipeline and differ only in arrangement
-([Three Views, One Agenda](/architecture#three-views-one-agenda)). For the map of the whole card,
+views share one pipeline and differ only in arrangement
+([Four Views, One Agenda](/architecture#four-views-one-agenda)). For the map of the whole card,
 start at the [architecture overview](/architecture).
 
 ## 🧱 Shared Pipeline

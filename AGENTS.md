@@ -1945,8 +1945,8 @@ previews the card inside a section), and only while a pick is on adds a style, a
 capture-phase listeners to the card's shadow root. The card ships no byte of it. A dashboard's own
 cards also run with `preview` set while it is edited, so the search must never reach further.
 
-`tests/editor-pick-map.test.ts` renders the card in all three layouts and fails on a selector that
-matches nothing, on a drawn leaf that reaches only a catch-all, and on any change to what each
+`tests/editor-pick-map.test.ts` renders the card in every layout, Month wide and compact, and fails
+on a selector that matches nothing, on a drawn leaf that reaches only a catch-all, and on any change to what each
 part takes in from inside it, which is pinned by value. So a markup change that renames or adds a
 part fails there: map the new class in `PICK_PARTS`, specific before the part that holds it, and
 read the pinned table's diff rather than copying it over.
@@ -2324,7 +2324,7 @@ nowhere near the backtick. Write property names bare in CSS comments.
   [`architecture-rendering.md`](./docs/architecture-rendering.md) (rendering and views),
   [`architecture-interaction.md`](./docs/architecture-interaction.md) (gestures, actions and
   event writes) and [`architecture-toolbar.md`](./docs/architecture-toolbar.md) (toolbar and
-  navigation). Read before making structural changes. The overview's _Three Views, One
+  navigation). Read before making structural changes. The overview's _Four Views, One
   Agenda_ and _Two Files, One Card_ sections are the current description of the view split
   and the two-bundle build.
 - [`docs/features/column-view.md`](./docs/features/column-view.md) — what column view does,

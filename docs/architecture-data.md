@@ -14,9 +14,10 @@ Every load runs one pipeline in `utils/events.ts`; the load modes below differ o
 they draw what is stored first and when they ask Home Assistant.
 
 1. **Request.** `resolveRequest` fixes the cache key, the first weekday and the window, half-open
-   from local midnight on the first day to local midnight after the last. The window spans the
-   longest `days_to_show` among the views the card can show (`loadedDaysToShow`), so switching
-   views never fetches.
+   from local midnight on the first day to local midnight after the last. The window spans every
+   view the card can show (`ViewConfig.loadConfig`): the longest `days_to_show` from the shared
+   start (`loadedDaysToShow`), and where Month is reachable its six weeks, which can start before
+   `start_date`. So switching views never fetches.
 2. **Stored window.** `readEventSnapshot` reads and processes the stored payload synchronously, so
    an entry up to 24 hours old is on the first frame.
 3. **Fetch.** Calendars are asked in parallel, each with a timeout, from a live subscription where

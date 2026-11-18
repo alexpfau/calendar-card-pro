@@ -67,13 +67,15 @@ Like the add button, it needs a calendar that [accepts new events](#what-each-in
 
 ### Where You Can Tap a Day
 
-Wherever a day shows no event, in all three layouts:
+Wherever a day shows no event, in every layout:
 
 - **List view:** the day's date, its "No events" line, and the space between its events.
 - **Column view:** the day's header, and the empty space under its events.
 - **[Grid view](/features/grid-view):** any empty point of the time grid, which adds at that
   quarter hour; the day's header; and the empty part of the all-day band above it, which adds an
   all-day event. In the grid you can also [draw the event](#drawing-an-event-in-grid-view).
+- **[Month view](/features/month-view):** the empty part of a day. On a compact month a tap
+  selects the day instead, and the selected day's name over its list adds.
 
 A tap on an event never adds: the tap is the event's when it has an `event_tap_action`, and the
 card's otherwise. Nor do a grid's `+N` block, which stands for several events, the week numbers,
@@ -178,7 +180,7 @@ On a card whose replacements exist to keep something private, set `allow_event_e
 
 ### Where You Can Tap
 
-With an event tap action set, every event is a tap target, in all three layouts: a list row, a column event, and a grid block or all-day banner. In list view the whole colored block answers, not only its text.
+With an event tap action set, every event is a tap target, in every layout: a list row, a column event, a grid block or all-day banner, and a month's line or bar. In list view the whole colored block answers, not only its text.
 
 Two things on the card are not events, so a tap on them is a tap on the card: the "No events" line of an empty day, and a grid `+N` block, which stands for several events. [Raise `max_simultaneous_events`](/features/grid-view#how-many-fit-side-by-side) to tap those one by one.
 

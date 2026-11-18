@@ -1,7 +1,7 @@
 # Grid View
 
 Grid view places the days side by side on an hour axis, so an event sits at the time it
-starts and is as tall as it is long. It is the same agenda the other two layouts show,
+starts and is as tall as it is long. It is the same agenda the other layouts show,
 measured against a clock instead of listed.
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub.png" alt="A family's week in grid view on a wall tablet, under a two-row toolbar with a chip for each calendar: each person's events in their own color with their face in front of the title, shared plans in gold, all-day banners above the hours and a forecast in each date header"><br>
@@ -427,9 +427,9 @@ time_grid:
   multiday_banners: false
 ```
 
-| Option             | Type    | Default | Description                                                                                                                                                              |
-| ------------------ | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `multiday_banners` | boolean | `true`  | Draw a timed event a full day or longer as one banner above the hours, its times at its ends. Grid view only, so it belongs in `time_grid:`; a calendar's own value wins |
+| Option             | Type    | Default | Description                                                                                                                                                                                    |
+| ------------------ | ------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `multiday_banners` | boolean | `true`  | Draw a timed event a full day or longer as one banner above the hours, its times at its ends. Grid and month view only, so it belongs in `time_grid:` or `month:`; a calendar's own value wins |
 
 - **A full day or longer** means the event ends at least two dates after it starts, or on the
   next date at or after the clock time it started at: Monday 10:00 to Tuesday 10:00 is a banner,

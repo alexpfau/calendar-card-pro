@@ -289,9 +289,9 @@ does nothing, and the card shows the days it opens with.
 
 ### Switching Between Layouts
 
-The view switcher lets each device show the card as List, Columns or Grid without editing it, so
-a wall tablet can show Grid while a phone keeps List. It comes with the toolbar, wherever more
-than one layout fits the card.
+The view switcher lets each device show the card as List, Columns, Grid or Month without editing
+it, so a wall tablet can show Grid while a phone keeps List. It comes with the toolbar, wherever
+more than one layout fits the card.
 
 <video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_view_switcher.mp4#t=0.001" width="740" height="728" loop muted playsinline controls preload="auto" aria-label="Two days of a family's calendar on a tablet in Grid; a tap on Columns lays the same two days out side by side, a tap on List stacks them under their dates, and a tap on Grid brings back the time grid"></video><br>
 
@@ -306,10 +306,12 @@ Each press redraws the same two days: as Columns, then as List, then as Grid aga
   is shared, and the card does not reload its events to switch. `days_to_show` is shared too,
   unless a layout sets its own in its block, say 14 days in List and 7 in Grid; see
   [Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
-  Options set for one layout in its own `list:`, `column:` or `time_grid:` block come with it.
+  Options set for one layout in its own `list:`, `column:`, `time_grid:` or `month:` block come
+  with it.
 - **List draws every one of its days; Columns and Grid draw as many as fit** the card's width, as
   close to today as the range allows, or from the first day of a page the
-  [date navigation](#paging-through-dates) has moved to.
+  [date navigation](#paging-through-dates) has moved to. Month always draws six whole weeks; see
+  [Month View](/features/month-view).
 - **Columns and Grid need room.** A layout that cannot fit at the card's current width, Columns
   on a phone by default, is dimmed in the switcher, and returns when the card is wide enough
   again, as when a tablet is turned. If the layout a device remembers no longer fits, the card
@@ -318,6 +320,17 @@ Each press redraws the same two days: as Columns, then as List, then as Grid aga
   [Grid View](/features/grid-view) for how much room each needs.
 - **The card's height follows its layout,** so other cards on the dashboard may move when it
   switches.
+- **Which layouts it offers.** All four by default. A list offers those it names, and the layout
+  in `view` always:
+
+  ```yaml
+  toolbar:
+    show: true
+    view_switcher: [list, grid]
+  ```
+
+  `false` offers none. A card that can switch to Month loads its six weeks too, so leaving
+  `month` off the list keeps the card's load to its own days.
 
 ::: tip Nothing Switches While You Edit
 In the card editor's preview, and on a dashboard in edit mode, the card shows its configured

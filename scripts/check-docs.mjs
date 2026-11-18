@@ -3301,6 +3301,12 @@ const NO_EFFECT_SURFACES = [
     page: join(DOCS_DIR, 'features/grid-view.md'),
     section: '## 🚫 Options That Do Nothing in Grid View',
   },
+  {
+    view: 'month',
+    list: '### Options With No Effect in Month View',
+    page: join(DOCS_DIR, 'features/month-view.md'),
+    section: '## 🚫 Options That Do Nothing in Month View',
+  },
 ];
 
 /**
@@ -3337,7 +3343,7 @@ function sectionBody(text, heading, rel) {
  * "(card-wide and per-entity)", is ignored.
  *
  * @param {Map<string, Set<string>>} viewScope - From `readViewScope`
- * @returns The number of inert options reconciled across both views
+ * @returns The number of inert options reconciled across the views listed
  */
 function checkNoEffectLists(viewScope) {
   const reference = readFileSync(REFERENCE_DOC, 'utf8');

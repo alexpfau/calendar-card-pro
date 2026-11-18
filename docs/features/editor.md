@@ -21,22 +21,22 @@ opens with, and a row for each page that holds the rest. Top to bottom:
 | **Search**, **Undo**, **Redo** | [Search](#search) every setting; [Undo and Redo](#undo-redo) the last change                                             |
 | **⋯ Editor Preferences**       | Show YAML Option Names, at the end of the search row                                                                     |
 | **Calendars**                  | The card's [calendars](#calendars), a row each                                                                           |
-| **Starting Layout**            | List, Columns or Grid, the layout the card opens with                                                                    |
+| **Starting Layout**            | List, Columns, Grid or Month, the layout the card opens with                                                             |
 | **Settings**                   | A row per page, saying in one line what the page holds for this card                                                     |
 | **More**                       | [What This Card Changes](#what-this-card-changes) and Start From an Example                                              |
 
 The settings rows open these pages:
 
-| Page                 | What it holds                                                                                                                |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| **Which Events**     | Days to Show and Start Date, Event Type, duplicates, event order, past events, multi-day events, empty days and Compact Mode |
-| **Card & Header**    | The title, the card's background and language, the toolbar and your own toolbar buttons                                      |
-| **Day Header**       | How each day announces itself: its date, weeks and week numbers, today and its indicator, past days and weekends             |
-| **Event Appearance** | What each event shows, the time format, and how each part looks                                                              |
-| **Size & Spacing**   | The card's height and spacing, the density of Columns and Grid, and the rules between days, weeks and months                 |
-| **Grid**             | While the card opens in Grid or you edit Grid: the hours it shows, its hour labels, and what it draws on the grid            |
-| **Weather**          | The weather entity, and the forecast in the day header and beside each event                                                 |
-| **Taps & Refresh**   | What a tap or a hold on the card, a day or an event does, and how often the card reads its calendars again                   |
+| Page                 | What it holds                                                                                                                            |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **Which Events**     | Days to Show and Start Date, Event Type, duplicates, event order, past events, multi-day events, empty days and Compact Mode             |
+| **Card & Header**    | The title, the card's background and language, the toolbar and your own toolbar buttons                                                  |
+| **Day Header**       | How each day announces itself: its date, weeks and week numbers, today and its indicator, past days and weekends                         |
+| **Event Appearance** | What each event shows, the time format, and how each part looks                                                                          |
+| **Size & Spacing**   | The card's height and spacing, Month's week height, the density of Columns, Grid and Month, and the rules between days, weeks and months |
+| **Grid**             | While the card opens in Grid or you edit Grid: the hours it shows, its hour labels, and what it draws on the grid                        |
+| **Weather**          | The weather entity, and the forecast in the day header and beside each event                                                             |
+| **Taps & Refresh**   | What a tap or a hold on the card, a day or an event does, Month's week scrolling, and how often the card reads its calendars again       |
 
 **Which Events** opens with **Date Range**: Days to Show, and Start Date's choices, which write
 the existing `start_date` option. Tomorrow writes `today+1`, Start of Week writes
@@ -152,22 +152,22 @@ entities:
 
 Two controls decide what you see and what you edit. **Starting Layout**, on the overview, chooses
 the layout the card opens with and writes the existing `view` option. **Settings For**, at the top
-of each page, chooses which settings the pages edit: **All Layouts**, **List**, **Columns** or
-**Grid**. It starts on the layout the card displays and stays where you put it, from page to page,
+of each page, chooses which settings the pages edit: **All Layouts**, **List**, **Columns**,
+**Grid** or **Month**. It starts on the layout the card displays and stays where you put it, from page to page,
 for the rest of the session. It is never saved to YAML. A calendar's page has no Settings For,
 since a calendar's settings apply to every layout, and nor does a page whose settings all apply to
 the whole card. The overview edits nothing a layout holds, so it has none either: its section rows
 and search results show the values for the layout Settings For last chose.
 
 On a card that stores values only for the layout it shows, and has no view switcher in its
-toolbar, Settings For takes one line, **Settings for List · Change**; **Change** opens the four
+toolbar, Settings For takes one line, **Settings for List · Change**; **Change** opens the five
 choices.
 
 - **All Layouts** edits the shared base, the top level, which each layout falls back to. It
   offers only the options that have a shared meaning, so a layout-specific one is never written
   where only one view reads it.
-- **List**, **Columns** and **Grid** each write to their own block, `list:`, `column:` and
-  `time_grid:`, and leave out the controls, per-calendar ones included, that cannot affect that
+- **List**, **Columns**, **Grid** and **Month** each write to their own block, `list:`,
+  `column:`, `time_grid:` and `month:`, and leave out the controls, per-calendar ones included, that cannot affect that
   view. The **Grid** row is on the overview while the card opens in Grid or Grid is chosen, and
   opening it chooses Grid.
 - A layout with no value of its own uses its own default when it has one, otherwise the shared
@@ -344,18 +344,20 @@ Choose Grid under Settings For to change that value directly.
 The editor does not change the renderer's precedence rules. With no per-view override,
 these top-level values behave as follows:
 
-| Top-Level YAML            | List              | Column            | Grid              |
-| ------------------------- | ----------------- | ----------------- | ----------------- |
-| `show_empty_days: false`  | Hides empty days  | Keeps empty days  | Keeps empty days  |
-| `show_past_events: false` | Hides past events | Hides past events | Keeps past events |
-| `show_location: true`     | Shows locations   | Shows locations   | Hides locations   |
+| Top-Level YAML            | List              | Column            | Grid              | Month             |
+| ------------------------- | ----------------- | ----------------- | ----------------- | ----------------- |
+| `show_empty_days: false`  | Hides empty days  | Keeps empty days  | Keeps empty days  | Draws every day   |
+| `show_past_events: false` | Hides past events | Hides past events | Keeps past events | Keeps past events |
+| `show_location: true`     | Shows locations   | Shows locations   | Hides locations   | Shows locations   |
 
-Set the corresponding value in `column:` or `time_grid:` to change that view, or choose that
-layout under Settings For. Grid also substitutes its own styling defaults, even when you
+Set the corresponding value in `column:`, `time_grid:` or `month:` to change that view, or choose
+that layout under Settings For; Month always draws every day of its six weeks. Grid also substitutes its own styling defaults, even when you
 set a different top-level value. All fourteen are listed in
 [Grid Options That Start From a Different Default](/features/grid-view#options-that-start-from-a-different-default).
 Column's two substitutions are listed in
-[Column Options That Start From a Different Default](/features/column-view#options-that-start-from-a-different-default).
+[Column Options That Start From a Different Default](/features/column-view#options-that-start-from-a-different-default),
+and Month's one in
+[Month Options That Start From a Different Default](/features/month-view#options-that-start-from-a-different-default).
 
 ## 📅 Calendars
 

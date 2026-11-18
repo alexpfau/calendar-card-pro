@@ -90,7 +90,11 @@ There are three views at once: the configured `view`, the requested view (`reque
 device's choice, else `view`) and the effective view the width fit makes of it (`_effectiveView`).
 
 - **No fetch.** The window's start is identical across views (`FETCH_TIME_KEYS`) and the load spans
-  the longest of them (`loadedDaysToShow`), so each view draws a prefix of one load.
+  the longest of them (`loadedDaysToShow`), with Month's six weeks added where it is reachable
+  (`ViewConfig.loadConfig`), so each view draws its range out of one load.
+- **Which layouts.** `toolbar → view_switcher` is `true` (all four), `false`, or a list;
+  `resolveToolbar` resolves it to `switcherViews`, and the switcher offers those and `view`. A
+  layout left off the list leaves the load too, which is how a card avoids Month's six weeks.
 - **Per configuration.** `utils/view-choice.ts` stores the choice under a fingerprint of the raw
   configuration, so any edit resets every device. Old entries are pruned past `MAX_VIEW_CHOICES`,
   never deleted on edit, since no card learns which configuration it replaced.

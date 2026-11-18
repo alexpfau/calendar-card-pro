@@ -1325,11 +1325,11 @@ wherever it falls.
 
 ## 🧱 Per-View Options
 
-Calendar Card Pro renders in three layouts, and each has a block of its own: `list:`,
-`column:` and `time_grid:`. Top-level presentation options form the **shared base**.
+Calendar Card Pro renders in four layouts, and each has a block of its own: `list:`,
+`column:`, `time_grid:` and `month:`. Top-level presentation options form the **shared base**.
 For an option that a view can override, the card uses the view's explicit value first,
 then any built-in default specific to that view, then the shared value. List has no
-different built-in defaults; Column and Grid do.
+different built-in defaults; Column, Grid and Month do.
 
 ```yaml
 # Shared starting values
@@ -1341,16 +1341,19 @@ column:
 ```
 
 A block names what you want that layout to use explicitly. The example above shows
-locations in all three layouts, but the event font sizes are **14px in List, 11px in
-Column, and 12px in Grid**: Grid's own typography default takes precedence over the shared
-font size. Set `time_grid.event_font_size` as well if you want to change it there.
-See the [Column defaults](/features/column-view#options-that-start-from-a-different-default)
-and [Grid defaults](/features/grid-view#options-that-start-from-a-different-default) for
+locations in List, Column and Month, where Grid's own default hides them, and the event font
+sizes are **14px in List and Month, 11px in Column, and 12px in Grid**: Grid's own typography
+default takes precedence over the shared font size. Set `time_grid.event_font_size` as well if
+you want to change it there.
+See the [Column defaults](/features/column-view#options-that-start-from-a-different-default),
+[Grid defaults](/features/grid-view#options-that-start-from-a-different-default) and
+[Month defaults](/features/month-view#options-that-start-from-a-different-default) for
 the complete exception lists.
 
 Each block also holds the options only that layout has — the compact caps and date-cell
-settings in `list:`, the column widths in `column:`, the time axis in `time_grid:`. Those have
-no shared meaning, so the visual editor does not offer them under All Layouts.
+settings in `list:`, the column widths in `column:`, the time axis in `time_grid:`, the week
+height, compact width and week scrolling in `month:`. Those have no shared meaning, so the visual
+editor does not offer them under All Layouts.
 
 Options that act on the card as a whole stay at the top level, and a view block ignores
 them: the ones that decide which events are loaded, such as `entities` and `start_date`, and
@@ -1358,7 +1361,7 @@ others such as the actions, the `toolbar`, the `title` and the date colors. See
 [Options That Cannot Be Overridden](/features/column-view#options-that-cannot-be-overridden)
 for the full list.
 `days_to_show` is the exception: it decides what is loaded, and each layout can still have
-its own — see
+its own, except Month, which always shows six weeks — see
 [Showing a Different Number of Days in Each Layout](#showing-a-different-number-of-days-in-each-layout).
 
 In the [visual editor](/features/editor#options-for-the-selected-view), choose All Layouts
@@ -1422,6 +1425,7 @@ layouts never loads anything. The rest of the card follows the layout on screen:
 
 **→ [Column View](/features/column-view)** — what column may override, and what it ignores.
 **→ [Grid View](/features/grid-view)** — the same for the time grid.
+**→ [Month View](/features/month-view)** — the same for the month, which shows six weeks whatever `days_to_show` says.
 **→ [List-Only Options in the configuration reference](/reference/configuration#list-only-options)** — the seven options only list reads.
 
 ## 🌐 Language

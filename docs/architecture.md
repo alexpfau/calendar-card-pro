@@ -129,7 +129,7 @@ src/
 │   ├── grid.ts                   # The timed grid and spanning all-day band
 │   ├── grid-accessibility.ts     # Full configured names for timed Grid events
 │   ├── month.ts                  # The month view: six week rows, bars, lines and "+N more"
-│   ├── leaves.ts                 # Leaf renderers shared across the three views
+│   ├── leaves.ts                 # Leaf renderers shared across the views
 │   ├── presentation.ts           # Layout-independent per-event presentation models
 │   ├── accent-text.ts            # The `accent` text sentinel's fields and properties; CSS-free
 │   └── styles.ts                 # CSS styles and dynamic styling
@@ -177,38 +177,45 @@ src/
     └── weather-i18n.ts           # Condition text in the card's language
 ```
 
-## 🧭 Three Views, One Agenda
+## 🧭 Four Views, One Agenda
 
-The card renders the same agenda in one of three layouts, and this is the structural fact most
+The card renders the same agenda in one of four layouts, and this is the structural fact most
 worth holding on to before changing anything under `rendering/`:
 
 - **`view: list`** stacks days vertically, each day a row. It is the default.
 - **`view: column`** lays days side by side, one column each.
 - **`view: grid`** positions timed events against a shared hour axis, with all-day events in a
   band above it.
+- **`view: month`** draws six whole weeks, a row each: all-day and multi-day events as bars across
+  their days and timed events as lines, or on a narrow card a compact form with the selected
+  day's list.
 
 They share the card shell, the event pipeline and the presentation models. `leaves.ts` holds the
 shared renderers and `presentation.ts` everything about an event that does not depend on layout;
-`render.ts`, `column.ts` and `grid.ts` only arrange those pieces, and Grid adds the pure geometry in
-`utils/grid.ts`, which knows no pixels. A behavior meant for every view belongs in the shared path,
-never three times in the renderers (see [Rendering & Views](/architecture-rendering)).
+`render.ts`, `column.ts`, `grid.ts` and `month.ts` only arrange those pieces, Grid adds the pure
+geometry in `utils/grid.ts` and Month its occupancy in `utils/month-layout.ts`, which know no
+pixels. A behavior meant for every view belongs in the shared path, never once per renderer (see
+[Rendering & Views](/architecture-rendering)).
 
 The effective view can change with available width. A narrower Column or Grid card first draws
 fewer days, down to `min_days_to_show`, in a window kept as close to today as the configured range
 allows (`visibleDayWindowStart`). Below that floor `min_days_fallback` decides: `list` falls back to
 List, and `cramp` holds the floor with days narrower than `min_day_width`, Column narrowing its
 columns and Grid scrolling sideways with each day at least `2rem` wide. `config/view.ts` owns this
-resolution and its hysteresis, so resizing does not flip layouts back and forth.
+resolution and its hysteresis, so resizing does not flip layouts back and forth. Month never falls
+back: below `month → min_day_width` a day, it draws its compact form, with a hysteresis of its own
+(`utils/month-day.ts`).
 
-Switching layouts never fetches, because the load spans the longest `days_to_show` among the views
-the card can show (see [View Switcher](/architecture-toolbar#view-switcher)). The editor's
+Switching layouts never fetches, because the load spans every view the card can show: the longest
+`days_to_show` from the shared start, and Month's six weeks where it is reachable, which can start
+before it (`ViewConfig.loadConfig`; see [View Switcher](/architecture-toolbar#view-switcher)). The editor's
 **Settings For** scope is separate again: choosing List there exposes its controls without changing
 the layout.
 
 ## 🧱 Configuration Layers & Editor Adoption
 
-The top level is the shared base. `list:`, `column:` and `time_grid:` hold presentation values for
-their own views; calendars, fetching, actions and the other card-wide options stay at the top level,
+The top level is the shared base. `list:`, `column:`, `time_grid:` and `month:` hold presentation
+values for their own views; calendars, fetching, actions and the other card-wide options stay at the top level,
 and nothing that decides _which_ events are fetched may differ between views. A shared view option
 resolves as explicit view override, then built-in divergent view default, then shared value; List
 has no divergent defaults. View-only options use their own block defaults, with a root fallback for
@@ -219,8 +226,8 @@ the legacy List-only options.
 renders through the second. A change to the rule changes both.
 :::
 
-- **Scopes.** Under **Settings For**, **All Layouts** writes roots; **List**, **Columns** and
-  **Grid** write their blocks (`workspace.ts`). `routing.ts` captures the destination with each
+- **Scopes.** Under **Settings For**, **All Layouts** writes roots; **List**, **Columns**,
+  **Grid** and **Month** write their blocks (`workspace.ts`). `routing.ts` captures the destination with each
   rendered form, so a delayed event cannot write into another scope.
 - **Format marker.** `config_version: 5` records editor adoption, not renderer precedence.
   `configVersionState` reads a missing marker or an older nonnegative integer as legacy, accepts
@@ -232,7 +239,8 @@ renders through the second. A change to the rule changes both.
   move the List-only roots into `list:`, keep a value the block already holds over the older
   root, and stamp the format (`migrateListConfig`). After an Undo of the upgrade, the next edit
   upgrades the same way, inside its own step. Legacy Column cards, unambiguous cards and
-  versionless cards already carrying `list:` or `time_grid:` adopt on their first real edit, and
+  versionless cards already carrying `list:`, `time_grid:` or `month:` adopt on their first real
+  edit, and
   opening the editor writes nothing for them.
 - **Authored values.** Authorship is captured from raw input before defaults are merged, so
   migration sees `false`, zero and default-equal values, and `_report` updates the editor's own
@@ -399,7 +407,7 @@ The full rules are in [Gesture Model in Detail](/architecture-interaction#gestur
 ## 🎯 Design Principles
 
 The rules a change is judged against in review, alongside the shared pipeline described under
-[Three Views, One Agenda](#three-views-one-agenda):
+[Four Views, One Agenda](#four-views-one-agenda):
 
 - **The source stays the source.** `_source` keeps the event as Home Assistant returned it; display
   text, repaired ends and split days live only on display copies, which no write reads.

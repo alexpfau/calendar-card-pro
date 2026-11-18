@@ -161,12 +161,12 @@ once `show_empty_days: false` is set in `column:` as well.
 
 `show_past_events` is different: Column inherits its top-level value unless `column:`
 overrides it. Grid substitutes `true` for both options. The editor guide includes the
-[comparison across all three layouts](/features/editor#yaml-view-defaults).
+[comparison across the layouts](/features/editor#yaml-view-defaults).
 
 ## 🚫 Options That Cannot Be Overridden
 
-Some options act on the card as a whole, so they hold one value in all three layouts and are
-ignored inside `list:`, `column:` or `time_grid:`. Set them at the top level.
+Some options act on the card as a whole, so they hold one value in every layout and are
+ignored inside `list:`, `column:`, `time_grid:` or `month:`. Set them at the top level.
 
 Which events the card loads:
 
@@ -188,9 +188,9 @@ An entry the card does not recognize is ignored rather than treated as an error,
 
 Three options sound as though they belong in the first list, and do not:
 
-- **`days_to_show`** also decides what is loaded, yet each layout may set its own: the card
-  loads the longest count among the layouts it can show, and each draws the first of those
-  days. See
+- **`days_to_show`** also decides what is loaded, yet each layout but Month, which always shows
+  six weeks, may set its own: the card loads the longest count among the layouts it can show,
+  with Month's weeks where it can show Month, and each draws its own days out of that load. See
   [Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
 - **`show_past_events`** and **`filter_duplicates`** filter events the card has already loaded,
   so they can differ per view — and often want to, because a column is a narrow space where a

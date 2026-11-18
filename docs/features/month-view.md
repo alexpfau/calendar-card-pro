@@ -1,0 +1,257 @@
+# Month View
+
+Month view draws six whole weeks, a row each, so a household can read its calendar the
+traditional way: the month at a glance, with every event on its day. It is the same agenda the
+other layouts show, laid out as a wall calendar.
+
+Set it with `view`:
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.anna
+  - calendar.ben
+view: month
+```
+
+In the [visual editor](/features/editor#the-overview), **Starting Layout** on the overview
+chooses the layout the card opens with. Select **Month** under **Settings For**, at the top of a
+page, to change how the month looks: its height under **Size & Spacing**, and week scrolling
+under **Taps & Refresh**.
+
+## 📅 The Six Weeks
+
+The weeks start on the first day of the week, `first_day_of_week` or your Home Assistant
+locale's, and the first row is the week holding the 1st of the month `start_date` falls in, today
+unless you set one.
+
+- **Always six rows.** Six weeks hold any month, whichever day its 1st falls on, so the card's
+  height never changes from one month to the next.
+- **The heading names one month:** the one with the most days on screen. Its tooltip gives the
+  exact dates the six weeks span.
+- **Days of the months around it** are dimmed and keep their events, and the 1st of each month
+  carries its month's name, such as "1 Dec".
+- **Today** sits on the [date tile](/features/layout-appearance#the-date-tile), or is written in
+  today's colors under another indicator style, and past days are dimmed. Past events are shown
+  by default in month view; see
+  [Options That Start From a Different Default](#options-that-start-from-a-different-default).
+
+### Paging Through Months
+
+With the toolbar's [date navigation](/features/layout-appearance#paging-through-dates), the
+arrows and a sideways swipe move a whole month, the date picker jumps to the month of the date
+you pick, and the home button returns to the month the card opens with.
+
+- **Switching layouts keeps your place.** Paged to another month, List, Columns and Grid start
+  on the 1st of the month in the heading. Into Month, the rows start on the week holding the
+  other layout's first day.
+- **Search** pages to the month of the event you pick, and opens the day's list where the
+  event is behind "+N more", or selects its day on a [compact month](#the-compact-month).
+
+## 🟦 Bars & Lines
+
+Each day lists its timed events one line each, and an event that covers whole days is a bar
+across them, as Grid's all-day band draws it.
+
+- **A line** is a timed event: its calendar's accent bar, its title, cut short where it is too
+  long, and its start time at the line's end, with the calendar's
+  [label](/features/core-settings#available-options-for-entity-configuration-objects) where it
+  has one. An event that runs past midnight but less than a day has a line on each day it
+  touches, the later one reading "until 01:30".
+- **A bar** is an all-day or multi-day event, in its calendar's color. One all-day day is a short
+  bar of its own; a longer event spans its days and starts again, with its title, at the start
+  of each row it continues on.
+- **Bars come first**, then each day's lines by their start time, so a bar keeps one line across
+  its week.
+
+### Long Timed Events
+
+A timed event a full day or longer, such as an on-call week, is a bar too, with its start time
+after its title and its end at the bar's far end, as in
+[Grid View](/features/grid-view#long-timed-events-as-banners). `multiday_banners` turns this
+off, giving it a line on each day instead:
+
+```yaml
+month:
+  multiday_banners: false
+```
+
+A calendar's own `multiday_banners` wins, as it does in Grid.
+
+::: details Days a Calendar Leaves Out
+A bar breaks where a calendar's [`days_of_week`](/features/core-settings#showing-a-calendar-on-weekdays-only)
+leaves a day out, and starts again after it, so a weekday-only trip never covers the weekend.
+:::
+
+## 📏 How Tall a Week Is
+
+`row_height` sets a week's height, `112px` by default, which holds four events under each date
+at the default text size. A taller week holds more:
+
+```yaml
+view: month
+month:
+  row_height: 160px
+```
+
+| Option               | Type   | Default | Description                                                                                         |
+| -------------------- | ------ | ------- | --------------------------------------------------------------------------------------------------- |
+| `month → row_height` | string | `112px` | A week's height, as a CSS length; ignored under a fixed `height`, which the six weeks share instead |
+
+The weeks never grow with their events, so a busy month is as tall as a quiet one. With a fixed
+`height`, the six weeks divide it between them, and each day holds as many events as its share
+fits.
+
+### More Than Fits
+
+Where a day has more events than its week holds, its last line reads "+2 more", and a press
+opens the day in a panel: every event that day, as the list layout draws them, with their
+times, locations and the other details the card shows. A press on an event there closes the
+panel and does what a press on it in the month would.
+
+::: details Limits the Day's List Ignores
+The list shows the whole day whatever the list layout's own limits say: `skip_first_events`,
+the compact limits, `event_order` and `show_empty_days` shape a list card, not a day.
+:::
+
+## 📱 The Compact Month
+
+On a narrow card, a phone's, a day is too narrow for titles, so the month draws its compact
+form: under each day's number a small capsule with a segment per event in its calendar's color,
+up to four, or a dot for a single event, and the events of the day you choose listed under the
+weeks.
+
+```yaml
+view: month
+month:
+  min_day_width: 60 # stay wide down to narrower days
+```
+
+| Option                  | Type   | Default | Description                                                                        |
+| ----------------------- | ------ | ------- | ---------------------------------------------------------------------------------- |
+| `month → min_day_width` | number | `80`    | Narrowest a day may be, in pixels, before the month draws its compact form instead |
+
+At the defaults, a card narrower than about 600 pixels draws the compact form. It turns wide
+again only a little past the width it turned compact at, so a card on the edge does not flicker
+between the two.
+
+- **Choosing a day:** a tap selects it. The month opens on today where the heading's month holds
+  it, and otherwise on the 1st; paging selects the new month's default, and the home and
+  [reset](/features/layout-appearance#resetting-the-card) buttons go back to today.
+- **Adding an event:** the toolbar's [add button](/features/actions#add-event-button) dates a new
+  event on the selected day, and with `day_tap_action: add-event`, so does a press on the day's
+  name over its list. A tap on a day only selects it.
+- **At midnight**, a selected today moves on to the new day.
+
+## ⌨️ Keyboard
+
+The month is one stop in the tab order. The arrow keys move a day or a week, Home and End go to
+the ends of the week, and Page Up and Page Down go to the same date a month back or ahead.
+Enter or Space opens the day's list in a panel, or on a compact month selects the day. Each day
+is announced with its full date and how many events it holds.
+
+The events in a wide month's days are not stops of their own, so a busy month does not hold
+hundreds of them; the day's list reaches each one.
+
+## 🖱️ Scrolling by Weeks
+
+`week_scroll` lets the mouse wheel, a trackpad or a vertical swipe move the month a week at a
+time, rather than scroll the dashboard. It is off by default, because it takes those gestures
+from the page:
+
+```yaml
+view: month
+month:
+  week_scroll: true
+  week_scroll_min_width: 700 # a wall tablet scrolls, a phone in landscape does not
+```
+
+| Option                          | Type    | Default | Description                                                                  |
+| ------------------------------- | ------- | ------- | ---------------------------------------------------------------------------- |
+| `month → week_scroll`           | boolean | `false` | Move the weeks a week at a time by the wheel, a trackpad or a vertical swipe |
+| `month → week_scroll_min_width` | number  | `0`     | Narrowest card, in pixels, it applies to; `0` applies it at any width        |
+
+- It never applies to the [compact month](#the-compact-month), or while the card is being
+  edited.
+- After a scroll the heading follows its rule, the arrows step from the heading's month, and
+  the home button returns to the month the card opens with.
+- Scrolled weeks are loaded a month at a time, so a long scroll does not ask Home Assistant for
+  every week on its own.
+
+## 🔢 Week Numbers
+
+`show_week_numbers` draws each week's number in the corner of its first day, or beside the row on
+a compact month, where the current week's stands out. As in List, the first row's number shows
+only with `show_current_week_number`. `week_number_color` and `week_number_font_size` apply;
+`week_number_background_color` does not, since the numbers are plain text.
+
+## 🧰 Month in the View Switcher
+
+The toolbar's [view switcher](/features/layout-appearance#switching-between-layouts) offers Month
+with the other layouts by default. Month shows six weeks, so a card that can switch to it loads
+those six weeks with its own days. To keep a card's loading small, list the layouts it offers
+and leave Month out:
+
+```yaml
+toolbar:
+  show: true
+  view_switcher: [list, grid]
+```
+
+`hide_when_empty` counts Month's events only from the card's `start_date` on, so past events
+in the month never keep an otherwise empty card on screen.
+
+## 🎨 Overriding Options in Month View
+
+The `month:` block holds the values that apply only when the card draws a month, as `column:`
+and `time_grid:` do for their layouts:
+
+```yaml
+view: month
+show_location: true
+month:
+  show_location: false
+  event_font_size: 12px
+```
+
+Anything the block does not mention keeps its top-level value, except `show_past_events`, below.
+Options that decide which events the card loads, such as `start_date` and `entities`, and others
+that act on the card as a whole, such as the actions and the `toolbar`, are card-wide and ignored
+inside `month:`; see
+[Options That Cannot Be Overridden](/features/column-view#options-that-cannot-be-overridden).
+
+## 🔀 Options That Start From a Different Default
+
+One shared option does not inherit its top-level value in month view:
+
+| Option             | Type    | Default | Month Default |
+| ------------------ | ------- | ------- | ------------- |
+| `show_past_events` | boolean | `false` | `true`        |
+
+A month shows its past days with their events, dimmed, rather than empty weeks behind today. Set
+`show_past_events: false` inside `month:` to hide them.
+
+## 🚫 Options That Do Nothing in Month View
+
+These options have no effect while the card draws a month, and the visual editor leaves them out
+while **Settings For** is Month. Stored values are kept for the layouts they apply to.
+
+| Options                                                                                                                                        | In Month View                                                                                                |
+| ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `days_to_show`                                                                                                                                 | A month always shows six weeks                                                                               |
+| `show_empty_days`, `show_empty_today`, `empty_day_text`, `empty_day_color`                                                                     | Every day of the six weeks is drawn, events or not, so there is no empty day to hide or fill                 |
+| `split_multiday_events`                                                                                                                        | A long event is one [bar](#bars-lines) across its days, and the day's list shows it on every day it covers   |
+| `compact_events_to_show`, `compact_days_to_show`, `compact_events_complete_days`, `event_order`, `skip_first_events`                           | List-only: they shape a list card, and the [day's list](#more-than-fits) always shows the whole day in order |
+| `date_vertical_alignment`, `today_indicator_position`                                                                                          | List-only: they describe the list layout's date cell                                                         |
+| `event_gap`, `day_spacing`                                                                                                                     | Events sit on the week's lines, and hairlines divide the days                                                |
+| `day_separator_width`, `day_separator_color`, `week_separator_width`, `week_separator_color`, `month_separator_width`, `month_separator_color` | The month rules its days and weeks with hairlines of its own                                                 |
+| `day_font_size`, `month_font_size`, `today_date_scale`, `past_date_scale`                                                                      | Dates are set in the event font, at one size on every day                                                    |
+| `today_indicator_size`, `today_weekday_color`                                                                                                  | Today is marked by its tile, and the weekday names stand once over their columns                             |
+| `week_number_background_color`                                                                                                                 | [Week numbers](#week-numbers) are plain text                                                                 |
+
+The editor also leaves out the per-calendar compact limit and multi-day splitting. To edit any of
+these, choose a layout they apply to under **Settings For**, without changing
+**Starting Layout**; see [Options for the Selected View](/features/editor#options-for-the-selected-view).
+
+**→ [Options With No Effect in Month View](/reference/configuration#options-with-no-effect-in-month-view)** — the same options in the configuration reference.
+**→ [Month-Only Options in the configuration reference](/reference/configuration#month-only-options)** — full option table.
