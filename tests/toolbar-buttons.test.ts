@@ -698,32 +698,32 @@ describe('a press on a button', () => {
 //-----------------------------------------------------------------------------
 
 describe("what the buttons cost the switcher's words", () => {
-  /** Add, the switcher and refresh: words from 320 + 36 + 36 = 392px with no button. */
+  /** Add, the switcher and refresh: words from 317 + 36 + 36 = 389px with no button. */
   const ROW: Types.ToolbarConfig = { show: true, navigation: false, reset: false, legend: false };
   const words = (card: CardUnderTest) => root(card).querySelector('.toolbar-button-label') !== null;
 
   it('counts each button as one more icon beside the switcher', async () => {
     const plain = await mount(withButtons([], ROW));
-    await measure(plain, 392);
+    await measure(plain, 389);
     expect(words(plain)).toBe(true);
 
     // Two buttons take 2 × 36 + 2 × 8 = 88px more.
     const card = await mount(withButtons([BACK, DASHBOARD], ROW));
-    await measure(card, 392);
+    await measure(card, 389);
     expect(words(card)).toBe(false);
-    await measure(card, 479);
+    await measure(card, 476);
     expect(words(card)).toBe(false);
-    await measure(card, 480);
+    await measure(card, 477);
     expect(words(card)).toBe(true);
   });
 
   it('counts every button, so the words give way before any control folds', async () => {
-    // Add, four buttons and refresh: words from 320 + 5 × 36 + 4 × 8 + 36 = 568px. Below that the
+    // Add, four buttons and refresh: words from 317 + 5 × 36 + 4 × 8 + 36 = 565px. Below that the
     // switcher draws pictograms, and the row holds every control down to 440px.
     const card = await mount(withButtons([BACK, DASHBOARD, LAMP, WEATHER], ROW));
-    await measure(card, 568);
+    await measure(card, 565);
     expect([words(card), menuButton(card)]).toEqual([true, null]);
-    await measure(card, 567);
+    await measure(card, 564);
     expect([words(card), menuButton(card)]).toEqual([false, null]);
     await measure(card, 440);
     expect([words(card), menuButton(card)]).toEqual([false, null]);
@@ -733,12 +733,12 @@ describe("what the buttons cost the switcher's words", () => {
   });
 
   it('counts the magnifier as one more icon at the end, beside refresh', async () => {
-    // Add, the switcher, refresh and the magnifier: words from 320 + 36 + 36 + 8 + 36 = 436px.
+    // Add, the switcher, refresh and the magnifier: words from 317 + 36 + 36 + 8 + 36 = 433px.
     // The date navigation the magnifier needs sits in the heading row, not in this one.
     const card = await mount(withButtons([], { ...ROW, navigation: true, search: true }));
-    await measure(card, 435);
+    await measure(card, 432);
     expect(words(card)).toBe(false);
-    await measure(card, 436);
+    await measure(card, 433);
     expect(words(card)).toBe(true);
   });
 

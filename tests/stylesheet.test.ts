@@ -3534,6 +3534,13 @@ describe('the toolbar layout', () => {
     expect(declared('.view-switcher-segment', 'padding')).toBe(
       `0 ${Constants.UI.TOOLBAR_SWITCHER_SEGMENT_PADDING}px`,
     );
+    // All four views need what List, Columns and Grid needed before Month, 248px, and Month's
+    // segment as the stylesheet draws it, so leaving Month out gives back exactly the 248px.
+    expect(Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH).toBe(
+      248 +
+        Constants.UI.TOOLBAR_SWITCHER_WORD_WIDTH.month +
+        2 * Constants.UI.TOOLBAR_SWITCHER_SEGMENT_PADDING,
+    );
     for (const gap of [
       declared('.card-toolbar.toolbar-actions', 'gap'),
       declared('.toolbar-start', 'gap'),

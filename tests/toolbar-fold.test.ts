@@ -63,12 +63,13 @@ describe('the widths the plan rests on', () => {
     expect([0, 2, 3].map(switcherWidth)).toEqual([0, 74, 108]);
   });
 
-  it('names every view in words from 320px, and each view left out gives back its segment', () => {
-    expect(switcherLabelWidth(['list', 'column', 'grid', 'month'])).toBe(320);
-    // Month's word, 41px, and its segment's padding, 2 × 14px.
-    expect(switcherLabelWidth(['list', 'column', 'grid'])).toBe(251);
+  it('names every view in words from 317px, and each view left out gives back its segment', () => {
+    expect(switcherLabelWidth(['list', 'column', 'grid', 'month'])).toBe(317);
+    // Month's word, 41px, and its segment's padding, 2 × 14px: the 248px List, Columns and Grid
+    // needed before Month joined them, to the pixel.
+    expect(switcherLabelWidth(['list', 'column', 'grid'])).toBe(248);
     // Columns, 56px, and Grid, 26px, each with its padding.
-    expect(switcherLabelWidth(['list', 'month'])).toBe(182);
+    expect(switcherLabelWidth(['list', 'month'])).toBe(179);
     expect(Constants.UI.TOOLBAR_SWITCHER_WORD_WIDTH).toEqual({
       list: 23,
       column: 56,
