@@ -92,13 +92,18 @@ describe('folded rows', () => {
     // walk above reaches it once the card's last scope shows locations, which Month does and
     // Grid did not.
     expect(unsetWord('calendar:location_icon', t, label)).toBe('value.map_marker');
-    expect(Object.keys(FOLLOWS).sort()).toEqual([
-      'today_day_color',
-      'today_month_color',
-      'today_weekday_color',
-      'weekend_day_color',
-      'weekend_month_color',
-      'weekend_weekday_color',
-    ]);
+    expect(unsetWord('separators:month_separator_label_color', t, label)).toBe(
+      'value.same_as{"label":"<month_separator_color>"}',
+    );
+    // By value, so a setting that comes to follow the wrong one fails as surely as a lost one.
+    expect(FOLLOWS).toEqual({
+      weekend_weekday_color: 'weekday_color',
+      weekend_day_color: 'day_color',
+      weekend_month_color: 'month_color',
+      today_weekday_color: 'weekday_color',
+      today_day_color: 'day_color',
+      today_month_color: 'month_color',
+      month_separator_label_color: 'month_separator_color',
+    });
   });
 });

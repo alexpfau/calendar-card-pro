@@ -344,6 +344,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'gate.when.events_limit': 'Compact Mode limits the events',
   'gate.when.calendar_filter': 'the toolbar shows a calendar filter',
   'gate.when.week_numbers': 'week numbers are shown',
+  'gate.when.month_rule': 'a month rule is drawn',
   'gate.when.duplicates': 'duplicates are filtered',
   'gate.when.weather_entity': 'a Weather Entity is chosen',
   'gate.when.label_icon': 'the label is an icon',
@@ -1488,6 +1489,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   week_separator_color: 'Week Rule Color',
   month_separator_width: 'Month Rule Width',
   month_separator_color: 'Month Rule Color',
+  month_separator_label: 'Month Name on Rule',
+  month_separator_label_color: 'Month Name Color',
+  month_separator_label_font_size: 'Month Name Font Size',
   // The rule's own explanation moved onto the width field when the collapsible around it
   // became a sub-heading. A heading carries no helper, so leaving the text on the group
   // key would have deleted it from the editor rather than relocated it.

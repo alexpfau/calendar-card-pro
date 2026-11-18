@@ -88,6 +88,12 @@ export interface Config {
   week_separator_color: string;
   month_separator_width: string;
   month_separator_color: string;
+  /** Whether the list names the month at the start of each month rule it draws. */
+  month_separator_label: boolean;
+  /** The month name's color on its rule; unset, the month rule's own color. */
+  month_separator_label_color?: string;
+  /** The month name's font size on its rule. */
+  month_separator_label_font_size: string;
 
   // Today indicator
   today_indicator: string | boolean;
@@ -464,7 +470,7 @@ export interface SharedViewOverrides {
  *
  * List has no key of its own without a top-level counterpart, so unlike the other two
  * views it declares no view-only members: everything here is an override of a card-level
- * key. The seven below are list-only in `VIEW_SCOPE`, which is why no other view can
+ * key. The ten below are list-only in `VIEW_SCOPE`, which is why no other view can
  * override them and why they never entered the shared set.
  */
 export interface ListOverrides extends SharedViewOverrides {
@@ -480,6 +486,11 @@ export interface ListOverrides extends SharedViewOverrides {
   // List-row layout.
   date_vertical_alignment?: string;
   today_indicator_position?: string;
+
+  // A month rule in the other views is a vertical line in a narrow gutter, with no room for words.
+  month_separator_label?: boolean;
+  month_separator_label_color?: string;
+  month_separator_label_font_size?: string;
 }
 
 /**

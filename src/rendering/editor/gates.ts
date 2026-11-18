@@ -28,7 +28,7 @@ import { interpolate } from './strings';
 import * as Workspace from './workspace';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
-import { VIEWS } from '../../config/view';
+import { VIEWS, isZeroLength } from '../../config/view';
 import { eventActionKind } from '../../interaction/event-action-kind';
 import * as Helpers from '../../utils/helpers';
 
@@ -200,6 +200,17 @@ const BY_EVENT = phrased(
   'gate.when.forecast_by_event',
 );
 
+// A month rule is drawn, read as the card reads the width: unless the width is a zero length.
+const MONTH_RULE = phrased(
+  needs(
+    'separators:month_separator_width',
+    '1px',
+    (value) => typeof value === 'string' && !isZeroLength(value),
+  ),
+  undefined,
+  'gate.when.month_rule',
+);
+
 export const GATES: Readonly<Record<string, Gate>> = {
   time: {
     fields: [
@@ -274,6 +285,19 @@ export const GATES: Readonly<Record<string, Gate>> = {
       'day_header:weekend_month_color',
     ],
     requires: [on('day_header:show_month')],
+    kind: 'gate',
+  },
+  month_label: {
+    fields: ['separators:month_separator_label'],
+    requires: [MONTH_RULE],
+    kind: 'gate',
+  },
+  month_label_style: {
+    fields: [
+      'separators:month_separator_label_color',
+      'separators:month_separator_label_font_size',
+    ],
+    requires: [MONTH_RULE, on('separators:month_separator_label')],
     kind: 'gate',
   },
   week_numbers: {

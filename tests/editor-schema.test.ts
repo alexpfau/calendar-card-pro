@@ -907,6 +907,11 @@ describe('editor: applicability', () => {
       // Column and grid view draw their days whatever their events, so leaving rows out
       // would leave holes rather than continue a list.
       skip_first_events: ['list'],
+      // A column's or grid's month rule is a vertical line in a gutter, with no room for words,
+      // and the Month layout draws no month separator at all.
+      month_separator_label: ['list'],
+      month_separator_label_color: ['list'],
+      month_separator_label_font_size: ['list'],
       // A month always draws its six weeks, every day of them: no day count, and no empty day
       // to hide or keep.
       days_to_show: ['column', 'grid', 'list'],
@@ -1887,6 +1892,9 @@ describe('editor: the panel set', () => {
       // Reveals the complete-days modifier, which is held back until there is an event
       // limit for it to modify.
       buildConfig({ compact_events_to_show: 3 }),
+      // The month's name on its rule is held back until a month rule is drawn, and its color
+      // and size until it is on.
+      buildConfig({ month_separator_width: '1px', month_separator_label: true }),
       // The all-day treatment select is only built once a position is chosen, so nothing
       // else in this sweep reaches it -- the same shape as compact_events_to_show above.
       buildConfig({ allday_badge: 'time' }),

@@ -224,6 +224,44 @@ describe('the month heading', () => {
   });
 });
 
+describe("the month rule's label", () => {
+  /** Whether a form of the heading writes the month by name, as `Intl`'s own parts say. */
+  const named = (date: Date, language: string, form: 'long' | 'short'): boolean =>
+    new Intl.DateTimeFormat(language, { month: form, year: 'numeric' })
+      .formatToParts(date)
+      .some((part) => part.type === 'month' && /\p{L}/u.test(part.value));
+
+  it('is the short month heading', () => {
+    expect(Paging.monthRuleLabel(day(2026, 12, 1), 'en')).toBe('Dec 2026');
+    expect(Paging.monthRuleLabel(day(2027, 1, 1), 'en')).toBe('Jan 2027');
+    expect(Paging.monthRuleLabel(day(2026, 9, 1), 'de')).toBe(
+      Paging.monthHeading(day(2026, 9, 1), 'de', 'short'),
+    );
+  });
+
+  it('names the month in every card language, in full only where the short form drops the name', () => {
+    // The oracle is `Intl`'s own parts: which form names the month is data, and CLDR moves
+    // between patches of one Node major, so the rule is pinned rather than a language list.
+    const wrong: string[] = [];
+    const inFull = new Set<string>();
+    for (const language of CARD_LANGUAGES) {
+      for (let month = 0; month < 12; month++) {
+        const date = new Date(2026, month, 1);
+        const label = Paging.monthRuleLabel(date, language);
+        const short = Paging.monthHeading(date, language, 'short');
+        const long = Paging.monthHeading(date, language, 'long');
+        const expected =
+          named(date, language, 'short') || !named(date, language, 'long') ? short : long;
+        if (label !== expected) wrong.push(`${language} ${month}: ${label}`);
+        if (label !== short) inFull.add(language);
+      }
+    }
+    expect(wrong).toEqual([]);
+    // The denominator: some card language takes the full form, so the fallback ran.
+    expect(inFull.size).toBeGreaterThan(0);
+  });
+});
+
 describe("the home button's name", () => {
   it('is "Today" in the card language while home holds today', () => {
     const home = { start: day(2026, 6, 15), days: 7 };

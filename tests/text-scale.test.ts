@@ -192,6 +192,7 @@ describe('the sizes a scale multiplies', () => {
   const LEFT_ALONE: Readonly<Record<string, string>> = {
     title_font_size: 'the card title',
     week_number_font_size: 'the week number, beside the days rather than in an event',
+    month_separator_label_font_size: 'the month rule, between the days rather than in an event',
     weekday_font_size: 'the day header',
     day_font_size: 'the day header',
     month_font_size: 'the day header',

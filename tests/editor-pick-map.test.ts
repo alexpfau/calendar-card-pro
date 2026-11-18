@@ -89,7 +89,8 @@ function config(view: Types.EffectiveView): Record<string, unknown> {
   return {
     title: 'Family',
     view,
-    days_to_show: 5,
+    // The list runs into July, a Wednesday, so it draws a plain month rule and its label.
+    days_to_show: view === 'list' ? 15 : 5,
     show_empty_days: true,
     entities: [
       { entity: 'calendar.anna', label: '🎒' },
@@ -113,6 +114,8 @@ function config(view: Types.EffectiveView): Record<string, unknown> {
     show_now_indicator: true,
     week_separator_width: '2px',
     day_separator_width: '1px',
+    month_separator_width: '3px',
+    month_separator_label: true,
     event_gap: '4px',
     // The badge beside the time in List, the pill around the title in Columns.
     allday_badge: view === 'list' ? 'time' : 'title',
@@ -127,14 +130,19 @@ function config(view: Types.EffectiveView): Record<string, unknown> {
  * @param view - The layout
  * @param width - A card width to report, as the resize observer would: a narrow one turns a
  *   month compact
+ * @param overrides - Options laid over the layout's configuration
  * @returns The card
  */
-async function mount(view: Types.EffectiveView, width?: number): Promise<Card> {
+async function mount(
+  view: Types.EffectiveView,
+  width?: number,
+  overrides: Record<string, unknown> = {},
+): Promise<Card> {
   // Only this card's observers: an earlier layout's grid keeps one of its own.
   RecordingResizeObserver.instances = [];
   const card = document.createElement('calendar-card-pro-dev') as Card;
   vi.spyOn(card, 'updateEvents').mockResolvedValue();
-  card.setConfig(config(view));
+  card.setConfig({ ...config(view), ...overrides });
   card.hass = {
     states: {
       'weather.home': { state: 'sunny', attributes: {} },
@@ -213,16 +221,22 @@ describe('Pick From Preview part map', () => {
     const unmapped: string[] = [];
     const absorbed = new Set<string>();
     let elements = 0;
-    const layouts = [
-      ['list'],
-      ['column'],
-      ['grid'],
-      ['month'],
-      // A phone's width, where the month draws its compact form and the chosen day's list.
-      ['month', 375],
-    ] as const;
-    for (const [view, width] of layouts) {
-      const card = await mount(view, width);
+    // List twice: with week numbers off it draws the plain week rule instead of the week row.
+    // Month twice: at a phone's width it draws its compact form and the chosen day's list.
+    const layouts: ReadonlyArray<{
+      view: Types.EffectiveView;
+      width?: number;
+      overrides?: Record<string, unknown>;
+    }> = [
+      { view: 'list' },
+      { view: 'list', overrides: { show_week_numbers: null } },
+      { view: 'column' },
+      { view: 'grid' },
+      { view: 'month' },
+      { view: 'month', width: 375 },
+    ];
+    for (const { view, width, overrides } of layouts) {
+      const card = await mount(view, width, overrides);
       const root = card.shadowRoot!;
       for (const [selectors] of PICK_PARTS) {
         for (const selector of selectors.split(', ')) {
@@ -242,7 +256,7 @@ describe('Pick From Preview part map', () => {
       }
       card.remove();
     }
-    // The denominator: five layouts drew a card worth checking.
+    // The denominator: six renders of four layouts drew a card worth checking.
     expect(elements).toBeGreaterThan(300);
     // Each selector of a group on its own, so one gone stale beside a live one still fails.
     expect(
@@ -292,6 +306,8 @@ describe('Pick From Preview part map', () => {
       '.month-container ⊃ div.month-probe',
       '.month-date ⊃ span.day',
       '.month-date ⊃ span.month-date-month',
+      '.month-separator ⊃ div.month-separator-line',
+      '.month-separator ⊃ span.month-separator-label',
       '.month-weekdays ⊃ div.month-weekday',
       '.month-weekdays ⊃ div.month-weekday.weekend',
       '.progress-bar ⊃ div.progress-bar-filled',

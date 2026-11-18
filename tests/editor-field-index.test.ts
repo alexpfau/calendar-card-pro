@@ -245,10 +245,11 @@ describe('field ids', () => {
       `Field ids: ${leaves} leaves over ${DISTINCT.length} distinct corpus states, ` +
         `${EVERY_FIELD.size} ids in all.`,
     );
-    // 222 without Month, Arrow & Chip Size among them. Month adds its own five: Height Per Week,
-    // Minimum Day Width, Events in Day List, Week Scrolling and Minimum Card Width, and Layouts
-    // in Switcher.
-    expect(EVERY_FIELD.size).toBe(228);
+    // 222 without Month or the name on List's month separator, Arrow & Chip Size among them.
+    // Month adds its own five: Height Per Week, Minimum Day Width, Events in Day List, Week
+    // Scrolling and Minimum Card Width, and Layouts in Switcher. List's month separator adds
+    // three: Month Name on Rule, its color and its size.
+    expect(EVERY_FIELD.size).toBe(231);
   });
 
   it('do not depend on the editor language', () => {

@@ -1426,7 +1426,7 @@ layouts never loads anything. The rest of the card follows the layout on screen:
 **→ [Column View](/features/column-view)** — what column may override, and what it ignores.
 **→ [Grid View](/features/grid-view)** — the same for the time grid.
 **→ [Month View](/features/month-view)** — the same for the month, which shows six weeks whatever `days_to_show` says.
-**→ [List-Only Options in the configuration reference](/reference/configuration#list-only-options)** — the seven options only list reads.
+**→ [List-Only Options in the configuration reference](/reference/configuration#list-only-options)** — the ten options only list reads.
 
 ## 🌐 Language
 

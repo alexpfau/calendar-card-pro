@@ -37,6 +37,7 @@ import '../src/calendar-card-pro';
 const FONT_SIZES = [
   ['title_font_size', '--calendar-card-font-size-title'],
   ['week_number_font_size', '--calendar-card-week-number-font-size'],
+  ['month_separator_label_font_size', '--calendar-card-month-separator-label-font-size'],
   ['weekday_font_size', '--calendar-card-font-size-weekday'],
   ['day_font_size', '--calendar-card-font-size-day'],
   ['month_font_size', '--calendar-card-font-size-month'],
