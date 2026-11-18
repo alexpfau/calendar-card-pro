@@ -1943,8 +1943,10 @@ a chip, so the wrapper is the one element `[data-field]` finds). A press writes 
 through `_writeFieldValue`. Two chips can be kept pressed, `aria-disabled` but focusable with the
 reason inside and in the name: the starting layout's, and the last other one's, so the editor
 never writes a list offering one layout, and never turns the switcher off, which is the View
-Switcher chip's alone. `changeField` asks it for the whole list and presses each chip that differs,
-drawing between presses.
+Switcher chip's alone. Starting Layout keeps to the same rule: a change that would leave the stored
+list offering one layout writes the list too, in the same step, adding the layout it leaves
+(`chips.ts` › `layoutsKeptOnStart`). `changeField` asks Layouts in Switcher for the whole list and
+presses each chip that differs, drawing between presses.
 
 ### Pick From Preview reads the card's class names
 

@@ -5034,11 +5034,12 @@ export class CalendarCardProEditor extends LitElement {
         value,
         (view) => {
           const data = { view: value };
-          // The view and the Grid notice it brings are one step.
+          const kept = Chips.layoutsKeptOnStart(this._config!, value, view as Types.EffectiveView);
+          // The view, the Grid notice it brings and the switcher's list it keeps are one step.
           this._commit(
             this._string(ctx, 'history.change', { setting: this._string(ctx, 'view') }),
             undefined,
-            () =>
+            () => {
               this._writeOwned(
                 {
                   owner: WriteFrames.CARD_OWNER,
@@ -5047,7 +5048,13 @@ export class CalendarCardProEditor extends LitElement {
                   data,
                 },
                 { view },
-              ),
+              );
+              // After the view: the field's form counts the starting layout as offered, so under
+              // the old one the list would read as unchanged and write nothing.
+              if (kept !== undefined) {
+                this._writeFieldValue(WriteFrames.CARD_OWNER, Chips.SWITCHER_LAYOUTS_FIELD, kept);
+              }
+            },
           );
         },
       )}

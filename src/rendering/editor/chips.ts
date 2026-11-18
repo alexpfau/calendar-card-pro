@@ -9,7 +9,8 @@
  * by value and reconciles against the registry in both directions.
  *
  * A third family is one field's values rather than fields: Layouts in Switcher draws a chip per
- * layout under its own head row (`layoutChips`), and a press writes the whole list.
+ * layout under its own head row (`layoutChips`), and a press writes the whole list, as a change of
+ * starting layout does where the list would otherwise leave one layout (`layoutsKeptOnStart`).
  */
 
 import { CHIP_LABELS } from './chip-labels';
@@ -18,6 +19,7 @@ import { GATES, type GateData, firstUnmet, needsText } from './gates';
 import { PAGES } from './pages';
 import { configKeysForField } from './synthetic';
 import { type EditorWorkspace, viewForWorkspace } from './workspace';
+import { resolveToolbar, switcherOffers } from '../../config/config';
 import type * as Types from '../../config/types';
 import { VIEWS, appliesToView } from '../../config/view';
 
@@ -163,4 +165,29 @@ export function pressLayout(
   return chips
     .filter((each) => (each.view === view ? !each.pressed : each.pressed))
     .map((each) => each.view);
+}
+
+/**
+ * The list Layouts in Switcher writes beside a change of starting layout, where the list stored
+ * would otherwise leave the switcher offering one layout, which the card does not draw. A list of
+ * one layout other than the starting one offers two; starting in that layout, it offers one. The
+ * layout left joins the list, in `VIEWS` order, so the switcher keeps offering what it offered.
+ *
+ * Nothing is written where the switcher offered nothing before, or still offers two or more. With
+ * no list stored, the switcher offers every layout, so the key is never written where it is absent.
+ *
+ * @param config - The configuration before the change
+ * @param from - The layout the card opens in before the change
+ * @param to - The layout it opens in after it
+ * @returns The list to write, or `undefined` where none is needed
+ */
+export function layoutsKeptOnStart(
+  config: Readonly<Types.Config>,
+  from: Types.EffectiveView,
+  to: Types.EffectiveView,
+): Types.EffectiveView[] | undefined {
+  if (switcherOffers({ ...config, view: from }).length === 0) return undefined;
+  if (switcherOffers({ ...config, view: to }).length > 0) return undefined;
+  const named = resolveToolbar(config).switcherViews;
+  return VIEWS.filter((view) => view === from || named.includes(view));
 }

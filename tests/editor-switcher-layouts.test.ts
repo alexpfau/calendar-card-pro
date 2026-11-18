@@ -287,6 +287,62 @@ describe('Layouts in Switcher on Card & Header', () => {
   });
 });
 
+describe('Starting Layout keeps the switcher it offered', () => {
+  /** Takes the last step back. */
+  async function undo(editor: Editor): Promise<void> {
+    editor.shadowRoot!.querySelector<HTMLElement>('[data-focus="undo"]')!.click();
+    await editor.updateComplete;
+  }
+
+  it('adds the layout it leaves to a list that would offer one layout, in the same step', async () => {
+    // Naming Month alone offers List and Month while the card starts in List, as the starting
+    // layout is always offered. Starting in Month, the same list offers Month alone, and the card
+    // draws no switcher, so the layout it leaves joins the list.
+    const editor = await mount({ view_switcher_layouts: ['month'] }, { view: 'list' });
+    await changeField(editor, 'display:view', 'month');
+
+    expect(lastConfig(editor)).toMatchObject({
+      view: 'month',
+      toolbar: { show: true, view_switcher_layouts: ['list', 'month'] },
+    });
+    expect(Config.switcherOffers(lastConfig(editor) as unknown as Types.Config)).toEqual([
+      'list',
+      'month',
+    ]);
+    await goPage(editor, 'card_header');
+    expect(read(editor)).toEqual([
+      'list on kept: List, Switcher Needs Two',
+      'column off: Columns',
+      'grid off: Grid',
+      'month on kept: Month, Starting Layout',
+    ]);
+
+    // One step: Undo takes back the layout and the list together.
+    expect(
+      editor.shadowRoot!.querySelector('[data-focus="undo"]')?.getAttribute('aria-label'),
+    ).toBe('Undo: Change Starting Layout');
+    await undo(editor);
+    expect(lastConfig(editor)).toMatchObject({
+      view: 'list',
+      toolbar: { show: true, view_switcher_layouts: ['month'] },
+    });
+  });
+
+  it.each([
+    ['no list is stored, which offers every layout', {}],
+    ['the list stored still offers two', { view_switcher_layouts: ['list', 'grid'] }],
+    [
+      'View Switcher is off, so nothing was offered',
+      { view_switcher: false, view_switcher_layouts: ['month'] },
+    ],
+  ])('writes the list as it was where %s', async (_case, toolbar) => {
+    const editor = await mount(toolbar, { view: 'list' });
+    await changeField(editor, 'display:view', 'month');
+    expect(lastConfig(editor)).toMatchObject({ view: 'month' });
+    expect(writtenToolbar(editor)).toEqual({ show: true, ...toolbar });
+  });
+});
+
 describe('Layouts in Switcher waits on View Switcher', () => {
   /** What the setting's place on the open page says while it is withheld. */
   function gated(editor: Editor): string | undefined {

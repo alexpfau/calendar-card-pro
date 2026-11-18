@@ -336,6 +336,8 @@ Each press redraws the same two days: as Columns, then as List, then as Grid aga
   off and keeps the list for when it is turned back on. In the visual editor, the View Switcher
   chip turns it on and off, and Layouts in Switcher, under the controls while it is on, offers a
   chip per layout; the starting layout's chip stays pressed, and so does the last other one.
+  Changing **Starting Layout** to the one other layout the list names adds the layout it leaves,
+  so the switcher stays.
 
 ::: tip Nothing Switches While You Edit
 In the card editor's preview, and on a dashboard in edit mode, the card shows its configured
