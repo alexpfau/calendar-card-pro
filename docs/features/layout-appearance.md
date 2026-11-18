@@ -322,7 +322,7 @@ Each press redraws the same two days: as Columns, then as List, then as Grid aga
 ::: tip Nothing Switches While You Edit
 In the card editor's preview, and on a dashboard in edit mode, the card shows its configured
 `view` and a press on the switcher does nothing. To try another layout there, change
-**Card Displays** in the editor.
+**Starting Layout** in the editor.
 :::
 
 ### Refreshing the Events

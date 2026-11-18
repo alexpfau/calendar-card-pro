@@ -385,7 +385,10 @@ export const cardStyles = css`
     --calendar-card-inline-room: 1px;
   }
 
-  @supports (width: round(1px, 1px)) {
+  /* Every gate admitting round() or overflow: clip for the marks also asks for
+     contain-intrinsic-size, which leaves out Safari before 17; see "Marks above and below the
+     line" for why. */
+  @supports (width: round(1px, 1px)) and (contain-intrinsic-size: 1px) {
     :host {
       --calendar-card-inline-room: round(up, 0.125em, 1px);
     }
@@ -423,7 +426,7 @@ export const cardStyles = css`
      names where it is declared, so inherited from ha-card these two kept the card's share: a
      title at twice the card's size cut its marks with the room of one. Only on a scaled event:
      every other inherits them from ha-card, a theme's own value for them included. */
-  @supports (width: round(1px, 1px)) {
+  @supports (width: round(1px, 1px)) and (contain-intrinsic-size: 1px) {
     ha-card,
     .event-text-scaled {
       --calendar-card-event-row-room: round(
@@ -783,7 +786,7 @@ export const cardStyles = css`
 
   /* It hides only a month too long for the row, so it cuts along the inline axis alone, and the
      marks Thai sets above and below a month are drawn whole; see "Marks above and below the line". */
-  @supports (overflow: clip) {
+  @supports (overflow: clip) and (contain-intrinsic-size: 1px) {
     .toolbar-month-text {
       overflow-x: clip;
       overflow-y: visible;
@@ -2549,8 +2552,11 @@ export const cardStyles = css`
      the location and the description while their field has no limit, a one-line title, and
      grid's title row, words, time row and all-day banner. overflow: clip is not a scroll
      container, so a flex item among them is given the min-width: 0 a hidden one had, and
-     nothing in their layout moves. Browsers without overflow: clip (Safari before 16) keep the
-     hidden overflow and cut the marks as before.
+     nothing in their layout moves. Browsers without overflow: clip keep the hidden overflow
+     and cut the marks as before, and so does Safari 16: it has overflow: clip, but paints none
+     of the text in a box that clips one axis and shows the other, which left list view with no
+     event text. Safari 17 paints it, and nothing about it parses differently there, so every
+     such gate also asks for contain-intrinsic-size, new in Safari 17.0.
 
      A box that clamps lines has to cut where its last line ends, because the next line is laid
      out right below it. Its marks above the first line get room instead: padding inside the
@@ -2577,8 +2583,10 @@ export const cardStyles = css`
      card reads as clientWidth, which is whole pixels, a fraction moved a fit's decision by
      half a pixel, and a title the card had cut beside its time went below it. A whole pixel
      leaves every such sum, and every width read less the padding, exactly what it was without
-     the room. Without round() (Chromium before 125, Safari before 15.4) the room is 1px. Text
-     outside the event fields cut the same way keeps it too: the month, a legend chip's name, a
+     the room. Without round() (Chromium before 125) the room is 1px, and so it is in Safari
+     before 17, which the gate leaves out as it does for overflow: clip: Safari 15.4 to 16.x know
+     round() but compute a calc() over it wrongly, and the margin giving the room back came out as
+     33554428px, squeezing every summary to 4px. Text outside the event fields cut the same way keeps it too: the month, a legend chip's name, a
      day's weather in column and grid view, and a clamped weather condition. The grid's time axis
      needs none: its labels are digits and AM or PM, and its own padding holds them 4px and 8px
      off its edges.
@@ -2609,7 +2617,7 @@ export const cardStyles = css`
      The summary that clamps a labeled title's line in list and column view under a limit ends at
      its last line: its 0.2em under the text is a margin there, outside the cut, so no piece of
      the next line shows in it. An unlabeled title clamps itself and does the same with its 2px. */
-  @supports (overflow: clip) {
+  @supports (overflow: clip) and (contain-intrinsic-size: 1px) {
     .summary {
       overflow-x: clip;
       overflow-y: visible;
@@ -2680,7 +2688,7 @@ export const cardStyles = css`
     --calendar-card-summary-ink-room: min(var(--calendar-card-title-ink-room), 0.25em);
   }
 
-  @supports (overflow: clip) {
+  @supports (overflow: clip) and (contain-intrinsic-size: 1px) {
     .summary:not(.summary-scroll):has(> .event-title:not(:only-child)) {
       overflow-y: var(--calendar-card-title-overflow);
     }
@@ -2823,7 +2831,7 @@ export const cardStyles = css`
 
   /* One line has nothing to hide above or below it; the ellipsis and the scroll need only the
      inline axis cut. See "Marks above and below the line". */
-  @supports (overflow: clip) {
+  @supports (overflow: clip) and (contain-intrinsic-size: 1px) {
     .summary-scroll > .event-title.title-scrollable {
       overflow-x: clip;
       overflow-y: visible;
@@ -3476,7 +3484,7 @@ export const cardStyles = css`
     --calendar-card-summary-ink-room: 0px;
   }
 
-  @supports (overflow: clip) {
+  @supports (overflow: clip) and (contain-intrinsic-size: 1px) {
     .time-beside-title > .summary-row.title-wrap > .summary:not(.summary-scroll) {
       overflow-y: visible;
     }
@@ -4475,7 +4483,7 @@ export const cardStyles = css`
     margin-inline: calc(-1 * var(--calendar-card-inline-room));
   }
 
-  @supports (overflow: clip) {
+  @supports (overflow: clip) and (contain-intrinsic-size: 1px) {
     .time .time-actual > span:not(.time-text):not(.allday-badge):not(.now-time) {
       overflow-x: clip;
       overflow-y: var(--calendar-card-time-overflow);
@@ -5843,7 +5851,7 @@ export const cardStyles = css`
 
   /* One line, cut along the inline axis for its ellipsis; see "Marks above and below the
      line". A flex item of the banner, so it keeps the min-width: 0 a hidden overflow gave it. */
-  @supports (overflow: clip) {
+  @supports (overflow: clip) and (contain-intrinsic-size: 1px) {
     .grid-banner-title {
       overflow-x: clip;
       overflow-y: visible;
@@ -6176,7 +6184,7 @@ export const cardStyles = css`
   /* Flex: 0 0 auto, so the row is as tall as its title and hides nothing above or below it but
      marks; the block's own edge and the title's clamp do the cutting. See "Marks above and
      below the line". */
-  @supports (overflow: clip) {
+  @supports (overflow: clip) and (contain-intrinsic-size: 1px) {
     .grid-event-disclosure .summary-row {
       overflow-x: clip;
       overflow-y: visible;
@@ -6226,7 +6234,7 @@ export const cardStyles = css`
 
   /* Hides what passes its top and bottom only where it clamps: under a limit, or once the card
      cuts it (the cut rule below). See "Marks above and below the line". */
-  @supports (overflow: clip) {
+  @supports (overflow: clip) and (contain-intrinsic-size: 1px) {
     .grid-event-disclosure .event-title {
       overflow-x: clip;
       overflow-y: var(--calendar-card-title-overflow);
@@ -6264,7 +6272,7 @@ export const cardStyles = css`
   }
 
   /* A word clips for its own ellipsis, which is the inline axis alone. */
-  @supports (overflow: clip) {
+  @supports (overflow: clip) and (contain-intrinsic-size: 1px) {
     .grid-event-disclosure .title-word {
       overflow-x: clip;
       overflow-y: visible;
@@ -6507,7 +6515,7 @@ export const cardStyles = css`
 
   /* The time row is one line wide by measurement (grid-time-fit.ts), so only its inline axis is
      cut; see "Marks above and below the line". */
-  @supports (overflow: clip) {
+  @supports (overflow: clip) and (contain-intrinsic-size: 1px) {
     .grid-event-disclosure .time,
     .grid-event-disclosure .time-actual {
       overflow-x: clip;
@@ -7134,7 +7142,7 @@ export const cardStyles = css`
 
   /* One line, cut along the inline axis for its ellipsis and nowhere else. See "Marks above and
      below the line". */
-  @supports (overflow: clip) {
+  @supports (overflow: clip) and (contain-intrinsic-size: 1px) {
     .grid-event:is(
         [data-grid-title-fit='measuring'],
         [data-grid-title-fit='compact'],

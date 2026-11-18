@@ -163,7 +163,7 @@ export function startDateMode(config: Readonly<Types.Config>): StartDateMode {
 }
 
 /**
- * The synthetic mode fields: those a choice of presentation can be held for (section 3.9), as
+ * The synthetic mode fields: those a choice of presentation can be held for, as
  * `start_date_mode` holds Relative to Today over a value that reads as a shortcut.
  */
 export const MODE_FIELDS: ReadonlyArray<string> = ['start_date_mode'];
@@ -429,7 +429,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
    * already reading as the chosen shortcut is kept as written (`+1` stays `+1`). Relative to Today
    * over a shortcut writes nothing, since the expression is already there to edit; it holds
    * `offset` as the presentation mode instead, or the shortcut it reads as would press its own
-   * chip again and the Expression field would never appear (section 3.9).
+   * chip again and the Expression field would never appear.
    */
   start_date_mode: {
     configKeys: ['start_date'],

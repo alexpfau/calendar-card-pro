@@ -7,7 +7,7 @@ import * as EventUtils from '../src/utils/events';
 import { formatLocation } from '../src/utils/format';
 
 /**
- * Word lists as terms (section 5.9): the patterns `blocklist`, `allowlist` and Countries To
+ * Word lists as terms: the patterns `blocklist`, `allowlist` and Countries To
  * Remove store, read as the words a person typed and written back from them, and whether the card
  * can read one at all.
  */

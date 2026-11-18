@@ -1,5 +1,5 @@
 /**
- * Options v3.0.0 removed that a card's YAML still holds, for the notices page (section 5.10):
+ * Options v3.0.0 removed that a card's YAML still holds, for the notices page:
  * each with its replacement, and a move to it while the replacement is free. DOM-free.
  *
  * The card ignores them, and the editor's next write removes them (`value.ts` ›

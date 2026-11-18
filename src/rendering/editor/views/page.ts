@@ -145,6 +145,11 @@ export interface HeadingBlock {
   readonly crossLink?: CrossLink;
   /** A family's ✕ beside its title: Remove Compact Mode and Reset It. */
   readonly action?: unknown;
+  /**
+   * A heading with nothing to edit until a part is turned on or an entity chosen: the word
+   * beside its title, Off or No Entity, and the buttons that change that.
+   */
+  readonly off?: { readonly state: string; readonly actions: unknown };
   readonly body: unknown;
 }
 
@@ -156,8 +161,18 @@ export interface HeadingBlock {
  */
 export function headingBlock(block: HeadingBlock): TemplateResult {
   const link = block.crossLink;
-  return html`<section class="page-group" data-heading=${block.key ?? ''}>
-    ${block.title ? html`<h3 class="heading" tabindex="-1">${block.title}</h3>` : nothing}
+  const title = block.title ? html`<h3 class="heading" tabindex="-1">${block.title}</h3>` : nothing;
+  return html`<section
+    class="page-group${block.off ? ' off-group' : ''}"
+    data-heading=${block.key ?? ''}
+  >
+    ${
+      block.off
+        ? html`<div class="heading-row">
+            ${title}<span class="heading-state">${block.off.state}</span>${block.off.actions}
+          </div>`
+        : title
+    }
     ${block.action ? html`<div class="heading-action">${block.action}</div>` : nothing}
     ${block.helper ? html`<p class="hint">${block.helper}</p>` : nothing}
     ${

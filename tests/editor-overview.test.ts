@@ -6,7 +6,15 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { goEntry, keysOf, lastConfig, mountEditor, openPageOf } from './helpers/editor-host';
+import {
+  goEntry,
+  goOverview,
+  goPage,
+  keysOf,
+  lastConfig,
+  mountEditor,
+  openPageOf,
+} from './helpers/editor-host';
 import { CURRENT_CONFIG_VERSION, DEFAULT_CONFIG } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { buildFieldIndex, schemaCtx } from '../src/rendering/editor/field-index';
@@ -58,7 +66,7 @@ describe('Settings For', () => {
     expect(isCompactScope(hidden, merged(hidden), 'list', false)).toBe(true);
   });
 
-  // Plan section 5.10: the line shows whenever the scope is not the displayed layout, and a
+  // The line shows whenever the scope is not the displayed layout, and a
   // value List keeps of its own is exactly what All Layouts cannot show in the preview.
   it('says the preview shows another layout in every scope but the displayed one', async () => {
     const editor = await mountEditor({
@@ -66,6 +74,8 @@ describe('Settings For', () => {
       entities: ['calendar.anna'],
       column: { event_font_size: '13px' },
     });
+    // Settings For is a page's: the overview has none.
+    await goPage(editor, 'events');
     const root = editor.shadowRoot!;
     const line = () =>
       root.querySelector('.scope-preview-text')?.textContent?.replace(/\s+/g, ' ').trim();
@@ -95,6 +105,8 @@ describe('Settings For', () => {
       entities: ['calendar.anna'],
       column: { event_font_size: '13px' },
     });
+    // Settings For is a page's: the overview has none.
+    await goPage(editor, 'events');
     const root = editor.shadowRoot!;
     const line = () =>
       root.querySelector('.scope-preview-text')?.textContent?.replace(/\s+/g, ' ').trim();
@@ -124,6 +136,17 @@ describe('Settings For', () => {
     // It stays on, and follows the scope.
     await pick('column');
     expect(line()).toBe('Editing Columns · Preview Shows Columns · The Card Opens in List');
+    // The overview has no Settings For to say so, so it previews the card as it opens, and the
+    // switch is there again on the next page.
+    const previewed = () =>
+      (editor as unknown as { _previewedScope(): { view: string } | undefined })._previewedScope()
+        ?.view;
+    expect(previewed()).toBe('column');
+    await goOverview(editor);
+    expect(previewed()).toBeUndefined();
+    await goPage(editor, 'day_header');
+    expect(previewed()).toBe('column');
+    expect(toggle()?.getAttribute('aria-pressed')).toBe('true');
     expect(lastConfig(editor)).toBeUndefined();
     document.body.replaceChildren();
   });
@@ -135,6 +158,7 @@ describe('Settings For', () => {
       entities: ['calendar.anna'],
       column: { event_font_size: '13px' },
     });
+    await goPage(editor, 'events');
     expect(editor.shadowRoot!.querySelector('.scope')).not.toBeNull();
     await goEntry(editor, keysOf(editor, 'entry')[0]);
     expect(editor.shadowRoot!.querySelector('.entry-page')).not.toBeNull();
@@ -150,6 +174,7 @@ describe('Settings For', () => {
       entities: ['calendar.anna'],
       column: { event_font_size: '13px' },
     });
+    await goPage(editor, 'events');
     const path = (radio: Element) => {
       const classes: string[] = [];
       for (let el = radio.parentElement; el && el.localName !== 'fieldset'; el = el.parentElement) {

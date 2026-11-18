@@ -52,7 +52,7 @@ its place and stop the editor from opening.
 ::: details Compressing the Files Yourself
 Home Assistant serves a pre-compressed `.gz` beside a file when it finds one. HACS writes one
 for every file it installs; a manual install has none, so the card transfers at its full
-686 KB and the editor at 872 KB, once per version before the browser caches both.
+687 KB and the editor at 879 KB, once per version before the browser caches both.
 
 For a smaller transfer, create the `.gz` files beside the originals:
 
@@ -60,7 +60,7 @@ For a smaller transfer, create the `.gz` files beside the originals:
 gzip -9 -k calendar-card-pro.js editor.js
 ```
 
-That brings the card to 190 KB and the editor to 256 KB. Delete or regenerate the `.gz`
+That brings the card to 190 KB and the editor to 258 KB. Delete or regenerate the `.gz`
 files with every update: Home Assistant serves a stale `.gz` in preference to a newer `.js`.
 :::
 

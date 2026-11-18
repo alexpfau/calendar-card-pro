@@ -612,6 +612,12 @@ export const PAGES: ReadonlyArray<PageDef> = [
 /** The overview's Calendars block: the calendar list (`views/calendars.ts`). */
 export const CALENDARS_BLOCK = { titleKey: 'panel.calendars' } as const;
 
+/**
+ * The overview's Starting Layout block: the `view` control, whose label is the block's heading, so
+ * search finds it by the field's own words (`search.ts` › `startingLayoutRow`).
+ */
+export const STARTING_LAYOUT_BLOCK = { titleKey: 'view' } as const;
+
 /** A calendar entry's page. */
 export const ENTRY_GROUPS: ReadonlyArray<HeadingDef> = [
   {

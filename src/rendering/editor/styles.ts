@@ -370,8 +370,21 @@ export default css`
      buttons are aligned with the box rather than with the form: 4px down from its top. */
   .search-row {
     display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0 6px;
+  }
+
+  /* The field and, while it holds a query, its ✕. Where the row is narrower than 340px, as on a
+     320px phone, the field takes the whole row and the tools move to a line under it, at its end:
+     beside them and the ✕ the field kept no room to type in. Wider, the basis is negative, which
+     counts as 0, and the field shares the row as before. */
+  .search-field {
+    display: flex;
+    flex: 1 1 calc((340px - 100%) * 999);
     align-items: flex-start;
     gap: 6px;
+    min-width: 0;
   }
 
   .search-row .filter-form {
@@ -381,6 +394,12 @@ export default css`
 
   .search-row .history-controls {
     margin-top: 4px;
+    margin-inline-start: auto;
+  }
+
+  /* The search field's ✕, beside Home Assistant's box rather than in it, centered on its 56px. */
+  .search-row .search-clear {
+    margin-top: 6px;
   }
 
   .filter-empty {
@@ -427,10 +446,6 @@ export default css`
     line-height: 1.4;
   }
 
-  .add-button {
-    align-self: flex-start;
-  }
-
   /* Every text button is a 44px target in weight 500, as Home Assistant's buttons are, and lays
      out an icon beside its label rather than on the text's baseline. */
   .text-button {
@@ -458,8 +473,48 @@ export default css`
     color: var(--error-color, #db4437);
   }
 
-  .text-button:hover:not(:disabled) {
+  /* An inline text action (Reset, Remove, Undo, Edit List, a calendar row's strip) keeps its 44px
+     target, but draws its hover, pressed and focus fill as a pill inset 6px top and bottom, 32px
+     on one line, so the fill hugs its words rather than dwarfing the line beside it. An add action
+     and a filled button draw a fill of their own instead. */
+  .text-button:not(.filled, .add-action),
+  .strip-button {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .text-button:not(.filled, .add-action)::before,
+  .strip-button::before {
+    content: '';
+    position: absolute;
+    inset: 6px 0;
+    z-index: -1;
+    border-radius: 16px;
+  }
+
+  .text-button:not(.filled, .add-action):hover:not(:disabled)::before,
+  .strip-button:hover:not(:disabled)::before {
     background: var(--secondary-background-color);
+  }
+
+  .text-button:not(.filled, .add-action):active:not(:disabled)::before,
+  .strip-button:active:not(:disabled)::before {
+    background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.14);
+  }
+
+  .text-button:not(.filled, .add-action):focus-visible,
+  .strip-button:focus-visible {
+    outline: none;
+  }
+
+  .text-button:not(.filled, .add-action):focus-visible::before,
+  .strip-button:focus-visible::before {
+    box-shadow: 0 0 0 2px var(--primary-color);
+  }
+
+  /* A filled button keeps its color under the pointer, a shade darker. */
+  .text-button.filled:hover:not(:disabled) {
+    background-image: linear-gradient(rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.12));
   }
 
   .text-button:disabled {
@@ -828,21 +883,23 @@ export default css`
     line-height: 1.45;
   }
 
-  /* A header too narrow for its title beside its actions, a phone's, puts the actions on a line
-     of their own at its end rather than squeezing the title into a column of single words. */
+  /* A page header is two rows at every width: Back and the title, which keeps the whole first
+     row, then the actions at the second row's end. Sharing one row, a long title wrapped beside
+     them, at some widths and not others, and the actions dropped to a row of their own at others. */
   .page-head {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
     align-items: center;
     gap: 0 8px;
     margin-inline-start: -8px;
   }
 
-  /* A page header's actions, Search Settings first, sit together at its end and wrap together. */
+  /* A page header's actions, Search Settings first, sit together at the second row's end. */
   .head-actions {
     display: flex;
+    grid-column: 1 / -1;
+    justify-self: end;
     align-items: center;
-    margin-inline-start: auto;
   }
 
   .head-actions .history-controls {
@@ -945,12 +1002,24 @@ export default css`
     outline-offset: -2px;
   }
 
+  /* A checkbox's box, empty or checked, so an item reads as off as plainly as it reads as on. */
   .menu-check {
     flex: none;
-    width: 20px;
-    height: 20px;
-    color: var(--primary-color);
-    --mdc-icon-size: 20px;
+    box-sizing: border-box;
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    margin: 1px;
+    border: 2px solid var(--secondary-text-color);
+    border-radius: 2px;
+    --mdc-icon-size: 16px;
+  }
+
+  .menu-check.checked {
+    border-color: var(--primary-color);
+    background: var(--primary-color);
+    color: var(--text-primary-color, #fff);
   }
 
   .menu-check .icon {
@@ -1018,7 +1087,6 @@ export default css`
 
   .page-titles {
     display: flex;
-    flex: 1 1 6rem;
     flex-direction: column;
     min-width: 0;
   }
@@ -1114,10 +1182,11 @@ export default css`
   }
 
   /* Use a Pattern and Use Words: a small link under their list, in line with its helper. */
+  /* Use a Pattern or Use Words: an inline text action as Reset is, its words where a link's were. */
   .word-mode {
     align-self: flex-start;
-    margin-inline-start: 16px;
-    font-size: 12px;
+    margin-inline-start: 4px;
+    font-size: 13px;
   }
 
   /* --- Show what applies -----------------------------------------------------
@@ -1583,28 +1652,65 @@ export default css`
     min-width: 0;
   }
 
-  /* A setting a gate withholds, in its place. */
+  /* A setting a gate withholds, in its place: its name, and under it, where its facts would be,
+     when it appears. Beside the name, the sentence sat where values sit and read on from it. */
   .setting-gated {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0 8px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
     min-height: 44px;
-    padding-inline-start: 4px;
+    padding: 12px 0 10px;
+    padding-inline: 4px 76px;
     color: var(--secondary-text-color);
   }
 
-  .setting-gated-when {
-    margin-inline-start: auto;
-    font-size: 12px;
-    line-height: 1.45;
-    text-align: end;
+  .setting-gated > .setting-label {
+    line-height: 20px;
   }
 
-  /* A gate line shared by several settings reads as a sentence. */
+  .setting-gated-when {
+    font-size: 12px;
+    line-height: 16px;
+  }
+
+  /* A gate line shared by several settings reads as a sentence, the width of the card. */
   .setting-gated > .setting-gated-when:only-child {
-    margin-inline-start: 0;
-    text-align: start;
+    padding: 0;
+    line-height: 1.45;
+  }
+
+  .setting-gated:has(> .setting-gated-when:only-child) {
+    padding-inline-end: 0;
+  }
+
+  /* A heading with nothing to edit until its part is on, or an entity chosen: Off or No Entity
+     beside its title, then the button that changes that, then one line naming what it holds. */
+  .heading-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 12px;
+  }
+
+  .heading-row > .heading {
+    flex: 1 1 auto;
+    padding-inline: 4px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .heading-state {
+    color: var(--secondary-text-color);
+    font-size: 13px;
+  }
+
+  .heading-row > .line-button {
+    margin-inline-end: -8px;
+  }
+
+  .off-group > .gate-summary {
+    margin: -8px 0 0;
   }
 
   /* --- The calendar list and entry pages ------------------------------------
@@ -1733,12 +1839,7 @@ export default css`
 
   .cal-body:hover,
   .drag-handle:hover,
-  .strip-button:hover:not(:disabled) {
-    background: var(--secondary-background-color);
-  }
-
   .cal-body:focus-visible,
-  .strip-button:focus-visible,
   .cal-filter:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
@@ -1779,7 +1880,7 @@ export default css`
     color: var(--primary-color);
   }
 
-  /* --- Chips and the toolbar (section 5.9) ------------------------------------
+  /* --- Chips and the toolbar ------------------------------------
      Toggle chips: native buttons, pressed with a check and the primary color, so the state never
      rests on color alone. An unpressable chip stays focusable and shows its reason inside it.
      Toggle chips and Start Date's radio chips share one size, 44px tall with 8px between them.
@@ -2155,19 +2256,17 @@ export default css`
     background: var(--disabled-color, #bdbdbd);
   }
 
-  .add-calendar-button {
+  /* An add action (Add Calendar, Add Button) is its list's one primary action, so it is a tonal
+     pill rather than a link. */
+  .text-button.add-action {
     align-self: flex-start;
-  }
-
-  /* Add Calendar is the list's one primary action, so it is a tonal pill rather than a link. */
-  .text-button.add-calendar-button {
     padding: 0 16px 0 12px;
     border-radius: 22px;
     background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.14);
     font-weight: 500;
   }
 
-  .text-button.add-calendar-button:hover {
+  .text-button.add-action:hover:not(:disabled) {
     background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.22);
   }
 

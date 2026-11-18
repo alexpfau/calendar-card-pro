@@ -1,5 +1,5 @@
 /**
- * What This Card Changes (backlog item 307, the editor redesign's PR 16): every line the YAML
+ * What This Card Changes (backlog item 307): every line the YAML
  * stores, grouped as Whole Card, All Layouts, each layout, each calendar and the lines kept as
  * written, worded as the editor words them, with the YAML path only on request; each owned line
  * one button opening a strip, whose Change Here mounts the line's own control and writes where
@@ -277,7 +277,7 @@ describe('What This Card Changes, its groups', () => {
     expect(all['time_grid.end_time'].meta).toBe('');
     expect(all['time_grid.start_time'].meta).toBe('Same as the Default');
     expect(all['list.description_font_size'].meta).toBe(
-      // Show Description is the Description chip, so its clause says pressed (PR 18).
+      // Show Description is the Description chip, so its clause says pressed.
       'Not in Use until Description is pressed',
     );
     expect(all.grid_options.meta).toBe('Home Assistant’s own, from the Layout tab');
