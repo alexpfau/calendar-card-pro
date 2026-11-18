@@ -26,7 +26,9 @@ import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { SWITCHER_LAYOUTS_FIELD, layoutChips, pressLayout } from '../src/rendering/editor/chips';
 import { buildFieldIndex, schemaCtx } from '../src/rendering/editor/field-index';
+import * as Routing from '../src/rendering/editor/routing';
 import { wordValue } from '../src/rendering/editor/summary';
+import { WORKSPACES } from '../src/rendering/editor/workspace';
 
 type Editor = Awaited<ReturnType<typeof mountEditor>>;
 
@@ -387,6 +389,25 @@ describe('Layouts in Switcher says when no switcher is drawn', () => {
     const editor = await mount(toolbar, { view: 'list' });
     await open(editor);
     expect(described(editor)).toEqual(words);
+  });
+});
+
+describe('Layouts in Switcher reads the starting layout as the card does', () => {
+  it('takes a view that is no layout as List, in every scope', () => {
+    // The card reads an unknown `view` as List (`validateView`), and so do the chips; the list the
+    // form holds, which words the setting where it is folded and found, must agree with both.
+    const config = {
+      ...Config.DEFAULT_CONFIG,
+      view: 'agenda',
+      toolbar: { show: true, view_switcher_layouts: ['grid'] },
+    } as unknown as Types.Config;
+    for (const workspace of WORKSPACES) {
+      const toolbar = Routing.workspaceFormData(config, workspace).toolbar as Record<
+        string,
+        unknown
+      >;
+      expect(toolbar.view_switcher_layouts, workspace).toEqual(['list', 'grid']);
+    }
   });
 });
 

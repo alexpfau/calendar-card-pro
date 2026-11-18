@@ -143,6 +143,18 @@ export function workspaceConfig(
 }
 
 /**
+ * The layout a card opens in, as the card reads it: its `view`, or List where that is missing or
+ * names no layout (`ViewConfig.validateView`). The editor's chips and its form data both read it
+ * here, so the two cannot disagree about which layout the switcher always offers.
+ *
+ * @param config - The card's configuration
+ * @returns The starting layout
+ */
+export function startingView(config: Readonly<Types.Config>): Types.EffectiveView {
+  return ViewConfig.VIEWS.includes(config.view) ? config.view : 'list';
+}
+
+/**
  * Builds full form data while leaving write destinations to the router.
  *
  * @param config - Raw merged configuration
@@ -186,10 +198,7 @@ export function workspaceFormData(
     weather: Value.weatherFormBlock(projected),
     // The card's own `view`, not the layout Settings For projects: the switcher always offers the
     // layout the card opens in, whatever layout is being edited.
-    toolbar: Value.toolbarFormBlock({
-      ...projected,
-      view: config.view ?? Config.DEFAULT_CONFIG.view,
-    }),
+    toolbar: Value.toolbarFormBlock({ ...projected, view: startingView(config) }),
     ...Synthetic.deriveSyntheticData(projected, held),
   };
   for (const [key, text] of Object.entries(pending)) {

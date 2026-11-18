@@ -1157,7 +1157,7 @@ export class CalendarCardProEditor extends LitElement {
    * @returns The effective editor view
    */
   private _viewForConfig(config: Readonly<Types.Config>): Types.EffectiveView {
-    return ViewConfig.VIEWS.includes(config.view) ? config.view : 'list';
+    return Routing.startingView(config);
   }
 
   /**
