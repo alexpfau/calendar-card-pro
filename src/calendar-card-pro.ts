@@ -2201,6 +2201,17 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * The configuration the card's event rows are drawn with, which the title fits and the title
+   * scroll read: the view's own, and in month view its day list's (`MonthDay.monthRowsConfig`),
+   * whose times are beside their titles whatever `time_position` says.
+   */
+  private get _rowsConfig(): Types.Config {
+    return this.effectiveView === 'month'
+      ? MonthDay.monthRowsConfig(this.effectiveConfig)
+      : this.effectiveConfig;
+  }
+
+  /**
    * The configuration as it applies to the view currently on screen.
    */
   get effectiveConfig(): Types.Config {
@@ -3899,6 +3910,16 @@ class CalendarCardPro extends LitElement {
             this.weatherForecasts,
           );
         },
+        titleFit: () => {
+          const rows = MonthDay.monthRowsConfig(this.effectiveConfig);
+          return {
+            cutLines: Helpers.titlesCutBesideTime(rows, 'month')
+              ? Number(rows.title_max_lines) || 0
+              : 0,
+            capped: Helpers.titlesCapped(rows, 'month'),
+            oneLine: Helpers.titlesOnOneLine(rows, 'month'),
+          };
+        },
         styles: () => this.getCustomStyles(),
         attach: (panel) => {
           this._dayPanel = panel;
@@ -4836,7 +4857,7 @@ class CalendarCardPro extends LitElement {
    * on 24/7 wall panels.
    */
   private _syncTitleScroll(): void {
-    if (!this.isConnected || !Helpers.titlesOnOneLine(this.effectiveConfig, this.effectiveView)) {
+    if (!this.isConnected || !Helpers.titlesOnOneLine(this._rowsConfig, this.effectiveView)) {
       this._stopTitleScrollObserver();
       return;
     }
@@ -4937,7 +4958,7 @@ class CalendarCardPro extends LitElement {
     }
     this._titleScrollRaf = requestAnimationFrame(() => {
       this._titleScrollRaf = null;
-      if (!this.isConnected || !Helpers.titlesOnOneLine(this.effectiveConfig, this.effectiveView)) {
+      if (!this.isConnected || !Helpers.titlesOnOneLine(this._rowsConfig, this.effectiveView)) {
         return;
       }
       this._measureTitleScroll();
@@ -5151,7 +5172,7 @@ class CalendarCardPro extends LitElement {
    * capped at `title_max_lines` is cut, dropping hyphens from a cut that falls inside a word.
    */
   private _measureTitleFits(): void {
-    const config = this.effectiveConfig;
+    const config = this._rowsConfig;
     // Hyphens back first, so the rows beside the time are fitted to the titles as the browser
     // hyphenates them, which is what the cut below is measured on. A title losing its hyphens
     // then needs as many lines as it did or more, so a row cut stays cut where it was measured.
@@ -5169,7 +5190,7 @@ class CalendarCardPro extends LitElement {
 
   /** The summary of every title on the card that `title_max_lines` caps across lines. */
   private _cappedTitles(): HTMLElement[] {
-    return Helpers.titlesCapped(this.effectiveConfig, this.effectiveView)
+    return Helpers.titlesCapped(this._rowsConfig, this.effectiveView)
       ? Array.from(this.renderRoot.querySelectorAll<HTMLElement>('.summary:not(.summary-scroll)'))
       : [];
   }

@@ -9,6 +9,11 @@
  * (`utils/month-day.ts`): List's rows, drawn by the card's own renderer in the card's own
  * stylesheet and custom properties, so a row reads here as it does in the card.
  *
+ * Each row's time is beside its title, as in the card's own day list, and the panel fits it there
+ * as the card fits its rows (`TitleFit.fitTitlesBesideTime`): the card's measuring stops at its
+ * own shadow root, which the panel is outside. Until a row is measured, and in a row that cannot
+ * be, its time takes a line of its own under the title.
+ *
  * A row that is a button in the card is one here. Pressing it closes the panel and, once the
  * panel has gone and focus is back on "+N more", runs what a tap on the event runs on the card:
  * `event_tap_action`, the details popover among them, or `event_hold_action` where only that is
@@ -17,7 +22,7 @@
  */
 
 import { mdiClose } from '@mdi/js';
-import { TemplateResult, css, html, nothing } from 'lit';
+import { PropertyValues, TemplateResult, css, html, nothing } from 'lit';
 import { state } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
@@ -26,6 +31,8 @@ import * as Shell from './popover-shell';
 import { cardStyles } from './styles';
 import type * as Feedback from '../interaction/feedback';
 import type * as Model from '../interaction/popover-model';
+import { reserveScrollingLabelWidths } from '../utils/grid-title-fit';
+import * as TitleFit from '../utils/title-fit';
 
 //-----------------------------------------------------------------------------
 // TYPES
@@ -39,10 +46,22 @@ export interface DayPanelHandle {
   close(): void;
 }
 
+/** How the rows' titles are fitted beside their times, as the card decides it for its own. */
+export interface DayPanelTitleFit {
+  /** The lines a title beside its time is cut at (`title_max_lines`), or 0 for none. */
+  readonly cutLines: number;
+  /** Whether `title_max_lines` caps titles across lines, so a cut may fall inside a word. */
+  readonly capped: boolean;
+  /** Whether titles are kept to one line, beside their labels. */
+  readonly oneLine: boolean;
+}
+
 /** What the day panel reads from the card, live, while it is open. */
 export interface DayPanelSource {
   /** The day's rows, as the card draws them (`renderMonthDayRows`). */
   rows(): TemplateResult | typeof nothing;
+  /** How the rows' titles are fitted, which the card works out from its configuration. */
+  titleFit(): DayPanelTitleFit;
   /** The card's custom properties, which the rows' stylesheet reads. */
   styles(): Readonly<Record<string, string>>;
   /**
@@ -111,6 +130,12 @@ export class DayPanel extends Shell.PopoverShell {
   private _detach?: () => void;
   /** The row pressed, whose action runs once the panel has gone. */
   private _picked?: { target: Activation.EventTapTarget; origin: Feedback.PressOrigin };
+  /** Watches the rows' titles and times while they are fitted (`_syncTitleFits`). */
+  private _titleWatch?: ResizeObserver;
+  /** The fit asked for on the next frame, if one is. */
+  private _titleFitFrame: number | null = null;
+  /** Stops listening for fonts loading, while the rows' titles are fitted. */
+  private _titleFontsCleanup?: () => void;
 
   protected readonly _logName = 'Day panel';
 
@@ -122,6 +147,7 @@ export class DayPanel extends Shell.PopoverShell {
 
   /** Drops what the panel showed, and runs the action of the row pressed, after it has gone. */
   protected _clear(): void {
+    this._stopTitleFits();
     const detach = this._detach;
     const source = this._params?.source;
     const picked = this._picked;
@@ -199,6 +225,111 @@ export class DayPanel extends Shell.PopoverShell {
     }
     ringed.focus({ preventScroll: true });
     ringed.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  }
+
+  //---------------------------------------------------------------------------
+  // TITLES BESIDE THEIR TIMES
+  //---------------------------------------------------------------------------
+
+  protected updated(changed: PropertyValues): void {
+    super.updated(changed);
+    this._syncTitleFits();
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this._stopTitleFits();
+  }
+
+  /**
+   * Fits each row's time beside its title after every render, as the card fits its own rows:
+   * sized to the time, cut at `title_max_lines`, a cut inside a word without its hyphen, and the
+   * labels of a title kept to one line on that line. Then again on the next frame whenever a title,
+   * a time or the rows change size, as placing the panel or a sheet does, and once fonts load.
+   * Measuring a row again leaves it exactly as it was, so nothing here resizes the panel twice.
+   */
+  private _syncTitleFits(): void {
+    this._stopTitleFits();
+    const source = this._params?.source;
+    const rows = this.renderRoot?.querySelector<HTMLElement>('.day-panel-rows');
+    if (!source || !rows || !this.isConnected) return;
+    const fit = source.titleFit();
+    const wrapping = Array.from(rows.querySelectorAll<HTMLElement>('.summary-row.title-wrap'));
+    const oneLine = fit.oneLine
+      ? Array.from(rows.querySelectorAll<HTMLElement>('.event-title.title-scrollable'))
+      : [];
+    if (!wrapping.length && !fit.capped && !oneLine.length) return;
+    this._fitTitles();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const watch = new ResizeObserver(() => this._scheduleTitleFits());
+      this._titleWatch = watch;
+      watch.observe(rows);
+      wrapping.forEach((row) =>
+        row
+          .querySelectorAll<HTMLElement>(':scope > .summary, :scope > .title-aside')
+          .forEach((part) => watch.observe(part)),
+      );
+    }
+    const fonts = document.fonts;
+    if (fonts) {
+      let active = true;
+      const onFonts = (): void => {
+        if (active) this._scheduleTitleFits();
+      };
+      void fonts.ready.then(onFonts);
+      fonts.addEventListener?.('loadingdone', onFonts);
+      this._titleFontsCleanup = () => {
+        active = false;
+        fonts.removeEventListener?.('loadingdone', onFonts);
+      };
+    }
+  }
+
+  /** Measures every row's title and time at once, then writes what it measured. */
+  private _fitTitles(): void {
+    const source = this._params?.source;
+    const rows = this.renderRoot?.querySelector<HTMLElement>('.day-panel-rows');
+    if (!source || !rows) return;
+    const fit = source.titleFit();
+    rows
+      .querySelectorAll<HTMLElement>(`[${TitleFit.TITLE_UNHYPHENATED}]`)
+      .forEach((summary) => summary.removeAttribute(TitleFit.TITLE_UNHYPHENATED));
+    TitleFit.fitTitlesBesideTime(
+      rows.querySelectorAll<HTMLElement>('.summary-row.title-wrap'),
+      fit.cutLines,
+    );
+    if (fit.capped) {
+      TitleFit.unhyphenateTitleCuts(
+        rows.querySelectorAll<HTMLElement>('.summary:not(.summary-scroll)'),
+      );
+    }
+    if (fit.oneLine) {
+      reserveScrollingLabelWidths(
+        rows.querySelectorAll<HTMLElement>('.event-title.title-scrollable'),
+      );
+    }
+  }
+
+  /** Fits again on the next frame, once a resize or a font load has settled. */
+  private _scheduleTitleFits(): void {
+    if (this._titleFitFrame !== null) cancelAnimationFrame(this._titleFitFrame);
+    this._titleFitFrame = requestAnimationFrame(() => {
+      this._titleFitFrame = null;
+      if (this.isConnected) this._fitTitles();
+    });
+  }
+
+  /** Stops watching the rows, leaving every fit in place. */
+  private _stopTitleFits(): void {
+    this._titleWatch?.disconnect();
+    this._titleWatch = undefined;
+    this._titleFontsCleanup?.();
+    this._titleFontsCleanup = undefined;
+    if (this._titleFitFrame !== null) {
+      cancelAnimationFrame(this._titleFitFrame);
+      this._titleFitFrame = null;
+    }
   }
 
   //---------------------------------------------------------------------------

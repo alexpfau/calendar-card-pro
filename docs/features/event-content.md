@@ -436,6 +436,9 @@ column:
   time_position: below # the columns stay as they are
 ```
 
+[Month view](/features/month-view#the-days-list) always lists a day this way, whatever
+`time_position` says.
+
 ::: warning One Line Needs a Wide Event Row
 With `title_max_lines: 1` or `scroll_long_titles`, the time takes its width from the title's
 line and never gives it back. With the default fonts, English text, 24-hour times and

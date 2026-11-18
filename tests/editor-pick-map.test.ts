@@ -273,6 +273,10 @@ describe('Pick From Preview part map', () => {
       '.description ⊃ span',
       '.event ⊃ div.grid-event-accessible',
       '.event ⊃ div.time-location',
+      // Month's day list puts every time beside its title: the room the title keeps for it and
+      // the strut opening its line, empty and drawn under the time.
+      '.event ⊃ span.title-room',
+      '.event ⊃ span.title-strut',
       '.event-gap-row ⊃ td.event-gap-cell',
       '.event-title ⊃ span.title-word',
       '.event-weather ⊃ ha-icon',

@@ -948,8 +948,8 @@ describe('editor: applicability', () => {
       empty_day_color: ['column', 'list'],
       // Grid's banner renderer emits the summary and drops every other content part, so
       // the five options deciding what an all-day row carries are computed and discarded.
-      // Month's day list draws them, and so do the badge, the time's placement, the row's
-      // padding, its line clamp and its links below.
+      // Month's day list draws them, and so do the badge, the row's padding, its line clamp
+      // and its links below.
       show_single_allday_time: ['column', 'list', 'month'],
       show_multiday_allday_time: ['column', 'list', 'month'],
       show_location_allday: ['column', 'list', 'month'],
@@ -959,8 +959,9 @@ describe('editor: applicability', () => {
       allday_badge_style: ['column', 'list', 'month'],
       allday_badge_color: ['column', 'list', 'month'],
       // A grid block fits its own rows and has no title row for the time to join; its
-      // renderer never passes the placement to the leaf.
-      time_position: ['column', 'list', 'month'],
+      // renderer never passes the placement to the leaf. A month's day list puts every time
+      // beside its title, whatever the option says.
+      time_position: ['column', 'list'],
       // `.event` is emitted in grid, so the padding rule looks like it applies. It is
       // overridden 1800 lines later by `.grid-event` and `.grid-banner` at equal
       // specificity, and every grid node carrying `.event` carries one of those.

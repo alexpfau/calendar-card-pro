@@ -330,7 +330,7 @@ const APPROVED_MAP: ReadonlyArray<
       'events:show_duration P',
       'events:show_now_indicator P SLCM',
       'content:time_format E',
-      'events:time_position A SLCM',
+      'events:time_position A SLC',
     ],
   ],
   ['Event Appearance', 'Event State', '', ['events:now_color A']],

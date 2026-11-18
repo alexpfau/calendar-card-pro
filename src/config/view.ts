@@ -239,11 +239,12 @@ export const LIST_ONLY_KEYS = [] as const;
  *
  * - It shows its six weeks whatever their events, so it has no day count and no empty-day
  *   placeholder, and its day list splits every multi-day event across its days, so the List
- *   splitter's switch decides nothing. It lines its events up by rows rather than by gaps.
+ *   splitter's switch decides nothing.
  * - It rules its days with hairlines of its own and lists one day at a time, so the spacing and
  *   the rules between days, weeks and months have nothing to separate.
  * - It sets its dates in the event font, unscaled, with today's indicator drawn only as the tile,
  *   and its week numbers as plain text without a background.
+ * - Its day list always puts each row's time beside its title (`MonthDay.monthRowsConfig`).
  */
 export const MONTH_IGNORED_SHARED_KEYS = [
   'days_to_show',
@@ -266,6 +267,7 @@ export const MONTH_IGNORED_SHARED_KEYS = [
   'today_date_scale',
   'past_date_scale',
   'today_indicator_size',
+  'time_position',
 ] as const satisfies ReadonlyArray<Types.MonthIgnoredSharedKeys>;
 
 /**
@@ -516,8 +518,10 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
 
   // A grid block lays out its own rows and fits its time itself, so it has no title row for
   // the time to join: `renderTimedEvent` never passes the placement down, and the leaf never
-  // reads the option for itself. tests/view-scope-inert.test.ts pins it.
-  time_position: new Set<Types.EffectiveView>(['list', 'column', 'month']),
+  // reads the option for itself. tests/view-scope-inert.test.ts pins it. A month's day list puts
+  // every row's time beside its title, as a phone's day list does, so a row is a line shorter
+  // and its times line up at its end: `MonthDay.monthRowsConfig` sets it whatever this says.
+  time_position: new Set<Types.EffectiveView>(['list', 'column']),
 
   // 🚨 Not the reason it looks like. `.event` IS emitted in grid — on the timed block, on
   // the banner and on the "+N more" overflow chip — so a grep for the class finds it and

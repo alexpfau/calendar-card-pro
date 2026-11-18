@@ -48,6 +48,7 @@ import * as EventUtils from '../utils/events';
 import * as FormatUtils from '../utils/format';
 import * as Grid from '../utils/grid';
 import * as Helpers from '../utils/helpers';
+import * as MonthDay from '../utils/month-day';
 import * as MonthLayout from '../utils/month-layout';
 import * as Paging from '../utils/paging';
 import * as TextDirection from '../utils/text-direction';
@@ -1119,13 +1120,13 @@ function renderCompactMonth(
 
 /**
  * One event of a day's list: List's row, its accent bar and its content, without the date
- * column, drawn with Month's presentation options. Inside the button that makes it a tap target
- * where it is one, as List draws it.
+ * column, drawn with Month's presentation options and its time beside its title. Inside the
+ * button that makes it a tap target where it is one, as List draws it.
  *
  * @param event - The event, as the day model lists it
  * @param index - Its place in the day
  * @param count - How many the day lists
- * @param config - Card configuration, resolved for month
+ * @param config - The rows' configuration (`MonthDay.monthRowsConfig`)
  * @param language - Card language
  * @param weatherForecasts - Forecasts for its weather, as a list row shows them
  * @param hass - Home Assistant instance
@@ -1200,7 +1201,8 @@ function renderDayRow(
 
 /**
  * A day's events as List's rows, in Month's presentation and without a date column: what the
- * day panel lists and what a compact month lists under its weeks. Nothing for a day without
+ * day panel lists and what a compact month lists under its weeks. Each row's time is beside its
+ * title, whatever `time_position` says (`MonthDay.monthRowsConfig`). Nothing for a day without
  * events.
  *
  * @param events - The day's events, as the day model lists them
@@ -1222,14 +1224,15 @@ export function renderMonthDayRows(
   dayLabelId?: string,
 ): TemplateResult | typeof nothing {
   if (events.length === 0) return nothing;
-  const repeated = Presentation.repeatedCountdowns([...events], config, language);
+  const rows = MonthDay.monthRowsConfig(config);
+  const repeated = Presentation.repeatedCountdowns([...events], rows, language);
   return html`<table class="month-day-table">
     ${events.map((event, index) =>
       renderDayRow(
         event,
         index,
         events.length,
-        config,
+        rows,
         language,
         weatherForecasts,
         hass,

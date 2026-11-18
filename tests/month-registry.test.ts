@@ -38,7 +38,7 @@ describe('the month block', () => {
     });
   });
 
-  it('overrides column’s shared options but the twenty it draws nothing for, and the bars', () => {
+  it('overrides column’s shared options but the 21 it draws nothing for, and the bars', () => {
     const ignored = [
       'days_to_show',
       'show_empty_days',
@@ -60,6 +60,7 @@ describe('the month block', () => {
       'today_date_scale',
       'past_date_scale',
       'today_indicator_size',
+      'time_position',
     ];
     expect(ViewConfig.MONTH_IGNORED_SHARED_KEYS).toEqual(ignored);
     const month: ReadonlyArray<string> = ViewConfig.MONTH_OVERRIDE_KEYS;
@@ -113,6 +114,7 @@ describe('the options month reads', () => {
       'show_empty_today',
       'skip_first_events',
       'split_multiday_events',
+      'time_position',
       'today_date_scale',
       'today_indicator_position',
       'today_indicator_size',
@@ -154,7 +156,6 @@ describe('the options month reads', () => {
       'show_now_indicator',
       'show_single_allday_time',
       'time_max_lines',
-      'time_position',
     ]);
   });
 
@@ -228,6 +229,10 @@ describe('a month-only option', () => {
     ).toEqual([
       { kind: 'view-only', key: 'row_height', from: null, to: ['month'] },
       { kind: 'wrong-view', key: 'week_scroll', from: 'column', to: ['month'] },
+    ]);
+    // Nor does the time's placement: the day list puts every time beside its title.
+    expect(ViewConfig.findMisplacedOptions({ month: { time_position: 'below' } })).toEqual([
+      expect.objectContaining({ kind: 'wrong-view', key: 'time_position', from: 'month' }),
     ]);
     // And a shared option month draws nothing for, written in its block.
     expect(ViewConfig.findMisplacedOptions({ month: { days_to_show: 9 } })).toEqual([

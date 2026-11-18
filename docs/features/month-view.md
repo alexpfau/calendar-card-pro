@@ -112,9 +112,9 @@ weeks take `row_height`.
 ### More Than Fits
 
 Where a day has more events than its week holds, its last line reads "+2 more", and a press
-opens the day in a panel: every event that day, as the list layout draws them, with their
-times, locations and the other details the card shows. A press on an event there closes the
-panel and does what a press on it in the month would.
+opens the day in a panel: every event that day, drawn as in [the day's list](#the-days-list) of a
+compact month, with their times, locations and the other details the card shows. A press on an
+event there closes the panel and does what a press on it in the month would.
 
 ::: details Limits the Day's List Ignores
 The list shows the whole day whatever the list layout's own limits say: `skip_first_events`,
@@ -149,6 +149,13 @@ between the two.
   event on the selected day, and with `day_tap_action: add-event`, so does a press on the day's
   name over its list. A tap on a day only selects it.
 - **At midnight**, a selected today moves on to the new day.
+
+### The Day's List
+
+The chosen day's events are listed under the weeks as the list layout draws them, with one
+difference: each event's time sits at the end of its title's line, as a phone's day list puts it,
+whatever `time_position` says. A row is a line shorter that way, and the times line up at the
+row's end. The panel "+2 more" opens lists a day the same way.
 
 ## ⌨️ Keyboard
 
@@ -258,6 +265,7 @@ while **Settings For** is Month. Stored values are kept for the layouts they app
 | `day_font_size`, `month_font_size`, `today_date_scale`, `past_date_scale`                                                                      | Dates are set in the event font, at one size on every day                                                    |
 | `today_indicator_size`, `today_weekday_color`                                                                                                  | Today is marked by its tile, and the weekday names stand once over their columns                             |
 | `week_number_background_color`                                                                                                                 | [Week numbers](#week-numbers) are plain text                                                                 |
+| `time_position`                                                                                                                                | [A day's list](#the-days-list) always puts each time beside its title                                        |
 
 The editor also leaves out the per-calendar compact limit and multi-day splitting. To edit any of
 these, choose a layout they apply to under **Settings For**, without changing

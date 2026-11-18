@@ -184,88 +184,64 @@ exports[`a compact day > matches its snapshot 1`] = `
 <tr>
 <td class=" event event-first " style="--calendar-card-event-accent-bar-color:#16a34a;">
 <span class="event-accent-bar"></span>
-<div class="event-content">
-<div class="summary-row">
-<div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<div class="event-content time-beside-title">
+<div class="summary-row title-wrap">
+<div class="summary"><span class="event-title " style="color: var(--primary-text-color)">
           Holiday
-        </span>
+        </span><span class="title-room"></span></div>
+<div class="title-aside">
+<span class="title-strut" aria-hidden="true">⁠</span><!--?--><div class="time"><div class="time-actual"><span>All day</span></div></div>
 </div>
-<!--?-->
 </div>
 <div class="time-location">
-<div class="time">
-<div class="time-actual">
-<ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>All day</span>
-</div>
-</div>
 </div>
 </div>
 </td>
 </tr><tr>
 <td class=" event event-middle past-event " style="--calendar-card-event-accent-bar-color:#3b82f6;">
 <span class="event-accent-bar"></span>
-<div class="event-content">
-<div class="summary-row">
-<div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<div class="event-content time-beside-title">
+<div class="summary-row title-wrap">
+<div class="summary"><span class="event-title " style="color: var(--primary-text-color)">
           Swim
-        </span>
+        </span><span class="title-room"></span></div>
+<div class="title-aside">
+<span class="title-strut" aria-hidden="true">⁠</span><!--?--><div class="time"><div class="time-actual"><span>7:00 - 8:00</span></div></div>
 </div>
-<!--?-->
 </div>
 <div class="time-location">
-<div class="time">
-<div class="time-actual">
-<ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>7:00 - 8:00</span>
-</div>
-</div>
 </div>
 </div>
 </td>
 </tr><tr>
 <td class=" event event-middle past-event " style="--calendar-card-event-accent-bar-color:#16a34a;">
 <span class="event-accent-bar"></span>
-<div class="event-content">
-<div class="summary-row">
-<div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<div class="event-content time-beside-title">
+<div class="summary-row title-wrap">
+<div class="summary"><span class="event-title " style="color: var(--primary-text-color)">
           Standup
-        </span>
+        </span><span class="title-room"></span></div>
+<div class="title-aside">
+<span class="title-strut" aria-hidden="true">⁠</span><!--?--><div class="time"><div class="time-actual"><span>9:00 - 9:15</span></div></div>
 </div>
-<!--?-->
 </div>
 <div class="time-location">
-<div class="time">
-<div class="time-actual">
-<ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>9:00 - 9:15</span>
-</div>
-</div>
 </div>
 </div>
 </td>
 </tr><tr>
 <td class=" event event-last " style="--calendar-card-event-accent-bar-color:#3b82f6;">
 <span class="event-accent-bar"></span>
-<div class="event-content">
-<div class="summary-row">
-<div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<div class="event-content time-beside-title">
+<div class="summary-row title-wrap">
+<div class="summary"><span class="event-title " style="color: var(--primary-text-color)">
           Lunch
-        </span>
+        </span><span class="title-room"></span></div>
+<div class="title-aside">
+<span class="title-strut" aria-hidden="true">⁠</span><!--?--><div class="time"><div class="time-actual"><span>12:00 - 13:00</span></div></div>
 </div>
-<!--?-->
 </div>
 <div class="time-location">
-<div class="time">
-<div class="time-actual">
-<ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>12:00 - 13:00</span>
-</div>
-</div>
 <div class="location">
 <ha-icon icon="mdi:map-marker-outline"></ha-icon>
 <span>Cafe Anna</span>

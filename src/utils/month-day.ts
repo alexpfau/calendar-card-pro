@@ -24,6 +24,34 @@ import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
 
 //-----------------------------------------------------------------------------
+// THE ROWS
+//-----------------------------------------------------------------------------
+
+/** The rows' configuration, made once per card configuration. */
+const rowsConfigs = new WeakMap<Types.Config, Types.Config>();
+
+/**
+ * The configuration a month's day rows are drawn with, in the panel "+N more" opens and under a
+ * compact month's weeks: Month's own, with each row's time beside its title whatever
+ * `time_position` says, as a phone's day list sets it. A row is then a line shorter, so more of a
+ * day fits where the list is short of room, and the times line up at the row's end.
+ *
+ * The same object for the same configuration, so what compares a configuration by identity sees
+ * one.
+ *
+ * @param config - Card configuration, resolved for month
+ * @returns The configuration the rows are drawn with
+ */
+export function monthRowsConfig(config: Types.Config): Types.Config {
+  const known = rowsConfigs.get(config);
+  if (known) return known;
+  const rows: Types.Config = { ...config, time_position: 'title' };
+  rowsConfigs.set(config, rows);
+  rowsConfigs.set(rows, rows);
+  return rows;
+}
+
+//-----------------------------------------------------------------------------
 // THE DAY MODEL
 //-----------------------------------------------------------------------------
 

@@ -753,6 +753,31 @@ describe('the selected day', () => {
   });
 });
 
+describe('the time beside the title', () => {
+  /** The list's markup, as a snapshot reads it. */
+  const listMarkup = (card: CardUnderTest) =>
+    root(card)
+      .querySelector('.month-day-list')!
+      .outerHTML.replace(/<!--\?lit\$[0-9]+\$-->/g, '')
+      .replace(/<!---->/g, '');
+
+  it('ends every row’s title line, whatever time_position says', async () => {
+    const below = await mount({ time_position: 'below' }, 375);
+    const beside = await mount({ time_position: 'title' }, 375);
+    const contents = [...root(below).querySelectorAll('.month-day-list td.event .event-content')];
+    expect(contents).toHaveLength(4);
+    expect(contents.every((content) => content.classList.contains('time-beside-title'))).toBe(true);
+    // The time is in the title's line, with no clock and nothing under the title for it.
+    expect(
+      contents.map((content) =>
+        text(content.querySelector(':scope > .summary-row > .title-aside .time')),
+      ),
+    ).toEqual(['All day', '7:00 - 8:00', '9:00 - 9:15', '12:00 - 13:00']);
+    expect(root(below).querySelector('.month-day-list .time-location .time')).toBeNull();
+    expect(listMarkup(below)).toBe(listMarkup(beside));
+  });
+});
+
 //-----------------------------------------------------------------------------
 // THE DAY PANEL
 //-----------------------------------------------------------------------------
@@ -875,6 +900,28 @@ describe('the day panel', () => {
       .click();
     await afterClose(card);
     expect(hassActions.map(({ config }) => config.entity)).toEqual([ANNA]);
+  });
+
+  it('fits each row’s time beside its title, as the card fits its own rows', async () => {
+    // happy-dom lays nothing out, so every box is given a width: a row with none is left with
+    // its time under its title. The pictures are taken in Chromium.
+    const offsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth')!;
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+      configurable: true,
+      get: () => 320,
+    });
+    try {
+      const { panel } = await open({ time_position: 'below' });
+      const fitted = [
+        ...panel!.shadowRoot!.querySelectorAll<HTMLElement>(
+          '.day-panel-rows .time-beside-title > .summary-row.title-wrap',
+        ),
+      ];
+      expect(fitted).toHaveLength(5);
+      expect(fitted.map((row) => row.getAttribute('data-title-fit'))).toEqual(Array(5).fill('ltr'));
+    } finally {
+      Object.defineProperty(HTMLElement.prototype, 'offsetWidth', offsetWidth);
+    }
   });
 
   it('draws plain rows, which a tap leaves open, where events run nothing', async () => {
