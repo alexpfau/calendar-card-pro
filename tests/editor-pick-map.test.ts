@@ -21,6 +21,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '../src/calendar-card-pro';
 import { WEATHER } from './fixtures';
 import type * as Types from '../src/config/types';
+import { OVERRIDE_BLOCK_BY_VIEW } from '../src/config/view';
+import { parseFieldId } from '../src/rendering/editor/field-index';
 import { PAGES } from '../src/rendering/editor/pages';
 import { PICK_CATCH_ALLS, PICK_PARTS } from '../src/rendering/editor/pick';
 import { partOn } from '../src/rendering/editor/views/pick';
@@ -338,7 +340,10 @@ describe('Pick From Preview part map', () => {
           `${selector} → ${target.page} › ${target.heading}`,
         ).toBe(true);
       }
-      if (page!.onlyIn !== undefined) expect(target.scope, selector).toBe(page!.onlyIn);
+      // A layout's own setting opens in that layout's scope.
+      const block = target.field === undefined ? undefined : parseFieldId(target.field).dataPath[0];
+      const own = Object.entries(OVERRIDE_BLOCK_BY_VIEW).find(([, key]) => key === block)?.[0];
+      if (own !== undefined) expect(target.scope, selector).toBe(own);
       // A setting it names sits under that heading.
       if (target.field !== undefined) {
         const heading = page!.headings.find((each) => each.key === target.heading)!;
@@ -348,14 +353,21 @@ describe('Pick From Preview part map', () => {
         ).toContain(target.field);
       }
     }
-    // The two parts that name their setting: the switcher, Layouts in Switcher, and a compact
-    // month's day list, Events in Day List.
+    // The parts that name their setting: the switcher, Layouts in Switcher; Grid's own parts,
+    // each at the setting it is, where its topic keeps it; and a compact month's day list, Events
+    // in Day List.
     expect(
       PICK_PARTS.flatMap(([selector, target]) =>
         'field' in target && target.field !== undefined ? [`${selector} ${target.field}`] : [],
       ),
     ).toEqual([
       '.view-switcher card:toolbar.view_switcher_layouts',
+      '.grid-now-line, .grid-now-dot layout:time_grid.show_now_line',
+      '.grid-event-overflow layout:time_grid.max_simultaneous_events',
+      '.grid-allday-band layout:time_grid.allday_band_max_rows',
+      '.grid-weekend layout:time_grid.weekend_background_color',
+      '.grid-today layout:time_grid.today_background_color',
+      '.grid-day-body layout:time_grid.hour_height',
       '.month-day-list-more, .month-day-list-rows, .month-day-list layout:month.day_list_events',
     ]);
   });

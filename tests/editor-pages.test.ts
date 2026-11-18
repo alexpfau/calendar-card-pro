@@ -237,38 +237,37 @@ describe('Settings For', () => {
   });
 });
 
-describe('the Grid page’s row', () => {
-  it('is listed while the card shows Grid, and opening it makes Grid the scope', async () => {
+describe('a layout’s own settings', () => {
+  it('have no page of their own: the overview lists the same rows in every scope', async () => {
     const editor = await mountEditor({ ...CARD, view: 'grid' });
-    await goPage(editor, 'events');
-    await changeField(editor, 'workspace:editing_workspace', 'list');
+    const listed = () =>
+      [...editor.shadowRoot!.querySelectorAll<HTMLElement>('[data-focus^="nav:"]')].map(
+        (row) => row.dataset.focus,
+      );
+    const grid = listed();
+    expect(grid).not.toContain('nav:grid');
+    await changeField(editor, 'workspace:editing_workspace', 'month');
     await goOverview(editor);
-    expect($(editor, '[data-focus="nav:grid"]')).not.toBeNull();
-    await click(editor, '[data-focus="nav:grid"]');
-    expect($(editor, '.page[data-page="grid"]')).not.toBeNull();
-    expect((editor as unknown as { _workspace: string })._workspace).toBe('grid');
+    expect(listed()).toEqual(grid);
   });
 
-  it('is summarized in Grid while another scope is chosen', async () => {
-    const summary = (editor: MountedEditor): string =>
-      ($(editor, '[data-focus="nav:grid"] .nav-summary')?.textContent ?? '').trim();
-    const editor = await mountEditor({ ...CARD, view: 'grid', time_grid: { start_time: '06:00' } });
-    const own = summary(editor);
-    expect(own).toBe('First Hour: 06:00 · Last Hour: 22:00 · Set: 1');
-
-    await goPage(editor, 'events');
-    await changeField(editor, 'workspace:editing_workspace', 'list');
-    await goOverview(editor);
-    expect(summary(editor)).toBe(own);
-  });
-
-  it('is listed on a List card only once Grid is the scope', async () => {
-    const editor = await mountEditor({ ...CARD, view: 'list' });
-    expect($(editor, '[data-focus="nav:grid"]')).toBeNull();
-    await goPage(editor, 'events');
+  it('are drawn on their topic’s page in their layout’s scope, and only there', async () => {
+    const editor = await mountEditor({
+      ...CARD,
+      view: 'month',
+      time_grid: { start_time: '06:00' },
+    });
+    await goPage(editor, 'which_events');
+    expect($(editor, '[data-heading="heading_hours"]')).toBeNull();
     await changeField(editor, 'workspace:editing_workspace', 'grid');
+    await goPage(editor, 'which_events');
+    expect($(editor, '[data-heading="heading_hours"]')).not.toBeNull();
+    expect($(editor, '[data-field="layout:time_grid.start_time"]')).not.toBeNull();
+    // The overview's row summarizes the page in the scope, the hours' stored value counted.
     await goOverview(editor);
-    expect($(editor, '[data-focus="nav:grid"]')).not.toBeNull();
+    expect($(editor, '[data-focus="nav:which_events"] .nav-summary')?.textContent).toMatch(
+      /Set: 1$/,
+    );
   });
 });
 

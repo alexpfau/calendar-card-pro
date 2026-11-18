@@ -983,9 +983,8 @@ export function buildSearchIndex(ctx: SearchCtx): ReadonlyArray<SearchEntry> {
     if (row) rows.push(row);
   };
   rows.push(calendarsRow(ctx), startingLayoutRow(ctx));
-  const workspace = ctx.workspace ?? ctx.view;
   for (const page of PAGES) {
-    if (page.onlyIn === undefined || page.onlyIn === workspace) rows.push(pageRow(page, ctx));
+    rows.push(pageRow(page, ctx));
     for (const heading of page.headings) {
       for (const [id, appearance] of heading.fields) take({ id, appearance, page, heading });
       if (!heading.extras?.includes('own-buttons')) continue;

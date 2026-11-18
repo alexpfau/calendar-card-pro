@@ -217,7 +217,7 @@ describe('Pick From Preview', () => {
     const day = card.shadowRoot!.querySelector('.date-column .day')!;
     fire(day, 'pointermove', { pointerType: 'mouse' });
     expect(card.shadowRoot!.querySelector('.ccp-pick-label')!.textContent).toBe(
-      'Day Header › Date · Click to Edit',
+      'Days › Date · Click to Edit',
     );
     fire(day, 'click');
     await settle(editor, card);
@@ -227,7 +227,7 @@ describe('Pick From Preview', () => {
     expect(jump?.getAttribute('data-field')).toBe('day_header:date_vertical_alignment');
     expect($(editor, '[data-pick-banner]')).toBeNull();
     expect(card.shadowRoot!.querySelector('.ccp-pick-layer')).toBeNull();
-    expect(said).toContain('Showing Day Header › Date.');
+    expect(said).toContain('Showing Days › Date.');
   });
 
   it('opens a heading whose settings are all folded at its first, opened', async () => {
@@ -289,8 +289,11 @@ describe('Pick From Preview', () => {
     const said = listen(editor);
     fire(card.shadowRoot!.querySelector('.grid-axis-label')!, 'click');
     await settle(editor, card);
-    expect($(editor, '.page[data-page="grid"]')).not.toBeNull();
-    expect(said).toEqual(['Now editing settings for Grid.', 'Showing Grid › Hour Labels.']);
+    expect($(editor, '.page[data-page="size_spacing"]')).not.toBeNull();
+    expect(said).toEqual([
+      'Now editing settings for Grid.',
+      'Showing Size & Spacing › Hour Labels.',
+    ]);
   });
 
   it('outlines on the first tap of a touch screen and opens on a second on the same part', async () => {

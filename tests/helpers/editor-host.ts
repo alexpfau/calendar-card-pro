@@ -73,7 +73,7 @@ import {
 import type { HaFormSchema } from '../../src/rendering/editor/ha-form';
 import * as HassKey from '../../src/rendering/editor/hass-key';
 import { withCardActionLabels } from '../../src/rendering/editor/hass-localize';
-import { ENTRY_GROUPS, PAGES, isWholeCard, placementOf } from '../../src/rendering/editor/pages';
+import { ENTRY_GROUPS, PAGES, placementOf } from '../../src/rendering/editor/pages';
 import { type SchemaCtx, walkSchema } from '../../src/rendering/editor/panels';
 import { PREFS_KEY } from '../../src/rendering/editor/prefs';
 import * as Routing from '../../src/rendering/editor/routing';
@@ -925,10 +925,7 @@ function keptForms(editor: EditorElement): Drawn[] {
   const saved = element._nav;
   const added = element._added;
   const forms: Drawn[] = [];
-  // The pages the overview offers now: the Grid page only while Grid is the scope.
-  const scope = (editor as unknown as { _workspace: string })._workspace;
-  const pages = PAGES.filter((page) => page.onlyIn === undefined || page.onlyIn === scope);
-  for (const { id: page } of pages) {
+  for (const { id: page } of PAGES) {
     element._nav = { route: { kind: 'page', page }, trail: [], fromResults: false };
     draw();
     if (root.querySelector(`.page[data-page="${page}"]`) === null) continue;
@@ -1588,9 +1585,8 @@ function mergeDeep(a: unknown, b: unknown): unknown {
 
 /**
  * Chooses an option of a radio group of the editor's own, as a user does: where the open place
- * draws it, else Starting Layout on the overview, and Settings For on the first page that draws it,
- * Back to the overview after where that is where the choice began; after Change where Settings For
- * is its compact line.
+ * draws it, else on the overview, which draws Starting Layout and Settings For; after Change where
+ * Settings For's choices are closed.
  *
  * @param editor - Editor element
  * @param id - `display:view` or `workspace:editing_workspace`
@@ -1602,16 +1598,9 @@ async function choose(editor: EditorElement, id: FieldId, value: unknown): Promi
   const drawn = (): boolean =>
     root?.querySelector(`input[name="${name}"]`) !== null ||
     (name === 'scope' && root?.querySelector('[data-focus="scope-change"]') !== null);
-  let back = false;
-  if (!drawn()) {
-    // Starting Layout is the overview's; Settings For is every page's the scope matters to.
-    await goOverview(editor);
-    if (name === 'scope') {
-      const page = PAGES.find((each) => each.onlyIn === undefined && !isWholeCard(each))!;
-      await goPage(editor, page.id);
-      back = true;
-    }
-  }
+  // Starting Layout is the overview's; Settings For is the overview's too, and every page's the
+  // scope matters to.
+  if (!drawn()) await goOverview(editor);
   if (name === 'scope' && root?.querySelector('input[name="scope"]') === null) {
     await press(editor, '[data-focus="scope-change"]', 'Change for Settings For');
   }
@@ -1622,7 +1611,6 @@ async function choose(editor: EditorElement, id: FieldId, value: unknown): Promi
   input.checked = true;
   input.dispatchEvent(new Event('change', { bubbles: true }));
   await editor.updateComplete;
-  if (back) await goOverview(editor);
 }
 
 /**
@@ -1825,15 +1813,9 @@ export async function openPanels(editor: EditorElement): Promise<void> {
   await nextRender();
   await goOverview(editor);
   const kept: Drawn[] = [];
-  // A layout's own page is offered while the card shows that layout, and opening it makes that
-  // layout the scope: a visit leaves the scope as it is, so it visits only the scope's pages.
-  const scope = (editor as unknown as { _workspace: string })._workspace;
-  const pages = [...root.querySelectorAll('[data-focus^="nav:"]')]
-    .map((row) => row.getAttribute('data-focus')!.slice('nav:'.length))
-    .filter((id) => {
-      const onlyIn = PAGES.find((page) => page.id === id)?.onlyIn;
-      return onlyIn === undefined || onlyIn === scope;
-    });
+  const pages = [...root.querySelectorAll('[data-focus^="nav:"]')].map((row) =>
+    row.getAttribute('data-focus')!.slice('nav:'.length),
+  );
   for (const page of pages) {
     await goPage(editor, page);
     await expandAll(editor);

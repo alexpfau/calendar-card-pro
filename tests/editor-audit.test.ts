@@ -353,7 +353,11 @@ describe('What This Card Changes, its groups', () => {
 
     expect(await strip(editor, 'time_grid.end_time')).toEqual([
       { id: 'change', label: 'Change Here', name: 'Change Last Hour in Grid Here' },
-      { id: 'open', label: 'Open in Grid', name: 'Open Last Hour in Grid in Grid' },
+      {
+        id: 'open',
+        label: 'Open in Which Events',
+        name: 'Open Last Hour in Grid in Which Events',
+      },
       { id: 'reset', label: 'Reset', name: 'Reset Last Hour in Grid' },
     ]);
     expect(row.getAttribute('aria-expanded')).toBe('true');
@@ -624,7 +628,7 @@ describe('What This Card Changes, its actions', () => {
     await openAudit(editor);
     await act(editor, 'time_grid.end_time', 'open');
 
-    expect($(editor, '.page')!.dataset.page).toBe('grid');
+    expect($(editor, '.page')!.dataset.page).toBe('which_events');
     expect($(editor, '[data-field="layout:time_grid.end_time"]')).not.toBeNull();
     // Back returns to the line it left.
     await click(editor, '[data-focus="back-top"]');

@@ -27,16 +27,15 @@ opens with, and a row for each page that holds the rest. Top to bottom:
 
 The settings rows open these pages:
 
-| Page                 | What it holds                                                                                                                            |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| **Which Events**     | Days to Show and Start Date, Event Type, duplicates, event order, past events, multi-day events, empty days and Compact Mode             |
-| **Card & Header**    | The title, the card's background and language, the toolbar and your own toolbar buttons                                                  |
-| **Day Header**       | How each day announces itself: its date, weeks and week numbers, today and its indicator, past days and weekends                         |
-| **Event Appearance** | What each event shows, the time format, and how each part looks                                                                          |
-| **Size & Spacing**   | The card's height and spacing, Month's week height, the density of Columns, Grid and Month, and the rules between days, weeks and months |
-| **Grid**             | While the card opens in Grid or you edit Grid: the hours it shows, its hour labels, and what it draws on the grid                        |
-| **Weather**          | The weather entity, and the forecast in the day header and beside each event                                                             |
-| **Taps & Refresh**   | What a tap or a hold on the card, a day or an event does, Month's week scrolling, and how often the card reads its calendars again       |
+| Page                 | What it holds                                                                                                                                          |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Which Events**     | Days to Show and Start Date, Grid's hours, Event Type, duplicates, event order, past events, all-day and multi-day events, empty days and Compact Mode |
+| **Card & Header**    | The title, the card's background and language, the toolbar and your own toolbar buttons                                                                |
+| **Days**             | How each day announces itself: its date, weeks and week numbers, today and its indicator, past days and weekends, and Grid's shading                   |
+| **Event Appearance** | What each event shows, the time format, Grid's now line and overlapping events, and how each part looks                                                |
+| **Size & Spacing**   | The card's height and spacing, Grid's hour height and hour labels, Month's week height, the density of Columns, Grid and Month, and the rules          |
+| **Weather**          | The weather entity, and the forecast in the day header and beside each event                                                                           |
+| **Taps & Refresh**   | What a tap or a hold on the card, a day or an event does, Month's week scrolling, and how often the card reads its calendars again                     |
 
 **Which Events** opens with **Date Range**: Days to Show, and Start Date's choices, which write
 the existing `start_date` option. Tomorrow writes `today+1`, Start of Week writes
@@ -60,7 +59,7 @@ sit on the row under it, at every width.
 - **Escape** closes whatever the editor has open first, such as a setting's state menu or a row's
   actions, then goes Back. On the overview it clears a search, and only then lets Home Assistant
   close the dialog. A picker Home Assistant opened keeps its own Escape.
-- **Which Events** and **Day Header** link to each other: whether past events show is one, and
+- **Which Events** and **Days** link to each other: whether past events show is one, and
   how the dates of past days look is the other.
 - The editor adds nothing to the browser's history, so the browser's Back closes the dialog as
   it does for any card.
@@ -169,8 +168,11 @@ section rows and search results show the values for the layout Settings For name
   where only one view reads it.
 - **List**, **Columns**, **Grid** and **Month** each write to their own block, `list:`,
   `column:`, `time_grid:` and `month:`, and leave out the controls, per-calendar ones included, that cannot affect that
-  view. The **Grid** row is on the overview while the card opens in Grid or Grid is chosen, and
-  opening it chooses Grid.
+  view. No layout has a page of its own: a layout's own settings sit on the page of their topic,
+  beside the settings of their kind, and show while Settings For names that layout. Grid's
+  hours are on Which Events, its hour labels and hour height on Size & Spacing, its shading on
+  Days and its now line and overlapping events on Event Appearance, where Month's own settings
+  sit in Month.
 - A layout with no value of its own uses its own default when it has one, otherwise the shared
   base. Editing All Layouts therefore changes only the layouts that inherit that option, never
   their explicit choices or built-in defaults ([YAML & View Defaults](#yaml-view-defaults)).
@@ -674,7 +676,7 @@ Each line shows its setting and its value; with Show YAML Option Names on, its Y
 Pressing a line opens its actions under it:
 
 - **Change Here**, which opens the setting's control right there and writes where the line lives;
-- **Open in** its page, as in **Open in Day Header**, which opens the page at the setting; Card
+- **Open in** its page, as in **Open in Days**, which opens the page at the setting; Card
   Displays and your own toolbar buttons are changed there;
 - **Reset**, or **Remove** where the setting leaves its page, which removes the line. The line
   left in its place says what was reset, with **Undo**.
@@ -812,10 +814,10 @@ those controls has a new home, and searching for its old name still finds it.
 | Before v6                | Now                                                                                              |
 | ------------------------ | ------------------------------------------------------------------------------------------------ |
 | **Calendars**            | The overview's calendar list, and a page per entry                                               |
-| **Layout**               | Starting Layout on the overview; Size & Spacing; the Grid page                                   |
+| **Layout**               | Starting Layout on the overview; Size & Spacing; Grid's settings on the pages of their topics    |
 | **Time Range & Content** | Which Events, with Days to Show and Start Date; Language on Card & Header; Time Format on Events |
 | **Card & Header**        | Card & Header                                                                                    |
-| **Day Header**           | Day Header, now with First Day of Week                                                           |
+| **Day Header**           | Days, now with First Day of Week                                                                 |
 | **Events**               | Event Appearance, with what each event shows as a row of parts to press                          |
 | **Separators**           | Size & Spacing                                                                                   |
 | **Weather**              | Weather                                                                                          |

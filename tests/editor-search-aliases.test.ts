@@ -101,6 +101,12 @@ const FAMILIES: Readonly<Record<string, Family>> = {
     scope: 'page',
     queries: ['Events'],
   },
+  // Days' name until the Grid's shading joined it.
+  'panel.day_header.aliases': {
+    field: 'day_header',
+    scope: 'page',
+    queries: ['Day Header'],
+  },
   'page.taps_refresh.aliases': {
     field: 'taps_refresh',
     scope: 'page',

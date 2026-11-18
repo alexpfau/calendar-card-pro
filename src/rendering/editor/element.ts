@@ -55,7 +55,6 @@ import {
   entrySchema,
   fieldHelper,
   fieldLabel,
-  panelFieldIndex,
   parseFieldId,
   universeIndex,
 } from './field-index';
@@ -1311,7 +1310,7 @@ export class CalendarCardProEditor extends LitElement {
       this._pending = {};
       this._gridReconciliation = [];
       this._gridResetKeys.clear();
-      // The page open may be gone from the card, the Grid page outside Grid.
+      // The page open may be gone from the card: a calendar entry's that was removed.
       this._nav = Navigation.validate(this._nav, (route) => this._exists(route)).nav;
     }
     this._banner ??= QuickSetup.isFreshCard(rawConfig);
@@ -1590,7 +1589,7 @@ export class CalendarCardProEditor extends LitElement {
       const from = { route: this._nav.route, scrollTop: Focus.scrollPosition(this) };
       this._nav = Navigation.go(this._nav, route, from);
     }
-    // An entry's page the step took away, or the Grid page outside Grid, gives way.
+    // An entry's page the step took away gives way.
     this._nav = Navigation.validate(this._nav, (each) => this._exists(each)).nav;
     // A step taken on another page opens it, and says so.
     const place = Navigation.sameRoute(before, this._nav.route)
@@ -2049,12 +2048,6 @@ export class CalendarCardProEditor extends LitElement {
    * context and reuses what it built (`field-index.ts` › `builtSchema`).
    */
   private _ctxFor = Helpers.memoizeLast(scopeCtx);
-
-  /**
-   * `_ctxFor`'s twin for an overview row read in a scope other than the chosen one, kept apart so
-   * building it never displaces the chosen scope's context.
-   */
-  private _rowCtxFor = Helpers.memoizeLast(scopeCtx);
 
   /**
    * The `hass` a form is handed, and the feed it comes from (`hass-key.ts`).
@@ -4577,7 +4570,7 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Whether a place exists on the card as it is now: the Grid page only while Grid is the scope.
+   * Whether a place exists on the card as it is now: a calendar entry's page while the entry does.
    *
    * @param route - The place
    * @returns `true` where it can be drawn
@@ -4589,8 +4582,7 @@ export class CalendarCardProEditor extends LitElement {
       return this._entryKeysFor((this._config?.entities ?? []).length).includes(route.key);
     }
     if (route.kind !== 'page') return false;
-    const page = PAGES.find((candidate) => candidate.id === route.page);
-    return page !== undefined && (page.onlyIn === undefined || page.onlyIn === this._workspace);
+    return PAGES.some((candidate) => candidate.id === route.page);
   }
 
   /**
@@ -5009,7 +5001,7 @@ export class CalendarCardProEditor extends LitElement {
     }
     if (route.kind !== 'page') return false;
     const page = PAGES.find((each) => each.id === route.page);
-    return page !== undefined && page.onlyIn === undefined && !isWholeCard(page);
+    return page !== undefined && !isWholeCard(page);
   }
 
   /**
@@ -5036,10 +5028,6 @@ export class CalendarCardProEditor extends LitElement {
         layout: this._string(ctx, `editing_workspace.option.${workspace}.label`),
       }),
     );
-    // The Grid page exists only while Grid is the scope.
-    if (!this._exists(this._nav.route)) {
-      this._nav = Navigation.validate(this._nav, (route) => this._exists(route)).nav;
-    }
   };
 
   /**
@@ -5197,40 +5185,6 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * An overview row's summary, read in the scope its page opens in: a layout's own page listed
-   * while another scope is chosen opens in its layout, so it is summarized there.
-   *
-   * @param page - The page
-   * @param ctx - Schema context
-   * @param present - The fields built here
-   * @returns The line
-   */
-  private _rowSummary(
-    page: PageDef,
-    ctx: SchemaCtx,
-    present: ReadonlyMap<FieldId, IndexedField>,
-  ): string {
-    const own = page.onlyIn;
-    if (own === undefined || own === this._workspace) return this._summary(page, ctx, present);
-    const rowCtx = this._rowCtxFor(
-      this._config!,
-      own,
-      this.hass?.locale,
-      this._heldModes(this._pending, own),
-    );
-    const fields = new Map<FieldId, IndexedField>();
-    for (const panel of new Set(page.summary.map((id) => parseFieldId(id).scope))) {
-      for (const [id, field] of panelFieldIndex(rowCtx, panel).fields) fields.set(id, field);
-    }
-    return this._summary(
-      page,
-      rowCtx,
-      fields,
-      Routing.workspaceFormData(this._config!, own, this._pending),
-    );
-  }
-
-  /**
    * The overview: notices, Quick Setup's banner, the filter bar, then either what a query finds,
    * grouped by page, or Calendars, Starting Layout, Settings For over a row per section page, and
    * More.
@@ -5289,26 +5243,16 @@ export class CalendarCardProEditor extends LitElement {
       // Settings For gives way to the results, and the preview line stays above them.
       return html`${this._renderPreviewLine(ctx)} ${this._renderResults(ctx, present)}`;
     }
-    const displayed = this._viewForConfig(this._config!);
-    // A layout's own page is listed while the card shows that layout or it is the scope, and
-    // opening it makes it the scope: the overview has no Settings For of its own.
-    const rows = PAGES.filter(
-      (page) =>
-        page.onlyIn === undefined || page.onlyIn === this._workspace || page.onlyIn === displayed,
-    ).map((page) =>
+    // No layout has a page of its own: each page is listed, and summarized in the scope.
+    const rows = PAGES.map((page) =>
       Overview.navRow(
         {
           key: `nav:${page.id}`,
           iconPath: page.iconPath,
           title: this._pageTitle(page, ctx),
-          summary: this._rowSummary(page, ctx, present),
+          summary: this._summary(page, ctx, present),
         },
-        () => {
-          if (page.onlyIn !== undefined && page.onlyIn !== this._workspace) {
-            this._pickScope(page.onlyIn);
-          }
-          this._open({ kind: 'page', page: page.id }, `nav:${page.id}`);
-        },
+        () => this._open({ kind: 'page', page: page.id }, `nav:${page.id}`),
       ),
     );
     const calendars = this._renderCalendars(ctx);
@@ -6183,7 +6127,7 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * A section page: its header, the scope it is edited for (or that it applies to the whole
-   * card, or only to Grid), its note, its headings and Back at its foot.
+   * card), its note, its headings and Back at its foot.
    *
    * @param page - The page
    * @param ctx - Schema context
@@ -6191,13 +6135,10 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _renderPage(page: PageDef, ctx: SchemaCtx): TemplateResult {
     const t = this._t(ctx);
-    const scope =
-      page.onlyIn !== undefined
-        ? PageView.pageLine(t('settings_for.grid_only'))
-        : isWholeCard(page)
-          ? html`${PageView.pageLine(this._string(ctx, 'value_source.card'))}
-            ${this._renderPreviewLine(ctx)}`
-          : this._renderScope(ctx);
+    const scope = isWholeCard(page)
+      ? html`${PageView.pageLine(this._string(ctx, 'value_source.card'))}
+        ${this._renderPreviewLine(ctx)}`
+      : this._renderScope(ctx);
     return html`<div class="page" data-page=${page.id}>
       ${PageView.pageHead(
         this._pageTitle(page, ctx),

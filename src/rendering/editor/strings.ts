@@ -124,7 +124,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // Under Settings For, and alone on a page that draws none, while the preview draws another
   // layout than the card opens in. Nothing is saved by it.
   'settings_for.preview': 'Preview shows {layout} · The card opens in {displayed}',
-  'settings_for.grid_only': 'Applies when the card shows Grid.',
   'announce.scope': 'Now editing settings for {layout}.',
   'summary.pair': '{label}: {value}',
   'summary.set': 'Set: {count}',
@@ -887,7 +886,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // the per-calendar label closer to the card-level `Split Multi-Day Events`.
   heading_gap_and_rule: 'Gap & Rule',
   heading_hour_labels: 'Hour Labels',
-  heading_on_the_grid: 'On the Grid',
+  // Grid's First and Last Hour, on Which Events after the dates.
+  heading_hours: 'Hours',
+  // Grid's Stacked or Side by Side, and how many fit side by side, on Event Appearance.
+  heading_overlapping_events: 'Overlapping Events',
   heading_card_size: 'Card Size & Spacing',
   heading_accent: 'Accent',
   heading_title: 'Title',
@@ -897,6 +899,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   heading_across_the_grid: 'Across the Grid',
   heading_replace: 'Text Replacement',
   heading_multiday: 'Multi-Day Events',
+  // Which Events' heading over how multi-day events are split and drawn, and how many rows of
+  // all-day events Grid's band holds. A calendar's page keeps `heading_multiday`.
+  heading_allday_multiday: 'All-Day & Multi-Day',
   heading_nothing: 'Empty Days',
   heading_details: 'Event Details',
   heading_event_state: 'Event State',
@@ -980,7 +985,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'time_grid.min_days_fallback': 'When Too Narrow',
   'time_grid.min_days_fallback.option.list.label': 'Fall back to a list',
   'time_grid.min_days_fallback.option.cramp.label': 'Keep the grid, narrower',
-  'time_grid.axis': 'Time Axis',
   'time_grid.start_time': 'First Hour',
   'time_grid.start_time.helper': 'As HH:mm. Events entirely before it are not drawn at all.',
   'time_grid.end_time': 'Last Hour',
@@ -1017,7 +1021,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'time_grid.show_now_line.helper': 'Hidden when now falls outside the hours shown.',
   'time_grid.allday_band_max_rows': 'Most All-Day Rows',
   'time_grid.allday_band_max_rows.helper': 'Banners past this many rows are dropped.',
-  'time_grid.overlap_layout': 'Overlapping Events',
+  // Not "Overlapping Events", the heading it sits under: a heading repeating its first field reads
+  // as a stutter.
+  'time_grid.overlap_layout': 'Arrangement',
   'time_grid.overlap_layout.helper':
     'Stacked draws an event over a longer one it starts inside; Side by Side splits the column.',
   'time_grid.overlap_layout.option.cascade.label': 'Stacked',
@@ -1267,8 +1273,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'toolbar.buttons.remove': 'Remove',
   'button.summary': '{action} · {target}',
 
-  // --- Day Header -----------------------------------------------------------
-  'panel.day_header': 'Day Header',
+  // --- Days -----------------------------------------------------------------
+  // The page holds each day's date and, since Grid's shading came here, its background too.
+  'panel.day_header': 'Days',
+  'panel.day_header.aliases': 'day header',
   date_vertical_alignment: 'Vertical Alignment',
   'date_vertical_alignment.option.top.label': 'Top',
   'date_vertical_alignment.option.middle.label': 'Middle',

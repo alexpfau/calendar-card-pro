@@ -18,7 +18,6 @@ import { type FieldId, entrySchema, fieldId, schemaCtx } from '../src/rendering/
 import * as Filter from '../src/rendering/editor/filter';
 import { ENTRY_GATES, GATES, type Gate, corpus } from '../src/rendering/editor/gates';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
-import { lookup } from '../src/rendering/editor/localize';
 import {
   type Appearance,
   ENTRY_GROUPS,
@@ -150,6 +149,13 @@ const APPROVED_MAP: ReadonlyArray<
       'content:start_date_offset W',
     ],
   ],
+  // Grid's hours bound which events it draws, as the dates do.
+  [
+    'Which Events',
+    'Hours',
+    '',
+    ['layout:time_grid.start_time E G', 'layout:time_grid.end_time E G'],
+  ],
   [
     'Which Events',
     'Selection & Order',
@@ -170,9 +176,13 @@ const APPROVED_MAP: ReadonlyArray<
   ],
   [
     'Which Events',
-    'Multi-Day Events',
+    'All-Day & Multi-Day',
     '',
-    ['content:split_multiday_events A SLC', 'content:multiday_banners A SGM'],
+    [
+      'content:split_multiday_events A SLC',
+      'content:multiday_banners A SGM',
+      'layout:time_grid.allday_band_max_rows A G',
+    ],
   ],
   [
     'Which Events',
@@ -232,7 +242,7 @@ const APPROVED_MAP: ReadonlyArray<
     ['button:icon B', 'button:name B', 'button:entity B', 'button:tap_action B'],
   ],
   [
-    'Day Header',
+    'Days',
     'Date',
     '',
     [
@@ -247,7 +257,7 @@ const APPROVED_MAP: ReadonlyArray<
     ],
   ],
   [
-    'Day Header',
+    'Days',
     'Gap & Rule',
     '',
     [
@@ -260,7 +270,7 @@ const APPROVED_MAP: ReadonlyArray<
     ],
   ],
   [
-    'Day Header',
+    'Days',
     'Weeks',
     '',
     [
@@ -273,7 +283,7 @@ const APPROVED_MAP: ReadonlyArray<
     ],
   ],
   [
-    'Day Header',
+    'Days',
     'Today',
     '',
     [
@@ -282,10 +292,11 @@ const APPROVED_MAP: ReadonlyArray<
       'day_header:today_weekday_color A SLCG',
       'day_header:today_day_color A',
       'day_header:today_month_color A',
+      'layout:time_grid.today_background_color A G',
     ],
   ],
   [
-    'Day Header',
+    'Days',
     'Today Indicator',
     '',
     [
@@ -298,7 +309,7 @@ const APPROVED_MAP: ReadonlyArray<
     ],
   ],
   [
-    'Day Header',
+    'Days',
     'Past Days',
     'past_days',
     [
@@ -308,13 +319,15 @@ const APPROVED_MAP: ReadonlyArray<
     ],
   ],
   [
-    'Day Header',
+    'Days',
     'Weekend Colors',
     'weekend_colors',
     [
       'day_header:weekend_weekday_color F',
       'day_header:weekend_day_color F',
       'day_header:weekend_month_color F',
+      // A day's background, not its date's color, so no member of the family.
+      'layout:time_grid.weekend_background_color A G',
     ],
   ],
   [
@@ -334,7 +347,18 @@ const APPROVED_MAP: ReadonlyArray<
       'events:time_position A SLC',
     ],
   ],
-  ['Event Appearance', 'Event State', '', ['events:now_color A']],
+  [
+    'Event Appearance',
+    'Event State',
+    '',
+    ['layout:time_grid.show_now_line A G', 'events:now_color A'],
+  ],
+  [
+    'Event Appearance',
+    'Overlapping Events',
+    '',
+    ['layout:time_grid.overlap_layout A G', 'layout:time_grid.max_simultaneous_events A G'],
+  ],
   [
     'Event Appearance',
     'Accent',
@@ -432,13 +456,24 @@ const APPROVED_MAP: ReadonlyArray<
       'layout:height_mode E',
       'layout:card_height W',
       'layout:card_max_height W',
-      // Month's own height, beside the Height it yields to.
+      // Grid's and Month's own heights, beside the Height they yield to.
+      'layout:time_grid.hour_height A G',
       'layout:month.row_height A M',
       // The compact form's height beside the wide form's, both under the card's Height.
       'layout:month.day_list_events A M',
       'layout:additional_card_spacing A',
       'layout:event_gap A SLCM',
       'layout:event_spacing A SLCM',
+    ],
+  ],
+  [
+    'Size & Spacing',
+    'Hour Labels',
+    '',
+    [
+      'layout:time_grid.axis_width A G',
+      'layout:time_grid.show_axis_labels A G',
+      'layout:time_grid.axis_label_minutes A G',
     ],
   ],
   [
@@ -487,44 +522,11 @@ const APPROVED_MAP: ReadonlyArray<
     'Across the Grid',
     '',
     [
+      'layout:time_grid.slot_minutes A G',
       'separators:time_grid.hour_line_width A G',
       'separators:time_grid.hour_line_color A G',
       'separators:time_grid.allday_band_line_width A G',
       'separators:time_grid.allday_band_line_color A G',
-    ],
-  ],
-  [
-    'Grid',
-    'Time Axis',
-    '',
-    [
-      'layout:time_grid.start_time E G',
-      'layout:time_grid.end_time E G',
-      'layout:time_grid.slot_minutes A G',
-      'layout:time_grid.hour_height A G',
-    ],
-  ],
-  [
-    'Grid',
-    'Hour Labels',
-    '',
-    [
-      'layout:time_grid.axis_width A G',
-      'layout:time_grid.show_axis_labels A G',
-      'layout:time_grid.axis_label_minutes A G',
-    ],
-  ],
-  [
-    'Grid',
-    'On the Grid',
-    '',
-    [
-      'layout:time_grid.weekend_background_color A G',
-      'layout:time_grid.today_background_color A G',
-      'layout:time_grid.show_now_line A G',
-      'layout:time_grid.allday_band_max_rows A G',
-      'layout:time_grid.overlap_layout A G',
-      'layout:time_grid.max_simultaneous_events A G',
     ],
   ],
   ['Weather', 'Forecast', '', ['weather:weather.entity E', 'weather:weather.position E']],
@@ -767,7 +769,6 @@ describe('the page registry is consistent with itself', () => {
       'day_header',
       'events',
       'size_spacing',
-      'grid',
       'weather',
       'taps_refresh',
     ]);
@@ -811,17 +812,28 @@ describe('the page registry is consistent with itself', () => {
       members.set(family, (members.get(family) ?? 0) + 1);
       expect(heading?.key, id).toBe(FAMILIES[family].titleKey);
     }
-    // Every family has members, and a family heading holds nothing but them.
+    // Every family has members, and a family heading opens on them, all together. Only Weekend
+    // Colors holds a setting after them: Grid's weekend shading, a day's background rather than
+    // its date's color, which the family's Reset leaves alone.
     expect([...members.keys()].sort()).toEqual(Object.keys(FAMILIES).sort());
+    const after: string[] = [];
     for (const heading of HEADINGS) {
       const family = (Object.keys(FAMILIES) as FamilyId[]).find(
         (candidate) => FAMILIES[candidate].titleKey === heading.key,
       );
       if (family === undefined) continue;
-      expect(heading.fields.map(([, appearance]) => familyOf(appearance))).toEqual(
-        heading.fields.map(() => family),
-      );
+      const families = heading.fields.map(([, appearance]) => familyOf(appearance));
+      const run = families.findIndex((each) => each !== family);
+      const count = run < 0 ? families.length : run;
+      expect(families.slice(0, count), heading.key).toEqual(families.slice(0, count).fill(family));
+      expect(count, heading.key).toBeGreaterThan(0);
+      expect(
+        families.slice(count).every((each) => each === undefined),
+        heading.key,
+      ).toBe(true);
+      after.push(...heading.fields.slice(count).map(([id]) => id));
     }
+    expect(after).toEqual(['layout:time_grid.weekend_background_color']);
     expect([...members.values()].reduce((sum, count) => sum + count, 0)).toBe(18);
   });
 
@@ -864,11 +876,16 @@ describe('the page registry is consistent with itself', () => {
     );
   });
 
-  it('shows the Grid page only where its fields are built', () => {
-    const grid = PAGES.filter((page) => page.onlyIn !== undefined);
-    expect(grid.map((page) => [page.id, page.onlyIn])).toEqual([['grid', 'grid']]);
-    for (const [id] of grid[0].headings.flatMap((heading) => heading.fields)) {
-      expect([...BUILT.get(id)!.workspaces], id).toEqual(['grid']);
+  it('gives no layout a page of its own', () => {
+    // Every page draws fields more than one layout builds: a layout's own settings sit on the
+    // page of their topic, shown while the scope is that layout.
+    for (const page of PAGES) {
+      const scopes = new Set(
+        page.headings.flatMap((heading) =>
+          heading.fields.flatMap(([id]) => [...(BUILT.get(id)?.workspaces ?? [])]),
+        ),
+      );
+      expect(scopes.size, page.id).toBeGreaterThan(1);
     }
   });
 
@@ -931,6 +948,7 @@ describe('the registry heads what the builders used to', () => {
       'separators:month_separator_label_font_size',
     ]);
     expect(under('size_spacing', 'heading_across_the_grid')).toEqual([
+      'layout:time_grid.slot_minutes',
       'separators:time_grid.hour_line_width',
       'separators:time_grid.hour_line_color',
       'separators:time_grid.allday_band_line_width',
@@ -974,11 +992,48 @@ describe('the registry heads what the builders used to', () => {
     ]);
   });
 
-  it('opens the Grid page on the time axis, titled through the block-qualified key', () => {
-    const grid = PAGES.find((page) => page.id === 'grid')!;
-    expect(grid.headings[0].key).toBe('time_grid.axis');
-    expect(EDITOR_STRINGS['time_grid.axis']).toBe('Time Axis');
-    expect(lookup('de', 'time_grid.axis')).toBe('Zeitachse');
+  // The Grid page folded into the topic pages: each of its settings beside the ones of its kind,
+  // where Month's own settings sit in Month too, so neither layout needs a page.
+  it('places Grid’s own settings on the pages of their topics, beside Month’s', () => {
+    expect(under('which_events', 'heading_hours')).toEqual([
+      'layout:time_grid.start_time',
+      'layout:time_grid.end_time',
+    ]);
+    const which = PAGES.find((page) => page.id === 'which_events')!.headings.map((h) => h.key);
+    expect(which.indexOf('heading_hours')).toBe(which.indexOf('heading.date_range') + 1);
+    expect(under('which_events', 'heading_allday_multiday')).toContain(
+      'layout:time_grid.allday_band_max_rows',
+    );
+    const size = under('size_spacing', 'heading_card_size');
+    expect(size.indexOf('layout:time_grid.hour_height')).toBe(
+      size.indexOf('layout:card_max_height') + 1,
+    );
+    expect(size.indexOf('layout:month.row_height')).toBe(
+      size.indexOf('layout:time_grid.hour_height') + 1,
+    );
+    expect(under('size_spacing', 'heading_hour_labels')).toEqual([
+      'layout:time_grid.axis_width',
+      'layout:time_grid.show_axis_labels',
+      'layout:time_grid.axis_label_minutes',
+    ]);
+    const spacing = PAGES.find((page) => page.id === 'size_spacing')!.headings.map((h) => h.key);
+    expect(spacing.indexOf('heading_hour_labels')).toBe(spacing.indexOf('heading_card_size') + 1);
+    expect(under('day_header', 'weekend_colors')).toContain(
+      'layout:time_grid.weekend_background_color',
+    );
+    expect(under('day_header', 'heading_today')).toContain(
+      'layout:time_grid.today_background_color',
+    );
+    expect(under('events', 'heading_event_state')).toEqual([
+      'layout:time_grid.show_now_line',
+      'events:now_color',
+    ]);
+    expect(under('events', 'heading_overlapping_events')).toEqual([
+      'layout:time_grid.overlap_layout',
+      'layout:time_grid.max_simultaneous_events',
+    ]);
+    expect(EDITOR_STRINGS['panel.day_header']).toBe('Days');
+    expect(EDITOR_STRINGS.heading_allday_multiday).toBe('All-Day & Multi-Day');
   });
 
   it('draws past-event opacity beside the switch it fades for', () => {

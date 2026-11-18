@@ -537,6 +537,6 @@ describe('section row summaries', () => {
 
   it('counts a nested value where it is stored', () => {
     const raw = { ...LIST_CARD, view: 'grid', time_grid: { start_time: '07:00' } };
-    expect(summaryOf(page('grid'), raw, 'grid')).toMatch(/^First Hour: 07:00 · .* · Set: 1$/);
+    expect(summaryOf(page('which_events'), raw, 'grid')).toMatch(/ · Set: 1$/);
   });
 });

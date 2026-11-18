@@ -84,16 +84,68 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
   ['.location', { page: 'events', heading: 'location' }],
   ['.description', { page: 'events', heading: 'description' }],
   ['.event-accent-bar', { page: 'events', heading: 'heading_accent' }],
-  ['.grid-banner', { page: 'which_events', heading: 'heading_multiday' }],
+  ['.grid-banner', { page: 'which_events', heading: 'heading_allday_multiday' }],
+  // Grid's own parts open their settings where each topic keeps them, in Grid.
   [
-    '.grid-event-overflow, .grid-now-line, .grid-now-dot, .grid-allday-band, .grid-weekend, .grid-today, .grid-day-body',
-    { page: 'grid', heading: 'heading_on_the_grid', scope: 'grid' },
+    '.grid-now-line, .grid-now-dot',
+    {
+      page: 'events',
+      heading: 'heading_event_state',
+      scope: 'grid',
+      field: 'layout:time_grid.show_now_line',
+    },
+  ],
+  [
+    '.grid-event-overflow',
+    {
+      page: 'events',
+      heading: 'heading_overlapping_events',
+      scope: 'grid',
+      field: 'layout:time_grid.max_simultaneous_events',
+    },
+  ],
+  [
+    '.grid-allday-band',
+    {
+      page: 'which_events',
+      heading: 'heading_allday_multiday',
+      scope: 'grid',
+      field: 'layout:time_grid.allday_band_max_rows',
+    },
+  ],
+  [
+    '.grid-weekend',
+    {
+      page: 'day_header',
+      heading: 'weekend_colors',
+      scope: 'grid',
+      field: 'layout:time_grid.weekend_background_color',
+    },
+  ],
+  [
+    '.grid-today',
+    {
+      page: 'day_header',
+      heading: 'heading_today',
+      scope: 'grid',
+      field: 'layout:time_grid.today_background_color',
+    },
+  ],
+  // A day's body between its events is as tall as Height Per Hour makes it.
+  [
+    '.grid-day-body',
+    {
+      page: 'size_spacing',
+      heading: 'heading_card_size',
+      scope: 'grid',
+      field: 'layout:time_grid.hour_height',
+    },
   ],
   ['.event', { page: 'events', heading: 'heading_details' }],
   ['.event-gap-row', { page: 'size_spacing', heading: 'heading_card_size' }],
-  ['.grid-axis', { page: 'grid', heading: 'heading_hour_labels', scope: 'grid' }],
+  ['.grid-axis', { page: 'size_spacing', heading: 'heading_hour_labels', scope: 'grid' }],
   ['.grid-rules', { page: 'size_spacing', heading: 'heading_across_the_grid', scope: 'grid' }],
-  ['.grid-container', { page: 'grid', heading: 'time_grid.axis', scope: 'grid' }],
+  ['.grid-container', { page: 'which_events', heading: 'heading_hours', scope: 'grid' }],
   // A compact month's day, and its marks, open what made it compact; a wide one's, and the rest
   // of the weeks, open Height Per Week, which sets how many lines a day holds before "+N more".
   [
