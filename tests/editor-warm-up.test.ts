@@ -537,8 +537,10 @@ describe('the warm-up form', () => {
   let values = 0;
 
   for (let shard = 0; shard < SHARDS; shard++) {
-    // Each shard takes about a sixth of the corpus; the limit is set for CI's slower runner under
-    // load rather than for a hang.
+    // Each shard takes about a sixth of the corpus, over five workspaces since Month; the limit is
+    // set for CI's slower runner under load rather than for a hang. Shards measured 41 to 44 s on
+    // CI with four workspaces, and with five up to 104 s on a slower run, too near the 150 s they
+    // had.
     it(`holds each element and each value the forms draw with every panel open, across corpus shard ${shard + 1} of ${SHARDS}`, async () => {
       const editor = await mountEditor(ANNA);
       for (let index = shard; index < states.length; index += SHARDS) {
@@ -573,7 +575,7 @@ describe('the warm-up form', () => {
           for (const tag of elements([...lifted, ...subforms])) builtAll.add(tag);
         }
       }
-    }, 150_000);
+    }, 180_000);
   }
 
   it('holds, across every shard, each element the builders build, once every corpus state has run', () => {

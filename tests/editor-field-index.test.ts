@@ -859,9 +859,11 @@ describe('the index builds what the editor draws today', () => {
     console.info(`Index against the editor: ${names.length} states drawn and compared.`);
     expect(names.length).toBeGreaterThan(WORKSPACES.length * 10);
     // Draws the editor once per corpus state for this check and the next, working out each live
-    // field's Reset outcome and its Reset or Remove; the limit is set for CI's slower runner under
-    // load rather than for a hang.
-  }, 90_000);
+    // field's Reset outcome and its Reset or Remove, over five workspaces since Month. The limit is
+    // set for CI's slower runner under load rather than for a hang: the walk measured 64 s on CI
+    // with four workspaces, and with five ran past 90 s on a slower run (90 s timed out here, and
+    // the check below, awaiting the same walk, finished 20 s later).
+  }, 180_000);
 
   it('labels and explains every field as the form drawing it does today', async () => {
     const { labels } = await observed();
@@ -885,5 +887,5 @@ describe('the index builds what the editor draws today', () => {
     expect(labels.nestedDiffer).toBeGreaterThan(0);
     // Reads what the check above drew, or draws it where run alone; the limit is the check
     // above's.
-  }, 90_000);
+  }, 180_000);
 });
