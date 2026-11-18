@@ -140,7 +140,8 @@ describe('a light wash, which colors its own number', () => {
     [RETIRED_DEFAULT, 0.31],
     ['color-mix(in srgb, transparent, red 20%)', 0.2],
     ['color-mix(in oklab, #ff000080 50%, transparent)', (0.5 * 0x80) / 255],
-    ['color-mix(in srgb, red 50%, blue)', undefined],
+    ['color-mix(in srgb, red 50%, blue)', 1],
+    ['color-mix(in srgb, red 20%, blue 20%)', 0.4],
     // Percentages summing under 100 leave the rest transparent; over 100, they are scaled down.
     ['color-mix(in srgb, var(--primary-color) 20%, transparent 20%)', 0.2],
     ['color-mix(in srgb, transparent 20%, 20% red)', 0.2],
@@ -150,7 +151,21 @@ describe('a light wash, which colors its own number', () => {
     ['color-mix(in srgb, red, transparent)', 0.5],
     ['color-mix(red 20%, transparent)', 0.2],
     ['color-mix(in srgb, color-mix(in srgb, red 50%, transparent) 50%, transparent)', 0.25],
-    // Not a color at all, so not a wash.
+    ['color-mix(in srgb, color-mix(in srgb, red, blue) 20%, transparent)', 0.2],
+    ['color-mix(in srgb, red 2e1%, transparent)', 0.2],
+    ['color-mix(in srgb, var(--paint) +20%, transparent)', 0.2],
+    // A theme color is taken as opaque, and so is one named with an opaque fallback, but a
+    // fallback that is translucent or carries a percentage of its own is the browser's to read,
+    // as is a percentage computed with calc().
+    ['color-mix(in srgb, var(--primary-color, #03a9f4) 20%, transparent)', 0.2],
+    ['color-mix(in srgb, var(--missing, var(--paint)) 20%, transparent)', 0.2],
+    ['color-mix(in srgb, var(--missing, #ff000066) 60%, transparent 60%)', undefined],
+    ['color-mix(in srgb, var(--missing, red 20%), transparent)', undefined],
+    ['color-mix(in srgb, var(--paint) calc(20%), transparent)', undefined],
+    ['color-mix(in srgb, rgb(255 0 0) calc(20%), transparent)', undefined],
+    ['rgb(255 0 0) calc(20%)', undefined],
+    // Not a color: a percentage over 100 is invalid, as is a zero sum in Chromium, where WebKit
+    // draws it transparent. Neither is a wash.
     ['color-mix(in srgb, red 120%, transparent)', undefined],
     ['color-mix(in srgb, red 0%, transparent 0%)', undefined],
     ['rgb(from var(--primary-color) r g b / 0.2)', 0.2],
@@ -464,7 +479,7 @@ describe('the stylesheet', () => {
     );
   });
 
-  it("keeps the solid tile's ink on the tile, so a pill without color-mix() keeps the text color", () => {
+  it("keeps the solid tile's ink off the card, so a pill without color-mix() keeps the text color", () => {
     // Declared on ha-card as well, the white ink meant for the solid tile would reach the pill,
     // whose floor is gray, through WEEK_MARK_INK.
     const floors = all.filter(

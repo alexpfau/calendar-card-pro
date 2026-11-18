@@ -167,19 +167,57 @@ const NOT_A_COLOR: ReadonlySet<string> = new Set([
   'none',
 ]);
 
-/** One color of a color-mix() and the percentage written before or after it, if any. */
-function mixPart(part: string): { color: string; share: number | undefined } {
-  const after = /^([\s\S]*?)\s+(-?\d*\.?\d+)%$/.exec(part);
-  if (after) return { color: after[1].trim(), share: Number(after[2]) };
-  const before = /^(-?\d*\.?\d+)%\s+([\s\S]+)$/.exec(part);
-  if (before) return { color: before[2].trim(), share: Number(before[1]) };
-  return { color: part, share: undefined };
+/** A percentage as CSS writes one: `20%`, `+20%`, `.5%` or `2e1%`. */
+const PERCENTAGE = String.raw`[+-]?(?:\d*\.)?\d+(?:e[+-]?\d+)?%`;
+const SHARE_AFTER = new RegExp(String.raw`^([\s\S]*?)\s+(${PERCENTAGE})$`);
+const SHARE_BEFORE = new RegExp(String.raw`^(${PERCENTAGE})\s+([\s\S]+)$`);
+
+/**
+ * Whether a text is one token, with no space outside its parentheses: `var(--a, b)` is one,
+ * `var(--a) 20%` is not.
+ */
+function isOneToken(text: string): boolean {
+  let depth = 0;
+  for (const ch of text) {
+    if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    else if (depth === 0 && /\s/.test(ch)) return false;
+  }
+  return depth === 0 && text !== '';
 }
 
 /**
- * How opaque a color-mix() of a color with `transparent` is, as CSS Color 5 resolves its
- * percentages: an omitted one is the rest of 100, both omitted are 50 each, and two that sum to
- * less than 100 leave the rest transparent, where a sum over 100 is scaled down to it.
+ * One color of a color-mix() and the percentage written before or after it, if any. Anything
+ * else written beside the color, such as `calc(20%)`, stays with the color, which then reads as
+ * no color at all: the browser has to work that percentage out.
+ */
+function mixPart(part: string): { color: string; share: number | undefined } {
+  const after = SHARE_AFTER.exec(part);
+  const before = after ? null : SHARE_BEFORE.exec(part);
+  const color = after ? after[1].trim() : before ? before[2].trim() : part;
+  const share = after ? after[2] : before ? before[1] : undefined;
+  return { color, share: share === undefined ? undefined : Number(share.slice(0, -1)) };
+}
+
+/**
+ * How opaque a color inside a color-mix() is. A color named by a custom property is taken as
+ * opaque, as a theme's colors are, but a fallback written beside it has to be opaque too: where
+ * the property is missing, the fallback is drawn, and it may be translucent or carry a percentage
+ * of its own.
+ */
+function mixColorOpacity(color: string): number | undefined {
+  if (color === 'transparent') return 0;
+  const named = /^var\(\s*--[^,\s)]+\s*(?:,([\s\S]*))?\)$/.exec(color);
+  if (!named) return opacityOf(color);
+  if (named[1] === undefined) return 1;
+  const fallback = named[1].trim();
+  return isOneToken(fallback) && mixColorOpacity(fallback) === 1 ? 1 : undefined;
+}
+
+/**
+ * How opaque a color-mix() is, as CSS Color 5 resolves its percentages: an omitted one is the
+ * rest of 100, both omitted are 50 each, and two that sum to less than 100 leave the rest
+ * transparent, where a sum over 100 is scaled down to it.
  *
  * @param body - The text inside the parentheses
  * @returns Its opacity from 0 to 1, or `undefined` where the text does not settle it
@@ -189,7 +227,6 @@ function mixOpacity(body: string): number | undefined {
   // The interpolation method may be left out, as in color-mix(red 20%, transparent).
   const parts = (/^in\s/.test(args[0]) ? args.slice(1) : args).map(mixPart);
   if (parts.length !== 2) return undefined;
-  if (!parts.some((part) => part.color === 'transparent')) return undefined;
   const [a, b] = parts;
   if ([a.share, b.share].some((share) => share !== undefined && (share < 0 || share > 100))) {
     return undefined;
@@ -198,24 +235,20 @@ function mixOpacity(body: string): number | undefined {
   const shareB = b.share ?? 100 - shareA;
   const total = shareA + shareB;
   if (total <= 0) return undefined;
-  const alphas = parts.map((part) => {
-    if (part.color === 'transparent') return 0;
-    // A color named by a custom property is taken as opaque, as a theme's colors are.
-    if (/^var\(/.test(part.color)) return 1;
-    return opacityOf(part.color);
-  });
-  if (alphas.some((alpha) => alpha === undefined)) return undefined;
-  const [alphaA, alphaB] = alphas as number[];
+  const alphaA = mixColorOpacity(a.color);
+  const alphaB = mixColorOpacity(b.color);
+  if (alphaA === undefined || alphaB === undefined) return undefined;
   return ((shareA * alphaA + shareB * alphaB) / total) * (Math.min(total, 100) / 100);
 }
 
 /**
  * How opaque a color is as written, where the text alone says: a hex color with an alpha digit, a
- * color function with an alpha, `transparent`, or a `color-mix()` with `transparent`, which is how
- * the card's own washes and Home Assistant's are written. Each reads as Chromium and WebKit
- * resolve it. A color that names a custom property or mixes one with something other than
- * `transparent`, a relative color without an alpha of its own, which keeps its origin's, and
- * light-dark() say nothing about their opacity here, nor does a value that is not text.
+ * color function with an alpha, `transparent`, or a `color-mix()` of colors like these, which is
+ * how the card's own washes and Home Assistant's are written, with `transparent`. Each reads as Chromium and WebKit
+ * resolve it. A custom property alone, a mix whose percentage or fallback the browser has to work
+ * out, a relative color without an alpha of its own, which keeps its origin's, and light-dark()
+ * say nothing about their opacity here, nor does a value that is not text: the number keeps the
+ * text color behind them.
  *
  * @param value - A color as the user wrote it
  * @returns Its opacity from 0 to 1, or `undefined` where the text does not settle it
@@ -223,6 +256,8 @@ function mixOpacity(body: string): number | undefined {
 export function opacityOf(value: unknown): number | undefined {
   if (typeof value !== 'string') return undefined;
   const color = value.trim().toLowerCase();
+  // One color, not a color with something written beside it: `rgb(255 0 0) calc(20%)`.
+  if (!isOneToken(color)) return undefined;
   if (color === 'transparent') return 0;
   const hex = /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/.exec(color);
   if (hex) {
