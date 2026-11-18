@@ -552,7 +552,7 @@ function renderWeekSeparator(
 ): TemplateResult | typeof nothing {
   return renderHorizontalSeparator(
     config.week_separator_width,
-    config.week_separator_color,
+    Leaves.weekSeparatorColor(config),
     'week-separator',
     config,
     isFirstWeek,
@@ -603,7 +603,9 @@ function renderWeekRow(
       labeled = monthLabel !== undefined;
     } else if (!ViewConfig.isZeroLength(config.week_separator_width)) {
       lineStyle['--separator-border-width'] = config.week_separator_width;
-      lineStyle['--separator-border-color'] = ColorMix.floorColor(config.week_separator_color);
+      lineStyle['--separator-border-color'] = ColorMix.floorColor(
+        Leaves.weekSeparatorColor(config),
+      );
       lineStyle['--separator-display'] = 'block';
     } else {
       lineStyle['--separator-display'] = 'none';

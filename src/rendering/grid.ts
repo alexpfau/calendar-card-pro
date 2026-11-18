@@ -145,7 +145,7 @@ function resolveSeparator(boundary: DayBoundary, config: Types.Config): GridSepa
     return {
       kind: 'week',
       width: config.week_separator_width,
-      color: config.week_separator_color,
+      color: Leaves.weekSeparatorColor(config),
     };
   }
 

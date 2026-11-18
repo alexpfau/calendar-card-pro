@@ -54,6 +54,7 @@
   "value.from_yaml": "{value} (no YAML)",
   "value.same_as": "Kā „{label}“",
   "value.tile_ink": "Kā šodienas flīze",
+  "value.shade_of": "„{label}“ tonis",
   "value.follow_card": "Kā kartē",
   "value.end_of_day": "Dienas beigās",
   "value.none": "Nav",

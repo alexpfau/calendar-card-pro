@@ -3,8 +3,8 @@
  *
  * Safari before 16.2 has no color-mix(). Several colors the card ships are mixes, and the card
  * writes them from script into an element's inline style: the grid's rules and separators, its
- * weekend shading, the week number's pill and the week separator, the empty day's text, and an
- * event's tint where its calendar's color is a var(). Each reads a var(), so the browser keeps
+ * weekend shading, the empty day's text, and an event's tint where its calendar's color is a
+ * var(). Each reads a var(), so the browser keeps
  * it as written and it turns invalid once that is substituted, which draws as though the
  * property had never been set: no fill, no rule, a separator in the text color. An inline style
  * cannot sit behind `@supports`, and a stylesheet cannot tell the shipped mix from a color the
@@ -16,9 +16,9 @@
  * text color takes about twice its strength, gray being about half as far from either default
  * card as the text is.
  *
- * Only the mixes the card ships are floored, matched by value, at the places it writes them: the
- * separators, the grid's rules and shading, the week number's pill, the empty day's text and an
- * event's tint. A mix written into one of those options exactly as the card ships it takes the
+ * Only the mixes the card ships, or once shipped, are floored, matched by value, at the places it
+ * writes them: the separators, the grid's rules and shading, the week number's pill, the empty
+ * day's text and an event's tint. A mix written into one of those options exactly as the card ships it takes the
  * same floor. Any other mix a user writes, there or into any other color option, is written as
  * given.
  */
@@ -58,8 +58,9 @@ export function resetColorMixSupport(): void {
  *   is a text color at 12%, so half of it is about a 6% mix of the text, and gray takes twice
  *   that.
  * - The grid's weekend shading is the text color at 4%, and gray takes twice that.
- * - The week number's pill and the week separator are the theme's accent at 31%, and gray keeps
- *   that strength.
+ * - The week number's pill and the week separator shipped the theme's accent at 31% until they
+ *   took today's tile's colors, which the stylesheet floors itself. The floor stays for a YAML
+ *   that still holds that string, and gray keeps its strength.
  * - The empty day's text is the text color at 60%. That is text, not a fill, so its floor is the
  *   theme's own quieter text color, which is within ten levels of the mix on either default
  *   card.

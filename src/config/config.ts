@@ -41,8 +41,9 @@ export const DEFAULT_CONFIG: Types.Config = {
   title_color: undefined,
 
   background_color: 'var(--ha-card-background)',
-  // The theme's primary color, so a calendar nobody colored, the today tile, the week-number
-  // pills and the week separators take a custom theme's accent instead of a fixed blue. The
+  // The theme's primary color, so a calendar nobody colored and the today tile, and through it
+  // the week-number pills and the week separators, take a custom theme's accent instead of a
+  // fixed blue. The
   // fallback is the card's former default, for a host that defines no --primary-color. Kept
   // as literals rather than a shared constant: check:docs reads these defaults as source text.
   accent_color: 'var(--primary-color, #03a9f4)',
@@ -60,14 +61,15 @@ export const DEFAULT_CONFIG: Types.Config = {
   show_week_numbers: null,
   show_current_week_number: true,
   week_number_font_size: '12px',
-  week_number_color: 'var(--primary-text-color)',
-  // 31% is the former '#03a9f450' (0x50 / 255), carried over to the theme's color.
-  week_number_background_color:
-    'color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)',
+  // Unset, the pill is drawn as today's tile is, in the stylesheet: a wash of
+  // today_indicator_color with its number in a deeper shade. A recipe with browser tiers
+  // cannot live in a default string. See `.week-number` in styles.ts.
+  week_number_color: undefined, // Inherit from the tile's ink, or a shade of a set background
+  week_number_background_color: undefined, // Inherit from the tile's wash
   day_separator_width: '0px',
   day_separator_color: 'var(--secondary-text-color)',
   week_separator_width: '0px',
-  week_separator_color: 'color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)',
+  week_separator_color: undefined, // Inherit from week_number_background_color
   month_separator_width: '0px',
   month_separator_color: 'var(--primary-text-color)',
   month_separator_label: false,

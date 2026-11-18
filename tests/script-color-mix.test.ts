@@ -114,6 +114,16 @@ const RESOLVED_ELSEWHERE = new Set([
   'color-mix(in srgb, currentColor 10%, transparent)',
 ]);
 
+/**
+ * Mixes the card shipped as a default and no longer writes, whose floors stay so that a YAML
+ * holding the old default string still draws where color-mix() is unknown. The week-number pill
+ * and the week separator shipped this one through v6.0, when they took today's tile's colors
+ * (backlog item 325); the reference documented it, so cards copied it.
+ */
+const RETIRED_DEFAULTS = new Set([
+  'color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)',
+]);
+
 /** The shipped mix written into each color option below, and the floor it must draw as. */
 const DIVIDER_MIX = 'color-mix(in srgb, var(--divider-color) 50%, transparent)';
 
@@ -124,7 +134,6 @@ const DIVIDER_MIX = 'color-mix(in srgb, var(--divider-color) 50%, transparent)';
 const FLOORS: Readonly<Record<string, string | undefined>> = {
   [DIVIDER_MIX]: 'rgba(128, 128, 128, 0.12)',
   'color-mix(in srgb, var(--primary-text-color) 4%, transparent)': 'rgba(128, 128, 128, 0.08)',
-  'color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)': 'rgba(128, 128, 128, 0.31)',
   'color-mix(in srgb, var(--primary-text-color) 60%, transparent)': 'var(--secondary-text-color)',
   'color-mix(in srgb, var(--primary-color, #03a9f4) 20%, transparent)': 'rgba(128, 128, 128, 0.2)',
   'color-mix(in srgb, currentColor 6%, transparent)': undefined,
@@ -154,8 +163,6 @@ function mixedDefaults(): Map<string, string> {
 
 /** The options whose default is a mix, pinned by value. */
 const MIXED_OPTIONS = [
-  'card:week_number_background_color',
-  'card:week_separator_color',
   'grid:allday_band_line_color',
   'grid:day_header_separator_color',
   'grid:day_separator_color',
@@ -175,6 +182,8 @@ const COLOR_OPTIONS = [
   ...MIXED_OPTIONS,
   'card:day_separator_color',
   'card:month_separator_color',
+  'card:week_number_background_color',
+  'card:week_separator_color',
   'column:day_header_separator_color',
   'grid:today_background_color',
 ].sort();
@@ -345,8 +354,6 @@ describe('color-mix() the card writes from script, where Safari before 16.2 has 
 
   it('lists every one in the source by value', () => {
     expect(scriptMixes()).toEqual([
-      'config/config.ts: color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)',
-      'config/config.ts: color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)',
       'config/view.ts: color-mix(in srgb, var(--divider-color) 50%, transparent)',
       'config/view.ts: color-mix(in srgb, var(--divider-color) 50%, transparent)',
       'config/view.ts: color-mix(in srgb, var(--divider-color) 50%, transparent)',
@@ -375,7 +382,14 @@ describe('color-mix() the card writes from script, where Safari before 16.2 has 
     expect(
       written.filter((m) => !ColorMix.COLOR_MIX_FLOORS.has(m) && !RESOLVED_ELSEWHERE.has(m)),
     ).toEqual([]);
-    expect([...ColorMix.COLOR_MIX_FLOORS.keys()].filter((m) => !written.includes(m))).toEqual([]);
+    expect(
+      [...ColorMix.COLOR_MIX_FLOORS.keys()].filter(
+        (m) => !written.includes(m) && !RETIRED_DEFAULTS.has(m),
+      ),
+    ).toEqual([]);
+    // A retired default is one the card no longer writes, and keeps its floor.
+    expect([...RETIRED_DEFAULTS].filter((m) => written.includes(m))).toEqual([]);
+    expect([...RETIRED_DEFAULTS].filter((m) => !ColorMix.COLOR_MIX_FLOORS.has(m))).toEqual([]);
   });
 
   it('keeps every floor free of color-mix(), so it draws where that is unknown', () => {
@@ -404,18 +418,16 @@ describe('color-mix() the card writes from script, where Safari before 16.2 has 
       'rendering/column.ts: day_header_separator_color',
       'rendering/column.ts: day_separator_color',
       'rendering/column.ts: month_separator_color',
-      'rendering/column.ts: week_separator_color',
       'rendering/grid.ts: allday_band_line_color',
       'rendering/grid.ts: day_header_separator_color',
       'rendering/grid.ts: day_separator_color',
       'rendering/grid.ts: hour_line_color',
       'rendering/grid.ts: month_separator_color',
       'rendering/grid.ts: today_background_color',
-      'rendering/grid.ts: week_separator_color',
       'rendering/grid.ts: weekend_background_color',
+      'rendering/leaves.ts: week_separator_color',
       'rendering/render.ts: day_separator_color',
       'rendering/render.ts: month_separator_color',
-      'rendering/render.ts: week_separator_color',
       'rendering/styles.ts: week_number_background_color',
     ]);
   });

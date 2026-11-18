@@ -54,6 +54,7 @@
   "value.from_yaml": "{value} (från YAML)",
   "value.same_as": "Samma som {label}",
   "value.tile_ink": "Som dagens ruta",
+  "value.shade_of": "Nyans av {label}",
   "value.follow_card": "Följ kortet",
   "value.end_of_day": "Dagens slut",
   "value.none": "Ingen",

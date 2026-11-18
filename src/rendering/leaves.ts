@@ -266,6 +266,27 @@ export function renderDayWeekNumber(
 }
 
 /**
+ * The color a week separator is drawn in while `week_separator_color` is unset: the week-number
+ * pill's background, so a separator and the pill beside it are one color in every view.
+ *
+ * That background is the one set for the pill or, unset, today's tile's wash, which the
+ * stylesheet declares on `ha-card` as `--calendar-card-today-indicator-wash` wherever it can mix
+ * one. Without color-mix() neither is there, and the separator takes the pill's gray floor.
+ */
+export const WEEK_MARK_COLOR =
+  'var(--calendar-card-week-number-bg-color, var(--calendar-card-today-indicator-wash, rgba(128, 128, 128, 0.31)))';
+
+/**
+ * The color to draw a week separator in.
+ *
+ * @param config Card configuration, already resolved for the view
+ * @returns `week_separator_color`, or the pill's background where that is unset
+ */
+export function weekSeparatorColor(config: Types.Config): string {
+  return config.week_separator_color || WEEK_MARK_COLOR;
+}
+
+/**
  * Whether today's indicator is the tile drawn behind the day number itself.
  *
  * The tile is the one style that is not an element of its own: it restyles the day number,

@@ -91,7 +91,7 @@ function resolveSeparator(boundary: DayBoundary, config: Types.Config): ColumnSe
     return {
       kind: 'week',
       width: config.week_separator_width,
-      color: config.week_separator_color,
+      color: Leaves.weekSeparatorColor(config),
     };
   }
 

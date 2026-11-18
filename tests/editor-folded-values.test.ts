@@ -91,6 +91,22 @@ describe('folded rows', () => {
     expect(unsetWord('separators:month_separator_label_color', t, label)).toBe(
       'value.same_as{"label":"<month_separator_color>"}',
     );
+    // The week-number pill is today's tile until it has colors of its own, and the week
+    // separator is the pill's background (backlog item 325).
+    expect(unsetWord('day_header:week_number_background_color', t, label, true)).toBe(
+      'value.tile_ink',
+    );
+    expect(unsetWord('day_header:week_number_background_color', t, label, false)).toBe(
+      'value.shade_of{"label":"<today_indicator_color>"}',
+    );
+    for (const tile of [true, false]) {
+      expect(unsetWord('day_header:week_number_color', t, label, tile)).toBe(
+        'value.shade_of{"label":"<week_number_background_color>"}',
+      );
+    }
+    expect(unsetWord('separators:week_separator_color', t, label)).toBe(
+      'value.same_as{"label":"<week_number_background_color>"}',
+    );
     // By value, so a setting that comes to follow the wrong one fails as surely as a lost one.
     expect(FOLLOWS).toEqual({
       weekend_weekday_color: 'weekday_color',
@@ -100,6 +116,7 @@ describe('folded rows', () => {
       today_day_color: 'day_color',
       today_month_color: 'month_color',
       month_separator_label_color: 'month_separator_color',
+      week_separator_color: 'week_number_background_color',
     });
   });
 });

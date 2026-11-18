@@ -134,7 +134,8 @@ calendar in its `entities` entry, to choose a color yourself.
 Before v5, `accent_color` and `today_indicator_color` were a fixed `#03a9f4`, and the
 week-number pill and week separator a fixed `#03a9f450`. To keep the old blue, add
 `accent_color: '#03a9f4'` to your card or to a calendar's entry, `today_indicator_color: '#03a9f4'`,
-and `'#03a9f450'` for `week_number_background_color` and `week_separator_color`.
+and `'#03a9f450'` for `week_number_background_color` and `week_separator_color`. Since v6 a pill
+background colors its own number, so add `week_number_color: 'var(--primary-text-color)'` as well.
 :::
 
 `accent_color` accepts one more value: `home-assistant`, which follows the color Home
@@ -812,7 +813,22 @@ month_separator_color: '#03a9f4'
 
 The separators are horizontal lines between days, weeks and months, each with its own width and color. Where more than one could appear at once, such as on a day that starts both a week and a month, only the most significant is drawn: a month line over a week line, and a week line over a day line.
 
-`week_number_font_size` takes any CSS font size, as the [date column's font sizes](#date-column-customization) do, and the pill is sized from it; a value that is not a font size falls back to `12px`. Left unset, the pill and the week separator are both your theme's primary color at 31% opacity, so they follow a custom theme the way [`accent_color`](#visual-styling-colors) does.
+`week_number_font_size` takes any CSS font size, as the [date column's font sizes](#date-column-customization) do, and the pill is sized from it; a value that is not a font size falls back to `12px`.
+
+Left unset, the pill is drawn as the [date tile](#the-date-tile) is, from `today_indicator_color`: the same light wash, with the number in the same deeper shade, so a pill above today's tile matches it, and both follow a custom theme. An unset `week_separator_color` is the pill's background, so the line and the pill beside it are one color.
+
+A `week_number_background_color` you set is drawn as given. Its number then follows the tile's rule: while the background is a light wash, at most about a third opaque, the number is a deeper shade of it, so `'#e67c7350'` (31%) gets a deep red; behind a stronger or solid background it keeps the text color. `week_number_color` sets the number yourself, and the week separator follows a background you set too.
+
+::: warning Changed In v6
+Before v6 the pill and the week separator were your theme's primary color at 31% opacity, with the number in the text color. To keep that look, add:
+
+```yaml
+week_number_background_color: 'color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)'
+week_number_color: 'var(--primary-text-color)'
+week_separator_color: 'color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)'
+```
+
+:::
 
 `first_day_of_week` decides where a week begins, which in turn drives week numbers, week separators and the `start_of_week` [start date](/features/start-date-offset). Its default, `system`, follows Home Assistant rather than the card: it uses the **First day of week** setting in your Home Assistant user profile, and when that is left at _Auto_ it falls back to the convention for your Home Assistant language — Monday for most, Sunday for languages such as English, Japanese, Hebrew and Brazilian Portuguese, Saturday for Arabic and Persian. Set `monday` or `sunday` explicitly to override Home Assistant for this card alone.
 
@@ -1087,7 +1103,9 @@ It is a light wash of `today_indicator_color`, which follows your theme's primar
 you set one, over the card's background, with the day number in a deeper shade of the same
 color, and it adapts to light and dark themes on its own. A color you set therefore tints the
 tile rather than filling it. The digits take their shade from the tile, unless you name a color
-for them with `today_day_color` or, on a weekend, `weekend_day_color`.
+for them with `today_day_color` or, on a weekend, `weekend_day_color`. A see-through color
+such as `'#e67c7380'` makes a fainter tile, while its digits keep the color's full shade. The
+[week number pills](#week-numbers-visual-separators) take the tile's colors unless you set theirs.
 
 In column and grid view every day's number keeps the tile's height, so the dates stay on one
 line across the columns and each column's first event starts at the same height.
@@ -1121,6 +1139,7 @@ closed up, so `6 px` reads as `6px`, and a `var()` is passed on as written.
 
 `today_indicator_color` tints the tile and colors the icon-based types (the dot, `pulse`, `glow`
 and any `mdi:` icon), and is also the color of the glow itself; emojis and images keep their own
-colors, and text takes the color it inherits.
+colors, and text takes the color it inherits. Whatever the style, the week number pills and the
+week separators take their colors from it unless you set theirs.
 
 The options on this page are grouped in the reference under [Layout & Spacing](/reference/configuration#layout-spacing), [Week Numbers & Horizontal Separators](/reference/configuration#week-numbers-horizontal-separators), [Today Indicator](/reference/configuration#today-indicator) and [Date Column](/reference/configuration#date-column). Two of them — `date_vertical_alignment` and `today_indicator_position` — are list-only and belong inside `list:`; they are listed under [List-Only Options](/reference/configuration#list-only-options).

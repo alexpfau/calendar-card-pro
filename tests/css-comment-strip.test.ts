@@ -279,8 +279,16 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(232_000);
-    // The struts for today's and past days' own date scales moved the ceiling last, from 227,000
+    expect(saved).toBeLessThan(237_000);
+    // The week-number pill taking today's tile's colors moved the ceiling last, from 232,000 to
+    // 237,000 (backlog item 325): the notes on why the pill and the week separators read the
+    // tile's wash and ink from ha-card while the tile keeps its own, why the chroma is scaled as
+    // Oklab's a and b (Chromium gives a low-chroma mix no hue, and scaling OKLCH's c then paints
+    // it pink), and how a set pill background colors its number only while it is a light wash.
+    // The reading went from 230,708 to 232,995, taken with stripComments after the last comment
+    // was written.
+    //
+    // The struts for today's and past days' own date scales moved the ceiling before that, from 227,000
     // to 232,000: the note on why every column and grid header has to lay out as tall as the
     // largest date a day can be drawn at, why a minimum height on the header was tried first and
     // missed (a month larger than the number, or a weather badge, made today's header taller

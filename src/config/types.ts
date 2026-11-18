@@ -80,12 +80,15 @@ export interface Config {
   show_week_numbers: null | 'iso' | 'simple';
   show_current_week_number: boolean;
   week_number_font_size: string;
-  week_number_color: string;
-  week_number_background_color: string;
+  /** Unset, the pill's number is the tile's ink, or a shade of a set background. */
+  week_number_color?: string;
+  /** Unset, the pill is the tile's wash. */
+  week_number_background_color?: string;
   day_separator_width: string;
   day_separator_color: string;
   week_separator_width: string;
-  week_separator_color: string;
+  /** Unset, the line is the pill's background, set or not. */
+  week_separator_color?: string;
   month_separator_width: string;
   month_separator_color: string;
   /** Whether the list names the month at the start of each month rule it draws. */
