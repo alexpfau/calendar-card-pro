@@ -102,6 +102,13 @@ The weeks never grow with their events, so a busy month is as tall as a quiet on
 `height`, the six weeks divide it between them, and each day holds as many events as its share
 fits.
 
+::: details Heights the Weeks Cannot Take
+`row_height` takes a length, such as `112px` or `8em`. A percentage, or a word such as `auto`,
+would let the events size the weeks, so the card warns and uses `112px` instead. A fixed `height`
+in percent only works where the card's container has a height of its own; where it does not, the
+weeks take `row_height`.
+:::
+
 ### More Than Fits
 
 Where a day has more events than its week holds, its last line reads "+2 more", and a press

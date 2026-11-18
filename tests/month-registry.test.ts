@@ -13,6 +13,7 @@ import { buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import { fetchEventData, groupEventsByDay } from '../src/utils/events';
+import * as Logger from '../src/utils/logger';
 
 describe('the month block', () => {
   it('is registered as `month:`, with its own keys, defaults and divergent default', () => {
@@ -173,6 +174,13 @@ describe('a month-only option', () => {
   it.each([
     ['row_height', 120, '120px'],
     ['row_height', '8em', '8em'],
+    ['row_height', '9 em', '9em'],
+    // Anything that would size a week by its events, or by a height the month does not have.
+    ['row_height', 'auto', '112px'],
+    ['row_height', '15%', '112px'],
+    ['row_height', 'fit-content', '112px'],
+    ['row_height', 'calc(50% + 10px)', '112px'],
+    ['row_height', '-20px', '112px'],
     ['min_day_width', '72', 72],
     ['min_day_width', 0, 80],
     ['min_day_width', -5, 80],
@@ -190,6 +198,20 @@ describe('a month-only option', () => {
         key,
       ),
     ).toBe(expected);
+  });
+
+  it('says once that a row height it cannot draw falls back to its default', () => {
+    const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+    try {
+      ViewConfig.validateColumnOverrides(buildConfig({ month: { row_height: 'auto' } }));
+      ViewConfig.validateColumnOverrides(buildConfig({ month: { row_height: '9em' } }));
+      expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
+        'Invalid month.row_height "auto": expected a non-negative CSS length such as "112px" or ' +
+          '"8em", not a percentage or a keyword. Falling back to "112px".',
+      ]);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('falls back to its default with no block', () => {

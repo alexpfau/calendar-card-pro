@@ -10,9 +10,11 @@
  * that after a render (`MONTH_LINE_CAPACITY_DEFAULT` until it has) and hands it in, and a day
  * past it shows "+N more" on its last line.
  *
- * A row's height never depends on what is in it: `row_height`, or under a fixed card `height`
- * a sixth of what the weekday names leave. So the capacity cannot feed back into the size it
- * is measured from, and the card's height does not change from page to page.
+ * A row's height never depends on what is in it: `row_height`, which is folded to its default
+ * where it is a percentage or a keyword, or under a fixed card `height` a sixth of what the
+ * weekday names leave, and six `row_height`s where that height cannot be worked out. So the
+ * capacity cannot feed back into the size it is measured from, and the card's height does not
+ * change from page to page.
  *
  * Below `month → min_day_width` a day the card draws the compact form instead, as a phone's
  * calendar draws its month: each day its number and one capsule, a segment per event in its
@@ -851,6 +853,7 @@ export function renderMonthGroupedEvents(
   const weeks = monthWeeks(days, rowsStart, capacity);
   // A fixed card height is a real length; `height` defaults to the string `'auto'`.
   const fixedHeight = config.height != null && config.height !== '' && config.height !== 'auto';
+  const rowHeight = ViewConfig.resolveMonthOption(config, 'row_height');
 
   return html`
     <div
@@ -860,11 +863,18 @@ export function renderMonthGroupedEvents(
       @wheel=${options.weekScroll ?? nothing}
       style=${styleMap({
         // Handed to CSS as written, so `8em` and `calc()` survive. Under a fixed card height
-        // the rows share it instead, and `row_height` is not read.
-        '--calendar-card-month-row-height': fixedHeight
-          ? 'minmax(0, 1fr)'
-          : ViewConfig.resolveMonthOption(config, 'row_height'),
-        ...(fixedHeight ? { height: '100%' } : {}),
+        // the rows share it instead: the month is as tall as the height it fills, through its
+        // bounds. Where that height cannot be worked out, a percentage of a box with no height of
+        // its own, both bounds resolve to nothing, and the month is six weeks of `row_height`
+        // rather than as tall as its weeks' events, which would let them size the rows.
+        '--calendar-card-month-row-height': fixedHeight ? 'minmax(0, 1fr)' : rowHeight,
+        ...(fixedHeight
+          ? {
+              height: `calc(${ViewConfig.MONTH_ROWS} * ${rowHeight})`,
+              'min-height': '100%',
+              'max-height': '100%',
+            }
+          : {}),
       })}
     >
       ${renderWeekdays(weeks[0].starts, config, language, hass)}
@@ -1303,8 +1313,9 @@ export function renderMonthDayList(
  * Read from the first week row's height, less its date line, in line pitches. The probe
  * (`MONTH_PROBE_CLASS`) carries both: its width is a line's height and its height the date
  * line's, set in the stylesheet in the event font the lines and dates are set in. A row's height
- * depends on `row_height` or the card's, never on what is in it, so a capacity read here holds
- * for the render it causes.
+ * depends on `row_height` or the card's, never on what is in it (`renderMonthGroupedEvents`), so
+ * a capacity read here holds for the render it causes, and an empty week reads the same as a
+ * full one.
  *
  * @param root - The card's render root
  * @returns The lines, from 0, or null

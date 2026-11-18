@@ -99,12 +99,12 @@ These live only inside the `time_grid:` block and have no top-level counterpart.
 
 These live only inside the `month:` block and have no top-level counterpart.
 
-| Option                          | Type    | Default | Description                                                                                                                                                                     |
-| ------------------------------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `month → row_height`            | string  | `112px` | A week's height while the card's `height` is not fixed, which at the default text size holds four events under each date; under a fixed `height` the six weeks share it instead |
-| `month → min_day_width`         | number  | `80`    | Narrowest a day may be, in pixels, before the month draws its compact form: a colored mark per event, and the chosen day's events listed under the weeks                        |
-| `month → week_scroll`           | boolean | `false` | Let the mouse wheel, a trackpad or a vertical swipe move the weeks a week at a time, rather than scroll the dashboard. Never in the compact form                                |
-| `month → week_scroll_min_width` | number  | `0`     | Narrowest card, in pixels, that `week_scroll` applies to; `0` applies it at any width                                                                                           |
+| Option                          | Type    | Default | Description                                                                                                                                                                                                                    |
+| ------------------------------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `month → row_height`            | string  | `112px` | A week's height while the card's `height` is not fixed, as a CSS length, never a percentage or a keyword; at the default text size it holds four events under each date. Under a fixed `height` the six weeks share it instead |
+| `month → min_day_width`         | number  | `80`    | Narrowest a day may be, in pixels, before the month draws its compact form: a colored mark per event, and the chosen day's events listed under the weeks                                                                       |
+| `month → week_scroll`           | boolean | `false` | Let the mouse wheel, a trackpad or a vertical swipe move the weeks a week at a time, rather than scroll the dashboard. Never in the compact form                                                                               |
+| `month → week_scroll_min_width` | number  | `0`     | Narrowest card, in pixels, that `week_scroll` applies to; `0` applies it at any width                                                                                                                                          |
 
 **→ [Month View](/features/month-view)** — worked examples.
 

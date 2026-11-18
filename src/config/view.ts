@@ -2184,6 +2184,8 @@ function validateViewOverrides(config: Types.Config, view: Types.EffectiveView):
         key,
         (overrides as Record<string, unknown>)[key],
         `${block.blockKey}.${key}`,
+        // A block's own option folds to the block's default, which the top level does not hold.
+        block.onlyKeys.includes(key) ? block.onlyDefaults[key] : undefined,
       );
     }
   }

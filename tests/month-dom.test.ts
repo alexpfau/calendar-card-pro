@@ -437,7 +437,18 @@ describe('the rows’ height', () => {
     expect(month(card).style.getPropertyValue('--calendar-card-month-row-height')).toBe(
       'minmax(0, 1fr)',
     );
-    expect(month(card).style.height).toBe('100%');
+    // The month is exactly as tall as the height it fills, through its bounds.
+    expect([month(card).style.minHeight, month(card).style.maxHeight]).toEqual(['100%', '100%']);
+  });
+
+  it('never takes its height from the weeks, even where a fixed height cannot be worked out', async () => {
+    // A percentage of a box with no height of its own resolves to nothing, and the bounds above
+    // with it. Then the month is six times row_height rather than as tall as its weeks' events:
+    // sized by them, an empty week had no room for a line, so the capacity read from it was 0,
+    // and a month laid out for 0 lines drew no event anywhere, and stayed that way.
+    const card = await mount({ height: '100%', month: { row_height: '9em' } });
+    expect(month(card).style.height).toBe('calc(6 * 9em)');
+    expect([month(card).style.minHeight, month(card).style.maxHeight]).toEqual(['100%', '100%']);
   });
 });
 

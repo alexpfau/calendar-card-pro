@@ -810,6 +810,23 @@ export const BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new S
 ]);
 
 /**
+ * Row heights whose unusable value is folded to the shipped default rather than passed through,
+ * judged by {@link toValidRowHeight}.
+ *
+ * `month → row_height` sizes each of a month's six weeks, and the card measures how many lines
+ * fit under a date from a week's height. A percentage, which resolves against a height the month
+ * does not have, and a keyword such as `auto` or `fit-content` sized a week by its events instead.
+ * An empty week then had room for no line, so the capacity read from it was 0, a month laid out
+ * for 0 lines drew no event anywhere, and it stayed 0: measured in Chromium, a whole month drawn
+ * empty.
+ *
+ * Its own table, for the reason the bar width has one, and its options live in a view block only,
+ * so the top-level check skips them and the block's (`validateViewOverrides`) reports them, with
+ * the block's default.
+ */
+export const ROW_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set(['row_height']);
+
+/**
  * The keywords a border width takes, at the widths CSS defines for them, and `none`.
  *
  * `thin`, `medium` and `thick` drew the old border at 1px, 3px and 5px, and still draw the
@@ -825,11 +842,15 @@ const BAR_WIDTH_KEYWORDS: Readonly<Record<string, string>> = {
   none: '0px',
 };
 
-/** Every option that folds an unusable value: the icon sizes, the font sizes, the bar width. */
+/**
+ * Every option that folds an unusable value: the icon sizes, the font sizes, the bar width, the
+ * row height.
+ */
 export const FOLDED_OPTIONS: ReadonlyArray<string> = [
   ...LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE,
   ...FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE,
   ...BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE,
+  ...ROW_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE,
 ];
 
 /**
@@ -837,8 +858,8 @@ export const FOLDED_OPTIONS: ReadonlyArray<string> = [
  * never folds.
  *
  * @param key - Option path
- * @returns {@link toValidSize}, {@link toValidFontSize}, {@link toValidBarWidth}, or
- *   `undefined`
+ * @returns {@link toValidSize}, {@link toValidFontSize}, {@link toValidBarWidth},
+ *   {@link toValidRowHeight}, or `undefined`
  */
 function foldValidator(key: string): ((value: unknown) => string | undefined) | undefined {
   if (LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)) {
@@ -847,6 +868,10 @@ function foldValidator(key: string): ((value: unknown) => string | undefined) | 
 
   if (BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)) {
     return toValidBarWidth;
+  }
+
+  if (ROW_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)) {
+    return toValidRowHeight;
   }
 
   return FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key) ? toValidFontSize : undefined;
@@ -1020,6 +1045,20 @@ export function toValidBarWidth(value: unknown): string | undefined {
 }
 
 /**
+ * A row's height, tidied, or `undefined` when the value cannot be one: a size by
+ * {@link toValidSize}'s rule, a non-negative length with no percentage and no keyword, which is a
+ * length a row can be drawn at whatever is in it. An `!important` flag is dropped rather than
+ * kept, since the card writes the height into a custom property and a `calc()` of its own, where
+ * the flag means nothing and would make the `calc()` unusable.
+ *
+ * @param value - Raw configured value
+ * @returns The height to use, or `undefined` when the value cannot be one
+ */
+export function toValidRowHeight(value: unknown): string | undefined {
+  return toValidSize(value)?.replace(/ !important$/, '');
+}
+
+/**
  * Removes what a CSS declaration adds around a value — trailing semicolons and an
  * `!important` flag — judges the value that remains, and puts the flag back.
  *
@@ -1126,8 +1165,15 @@ export function foldsToDefault(key: string, value: unknown): boolean {
  * @param value - Raw value, before normalization
  * @param path - Where the value was written, as the diagnostic names it — the option path
  *   itself, or `column.time_icon_size` for a view override
+ * @param fallback - What the value folds to: the shipped top-level default, or a view block's
+ *   own for an option that lives in one alone
  */
-export function validateFoldedLength(key: string, value: unknown, path: string = key): void {
+export function validateFoldedLength(
+  key: string,
+  value: unknown,
+  path: string = key,
+  fallback: unknown = valueAtPath(DEFAULT_CONFIG, key),
+): void {
   if (!foldsToDefault(key, value)) {
     return;
   }
@@ -1136,10 +1182,11 @@ export function validateFoldedLength(key: string, value: unknown, path: string =
     ? 'a CSS font size such as "14px", "1.2em", "120%" or "large"'
     : BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)
       ? 'a non-negative CSS length such as "2px" or "0.2em", or "thin", "medium" or "thick"'
-      : 'a non-negative CSS length such as "6px" or "0.5em"';
+      : ROW_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)
+        ? 'a non-negative CSS length such as "112px" or "8em", not a percentage or a keyword'
+        : 'a non-negative CSS length such as "6px" or "0.5em"';
   // `title_font_size` ships unset, so folding it means leaving the title at the size it
   // would have had without the option.
-  const fallback = valueAtPath(DEFAULT_CONFIG, key);
   const outcome =
     fallback === undefined ? 'Ignoring it.' : `Falling back to "${String(fallback)}".`;
 
@@ -1158,6 +1205,7 @@ export function validateFoldedLength(key: string, value: unknown, path: string =
  */
 export function validateFoldedLengths(config: Types.Config): void {
   for (const key of FOLDED_OPTIONS) {
+    if (ROW_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)) continue;
     validateFoldedLength(key, valueAtPath(config, key));
   }
 }
