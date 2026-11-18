@@ -36,8 +36,12 @@ const MID_WEEK = eventsOn(['2026-06-29', '2026-06-30', '2026-07-01', '2026-07-02
  */
 const WEEK_START = eventsOn(['2027-01-30', '2027-01-31', '2027-02-01', '2027-02-02']);
 
-/** Three rule widths, all different, so a wrong branch draws a wrong width. */
+/**
+ * Three rule widths, all different, so a wrong branch draws a wrong width, on a card that leaves
+ * the month out of every date, as the issue's does.
+ */
 const RULES: Partial<Types.Config> = {
+  show_month: false,
   day_separator_width: '1px',
   week_separator_width: '2px',
   month_separator_width: '5px',
@@ -53,6 +57,7 @@ function render(
   events: Types.CalendarEventData[] = MID_WEEK,
   view: Types.EffectiveView = 'list',
   hass: Types.Hass | null = null,
+  language = 'en',
 ): HTMLElement {
   const config = buildConfig({
     view,
@@ -61,18 +66,41 @@ function render(
     ...overrides,
   });
   const effective = ViewConfig.resolveEffectiveConfig(config, view);
-  const days = EventUtils.groupEventsByDay(events, config, false, 'en', view);
+  const days = EventUtils.groupEventsByDay(events, config, false, language, view);
   const container = document.createElement('div');
   litRender(
     view === 'grid'
-      ? Grid.renderGridGroupedEvents(days, effective, 'en', undefined, hass, FROZEN_NOW)
+      ? Grid.renderGridGroupedEvents(days, effective, language, undefined, hass, FROZEN_NOW)
       : view === 'column'
-        ? Render.renderColumnGroupedEvents(days, effective, 'en', undefined, hass)
-        : Render.renderGroupedEvents(days, effective, 'en', undefined, hass),
+        ? Render.renderColumnGroupedEvents(days, effective, language, undefined, hass)
+        : Render.renderGroupedEvents(days, effective, language, undefined, hass),
     container,
   );
   return container;
 }
+
+/**
+ * A month and year as `Intl` writes them, its first letter raised where the month leads: the
+ * oracle for the label, built from `Intl` directly rather than from the card's own formatter.
+ */
+function intlMonth(date: Date, language: string, form: 'long' | 'short'): string {
+  const format = new Intl.DateTimeFormat(language, { month: form, year: 'numeric' });
+  const text = format.format(date);
+  return format.formatToParts(date)[0]?.type === 'month'
+    ? text.charAt(0).toLocaleUpperCase(format.resolvedOptions().locale) + text.slice(1)
+    : text;
+}
+
+/** A dashboard in a given language, with what decides its direction. */
+function dashboard(language: string): Types.Hass {
+  return {
+    language,
+    translationMetadata: { translations: { he: { isRTL: true }, en: { isRTL: false } } },
+  } as unknown as Types.Hass;
+}
+
+const LRM = '\u200E';
+const RLM = '\u200F';
 
 /** The labels drawn, in document order. */
 function labels(container: HTMLElement): string[] {
@@ -222,20 +250,77 @@ describe('the month rule names its month', () => {
     expect(labelsWith({ list: { month_separator_label: true } })).toEqual(['Jul 2026']);
   });
 
-  it("keeps the label in its language's direction on a dashboard running the other way", () => {
-    const hebrew = {
-      language: 'he',
-      translationMetadata: { translations: { he: { isRTL: true }, en: { isRTL: false } } },
-    } as unknown as Types.Hass;
-    const english = { ...hebrew, language: 'en' } as unknown as Types.Hass;
-    const lrm = '\u200E';
+  it('draws the label whether the dates show their month or not', () => {
+    for (const showMonth of [false, true]) {
+      expect(
+        labels(render({ ...RULES, show_month: showMonth, month_separator_label: true })),
+        String(showMonth),
+      ).toEqual(['Jul 2026']);
+    }
+  });
 
+  it("writes the month in the card's language, on both paths", () => {
+    const july = new Date(2026, 6, 1);
+    const february = new Date(2027, 1, 1);
+    const weeks = { ...RULES, show_week_numbers: 'iso', month_separator_label: true } as const;
+    for (const language of ['de', 'pl', 'ja']) {
+      const plain = render(
+        { ...RULES, month_separator_label: true },
+        MID_WEEK,
+        'list',
+        null,
+        language,
+      );
+      const row = render(weeks, WEEK_START, 'list', null, language);
+      expect(labels(plain), language).toEqual([intlMonth(july, language, 'short')]);
+      expect(labels(row), language).toEqual([intlMonth(february, language, 'short')]);
+      expect(row.querySelector('.week-row-table .month-separator-label'), language).not.toBeNull();
+      for (const label of plain.querySelectorAll('.month-separator-label')) {
+        expect(label.getAttribute('lang'), language).toBe(language);
+      }
+    }
+    // The control: German and English differ here, so an English label would fail above.
+    expect(intlMonth(july, 'de', 'short')).not.toBe(intlMonth(july, 'en', 'short'));
+  });
+
+  it('names the month in full where the short form is only a number', () => {
+    // The oracle says which form names the month, so this asserts the renderer takes the label
+    // from the rule's own formatter, not from the plain short heading.
+    const july = new Date(2026, 6, 1);
+    const named = (form: 'long' | 'short') =>
+      new Intl.DateTimeFormat('lt', { month: form, year: 'numeric' })
+        .formatToParts(july)
+        .some((part) => part.type === 'month' && /\p{L}/u.test(part.value));
+    expect(named('short')).toBe(false);
+    expect(named('long')).toBe(true);
     expect(
-      labels(render({ ...RULES, month_separator_label: true }, MID_WEEK, 'list', hebrew)),
-    ).toEqual([`${lrm}Jul 2026${lrm}`]);
-    expect(
-      labels(render({ ...RULES, month_separator_label: true }, MID_WEEK, 'list', english)),
-    ).toEqual(['Jul 2026']);
+      labels(render({ ...RULES, month_separator_label: true }, MID_WEEK, 'list', null, 'lt')),
+    ).toEqual([intlMonth(july, 'lt', 'long')]);
+  });
+
+  it("keeps the label in its language's direction on a dashboard running the other way", () => {
+    const july = new Date(2026, 6, 1);
+    const february = new Date(2027, 1, 1);
+    const weeks = { ...RULES, show_week_numbers: 'iso', month_separator_label: true } as const;
+    const on = { ...RULES, month_separator_label: true };
+    const hebrewJuly = intlMonth(july, 'he', 'short');
+    const hebrewFebruary = intlMonth(february, 'he', 'short');
+
+    // An English card on a right-to-left dashboard, and a Hebrew card on a left-to-right one,
+    // each on both paths: marked in the card language's own direction.
+    expect(labels(render(on, MID_WEEK, 'list', dashboard('he')))).toEqual([`${LRM}Jul 2026${LRM}`]);
+    expect(labels(render(weeks, WEEK_START, 'list', dashboard('he')))).toEqual([
+      `${LRM}Feb 2027${LRM}`,
+    ]);
+    expect(labels(render(on, MID_WEEK, 'list', dashboard('en'), 'he'))).toEqual([
+      `${RLM}${hebrewJuly}${RLM}`,
+    ]);
+    expect(labels(render(weeks, WEEK_START, 'list', dashboard('en'), 'he'))).toEqual([
+      `${RLM}${hebrewFebruary}${RLM}`,
+    ]);
+    // The controls: where the two directions agree, nothing is added.
+    expect(labels(render(on, MID_WEEK, 'list', dashboard('en')))).toEqual(['Jul 2026']);
+    expect(labels(render(on, MID_WEEK, 'list', dashboard('he'), 'he'))).toEqual([hebrewJuly]);
   });
 });
 

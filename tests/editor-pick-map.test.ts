@@ -103,10 +103,13 @@ function config(view: Types.EffectiveView): Record<string, unknown> {
   };
 }
 
-async function mount(view: Types.EffectiveView): Promise<Card> {
+async function mount(
+  view: Types.EffectiveView,
+  overrides: Record<string, unknown> = {},
+): Promise<Card> {
   const card = document.createElement('calendar-card-pro-dev') as Card;
   vi.spyOn(card, 'updateEvents').mockResolvedValue();
-  card.setConfig(config(view));
+  card.setConfig({ ...config(view), ...overrides });
   card.hass = {
     states: {
       'weather.home': { state: 'sunny', attributes: {} },
@@ -176,8 +179,14 @@ describe('Pick From Preview part map', () => {
     const unmapped: string[] = [];
     const absorbed = new Set<string>();
     let elements = 0;
-    for (const view of ['list', 'column', 'grid'] as const) {
-      const card = await mount(view);
+    // List twice: with week numbers off it draws the plain week rule instead of the week row.
+    for (const [view, overrides] of [
+      ['list', {}],
+      ['list', { show_week_numbers: null }],
+      ['column', {}],
+      ['grid', {}],
+    ] as const) {
+      const card = await mount(view, overrides);
       const root = card.shadowRoot!;
       for (const [selectors] of PICK_PARTS) {
         for (const selector of selectors.split(', ')) {
