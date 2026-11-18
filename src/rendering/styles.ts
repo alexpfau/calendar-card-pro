@@ -7778,6 +7778,39 @@ export const cardStyles = css`
     outline-offset: -2px;
   }
 
+  /* ----- The weekend's and today's tints -----
+
+     month -> weekend_background_color and month -> today_background_color, Grid's two options,
+     which the renderer writes on the month as --calendar-card-month-weekend and
+     --calendar-card-month-today only where they paint, so the transparent fallbacks are the off
+     state. Both shade the day's cell, in either form: the wide form's spans every line of its
+     column and paints first, under the date, the bars and the lines, and the compact form's is
+     the number with its capsule. A day of the months either side takes them as well, since its
+     dimming acts on its date or its contents, never on the cell. The weekday names, the day list
+     and the panel hold no cell, and stay clear.
+
+     The same three rules as Grid's backdrops: unset, today's rule resolves to transparent on a
+     weekday and to the weekend's tint on a weekend day, which is what each painted without it;
+     set, today's replaces the weekend's rather than stacking a second translucent color on it.
+
+     The today tile and the compact form's selection mark are the date's number, inside the
+     cell, and the focus ring is an outline, so all three draw over the tint. A pressed day's
+     wash is a background image, which paints over the cell's color whichever rule set it. */
+  .month-day.weekend {
+    background-color: var(--calendar-card-month-weekend, transparent);
+  }
+
+  .month-day.today {
+    background-color: var(--calendar-card-month-today, transparent);
+  }
+
+  .month-day.today.weekend {
+    background-color: var(
+      --calendar-card-month-today,
+      var(--calendar-card-month-weekend, transparent)
+    );
+  }
+
   /* While month -> week_scroll applies, the weeks take a vertical finger from the page as well as
      a sideways one, so it steps them a week at a time; pinch zoom stays. Where no swipe pages the
      card, the page keeps its sideways pan. Declared on every element of the weeks, as the swipe's
@@ -8007,14 +8040,20 @@ export const cardStyles = css`
     }
   }
 
-  /* A day pressed where a tap on it adds an event washes as a column's header does. */
+  /* A day pressed where a tap on it adds an event washes as a column's header does. As an image,
+     one solid layer over the cell's color rather than a color of its own, so a shaded weekend or
+     today washes over its shade: a color here would replace the shade, and on a weekend today
+     lose to the tint's more specific rule. */
   .month-day[data-add-pressed] {
-    background-color: color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent);
+    background-image: linear-gradient(
+      color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent),
+      color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent)
+    );
   }
 
   @supports not (color: color-mix(in srgb, red, blue)) {
     .month-day[data-add-pressed] {
-      background-color: rgba(128, 128, 128, 0.16);
+      background-image: linear-gradient(rgba(128, 128, 128, 0.16), rgba(128, 128, 128, 0.16));
     }
 
     @media (hover: hover) {

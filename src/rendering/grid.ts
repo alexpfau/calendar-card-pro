@@ -454,8 +454,8 @@ function renderDayTints(
   weekendTint: string,
   todayTint: string,
 ): TemplateResult[] | typeof nothing {
-  const weekend = paintsSomething(weekendTint);
-  const today = paintsSomething(todayTint);
+  const weekend = ColorMix.paintsSomething(weekendTint);
+  const today = ColorMix.paintsSomething(todayTint);
 
   if (!weekend && !today) {
     return nothing;
@@ -469,23 +469,6 @@ function renderDayTints(
     ...(weekend ? renderWeekendStripes(days, hass, todayIndex) : []),
     ...(todayIndex === -1 ? [] : [renderTodayStripe(todayIndex)]),
   ];
-}
-
-/**
- * Whether a resolved color value would paint anything at all.
- *
- * `transparent` and `none` are what a user writes to switch an optional fill off, and an
- * empty string is what an editor text field hands back when it is cleared. None of them
- * needs a custom property emitted for it, and leaving the property unset lets the
- * stylesheet's own fallback stand rather than overriding it with a no-op.
- *
- * @param value - A resolved CSS color
- * @returns `true` when the value is worth writing to the DOM
- */
-function paintsSomething(value: string): boolean {
-  const normalized = value.trim().toLowerCase();
-
-  return normalized !== '' && normalized !== 'transparent' && normalized !== 'none';
 }
 
 //-----------------------------------------------------------------------------
@@ -1827,10 +1810,10 @@ export function renderGridGroupedEvents(
         // transparent fallback is the off state rather than a placeholder. `transparent` and
         // `none` are how a user turns either off, and both are cheaper to drop here than to
         // paint.
-        ...(paintsSomething(weekendTint)
+        ...(ColorMix.paintsSomething(weekendTint)
           ? { '--calendar-card-grid-weekend': ColorMix.floorColor(weekendTint) }
           : {}),
-        ...(paintsSomething(todayTint)
+        ...(ColorMix.paintsSomething(todayTint)
           ? { '--calendar-card-grid-today': ColorMix.floorColor(todayTint) }
           : {}),
       })}

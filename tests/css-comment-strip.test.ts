@@ -279,8 +279,15 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(242_000);
-    // Month's day list moved the ceiling last, from 237,000 to 242,000: the notes on why a list
+    expect(saved).toBeLessThan(245_000);
+    // Month's weekend and today tints moved the ceiling last, from 242,000 to 245,000: the notes
+    // on which cells the two tints shade in either form and why a neighboring month's day takes
+    // them, why the three rules mirror Grid's backdrops so an unset today paints what it painted
+    // before, and why a pressed day's wash is an image over the shade rather than a color. The
+    // reading went from 241,710 to 243,291, taken with stripComments after the last comment was
+    // written.
+    //
+    // Month's day list moved the ceiling before that, from 237,000 to 242,000: the notes on why a list
     // that keeps room for its events takes its height from the room alone, what the hidden row it
     // is measured from stands for, why a row is cut at its foot alone, and where the list's
     // "+N more" starts. The reading went to 238,251, taken with stripComments after the last

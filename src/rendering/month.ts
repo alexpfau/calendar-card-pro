@@ -44,6 +44,7 @@ import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
 import { intlCache, intlLocales, intlSpeaks } from '../translations/intl-locales';
 import * as Localize from '../translations/localize';
+import * as ColorMix from '../utils/color-mix';
 import * as EntityColors from '../utils/entity-colors';
 import * as EventUtils from '../utils/events';
 import * as FormatUtils from '../utils/format';
@@ -871,6 +872,28 @@ function renderWeekdays(
 }
 
 /**
+ * The weekend's and today's tints as the month's custom properties, which a day's cell reads in
+ * either form. Each is written only where it paints, so the stylesheet's transparent fallback is
+ * the off state, as Grid's are, and the shipped mix takes its floor where the browser has no
+ * color-mix() (`ColorMix.floorColor`).
+ *
+ * @param config - Card configuration, resolved for month
+ * @returns The properties to write on the month
+ */
+function tintProperties(config: Types.Config): Record<string, string> {
+  const weekend = ViewConfig.resolveMonthOption(config, 'weekend_background_color');
+  const today = ViewConfig.resolveMonthOption(config, 'today_background_color');
+  return {
+    ...(ColorMix.paintsSomething(weekend)
+      ? { '--calendar-card-month-weekend': ColorMix.floorColor(weekend) }
+      : {}),
+    ...(ColorMix.paintsSomething(today)
+      ? { '--calendar-card-month-today': ColorMix.floorColor(today) }
+      : {}),
+  };
+}
+
+/**
  * Render a month page: the weekday names, then six week rows of seven days, or the compact form
  * where the card hands one (`MonthOptions.compact`).
  *
@@ -933,6 +956,7 @@ export function renderMonthGroupedEvents(
               'max-height': '100%',
             }
           : {}),
+        ...tintProperties(config),
       })}
     >
       ${renderWeekdays(weeks[0].starts, config, language, hass)}
@@ -1127,6 +1151,7 @@ function renderCompactMonth(
       })}
       role="grid"
       aria-label=${Paging.monthHeading(headerMonth, language)}
+      style=${styleMap(tintProperties(config))}
     >
       ${renderWeekdays(weeks[0], config, language, hass, weekNumbers)}
       ${weeks.map((starts, row) => {

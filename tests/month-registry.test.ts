@@ -30,6 +30,8 @@ describe('the month block', () => {
       'day_list_events',
       'week_scroll',
       'week_scroll_min_width',
+      'weekend_background_color',
+      'today_background_color',
     ]);
     expect(ViewConfig.MONTH_DEFAULTS).toEqual({
       row_height: '112px',
@@ -37,7 +39,16 @@ describe('the month block', () => {
       day_list_events: 4,
       week_scroll: false,
       week_scroll_min_width: 0,
+      // Grid's two tints, under Grid's defaults.
+      weekend_background_color: 'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
+      today_background_color: 'transparent',
     });
+    expect(ViewConfig.MONTH_DEFAULTS.weekend_background_color).toBe(
+      ViewConfig.TIME_GRID_DEFAULTS.weekend_background_color,
+    );
+    expect(ViewConfig.MONTH_DEFAULTS.today_background_color).toBe(
+      ViewConfig.TIME_GRID_DEFAULTS.today_background_color,
+    );
   });
 
   it('overrides column’s shared options but the twenty it draws nothing for, and the bars', () => {
@@ -226,6 +237,16 @@ describe('a month-only option', () => {
     ['day_list_events', 2.7, 2],
     ['day_list_events', -1, 4],
     ['day_list_events', 'many', 4],
+    // Any string is a color, as Grid's tints take it; anything else is the default.
+    ['weekend_background_color', 'rgb(1, 2, 3)', 'rgb(1, 2, 3)'],
+    ['weekend_background_color', 'transparent', 'transparent'],
+    [
+      'weekend_background_color',
+      0,
+      'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
+    ],
+    ['today_background_color', 'var(--primary-color)', 'var(--primary-color)'],
+    ['today_background_color', 12, 'transparent'],
   ] as const)('reads %s: %j as %j', (key, value, expected) => {
     expect(ViewConfig.normalizeMonthValue(key, value)).toBe(expected);
     expect(
@@ -264,6 +285,26 @@ describe('a month-only option', () => {
     ).toEqual([
       { kind: 'view-only', key: 'row_height', from: null, to: ['month'] },
       { kind: 'wrong-view', key: 'week_scroll', from: 'column', to: ['month'] },
+    ]);
+    // A tint is Grid's and Month's, each in its own block, so a misplaced one names both.
+    expect(
+      ViewConfig.findMisplacedOptions({
+        weekend_background_color: 'red',
+        column: { today_background_color: 'red' },
+      }),
+    ).toEqual([
+      {
+        kind: 'view-only',
+        key: 'weekend_background_color',
+        from: null,
+        to: ['time_grid', 'month'],
+      },
+      {
+        kind: 'wrong-view',
+        key: 'today_background_color',
+        from: 'column',
+        to: ['time_grid', 'month'],
+      },
     ]);
     // Nor does the time's placement: the day list puts every time beside its title.
     expect(ViewConfig.findMisplacedOptions({ month: { time_position: 'below' } })).toEqual([

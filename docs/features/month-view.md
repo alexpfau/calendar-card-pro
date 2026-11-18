@@ -241,6 +241,37 @@ a compact month, where the current week's stands out. As in List, the first row'
 only with `show_current_week_number`. `week_number_color` and `week_number_font_size` apply;
 `week_number_background_color` does not, since the numbers are plain text.
 
+## 🎨 Shading the Weekend & Today
+
+`weekend_background_color` shades each weekend day and `today_background_color` shades today, so
+the shape of the month shows before you read a date. They are Grid's two options with Grid's
+defaults: the weekend in a faint mix of the theme's text color, which darkens a light theme and
+lightens a dark one, and today off until you give it a color.
+
+```yaml
+view: month
+month:
+  today_background_color: 'color-mix(in srgb, var(--primary-color) 12%, transparent)'
+```
+
+| Option                             | Type   | Default                                                         | Description                                                                                                  |
+| ---------------------------------- | ------ | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `month → weekend_background_color` | string | `color-mix(in srgb, var(--primary-text-color) 4%, transparent)` | Tint behind a weekend day; `transparent` turns it off                                                        |
+| `month → today_background_color`   | string | `transparent`                                                   | Tint behind today. Off by default; a color turns it on, and on a weekend day it replaces the weekend's shade |
+
+- **The whole day is shaded**, under its date and its events, and on a
+  [compact month](#the-compact-month) its number and marks. Days of the months either side are
+  shaded too; the weekday names, the day's list and the panel are not.
+- **Keep both faint**, since event text sits on top. Today's tile, the selected day's mark and the
+  keyboard's focus ring stay above the shade.
+- **Today on a weekend** takes today's color in place of the weekend shading rather than mixing
+  the two.
+- **Which days are the weekend** follows the
+  [country set in Home Assistant](/features/core-settings#showing-a-calendar-on-weekdays-only), or
+  its language where no country is set, as in [Grid](/features/grid-view#shading-the-weekend).
+- **Grid shades apart**: its own two options live in `time_grid:`, so each layout keeps its own
+  colors.
+
 ## 🧰 Month in the View Switcher
 
 The toolbar's [view switcher](/features/layout-appearance#switching-between-layouts) offers Month

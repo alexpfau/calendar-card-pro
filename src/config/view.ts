@@ -306,7 +306,7 @@ export const MONTH_OVERRIDE_KEYS = [
 
 /**
  * Month-only options — a week row's height, the compact form's width and the events its day list
- * keeps room for, and week scrolling.
+ * keeps room for, week scrolling, and the weekend's and today's tints, which are Grid's.
  */
 export const MONTH_ONLY_KEYS = [
   'row_height',
@@ -314,6 +314,8 @@ export const MONTH_ONLY_KEYS = [
   'day_list_events',
   'week_scroll',
   'week_scroll_min_width',
+  'weekend_background_color',
+  'today_background_color',
 ] as const;
 
 /**
@@ -1099,6 +1101,10 @@ export function resolveTimeGridOption<K extends keyof typeof TIME_GRID_DEFAULTS>
  * date at the defaults, so the card is one height whichever day is chosen; `0` keeps no room
  * and lists every event. Week scrolling takes wheel and swipe gestures from the page, so it
  * ships off, and `week_scroll_min_width: 0` applies it at any card width once it is on.
+ *
+ * The two tints are Grid's, read from {@link TIME_GRID_DEFAULTS} so the two layouts cannot ship
+ * different ones: the weekend's a faint mix of the theme's text color, which darkens a light theme
+ * and lightens a dark one, and today's `transparent`, off.
  */
 export const MONTH_DEFAULTS = {
   row_height: '112px',
@@ -1106,6 +1112,8 @@ export const MONTH_DEFAULTS = {
   day_list_events: 4,
   week_scroll: false,
   week_scroll_min_width: 0,
+  weekend_background_color: TIME_GRID_DEFAULTS.weekend_background_color,
+  today_background_color: TIME_GRID_DEFAULTS.today_background_color,
 } as const;
 
 /**
@@ -1125,7 +1133,8 @@ type MonthOptionValue<K extends keyof typeof MONTH_DEFAULTS> =
  * length accepts a bare number from YAML or the editor's text field and gains `px`, for the
  * reason {@link normalizeColumnValue} gives. `min_day_width` is a width above zero,
  * `week_scroll_min_width` any width from zero, which means no limit, and `day_list_events` a
- * whole number of events from zero, which means every event, a fraction rounded down.
+ * whole number of events from zero, which means every event, a fraction rounded down. The two
+ * tints take any string, as Grid's do ({@link normalizeTimeGridValue}).
  *
  * @param key - Option being resolved
  * @param value - Raw configured value
@@ -1152,6 +1161,12 @@ export function normalizeMonthValue(
       : parsed > 0
         ? parsed
         : fallback;
+  }
+
+  // Colors, not lengths, for the reason Grid's normalizer gives: the pixel coercion below infers
+  // a length from the default's spelling, which a color default only escapes by accident.
+  if (key === 'weekend_background_color' || key === 'today_background_color') {
+    return typeof value === 'string' ? value : fallback;
   }
 
   return String(coercePixelLengthAgainst(fallback, value, key));

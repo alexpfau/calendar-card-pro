@@ -522,7 +522,10 @@ card_mod:
 For Grid, use [`time_grid.weekend_background_color`](/features/grid-view#shading-the-weekend)
 instead. Its tint spans the time axis and all-day band, which a rule on
 `.grid-day-body.weekend` cannot reach. Today's column has an option of its own there,
-[`time_grid.today_background_color`](/features/grid-view#shading-today), off by default.
+[`time_grid.today_background_color`](/features/grid-view#shading-today), off by default. Month
+has the same two in its own block,
+[`month.weekend_background_color` and `month.today_background_color`](/features/month-view#shading-the-weekend-today),
+which shade a day's whole cell.
 
 ### Frameless Calendar Integration
 

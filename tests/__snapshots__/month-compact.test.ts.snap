@@ -1,7 +1,7 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`a compact day > matches its snapshot 1`] = `
-"<div role="grid" class=" month-container month-compact with-week-numbers " aria-label="November 2026">
+"<div role="grid" class=" month-container month-compact with-week-numbers " aria-label="November 2026" style="--calendar-card-month-weekend:color-mix(in srgb, var(--primary-text-color) 4%, transparent);">
 <div class="month-weekdays" role="row">
 <div class="month-weekday-gutter" aria-hidden="true"></div>
 <div role="columnheader" class=" month-weekday " aria-label="Monday">

@@ -731,7 +731,8 @@ export type MonthIgnoredSharedKeys =
   | 'time_position';
 
 /**
- * The `month:` block — the shared options a month grid reads, plus its own row and width keys.
+ * The `month:` block — the shared options a month grid reads, plus its own row, width and tint
+ * keys.
  *
  * The month-only keys below have no top-level counterpart and are read with
  * `resolveMonthOption`, not `resolveViewOption`.
@@ -760,6 +761,23 @@ export interface MonthOverrides extends Omit<SharedViewOverrides, MonthIgnoredSh
 
   /** Card width in pixels from which `week_scroll` applies; `0` for any width. */
   week_scroll_min_width?: number;
+
+  /**
+   * Background tint for a weekend day's cell, as a CSS color, in either form: the whole day under
+   * its date and events, a neighboring month's day included.
+   *
+   * Grid's option under Grid's name and default, and like Grid's a block option rather than a
+   * shared one: a month's cell is the same height whatever is in it, as a grid column is, and a
+   * list's or a column's day is not. Which days count as the weekend comes from the country set in
+   * Home Assistant, or its language when no country is set.
+   */
+  weekend_background_color?: string;
+
+  /**
+   * Background tint for today's cell, as a CSS color. Off by default, as Grid's is; on a weekend
+   * day it replaces the weekend tint rather than stacking on it.
+   */
+  today_background_color?: string;
 }
 
 /** Calendar entity configuration. */
