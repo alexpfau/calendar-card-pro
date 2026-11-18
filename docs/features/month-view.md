@@ -152,10 +152,12 @@ between the two.
 
 ### The Day's List
 
-The chosen day's events are listed under the weeks as the list layout draws them, with one
-difference: each event's time sits at the end of its title's line, as a phone's day list puts it,
-whatever `time_position` says. A row is a line shorter that way, and the times line up at the
-row's end. The panel "+2 more" opens lists a day the same way.
+The chosen day's events are listed under the weeks as the list layout draws them, with two
+differences. Each event's time sits at the end of its title's line, as a phone's day list puts it,
+whatever `time_position` says: a row is a line shorter that way, and the times line up at the
+row's end. And each event is a block of its own, with its own accent bar, 6px from the next:
+Month starts [`event_gap`](/features/layout-appearance#gaps-between-events) from `6px`, below.
+The panel "+2 more" opens lists a day the same way.
 
 ## ⌨️ Keyboard
 
@@ -231,7 +233,8 @@ month:
   event_font_size: 12px
 ```
 
-Anything the block does not mention keeps its top-level value, except `show_past_events`, below.
+Anything the block does not mention keeps its top-level value, except `show_past_events` and
+`event_gap`, below.
 Options that decide which events the card loads, such as `start_date` and `entities`, and others
 that act on the card as a whole, such as the actions and the `toolbar`, are card-wide and ignored
 inside `month:`; see
@@ -239,14 +242,19 @@ inside `month:`; see
 
 ## 🔀 Options That Start From a Different Default
 
-One shared option does not inherit its top-level value in month view:
+Two shared options do not inherit their top-level value in month view:
 
 | Option             | Type    | Default | Month Default |
 | ------------------ | ------- | ------- | ------------- |
 | `show_past_events` | boolean | `false` | `true`        |
+| `event_gap`        | string  | `0px`   | `6px`         |
 
 A month shows its past days with their events, dimmed, rather than empty weeks behind today. Set
 `show_past_events: false` inside `month:` to hide them.
+
+A [day's list](#the-days-list) holds one day under its name, so its events read better apart than
+joined into one block beside a date, as the list layout keeps them. Set `event_gap: 0px` inside
+`month:` to join them; a top-level `event_gap` changes the list and column layouts alone.
 
 ## 🚫 Options That Do Nothing in Month View
 
@@ -260,7 +268,7 @@ while **Settings For** is Month. Stored values are kept for the layouts they app
 | `split_multiday_events`                                                                                                                        | A long event is one [bar](#bars-lines) across its days, and the day's list shows it on every day it covers   |
 | `compact_events_to_show`, `compact_days_to_show`, `compact_events_complete_days`, `event_order`, `skip_first_events`                           | List-only: they shape a list card, and the [day's list](#more-than-fits) always shows the whole day in order |
 | `date_vertical_alignment`, `today_indicator_position`                                                                                          | List-only: they describe the list layout's date cell                                                         |
-| `event_gap`, `day_spacing`                                                                                                                     | Events sit on the week's lines, and hairlines divide the days                                                |
+| `day_spacing`                                                                                                                                  | Events sit on the week's lines, and hairlines divide the days                                                |
 | `day_separator_width`, `day_separator_color`, `week_separator_width`, `week_separator_color`, `month_separator_width`, `month_separator_color` | The month rules its days and weeks with hairlines of its own                                                 |
 | `day_font_size`, `month_font_size`, `today_date_scale`, `past_date_scale`                                                                      | Dates are set in the event font, at one size on every day                                                    |
 | `today_indicator_size`, `today_weekday_color`                                                                                                  | Today is marked by its tile, and the weekday names stand once over their columns                             |

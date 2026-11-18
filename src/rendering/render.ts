@@ -689,28 +689,11 @@ export function renderDay(
             repeatedCountdowns.has(index),
           );
 
-          return eventGap && index > 0 ? html`${renderEventGapRow()}${row}` : row;
+          return eventGap && index > 0 ? html`${Leaves.renderEventGapRow()}${row}` : row;
         },
       )}
     </table>
   `;
-}
-
-/**
- * The row that holds two of a day's events apart while `event_gap` is set.
- *
- * A table row takes no margin, and spacing the rows with `border-spacing` also pads above
- * the first row and below the last, which moves the day itself and every separator whose
- * distance is derived from `day_spacing`. A row of its own keeps the gap inside the day. It
- * fills the event column only, because the day's date cell spans it, and it is hidden from
- * assistive technology because it holds nothing to read.
- *
- * @returns The gap row
- */
-function renderEventGapRow(): TemplateResult {
-  return html`<tr class="event-gap-row" aria-hidden="true">
-    <td class="event-gap-cell"></td>
-  </tr>`;
 }
 
 /**

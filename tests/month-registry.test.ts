@@ -22,7 +22,7 @@ describe('the month block', () => {
       overrideKeys: ViewConfig.MONTH_OVERRIDE_KEYS,
       onlyKeys: ViewConfig.MONTH_ONLY_KEYS,
       onlyDefaults: ViewConfig.MONTH_DEFAULTS,
-      defaultOverrides: { show_past_events: true },
+      defaultOverrides: { event_gap: '6px', show_past_events: true },
     });
     expect(ViewConfig.MONTH_ONLY_KEYS).toEqual([
       'row_height',
@@ -38,7 +38,7 @@ describe('the month block', () => {
     });
   });
 
-  it('overrides column’s shared options but the 21 it draws nothing for, and the bars', () => {
+  it('overrides column’s shared options but the twenty it draws nothing for, and the bars', () => {
     const ignored = [
       'days_to_show',
       'show_empty_days',
@@ -46,7 +46,6 @@ describe('the month block', () => {
       'empty_day_text',
       'empty_day_color',
       'split_multiday_events',
-      'event_gap',
       'day_spacing',
       'day_separator_width',
       'day_separator_color',
@@ -104,7 +103,6 @@ describe('the options month reads', () => {
       'days_to_show',
       'empty_day_color',
       'empty_day_text',
-      'event_gap',
       'event_order',
       'month_font_size',
       'month_separator_color',
@@ -146,6 +144,7 @@ describe('the options month reads', () => {
       'allday_badge',
       'allday_badge_color',
       'allday_badge_style',
+      'event_gap',
       'event_spacing',
       'multiday_banners',
       'open_links',
@@ -157,6 +156,28 @@ describe('the options month reads', () => {
       'show_single_allday_time',
       'time_max_lines',
     ]);
+  });
+
+  it('sets a day list’s events apart by default, as List does with a gap, unless its block says', () => {
+    // A divergent default: the top level's 0px keeps List and Columns joined and reaches
+    // neither Month nor its day list, which only `month:` changes.
+    const resolved = (config: Partial<Types.Config>) =>
+      Object.fromEntries(
+        ViewConfig.VIEWS.map((view) => [
+          view,
+          ViewConfig.resolveEffectiveConfig(buildConfig(config), view).event_gap,
+        ]),
+      );
+    expect(resolved({})).toEqual({ list: '0px', column: '0px', grid: '0px', month: '6px' });
+    expect(resolved({ event_gap: '10px' })).toEqual({
+      list: '10px',
+      column: '10px',
+      grid: '10px',
+      month: '6px',
+    });
+    expect(resolved({ month: { event_gap: '0px' } }).month).toBe('0px');
+    expect(resolved({ month: { event_gap: '0.5em' } }).month).toBe('0.5em');
+    expect(ViewConfig.appliesToView('event_gap', 'month')).toBe(true);
   });
 
   it('shows past events by default, and a block or the card can still hide them', () => {

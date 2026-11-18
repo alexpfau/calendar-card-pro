@@ -26,6 +26,8 @@ import {
   COLUMN_ONLY_KEYS,
   COLUMN_OVERRIDE_KEYS,
   LIST_OVERRIDE_KEYS,
+  MONTH_ONLY_KEYS,
+  MONTH_OVERRIDE_KEYS,
   TIME_GRID_ONLY_KEYS,
   reachableViews,
   viewBlockFor,
@@ -38,6 +40,7 @@ const VIEW_BLOCK_KEYS: Record<string, ReadonlySet<string>> = {
   list: new Set<string>(LIST_OVERRIDE_KEYS),
   column: new Set<string>([...COLUMN_OVERRIDE_KEYS, ...COLUMN_ONLY_KEYS]),
   time_grid: new Set<string>([...COLUMN_OVERRIDE_KEYS, ...TIME_GRID_ONLY_KEYS]),
+  month: new Set<string>([...MONTH_OVERRIDE_KEYS, ...MONTH_ONLY_KEYS]),
 };
 const TOOLBAR_KEYS = new Set(Object.keys(DEFAULT_CONFIG.toolbar ?? {}));
 const WEATHER_KEYS: Record<string, ReadonlySet<string>> = {
@@ -52,6 +55,7 @@ const ROOT_KEYS = new Set([
   'list',
   'column',
   'time_grid',
+  'month',
 ]);
 
 const keysOf = (value: unknown): string[] =>
@@ -126,6 +130,7 @@ describe('the Example Stories cards', () => {
       toolbar: { show: true, labels: true },
       weather: { entity: 'weather.home', event: { show_temperature: true } },
       list: { start_time: '07:00' },
+      month: { time_position: 'title' },
       show_location: false,
       entities: [{ entity: 'calendar.a', hue: 'red', max_events_to_show: 1 }],
     });
@@ -136,6 +141,7 @@ describe('the Example Stories cards', () => {
         'unknown toolbar.labels',
         'unknown weather.event.show_temperature',
         'list.start_time is not read there',
+        'month.time_position is not read there',
         'entities[0].hue is dropped',
         'deprecated entities[0].max_events_to_show',
         'no config_version: 5 beside show_location',

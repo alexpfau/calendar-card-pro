@@ -68,6 +68,7 @@ describe('buildQuickSetupConfig', () => {
         event_background_opacity: 15,
       },
       time_grid: { start_time: '07:00', end_time: '22:00', hour_height: '36px' },
+      month: { event_gap: '4px' },
       grid_options: { columns: 'full', rows: 'auto' },
       view_layout: { position: 'main' },
       card_mod: { style: 'ha-card { border: none; }' },

@@ -90,6 +90,7 @@ export const STORIES: ReadonlyArray<Story> = [
         event_background_opacity: 15,
       },
       time_grid: { start_time: '07:00', end_time: '22:00', hour_height: '36px' },
+      month: { event_gap: '4px' },
     },
   ),
   story('now_and_next', '/guide/now-and-next', [], {

@@ -672,6 +672,7 @@
   "view_default.column.show_empty_days": "Stulpelių išdėstymas rodo tuščias dienas, nesvarbu, kokia čia reikšmė, kad stulpeliai atitiktų iš eilės einančias dienas. Kad tai pakeistumėte, pridėkite išimtį žemiau.",
   "view_default.column.split_multiday_events": "Stulpelių išdėstymas skaido kelių dienų įvykius, nesvarbu, kokia čia reikšmė, kad įvykis matytųsi kiekvieną dieną, kurią jis apima. Kad tai pakeistumėte, pridėkite išimtį žemiau.",
   "view_default.month.show_past_events": "Mėnesio išdėstymas rodo praėjusius įvykius pritemdytus, nesvarbu, kokia čia reikšmė, kad praėjusios dienos neliktų tuščios. Tai pakeisite paties mėnesio nustatymuose.",
+  "view_default.month.event_gap": "Mėnesio išdėstymas dienos sąraše atskiria įvykius tarpais, nesvarbu, kokia čia reikšmė, kad kiekvienas būtų atskiras blokas. Tai pakeisite paties mėnesio nustatymuose.",
   "days_to_show": "Rodomų dienų skaičius",
   "days_to_show.aliases": "dienų į priekį, savaitės į priekį, ateinančios savaitės, datų intervalas, laikotarpis",
   "days_to_show.helper": "Kiekvienas išdėstymas gali turėti savo skaičių. Kortelė vieną kartą įkelia ilgiausią, todėl perjungiant išdėstymą niekas iš naujo neįkeliama.",

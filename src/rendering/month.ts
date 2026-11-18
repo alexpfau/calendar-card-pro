@@ -1202,8 +1202,8 @@ function renderDayRow(
 /**
  * A day's events as List's rows, in Month's presentation and without a date column: what the
  * day panel lists and what a compact month lists under its weeks. Each row's time is beside its
- * title, whatever `time_position` says (`MonthDay.monthRowsConfig`). Nothing for a day without
- * events.
+ * title, whatever `time_position` says (`MonthDay.monthRowsConfig`), and `event_gap` sets each
+ * event apart as List's does, with the same row between two. Nothing for a day without events.
  *
  * @param events - The day's events, as the day model lists them
  * @param config - Card configuration, resolved for month
@@ -1226,9 +1226,10 @@ export function renderMonthDayRows(
   if (events.length === 0) return nothing;
   const rows = MonthDay.monthRowsConfig(config);
   const repeated = Presentation.repeatedCountdowns([...events], rows, language);
-  return html`<table class="month-day-table">
-    ${events.map((event, index) =>
-      renderDayRow(
+  const gap = ViewConfig.hasEventGap(rows);
+  return html`<table class=${gap ? 'month-day-table with-event-gap' : 'month-day-table'}>
+    ${events.map((event, index) => {
+      const row = renderDayRow(
         event,
         index,
         events.length,
@@ -1239,8 +1240,9 @@ export function renderMonthDayRows(
         eventsTappable,
         dayLabelId,
         repeated.has(index),
-      ),
-    )}
+      );
+      return gap && index > 0 ? html`${Leaves.renderEventGapRow()}${row}` : row;
+    })}
   </table>`;
 }
 

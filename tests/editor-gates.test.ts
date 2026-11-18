@@ -148,7 +148,6 @@ const NOT_IN_GRID_OR_MONTH = [
   'content:split_multiday_events',
   'content:empty_day_text',
   'content:empty_day_color',
-  'layout:event_gap',
   'layout:day_spacing',
   'calendar:split_multiday_events',
   'events:time_position',
@@ -157,6 +156,7 @@ const NOT_IN_GRID_OR_MONTH = [
 /** Offered everywhere but Grid: what Month's day list draws as List's rows. */
 const NOT_IN_GRID = [
   ...NOT_IN_GRID_OR_MONTH,
+  'layout:event_gap',
   'events:show_now_indicator',
   'events:allday_badge_position',
   'events:allday_badge_style',
@@ -812,14 +812,15 @@ describe('the universe', () => {
     }
     // All Layouts gained Multi-Day Banners on the card and on a calendar once Month read them
     // beside Grid; Month offers its own four and leaves out what it does not draw (`LACKS`).
-    // Every workspace gained Layouts in Switcher, a whole-card setting. Month lost Time Position:
-    // its day list puts every time beside its title.
+    // Every workspace gained Layouts in Switcher, a whole-card setting. Month lost Time Position,
+    // since its day list puts every time beside its title, and gained Space Between Events, which
+    // sets that list's events apart.
     expect(sizes).toEqual({
       shared: { card: 152, calendar: 28 },
       list: { card: 158, calendar: 28 },
       column: { card: 157, calendar: 27 },
       grid: { card: 156, calendar: 27 },
-      month: { card: 134, calendar: 27 },
+      month: { card: 135, calendar: 27 },
     });
   });
 

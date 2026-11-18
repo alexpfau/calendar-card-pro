@@ -673,6 +673,7 @@
   "view_default.column.show_empty_days": "Kolonnu izkārtojums rāda tukšas dienas neatkarīgi no šīs vērtības, lai kolonnas atbilstu secīgām dienām. Lai to mainītu, pievienojiet izņēmumu zemāk.",
   "view_default.column.split_multiday_events": "Kolonnu izkārtojums sadala vairāku dienu notikumus neatkarīgi no šīs vērtības, lai notikums būtu redzams katrā dienā, ko tas aptver. Lai to mainītu, pievienojiet izņēmumu zemāk.",
   "view_default.month.show_past_events": "Mēneša izkārtojums rāda pagājušos notikumus aptumšotus neatkarīgi no šīs vērtības, lai pagājušās dienas nepaliktu tukšas. Mainiet to paša mēneša iestatījumos.",
+  "view_default.month.event_gap": "Mēneša izkārtojums dienas sarakstā atdala notikumus ar atstarpēm neatkarīgi no šīs vērtības, lai katrs būtu atsevišķs bloks. Mainiet to paša mēneša iestatījumos.",
   "days_to_show": "Rādāmo dienu skaits",
   "days_to_show.aliases": "dienas uz priekšu, nedēļas uz priekšu, nākamās nedēļas, datumu diapazons, periods",
   "days_to_show.helper": "Katram izkārtojumam var būt savs skaits. Karte vienreiz ielādē garāko, tāpēc, pārslēdzot izkārtojumu, nekas netiek ielādēts no jauna.",

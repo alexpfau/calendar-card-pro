@@ -1487,6 +1487,24 @@ function renderTimeBesideTitle(pieces: TimeBesideTitlePieces): TemplateResult {
 }
 
 /**
+ * The row that holds two of a day's events apart while `event_gap` is set, in list view and in a
+ * month's day list.
+ *
+ * A table row takes no margin, and spacing the rows with `border-spacing` also pads above
+ * the first row and below the last, which moves the day itself and every separator whose
+ * distance is derived from `day_spacing`. A row of its own keeps the gap inside the day. It
+ * fills the event column only, because the day's date cell spans it, and it is hidden from
+ * assistive technology because it holds nothing to read.
+ *
+ * @returns The gap row
+ */
+export function renderEventGapRow(): TemplateResult {
+  return html`<tr class="event-gap-row" aria-hidden="true">
+    <td class="event-gap-cell"></td>
+  </tr>`;
+}
+
+/**
  * The accent bar beside an event, in every view that draws one.
  *
  * An element of its own rather than a border on the event, because a border can neither have

@@ -253,7 +253,6 @@ export const MONTH_IGNORED_SHARED_KEYS = [
   'empty_day_text',
   'empty_day_color',
   'split_multiday_events',
-  'event_gap',
   'day_spacing',
   'day_separator_width',
   'day_separator_color',
@@ -536,9 +535,10 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
 
   // A grid block is already a block of its own, placed by its time; the gap it keeps from
   // its neighbors belongs to the grid's own layout. Nothing in grid reads
-  // --calendar-card-event-gap, and the class that draws the gap is only emitted by the list
-  // and column renderers.
-  event_gap: new Set<Types.EffectiveView>(['list', 'column']),
+  // --calendar-card-event-gap, and the class that draws the gap is only emitted by the list,
+  // column and month renderers. A month draws it between the rows of a day's list, in the panel
+  // and under a compact month's weeks; its weeks' one-line entries sit on their lines.
+  event_gap: new Set<Types.EffectiveView>(['list', 'column', 'month']),
 
   // Grid neutralizes both of the option's clamp paths: the plain time span is blockified,
   // and `.grid-event-disclosure` resets the two properties the folded-countdown span reads
@@ -1752,10 +1752,17 @@ export const TIME_GRID_DEFAULT_OVERRIDES: {
  *
  * `show_past_events` is on: a month shows its past days, dimmed, rather than emptying the weeks
  * behind today, as Grid keeps today's finished blocks on its axis.
+ *
+ * `event_gap` sets each event of a day's list apart, in the panel "+N more" opens and under a
+ * compact month's weeks, each a rounded block with its own accent bar, as a phone's day list
+ * draws its events. A list card keeps List's 0px, which joins a day's events into one block
+ * beside its date; a month's list holds one day under its name, with nothing beside it to join
+ * against, so its events read better apart.
  */
 export const MONTH_DEFAULT_OVERRIDES: {
   readonly [K in keyof Types.MonthOverrides & keyof Types.Config]?: Types.Config[K];
 } = {
+  event_gap: '6px',
   show_past_events: true,
 };
 

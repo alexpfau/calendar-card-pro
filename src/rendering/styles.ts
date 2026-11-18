@@ -1725,10 +1725,10 @@ export const cardStyles = css`
     border: none !important;
   }
 
-  /* event_gap in list view: the row between two events, which renderEventGapRow in
-     render.ts explains. Its height is all of it: padding 0 takes off the 1px the browser
-     gives every cell, and it needs no line height because it holds no text. Never
-     font-size: 0, which would turn an em gap into no gap. */
+  /* event_gap in list view and a month's day list: the row between two events, which
+     renderEventGapRow in leaves.ts explains. Its height is all of it: padding 0 takes off the
+     1px the browser gives every cell, and it needs no line height because it holds no text.
+     Never font-size: 0, which would turn an em gap into no gap. */
   .event-gap-cell {
     height: var(--calendar-card-event-gap);
     padding: 0;

@@ -778,6 +778,41 @@ describe('the time beside the title', () => {
   });
 });
 
+describe('the gap between a day’s events', () => {
+  const table = (card: CardUnderTest) =>
+    root(card).querySelector<HTMLElement>('.month-day-list table.month-day-table')!;
+
+  it('sets each event apart by 6px, with List’s row between two, unless month: says', async () => {
+    const card = await mount({}, 375);
+    expect(table(card).classList.contains('with-event-gap')).toBe(true);
+    const rows = [...table(card).querySelectorAll('tr')];
+    expect(rows.map((row) => (row.classList.contains('event-gap-row') ? 'gap' : 'event'))).toEqual([
+      'event',
+      'gap',
+      'event',
+      'gap',
+      'event',
+      'gap',
+      'event',
+    ]);
+    expect(rows[1].getAttribute('aria-hidden')).toBe('true');
+    const style = root(card).querySelector<HTMLElement>('ha-card')!.style;
+    expect(style.getPropertyValue('--calendar-card-event-gap')).toBe('6px');
+
+    // A card-wide gap is List's and Columns'; Month keeps its own until its block says.
+    const shared = await mount({ event_gap: '0px' }, 375);
+    expect(table(shared).classList.contains('with-event-gap')).toBe(true);
+    const joined = await mount({ month: { event_gap: '0px' } }, 375);
+    expect(table(joined).classList.contains('with-event-gap')).toBe(false);
+    expect(table(joined).querySelector('.event-gap-row')).toBeNull();
+    expect(
+      root(joined)
+        .querySelector<HTMLElement>('ha-card')!
+        .style.getPropertyValue('--calendar-card-event-gap'),
+    ).toBe('');
+  });
+});
+
 //-----------------------------------------------------------------------------
 // THE DAY PANEL
 //-----------------------------------------------------------------------------
@@ -922,6 +957,19 @@ describe('the day panel', () => {
     } finally {
       Object.defineProperty(HTMLElement.prototype, 'offsetWidth', offsetWidth);
     }
+  });
+
+  it('sets its rows apart as the card’s day list does', async () => {
+    const { panel } = await open();
+    const rows = [...panel!.shadowRoot!.querySelectorAll('.day-panel-rows table tr')];
+    expect(rows.filter((row) => row.classList.contains('event-gap-row'))).toHaveLength(4);
+    expect(
+      panel!
+        .shadowRoot!.querySelector('.day-panel-rows table')!
+        .classList.contains('with-event-gap'),
+    ).toBe(true);
+    const style = panel!.shadowRoot!.querySelector<HTMLElement>('.day-panel-rows')!.style;
+    expect(style.getPropertyValue('--calendar-card-event-gap')).toBe('6px');
   });
 
   it('draws plain rows, which a tap leaves open, where events run nothing', async () => {

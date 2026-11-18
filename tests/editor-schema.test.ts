@@ -967,9 +967,9 @@ describe('editor: applicability', () => {
       // specificity, and every grid node carrying `.event` carries one of those.
       event_spacing: ['column', 'list', 'month'],
       // A grid block is placed by its time and kept apart by the grid's own layout; only
-      // the list and column renderers emit the class that draws the gap. A month lines its
-      // events up by rows.
-      event_gap: ['column', 'list'],
+      // the list, column and month renderers emit the class that draws the gap, a month's
+      // between the rows of its day list.
+      event_gap: ['column', 'list', 'month'],
       // Grid blockifies the plain time span and resets the properties the folded-countdown
       // span reads, so neither clamp path acts there.
       time_max_lines: ['column', 'list', 'month'],

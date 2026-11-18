@@ -673,6 +673,7 @@
   "view_default.column.show_empty_days": "Veerupaigutus näitab tühje päevi olenemata sellest seadest, et veerud vastaksid järjestikustele päevadele. Selle muutmiseks lisa allpool erand.",
   "view_default.column.split_multiday_events": "Veerupaigutus jagab mitmepäevased sündmused olenemata sellest seadest, et sündmus oleks näha igal päeval, mida see hõlmab. Selle muutmiseks lisa allpool erand.",
   "view_default.month.show_past_events": "Kuupaigutus näitab möödunud sündmusi tuhmistatult olenemata sellest seadest, et möödunud päevad ei jääks tühjaks. Muuda seda kuu enda seadetes.",
+  "view_default.month.event_gap": "Kuupaigutus hoiab päeva loendi sündmused olenemata sellest seadest üksteisest lahus, et iga sündmus oleks eraldi plokk. Muuda seda kuu enda seadetes.",
   "days_to_show": "Kuvatavate päevade arv",
   "days_to_show.aliases": "mitu päeva ette, mitu nädalat ette, järgmised nädalad, ajavahemik, kuupäevavahemik",
   "days_to_show.helper": "Igal paigutusel võib olla oma arv. Kaart laadib neist pikima korraga, nii et paigutuse vahetamine ei laadi kunagi uuesti.",

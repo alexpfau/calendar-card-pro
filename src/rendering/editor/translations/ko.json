@@ -499,6 +499,7 @@
   "view_default.column.show_empty_days": "연속된 날짜를 맞추기 위해 설정값과 무관하게 열 레이아웃에서는 빈 날짜가 표시됩니다. 변경하려면 아래에 예외를 추가하세요.",
   "view_default.column.split_multiday_events": "이벤트가 포함된 모든 날짜에 표시되도록 설정값과 무관하게 열 레이아웃에서는 여러 날에 걸친 이벤트가 분할됩니다. 변경하려면 아래에 예외를 추가하세요.",
   "view_default.month.show_past_events": "월 레이아웃은 이 설정과 무관하게 지난 이벤트를 흐리게 표시하여 지난 날짜가 비지 않게 합니다. 월 자체 설정에서 변경하세요.",
+  "view_default.month.event_gap": "월 레이아웃은 이 설정과 무관하게 하루 목록의 이벤트를 서로 띄워 각각 별도의 블록으로 표시합니다. 월 자체 설정에서 변경하세요.",
   "days_to_show": "표시할 일수",
   "start_date_mode": "시작일",
   "start_date_mode.option.default.label": "오늘",

@@ -673,6 +673,7 @@
   "view_default.column.show_empty_days": "Stĺpcové rozloženie zobrazuje prázdne dni bez ohľadu na toto nastavenie, aby stĺpce naďalej zodpovedali po sebe idúcim dňom. Ak to chcete zmeniť, pridajte nižšie výnimku.",
   "view_default.column.split_multiday_events": "Stĺpcové rozloženie rozdeľuje viacdňové udalosti bez ohľadu na toto nastavenie, aby sa udalosť ukázala v každom dni, ktorý pokrýva. Ak to chcete zmeniť, pridajte nižšie výnimku.",
   "view_default.month.show_past_events": "Rozloženie mesiaca zobrazuje minulé udalosti stlmené bez ohľadu na toto nastavenie, aby jeho minulé dni nezostali prázdne. Zmeňte to vo vlastných nastaveniach mesiaca.",
+  "view_default.month.event_gap": "Rozloženie mesiaca oddeľuje udalosti v zozname dňa bez ohľadu na toto nastavenie, aby každá tvorila samostatný blok. Zmeňte to vo vlastných nastaveniach mesiaca.",
   "days_to_show": "Zobrazované dni",
   "days_to_show.aliases": "počet dní, dni dopredu, týždne dopredu, nasledujúce týždne, rozsah dátumov, obdobie",
   "days_to_show.helper": "Každé rozloženie môže mať vlastný počet. Karta načíta najdlhší raz, takže prepnutie rozloženia nikdy nič znova nenačítava.",

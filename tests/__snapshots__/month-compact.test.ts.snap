@@ -180,7 +180,7 @@ exports[`a compact day > matches its snapshot 1`] = `
 </div>
 <div class="month-day-list">
 <div class="month-day-list-header"><span class="month-day-list-date">Wednesday, November 18, 2026</span></div>
-<table class="month-day-table">
+<table class="month-day-table with-event-gap">
 <tr>
 <td class=" event event-first " style="--calendar-card-event-accent-bar-color:#16a34a;">
 <span class="event-accent-bar"></span>
@@ -197,6 +197,8 @@ exports[`a compact day > matches its snapshot 1`] = `
 </div>
 </div>
 </td>
+</tr><tr class="event-gap-row" aria-hidden="true">
+<td class="event-gap-cell"></td>
 </tr><tr>
 <td class=" event event-middle past-event " style="--calendar-card-event-accent-bar-color:#3b82f6;">
 <span class="event-accent-bar"></span>
@@ -213,6 +215,8 @@ exports[`a compact day > matches its snapshot 1`] = `
 </div>
 </div>
 </td>
+</tr><!--?--><tr class="event-gap-row" aria-hidden="true">
+<td class="event-gap-cell"></td>
 </tr><tr>
 <td class=" event event-middle past-event " style="--calendar-card-event-accent-bar-color:#16a34a;">
 <span class="event-accent-bar"></span>
@@ -229,6 +233,8 @@ exports[`a compact day > matches its snapshot 1`] = `
 </div>
 </div>
 </td>
+</tr><!--?--><tr class="event-gap-row" aria-hidden="true">
+<td class="event-gap-cell"></td>
 </tr><tr>
 <td class=" event event-last " style="--calendar-card-event-accent-bar-color:#3b82f6;">
 <span class="event-accent-bar"></span>
@@ -249,7 +255,7 @@ exports[`a compact day > matches its snapshot 1`] = `
 </div>
 </div>
 </td>
-</tr>
+</tr><!--?-->
 </table>
 </div>"
 `;

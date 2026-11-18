@@ -434,7 +434,7 @@ const APPROVED_MAP: ReadonlyArray<
       // Month's own height, beside the Height it yields to.
       'layout:month.row_height A M',
       'layout:additional_card_spacing A',
-      'layout:event_gap A SLC',
+      'layout:event_gap A SLCM',
       'layout:event_spacing A SLCM',
     ],
   ],

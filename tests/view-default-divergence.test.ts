@@ -114,14 +114,23 @@ const CROSS_VIEW_ACKNOWLEDGEMENTS: Readonly<
       verdict: 'inherits',
       why: 'A suppression the user asked for, and column has no reason to refuse it. Grid diverges to keep the morning from emptying as the day passes, which is a property of a fixed time axis that column does not have.',
     },
+    event_gap: {
+      verdict: 'inherits',
+      why: 'A column stacks a day of events under its date as a list does, so the shipped 0px joins them into one block there too and a card-wide gap reaches it. Month diverges because its day list holds one day under its name, with no date beside it to join against.',
+    },
   },
   grid: {
+    event_gap: {
+      verdict: 'ignores',
+      why: 'A grid block is placed by its time and kept apart by the grid layout itself, and nothing in grid reads the gap, so VIEW_SCOPE keeps it out; Month diverges for its day list alone.',
+    },
     split_multiday_events: {
       verdict: 'ignores',
       why: 'Deliberately absent from TIME_GRID_DEFAULT_OVERRIDES rather than defaulted off: a default in that table is overridable from the view block, so time_grid: { split_multiday_events: true } would imply the upstream list splitter could be switched back on. Grid answers never via multidaySplitPolicy and derives its own daily coverage before filtering.',
     },
   },
-  // Month diverges on `show_past_events` alone. Its lines paint on the card background with the
+  // Month diverges on `show_past_events`, and on `event_gap` for its day list, whose events read
+  // better apart under one day's name. Its lines paint on the card background with the
   // card's ink, as a column row does. Its bars are Grid's banner, which takes Grid's tint and ink
   // where the card leaves event_background_opacity, event_color and time_color at their shipped
   // values (`barConfig` in `rendering/month.ts`), so none of the three needs a divergent default.
