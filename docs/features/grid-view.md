@@ -323,8 +323,9 @@ time_grid:
 ```
 
 - Keep it faint, since event text sits on top of it. `transparent` turns it off.
-- It is a grid-only option, so it lives in `time_grid:` rather than beside the card-level
-  `weekend_*` text colors.
+- It lives in `time_grid:` rather than beside the card-level `weekend_*` text colors. Month view
+  takes the same option in `month:`; see
+  [Shading the Weekend & Today](/features/month-view#shading-the-weekend-today).
 - The tint runs from just under the date row, through the all-day band and down the hours, as
   one continuous column. The date row itself stays clear.
 - Which days are shaded comes from the
@@ -363,7 +364,7 @@ time_grid:
   next day's column.
 - When today falls on the weekend, today's color replaces the weekend shading on that column
   rather than mixing with it. The rest of the weekend keeps its own shade.
-- It is a grid-only option, so it lives in `time_grid:`.
+- It lives in `time_grid:`. Month view takes the same option in `month:`.
 
 ::: details Today Beside a Weekend Day
 The weekend shading fills the gap between two weekend days. With today's tint on and today a
