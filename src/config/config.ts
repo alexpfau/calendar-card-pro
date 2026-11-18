@@ -746,6 +746,7 @@ export const LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set(
 export const FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set([
   'title_font_size',
   'week_number_font_size',
+  'month_separator_label_font_size',
   'weekday_font_size',
   'day_font_size',
   'month_font_size',

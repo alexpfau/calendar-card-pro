@@ -251,9 +251,9 @@ A few more classes mark something the card draws only some of the time:
 - With [`month_separator_label`](/features/layout-appearance#naming-the-month-on-its-rule), list
   view's month rule holds `.month-separator-label`, the month's name, and `.month-separator-line`,
   the rule after it, inside `.month-separator-labeled`. The rule is that line's top border, no
-  longer the `border-top` of `.month-separator`. The label's color and size are set on the
-  element itself, from `month_separator_label_color` and `month_separator_label_font_size`, so a
-  card-mod rule changing them needs `!important`; the two options are simpler.
+  longer the `border-top` of `.month-separator`. The label's color is set on the element itself
+  and its size comes from the card, so a card-mod rule changing either needs `!important`;
+  `month_separator_label_color` and `month_separator_label_font_size` are simpler.
 - `.event-title`, `.time` and `.location` are plain element classes with no state attached.
 
 Every event's accent bar is an element of its own, `.event-accent-bar`, the first child of the

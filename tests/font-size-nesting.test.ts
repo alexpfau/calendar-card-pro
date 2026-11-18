@@ -598,6 +598,16 @@ const VARIANTS: Array<[string, Record<string, unknown>]> = [
   // option, so both are drawn here beside the controls they must not be nested in. Without
   // the date navigation the month is plain text.
   ['header toolbar', { toolbar: { show: true, navigation: false, legend: false } }],
+  // The month's name on its rule, on the plain rule (July begins mid-week) and in the week row
+  // (June 1 begins an ISO week too). List view only; the other views repeat the base.
+  [
+    'month name on its rule',
+    { start_date: '2026-06-29', month_separator_width: '2px', month_separator_label: true },
+  ],
+  [
+    'month name in the week row',
+    { start_date: '2026-05-30', month_separator_width: '2px', month_separator_label: true },
+  ],
   // With the date navigation the month is a button of its own, beside the arrows.
   ['date navigation', { toolbar: { show: true, navigation: true, legend: false } }],
   // The legend's chips at the end of the heading row, at the control size.
@@ -1081,6 +1091,9 @@ describe('every piece of text is sized by its own option', () => {
       'legend-menu-label in legend-menu-row': ['--ha-font-size-m'],
       'month in column-date-content': ['month_font_size'],
       'month in date-column': ['month_font_size'],
+      // The month's name on its rule: on the plain rule, and in the week row beside the pill.
+      'month-separator-label in month-separator': ['month_separator_label_font_size'],
+      'month-separator-label in month-separator-labeled': ['month_separator_label_font_size'],
       'now-indicator in now-time': ['time_font_size'],
       'span in description': ['description_font_size'],
       'span in event-weather-text': ['weather.event.font_size'],

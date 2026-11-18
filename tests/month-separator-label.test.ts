@@ -18,6 +18,7 @@ import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Grid from '../src/rendering/grid';
 import * as Render from '../src/rendering/render';
+import { cardStyles, generateCustomPropertiesObject } from '../src/rendering/styles';
 import * as EventUtils from '../src/utils/events';
 
 /** One event a day on each date given. */
@@ -410,14 +411,29 @@ describe("the month name's color and size", () => {
     expect(rule.style.getPropertyValue('--separator-border-color').trim()).toBe('#ff0000');
   });
 
-  it('is 12px by default, and keeps a size as written, in any unit, on both paths', () => {
+  it('takes its size from the card, 12px unless set, the list block over the top level', () => {
+    const PROPERTY = '--calendar-card-month-separator-label-font-size';
+    const sizeFor = (overrides: Partial<Types.Config>): string =>
+      generateCustomPropertiesObject(
+        ViewConfig.resolveEffectiveConfig(buildConfig(overrides), 'list'),
+      )[PROPERTY];
+
+    expect(sizeFor({})).toBe('12px');
+    for (const size of ['16px', '1.2em', '0.9rem', 'small', 'calc(10px + 0.2em)']) {
+      expect(sizeFor({ month_separator_label_font_size: size }), size).toBe(size);
+    }
+    expect(
+      sizeFor({
+        month_separator_label_font_size: '16px',
+        list: { month_separator_label_font_size: '1.5em' },
+      } as Partial<Types.Config>),
+    ).toBe('1.5em');
+    // The label reads it, on both paths, and is not sized inline over it.
+    expect(cardStyles.cssText).toMatch(
+      new RegExp(`\\.month-separator-label \\{[^}]*font-size: var\\(${PROPERTY}\\);`),
+    );
     for (const weekRow of [false, true]) {
-      expect(labelStyle({}, weekRow).fontSize, String(weekRow)).toBe('12px');
-      for (const size of ['16px', '1.2em', '0.9rem', 'small', 'calc(10px + 0.2em)']) {
-        expect(labelStyle({ month_separator_label_font_size: size }, weekRow).fontSize, size).toBe(
-          size,
-        );
-      }
+      expect(labelStyle({ month_separator_label_font_size: '20px' }, weekRow).fontSize).toBe('');
     }
   });
 });

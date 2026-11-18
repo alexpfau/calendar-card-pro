@@ -226,6 +226,7 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     '--calendar-card-today-indicator-size': config.today_indicator_size,
 
     '--calendar-card-week-number-font-size': config.week_number_font_size,
+    '--calendar-card-month-separator-label-font-size': config.month_separator_label_font_size,
     '--calendar-card-week-number-color': config.week_number_color,
     '--calendar-card-week-number-bg-color': config.week_number_background_color,
 
@@ -1780,14 +1781,14 @@ export const cardStyles = css`
     border-top-style: none;
   }
 
-  /* 12px and 500, as the week number beside it. Its color and size are written inline from the
-     two options, and the browser drops an inline size that is not one, so 12px here is also the
-     fallback. A name too long for a narrow card wraps rather than widening the card: min-width 0
-     lets it shrink, and overflow-wrap lets a word break. */
+  /* Weight 500, as the week number beside it, at month_separator_label_font_size, 12px unless
+     set; its color is written inline, as the rule's is. A name too long for a narrow card wraps
+     rather than widening the card: min-width 0 lets it shrink, and overflow-wrap lets a word
+     break. */
   .month-separator-label {
     flex: 0 1 auto;
     min-width: 0;
-    font-size: 12px;
+    font-size: var(--calendar-card-month-separator-label-font-size);
     font-weight: 500;
     line-height: 1.25;
     overflow-wrap: anywhere;

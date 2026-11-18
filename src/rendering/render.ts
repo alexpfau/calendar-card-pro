@@ -508,8 +508,9 @@ function renderMonthSeparator(
  * `month_separator_label`: the month the rule opens, abbreviated, with its year ("Dec 2026"),
  * in the card's language and in its direction.
  *
- * Its color is `month_separator_label_color`, or the rule's own color where that is unset, and
- * its size `month_separator_label_font_size`, both written inline as the date column's are.
+ * Its color is `month_separator_label_color`, or the rule's own color where that is unset,
+ * written inline as the rule's own is. Its size reaches it through the card's custom properties,
+ * as every font size does.
  *
  * Marked with the card's language, so a screen reader speaks it in that language on a dashboard
  * set to another. It is plain text, read where it stands, between the two days it divides.
@@ -532,7 +533,6 @@ function renderMonthLabel(
   );
   const style = styleMap({
     color: ColorMix.floorColor(config.month_separator_label_color || config.month_separator_color),
-    'font-size': config.month_separator_label_font_size,
   });
 
   return html`<span class="month-separator-label" lang=${language} style=${style}>${text}</span>
