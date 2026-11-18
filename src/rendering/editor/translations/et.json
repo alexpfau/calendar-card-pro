@@ -944,6 +944,8 @@
   "month_separator_width": "Kuujoone laius",
   "month_separator_color": "Kuujoone värv",
   "month_separator_label": "Kuu nimi kuujoonel",
+  "month_separator_label_color": "Kuu nime värv",
+  "month_separator_label_font_size": "Kuu nime fondi suurus",
   "column.day_header_separator_width.helper": "See mahub päevapäise vahesse, nii et selle väljalülitamine sündmusi ei nihuta.",
   "column.day_header_separator_width": "Päevapäise joone laius",
   "column.day_header_separator_color": "Päevapäise joone värv",

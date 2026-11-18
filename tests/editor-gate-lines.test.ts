@@ -81,6 +81,8 @@ describe('the gate lines’ clauses', () => {
       'progress_bar events:show_progress_bar': 'gate.when.pressed',
       'month day_header:show_month': 'gate.when.on',
       'month_label separators:month_separator_width': 'gate.when.month_rule',
+      'month_label_style separators:month_separator_width': 'gate.when.month_rule',
+      'month_label_style separators:month_separator_label': 'gate.when.on',
       'week_numbers day_header:week_number_mode': 'gate.when.week_numbers',
       'indicator_color day_header:today_indicator_style': 'gate.when.indicator_shown',
       'indicator_size day_header:today_indicator_style': 'gate.when.indicator_marker',
@@ -146,9 +148,9 @@ describe('the gate lines’ clauses', () => {
     const switches = conditions.filter((where) => clauses(ALL)[where] === 'gate.when.on');
     // The denominators, so an empty answer below is a check that ran.
     expect(conditions.length).toBeGreaterThan(30);
-    // Three since the event parts became chips: Show Month, Show Toolbar and Show
-    // Conditions Beside Events.
-    expect(switches.length).toBe(3);
+    // Four since the event parts became chips: Show Month, Show Toolbar, Show Conditions Beside
+    // Events and Month Name on Rule.
+    expect(switches.length).toBe(4);
     expect(unclaused(ALL)).toEqual([]);
   });
 

@@ -943,6 +943,8 @@
   "month_separator_width": "Mėnesio linijos plotis",
   "month_separator_color": "Mėnesio linijos spalva",
   "month_separator_label": "Mėnesio pavadinimas ant linijos",
+  "month_separator_label_color": "Mėnesio pavadinimo spalva",
+  "month_separator_label_font_size": "Mėnesio pavadinimo šrifto dydis",
   "column.day_header_separator_width.helper": "Ji telpa dienos antraštės tarpe, todėl ją išjungus įvykiai nepasislenka.",
   "column.day_header_separator_width": "Dienos antraštės linijos plotis",
   "column.day_header_separator_color": "Dienos antraštės linijos spalva",

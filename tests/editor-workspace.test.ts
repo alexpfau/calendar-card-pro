@@ -159,8 +159,10 @@ function enabled(view: Types.EffectiveView): Partial<Types.Config> {
     compact_events_to_show: 3,
     compact_events_complete_days: true,
     today_indicator: true,
-    // The parent of `month_separator_label`: without a month rule it is never built.
+    // The parents of the month name's three fields: without a month rule none is built, and
+    // without the name its color and size are not.
     month_separator_width: '1px',
+    month_separator_label: true,
     column: { event_font_size: '19px', show_location: true },
     time_grid: { event_font_size: '23px', show_empty_days: true },
   };

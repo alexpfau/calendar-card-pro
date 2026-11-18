@@ -945,6 +945,8 @@
   "month_separator_width": "Månadslinjens bredd",
   "month_separator_color": "Månadslinjens färg",
   "month_separator_label": "Månadsnamn på linjen",
+  "month_separator_label_color": "Månadsnamnets färg",
+  "month_separator_label_font_size": "Månadsnamnets fontstorlek",
   "column.day_header_separator_width.helper": "Den ligger inom avståndet under dagrubriken, så att stänga av den flyttar inte händelserna.",
   "column.day_header_separator_width": "Dagrubrikslinjens bredd",
   "column.day_header_separator_color": "Dagrubrikslinjens färg",

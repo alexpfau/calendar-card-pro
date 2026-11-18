@@ -63,7 +63,7 @@ describe('the list block is a registered peer', () => {
     expect(listBlock().defaultOverrides).toEqual({});
   });
 
-  it('carries every key column can override, plus the eight list-only ones', () => {
+  it('carries every key column can override, plus the ten list-only ones', () => {
     expect(new Set(ViewConfig.LIST_OVERRIDE_KEYS)).toEqual(
       new Set([...ViewConfig.COLUMN_OVERRIDE_KEYS, ...LIST_ONLY]),
     );
@@ -74,6 +74,8 @@ describe('the list block is a registered peer', () => {
       'date_vertical_alignment',
       'event_order',
       'month_separator_label',
+      'month_separator_label_color',
+      'month_separator_label_font_size',
       'skip_first_events',
       'today_indicator_position',
     ]);

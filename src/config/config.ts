@@ -71,6 +71,8 @@ export const DEFAULT_CONFIG: Types.Config = {
   month_separator_width: '0px',
   month_separator_color: 'var(--primary-text-color)',
   month_separator_label: false,
+  month_separator_label_color: undefined, // Inherit from month_separator_color
+  month_separator_label_font_size: '12px',
 
   today_indicator: 'tile',
   today_indicator_position: '15% 50%',

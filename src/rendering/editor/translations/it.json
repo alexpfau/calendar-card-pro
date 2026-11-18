@@ -943,6 +943,8 @@
   "month_separator_width": "Larghezza divisore mesi",
   "month_separator_color": "Colore divisore mesi",
   "month_separator_label": "Nome del mese sul divisore",
+  "month_separator_label_color": "Colore nome del mese",
+  "month_separator_label_font_size": "Dimensione font nome del mese",
   "column.day_header_separator_width.helper": "Sta dentro lo spazio sotto l'intestazione del giorno, quindi disattivarla non sposta gli eventi.",
   "column.day_header_separator_width": "Larghezza divisore intestazione",
   "column.day_header_separator_color": "Colore divisore intestazione",

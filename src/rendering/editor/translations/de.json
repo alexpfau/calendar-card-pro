@@ -946,6 +946,8 @@
   "month_separator_width": "Breite der Monatstrennlinie",
   "month_separator_color": "Farbe der Monatstrennlinie",
   "month_separator_label": "Monatsname an der Trennlinie",
+  "month_separator_label_color": "Farbe des Monatsnamens",
+  "month_separator_label_font_size": "Schriftgröße des Monatsnamens",
   "column.day_header_separator_width.helper": "Die Linie liegt innerhalb des Abstands der Tagesüberschrift, das Ausschalten verschiebt die Termine also nicht.",
   "column.day_header_separator_width": "Breite der Trennlinie",
   "column.day_header_separator_color": "Farbe der Trennlinie",

@@ -20,6 +20,7 @@ export const FOLLOWS: Readonly<Record<string, string>> = {
   today_weekday_color: 'weekday_color',
   today_day_color: 'day_color',
   today_month_color: 'month_color',
+  month_separator_label_color: 'month_separator_color',
 };
 
 /**

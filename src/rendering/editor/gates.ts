@@ -200,6 +200,17 @@ const BY_EVENT = phrased(
   'gate.when.forecast_by_event',
 );
 
+// A month rule is drawn, read as the card reads the width: unless the width is a zero length.
+const MONTH_RULE = phrased(
+  needs(
+    'separators:month_separator_width',
+    '1px',
+    (value) => typeof value === 'string' && !isZeroLength(value),
+  ),
+  undefined,
+  'gate.when.month_rule',
+);
+
 export const GATES: Readonly<Record<string, Gate>> = {
   time: {
     fields: [
@@ -276,18 +287,18 @@ export const GATES: Readonly<Record<string, Gate>> = {
     requires: [on('day_header:show_month')],
     kind: 'gate',
   },
-  // Read as the card reads the width: a rule is drawn unless the width is a zero length.
   month_label: {
     fields: ['separators:month_separator_label'],
-    requires: [
-      needs(
-        'separators:month_separator_width',
-        '1px',
-        (value) => typeof value === 'string' && !isZeroLength(value),
-      ),
-    ],
+    requires: [MONTH_RULE],
     kind: 'gate',
-    whenKey: 'gate.when.month_rule',
+  },
+  month_label_style: {
+    fields: [
+      'separators:month_separator_label_color',
+      'separators:month_separator_label_font_size',
+    ],
+    requires: [MONTH_RULE, on('separators:month_separator_label')],
+    kind: 'gate',
   },
   week_numbers: {
     fields: [

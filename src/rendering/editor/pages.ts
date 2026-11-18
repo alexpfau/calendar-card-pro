@@ -484,6 +484,8 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['separators:month_separator_width', A],
           ['separators:month_separator_color', A],
           ['separators:month_separator_label', A],
+          ['separators:month_separator_label_color', A],
+          ['separators:month_separator_label_font_size', A],
         ],
       },
       {

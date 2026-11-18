@@ -58,9 +58,10 @@ async function mount(language: string, view: Types.EffectiveView = 'grid') {
       config_version: 5,
       entities: ['calendar.anna'],
       view,
-      // A month rule, so the page draws the month's name on it too: a search lists a setting
-      // waiting on a condition, and the page would not draw it.
+      // A month rule with its name on, so the page draws the name and its color and size too: a
+      // search lists a setting waiting on a condition, and the page would not draw it.
       month_separator_width: '1px',
+      month_separator_label: true,
     },
     // Every rule the page can draw, so what a search reaches is compared with all of them.
     { hass: fakeHass({ language }), every: true },

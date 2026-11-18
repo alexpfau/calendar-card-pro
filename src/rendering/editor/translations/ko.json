@@ -765,6 +765,8 @@
   "month_separator_width": "월간 구분선 두께",
   "month_separator_color": "월간 구분선 색상",
   "month_separator_label": "구분선에 월 이름 표시",
+  "month_separator_label_color": "월 이름 색상",
+  "month_separator_label_font_size": "월 이름 글꼴 크기",
   "column.day_header_separator_width.helper": "일자 헤더 간격 내부에 위치하므로 끄더라도 이벤트가 이동하지 않습니다.",
   "column.day_header_separator_width": "일자 헤더 구분선 두께",
   "column.day_header_separator_color": "일자 헤더 구분선 색상",

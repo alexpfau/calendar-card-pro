@@ -89,6 +89,7 @@ describe('folded rows', () => {
       'value.same_as{"label":"<day_color>"}',
     );
     expect(Object.keys(FOLLOWS).sort()).toEqual([
+      'month_separator_label_color',
       'today_day_color',
       'today_month_color',
       'today_weekday_color',

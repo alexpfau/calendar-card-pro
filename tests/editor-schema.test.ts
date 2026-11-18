@@ -909,6 +909,8 @@ describe('editor: applicability', () => {
       skip_first_events: ['list'],
       // A column's or grid's month rule is a vertical line in a gutter, with no room for words.
       month_separator_label: ['list'],
+      month_separator_label_color: ['list'],
+      month_separator_label_font_size: ['list'],
       // Grid's card-level value is inert: all-day spans become one banner, and timed
       // events are segmented by the renderer instead of by the upstream list splitter.
       split_multiday_events: ['column', 'list'],
@@ -1826,8 +1828,9 @@ describe('editor: the panel set', () => {
       // Reveals the complete-days modifier, which is held back until there is an event
       // limit for it to modify.
       buildConfig({ compact_events_to_show: 3 }),
-      // The month's name on its rule is held back until a month rule is drawn.
-      buildConfig({ month_separator_width: '1px' }),
+      // The month's name on its rule is held back until a month rule is drawn, and its color
+      // and size until it is on.
+      buildConfig({ month_separator_width: '1px', month_separator_label: true }),
       // The all-day treatment select is only built once a position is chosen, so nothing
       // else in this sweep reaches it -- the same shape as compact_events_to_show above.
       buildConfig({ allday_badge: 'time' }),

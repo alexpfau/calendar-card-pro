@@ -833,12 +833,23 @@ list:
   month_separator_label: true
 ```
 
+| Option                            | Type    | Default                          | Description                                                  |
+| --------------------------------- | ------- | -------------------------------- | ------------------------------------------------------------ |
+| `month_separator_label`           | boolean | `false`                          | Name the month, abbreviated, at the start of each month rule |
+| `month_separator_label_color`     | string  | inherits `month_separator_color` | Color of the month's name                                    |
+| `month_separator_label_font_size` | string  | `12px`                           | Font size of the month's name                                |
+
+All three belong inside `list:`.
+
 - The label reads "Dec 2026" in English and follows the card's language: "Dez. 2026" in German,
   "2026年12月" in Japanese.
 - It names the month below the rule, so a list read latest first labels each block with its own
   month.
 - It needs a rule to sit on: with `month_separator_width` at `0px`, the default, nothing is drawn.
-  The rule keeps its own width and color, and the label takes your theme's text color.
+- The label is drawn in the rule's color unless `month_separator_label_color` gives it one of its
+  own, which keeps it readable beside a deliberately faint rule.
+  `month_separator_label_font_size` takes any CSS font size; a value that is not one falls back
+  to `12px`.
 - The first month shown has no rule above it, so it gets no label. A
   [toolbar](#header-toolbar), if you show one, names the month of the page's first day, or of
   its last day in a list read latest first. That is the first month shown unless the month has

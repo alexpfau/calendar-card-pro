@@ -1443,6 +1443,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   month_separator_width: 'Month Rule Width',
   month_separator_color: 'Month Rule Color',
   month_separator_label: 'Month Name on Rule',
+  month_separator_label_color: 'Month Name Color',
+  month_separator_label_font_size: 'Month Name Font Size',
   // The rule's own explanation moved onto the width field when the collapsible around it
   // became a sub-heading. A heading carries no helper, so leaving the text on the group
   // key would have deleted it from the editor rather than relocated it.

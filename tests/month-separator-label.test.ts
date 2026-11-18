@@ -13,6 +13,7 @@ import { render as litRender } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW, buildConfig } from './fixtures';
+import { DEFAULT_CONFIG } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Grid from '../src/rendering/grid';
@@ -354,14 +355,91 @@ describe('the month rule names its month', () => {
   });
 });
 
+describe("the month name's color and size", () => {
+  /** A color as the DOM reports it once written inline, so the comparison is like with like. */
+  const asWritten = (color: string): string => {
+    const probe = document.createElement('span');
+    probe.style.color = color;
+    return probe.style.color;
+  };
+
+  /** The first label's inline style, on the plain rule or in the week row. */
+  const labelStyle = (overrides: Partial<Types.Config>, weekRow = false): CSSStyleDeclaration => {
+    const container = weekRow
+      ? render({ ...WEEKS, ...overrides }, WEEK_START)
+      : render({ ...RULES, month_separator_label: true, ...overrides });
+    return container.querySelector<HTMLElement>('.month-separator-label')!.style;
+  };
+
+  it("takes the month rule's color while its own is unset, on both paths", () => {
+    for (const weekRow of [false, true]) {
+      expect(labelStyle({}, weekRow).color, String(weekRow)).toBe(asWritten('#ff0000'));
+      expect(labelStyle({ month_separator_color: '#0000ff' }, weekRow).color).toBe(
+        asWritten('#0000ff'),
+      );
+    }
+    // The control: the rule's color reaches the label only because it is the rule's, so a
+    // label drawn in the theme's text color would fail above.
+    expect(asWritten('#ff0000')).not.toBe(asWritten('var(--primary-text-color)'));
+  });
+
+  it("follows the default month rule color, the theme's text", () => {
+    const shipped = DEFAULT_CONFIG.month_separator_color;
+    expect(shipped).toBe('var(--primary-text-color)');
+    expect(labelStyle({ month_separator_color: shipped }).color).toBe(asWritten(shipped));
+  });
+
+  it("takes its own color over the rule's, and the list block over the top level", () => {
+    for (const weekRow of [false, true]) {
+      expect(labelStyle({ month_separator_label_color: '#00ff00' }, weekRow).color).toBe(
+        asWritten('#00ff00'),
+      );
+    }
+    expect(
+      labelStyle({
+        month_separator_label_color: '#00ff00',
+        list: { month_separator_label_color: '#123456' },
+      } as Partial<Types.Config>).color,
+    ).toBe(asWritten('#123456'));
+    // The rule keeps its own color.
+    const rule = render({
+      ...RULES,
+      month_separator_label: true,
+      month_separator_label_color: '#00ff00',
+    }).querySelector<HTMLElement>('.month-separator-labeled')!;
+    expect(rule.style.getPropertyValue('--separator-border-color').trim()).toBe('#ff0000');
+  });
+
+  it('is 12px by default, and keeps a size as written, in any unit, on both paths', () => {
+    for (const weekRow of [false, true]) {
+      expect(labelStyle({}, weekRow).fontSize, String(weekRow)).toBe('12px');
+      for (const size of ['16px', '1.2em', '0.9rem', 'small', 'calc(10px + 0.2em)']) {
+        expect(labelStyle({ month_separator_label_font_size: size }, weekRow).fontSize, size).toBe(
+          size,
+        );
+      }
+    }
+  });
+});
+
 describe('column and grid ignore the month label', () => {
   for (const view of ['column', 'grid'] as const) {
-    it(`draws ${view} view the same with the label on`, () => {
+    it(`draws ${view} view the same with the label and its style on`, () => {
       const markup = (label: boolean) =>
-        render({ ...RULES, month_separator_label: label }, MID_WEEK, view).innerHTML.replace(
-          /<!--[^>]*-->/g,
-          '',
-        );
+        render(
+          {
+            ...RULES,
+            ...(label
+              ? {
+                  month_separator_label: true,
+                  month_separator_label_color: '#00ff00',
+                  month_separator_label_font_size: '20px',
+                }
+              : {}),
+          },
+          MID_WEEK,
+          view,
+        ).innerHTML.replace(/<!--[^>]*-->/g, '');
 
       // The control: the month boundary is in view, so a month rule is drawn there.
       expect(markup(false)).toContain(`${view}-separator-month`);

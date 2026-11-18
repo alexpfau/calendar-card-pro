@@ -943,6 +943,8 @@
   "month_separator_width": "Szerokość dzielnika miesiąca",
   "month_separator_color": "Kolor dzielnika miesiąca",
   "month_separator_label": "Nazwa miesiąca na dzielniku",
+  "month_separator_label_color": "Kolor nazwy miesiąca",
+  "month_separator_label_font_size": "Rozmiar czcionki nazwy miesiąca",
   "column.day_header_separator_width.helper": "Dzielnik mieści się w odstępie nagłówka dnia, więc jego wyłączenie nie przesuwa wydarzeń.",
   "column.day_header_separator_width": "Szerokość dzielnika nagłówka",
   "column.day_header_separator_color": "Kolor dzielnika nagłówka",

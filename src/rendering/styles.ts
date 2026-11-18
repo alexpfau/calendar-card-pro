@@ -1780,15 +1780,16 @@ export const cardStyles = css`
     border-top-style: none;
   }
 
-  /* 12px and 500, as the week number beside it. A name too long for a narrow card wraps rather
-     than widening the card: min-width 0 lets it shrink, and overflow-wrap lets a word break. */
+  /* 12px and 500, as the week number beside it. Its color and size are written inline from the
+     two options, and the browser drops an inline size that is not one, so 12px here is also the
+     fallback. A name too long for a narrow card wraps rather than widening the card: min-width 0
+     lets it shrink, and overflow-wrap lets a word break. */
   .month-separator-label {
     flex: 0 1 auto;
     min-width: 0;
     font-size: 12px;
     font-weight: 500;
     line-height: 1.25;
-    color: var(--primary-text-color);
     overflow-wrap: anywhere;
   }
 
