@@ -8803,11 +8803,18 @@ class CalendarCardPro extends LitElement {
    * so a view that draws fewer days, or a narrow card that sheds some, never suggests a day
    * outside it. Within the page, rows are not consulted: a collapsed compact card, or an empty
    * day the card leaves out, still suggests today, the day an event is most often added for.
+   * A month suggests the day its compact form selects by itself (`defaultMonthDay`): today where
+   * it falls in the month the heading names, else that month's 1st, never a dimmed day of the
+   * month before that its first row opens on.
    *
    * @returns The dialog's `selectedDate`
    */
   private _newEventDate(): Date {
     const range = this._pageRange(this._pageShown);
+    if (this.effectiveView === 'month') {
+      const now = new Date();
+      return AddEvent.newEventDate(MonthDay.defaultMonthDay(range.start, now), 1, now);
+    }
     return AddEvent.newEventDate(range.start, range.days);
   }
 

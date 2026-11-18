@@ -714,6 +714,27 @@ describe('the selected day', () => {
     ]);
   });
 
+  it('dates the toolbar’s add on a wide month on the day the compact form would select', async () => {
+    const card = await mount({ toolbar: { show: true, add_event: true } });
+    expect(root(card).querySelector('.month-compact')).toBeNull();
+    const add = async () => {
+      root(card).querySelector<HTMLButtonElement>('.add-event-button')!.click();
+      await settle(card);
+    };
+    await add();
+    // December's rows open on November 30, drawn dimmed: its new event starts on December 1.
+    root(card).querySelectorAll<HTMLButtonElement>('.date-navigation-segment')[2].click();
+    await settle(card);
+    expect(root(card).querySelector('.month-container')!.getAttribute('aria-label')).toBe(
+      'December 2026',
+    );
+    await add();
+    const starts = dialogs
+      .filter(({ dialogTag }) => dialogTag === EVENT_POPOVER_TAG)
+      .map(({ dialogParams }) => (dialogParams as PopoverParams).times?.start);
+    expect(starts).toEqual([new Date(2026, 10, 18, 10), new Date(2026, 11, 1)]);
+  });
+
   it('adds on its day from the list, where day_tap_action adds', async () => {
     const card = await mount({ day_tap_action: { action: 'add-event' } }, 375);
     await tap(card, day(card, 19));
