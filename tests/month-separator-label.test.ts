@@ -7,6 +7,8 @@
  * drawn, so a branch that picks the wrong rule shows up as the wrong width.
  */
 
+import { readdirSync } from 'node:fs';
+
 import { render as litRender } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -98,6 +100,18 @@ function dashboard(language: string): Types.Hass {
     translationMetadata: { translations: { he: { isRTL: true }, en: { isRTL: false } } },
   } as unknown as Types.Hass;
 }
+
+/** The month label on, with week numbers, so a month that starts a week takes the week row. */
+const WEEKS: Partial<Types.Config> = {
+  ...RULES,
+  show_week_numbers: 'iso',
+  month_separator_label: true,
+};
+
+/** Every card language, read off the files as the card's own table is built from them. */
+const CARD_LANGUAGES = readdirSync('src/translations/languages')
+  .filter((file) => file.endsWith('.json'))
+  .map((file) => file.slice(0, -'.json'.length));
 
 const LRM = '\u200E';
 const RLM = '\u200F';
@@ -250,19 +264,20 @@ describe('the month rule names its month', () => {
     expect(labelsWith({ list: { month_separator_label: true } })).toEqual(['Jul 2026']);
   });
 
-  it('draws the label whether the dates show their month or not', () => {
+  it('draws the label whether the dates show their month or not, on both paths', () => {
     for (const showMonth of [false, true]) {
+      const on = { ...RULES, show_month: showMonth, month_separator_label: true };
+      expect(labels(render(on)), `plain ${showMonth}`).toEqual(['Jul 2026']);
       expect(
-        labels(render({ ...RULES, show_month: showMonth, month_separator_label: true })),
-        String(showMonth),
-      ).toEqual(['Jul 2026']);
+        labels(render({ ...on, show_week_numbers: 'iso' }, WEEK_START)),
+        `week row ${showMonth}`,
+      ).toEqual(['Feb 2027']);
     }
   });
 
   it("writes the month in the card's language, on both paths", () => {
     const july = new Date(2026, 6, 1);
     const february = new Date(2027, 1, 1);
-    const weeks = { ...RULES, show_week_numbers: 'iso', month_separator_label: true } as const;
     for (const language of ['de', 'pl', 'ja']) {
       const plain = render(
         { ...RULES, month_separator_label: true },
@@ -271,11 +286,13 @@ describe('the month rule names its month', () => {
         null,
         language,
       );
-      const row = render(weeks, WEEK_START, 'list', null, language);
+      const row = render(WEEKS, WEEK_START, 'list', null, language);
       expect(labels(plain), language).toEqual([intlMonth(july, language, 'short')]);
       expect(labels(row), language).toEqual([intlMonth(february, language, 'short')]);
       expect(row.querySelector('.week-row-table .month-separator-label'), language).not.toBeNull();
-      for (const label of plain.querySelectorAll('.month-separator-label')) {
+      for (const label of [plain, row].flatMap((each) => [
+        ...each.querySelectorAll('.month-separator-label'),
+      ])) {
         expect(label.getAttribute('lang'), language).toBe(language);
       }
     }
@@ -283,25 +300,38 @@ describe('the month rule names its month', () => {
     expect(intlMonth(july, 'de', 'short')).not.toBe(intlMonth(july, 'en', 'short'));
   });
 
-  it('names the month in full where the short form is only a number', () => {
-    // The oracle says which form names the month, so this asserts the renderer takes the label
-    // from the rule's own formatter, not from the plain short heading.
+  it('names the month in full where the short form is only a number, on both paths', () => {
+    // Which language abbreviates a month to its number is CLDR's to say and can change between
+    // runtimes, so the language is found in the runtime's own data rather than named here.
     const july = new Date(2026, 6, 1);
-    const named = (form: 'long' | 'short') =>
-      new Intl.DateTimeFormat('lt', { month: form, year: 'numeric' })
-        .formatToParts(july)
+    const february = new Date(2027, 1, 1);
+    const named = (language: string, date: Date, form: 'long' | 'short') =>
+      new Intl.DateTimeFormat(language, { month: form, year: 'numeric' })
+        .formatToParts(date)
         .some((part) => part.type === 'month' && /\p{L}/u.test(part.value));
-    expect(named('short')).toBe(false);
-    expect(named('long')).toBe(true);
-    expect(
-      labels(render({ ...RULES, month_separator_label: true }, MID_WEEK, 'list', null, 'lt')),
-    ).toEqual([intlMonth(july, 'lt', 'long')]);
+    const numeric = CARD_LANGUAGES.filter((language) =>
+      [july, february].every(
+        (date) => !named(language, date, 'short') && named(language, date, 'long'),
+      ),
+    );
+    // The denominator: some card language takes the fallback, or this test checked nothing.
+    expect(numeric.length).toBeGreaterThan(0);
+
+    for (const language of numeric) {
+      expect(
+        labels(render({ ...RULES, month_separator_label: true }, MID_WEEK, 'list', null, language)),
+        language,
+      ).toEqual([intlMonth(july, language, 'long')]);
+      expect(labels(render(WEEKS, WEEK_START, 'list', null, language)), language).toEqual([
+        intlMonth(february, language, 'long'),
+      ]);
+    }
   });
 
   it("keeps the label in its language's direction on a dashboard running the other way", () => {
     const july = new Date(2026, 6, 1);
     const february = new Date(2027, 1, 1);
-    const weeks = { ...RULES, show_week_numbers: 'iso', month_separator_label: true } as const;
+    const weeks = WEEKS;
     const on = { ...RULES, month_separator_label: true };
     const hebrewJuly = intlMonth(july, 'he', 'short');
     const hebrewFebruary = intlMonth(february, 'he', 'short');

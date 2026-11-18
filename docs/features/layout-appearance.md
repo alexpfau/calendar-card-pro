@@ -840,8 +840,9 @@ list:
 - It needs a rule to sit on: with `month_separator_width` at `0px`, the default, nothing is drawn.
   The rule keeps its own width and color, and the label takes your theme's text color.
 - The first month shown has no rule above it, so it gets no label. A
-  [toolbar](#header-toolbar), if you show one, names the month the page starts in, which is the
-  first month shown unless that month has no days on screen.
+  [toolbar](#header-toolbar), if you show one, names the month of the page's first day, or of
+  its last day in a list read latest first. That is the first month shown unless the month has
+  no days on screen.
 - With week numbers on, a month that starts a week draws its label just after the week number.
 - It applies in list view only; in column and grid view the month rule is a vertical line
   between two days, with no room for words.
