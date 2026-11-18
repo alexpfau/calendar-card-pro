@@ -549,11 +549,14 @@ export default css`
     fill: currentcolor;
   }
 
+  /* As tall as Change beside it, so the line keeps its height where a long name wraps Change
+     under it. */
   .scope-lead {
     display: inline-flex;
     align-items: center;
     gap: 8px;
     min-width: 0;
+    min-height: 44px;
   }
 
   /* --- Overview and pages ---------------------------------------------------
@@ -646,6 +649,7 @@ export default css`
     padding-inline: 16px;
   }
 
+  .scope-block,
   .scope,
   .displays,
   .chips {
@@ -750,17 +754,9 @@ export default css`
     fill: currentcolor;
   }
 
-  /* The switch keeps the button's own color, and wraps under the sentence on a narrow editor. */
-  .scope-preview {
-    flex-wrap: wrap;
-  }
-
   .scope-preview-text {
-    flex: 1 1 12em;
-  }
-
-  .scope-preview-switch {
-    color: var(--primary-color);
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   @supports (color: color-mix(in oklab, red, blue)) {
@@ -833,6 +829,12 @@ export default css`
 
   .row-group > .heading {
     padding: 8px 16px 4px;
+  }
+
+  /* Settings For leads the overview's Settings, inset as Starting Layout's rows are, over the
+     section rows it chooses the scope of. */
+  .row-group > .scope-block {
+    margin: 4px 16px 8px;
   }
 
   .heading {
@@ -1978,7 +1980,12 @@ export default css`
      equal share of it, whatever its word. A word wider than its share wraps, hyphenated in the
      page's language where the browser can, and broken only where it cannot. Settings For puts All
      Layouts on a row of its own (.segment-all, below). */
+  /* Positioned, so the hidden radio's containing block is its own segment. Left unpositioned, it
+     was Home Assistant's dialog body, across the shadow boundary, and WebKit scrolled that body to
+     the radio whenever it took focus, preventScroll or not: the whole dialog jumped. A hidden
+     input's segment, chip or row must always be positioned. */
   .segment {
+    position: relative;
     flex: 1 1 0;
     display: flex;
     align-items: center;

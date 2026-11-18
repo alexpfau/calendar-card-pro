@@ -119,11 +119,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'settings_for.help_shared': 'Every layout uses these unless it has its own value.',
   'settings_for.help_layout':
     'Edits here are written for {layout} and apply when the card shows it.',
-  'settings_for.preview': 'Editing {layout} · Preview Shows {displayed}',
-  // The preview switch beside it, and the line while it is on. Nothing is saved by either.
-  'settings_for.preview_switch': 'Preview {layout}',
-  'settings_for.previewing':
-    'Editing {layout} · Preview Shows {layout} · The Card Opens in {displayed}',
+  'settings_for.help_overview':
+    'Chooses the layout the pages edit, where a setting can differ by layout. Nothing on the card changes.',
+  // Under Settings For, and alone on a page that draws none, while the preview draws another
+  // layout than the card opens in. Nothing is saved by it.
+  'settings_for.preview': 'Preview shows {layout} · The card opens in {displayed}',
   'settings_for.grid_only': 'Applies when the card shows Grid.',
   'announce.scope': 'Now editing settings for {layout}.',
   'summary.pair': '{label}: {value}',

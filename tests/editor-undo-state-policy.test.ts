@@ -39,8 +39,9 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_banner',
     // Whether a fresh card's first focus was placed.
     '_greeted',
-    '_scopeChanged',
+    // Settings For's choices open, and the place they were last drawn open in.
     '_scopeOpen',
+    '_scopePlace',
     '_status',
     '_entryNotice',
     '_openStrip',
@@ -67,10 +68,8 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_pickLooks',
     '_picker',
     '_togglePick',
-    // The preview switch on Settings For, which draws the layout being edited and writes nothing.
-    '_previewScope',
+    // The preview drawn in the layout being edited, which writes nothing.
     '_scopePreview',
-    '_togglePreviewScope',
     // How the results are drawn: Edit Here, and the calendars' rows a folded result opened.
     '_editHere',
     '_openResults',
@@ -141,7 +140,7 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_localizeValue',
     '_back',
     '_onKeydown',
-    '_openScope',
+    '_toggleScope',
     '_pickScope',
     '_describe',
     '_addButton',

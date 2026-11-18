@@ -1,7 +1,8 @@
 /**
- * The preview switch on Settings For (`views/scope-preview.ts`): the preview's own card drawn in
+ * The preview following Settings For (`views/scope-preview.ts`): the preview's own card drawn in
  * the layout being edited, through its `setConfig`, following Home Assistant's rebuilds, and given
- * the configuration as written back when the switch goes off. Nothing reaches Home Assistant.
+ * the configuration as written back once it is to show the card as it opens. Nothing reaches Home
+ * Assistant.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -24,10 +25,10 @@ function fakeCard(): FakeCard {
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-describe('the preview switch', () => {
+describe('the preview of the layout being edited', () => {
   const written = { type: 'custom:calendar-card-pro', view: 'grid', days_to_show: 3 };
 
-  it('draws the layout asked for, once, and the card as written again when switched off', () => {
+  it('draws the layout asked for, once, and the card as written again once released', () => {
     document.body.innerHTML = '';
     const parent = document.createElement('div');
     document.body.append(parent);
@@ -43,7 +44,7 @@ describe('the preview switch', () => {
 
     preview.sync(undefined);
     expect(card.calls).toEqual([{ ...written, view: 'list' }, written]);
-    // Off again is no change.
+    // Released again is no change.
     preview.sync(undefined);
     expect(card.calls).toHaveLength(2);
   });
@@ -88,12 +89,12 @@ describe('the preview switch', () => {
     await settle();
     expect(second.calls).toEqual([written, { ...written, view: 'column' }]);
 
-    // Switched off after the rebuild: the new card goes back to the YAML, the old one is gone.
+    // Released after the rebuild: the new card goes back to the YAML, the old one is gone.
     preview.sync(undefined);
     expect(second.calls[second.calls.length - 1]).toEqual(written);
     expect(first.calls).toEqual([written, { ...written, view: 'column' }]);
 
-    // Off, a rebuild is Home Assistant's alone.
+    // Released, a rebuild is Home Assistant's alone.
     const third = build();
     await settle();
     expect(third.calls).toEqual([written]);

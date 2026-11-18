@@ -22,7 +22,7 @@ opens with, and a row for each page that holds the rest. Top to bottom:
 | **⋯ Editor Preferences**       | Show YAML Option Names, at the end of the search row                                                                     |
 | **Calendars**                  | The card's [calendars](#calendars), a row each                                                                           |
 | **Starting Layout**            | List, Columns, Grid or Month, the layout the card opens with, a row each with its picture                                |
-| **Settings**                   | A row per page, saying in one line what the page holds for this card                                                     |
+| **Settings**                   | Settings For, then a row per page, saying in one line what the page holds for this card                                  |
 | **More**                       | [What This Card Changes](#what-this-card-changes) and Start From an Example                                              |
 
 The settings rows open these pages:
@@ -151,18 +151,18 @@ entities:
 ## 🧭 Options for the Selected View
 
 Two controls decide what you see and what you edit. **Starting Layout**, on the overview, chooses
-the layout the card opens with and writes the existing `view` option. **Settings For**, at the top
-of each page, chooses which settings the pages edit: **All Layouts**, across the top, or **List**,
-**Columns**, **Grid** or **Month**, in a row under it. The arrow keys move through all five in that
-order. It starts on the layout the card displays and stays where you put it, from page to page,
-for the rest of the session. It is never saved to YAML. A calendar's page has no Settings For,
-since a calendar's settings apply to every layout, and nor does a page whose settings all apply to
-the whole card. The overview edits nothing a layout holds, so it has none either: its section rows
-and search results show the values for the layout Settings For last chose.
-
-On a card that stores values only for the layout it shows, and has no view switcher offering
-another layout in its toolbar, Settings For takes one line, **Settings for List · Change**;
-**Change** opens the five choices.
+the layout the card opens with and writes the existing `view` option. **Settings For** chooses
+which layout the pages edit. It is one line at the top of the overview's **Settings**, **Settings
+for List · Change**, and the same line opens every page whose settings can differ by layout.
+**Change** opens the five choices under it: **All Layouts**, across the top, or **List**,
+**Columns**, **Grid** or **Month**, in a row under it. Focus stays on **Change**; Tab moves into
+the choices, and the arrow keys move through all five in that order. **Change** or Escape closes
+them again, with focus on **Change**. It starts on the
+layout the card displays and stays where you put it, from page to page, for the rest of the
+session. Choosing writes nothing, adds no step to Undo, and is never saved to YAML. A calendar's
+page has no Settings For, since a calendar's settings apply to every layout, and nor does a page
+whose settings all apply to the whole card, such as Card & Header and Weather. The overview's
+section rows and search results show the values for the layout Settings For names.
 
 - **All Layouts** edits the shared base, the top level, which each layout falls back to. It
   offers only the options that have a shared meaning, so a layout-specific one is never written
@@ -177,14 +177,15 @@ another layout in its toolbar, Settings For takes one line, **Settings for List 
 - Card-wide options such as calendars, title, language and actions stay card-wide whatever is
   chosen, and carry a small link mark after their name, **Whole Card** to a screen reader.
 
-The choice follows your selection, not the preview's width-dependent fallback. When the two
-differ, a line says so, as in **Editing List · Preview Shows Grid**, and **Preview List** beside
-it draws List in Home Assistant's preview while you edit it. The card still opens in the layout
-Starting Layout names, and nothing is saved by the switch; it stays on for the session and follows
-the layout you choose. On the overview the preview shows the card as it opens, and returns to the
-layout you edit on the next page. To edit a List-only option used by a responsive fallback, choose
-List under Settings For; Starting Layout stays unchanged. [Search](#search) finds the settings only
-another layout offers.
+The preview shows the layout you edit, on the overview and on every page, whatever the preview's
+width would make it fall back to. When that is not the layout the card opens in, a line says so,
+as in **Preview shows Grid · The card opens in Month**, under Settings For, or alone on a page
+that has none. Nothing is saved by it: the card still opens in the layout Starting Layout names.
+All Layouts previews the card as it opens, with each layout's own values. Quick Setup and Split
+This Calendar show their own previews while they are open, and a line edited in place under
+[What This Card Changes](#what-this-card-changes) previews its own layout. To edit a List-only
+option used by a responsive fallback, choose List under Settings For; Starting Layout stays
+unchanged. [Search](#search) finds the settings only another layout offers.
 
 Hiding a control does not delete its stored value. For example, these empty-day options remain
 available to the List fallback, even though their controls are absent while editing Grid:
@@ -819,7 +820,7 @@ those controls has a new home, and searching for its old name still finds it.
 | **Separators**           | Size & Spacing                                                                                   |
 | **Weather**              | Weather                                                                                          |
 | **Actions & Refresh**    | Taps & Refresh                                                                                   |
-| **Editing Settings For** | Settings For, at the top of each page                                                            |
+| **Editing Settings For** | Settings For, at the top of the overview's Settings and of each page                             |
 
 ### Essentials Only
 

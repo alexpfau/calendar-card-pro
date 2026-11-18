@@ -44,15 +44,14 @@ function $(editor: MountedEditor, selector: string): HTMLElement | null {
 }
 
 /**
- * Whether Settings For is drawn as its compact line.
+ * Whether Settings For is drawn as its compact line alone, its choices closed.
  *
  * @param editor - Editor element
- * @returns True for the line, false for the four choices
+ * @returns True for the line alone, false with the five choices open under it
  */
 function compact(editor: MountedEditor): boolean {
-  if ($(editor, '.scope-compact') !== null) return true;
-  if ($(editor, 'fieldset.scope') !== null) return false;
-  throw new Error('The editor draws no Settings For');
+  if ($(editor, '.scope-compact') === null) throw new Error('The editor draws no Settings For');
+  return $(editor, 'fieldset.scope') === null;
 }
 
 /**
@@ -100,14 +99,14 @@ async function escape(
 }
 
 describe('the overview', () => {
-  it('draws its blocks in order, and no Settings For', async () => {
+  it('draws its blocks in order, Settings For at the top of Settings', async () => {
     const editor = await mountEditor(CARD);
-    // Nothing on the overview is edited for a scope: Settings For is the pages'.
-    expect($(editor, '.scope')).toBeNull();
     const blocks = [
       'section[data-heading="calendars"]',
       'section[data-heading="starting_layout"] > h3',
       'section[data-heading="starting_layout"] fieldset.displays',
+      '.row-group > h3',
+      '.row-group .scope-compact',
       '.row-group [data-focus="nav:card_header"]',
       '[data-quick-setup-open]',
     ].map((selector) => {
@@ -200,42 +199,31 @@ describe('a search by a page’s title', () => {
 });
 
 describe('Settings For', () => {
-  it('stays compact after a List card’s edit lands in list:', async () => {
-    const editor = await mountEditor({ ...CARD, view: 'list' });
+  it('stays its compact line on every page, whatever other layouts store or the switcher offers', async () => {
+    const editor = await mountEditor({
+      ...CARD,
+      view: 'list',
+      column: { event_font_size: '13px' },
+      toolbar: { show: true },
+    });
     await goPage(editor, 'events');
     expect(compact(editor)).toBe(true);
-
     await changeField(editor, 'events:event_font_size', '20px');
-    const written = lastConfig(editor)!;
-    expect(written.list).toMatchObject({ event_font_size: '20px' });
+    expect(lastConfig(editor)!.list).toMatchObject({ event_font_size: '20px' });
     await goPage(editor, 'day_header');
     expect(compact(editor)).toBe(true);
   });
 
-  it('is full when column: stores a value', async () => {
-    const editor = await mountEditor({ ...CARD, column: { event_font_size: '13px' } });
-    await goPage(editor, 'events');
-    expect(compact(editor)).toBe(false);
-  });
-
-  it('is full while the toolbar shows its View Switcher', async () => {
-    const editor = await mountEditor({ ...CARD, toolbar: { show: true } });
-    await goPage(editor, 'events');
-    expect(compact(editor)).toBe(false);
-  });
-
-  it('is full after Change, for the rest of the session', async () => {
+  it('opens on Change and closes when the editor goes elsewhere', async () => {
     const editor = await mountEditor(CARD);
     await goPage(editor, 'events');
-    expect(compact(editor)).toBe(true);
     await click(editor, '[data-focus="scope-change"]');
-    expect(compact(editor)).toBe(false);
-
-    // Choosing the scope it already had, moving about and editing: it stays full.
+    expect($(editor, 'fieldset.scope')).not.toBeNull();
     await changeField(editor, 'workspace:editing_workspace', 'shared');
-    await changeField(editor, 'card:title', 'Home');
+    expect($(editor, 'fieldset.scope')).not.toBeNull();
     await goPage(editor, 'day_header');
-    expect(compact(editor)).toBe(false);
+    expect($(editor, 'fieldset.scope')).toBeNull();
+    expect(compact(editor)).toBe(true);
   });
 
   it('is chosen on a page and kept on the overview and the next page', async () => {
@@ -243,11 +231,9 @@ describe('Settings For', () => {
     await goPage(editor, 'events');
     await changeField(editor, 'workspace:editing_workspace', 'column');
     await goOverview(editor);
-    expect($(editor, '.scope')).toBeNull();
+    expect($(editor, '.scope-line')?.textContent?.trim()).toBe('Settings for Columns');
     await goPage(editor, 'day_header');
-    expect(
-      editor.shadowRoot!.querySelector<HTMLInputElement>('input[name="scope"]:checked')?.value,
-    ).toBe('column');
+    expect($(editor, '.scope-line')?.textContent?.trim()).toBe('Settings for Columns');
   });
 });
 
@@ -349,7 +335,7 @@ describe('the Escape guard', () => {
     expect($(editor, 'h2.page-title')).toBeNull();
   });
 
-  // Settings For is drawn on a scope's pages only, so one left open is no disclosure elsewhere.
+  // Settings For's choices close when the editor goes elsewhere, so none is left open there.
   it.each([
     [
       'Back',
@@ -375,9 +361,9 @@ describe('the Escape guard', () => {
       prevented: false,
       reachedHost: true,
     });
-    // Still full on the next page, as after Change for the rest of the session.
+    // Closed on the next page too.
     await goPage(editor, 'day_header');
-    expect(compact(editor)).toBe(false);
+    expect(compact(editor)).toBe(true);
   });
 
   it('clears the query, then goes Back, after Change and Search Settings', async () => {

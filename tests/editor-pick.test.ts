@@ -328,3 +328,42 @@ describe('Pick From Preview', () => {
     expect(next.shadowRoot!.querySelector('.ccp-pick-layer')).toBeNull();
   });
 });
+
+// The preview follows Settings For through the card Home Assistant's dialog previews, found as
+// Pick From Preview finds it, and configured through its own `setConfig` (`views/scope-preview.ts`).
+describe('the preview in Home Assistant’s dialog', () => {
+  it('draws the layout Settings For names, and the card as it opens under All Layouts', async () => {
+    const month = { ...CONFIG, view: 'month' };
+    const { editor, card } = await dialog({ card: month, editor: month });
+    // What the preview's card is configured with, recorded rather than drawn: the card's own
+    // rendering is the card's tests' business, and happy-dom trips over focus in a redraw here.
+    const given: Array<Record<string, unknown>> = [];
+    vi.spyOn(card, 'setConfig').mockImplementation((config) => {
+      given.push(config as Record<string, unknown>);
+    });
+    const last = () => given[given.length - 1];
+    const shown = () => last()?.view ?? 'month';
+    const pick = async (scope: string) => {
+      (editor as unknown as { _pickScope(scope: string): void })._pickScope(scope);
+      await settle(editor, card);
+    };
+    expect(given).toEqual([]);
+
+    await pick('grid');
+    expect(shown()).toBe('grid');
+    // The configuration as written, `view` alone laid over it.
+    expect(last()).toEqual({ ...month, view: 'grid' });
+    // On a page too, where Settings For is the page's.
+    editor.shadowRoot!.querySelector<HTMLElement>('[data-focus="nav:size_spacing"]')!.click();
+    await settle(editor, card);
+    expect(shown()).toBe('grid');
+
+    // All Layouts: the card as it opens, handed back as written.
+    await pick('shared');
+    expect(last()).toEqual(month);
+    await pick('column');
+    expect(shown()).toBe('column');
+    await pick('month');
+    expect(last()).toEqual(month);
+  });
+});

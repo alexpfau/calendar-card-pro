@@ -933,19 +933,13 @@ export class CalendarCardProEditor extends LitElement {
   /** Where the editor is, and where Back goes (`navigation.ts`). */
   @state() private _nav: Navigation.NavState = Navigation.OVERVIEW;
 
-  /** Whether the scope was changed this session, which keeps Settings For full. */
-  @state() private _scopeChanged = false;
-
-  /** Whether Change opened Settings For, a disclosure Escape closes again. */
+  /** Whether Change opened Settings For's choices, a disclosure Change or Escape closes again. */
   @state() private _scopeOpen = false;
 
-  /**
-   * The preview switch on Settings For: while on, the preview draws the layout being edited, for
-   * the rest of the session and whichever layout that becomes (`views/scope-preview.ts`).
-   */
-  @state() private _previewScope = false;
+  /** The place Settings For was last drawn open in, which closes it elsewhere. */
+  private _scopePlace = '';
 
-  /** Draws the preview in the layout being edited while the switch is on. */
+  /** Draws the preview in the layout being edited (`views/scope-preview.ts`). */
   private _scopePreview = new ScopePreview(() => PickView.findPreviewCard(this), this);
 
   /**
@@ -1168,20 +1162,59 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * The layout the preview draws other than the one the card opens in: the layout being edited,
-   * while the preview switch is on, a page is open and nothing else is being previewed. The
-   * overview has no Settings For to say so, so it previews the card as it opens.
+   * The layout the preview draws other than the one the card opens in: the layout being edited.
+   * That is the scope, on the overview and on every page; on What This Card Changes, the layout of
+   * the line being edited in place, and the card as it opens while none is. Quick Setup and Split
+   * preview their own answers, and All Layouts is no layout of its own, so it previews the card as
+   * it opens, with every layout's own values.
    *
    * @returns The layout and the configuration it is laid over, or `undefined`
    */
   private _previewedScope():
     { view: Types.EffectiveView; config: Record<string, unknown> } | undefined {
-    if (!this._previewScope || !this._config) return undefined;
+    if (!this._config) return undefined;
     if (this._quickSetup !== undefined || this._split !== undefined) return undefined;
-    if (this._nav.route.kind === 'overview') return undefined;
-    const view = Workspace.viewForWorkspace(this._workspace);
+    const kind = this._nav.route.kind;
+    const edited =
+      kind === 'audit' || kind === 'notices'
+        ? (this._auditEdit?.group.workspace ?? 'shared')
+        : this._workspace;
+    const view = Workspace.viewForWorkspace(edited);
     if (view === undefined || view === this._viewForConfig(this._config)) return undefined;
     return { view, config: this._rawConfig };
+  }
+
+  /**
+   * The preview line, where the preview draws another layout than the card opens in: "Preview
+   * shows Grid · The card opens in Month".
+   *
+   * @param ctx - Schema context
+   * @returns The sentence, or `undefined` where the preview shows the card as it opens
+   */
+  private _previewSentence(ctx: SchemaCtx): string | undefined {
+    const previewed = this._previewedScope()?.view;
+    if (previewed === undefined) return undefined;
+    return this._string(ctx, 'settings_for.preview', {
+      layout: this._string(ctx, `editing_workspace.option.${previewed}.label`),
+      displayed: this._string(
+        ctx,
+        `editing_workspace.option.${this._viewForConfig(this._config!)}.label`,
+      ),
+    });
+  }
+
+  /**
+   * The preview line alone, for a place that draws no Settings For: a page for the whole card, a
+   * calendar's page, and the overview's search results. What This Card Changes draws none: a line
+   * edited there previews its own layout, which its group's title names, and a line drawn above it
+   * would move it.
+   *
+   * @param ctx - Schema context
+   * @returns The line, or nothing where the preview shows the card as it opens
+   */
+  private _renderPreviewLine(ctx: SchemaCtx): TemplateResult | typeof nothing {
+    const sentence = this._previewSentence(ctx);
+    return sentence === undefined ? nothing : Overview.previewLine(sentence);
   }
 
   private _lastDispatched?: Record<string, unknown>;
@@ -1198,6 +1231,13 @@ export class CalendarCardProEditor extends LitElement {
    */
   protected override willUpdate(): void {
     if (!this._config) return;
+    // Settings For's choices close when the editor goes to another place, as its other
+    // disclosures do; the place it is drawn next shows its line.
+    const place = Navigation.routeKey(this._nav.route);
+    if (place !== this._scopePlace) {
+      this._scopePlace = place;
+      this._scopeOpen = false;
+    }
     // Leaving the entry's page, by Back, Previous or Next Calendar or a result, cancels a split.
     const route = this._nav.route;
     const here = (key: number): boolean => route.kind === 'entry' && route.key === key;
@@ -4923,74 +4963,73 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Settings For, compact or full, as every page that depends on the scope draws it. The
-   * overview has none: it edits nothing a scope holds.
+   * Settings For, as the overview's Settings frame and every page that depends on the scope draw
+   * it: the compact line, the five choices under it once Change is pressed, and the preview line.
+   * On the overview its helper says which pages it governs, never that it governs them all: Card &
+   * Header and Weather apply to the whole card.
    *
    * @param ctx - Schema context
+   * @param overview - Whether it is drawn on the overview
    * @returns The control
    */
-  private _renderScope(ctx: SchemaCtx): TemplateResult {
-    const displayed = this._viewForConfig(this._config!);
+  private _renderScope(ctx: SchemaCtx, overview = false): TemplateResult {
     const workspace = this._workspace;
     const label = (each: Workspace.EditorWorkspace): string =>
       this._string(ctx, `editing_workspace.option.${each}.label`);
+    const help = overview
+      ? this._string(ctx, 'settings_for.help_overview')
+      : workspace === 'shared'
+        ? this._string(ctx, 'settings_for.help_shared')
+        : this._string(ctx, 'settings_for.help_layout', { layout: label(workspace) });
     return Overview.scopeControl(
       {
-        compact:
-          !this._scopeOpen &&
-          Workspace.isCompactScope(this._rawConfig, this._config!, displayed, this._scopeChanged),
+        open: this._scopeOpen,
         workspace,
         choices: Workspace.WORKSPACES.map((value) => ({ value, label: label(value) })),
-        displayedLabel: label(displayed),
-        // All Layouts included: a value List keeps of its own never reaches the preview from there.
-        previewDiffers: workspace !== displayed,
-        // Only a layout can be drawn; All Layouts is no layout of its own.
-        previewSwitch:
-          Workspace.viewForWorkspace(workspace) === undefined ? undefined : this._previewScope,
+        help,
+        preview: this._previewSentence(ctx),
       },
       this._t(ctx),
-      this._openScope,
+      this._toggleScope,
       this._pickScope,
-      this._togglePreviewScope,
     );
   }
 
-  /** The preview switch: the preview draws the layout being edited, or the card's own again. */
-  private _togglePreviewScope = (): void => {
-    this._previewScope = !this._previewScope;
-    this._focusSoon([Focus.byFocusKey('scope-preview')]);
-  };
-
   /**
-   * Whether the open place draws Settings For: a section page edited for a scope, as
-   * `_renderPage` draws it. `_scopeOpen` outlives the page, so elsewhere it opens nothing.
+   * Whether the open place draws Settings For: the overview, unless a query shows its results,
+   * and a section page edited for a scope, as `_renderPage` draws it. `_scopeOpen` outlives the
+   * place, so elsewhere it opens nothing.
    *
-   * @returns True on such a page
+   * @returns True where it is drawn
    */
   private _scopeDrawn(): boolean {
     const route = this._nav.route;
+    if (route.kind === 'overview') {
+      return !(Filter.hasQuery(this._filter) && this._resultsLeft === undefined);
+    }
     if (route.kind !== 'page') return false;
     const page = PAGES.find((each) => each.id === route.page);
     return page !== undefined && page.onlyIn === undefined && !isWholeCard(page);
   }
 
-  /** Change: Settings For opens as the four choices. */
-  private _openScope = (): void => {
-    this._scopeOpen = true;
-    this._focusSoon([`input[name="scope"]:checked`, `input[name="scope"]`]);
+  /**
+   * Change: Settings For's choices open under its line, or close again. Focus stays on Change
+   * either way, as a disclosure's button keeps it: Tab goes on into the choices.
+   */
+  private _toggleScope = (): void => {
+    this._scopeOpen = !this._scopeOpen;
+    this._focusSoon([Focus.byFocusKey('scope-change')]);
   };
 
   /**
-   * Changes the scope: writes nothing, keeps focus on the chosen option, says so, and keeps
-   * Settings For full for the rest of the session.
+   * Changes the scope: writes nothing and makes no undo step, keeps the choices open with focus on
+   * the chosen one, which arrow keys move, and says so.
    *
    * @param workspace - The scope chosen
    */
   private _pickScope = (workspace: Workspace.EditorWorkspace): void => {
     if (!this._config || workspace === this._workspace) return;
     this._selectedWorkspace = workspace;
-    this._scopeChanged = true;
-    this._scopeOpen = false;
     const ctx = this._ctx;
     this._say(
       this._string(ctx, 'announce.scope', {
@@ -5193,7 +5232,8 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * The overview: notices, Quick Setup's banner, the filter bar, then either what a query finds,
-   * grouped by page, or Calendars, Starting Layout, a row per section page and More.
+   * grouped by page, or Calendars, Starting Layout, Settings For over a row per section page, and
+   * More.
    *
    * @param ctx - Schema context
    * @param chassis - The chassis schemas
@@ -5231,8 +5271,8 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * What the overview draws below its filter bar: what a query finds, or Calendars, Starting
-   * Layout, a row per section page and More. Its summaries and results follow the scope the
-   * pages they open are edited in, which a page's Settings For chooses.
+   * Layout, Settings For over a row per section page, and More. Its summaries and results follow
+   * the scope the pages they open are edited in, which Settings For chooses here and on a page.
    *
    * @param ctx - Schema context
    * @param chassis - The chassis schemas
@@ -5246,7 +5286,8 @@ export class CalendarCardProEditor extends LitElement {
   ): TemplateResult {
     const t = this._t(ctx);
     if (Filter.hasQuery(this._filter) && this._resultsLeft === undefined) {
-      return this._renderResults(ctx, present);
+      // Settings For gives way to the results, and the preview line stays above them.
+      return html`${this._renderPreviewLine(ctx)} ${this._renderResults(ctx, present)}`;
     }
     const displayed = this._viewForConfig(this._config!);
     // A layout's own page is listed while the card shows that layout or it is the scope, and
@@ -5272,7 +5313,7 @@ export class CalendarCardProEditor extends LitElement {
     );
     const calendars = this._renderCalendars(ctx);
     return html`${calendars} ${this._renderDisplays(ctx, chassis)}
-    ${Overview.rowGroup(t('overview.settings'), rows)}
+    ${Overview.rowGroup(t('overview.settings'), rows, this._renderScope(ctx, true))}
     ${Overview.rowGroup(t('overview.more'), [
       Overview.navRow(
         {
@@ -6154,7 +6195,8 @@ export class CalendarCardProEditor extends LitElement {
       page.onlyIn !== undefined
         ? PageView.pageLine(t('settings_for.grid_only'))
         : isWholeCard(page)
-          ? PageView.pageLine(this._string(ctx, 'value_source.card'))
+          ? html`${PageView.pageLine(this._string(ctx, 'value_source.card'))}
+            ${this._renderPreviewLine(ctx)}`
           : this._renderScope(ctx);
     return html`<div class="page" data-page=${page.id}>
       ${PageView.pageHead(
@@ -8577,7 +8619,7 @@ export class CalendarCardProEditor extends LitElement {
         sub,
         this._string(ctx, 'entry.back'),
       )}
-      ${this._renderPickBanner(ctx)}
+      ${this._renderPickBanner(ctx)} ${this._renderPreviewLine(ctx)}
       ${
         pageOpen
           ? CalendarView.strip(
@@ -10294,10 +10336,7 @@ export class CalendarCardProEditor extends LitElement {
           : [this._workspace, ...Workspace.WORKSPACES].find((each) =>
               entityFieldIndex(entrySchema(stored!, this._ctxIn(each))).fields.has(field.id),
             );
-      if (scope !== undefined && scope !== this._workspace) {
-        this._selectedWorkspace = scope;
-        this._scopeChanged = true;
-      }
+      if (scope !== undefined && scope !== this._workspace) this._selectedWorkspace = scope;
       this._openStrip = undefined;
       this._openResult(
         {
