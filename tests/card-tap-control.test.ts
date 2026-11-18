@@ -222,10 +222,11 @@ describe("the card's tap, while the card hosts controls", () => {
     expect(control(card)!.getAttribute('aria-expanded')).toBe('true');
   });
 
-  it('says nothing about expanding where there is nothing to fold', async () => {
+  it('is no control at all where expand has nothing to fold', async () => {
     const card = await mount({ title: 'Family', tap_action: { action: 'expand' } });
 
-    expect(control(card)!.hasAttribute('aria-expanded')).toBe(false);
+    expect(control(card)).toBeNull();
+    expect(card.shadowRoot!.querySelector('ha-card > ha-ripple')).toBeNull();
   });
 });
 
