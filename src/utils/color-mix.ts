@@ -173,20 +173,6 @@ const SHARE_AFTER = new RegExp(String.raw`^([\s\S]*?)\s+(${PERCENTAGE})$`);
 const SHARE_BEFORE = new RegExp(String.raw`^(${PERCENTAGE})\s+([\s\S]+)$`);
 
 /**
- * Whether a text is one token, with no space outside its parentheses: `var(--a, b)` is one,
- * `var(--a) 20%` is not.
- */
-function isOneToken(text: string): boolean {
-  let depth = 0;
-  for (const ch of text) {
-    if (ch === '(') depth++;
-    else if (ch === ')') depth--;
-    else if (depth === 0 && /\s/.test(ch)) return false;
-  }
-  return depth === 0 && text !== '';
-}
-
-/**
  * One color of a color-mix() and the percentage written before or after it, if any. Anything
  * else written beside the color, such as `calc(20%)`, stays with the color, which then reads as
  * no color at all: the browser has to work that percentage out.
@@ -200,6 +186,26 @@ function mixPart(part: string): { color: string; share: number | undefined } {
 }
 
 /**
+ * A function written as one whole token, its name and the text inside its parentheses, or
+ * `undefined` where the parenthesis after the name closes before the end: `rgb(255 0 0)calc(80%)`
+ * and `rgb(255 0 0) calc(80%)` are a color followed by a percentage, not one `rgb()`.
+ */
+function functionCall(text: string): { name: string; body: string } | undefined {
+  const open = /^([a-z-]+)\(/.exec(text);
+  if (!open) return undefined;
+  let depth = 0;
+  for (let i = open[0].length - 1; i < text.length; i++) {
+    if (text[i] === '(') depth++;
+    else if (text[i] === ')' && --depth === 0) {
+      return i === text.length - 1
+        ? { name: open[1], body: text.slice(open[0].length, i) }
+        : undefined;
+    }
+  }
+  return undefined;
+}
+
+/**
  * How opaque a color inside a color-mix() is. A color named by a custom property is taken as
  * opaque, as a theme's colors are, but a fallback written beside it has to be opaque too: where
  * the property is missing, the fallback is drawn, and it may be translucent or carry a percentage
@@ -207,11 +213,12 @@ function mixPart(part: string): { color: string; share: number | undefined } {
  */
 function mixColorOpacity(color: string): number | undefined {
   if (color === 'transparent') return 0;
-  const named = /^var\(\s*--[^,\s)]+\s*(?:,([\s\S]*))?\)$/.exec(color);
+  const call = functionCall(color);
+  const named = call?.name === 'var' ? /^\s*--[^,\s)]+\s*(?:,([\s\S]*))?$/.exec(call.body) : null;
   if (!named) return opacityOf(color);
   if (named[1] === undefined) return 1;
   const fallback = named[1].trim();
-  return isOneToken(fallback) && mixColorOpacity(fallback) === 1 ? 1 : undefined;
+  return mixColorOpacity(fallback) === 1 ? 1 : undefined;
 }
 
 /**
@@ -256,8 +263,6 @@ function mixOpacity(body: string): number | undefined {
 export function opacityOf(value: unknown): number | undefined {
   if (typeof value !== 'string') return undefined;
   const color = value.trim().toLowerCase();
-  // One color, not a color with something written beside it: `rgb(255 0 0) calc(20%)`.
-  if (!isOneToken(color)) return undefined;
   if (color === 'transparent') return 0;
   const hex = /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/.exec(color);
   if (hex) {
@@ -266,9 +271,9 @@ export function opacityOf(value: unknown): number | undefined {
     const alpha = digits.length === 4 ? digits[3] + digits[3] : digits.slice(6);
     return parseInt(alpha, 16) / 255;
   }
-  const call = /^([a-z-]+)\(([\s\S]*)\)$/.exec(color);
+  const call = functionCall(color);
   if (!call) return /^[a-z]+$/.test(color) && !NOT_A_COLOR.has(color) ? 1 : undefined;
-  const [, name, body] = call;
+  const { name, body } = call;
   if (name === 'color-mix') return mixOpacity(body);
   if (!COLOR_FUNCTIONS.has(name)) return undefined;
   const slashed = splitTopLevel(body, '/');

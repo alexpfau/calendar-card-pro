@@ -164,6 +164,11 @@ describe('a light wash, which colors its own number', () => {
     ['color-mix(in srgb, var(--paint) calc(20%), transparent)', undefined],
     ['color-mix(in srgb, rgb(255 0 0) calc(20%), transparent)', undefined],
     ['rgb(255 0 0) calc(20%)', undefined],
+    // The same with no space between the two: a function ends at its own closing parenthesis.
+    ['color-mix(in srgb, rgb(255 0 0)calc(80%), transparent 80%)', undefined],
+    ['color-mix(in srgb, calc(80%)rgb(255 0 0), transparent 80%)', undefined],
+    ['color-mix(in srgb, var(--paint)calc(80%), transparent 80%)', undefined],
+    ['rgb(255 0 0)calc(80%)', undefined],
     // Not a color: a percentage over 100 is invalid, as is a zero sum in Chromium, where WebKit
     // draws it transparent. Neither is a wash.
     ['color-mix(in srgb, red 120%, transparent)', undefined],
