@@ -43,6 +43,11 @@ interface Family {
 
 /** Every alias string, by key, with the setting it must find. */
 const FAMILIES: Readonly<Record<string, Family>> = {
+  'toolbar.size.aliases': {
+    field: 'size',
+    scope: 'card',
+    queries: ['bigger buttons', 'larger buttons'],
+  },
   'entity.text_scale.aliases': {
     field: 'text_scale',
     scope: 'calendar',

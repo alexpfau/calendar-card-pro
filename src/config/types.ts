@@ -878,6 +878,13 @@ export interface WeatherPositionConfig {
 export type ToolbarLegendMode = 'menu' | 'chips';
 
 /**
+ * How large the toolbar draws the controls in the month's row, the date navigation and the
+ * calendar chips: `normal`, or `large`, nearly as large as the action row's buttons, for a touch
+ * screen.
+ */
+export type ToolbarSize = 'normal' | 'large';
+
+/**
  * The header toolbar, as written in the configuration: one switch for the bar, and one per
  * control in it.
  *
@@ -916,6 +923,12 @@ export interface ToolbarConfig {
    * heading row, or exactly the `menu` layout where they do not all fit; `false`, none.
    */
   legend?: false | ToolbarLegendMode;
+  /**
+   * How large the month's row draws the date navigation and the calendar chips: `normal`, or
+   * `large`, 32px, spaced and with icons as the action row's buttons are. The action row is the
+   * same size either way.
+   */
+  size?: ToolbarSize;
   /**
    * Buttons the configuration defines itself, drawn after add in the order written: each an icon
    * and an action, run as the card's own `tap_action` is. Where the action row runs out of room

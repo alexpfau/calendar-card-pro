@@ -764,10 +764,10 @@ describe('the universe', () => {
       );
     }
     expect(sizes).toEqual({
-      shared: { card: 150, calendar: 27 },
-      list: { card: 157, calendar: 28 },
-      column: { card: 156, calendar: 27 },
-      grid: { card: 155, calendar: 27 },
+      shared: { card: 151, calendar: 27 },
+      list: { card: 158, calendar: 28 },
+      column: { card: 157, calendar: 27 },
+      grid: { card: 156, calendar: 27 },
     });
   });
 
@@ -1025,6 +1025,7 @@ describe('the gate table', () => {
           'card:toolbar.refresh',
           'card:toolbar.search',
           'card:toolbar.navigation',
+          'card:toolbar.size',
         ],
         requires: [p('card:toolbar.show', true, ON)],
       },

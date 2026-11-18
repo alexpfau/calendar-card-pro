@@ -234,6 +234,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['card:toolbar.search', CONTROL],
           ['card:toolbar.navigation', CONTROL],
           ['card:toolbar.legend', 'segmented'],
+          ['card:toolbar.size', A],
         ],
       },
       {

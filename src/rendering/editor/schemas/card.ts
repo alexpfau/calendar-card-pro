@@ -81,6 +81,7 @@ export function buildCardSchema(ctx: SchemaCtx): HaFormSchema[] {
             bool('refresh'),
             bool('search'),
             bool('navigation'),
+            select(ctx.language, 'size', Config.TOOLBAR_SIZE_VALUES, 'toolbar.size'),
           ]
         : []),
     ]),
