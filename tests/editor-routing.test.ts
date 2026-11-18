@@ -102,14 +102,19 @@ describe('workspace routing uses the actual destination', () => {
     }
   });
 
-  it.each(View.VIEWS)('stores a day count edited in %s in that view’s block', (workspace) => {
-    const config = buildConfig({ view: 'grid', days_to_show: 5 });
-    const result = apply(config, workspace, { days_to_show: 9 }).config;
-    const key = View.OVERRIDE_BLOCK_BY_VIEW[workspace]!;
+  // Every layout with a day count: Month has none, always drawing six weeks, and its workspace
+  // offers no Days To Show to edit (`VIEW_SCOPE`).
+  it.each(View.VIEWS.filter((view) => View.appliesToView('days_to_show', view)))(
+    'stores a day count edited in %s in that view’s block',
+    (workspace) => {
+      const config = buildConfig({ view: 'grid', days_to_show: 5 });
+      const result = apply(config, workspace, { days_to_show: 9 }).config;
+      const key = View.OVERRIDE_BLOCK_BY_VIEW[workspace]!;
 
-    expect(result[key], workspace).toMatchObject({ days_to_show: 9 });
-    expect(result.days_to_show, workspace).toBe(5);
-  });
+      expect(result[key], workspace).toMatchObject({ days_to_show: 9 });
+      expect(result.days_to_show, workspace).toBe(5);
+    },
+  );
 
   it('stores a day count edited in Shared at root, for every view without its own', () => {
     const config = buildConfig({ view: 'grid', days_to_show: 5, time_grid: { days_to_show: 2 } });

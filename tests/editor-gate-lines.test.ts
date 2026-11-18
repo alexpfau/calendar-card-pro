@@ -86,6 +86,7 @@ describe('the gate lines’ clauses', () => {
       'today_when_empty content:show_empty_days': 'gate.when.empty_days_off',
       'duplicates content:filter_duplicates_mode': 'gate.when.duplicates',
       'toolbar card:toolbar.show': 'gate.when.on',
+      'week_scroll layout:month.week_scroll': 'gate.when.on',
       'forecast weather:weather.entity': 'gate.when.weather_entity',
       'forecast_by_day weather:weather.entity': 'gate.when.weather_entity',
       'forecast_by_day weather:weather.position': 'gate.when.forecast_by_day',
@@ -144,9 +145,9 @@ describe('the gate lines’ clauses', () => {
     const switches = conditions.filter((where) => clauses(ALL)[where] === 'gate.when.on');
     // The denominators, so an empty answer below is a check that ran.
     expect(conditions.length).toBeGreaterThan(30);
-    // Three since the event parts became chips: Show Month, Show Toolbar and Show
-    // Conditions Beside Events.
-    expect(switches.length).toBe(3);
+    // Four: three since the event parts became chips, Show Month, Show Toolbar and Show
+    // Conditions Beside Events, then Month's Week Scrolling.
+    expect(switches.length).toBe(4);
     expect(unclaused(ALL)).toEqual([]);
   });
 

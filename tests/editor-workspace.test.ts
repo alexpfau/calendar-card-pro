@@ -145,7 +145,15 @@ function enabled(view: Types.EffectiveView): Partial<Types.Config> {
         split_multiday_events: false,
       },
     ],
-    show_empty_days: true,
+    // Off everywhere, with Show Today When Empty on: `show_empty_today`, scoped since Month draws
+    // every day, is built only while Show Empty Days is off, which Columns and Grid default on,
+    // and Show Today When Empty keeps `empty_day_text` and `empty_day_color` built. Left on, it
+    // would read absent-because-gated as absent-because-withheld, the trap described below.
+    show_empty_days: false,
+    show_empty_today: true,
+    // Shown for the same reason: `week_number_background_color` is scoped since Month draws its
+    // week numbers as plain text, and is built only while week numbers are.
+    show_week_numbers: 'iso',
     // The three parents whose children are `VIEW_SCOPE` keys. Without them
     // `show_location_allday`, `show_description_allday` and `show_countdown_allday` are
     // never built at all, so the scope assertion below reads absent-because-gated as
@@ -159,8 +167,8 @@ function enabled(view: Types.EffectiveView): Partial<Types.Config> {
     compact_events_to_show: 3,
     compact_events_complete_days: true,
     today_indicator: true,
-    column: { event_font_size: '19px', show_location: true },
-    time_grid: { event_font_size: '23px', show_empty_days: true },
+    column: { event_font_size: '19px', show_location: true, show_empty_days: false },
+    time_grid: { event_font_size: '23px', show_empty_days: false },
   };
 }
 
@@ -175,14 +183,16 @@ function assertWorkspaceFields(editor: EditorHost, current: EditorWorkspace): vo
     expect(main.includes(key), `${current}: ${key}`).toBe(expected);
   }
   expect(main.includes('hour_height')).toBe(current === 'grid');
-  expect(main.includes('min_day_width')).toBe(current === 'grid' || current === 'column');
+  expect(main.includes('min_day_width')).toBe(
+    current === 'grid' || current === 'column' || current === 'month',
+  );
   // Each of the calendar's fields is a form of its own on its entry page, so the calendar's
   // options are what all of its forms draw together.
   const entityForms = formsOf(editor, entry(0));
   expect(entityForms.length).toBeGreaterThan(0);
   const entity = entityForms.flatMap((form) => names(form.schema));
   expect(entity.includes('compact_events_to_show')).toBe(current === 'list');
-  expect(entity.includes('split_multiday_events')).toBe(current !== 'grid');
+  expect(entity.includes('split_multiday_events')).toBe(current !== 'grid' && current !== 'month');
   expect(editor.shadowRoot!.querySelectorAll('ha-form.exception-picker')).toHaveLength(0);
   if (current === 'list') {
     expect(editor.shadowRoot!.querySelectorAll('.width-table')).toHaveLength(0);

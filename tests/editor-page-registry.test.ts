@@ -131,7 +131,7 @@ function familyOf(appearance: Appearance): FamilyId | undefined {
  * with its marker (E essential, A Add, W a mode value, F a family member, B a toolbar button's
  * row, P an event part's chip, T a toolbar control's chip, R a radio group drawn with no head
  * row: Calendar Filter's and Start Date's) and the workspaces that offer it (S All Layouts, L
- * List, C Columns, G Grid; none means all four). Typed out from the approved map, never read from
+ * List, C Columns, G Grid, M Month; none means all five). Typed out from the approved map, never read from
  * `pages.ts`, so a field moved to another page, heading or marker fails here even where every
  * count still agrees. The overview edits no field of the registry's: Card Displays is its own.
  */
@@ -143,7 +143,7 @@ const APPROVED_MAP: ReadonlyArray<
     'Date Range',
     '',
     [
-      'content:days_to_show E',
+      'content:days_to_show E SLCG',
       // Start Date's chips, drawn as Calendar Filter is, with no head row.
       'content:start_date_mode R',
       'content:start_date_fixed W',
@@ -172,15 +172,15 @@ const APPROVED_MAP: ReadonlyArray<
     'Which Events',
     'Multi-Day Events',
     '',
-    ['content:split_multiday_events A SLC', 'content:multiday_banners A G'],
+    ['content:split_multiday_events A SLC', 'content:multiday_banners A SGM'],
   ],
   [
     'Which Events',
     'Empty Days',
     '',
     [
-      'content:show_empty_days E',
-      'content:show_empty_today E',
+      'content:show_empty_days E SLCG',
+      'content:show_empty_today E SLCG',
       'content:empty_day_text E SLC',
       'content:empty_day_color A SLC',
       'content:hide_when_empty A',
@@ -237,10 +237,10 @@ const APPROVED_MAP: ReadonlyArray<
       'day_header:date_vertical_alignment A L',
       'day_header:weekday_font_size A',
       'day_header:weekday_color A',
-      'day_header:day_font_size A',
+      'day_header:day_font_size A SLCG',
       'day_header:day_color A',
       'day_header:show_month E',
-      'day_header:month_font_size A',
+      'day_header:month_font_size A SLCG',
       'day_header:month_color A',
     ],
   ],
@@ -267,7 +267,7 @@ const APPROVED_MAP: ReadonlyArray<
       'day_header:show_current_week_number E',
       'day_header:week_number_font_size A',
       'day_header:week_number_color A',
-      'day_header:week_number_background_color A',
+      'day_header:week_number_background_color A SLCG',
     ],
   ],
   [
@@ -275,9 +275,9 @@ const APPROVED_MAP: ReadonlyArray<
     'Today',
     '',
     [
-      'day_header:today_date_scale A',
+      'day_header:today_date_scale A SLCG',
       'day_header:today_date_font_weight A',
-      'day_header:today_weekday_color A',
+      'day_header:today_weekday_color A SLCG',
       'day_header:today_day_color A',
       'day_header:today_month_color A',
     ],
@@ -291,7 +291,7 @@ const APPROVED_MAP: ReadonlyArray<
       'day_header:today_indicator_icon W',
       'day_header:today_indicator_custom W',
       'day_header:today_indicator_color A',
-      'day_header:today_indicator_size A',
+      'day_header:today_indicator_size A SLCG',
       'day_header:today_indicator_position A L',
     ],
   ],
@@ -301,7 +301,7 @@ const APPROVED_MAP: ReadonlyArray<
     'past_days',
     [
       'day_header:past_date_opacity F',
-      'day_header:past_date_scale F',
+      'day_header:past_date_scale F SLCG',
       'day_header:past_date_font_weight F',
     ],
   ],
@@ -327,9 +327,9 @@ const APPROVED_MAP: ReadonlyArray<
       'events:show_countdown P',
       'events:show_progress_bar P',
       'events:show_duration P',
-      'events:show_now_indicator P SLC',
+      'events:show_now_indicator P SLCM',
       'content:time_format E',
-      'events:time_position A SLC',
+      'events:time_position A SLCM',
     ],
   ],
   ['Event Appearance', 'Event State', '', ['events:now_color A']],
@@ -362,10 +362,10 @@ const APPROVED_MAP: ReadonlyArray<
     '',
     [
       'events:event_icon_vertical_alignment A',
-      'events:allday_badge_position A SLC',
-      'events:allday_badge_style W SLC',
-      'events:allday_badge_color_mode W SLC',
-      'events:allday_badge_color W SLC',
+      'events:allday_badge_position A SLCM',
+      'events:allday_badge_style W SLCM',
+      'events:allday_badge_color_mode W SLCM',
+      'events:allday_badge_color W SLCM',
     ],
   ],
   [
@@ -373,13 +373,13 @@ const APPROVED_MAP: ReadonlyArray<
     'Time',
     '',
     [
-      'events:show_single_allday_time A SLC',
-      'events:show_multiday_allday_time A SLC',
+      'events:show_single_allday_time A SLCM',
+      'events:show_multiday_allday_time A SLCM',
       'events:time_two_digit_hours A',
       'events:time_font_size A',
       'events:time_color A',
       'events:time_icon_size A',
-      'events:time_max_lines A SLC',
+      'events:time_max_lines A SLCM',
     ],
   ],
   [
@@ -387,7 +387,7 @@ const APPROVED_MAP: ReadonlyArray<
     'Location',
     '',
     [
-      'events:show_location_allday A SLC',
+      'events:show_location_allday A SLCM',
       'events:location_country_mode A',
       'events:location_country_pattern W',
       'events:location_font_size A',
@@ -401,7 +401,7 @@ const APPROVED_MAP: ReadonlyArray<
     'Description',
     '',
     [
-      'events:show_description_allday A SLC',
+      'events:show_description_allday A SLCM',
       'events:description_font_size A',
       'events:description_color A',
       'events:description_icon_size A',
@@ -414,8 +414,8 @@ const APPROVED_MAP: ReadonlyArray<
     '',
     [
       'events:countdown_max_days A',
-      'events:show_countdown_allday A SLC',
-      'events:countdown_once_per_day A SLC',
+      'events:show_countdown_allday A SLCM',
+      'events:countdown_once_per_day A SLCM',
       'events:countdown_exact_days A',
       'events:progress_bar_color A',
       'events:progress_bar_height A',
@@ -430,9 +430,11 @@ const APPROVED_MAP: ReadonlyArray<
       'layout:height_mode E',
       'layout:card_height W',
       'layout:card_max_height W',
+      // Month's own height, beside the Height it yields to.
+      'layout:month.row_height A M',
       'layout:additional_card_spacing A',
       'layout:event_gap A SLC',
-      'layout:event_spacing A SLC',
+      'layout:event_spacing A SLCM',
     ],
   ],
   [
@@ -455,6 +457,9 @@ const APPROVED_MAP: ReadonlyArray<
       'layout:time_grid.min_days_fallback F G',
     ],
   ],
+  // How narrow Month's days may get before it turns compact, beside the same question for Columns
+  // and Grid; one field, so no family.
+  ['Size & Spacing', 'Month Density', '', ['layout:month.min_day_width A M']],
   [
     'Size & Spacing',
     'Between Days',
@@ -462,12 +467,12 @@ const APPROVED_MAP: ReadonlyArray<
     [
       'layout:day_spacing A SLC',
       'separators:day_spacing A G',
-      'separators:day_separator_width A',
-      'separators:day_separator_color A',
-      'separators:week_separator_width A',
-      'separators:week_separator_color A',
-      'separators:month_separator_width A',
-      'separators:month_separator_color A',
+      'separators:day_separator_width A SLCG',
+      'separators:day_separator_color A SLCG',
+      'separators:week_separator_width A SLCG',
+      'separators:week_separator_color A SLCG',
+      'separators:month_separator_width A SLCG',
+      'separators:month_separator_color A SLCG',
     ],
   ],
   [
@@ -557,10 +562,17 @@ const APPROVED_MAP: ReadonlyArray<
       'actions:day_tap_action_mode E',
       'actions:event_tap_action E',
       'actions:event_hold_action A',
-      'actions:open_links A SLC',
+      'actions:open_links A SLCM',
       'actions:allow_event_edit E',
       'actions:allow_event_delete E',
     ],
+  ],
+  // What a wheel or a swipe does in Month, after what a tap does.
+  [
+    'Taps & Refresh',
+    'Wheel & Swipe',
+    '',
+    ['layout:month.week_scroll A M', 'layout:month.week_scroll_min_width A M'],
   ],
   [
     'Taps & Refresh',
@@ -611,7 +623,7 @@ const APPROVED_MAP: ReadonlyArray<
     'Calendar Entry',
     'Multi-Day Events',
     '',
-    ['calendar:split_multiday_events A SLC', 'calendar:multiday_banners A G'],
+    ['calendar:split_multiday_events A SLC', 'calendar:multiday_banners A SGM'],
   ],
   [
     'Calendar Entry',
@@ -636,14 +648,15 @@ const HEADINGS: ReadonlyArray<HeadingDef> = [
 describe('the page registry places every built field exactly once', () => {
   it('walks the whole corpus', () => {
     // The denominators, beside the verdicts below. A short walk shows here first: the approved
-    // map places 222 ids, and every one of them is built under some workspace and state.
+    // map places 225 ids, Month's own four among them, and every one of them is built under some
+    // workspace and state.
     console.info(
       `Page registry: ${BUILT.size} ids built over ${STATES.length} corpus states in ` +
         `${WORKSPACES.length} workspaces; ${PLACED.length} placements.`,
     );
-    expect(WORKSPACES).toHaveLength(4);
-    expect(BUILT.size).toBe(221);
-    expect(PLACED).toHaveLength(221);
+    expect(WORKSPACES).toHaveLength(5);
+    expect(BUILT.size).toBe(225);
+    expect(PLACED).toHaveLength(225);
   });
 
   it('has no field built but unplaced', () => {
@@ -675,13 +688,14 @@ describe('the page registry places every built field exactly once', () => {
       ['list', 'L'],
       ['column', 'C'],
       ['grid', 'G'],
+      ['month', 'M'],
     ];
     const offered = (id: FieldId): string => {
       const scopes = tags
         .filter(([workspace]) => BUILT.get(id)?.workspaces.has(workspace))
         .map(([, tag]) => tag)
         .join('');
-      return scopes === 'SLCG' ? '' : ` ${scopes}`;
+      return scopes === 'SLCGM' ? '' : ` ${scopes}`;
     };
     const marker = (appearance: Appearance): string => {
       if (appearance === 'essential') return 'E';

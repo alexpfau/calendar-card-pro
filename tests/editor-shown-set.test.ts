@@ -556,7 +556,8 @@ describe('Reset and Remove', () => {
     }
     expect(checked).toBeGreaterThan(100);
     expect(withheld).toEqual([]);
-    expect(WORKSPACES.length).toBe(4);
+    // Every scope walked, Month's included.
+    expect(WORKSPACES.length).toBe(5);
     // Over a second in a full local run; the limit is set for CI's slower runner under load
     // rather than for a hang.
   }, 30_000);

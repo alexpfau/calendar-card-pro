@@ -974,7 +974,11 @@ export function stateOf(field: IndexedField, ctx: PlanCtx): StateWords | undefin
     const top = shownValue(ctx.config, 'shared', field);
     const own = ViewConfig.VIEWS.flatMap((each) => {
       const value = shownValue(ctx.config, each, field);
-      if (storedAt(ctx.raw, field, each)) return [{ view: each, value, stored: true }];
+      // Only a layout that keeps its own copy of the option can store one. For any other the
+      // destination is the top level, so `storedAt` would find the All Layouts line itself and
+      // name it the layout's own: "Month Has Its Own: 7" for a Days To Show Month ignores.
+      const copies = field.configKeys.some((key) => Routing.destination(key, each) !== undefined);
+      if (copies && storedAt(ctx.raw, field, each)) return [{ view: each, value, stored: true }];
       const ownDefault =
         divergent(field, each) &&
         universeIndex('en', each).fields.has(field.id) &&

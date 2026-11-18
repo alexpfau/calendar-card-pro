@@ -88,6 +88,10 @@ describe('folded rows', () => {
     expect(unsetWord('day_header:today_day_color', t, label, false)).toBe(
       'value.same_as{"label":"<day_color>"}',
     );
+    // A calendar with no Location Icon of its own draws the map marker, as its helper says. The
+    // walk above reaches it once the card's last scope shows locations, which Month does and
+    // Grid did not.
+    expect(unsetWord('calendar:location_icon', t, label)).toBe('value.map_marker');
     expect(Object.keys(FOLLOWS).sort()).toEqual([
       'today_day_color',
       'today_month_color',

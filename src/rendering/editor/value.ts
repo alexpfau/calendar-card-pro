@@ -137,7 +137,7 @@ export function changedKeys(
  */
 interface StrippedBlock {
   /** The block's configuration key. */
-  readonly blockKey: 'column' | 'time_grid';
+  readonly blockKey: 'column' | 'time_grid' | 'month';
   /** Options only this layout reads, with their defaults. */
   readonly defaults: Readonly<Record<string, unknown>>;
   /** Resolves one of those options as the card does before using it. */
@@ -167,9 +167,9 @@ interface StrippedBlock {
 }
 
 /**
- * Strips redundant entries from one layout's own block, `column:` or `time_grid:`.
+ * Strips redundant entries from one layout's own block, `column:`, `time_grid:` or `month:`.
  *
- * One rule for both. A line the YAML already holds, and the card reads as written, is kept as
+ * One rule for all three. A line the YAML already holds, and the card reads as written, is kept as
  * written, default or not, so a save rewrites only what it changed. Any other value equal to its
  * default, or to what the layout would inherit, is dropped; a value the card rejects resolves to
  * the default and goes with it. Anything else is stored as the card resolves it, which turns a
@@ -263,6 +263,16 @@ const TIME_GRID_BLOCK: StrippedBlock = {
   keepsDivergentOverrides: true,
 };
 
+const MONTH_BLOCK: StrippedBlock = {
+  blockKey: 'month',
+  defaults: ViewConfig.MONTH_DEFAULTS,
+  normalize: (key, value) =>
+    ViewConfig.normalizeMonthValue(key as keyof typeof ViewConfig.MONTH_DEFAULTS, value),
+  overrideKeys: ViewConfig.MONTH_OVERRIDE_KEYS,
+  defaultOverrides: ViewConfig.MONTH_DEFAULT_OVERRIDES,
+  keepsDivergentOverrides: false,
+};
+
 /**
  * Strips redundant entries from a `column:` block.
  *
@@ -314,6 +324,21 @@ export function stripTimeGridDefaults(
 }
 
 /**
+ * Strips redundant entries from a `month:` block.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @param authored - The `month:` block as the YAML holds it; an entry it holds unchanged is
+ *   kept, as written, where the card reads it as written
+ * @returns The minimal block, or `undefined` when nothing in it is doing anything
+ */
+export function stripMonthDefaults(
+  config: Readonly<Types.Config>,
+  authored?: unknown,
+): Record<string, unknown> | undefined {
+  return stripBlockDefaults(config, authored, MONTH_BLOCK);
+}
+
+/**
  * Strips a `list:` block to what the user actually authored.
  *
  * 🚨 Presence *is* authorship here, so unlike `stripColumnDefaults` this keeps a value
@@ -358,6 +383,24 @@ export function stripListDefaults(
 
   return Object.keys(result).length > 0 ? result : undefined;
 }
+
+/**
+ * How each layout's own block is minimized on write, by layout.
+ *
+ * A whole record rather than a partial one, so a layout registered without an entry fails to
+ * compile rather than leaving its block unminimized: `toStoredConfig` walks `VIEWS` through it.
+ */
+const BLOCK_STRIPPERS: Readonly<
+  Record<
+    Types.EffectiveView,
+    (config: Readonly<Types.Config>, authored?: unknown) => Record<string, unknown> | undefined
+  >
+> = {
+  list: stripListDefaults,
+  column: stripColumnDefaults,
+  grid: stripTimeGridDefaults,
+  month: stripMonthDefaults,
+};
 
 /**
  * Removes the config keys that v3.0.0 deleted from the runtime.
@@ -532,14 +575,13 @@ export function toStoredConfig(
   const atomic = ATOMIC_KEYS.map((key) => [key, draft[key]] as const);
   for (const [key] of atomic) delete draft[key];
 
-  const list = stripListDefaults(config, authored?.list);
-  delete draft.list;
-
-  const column = stripColumnDefaults(config, authored?.column);
-  delete draft.column;
-
-  const grid = stripTimeGridDefaults(config, authored?.time_grid);
-  delete draft.time_grid;
+  const blocks = ViewConfig.VIEWS.flatMap((view) => {
+    const blockKey = ViewConfig.viewBlockFor(view)?.blockKey;
+    if (blockKey === undefined) return [];
+    const block = BLOCK_STRIPPERS[view](config, authored?.[blockKey]);
+    delete draft[blockKey];
+    return [[blockKey, block] as const];
+  });
 
   const weather = stripWeatherDefaults(config, authored?.weather);
   delete draft.weather;
@@ -568,16 +610,8 @@ export function toStoredConfig(
     }
   }
 
-  if (list !== undefined) {
-    stored.list = list;
-  }
-
-  if (column !== undefined) {
-    stored.column = column;
-  }
-
-  if (grid !== undefined) {
-    stored.time_grid = grid;
+  for (const [blockKey, block] of blocks) {
+    if (block !== undefined) stored[blockKey] = block;
   }
 
   if (weather !== undefined) {
@@ -822,6 +856,30 @@ export function timeGridFormBlock(config: Readonly<Types.Config>): Record<string
 }
 
 /**
+ * Builds the `month:` block as the form should show it.
+ *
+ * Same two layers as {@link columnFormBlock}, and the same reason the stored spread has to
+ * come last.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns The block, with every unset option at its effective value
+ */
+export function monthFormBlock(config: Readonly<Types.Config>): Record<string, unknown> {
+  return {
+    ...Object.fromEntries(
+      Object.keys(ViewConfig.MONTH_DEFAULTS).map((key) => [
+        key,
+        ViewConfig.resolveMonthOption(
+          config as Types.Config,
+          key as keyof typeof ViewConfig.MONTH_DEFAULTS,
+        ),
+      ]),
+    ),
+    ...(config.month ?? {}),
+  };
+}
+
+/**
  * Builds the `list:` block as the form should show it.
  *
  * List has no block-only keys or divergent defaults to fill in. The workspace projection
@@ -849,6 +907,7 @@ export const VIEW_FORM_BLOCKS: Readonly<
   list: listFormBlock,
   column: columnFormBlock,
   grid: timeGridFormBlock,
+  month: monthFormBlock,
 };
 
 /**

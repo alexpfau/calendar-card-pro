@@ -132,12 +132,48 @@ function timeAxisFields(blockKey: string, language: string): HaFormSchema[] {
 }
 
 /**
+ * Everything the `month:` block owns that has no top-level counterpart: a week row's height, the
+ * day width below which the compact form draws, and week scrolling, whose card-width limit is
+ * built only while it is on, since it limits nothing otherwise.
+ *
+ * @param blockKey - Config key holding this view's override block
+ * @param weekScroll - Whether week scrolling is on
+ * @returns The fields, in the view's own block
+ */
+function monthFields(blockKey: string, weekScroll: boolean): HaFormSchema[] {
+  // No ceiling on either width, for the reason `densityFields` gives. The compact form's floor is
+  // `1`, the smallest integer the runtime's `parsed > 0` admits; the scroll limit's is `0`, which
+  // the runtime reads as no limit.
+  return [
+    blockScope(blockKey, [
+      text('row_height'),
+      {
+        name: 'min_day_width',
+        selector: { number: { min: 1, step: 1, mode: 'box', unit_of_measurement: 'px' } },
+      },
+      bool('week_scroll'),
+      ...(weekScroll
+        ? [
+            {
+              name: 'week_scroll_min_width',
+              selector: {
+                number: { min: 0, step: 1, mode: 'box' as const, unit_of_measurement: 'px' },
+              },
+            },
+          ]
+        : []),
+    ]),
+  ];
+}
+
+/**
  * Builds the Layout panel schema.
  *
  * @param view - View the card is configured to render
  * @param heightMode - Derived height mode
  * @param daysToShow - Configured day count
  * @param language - Effective language code
+ * @param weekScroll - Whether Month's week scrolling is on
  * @returns The panel's schema
  */
 const layoutSchema = Helpers.memoizeLast(
@@ -146,6 +182,7 @@ const layoutSchema = Helpers.memoizeLast(
     heightMode: string,
     daysToShow: number,
     language: string,
+    weekScroll: boolean,
   ): HaFormSchema[] => {
     // Grid keeps none of them: `event_spacing` and `event_gap` are inert there and withheld
     // by `VIEW_SCOPE`, and `day_spacing` is the column gutter rather than vertical space
@@ -179,6 +216,10 @@ const layoutSchema = Helpers.memoizeLast(
       schema.push(densityFields(blockKey, daysToShow, language));
     }
 
+    if (view === 'month' && blockKey !== undefined) {
+      schema.push(...monthFields(blockKey, weekScroll));
+    }
+
     return schema;
   },
 );
@@ -195,6 +236,7 @@ export function buildLayoutSchema(ctx: SchemaCtx): HaFormSchema[] {
     Synthetic.heightMode(ctx.config),
     ctx.config.days_to_show,
     ctx.language,
+    ViewConfig.resolveMonthOption(ctx.config, 'week_scroll'),
   );
 }
 

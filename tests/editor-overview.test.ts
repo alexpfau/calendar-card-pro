@@ -183,11 +183,15 @@ describe('Settings For', () => {
       return classes;
     };
     const scope = [...editor.shadowRoot!.querySelectorAll('fieldset.scope input[type="radio"]')];
+    // Five since Month, as the row derives them from `WORKSPACES`. How five segments are
+    // arranged, a 320px card included, awaits a maintainer decision; this pins only what the
+    // derived row draws today.
     expect(scope.map((radio) => (radio as HTMLInputElement).value)).toEqual([
       'shared',
       'list',
       'column',
       'grid',
+      'month',
     ]);
     expect(scope.map(path)).toEqual(scope.map(() => ['segmented-row', 'segments', 'segment']));
     expect(editor.shadowRoot!.querySelector('.scope-segments')).toBeNull();
@@ -215,11 +219,12 @@ describe('Settings For', () => {
       empty_day_text: '',
       list: { day_spacing: '12px' },
       time_grid: { start_time: '07:00', end_time: '21:00', hour_height: null },
+      month: { row_height: '120px', week_scroll: null },
     };
     const counts = Object.fromEntries(
       WORKSPACES.map((workspace) => [workspace, storedCount(raw, workspace)]),
     );
-    expect(counts).toEqual({ shared: 2, list: 1, column: 0, grid: 2 });
+    expect(counts).toEqual({ shared: 2, list: 1, column: 0, grid: 2, month: 1 });
   });
 });
 

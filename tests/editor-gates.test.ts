@@ -100,7 +100,6 @@ const COLUMN_ONLY = [
 
 /** Offered only in Grid. */
 const GRID_ONLY = [
-  'content:multiday_banners',
   'day_header:time_grid.day_header_gap',
   'day_header:time_grid.day_header_separator_width',
   'day_header:time_grid.day_header_separator_color',
@@ -125,14 +124,35 @@ const GRID_ONLY = [
   'layout:time_grid.allday_band_max_rows',
   'layout:time_grid.overlap_layout',
   'layout:time_grid.max_simultaneous_events',
-  'calendar:multiday_banners',
 ];
 
-/** Offered everywhere but Grid. */
-const NOT_IN_GRID = [
+/**
+ * Offered in Grid and Month, which draw a long timed event as a bar, and so in All Layouts as
+ * well, where an option more than one layout reads is offered.
+ */
+const GRID_AND_MONTH = ['content:multiday_banners', 'calendar:multiday_banners'];
+
+/** Offered only in Month: its own block's options. */
+const MONTH_ONLY = [
+  'layout:month.row_height',
+  'layout:month.min_day_width',
+  'layout:month.week_scroll',
+  'layout:month.week_scroll_min_width',
+];
+
+/** Offered everywhere but Grid and Month. */
+const NOT_IN_GRID_OR_MONTH = [
   'content:split_multiday_events',
   'content:empty_day_text',
   'content:empty_day_color',
+  'layout:event_gap',
+  'layout:day_spacing',
+  'calendar:split_multiday_events',
+];
+
+/** Offered everywhere but Grid: what Month's day list draws as List's rows. */
+const NOT_IN_GRID = [
+  ...NOT_IN_GRID_OR_MONTH,
   'events:time_position',
   'events:show_now_indicator',
   'events:allday_badge_position',
@@ -146,19 +166,41 @@ const NOT_IN_GRID = [
   'events:show_description_allday',
   'events:show_countdown_allday',
   'events:countdown_once_per_day',
-  'layout:event_gap',
   'layout:event_spacing',
-  'layout:day_spacing',
   'actions:open_links',
-  'calendar:split_multiday_events',
+];
+
+/**
+ * Offered everywhere but Month, which draws every day of six weeks, rules them itself and sets
+ * its dates in the event font, unscaled.
+ */
+const NOT_IN_MONTH = [
+  ...NOT_IN_GRID_OR_MONTH,
+  'content:days_to_show',
+  'content:show_empty_days',
+  'content:show_empty_today',
+  'day_header:day_font_size',
+  'day_header:month_font_size',
+  'day_header:week_number_background_color',
+  'day_header:today_date_scale',
+  'day_header:today_weekday_color',
+  'day_header:today_indicator_size',
+  'day_header:past_date_scale',
+  'separators:day_separator_width',
+  'separators:day_separator_color',
+  'separators:week_separator_width',
+  'separators:week_separator_color',
+  'separators:month_separator_width',
+  'separators:month_separator_color',
 ];
 
 /** What each workspace's universe lacks, pinned by value. */
 const LACKS: Readonly<Record<EditorWorkspace, ReadonlyArray<FieldId>>> = {
-  shared: [...LIST_ONLY, ...COLUMN_ONLY, ...GRID_ONLY],
-  list: [...COLUMN_ONLY, ...GRID_ONLY],
-  column: [...LIST_ONLY, ...GRID_ONLY],
-  grid: [...LIST_ONLY, ...COLUMN_ONLY, ...NOT_IN_GRID],
+  shared: [...LIST_ONLY, ...COLUMN_ONLY, ...GRID_ONLY, ...MONTH_ONLY],
+  list: [...COLUMN_ONLY, ...GRID_ONLY, ...GRID_AND_MONTH, ...MONTH_ONLY],
+  column: [...LIST_ONLY, ...GRID_ONLY, ...GRID_AND_MONTH, ...MONTH_ONLY],
+  grid: [...LIST_ONLY, ...COLUMN_ONLY, ...MONTH_ONLY, ...NOT_IN_GRID],
+  month: [...LIST_ONLY, ...COLUMN_ONLY, ...GRID_ONLY, ...NOT_IN_MONTH],
 };
 
 /** Each workspace's universe as pinned: the expectation every check below starts from. */
@@ -233,6 +275,7 @@ const LEGAL: Readonly<Record<string, ReadonlyArray<unknown>>> = {
   'weather.date.show_uv_index': [undefined, true, false],
   'weather.event.show_uv_index': [undefined, true, false],
   'weather.event.show_conditions': [undefined, true, false],
+  'month.week_scroll': [undefined, true, false],
   event_tap_action: ACTIONS,
   event_hold_action: ACTIONS,
   start_date: [undefined, '2026-01-01', 'today+7', '+3', '-1'],
@@ -763,11 +806,14 @@ describe('the universe', () => {
         [...EXPECTED.get(workspace)!].sort(),
       );
     }
+    // All Layouts gained Multi-Day Banners on the card and on a calendar once Month read them
+    // beside Grid; Month offers its own four and leaves out what it does not draw (`LACKS`).
     expect(sizes).toEqual({
-      shared: { card: 150, calendar: 27 },
+      shared: { card: 151, calendar: 28 },
       list: { card: 157, calendar: 28 },
       column: { card: 156, calendar: 27 },
       grid: { card: 155, calendar: 27 },
+      month: { card: 134, calendar: 27 },
     });
   });
 
@@ -1099,6 +1145,11 @@ describe('the gate table', () => {
         kind: 'mode-value',
         fields: ['layout:card_max_height'],
         requires: [p('layout:height_mode', 'maximum', ['maximum'])],
+      },
+      week_scroll: {
+        kind: 'gate',
+        fields: ['layout:month.week_scroll_min_width'],
+        requires: [p('layout:month.week_scroll', true, ON)],
       },
       accent: {
         kind: 'mode-value',

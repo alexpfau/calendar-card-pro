@@ -228,11 +228,23 @@ describe('view withholding reconciles both directions', () => {
   );
 
   it('opens every condition needed to exercise all recorded scopes', () => {
+    // A second state per view opens the two conditions the fixture's own leaves shut, scoped
+    // since Month: Show Today When Empty is built only with Show Empty Days off, and Week Number
+    // Background only while week numbers are shown.
+    const states = (view: Types.EffectiveView): Types.Config[] => [
+      configFor(view),
+      buildConfig({
+        ...configFor(view),
+        show_empty_days: false,
+        show_empty_today: true,
+        show_week_numbers: 'iso',
+      }),
+    ];
     const encountered = new Set(
       ViewConfig.VIEWS.flatMap((view) =>
-        PANELS.flatMap((panel) =>
-          fields(panel.build(context(configFor(view)))).flatMap((field) =>
-            configKeysForField(field.key),
+        states(view).flatMap((config) =>
+          PANELS.flatMap((panel) =>
+            fields(panel.build(context(config))).flatMap((field) => configKeysForField(field.key)),
           ),
         ),
       ),
@@ -599,6 +611,17 @@ describe('empty-day reachability is reconciled across the config partition', () 
 
   it('backs those verdicts with real placeholder rows in list and column, but not grid', () => {
     for (const view of ViewConfig.VIEWS) {
+      // Month draws every day of its six weeks whatever their events, so it offers neither the
+      // switch nor the placeholder it would fill.
+      if (!ViewConfig.appliesToView('show_empty_days', view)) {
+        const month = buildConfig({ view, entities: ['calendar.anna'], show_empty_days: true });
+        const raw = PANELS.flatMap((panel) => panel.build(context(month)));
+        const offered = fields(Filter.withholdInertFields(raw, view)).map((field) => field.key);
+        expect(offered, view).not.toContain('show_empty_days');
+        expect(offered, view).not.toContain('empty_day_text');
+        expect(offered, view).not.toContain('empty_day_color');
+        continue;
+      }
       const config = buildConfig({
         view,
         entities: ['calendar.anna'],

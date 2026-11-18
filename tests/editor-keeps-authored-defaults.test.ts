@@ -24,6 +24,7 @@ import { valueSource } from '../src/rendering/editor/routing';
 import {
   storedViewBlocks,
   stripColumnDefaults,
+  stripMonthDefaults,
   stripTimeGridDefaults,
   toStoredConfig,
 } from '../src/rendering/editor/value';
@@ -264,6 +265,15 @@ describe('the serializer’s authored baseline', () => {
     expect(stripColumnDefaults(config, { min_day_width: '140' })).toEqual({
       min_day_width: '140',
     });
+
+    // Month's block by the same rule, and a bare length written fresh is stored as the card
+    // reads it.
+    const month = merged({ month: { min_day_width: '80', row_height: 120 } });
+    expect(stripMonthDefaults(month)).toEqual({ row_height: '120px' });
+    expect(stripMonthDefaults(month, { min_day_width: '80' })).toEqual({
+      min_day_width: '80',
+      row_height: '120px',
+    });
   });
 
   /**
@@ -274,10 +284,12 @@ describe('the serializer’s authored baseline', () => {
   it('still drops a held view value the card rejects for its default', () => {
     const grid = { slot_minutes: 45, overlap_layout: 'column' };
     const column = { min_day_width: 0, min_days_to_show: 'some' };
-    const config = merged({ days_to_show: 7, time_grid: grid, column });
+    const month = { min_day_width: 0, week_scroll: 'yes', week_scroll_min_width: -5 };
+    const config = merged({ days_to_show: 7, time_grid: grid, column, month });
 
     expect(stripTimeGridDefaults(config, grid)).toBeUndefined();
     expect(stripColumnDefaults(config, column)).toBeUndefined();
+    expect(stripMonthDefaults(config, month)).toBeUndefined();
     expect(storedViewBlocks(config)).toEqual({});
   });
 

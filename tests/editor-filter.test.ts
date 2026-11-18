@@ -344,12 +344,13 @@ describe('editor filter: the chassis', () => {
   it('says so when a search matches nothing', async () => {
     const { element, panels } = await mount({ entities: ['calendar.a'] });
 
-    // Column density is a Layout option of Columns and Grid, and the card is a list here: it is
-    // found as theirs, not as nothing.
+    // A minimum day width is a Layout option of Columns, Grid and Month, and the card is a list
+    // here: it is found as theirs, not as nothing.
     await changeField(element, `filter:${SEARCH_FIELD}`, 'min_day_width');
     expect(panels().map(({ id }) => id)).toEqual([
       'layout:column.min_day_width',
       'layout:time_grid.min_day_width',
+      'layout:month.min_day_width',
     ]);
     await changeField(element, `filter:${SEARCH_FIELD}`, 'zzzznotathing');
 

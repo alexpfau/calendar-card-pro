@@ -450,6 +450,8 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['layout:height_mode', E],
           ['layout:card_height', withMode('layout:height_mode')],
           ['layout:card_max_height', withMode('layout:height_mode')],
+          // Month's own height, beside the Height it yields to: a fixed one replaces it.
+          ['layout:month.row_height', A],
           ['layout:additional_card_spacing', A],
           ['layout:event_gap', A],
           ['layout:event_spacing', A],
@@ -470,6 +472,13 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['layout:time_grid.min_days_to_show', member('grid_density')],
           ['layout:time_grid.min_days_fallback', member('grid_density')],
         ],
+      },
+      {
+        // How narrow Month's days may get, beside the same question for Columns and Grid. One
+        // field rather than a family: Month keeps its days and changes its form instead.
+        key: 'month.density',
+        helperKey: 'month.density.helper',
+        fields: [['layout:month.min_day_width', A]],
       },
       {
         key: 'heading_between_days',
@@ -596,6 +605,14 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['actions:open_links', A],
           ['actions:allow_event_edit', E],
           ['actions:allow_event_delete', E],
+        ],
+      },
+      {
+        // What a wheel or a swipe does, after what a tap does: gestures together, refresh last.
+        key: 'heading.wheel_and_swipe',
+        fields: [
+          ['layout:month.week_scroll', A],
+          ['layout:month.week_scroll_min_width', A],
         ],
       },
       {

@@ -137,11 +137,13 @@ describe('the misplaced-option notice', () => {
     await openNotices(editor);
 
     expect(rows(editor)).toEqual({
+      // Month's block takes a `min_day_width` of its own too: the width below which it turns
+      // compact.
       min_day_width: {
         text:
-          'min_day_width Works only in a layout’s own settings: Columns or Grid. ' +
-          'Columns already sets it. Move to Grid',
-        buttons: ['Move to Grid'],
+          'min_day_width Works only in a layout’s own settings: Columns, Grid, or Month. ' +
+          'Columns already sets it. Move to Grid Move to Month',
+        buttons: ['Move to Grid', 'Move to Month'],
       },
       'list.toolbar': {
         text: 'list.toolbar Works only for the whole card, at the top level. Move to Top Level',

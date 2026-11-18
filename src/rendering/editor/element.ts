@@ -1299,9 +1299,12 @@ export class CalendarCardProEditor extends LitElement {
     if (version.kind === 'future') return version;
     if (version.kind === 'invalid') return version;
 
+    // Blocks only the layered format has: a card carrying one was written for it already.
     const alreadyLayered =
       version.version === undefined &&
-      (Helpers.isConfigBlock(rawConfig.list) || Helpers.isConfigBlock(rawConfig.time_grid));
+      (Helpers.isConfigBlock(rawConfig.list) ||
+        Helpers.isConfigBlock(rawConfig.time_grid) ||
+        Helpers.isConfigBlock(rawConfig.month));
     if (alreadyLayered) return { kind: 'automatic' };
 
     const keys = Value.ambiguousRootKeys(rawConfig);

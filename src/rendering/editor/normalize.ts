@@ -35,6 +35,23 @@ export function normalizeRootValue(key: string, value: unknown): unknown {
 }
 
 /**
+ * How each layout resolves the options only its own block holds, by layout; `undefined` for one
+ * that has none. A whole record, so a layout registered without an answer fails to compile
+ * rather than borrowing another layout's, as Month's would have borrowed Column's.
+ */
+const ONLY_KEY_NORMALIZERS: Readonly<
+  Record<Types.EffectiveView, ((key: string, value: unknown) => unknown) | undefined>
+> = {
+  list: undefined,
+  column: (key, value) =>
+    ViewConfig.normalizeColumnValue(key as keyof typeof ViewConfig.COLUMN_DEFAULTS, value),
+  grid: (key, value) =>
+    ViewConfig.normalizeTimeGridValue(key as keyof typeof ViewConfig.TIME_GRID_DEFAULTS, value),
+  month: (key, value) =>
+    ViewConfig.normalizeMonthValue(key as keyof typeof ViewConfig.MONTH_DEFAULTS, value),
+};
+
+/**
  * Normalizes a field at its real data path, not its translated group path.
  *
  * @param config - Raw configuration, for dynamic view-only defaults
@@ -69,13 +86,9 @@ export function normalizeFieldValue(
         view,
       );
     }
-    if (Helpers.hasOwn(block.onlyDefaults, key)) {
-      return view === 'grid'
-        ? ViewConfig.normalizeTimeGridValue(
-            key as keyof typeof ViewConfig.TIME_GRID_DEFAULTS,
-            value,
-          )
-        : ViewConfig.normalizeColumnValue(key as keyof typeof ViewConfig.COLUMN_DEFAULTS, value);
+    const normalizeOnly = ONLY_KEY_NORMALIZERS[view];
+    if (normalizeOnly !== undefined && Helpers.hasOwn(block.onlyDefaults, key)) {
+      return normalizeOnly(key, value);
     }
     return normalizeRootValue(key, value);
   }

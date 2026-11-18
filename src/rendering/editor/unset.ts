@@ -49,6 +49,9 @@ export function unsetWord(
         return t('value.follow_card');
       case 'allday_expires_at':
         return t('value.end_of_day');
+      // The marker the location row draws while the calendar names no icon of its own.
+      case 'location_icon':
+        return t('value.map_marker');
       case 'allowlist':
       case 'blocklist':
       case 'replace_pattern':

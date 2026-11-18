@@ -907,42 +907,74 @@ describe('editor: applicability', () => {
       // Column and grid view draw their days whatever their events, so leaving rows out
       // would leave holes rather than continue a list.
       skip_first_events: ['list'],
+      // A month always draws its six weeks, every day of them: no day count, and no empty day
+      // to hide or keep.
+      days_to_show: ['column', 'grid', 'list'],
+      show_empty_days: ['column', 'grid', 'list'],
+      show_empty_today: ['column', 'grid', 'list'],
+      // A month rules its days with hairlines of its own and its day list holds one day, so
+      // there is no space or rule between days, weeks or months to set.
+      day_spacing: ['column', 'grid', 'list'],
+      day_separator_width: ['column', 'grid', 'list'],
+      day_separator_color: ['column', 'grid', 'list'],
+      week_separator_width: ['column', 'grid', 'list'],
+      week_separator_color: ['column', 'grid', 'list'],
+      month_separator_width: ['column', 'grid', 'list'],
+      month_separator_color: ['column', 'grid', 'list'],
+      // A month's week numbers are plain text, with no background.
+      week_number_background_color: ['column', 'grid', 'list'],
+      // A month sets its dates in the event font, unscaled.
+      day_font_size: ['column', 'grid', 'list'],
+      month_font_size: ['column', 'grid', 'list'],
+      today_date_scale: ['column', 'grid', 'list'],
+      past_date_scale: ['column', 'grid', 'list'],
+      // A month marks today with the tile and draws none of the indicators this sizes.
+      today_indicator_size: ['column', 'grid', 'list'],
+      // A month names its weekdays once, over their columns, so no weekday is today's.
+      today_weekday_color: ['column', 'grid', 'list'],
       // Grid's card-level value is inert: all-day spans become one banner, and timed
-      // events are segmented by the renderer instead of by the upstream list splitter.
+      // events are segmented by the renderer instead of by the upstream list splitter. Month
+      // takes Grid's coverage, and its day list splits every multi-day event across its days.
       split_multiday_events: ['column', 'list'],
-      // Only grid has an all-day band above an hour axis for a timed event to move into.
-      multiday_banners: ['grid'],
+      // Only grid has an all-day band above an hour axis for a timed event to move into, and
+      // month draws such an event as a bar across its days in the same way.
+      multiday_banners: ['grid', 'month'],
       // Grid marks the present with its now line; `gridTimedEventContentParts` clears the
-      // label whatever the option resolves to.
-      show_now_indicator: ['column', 'list'],
+      // label whatever the option resolves to. Month's day list draws List's rows, which
+      // carry it.
+      show_now_indicator: ['column', 'list', 'month'],
+      // Grid discards empty-day rows, and a month has no empty day to fill.
       empty_day_text: ['column', 'list'],
       empty_day_color: ['column', 'list'],
       // Grid's banner renderer emits the summary and drops every other content part, so
       // the five options deciding what an all-day row carries are computed and discarded.
-      show_single_allday_time: ['column', 'list'],
-      show_multiday_allday_time: ['column', 'list'],
-      show_location_allday: ['column', 'list'],
-      show_description_allday: ['column', 'list'],
-      show_countdown_allday: ['column', 'list'],
-      allday_badge: ['column', 'list'],
-      allday_badge_style: ['column', 'list'],
-      allday_badge_color: ['column', 'list'],
+      // Month's day list draws them, and so do the badge, the time's placement, the row's
+      // padding, its line clamp and its links below.
+      show_single_allday_time: ['column', 'list', 'month'],
+      show_multiday_allday_time: ['column', 'list', 'month'],
+      show_location_allday: ['column', 'list', 'month'],
+      show_description_allday: ['column', 'list', 'month'],
+      show_countdown_allday: ['column', 'list', 'month'],
+      allday_badge: ['column', 'list', 'month'],
+      allday_badge_style: ['column', 'list', 'month'],
+      allday_badge_color: ['column', 'list', 'month'],
       // A grid block fits its own rows and has no title row for the time to join; its
       // renderer never passes the placement to the leaf.
-      time_position: ['column', 'list'],
+      time_position: ['column', 'list', 'month'],
       // `.event` is emitted in grid, so the padding rule looks like it applies. It is
       // overridden 1800 lines later by `.grid-event` and `.grid-banner` at equal
       // specificity, and every grid node carrying `.event` carries one of those.
-      event_spacing: ['column', 'list'],
+      event_spacing: ['column', 'list', 'month'],
       // A grid block is placed by its time and kept apart by the grid's own layout; only
-      // the list and column renderers emit the class that draws the gap.
+      // the list and column renderers emit the class that draws the gap. A month lines its
+      // events up by rows.
       event_gap: ['column', 'list'],
       // Grid blockifies the plain time span and resets the properties the folded-countdown
       // span reads, so neither clamp path acts there.
-      time_max_lines: ['column', 'list'],
+      time_max_lines: ['column', 'list', 'month'],
       // Grid draws its blocks' words for the eye only, behind an accessible name of its own,
       // so it draws no links in them.
-      open_links: ['column', 'list'],
+      open_links: ['column', 'list', 'month'],
     });
 
     expect(
@@ -1270,8 +1302,15 @@ describe('editor: displayed view and the Layout panel', () => {
    * lookup wired to the wrong key fails here too: the fallback is `humanize(view)`, which
    * yields `Grid` for grid either way but `Column` — not `Columns` — for column.
    */
-  it('labels the tiles List, Columns and Grid', () => {
-    expect(viewOptions().map((option) => option.label)).toEqual(['List', 'Columns', 'Grid']);
+  // A tile per layout, derived from `VIEWS`: four since Month. How the four are arranged awaits a
+  // maintainer decision; this pins only their labels, in the order the selector derives.
+  it('labels the tiles List, Columns, Grid and Month', () => {
+    expect(viewOptions().map((option) => option.label)).toEqual([
+      'List',
+      'Columns',
+      'Grid',
+      'Month',
+    ]);
   });
 
   /**
@@ -1289,6 +1328,27 @@ describe('editor: displayed view and the Layout panel', () => {
   it('shows the column density group only for a view that has one', () => {
     expect(names(columnConfig())).toContain('min_day_width');
     expect(names(buildConfig({ view: 'list' }))).not.toContain('min_day_width');
+  });
+
+  it('builds Month’s own options in its block, its scroll limit only while it scrolls', () => {
+    const own = (config: Types.Config) =>
+      [...walkSchema(buildLayoutSchema(ctx(config)))]
+        .filter(({ node, dataPath }) => 'selector' in node && dataPath[0] === 'month')
+        .map(({ node }) => node.name);
+
+    expect(own(buildConfig({ view: 'month' }))).toEqual([
+      'row_height',
+      'min_day_width',
+      'week_scroll',
+    ]);
+    expect(own(buildConfig({ view: 'month', month: { week_scroll: true } }))).toEqual([
+      'row_height',
+      'min_day_width',
+      'week_scroll',
+      'week_scroll_min_width',
+    ]);
+    // Month's, and nobody else's: the block is read only where Month is the view.
+    expect(own(buildConfig({ view: 'grid', month: { week_scroll: true } }))).toEqual([]);
   });
 
   it('nests the density options under the block they are stored in', () => {

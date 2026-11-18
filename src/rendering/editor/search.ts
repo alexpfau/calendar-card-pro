@@ -47,6 +47,7 @@ import { WORD_LIST_FIELDS, fromPattern } from './word-lists';
 import type { EditorWorkspace } from './workspace';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
+import * as ViewConfig from '../../config/view';
 import { configuredCalendarName, homeAssistantName } from '../../utils/calendar-names';
 import * as Helpers from '../../utils/helpers';
 
@@ -913,7 +914,7 @@ function calendarsRow(ctx: SearchCtx): SearchEntry {
 function startingLayoutRow(ctx: SearchCtx): SearchEntry {
   const key = STARTING_LAYOUT_BLOCK.titleKey;
   const label = ctx.t(key);
-  const views = ['list', 'column', 'grid'] as const;
+  const views = ViewConfig.VIEWS;
   const shown = views.find((view) => view === ctx.config.view) ?? 'list';
   return {
     target: { kind: 'overview', block: 'starting_layout' },

@@ -428,6 +428,11 @@ export const GATES: Readonly<Record<string, Gate>> = {
     requires: [oneOf('layout:height_mode', 'maximum')],
     kind: 'mode-value',
   },
+  week_scroll: {
+    fields: ['layout:month.week_scroll_min_width'],
+    requires: [on('layout:month.week_scroll')],
+    kind: 'gate',
+  },
   accent: {
     fields: ['events:accent_color'],
     requires: [oneOf('events:accent_color_mode', 'custom')],

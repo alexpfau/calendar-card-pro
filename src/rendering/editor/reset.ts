@@ -50,7 +50,7 @@ export type ResetTarget =
   /** Every member of a family on one calendar entry, by its key. */
   | { readonly kind: 'entry-family'; readonly key: number; readonly family: FamilyId }
   /** A layout's whole block: Reset All in Grid. */
-  | { readonly kind: 'block'; readonly blockKey: 'list' | 'column' | 'time_grid' };
+  | { readonly kind: 'block'; readonly blockKey: 'list' | 'column' | 'time_grid' | 'month' };
 
 /** The state a reset leaves, and the added-set keys it retires. */
 export interface ResetResult {

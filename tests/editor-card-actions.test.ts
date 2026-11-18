@@ -546,7 +546,7 @@ describe('the event tap action in the editor', () => {
     // rather than for a hang.
   }, 30_000);
 
-  it.each(['list', 'column', 'grid'])(
+  it.each(['list', 'column', 'grid', 'month'])(
     'writes the toolbar at the top level while editing the %s layout',
     async (view) => {
       const { element, reported } = await mount({ view });
@@ -560,4 +560,22 @@ describe('the event tap action in the editor', () => {
       });
     },
   );
+
+  // `view_switcher` also takes a list of the layouts to offer. The control for that list awaits a
+  // maintainer decision; until then the View Switcher chip reads a list as on, and an edit beside
+  // it, in the toolbar or elsewhere, keeps the list as written.
+  it('keeps a stored list of switcher layouts through edits beside it', async () => {
+    const toolbar = { show: true, view_switcher: ['list', 'month'] };
+    const { element, reported } = await mount({ view: 'month', toolbar });
+
+    expect(valueOf(element, 'card:toolbar.view_switcher')).toBe(true);
+    await changeField(element, 'card:toolbar.refresh', false);
+    await changeField(element, 'card:title', 'Family');
+    expect(last(reported)).toEqual({
+      entities: ['calendar.anna'],
+      view: 'month',
+      title: 'Family',
+      toolbar: { ...toolbar, refresh: false },
+    });
+  });
 });

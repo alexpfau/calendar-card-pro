@@ -3,8 +3,9 @@
  *
  * The map names the card's own class names, so a markup change could break a pick without a
  * word: a renamed part would fall through to whatever holds it, and the outline would then name
- * the wrong page. This file renders the real card in List, Columns and Grid, with every part the
- * map names turned on, and holds the map in both directions:
+ * the wrong page. This file renders the real card in List, Columns, Grid and Month, Month both wide
+ * and in the compact form a narrow card draws, with every part the map names turned on, and holds
+ * the map in both directions:
  *
  * - every selector in the map matches something in at least one layout, so a stale entry fails
  *   rather than building up;
@@ -63,6 +64,26 @@ const EVENTS = [
   event('Trip', '2026-06-18', '2026-06-21', 'calendar.anna'),
 ];
 
+/** Two more on the 17th for Month, whose four lines then hold three and a "+2 more". */
+const MONTH_EVENTS = [
+  ...EVENTS,
+  event('Piano', '2026-06-17T15:00:00Z', '2026-06-17T16:00:00Z', 'calendar.anna'),
+  event('Book club', '2026-06-17T18:00:00Z', '2026-06-17T19:00:00Z', 'calendar.ben'),
+];
+
+/** Answers the resize observer the card starts, with a width a test reports. */
+class RecordingResizeObserver {
+  static instances: RecordingResizeObserver[] = [];
+  constructor(readonly callback: (entries: Array<{ contentRect: { width: number } }>) => void) {
+    RecordingResizeObserver.instances.push(this);
+  }
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
+
+const originalResizeObserver = globalThis.ResizeObserver;
+
 /** Every part on, in the shape each layout can draw it. */
 function config(view: Types.EffectiveView): Record<string, unknown> {
   return {
@@ -100,7 +121,17 @@ function config(view: Types.EffectiveView): Record<string, unknown> {
   };
 }
 
-async function mount(view: Types.EffectiveView): Promise<Card> {
+/**
+ * The card in a layout, its events matched to their calendars.
+ *
+ * @param view - The layout
+ * @param width - A card width to report, as the resize observer would: a narrow one turns a
+ *   month compact
+ * @returns The card
+ */
+async function mount(view: Types.EffectiveView, width?: number): Promise<Card> {
+  // Only this card's observers: an earlier layout's grid keeps one of its own.
+  RecordingResizeObserver.instances = [];
   const card = document.createElement('calendar-card-pro-dev') as Card;
   vi.spyOn(card, 'updateEvents').mockResolvedValue();
   card.setConfig(config(view));
@@ -112,7 +143,7 @@ async function mount(view: Types.EffectiveView): Promise<Card> {
     callApi: async () => [],
     connection: { subscribeMessage: () => Promise.reject({ code: 'unknown_command' }) },
   } as unknown as Types.Hass;
-  card.events = EVENTS.map((each) => ({
+  card.events = (view === 'month' ? MONTH_EVENTS : EVENTS).map((each) => ({
     ...each,
     _matchedConfig: card.config.entities.find(
       (entry) => (entry as Types.EntityConfig).entity === each._entityId,
@@ -123,6 +154,12 @@ async function mount(view: Types.EffectiveView): Promise<Card> {
   await card.updateComplete;
   card.weatherForecasts = WEATHER;
   await card.updateComplete;
+  if (width !== undefined) {
+    for (const observer of RecordingResizeObserver.instances) {
+      observer.callback([{ contentRect: { width } }]);
+    }
+    await card.updateComplete;
+  }
   return card;
 }
 
@@ -160,10 +197,13 @@ function leaves(root: ShadowRoot): Element[] {
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-06-17T10:00:00Z'));
+  RecordingResizeObserver.instances = [];
+  globalThis.ResizeObserver = RecordingResizeObserver as unknown as typeof ResizeObserver;
 });
 
 afterEach(() => {
   document.body.replaceChildren();
+  globalThis.ResizeObserver = originalResizeObserver;
   vi.useRealTimers();
 });
 
@@ -173,8 +213,16 @@ describe('Pick From Preview part map', () => {
     const unmapped: string[] = [];
     const absorbed = new Set<string>();
     let elements = 0;
-    for (const view of ['list', 'column', 'grid'] as const) {
-      const card = await mount(view);
+    const layouts = [
+      ['list'],
+      ['column'],
+      ['grid'],
+      ['month'],
+      // A phone's width, where the month draws its compact form and the chosen day's list.
+      ['month', 375],
+    ] as const;
+    for (const [view, width] of layouts) {
+      const card = await mount(view, width);
       const root = card.shadowRoot!;
       for (const [selectors] of PICK_PARTS) {
         for (const selector of selectors.split(', ')) {
@@ -187,14 +235,14 @@ describe('Pick From Preview part map', () => {
         const entry = part && entryOf(part.element);
         const name = [element.localName, ...element.classList].join('.');
         if (entry === undefined || PICK_CATCH_ALLS.has(entry.group)) {
-          unmapped.push(`${view}: ${name}`);
+          unmapped.push(`${view}${width === undefined ? '' : ' compact'}: ${name}`);
         } else if (part!.element !== element) {
           absorbed.add(`${entry.selector} ⊃ ${name}`);
         }
       }
       card.remove();
     }
-    // The denominator: three layouts drew a card worth checking.
+    // The denominator: five layouts drew a card worth checking.
     expect(elements).toBeGreaterThan(300);
     // Each selector of a group on its own, so one gone stale beside a live one still fails.
     expect(
@@ -243,6 +291,12 @@ describe('Pick From Preview part map', () => {
       '.legend-chip ⊃ span.legend-chip-label',
       '.location ⊃ ha-icon',
       '.location ⊃ span',
+      '.month-compact-marks ⊃ span.month-compact-mark',
+      '.month-container ⊃ div.month-probe',
+      '.month-date ⊃ span.day',
+      '.month-date ⊃ span.month-date-month',
+      '.month-weekdays ⊃ div.month-weekday',
+      '.month-weekdays ⊃ div.month-weekday.weekend',
       '.progress-bar ⊃ div.progress-bar-filled',
       '.separator-cell ⊃ div.separator-line',
       '.time ⊃ ha-icon',

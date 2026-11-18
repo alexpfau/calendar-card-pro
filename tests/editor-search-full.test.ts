@@ -334,7 +334,8 @@ describe('what a result says it is', () => {
 
     const grid = await mount({ ...LIST, view: 'grid' });
     await searchFor(grid, 'all-day badge');
-    expect(row(grid, 'events:allday_badge_position').tag).toBe('Only in List and Columns');
+    // Month's day list draws the badge as List does.
+    expect(row(grid, 'events:allday_badge_position').tag).toBe('Only in List, Columns, and Month');
   });
 
   it('a page, by its title', async () => {
@@ -714,9 +715,10 @@ describe('the review’s findings', () => {
       'calendar:split_multiday_events',
       'Only in List and Columns',
     ]);
+    // Month draws a long timed event as a bar, as Grid does.
     expect(one('list', 'list', 'banners')).toContainEqual([
       'calendar:multiday_banners',
-      'Only in Grid',
+      'Only in Grid and Month',
     ]);
   });
 

@@ -134,6 +134,8 @@ const HOLDS: ReadonlyArray<string> = [
   'column day_header:today_indicator_custom',
   'grid content:start_date_offset',
   'grid day_header:today_indicator_custom',
+  'month content:start_date_offset',
+  'month day_header:today_indicator_custom',
 ];
 
 /**
@@ -243,7 +245,9 @@ describe('field ids', () => {
       `Field ids: ${leaves} leaves over ${DISTINCT.length} distinct corpus states, ` +
         `${EVERY_FIELD.size} ids in all.`,
     );
-    expect(EVERY_FIELD.size).toBe(221);
+    // 221 before Month, which adds its own four: Height Per Week, Minimum Day Width, Week
+    // Scrolling and Minimum Card Width.
+    expect(EVERY_FIELD.size).toBe(225);
   });
 
   it('do not depend on the editor language', () => {

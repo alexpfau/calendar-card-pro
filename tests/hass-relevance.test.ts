@@ -248,7 +248,7 @@ describe('a mounted card', () => {
     };
   };
 
-  it.each(['list', 'column', 'grid'] as const)(
+  it.each(['list', 'column', 'grid', 'month'] as const)(
     'does not render for 20 changes elsewhere in the house, in %s view',
     async (view) => {
       const { card, render } = await counted(view);
@@ -262,7 +262,7 @@ describe('a mounted card', () => {
     },
   );
 
-  it.each(['list', 'column', 'grid'] as const)(
+  it.each(['list', 'column', 'grid', 'month'] as const)(
     'renders for each of 20 changes of its own calendar, in %s view (control)',
     async (view) => {
       const { card, render } = await counted(view);

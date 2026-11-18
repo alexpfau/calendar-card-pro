@@ -210,9 +210,10 @@ describe('the shown set: each state', () => {
       kind: 'other-layout',
       views: ['list'],
     });
+    // Month's day list draws List's rows, so the time's placement reaches it too.
     expect(stateIn(cardCtx({}, 'grid'), 'events:time_position')).toEqual({
       kind: 'other-layout',
-      views: ['list', 'column'],
+      views: ['list', 'column', 'month'],
     });
   });
 

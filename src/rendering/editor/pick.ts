@@ -4,8 +4,9 @@
  *
  * The selectors are the card's own class names, grouped by the place they open, so they are a contract between the card's markup
  * and this table. `tests/editor-pick-map.test.ts` holds it in both directions: it renders the card
- * in List, Columns and Grid and fails on a selector that matches nothing, and on a drawn element
- * that reaches no part but a catch-all.
+ * in List, Columns, Grid and Month, wide and compact, and fails on a selector that matches nothing,
+ * and on a drawn element that reaches no part but a catch-all. Month's day panel is a dialog of
+ * its own, outside the card, so nothing in it is picked.
  *
  * A pick reads the part under the pointer innermost first: the first element on the event's path
  * that matches an entry here decides, and where one element matches several, the earlier entry
@@ -23,7 +24,7 @@ export type PickTarget =
       /** A heading on the page, by its `data-heading` key. */
       readonly heading: string;
       /** The layout whose scope the heading lives in, which a pick switches to. */
-      readonly scope?: 'column' | 'grid';
+      readonly scope?: 'column' | 'grid' | 'month';
     }
   /** The page of the calendar a legend chip names, by its `data-calendar`. */
   | { readonly calendar: true };
@@ -40,13 +41,13 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
   ['.card-toolbar', { page: 'card_header', heading: 'heading_toolbar' }],
   ['.today-indicator-container', { page: 'day_header', heading: 'today_indicator' }],
   [
-    '.week-number, .week-number-cell, .column-week-number',
+    '.week-number, .week-number-cell, .column-week-number, .month-week-number, .month-weekday-gutter',
     { page: 'day_header', heading: 'heading.weeks' },
   ],
   ['.event-weather', { page: 'weather', heading: 'weather.event' }],
   ['.weather', { page: 'weather', heading: 'weather.date' }],
   [
-    '.date-column, .column-day-header, .grid-day-header',
+    '.date-column, .column-day-header, .grid-day-header, .month-weekdays, .month-date, .month-day-list-date',
     { page: 'day_header', heading: 'heading.date' },
   ],
   [
@@ -58,10 +59,13 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
     '.allday-badge, .allday-title-pill, .calendar-label, .label-icon',
     { page: 'events', heading: 'heading_icon_and_badge' },
   ],
-  ['.event-title, .grid-banner-title', { page: 'events', heading: 'heading_title' }],
+  [
+    '.event-title, .grid-banner-title, .month-line-title',
+    { page: 'events', heading: 'heading_title' },
+  ],
   ['.time-countdown, .progress-bar', { page: 'events', heading: 'progress' }],
   ['.now-indicator', { page: 'events', heading: 'heading_event_state' }],
-  ['.time', { page: 'events', heading: 'time' }],
+  ['.time, .month-line-time', { page: 'events', heading: 'time' }],
   ['.location', { page: 'events', heading: 'location' }],
   ['.description', { page: 'events', heading: 'description' }],
   ['.event-accent-bar', { page: 'events', heading: 'heading_accent' }],
@@ -75,6 +79,16 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
   ['.grid-axis', { page: 'grid', heading: 'heading_hour_labels', scope: 'grid' }],
   ['.grid-rules', { page: 'size_spacing', heading: 'heading_across_the_grid', scope: 'grid' }],
   ['.grid-container', { page: 'grid', heading: 'time_grid.axis', scope: 'grid' }],
+  // A compact month's day, and its marks, open what made it compact; a wide one's, and the rest
+  // of the weeks, open Height Per Week, which sets how many lines a day holds before "+N more".
+  [
+    '.month-compact-marks, .month-compact .month-day',
+    { page: 'size_spacing', heading: 'month.density', scope: 'month' },
+  ],
+  [
+    '.month-more, .month-day, .month-container',
+    { page: 'size_spacing', heading: 'heading_card_size', scope: 'month' },
+  ],
   ['.day-column', { page: 'size_spacing', heading: 'column.density', scope: 'column' }],
   ['.content-container', { page: 'size_spacing', heading: 'heading_card_size' }],
   ['.header-container, ha-card', { page: 'card_header', heading: 'heading.general' }],
