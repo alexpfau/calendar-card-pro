@@ -208,6 +208,7 @@ export const DEFAULT_CONFIG: Types.Config = {
     refresh: true,
     search: true,
     legend: 'menu',
+    size: 'normal',
     buttons: [],
   },
 
@@ -411,6 +412,8 @@ export interface ResolvedToolbar {
   search: boolean;
   /** How the calendar filter is offered, or false for none. */
   legend: false | Types.ToolbarLegendMode;
+  /** How large the month's row draws the date navigation and the calendar chips. */
+  size: Types.ToolbarSize;
   /** The buttons the configuration adds, in the order written; entries it cannot draw left out. */
   buttons: ReadonlyArray<Types.ToolbarButtonConfig>;
 }
@@ -422,6 +425,9 @@ export const TOOLBAR_LEGEND_VALUES: ReadonlyArray<false | Types.ToolbarLegendMod
   'chips',
 ];
 
+/** Every value `toolbar.size` accepts. */
+export const TOOLBAR_SIZE_VALUES: ReadonlyArray<Types.ToolbarSize> = ['normal', 'large'];
+
 /**
  * Reads the `toolbar:` block, member by member, falling back to the shipped default.
  *
@@ -429,7 +435,8 @@ export const TOOLBAR_LEGEND_VALUES: ReadonlyArray<false | Types.ToolbarLegendMod
  * replaces the default block, or a value of the wrong kind such as `show: "yes"`. Either reads
  * as the default for that member, so a typo never draws a control the user did not ask for and
  * never removes one they did. `legend: true` is one of those: the legend is a choice of mode,
- * and `true` names none, so it reads as the default, `menu`. `buttons` is read entry by entry,
+ * and `true` names none, so it reads as the default, `menu`. A `size` other than `normal` or
+ * `large` reads as `normal`. `buttons` is read entry by entry,
  * and an entry that cannot be drawn as written is left out (`isToolbarButton`).
  *
  * @param config - Configuration, merged or raw
@@ -441,7 +448,10 @@ export function resolveToolbar(config: Readonly<Pick<Types.Config, 'toolbar'>>):
     ? config.toolbar
     : {};
   const read = (
-    key: Exclude<keyof Types.ToolbarConfig, 'legend' | 'buttons' | 'view_switcher_layouts'>,
+    key: Exclude<
+      keyof Types.ToolbarConfig,
+      'legend' | 'size' | 'buttons' | 'view_switcher_layouts'
+    >,
   ): boolean =>
     typeof block[key] === 'boolean' ? (block[key] as boolean) : (defaults[key] as boolean);
   const switcherViews = resolveSwitcherViews(
@@ -451,6 +461,9 @@ export function resolveToolbar(config: Readonly<Pick<Types.Config, 'toolbar'>>):
   const legend = TOOLBAR_LEGEND_VALUES.includes(block.legend as false | Types.ToolbarLegendMode)
     ? (block.legend as false | Types.ToolbarLegendMode)
     : defaults.legend;
+  const size = TOOLBAR_SIZE_VALUES.includes(block.size as Types.ToolbarSize)
+    ? (block.size as Types.ToolbarSize)
+    : defaults.size;
 
   return {
     show: read('show'),
@@ -462,6 +475,7 @@ export function resolveToolbar(config: Readonly<Pick<Types.Config, 'toolbar'>>):
     refresh: read('refresh'),
     search: read('search'),
     legend,
+    size,
     buttons: Array.isArray(block.buttons) ? block.buttons.filter(isToolbarButton) : [],
   };
 }

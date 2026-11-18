@@ -2774,7 +2774,8 @@ describe('editor: the Card & Header panel', () => {
    * Pinned by value and in order. The toolbar's switches close the panel: the bar's own switch,
    * then the controls in the order the toolbar is read: the top row from start to end, the
    * filter leading as its default button does, then the date navigation in the row under it,
-   * then the layouts the switcher offers. The heading over them is the registry's.
+   * then the layouts the switcher offers, and last how large the row under it draws its
+   * controls. The heading over them is the registry's.
    */
   it('closes the panel with the toolbar', () => {
     const head = ['title', 'title_font_size', 'title_color', 'background_color'];
@@ -2795,6 +2796,7 @@ describe('editor: the Card & Header panel', () => {
         'search',
         'navigation',
         'view_switcher_layouts',
+        'size',
       ]);
       // Which layouts the switcher offers is offered only while it is on.
       expect(

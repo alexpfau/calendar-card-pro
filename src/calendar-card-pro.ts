@@ -403,7 +403,7 @@ export const GRID_DETAIL_ROWS: ReadonlyArray<{ selector: string; lineProperty: s
 type LoadMode = 'navigate' | 'page' | 'cache' | 'reprocess' | 'network' | 'reload' | 'live';
 
 /** The controls a render draws in the header toolbar, before it decides on the switcher's words. */
-type ToolbarControls = Omit<Toolbar.HeaderToolbar, 'labeled'>;
+type ToolbarControls = Omit<Toolbar.HeaderToolbar, 'labeled' | 'large'>;
 
 /**
  * An event drawn as a target of its own, which a search pick moves focus to: list view's button
@@ -8724,7 +8724,11 @@ class CalendarCardPro extends LitElement {
     controls.startFold = this._startFold(this._toolbarRow);
     this._toolbarLabelMinWidthPx = this._toolbarLabelMinWidth(controls);
 
-    return { labeled: this._toolbarLabeledFor(controls), ...controls };
+    return {
+      labeled: this._toolbarLabeledFor(controls),
+      large: Config.resolveToolbar(this.config).size === 'large',
+      ...controls,
+    };
   }
 
   /**
@@ -9149,13 +9153,15 @@ class CalendarCardPro extends LitElement {
       String(this._toolbarFontGeneration),
       this._wantsNavigation ? 'navigation' : '',
       String(this.config.title_font_size ?? ''),
+      // The arrows beside the month are larger under `large`.
+      Config.resolveToolbar(this.config).size,
     ].join('\u0000');
   }
 
   /**
    * Whether the month heading takes its short form at the card's width now: only once a
    * measurement found that every month in full does not fit there, with the same language,
-   * view, fonts, navigation and title size.
+   * view, fonts, navigation, title size and control size.
    *
    * @returns True to draw the short form
    */
@@ -9890,6 +9896,8 @@ class CalendarCardPro extends LitElement {
       String(this._toolbarFontGeneration),
       this._wantsNavigation ? 'navigation' : '',
       String(this.config.title_font_size ?? ''),
+      // The chips and the arrows beside them are larger under `large`.
+      Config.resolveToolbar(this.config).size,
       ...calendars.map((calendar) => `${calendar.id}\u0001${calendar.name}`),
     ].join('\u0000');
   }
@@ -9898,8 +9906,9 @@ class CalendarCardPro extends LitElement {
    * Whether the legend's chips are folded into a button now.
    *
    * Folded from the width at which its chips did not fit, drawn with the same calendars,
-   * names, language, view, fonts, navigation and title size, until the card is wide enough for
-   * them by a margin. Anything else draws the chips, which `_syncLegendFit` then measures.
+   * names, language, view, fonts, navigation, title size and control size, until the card is
+   * wide enough for them by a margin. Anything else draws the chips, which `_syncLegendFit` then
+   * measures.
    *
    * @param signature - From `_legendSignature`
    * @returns True to draw the button

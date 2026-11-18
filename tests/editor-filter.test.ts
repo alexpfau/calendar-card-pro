@@ -422,6 +422,7 @@ describe('editor filter: section headings', () => {
       'navigation',
       'legend',
       'view_switcher_layouts',
+      'size',
       'title',
     ]);
   });

@@ -7,7 +7,9 @@
  * switcher, add, refresh, search and the calendar filter as a menu. Reset is off, since it is
  * for a screen several people share. Search, the first control added after v5, is on, by the
  * maintainer's choice (backlog item 182), and drawn only beside the date navigation a match
- * needs to open its day. The configuration's own
+ * needs to open its day. The controls beside the month are drawn at their usual size unless
+ * `size: large` asks for them as large as the action row's buttons, for a touch screen. The
+ * configuration's own
  * buttons are a list, empty unless it writes some, and read entry by entry: one that cannot be
  * drawn as written is left out.
  */
@@ -17,6 +19,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_CONFIG,
   TOOLBAR_LEGEND_VALUES,
+  TOOLBAR_SIZE_VALUES,
   resolveToolbar,
   switcherOffers,
   undrawableToolbarButtons,
@@ -37,6 +40,7 @@ const DEFAULTS = {
   refresh: true,
   search: true,
   legend: 'menu',
+  size: 'normal',
   buttons: [],
 };
 
@@ -52,6 +56,7 @@ describe('the toolbar configuration', () => {
       refresh: true,
       search: true,
       legend: 'menu',
+      size: 'normal',
       buttons: [],
     });
     expect(resolveToolbar(DEFAULT_CONFIG)).toEqual(DEFAULTS);
@@ -59,6 +64,15 @@ describe('the toolbar configuration', () => {
 
   it('offers the filter as a menu, as chips, or not at all', () => {
     expect(TOOLBAR_LEGEND_VALUES).toEqual([false, 'menu', 'chips']);
+  });
+
+  it('draws the controls beside the month at their usual size, or as large as the buttons above', () => {
+    expect(TOOLBAR_SIZE_VALUES).toEqual(['normal', 'large']);
+    expect(resolveToolbar({ toolbar: { show: true, size: 'large' } })).toEqual({
+      ...DEFAULTS,
+      show: true,
+      size: 'large',
+    });
   });
 
   it('reads a partly written block member by member', () => {
@@ -120,6 +134,7 @@ describe('the toolbar configuration', () => {
         refresh: 'on',
         search: 1,
         legend: 1,
+        size: true,
       },
     };
 
@@ -251,6 +266,17 @@ describe('the toolbar configuration', () => {
 
     expect(resolveToolbar(config as unknown as Pick<Types.Config, 'toolbar'>).legend).toBe('menu');
   });
+
+  it.each([
+    ['true, which names no size', true],
+    ['an unknown size', 'huge'],
+    ['a size in the wrong case', 'Large'],
+    ['a number', 1.5],
+  ])('reads a size of %s as the default, normal', (_name, size) => {
+    const config = { toolbar: { show: true, size } };
+
+    expect(resolveToolbar(config as unknown as Pick<Types.Config, 'toolbar'>).size).toBe('normal');
+  });
 });
 
 describe('the toolbar block the editor shows', () => {
@@ -262,11 +288,13 @@ describe('the toolbar block the editor shows', () => {
         key,
         key === 'legend'
           ? 'chips'
-          : key === 'buttons'
-            ? [{ icon: 'mdi:arrow-left' }]
-            : key === 'view_switcher_layouts'
-              ? ['list', 'month']
-              : !value,
+          : key === 'size'
+            ? 'large'
+            : key === 'buttons'
+              ? [{ icon: 'mdi:arrow-left' }]
+              : key === 'view_switcher_layouts'
+                ? ['list', 'month']
+                : !value,
       ]),
     );
     const block = toolbarFormBlock({ ...DEFAULT_CONFIG, toolbar: changed } as Types.Config);
@@ -282,6 +310,7 @@ describe('the toolbar block the editor shows', () => {
         'reset',
         'search',
         'show',
+        'size',
         'view_switcher',
         'view_switcher_layouts',
       ].sort(),

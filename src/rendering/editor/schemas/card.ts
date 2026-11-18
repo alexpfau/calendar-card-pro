@@ -87,6 +87,7 @@ export function buildCardSchema(ctx: SchemaCtx): HaFormSchema[] {
             ...(toolbar.viewSwitcher
               ? [multiSelect(ctx.language, 'view_switcher_layouts', VIEWS, 'view')]
               : []),
+            select(ctx.language, 'size', Config.TOOLBAR_SIZE_VALUES, 'toolbar.size'),
           ]
         : []),
     ]),

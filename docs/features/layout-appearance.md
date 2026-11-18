@@ -716,6 +716,32 @@ In the card editor's preview, and on a dashboard in edit mode, the magnifier is 
 nothing.
 :::
 
+### Larger Arrows & Chips
+
+For a touch screen, `size: large` draws the arrows, the home button and the calendar chips beside
+the month nearly as large as the buttons in the top row, so a finger finds them easily. They are
+spaced as those buttons are, and their icons are drawn with the same lines.
+
+```yaml
+type: custom:calendar-card-pro
+title: Family
+entities:
+  - calendar.anna
+  - calendar.ben
+toolbar:
+  show: true
+  legend: chips
+  size: large
+```
+
+- The top row, the month and the filter's menu keep their size.
+- Larger chips need more room, so on a narrower card they fold into the
+  [filter's button](#showing-hiding-calendars) sooner, and the month takes its short form sooner
+  beside the larger arrows.
+- The size belongs to the card, so a phone showing the same dashboard draws them large too.
+- In the [visual editor](/features/editor) it is **Arrow & Chip Size** under Toolbar, where the
+  usual size is called Small.
+
 ## 📏 Spacing & Alignment
 
 Fine-tune the spacing and alignment of your calendar elements:

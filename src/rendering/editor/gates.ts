@@ -346,6 +346,7 @@ export const GATES: Readonly<Record<string, Gate>> = {
       'card:toolbar.refresh',
       'card:toolbar.search',
       'card:toolbar.navigation',
+      'card:toolbar.size',
     ],
     requires: [on('card:toolbar.show')],
     kind: 'gate',

@@ -222,6 +222,7 @@ const APPROVED_MAP: ReadonlyArray<
       'card:toolbar.navigation T',
       'card:toolbar.view_switcher_layouts A',
       'card:toolbar.legend R',
+      'card:toolbar.size A',
     ],
   ],
   [
@@ -658,8 +659,8 @@ describe('the page registry places every built field exactly once', () => {
         `${WORKSPACES.length} workspaces; ${PLACED.length} placements.`,
     );
     expect(WORKSPACES).toHaveLength(5);
-    expect(BUILT.size).toBe(227);
-    expect(PLACED).toHaveLength(227);
+    expect(BUILT.size).toBe(228);
+    expect(PLACED).toHaveLength(228);
   });
 
   it('has no field built but unplaced', () => {
@@ -962,6 +963,7 @@ describe('the registry heads what the builders used to', () => {
       'card:toolbar.navigation',
       'card:toolbar.view_switcher_layouts',
       'card:toolbar.legend',
+      'card:toolbar.size',
     ]);
   });
 

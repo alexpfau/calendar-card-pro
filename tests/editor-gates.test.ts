@@ -817,11 +817,11 @@ describe('the universe', () => {
     // since its day list puts every time beside its title, and gained Event Gap, which sets that
     // list's events apart, and Events in Day List, the room that list keeps.
     expect(sizes).toEqual({
-      shared: { card: 152, calendar: 28 },
-      list: { card: 158, calendar: 28 },
-      column: { card: 157, calendar: 27 },
-      grid: { card: 156, calendar: 27 },
-      month: { card: 136, calendar: 27 },
+      shared: { card: 153, calendar: 28 },
+      list: { card: 159, calendar: 28 },
+      column: { card: 158, calendar: 27 },
+      grid: { card: 157, calendar: 27 },
+      month: { card: 137, calendar: 27 },
     });
   });
 
@@ -1079,6 +1079,7 @@ describe('the gate table', () => {
           'card:toolbar.refresh',
           'card:toolbar.search',
           'card:toolbar.navigation',
+          'card:toolbar.size',
         ],
         requires: [p('card:toolbar.show', true, ON)],
       },
