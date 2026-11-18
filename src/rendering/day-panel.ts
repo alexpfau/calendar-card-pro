@@ -17,9 +17,9 @@
  *
  * A row that is a button in the card is one here. Pressing it closes the panel and, once the
  * panel has gone and focus is back on "+N more", runs what a tap on the event runs on the card:
- * `event_tap_action`, the details popover among them, or `event_hold_action` where only that is
- * set, as the card's keyboard does. A link in a row stays a link. The only words of its own are
- * Home Assistant's "Close".
+ * `event_tap_action`, the details popover among them, opening from where the panel did, or
+ * `event_hold_action` where only that is set, as the card's keyboard does. A link in a row stays
+ * a link. The only words of its own are Home Assistant's "Close".
  */
 
 import { mdiClose } from '@mdi/js';
@@ -76,7 +76,7 @@ export interface DayPanelSource {
    * Runs what a tap on a row's event runs on the card. Called once the panel has gone.
    *
    * @param target - The event, and the accent it is drawn in
-   * @param origin - Where its row was, for the details popover to open beside
+   * @param origin - Where the panel opened, for the details popover to open beside in its place
    */
   activate(target: Activation.EventTapTarget, origin: Feedback.PressOrigin): void;
 }
@@ -113,6 +113,20 @@ const PANEL_WIDTH = 360;
 
 /** Home Assistant's word for closing, and the English it falls back to for assistive technology. */
 const CLOSE = ['ui.common.close', 'Close'] as const;
+
+/**
+ * A box as a press beside it: its center, and the box.
+ *
+ * @param rect - The box, in viewport pixels
+ * @returns The press
+ */
+function boxOrigin(rect: DOMRect): Feedback.PressOrigin {
+  return {
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2,
+    rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom },
+  };
+}
 
 //-----------------------------------------------------------------------------
 // ELEMENT
@@ -354,21 +368,22 @@ export class DayPanel extends Shell.PopoverShell {
   }
 
   /**
-   * Picks a row: the panel closes, and its event's action runs once the panel has gone.
+   * Picks a row: the panel closes, and its event's action runs once the panel has gone, opening
+   * where the panel opened, from its "+N more" or its day's cell, rather than beside a row that is
+   * no longer there. Without the pointer that opened the panel: a popover reads that as its own
+   * opening press, whose touch may still send it events (`EventPopover`), and the row's click,
+   * which opens this one, has none left to send.
    *
    * @param hit - The row's button and its event
    */
   private _pick(hit: Activation.EventTapHit): void {
     if (this._closing || !this._params) return;
-    const element = hit.element as Element;
-    const rect = element.getBoundingClientRect();
+    const anchor = this._params.anchor;
     this._picked = {
       target: hit.target,
-      origin: {
-        x: rect.left + rect.width / 2,
-        y: rect.top + rect.height / 2,
-        rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom },
-      },
+      origin: anchor
+        ? { x: anchor.x, y: anchor.y, rect: anchor.rect, below: anchor.below }
+        : boxOrigin((hit.element as Element).getBoundingClientRect()),
     };
     this._close();
   }

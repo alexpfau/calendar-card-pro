@@ -1178,6 +1178,57 @@ describe('the day panel', () => {
     expect(cell.getAttribute('tabindex')).toBe('0');
   });
 
+  it('gives focus back without the keyboard’s ring after a press closes it, not after a key', async () => {
+    // Closing the modal and Home Assistant both put focus back as a script does, which Chrome
+    // rings wherever a key has been pressed since a press last moved focus; a press on the
+    // backdrop moves none where the panel held focus already. So a press puts focus back once
+    // more, saying not to ring, and a key leaves it as it was. happy-dom draws no ring, so what is
+    // pinned is the option on the focus that moved focus back, which is what a browser reads.
+    const moves: Array<{ to: HTMLElement; options?: FocusOptions }> = [];
+    const focus = HTMLElement.prototype.focus;
+    HTMLElement.prototype.focus = function (this: HTMLElement, options?: FocusOptions) {
+      if (deepActive() !== this) moves.push({ to: this, options });
+      focus.call(this, options);
+    };
+    try {
+      const { card, panel } = await open();
+      const cell = root(card).querySelector<HTMLElement>(
+        '.month-day[aria-label^="Tuesday, November 10, 2026"]',
+      )!;
+      const dialog = panel!.shadowRoot!.querySelector('dialog')!;
+      const lastMoveTo = () => moves.filter(({ to }) => to === cell).pop();
+
+      // A press that starts and ends on the backdrop, once the panel has been open a moment.
+      vi.advanceTimersByTime(400);
+      pointer(dialog, 'pointerdown');
+      dialog.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+      await afterClose(card);
+      expect(isOpen(panel)).toBe(false);
+      expect(deepActive()).toBe(cell);
+      expect(lastMoveTo()?.options).toEqual({ preventScroll: true, focusVisible: false });
+
+      // Escape, after opening it again: focus goes back as it always has.
+      more(card).click();
+      await settle(card);
+      await panel!.updateComplete;
+      expect(isOpen(panel)).toBe(true);
+      moves.length = 0;
+      panel!
+        .shadowRoot!.querySelector('.day-panel-close')!
+        .dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }),
+        );
+      dialog.dispatchEvent(new Event('cancel', { cancelable: true }));
+      await afterClose(card);
+      expect(isOpen(panel)).toBe(false);
+      expect(deepActive()).toBe(cell);
+      expect(lastMoveTo()).toBeDefined();
+      expect(moves.some(({ options }) => options?.focusVisible !== undefined)).toBe(false);
+    } finally {
+      HTMLElement.prototype.focus = focus;
+    }
+  });
+
   it('closes on a row, and runs what a tap on the event runs on the card', async () => {
     const { card, panel } = await open({ event_tap_action: { action: 'details' } });
     const review = [...panel!.shadowRoot!.querySelectorAll<HTMLElement>('.event-button')].find(
@@ -1191,6 +1242,32 @@ describe('the day panel', () => {
       opened.map(({ dialogParams }) => (dialogParams as PopoverParams).entry?.summary),
     ).toEqual(['Review']);
     expect((opened[0].dialogParams as PopoverParams).calendarId).toBe(BEN);
+  });
+
+  it('opens a row’s popover where the panel opened, from its day’s "+N more"', async () => {
+    // happy-dom lays nothing out, so "+N more" is given a box; the rows keep none.
+    const manager = playDialogManager();
+    const card = await mount({ event_tap_action: { action: 'details' } });
+    more(card).getBoundingClientRect = () => new DOMRect(500, 300, 80, 20);
+    more(card).click();
+    await settle(card);
+    const panel = manager.panel();
+    await panel?.updateComplete;
+    const anchor = (dialogs[0].dialogParams as DayPanelParams).anchor!;
+    expect(anchor).toMatchObject({ x: 540, y: 310 });
+
+    [...panel!.shadowRoot!.querySelectorAll<HTMLElement>('.event-button')]
+      .find((button) => text(button).startsWith('Review'))!
+      .click();
+    await afterClose(card);
+    const opened = dialogs.filter(({ dialogTag }) => dialogTag === EVENT_POPOVER_TAG);
+    expect(opened).toHaveLength(1);
+    // Without a pointer of the panel's own: the row's click has no events left to send.
+    expect((opened[0].dialogParams as PopoverParams).anchor).toEqual({
+      x: anchor.x,
+      y: anchor.y,
+      rect: anchor.rect,
+    });
   });
 
   it('runs Home Assistant’s action for a row where event_tap_action names one', async () => {
