@@ -876,7 +876,7 @@ export abstract class PopoverShell extends LitElement {
   private _openedFrom: Element | null = null;
   /**
    * Whether the last input in the panel was a press rather than a key, which gives focus back
-   * without the keyboard's ring once it closes (`_returnQuietly`).
+   * without the keyboard's ring once it closes (`_returnFocus`).
    */
   private _pressedLast = false;
 
@@ -1268,9 +1268,10 @@ export abstract class PopoverShell extends LitElement {
     }
     this._fireClosed();
     // Closed at once, focus went back before Home Assistant's dialog manager heard, which takes
-    // it off to put it back a render later as a script does. Back quietly once more, so the
-    // manager finds it there already and leaves it as it is.
-    if (closedAtOnce) this._returnQuietly();
+    // it off to put it back a render later. Back at once instead, so the manager finds it there
+    // and leaves it: in between, a row picked in a day panel opens its popover, which would open
+    // on nothing and give focus back to nothing when it closes.
+    if (closedAtOnce) this._returnFocus();
     return true;
   }
 
@@ -1279,7 +1280,8 @@ export abstract class PopoverShell extends LitElement {
     const dialog = this._dialog;
     if (dialog?.open) {
       dialog.close();
-      this._returnQuietly();
+      // After a key, closing the modal has put focus back as it should be.
+      if (this._pressedLast) this._returnFocus();
     }
     this._guardScroll(false);
     this._watchRoom(false);
@@ -1296,24 +1298,27 @@ export abstract class PopoverShell extends LitElement {
   }
 
   /**
-   * Where a press closed the panel, gives focus back to what had it as the panel opened, without
-   * the keyboard's ring. Closing a modal puts focus back there, and Home Assistant's dialog
-   * manager does too, each as a script does, which Chrome rings wherever a key has been pressed
-   * since a press last moved focus, Shift alone included. A press on the backdrop moves nothing
-   * where the panel held focus itself, after a click on its text, so a key pressed in the panel
-   * rang the day's cell once a press had closed it. Focus goes there again saying it is not to
-   * ring (`focusVisible`), which holds until focus moves on, and leaves the element first, since
-   * only a move carries the option. Nothing changes after a key, nor where focus went elsewhere.
+   * Gives focus back to what had it as the panel opened, where focus is on it or nowhere. Closing
+   * a modal puts focus back there, and Home Assistant's dialog manager does too, each as a script
+   * does, which Chrome rings wherever a key has been pressed since a press last moved focus, Shift
+   * alone included. A press on the backdrop moves nothing where the panel held focus itself, after
+   * a click on its text, so a key pressed in the panel rang the day's cell once a press had closed
+   * it. So after a press, focus goes there again saying it is not to ring (`focusVisible`), which
+   * holds until focus moves on, and leaves the element first, since only a move carries the
+   * option. After a key, focus goes there only from nowhere, ringed as a key's close rings it.
    */
-  private _returnQuietly(): void {
+  private _returnFocus(): void {
     const back = this._openedFrom;
-    if (!this._pressedLast || !(back instanceof HTMLElement) || back === document.body) return;
-    if (!back.isConnected) return;
+    if (!(back instanceof HTMLElement) || back === document.body || !back.isConnected) return;
     const now = deepActiveElement();
     const nowhere = !now || now === document.body || !!this.shadowRoot?.contains(now);
     if (now !== back && !nowhere) return;
-    if (now === back) back.blur();
-    back.focus({ preventScroll: true, focusVisible: false });
+    if (this._pressedLast) {
+      if (now === back) back.blur();
+      back.focus({ preventScroll: true, focusVisible: false });
+    } else if (nowhere) {
+      back.focus({ preventScroll: true });
+    }
   }
 
   /**

@@ -1090,31 +1090,43 @@ function deepActive(): HTMLElement | null {
 }
 
 /**
- * Home Assistant's dialog manager, as far as `show-dialog` goes, for the day panel: made once,
- * handed `hass` and shown, the element focus was on when it opened noted, and focused again a
- * frame after the panel says it has closed.
+ * Home Assistant's dialog manager, as far as `show-dialog` goes, for the day panel and any other
+ * dialog named: each made once, handed `hass` and shown, the element focus was on when it opened
+ * noted, and focused again a frame after it says it has closed.
+ *
+ * @param tags - The dialogs it plays, the day panel alone unless others are named
  */
-function playDialogManager(): { panel: () => PanelUnderTest | null } {
-  let panel: PanelUnderTest | null = null;
-  let returnTo: HTMLElement | null = null;
+function playDialogManager(tags: readonly string[] = [DAY_PANEL_TAG]): {
+  panel: () => PanelUnderTest | null;
+  dialog: (tag: string) => PanelUnderTest | null;
+} {
+  const made = new Map<string, { element: PanelUnderTest; returnTo: HTMLElement | null }>();
   manager = (event) => {
     const detail = (event as CustomEvent<{ dialogTag: string; dialogParams: DayPanelParams }>)
       .detail;
-    if (detail.dialogTag !== DAY_PANEL_TAG) return;
-    returnTo = deepActive();
-    if (!panel) {
-      panel = document.createElement(DAY_PANEL_TAG) as PanelUnderTest;
-      panel.addEventListener('dialog-closed', () => {
+    if (!tags.includes(detail.dialogTag)) return;
+    const returnTo = deepActive();
+    let shown = made.get(detail.dialogTag);
+    if (!shown) {
+      const element = document.createElement(detail.dialogTag) as PanelUnderTest;
+      const entry = { element, returnTo };
+      element.addEventListener('dialog-closed', () => {
         deepActive()?.blur();
-        requestAnimationFrame(() => setTimeout(() => returnTo?.focus()));
+        requestAnimationFrame(() => setTimeout(() => entry.returnTo?.focus()));
       });
+      made.set(detail.dialogTag, entry);
+      shown = entry;
     }
-    panel.hass = (event.target as CardUnderTest).hass;
-    panel.showDialog(detail.dialogParams);
-    if (!panel.isConnected) document.body.appendChild(panel);
+    shown.returnTo = returnTo;
+    shown.element.hass = (event.target as CardUnderTest).hass;
+    shown.element.showDialog(detail.dialogParams);
+    if (!shown.element.isConnected) document.body.appendChild(shown.element);
   };
   document.addEventListener('show-dialog', manager);
-  return { panel: () => panel };
+  return {
+    panel: () => made.get(DAY_PANEL_TAG)?.element ?? null,
+    dialog: (tag) => made.get(tag)?.element ?? null,
+  };
 }
 
 /** Let a closing panel play its way out, and the frames after it pass. */
@@ -1226,6 +1238,52 @@ describe('the day panel', () => {
       expect(moves.some(({ options }) => options?.focusVisible !== undefined)).toBe(false);
     } finally {
       HTMLElement.prototype.focus = focus;
+    }
+  });
+
+  it('gives focus back to the day after a row picked by key opens a popover, with less motion', async () => {
+    // Closed at once, the panel has focus back on the day before Home Assistant's manager hears,
+    // blurs it and puts it back a render later; the row's popover opens in between. It opened on
+    // nothing then, so closing it gave focus back to nothing.
+    const media = vi
+      .spyOn(window, 'matchMedia')
+      .mockImplementation(
+        (query: string) =>
+          ({ matches: query.includes('prefers-reduced-motion: reduce') }) as MediaQueryList,
+      );
+    try {
+      const manager = playDialogManager([DAY_PANEL_TAG, EVENT_POPOVER_TAG]);
+      const card = await mount({ event_tap_action: { action: 'details' } });
+      const cell = root(card).querySelector<HTMLElement>(
+        '.month-day[aria-label^="Tuesday, November 10, 2026"]',
+      )!;
+      more(card).click();
+      await settle(card);
+      const panel = manager.panel()!;
+      await panel.updateComplete;
+      const review = [...panel.shadowRoot!.querySelectorAll<HTMLElement>('.event-button')].find(
+        (button) => text(button).startsWith('Review'),
+      )!;
+      review.focus();
+      review.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true }),
+      );
+      await afterClose(card);
+      expect(isOpen(panel)).toBe(false);
+      const popover = manager.dialog(EVENT_POPOVER_TAG)!;
+      await popover.updateComplete;
+      const dialog = popover.shadowRoot!.querySelector('dialog')!;
+      expect(dialog.open).toBe(true);
+
+      deepActive()!.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }),
+      );
+      if (dialog.open) dialog.dispatchEvent(new Event('cancel', { cancelable: true }));
+      await afterClose(card);
+      expect(dialog.open).toBe(false);
+      expect(deepActive()).toBe(cell);
+    } finally {
+      media.mockRestore();
     }
   });
 
