@@ -127,9 +127,8 @@ export function back(nav: NavState): { nav: NavState; restore: TrailEntry | unde
 
 /**
  * Checks the open place and the trail against the card as it now is, after a configuration
- * the editor did not send: a place that no longer exists (an entry removed, the Grid page
- * outside Grid) is dropped from the trail, and when it is the open place the editor falls back
- * to the overview.
+ * the editor did not send: a place that no longer exists (an entry removed) is dropped from the
+ * trail, and when it is the open place the editor falls back to the overview.
  *
  * @param nav - Where the editor is
  * @param exists - Whether a place exists on the card now

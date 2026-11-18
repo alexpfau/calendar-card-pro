@@ -217,7 +217,7 @@ describe('Pick From Preview', () => {
     const day = card.shadowRoot!.querySelector('.date-column .day')!;
     fire(day, 'pointermove', { pointerType: 'mouse' });
     expect(card.shadowRoot!.querySelector('.ccp-pick-label')!.textContent).toBe(
-      'Day Header › Date · Click to Edit',
+      'Days › Date · Click to Edit',
     );
     fire(day, 'click');
     await settle(editor, card);
@@ -227,7 +227,7 @@ describe('Pick From Preview', () => {
     expect(jump?.getAttribute('data-field')).toBe('day_header:date_vertical_alignment');
     expect($(editor, '[data-pick-banner]')).toBeNull();
     expect(card.shadowRoot!.querySelector('.ccp-pick-layer')).toBeNull();
-    expect(said).toContain('Showing Day Header › Date.');
+    expect(said).toContain('Showing Days › Date.');
   });
 
   it('opens a heading whose settings are all folded at its first, opened', async () => {
@@ -262,12 +262,12 @@ describe('Pick From Preview', () => {
     );
     fire(switcher, 'click');
     await settle(editor, card);
-    // Not the toolbar's first setting, Show Toolbar: the one that says what the switcher offers,
-    // opened from its fold to its chips.
+    // Not the toolbar's first setting, Show Toolbar: the line that says what the switcher offers,
+    // a checkbox per layout under the Controls.
     const jump = $(editor, '.page-group[data-heading="heading_toolbar"] .jump [data-field]');
     expect(jump?.getAttribute('data-field')).toBe('card:toolbar.view_switcher_layouts');
     expect(
-      editor.shadowRoot!.querySelectorAll('[data-composed="layouts"] button.chip'),
+      editor.shadowRoot!.querySelectorAll('[data-composed="layouts"] input[type="checkbox"]'),
     ).toHaveLength(4);
     expect(said).toContain('Showing Card & Header › Toolbar.');
   });
@@ -289,8 +289,11 @@ describe('Pick From Preview', () => {
     const said = listen(editor);
     fire(card.shadowRoot!.querySelector('.grid-axis-label')!, 'click');
     await settle(editor, card);
-    expect($(editor, '.page[data-page="grid"]')).not.toBeNull();
-    expect(said).toEqual(['Now editing settings for Grid.', 'Showing Grid › Hour Labels.']);
+    expect($(editor, '.page[data-page="size_spacing"]')).not.toBeNull();
+    expect(said).toEqual([
+      'Now editing settings for Grid.',
+      'Showing Size & Spacing › Hour Labels.',
+    ]);
   });
 
   it('outlines on the first tap of a touch screen and opens on a second on the same part', async () => {
@@ -326,5 +329,44 @@ describe('Pick From Preview', () => {
     expect($(editor, '.page[data-page="weather"]')).not.toBeNull();
     expect($(editor, '[data-pick-banner]')).toBeNull();
     expect(next.shadowRoot!.querySelector('.ccp-pick-layer')).toBeNull();
+  });
+});
+
+// The preview follows Settings For through the card Home Assistant's dialog previews, found as
+// Pick From Preview finds it, and configured through its own `setConfig` (`views/scope-preview.ts`).
+describe('the preview in Home Assistant’s dialog', () => {
+  it('draws the layout Settings For names, and the card as it opens under All Layouts', async () => {
+    const month = { ...CONFIG, view: 'month' };
+    const { editor, card } = await dialog({ card: month, editor: month });
+    // What the preview's card is configured with, recorded rather than drawn: the card's own
+    // rendering is the card's tests' business, and happy-dom trips over focus in a redraw here.
+    const given: Array<Record<string, unknown>> = [];
+    vi.spyOn(card, 'setConfig').mockImplementation((config) => {
+      given.push(config as Record<string, unknown>);
+    });
+    const last = () => given[given.length - 1];
+    const shown = () => last()?.view ?? 'month';
+    const pick = async (scope: string) => {
+      (editor as unknown as { _pickScope(scope: string): void })._pickScope(scope);
+      await settle(editor, card);
+    };
+    expect(given).toEqual([]);
+
+    await pick('grid');
+    expect(shown()).toBe('grid');
+    // The configuration as written, `view` alone laid over it.
+    expect(last()).toEqual({ ...month, view: 'grid' });
+    // On a page too, where Settings For is the page's.
+    editor.shadowRoot!.querySelector<HTMLElement>('[data-focus="nav:size_spacing"]')!.click();
+    await settle(editor, card);
+    expect(shown()).toBe('grid');
+
+    // All Layouts: the card as it opens, handed back as written.
+    await pick('shared');
+    expect(last()).toEqual(month);
+    await pick('column');
+    expect(shown()).toBe('column');
+    await pick('month');
+    expect(last()).toEqual(month);
   });
 });

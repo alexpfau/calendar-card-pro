@@ -528,7 +528,7 @@ describe('state words: every row of the stateOf table', () => {
       kind: 'card',
       value: true,
     });
-    // With the preview switched to List, List's value is the one drawn.
+    // With the preview drawing List, List's value is the one drawn.
     expect(stateOf(fieldIn(anna('list'), 'calendar:show_time'), anna('list'))).toEqual({
       words: { kind: 'follows-card', value: false },
     });

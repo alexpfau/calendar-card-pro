@@ -334,16 +334,17 @@ Each press redraws the same two days: as Columns, then as List, then as Grid aga
   loads its six weeks too, so leaving `month` out keeps the card's load to its own days. A list
   that comes to one layout, or none, draws no switcher. `view_switcher: false` turns the switcher
   off and keeps the list for when it is turned back on. In the visual editor, the View Switcher
-  chip turns it on and off, and Layouts in Switcher, under the controls while it is on, offers a
-  chip per layout; the starting layout's chip stays pressed, and so does the last other one.
+  chip turns it on and off, and while it is pressed, **View Switcher offers**, under the controls,
+  has a checkbox per layout; the starting layout's stays checked, and so does the last other one.
   Changing **Starting Layout** to the one other layout the list names adds the layout it leaves,
   so the switcher stays. A list written in YAML that offers the starting layout alone shows a line
-  under the chips saying no switcher is drawn until a second layout is pressed.
+  under the checkboxes saying no switcher is drawn until a second layout is checked.
 
 ::: tip Nothing Switches While You Edit
-In the card editor's preview, and on a dashboard in edit mode, the card shows its configured
-`view` and a press on the switcher does nothing. To try another layout there, change
-**Starting Layout** in the editor.
+In the card editor's preview, and on a dashboard in edit mode, a press on the switcher does
+nothing. The editor's preview shows the layout chosen under
+[Settings For](/features/editor#options-for-the-selected-view), so choose another layout there
+to see it without changing the card; on the dashboard the card shows its configured `view`.
 :::
 
 ### Refreshing the Events
@@ -403,6 +404,11 @@ toolbar:
   show: true
   legend: chips
 ```
+
+In the visual editor, the **Calendar Filter** chip under Card & Header › Toolbar turns the filter
+on and off, and while it is pressed, **Calendar Filter shows**, under the controls, picks **Menu**
+or **Chips**. Pressed on again, it comes back in the form the card had or was last given there
+while the editor is open, else as a menu.
 
 - **Each chip is a switch.** A press hides that calendar's events and turns its chip gray, and
   another press shows them again.
@@ -1014,8 +1020,8 @@ past_date_opacity: 55
   display can enlarge today while the list a phone falls back to does not.
 
 ::: tip Visual Editor
-Today's scale and weight are under **Day Header → Today**, and the past-day options under
-**Day Header → Past Days**.
+Today's scale and weight are under **Days → Today**, and the past-day options under
+**Days → Past Days**.
 :::
 
 ::: details Layout, Units & Card-Mod
@@ -1070,7 +1076,7 @@ The dot can also be written `dot`. Text that is none of the above is drawn as it
 as a week number, a quarter or a sprint name.
 
 ::: tip Visual Editor
-Find it under **Day Header → Today Indicator**, where **Style** offers **None**,
+Find it under **Days → Today Indicator**, where **Style** offers **None**,
 **Date Tile**, **Dot**, **Pulsing Dot**, **Glowing Dot**, **An Icon** and
 **An Emoji or Image**. The date tile takes only an **Indicator Color**; the other styles add
 an **Indicator Size**, and while **Settings For** is List an **Indicator Position**.

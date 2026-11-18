@@ -5,7 +5,7 @@
 import type { HaFormSchema } from './ha-form';
 import { select } from './schemas/common';
 import { isSet as holdsValue } from './synthetic';
-import { DEFAULT_CONFIG, switcherOffers } from '../../config/config';
+import { DEFAULT_CONFIG } from '../../config/config';
 import type * as Types from '../../config/types';
 import { OVERRIDE_BLOCK_BY_VIEW, VIEWS, resolveViewOption } from '../../config/view';
 import { hasOwn, isConfigBlock } from '../../utils/helpers';
@@ -148,31 +148,4 @@ export function storedCount(
       hasOwn(DEFAULT_CONFIG, key) &&
       holdsValue(value),
   ).length;
-}
-
-/**
- * Whether Settings For shows as its one compact line, "Settings for List · Change", rather
- * than as the five choices.
- *
- * Compact until the scope is changed or Change is pressed, for the rest of the session; while
- * the toolbar is shown with a View Switcher offering another layout, which lets the card show it;
- * and while no layout other than the one the card displays stores values in its block. Values in
- * the displayed layout's own block, where a List card's first edits land, and top-level values
- * keep it compact.
- *
- * @param raw - Configuration as the YAML holds it
- * @param config - Merged configuration
- * @param displayed - The layout the card displays
- * @param touched - Whether the scope was changed, or Change pressed, this session
- * @returns `true` for the compact line
- */
-export function isCompactScope(
-  raw: Readonly<Record<string, unknown>>,
-  config: Readonly<Types.Config>,
-  displayed: Types.EffectiveView,
-  touched: boolean,
-): boolean {
-  if (touched) return false;
-  if (switcherOffers(config).length > 0) return false;
-  return VIEWS.every((view) => view === displayed || storedCount(raw, view) === 0);
 }

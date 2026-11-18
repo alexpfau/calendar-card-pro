@@ -318,7 +318,7 @@ describe('editor filter: the chassis', () => {
     const { element, panels, rows } = await mount({ entities: ['calendar.a'] });
 
     // A row per page before; a row per result after, and no page row.
-    expect(rows()).toHaveLength(PAGES.length - 1);
+    expect(rows()).toHaveLength(PAGES.length);
 
     await changeField(element, `filter:${SEARCH_FIELD}`, 'week');
 
@@ -416,11 +416,11 @@ describe('editor filter: section headings', () => {
       'show',
       'add_event',
       'view_switcher',
+      'legend',
       'reset',
       'refresh',
       'search',
       'navigation',
-      'legend',
       'view_switcher_layouts',
       'size',
       'title',
@@ -560,13 +560,20 @@ describe('editor: the order of the two panels', () => {
   it('orders every shared category the same way in both panels', () => {
     // The card's categories are the headings of the page drawing its content options.
     const whichEvents = PAGES.find((page) => page.id === 'which_events')!;
-    const entity = ENTRY_GROUPS.flatMap((heading) => heading.key ?? []);
+    // The one category named differently on each side: the card's also holds Grid's all-day
+    // rows, which a calendar has no counterpart of, so its heading names all-day events too.
+    const CARD_NAME: Readonly<Record<string, string>> = {
+      heading_multiday: 'heading_allday_multiday',
+    };
+    const entity = ENTRY_GROUPS.flatMap((heading) => heading.key ?? []).map(
+      (key) => CARD_NAME[key] ?? key,
+    );
     const content = whichEvents.headings.flatMap((heading) => heading.key ?? []);
     const shared = entity.filter((name) => content.includes(name));
 
     // The denominator. With no shared categories the agreement below is vacuous, and it
     // would go vacuous silently if a heading were renamed on one side only.
-    expect(shared).toEqual(['heading_multiday']);
+    expect(shared).toEqual(['heading_allday_multiday']);
 
     expect(content.filter((name) => shared.includes(name))).toEqual(shared);
 
@@ -587,7 +594,11 @@ describe('editor: the order of the two panels', () => {
 
     // Both sides of the shared category, pinned by value.
     expect(optionsUnder('heading_multiday')).toEqual(['split_multiday_events', 'multiday_banners']);
-    expect(cardUnder('heading_multiday')).toEqual(['split_multiday_events', 'multiday_banners']);
+    expect(cardUnder('heading_allday_multiday')).toEqual([
+      'split_multiday_events',
+      'multiday_banners',
+      'time_grid.allday_band_max_rows',
+    ]);
 
     // The calendar's filters, and the card's filters under the page's opening heading.
     const entityFilters = optionsUnder('page.which_events');

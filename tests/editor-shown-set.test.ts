@@ -517,6 +517,28 @@ describe('Reset and Remove', () => {
     expect(lastConfig(editor)).toEqual(stored);
   });
 
+  // Weekend Colors holds Grid's weekend shading after its members: a day's background, so the
+  // family's Reset, named for the family, leaves it as it is.
+  it('resets Weekend Colors without the Grid shading under the same heading', async () => {
+    const card = {
+      config_version: VERSION,
+      entities: ['calendar.anna'],
+      view: 'grid',
+      time_grid: { weekend_background_color: '#eeeeee' },
+      weekend_day_color: '#ff0000',
+    };
+    const editor = await mountEditor(card);
+    await openPageOf(editor, 'day_header:weekend_day_color');
+    await click(editor, '[data-focus="remove-family:weekend_colors"]');
+    await editor.updateComplete;
+    expect(lastConfig(editor)).toEqual({
+      config_version: VERSION,
+      entities: ['calendar.anna'],
+      view: 'grid',
+      time_grid: { weekend_background_color: '#eeeeee' },
+    });
+  });
+
   /**
    * `plan.ts` › `resetAction` takes a shortcut for a setting that stays live whatever is stored
    * (`keepsControl`: an essential one, a chip, a button's row): Reset, without building what the

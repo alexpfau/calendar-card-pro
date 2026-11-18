@@ -21,6 +21,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '../src/calendar-card-pro';
 import { WEATHER } from './fixtures';
 import type * as Types from '../src/config/types';
+import { OVERRIDE_BLOCK_BY_VIEW } from '../src/config/view';
+import { parseFieldId } from '../src/rendering/editor/field-index';
 import { PAGES } from '../src/rendering/editor/pages';
 import { PICK_CATCH_ALLS, PICK_PARTS } from '../src/rendering/editor/pick';
 import { partOn } from '../src/rendering/editor/views/pick';
@@ -231,6 +233,11 @@ describe('Pick From Preview part map', () => {
       { view: 'list' },
       { view: 'list', overrides: { show_week_numbers: null } },
       { view: 'column' },
+      // Columns again with Calendar Filter as its menu, which draws the filter's button.
+      {
+        view: 'column',
+        overrides: { toolbar: { ...(config('column').toolbar as object), legend: 'menu' } },
+      },
       { view: 'grid' },
       { view: 'month' },
       { view: 'month', width: 375 },
@@ -256,7 +263,7 @@ describe('Pick From Preview part map', () => {
       }
       card.remove();
     }
-    // The denominator: six renders of four layouts drew a card worth checking.
+    // The denominator: seven renders of four layouts drew a card worth checking.
     expect(elements).toBeGreaterThan(300);
     // Each selector of a group on its own, so one gone stale beside a live one still fails.
     expect(
@@ -299,7 +306,15 @@ describe('Pick From Preview part map', () => {
       '.grid-day-body ⊃ div.grid-day-plane',
       '.grid-day-body ⊃ div.grid-event-backdrop-rules',
       '.grid-event-overflow ⊃ div.grid-event-overflow-label',
+      '.legend-button ⊃ svg.toolbar-button-icon',
       '.legend-chip ⊃ span.legend-chip-label',
+      // The filter's menu: its two buttons, each calendar's row, and its frame.
+      '.legend-menu ⊃ button.legend-menu-action',
+      '.legend-menu ⊃ button.legend-menu-action.unavailable',
+      '.legend-menu ⊃ input.legend-menu-check',
+      '.legend-menu ⊃ span.legend-menu-label',
+      '.legend-menu ⊃ span.legend-menu-page',
+      '.legend-menu ⊃ span.legend-menu-surface',
       '.location ⊃ ha-icon',
       '.location ⊃ span',
       '.month-compact-marks ⊃ span.month-compact-mark',
@@ -338,7 +353,10 @@ describe('Pick From Preview part map', () => {
           `${selector} → ${target.page} › ${target.heading}`,
         ).toBe(true);
       }
-      if (page!.onlyIn !== undefined) expect(target.scope, selector).toBe(page!.onlyIn);
+      // A layout's own setting opens in that layout's scope.
+      const block = target.field === undefined ? undefined : parseFieldId(target.field).dataPath[0];
+      const own = Object.entries(OVERRIDE_BLOCK_BY_VIEW).find(([, key]) => key === block)?.[0];
+      if (own !== undefined) expect(target.scope, selector).toBe(own);
       // A setting it names sits under that heading.
       if (target.field !== undefined) {
         const heading = page!.headings.find((each) => each.key === target.heading)!;
@@ -348,14 +366,22 @@ describe('Pick From Preview part map', () => {
         ).toContain(target.field);
       }
     }
-    // The two parts that name their setting: the switcher, Layouts in Switcher, and a compact
-    // month's day list, Events in Day List.
+    // The parts that name their setting: the switcher, Layouts in Switcher; Grid's own parts,
+    // each at the setting it is, where its topic keeps it; and a compact month's day list, Events
+    // in Day List.
     expect(
       PICK_PARTS.flatMap(([selector, target]) =>
         'field' in target && target.field !== undefined ? [`${selector} ${target.field}`] : [],
       ),
     ).toEqual([
       '.view-switcher card:toolbar.view_switcher_layouts',
+      '.legend-button, .legend-menu, .legend-chips card:toolbar.legend',
+      '.grid-now-line, .grid-now-dot layout:time_grid.show_now_line',
+      '.grid-event-overflow layout:time_grid.max_simultaneous_events',
+      '.grid-allday-band layout:time_grid.allday_band_max_rows',
+      '.grid-weekend layout:time_grid.weekend_background_color',
+      '.grid-today layout:time_grid.today_background_color',
+      '.grid-day-body layout:time_grid.hour_height',
       '.month-day-list-more, .month-day-list-rows, .month-day-list layout:month.day_list_events',
     ]);
   });

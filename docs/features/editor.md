@@ -22,21 +22,20 @@ opens with, and a row for each page that holds the rest. Top to bottom:
 | **⋯ Editor Preferences**       | Show YAML Option Names, at the end of the search row                                                                     |
 | **Calendars**                  | The card's [calendars](#calendars), a row each                                                                           |
 | **Starting Layout**            | List, Columns, Grid or Month, the layout the card opens with, a row each with its picture                                |
-| **Settings**                   | A row per page, saying in one line what the page holds for this card                                                     |
+| **Settings**                   | Settings For, then a row per page, saying in one line what the page holds for this card                                  |
 | **More**                       | [What This Card Changes](#what-this-card-changes) and Start From an Example                                              |
 
 The settings rows open these pages:
 
-| Page                 | What it holds                                                                                                                            |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| **Which Events**     | Days to Show and Start Date, Event Type, duplicates, event order, past events, multi-day events, empty days and Compact Mode             |
-| **Card & Header**    | The title, the card's background and language, the toolbar and your own toolbar buttons                                                  |
-| **Day Header**       | How each day announces itself: its date, weeks and week numbers, today and its indicator, past days and weekends                         |
-| **Event Appearance** | What each event shows, the time format, and how each part looks                                                                          |
-| **Size & Spacing**   | The card's height and spacing, Month's week height, the density of Columns, Grid and Month, and the rules between days, weeks and months |
-| **Grid**             | While the card opens in Grid or you edit Grid: the hours it shows, its hour labels, and what it draws on the grid                        |
-| **Weather**          | The weather entity, and the forecast in the day header and beside each event                                                             |
-| **Taps & Refresh**   | What a tap or a hold on the card, a day or an event does, Month's week scrolling, and how often the card reads its calendars again       |
+| Page                 | What it holds                                                                                                                                          |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Which Events**     | Days to Show and Start Date, Grid's hours, Event Type, duplicates, event order, past events, all-day and multi-day events, empty days and Compact Mode |
+| **Card & Header**    | The title, the card's background and language, the toolbar and your own toolbar buttons                                                                |
+| **Days**             | How each day announces itself: its date, weeks and week numbers, today and its indicator, past days and weekends, and Grid's shading                   |
+| **Event Appearance** | What each event shows, the time format, Grid's now line and overlapping events, and how each part looks                                                |
+| **Size & Spacing**   | The card's height and spacing, Grid's hour height and hour labels, Month's week height, the density of Columns, Grid and Month, and the rules          |
+| **Weather**          | The weather entity, and the forecast in the day header and beside each event                                                                           |
+| **Taps & Refresh**   | What a tap or a hold on the card, a day or an event does, Month's week scrolling, and how often the card reads its calendars again                     |
 
 **Which Events** opens with **Date Range**: Days to Show, and Start Date's choices, which write
 the existing `start_date` option. Tomorrow writes `today+1`, Start of Week writes
@@ -60,7 +59,7 @@ sit on the row under it, at every width.
 - **Escape** closes whatever the editor has open first, such as a setting's state menu or a row's
   actions, then goes Back. On the overview it clears a search, and only then lets Home Assistant
   close the dialog. A picker Home Assistant opened keeps its own Escape.
-- **Which Events** and **Day Header** link to each other: whether past events show is one, and
+- **Which Events** and **Days** link to each other: whether past events show is one, and
   how the dates of past days look is the other.
 - The editor adds nothing to the browser's history, so the browser's Back closes the dialog as
   it does for any card.
@@ -151,40 +150,44 @@ entities:
 ## 🧭 Options for the Selected View
 
 Two controls decide what you see and what you edit. **Starting Layout**, on the overview, chooses
-the layout the card opens with and writes the existing `view` option. **Settings For**, at the top
-of each page, chooses which settings the pages edit: **All Layouts**, across the top, or **List**,
-**Columns**, **Grid** or **Month**, in a row under it. The arrow keys move through all five in that
-order. It starts on the layout the card displays and stays where you put it, from page to page,
-for the rest of the session. It is never saved to YAML. A calendar's page has no Settings For,
-since a calendar's settings apply to every layout, and nor does a page whose settings all apply to
-the whole card. The overview edits nothing a layout holds, so it has none either: its section rows
-and search results show the values for the layout Settings For last chose.
-
-On a card that stores values only for the layout it shows, and has no view switcher offering
-another layout in its toolbar, Settings For takes one line, **Settings for List · Change**;
-**Change** opens the five choices.
+the layout the card opens with and writes the existing `view` option. **Settings For** chooses
+which layout the pages edit. It is one line at the top of the overview's **Settings**, **Settings
+for List · Change**, and the same line opens every page whose settings can differ by layout.
+**Change** opens the five choices under it: **All Layouts**, across the top, or **List**,
+**Columns**, **Grid** or **Month**, in a row under it. Focus stays on **Change**; Tab moves into
+the choices, and the arrow keys move through all five in that order. **Change** or Escape closes
+them again, with focus on **Change**. It starts on the
+layout the card displays and stays where you put it, from page to page, for the rest of the
+session. Choosing writes nothing, adds no step to Undo, and is never saved to YAML. A calendar's
+page has no Settings For, since a calendar's settings apply to every layout, and nor does a page
+whose settings all apply to the whole card, such as Card & Header and Weather. The overview's
+section rows and search results show the values for the layout Settings For names.
 
 - **All Layouts** edits the shared base, the top level, which each layout falls back to. It
   offers only the options that have a shared meaning, so a layout-specific one is never written
   where only one view reads it.
 - **List**, **Columns**, **Grid** and **Month** each write to their own block, `list:`,
   `column:`, `time_grid:` and `month:`, and leave out the controls, per-calendar ones included, that cannot affect that
-  view. The **Grid** row is on the overview while the card opens in Grid or Grid is chosen, and
-  opening it chooses Grid.
+  view. No layout has a page of its own: a layout's own settings sit on the page of their topic,
+  beside the settings of their kind, and show while Settings For names that layout. Grid's
+  hours are on Which Events, its hour labels and hour height on Size & Spacing, its shading on
+  Days and its now line and overlapping events on Event Appearance, where Month's own settings
+  sit in Month.
 - A layout with no value of its own uses its own default when it has one, otherwise the shared
   base. Editing All Layouts therefore changes only the layouts that inherit that option, never
   their explicit choices or built-in defaults ([YAML & View Defaults](#yaml-view-defaults)).
 - Card-wide options such as calendars, title, language and actions stay card-wide whatever is
   chosen, and carry a small link mark after their name, **Whole Card** to a screen reader.
 
-The choice follows your selection, not the preview's width-dependent fallback. When the two
-differ, a line says so, as in **Editing List · Preview Shows Grid**, and **Preview List** beside
-it draws List in Home Assistant's preview while you edit it. The card still opens in the layout
-Starting Layout names, and nothing is saved by the switch; it stays on for the session and follows
-the layout you choose. On the overview the preview shows the card as it opens, and returns to the
-layout you edit on the next page. To edit a List-only option used by a responsive fallback, choose
-List under Settings For; Starting Layout stays unchanged. [Search](#search) finds the settings only
-another layout offers.
+The preview shows the layout you edit, on the overview and on every page, whatever the preview's
+width would make it fall back to. When that is not the layout the card opens in, a line says so,
+as in **Preview shows Grid · The card opens in Month**, under Settings For, or alone on a page
+that has none. Nothing is saved by it: the card still opens in the layout Starting Layout names.
+All Layouts previews the card as it opens, with each layout's own values. Quick Setup and Split
+This Calendar show their own previews while they are open, and a line edited in place under
+[What This Card Changes](#what-this-card-changes) previews its own layout. To edit a List-only
+option used by a responsive fallback, choose List under Settings For; Starting Layout stays
+unchanged. [Search](#search) finds the settings only another layout offers.
 
 Hiding a control does not delete its stored value. For example, these empty-day options remain
 available to the List fallback, even though their controls are absent while editing Grid:
@@ -220,8 +223,8 @@ A setting with a stored value is always open, with **Reset** in plain view right
 on the side away from ⓘ. **Reset (In the Day Header)** keeps the setting open and names the value
 it goes back to, or **Reset (Empty)** where nothing comes back; **Remove Setting** resets a
 setting and folds it. A group of chips has one button for all of its chips stored here, **Reset
-Parts** for an event's parts and **Reset Controls** for the toolbar's, after a line saying where
-each chip's state comes from: **Chosen Here**, **From All Layouts** or a layout's **Default**. A dropdown may also
+Parts** for an event's parts and **Reset Controls** for the toolbar's and the lines under them,
+after a line saying where each chip's state comes from: **Chosen Here**, **From All Layouts** or a layout's **Default**. A dropdown may also
 show Home Assistant's own ✕, which empties it, the same as its Reset.
 
 A folded setting shows the value that applies. Where nothing is stored, it names it: a setting
@@ -629,8 +632,9 @@ a search result opens one.
 - One pick turns it off again, and so do **Cancel**, Escape, the button itself, and moving
   anywhere else in the editor. **Back** returns to where you were.
 - The preview's own taps, holds and Grid's drag do nothing while it is on.
-- A legend chip opens its calendar's page, and the view switcher opens **Layouts in Switcher**,
-  just under the **View Switcher** chip that turns it off. A part only one layout has, such as
+- A legend chip opens its calendar's page, and the filter's button or row of chips the
+  **Calendar Filter** chip. The view switcher opens **View Switcher offers**, its layouts, just
+  under the chips. A part only one layout has, such as
   the Grid's hour labels, switches **Settings For** to that layout first and says so.
 - A heading's first setting opens there, as a search result does, even where it was folded.
 - On a phone the preview sits below the editor. Tap a part once to outline it, then tap it again
@@ -673,7 +677,7 @@ Each line shows its setting and its value; with Show YAML Option Names on, its Y
 Pressing a line opens its actions under it:
 
 - **Change Here**, which opens the setting's control right there and writes where the line lives;
-- **Open in** its page, as in **Open in Day Header**, which opens the page at the setting; Card
+- **Open in** its page, as in **Open in Days**, which opens the page at the setting; Card
   Displays and your own toolbar buttons are changed there;
 - **Reset**, or **Remove** where the setting leaves its page, which removes the line. The line
   left in its place says what was reset, with **Undo**.
@@ -811,15 +815,15 @@ those controls has a new home, and searching for its old name still finds it.
 | Before v6                | Now                                                                                              |
 | ------------------------ | ------------------------------------------------------------------------------------------------ |
 | **Calendars**            | The overview's calendar list, and a page per entry                                               |
-| **Layout**               | Starting Layout on the overview; Size & Spacing; the Grid page                                   |
+| **Layout**               | Starting Layout on the overview; Size & Spacing; Grid's settings on the pages of their topics    |
 | **Time Range & Content** | Which Events, with Days to Show and Start Date; Language on Card & Header; Time Format on Events |
 | **Card & Header**        | Card & Header                                                                                    |
-| **Day Header**           | Day Header, now with First Day of Week                                                           |
+| **Day Header**           | Days, now with First Day of Week                                                                 |
 | **Events**               | Event Appearance, with what each event shows as a row of parts to press                          |
 | **Separators**           | Size & Spacing                                                                                   |
 | **Weather**              | Weather                                                                                          |
 | **Actions & Refresh**    | Taps & Refresh                                                                                   |
-| **Editing Settings For** | Settings For, at the top of each page                                                            |
+| **Editing Settings For** | Settings For, at the top of the overview's Settings and of each page                             |
 
 ### Essentials Only
 

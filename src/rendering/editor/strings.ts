@@ -119,12 +119,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'settings_for.help_shared': 'Every layout uses these unless it has its own value.',
   'settings_for.help_layout':
     'Edits here are written for {layout} and apply when the card shows it.',
-  'settings_for.preview': 'Editing {layout} · Preview Shows {displayed}',
-  // The preview switch beside it, and the line while it is on. Nothing is saved by either.
-  'settings_for.preview_switch': 'Preview {layout}',
-  'settings_for.previewing':
-    'Editing {layout} · Preview Shows {layout} · The Card Opens in {displayed}',
-  'settings_for.grid_only': 'Applies when the card shows Grid.',
+  'settings_for.help_overview':
+    'Chooses the layout the pages edit, where a setting can differ by layout. Nothing on the card changes.',
+  // Under Settings For, and alone on a page that draws none, while the preview draws another
+  // layout than the card opens in. Nothing is saved by it.
+  'settings_for.preview': 'Preview shows {layout} · The card opens in {displayed}',
   'announce.scope': 'Now editing settings for {layout}.',
   'summary.pair': '{label}: {value}',
   'summary.set': 'Set: {count}',
@@ -627,13 +626,16 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'chip.chosen_here': 'Chosen Here: {names}',
   // A part in those lines, with whether it is on: "Countdown (Off)".
   'chip.part_state': '{part} ({state})',
-  // Why a layout's chip under Layouts in Switcher stays pressed, drawn inside it: the layout the
-  // card opens in is always offered, and a switcher of one layout is not drawn.
+  // Why a layout's checkbox under "View Switcher offers" stays checked, drawn after its name: the
+  // layout the card opens in is always offered, and a switcher of one layout is not drawn.
   'chip.kept_starting': 'Starting Layout',
   'chip.kept_second': 'Switcher Needs Two',
-  // Under Layouts in Switcher, where the list stored offers the starting layout alone, so View
-  // Switcher is on and the card draws no switcher; "pressed" as the chips above it are.
-  'chip.switcher_alone': 'No switcher is drawn until a second layout is pressed.',
+  // Under "View Switcher offers", where the list stored offers the starting layout alone, so View
+  // Switcher is on and the card draws no switcher; "checked" as its checkboxes are.
+  'chip.switcher_alone': 'No switcher is drawn until a second layout is checked.',
+  // The qualifier lines under the toolbar's chips, one for each pressed control with a choice.
+  'chip.qualifier.layouts': 'View Switcher offers',
+  'chip.qualifier.legend': 'Calendar Filter shows',
   // A calendar entry's page.
   'entry.back': 'Back to the overview',
   'entry.previous': 'Previous Calendar',
@@ -887,7 +889,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // the per-calendar label closer to the card-level `Split Multi-Day Events`.
   heading_gap_and_rule: 'Gap & Rule',
   heading_hour_labels: 'Hour Labels',
-  heading_on_the_grid: 'On the Grid',
+  // Grid's First and Last Hour, on Which Events after the dates.
+  heading_hours: 'Hours',
+  // Grid's Stacked or Side by Side, and how many fit side by side, on Event Appearance.
+  heading_overlapping_events: 'Overlapping Events',
   heading_card_size: 'Card Size & Spacing',
   heading_accent: 'Accent',
   heading_title: 'Title',
@@ -897,6 +902,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   heading_across_the_grid: 'Across the Grid',
   heading_replace: 'Text Replacement',
   heading_multiday: 'Multi-Day Events',
+  // Which Events' heading over how multi-day events are split and drawn, and how many rows of
+  // all-day events Grid's band holds. A calendar's page keeps `heading_multiday`.
+  heading_allday_multiday: 'All-Day & Multi-Day',
   heading_nothing: 'Empty Days',
   heading_details: 'Event Details',
   heading_event_state: 'Event State',
@@ -980,7 +988,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'time_grid.min_days_fallback': 'When Too Narrow',
   'time_grid.min_days_fallback.option.list.label': 'Fall back to a list',
   'time_grid.min_days_fallback.option.cramp.label': 'Keep the grid, narrower',
-  'time_grid.axis': 'Time Axis',
   'time_grid.start_time': 'First Hour',
   'time_grid.start_time.helper': 'As HH:mm. Events entirely before it are not drawn at all.',
   'time_grid.end_time': 'Last Hour',
@@ -1017,7 +1024,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'time_grid.show_now_line.helper': 'Hidden when now falls outside the hours shown.',
   'time_grid.allday_band_max_rows': 'Most All-Day Rows',
   'time_grid.allday_band_max_rows.helper': 'Banners past this many rows are dropped.',
-  'time_grid.overlap_layout': 'Overlapping Events',
+  // Not "Overlapping Events", the heading it sits under: a heading repeating its first field reads
+  // as a stutter.
+  'time_grid.overlap_layout': 'Arrangement',
   'time_grid.overlap_layout.helper':
     'Stacked draws an event over a longer one it starts inside; Side by Side splits the column.',
   'time_grid.overlap_layout.option.cascade.label': 'Stacked',
@@ -1207,7 +1216,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Arrows, a button back to the starting days, and a date picker on the month. Swiping pages too.',
   'toolbar.view_switcher': 'View Switcher',
   'toolbar.view_switcher.helper': 'Each device remembers its choice.',
-  // Which layouts the switcher offers, a chip each, after the controls while View Switcher is
+  // Which layouts the switcher offers, a checkbox each, under the controls while View Switcher is
   // pressed.
   'toolbar.view_switcher_layouts': 'Layouts in Switcher',
   'toolbar.view_switcher_layouts.aliases': 'view switcher',
@@ -1267,8 +1276,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'toolbar.buttons.remove': 'Remove',
   'button.summary': '{action} · {target}',
 
-  // --- Day Header -----------------------------------------------------------
-  'panel.day_header': 'Day Header',
+  // --- Days -----------------------------------------------------------------
+  // The page holds each day's date and, since Grid's shading came here, its background too.
+  'panel.day_header': 'Days',
+  'panel.day_header.aliases': 'day header',
   date_vertical_alignment: 'Vertical Alignment',
   'date_vertical_alignment.option.top.label': 'Top',
   'date_vertical_alignment.option.middle.label': 'Middle',

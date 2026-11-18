@@ -549,11 +549,14 @@ export default css`
     fill: currentcolor;
   }
 
+  /* As tall as Change beside it, so the line keeps its height where a long name wraps Change
+     under it. */
   .scope-lead {
     display: inline-flex;
     align-items: center;
     gap: 8px;
     min-width: 0;
+    min-height: 44px;
   }
 
   /* --- Overview and pages ---------------------------------------------------
@@ -646,6 +649,7 @@ export default css`
     padding-inline: 16px;
   }
 
+  .scope-block,
   .scope,
   .displays,
   .chips {
@@ -683,7 +687,7 @@ export default css`
   /* Start Date's choices are native radios drawn as the toggle chips are: the circle hidden, the
      chosen one tinted with a check, so the state never rests on color alone. The radio keeps the
      arrow keys and the group's name; it takes no pointer events. Settings For is a segmented row,
-     as Calendar Filter is, so it never reads as chips that change the card. */
+     so it never reads as chips that change the card. */
   .chip-choice {
     position: relative;
     box-sizing: border-box;
@@ -727,8 +731,7 @@ export default css`
   /* A fieldset's legend is no flex item, so the gap under it is its own. */
   .scope > legend,
   .chips > legend,
-  .displays > legend,
-  .segmented > legend {
+  .displays > legend {
     margin-bottom: 8px;
   }
 
@@ -750,17 +753,9 @@ export default css`
     fill: currentcolor;
   }
 
-  /* The switch keeps the button's own color, and wraps under the sentence on a narrow editor. */
-  .scope-preview {
-    flex-wrap: wrap;
-  }
-
   .scope-preview-text {
-    flex: 1 1 12em;
-  }
-
-  .scope-preview-switch {
-    color: var(--primary-color);
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   @supports (color: color-mix(in oklab, red, blue)) {
@@ -833,6 +828,12 @@ export default css`
 
   .row-group > .heading {
     padding: 8px 16px 4px;
+  }
+
+  /* Settings For leads the overview's Settings, inset as Starting Layout's rows are, over the
+     section rows it chooses the scope of. */
+  .row-group > .scope-block {
+    margin: 4px 16px 8px;
   }
 
   .heading {
@@ -1882,7 +1883,9 @@ export default css`
      Toggle chips: native buttons, pressed with a check and the primary color, so the state never
      rests on color alone. An unpressable chip stays focusable and shows its reason inside it.
      Toggle chips and Start Date's radio chips share one size, 44px tall with 8px between them.
-     Calendar Filter is a segmented row of native radios. The toolbar's own buttons are the
+     A pressed toolbar control with a choice has a qualifier line under the chips, drawn unlike
+     them: native radios or checkboxes under a legend, set in by a rule at its start, so a line
+     never reads as more chips. The toolbar's own buttons are the
      calendar list's rows, each bordered as one card that opens in place. The group is not .chips,
      which Start Date's radio chips use as a column. */
   .chip-group {
@@ -1934,30 +1937,77 @@ export default css`
 
   .chip:focus-visible,
   .chip-group:focus-visible,
-  .segmented:focus-visible,
+  .qualifier:focus-visible,
   .segment:focus-within {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
   }
 
   .chip-group:focus:not(:focus-visible),
-  .segmented:focus:not(:focus-visible) {
+  .qualifier:focus:not(:focus-visible) {
     outline: none;
+  }
+
+  .qualifiers {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .qualifier {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    margin: 0;
+    padding: 0 0 0 12px;
+    border: none;
+    border-inline-start: 2px solid var(--divider-color);
+  }
+
+  .qualifier > legend {
+    padding: 0;
+  }
+
+  .qualifier-choices {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 16px;
+  }
+
+  /* Each choice is a 44px target: the native control, its name, and a kept one's reason. */
+  .qualifier-choice {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    cursor: pointer;
+  }
+
+  .qualifier-choice input {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    accent-color: var(--primary-color);
+    cursor: inherit;
+  }
+
+  .qualifier-choice.kept {
+    color: var(--secondary-text-color);
+    cursor: default;
+  }
+
+  .qualifier-choice.kept input {
+    filter: grayscale(1);
+    opacity: 0.7;
+  }
+
+  .qualifier-kept {
+    font-size: 12px;
   }
 
   .chip-source {
     color: var(--secondary-text-color);
-  }
-
-  .segmented {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    min-width: 0;
-    margin: 0;
-    padding: 0;
-    border: none;
-    border-radius: 4px;
   }
 
   .segmented-row {
@@ -1974,11 +2024,16 @@ export default css`
     border-radius: 22px;
   }
 
-  /* Settings For and Calendar Filter alike: the row takes the editor's width and every segment an
+  /* Settings For: the row takes the editor's width and every segment an
      equal share of it, whatever its word. A word wider than its share wraps, hyphenated in the
      page's language where the browser can, and broken only where it cannot. Settings For puts All
      Layouts on a row of its own (.segment-all, below). */
+  /* Positioned, so the hidden radio's containing block is its own segment. Left unpositioned, it
+     was Home Assistant's dialog body, across the shadow boundary, and WebKit scrolled that body to
+     the radio whenever it took focus, preventScroll or not: the whole dialog jumped. A hidden
+     input's segment, chip or row must always be positioned. */
   .segment {
+    position: relative;
     flex: 1 1 0;
     display: flex;
     align-items: center;

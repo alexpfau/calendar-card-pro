@@ -69,7 +69,7 @@ describe('a closed button row', () => {
     const editor = await mountEditor(CONFIG);
     // The overview's one form is drawn: the filter bar.
     expect(editor.shadowRoot!.querySelectorAll('ha-form')).toHaveLength(1);
-    for (const { id } of PAGES.filter((page) => page.onlyIn === undefined)) {
+    for (const { id } of PAGES) {
       await goPage(editor, id);
       expect(editor.shadowRoot!.querySelectorAll('ha-expansion-panel'), id).toHaveLength(0);
     }

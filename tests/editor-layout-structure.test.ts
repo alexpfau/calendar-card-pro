@@ -138,8 +138,9 @@ describe('Layout panel structure', () => {
       'Now Line',
       'Most All-Day Rows',
       // Directly above the cap it decides the meaning of: how many events may sit side by
-      // side only reads once the reader has been shown how overlaps are drawn.
-      'Overlapping Events',
+      // side only reads once the reader has been shown how overlaps are drawn. Named for what
+      // it picks, since its heading on Event Appearance is Overlapping Events.
+      'Arrangement',
       'Most Events Side By Side',
       'Additional Card Spacing',
       'Card Height',
