@@ -848,8 +848,8 @@ All three belong inside `list:`.
 - It needs a rule to sit on: with `month_separator_width` at `0px`, the default, nothing is drawn.
 - The label is drawn in the rule's color unless `month_separator_label_color` gives it one of its
   own, which keeps it readable beside a deliberately faint rule.
-  `month_separator_label_font_size` takes any CSS font size; a value that is not one falls back
-  to `12px`.
+  `month_separator_label_font_size` takes any CSS font size; a value that is not one, such as
+  `14pz`, falls back to `12px`.
 - The first month shown has no rule above it, so it gets no label. A
   [toolbar](#header-toolbar), if you show one, names the month of the page's first day, or of
   its last day in a list read latest first. That is the first month shown unless the month has

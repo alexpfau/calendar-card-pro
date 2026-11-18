@@ -19,6 +19,7 @@ import * as ViewConfig from '../src/config/view';
 import * as Grid from '../src/rendering/grid';
 import * as Render from '../src/rendering/render';
 import { cardStyles, generateCustomPropertiesObject } from '../src/rendering/styles';
+import * as ColorMix from '../src/utils/color-mix';
 import * as EventUtils from '../src/utils/events';
 
 /** One event a day on each date given. */
@@ -388,6 +389,36 @@ describe("the month name's color and size", () => {
     const shipped = DEFAULT_CONFIG.month_separator_color;
     expect(shipped).toBe('var(--primary-text-color)');
     expect(labelStyle({ month_separator_color: shipped }).color).toBe(asWritten(shipped));
+  });
+
+  it('writes a shipped mix as the browser can draw it, inherited or its own, on both paths', () => {
+    // The week rule's shipped color: a mix the card floors to a translucent gray where the
+    // browser has no color-mix().
+    const mix = DEFAULT_CONFIG.week_separator_color;
+    const floor = ColorMix.COLOR_MIX_FLOORS.get(mix)!;
+    expect(floor).toBeDefined();
+    expect(asWritten(floor)).not.toBe('');
+    expect(asWritten(mix)).not.toBe(asWritten(floor));
+    const cases: Array<Partial<Types.Config>> = [
+      { month_separator_color: mix },
+      { month_separator_color: '#ff0000', month_separator_label_color: mix },
+    ];
+    try {
+      for (const supported of [true, false]) {
+        vi.stubGlobal('CSS', { supports: () => supported });
+        ColorMix.resetColorMixSupport();
+        for (const overrides of cases) {
+          for (const weekRow of [false, true]) {
+            expect(labelStyle(overrides, weekRow).color, `${supported} ${weekRow}`).toBe(
+              asWritten(supported ? mix : floor),
+            );
+          }
+        }
+      }
+    } finally {
+      vi.unstubAllGlobals();
+      ColorMix.resetColorMixSupport();
+    }
   });
 
   it("takes its own color over the rule's, and the list block over the top level", () => {
