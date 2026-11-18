@@ -132,6 +132,9 @@ describe('home’s cache entry over a year', () => {
       // first row of the month holding today, so a year asks from at least twelve first days.
       expect(new Set(asked).size).toBeGreaterThanOrEqual(12);
     },
+    // A year of days, each a render and a load: about 2 s alone, and near Vitest's 5 s default
+    // while other test runs share the machine.
+    30_000,
   );
 
   it('keeps one key where Month is not reachable, as it always did', async () => {
@@ -142,7 +145,7 @@ describe('home’s cache entry over a year', () => {
 
     expect(storedKeys()).toHaveLength(1);
     expect(new Set(asked).size).toBe(365);
-  });
+  }, 30_000);
 });
 
 describe('what home’s key tells apart', () => {
