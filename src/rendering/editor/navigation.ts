@@ -1,6 +1,6 @@
 /**
  * Where the editor is, and the way back: the overview, a section page, a calendar entry's page,
- * What This Card Changes or the notices page, and the trail of at most two places a Back
+ * What This Card Changes or the notices page, and the trail of at most three places a Back
  * returns to. Data only; the element saves scroll and focus into the trail as it leaves a place
  * and restores them as Back returns there.
  *
@@ -39,14 +39,17 @@ export interface TrailEntry {
 /** Where the editor is, and where Back goes. */
 export interface NavState {
   readonly route: Route;
-  /** Places Back returns to, nearest last; at most two. */
+  /** Places Back returns to, nearest last; at most three. */
   readonly trail: ReadonlyArray<TrailEntry>;
   /** Whether the open place was reached from search results (Return to Results). */
   readonly fromResults: boolean;
 }
 
-/** The most places the trail holds. */
-export const TRAIL_LIMIT = 2;
+/**
+ * The most places the trail holds: the overview, a layout's page and one of its topics, so a
+ * cross-link from a topic still returns to it.
+ */
+export const TRAIL_LIMIT = 3;
 
 /** The editor as it opens. */
 export const OVERVIEW: NavState = { route: { kind: 'overview' }, trail: [], fromResults: false };
@@ -100,8 +103,8 @@ export function sameRoute(a: Route, b: Route): boolean {
  *
  * - `push` keeps the place left on the trail, so Back returns to it.
  * - `replace` swaps the open place and keeps the trail, as Previous and Next Calendar do.
- * - `cross-link` pushes, unless the open place was itself reached by a cross-link, which it
- *   then replaces, so the trail never grows past two.
+ * - `cross-link` pushes, unless the trail is full, when it replaces the open place, so the trail
+ *   never grows past `TRAIL_LIMIT`.
  *
  * Going to the overview clears the trail: nothing lies behind it.
  *

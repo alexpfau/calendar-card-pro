@@ -8,12 +8,15 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  chooseResult,
   goEntry,
   goOverview,
   goPage,
   keysOf,
   lastConfig,
   mountEditor,
+  resultRows,
+  searchFor,
 } from './helpers/editor-host';
 import { CURRENT_CONFIG_VERSION, DEFAULT_CONFIG } from '../src/config/config';
 import type * as Types from '../src/config/types';
@@ -195,6 +198,32 @@ describe('Layouts and the preview', () => {
     expect(previewed(editor)).toBeUndefined();
     await goEntry(editor, keysOf(editor, 'entry')[0]);
     expect(previewed(editor)).toBeUndefined();
+  });
+
+  it('opens a result under the layout it belongs to, a calendar’s and a stored one not in use too', async () => {
+    // Stored but not in use: Event Appearance under List, the card's layout, not the whole card.
+    const list = await mountEditor({ ...LIST_CARD, description_color: 'red' });
+    await searchFor(list, 'description color');
+    const inactive = resultRows(list).find((row) => row.id === 'events:description_color')!;
+    await chooseResult(list, inactive.key);
+    expect(text($(list, '.page-sub'))).toBe('List');
+    expect($(list, '.also-for')).not.toBeNull();
+    // A calendar option only List offers, on a Grid card: the calendar's page, in List.
+    const grid = await mountEditor({
+      config_version: CURRENT_CONFIG_VERSION,
+      entities: ['calendar.anna'],
+      view: 'grid',
+    });
+    await searchFor(grid, 'compact');
+    const other = resultRows(grid).find((row) => row.id === 'calendar:compact_events_to_show')!;
+    await chooseResult(grid, other.key);
+    expect($(grid, '.entry-page')).not.toBeNull();
+    expect(
+      $(
+        grid,
+        '.jump [data-field="calendar:compact_events_to_show"], [data-field="calendar:compact_events_to_show"].jump',
+      ),
+    ).not.toBeNull();
   });
 
   it('gathers the whole-card settings of the topics on Shared Across Layouts, composed ones too', async () => {

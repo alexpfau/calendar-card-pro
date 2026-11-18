@@ -1174,6 +1174,20 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * The layout the preview draws where the editor is: the one being edited, or, on Whole Card's
+   * pages, which edit in the shared scope, the layout the card opens in, as the preview shows it.
+   * A topic opened from there opens under it.
+   */
+  private get _layoutInView(): Workspace.EditorWorkspace {
+    const route = this._nav.route;
+    const whole =
+      route.kind === 'shared' || (route.kind === 'page' && WHOLE_CARD_PAGES.has(route.page));
+    return whole
+      ? (this._selectedWorkspace ?? this._viewForConfig(this._config!))
+      : this._workspace;
+  }
+
+  /**
    * A place as it is opened: a topic page with no layout named opens under the layout being
    * edited, so every topic page is some layout's.
    *
@@ -1183,7 +1197,7 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _scoped(
     route: Navigation.Route,
-    scope: Workspace.EditorWorkspace = this._workspace,
+    scope: Workspace.EditorWorkspace = this._layoutInView,
   ): Navigation.Route {
     if (route.kind !== 'page' || route.scope !== undefined || WHOLE_CARD_PAGES.has(route.page)) {
       return route;
@@ -1963,7 +1977,7 @@ export class CalendarCardProEditor extends LitElement {
       heading = ENTRY_GROUPS[0]!.key;
     } else {
       // A part of one layout's opens under that layout; any other under the layout previewed.
-      route = this._scoped({ kind: 'page', page: target.page }, target.scope ?? this._workspace);
+      route = this._scoped({ kind: 'page', page: target.page }, target.scope ?? this._layoutInView);
       heading = target.heading;
       field = target.field;
     }
@@ -4745,7 +4759,8 @@ export class CalendarCardProEditor extends LitElement {
       target.kind === 'button-field' ? 'card_header' : target.kind === 'field' && target.page;
     this._closeDisclosures();
     if (target.kind === 'entry-field') {
-      // A calendar entry's field opens on the entry's own page.
+      // A calendar entry's field opens on the entry's own page, in the layout that offers it.
+      if (scope !== undefined) this._selectedWorkspace = scope;
       this._nav = Navigation.go(this._nav, { kind: 'entry', key: target.key }, from);
     } else if (page) {
       this._nav = Navigation.go(this._nav, this._scoped({ kind: 'page', page }, scope), from);
@@ -5875,7 +5890,7 @@ export class CalendarCardProEditor extends LitElement {
       search: { query: this._filter.query, editHere: this._editHere },
     };
     this._closeDisclosures();
-    this._nav = Navigation.go(this._nav, to, from);
+    this._nav = Navigation.go(this._nav, this._scoped(to), from);
     this._jump = this._resultsLeft = undefined;
   }
 
