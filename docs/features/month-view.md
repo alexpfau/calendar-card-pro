@@ -14,10 +14,10 @@ entities:
 view: month
 ```
 
-In the [visual editor](/features/editor#the-overview), **Starting Layout** on the overview
-chooses the layout the card opens with. Select **Month** under **Settings For**, at the top of a
-page, to change how the month looks, such as week scrolling under **Taps & Refresh**. Its height
-is set in YAML, under [How Tall the Month Is](#how-tall-the-month-is).
+In the [visual editor](/features/editor#options-for-the-selected-view), the circle on a layout's
+row under **Layouts** chooses the layout the card opens with. Select the **Month** row itself to
+change how the month looks, such as week scrolling under **Which Events → Wheel & Swipe**. Its
+height is set in YAML, under [How Tall the Month Is](#how-tall-the-month-is).
 
 ## 📅 The Six Weeks
 
@@ -378,7 +378,7 @@ joined into one block beside a date, as the list layout keeps them. Set `event_g
 ## 🚫 Options That Do Nothing in Month View
 
 These options have no effect while the card draws a month, and the visual editor leaves them out
-while **Settings For** is Month. Stored values are kept for the layouts they apply to.
+of Month's pages. Stored values are kept for the layouts they apply to.
 
 | Options                                                                                                                                        | In Month View                                                                                                |
 | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
@@ -396,8 +396,8 @@ while **Settings For** is Month. Stored values are kept for the layouts they app
 | `time_position`                                                                                                                                | [A day's list](#the-days-list) always puts each time beside its title                                        |
 
 The editor also leaves out the per-calendar compact limit and multi-day splitting. To edit any of
-these, choose a layout they apply to under **Settings For**, without changing
-**Starting Layout**; see [Options for the Selected View](/features/editor#options-for-the-selected-view).
+these, open a layout they apply to under **Layouts**, which leaves the card's layout as it is; see
+[Options for the Selected View](/features/editor#options-for-the-selected-view).
 
 **→ [Options With No Effect in Month View](/reference/configuration#options-with-no-effect-in-month-view)** — the same options in the configuration reference.
 **→ [Month-Only Options in the configuration reference](/reference/configuration#month-only-options)** — full option table.

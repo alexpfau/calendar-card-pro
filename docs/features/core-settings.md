@@ -1107,7 +1107,8 @@ HTML in a description is already flattened, and a `YEAR=` marker is already stri
 Compact mode keeps a list card short: it shows only the first few events or days until someone
 expands it to everything in `days_to_show`. Set an event or day limit and the card starts
 compact; an [`expand` tap or hold action](/features/actions#expandable-calendar-card) lets
-people switch between the two.
+people switch between the two. Without a limit, nothing can fold, and the card offers no tap or
+hold for `expand`.
 
 ```yaml
 # Total days to fetch from API and display when expanded
@@ -1306,8 +1307,8 @@ list:
 - **Within a day,** the latest event comes first and all-day events come last, so a limit of
   one keeps today's latest entry rather than an all-day event.
 - **List view only.** Column and grid view keep time running forward, and the option applies
-  again whenever they fall back to a list on a narrow card. The visual editor offers it on the
-  **Which Events** page while **Settings For** is List.
+  again whenever they fall back to a list on a narrow card. The visual editor offers it on List's
+  **Which Events** page.
 - **Today and paging stay as they are.** The today indicator still marks today, and the
   [date navigation](/features/layout-appearance#paging-through-dates) still moves back and
   forward in time.
@@ -1353,7 +1354,7 @@ the complete exception lists.
 Each block also holds the options only that layout has — the compact caps and date-cell
 settings in `list:`, the column widths in `column:`, the time axis in `time_grid:`, the card's
 heights, compact width and week scrolling in `month:`. Those have no shared meaning, so the visual
-editor does not offer them under All Layouts.
+editor does not offer them under Layout Defaults.
 
 Options that act on the card as a whole stay at the top level, and a view block ignores
 them: the ones that decide which events are loaded, such as `entities` and `start_date`, and
@@ -1364,8 +1365,8 @@ for the full list.
 its own, except Month, which always shows six weeks — see
 [Showing a Different Number of Days in Each Layout](#showing-a-different-number-of-days-in-each-layout).
 
-In the [visual editor](/features/editor#options-for-the-selected-view), choose All Layouts
-under **Settings For** to edit shared values, or a named layout to edit only its block.
+In the [visual editor](/features/editor#options-for-the-selected-view), open **Layout Defaults**
+under **Layouts** to edit shared values, or a layout's row to edit only its block.
 
 ::: tip Older Configurations Keep Working
 List options written at the top level, as cards from before v5 have them, are still read
@@ -1378,11 +1379,11 @@ keeps it for List when it opens and offers **Use Them for Every Layout** instead
 
 ::: details What the Visual Editor Keeps in YAML
 
-- An All Layouts value for an option whose default differs between layouts stays in the saved
+- A Layout Defaults value for an option whose default differs between layouts stays in the saved
   YAML even when it equals the card default. Removing it lets Column or Grid go back to its
   own default.
-- Switching **Starting Layout** to Grid copies such values into `time_grid:`, so the grid keeps
-  showing them. That is something the editor does for you; the YAML precedence above is
+- Picking Grid as the layout the card opens in copies such values into `time_grid:`, so the grid
+  keeps showing them. That is something the editor does for you; the YAML precedence above is
   unchanged.
 
 :::
