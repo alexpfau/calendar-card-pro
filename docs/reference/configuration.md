@@ -177,13 +177,15 @@ They are inert only while the card draws a grid, and apply again when the defaul
 `days_to_show` · `show_empty_days` · `show_empty_today` · `empty_day_text` · `empty_day_color` ·
 `date_vertical_alignment` · `today_indicator_position` · `compact_events_to_show` ·
 `compact_days_to_show` · `compact_events_complete_days` · `event_order` · `skip_first_events` ·
+`month_separator_label` · `month_separator_label_color` · `month_separator_label_font_size` ·
 `split_multiday_events` (card-wide and per-entity) · `day_spacing` ·
 `day_separator_width` · `day_separator_color` · `week_separator_width` · `week_separator_color` ·
 `month_separator_width` · `month_separator_color` · `week_number_background_color` ·
 `day_font_size` · `month_font_size` · `today_date_scale` · `past_date_scale` ·
 `today_indicator_size` · `today_weekday_color` · `time_position`
 
-A month always draws six whole weeks, rules its days itself, sets its dates in the event font and
+A month always draws six whole weeks, rules its days itself, with no month separator to carry a
+month's name, sets its dates in the event font and
 puts each time beside its title in a day's list, so these have nothing to act on there. They keep working in the other layouts, and the editor
 hides their controls while **Settings For** is Month, without deleting stored values.
 

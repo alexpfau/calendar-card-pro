@@ -108,6 +108,11 @@ describe('the options month reads', () => {
       'event_order',
       'month_font_size',
       'month_separator_color',
+      // List's month separator, which the Month layout does not draw, so it has no month's name
+      // to set.
+      'month_separator_label',
+      'month_separator_label_color',
+      'month_separator_label_font_size',
       'month_separator_width',
       'past_date_scale',
       'show_empty_days',

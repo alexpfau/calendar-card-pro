@@ -876,8 +876,8 @@ All three belong inside `list:`.
   its last day in a list read latest first. That is the first month shown unless the month has
   no days on screen.
 - With week numbers on, a month that starts a week draws its label just after the week number.
-- It applies in list view only; in column and grid view the month rule is a vertical line
-  between two days, with no room for words.
+- It applies in list view only. In column and grid view the month rule is a vertical line between
+  two days, with no room for words, and month view draws no month rule at all.
 
 ::: details Languages That Abbreviate a Month to a Number
 A few languages write a month's short form as a number, such as Lithuanian's "2026-12". There the

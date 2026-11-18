@@ -487,7 +487,8 @@ export interface ListOverrides extends SharedViewOverrides {
   date_vertical_alignment?: string;
   today_indicator_position?: string;
 
-  // A month rule in the other views is a vertical line in a narrow gutter, with no room for words.
+  // In Columns and Grid a month rule is a vertical line in a narrow gutter, with no room for
+  // words, and the Month layout draws no month separator at all.
   month_separator_label?: boolean;
   month_separator_label_color?: string;
   month_separator_label_font_size?: string;

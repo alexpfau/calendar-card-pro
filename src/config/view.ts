@@ -447,7 +447,7 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   // than continue a list.
   skip_first_events: new Set<Types.EffectiveView>(['list']),
   // A column's or grid's month rule is a vertical line in the gutter between two days, which
-  // has no room for words.
+  // has no room for words, and the Month layout draws no month separator at all.
   month_separator_label: new Set<Types.EffectiveView>(['list']),
   month_separator_label_color: new Set<Types.EffectiveView>(['list']),
   month_separator_label_font_size: new Set<Types.EffectiveView>(['list']),
