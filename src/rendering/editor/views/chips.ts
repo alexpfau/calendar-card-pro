@@ -1,6 +1,7 @@
 /**
- * The composed controls as templates: toggle chips (D08 A, D09 A), Calendar
- * Filter's segmented radio group, and the toolbar's own buttons as rows that open in place
+ * The composed controls as templates: toggle chips (D08 A, D09 A), the qualifier lines under the
+ * toolbar's chips, Start Date's segmented radio group, and the toolbar's own buttons as rows that
+ * open in place
  * (D09 A). What each one shows and does is the element's; these only draw it. Every row that
  * moves carries `data-reorder`, as the calendar list's do, so `reorder.ts`'s pointer drag and
  * the list's styles serve both.
@@ -15,6 +16,7 @@ import {
   mdiDeleteOutline,
 } from '@mdi/js';
 import { type TemplateResult, html, nothing } from 'lit';
+import { live } from 'lit/directives/live.js';
 import { repeat } from 'lit/directives/repeat.js';
 
 import { icon } from './icon';
@@ -101,52 +103,93 @@ export function chipGroup(
     </div>`;
 }
 
-/** A card-built segmented radio group, as Calendar Filter draws it. */
-export interface SegmentedModel {
-  readonly id: string;
-  readonly label: string;
-  /** Its state words, which its name carries. */
-  readonly words?: string;
-  readonly helper?: string;
+/** One choice of a qualifier line. */
+export interface QualifierChoice {
   readonly value: string;
-  readonly options: ReadonlyArray<{ readonly value: string; readonly label: string }>;
+  readonly label: string;
+  readonly checked: boolean;
+  /**
+   * Why it stays as it is ("Starting Layout"): drawn after its label and read in its name. A kept
+   * choice stays focusable, `aria-disabled`, and a click leaves it as it is.
+   */
+  readonly kept?: string;
+}
+
+/** A qualifier line: what a pressed control offers or shows, under the chips. */
+export interface QualifierModel {
+  /** The control it qualifies, as `data-qualifies` names it. */
+  readonly qualifies: string;
+  /** Its field's id where it is a field of its own, which `data-field` names; none for a form. */
+  readonly field?: string;
+  /** "Calendar Filter shows", its legend. */
+  readonly legend: string;
+  /** Radios for one of a few forms, or checkboxes for any number of values. */
+  readonly kind: 'radio' | 'checkbox';
+  readonly choices: ReadonlyArray<QualifierChoice>;
+  /** Its state words where it stores a value, read after its legend. */
+  readonly words?: string;
+  /** Lines under the choices, and the id of each, which the group is described by. */
+  readonly notes?: ReadonlyArray<{ readonly id?: string; readonly text: string }>;
+  /** The line under it: its notes and its Reset, where drawn alone. */
+  readonly line?: TemplateResult | typeof nothing;
   readonly onPick: (value: string) => void;
 }
 
 /**
- * A segmented radio group: one native radio per option, and the helper under it. Its legend
- * carries its state words; its Reset is the line under it every field has.
+ * A qualifier line, drawn alike for every pressed control that has a choice and unlike the chips
+ * above it: a native radio group or a row of native checkboxes under a legend, set in by a rule at
+ * its start. A kept checkbox is focusable and `aria-disabled`, its reason after its label and in
+ * its name, and a click on it changes nothing.
  *
  * @param model - What it shows and does
- * @returns The group
+ * @returns The line
  */
-export function segmented(model: SegmentedModel): TemplateResult {
+export function qualifier(model: QualifierModel): TemplateResult {
+  const described = (model.notes ?? []).flatMap((note) => note.id ?? []).join(' ');
+  const name = model.qualifies.replace(/\W/g, '-');
   return html`<fieldset
-    class="segmented"
-    data-field=${model.id}
-    data-composed="chips"
+    class="qualifier"
+    data-qualifies=${model.qualifies}
+    data-field=${model.field ?? nothing}
+    data-composed=${model.field === undefined ? nothing : 'layouts'}
     tabindex="-1"
+    aria-describedby=${described || nothing}
   >
     <legend class="label">
-      ${model.label}${model.words ? html`<span class="state-words"> · ${model.words}</span>` : nothing}
+      ${model.legend}${model.words ? html`<span class="state-words"> · ${model.words}</span>` : nothing}
     </legend>
-    <div class="segmented-row">
-      <div class="segments">
-        ${model.options.map(
-          (option) =>
-            html`<label class="segment">
-              <input
-                type="radio"
-                name=${model.id}
-                value=${option.value}
-                .checked=${option.value === model.value}
-                @change=${() => model.onPick(option.value)}
-              /><span>${option.label}</span>
-            </label>`,
-        )}
-      </div>
+    <div class="qualifier-choices">
+      ${model.choices.map(
+        (choice) =>
+          html`<label class="qualifier-choice${choice.kept === undefined ? '' : ' kept'}">
+            <input
+              type=${model.kind}
+              name=${`qualifier-${name}`}
+              value=${choice.value}
+              data-value=${choice.value}
+              data-focus=${`qualifier:${model.qualifies}:${choice.value}`}
+              aria-disabled=${choice.kept === undefined ? nothing : 'true'}
+              aria-label=${choice.kept === undefined ? nothing : `${choice.label}, ${choice.kept}`}
+              .checked=${live(choice.checked)}
+              @click=${(event: Event) => {
+                // A kept choice stays as it is, and keeps focus.
+                if (choice.kept !== undefined) event.preventDefault();
+              }}
+              @change=${() => {
+                if (choice.kept === undefined) model.onPick(choice.value);
+              }}
+            /><span>${choice.label}</span>${
+              choice.kept === undefined
+                ? nothing
+                : html`<span class="qualifier-kept" aria-hidden="true">${choice.kept}</span>`
+            }
+          </label>`,
+      )}
     </div>
-    ${model.helper ? html`<p class="hint">${model.helper}</p>` : nothing}
+    ${(model.notes ?? []).map(
+      (note) => html`<p class="hint" id=${note.id ?? nothing}>${note.text}</p>`,
+    )}
+    ${model.line ?? nothing}
   </fieldset>`;
 }
 

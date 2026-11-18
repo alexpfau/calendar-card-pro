@@ -626,13 +626,16 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'chip.chosen_here': 'Chosen Here: {names}',
   // A part in those lines, with whether it is on: "Countdown (Off)".
   'chip.part_state': '{part} ({state})',
-  // Why a layout's chip under Layouts in Switcher stays pressed, drawn inside it: the layout the
-  // card opens in is always offered, and a switcher of one layout is not drawn.
+  // Why a layout's checkbox under "View Switcher offers" stays checked, drawn after its name: the
+  // layout the card opens in is always offered, and a switcher of one layout is not drawn.
   'chip.kept_starting': 'Starting Layout',
   'chip.kept_second': 'Switcher Needs Two',
-  // Under Layouts in Switcher, where the list stored offers the starting layout alone, so View
-  // Switcher is on and the card draws no switcher; "pressed" as the chips above it are.
-  'chip.switcher_alone': 'No switcher is drawn until a second layout is pressed.',
+  // Under "View Switcher offers", where the list stored offers the starting layout alone, so View
+  // Switcher is on and the card draws no switcher; "checked" as its checkboxes are.
+  'chip.switcher_alone': 'No switcher is drawn until a second layout is checked.',
+  // The qualifier lines under the toolbar's chips, one for each pressed control with a choice.
+  'chip.qualifier.layouts': 'View Switcher offers',
+  'chip.qualifier.legend': 'Calendar Filter shows',
   // A calendar entry's page.
   'entry.back': 'Back to the overview',
   'entry.previous': 'Previous Calendar',
@@ -1213,7 +1216,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Arrows, a button back to the starting days, and a date picker on the month. Swiping pages too.',
   'toolbar.view_switcher': 'View Switcher',
   'toolbar.view_switcher.helper': 'Each device remembers its choice.',
-  // Which layouts the switcher offers, a chip each, after the controls while View Switcher is
+  // Which layouts the switcher offers, a checkbox each, under the controls while View Switcher is
   // pressed.
   'toolbar.view_switcher_layouts': 'Layouts in Switcher',
   'toolbar.view_switcher_layouts.aliases': 'view switcher',

@@ -703,18 +703,19 @@ function composedFieldOf(
  * control's stand-in does: its schema is the field's, its data the editor's own value for it, its
  * label and helper the field's. Five kinds are composed:
  *
- * - `chips`, a radio group of the editor's own (Start Date's radio chips, Calendar Filter's Off,
- *   Menu and Chips): a change is made by choosing the option;
+ * - `chips`, a radio group of the editor's own (Start Date's radio chips): a change is made by
+ *   choosing the option;
  * - `toggle`, an event part's or a toolbar control's toggle chip: its value is the editor's own,
  *   and a change to on or off is made by pressing the chip where it shows the other; a chip a gate
- *   withholds is not composed, as its field is not built;
+ *   withholds is not composed, as its field is not built. Calendar Filter's chip takes `off`,
+ *   `menu` or `chips`: pressed as asked, then the form picked in its qualifier line;
  * - `line`, the line Tapping an Event Opens It gives way to while another action is stored, which
  *   takes no change;
  * - `words`, a word list one term at a time: its value is the pattern the terms write, and a change
  *   to it is sent to its form as the terms that pattern reads as;
- * - `layouts`, Layouts in Switcher's chips, one per layout: its value is the layouts whose chips
- *   are pressed, and a change is made by pressing each chip that shows the other state; a chip it
- *   keeps pressed cannot be asked to change.
+ * - `layouts`, View Switcher's qualifier line, a checkbox per layout: its value is the layouts
+ *   checked, and a change is made by clicking each box that shows the other state; a box it keeps
+ *   checked cannot be asked to change.
  *
  * @param editor - Editor element
  * @param control - The control's wrapper, `[data-composed]`
@@ -744,10 +745,12 @@ function composedForm(editor: EditorElement, control: Element): FormElement {
           return withValue({}, field.dataPath, name, checked?.value);
         }
         if (kind === 'layouts') {
-          const pressed = [
-            ...control.querySelectorAll<HTMLElement>('button.chip[aria-pressed="true"]'),
-          ].map((chip) => chip.getAttribute('data-value'));
-          return withValue({}, field.dataPath, name, pressed);
+          const checked = [
+            ...control.querySelectorAll<HTMLInputElement>('input[type="checkbox"][data-value]'),
+          ]
+            .filter((box) => box.checked)
+            .map((box) => box.getAttribute('data-value'));
+          return withValue({}, field.dataPath, name, checked);
         }
         const drawn = wordsForm();
         if (drawn !== null) {
@@ -809,26 +812,50 @@ function composedForm(editor: EditorElement, control: Element): FormElement {
       if (!Array.isArray(value)) {
         outOfStep(`'${id}' is a chip per layout: ask it for the list of layouts pressed`);
       }
-      // Each press writes the whole list from what is drawn, so the editor draws again, at once,
-      // before the next chip is read: Lit's `performUpdate`, as `driveColor` renders.
+      // Each check writes the whole list from what is drawn, so the editor draws again, at once,
+      // before the next box is read: Lit's `performUpdate`, as `driveColor` renders.
       const element = editor as unknown as { requestUpdate(): void; performUpdate(): void };
-      const chips = (): HTMLButtonElement[] => [
+      const boxes = (): HTMLInputElement[] => [
         ...(
           editor.shadowRoot!.querySelector(`[data-composed="layouts"][data-field="${id}"]`) ??
           control
-        ).querySelectorAll<HTMLButtonElement>('button.chip[data-value]'),
+        ).querySelectorAll<HTMLInputElement>('input[type="checkbox"][data-value]'),
       ];
-      for (const layout of chips().map((chip) => chip.getAttribute('data-value'))) {
-        const chip = chips().find((each) => each.getAttribute('data-value') === layout);
-        if (chip === undefined) outOfStep(`'${id}' draws no chip for ${String(layout)}`);
+      for (const layout of boxes().map((box) => box.getAttribute('data-value'))) {
+        const box = boxes().find((each) => each.getAttribute('data-value') === layout);
+        if (box === undefined) outOfStep(`'${id}' draws no checkbox for ${String(layout)}`);
         const wanted = value.includes(layout);
-        if ((chip.getAttribute('aria-pressed') === 'true') === wanted) continue;
-        if (chip.getAttribute('aria-disabled') === 'true') {
+        if (box.checked === wanted) continue;
+        if (box.getAttribute('aria-disabled') === 'true') {
           outOfStep(`'${id}' keeps ${String(layout)} as it is`);
         }
-        chip.click();
+        box.click();
         element.requestUpdate();
         element.performUpdate();
+      }
+      return true;
+    }
+    if (kind === 'toggle' && id === 'card:toolbar.legend') {
+      // Calendar Filter: its chip for on and off, its qualifier line for the form, as a user
+      // presses the one and then picks in the other.
+      const element = editor as unknown as { requestUpdate(): void; performUpdate(): void };
+      const chip = (): HTMLButtonElement =>
+        editor.shadowRoot!.querySelector<HTMLButtonElement>(`button.chip[data-field="${id}"]`) ??
+        (control as HTMLButtonElement);
+      const on = value !== 'off' && value !== false;
+      if ((chip().getAttribute('aria-pressed') === 'true') !== on) {
+        chip().click();
+        element.requestUpdate();
+        element.performUpdate();
+      }
+      if (!on) return true;
+      const radio = editor.shadowRoot!.querySelector<HTMLInputElement>(
+        `.qualifier[data-qualifies="${id}"] input[type="radio"][value="${String(value)}"]`,
+      );
+      if (!radio) outOfStep(`'${id}' offers no ${String(value)}`);
+      if (!radio.checked) {
+        radio.checked = true;
+        radio.dispatchEvent(new Event('change', { bubbles: true }));
       }
       return true;
     }

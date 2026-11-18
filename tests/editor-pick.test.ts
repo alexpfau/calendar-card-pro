@@ -262,12 +262,12 @@ describe('Pick From Preview', () => {
     );
     fire(switcher, 'click');
     await settle(editor, card);
-    // Not the toolbar's first setting, Show Toolbar: the one that says what the switcher offers,
-    // opened from its fold to its chips.
+    // Not the toolbar's first setting, Show Toolbar: the line that says what the switcher offers,
+    // a checkbox per layout under the Controls.
     const jump = $(editor, '.page-group[data-heading="heading_toolbar"] .jump [data-field]');
     expect(jump?.getAttribute('data-field')).toBe('card:toolbar.view_switcher_layouts');
     expect(
-      editor.shadowRoot!.querySelectorAll('[data-composed="layouts"] button.chip'),
+      editor.shadowRoot!.querySelectorAll('[data-composed="layouts"] input[type="checkbox"]'),
     ).toHaveLength(4);
     expect(said).toContain('Showing Card & Header › Toolbar.');
   });

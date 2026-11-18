@@ -67,7 +67,6 @@ import { History, type MigrationState, type Snapshot } from './history';
 import * as EditorLocalize from './localize';
 import * as Misplaced from './misplaced';
 import * as Navigation from './navigation';
-import { LEGEND_EDITOR_VALUES, LEGEND_OFF } from './normalize';
 import {
   type Appearance,
   CALENDARS_BLOCK,
@@ -393,8 +392,8 @@ const START_DATE_FIELD: FieldId = 'content:start_date_mode';
 
 /** Tapping an Event Opens It, which gives way to a line while another action is stored. */
 
-/** Calendar Filter, drawn as a radio group of its options. */
-const LEGEND_FIELD: FieldId = 'card:toolbar.legend';
+/** Calendar Filter: a toolbar chip, whose form is its qualifier line under the chips. */
+const LEGEND_FIELD = Chips.LEGEND_FIELD;
 
 const { WORD_LIST_FIELDS } = WordLists;
 
@@ -934,6 +933,12 @@ export class CalendarCardProEditor extends LitElement {
 
   /** Whether Change opened Settings For's choices, a disclosure Change or Escape closes again. */
   @state() private _scopeOpen = false;
+
+  /**
+   * Calendar Filter's form last named this session, by the YAML the editor holds or by its
+   * qualifier line, which pressing its chip on writes; Menu, the default, until one is named.
+   */
+  private _legendForm?: Types.ToolbarLegendMode;
 
   /** The place Settings For was last drawn open in, which closes it elsewhere. */
   private _scopePlace = '';
@@ -2591,6 +2596,9 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _adopt(raw: object, merged?: object): void {
     this._rawConfig = structuredClone(raw) as Record<string, unknown>;
+    // A form of Calendar Filter's the YAML names is one named this session, for its chip.
+    const legend = (this._rawConfig.toolbar as { legend?: unknown } | undefined)?.legend;
+    if (legend === 'menu' || legend === 'chips') this._legendForm = legend;
     this._config = {
       ...Config.DEFAULT_CONFIG,
       ...((merged ?? this._rawConfig) as Types.Config),
@@ -2671,10 +2679,10 @@ export class CalendarCardProEditor extends LitElement {
         ? this._renderStartDate(field, ctx, show)
         : field.id === Chips.SWITCHER_LAYOUTS_FIELD
           ? this._renderSwitcherLayouts(field, ctx, show)
-          : field.id in Chips.CHIP_LABELS
-            ? this._renderLoneChip(field, ctx)
-            : field.id === LEGEND_FIELD
-              ? html`${this._segmentedControl(field, ctx, show?.words)} ${show?.line ?? nothing}`
+          : field.id === LEGEND_FIELD
+            ? this._renderLegendAlone(field, ctx, show)
+            : field.id in Chips.CHIP_LABELS
+              ? this._renderLoneChip(field, ctx)
               : undefined;
     if (composed !== undefined) return this._jumpedCardField(field, ctx, composed);
     const workspace = ctx.workspace ?? ctx.view;
@@ -3555,14 +3563,17 @@ export class CalendarCardProEditor extends LitElement {
       const more = extra(heading);
       const when = (gate: Plan.HeadingPlan['gated'][number]['gate']): string =>
         whenText(gate, data, ctx.language, labelOf) ?? '';
-      // A chip a gate withholds says why on itself ("Needs Time"), so no gate line names it.
+      // A chip a gate withholds says why on itself ("Needs Time"), so no gate line names it; nor
+      // does one name a chip's qualifier line, which goes and comes with its chip.
       const isChip = (id: FieldId): boolean => {
         const appearance = Plan.appearanceOf(id);
-        return typeof appearance === 'object' && 'chips' in appearance;
+        return (
+          typeof appearance === 'object' && ('chips' in appearance || 'qualifies' in appearance)
+        );
       };
       // Every setting in registry order: the chips of one kind together where the first of them
-      // is placed, Calendar Filter as its radio group, every other setting under its
-      // head row, and a setting a gate withholds in its place, saying when it appears.
+      // is placed, with their qualifier lines, Start Date as its radio group, every other setting
+      // under its head row, and a setting a gate withholds in its place, saying when it appears.
       const order = new Map(heading.fields.map(([id], at) => [id, at]));
       const prefix = owner.kind === 'entry' ? owner.key : '';
       const grouped = new Set<string>();
@@ -3572,6 +3583,8 @@ export class CalendarCardProEditor extends LitElement {
       const items: Item[] = [];
       for (const { id, appearance, why } of plan.live) {
         const at = order.get(id) ?? 0;
+        // A qualifier line is drawn by its chips, under them.
+        if (typeof appearance === 'object' && 'qualifies' in appearance) continue;
         if (typeof appearance === 'object' && 'chips' in appearance) {
           if (grouped.has(appearance.chips)) continue;
           grouped.add(appearance.chips);
@@ -5864,13 +5877,37 @@ export class CalendarCardProEditor extends LitElement {
             this._commit(
               t('history.change', { setting: fieldLabel(field, ctx.language) }),
               undefined,
-              () => this._writeFieldValue(WriteFrames.CARD_OWNER, id, !pressed),
+              () =>
+                this._writeFieldValue(
+                  WriteFrames.CARD_OWNER,
+                  id,
+                  Chips.pressValue(id, pressed, this._legendForm),
+                ),
               `field:${id}`,
             ),
         },
       ];
     });
     if (chips.length === 0) return nothing;
+    // The qualifier lines' fields stored here are part of the group's facts and its one Reset.
+    const qualifiers = kind === 'toolbar' ? this._qualifierFields(heading, present) : [];
+    for (const field of qualifiers) {
+      const state = Plan.stateOf(field, pctx);
+      const stateKind = state?.words?.kind;
+      const where =
+        stateKind === 'from-all-layouts'
+          ? 'source'
+          : stateKind === 'layout-default'
+            ? 'layout'
+            : Shown.stateText(state, t) === undefined
+              ? undefined
+              : 'set';
+      const named = fieldLabel(field, ctx.language);
+      if (where !== undefined) sources.set(where, [...(sources.get(where) ?? []), named]);
+      if (this._resetActionOf(field.id, Plan.appearanceOf(field.id)!, pctx, CARD) !== undefined) {
+        stored.push(field);
+      }
+    }
     const absent = placed.map(([id]) => id).filter((id) => !Chips.inScope(id, workspace));
     const view = Workspace.viewForWorkspace(workspace);
     // In the order a setting's facts take: stored here, then where the rest come from.
@@ -5899,7 +5936,9 @@ export class CalendarCardProEditor extends LitElement {
               },
       );
     const action = kind === 'parts' ? t('reset.parts') : t('reset.controls');
-    const names = stored.map((field) => label(field.id));
+    const names = stored.map((field) =>
+      field.id in Chips.CHIP_LABELS ? label(field.id) : fieldLabel(field, ctx.language),
+    );
     const actions: ShownView.LineButton[] =
       stored.length === 0
         ? []
@@ -5937,16 +5976,69 @@ export class CalendarCardProEditor extends LitElement {
             </p>`
           : nothing
       }
-      <p class="hint">${t(kind === 'parts' ? 'chip.hint' : 'toolbar.controls.hint')}</p>`;
+      <p class="hint">${t(kind === 'parts' ? 'chip.hint' : 'toolbar.controls.hint')}</p>
+      ${kind === 'toolbar' ? this._renderQualifiers(heading, ctx) : nothing}`;
   }
 
   /**
-   * A radio group of a field's options with no head row: Calendar Filter's Off, Menu and Chips
-   * or Start Date's chips. Its state words are in its name, and the line under it
-   * holds its facts with Reset after Set, named for what it leaves. Picking writes through
-   * `_writeFieldValue`, one undo step.
+   * The fields a heading draws as qualifier lines, present here: Layouts in Switcher.
    *
-   * @param field - `card:toolbar.legend` or Start Date's mode
+   * @param heading - The heading
+   * @param present - The fields built here
+   * @returns The fields, in registry order
+   */
+  private _qualifierFields(
+    heading: HeadingDef,
+    present: ReadonlyMap<FieldId, IndexedField>,
+  ): IndexedField[] {
+    return heading.fields.flatMap(([id, appearance]) =>
+      typeof appearance === 'object' && 'qualifies' in appearance ? (present.get(id) ?? []) : [],
+    );
+  }
+
+  /**
+   * The qualifier lines under the toolbar's chips, one for each pressed control that has a choice,
+   * in the chips' order: View Switcher's layouts as checkboxes, Calendar Filter's form as radios.
+   * A control that is not pressed has none.
+   *
+   * @param heading - The toolbar's heading
+   * @param ctx - Schema context
+   * @returns The lines
+   */
+  private _renderQualifiers(heading: HeadingDef, ctx: SchemaCtx): TemplateResult[] {
+    const present = this._drawing!.present;
+    const data = this._formData();
+    const lines: TemplateResult[] = [];
+    for (const [id] of heading.fields) {
+      const chip = present.get(id);
+      if (chip === undefined || !(id in Chips.CHIP_LABELS)) continue;
+      if (!Chips.isPressed(Routing.atPath(data, chip.dataPath, chip.node.name))) continue;
+      if (id === LEGEND_FIELD) {
+        lines.push(this._legendQualifier(chip, ctx));
+        continue;
+      }
+      for (const [each, appearance] of heading.fields) {
+        if (typeof appearance !== 'object' || !('qualifies' in appearance)) continue;
+        if (appearance.qualifies !== id) continue;
+        const field = present.get(each);
+        if (field === undefined) continue;
+        const line = this._renderSwitcherLayouts(field, ctx);
+        lines.push(
+          this._jump?.target.kind === 'field' && this._jump.target.id === each
+            ? this._jumpTo(ctx, line)
+            : line,
+        );
+      }
+    }
+    return lines.length === 0 ? [] : [html`<div class="qualifiers">${lines}</div>`];
+  }
+
+  /**
+   * A radio group of a field's options with no head row: Start Date's chips. Its state words are
+   * in its name, and the line under it holds its facts with Reset after Set, named for what it
+   * leaves. Picking writes through `_writeFieldValue`, one undo step.
+   *
+   * @param field - Start Date's mode
    * @param appearance - Its appearance
    * @param pctx - Plan context
    * @param ctx - Schema context
@@ -5961,48 +6053,72 @@ export class CalendarCardProEditor extends LitElement {
     heading?: string,
   ): TemplateResult {
     const show = this._fieldShow(field, appearance, pctx, ctx, CARD, heading);
-    const drawn =
-      field.id === START_DATE_FIELD
-        ? this._renderStartDate(field, ctx, show)
-        : html`${this._segmentedControl(field, ctx, show.words)} ${show.line}`;
+    const drawn = this._renderStartDate(field, ctx, show);
     return this._jump?.target.kind === 'field' && this._jump.target.id === field.id
       ? this._jumpTo(ctx, drawn)
       : drawn;
   }
 
   /**
-   * Calendar Filter's radio group, as its page draws it and as What This Card Changes' Edit
-   * mounts it alone.
+   * Calendar Filter's qualifier line, under the chips while it is pressed: its form, Menu or Chips,
+   * as native radios. Choosing one writes it, and pressing the chip on again later in this editing
+   * session writes the form last named, here or in the YAML.
    *
    * @param field - `card:toolbar.legend`
    * @param ctx - Schema context
-   * @param words - Its state words, where drawn with them
-   * @returns The group
+   * @param show - Its state words and the line under it, where drawn alone
+   * @returns The line
    */
-  private _segmentedControl(field: IndexedField, ctx: SchemaCtx, words?: string): TemplateResult {
+  private _legendQualifier(field: IndexedField, ctx: SchemaCtx, show?: FieldShow): TemplateResult {
     const id = field.id;
     const name = fieldLabel(field, ctx.language);
     const workspace = ctx.workspace ?? ctx.view;
     const all = this._formDataFor(this._config!, workspace, this._pending);
     const value = Routing.atPath(all, field.dataPath, field.node.name);
-    return ChipsView.segmented({
-      id,
-      label: name,
-      words,
-      helper: this._string(ctx, 'toolbar.legend.helper'),
-      value: String(value ?? LEGEND_OFF),
-      options: LEGEND_EDITOR_VALUES.map((option) => ({
-        value: option,
-        label: this._string(ctx, `toolbar.legend.option.${option}.label`),
+    return ChipsView.qualifier({
+      qualifies: id,
+      legend: this._string(ctx, 'chip.qualifier.legend'),
+      kind: 'radio',
+      words: show?.words,
+      choices: Chips.LEGEND_FORMS.map((form) => ({
+        value: form,
+        label: this._string(ctx, `toolbar.legend.option.${form}.label`),
+        checked: value === form,
       })),
-      onPick: (next) =>
+      notes: [{ text: this._string(ctx, 'toolbar.legend.helper') }],
+      line: show?.line,
+      onPick: (next) => {
+        this._legendForm = next as Types.ToolbarLegendMode;
         this._commit(
           this._string(ctx, 'history.change', { setting: name }),
           undefined,
           () => this._writeFieldValue(WriteFrames.CARD_OWNER, id, next, workspace),
           `field:${id}`,
-        ),
+        );
+      },
     });
+  }
+
+  /**
+   * Calendar Filter alone, as What This Card Changes' Edit and a search result's Edit Here mount
+   * it: its chip, and while it is pressed its qualifier line, so its one option reads and writes
+   * as its page draws it.
+   *
+   * @param field - `card:toolbar.legend`
+   * @param ctx - Schema context, for the line's scope
+   * @param show - Its state words and the line under it
+   * @returns The chip and its line
+   */
+  private _renderLegendAlone(
+    field: IndexedField,
+    ctx: SchemaCtx,
+    show?: FieldShow,
+  ): TemplateResult {
+    const workspace = ctx.workspace ?? ctx.view;
+    const all = this._formDataFor(this._config!, workspace, this._pending);
+    const pressed = Chips.isPressed(Routing.atPath(all, field.dataPath, field.node.name));
+    return html`${this._renderLoneChip(field, ctx)}
+    ${pressed ? this._legendQualifier(field, ctx, show) : (show?.line ?? nothing)}`;
   }
 
   /**
@@ -6032,7 +6148,13 @@ export class CalendarCardProEditor extends LitElement {
             this._commit(
               this._string(ctx, 'history.change', { setting: name }),
               undefined,
-              () => this._writeFieldValue(WriteFrames.CARD_OWNER, id, !pressed, workspace),
+              () =>
+                this._writeFieldValue(
+                  WriteFrames.CARD_OWNER,
+                  id,
+                  Chips.pressValue(id, pressed, this._legendForm),
+                  workspace,
+                ),
               `field:${id}`,
             ),
         },
@@ -6042,16 +6164,16 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Layouts in Switcher as a toggle chip per layout, under its head row (`chips.ts` ›
-   * `layoutChips`): pressed for each layout the switcher offers, the starting layout's and, beside
-   * it alone, the one other layout's kept pressed with the reason drawn inside and read in its
-   * name. A press writes the whole list through `_writeFieldValue`, one undo step, so a press back
-   * to every layout leaves the default and its line goes.
+   * View Switcher's qualifier line, under the chips while it is pressed: a checkbox per layout
+   * (`chips.ts` › `layoutChips`), checked for each layout the switcher offers. The starting
+   * layout's and, beside it alone, the one other layout's stay checked, focusable and
+   * `aria-disabled`, their reason after their name and read in it. A check writes the whole list
+   * through `_writeFieldValue`, one undo step, so checking every layout again leaves the default.
    *
    * @param field - `card:toolbar.view_switcher_layouts`
    * @param ctx - Schema context
-   * @param show - Its state words and the line under it
-   * @returns The field's wrapper and its chips
+   * @param show - Its state words and the line under it, where drawn alone
+   * @returns The line
    */
   private _renderSwitcherLayouts(
     field: IndexedField,
@@ -6065,64 +6187,41 @@ export class CalendarCardProEditor extends LitElement {
     const offered: ReadonlyArray<unknown> = Array.isArray(value) ? value : [];
     const starting = this._viewForConfig(this._config!);
     const name = fieldLabel(field, ctx.language);
-    const text = this._fieldText(
-      `field.${workspace}.${id}`,
-      field,
-      ctx,
-      show?.words,
-      show?.describedBy === undefined,
-    );
-    const chips = Chips.layoutChips(offered, starting).map((chip): ChipsView.ChipModel => {
-      const label = this._string(ctx, `view.option.${chip.view}.label`);
-      const kept =
+    const choices = Chips.layoutChips(offered, starting).map((chip): ChipsView.QualifierChoice => ({
+      value: chip.view,
+      label: this._string(ctx, `view.option.${chip.view}.label`),
+      checked: chip.pressed,
+      kept:
         chip.kept === undefined
           ? undefined
-          : chip.kept === 'starting'
-            ? this._string(ctx, 'chip.kept_starting')
-            : this._string(ctx, 'chip.kept_second');
-      return {
-        id: `${id}.${chip.view}`,
-        value: chip.view,
-        label,
-        name: kept === undefined ? label : `${label}, ${kept}`,
-        pressed: chip.pressed,
-        kept,
-        onPress: () => {
-          const next = Chips.pressLayout(offered, starting, chip.view);
-          if (next === undefined) return;
-          this._commit(
-            this._string(ctx, 'history.change', { setting: name }),
-            undefined,
-            () => this._writeFieldValue(WriteFrames.CARD_OWNER, id, next, workspace),
-            `field:${id}`,
-          );
-        },
-      };
-    });
-    const helper = show?.describedBy === undefined ? text.helper(field.node) : undefined;
+          : this._string(ctx, chip.kept === 'starting' ? 'chip.kept_starting' : 'chip.kept_second'),
+    }));
     // A list written by hand can offer the starting layout alone: then the switcher is on and the
-    // card draws none, which the line under the chips says, and the group is described by.
+    // card draws none, which the line under the checkboxes says, and the group is described by.
     const alone = Chips.switcherAlone(this._config!, starting)
       ? `alone-${id.replace(/\W/g, '-')}`
       : undefined;
-    const describedBy = [show?.describedBy, alone].filter(Boolean).join(' ');
-    return html`<div
-      class="field"
-      data-field=${id}
-      data-composed="layouts"
-      tabindex="-1"
-      role="group"
-      aria-label=${text.group}
-      aria-describedby=${describedBy || nothing}
-    >
-      ${ChipsView.chipGroup(name, chips, false, false)}
-      ${
-        alone === undefined
-          ? nothing
-          : html`<p class="hint" id=${alone}>${this._string(ctx, 'chip.switcher_alone')}</p>`
-      }
-      ${helper ? html`<p class="hint">${helper}</p>` : nothing} ${show?.line ?? nothing}
-    </div>`;
+    return ChipsView.qualifier({
+      qualifies: 'card:toolbar.view_switcher',
+      field: id,
+      legend: this._string(ctx, 'chip.qualifier.layouts'),
+      kind: 'checkbox',
+      words: show?.words,
+      choices,
+      notes:
+        alone === undefined ? [] : [{ id: alone, text: this._string(ctx, 'chip.switcher_alone') }],
+      line: show?.line,
+      onPick: (view) => {
+        const next = Chips.pressLayout(offered, starting, view as Types.EffectiveView);
+        if (next === undefined) return;
+        this._commit(
+          this._string(ctx, 'history.change', { setting: name }),
+          undefined,
+          () => this._writeFieldValue(WriteFrames.CARD_OWNER, id, next, workspace),
+          `field:${id}`,
+        );
+      },
+    });
   }
 
   /**

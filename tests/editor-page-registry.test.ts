@@ -128,8 +128,8 @@ function familyOf(appearance: Appearance): FamilyId | undefined {
 /**
  * The approved page map, heading by heading: page, heading, family, and each field in order
  * with its marker (E essential, A Add, W a mode value, F a family member, B a toolbar button's
- * row, P an event part's chip, T a toolbar control's chip, R a radio group drawn with no head
- * row: Calendar Filter's and Start Date's) and the workspaces that offer it (S All Layouts, L
+ * row, P an event part's chip, T a toolbar control's chip, Q a toolbar control's qualifier line,
+ * R a radio group drawn with no head row: Start Date's) and the workspaces that offer it (S All Layouts, L
  * List, C Columns, G Grid, M Month; none means all five). Typed out from the approved map, never read from
  * `pages.ts`, so a field moved to another page, heading or marker fails here even where every
  * count still agrees. The overview edits no field of the registry's: Card Displays is its own.
@@ -226,12 +226,13 @@ const APPROVED_MAP: ReadonlyArray<
       'card:toolbar.show E',
       'card:toolbar.add_event T',
       'card:toolbar.view_switcher T',
+      'card:toolbar.legend T',
       'card:toolbar.reset T',
       'card:toolbar.refresh T',
       'card:toolbar.search T',
       'card:toolbar.navigation T',
-      'card:toolbar.view_switcher_layouts A',
-      'card:toolbar.legend R',
+      // View Switcher's qualifier line: its layouts, as checkboxes under the chips.
+      'card:toolbar.view_switcher_layouts Q',
       'card:toolbar.size A',
     ],
   ],
@@ -711,10 +712,12 @@ describe('the page registry places every built field exactly once', () => {
       if (appearance === 'essential') return 'E';
       if (appearance === 'add') return 'A';
       if (appearance === 'button-rows') return 'B';
-      // Calendar Filter's Off, Menu and Chips, and Start Date's chips.
+      // Start Date's chips.
       if (appearance === 'segmented') return 'R';
       if ('with' in appearance) return 'W';
       if ('family' in appearance) return 'F';
+      // A toolbar control's qualifier line, under the chips.
+      if ('qualifies' in appearance) return 'Q';
       // A chip: an event part (P) or a toolbar control (T).
       return appearance.chips === 'parts' ? 'P' : 'T';
     };
@@ -982,12 +985,12 @@ describe('the registry heads what the builders used to', () => {
       'card:toolbar.show',
       'card:toolbar.add_event',
       'card:toolbar.view_switcher',
+      'card:toolbar.legend',
       'card:toolbar.reset',
       'card:toolbar.refresh',
       'card:toolbar.search',
       'card:toolbar.navigation',
       'card:toolbar.view_switcher_layouts',
-      'card:toolbar.legend',
       'card:toolbar.size',
     ]);
   });

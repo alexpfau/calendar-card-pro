@@ -14,7 +14,6 @@ import {
   keysOf,
   lastConfig,
   mountEditor,
-  openPageOf,
 } from './helpers/editor-host';
 import { CURRENT_CONFIG_VERSION, DEFAULT_CONFIG } from '../src/config/config';
 import type * as Types from '../src/config/types';
@@ -254,7 +253,7 @@ describe('Settings For', () => {
   // Both are one choice among a few words, drawn as segments of one frame (`styles.ts` ›
   // `.segment`). Settings For once sized each to its word; since Month it puts All Layouts on a
   // row of its own over the four layouts (`.segment-all`), one radio group in that order.
-  it('draws Settings For as Calendar Filter’s segments, All Layouts over the layouts', async () => {
+  it('draws Settings For as segments, All Layouts over the layouts', async () => {
     const editor = await mountEditor({
       config_version: CURRENT_CONFIG_VERSION,
       entities: ['calendar.anna'],
@@ -288,12 +287,6 @@ describe('Settings For', () => {
       ...scope.slice(1).map(() => ['segmented-row', 'segments', 'segment']),
     ]);
     expect(editor.shadowRoot!.querySelector('.scope-segments')).toBeNull();
-    document.body.replaceChildren();
-
-    const filter = await mountEditor({ toolbar: { show: true, legend: 'menu' } });
-    await openPageOf(filter, 'card:toolbar.legend');
-    const legend = filter.shadowRoot!.querySelector('fieldset.segmented input[type="radio"]')!;
-    expect(path(legend)).toEqual(['segmented-row', 'segments', 'segment']);
     document.body.replaceChildren();
   });
 
@@ -330,8 +323,6 @@ describe('Settings For', () => {
     expect(css).toMatch(/\.scope \.segments \{ flex-wrap: wrap; \}/);
     expect(css).toMatch(/\.scope \.segment-all \{ flex-basis: 100%; border-bottom: [^}]*\}/);
     expect(css).toMatch(/\.scope \.segment-all \+ \.segment \{ border-inline-start: none; \}/);
-    // Calendar Filter keeps its one row.
-    expect(css).not.toMatch(/\.segmented \.segments \{[^}]*flex-wrap/);
   });
 
   it('counts what each scope stores, as the YAML holds it', () => {
@@ -512,10 +503,14 @@ describe('section row summaries', () => {
       'Time Format: Follow Home Assistant · Set: 3',
     );
     // The toolbar's controls only while the toolbar shows them, counted: their names read as
-    // actions ("Reset").
+    // actions ("Reset"). Calendar Filter is one of them, on in either form and off as false.
     const toolbar = { ...LIST_CARD, toolbar: { show: true, reset: false, search: false } };
     expect(summaryOf(page('card_header'), toolbar, 'shared')).toMatch(
-      /^Show Toolbar: On · Controls: 4 on · Set: 3$/,
+      /^Show Toolbar: On · Controls: 5 on · Set: 3$/,
+    );
+    const filterOff = { ...LIST_CARD, toolbar: { show: true, reset: false, legend: false } };
+    expect(summaryOf(page('card_header'), filterOff, 'shared')).toMatch(
+      /^Show Toolbar: On · Controls: 5 on · Set: 3$/,
     );
   });
 

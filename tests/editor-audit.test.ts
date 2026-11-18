@@ -484,15 +484,22 @@ describe('What This Card Changes, its actions', () => {
       $(editor, '[data-audit="time_grid.show_location"] button.chip')!.getAttribute('aria-pressed'),
     ).toBe('true');
 
-    // Calendar Filter, a radio group on its page, mounts as that group and picks in place.
+    // Calendar Filter, a chip on its page with its form as a qualifier line under it, mounts as
+    // both: one option, read and written as its page draws it.
     await act(editor, 'toolbar.legend', 'change');
-    const off = $(
+    const filter = $(editor, '[data-audit="toolbar.legend"] button.chip')!;
+    expect(filter.getAttribute('data-field')).toBe('card:toolbar.legend');
+    expect(filter.getAttribute('aria-pressed')).toBe('true');
+    const menu = $(
       editor,
-      '[data-audit="toolbar.legend"] fieldset.segmented input[type="radio"][value="off"]',
+      '[data-audit="toolbar.legend"] .qualifier input[type="radio"][value="menu"]',
     ) as HTMLInputElement;
-    expect(off.checked).toBe(false);
-    off.checked = true;
-    off.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(menu.checked).toBe(false);
+    menu.checked = true;
+    menu.dispatchEvent(new Event('change', { bubbles: true }));
+    await editor.updateComplete;
+    expect(lastConfig(editor)!.toolbar).toEqual({ show: true });
+    $(editor, '[data-audit="toolbar.legend"] button.chip')!.click();
     await editor.updateComplete;
     expect(lastConfig(editor)!.toolbar).toEqual({ show: true, legend: false });
   });

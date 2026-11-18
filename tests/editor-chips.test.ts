@@ -35,6 +35,7 @@ const PARTS = [
 const CONTROLS = [
   'card:toolbar.add_event',
   'card:toolbar.view_switcher',
+  'card:toolbar.legend',
   'card:toolbar.reset',
   'card:toolbar.refresh',
   'card:toolbar.search',
@@ -129,6 +130,7 @@ describe('which fields are chips', () => {
       'events:show_now_indicator': 'chip.now',
       'card:toolbar.add_event': 'toolbar.controls.add_event',
       'card:toolbar.view_switcher': 'toolbar.view_switcher',
+      'card:toolbar.legend': 'toolbar.legend',
       'card:toolbar.reset': 'toolbar.controls.reset',
       'card:toolbar.refresh': 'toolbar.controls.refresh',
       'card:toolbar.search': 'toolbar.controls.search',
@@ -148,6 +150,7 @@ describe('which fields are chips', () => {
       'Now',
       'Add Event',
       'View Switcher',
+      'Calendar Filter',
       'Reset',
       'Refresh',
       'Search',
@@ -167,7 +170,7 @@ describe('which fields are chips', () => {
     expect(offered).toEqual(universe);
     // The denominator, and the one difference: Now is not offered in Grid.
     const grid = Object.fromEntries(offered)['grid'] as string[];
-    expect(grid).toHaveLength(13);
+    expect(grid).toHaveLength(14);
     expect(Object.keys(CHIP_LABELS).filter((id) => !grid.includes(id))).toEqual([
       'events:show_now_indicator',
     ]);
@@ -372,12 +375,13 @@ describe('the toolbar on Card & Header', () => {
     const editor = await mount();
     await openPageOf(editor, 'card:toolbar.show');
     expect(chips(editor, 'Controls')).toEqual([]);
-    expect(editor.shadowRoot!.querySelector('fieldset.segmented')).toBeNull();
+    expect(editor.shadowRoot!.querySelector('.qualifier')).toBeNull();
 
     await changeField(editor, 'card:toolbar.show', true);
     expect(read(editor, 'Controls')).toEqual([
       'Add Event ✓',
       'View Switcher ✓',
+      'Calendar Filter ✓',
       'Reset',
       'Refresh ✓',
       'Search ✓',
@@ -388,67 +392,136 @@ describe('the toolbar on Card & Header', () => {
       'Pressed controls show in the toolbar. Search needs Date Navigation.',
     );
 
-    chips(editor, 'Controls')[2].click();
+    chips(editor, 'Controls')[3].click();
     await editor.updateComplete;
     expect(lastConfig(editor)?.toolbar).toEqual({ show: true, reset: true });
   });
 
-  it('picks Calendar Filter from its radio group, and resets it to the default', async () => {
+  /** The qualifier line of a pressed control: its legend and each choice, ✓ where chosen. */
+  const qualifier = (editor: Editor, control: string): string[] | undefined => {
+    const line = editor.shadowRoot!.querySelector(`.qualifier[data-qualifies="${control}"]`);
+    if (line === null) return undefined;
+    return [
+      line.querySelector('legend')!.textContent!.replace(/\s+/g, ' ').trim(),
+      ...[...line.querySelectorAll<HTMLInputElement>('input')].map(
+        (input) =>
+          `${input.closest('label')!.querySelector('span')!.textContent!.trim()}${input.checked ? ' ✓' : ''}`,
+      ),
+    ];
+  };
+  const pickForm = async (editor: Editor, form: string): Promise<void> => {
+    const radio = editor.shadowRoot!.querySelector<HTMLInputElement>(
+      `.qualifier[data-qualifies="card:toolbar.legend"] input[value="${form}"]`,
+    )!;
+    radio.checked = true;
+    radio.dispatchEvent(new Event('change', { bubbles: true }));
+    await editor.updateComplete;
+  };
+  const filterChip = (editor: Editor): HTMLButtonElement =>
+    chips(editor, 'Controls').find((chip) => chip.dataset.field === 'card:toolbar.legend')!;
+
+  it('draws Calendar Filter as a chip, its form as a qualifier line only while it is pressed', async () => {
     const editor = await mount({ toolbar: { show: true, legend: false } });
     await openPageOf(editor, 'card:toolbar.legend');
-    const group = () =>
-      editor.shadowRoot!.querySelector<HTMLFieldSetElement>('fieldset.segmented')!;
-    const radios = () => [...group().querySelectorAll<HTMLInputElement>('input[type="radio"]')];
-    // Reset is in the line under the group, as under any field.
-    const reset = () =>
-      editor.shadowRoot!.querySelector<HTMLButtonElement>(
-        '[data-focus="reset:card:toolbar.legend"]',
-      );
+    expect(filterChip(editor).getAttribute('aria-pressed')).toBe('false');
+    expect(qualifier(editor, 'card:toolbar.legend')).toBeUndefined();
 
-    // Its facts are on the line under it, as any control's with no head row of its own.
-    expect(group().querySelector('legend')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
-      'Calendar Filter',
-    );
-    expect(
-      editor
-        .shadowRoot!.querySelector(
-          '[data-field="card:toolbar.legend"] ~ .field-line .fact, [data-field="card:toolbar.legend"] .field-line .fact',
-        )
-        ?.textContent?.trim(),
-    ).toBe('Set');
-    expect(reset()?.getAttribute('aria-label')).toBe('Reset Calendar Filter to Menu');
-    expect(reset()?.textContent?.trim()).toBe('Reset (Menu)');
-    expect(radios().map((radio) => [radio.value, radio.checked])).toEqual([
-      ['off', true],
-      ['menu', false],
-      ['chips', false],
+    // Pressed on with no form chosen this session: Menu, the default.
+    filterChip(editor).click();
+    await editor.updateComplete;
+    expect(lastConfig(editor)?.toolbar).toEqual({ show: true });
+    expect(qualifier(editor, 'card:toolbar.legend')).toEqual([
+      'Calendar Filter shows',
+      'Menu ✓',
+      'Chips',
     ]);
-    expect(reset()).not.toBeNull();
+    // Drawn unlike the chips: native radios under a legend, never a chip.
+    expect(
+      editor.shadowRoot!.querySelectorAll(
+        '.qualifier[data-qualifies="card:toolbar.legend"] input[type="radio"]',
+      ),
+    ).toHaveLength(2);
+    // One field, one element named by it: the chip.
+    expect(editor.shadowRoot!.querySelectorAll('[data-field="card:toolbar.legend"]')).toHaveLength(
+      1,
+    );
 
-    radios()[2].checked = true;
-    radios()[2].dispatchEvent(new Event('change', { bubbles: true }));
+    await pickForm(editor, 'chips');
+    expect(lastConfig(editor)?.toolbar).toEqual({ show: true, legend: 'chips' });
+    filterChip(editor).click();
+    await editor.updateComplete;
+    expect(lastConfig(editor)?.toolbar).toEqual({ show: true, legend: false });
+    expect(qualifier(editor, 'card:toolbar.legend')).toBeUndefined();
+    // Pressed on again: the form chosen earlier in this session.
+    filterChip(editor).click();
     await editor.updateComplete;
     expect(lastConfig(editor)?.toolbar).toEqual({ show: true, legend: 'chips' });
-
-    reset()!.click();
-    await editor.updateComplete;
-    await editor.updateComplete;
-    expect(lastConfig(editor)?.toolbar).toEqual({ show: true });
-    expect(radios().find((radio) => radio.checked)?.value).toBe('menu');
-    expect(reset()).toBeNull();
-    expect(editor.shadowRoot!.activeElement).toBe(group());
   });
 
-  it('resets a Calendar Filter the YAML holds at its default, taking the line away', async () => {
-    // Written as the default, the line would stay: the editor keeps what the YAML already holds.
-    const editor = await mount({ toolbar: { show: true, legend: 'menu' } });
+  it('draws a qualifier line per pressed control with a choice, in the chips’ order', async () => {
+    const editor = await mount({ toolbar: { show: true } });
     await openPageOf(editor, 'card:toolbar.legend');
-
-    editor
-      .shadowRoot!.querySelector<HTMLButtonElement>('[aria-label="Reset Calendar Filter to Menu"]')!
+    const lines = () =>
+      [...editor.shadowRoot!.querySelectorAll<HTMLElement>('.qualifier')].map(
+        (line) => line.dataset.qualifies,
+      );
+    expect(lines()).toEqual(['card:toolbar.view_switcher', 'card:toolbar.legend']);
+    // Drawn alike, a legend over native controls, and unlike the chips above them.
+    expect(
+      [...editor.shadowRoot!.querySelectorAll('.qualifier')].map((line) =>
+        [...line.querySelectorAll('input')].map((input) => input.type).join(','),
+      ),
+    ).toEqual(['checkbox,checkbox,checkbox,checkbox', 'radio,radio']);
+    chips(editor, 'Controls')
+      .find((chip) => chip.dataset.field === 'card:toolbar.view_switcher')!
       .click();
     await editor.updateComplete;
+    expect(lines()).toEqual(['card:toolbar.legend']);
+  });
 
+  it('presses Calendar Filter on in the form the YAML named, and Undo takes each press back', async () => {
+    const editor = await mount({ toolbar: { show: true, legend: 'chips' } });
+    await openPageOf(editor, 'card:toolbar.legend');
+    expect(qualifier(editor, 'card:toolbar.legend')).toEqual([
+      'Calendar Filter shows',
+      'Menu',
+      'Chips ✓',
+    ]);
+    filterChip(editor).click();
+    await editor.updateComplete;
+    expect(lastConfig(editor)?.toolbar).toEqual({ show: true, legend: false });
+    // The card's own Chips counts as named: pressed on again, it is Chips, not Menu.
+    filterChip(editor).click();
+    await editor.updateComplete;
+    expect(lastConfig(editor)?.toolbar).toEqual({ show: true, legend: 'chips' });
+    // A form picked later wins, even the default, which the YAML then leaves out.
+    await pickForm(editor, 'menu');
     expect(lastConfig(editor)?.toolbar).toEqual({ show: true });
+    filterChip(editor).click();
+    await editor.updateComplete;
+    filterChip(editor).click();
+    await editor.updateComplete;
+    expect(lastConfig(editor)?.toolbar).toEqual({ show: true });
+    // Undo takes back each press, one step each.
+    editor.shadowRoot!.querySelector<HTMLElement>('[data-focus="undo"]')!.click();
+    await editor.updateComplete;
+    expect(lastConfig(editor)?.toolbar).toEqual({ show: true, legend: false });
+  });
+
+  it('resets Calendar Filter, chip and form alike, with the Controls’ one Reset', async () => {
+    const editor = await mount({ toolbar: { show: true, legend: 'chips' } });
+    await openPageOf(editor, 'card:toolbar.legend');
+    const reset = editor.shadowRoot!.querySelector<HTMLButtonElement>(
+      '[data-focus="reset-chips:toolbar"]',
+    )!;
+    expect(reset.getAttribute('aria-label')).toBe('Reset Controls: Calendar Filter');
+    reset.click();
+    await editor.updateComplete;
+    expect(lastConfig(editor)?.toolbar).toEqual({ show: true });
+    expect(qualifier(editor, 'card:toolbar.legend')).toEqual([
+      'Calendar Filter shows',
+      'Menu ✓',
+      'Chips',
+    ]);
   });
 });

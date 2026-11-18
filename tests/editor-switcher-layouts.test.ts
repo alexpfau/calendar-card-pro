@@ -1,13 +1,13 @@
 /**
- * Layouts in Switcher: which layouts the toolbar's View Switcher offers, a setting of its own on
- * Card & Header › Toolbar, after the Controls, while View Switcher is pressed.
+ * Layouts in Switcher: which layouts the toolbar's View Switcher offers, its qualifier line on
+ * Card & Header › Toolbar, under the Controls while View Switcher is pressed.
  *
  * Two options, never one value: the View Switcher chip turns the switcher on and off
- * (`toolbar.view_switcher`), and this setting writes `toolbar.view_switcher_layouts`, the list
- * of layouts, and nothing else. Folded at its default, it reads All Layouts; open, it is a toggle
- * chip per layout. The starting layout's chip stays pressed, as the card always offers it, and so
- * does the one other layout's beside it alone, since a switcher of one layout is not drawn: each
- * says why inside itself and in its name. Read off the mounted editor, as a user meets it.
+ * (`toolbar.view_switcher`), and this line writes `toolbar.view_switcher_layouts`, the list of
+ * layouts, and nothing else. It is a checkbox per layout under the legend "View Switcher offers".
+ * The starting layout's stays checked, as the card always offers it, and so does the one other
+ * layout's beside it alone, since a switcher of one layout is not drawn: each says why after its
+ * name and in it, focusable and `aria-disabled`. Read off the mounted editor, as a user meets it.
  */
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -17,7 +17,6 @@ import {
   fakeHass,
   goPage,
   lastConfig,
-  lineOf,
   mountEditor,
   reportsOf,
   valueOf,
@@ -62,40 +61,37 @@ async function mount(
   return editor;
 }
 
-/** The setting's block on the open page: its head row and, open, its chips. */
+/** View Switcher's qualifier line on the open page. */
 function setting(editor: Editor): HTMLElement | null {
-  return editor.shadowRoot!.querySelector<HTMLElement>(`[data-setting="${ID}"]`);
+  return editor.shadowRoot!.querySelector<HTMLElement>(
+    '.qualifier[data-qualifies="card:toolbar.view_switcher"]',
+  );
 }
 
-/** Opens the setting from its head row, as a press on it does. */
-async function open(editor: Editor): Promise<void> {
-  const toggle = setting(editor)?.querySelector<HTMLButtonElement>('.setting-toggle');
-  if (toggle && toggle.getAttribute('aria-expanded') !== 'true') toggle.click();
-  await editor.updateComplete;
-}
-
-/** The chips, one per layout. */
-function chips(editor: Editor): HTMLButtonElement[] {
+/** The checkboxes, one per layout. */
+function chips(editor: Editor): HTMLInputElement[] {
   return [
-    ...editor.shadowRoot!.querySelectorAll<HTMLButtonElement>(
-      `[data-composed="layouts"][data-field="${ID}"] button.chip`,
+    ...editor.shadowRoot!.querySelectorAll<HTMLInputElement>(
+      `[data-composed="layouts"][data-field="${ID}"] input[type="checkbox"]`,
     ),
   ];
 }
 
-/** Each chip as read: its layout, pressed or not, and kept (why) or pressable. */
+/** Each checkbox as read: its layout, checked or not, and kept (why) or free, and its name. */
 function read(editor: Editor): string[] {
-  return chips(editor).map((chip) => {
-    const state = chip.getAttribute('aria-pressed') === 'true' ? 'on' : 'off';
-    const kept = chip.getAttribute('aria-disabled') === 'true' ? ' kept' : '';
-    return `${chip.dataset.value} ${state}${kept}: ${chip.getAttribute('aria-label')}`;
+  return chips(editor).map((box) => {
+    const state = box.checked ? 'on' : 'off';
+    const kept = box.getAttribute('aria-disabled') === 'true' ? ' kept' : '';
+    const name =
+      box.getAttribute('aria-label') ?? box.closest('label')!.querySelector('span')!.textContent;
+    return `${box.dataset.value} ${state}${kept}: ${name}`;
   });
 }
 
-/** Presses one layout's chip. */
+/** Checks or unchecks one layout, as a click does. */
 async function press(editor: Editor, view: Types.EffectiveView): Promise<void> {
   chips(editor)
-    .find((chip) => chip.dataset.value === view)!
+    .find((box) => box.dataset.value === view)!
     .click();
   await editor.updateComplete;
 }
@@ -144,41 +140,42 @@ describe('the chips’ model', () => {
 });
 
 describe('Layouts in Switcher on Card & Header', () => {
-  it('folds to All Layouts after the Controls, and opens to a chip per layout', async () => {
+  it('draws a checkbox per layout under the Controls and their hint', async () => {
     const editor = await mount();
     const root = editor.shadowRoot!;
-    const head = setting(editor)!;
-    expect(head.querySelector('.setting-label')?.textContent).toBe('Layouts in Switcher');
-    expect(head.querySelector('.setting-value')?.textContent).toBe('All Layouts');
-    expect(head.querySelector('.setting-toggle')?.getAttribute('aria-expanded')).toBe('false');
-    expect(chips(editor)).toEqual([]);
+    const line = setting(editor)!;
+    expect(line.querySelector('legend')?.textContent?.trim()).toBe('View Switcher offers');
+    // No head row of its own any more: the line is the setting.
+    expect(root.querySelector(`[data-setting="${ID}"]`)).toBeNull();
 
-    // Placed right after the controls it qualifies, and before Calendar Filter.
+    // Under the chips and their hint, drawn unlike them: native checkboxes, never a chip.
     const controls = root.querySelector('.chip-group[aria-label="Controls"]')!;
-    const filter = root.querySelector('[data-field="card:toolbar.legend"]')!;
+    const hint = [...root.querySelectorAll('p.hint')].find((each) =>
+      each.textContent?.includes('Pressed controls show in the toolbar.'),
+    )!;
     const follows = (a: Node, b: Node) =>
       (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-    expect(follows(controls, head)).toBe(true);
-    expect(follows(head, filter)).toBe(true);
+    expect(follows(controls, hint)).toBe(true);
+    expect(follows(hint, line)).toBe(true);
+    expect(line.querySelector('button.chip')).toBeNull();
 
-    await open(editor);
     expect(read(editor)).toEqual([
       'list on kept: List, Starting Layout',
       'column on: Columns',
       'grid on: Grid',
       'month on: Month',
     ]);
-    // A kept chip is still a stop for the keyboard, its reason drawn inside it.
+    // A kept checkbox is still a stop for the keyboard, its reason drawn after its name.
     const list = chips(editor)[0];
     expect(list.disabled).toBe(false);
-    expect(list.querySelector('.chip-needs')?.textContent).toBe('Starting Layout');
-    // Opening writes nothing.
+    expect(list.closest('label')!.querySelector('.qualifier-kept')?.textContent).toBe(
+      'Starting Layout',
+    );
     expect(reportsOf(editor)).toEqual([]);
   });
 
   it('writes the list each press leaves, and keeps the last other layout pressed', async () => {
     const editor = await mount();
-    await open(editor);
 
     await press(editor, 'month');
     expect(writtenToolbar(editor)).toEqual({
@@ -195,14 +192,16 @@ describe('Layouts in Switcher on Card & Header', () => {
     ]);
     expect(
       chips(editor)
-        .find((chip) => chip.dataset.value === 'grid')!
-        .querySelector('.chip-needs')?.textContent,
+        .find((box) => box.dataset.value === 'grid')!
+        .closest('label')!
+        .querySelector('.qualifier-kept')?.textContent,
     ).toBe('Switcher Needs Two');
 
-    // The kept chip does nothing: the switcher is never left offering one layout, nor turned off.
+    // The kept checkbox does nothing: the switcher never offers one layout, nor is turned off.
     const writes = reportsOf(editor).length;
     await press(editor, 'grid');
     expect(reportsOf(editor)).toHaveLength(writes);
+    expect(chips(editor).find((box) => box.dataset.value === 'grid')!.checked).toBe(true);
     expect(valueOf(editor, 'card:toolbar.view_switcher')).toBe(true);
 
     // Every layout again is the default, so the key goes.
@@ -217,7 +216,6 @@ describe('Layouts in Switcher on Card & Header', () => {
     const editor = await mount({ view_switcher_layouts: ['list', 'grid'] }, { view: 'list' });
     await changeField(editor, 'workspace:editing_workspace', 'month');
     await goPage(editor, 'card_header');
-    await open(editor);
 
     expect(read(editor)).toEqual([
       'list on kept: List, Starting Layout',
@@ -234,7 +232,6 @@ describe('Layouts in Switcher on Card & Header', () => {
 
   it('is one undo step per press', async () => {
     const editor = await mount();
-    await open(editor);
     await press(editor, 'month');
     await press(editor, 'grid');
     expect(writtenToolbar(editor)).toEqual({
@@ -250,18 +247,26 @@ describe('Layouts in Switcher on Card & Header', () => {
     });
   });
 
-  it('resets to every layout by removing the key, and stays open', async () => {
+  it('resets to every layout with the Controls’ one Reset, by removing the key', async () => {
     const editor = await mount({ view_switcher_layouts: ['list', 'month'] });
-    // A stored value never folds; its Reset follows Set.
-    expect(setting(editor)!.querySelector('.setting-value')).toBeNull();
     expect(read(editor)).toEqual([
       'list on kept: List, Starting Layout',
       'column off: Columns',
       'grid off: Grid',
       'month on kept: Month, Switcher Needs Two',
     ]);
-    const reset = lineOf(editor, ID)!.querySelector<HTMLButtonElement>('button[data-reset-keys]')!;
+    // Its facts and Reset are the Controls' own, under the chips: one option of the toolbar's.
+    const reset = editor.shadowRoot!.querySelector<HTMLButtonElement>(
+      '[data-focus="reset-chips:toolbar"]',
+    )!;
+    expect(reset.getAttribute('aria-label')).toBe('Reset Controls: Layouts in Switcher');
     expect(reset.dataset.resetKeys).toBe('view_switcher_layouts');
+    expect(
+      editor
+        .shadowRoot!.querySelector('[data-heading="heading_toolbar"] .chip-source')
+        ?.textContent?.replace(/\s+/g, ' ')
+        .trim(),
+    ).toContain('Chosen Here: Layouts in Switcher');
     reset.click();
     await editor.updateComplete;
     expect(writtenToolbar(editor)).toEqual({ show: true });
@@ -358,9 +363,9 @@ describe('Layouts in Switcher says when no switcher is drawn', () => {
       .map((element) => element.textContent!.trim());
   }
 
-  const ALONE = 'No switcher is drawn until a second layout is pressed.';
+  const ALONE = 'No switcher is drawn until a second layout is checked.';
 
-  it('says so under the chips of a list that offers the starting layout alone', async () => {
+  it('says so under the checkboxes of a list that offers the starting layout alone', async () => {
     // Written by hand: the chips never leave one layout, but YAML can.
     const editor = await mount({ view_switcher_layouts: ['list'] }, { view: 'list' });
     expect(read(editor)).toEqual([
@@ -387,7 +392,6 @@ describe('Layouts in Switcher says when no switcher is drawn', () => {
     ['a list offering two', { view_switcher_layouts: ['month'] }, []],
   ])('%s', async (_case, toolbar, words) => {
     const editor = await mount(toolbar, { view: 'list' });
-    await open(editor);
     expect(described(editor)).toEqual(words);
   });
 });
@@ -412,33 +416,24 @@ describe('Layouts in Switcher reads the starting layout as the card does', () =>
 });
 
 describe('Layouts in Switcher waits on View Switcher', () => {
-  /** What the setting's place on the open page says while it is withheld. */
-  function gated(editor: Editor): string | undefined {
-    return editor
-      .shadowRoot!.querySelector(`.setting-gated[data-field="${ID}"] .setting-gated-when`)
-      ?.textContent?.trim();
-  }
-
-  it('says in its place that it appears once View Switcher is pressed', async () => {
+  it('is drawn only while View Switcher is pressed, with no line in its place', async () => {
     const editor = await mount({ view_switcher: false });
     expect(setting(editor)).toBeNull();
-    expect(gated(editor)).toBe('Appears once View Switcher is pressed.');
+    expect(editor.shadowRoot!.querySelector(`[data-field="${ID}"]`)).toBeNull();
+    expect(editor.shadowRoot!.querySelector('.page')!.textContent).not.toContain(
+      'Layouts in Switcher',
+    );
   });
 
-  it('shares the toolbar’s line while the toolbar is off', async () => {
+  it('is not named in the toolbar’s line while the toolbar is off', async () => {
     const editor = await mountEditor({
       config_version: Config.CURRENT_CONFIG_VERSION,
       entities: ['calendar.anna'],
     });
     await goPage(editor, 'card_header');
     expect(setting(editor)).toBeNull();
-    expect(
-      editor
-        .shadowRoot!.querySelector(`.setting-gated[data-field="${ID}"]`)
-        ?.textContent?.replace(/\s+/g, ' ')
-        .trim(),
-    ).toBe(
-      'Appears once Show Toolbar is on: Layouts in Switcher, Calendar Filter, Arrow & Chip Size.',
+    expect(editor.shadowRoot!.querySelector('.page')!.textContent).not.toContain(
+      'Layouts in Switcher',
     );
   });
 
@@ -482,13 +477,11 @@ describe('Layouts in Switcher in words', () => {
     expect(wordValue(built, value, language)).toBe(words);
   });
 
-  it('folds to the words of the editor’s language', async () => {
+  it('reads in the words of the editor’s language', async () => {
     const editor = await mount({}, {}, 'de');
-    expect(setting(editor)!.querySelector('.setting-label')?.textContent).toBe(
-      'Layouts im Umschalter',
+    expect(setting(editor)!.querySelector('legend')?.textContent?.trim()).toBe(
+      'Der Layout-Umschalter bietet',
     );
-    expect(setting(editor)!.querySelector('.setting-value')?.textContent).toBe('Alle Layouts');
-    await open(editor);
     expect(read(editor)).toEqual([
       'list on kept: Liste, Startlayout',
       'column on: Spalten',

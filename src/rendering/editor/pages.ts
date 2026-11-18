@@ -46,8 +46,10 @@ export type FamilyId =
  *   so it names both, and either asks for it.
  * - `family`: shown, added and removed with its family.
  * - `chips`: drawn as a toggle chip (`chips.ts`), with the other chips of its kind on its page.
- * - `segmented`: drawn as a card-built radio group of its options with no head row: Calendar
- *   Filter's Off, Menu and Chips, and Start Date's chips.
+ * - `qualifies`: what a pressed toolbar control offers, drawn as its qualifier line under the
+ *   chips while that control is pressed, with no head row: Layouts in Switcher's checkboxes.
+ * - `segmented`: drawn as a card-built radio group of its options with no head row: Start Date's
+ *   chips.
  * - `button-rows`: one of the toolbar's own buttons' fields, drawn in each button's row.
  */
 export type Appearance =
@@ -56,6 +58,7 @@ export type Appearance =
   | { readonly with: FieldId | ReadonlyArray<FieldId> }
   | { readonly family: FamilyId }
   | { readonly chips: 'parts' | 'toolbar' }
+  | { readonly qualifies: FieldId }
   | 'segmented'
   | 'button-rows';
 
@@ -237,13 +240,14 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['card:toolbar.show', E],
           ['card:toolbar.add_event', CONTROL],
           ['card:toolbar.view_switcher', CONTROL],
+          // A chip like the others; which form it takes is its qualifier line under the chips.
+          ['card:toolbar.legend', CONTROL],
           ['card:toolbar.reset', CONTROL],
           ['card:toolbar.refresh', CONTROL],
           ['card:toolbar.search', CONTROL],
           ['card:toolbar.navigation', CONTROL],
-          // Right after the controls: it qualifies one of them, and matters only while it is on.
-          ['card:toolbar.view_switcher_layouts', A],
-          ['card:toolbar.legend', 'segmented'],
+          // View Switcher's qualifier line, drawn under the chips while it is pressed.
+          ['card:toolbar.view_switcher_layouts', { qualifies: 'card:toolbar.view_switcher' }],
           ['card:toolbar.size', A],
         ],
       },

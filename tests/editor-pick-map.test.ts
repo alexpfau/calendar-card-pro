@@ -233,6 +233,11 @@ describe('Pick From Preview part map', () => {
       { view: 'list' },
       { view: 'list', overrides: { show_week_numbers: null } },
       { view: 'column' },
+      // Columns again with Calendar Filter as its menu, which draws the filter's button.
+      {
+        view: 'column',
+        overrides: { toolbar: { ...(config('column').toolbar as object), legend: 'menu' } },
+      },
       { view: 'grid' },
       { view: 'month' },
       { view: 'month', width: 375 },
@@ -258,7 +263,7 @@ describe('Pick From Preview part map', () => {
       }
       card.remove();
     }
-    // The denominator: six renders of four layouts drew a card worth checking.
+    // The denominator: seven renders of four layouts drew a card worth checking.
     expect(elements).toBeGreaterThan(300);
     // Each selector of a group on its own, so one gone stale beside a live one still fails.
     expect(
@@ -301,7 +306,15 @@ describe('Pick From Preview part map', () => {
       '.grid-day-body ⊃ div.grid-day-plane',
       '.grid-day-body ⊃ div.grid-event-backdrop-rules',
       '.grid-event-overflow ⊃ div.grid-event-overflow-label',
+      '.legend-button ⊃ svg.toolbar-button-icon',
       '.legend-chip ⊃ span.legend-chip-label',
+      // The filter's menu: its two buttons, each calendar's row, and its frame.
+      '.legend-menu ⊃ button.legend-menu-action',
+      '.legend-menu ⊃ button.legend-menu-action.unavailable',
+      '.legend-menu ⊃ input.legend-menu-check',
+      '.legend-menu ⊃ span.legend-menu-label',
+      '.legend-menu ⊃ span.legend-menu-page',
+      '.legend-menu ⊃ span.legend-menu-surface',
       '.location ⊃ ha-icon',
       '.location ⊃ span',
       '.month-compact-marks ⊃ span.month-compact-mark',
@@ -362,6 +375,7 @@ describe('Pick From Preview part map', () => {
       ),
     ).toEqual([
       '.view-switcher card:toolbar.view_switcher_layouts',
+      '.legend-button, .legend-menu, .legend-chips card:toolbar.legend',
       '.grid-now-line, .grid-now-dot layout:time_grid.show_now_line',
       '.grid-event-overflow layout:time_grid.max_simultaneous_events',
       '.grid-allday-band layout:time_grid.allday_band_max_rows',

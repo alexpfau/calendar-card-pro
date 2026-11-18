@@ -8,14 +8,17 @@
  * only names each one's short label (`chip-labels.ts`), a table `tests/editor-chips.test.ts` pins
  * by value and reconciles against the registry in both directions.
  *
- * A third family is one field's values rather than fields: Layouts in Switcher draws a chip per
- * layout under its own head row (`layoutChips`), and a press writes the whole list, as a change of
- * starting layout does where the list would otherwise leave one layout (`layoutsKeptOnStart`).
+ * Calendar Filter is a chip whose value is a form rather than on and off: pressed, it writes the
+ * form last named this session, by the YAML or its line, else Menu (`pressValue`), and its form is
+ * its qualifier line under the chips. View Switcher's qualifier line is one field's values: Layouts in Switcher's checkboxes
+ * (`layoutChips`), where a check writes the whole list, as a change of starting layout does where
+ * the list would otherwise leave one layout (`layoutsKeptOnStart`).
  */
 
 import { CHIP_LABELS } from './chip-labels';
 import { type FieldId, parseFieldId } from './field-index';
 import { GATES, type GateData, firstUnmet, needsText } from './gates';
+import { LEGEND_OFF } from './normalize';
 import { PAGES } from './pages';
 import { configKeysForField } from './synthetic';
 import { type EditorWorkspace, viewForWorkspace } from './workspace';
@@ -65,13 +68,46 @@ export function inScope(id: FieldId, workspace: EditorWorkspace): boolean {
 }
 
 /**
- * Whether a value reads as pressed: on, or a word that means on (`show_countdown: once_per_day`).
+ * Whether a value reads as pressed: on, or a word that means on (`show_countdown: once_per_day`,
+ * Calendar Filter's `menu` or `chips`). Calendar Filter's form data says `off` for `false`
+ * (`normalize.ts` › `LEGEND_OFF`).
  *
  * @param value - The field's effective value
  * @returns `true` for a pressed chip
  */
 export function isPressed(value: unknown): boolean {
-  return value !== undefined && value !== null && value !== false && value !== 'false';
+  return (
+    value !== undefined &&
+    value !== null &&
+    value !== false &&
+    value !== 'false' &&
+    value !== LEGEND_OFF
+  );
+}
+
+/** The chip whose form, Menu or Chips, is its own qualifier line: Calendar Filter. */
+export const LEGEND_FIELD: FieldId = 'card:toolbar.legend';
+
+/** Calendar Filter's two forms, in the order its qualifier line offers them. */
+export const LEGEND_FORMS: ReadonlyArray<Types.ToolbarLegendMode> = ['menu', 'chips'];
+
+/**
+ * What a press on a chip writes: the other of on and off; for Calendar Filter, off, or on in the
+ * form last named this editing session, by the card's YAML or in its qualifier line, else Menu,
+ * the default.
+ *
+ * @param id - The chip's field
+ * @param pressed - Whether it is pressed now
+ * @param form - Calendar Filter's form last named this session, where one was
+ * @returns The value to write
+ */
+export function pressValue(
+  id: FieldId,
+  pressed: boolean,
+  form?: Types.ToolbarLegendMode,
+): boolean | string {
+  if (id !== LEGEND_FIELD) return !pressed;
+  return pressed ? LEGEND_OFF : (form ?? 'menu');
 }
 
 /**

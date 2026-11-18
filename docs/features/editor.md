@@ -223,8 +223,8 @@ A setting with a stored value is always open, with **Reset** in plain view right
 on the side away from ⓘ. **Reset (In the Day Header)** keeps the setting open and names the value
 it goes back to, or **Reset (Empty)** where nothing comes back; **Remove Setting** resets a
 setting and folds it. A group of chips has one button for all of its chips stored here, **Reset
-Parts** for an event's parts and **Reset Controls** for the toolbar's, after a line saying where
-each chip's state comes from: **Chosen Here**, **From All Layouts** or a layout's **Default**. A dropdown may also
+Parts** for an event's parts and **Reset Controls** for the toolbar's and the lines under them,
+after a line saying where each chip's state comes from: **Chosen Here**, **From All Layouts** or a layout's **Default**. A dropdown may also
 show Home Assistant's own ✕, which empties it, the same as its Reset.
 
 A folded setting shows the value that applies. Where nothing is stored, it names it: a setting
@@ -632,8 +632,9 @@ a search result opens one.
 - One pick turns it off again, and so do **Cancel**, Escape, the button itself, and moving
   anywhere else in the editor. **Back** returns to where you were.
 - The preview's own taps, holds and Grid's drag do nothing while it is on.
-- A legend chip opens its calendar's page, and the view switcher opens **Layouts in Switcher**,
-  just under the **View Switcher** chip that turns it off. A part only one layout has, such as
+- A legend chip opens its calendar's page, and the filter's button or row of chips the
+  **Calendar Filter** chip. The view switcher opens **View Switcher offers**, its layouts, just
+  under the chips. A part only one layout has, such as
   the Grid's hour labels, switches **Settings For** to that layout first and says so.
 - A heading's first setting opens there, as a search result does, even where it was folded.
 - On a phone the preview sits below the editor. Tap a part once to outline it, then tap it again

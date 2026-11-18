@@ -53,6 +53,12 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
       field: 'card:toolbar.view_switcher_layouts',
     },
   ],
+  // The filter's menu button, its menu and its row of chips open the Calendar Filter chip, under
+  // which its form is chosen; a chip of one calendar opens that calendar, above.
+  [
+    '.legend-button, .legend-menu, .legend-chips',
+    { page: 'card_header', heading: 'heading_toolbar', field: 'card:toolbar.legend' },
+  ],
   ['.card-toolbar', { page: 'card_header', heading: 'heading_toolbar' }],
   ['.today-indicator-container', { page: 'day_header', heading: 'today_indicator' }],
   [
