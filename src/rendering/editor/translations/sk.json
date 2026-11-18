@@ -411,6 +411,7 @@
   "chip.chosen_here": "Zvolené tu: {names}",
   "chip.kept_starting": "Počiatočné rozloženie",
   "chip.kept_second": "Prepínač potrebuje dve",
+  "chip.switcher_alone": "Prepínač sa nezobrazí, kým nebude stlačené druhé rozloženie.",
   "entry.back": "Späť na prehľad",
   "entry.previous": "Predchádzajúci kalendár",
   "entry.next": "Ďalší kalendár",

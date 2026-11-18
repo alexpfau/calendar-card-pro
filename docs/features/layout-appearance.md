@@ -337,7 +337,8 @@ Each press redraws the same two days: as Columns, then as List, then as Grid aga
   chip turns it on and off, and Layouts in Switcher, under the controls while it is on, offers a
   chip per layout; the starting layout's chip stays pressed, and so does the last other one.
   Changing **Starting Layout** to the one other layout the list names adds the layout it leaves,
-  so the switcher stays.
+  so the switcher stays. A list written in YAML that offers the starting layout alone shows a line
+  under the chips saying no switcher is drawn until a second layout is pressed.
 
 ::: tip Nothing Switches While You Edit
 In the card editor's preview, and on a dashboard in edit mode, the card shows its configured

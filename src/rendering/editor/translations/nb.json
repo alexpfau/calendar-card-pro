@@ -413,6 +413,7 @@
   "chip.chosen_here": "Valgt her: {names}",
   "chip.kept_starting": "Startlayout",
   "chip.kept_second": "Velgeren trenger to",
+  "chip.switcher_alone": "Velgeren vises ikke før enda en layout er valgt.",
   "entry.back": "Tilbake til oversikten",
   "entry.previous": "Forrige kalender",
   "entry.next": "Neste kalender",

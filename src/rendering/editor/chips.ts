@@ -168,6 +168,27 @@ export function pressLayout(
 }
 
 /**
+ * Whether the switcher is on and offers one layout, so the card draws none. Neither the chips nor
+ * Starting Layout leave a switcher that is on so (`layoutsKeptOnStart`), but a list written by hand
+ * can name the starting layout alone, or nothing, and so can one kept while View Switcher was off.
+ *
+ * @param config - The configuration
+ * @param starting - The layout the card opens in
+ * @returns `true` while the toolbar and View Switcher are on and fewer than two layouts are offered
+ */
+export function switcherAlone(
+  config: Readonly<Types.Config>,
+  starting: Types.EffectiveView,
+): boolean {
+  const toolbar = resolveToolbar(config);
+  return (
+    toolbar.show &&
+    toolbar.viewSwitcher &&
+    switcherOffers({ ...config, view: starting }).length === 0
+  );
+}
+
+/**
  * The list Layouts in Switcher writes beside a change of starting layout, where the list stored
  * would otherwise leave the switcher offering one layout, which the card does not draw. A list of
  * one layout other than the starting one offers two; starting in that layout, it offers one. The

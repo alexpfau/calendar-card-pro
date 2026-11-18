@@ -413,6 +413,7 @@
   "chip.chosen_here": "Valda här: {names}",
   "chip.kept_starting": "Startlayout",
   "chip.kept_second": "Väljaren behöver två",
+  "chip.switcher_alone": "Väljaren visas inte förrän ytterligare en layout är vald.",
   "entry.back": "Tillbaka till översikten",
   "entry.previous": "Föregående kalender",
   "entry.next": "Nästa kalender",

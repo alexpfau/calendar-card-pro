@@ -411,6 +411,7 @@
   "chip.chosen_here": "Wybrane tutaj: {names}",
   "chip.kept_starting": "Układ początkowy",
   "chip.kept_second": "Przełącznik wymaga dwóch",
+  "chip.switcher_alone": "Przełącznik nie pojawi się, dopóki nie zostanie wciśnięty drugi układ.",
   "entry.back": "Wróć do przeglądu",
   "entry.previous": "Poprzedni kalendarz",
   "entry.next": "Następny kalendarz",

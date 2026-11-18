@@ -343,6 +343,53 @@ describe('Starting Layout keeps the switcher it offered', () => {
   });
 });
 
+describe('Layouts in Switcher says when no switcher is drawn', () => {
+  /** The words the setting's group is described by, each element read where it is drawn. */
+  function described(editor: Editor): string[] {
+    const root = editor.shadowRoot!;
+    const group = root.querySelector<HTMLElement>(`[data-composed="layouts"][data-field="${ID}"]`)!;
+    return (group.getAttribute('aria-describedby') ?? '')
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((id) => root.getElementById(id))
+      .filter((element): element is HTMLElement => element !== null && group.contains(element))
+      .map((element) => element.textContent!.trim());
+  }
+
+  const ALONE = 'No switcher is drawn until a second layout is pressed.';
+
+  it('says so under the chips of a list that offers the starting layout alone', async () => {
+    // Written by hand: the chips never leave one layout, but YAML can.
+    const editor = await mount({ view_switcher_layouts: ['list'] }, { view: 'list' });
+    expect(read(editor)).toEqual([
+      'list on kept: List, Starting Layout',
+      'column off: Columns',
+      'grid off: Grid',
+      'month off: Month',
+    ]);
+    expect(described(editor)).toEqual([ALONE]);
+
+    // A second layout pressed, the switcher is drawn and the line goes.
+    await press(editor, 'column');
+    expect(writtenToolbar(editor)).toEqual({
+      show: true,
+      view_switcher_layouts: ['list', 'column'],
+    });
+    expect(described(editor)).toEqual([]);
+    expect(setting(editor)!.textContent).not.toContain(ALONE);
+  });
+
+  it.each([
+    ['an empty list', { view_switcher_layouts: [] }, [ALONE]],
+    ['every layout, the default', {}, []],
+    ['a list offering two', { view_switcher_layouts: ['month'] }, []],
+  ])('%s', async (_case, toolbar, words) => {
+    const editor = await mount(toolbar, { view: 'list' });
+    await open(editor);
+    expect(described(editor)).toEqual(words);
+  });
+});
+
 describe('Layouts in Switcher waits on View Switcher', () => {
   /** What the setting's place on the open page says while it is withheld. */
   function gated(editor: Editor): string | undefined {

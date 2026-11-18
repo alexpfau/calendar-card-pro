@@ -6115,6 +6115,12 @@ export class CalendarCardProEditor extends LitElement {
       };
     });
     const helper = show?.describedBy === undefined ? text.helper(field.node) : undefined;
+    // A list written by hand can offer the starting layout alone: then the switcher is on and the
+    // card draws none, which the line under the chips says, and the group is described by.
+    const alone = Chips.switcherAlone(this._config!, starting)
+      ? `alone-${id.replace(/\W/g, '-')}`
+      : undefined;
+    const describedBy = [show?.describedBy, alone].filter(Boolean).join(' ');
     return html`<div
       class="field"
       data-field=${id}
@@ -6122,9 +6128,14 @@ export class CalendarCardProEditor extends LitElement {
       tabindex="-1"
       role="group"
       aria-label=${text.group}
-      aria-describedby=${show?.describedBy ?? nothing}
+      aria-describedby=${describedBy || nothing}
     >
       ${ChipsView.chipGroup(name, chips, false, false)}
+      ${
+        alone === undefined
+          ? nothing
+          : html`<p class="hint" id=${alone}>${this._string(ctx, 'chip.switcher_alone')}</p>`
+      }
       ${helper ? html`<p class="hint">${helper}</p>` : nothing} ${show?.line ?? nothing}
     </div>`;
   }

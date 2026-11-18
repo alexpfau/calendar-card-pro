@@ -411,6 +411,7 @@
   "chip.chosen_here": "Pasirinkta čia: {names}",
   "chip.kept_starting": "Pradinis išdėstymas",
   "chip.kept_second": "Perjungikliui reikia dviejų",
+  "chip.switcher_alone": "Perjungiklis nerodomas, kol nepaspaustas antras išdėstymas.",
   "entry.back": "Atgal į pradžią",
   "entry.previous": "Ankstesnis kalendorius",
   "entry.next": "Kitas kalendorius",

@@ -411,6 +411,7 @@
   "chip.chosen_here": "Scelti qui: {names}",
   "chip.kept_starting": "Layout iniziale",
   "chip.kept_second": "Il selettore ne vuole due",
+  "chip.switcher_alone": "Il selettore non compare finché non è selezionato un secondo layout.",
   "entry.back": "Torna alla panoramica",
   "entry.previous": "Calendario precedente",
   "entry.next": "Calendario successivo",

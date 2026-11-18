@@ -630,6 +630,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // card opens in is always offered, and a switcher of one layout is not drawn.
   'chip.kept_starting': 'Starting Layout',
   'chip.kept_second': 'Switcher Needs Two',
+  // Under Layouts in Switcher, where the list stored offers the starting layout alone, so View
+  // Switcher is on and the card draws no switcher; "pressed" as the chips above it are.
+  'chip.switcher_alone': 'No switcher is drawn until a second layout is pressed.',
   // A calendar entry's page.
   'entry.back': 'Back to the overview',
   'entry.previous': 'Previous Calendar',

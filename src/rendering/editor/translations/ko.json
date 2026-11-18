@@ -317,6 +317,7 @@
   "chip.chosen_here": "여기서 선택: {names}",
   "chip.kept_starting": "시작 레이아웃",
   "chip.kept_second": "전환기에 두 개 필요",
+  "chip.switcher_alone": "두 번째 레이아웃을 누를 때까지 전환기가 표시되지 않습니다.",
   "entry.back": "개요로 돌아가기",
   "entry.previous": "이전 캘린더",
   "entry.next": "다음 캘린더",

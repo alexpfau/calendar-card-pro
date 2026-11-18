@@ -413,6 +413,7 @@
   "chip.chosen_here": "Hier gewählt: {names}",
   "chip.kept_starting": "Startlayout",
   "chip.kept_second": "Umschalter braucht zwei",
+  "chip.switcher_alone": "Der Umschalter erscheint erst, wenn ein zweites Layout aktiviert ist.",
   "entry.back": "Zurück zur Übersicht",
   "entry.previous": "Vorheriger Kalender",
   "entry.next": "Nächster Kalender",

@@ -411,6 +411,7 @@
   "chip.chosen_here": "Siin valitud: {names}",
   "chip.kept_starting": "Algpaigutus",
   "chip.kept_second": "Vahetaja vajab kahte",
+  "chip.switcher_alone": "Vahetajat ei kuvata enne, kui teine paigutus on vajutatud.",
   "entry.back": "Tagasi ülevaatelehele",
   "entry.previous": "Eelmine kalender",
   "entry.next": "Järgmine kalender",

@@ -411,6 +411,7 @@
   "chip.chosen_here": "Izvēlēts šeit: {names}",
   "chip.kept_starting": "Sākotnējais izkārtojums",
   "chip.kept_second": "Pārslēdzējam vajag divus",
+  "chip.switcher_alone": "Pārslēdzējs netiek rādīts, kamēr nav nospiests otrs izkārtojums.",
   "entry.back": "Atpakaļ uz kopskatu",
   "entry.previous": "Iepriekšējais kalendārs",
   "entry.next": "Nākamais kalendārs",
