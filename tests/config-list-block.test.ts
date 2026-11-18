@@ -63,11 +63,20 @@ describe('the list block is a registered peer', () => {
     expect(listBlock().defaultOverrides).toEqual({});
   });
 
-  it('carries every key column can override, plus the seven list-only ones', () => {
+  it('carries every key column can override, plus the eight list-only ones', () => {
     expect(new Set(ViewConfig.LIST_OVERRIDE_KEYS)).toEqual(
       new Set([...ViewConfig.COLUMN_OVERRIDE_KEYS, ...LIST_ONLY]),
     );
-    expect(LIST_ONLY).toHaveLength(7);
+    expect([...LIST_ONLY].sort()).toEqual([
+      'compact_days_to_show',
+      'compact_events_complete_days',
+      'compact_events_to_show',
+      'date_vertical_alignment',
+      'event_order',
+      'month_separator_label',
+      'skip_first_events',
+      'today_indicator_position',
+    ]);
   });
 
   it('resolves a list override over the shared base', () => {

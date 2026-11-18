@@ -21,6 +21,7 @@ import * as ColorMix from '../utils/color-mix';
 import * as FormatUtils from '../utils/format';
 import * as Helpers from '../utils/helpers';
 import * as Links from '../utils/links';
+import * as Paging from '../utils/paging';
 import * as TextDirection from '../utils/text-direction';
 
 /**
@@ -462,17 +463,67 @@ function renderHorizontalSeparator(
  * Render a month separator line
  *
  * @param config - Card configuration
+ * @param label - The month's name for the start of the rule, or undefined for the rule alone
  * @returns TemplateResult or nothing
  */
-function renderMonthSeparator(config: Types.Config): TemplateResult | typeof nothing {
-  return renderHorizontalSeparator(
+function renderMonthSeparator(
+  config: Types.Config,
+  label?: TemplateResult,
+): TemplateResult | typeof nothing {
+  if (label === undefined || ViewConfig.isZeroLength(config.month_separator_width)) {
+    return renderHorizontalSeparator(
+      config.month_separator_width,
+      config.month_separator_color,
+      'month-separator',
+      config,
+      false,
+      'month',
+    );
+  }
+
+  // The rule is drawn by the line after the label rather than by the container's own border, so
+  // it starts where the label ends; the spacing around it is the plain rule's.
+  const { marginTop, marginBottom } = createSeparatorStyle(
     config.month_separator_width,
     config.month_separator_color,
-    'month-separator',
     config,
-    false,
     'month',
   );
+
+  return html`<div
+    class="month-separator month-separator-labeled"
+    style=${styleMap({
+      marginTop,
+      marginBottom,
+      '--separator-border-width': config.month_separator_width,
+      '--separator-border-color': ColorMix.floorColor(config.month_separator_color),
+    })}
+  >
+    ${label}
+  </div>`;
+}
+
+/**
+ * The month's name at the start of a month rule, and the rule after it, for
+ * `month_separator_label`: the month the rule opens, abbreviated, with its year ("Dec 2026"),
+ * in the card's language and in its direction.
+ *
+ * Marked with the card's language, so a screen reader speaks it in that language on a dashboard
+ * set to another. It is plain text, read where it stands, between the two days it divides.
+ *
+ * @param date - The first day after the rule
+ * @param language - Card language
+ * @param hass - Home Assistant instance, whose language decides the dashboard's direction
+ * @returns The label and the line
+ */
+function renderMonthLabel(date: Date, language: string, hass?: Types.Hass | null): TemplateResult {
+  const text = TextDirection.inLanguageDirection(
+    Paging.monthRuleLabel(date, language),
+    TextDirection.languageMark(language, hass),
+  );
+
+  return html`<span class="month-separator-label" lang=${language}>${text}</span>
+    <div class="month-separator-line"></div>`;
 }
 
 /**
@@ -503,6 +554,7 @@ function renderWeekSeparator(
  * @param isMonthBoundary - Whether this is also a month boundary
  * @param config - Card configuration
  * @param isFirstWeek - Whether this is the first week in the view
+ * @param monthLabel - The month's name for the start of a month rule, or undefined for none
  * @returns TemplateResult or nothing
  */
 function renderWeekRow(
@@ -510,6 +562,7 @@ function renderWeekRow(
   isMonthBoundary: boolean,
   config: Types.Config,
   isFirstWeek: boolean = false,
+  monthLabel?: TemplateResult,
 ): TemplateResult | typeof nothing {
   if (weekNumber === null) {
     return nothing;
@@ -527,12 +580,14 @@ function renderWeekRow(
   };
 
   const lineStyle: Record<string, string> = {};
+  let labeled = false;
 
   if (!isFirstWeek) {
     if (isMonthBoundary && !ViewConfig.isZeroLength(config.month_separator_width)) {
       lineStyle['--separator-border-width'] = config.month_separator_width;
       lineStyle['--separator-border-color'] = ColorMix.floorColor(config.month_separator_color);
       lineStyle['--separator-display'] = 'block';
+      labeled = monthLabel !== undefined;
     } else if (!ViewConfig.isZeroLength(config.week_separator_width)) {
       lineStyle['--separator-border-width'] = config.week_separator_width;
       lineStyle['--separator-border-color'] = ColorMix.floorColor(config.week_separator_color);
@@ -544,6 +599,16 @@ function renderWeekRow(
     lineStyle['--separator-display'] = 'none';
   }
 
+  // A table cell lays out no flex row, so the label and its line get a row of their own, just
+  // after the week number.
+  const rule = labeled
+    ? html`<div class="month-separator-labeled">${monthLabel}</div>`
+    : html`<div class="separator-line"></div>`;
+
+  // The whitespace either side of the rule's binding is the whitespace the cell held around its
+  // line before the binding existed, which the list DOM snapshots keep; folded onto one line, as
+  // Prettier would have it, every week row's markup moves with the label off.
+  // prettier-ignore
   return html`
     <table class="week-row-table" style=${styleMap(rowStyle)}>
       <tr>
@@ -551,7 +616,7 @@ function renderWeekRow(
           <div class="week-number">${weekNumber}</div>
         </td>
         <td class="separator-cell" style=${styleMap(lineStyle)}>
-          <div class="separator-line"></div>
+          ${rule}
         </td>
       </tr>
     </table>
@@ -748,21 +813,29 @@ export function renderGroupedEvents(
 
       let separator: TemplateResult | typeof nothing = nothing;
 
+      // Built only where a month rule is drawn; both paths below draw it at the rule's start.
+      const monthLabel =
+        isNewMonth &&
+        config.month_separator_label === true &&
+        !ViewConfig.isZeroLength(config.month_separator_width)
+          ? renderMonthLabel(new Date(day.timestamp), language, hass)
+          : undefined;
+
       if (
         isNewMonth &&
         !ViewConfig.isZeroLength(config.month_separator_width) &&
         (!isNewWeek || config.show_week_numbers === null)
       ) {
-        separator = renderMonthSeparator(config);
+        separator = renderMonthSeparator(config, monthLabel);
       } else if (isNewWeek) {
         if (isFirstWeek && config.show_week_numbers !== null && !config.show_current_week_number) {
           separator = isNewMonth
-            ? renderMonthSeparator(config)
+            ? renderMonthSeparator(config, monthLabel)
             : renderWeekSeparator(config, isFirstWeek);
         } else {
           separator =
             config.show_week_numbers !== null
-              ? renderWeekRow(weekNumber, Boolean(isNewMonth), config, isFirstWeek)
+              ? renderWeekRow(weekNumber, Boolean(isNewMonth), config, isFirstWeek, monthLabel)
               : renderWeekSeparator(config, isFirstWeek);
         }
       }

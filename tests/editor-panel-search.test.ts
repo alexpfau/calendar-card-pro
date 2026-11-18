@@ -11,6 +11,7 @@ import {
   unfoldAll,
 } from './helpers/editor-host';
 import type * as Types from '../src/config/types';
+import { appliesToView } from '../src/config/view';
 import type { CalendarCardProEditor } from '../src/rendering/editor/element';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { lookup } from '../src/rendering/editor/localize';
@@ -57,6 +58,9 @@ async function mount(language: string, view: Types.EffectiveView = 'grid') {
       config_version: 5,
       entities: ['calendar.anna'],
       view,
+      // A month rule, so the page draws the month's name on it too: a search lists a setting
+      // waiting on a condition, and the page would not draw it.
+      month_separator_width: '1px',
     },
     // Every rule the page can draw, so what a search reaches is compared with all of them.
     { hass: fakeHass({ language }), every: true },
@@ -82,7 +86,8 @@ function words(language: string, key: string): string {
 const SIZE_SPACING = PAGES.find((page) => page.id === 'size_spacing')!;
 
 /**
- * The rule fields a heading of the Size & Spacing page holds, by name.
+ * The rule fields a heading of the Size & Spacing page holds in Grid, by name: not the month's
+ * name on its rule, which only List draws.
  *
  * @param key - Heading key
  * @returns Their names, in order
@@ -92,7 +97,8 @@ function headingRules(key: string): string[] {
   return heading.fields
     .map(([id]) => id)
     .filter((id) => id.startsWith('separators:'))
-    .map((id) => id.slice(id.lastIndexOf('.') + 1).replace(/^separators:/, ''));
+    .map((id) => id.slice(id.lastIndexOf('.') + 1).replace(/^separators:/, ''))
+    .filter((name) => appliesToView(name, 'grid'));
 }
 
 async function search(editor: CalendarCardProEditor, query: string) {

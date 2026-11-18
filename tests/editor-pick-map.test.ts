@@ -68,7 +68,8 @@ function config(view: Types.EffectiveView): Record<string, unknown> {
   return {
     title: 'Family',
     view,
-    days_to_show: 5,
+    // The list runs into July, a Wednesday, so it draws a plain month rule and its label.
+    days_to_show: view === 'list' ? 15 : 5,
     show_empty_days: true,
     entities: [
       { entity: 'calendar.anna', label: '🎒' },
@@ -92,6 +93,8 @@ function config(view: Types.EffectiveView): Record<string, unknown> {
     show_now_indicator: true,
     week_separator_width: '2px',
     day_separator_width: '1px',
+    month_separator_width: '3px',
+    month_separator_label: true,
     event_gap: '4px',
     // The badge beside the time in List, the pill around the title in Columns.
     allday_badge: view === 'list' ? 'time' : 'title',
@@ -243,6 +246,8 @@ describe('Pick From Preview part map', () => {
       '.legend-chip ⊃ span.legend-chip-label',
       '.location ⊃ ha-icon',
       '.location ⊃ span',
+      '.month-separator ⊃ div.month-separator-line',
+      '.month-separator ⊃ span.month-separator-label',
       '.progress-bar ⊃ div.progress-bar-filled',
       '.separator-cell ⊃ div.separator-line',
       '.time ⊃ ha-icon',

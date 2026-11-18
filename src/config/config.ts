@@ -70,6 +70,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   week_separator_color: 'color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)',
   month_separator_width: '0px',
   month_separator_color: 'var(--primary-text-color)',
+  month_separator_label: false,
 
   today_indicator: 'tile',
   today_indicator_position: '15% 50%',

@@ -820,6 +820,36 @@ The separators are horizontal lines between days, weeks and months, each with it
 Before v4, `system` always resolved to Monday and never consulted Home Assistant. If your Home Assistant profile or language implies a different week start, your week numbers and `start_of_week` anchor will shift once you upgrade. Set `first_day_of_week: 'monday'` to keep the old behavior.
 :::
 
+### Naming the Month on Its Rule
+
+`month_separator_label` writes the month's name, abbreviated, at the start of each month rule in
+the list, so a list that leaves the month out of every date with `show_month: false` still says
+which month follows the rule:
+
+```yaml
+show_month: false
+month_separator_width: 1px
+list:
+  month_separator_label: true
+```
+
+- The label reads "Dec 2026" in English and follows the card's language: "Dez. 2026" in German,
+  "2026年12月" in Japanese.
+- It names the month below the rule, so a list read latest first labels each block with its own
+  month.
+- It needs a rule to sit on: with `month_separator_width` at `0px`, the default, nothing is drawn.
+  The rule keeps its own width and color, and the label takes your theme's text color.
+- The first month shown has no rule above it, so it gets no label; the
+  [toolbar](#header-toolbar) names it, if you show one.
+- With week numbers on, a month that starts a week draws its label just after the week number.
+- It applies in list view only; in column and grid view the month rule is a vertical line
+  between two days, with no room for words.
+
+::: details Languages That Abbreviate a Month to a Number
+A few languages write a month's short form as a number, such as Lithuanian's "2026-12". There the
+label names the month in full instead ("2026 m. gruodis"), so it always says which month it is.
+:::
+
 ### Week Numbers in Column View
 
 In column view the badge moves into the day header, on its own row directly above the

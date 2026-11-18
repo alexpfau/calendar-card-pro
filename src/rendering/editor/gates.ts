@@ -28,7 +28,7 @@ import { interpolate } from './strings';
 import * as Workspace from './workspace';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
-import { VIEWS } from '../../config/view';
+import { VIEWS, isZeroLength } from '../../config/view';
 import { eventActionKind } from '../../interaction/event-action-kind';
 import * as Helpers from '../../utils/helpers';
 
@@ -275,6 +275,19 @@ export const GATES: Readonly<Record<string, Gate>> = {
     ],
     requires: [on('day_header:show_month')],
     kind: 'gate',
+  },
+  // Read as the card reads the width: a rule is drawn unless the width is a zero length.
+  month_label: {
+    fields: ['separators:month_separator_label'],
+    requires: [
+      needs(
+        'separators:month_separator_width',
+        '1px',
+        (value) => typeof value === 'string' && !isZeroLength(value),
+      ),
+    ],
+    kind: 'gate',
+    whenKey: 'gate.when.month_rule',
   },
   week_numbers: {
     fields: [

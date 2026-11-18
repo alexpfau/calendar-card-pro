@@ -458,6 +458,22 @@ describe('theming.md card-mod selectors', () => {
       litRender(Render.renderGroupedEvents(days, config, 'en', undefined, null, true), container);
       collect(container);
     }
+    // A month rule and the month's name on it are drawn only where a month rule is set and the
+    // list crosses into another month, which no other render here does.
+    {
+      const config = buildConfig({
+        ...base,
+        start_date: '2026-06-15',
+        days_to_show: 20,
+        show_empty_days: true,
+        month_separator_width: '1px',
+        month_separator_label: true,
+      });
+      const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', 'list');
+      const container = document.createElement('div');
+      litRender(Render.renderGroupedEvents(days, config, 'en', undefined, null, true), container);
+      collect(container);
+    }
     // Countdowns are off by default, and a finished event's count-up is drawn only while they are
     // on. EVENTS holds events that have ended at the frozen 10:00, so one list render draws both
     // classes, in the same element every view draws.

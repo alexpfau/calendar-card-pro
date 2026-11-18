@@ -116,6 +116,8 @@ function configFor(view: Types.EffectiveView, enabled = true): Types.Config {
           show_time: true,
           allday_badge: 'time',
           filter_duplicates: true,
+          // Builds the month's name on its rule, which waits for a month rule to sit on.
+          month_separator_width: '1px',
           height: '360px',
           language: 'en',
           start_date: 'today+2',

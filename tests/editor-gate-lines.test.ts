@@ -80,6 +80,7 @@ describe('the gate lines’ clauses', () => {
       'countdown events:show_countdown': 'gate.when.pressed',
       'progress_bar events:show_progress_bar': 'gate.when.pressed',
       'month day_header:show_month': 'gate.when.on',
+      'month_label separators:month_separator_width': 'gate.when.month_rule',
       'week_numbers day_header:week_number_mode': 'gate.when.week_numbers',
       'indicator_color day_header:today_indicator_style': 'gate.when.indicator_shown',
       'indicator_size day_header:today_indicator_style': 'gate.when.indicator_marker',
@@ -126,15 +127,16 @@ describe('the gate lines’ clauses', () => {
       'gate.when.indicator_shown': 'a Style other than None is chosen',
       'gate.when.label_icon': 'the label is an icon',
       'gate.when.location_shown': 'this calendar shows locations',
+      'gate.when.month_rule': 'a month rule is drawn',
       'gate.when.no_event_actions': 'both event actions are set to Nothing',
       'gate.when.on': '{label} is on',
       'gate.when.pressed': '{part} is pressed',
       'gate.when.weather_entity': 'a Weather Entity is chosen',
       'gate.when.week_numbers': 'week numbers are shown',
     });
-    // The fifteen clauses, the switch's template and the chip's, and the two whole lines around
+    // The sixteen clauses, the switch's template and the chip's, and the two whole lines around
     // them.
-    expect(keys).toHaveLength(17);
+    expect(keys).toHaveLength(18);
     expect(EDITOR_STRINGS['gate.line']).toBe('Appears once {when}: {names}.');
     expect(EDITOR_STRINGS['gate.line_bare']).toBe('Appears once {when}.');
   });

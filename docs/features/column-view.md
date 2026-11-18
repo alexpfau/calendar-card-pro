@@ -235,6 +235,9 @@ running forward, left to right and down each day.
 column is drawn whatever its events, so leaving events out would leave gaps rather than
 continue anything.
 
+**`month_separator_label`** writes the month's name at the start of the list's month rule. A
+column's month rule is a vertical line in the gap between two days, with no room for words.
+
 **`multiday_banners`** draws a long timed event as a banner in grid view's all-day band. A
 column has no such band: each day of the event is a row in its column, as
 `split_multiday_events` decides. It does nothing in list view either.
