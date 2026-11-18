@@ -1,5 +1,6 @@
 /**
- * The day panel: one day's events, as a month lists them, opened from a wide month's "+N more".
+ * The day panel: one day's events, as a month lists them, opened from a "+N more": a wide day's,
+ * or the one that ends a compact month's day list.
  *
  * It is the event popover's kind of panel (`popover-shell.ts`): opened through Home Assistant's
  * dialog manager (`show-dialog` with this element's tag), which gives it Back to close and puts

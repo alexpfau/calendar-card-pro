@@ -18,8 +18,8 @@
  *
  * Below `month → min_day_width` a day the card draws the compact form instead, as a phone's
  * calendar draws its month: each day its number and one capsule, a segment per event in its
- * calendar's color, and under the six weeks the selected day's events as List's rows
- * (`renderMonthDayList`). The same rows are what "+N more" opens on a wide card, in a panel of
+ * calendar's color, and under the six weeks the selected day's events as List's rows, in as much
+ * room on every day (`renderMonthDayList`). The same rows are what "+N more" opens, in a panel of
  * its own (`day-panel.ts`), so a day reads the same wherever it is listed.
  *
  * @see renderGridGroupedEvents in `grid.ts`, whose banner the bars are

@@ -124,7 +124,7 @@ src/
 │   ├── event-popover.ts          # The event popover: details, editing in place, new events
 │   ├── popover-shell.ts          # The popover's shell: opening, placing, its look, closing
 │   ├── search-panel.ts           # The search panel: its field, its results, the keyboard
-│   ├── day-panel.ts              # The day panel a wide month's "+N more" opens: List's rows
+│   ├── day-panel.ts              # The day panel a month's "+N more" opens: List's rows
 │   ├── column.ts                 # The column view
 │   ├── grid.ts                   # The timed grid and spanning all-day band
 │   ├── grid-accessibility.ts     # Full configured names for timed Grid events
