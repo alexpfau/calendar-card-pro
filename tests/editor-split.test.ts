@@ -17,7 +17,6 @@ import {
   fakeHass,
   goEntry,
   goOverview,
-  goPage,
   keysOf,
   lastConfig,
   mountEditor,
@@ -536,25 +535,6 @@ describe('Split This Calendar on an entry’s page', () => {
       { entity: 'calendar.ben', accent_color: 'var(--blue-color)' },
       'calendar.anna',
     ]);
-    expect(root(editor).activeElement?.getAttribute('data-focus')).toBe('split-row');
-  });
-
-  it('takes the preview back on Escape after Settings For was left open on a page', async () => {
-    const { editor } = await onBensPage();
-    await goPage(editor, 'events');
-    await press(editor, 'scope-change');
-    await goEntry(editor, keysOf(editor, 'entry')[0]);
-    await press(editor, 'split-row');
-    await press(editor, 'split-next');
-
-    root(editor)
-      .querySelector('.split-title')!
-      .dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }),
-      );
-    await editor.updateComplete;
-
-    expect(task(editor)).toBeNull();
     expect(root(editor).activeElement?.getAttribute('data-focus')).toBe('split-row');
   });
 

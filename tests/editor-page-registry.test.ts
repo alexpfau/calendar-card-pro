@@ -156,6 +156,14 @@ const APPROVED_MAP: ReadonlyArray<
     '',
     ['layout:time_grid.start_time E G', 'layout:time_grid.end_time E G'],
   ],
+  // Month's paging by wheel and swipe, beside the range it pages: Month's own, so on Month's Which
+  // Events rather than on Taps & Refresh, which is the whole card's.
+  [
+    'Which Events',
+    'Wheel & Swipe',
+    '',
+    ['layout:month.week_scroll A M', 'layout:month.week_scroll_min_width A M'],
+  ],
   [
     'Which Events',
     'Selection & Order',
@@ -576,13 +584,6 @@ const APPROVED_MAP: ReadonlyArray<
       'actions:allow_event_edit E',
       'actions:allow_event_delete E',
     ],
-  ],
-  // What a wheel or a swipe does in Month, after what a tap does.
-  [
-    'Taps & Refresh',
-    'Wheel & Swipe',
-    '',
-    ['layout:month.week_scroll A M', 'layout:month.week_scroll_min_width A M'],
   ],
   [
     'Taps & Refresh',

@@ -19,8 +19,10 @@ import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
 import type { CalendarCardProEditor } from '../src/rendering/editor/element';
+import { parseFieldId } from '../src/rendering/editor/field-index';
 import * as Filter from '../src/rendering/editor/filter';
 import type { HaFormSchema, SelectorSchema } from '../src/rendering/editor/ha-form';
+import { PAGES, WHOLE_CARD_PAGES } from '../src/rendering/editor/pages';
 import { PANELS, type SchemaCtx } from '../src/rendering/editor/panels';
 import { scope, text } from '../src/rendering/editor/schemas/common';
 import {
@@ -169,11 +171,28 @@ function expectedFields(
  * @param built - The fields in builder order
  * @returns The drawn fields, in that order
  */
+/** The fields Whole Card's pages draw, by their path in the form's data. */
+const WHOLE_CARD_FIELDS: ReadonlySet<string> = new Set(
+  PAGES.filter((page) => WHOLE_CARD_PAGES.has(page.id)).flatMap((page) =>
+    page.headings.flatMap((heading) =>
+      heading.fields.map(([id]) => {
+        const { dataPath, name } = parseFieldId(id);
+        return [...dataPath, name].join('.');
+      }),
+    ),
+  ),
+);
+
 function drawnInBuiltOrder(editor: CalendarCardProEditor, built: Field[]): Field[] {
   const order = built.map((field) => field.key);
-  return formsOf(editor, CARD)
-    .flatMap((form) => fields(form.schema))
-    .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
+  return (
+    formsOf(editor, CARD)
+      .flatMap((form) => fields(form.schema))
+      // Whole Card's pages draw their fields in every workspace, saying where one does not apply
+      // (Open Links in Grid), so a field of theirs the workspace withholds is no mistake.
+      .filter((field) => order.includes(field.key) || !WHOLE_CARD_FIELDS.has(field.key))
+      .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key))
+  );
 }
 
 function reconcile(actual: Field[], expected: Field[]): void {
@@ -461,8 +480,16 @@ describe('withholding is not a search filter or a config edit', () => {
       if (criteria.search === '') {
         const calendars = formsOf(editor, entry());
         for (const form of [...formsOf(editor, CARD), ...calendars]) {
-          const actual = fields(form.schema);
-          reconcile(actual, expectedFields(form.schema, 'grid', calendars.includes(form)));
+          // Whole Card's pages draw in the shared scope, saying where a field does not apply.
+          const actual = fields(form.schema).filter(
+            (field) => calendars.includes(form) || !WHOLE_CARD_FIELDS.has(field.key),
+          );
+          reconcile(
+            actual,
+            expectedFields(form.schema, 'grid', calendars.includes(form)).filter(
+              (field) => calendars.includes(form) || !WHOLE_CARD_FIELDS.has(field.key),
+            ),
+          );
         }
         continue;
       }

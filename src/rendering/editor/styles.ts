@@ -818,6 +818,91 @@ export default css`
     overflow-wrap: break-word;
   }
 
+  /* Layouts: Starting Layout's rows, each split in two. The radio sits in a zone of its own at the
+     start, behind a divider, and is the one thing that picks the layout the card opens in; the rest
+     of the row is a button that opens the layout's page. The row keeps its frame and the chosen
+     one its tint, so the choice reads as before. */
+  .display-choice.layout-choice {
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+    cursor: default;
+  }
+
+  .display-choice.layout-choice:hover {
+    background: none;
+  }
+
+  .layout-pick {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    min-height: 48px;
+    border-inline-end: 1px solid var(--divider-color);
+    cursor: pointer;
+  }
+
+  .layout-open {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    min-height: 48px;
+    padding: 8px 4px 8px 12px;
+    border: none;
+    border-radius: 0 11px 11px 0;
+    background: none;
+    color: var(--primary-text-color);
+    cursor: pointer;
+    font: inherit;
+    text-align: start;
+  }
+
+  .layout-open:dir(rtl) {
+    border-radius: 11px 0 0 11px;
+  }
+
+  .layout-pick:hover,
+  .layout-open:hover {
+    background: var(--secondary-background-color);
+  }
+
+  .layout-open:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -2px;
+  }
+
+  .layout-open > .display-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .row-group > .frame-hint {
+    padding: 0 16px 4px;
+  }
+
+  .layout-block > .layout-defaults {
+    margin-inline: 0;
+  }
+
+  .layouts-help {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+
+  .layouts-help .text-button {
+    display: inline;
+    min-height: 0;
+    padding: 0;
+    font-size: inherit;
+    vertical-align: baseline;
+  }
+
   .row-group {
     display: flex;
     flex-direction: column;

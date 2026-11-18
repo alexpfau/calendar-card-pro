@@ -24,7 +24,7 @@ import { type ColorSpec, cardColorFields } from '../src/rendering/editor/colors'
 import { type FieldId, buildFieldIndex, schemaCtx } from '../src/rendering/editor/field-index';
 import { corpus } from '../src/rendering/editor/gates';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
-import { placementOf } from '../src/rendering/editor/pages';
+import { TOPIC_PAGES, placementOf } from '../src/rendering/editor/pages';
 import { WORKSPACES } from '../src/rendering/editor/workspace';
 
 const STATES = corpus();
@@ -169,6 +169,9 @@ describe('reachability through rendered navigation', () => {
         for (const clash of sharedNames(editor)) clashes.add(`overview ${clash}`);
         for (const page of byPage.keys()) {
           if (page === 'overview' || page === 'unplaced') continue;
+          // A topic is the layout's, opened from its page; Whole Card's pages from the overview.
+          const topic = TOPIC_PAGES.some((each) => each.id === page);
+          if (topic) await click(editor, `[data-focus="layout:${workspace}"]`);
           await click(editor, `[data-focus="nav:${page}"]`);
           visits += 1;
           for (const clash of sharedNames(editor)) clashes.add(`${page} ${clash}`);
@@ -176,6 +179,7 @@ describe('reachability through rendered navigation', () => {
           for (const id of reached(editor, nodes, colors)) found.add(id);
           for (const clash of sharedNames(editor)) clashes.add(`${page} ${clash}`);
           await click(editor, '[data-focus="back-top"]');
+          if (topic) await click(editor, '[data-focus="back-top"]');
         }
         const lost = present.map((field) => field.id).filter((id) => !found.has(id));
         if (lost.length > 0)

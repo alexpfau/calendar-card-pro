@@ -250,7 +250,7 @@ describe('what the card sets stays on its page', () => {
     const editor = await mount({ event_font_size: '30px', refresh_interval: 30 });
     await openPageOf(editor, 'events:event_font_size');
     expect(live(editor)).toContain('events:event_font_size');
-    expect(stateWordOf(editor, 'events:event_font_size')).toBe('From All Layouts');
+    expect(stateWordOf(editor, 'events:event_font_size')).toBe('From Layout Defaults');
     // Nothing here resets it, so it offers no Reset.
     expect($(editor, '[data-setting="events:event_font_size"] [data-reset-keys]')).toBeNull();
     await goPage(editor, 'taps_refresh');
@@ -261,7 +261,7 @@ describe('what the card sets stays on its page', () => {
     const editor = await mount({ view: 'grid', filter_duplicates: true });
     await changeField(editor, 'workspace:editing_workspace', 'column');
     await openPageOf(editor, 'content:filter_duplicates_mode');
-    expect(stateWordOf(editor, 'content:filter_duplicates_mode')).toBe('From All Layouts');
+    expect(stateWordOf(editor, 'content:filter_duplicates_mode')).toBe('From Layout Defaults');
     expect(
       $(editor, '[data-setting="content:filter_duplicates_mode"] [data-reset-keys]'),
     ).toBeNull();
@@ -345,8 +345,8 @@ describe('state words, by where they are drawn', () => {
   it('carry “From All Layouts” on a chip’s name and a text field’s helper', async () => {
     const editor = await mount({ show_location: false, event_font_size: '30px' });
     await goPage(editor, 'events');
-    expect(chipName(editor, 'events:show_location')).toBe('Location, From All Layouts');
-    expect(stateWordOf(editor, 'events:event_font_size')).toBe('From All Layouts');
+    expect(chipName(editor, 'events:show_location')).toBe('Location, From Layout Defaults');
+    expect(stateWordOf(editor, 'events:event_font_size')).toBe('From Layout Defaults');
   });
 
   it('name a slider’s group with them, where the slider has no name of its own', async () => {
@@ -629,7 +629,7 @@ describe('gate lines and stored values not in use', () => {
       [...group.querySelectorAll('.gate-line')].map((line) =>
         line.textContent!.replace(/\s+/g, ' ').trim(),
       ),
-    ).toEqual(['Stored but not in use: Description Font Size (20px), from All Layouts']);
+    ).toEqual(['Stored but not in use: Description Font Size (20px), from Layout Defaults']);
     // No Reset here reaches All Layouts' value, so the line has no button; Settings For does.
     const line = $(editor, '[data-focus="inactive:events:description_font_size"]')!;
     expect(line.querySelector('button')).toBeNull();

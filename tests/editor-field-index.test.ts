@@ -45,6 +45,7 @@ import * as Filter from '../src/rendering/editor/filter';
 import { corpus, freshConfig } from '../src/rendering/editor/gates';
 import type { HaFormSchema, SelectorSchema } from '../src/rendering/editor/ha-form';
 import { computeLabel, lookup } from '../src/rendering/editor/localize';
+import { WHOLE_CARD_PAGES, placementOf } from '../src/rendering/editor/pages';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 import * as Routing from '../src/rendering/editor/routing';
 import { buildToolbarButtonSchema } from '../src/rendering/editor/schemas/card';
@@ -191,6 +192,35 @@ function candidateValues(node: SelectorSchema, current: unknown): unknown[] {
     (value, index) =>
       !deepEqual(value, current) && values.findIndex((other) => deepEqual(other, value)) === index,
   );
+}
+
+/**
+ * A workspace's card fields as the editor draws them: a layout's topics in the workspace, Whole
+ * Card's pages in the shared scope, whichever workspace the editor reads the overview in.
+ *
+ * @param own - The workspace's fields
+ * @param shared - The shared scope's
+ * @returns The fields drawn
+ */
+function inScope<T>(
+  own: ReadonlyMap<FieldId, T>,
+  shared: ReadonlyMap<FieldId, T>,
+): Map<FieldId, T> {
+  return new Map([
+    ...[...own].filter(([id]) => !onWholeCardPage(id)),
+    ...[...shared].filter(([id]) => onWholeCardPage(id)),
+  ]);
+}
+
+/**
+ * Whether a field sits on one of Whole Card's pages, drawn in the shared scope.
+ *
+ * @param id - Field id
+ * @returns `true` there
+ */
+function onWholeCardPage(id: FieldId): boolean {
+  const page = placementOf(id)?.page;
+  return page !== undefined && WHOLE_CARD_PAGES.has(page as never);
 }
 
 describe('field ids', () => {
@@ -696,7 +726,8 @@ describe('the index builds what the editor draws today', () => {
     for (const { workspace, config, state } of RUNS) {
       await draw(config, workspace);
       const ctx = schemaCtx(config, workspace, 'en');
-      const card = buildFieldIndex(ctx).fields;
+      const sharedCtx = schemaCtx(config, 'shared', 'en');
+      const card = inScope(buildFieldIndex(ctx).fields, buildFieldIndex(sharedCtx).fields);
       const entries = new Map(
         (config.entities ?? []).flatMap((entry) => [
           ...entityFieldIndex(entrySchema(entry, ctx)).fields,
@@ -799,7 +830,7 @@ describe('the index builds what the editor draws today', () => {
           label: fieldLabel(field, ctx.language),
           helper:
             helped === undefined || form.data[field.node.name] === helped
-              ? fieldHelper(field, ctx)
+              ? fieldHelper(field, onWholeCardPage(field.id) ? sharedCtx : ctx)
               : undefined,
         };
       });
@@ -869,10 +900,14 @@ describe('the index builds what the editor draws today', () => {
   it('labels and explains every field as the form drawing it does today', async () => {
     const { labels } = await observed();
 
-    // Every field of every workspace's universe, and each toolbar button field, was reached.
+    // Every field of every workspace's universe, and each toolbar button field, was reached:
+    // Whole Card's pages draw theirs in the shared scope whatever the workspace.
     const expected = WORKSPACES.flatMap((workspace) =>
       [
-        ...universeIndex('en', workspace).fields.keys(),
+        ...inScope(
+          universeIndex('en', workspace).fields,
+          universeIndex('en', 'shared').fields,
+        ).keys(),
         ...buttonFieldIndex(buildToolbarButtonSchema()).fields.keys(),
       ].map((id) => `${workspace} ${id}`),
     );

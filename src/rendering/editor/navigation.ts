@@ -10,11 +10,17 @@
  */
 
 import type { PageId } from './pages';
+import type { EditorWorkspace } from './workspace';
 
-/** A place in the editor. */
+/**
+ * A place in the editor. A layout's page lists its topics, and a topic page under a layout carries
+ * that layout as its `scope`; Layout Defaults is the `shared` layout. A Whole Card page has none.
+ */
 export type Route =
   | { readonly kind: 'overview' }
-  | { readonly kind: 'page'; readonly page: PageId }
+  | { readonly kind: 'page'; readonly page: PageId; readonly scope?: EditorWorkspace }
+  | { readonly kind: 'layout'; readonly layout: EditorWorkspace }
+  | { readonly kind: 'shared' }
   | { readonly kind: 'entry'; readonly key: number }
   | { readonly kind: 'audit'; readonly group?: string }
   | { readonly kind: 'notices' };
@@ -54,7 +60,9 @@ export const OVERVIEW: NavState = { route: { kind: 'overview' }, trail: [], from
 export function routeKey(route: Route): string {
   switch (route.kind) {
     case 'page':
-      return `page:${route.page}`;
+      return route.scope === undefined ? `page:${route.page}` : `page:${route.page}@${route.scope}`;
+    case 'layout':
+      return `layout:${route.layout}`;
     case 'entry':
       return `entry:${route.key}`;
     case 'audit':
@@ -62,6 +70,18 @@ export function routeKey(route: Route): string {
     default:
       return route.kind;
   }
+}
+
+/**
+ * The layout a place edits: a layout's own page, or a topic page under it.
+ *
+ * @param route - The place
+ * @returns The layout, `shared` for Layout Defaults, or `undefined` for a place of no layout
+ */
+export function routeScope(route: Route): EditorWorkspace | undefined {
+  if (route.kind === 'layout') return route.layout;
+  if (route.kind === 'page') return route.scope;
+  return undefined;
 }
 
 /**

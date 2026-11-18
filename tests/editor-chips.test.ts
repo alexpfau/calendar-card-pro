@@ -286,9 +286,9 @@ describe('the event-part chips', () => {
     await changeField(editor, 'workspace:editing_workspace', 'list');
     await goPage(editor, 'events');
     expect(read(editor, 'Event Details')[2]).toBe('Location');
-    expect(lines(editor)[0]).toBe('From All Layouts: Location (Off)');
+    expect(lines(editor)[0]).toBe('From Layout Defaults: Location (Off)');
     expect(chips(editor, 'Event Details')[2].getAttribute('aria-label')).toBe(
-      'Location, From All Layouts',
+      'Location, From Layout Defaults',
     );
     // Nothing is stored for List, so nothing here resets.
     expect(resets(editor)).toEqual([]);
@@ -305,7 +305,7 @@ describe('the event-part chips', () => {
     });
     expect(lines(editor).slice(0, 2)).toEqual([
       'Chosen Here: Countdown (On)',
-      'From All Layouts: Location (Off)',
+      'From Layout Defaults: Location (Off)',
     ]);
     expect(
       editor.shadowRoot!.querySelector('[data-focus="undo"]')?.getAttribute('aria-label'),

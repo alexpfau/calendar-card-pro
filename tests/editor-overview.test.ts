@@ -1,5 +1,6 @@
 /**
- * The overview: Settings For and the preview it chooses, what each scope stores (`storedCount`),
+ * The overview: Whole Card, the layouts and the preview each draws, what each scope stores
+ * (`storedCount`),
  * when Quick Setup's banner shows (`quick-setup.ts` › `isFreshCard`), and the line under each
  * section row (`summary.ts`).
  */
@@ -7,7 +8,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  changeField,
   goEntry,
   goOverview,
   goPage,
@@ -37,8 +37,8 @@ function merged(raw: Record<string, unknown>): Types.Config {
 
 const LIST_CARD = { type: 'custom:calendar-card-pro', entities: ['calendar.anna'], view: 'list' };
 
-describe('Settings For', () => {
-  type Previewing = { _previewedScope(): { view: string } | undefined };
+describe('Layouts and the preview', () => {
+  type Previewing = { _previewedScope(): { view: string; config: object } | undefined };
   const previewed = (editor: Element): string | undefined =>
     (editor as unknown as Previewing)._previewedScope()?.view;
   const line = (editor: Element): string | undefined =>
@@ -46,257 +46,180 @@ describe('Settings For', () => {
       .shadowRoot!.querySelector('.scope-preview-text')
       ?.textContent?.replace(/\s+/g, ' ')
       .trim();
-  const change = (editor: Element) =>
-    editor.shadowRoot!.querySelector<HTMLButtonElement>('[data-focus="scope-change"]')!;
-  const pick = async (editor: Element & { updateComplete: Promise<unknown> }, scope: string) => {
-    const root = editor.shadowRoot!;
-    if (root.querySelector('input[name="scope"]') === null) {
-      change(editor).click();
-      await editor.updateComplete;
-    }
-    const radio = root.querySelector<HTMLInputElement>(`[data-focus="scope:${scope}"]`)!;
-    radio.checked = true;
-    radio.dispatchEvent(new Event('change'));
+  const $ = (editor: Element, selector: string) =>
+    editor.shadowRoot!.querySelector<HTMLElement>(selector);
+  const press = async (editor: Element & { updateComplete: Promise<unknown> }, key: string) => {
+    $(editor, `[data-focus="${key}"]`)!.click();
     await editor.updateComplete;
   };
+  const text = (element: Element | null): string =>
+    element?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+  const THREE = {
+    config_version: CURRENT_CONFIG_VERSION,
+    entities: ['calendar.anna'],
+    view: 'month',
+    toolbar: { show: true, view_switcher: true, view_switcher_layouts: ['list', 'grid', 'month'] },
+  };
 
-  it('is one line at the top of the overview’s Settings, after Calendars and Starting Layout', async () => {
-    const editor = await mountEditor({ ...LIST_CARD, config_version: CURRENT_CONFIG_VERSION });
-    const root = editor.shadowRoot!;
-    const before = (a: string, b: string) =>
-      Boolean(
-        root.querySelector(a)!.compareDocumentPosition(root.querySelector(b)!) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-      );
-    expect(before('.cal-list, [data-heading="calendars"]', '.layout-block')).toBe(true);
-    expect(before('.layout-block', '.scope-block')).toBe(true);
-    expect(before('.scope-block', '.row-group .rows')).toBe(true);
-    const settings = root.querySelector('.scope-block')!.closest('.row-group')!;
-    expect(settings.querySelector('.heading')?.textContent?.trim()).toBe('Settings');
-    expect(root.querySelector('.scope-compact')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
-      'Settings for List Change',
-    );
-    // Closed, whatever the card stores in other layouts or offers in its switcher.
-    expect(root.querySelector('input[name="scope"]')).toBeNull();
-    expect(change(editor).getAttribute('aria-expanded')).toBe('false');
-    document.body.replaceChildren();
-  });
-
-  it('opens its choices on Change, keeps focus on Change, and Change or Escape closes them', async () => {
-    const editor = await mountEditor({
-      ...LIST_CARD,
-      config_version: CURRENT_CONFIG_VERSION,
-      column: { event_font_size: '13px' },
-      toolbar: { show: true },
-    });
-    const root = editor.shadowRoot!;
-    const settle = async () => {
-      await editor.updateComplete;
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      await editor.updateComplete;
-    };
-    change(editor).focus();
-    change(editor).click();
-    await settle();
-    expect(change(editor).getAttribute('aria-expanded')).toBe('true');
-    expect(change(editor).getAttribute('aria-controls')).toBe('scope-choices');
-    // A disclosure's button keeps focus: moving it into the choices scrolled Home Assistant's
-    // dialog in WebKit (see the stylesheet test below).
-    expect(root.activeElement?.getAttribute('data-focus')).toBe('scope-change');
-
-    // Choosing keeps them open, focus on the chosen one, so arrow keys go on moving.
-    await pick(editor, 'grid');
-    expect(root.querySelector('input[name="scope"]:checked')?.getAttribute('value')).toBe('grid');
-    expect(root.querySelector('.scope-line')?.textContent?.trim()).toBe('Settings for Grid');
-
-    change(editor).click();
-    await settle();
-    expect(root.querySelector('input[name="scope"]')).toBeNull();
-    expect(root.activeElement?.getAttribute('data-focus')).toBe('scope-change');
-
-    change(editor).click();
-    await settle();
-    root
-      .querySelector('input[name="scope"]:checked')!
-      .dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }),
-      );
-    await settle();
-    expect(root.querySelector('input[name="scope"]')).toBeNull();
-    expect(root.activeElement?.getAttribute('data-focus')).toBe('scope-change');
-    // On a page the same line is drawn, closed.
-    await goPage(editor, 'events');
-    expect(root.querySelector('.scope-line')?.textContent?.trim()).toBe('Settings for Grid');
-    expect(root.querySelector('input[name="scope"]')).toBeNull();
-    document.body.replaceChildren();
-  });
-
-  it('never says on the overview that it governs every page', async () => {
-    const editor = await mountEditor({ ...LIST_CARD, config_version: CURRENT_CONFIG_VERSION });
-    await pick(editor, 'grid');
-    const help = editor.shadowRoot!.querySelector('fieldset.scope .hint')?.textContent?.trim();
-    expect(help).toBe(
-      'Chooses the layout the pages edit, where a setting can differ by layout. Nothing on the card changes.',
-    );
-    await goPage(editor, 'events');
-    change(editor).click();
-    await editor.updateComplete;
-    expect(editor.shadowRoot!.querySelector('fieldset.scope .hint')?.textContent?.trim()).toBe(
-      'Edits here are written for Grid and apply when the card shows it.',
-    );
-    document.body.replaceChildren();
-  });
-
-  it('draws the preview in the layout being edited, on the overview and on every page', async () => {
-    const editor = await mountEditor({
-      config_version: CURRENT_CONFIG_VERSION,
-      entities: ['calendar.anna'],
-      view: 'month',
-    });
-    expect(previewed(editor)).toBeUndefined();
-    expect(line(editor)).toBeUndefined();
-
-    await pick(editor, 'grid');
-    expect(previewed(editor)).toBe('grid');
-    expect(line(editor)).toBe('Preview shows Grid · The card opens in Month');
-    // The eye leads the line and is no part of its words.
+  it('draws Calendars, Whole Card, Layouts and More, and no Settings For', async () => {
+    const editor = await mountEditor(THREE);
+    const blocks = [
+      ...editor.shadowRoot!.querySelectorAll('.overview > [data-heading], .overview > .row-group'),
+    ].map((block) => block.getAttribute('data-heading') ?? text(block.querySelector('.heading')));
+    expect(blocks).toEqual(['calendars', 'Whole Card', 'starting_layout', 'More']);
+    expect(text($(editor, '[data-heading="starting_layout"] > .heading'))).toBe('Layouts');
+    // Whole Card's rows: its pages, Weather until it is set per layout, then the shared settings.
+    const whole = editor.shadowRoot!.querySelectorAll('.overview > .row-group')[0];
     expect(
-      editor.shadowRoot!.querySelector('.scope-preview > svg.icon')?.getAttribute('aria-hidden'),
-    ).toBe('true');
-    await goPage(editor, 'events');
-    expect(previewed(editor)).toBe('grid');
-    expect(line(editor)).toBe('Preview shows Grid · The card opens in Month');
-    // A page for the whole card and a calendar's page draw no Settings For, but say it all the same.
-    await goPage(editor, 'card_header');
-    expect(editor.shadowRoot!.querySelector('.scope-compact')).toBeNull();
-    expect(previewed(editor)).toBe('grid');
-    expect(line(editor)).toBe('Preview shows Grid · The card opens in Month');
-    await goEntry(editor, keysOf(editor, 'entry')[0]);
-    expect(line(editor)).toBe('Preview shows Grid · The card opens in Month');
-    // Search results take Settings For's place on the overview, and the line stays above them.
-    await goOverview(editor);
-    await changeField(editor, 'filter:search', 'color');
-    expect(editor.shadowRoot!.querySelector('.scope-compact')).toBeNull();
-    expect(line(editor)).toBe('Preview shows Grid · The card opens in Month');
-    await changeField(editor, 'filter:search', '');
-
-    // All Layouts previews the card as it opens, with every layout's own values.
-    await goOverview(editor);
-    await pick(editor, 'shared');
-    expect(previewed(editor)).toBeUndefined();
-    expect(line(editor)).toBeUndefined();
-    await pick(editor, 'month');
-    expect(previewed(editor)).toBeUndefined();
-    expect(line(editor)).toBeUndefined();
-    // Choosing a scope writes nothing and makes no undo step.
-    expect(lastConfig(editor)).toBeUndefined();
-    expect((editor as unknown as { _history: { canUndo: boolean } })._history.canUndo).toBe(false);
-    document.body.replaceChildren();
-  });
-
-  it('lets What This Card Changes preview the layout of the line edited there', async () => {
-    const editor = await mountEditor({
-      config_version: CURRENT_CONFIG_VERSION,
-      entities: ['calendar.anna'],
-      view: 'list',
-      time_grid: { end_time: '21:00' },
-    });
-    await pick(editor, 'column');
-    await goOverview(editor);
-    editor.shadowRoot!.querySelector<HTMLElement>('[data-focus="more:audit"]')!.click();
-    await editor.updateComplete;
-    // Nothing edited there: the card as it opens.
-    expect(previewed(editor)).toBeUndefined();
-    const row = `[data-focus="${CSS.escape('more:audit:time_grid.end_time')}"]`;
-    editor.shadowRoot!.querySelector<HTMLElement>(row)!.click();
-    await editor.updateComplete;
-    editor
-      .shadowRoot!.querySelector<HTMLElement>(
-        `[data-focus="${CSS.escape('strip:audit:time_grid.end_time:change')}"]`,
-      )!
-      .click();
-    await editor.updateComplete;
-    expect(previewed(editor)).toBe('grid');
-    document.body.replaceChildren();
-  });
-
-  it('leaves the preview to Quick Setup while it is open', async () => {
-    const editor = await mountEditor({
-      config_version: CURRENT_CONFIG_VERSION,
-      entities: ['calendar.anna'],
-      view: 'list',
-    });
-    await pick(editor, 'grid');
-    expect(previewed(editor)).toBe('grid');
-    editor.shadowRoot!.querySelector<HTMLElement>('[data-focus="more:example"]')!.click();
-    await editor.updateComplete;
-    expect((editor as unknown as { _quickSetup?: unknown })._quickSetup).toBeDefined();
-    expect(previewed(editor)).toBeUndefined();
-    document.body.replaceChildren();
-  });
-
-  it('draws no Settings For on a calendar’s page, whose settings apply to every layout', async () => {
-    const editor = await mountEditor({
-      config_version: CURRENT_CONFIG_VERSION,
-      view: 'grid',
-      entities: ['calendar.anna'],
-      column: { event_font_size: '13px' },
-    });
-    await goPage(editor, 'events');
-    expect(editor.shadowRoot!.querySelector('.scope')).not.toBeNull();
-    await goEntry(editor, keysOf(editor, 'entry')[0]);
-    expect(editor.shadowRoot!.querySelector('.entry-page')).not.toBeNull();
-    expect(editor.shadowRoot!.querySelector('.scope, .scope-preview')).toBeNull();
-    document.body.replaceChildren();
-  });
-
-  // Both are one choice among a few words, drawn as segments of one frame (`styles.ts` ›
-  // `.segment`). Settings For once sized each to its word; since Month it puts All Layouts on a
-  // row of its own over the four layouts (`.segment-all`), one radio group in that order.
-  it('draws Settings For as segments, All Layouts over the layouts', async () => {
-    const editor = await mountEditor({
-      config_version: CURRENT_CONFIG_VERSION,
-      entities: ['calendar.anna'],
-      column: { event_font_size: '13px' },
-    });
-    await goPage(editor, 'events');
-    editor.shadowRoot!.querySelector<HTMLElement>('[data-focus="scope-change"]')!.click();
-    await editor.updateComplete;
-    const path = (radio: Element) => {
-      const classes: string[] = [];
-      for (let el = radio.parentElement; el && el.localName !== 'fieldset'; el = el.parentElement) {
-        classes.unshift(el.className);
-      }
-      return classes;
-    };
-    const scope = [...editor.shadowRoot!.querySelectorAll('fieldset.scope input[type="radio"]')];
-    // Five since Month, derived from `WORKSPACES`, in the order the arrow keys take them: one
-    // group of native radios, so one tab stop.
-    expect(scope.map((radio) => (radio as HTMLInputElement).value)).toEqual([
-      'shared',
-      'list',
-      'column',
-      'grid',
-      'month',
-    ]);
-    expect(new Set(scope.map((radio) => (radio as HTMLInputElement).name))).toEqual(
-      new Set(['scope']),
+      [...whole.querySelectorAll('.nav-row')].map((row) => row.getAttribute('data-focus')),
+    ).toEqual(['nav:card_header', 'nav:taps_refresh', 'nav:weather', 'nav:shared']);
+    // Card & Header names the layout switcher, the thing a layout's status no longer says.
+    expect(text($(editor, '[data-focus="nav:card_header"] .nav-summary'))).toMatch(
+      /Layout Switcher: List, Grid, Month$/,
     );
-    expect(scope.map(path)).toEqual([
-      ['segmented-row', 'segments', 'segment segment-all'],
-      ...scope.slice(1).map(() => ['segmented-row', 'segments', 'segment']),
-    ]);
-    expect(editor.shadowRoot!.querySelector('.scope-segments')).toBeNull();
-    document.body.replaceChildren();
+    expect($(editor, '.scope-compact')).toBeNull();
+    expect($(editor, 'input[name="scope"]')).toBeNull();
   });
 
-  // One frame, two rows: All Layouts across the top and the four layouts under it, each a
-  // quarter of the width. Native radios of one name, in that order, so the arrow keys run across
-  // both rows and the group is one stop for Tab; the order and the name are pinned above, and how
-  // the rows lay out is the stylesheet's, which a DOM without layout cannot show.
-  // A hidden input's containing block must be its own control. An unpositioned segment left the
-  // Settings For radio's to Home Assistant's dialog body, across the shadow boundary, and WebKit
-  // scrolled that body to the radio whenever it took focus, preventScroll or not.
+  it('splits each layout row in two: its radio picks where the card opens, the rest opens its page', async () => {
+    const editor = await mountEditor(THREE);
+    const rows = [...editor.shadowRoot!.querySelectorAll('.layout-choice')];
+    expect(
+      rows.map((row) => {
+        const radio = row.querySelector<HTMLInputElement>('.layout-pick > input')!;
+        const open = row.querySelector('.layout-open')!;
+        return [
+          `${radio.value}${radio.checked ? ' checked' : ''}`,
+          radio.getAttribute('aria-label'),
+          open.getAttribute('aria-label'),
+          text(open.querySelector('.display-text')),
+        ];
+      }),
+    ).toEqual([
+      ['list', 'List', 'List Settings', 'List Days stacked, one per row'],
+      ['column', 'Columns', 'Columns Settings', 'Columns Days side by side'],
+      ['grid', 'Grid', 'Grid Settings', 'Grid Days side by side on an hour axis'],
+      ['month checked', 'Month', 'Month Settings', 'Month A whole month, a row per week'],
+    ]);
+    // The radio is the only thing in its zone, and the name sits in the button, not the label.
+    expect(rows.every((row) => row.querySelector('.layout-pick')!.children.length === 1)).toBe(
+      true,
+    );
+    // One group of native radios, named Starting Layout, so the arrow keys move the choice.
+    expect(new Set(rows.map((row) => row.querySelector<HTMLInputElement>('input')!.name))).toEqual(
+      new Set(['view']),
+    );
+    expect(text($(editor, 'fieldset.layouts > legend'))).toBe('Starting Layout');
+    // The help above the rows, its link opening the layout switcher where it is set.
+    expect(text($(editor, '.layouts-help'))).toBe(
+      'The circle picks the layout the card opens in. With the layout switcher on, people can ' +
+        'switch layouts on the card. Select a layout to change its own settings.',
+    );
+    // Opening a layout changes nothing on the card.
+    await press(editor, 'layout:grid');
+    expect($(editor, '.page[data-layout="grid"]')).not.toBeNull();
+    expect(lastConfig(editor)).toBeUndefined();
+    await press(editor, 'back-top');
+    await press(editor, 'layouts:switcher');
+    expect($(editor, '.page[data-page="card_header"]')).not.toBeNull();
+    expect(editor.shadowRoot!.activeElement?.getAttribute('data-field')).toBe(
+      'card:toolbar.view_switcher',
+    );
+    // The radio writes `view`.
+    await goOverview(editor);
+    const grid = $(editor, 'input[name="view"][value="grid"]') as HTMLInputElement;
+    grid.checked = true;
+    grid.dispatchEvent(new Event('change', { bubbles: true }));
+    await editor.updateComplete;
+    expect(lastConfig(editor)?.view).toBe('grid');
+  });
+
+  it('lists a layout’s topics on its page, each opening under that layout', async () => {
+    const editor = await mountEditor(THREE);
+    await press(editor, 'layout:grid');
+    expect(text($(editor, '.page-title'))).toBe('Grid');
+    expect(text($(editor, '.page-sub'))).toBe('Layout');
+    expect(
+      [...editor.shadowRoot!.querySelectorAll('.layout-page .nav-row')].map((row) =>
+        row.getAttribute('data-focus'),
+      ),
+    ).toEqual(['nav:which_events', 'nav:day_header', 'nav:events', 'nav:size_spacing']);
+    // Which Events counts Grid's own hours here, and nothing of Grid's under another layout.
+    const hours = await mountEditor({ ...THREE, time_grid: { start_time: '07:00' } });
+    await press(hours, 'layout:grid');
+    expect(text($(hours, '[data-focus="nav:which_events"] .nav-summary'))).toMatch(/Set: 1$/);
+    await press(hours, 'back-top');
+    await press(hours, 'layout:column');
+    expect(text($(hours, '[data-focus="nav:which_events"] .nav-summary'))).not.toMatch(/Set:/);
+  });
+
+  it('names a topic’s layout, jumps to the same topic in another, and walks on', async () => {
+    const editor = await mountEditor(THREE);
+    await press(editor, 'layout:grid');
+    await press(editor, 'nav:events');
+    expect(text($(editor, '.page-sub'))).toBe('Grid');
+    expect(text($(editor, '.also-for'))).toBe('Also for: List · Columns · Month · Layout Defaults');
+    expect(text($(editor, '[data-focus="continue"]'))).toBe('Continue with Grid · Size & Spacing');
+    expect(previewed(editor)).toBe('grid');
+    expect(line(editor)).toBe('Preview shows Grid · The card opens in Month');
+    await press(editor, 'also:column');
+    expect(text($(editor, '.page-sub'))).toBe('Columns');
+    expect(text($(editor, '.page-title'))).toBe('Event Appearance');
+    // Columns is not offered by the switcher, so its preview draws none.
+    expect((editor as unknown as Previewing)._previewedScope()?.config).toMatchObject({
+      toolbar: { view_switcher: false },
+    });
+    // The last topic of a layout walks on to the next layout's first.
+    await press(editor, 'continue');
+    expect(text($(editor, '.page-title'))).toBe('Size & Spacing');
+    await press(editor, 'continue');
+    expect(text($(editor, '.page-sub'))).toBe('Grid');
+    expect(text($(editor, '.page-title'))).toBe('Which Events');
+    // Also For and Continue replace the place, so Back returns to the layout's page opened first,
+    // then to the overview, at the row that opened it.
+    await press(editor, 'back-top');
+    expect($(editor, '.page[data-layout="grid"]')).not.toBeNull();
+    await press(editor, 'back-top');
+    expect(editor.shadowRoot!.activeElement?.getAttribute('data-focus')).toBe('layout:grid');
+  });
+
+  it('edits the whole card on its own pages and Layout Defaults on its, previewing the card as it opens', async () => {
+    const editor = await mountEditor(THREE);
+    await goPage(editor, 'card_header');
+    expect(text($(editor, '.page-sub'))).toBe('Whole Card');
+    expect(previewed(editor)).toBeUndefined();
+    expect($(editor, '.also-for')).toBeNull();
+    await goOverview(editor);
+    await press(editor, 'layout:shared');
+    expect(text($(editor, '.page-title'))).toBe('Layout Defaults');
+    expect(previewed(editor)).toBeUndefined();
+    await goEntry(editor, keysOf(editor, 'entry')[0]);
+    expect(previewed(editor)).toBeUndefined();
+  });
+
+  it('gathers the whole-card settings of the topics on Shared Across Layouts, composed ones too', async () => {
+    const editor = await mountEditor(THREE);
+    await press(editor, 'nav:shared');
+    expect(text($(editor, '.page-title'))).toBe('Shared Across Layouts');
+    expect(
+      $(editor, '[data-field="content:start_date_mode"][data-composed="chips"]'),
+    ).not.toBeNull();
+    expect($(editor, '[data-setting="content:first_day_of_week"]')).not.toBeNull();
+    expect($(editor, '[data-setting="events:event_font_size"]')).toBeNull();
+    // The page says once that they are the whole card's; its settings do not repeat it.
+    expect(
+      [...editor.shadowRoot!.querySelectorAll('.fact')].some((fact) => text(fact) === 'Whole Card'),
+    ).toBe(false);
+    // On a layout's topic, the same setting says it is the whole card's.
+    await goOverview(editor);
+    await press(editor, 'layout:grid');
+    await press(editor, 'nav:day_header');
+    const facts = [
+      ...editor.shadowRoot!.querySelectorAll('[data-setting="content:first_day_of_week"] .fact'),
+    ].map(text);
+    expect(facts).toContain('Whole Card');
+  });
+
   it('positions the box around every input it hides, so focusing one scrolls nothing', () => {
     const css = styles.cssText.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ');
     const rules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].map(([, selector, body]) => ({
@@ -348,36 +271,6 @@ describe('Settings For', () => {
 // A row per layout, each the shape of Quick Setup's example rows (the approved Starting Layout
 // option C): a native radio, the layout's picture, then its name over its description.
 describe('Starting Layout', () => {
-  it('draws a row per layout: its radio, its picture, then its name over its description', async () => {
-    const editor = await mountEditor({
-      config_version: CURRENT_CONFIG_VERSION,
-      entities: ['calendar.anna'],
-      view: 'grid',
-    });
-    const rows = [...editor.shadowRoot!.querySelectorAll('fieldset.displays label.display-choice')];
-    expect(
-      rows.map((row) =>
-        [...row.children].map((child) =>
-          child.localName === 'input'
-            ? `radio ${(child as HTMLInputElement).value}${(child as HTMLInputElement).checked ? ' checked' : ''}`
-            : child.localName === 'img'
-              ? 'picture'
-              : [...child.children].map((line) => line.textContent?.trim()).join(' / '),
-        ),
-      ),
-    ).toEqual([
-      ['radio list', 'picture', 'List / Days stacked, one per row'],
-      ['radio column', 'picture', 'Columns / Days side by side'],
-      ['radio grid checked', 'picture', 'Grid / Days side by side on an hour axis'],
-      ['radio month', 'picture', 'Month / A whole month, a row per week'],
-    ]);
-    // One group of native radios, so the arrow keys move from row to row and Tab stops once.
-    const names = rows.map((row) => row.querySelector('input')!.name);
-    expect(new Set(names)).toEqual(new Set(['view']));
-    // The pictures are the switcher's own pictograms, and say nothing a name does not.
-    expect(rows.every((row) => row.querySelector('img')!.getAttribute('alt') === '')).toBe(true);
-  });
-
   it('stacks the rows at every width, sharing Quick Setup’s row, text and line rules', () => {
     const css = styles.cssText.replace(/\s+/g, ' ');
     expect(css).toMatch(/\.display-choices \{ display: flex; flex-direction: column; gap: 8px; \}/);

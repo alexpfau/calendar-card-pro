@@ -167,6 +167,15 @@ export const PAGES: ReadonlyArray<PageDef> = [
         ],
       },
       {
+        // Month's own paging by wheel and swipe, beside the range it pages: Month's alone, so it
+        // sits on Month's Which Events rather than on Taps & Refresh, which is the whole card's.
+        key: 'heading.wheel_and_swipe',
+        fields: [
+          ['layout:month.week_scroll', A],
+          ['layout:month.week_scroll_min_width', A],
+        ],
+      },
+      {
         key: 'heading.selection_and_order',
         fields: [
           ['content:event_type', A],
@@ -622,14 +631,6 @@ export const PAGES: ReadonlyArray<PageDef> = [
         ],
       },
       {
-        // What a wheel or a swipe does, after what a tap does: gestures together, refresh last.
-        key: 'heading.wheel_and_swipe',
-        fields: [
-          ['layout:month.week_scroll', A],
-          ['layout:month.week_scroll_min_width', A],
-        ],
-      },
-      {
         key: 'heading.refresh',
         fields: [
           ['actions:refresh_interval', A],
@@ -789,4 +790,53 @@ function sameInEveryScope(id: FieldId): boolean {
  */
 export function isWholeCard(page: { readonly headings: ReadonlyArray<HeadingDef> }): boolean {
   return page.headings.every((heading) => heading.fields.every(([id]) => sameInEveryScope(id)));
+}
+
+/**
+ * The pages under Whole Card on the overview: one value for the whole card, edited outside any
+ * layout. Declared, not derived: Taps & Refresh holds Open Links, which Grid draws nothing for, and
+ * is the whole card's all the same; such a setting says where it does not apply instead
+ * (`plan.ts` › `stateOf`).
+ */
+export const WHOLE_CARD_PAGES: ReadonlySet<PageId> = new Set([
+  'card_header',
+  'taps_refresh',
+  'weather',
+]);
+
+/** The topics every layout's page lists, in order: every page that is not the whole card's. */
+export const TOPIC_PAGES: ReadonlyArray<PageDef> = PAGES.filter(
+  (page) => !WHOLE_CARD_PAGES.has(page.id),
+);
+
+/**
+ * Whether a card field keeps no copy per layout: one value whichever layout's page draws it. Unlike
+ * `isWholeCard`, a field some layout ignores still counts, as Today's Weekday Color does for Month.
+ *
+ * @param id - Field id
+ * @returns `true` for a whole-card setting
+ */
+export function keepsNoLayoutCopy(id: FieldId): boolean {
+  const { scope, dataPath, name } = parseFieldId(id);
+  if (scope === 'calendar' || scope === 'button') return false;
+  if (dataPath.length > 0) return !BLOCK_KEYS.has(dataPath[0]);
+  return configKeysForField(name).every((key) =>
+    VIEWS.every((view) => destination(key, view) === undefined),
+  );
+}
+
+/**
+ * Shared Across Layouts: the whole-card settings the layout topics hold, gathered under one heading
+ * per topic, in each topic's own order and with each field's own appearance. A mode value comes
+ * with its mode, and a family member with its family, as on its page.
+ *
+ * @returns The headings, keyed by the topic page each comes from
+ */
+export function sharedAcrossHeadings(): ReadonlyArray<HeadingDef & { readonly from: PageId }> {
+  return TOPIC_PAGES.flatMap((page) => {
+    const fields = page.headings.flatMap((heading) =>
+      heading.fields.filter(([id]) => keepsNoLayoutCopy(id)),
+    );
+    return fields.length === 0 ? [] : [{ key: page.titleKey, from: page.id, fields }];
+  });
 }
