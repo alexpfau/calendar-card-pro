@@ -2899,9 +2899,10 @@ export function reachesMonth(config: Types.Config): boolean {
  * the row holding the page's first day, since a page key is already a row's first day and
  * another view's key snaps to its week. The other reachable views keep their window from the
  * resolved start. The result names the union of the two by a concrete date and its length,
- * `start_date` as `YYYY-MM-DD`, so the request, its cache key and its identity hold the weeks
- * exactly, and at home they move only when the month or the other views' end moves. All of it
- * is counted in local calendar days.
+ * `start_date` as `YYYY-MM-DD`, so the request holds the weeks exactly. A page's identity and
+ * cache key follow from it; home's are named by the window as configured (`loadIdentity`), so
+ * they stay put while the union moves with the month and the other views' end. All of it is
+ * counted in local calendar days.
  *
  * With `month → week_scroll` on, a page's load is the month-sized piece its rows belong to
  * (`monthScrollPiece`), the other views' days from any of those rows included, so every page a
@@ -2956,11 +2957,63 @@ export function loadConfig(
   const from = others && calendarDayDiff(window.start, rows) > 0 ? window.start : rows;
   const until = others && calendarDayDiff(rowsEnd, window.end) > 0 ? window.end : rowsEnd;
 
-  return {
+  const load = {
     ...config,
     start_date: localDateKey(from),
     days_to_show: calendarDayDiff(from, until),
   };
+  if (home) {
+    loadIdentities.set(load, {
+      startDate: config.start_date,
+      days: others ? days : MONTH_DAYS,
+      variant: `_month${others ? '' : 'only'}${firstDayOfWeek}`,
+    });
+  }
+  return load;
+}
+
+/**
+ * What a load's query identity and cache key are named by (`loadIdentity`): a start date, a
+ * number of days, and a suffix for anything else that shapes the window.
+ */
+export interface LoadIdentity {
+  /** `start_date` as the key names it: a date, or a relative expression. */
+  readonly startDate: string | undefined;
+  readonly days: number;
+  /** Appended to the key; empty where the start date and days say everything. */
+  readonly variant: string;
+}
+
+/** The identities of home's loads where month is reachable, by the object `loadConfig` returned. */
+const loadIdentities = new WeakMap<Types.Config, LoadIdentity>();
+
+/**
+ * What names a load's query (`generateDeterministicId`) and its cache entry (`getBaseCacheKey`).
+ *
+ * Its own start date and days, except for home's load where month is reachable. That load names
+ * its window by a concrete first day, the first row of the month home opens in, and a length
+ * reaching the other views' last day, so both move as the months, and the days, pass. Named by
+ * them, home's query took a new identity, and wrote a new six-week entry to `localStorage` beside
+ * the last, every time; it is named by the window as configured instead, with what else shapes
+ * the month's weeks (that month is reachable, with other views or alone, and the first weekday),
+ * so it keeps one identity while the configuration stands, as it does where month is not
+ * reachable. A stored entry for a window that has moved is then refetched into the same key,
+ * because an entry's window is compared with the one asked for (`isEntryDue`). A page's load
+ * starts on a date already, so it names itself.
+ *
+ * Read off the object `loadConfig` returned: a copy of it names its concrete window.
+ *
+ * @param load - A configuration from `loadConfig`
+ * @returns Its identity
+ */
+export function loadIdentity(load: Types.Config): LoadIdentity {
+  return (
+    loadIdentities.get(load) ?? {
+      startDate: load.start_date,
+      days: load.days_to_show,
+      variant: '',
+    }
+  );
 }
 
 //-----------------------------------------------------------------------------

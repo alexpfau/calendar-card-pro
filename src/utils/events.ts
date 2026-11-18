@@ -344,12 +344,16 @@ function resolveRequest(
   // cache entry whenever `start_date` was week-relative.
   const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hass.locale);
 
+  // Named by the load's identity, which for home's load where month is reachable is the window
+  // as configured rather than the concrete window asked for below (`loadIdentity`).
+  const identity = ViewConfig.loadIdentity(config);
   const cacheKey = getBaseCacheKey(
     instanceId,
     config.entities,
-    config.days_to_show,
-    config.start_date,
+    identity.days,
+    identity.startDate,
     firstDayOfWeek,
+    identity.variant,
   );
 
   const window = getTimeWindow(config.days_to_show, config.start_date, firstDayOfWeek);
@@ -3467,6 +3471,8 @@ function entryCalendars(entry: Types.CacheEntry): string[] {
  *   the window whenever `startDate` uses a week-relative expression. Numeric, not the
  *   raw `first_day_of_week` string: `'system'` resolves to a different weekday per user
  *   profile, so keying on the raw value gave two different windows one cache entry.
+ * @param variant Anything else that shapes the window, appended as it is
+ *   (`ViewConfig.loadIdentity`); empty where the rest says everything
  * @returns Base cache key
  */
 export function getBaseCacheKey(
@@ -3475,6 +3481,7 @@ export function getBaseCacheKey(
   daysToShow: number,
   startDate?: string,
   firstDayOfWeek?: number,
+  variant = '',
 ): string {
   const entityIds = entities
     .map((e) => (typeof e === 'string' ? e : e.entity))
@@ -3499,7 +3506,7 @@ export function getBaseCacheKey(
   // One rule with the card's query identity, which this key begins with: see the helper.
   const firstDayPart = Helpers.firstDayKeyPart(normalizedStartDate, firstDayOfWeek);
 
-  return `${Constants.CACHE.EVENT_CACHE_KEY_PREFIX}${instanceId}_${entityIds}_${daysToShow}${startDatePart}${firstDayPart}${Constants.VERSION.CURRENT}`;
+  return `${Constants.CACHE.EVENT_CACHE_KEY_PREFIX}${instanceId}_${entityIds}_${daysToShow}${startDatePart}${firstDayPart}${variant}${Constants.VERSION.CURRENT}`;
 }
 
 /**

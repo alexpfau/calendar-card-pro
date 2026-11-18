@@ -400,6 +400,8 @@ export function firstDayKeyPart(startDate: string, firstDayOfWeek: number | unde
  *   moves the window ({@link firstDayKeyPart}). Included at all because `hasConfigChanged`
  *   treats it as fetch-affecting, and the two must agree, or a failed refresh keeps the
  *   previous window's events under the new identity.
+ * @param variant Anything else that shapes the window, appended as it is
+ *   (`ViewConfig.loadIdentity`); empty where the rest says everything
  * @returns Deterministic ID string based on input parameters
  */
 export function generateDeterministicId(
@@ -407,6 +409,7 @@ export function generateDeterministicId(
   daysToShow: number,
   startDate?: string,
   firstDayOfWeek?: number,
+  variant = '',
 ): string {
   const entityIds = entities
     .map((e) => (typeof e === 'string' ? e : e.entity))
@@ -429,7 +432,7 @@ export function generateDeterministicId(
   const startDatePart = normalizedStartDate ? `_${normalizedStartDate}` : '';
   const firstDayPart = firstDayKeyPart(normalizedStartDate, firstDayOfWeek);
 
-  const baseString = `calendar_${entityIds}_${daysToShow}${startDatePart}${firstDayPart}`;
+  const baseString = `calendar_${entityIds}_${daysToShow}${startDatePart}${firstDayPart}${variant}`;
 
   return hashString(baseString);
 }

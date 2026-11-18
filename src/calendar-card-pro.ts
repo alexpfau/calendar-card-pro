@@ -2365,25 +2365,28 @@ class CalendarCardPro extends LitElement {
    * The query identity a page's events are fetched and cached under: home's is the card's
    * own; a page's is that of a card configured to open on its first day, so two cards on one
    * page share its request and its entry. Keyed by the window loaded (`_loadConfigForPage`),
-   * which spans every view the card can show, so switching views never changes it.
+   * which spans every view the card can show, so switching views never changes it, as that
+   * window names itself (`ViewConfig.loadIdentity`): home's, where month is reachable, by its
+   * window as configured, so it does not move with the months.
    *
    * The first weekday is resolved here, from the profile as it is now, and counts only where it
    * moves the window (`Helpers.firstDayKeyPart`). So `system` and the weekday it resolves to
-   * share a query, and home's identity moves when a profile change moves its week. A load that
-   * spans a month names its first day as a date, which already says where its weeks begin.
-   * Resolved on every call rather than kept from `setConfig`, which usually runs before Home
-   * Assistant hands over `hass`.
+   * share a query, and home's identity moves when a profile change moves its week. A page's load
+   * that spans a month names its first day as a date, which already says where its weeks begin;
+   * home's names the weekday. Resolved on every call rather than kept from `setConfig`, which
+   * usually runs before Home Assistant hands over `hass`.
    *
    * @param page - First day of the page, or null for home
    * @returns The instance id
    */
   private _instanceIdForPage(page: string | null): string {
-    const load = this._loadConfigForPage(page);
+    const identity = ViewConfig.loadIdentity(this._loadConfigForPage(page));
     return Helpers.generateDeterministicId(
       this.config.entities,
-      load.days_to_show,
-      load.start_date,
+      identity.days,
+      identity.startDate,
       this._firstDayOfWeek,
+      identity.variant,
     );
   }
 
