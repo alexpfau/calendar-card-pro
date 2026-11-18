@@ -85,6 +85,9 @@ const LIST_ONLY = [
   'content:compact_events_complete_days',
   'day_header:date_vertical_alignment',
   'day_header:today_indicator_position',
+  'separators:month_separator_label',
+  'separators:month_separator_label_color',
+  'separators:month_separator_label_font_size',
   'calendar:compact_events_to_show',
 ];
 
@@ -241,6 +244,9 @@ const LEGAL: Readonly<Record<string, ReadonlyArray<unknown>>> = {
   language: [undefined, 'de'],
   accent_color: ['var(--primary-color, #03a9f4)', '#ff0000', 'home-assistant'],
   compact_events_to_show: [undefined, 0, 3],
+  // Zero in three spellings, a length and a keyword; the card draws a rule for the last two.
+  month_separator_width: ['0px', '0', '0em', '1px', 'thin'],
+  month_separator_label: [true, false],
   'entity.accent_color': [undefined, '#ff0000', 'home-assistant'],
   'entity.label_type': [undefined, 'none', 'text', 'icon', 'image'],
   'entity.label': [undefined, 'A', 'mdi:star', 'home-assistant', '/local/a.png', 'person.anna'],
@@ -765,7 +771,7 @@ describe('the universe', () => {
     }
     expect(sizes).toEqual({
       shared: { card: 151, calendar: 27 },
-      list: { card: 158, calendar: 28 },
+      list: { card: 161, calendar: 28 },
       column: { card: 157, calendar: 27 },
       grid: { card: 156, calendar: 27 },
     });
@@ -957,6 +963,22 @@ describe('the gate table', () => {
           'day_header:weekend_month_color',
         ],
         requires: [p('day_header:show_month', true, ON)],
+      },
+      month_label: {
+        kind: 'gate',
+        fields: ['separators:month_separator_label'],
+        requires: [p('separators:month_separator_width', '1px', ['1px', 'thin'])],
+      },
+      month_label_style: {
+        kind: 'gate',
+        fields: [
+          'separators:month_separator_label_color',
+          'separators:month_separator_label_font_size',
+        ],
+        requires: [
+          p('separators:month_separator_width', '1px', ['1px', 'thin']),
+          p('separators:month_separator_label', true, ON),
+        ],
       },
       week_numbers: {
         kind: 'gate',

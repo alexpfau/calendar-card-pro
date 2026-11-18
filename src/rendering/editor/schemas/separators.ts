@@ -2,7 +2,7 @@
  * Separator schema rows.
  */
 
-import { blockScope, color, text } from './common';
+import { blockScope, bool, color, text } from './common';
 import * as Types from '../../../config/types';
 import * as ViewConfig from '../../../config/view';
 import * as Helpers from '../../../utils/helpers';
@@ -15,16 +15,33 @@ const RULES = ['day', 'week', 'month'] as const;
  * Builds the Separators panel schema: every rule dividing one day, week or month from the next,
  * and in Grid also the gutter those rules sit in and the rules running across the grid.
  *
+ * The month's name on its rule is built only while a month rule is drawn, and its color and
+ * size only while it is on, as the date column's month size and color are only while the month is
+ * shown. Which layouts offer them is `VIEW_SCOPE`'s to say.
+ *
  * @param view - View the card is configured to render
  * @param blockKey - Config key holding this view's override block, if it has one
+ * @param monthRule - Whether a month rule is drawn
+ * @param monthLabel - Whether the month's name is drawn on it
  * @returns The panel's schema
  */
 const separatorsSchema = Helpers.memoizeLast(
-  (view: Types.EffectiveView, blockKey: string | undefined): HaFormSchema[] => {
-    const boundaryRules = RULES.flatMap((rule) => [
-      text(`${rule}_separator_width`),
-      color(`${rule}_separator_color`),
-    ]);
+  (
+    view: Types.EffectiveView,
+    blockKey: string | undefined,
+    monthRule: boolean,
+    monthLabel: boolean,
+  ): HaFormSchema[] => {
+    const boundaryRules = [
+      ...RULES.flatMap((rule) => [
+        text(`${rule}_separator_width`),
+        color(`${rule}_separator_color`),
+      ]),
+      ...(monthRule ? [bool('month_separator_label')] : []),
+      ...(monthRule && monthLabel
+        ? [color('month_separator_label_color'), text('month_separator_label_font_size')]
+        : []),
+    ];
 
     if (view !== 'grid' || blockKey === undefined) return boundaryRules;
 
@@ -57,5 +74,7 @@ export function buildSeparatorsSchema(ctx: SchemaCtx): HaFormSchema[] {
   return separatorsSchema(
     ctx.view,
     block?.onlyKeys.includes('hour_line_width') === true ? block.blockKey : undefined,
+    !ViewConfig.isZeroLength(ctx.config.month_separator_width),
+    ctx.config.month_separator_label === true,
   );
 }

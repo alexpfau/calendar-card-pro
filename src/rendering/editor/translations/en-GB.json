@@ -74,6 +74,7 @@
   "day_separator_color": "Day Rule Colour",
   "week_separator_color": "Week Rule Colour",
   "month_separator_color": "Month Rule Colour",
+  "month_separator_label_color": "Month Name Colour",
   "column.day_header_separator_color": "Day Header Rule Colour",
   "time_grid.day_header_separator_color": "Day Header Rule Colour",
   "date.color": "Colour Beside Days",

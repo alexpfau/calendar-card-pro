@@ -226,6 +226,7 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     '--calendar-card-today-indicator-size': config.today_indicator_size,
 
     '--calendar-card-week-number-font-size': config.week_number_font_size,
+    '--calendar-card-month-separator-label-font-size': config.month_separator_label_font_size,
     '--calendar-card-week-number-color': config.week_number_color,
     '--calendar-card-week-number-bg-color': config.week_number_background_color,
 
@@ -1762,6 +1763,41 @@ export const cardStyles = css`
     width: 100%;
     margin-inline-start: 8px;
     border-top-style: solid; /* Ensure line is visible */
+  }
+
+  /* month_separator_label: the month's name at the start of a month rule, and the rule after it,
+     on the plain month separator and in the week row alike. The rule is the line's top border at
+     the month width, so a border-width keyword such as thin works as it does on the plain rule,
+     and the container draws no border of its own, which its solid style would otherwise draw at
+     the browser's medium width. Logical layout only, so a right-to-left card puts the name on
+     the right, where its rule starts. */
+  .month-separator-labeled {
+    display: flex;
+    align-items: center;
+    column-gap: 8px;
+  }
+
+  .month-separator.month-separator-labeled {
+    border-top-style: none;
+  }
+
+  /* Weight 500, as the week number beside it, at month_separator_label_font_size, 12px unless
+     set; its color is written inline, as the rule's is. A name too long for a narrow card wraps
+     rather than widening the card: min-width 0 lets it shrink, and overflow-wrap lets a word
+     break. */
+  .month-separator-label {
+    flex: 0 1 auto;
+    min-width: 0;
+    font-size: var(--calendar-card-month-separator-label-font-size);
+    font-weight: 500;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+
+  /* Never shorter than a stub, so a wrapped name still stands on a rule. */
+  .month-separator-line {
+    flex: 1 0 1.5em;
+    border-top: var(--separator-border-width) solid var(--separator-border-color);
   }
 
   /* ===== DAY TABLE STYLES ===== */

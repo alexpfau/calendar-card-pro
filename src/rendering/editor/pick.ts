@@ -50,7 +50,7 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
     { page: 'day_header', heading: 'heading.date' },
   ],
   [
-    '.separator, .separator-cell, .column-separator, .grid-separator',
+    '.separator, .separator-cell, .week-separator, .month-separator, .column-separator, .grid-separator',
     { page: 'size_spacing', heading: 'heading_between_days' },
   ],
   ['.empty-day-title', { page: 'which_events', heading: 'heading_nothing' }],

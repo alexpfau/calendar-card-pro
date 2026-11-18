@@ -70,6 +70,9 @@ export const DEFAULT_CONFIG: Types.Config = {
   week_separator_color: 'color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)',
   month_separator_width: '0px',
   month_separator_color: 'var(--primary-text-color)',
+  month_separator_label: false,
+  month_separator_label_color: undefined, // Inherit from month_separator_color
+  month_separator_label_font_size: '12px',
 
   today_indicator: 'tile',
   today_indicator_position: '15% 50%',
@@ -743,6 +746,7 @@ export const LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set(
 export const FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set([
   'title_font_size',
   'week_number_font_size',
+  'month_separator_label_font_size',
   'weekday_font_size',
   'day_font_size',
   'month_font_size',

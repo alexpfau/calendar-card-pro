@@ -431,6 +431,41 @@ export function monthHeadingText(heading: MonthHeadingText): string {
   return heading.map((part) => part.text).join('');
 }
 
+/**
+ * Whether a form of the month heading writes the month by name rather than as a bare number:
+ * "Dec" or "12월", not the "12" of "2026-12".
+ *
+ * @param date - Any day of the month
+ * @param language - Card language
+ * @param form - The month in full or short
+ * @returns True where the month's own part holds a letter
+ */
+function namesMonth(date: Date, language: string, form: MonthForm): boolean {
+  const month = monthFormat(language, form)
+    .formatToParts(date)
+    .find((part) => part.type === 'month');
+  return month !== undefined && /\p{L}/u.test(month.value);
+}
+
+/**
+ * The words a list writes at the start of a month rule: the month the rule opens, with its year,
+ * abbreviated as the toolbar's heading is in its short form ("Dec 2026", "Dez. 2026").
+ *
+ * Some languages abbreviate a month to its number: Lithuanian writes "2026-12" and Bulgarian
+ * "12.2026 г.", where the full form names it. There the full form is written instead, so the label
+ * always names its month. A language whose full form is a number as well, such as Japanese's
+ * "2026年12月", keeps the short form, which is the same.
+ *
+ * @param date - Any day of the month the rule opens
+ * @param language - Card language
+ * @returns The label
+ */
+export function monthRuleLabel(date: Date, language: string): string {
+  const form: MonthForm =
+    namesMonth(date, language, 'short') || !namesMonth(date, language, 'long') ? 'short' : 'long';
+  return monthHeading(date, language, form);
+}
+
 const monthHeadingSets = intlCache<string, ReadonlyArray<MonthHeadingText>>();
 
 /**
