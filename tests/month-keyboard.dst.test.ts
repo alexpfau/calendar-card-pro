@@ -228,10 +228,15 @@ describe('a month’s keyboard across the changes of clock', () => {
       'Monday, March 30, 2026',
       'Monday, March 30, 2026',
     ]);
-    expect(await visit('Sunday, March 29, 2026', ['ArrowDown', 'PageDown'])).toEqual([
+    // April 5 is drawn on March's rows, so Page Down pages to April on the same date, then to May.
+    expect(await visit('Sunday, March 29, 2026', ['ArrowDown', 'PageDown', 'PageDown'])).toEqual([
+      'Sunday, April 5, 2026',
       'Sunday, April 5, 2026',
       'Tuesday, May 5, 2026',
     ]);
+    expect(root(card).querySelector('.month-container')!.getAttribute('aria-label')).toBe(
+      'May 2026',
+    );
   });
 });
 

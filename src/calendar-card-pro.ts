@@ -3729,15 +3729,22 @@ class CalendarCardPro extends LitElement {
   /**
    * Moves a month's keyboard focus to a day: its cell becomes the tab stop and takes focus once
    * drawn (`_syncMonthFocus`). A day past the rows drawn pages to its month's weeks first, as the
-   * date navigation's arrows would, and only where the card pages: with the date navigation, and
-   * not while it is being edited. Elsewhere focus stays where it is.
+   * date navigation's arrows would, and so does any day where the key pages a month, though the
+   * day is drawn beside the month shown. Only where the card pages: with the date navigation, and
+   * not while it is being edited. Elsewhere focus moves only to a day drawn, and otherwise stays
+   * where it is.
    *
    * @param day - The day, at local midnight
+   * @param toItsMonth - Whether to page to the day's month even where its rows are drawn
    */
-  private _moveMonthFocus(day: Date): void {
-    if (!Paging.rangeContains(this._pageRange(this._pageRequested), day)) {
-      if (!this._wantsNavigation || this._isBeingEdited) return;
-      this._goToPage(ViewConfig.monthHomeRowsStart(day, this._firstDayOfWeek));
+  private _moveMonthFocus(day: Date, toItsMonth = false): void {
+    const drawn = Paging.rangeContains(this._pageRange(this._pageRequested), day);
+    if (toItsMonth || !drawn) {
+      if (this._wantsNavigation && !this._isBeingEdited) {
+        this._goToPage(ViewConfig.monthHomeRowsStart(day, this._firstDayOfWeek));
+      } else if (!drawn) {
+        return;
+      }
     }
     this._monthFocusDay = FormatUtils.getLocalDateKey(day);
     this._monthFocusPending = true;
@@ -3770,8 +3777,11 @@ class CalendarCardPro extends LitElement {
   /**
    * The keys of a month's grid, on a focused day's cell: the arrows move a day or a week, mirrored
    * reading right to left, Home and End to the ends of the cell's week, and Page Up and Page Down
-   * a month, to the same date where it has one, else its last day. A day past the rows drawn
-   * pages there (`_moveMonthFocus`). Enter opens a wide month day's panel and selects a compact
+   * page to the month before or after the one the heading names (`majorityMonth`), to the cell's
+   * date there where it has one, else its last day. Counted from the heading rather than from the
+   * cell, since six rows draw days of the months either side: a step from the cell would land on
+   * a date already drawn, and the month would not move. A day past the rows drawn pages there
+   * (`_moveMonthFocus`). Enter opens a wide month day's panel and selects a compact
    * one, on its keydown; Space does on its keyup, as a native button does, so a panel it opened
    * never takes the keyup as a press on what it focused (`_handleKeyUp`). A key with a modifier,
    * and any key on anything but a cell, is left alone, so Home Assistant's own shortcuts work
@@ -3790,8 +3800,11 @@ class CalendarCardPro extends LitElement {
     const rowStart = ViewConfig.monthRowsStart(day, this._firstDayOfWeek);
     const across = this._cardRightToLeft ? -1 : 1;
     const monthAway = (months: number): Date => {
-      const last = new Date(day.getFullYear(), day.getMonth() + months + 1, 0).getDate();
-      return new Date(day.getFullYear(), day.getMonth() + months, Math.min(day.getDate(), last));
+      const named = Paging.majorityMonth(this._pageRange(this._pageRequested));
+      const year = named.getFullYear();
+      const month = named.getMonth() + months;
+      const last = new Date(year, month + 1, 0).getDate();
+      return new Date(year, month, Math.min(day.getDate(), last));
     };
     const moves: Readonly<Record<string, () => Date>> = {
       ArrowLeft: () => Paging.addDays(day, -across),
@@ -3809,7 +3822,7 @@ class CalendarCardPro extends LitElement {
     ev.preventDefault();
     ev.stopPropagation();
     if (target !== null) {
-      this._moveMonthFocus(target);
+      this._moveMonthFocus(target, ev.key === 'PageUp' || ev.key === 'PageDown');
     } else if (!ev.repeat) {
       if (ev.key === ' ') this._spaceArmedOn = ev.target;
       else this._activateMonthCell(timestamp, ev.target as HTMLElement);

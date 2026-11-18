@@ -146,9 +146,9 @@ between the two.
 ## ⌨️ Keyboard
 
 The month is one stop in the tab order. The arrow keys move a day or a week, Home and End go to
-the ends of the week, and Page Up and Page Down go to the same date a month back or ahead.
-Enter or Space opens the day's list in a panel, or on a compact month selects the day. Each day
-is announced with its full date and how many events it holds.
+the ends of the week, and Page Up and Page Down go to the month before or after the one shown, on
+the same date where it has one. Enter or Space opens the day's list in a panel, or on a compact
+month selects the day. Each day is announced with its full date and how many events it holds.
 
 The events in a wide month's days are not stops of their own, so a busy month does not hold
 hundreds of them; the day's list reaches each one.

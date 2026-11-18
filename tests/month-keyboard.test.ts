@@ -538,10 +538,43 @@ describe('the keyboard on a month', () => {
     await press(card, 'PageUp');
     await press(card, 'PageUp');
     expect([heading(card), focusedDay()]).toEqual(['October 2026', 'Sunday, October 18, 2026']);
-    // October 31 has no date in November: its last day, on the rows already drawn.
+    // October 31 has no date in November: its last day.
     await focusOn(card, 'Saturday, October 31');
     await press(card, 'PageDown');
     expect([heading(card), focusedDay()]).toEqual(['November 2026', 'Monday, November 30, 2026']);
+  });
+
+  it('pages from the month the heading names, even where the date a month away is drawn', async () => {
+    // November's rows run from October 26 to December 6, so December 3 is drawn beside it.
+    const card = await mount();
+    await focusOn(card, 'Tuesday, November 3');
+    await press(card, 'PageDown');
+    expect([heading(card), focusedDay()]).toEqual(['December 2026', 'Thursday, December 3, 2026']);
+    await press(card, 'PageDown');
+    expect([heading(card), focusedDay()]).toEqual(['January 2027', 'Sunday, January 3, 2027']);
+
+    // A day of the next month drawn dimmed pages to that month, not past it, and a date the month
+    // has no day for lands on its last.
+    await focusOn(card, 'Monday, February 1');
+    await press(card, 'PageDown');
+    expect([heading(card), focusedDay()]).toEqual(['February 2027', 'Monday, February 1, 2027']);
+    await press(card, 'PageUp');
+    await focusOn(card, 'Sunday, January 31');
+    await press(card, 'PageDown');
+    expect([heading(card), focusedDay()]).toEqual(['February 2027', 'Sunday, February 28, 2027']);
+  });
+
+  it.each([
+    ['Thursday, November 26', 'Monday, October 26, 2026'],
+    ['Friday, November 27', 'Tuesday, October 27, 2026'],
+    ['Saturday, November 28', 'Wednesday, October 28, 2026'],
+    ['Sunday, November 29', 'Thursday, October 29, 2026'],
+    ['Monday, November 30', 'Friday, October 30, 2026'],
+  ])('pages back to October from %s, whose date in October November draws', async (from, to) => {
+    const card = await mount();
+    await focusOn(card, from);
+    await press(card, 'PageUp');
+    expect([heading(card), focusedDay()]).toEqual(['October 2026', to]);
   });
 
   it('stays on the rows drawn where the card does not page', async () => {

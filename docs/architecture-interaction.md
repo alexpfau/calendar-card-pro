@@ -47,7 +47,8 @@ The recognizer lives in the card's pointer handlers (`_handlePointerDown`, `_han
   `role="gridcell"` days, each named for the day and its events' count (`monthCellName`), one of
   them the tab stop (`_monthTabStop`: the day the keys or a tap last moved to, else the compact
   selection, else today, else the header month's 1st). The arrows move a day or a week, mirrored
-  reading right to left, Home and End to the week's ends, Page Up and Page Down a month; a day off
+  reading right to left, Home and End to the week's ends, Page Up and Page Down to the month either
+  side of the one the heading names, always paging, since the rows draw days of both; a day off
   the rows pages there where the card pages, and focus follows once the page is drawn
   (`_syncMonthFocus`). Enter or Space opens a wide day's panel, or selects a compact day. A wide
   day's bars, lines and "+N more" are out of the Tab order and owned by its cell (`aria-owns`),
