@@ -195,7 +195,7 @@ describe('What This Card Changes, its groups', () => {
     // Group titles in that order, and no counts anywhere: the scope chips have none to match.
     expect(
       [...editor.shadowRoot!.querySelectorAll('.audit h3')].map((title) => text(title)),
-    ).toEqual(['Whole Card', 'All Layouts', 'List', 'Grid', 'Calendars', 'Kept as Written']);
+    ).toEqual(['Whole Card', 'Layout Defaults', 'List', 'Grid', 'Calendars', 'Kept as Written']);
     expect(editor.shadowRoot!.querySelector('.audit-count')).toBeNull();
     expect(text($(editor, '.audit'))).not.toMatch(/Set: \d/);
   });
@@ -399,7 +399,7 @@ describe('What This Card Changes, its groups', () => {
     const editor = await mountEditor(WALL);
 
     expect(text($(editor, '[data-focus="more:audit"] .nav-summary'))).toBe(
-      'Whole Card · All Layouts · List · Grid · calendar.anna · calendar.bin_day · Not in Use: 1',
+      'Whole Card · Layout Defaults · List · Grid · calendar.anna · calendar.bin_day · Not in Use: 1',
     );
     const fresh = await mountEditor({ config_version: VERSION, entities: ['calendar.anna'] });
     expect(text($(fresh, '[data-focus="more:audit"] .nav-summary'))).toBe('Nothing Changed');

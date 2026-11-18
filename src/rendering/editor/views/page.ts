@@ -6,7 +6,7 @@
  * Assistant does not expose those as headings to assistive technology (`spike/ha-probe.md` §3).
  */
 
-import { mdiArrowRight, mdiChevronLeft, mdiMagnify, mdiOpenInNew } from '@mdi/js';
+import { mdiArrowRight, mdiChevronLeft, mdiChevronRight, mdiMagnify, mdiOpenInNew } from '@mdi/js';
 import { type TemplateResult, html, nothing } from 'lit';
 
 import { icon } from './icon';
@@ -189,4 +189,62 @@ export function headingBlock(block: HeadingBlock): TemplateResult {
     }
     ${block.body}
   </section>`;
+}
+
+/** One link of a topic page's "Also for" line. */
+export interface AlsoLink {
+  readonly label: string;
+  /** `data-focus` key, so Back returns focus to it. */
+  readonly key: string;
+  readonly onOpen: () => void;
+}
+
+/**
+ * A topic page's line under its head: "Also for: List · Columns · Month · Layout Defaults", each a
+ * link to the same topic in that layout.
+ *
+ * @param lead - "Also for:"
+ * @param links - The other layouts
+ * @returns The line
+ */
+export function alsoFor(lead: string, links: ReadonlyArray<AlsoLink>): TemplateResult {
+  return html`<p class="page-line also-for">
+    <span
+      >${lead}
+      ${links.map(
+        (link, at) =>
+          html`${at > 0 ? html`<span aria-hidden="true"> · </span>` : nothing}<button
+              type="button"
+              class="link"
+              data-focus=${link.key}
+              @click=${link.onOpen}
+            >
+              ${link.label}
+            </button>`,
+      )}</span
+    >
+  </p>`;
+}
+
+/**
+ * The row at a topic page's foot that walks on: "Continue with Grid · Days".
+ *
+ * @param lead - "Continue with"
+ * @param title - Where it goes: "Grid · Days"
+ * @param onOpen - It was activated
+ * @returns The row
+ */
+export function continueRow(lead: string, title: string, onOpen: () => void): TemplateResult {
+  return html`<button
+    type="button"
+    class="nav-row continue-row"
+    data-focus="continue"
+    @click=${onOpen}
+  >
+    <span class="nav-text">
+      <span class="nav-summary">${lead}</span>
+      <span class="nav-title">${title}</span>
+    </span>
+    ${icon(mdiChevronRight, 'nav-chevron')}
+  </button>`;
 }

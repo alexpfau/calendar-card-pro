@@ -1311,6 +1311,12 @@ const IDENTICAL_TO_ENGLISH_ANY_LANGUAGE = new Set([
  * Keyed `lang:key`. Each entry is a loanword the language genuinely uses, not a gap.
  */
 const IDENTICAL_TO_ENGLISH_OK = new Set([
+  // "Layout" is the glossary's decided word in these languages, and German's plural is the same.
+  'de:overview.layouts',
+  'de:layouts.layout',
+  'it:layouts.layout',
+  'nb:layouts.layout',
+  'sv:layouts.layout',
   // A search result's value under its layout's name, as "Grid: Off": the two placeholders and a
   // colon, which every editor language writes the same way.
   'de:search.value_in',

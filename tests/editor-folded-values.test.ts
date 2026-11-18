@@ -18,6 +18,7 @@ import {
   keysOf,
   mountEditor,
 } from './helpers/editor-host';
+import { TOPIC_PAGES } from '../src/rendering/editor/pages';
 import { FOLLOWS, unsetWord } from '../src/rendering/editor/unset';
 import { WORKSPACES } from '../src/rendering/editor/workspace';
 
@@ -58,9 +59,13 @@ describe('folded rows', () => {
     for (const scope of WORKSPACES) {
       await changeField(editor, 'workspace:editing_workspace', scope);
       await goOverview(editor);
-      const pages = [...root.querySelectorAll('[data-focus^="nav:"]')].map((row) =>
-        row.getAttribute('data-focus')!.slice('nav:'.length),
-      );
+      // Whole Card's pages, and every layout's topics, the scope's own.
+      const pages = [
+        ...[...root.querySelectorAll('[data-focus^="nav:"]')].map((row) =>
+          row.getAttribute('data-focus')!.slice('nav:'.length),
+        ),
+        ...TOPIC_PAGES.map((page) => page.id),
+      ];
       for (const page of pages) {
         await goPage(editor, page);
         folded += root.querySelectorAll('.setting-head.folds').length;

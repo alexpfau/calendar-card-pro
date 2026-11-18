@@ -19,8 +19,10 @@ import {
   mdiFormatListChecks,
   mdiFormatVerticalAlignTop,
   mdiInformationOutline,
+  mdiLayersOutline,
   mdiPlus,
   mdiRestore,
+  mdiTuneVariant,
 } from '@mdi/js';
 import {
   LitElement,
@@ -78,8 +80,10 @@ import {
   type PageDef,
   type PageId,
   STARTING_LAYOUT_BLOCK,
-  isWholeCard,
+  TOPIC_PAGES,
+  WHOLE_CARD_PAGES,
   placementOf,
+  sharedAcrossHeadings,
 } from './pages';
 import { PANELS, type PanelExtra, type SchemaCtx, type SubformDef } from './panels';
 import * as Plan from './plan';
@@ -931,17 +935,11 @@ export class CalendarCardProEditor extends LitElement {
   /** Where the editor is, and where Back goes (`navigation.ts`). */
   @state() private _nav: Navigation.NavState = Navigation.OVERVIEW;
 
-  /** Whether Change opened Settings For's choices, a disclosure Change or Escape closes again. */
-  @state() private _scopeOpen = false;
-
   /**
    * Calendar Filter's form last named this session, by the YAML the editor holds or by its
    * qualifier line, which pressing its chip on writes; Menu, the default, until one is named.
    */
   private _legendForm?: Types.ToolbarLegendMode;
-
-  /** The place Settings For was last drawn open in, which closes it elsewhere. */
-  private _scopePlace = '';
 
   /** Draws the preview in the layout being edited (`views/scope-preview.ts`). */
   private _scopePreview = new ScopePreview(() => PickView.findPreviewCard(this), this);
@@ -1159,10 +1157,52 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Follows the displayed view until the user explicitly chooses a workspace.
+   * The layout being edited, which the place says: a layout's page and its topics are that
+   * layout's (Layout Defaults is `shared`), and Whole Card's pages edit the whole card, in the
+   * shared scope, where every value they hold is written. Anywhere else, a calendar's page, the
+   * overview and What This Card Changes, it is the layout the card opens in, unless a step chose
+   * one.
    */
   private get _workspace(): Workspace.EditorWorkspace {
+    const route = this._nav.route;
+    const scope = Navigation.routeScope(route);
+    if (scope !== undefined) return scope;
+    if (route.kind === 'shared' || (route.kind === 'page' && WHOLE_CARD_PAGES.has(route.page))) {
+      return 'shared';
+    }
     return this._selectedWorkspace ?? this._viewForConfig(this._config!);
+  }
+
+  /**
+   * The layout the preview draws where the editor is: the one being edited, or, on Whole Card's
+   * pages, which edit in the shared scope, the layout the card opens in, as the preview shows it.
+   * A topic opened from there opens under it.
+   */
+  private get _layoutInView(): Workspace.EditorWorkspace {
+    const route = this._nav.route;
+    const whole =
+      route.kind === 'shared' || (route.kind === 'page' && WHOLE_CARD_PAGES.has(route.page));
+    return whole
+      ? (this._selectedWorkspace ?? this._viewForConfig(this._config!))
+      : this._workspace;
+  }
+
+  /**
+   * A place as it is opened: a topic page with no layout named opens under the layout being
+   * edited, so every topic page is some layout's.
+   *
+   * @param route - The place
+   * @param scope - The layout, where it is not the one being edited
+   * @returns The place, under a layout where it is a topic
+   */
+  private _scoped(
+    route: Navigation.Route,
+    scope: Workspace.EditorWorkspace = this._layoutInView,
+  ): Navigation.Route {
+    if (route.kind !== 'page' || route.scope !== undefined || WHOLE_CARD_PAGES.has(route.page)) {
+      return route;
+    }
+    return { ...route, scope };
   }
 
   /**
@@ -1185,8 +1225,25 @@ export class CalendarCardProEditor extends LitElement {
         : this._workspace;
     const view = Workspace.viewForWorkspace(edited);
     if (view === undefined || view === this._viewForConfig(this._config)) return undefined;
-    return { view, config: this._rawConfig };
+    return { view, config: this._previewConfig(this._rawConfig, view) };
   }
+
+  /**
+   * The configuration a layout is previewed with: as written, except that a layout the card's
+   * switcher does not offer is drawn without the switcher, which the card would never show beside
+   * it. Kept while the configuration is, so the preview is configured once per change.
+   */
+  private _previewConfig = Helpers.memoizeLast(
+    (raw: Record<string, unknown>, view: Types.EffectiveView): Record<string, unknown> => {
+      const offered = Config.switcherOffers({
+        toolbar: raw.toolbar as Types.Config['toolbar'],
+        view: this._viewForConfig(this._config!),
+      });
+      if (offered.length === 0 || offered.includes(view)) return raw;
+      const toolbar = Helpers.isConfigBlock(raw.toolbar) ? raw.toolbar : {};
+      return { ...raw, toolbar: { ...toolbar, view_switcher: false } };
+    },
+  );
 
   /**
    * The preview line, where the preview draws another layout than the card opens in: "Preview
@@ -1235,13 +1292,6 @@ export class CalendarCardProEditor extends LitElement {
    */
   protected override willUpdate(): void {
     if (!this._config) return;
-    // Settings For's choices close when the editor goes to another place, as its other
-    // disclosures do; the place it is drawn next shows its line.
-    const place = Navigation.routeKey(this._nav.route);
-    if (place !== this._scopePlace) {
-      this._scopePlace = place;
-      this._scopeOpen = false;
-    }
     // Leaving the entry's page, by Back, Previous or Next Calendar or a result, cancels a split.
     const route = this._nav.route;
     const here = (key: number): boolean => route.kind === 'entry' && route.key === key;
@@ -1621,6 +1671,8 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _placeName(route: Navigation.Route): string | undefined {
     if (route.kind === 'entry') return this._entryName(route.key);
+    if (route.kind === 'layout') return this._layoutTitle(route.layout, this._ctx);
+    if (route.kind === 'shared') return this._string(this._ctx, 'overview.shared_across');
     if (route.kind !== 'page') return undefined;
     const page = PAGES.find((each) => each.id === route.page);
     return page === undefined ? undefined : this._pageTitle(page, this._ctx);
@@ -1924,14 +1976,13 @@ export class CalendarCardProEditor extends LitElement {
       route = { kind: 'entry', key: this._entryKeysFor(entries.length)[at]! };
       heading = ENTRY_GROUPS[0]!.key;
     } else {
-      if (target.scope !== undefined && this._workspace !== target.scope) {
-        this._pickScope(target.scope);
-      }
-      route = { kind: 'page', page: target.page };
+      // A part of one layout's opens under that layout; any other under the layout previewed.
+      route = this._scoped({ kind: 'page', page: target.page }, target.scope ?? this._layoutInView);
       heading = target.heading;
       field = target.field;
     }
     this._open(route, 'pick', 'push', heading ?? '');
+    const opened = this._nav.route;
     void this.updateComplete.then(() => {
       const group = this.renderRoot.querySelector(
         `.page-group[data-heading="${CSS.escape(heading ?? '')}"]`,
@@ -1952,9 +2003,9 @@ export class CalendarCardProEditor extends LitElement {
         return;
       }
       this._land(
-        route.kind === 'entry'
-          ? { kind: 'entry-field', id, key: route.key }
-          : { kind: 'field', id, page: (route as { page: PageId }).page },
+        opened.kind === 'entry'
+          ? { kind: 'entry-field', id, key: opened.key }
+          : { kind: 'field', id, page: (opened as { page: PageId }).page },
         label,
         [`button.chip[data-field="${CSS.escape(id)}"]`],
         say,
@@ -2052,7 +2103,22 @@ export class CalendarCardProEditor extends LitElement {
    * Assistant's locale moves, so a render that changed none of them hands every builder the same
    * context and reuses what it built (`field-index.ts` › `builtSchema`).
    */
-  private _ctxFor = Helpers.memoizeLast(scopeCtx);
+  private _ctxFor = (...args: Parameters<typeof scopeCtx>): ReturnType<typeof scopeCtx> => {
+    // One kept context per scope: moving between a layout's topics and Whole Card's pages, which
+    // read in the shared scope, rebuilds nothing either side.
+    const workspace = args[1];
+    let made = this._ctxMemos.get(workspace);
+    if (made === undefined) this._ctxMemos.set(workspace, (made = Helpers.memoizeLast(scopeCtx)));
+    return made(...args);
+  };
+
+  /** `_ctxFor`'s kept context, by scope. */
+  private _ctxMemos = new Map<Workspace.EditorWorkspace, typeof scopeCtx>();
+
+  /** The fields built in the shared scope, kept while its context is (`_presentIn`). */
+  private _sharedPresent = Helpers.memoizeLast(
+    (ctx: SchemaCtx): ReadonlyMap<FieldId, IndexedField> => buildFieldIndex(ctx).fields,
+  );
 
   /**
    * The `hass` a form is handed, and the feed it comes from (`hass-key.ts`).
@@ -3216,7 +3282,13 @@ export class CalendarCardProEditor extends LitElement {
     const word = this._wordOf(field, ctx);
     const state = Plan.stateOf(field, pctx);
     const label = fieldLabel(field, ctx.language);
-    const facts = Shown.stateFacts(state, t, layout, word, this._siblingEntries(owner));
+    const all = Shown.stateFacts(state, t, layout, word, this._siblingEntries(owner));
+    // Shared Across Layouts holds whole-card settings only, which its page says once.
+    const wholeCard = this._string(ctx, 'state.whole_card');
+    const facts =
+      this._nav.route.kind === 'shared'
+        ? all.filter((fact) => !(fact.kind === 'scope' && fact.text === wholeCard))
+        : all;
     const calendars =
       state?.calendars === undefined
         ? undefined
@@ -4589,8 +4661,15 @@ export class CalendarCardProEditor extends LitElement {
    * @returns `true` where it can be drawn
    */
   private _exists(route: Navigation.Route): boolean {
-    if (route.kind === 'overview' || route.kind === 'audit' || route.kind === 'notices')
+    if (
+      route.kind === 'overview' ||
+      route.kind === 'audit' ||
+      route.kind === 'notices' ||
+      route.kind === 'layout' ||
+      route.kind === 'shared'
+    ) {
       return true;
+    }
     if (route.kind === 'entry') {
       return this._entryKeysFor((this._config?.entities ?? []).length).includes(route.key);
     }
@@ -4632,7 +4711,7 @@ export class CalendarCardProEditor extends LitElement {
       focusKey,
     };
     this._closeDisclosures();
-    this._nav = Navigation.go(this._nav, to, from, how);
+    this._nav = Navigation.go(this._nav, this._scoped(to), from, how);
     this._jump = this._resultsLeft = undefined;
     // Leaving the overview by its own rows: Search Settings' page is no longer where Back goes.
     if (from.route.kind === 'overview') this._searchFrom = undefined;
@@ -4667,6 +4746,7 @@ export class CalendarCardProEditor extends LitElement {
     focusKey: string,
     search = true,
     say?: () => string,
+    scope?: Workspace.EditorWorkspace,
   ): void {
     const target = hit.target;
     const from: Navigation.TrailEntry = {
@@ -4679,10 +4759,11 @@ export class CalendarCardProEditor extends LitElement {
       target.kind === 'button-field' ? 'card_header' : target.kind === 'field' && target.page;
     this._closeDisclosures();
     if (target.kind === 'entry-field') {
-      // A calendar entry's field opens on the entry's own page.
+      // A calendar entry's field opens on the entry's own page, in the layout that offers it.
+      if (scope !== undefined) this._selectedWorkspace = scope;
       this._nav = Navigation.go(this._nav, { kind: 'entry', key: target.key }, from);
     } else if (page) {
-      this._nav = Navigation.go(this._nav, { kind: 'page', page }, from);
+      this._nav = Navigation.go(this._nav, this._scoped({ kind: 'page', page }, scope), from);
     } else if (search) {
       this._resultsLeft = from;
     } else {
@@ -4811,15 +4892,12 @@ export class CalendarCardProEditor extends LitElement {
     const wizard = this._quickSetup;
     // Quick Setup is a place of its own: Escape is its Back, or Cancel on its first step.
     const grab = this._grabbed();
-    // Settings For left open counts only where it is drawn.
-    const scopeOpen = this._scopeOpen && this._scopeDrawn();
     const action = escapeAction(event.composedPath(), this, {
       disclosure:
         wizard === undefined &&
         (this._drag !== undefined ||
           grab !== undefined ||
           this._colorOpenHere() ||
-          scopeOpen ||
           this._auditEdit !== undefined ||
           this._openStrip !== undefined ||
           this._adding !== undefined ||
@@ -4857,8 +4935,7 @@ export class CalendarCardProEditor extends LitElement {
       this._split !== undefined &&
       this._openStrip === undefined &&
       this._adding === undefined &&
-      this._auditEdit === undefined &&
-      !scopeOpen
+      this._auditEdit === undefined
     ) {
       // Escape cancels Split This Calendar from any of its steps, as Cancel does.
       this._cancelSplit(true);
@@ -4871,13 +4948,10 @@ export class CalendarCardProEditor extends LitElement {
           ? `more:audit:${edited}`
           : strip !== undefined
             ? `more:${strip}`
-            : this._adding !== undefined
-              ? 'add-calendar'
-              : 'scope-change';
+            : 'add-calendar';
       if (edited !== undefined) this._auditEdit = undefined;
       else if (strip !== undefined) this._openStrip = undefined;
-      else if (this._adding !== undefined) this._adding = undefined;
-      else this._scopeOpen = false;
+      else this._adding = undefined;
       this._focusSoon([Focus.byFocusKey(opener)]);
     } else if (action === 'back') {
       this._back();
@@ -4968,82 +5042,6 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Settings For, as the overview's Settings frame and every page that depends on the scope draw
-   * it: the compact line, the five choices under it once Change is pressed, and the preview line.
-   * On the overview its helper says which pages it governs, never that it governs them all: Card &
-   * Header and Weather apply to the whole card.
-   *
-   * @param ctx - Schema context
-   * @param overview - Whether it is drawn on the overview
-   * @returns The control
-   */
-  private _renderScope(ctx: SchemaCtx, overview = false): TemplateResult {
-    const workspace = this._workspace;
-    const label = (each: Workspace.EditorWorkspace): string =>
-      this._string(ctx, `editing_workspace.option.${each}.label`);
-    const help = overview
-      ? this._string(ctx, 'settings_for.help_overview')
-      : workspace === 'shared'
-        ? this._string(ctx, 'settings_for.help_shared')
-        : this._string(ctx, 'settings_for.help_layout', { layout: label(workspace) });
-    return Overview.scopeControl(
-      {
-        open: this._scopeOpen,
-        workspace,
-        choices: Workspace.WORKSPACES.map((value) => ({ value, label: label(value) })),
-        help,
-        preview: this._previewSentence(ctx),
-      },
-      this._t(ctx),
-      this._toggleScope,
-      this._pickScope,
-    );
-  }
-
-  /**
-   * Whether the open place draws Settings For: the overview, unless a query shows its results,
-   * and a section page edited for a scope, as `_renderPage` draws it. `_scopeOpen` outlives the
-   * place, so elsewhere it opens nothing.
-   *
-   * @returns True where it is drawn
-   */
-  private _scopeDrawn(): boolean {
-    const route = this._nav.route;
-    if (route.kind === 'overview') {
-      return !(Filter.hasQuery(this._filter) && this._resultsLeft === undefined);
-    }
-    if (route.kind !== 'page') return false;
-    const page = PAGES.find((each) => each.id === route.page);
-    return page !== undefined && !isWholeCard(page);
-  }
-
-  /**
-   * Change: Settings For's choices open under its line, or close again. Focus stays on Change
-   * either way, as a disclosure's button keeps it: Tab goes on into the choices.
-   */
-  private _toggleScope = (): void => {
-    this._scopeOpen = !this._scopeOpen;
-    this._focusSoon([Focus.byFocusKey('scope-change')]);
-  };
-
-  /**
-   * Changes the scope: writes nothing and makes no undo step, keeps the choices open with focus on
-   * the chosen one, which arrow keys move, and says so.
-   *
-   * @param workspace - The scope chosen
-   */
-  private _pickScope = (workspace: Workspace.EditorWorkspace): void => {
-    if (!this._config || workspace === this._workspace) return;
-    this._selectedWorkspace = workspace;
-    const ctx = this._ctx;
-    this._say(
-      this._string(ctx, 'announce.scope', {
-        layout: this._string(ctx, `editing_workspace.option.${workspace}.label`),
-      }),
-    );
-  };
-
-  /**
    * Queues words for the live region and asks for the render that speaks them.
    *
    * @param message - A whole sentence
@@ -5053,54 +5051,115 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Starting Layout, a frame as Calendars is: its heading, a row per layout under it with its
-   * picture, the group with no visible label of its own, written through the frame the card's own
-   * display form always had, and the Grid notice under it.
+   * Layouts, a frame as Calendars is: the help above the rows, a row per layout whose radio picks
+   * the layout the card opens in and whose rest opens the layout's page, the fallback note, then
+   * Layout Defaults. The radios write through the frame the card's own display form always had,
+   * and the Grid notice follows them.
    *
    * @param ctx - Schema context
    * @param chassis - The chassis schemas
-   * @returns The group
+   * @returns The block
    */
-  private _renderDisplays(ctx: SchemaCtx, chassis: Subforms.ChassisSchemas): TemplateResult {
+  private _renderLayouts(ctx: SchemaCtx, chassis: Subforms.ChassisSchemas): TemplateResult {
     const node = chassis.displayView[0] as { selector: { select: { options: unknown } } };
     const options = node.selector.select.options as ReadonlyArray<Overview.DisplayChoice>;
     const value = this._viewForConfig(this._config!);
+    const t = this._t(ctx);
+    const [before, after = ''] = t('layouts.help_switch').split('{link}');
+    const help = html`<p class="hint">
+        ${t('layouts.help_pick')} ${before}<button
+          type="button"
+          class="text-button"
+          data-focus="layouts:switcher"
+          @click=${this._openSwitcher}
+        >
+          ${t('layouts.help_switch_link')}</button
+        >${after}
+      </p>
+      <p class="hint">${t('layouts.help_open')}</p>`;
+    const defaults = Overview.navRow(
+      {
+        key: 'layout:shared',
+        iconPath: mdiTuneVariant,
+        title: t('editing_workspace.option.shared.label'),
+        summary: t('overview.layout_defaults.summary'),
+      },
+      () => this._open({ kind: 'layout', layout: 'shared' }, 'layout:shared'),
+    );
     return html`<section class="page-group layout-block" data-heading="starting_layout">
-      <h3 class="heading" tabindex="-1">${this._string(ctx, STARTING_LAYOUT_BLOCK.titleKey)}</h3>
-      ${Overview.displayControl(
-        this._string(ctx, 'view'),
-        EditorLocalize.lookup(ctx.language, 'view.helper'),
-        options,
+      <h3 class="heading" tabindex="-1">${t('overview.layouts')}</h3>
+      ${Overview.layoutsControl(
+        this._string(ctx, STARTING_LAYOUT_BLOCK.titleKey),
+        help,
+        options.map((choice) => ({
+          ...choice,
+          settingsName: t('layouts.settings_named').replace('{layout}', choice.label),
+        })),
         value,
-        (view) => {
-          const data = { view: value };
-          const kept = Chips.layoutsKeptOnStart(this._config!, value, view as Types.EffectiveView);
-          // The view, the Grid notice it brings and the switcher's list it keeps are one step.
-          this._commit(
-            this._string(ctx, 'history.change', { setting: this._string(ctx, 'view') }),
-            undefined,
-            () => {
-              this._writeOwned(
-                {
-                  owner: WriteFrames.CARD_OWNER,
-                  workspace: 'list',
-                  schema: chassis.displayView,
-                  data,
-                },
-                { view },
-              );
-              // After the view: the field's form counts the starting layout as offered, so under
-              // the old one the list would read as unchanged and write nothing.
-              if (kept !== undefined) {
-                this._writeFieldValue(WriteFrames.CARD_OWNER, Chips.SWITCHER_LAYOUTS_FIELD, kept);
-              }
-            },
-          );
-        },
+        EditorLocalize.lookup(ctx.language, 'view.helper'),
+        html`<div class="rows layout-defaults">${defaults}</div>`,
+        (view) => this._pickStartingLayout(ctx, chassis, value, view),
+        (view) =>
+          this._open(
+            { kind: 'layout', layout: view as Workspace.EditorWorkspace },
+            `layout:${view}`,
+          ),
       )}
       ${this._renderGridReconciliation(ctx)}
     </section>`;
   }
+
+  /**
+   * Writes the layout the card opens in, with the switcher's list it keeps, as one step.
+   *
+   * @param ctx - Schema context
+   * @param chassis - The chassis schemas
+   * @param value - The layout it opens in now
+   * @param view - The one picked
+   */
+  private _pickStartingLayout(
+    ctx: SchemaCtx,
+    chassis: Subforms.ChassisSchemas,
+    value: Types.EffectiveView,
+    view: string,
+  ): void {
+    const data = { view: value };
+    const kept = Chips.layoutsKeptOnStart(this._config!, value, view as Types.EffectiveView);
+    // The view, the Grid notice it brings and the switcher's list it keeps are one step.
+    this._commit(
+      this._string(ctx, 'history.change', { setting: this._string(ctx, 'view') }),
+      undefined,
+      () => {
+        this._writeOwned(
+          {
+            owner: WriteFrames.CARD_OWNER,
+            workspace: 'list',
+            schema: chassis.displayView,
+            data,
+          },
+          { view },
+        );
+        // After the view: the field's form counts the starting layout as offered, so under
+        // the old one the list would read as unchanged and write nothing.
+        if (kept !== undefined) {
+          this._writeFieldValue(WriteFrames.CARD_OWNER, Chips.SWITCHER_LAYOUTS_FIELD, kept);
+        }
+      },
+    );
+  }
+
+  /** The help's link: Card & Header, at the View Switcher chip, as a search result opens it. */
+  private _openSwitcher = (): void => {
+    const ctx = this._ctx;
+    this._openResult(
+      {
+        target: { kind: 'field', id: 'card:toolbar.view_switcher' as FieldId, page: 'card_header' },
+        label: this._string(ctx, 'layouts.help_switch_link'),
+      },
+      'layouts:switcher',
+      false,
+    );
+  };
 
   /**
    * A color field's spec, for describing its value: by the field's id where it has one, else by
@@ -5256,21 +5315,44 @@ export class CalendarCardProEditor extends LitElement {
       // Settings For gives way to the results, and the preview line stays above them.
       return html`${this._renderPreviewLine(ctx)} ${this._renderResults(ctx, present)}`;
     }
-    // No layout has a page of its own: each page is listed, and summarized in the scope.
-    const rows = PAGES.map((page) =>
+    // Calendars, then what the whole card shares, then the layouts, each a page of its own.
+    const shared = this._ctxIn('shared');
+    const sharedPresent = this._presentIn('shared');
+    const wholeRows = PAGES.filter((page) => WHOLE_CARD_PAGES.has(page.id)).map((page) =>
       Overview.navRow(
         {
           key: `nav:${page.id}`,
           iconPath: page.iconPath,
           title: this._pageTitle(page, ctx),
-          summary: this._summary(page, ctx, present),
+          summary: this._wholeSummary(page, shared, sharedPresent),
         },
         () => this._open({ kind: 'page', page: page.id }, `nav:${page.id}`),
       ),
     );
+    // Weather stays a Whole Card page until it is set per layout; the shared settings come last.
+    const weather = wholeRows.splice(
+      PAGES.filter((page) => WHOLE_CARD_PAGES.has(page.id)).findIndex(
+        (page) => page.id === 'weather',
+      ),
+      1,
+    );
+    const sharedRow = Overview.navRow(
+      {
+        key: 'nav:shared',
+        iconPath: mdiLayersOutline,
+        title: t('overview.shared_across'),
+        summary: t('overview.shared_across.summary'),
+      },
+      () => this._open({ kind: 'shared' }, 'nav:shared'),
+    );
     const calendars = this._renderCalendars(ctx);
-    return html`${calendars} ${this._renderDisplays(ctx, chassis)}
-    ${Overview.rowGroup(t('overview.settings'), rows, this._renderScope(ctx, true))}
+    return html`${calendars}
+    ${Overview.rowGroup(
+      t('overview.whole_card'),
+      [...wholeRows, ...weather, sharedRow],
+      html`<p class="hint frame-hint">${t('overview.whole_card.hint')}</p>`,
+    )}
+    ${this._renderLayouts(ctx, chassis)}
     ${Overview.rowGroup(t('overview.more'), [
       Overview.navRow(
         {
@@ -5283,6 +5365,60 @@ export class CalendarCardProEditor extends LitElement {
       ),
       Overview.exampleRow(t, this._openQuickSetup),
     ])}`;
+  }
+
+  /**
+   * A Whole Card page's row summary, read in the shared scope, Card & Header's naming the layout
+   * switcher too: "Layout Switcher: List, Grid, Month", or Off.
+   *
+   * @param page - The page
+   * @param ctx - Schema context, in the shared scope
+   * @param present - The fields built there
+   * @returns The line
+   */
+  private _wholeSummary(
+    page: PageDef,
+    ctx: SchemaCtx,
+    present: ReadonlyMap<FieldId, IndexedField>,
+  ): string {
+    const line = this._summary(
+      page,
+      ctx,
+      present,
+      this._formDataFor(this._config!, 'shared', this._pending),
+    );
+    if (page.id !== 'card_header') return line;
+    const offered = Config.switcherOffers(ctx.config);
+    const switcher =
+      offered.length === 0
+        ? this._string(ctx, 'summary.switcher_off')
+        : this._string(ctx, 'summary.switcher_on', {
+            layouts: offered.map((view) => this._layoutTitle(view, ctx)).join(', '),
+          });
+    return line === '' ? switcher : `${line}${Summary.SUMMARY_SEPARATOR}${switcher}`;
+  }
+
+  /**
+   * The fields built in a scope, for a summary read there.
+   *
+   * @param workspace - The scope
+   * @returns The fields
+   */
+  private _presentIn(workspace: Workspace.EditorWorkspace): ReadonlyMap<FieldId, IndexedField> {
+    return workspace === this._workspace
+      ? this._drawing!.present
+      : this._sharedPresent(this._ctxIn(workspace));
+  }
+
+  /**
+   * A layout's name: List, Columns, Grid, Month, or Layout Defaults.
+   *
+   * @param workspace - The layout, `shared` for Layout Defaults
+   * @param ctx - Schema context
+   * @returns The name
+   */
+  private _layoutTitle(workspace: Workspace.EditorWorkspace, ctx: SchemaCtx): string {
+    return this._string(ctx, `editing_workspace.option.${workspace}.label`);
   }
 
   /**
@@ -5619,7 +5755,7 @@ export class CalendarCardProEditor extends LitElement {
     const ctx = this._ctx;
     if (target.kind === 'ha-tab') return;
     if (target.kind === 'page') {
-      this._leaveResults({ kind: 'page', page: target.page }, focusKey);
+      this._leaveResults(this._scoped({ kind: 'page', page: target.page }), focusKey);
       void this._afterMove();
       return;
     }
@@ -5651,14 +5787,19 @@ export class CalendarCardProEditor extends LitElement {
     }
     switch (status.kind) {
       case 'other-layout': {
-        this._pickScope(status.views[0] as Workspace.EditorWorkspace);
-        // Once the scope has changed, the setting is chosen as that scope finds it.
-        void this.updateComplete.then(() => {
-          const found = this._searchIndex(this._ctx, this._drawing!.present).find(
-            (each) => this._resultKey(each.target) === focusKey,
-          );
-          if (found && found.status.kind !== 'other-layout') this._chooseResult(found, focusKey);
-        });
+        // Another layout's setting opens on that layout's page for its topic.
+        const views = status.views as ReadonlyArray<Workspace.EditorWorkspace>;
+        this._openResult(
+          { target, label: entry.label },
+          focusKey,
+          true,
+          () =>
+            this._string(ctx, 'search.showing_in', {
+              label: entry.label,
+              layout: this._layoutTitle(views[0], ctx),
+            }),
+          views[0],
+        );
         return;
       }
       case 'gated':
@@ -5749,7 +5890,7 @@ export class CalendarCardProEditor extends LitElement {
       search: { query: this._filter.query, editHere: this._editHere },
     };
     this._closeDisclosures();
-    this._nav = Navigation.go(this._nav, to, from);
+    this._nav = Navigation.go(this._nav, this._scoped(to), from);
     this._jump = this._resultsLeft = undefined;
   }
 
@@ -6225,8 +6366,9 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * A section page: its header, the scope it is edited for (or that it applies to the whole
-   * card), its note, its headings and Back at its foot.
+   * A section page: its header, named for the layout it edits or for the whole card, the line
+   * that jumps to the same topic in another layout, its note, its headings, the row walking on to
+   * the next topic, and Back at its foot.
    *
    * @param page - The page
    * @param ctx - Schema context
@@ -6234,20 +6376,163 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _renderPage(page: PageDef, ctx: SchemaCtx): TemplateResult {
     const t = this._t(ctx);
-    const scope = isWholeCard(page)
-      ? html`${PageView.pageLine(this._string(ctx, 'value_source.card'))}
-        ${this._renderPreviewLine(ctx)}`
-      : this._renderScope(ctx);
+    const route = this._nav.route;
+    const scope = route.kind === 'page' ? route.scope : undefined;
+    const whole = WHOLE_CARD_PAGES.has(page.id) || scope === undefined;
+    const sub = whole ? t('overview.whole_card') : this._layoutTitle(scope, ctx);
+    const lead = whole
+      ? PageView.pageLine(this._string(ctx, 'value_source.card'))
+      : this._renderAlsoFor(page, scope, ctx);
+    const next = whole ? undefined : this._nextTopic(page.id, scope);
     return html`<div class="page" data-page=${page.id}>
       ${PageView.pageHead(
         this._pageTitle(page, ctx),
         t,
         this._back,
         this._renderHeadActions(ctx, this._pageTitle(page, ctx)),
+        sub,
       )}
       ${this._renderPickBanner(ctx)} ${this._jumpDrawn() ? nothing : this._renderReturn(ctx)}
-      ${scope} ${page.noteKey ? PageView.pageLine(this._string(ctx, page.noteKey)) : nothing}
-      ${this._renderPageBody(page, ctx)} ${PageView.footBack(t, this._back, docsUrl(page.id))}
+      ${lead} ${this._renderPreviewLine(ctx)}
+      ${page.noteKey ? PageView.pageLine(this._string(ctx, page.noteKey)) : nothing}
+      ${this._renderPageBody(page, ctx)}
+      ${
+        next === undefined
+          ? nothing
+          : PageView.continueRow(
+              t('layouts.continue_with'),
+              `${this._layoutTitle(next.scope, ctx)} · ${this._pageTitle(next.page, ctx)}`,
+              () =>
+                this._open(
+                  { kind: 'page', page: next.page.id, scope: next.scope },
+                  'continue',
+                  'replace',
+                ),
+            )
+      }
+      ${PageView.footBack(t, this._back, docsUrl(page.id))}
+    </div>`;
+  }
+
+  /**
+   * A topic page's "Also for" line: the same topic in each other layout, and Layout Defaults.
+   *
+   * @param page - The topic
+   * @param scope - The layout it is open in
+   * @param ctx - Schema context
+   * @returns The line
+   */
+  private _renderAlsoFor(
+    page: PageDef,
+    scope: Workspace.EditorWorkspace,
+    ctx: SchemaCtx,
+  ): TemplateResult {
+    const others = [...ViewConfig.VIEWS, 'shared' as const].filter((each) => each !== scope);
+    return PageView.alsoFor(
+      this._string(ctx, 'layouts.also_for'),
+      others.map((each) => ({
+        label: this._layoutTitle(each, ctx),
+        key: `also:${each}`,
+        onOpen: () => {
+          // The same topic in another layout: a setting opened here stays open there.
+          const added = this._added;
+          this._open({ kind: 'page', page: page.id, scope: each }, `also:${each}`, 'replace');
+          this._added = added;
+        },
+      })),
+    );
+  }
+
+  /**
+   * Where a topic page's Continue row goes: the layout's next topic, else the next layout's first;
+   * the walk takes List, Columns, Grid and Month in turn and ends after Month, and Layout Defaults
+   * walks its own topics only.
+   *
+   * @param id - The topic open
+   * @param scope - The layout it is open in
+   * @returns The next topic and its layout, or `undefined` at the end
+   */
+  private _nextTopic(
+    id: PageId,
+    scope: Workspace.EditorWorkspace,
+  ): { readonly page: PageDef; readonly scope: Workspace.EditorWorkspace } | undefined {
+    const at = TOPIC_PAGES.findIndex((each) => each.id === id);
+    if (at < 0) return undefined;
+    if (at + 1 < TOPIC_PAGES.length) return { page: TOPIC_PAGES[at + 1], scope };
+    if (scope === 'shared') return undefined;
+    const view = ViewConfig.VIEWS[ViewConfig.VIEWS.indexOf(scope) + 1];
+    return view === undefined ? undefined : { page: TOPIC_PAGES[0], scope: view };
+  }
+
+  /**
+   * A layout's page: its name, a line saying it changes nothing on the card, and a row per topic,
+   * each summarized in the layout. Layout Defaults is the same page for the shared base.
+   *
+   * @param layout - The layout, `shared` for Layout Defaults
+   * @param ctx - Schema context, in the layout
+   * @returns The page
+   */
+  private _renderLayoutPage(layout: Workspace.EditorWorkspace, ctx: SchemaCtx): TemplateResult {
+    const t = this._t(ctx);
+    const present = this._drawing!.present;
+    const title = this._layoutTitle(layout, ctx);
+    const rows = TOPIC_PAGES.map((page) =>
+      Overview.navRow(
+        {
+          key: `nav:${page.id}`,
+          iconPath: page.iconPath,
+          title: this._pageTitle(page, ctx),
+          summary: this._summary(page, ctx, present),
+        },
+        () => this._open({ kind: 'page', page: page.id, scope: layout }, `nav:${page.id}`),
+      ),
+    );
+    return html`<div class="page layout-page" data-layout=${layout}>
+      ${PageView.pageHead(
+        title,
+        t,
+        this._back,
+        this._renderHeadActions(ctx, title),
+        layout === 'shared' ? t('overview.layouts') : t('layouts.layout'),
+      )}
+      ${this._renderPickBanner(ctx)}
+      ${PageView.pageLine(
+        layout === 'shared' ? t('settings_for.help_shared') : t('layouts.page_note'),
+      )}
+      ${this._renderPreviewLine(ctx)}
+      <section class="row-group"><div class="rows">${rows}</div></section>
+      ${PageView.footBack(t, this._back)}
+    </div>`;
+  }
+
+  /**
+   * Shared Across Layouts: the whole-card settings the layout topics hold, under one heading per
+   * topic, drawn as their topic pages draw them, in the shared scope.
+   *
+   * @param ctx - Schema context, in the shared scope
+   * @returns The page
+   */
+  private _renderSharedPage(ctx: SchemaCtx): TemplateResult {
+    const t = this._t(ctx);
+    const title = t('overview.shared_across');
+    const page: PageDef = {
+      id: 'which_events',
+      titleKey: 'overview.shared_across',
+      iconPath: mdiLayersOutline,
+      summary: [],
+      headings: sharedAcrossHeadings(),
+    };
+    return html`<div class="page shared-page" data-page="shared">
+      ${PageView.pageHead(
+        title,
+        t,
+        this._back,
+        this._renderHeadActions(ctx, title),
+        t('overview.whole_card'),
+      )}
+      ${this._renderPickBanner(ctx)} ${this._jumpDrawn() ? nothing : this._renderReturn(ctx)}
+      ${PageView.pageLine(t('overview.shared_across.note'))} ${this._renderPageBody(page, ctx)}
+      ${PageView.footBack(t, this._back)}
     </div>`;
   }
 
@@ -9248,11 +9533,15 @@ export class CalendarCardProEditor extends LitElement {
                 Navigation.routeKey(route),
                 route.kind === 'entry'
                   ? this._renderEntryPage(route.key, ctx)
-                  : route.kind === 'audit'
-                    ? this._renderAudit(ctx)
-                    : route.kind === 'notices'
-                      ? this._renderNotices(ctx)
-                      : this._renderPage(page!, ctx),
+                  : route.kind === 'layout'
+                    ? this._renderLayoutPage(route.layout, ctx)
+                    : route.kind === 'shared'
+                      ? this._renderSharedPage(ctx)
+                      : route.kind === 'audit'
+                        ? this._renderAudit(ctx)
+                        : route.kind === 'notices'
+                          ? this._renderNotices(ctx)
+                          : this._renderPage(page!, ctx),
               ),
         )}
         <div class="live-region" role="status" aria-live="polite">${this._spoken}</div>
@@ -10376,7 +10665,10 @@ export class CalendarCardProEditor extends LitElement {
           : [this._workspace, ...Workspace.WORKSPACES].find((each) =>
               entityFieldIndex(entrySchema(stored!, this._ctxIn(each))).fields.has(field.id),
             );
-      if (scope !== undefined && scope !== this._workspace) this._selectedWorkspace = scope;
+      // A calendar's page edits in the layout chosen; a card field's page carries its layout.
+      if (entry !== undefined && scope !== undefined && scope !== this._workspace) {
+        this._selectedWorkspace = scope;
+      }
       this._openStrip = undefined;
       this._openResult(
         {
@@ -10392,6 +10684,8 @@ export class CalendarCardProEditor extends LitElement {
         },
         `more:${stripKey}`,
         false,
+        undefined,
+        entry === undefined ? scope : undefined,
       );
     };
     return AuditView.auditRow({

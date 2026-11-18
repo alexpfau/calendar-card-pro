@@ -17,7 +17,8 @@ import { atPath, destination } from './routing';
 import { isColorNode } from './schemas/common';
 import { interpolate } from './strings';
 import { configKeysForField, isSet } from './synthetic';
-import type { EditorWorkspace } from './workspace';
+import { BLOCK_KEYS, type EditorWorkspace } from './workspace';
+import { OVERRIDE_BLOCK_BY_VIEW } from '../../config/view';
 
 /** Joins the parts of a summary. */
 export const SUMMARY_SEPARATOR = ' · ';
@@ -234,7 +235,8 @@ export function setCount(count: number, language: string): string {
  * Where the YAML stores a value for a card field in a scope, as configuration paths: its own
  * nested path, or, for a field on the card's root, where the scope writes each of its keys, a
  * layout's block or the top level. A top-level value a layout inherits is not stored in that
- * layout. Read from the field's id, so a field a gate holds back is counted all the same.
+ * layout, and another layout's block is not this scope's: Grid's hours are no value of List's
+ * Which Events. Read from the field's id, so a field a gate holds back is counted all the same.
  *
  * @param raw - Configuration as the YAML holds it
  * @param id - The field
@@ -247,6 +249,10 @@ export function storedPaths(
   workspace: EditorWorkspace,
 ): string[] {
   const { dataPath, name } = parseFieldId(id);
+  if (dataPath.length > 0 && BLOCK_KEYS.has(dataPath[0])) {
+    const own = workspace === 'shared' ? undefined : OVERRIDE_BLOCK_BY_VIEW[workspace];
+    if (dataPath[0] !== own) return [];
+  }
   const paths: Array<readonly [ReadonlyArray<string>, string]> =
     dataPath.length > 0
       ? [[dataPath, name]]

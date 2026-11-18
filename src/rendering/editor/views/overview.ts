@@ -5,53 +5,14 @@
  * templates live outside `element.ts`).
  */
 
-import {
-  mdiCheck,
-  mdiChevronRight,
-  mdiClose,
-  mdiCreation,
-  mdiEyeOutline,
-  mdiLayersOutline,
-} from '@mdi/js';
+import { mdiCheck, mdiChevronRight, mdiClose, mdiCreation, mdiEyeOutline } from '@mdi/js';
 import { type TemplateResult, html, nothing } from 'lit';
 import { live } from 'lit/directives/live.js';
 
 import { icon } from './icon';
-import { interpolate } from '../strings';
-import type { EditorWorkspace } from '../workspace';
 
 /** Resolves one of the editor's own strings by its literal key. */
 export type Translate = (key: string) => string;
-
-/** One choice of Settings For. */
-export interface ScopeChoice {
-  readonly value: EditorWorkspace;
-  readonly label: string;
-}
-
-/** What Settings For shows. */
-export interface ScopeModel {
-  /** Whether Change has opened the five choices under the line. */
-  readonly open: boolean;
-  readonly workspace: EditorWorkspace;
-  readonly choices: ReadonlyArray<ScopeChoice>;
-  /** The line under the open choices: what the chosen scope means where it is drawn. */
-  readonly help: string;
-  /** The preview line, where the preview draws another layout than the card opens in. */
-  readonly preview?: string;
-}
-
-/**
- * A template with one placeholder drawn bold, as "Settings for **List**".
- *
- * @param template - The sentence, holding `{layout}`
- * @param value - What fills it
- * @returns The sentence
- */
-function withBold(template: string, value: string): TemplateResult {
-  const [before, after = ''] = template.split('{layout}');
-  return html`${before}<b>${value}</b>${after}`;
-}
 
 /**
  * The preview line: "Preview shows Grid · The card opens in Month", led by an eye that is no part
@@ -64,82 +25,6 @@ export function previewLine(text: string): TemplateResult {
   return html`<p class="hint scope-preview">
     ${icon(mdiEyeOutline)}<span class="scope-preview-text">${text}</span>
   </p>`;
-}
-
-/**
- * Settings For: one compact line, "Settings for List · Change", where Change opens the five
- * choices under it in place, All Layouts on a row of its own over the four layouts, with a line on
- * what the chosen one means; then the preview line where the preview draws another layout than
- * the card opens in. The choices are one group of native radios in that order, so arrow keys move
- * across both rows and focus stays on the chosen one; choosing writes nothing and leaves them
- * open, and Change or Escape closes them again.
- *
- * @param model - What it shows
- * @param t - The editor's strings
- * @param onToggle - Change was pressed
- * @param onPick - A scope was chosen
- * @returns The control
- */
-export function scopeControl(
-  model: ScopeModel,
-  t: Translate,
-  onToggle: () => void,
-  onPick: (workspace: EditorWorkspace) => void,
-): TemplateResult {
-  const current = model.choices.find((choice) => choice.value === model.workspace);
-  const name = current?.label ?? '';
-  return html`<div class="scope-block">
-    <div class="scope scope-compact">
-      <span class="scope-lead"
-        >${icon(mdiLayersOutline)}<span class="scope-line"
-          >${withBold(t('settings_for.compact'), name)}</span
-        ></span
-      >
-      <button
-        type="button"
-        class="text-button"
-        data-focus="scope-change"
-        aria-label=${interpolate(t('settings_for.change_named'), { layout: name })}
-        aria-expanded=${model.open ? 'true' : 'false'}
-        aria-controls=${model.open ? 'scope-choices' : nothing}
-        @click=${onToggle}
-      >
-        ${t('settings_for.change')}
-      </button>
-    </div>
-    ${
-      model.open
-        ? html`<fieldset class="scope" id="scope-choices">
-            <legend class="visually-hidden">${t('settings_for.label')}</legend>
-            <div class="segmented-row">
-              <div class="segments">
-                ${model.choices.map(
-                  (choice) =>
-                    html`<label class="segment${choice.value === 'shared' ? ' segment-all' : ''}">
-                      <input
-                        type="radio"
-                        name="scope"
-                        value=${choice.value}
-                        data-focus=${`scope:${choice.value}`}
-                        .checked=${
-                          // Compared with the radio as it is, not as Lit last set it: after
-                          // Duplicate and Back, Home Assistant showed this group with nothing
-                          // checked.
-                          live(choice.value === model.workspace)
-                        }
-                        @change=${() => onPick(choice.value)}
-                      />
-                      <span>${choice.label}</span>
-                    </label>`,
-                )}
-              </div>
-            </div>
-            <p class="hint">${model.help}</p>
-          </fieldset>`
-        : nothing
-    }
-    ${model.preview === undefined ? nothing : previewLine(model.preview)}
-  </div>`;
 }
 
 /** One chip of a group of radio chips. */
@@ -259,6 +144,96 @@ export function displayControl(
     </div>
     ${helper ? html`<p class="hint">${helper}</p>` : nothing}
   </fieldset>`;
+}
+
+/** One layout's row under Layouts. */
+export interface LayoutChoice extends DisplayChoice {
+  /** The settings button's accessible name: "Grid Settings". */
+  readonly settingsName: string;
+}
+
+/**
+ * Layouts: a row per layout, each two targets side by side. The radio alone, in a zone of its
+ * own at the start, picks the layout the card opens in; the rest of the row, the layout's picture,
+ * name and description and a chevron, is one button that opens the layout's page and changes
+ * nothing. The radios are one group, so the arrow keys move the choice as Starting Layout's did;
+ * each row's button is a Tab stop of its own. The help sits above the rows, the note and Layout
+ * Defaults below them.
+ *
+ * @param legend - The radio group's name: Starting Layout
+ * @param help - The lines above the rows
+ * @param choices - The layouts
+ * @param value - The layout the card opens in
+ * @param note - The line under the rows
+ * @param after - What follows the note: Layout Defaults
+ * @param onPick - A layout was picked to open the card in
+ * @param onOpen - A layout's page was asked for
+ * @returns The block's body
+ */
+export function layoutsControl(
+  legend: string,
+  help: TemplateResult,
+  choices: ReadonlyArray<LayoutChoice>,
+  value: string,
+  note: string | undefined,
+  after: TemplateResult,
+  onPick: (view: string) => void,
+  onOpen: (view: string) => void,
+): TemplateResult {
+  return html`<div class="layouts-help">${help}</div>
+    <fieldset class="displays layouts">
+      <legend class="visually-hidden">${legend}</legend>
+      <div class="display-choices">
+        ${choices.map(
+          (choice) =>
+            html`<div class="display-choice layout-choice">
+              <label class="layout-pick">
+                <input
+                  type="radio"
+                  name="view"
+                  value=${choice.value}
+                  data-focus=${`view:${choice.value}`}
+                  aria-label=${choice.label}
+                  .checked=${
+                    // Compared with the radio as it is, not as Lit last set it.
+                    live(choice.value === value)
+                  }
+                  @change=${() => onPick(choice.value)}
+                />
+              </label>
+              <button
+                type="button"
+                class="layout-open"
+                data-focus=${`layout:${choice.value}`}
+                aria-label=${choice.settingsName}
+                aria-describedby=${`layout-${choice.value}-description`}
+                @click=${() => onOpen(choice.value)}
+              >
+                ${
+                  choice.image
+                    ? html`<img class="display-image" src=${choice.image} alt="" />`
+                    : nothing
+                }
+                <span class="display-text">
+                  <span class="display-label">${choice.label}</span>
+                  ${
+                    choice.description
+                      ? html`<span
+                          class="display-description"
+                          id=${`layout-${choice.value}-description`}
+                          >${choice.description}</span
+                        >`
+                      : nothing
+                  }
+                </span>
+                ${icon(mdiChevronRight, 'nav-chevron')}
+              </button>
+            </div>`,
+        )}
+      </div>
+      ${note ? html`<p class="hint">${note}</p>` : nothing}
+    </fieldset>
+    ${after}`;
 }
 
 /** One row that opens a page. */

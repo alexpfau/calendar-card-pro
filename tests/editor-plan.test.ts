@@ -381,18 +381,24 @@ describe('state words: every row of the stateOf table', () => {
   };
 
   it('a field with no per-layout copy', () => {
-    // On a whole-card page: "Set" when stored, nothing when not, in any scope.
+    // On a Whole Card page: "Set" when stored, nothing when not, in any scope.
     expect(words({ title: 'Family' }, 'grid', 'card:title')).toEqual({ words: { kind: 'set' } });
     expect(words({}, 'grid', 'card:title')).toBeUndefined();
-    // Elsewhere "Whole Card", or "Whole Card · Set", in every scope: never "Set for All Layouts".
+    expect(words({ refresh_interval: 15 }, 'grid', 'actions:refresh_interval')).toEqual({
+      words: { kind: 'set' },
+    });
+    // On a layout's topic: "Whole Card", or "Whole Card · Set", in every scope: never "Set for
+    // Layout Defaults".
     for (const workspace of ['shared', 'grid'] as const) {
-      expect(words({}, workspace, 'actions:refresh_interval'), workspace).toEqual({
+      expect(words({}, workspace, 'content:first_day_of_week'), workspace).toEqual({
         words: { kind: 'whole-card', stored: false },
       });
-      expect(words({ refresh_interval: 15 }, workspace, 'actions:refresh_interval')).toEqual({
-        words: { kind: 'whole-card', stored: true },
-      });
+      expect(
+        words({ first_day_of_week: 'monday' }, workspace, 'content:first_day_of_week'),
+      ).toEqual({ words: { kind: 'whole-card', stored: true } });
     }
+    // A whole-card setting some layout draws nothing for says where it does not apply.
+    expect(words({}, 'shared', 'actions:open_links')).toEqual({ notIn: ['grid'] });
   });
 
   it('a per-layout field in All Layouts', () => {

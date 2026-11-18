@@ -1,4 +1,5 @@
 {
+  "overview.shared_across.summary": "Start date, event type, day colours, time format",
   "color.calendar_color": "Calendar Colour",
   "color.follow_card.description": "The card's Accent Colour, {value}",
   "color.follow_ha.card": "Each calendar's colour in Home Assistant, where it holds one",

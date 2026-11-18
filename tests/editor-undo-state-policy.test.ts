@@ -39,9 +39,6 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_banner',
     // Whether a fresh card's first focus was placed.
     '_greeted',
-    // Settings For's choices open, and the place they were last drawn open in.
-    '_scopeOpen',
-    '_scopePlace',
     '_status',
     '_entryNotice',
     '_openStrip',
@@ -139,8 +136,10 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_localizeValue',
     '_back',
     '_onKeydown',
-    '_toggleScope',
-    '_pickScope',
+    '_openSwitcher',
+    '_previewConfig',
+    '_ctxMemos',
+    '_sharedPresent',
     '_describe',
     '_addButton',
     '_openQuickSetup',
