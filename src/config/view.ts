@@ -11,7 +11,7 @@ import {
   coercePixelLengthAgainst,
   normalizeEntities,
   normalizeNumericOptions,
-  resolveToolbar,
+  switcherOffers,
   toFontWeightCss,
   toValidNumber,
   toValidPercentage,
@@ -2768,14 +2768,14 @@ export function resolveMinDaysFallback(
 /**
  * The views this configuration can put on screen, whatever the width or the device.
  *
- * While the toolbar's view switcher is drawn, the layouts it offers: those `view_switcher` names
- * and `view`, in `VIEWS` order. Otherwise `view`. Either way, plus list when one of them falls
- * back to it for lack of room — that fallback draws list's own options, `days_to_show` included,
- * so list's count has to be loaded too.
+ * While the toolbar's view switcher is drawn, the layouts it offers (`switcherOffers`): `view`
+ * and those `view_switcher_layouts` names, in `VIEWS` order. Otherwise `view`. Either way, plus
+ * list when one of them falls back to it for lack of room — that fallback draws list's own
+ * options, `days_to_show` included, so list's count has to be loaded too.
  *
- * 🚨 The switcher counts only when the toolbar is shown. The shipped toolbar has
- * `view_switcher: true` and `show: false`, so reading the switcher flag alone would load
- * every view's range for nearly every card. Mirrors the card's `_wantsViewSwitcher`.
+ * 🚨 The switcher counts only when the toolbar is shown, which `switcherOffers` sees to. The
+ * shipped toolbar has `view_switcher: true` and `show: false`, so reading the switcher flag alone
+ * would load every view's range for nearly every card. Mirrors the card's `_wantsViewSwitcher`.
  *
  * Decided by configuration alone, never by width: a load that followed the width would
  * refetch whenever a tablet turned.
@@ -2784,12 +2784,8 @@ export function resolveMinDaysFallback(
  * @returns The reachable views, the configured `view` first when the switcher is not drawn
  */
 export function reachableViews(config: Types.Config): ReadonlyArray<Types.EffectiveView> {
-  const toolbar = resolveToolbar(config);
-  const view = config.view;
-  const shown =
-    toolbar.show && toolbar.viewSwitcher
-      ? VIEWS.filter((candidate) => candidate === view || toolbar.switcherViews.includes(candidate))
-      : [view];
+  const offered = switcherOffers(config);
+  const shown = offered.length > 0 ? offered : [config.view];
   const fallsBack = shown.some(
     (candidate) =>
       VIEWS_WITH_WIDTH_FALLBACK.has(candidate) &&

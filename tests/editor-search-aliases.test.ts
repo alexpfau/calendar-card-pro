@@ -103,6 +103,14 @@ const FAMILIES: Readonly<Record<string, Family>> = {
   },
   // Starting Layout's name before v6.
   'view.aliases': { field: 'starting_layout', scope: 'overview', queries: ['card displays'] },
+  // The control's own name, which the label of the setting that qualifies it inflects. English
+  // finds it through the key as well, which holds the same words; Swedish, Norwegian, Italian,
+  // Polish, Lithuanian and Latvian need words of their own (`aliases in each editor language`).
+  'toolbar.view_switcher_layouts.aliases': {
+    field: 'view_switcher_layouts',
+    scope: 'card',
+    queries: ['view switcher'],
+  },
 };
 
 /**
@@ -185,6 +193,23 @@ describe('aliases in each editor language', () => {
     );
     // The denominator: translated aliases exist, so the next test can tell the two apart.
     expect(translated.length).toBeGreaterThan(0);
+  });
+
+  it('find Layouts in Switcher by the View Switcher’s own name where the label does not', () => {
+    // Swedish names the control "Layoutväljare" and the setting "Layouter i väljaren", so the
+    // control's name finds the setting only through the Swedish words. English, German and a few
+    // others find it through the label or the key, so carry no words of their own.
+    const strings = EDITOR_LANGUAGE_STRINGS.sv as Record<string, string>;
+    const words = strings['toolbar.view_switcher_layouts.aliases'];
+    try {
+      delete strings['toolbar.view_switcher_layouts.aliases'];
+      expect(hits('sv', 'Layoutväljare', 'card')).toEqual(['view_switcher']);
+    } finally {
+      strings['toolbar.view_switcher_layouts.aliases'] = words;
+    }
+    expect(hits('sv', 'Layoutväljare', 'card')).toEqual(['view_switcher', 'view_switcher_layouts']);
+    expect(EDITOR_LANGUAGE_STRINGS.de['toolbar.view_switcher_layouts.aliases']).toBeUndefined();
+    expect(hits('de', 'Layout-Umschalter', 'card')).toContain('view_switcher_layouts');
   });
 
   it('find what German users call the settings where the labels say otherwise', () => {

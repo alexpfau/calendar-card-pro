@@ -42,7 +42,7 @@ const SWITCHER = { show: true, view_switcher: true };
 /** A shown switcher without month, whose weeks widen the load past any count (`loadConfig`). */
 const COUNTED_SWITCHER: Types.ToolbarConfig = {
   show: true,
-  view_switcher: ['list', 'column', 'grid'],
+  view_switcher_layouts: ['list', 'column', 'grid'],
 };
 
 function config(overrides: Partial<Types.Config> = {}): Types.Config {
@@ -128,28 +128,41 @@ describe('the views a card can show', () => {
     ['the switcher shown', { toolbar: SWITCHER }, ['list', 'column', 'grid', 'month']],
     [
       'a switcher offering some layouts, and the one the card opens in',
-      { view: 'column', toolbar: { show: true, view_switcher: ['month', 'grid'] } },
+      { view: 'column', toolbar: { show: true, view_switcher_layouts: ['month', 'grid'] } },
       ['column', 'grid', 'month', 'list'],
     ],
     [
       'a switcher offering month and the list the card opens in',
-      { toolbar: { show: true, view_switcher: ['month'] } },
+      { toolbar: { show: true, view_switcher_layouts: ['month'] } },
       ['list', 'month'],
     ],
     [
       'a switcher whose list names no layout, as no switcher',
-      { view: 'grid', toolbar: { show: true, view_switcher: [] } },
+      { view: 'grid', toolbar: { show: true, view_switcher_layouts: [] } },
+      ['grid', 'list'],
+    ],
+    [
+      'a switcher whose list names only the layout the card opens in, as no switcher',
+      { view: 'month', toolbar: { show: true, view_switcher_layouts: ['month'] } },
+      ['month'],
+    ],
+    [
+      'a switcher turned off, which keeps a list naming month',
+      {
+        view: 'grid',
+        toolbar: { show: true, view_switcher: false, view_switcher_layouts: ['month'] },
+      },
       ['grid', 'list'],
     ],
     [
       'a hidden toolbar whose switcher names month',
-      { toolbar: { show: false, view_switcher: ['month'] } },
+      { toolbar: { show: false, view_switcher_layouts: ['month'] } },
       ['list'],
     ],
     ['a month card', { view: 'month' }, ['month']],
     [
       'a month card whose switcher offers grid, which falls back to list',
-      { view: 'month', toolbar: { show: true, view_switcher: ['grid'] } },
+      { view: 'month', toolbar: { show: true, view_switcher_layouts: ['grid'] } },
       ['grid', 'month', 'list'],
     ],
     [

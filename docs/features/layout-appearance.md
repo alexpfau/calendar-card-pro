@@ -321,17 +321,21 @@ Each press redraws the same two days: as Columns, then as List, then as Grid aga
   [Grid View](/features/grid-view) for how much room each needs.
 - **The card's height follows its layout,** so other cards on the dashboard may move when it
   switches.
-- **Which layouts it offers.** All four by default. A list offers those it names, and the layout
-  in `view` always:
+- **Which layouts it offers.** All four by default. `view_switcher_layouts` offers those it
+  names, and the layout in `view` always, whether the list names it or not:
 
   ```yaml
   toolbar:
     show: true
-    view_switcher: [list, grid]
+    view_switcher_layouts: [list, grid]
   ```
 
-  `false` offers none. A card that can switch to Month loads its six weeks too, so leaving
-  `month` off the list keeps the card's load to its own days.
+  A layout left out is also left out of what the card loads: a card that can switch to Month
+  loads its six weeks too, so leaving `month` out keeps the card's load to its own days. A list
+  that comes to one layout, or none, draws no switcher. `view_switcher: false` turns the switcher
+  off and keeps the list for when it is turned back on. In the visual editor, the View Switcher
+  chip turns it on and off, and Layouts in Switcher, under the controls while it is on, offers a
+  chip per layout; the starting layout's chip stays pressed, and so does the last other one.
 
 ::: tip Nothing Switches While You Edit
 In the card editor's preview, and on a dashboard in edit mode, the card shows its configured

@@ -196,14 +196,17 @@ only with `show_current_week_number`. `week_number_color` and `week_number_font_
 
 The toolbar's [view switcher](/features/layout-appearance#switching-between-layouts) offers Month
 with the other layouts by default. Month shows six weeks, so a card that can switch to it loads
-those six weeks with its own days. To keep a card's loading small, list the layouts it offers
-and leave Month out:
+those six weeks with its own days. To keep a card's loading small, name the layouts the switcher
+offers in `view_switcher_layouts` and leave Month out:
 
 ```yaml
 toolbar:
   show: true
-  view_switcher: [list, grid]
+  view_switcher_layouts: [list, grid]
 ```
+
+In the visual editor, that is Layouts in Switcher under Card & Header › Toolbar: press Month to
+take it out.
 
 `hide_when_empty` counts Month's events only from the card's `start_date` on, so past events
 in the month never keep an otherwise empty card on screen.

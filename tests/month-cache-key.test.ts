@@ -168,18 +168,29 @@ describe('what home’s key tells apart', () => {
     // Month alone draws its six weeks; beside a list of as many days it loads to the list's end,
     // which on January 1 runs four days past the grid.
     const monthAlone = await keyOf(
-      { view: 'month', days_to_show: 42, toolbar: { show: true, view_switcher: ['month'] } },
+      {
+        view: 'month',
+        days_to_show: 42,
+        toolbar: { show: true, view_switcher_layouts: ['month'] },
+      },
       'monday',
     );
     const monthAndList = await keyOf(
       {
         view: 'month',
         days_to_show: 42,
-        toolbar: { show: true, view_switcher: ['list', 'month'] },
+        toolbar: { show: true, view_switcher_layouts: ['list', 'month'] },
       },
       'monday',
     );
     expect(monthAlone).not.toBe(monthAndList);
+    // A list naming only the layout the card opens in draws no switcher, and loads as none does.
+    expect(
+      await keyOf(
+        { view: 'month', days_to_show: 42, toolbar: { show: true, view_switcher: false } },
+        'monday',
+      ),
+    ).toBe(monthAlone);
   });
 
   it('leaves the keys of a card that cannot show Month as they were', async () => {

@@ -3,7 +3,7 @@
  * segments, the editor's layouts and the views a configuration can reach.
  *
  * A module of its own that imports nothing at runtime, so `config.ts` can read the toolbar's
- * `view_switcher` list against it without importing `view.ts`, which imports `config.ts`.
+ * `view_switcher_layouts` list against it without importing `view.ts`, which imports `config.ts`.
  * `view.ts` exports it again as `VIEWS`, which is where everything else reads it.
  */
 

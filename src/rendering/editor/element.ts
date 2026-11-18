@@ -1858,8 +1858,9 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * Opens what a part of the preview names, as a search result opens a field: its page, with the
-   * heading at the top and the first setting drawn under it marked and focused. A heading that
-   * lives in one layout's scope switches to it first, which is announced. The pick ends.
+   * heading at the top and the first setting drawn under it marked and focused, or the setting the
+   * part is where the map names one and it is drawn. A heading that lives in one layout's scope
+   * switches to it first, which is announced. The pick ends.
    *
    * @param part - The part
    */
@@ -1870,6 +1871,7 @@ export class CalendarCardProEditor extends LitElement {
     this._endPick(false);
     let route: Navigation.Route;
     let heading: string | undefined;
+    let field: FieldId | undefined;
     if ('calendar' in target) {
       const entries = this._config?.entities ?? [];
       const calendar = part.element.getAttribute('data-calendar');
@@ -1883,14 +1885,21 @@ export class CalendarCardProEditor extends LitElement {
       }
       route = { kind: 'page', page: target.page };
       heading = target.heading;
+      field = target.field;
     }
     this._open(route, 'pick', 'push', heading ?? '');
     void this.updateComplete.then(() => {
       const group = this.renderRoot.querySelector(
         `.page-group[data-heading="${CSS.escape(heading ?? '')}"]`,
       );
-      const id = group?.querySelector('[data-field]')?.getAttribute('data-field') as
-        FieldId | null | undefined;
+      const named =
+        field !== undefined && group?.querySelector(`[data-field="${CSS.escape(field)}"]`)
+          ? field
+          : undefined;
+      const id =
+        named ??
+        (group?.querySelector('[data-field]')?.getAttribute('data-field') as
+          FieldId | null | undefined);
       const say = () => this._string(ctx, 'search.showing', { label });
       if (!id) {
         // Nothing under it is drawn as a field: its heading takes focus instead.
@@ -2627,11 +2636,13 @@ export class CalendarCardProEditor extends LitElement {
     const composed =
       field.id === START_DATE_FIELD
         ? this._renderStartDate(field, ctx, show)
-        : field.id in Chips.CHIP_LABELS
-          ? this._renderLoneChip(field, ctx)
-          : field.id === LEGEND_FIELD
-            ? html`${this._segmentedControl(field, ctx, show?.words)} ${show?.line ?? nothing}`
-            : undefined;
+        : field.id === Chips.SWITCHER_LAYOUTS_FIELD
+          ? this._renderSwitcherLayouts(field, ctx, show)
+          : field.id in Chips.CHIP_LABELS
+            ? this._renderLoneChip(field, ctx)
+            : field.id === LEGEND_FIELD
+              ? html`${this._segmentedControl(field, ctx, show?.words)} ${show?.line ?? nothing}`
+              : undefined;
     if (composed !== undefined) return this._jumpedCardField(field, ctx, composed);
     const workspace = ctx.workspace ?? ctx.view;
     const slot = `field.${workspace}.${field.id}`;
@@ -6036,6 +6047,79 @@ export class CalendarCardProEditor extends LitElement {
       ],
       false,
     );
+  }
+
+  /**
+   * Layouts in Switcher as a toggle chip per layout, under its head row (`chips.ts` ›
+   * `layoutChips`): pressed for each layout the switcher offers, the starting layout's and, beside
+   * it alone, the one other layout's kept pressed with the reason drawn inside and read in its
+   * name. A press writes the whole list through `_writeFieldValue`, one undo step, so a press back
+   * to every layout leaves the default and its line goes.
+   *
+   * @param field - `card:toolbar.view_switcher_layouts`
+   * @param ctx - Schema context
+   * @param show - Its state words and the line under it
+   * @returns The field's wrapper and its chips
+   */
+  private _renderSwitcherLayouts(
+    field: IndexedField,
+    ctx: SchemaCtx,
+    show?: FieldShow,
+  ): TemplateResult {
+    const id = field.id;
+    const workspace = ctx.workspace ?? ctx.view;
+    const all = this._formDataFor(this._config!, workspace, this._pending);
+    const value = Routing.atPath(all, field.dataPath, field.node.name);
+    const offered: ReadonlyArray<unknown> = Array.isArray(value) ? value : [];
+    const starting = this._viewForConfig(this._config!);
+    const name = fieldLabel(field, ctx.language);
+    const text = this._fieldText(
+      `field.${workspace}.${id}`,
+      field,
+      ctx,
+      show?.words,
+      show?.describedBy === undefined,
+    );
+    const chips = Chips.layoutChips(offered, starting).map((chip): ChipsView.ChipModel => {
+      const label = this._string(ctx, `view.option.${chip.view}.label`);
+      const kept =
+        chip.kept === undefined
+          ? undefined
+          : chip.kept === 'starting'
+            ? this._string(ctx, 'chip.kept_starting')
+            : this._string(ctx, 'chip.kept_second');
+      return {
+        id: `${id}.${chip.view}`,
+        value: chip.view,
+        label,
+        name: kept === undefined ? label : `${label}, ${kept}`,
+        pressed: chip.pressed,
+        kept,
+        onPress: () => {
+          const next = Chips.pressLayout(offered, starting, chip.view);
+          if (next === undefined) return;
+          this._commit(
+            this._string(ctx, 'history.change', { setting: name }),
+            undefined,
+            () => this._writeFieldValue(WriteFrames.CARD_OWNER, id, next, workspace),
+            `field:${id}`,
+          );
+        },
+      };
+    });
+    const helper = show?.describedBy === undefined ? text.helper(field.node) : undefined;
+    return html`<div
+      class="field"
+      data-field=${id}
+      data-composed="layouts"
+      tabindex="-1"
+      role="group"
+      aria-label=${text.group}
+      aria-describedby=${show?.describedBy ?? nothing}
+    >
+      ${ChipsView.chipGroup(name, chips, false, false)}
+      ${helper ? html`<p class="hint">${helper}</p>` : nothing} ${show?.line ?? nothing}
+    </div>`;
   }
 
   /**

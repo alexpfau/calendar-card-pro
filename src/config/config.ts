@@ -203,6 +203,7 @@ export const DEFAULT_CONFIG: Types.Config = {
     navigation: true,
     add_event: true,
     view_switcher: true,
+    view_switcher_layouts: ['list', 'column', 'grid', 'month'],
     reset: false,
     refresh: true,
     search: true,
@@ -398,11 +399,11 @@ export interface ResolvedToolbar {
   show: boolean;
   navigation: boolean;
   addEvent: boolean;
-  /** Whether a layout switcher may be drawn: `switcherViews` names at least one layout. */
+  /** Whether the layout switcher is on: drawn while it offers two layouts that fit. */
   viewSwitcher: boolean;
   /**
-   * The layouts `view_switcher` names, in `VIEWS` order: every one for `true`, none for `false`.
-   * The switcher offers these and the card's own `view`.
+   * The layouts `view_switcher_layouts` names, in `VIEWS` order, each once: every layout by
+   * default. The switcher offers these and the card's own `view` (`switcherOffers`).
    */
   switcherViews: ReadonlyArray<Types.EffectiveView>;
   reset: boolean;
@@ -440,10 +441,13 @@ export function resolveToolbar(config: Readonly<Pick<Types.Config, 'toolbar'>>):
     ? config.toolbar
     : {};
   const read = (
-    key: Exclude<keyof Types.ToolbarConfig, 'legend' | 'buttons' | 'view_switcher'>,
+    key: Exclude<keyof Types.ToolbarConfig, 'legend' | 'buttons' | 'view_switcher_layouts'>,
   ): boolean =>
     typeof block[key] === 'boolean' ? (block[key] as boolean) : (defaults[key] as boolean);
-  const switcherViews = resolveSwitcherViews(block.view_switcher, defaults.view_switcher);
+  const switcherViews = resolveSwitcherViews(
+    block.view_switcher_layouts,
+    defaults.view_switcher_layouts,
+  );
   const legend = TOOLBAR_LEGEND_VALUES.includes(block.legend as false | Types.ToolbarLegendMode)
     ? (block.legend as false | Types.ToolbarLegendMode)
     : defaults.legend;
@@ -452,7 +456,7 @@ export function resolveToolbar(config: Readonly<Pick<Types.Config, 'toolbar'>>):
     show: read('show'),
     navigation: read('navigation'),
     addEvent: read('add_event'),
-    viewSwitcher: switcherViews.length > 0,
+    viewSwitcher: read('view_switcher'),
     switcherViews,
     reset: read('reset'),
     refresh: read('refresh'),
@@ -463,32 +467,57 @@ export function resolveToolbar(config: Readonly<Pick<Types.Config, 'toolbar'>>):
 }
 
 /**
- * The layouts a `view_switcher` value names, in `VIEWS` order: every layout for `true`, none for
- * `false`, and for a list its members that name a layout, each once. A value of any other kind
- * reads as the default. A list naming no layout, empty or not, reads as `false`.
+ * The layouts a `view_switcher_layouts` value names, in `VIEWS` order: for a list, its members
+ * that name a layout, each once, so an empty list names none. A value of any other kind reads as
+ * the default.
  *
- * @param value - `view_switcher` as written
+ * @param value - `view_switcher_layouts` as written
  * @param fallback - The shipped default, for a value of the wrong kind
  * @returns The layouts named
  */
 function resolveSwitcherViews(
   value: unknown,
-  fallback: boolean | Types.EffectiveView[],
+  fallback: ReadonlyArray<Types.EffectiveView>,
 ): ReadonlyArray<Types.EffectiveView> {
-  const named = typeof value === 'boolean' || Array.isArray(value) ? value : fallback;
-  if (named === true) return VIEWS;
-  if (named === false) return [];
+  const named: ReadonlyArray<unknown> = Array.isArray(value) ? value : fallback;
   return VIEWS.filter((view) => named.includes(view));
 }
 
 /**
- * The `toolbar.view_switcher` members the card leaves out, as written: each that names no layout.
+ * The layouts the toolbar's view switcher offers: the card's own `view` and those
+ * `view_switcher_layouts` names, in `VIEWS` order, while the toolbar is shown with its switcher
+ * on and that comes to two or more. None otherwise, since a switcher of one layout is not drawn.
+ * Whether each fits the card's width is the card's to decide.
+ *
+ * 🚨 The switcher counts only when the toolbar is shown. The shipped toolbar has
+ * `view_switcher: true` and `show: false`, so reading the switcher flag alone would offer every
+ * layout on nearly every card.
+ *
+ * @param config - Configuration, merged or raw
+ * @returns The layouts offered, or none
+ */
+export function switcherOffers(
+  config: Readonly<Pick<Types.Config, 'toolbar' | 'view'>>,
+): ReadonlyArray<Types.EffectiveView> {
+  const toolbar = resolveToolbar(config);
+  if (!toolbar.show || !toolbar.viewSwitcher) return [];
+  const offered = VIEWS.filter(
+    (view) => view === config.view || toolbar.switcherViews.includes(view),
+  );
+  return offered.length >= 2 ? offered : [];
+}
+
+/**
+ * The `toolbar.view_switcher_layouts` members the card leaves out, as written: each that names
+ * no layout.
  *
  * @param config - Configuration, merged or raw
  * @returns The members left out, in the order written
  */
 export function unknownSwitcherViews(config: Readonly<Pick<Types.Config, 'toolbar'>>): unknown[] {
-  const list = Helpers.isConfigBlock(config.toolbar) ? config.toolbar.view_switcher : undefined;
+  const list = Helpers.isConfigBlock(config.toolbar)
+    ? config.toolbar.view_switcher_layouts
+    : undefined;
   return Array.isArray(list)
     ? list.filter((member) => !VIEWS.includes(member as Types.EffectiveView))
     : [];

@@ -47,6 +47,30 @@ export function select(
 }
 
 /**
+ * A list of some of a fixed set of values, which the editor draws as toggle chips of its own
+ * (`chips.ts`), one per value, rather than as Home Assistant's checkbox list.
+ *
+ * @param language - Effective language code
+ * @param name - Config key
+ * @param values - Option values, in the order they should appear
+ * @param labelKey - Key the option labels are named under, when not the field's own name
+ * @returns The field
+ */
+export function multiSelect(
+  language: string,
+  name: string,
+  values: ReadonlyArray<string | number>,
+  labelKey: string = name,
+): SelectorSchema {
+  return {
+    name,
+    selector: {
+      select: { mode: 'list', multiple: true, options: options(language, labelKey, values) },
+    },
+  };
+}
+
+/**
  * A checkbox.
  *
  * @param name - Config key

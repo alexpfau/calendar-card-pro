@@ -1935,15 +1935,28 @@ composed control, with a form standing in that holds the field's own schema: `ch
 a chip where it is not already as asked (true or false only) or picks a radio, and `valueOf`,
 `labelOf` and `formOf` read it as they read a form.
 
+**One field's values can be chips too, under its own head row.** Layouts in Switcher
+(`toolbar.view_switcher_layouts`) is an ordinary `'add'` field that folds and resets as any
+other, and `_renderField` draws its control as a chip per layout (`chips.ts` › `layoutChips`,
+`data-composed="layouts"` on its wrapper, each chip's layout in `data-value`, no `data-field` on
+a chip, so the wrapper is the one element `[data-field]` finds). A press writes the whole list
+through `_writeFieldValue`. Two chips can be kept pressed, `aria-disabled` but focusable with the
+reason inside and in the name: the starting layout's, and the last other one's, so the editor
+never writes a list offering one layout, and never turns the switcher off, which is the View
+Switcher chip's alone. `changeField` asks it for the whole list and presses each chip that differs,
+drawing between presses.
+
 ### Pick From Preview reads the card's class names
 
 Pick From Preview (`pick.ts`, `views/pick.ts`) maps the card's own class names to the page and
-heading each part opens, so those class names are a contract with the editor. It lives in the
-editor alone: it finds the card in Home Assistant's dialog by the card's tag, with `preview` set,
-in the shadow root holding the editor's host or one shadow root below it (a sections dashboard
-previews the card inside a section), and only while a pick is on adds a style, an outline and
-capture-phase listeners to the card's shadow root. The card ships no byte of it. A dashboard's own
-cards also run with `preview` set while it is edited, so the search must never reach further.
+heading each part opens, and where a part is one setting, as the view switcher is Layouts in
+Switcher, to that setting (`PickTarget.field`), so those class names are a contract with the
+editor. It lives in the editor alone: it finds the card in Home Assistant's dialog by the card's
+tag, with `preview` set, in the shadow root holding the editor's host or one shadow root below it
+(a sections dashboard previews the card inside a section), and only while a pick is on adds a
+style, an outline and capture-phase listeners to the card's shadow root. The card ships no byte
+of it. A dashboard's own cards also run with `preview` set while it is edited, so the search must
+never reach further.
 
 `tests/editor-pick-map.test.ts` renders the card in every layout, Month wide and compact, and fails
 on a selector that matches nothing, on a drawn leaf that reaches only a catch-all, and on any change to what each

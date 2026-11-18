@@ -24,12 +24,22 @@ import { TOOLBAR_BUTTON_ICON } from '../schemas/card';
 export interface ChipModel {
   /** Its field's id, which focus after Undo and a search's jump find it by. */
   readonly id: string;
+  /**
+   * The value it stands for, where it is one of a field's values rather than a field of its own
+   * (Layouts in Switcher's layouts). Such a chip names its value, and its field is its group's.
+   */
+  readonly value?: string;
   readonly label: string;
   /** Its accessible name: the label, then the state words where a value is stored. */
   readonly name: string;
   readonly pressed: boolean;
   /** Why it cannot be pressed now ("Needs Time"); a chip with a reason is disabled. */
   readonly needs?: string;
+  /**
+   * Why it stays as it is ("Starting Layout"): drawn inside it as `needs` is, and read in its
+   * name, which carries it. A kept chip is disabled too.
+   */
+  readonly kept?: string;
   /** "YAML: list.show_time", while Show YAML Option Names is on. */
   readonly yaml?: string;
   readonly onPress: () => void;
@@ -38,40 +48,53 @@ export interface ChipModel {
 /**
  * A group of toggle chips: native buttons with `aria-pressed` and a check while pressed. A
  * chip that cannot be pressed is still drawn and still focusable, with `aria-disabled` and its
- * reason as its description, so the reason is read where the chip is.
+ * reason as its description, or in its name where it is kept as it is, so the reason is read
+ * where the chip is.
  *
  * @param label - The group's name: "Event Details", "Controls"
  * @param chips - The chips, in order
  * @param shown - Whether the name is drawn above the chips, where no heading says it
+ * @param grouped - Whether the chips are a group of their own; not where the field's own wrapper
+ *   already groups them under the same name
  * @returns The group
  */
 export function chipGroup(
   label: string,
   chips: ReadonlyArray<ChipModel>,
   shown: boolean,
+  grouped = true,
 ): TemplateResult {
   return html`${shown ? html`<p class="label">${label}</p>` : nothing}
-    <div class="chip-group" role="group" aria-label=${label} tabindex="-1">
+    <div
+      class="chip-group"
+      role=${grouped ? 'group' : nothing}
+      aria-label=${grouped ? label : nothing}
+      tabindex=${grouped ? '-1' : nothing}
+    >
       ${chips.map((chip) => {
         const why = chip.needs === undefined ? undefined : `needs-${chip.id.replace(/\W/g, '-')}`;
+        const locked = why !== undefined || chip.kept !== undefined;
         // A chip that can be pressed is composed for its field; one a gate withholds stands for
-        // no field built here.
+        // no field built here, and one standing for a value is its group's to compose.
         return html`<button
           type="button"
           class="chip"
-          data-field=${chip.id}
-          data-composed=${why === undefined ? 'toggle' : nothing}
+          data-field=${chip.value === undefined ? chip.id : nothing}
+          data-value=${chip.value ?? nothing}
+          data-composed=${chip.value === undefined && why === undefined ? 'toggle' : nothing}
           aria-label=${chip.name}
           aria-pressed=${chip.pressed ? 'true' : 'false'}
-          aria-disabled=${why === undefined ? nothing : 'true'}
+          aria-disabled=${locked ? 'true' : nothing}
           aria-describedby=${why ?? nothing}
           title=${chip.yaml ?? nothing}
-          @click=${why === undefined ? chip.onPress : nothing}
+          @click=${locked ? nothing : chip.onPress}
         >
           ${chip.pressed ? icon(mdiCheck) : nothing}<span>${chip.label}</span>${
             why === undefined
               ? nothing
               : html`<span class="chip-needs" id=${why}>${chip.needs}</span>`
+          }${
+            chip.kept === undefined ? nothing : html`<span class="chip-needs">${chip.kept}</span>`
           }${chip.yaml ? html`<code class="chip-yaml">${chip.yaml}</code>` : nothing}
         </button>`;
       })}

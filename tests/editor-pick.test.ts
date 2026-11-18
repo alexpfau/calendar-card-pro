@@ -250,6 +250,28 @@ describe('Pick From Preview', () => {
     expect(said).toContain('Showing Event Appearance › Location.');
   });
 
+  it('opens Layouts in Switcher for the view switcher, under the Controls that turn it off', async () => {
+    const { editor, card } = await dialog();
+    pickButton(editor)!.click();
+    await settle(editor, card);
+    const said = listen(editor);
+    const switcher = card.shadowRoot!.querySelector('.view-switcher .view-switcher-segment')!;
+    fire(switcher, 'pointermove', { pointerType: 'mouse' });
+    expect(card.shadowRoot!.querySelector('.ccp-pick-label')!.textContent).toBe(
+      'Card & Header › Toolbar · Click to Edit',
+    );
+    fire(switcher, 'click');
+    await settle(editor, card);
+    // Not the toolbar's first setting, Show Toolbar: the one that says what the switcher offers,
+    // opened from its fold to its chips.
+    const jump = $(editor, '.page-group[data-heading="heading_toolbar"] .jump [data-field]');
+    expect(jump?.getAttribute('data-field')).toBe('card:toolbar.view_switcher_layouts');
+    expect(
+      editor.shadowRoot!.querySelectorAll('[data-composed="layouts"] button.chip'),
+    ).toHaveLength(4);
+    expect(said).toContain('Showing Card & Header › Toolbar.');
+  });
+
   it('opens a legend chip’s calendar on its own page', async () => {
     const { editor, card } = await dialog();
     pickButton(editor)!.click();

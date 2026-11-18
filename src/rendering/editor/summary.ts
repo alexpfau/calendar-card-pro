@@ -53,8 +53,13 @@ export function wordValue(
   if ('boolean' in selector) {
     return value === true ? lookup(language, 'summary.on') : lookup(language, 'summary.off');
   }
+  if ('select' in selector && selector.select?.multiple) {
+    return Array.isArray(value)
+      ? listWords(field, value, (selector.select.options ?? []) as Options, language)
+      : undefined;
+  }
   if ('select' in selector) {
-    const options = (selector.select?.options ?? []) as ReadonlyArray<SelectOption | string>;
+    const options = (selector.select?.options ?? []) as Options;
     for (const option of options) {
       if (typeof option === 'string') {
         if (option === value) return option;
@@ -68,6 +73,37 @@ export function wordValue(
     return value === undefined || value === null || value === '' ? undefined : String(value);
   }
   return describe?.(field, value);
+}
+
+/** A dropdown's options, labeled or bare. */
+type Options = ReadonlyArray<SelectOption | string>;
+
+/**
+ * Words a list of some of a field's options: their labels, in the options' order. Layouts in
+ * Switcher offering every layout reads as that, rather than as four names.
+ *
+ * @param field - Indexed field
+ * @param value - The values chosen
+ * @param options - The options offered
+ * @param language - Editor language
+ * @returns The words, or `undefined` for a list choosing none
+ */
+function listWords(
+  field: Pick<IndexedField, 'node'>,
+  value: ReadonlyArray<unknown>,
+  options: Options,
+  language: string,
+): string | undefined {
+  const chosen = options.filter((option) =>
+    value.includes(typeof option === 'string' ? option : option.value),
+  );
+  if (chosen.length === 0) return undefined;
+  if (field.node.name === 'view_switcher_layouts' && chosen.length === options.length) {
+    return lookup(language, 'summary.all_layouts');
+  }
+  return chosen
+    .map((option) => (typeof option === 'string' ? option : option.label))
+    .join(SUMMARY_SEPARATOR);
 }
 
 /**

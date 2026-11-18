@@ -916,6 +916,7 @@ export const VIEW_FORM_BLOCKS: Readonly<
  * Most controls default on inside a shown toolbar, so binding the block raw would show them
  * unticked under a freshly switched-on toolbar while the card draws them. Read through
  * `resolveToolbar`, so a malformed value shows as the default the card reads it as.
+ * `view_switcher_layouts` shows the layouts the switcher offers, the starting one among them.
  * {@link stripToolbarDefaults} takes the defaults back out on write. The legend's `false` shows
  * as `off`, since a dropdown's values are strings (`LEGEND_OFF`).
  *
@@ -938,6 +939,14 @@ export function toolbarFormBlock(config: Readonly<Types.Config>): Record<string,
       if (key === 'buttons') {
         const written = Helpers.isConfigBlock(config.toolbar) ? config.toolbar.buttons : undefined;
         return [key, Array.isArray(written) ? written : []];
+      }
+      // The layouts the switcher offers, the starting one always among them, as its chips show.
+      if (key === 'view_switcher_layouts') {
+        const named = toolbar.switcherViews as ReadonlyArray<Types.EffectiveView>;
+        return [
+          key,
+          ViewConfig.VIEWS.filter((view) => view === config.view || named.includes(view)),
+        ];
       }
       const value = toolbar[resolvedName(key)];
       return [key, key === 'legend' && value === false ? LEGEND_OFF : value];

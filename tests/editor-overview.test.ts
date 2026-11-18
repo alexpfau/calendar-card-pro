@@ -64,6 +64,11 @@ describe('Settings For', () => {
     expect(isCompactScope(noSwitcher, merged(noSwitcher), 'list', false)).toBe(true);
     const hidden = { ...LIST_CARD, toolbar: { show: false, view_switcher: true } };
     expect(isCompactScope(hidden, merged(hidden), 'list', false)).toBe(true);
+    // A switcher whose layouts come to the displayed one alone is no switcher.
+    const alone = { ...LIST_CARD, toolbar: { show: true, view_switcher_layouts: ['list'] } };
+    expect(isCompactScope(alone, merged(alone), 'list', false)).toBe(true);
+    const two = { ...LIST_CARD, toolbar: { show: true, view_switcher_layouts: ['month'] } };
+    expect(isCompactScope(two, merged(two), 'list', false)).toBe(false);
   });
 
   // The line shows whenever the scope is not the displayed layout, and a

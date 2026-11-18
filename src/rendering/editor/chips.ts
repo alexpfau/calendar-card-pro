@@ -7,6 +7,9 @@
  * Which fields are chips is the page registry's (`{ chips: 'parts' | 'toolbar' }`); this module
  * only names each one's short label (`chip-labels.ts`), a table `tests/editor-chips.test.ts` pins
  * by value and reconciles against the registry in both directions.
+ *
+ * A third family is one field's values rather than fields: Layouts in Switcher draws a chip per
+ * layout under its own head row (`layoutChips`), and a press writes the whole list.
  */
 
 import { CHIP_LABELS } from './chip-labels';
@@ -15,7 +18,8 @@ import { GATES, type GateData, firstUnmet, needsText } from './gates';
 import { PAGES } from './pages';
 import { configKeysForField } from './synthetic';
 import { type EditorWorkspace, viewForWorkspace } from './workspace';
-import { appliesToView } from '../../config/view';
+import type * as Types from '../../config/types';
+import { VIEWS, appliesToView } from '../../config/view';
 
 export { CHIP_LABELS };
 
@@ -91,4 +95,72 @@ export function needsPart(
   const unmet = firstUnmet(gate, data);
   if (unmet !== undefined && unmet.field in CHIP_LABELS) return chipLabel(unmet.field);
   return needsText(gate, data, language, labelOf);
+}
+
+/** The field drawn as a chip per layout: the layouts the toolbar's View Switcher offers. */
+export const SWITCHER_LAYOUTS_FIELD: FieldId = 'card:toolbar.view_switcher_layouts';
+
+/**
+ * Why a layout's chip stays pressed: it is the starting layout, which the switcher always offers,
+ * or the one other layout offered, without which the switcher would offer one and not be drawn.
+ */
+export type LayoutKept = 'starting' | 'second';
+
+/** One layout's chip under Layouts in Switcher. */
+export interface LayoutChip {
+  readonly view: Types.EffectiveView;
+  readonly pressed: boolean;
+  /** Why it cannot be pressed off; absent for a chip that can be pressed. */
+  readonly kept?: LayoutKept;
+}
+
+/**
+ * Layouts in Switcher's chips, one per layout in `VIEWS` order: pressed for each layout the
+ * switcher offers, the starting layout always among them. The starting layout's chip is kept
+ * pressed, and while it has one other layout beside it so is that one's, so no press leaves a
+ * switcher of one layout, which the card would not draw. Turning the switcher off is View
+ * Switcher's, never this field's.
+ *
+ * @param offered - The layouts offered, as the field's form holds them
+ * @param starting - The layout the card opens in
+ * @returns The chips
+ */
+export function layoutChips(
+  offered: ReadonlyArray<unknown>,
+  starting: Types.EffectiveView,
+): LayoutChip[] {
+  const on = (view: Types.EffectiveView): boolean => view === starting || offered.includes(view);
+  const others = VIEWS.filter((view) => view !== starting && on(view));
+  return VIEWS.map((view) => {
+    const kept: LayoutKept | undefined =
+      view === starting
+        ? 'starting'
+        : others.length === 1 && others[0] === view
+          ? 'second'
+          : undefined;
+    return kept === undefined ? { view, pressed: on(view) } : { view, pressed: on(view), kept };
+  });
+}
+
+/**
+ * The list a press on a layout's chip writes: the layouts offered with that one turned on or off,
+ * the starting layout among them, in `VIEWS` order, so the stored list says everything the
+ * switcher offers and keeps offering it if the starting layout changes.
+ *
+ * @param offered - The layouts offered, as the field's form holds them
+ * @param starting - The layout the card opens in
+ * @param view - The layout pressed
+ * @returns The list, or `undefined` for a chip that is kept
+ */
+export function pressLayout(
+  offered: ReadonlyArray<unknown>,
+  starting: Types.EffectiveView,
+  view: Types.EffectiveView,
+): Types.EffectiveView[] | undefined {
+  const chips = layoutChips(offered, starting);
+  const chip = chips.find((each) => each.view === view);
+  if (chip === undefined || chip.kept !== undefined) return undefined;
+  return chips
+    .filter((each) => (each.view === view ? !each.pressed : each.pressed))
+    .map((each) => each.view);
 }

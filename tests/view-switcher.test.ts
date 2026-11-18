@@ -595,7 +595,7 @@ describe('narrow cards', () => {
     // Month left off: it has no width it falls back from, so it always fits.
     const card = await mount({
       time_grid: { min_days_to_show: 7 },
-      toolbar: { ...SWITCHER_ONLY, view_switcher: ['list', 'column', 'grid'] },
+      toolbar: { ...SWITCHER_ONLY, view_switcher_layouts: ['list', 'column', 'grid'] },
     });
     await measure(card, NARROW);
 
@@ -1000,14 +1000,14 @@ describe('words or pictograms', () => {
     // Fewer layouts on offer: each one left out gives back its word and the segment's padding.
     [
       'a switcher offering the list and month',
-      { view_switcher: ['list', 'month'] },
+      { view_switcher: true, view_switcher_layouts: ['list', 'month'] },
       WITH_SWITCHER - (2 * PADDING + WORD.column) - (2 * PADDING + WORD.grid),
       2,
       2,
     ],
     [
       'a switcher offering grid, beside the list the card opens in, and add',
-      { view_switcher: ['grid'], add_event: true },
+      { view_switcher: true, view_switcher_layouts: ['grid'], add_event: true },
       WITH_SWITCHER - (2 * PADDING + WORD.column) - (2 * PADDING + WORD.month) + ICON,
       3,
       2,

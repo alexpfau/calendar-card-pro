@@ -159,9 +159,9 @@ since a calendar's settings apply to every layout, and nor does a page whose set
 the whole card. The overview edits nothing a layout holds, so it has none either: its section rows
 and search results show the values for the layout Settings For last chose.
 
-On a card that stores values only for the layout it shows, and has no view switcher in its
-toolbar, Settings For takes one line, **Settings for List · Change**; **Change** opens the five
-choices.
+On a card that stores values only for the layout it shows, and has no view switcher offering
+another layout in its toolbar, Settings For takes one line, **Settings for List · Change**;
+**Change** opens the five choices.
 
 - **All Layouts** edits the shared base, the top level, which each layout falls back to. It
   offers only the options that have a shared meaning, so a layout-specific one is never written
@@ -628,8 +628,9 @@ a search result opens one.
 - One pick turns it off again, and so do **Cancel**, Escape, the button itself, and moving
   anywhere else in the editor. **Back** returns to where you were.
 - The preview's own taps, holds and Grid's drag do nothing while it is on.
-- A legend chip opens its calendar's page. A part only one layout has, such as the Grid's hour
-  labels, switches **Settings For** to that layout first and says so.
+- A legend chip opens its calendar's page, and the view switcher opens **Layouts in Switcher**,
+  just under the **View Switcher** chip that turns it off. A part only one layout has, such as
+  the Grid's hour labels, switches **Settings For** to that layout first and says so.
 - A heading's first setting opens there, as a search result does, even where it was folded.
 - On a phone the preview sits below the editor. Tap a part once to outline it, then tap it again
   to open it; the editor scrolls back up to the setting.

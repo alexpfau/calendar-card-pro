@@ -233,6 +233,8 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['card:toolbar.refresh', CONTROL],
           ['card:toolbar.search', CONTROL],
           ['card:toolbar.navigation', CONTROL],
+          // Right after the controls: it qualifies one of them, and matters only while it is on.
+          ['card:toolbar.view_switcher_layouts', A],
           ['card:toolbar.legend', 'segmented'],
         ],
       },

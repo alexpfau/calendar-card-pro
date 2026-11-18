@@ -5,7 +5,7 @@
 import type { HaFormSchema } from './ha-form';
 import { select } from './schemas/common';
 import { isSet as holdsValue } from './synthetic';
-import { DEFAULT_CONFIG, resolveToolbar } from '../../config/config';
+import { DEFAULT_CONFIG, switcherOffers } from '../../config/config';
 import type * as Types from '../../config/types';
 import { OVERRIDE_BLOCK_BY_VIEW, VIEWS, resolveViewOption } from '../../config/view';
 import { hasOwn, isConfigBlock } from '../../utils/helpers';
@@ -152,11 +152,11 @@ export function storedCount(
 
 /**
  * Whether Settings For shows as its one compact line, "Settings for List · Change", rather
- * than as the four choices.
+ * than as the five choices.
  *
  * Compact until the scope is changed or Change is pressed, for the rest of the session; while
- * the toolbar is shown with its View Switcher, which lets the card show another layout; and
- * while no layout other than the one the card displays stores values in its block. Values in
+ * the toolbar is shown with a View Switcher offering another layout, which lets the card show it;
+ * and while no layout other than the one the card displays stores values in its block. Values in
  * the displayed layout's own block, where a List card's first edits land, and top-level values
  * keep it compact.
  *
@@ -173,7 +173,6 @@ export function isCompactScope(
   touched: boolean,
 ): boolean {
   if (touched) return false;
-  const toolbar = resolveToolbar(config);
-  if (toolbar.show && toolbar.viewSwitcher) return false;
+  if (switcherOffers(config).length > 0) return false;
   return VIEWS.every((view) => view === displayed || storedCount(raw, view) === 0);
 }

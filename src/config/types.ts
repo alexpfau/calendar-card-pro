@@ -953,11 +953,13 @@ export interface ToolbarConfig {
   navigation?: boolean;
   /** The add-event button, at the start of the action row, after the filter. */
   add_event?: boolean;
+  /** The layout switcher, in the middle of the action row. */
+  view_switcher?: boolean;
   /**
-   * The layout switcher, in the middle of the action row: `true` for every layout, `false` for
-   * none, or the layouts to offer. The layout the card opens in is always offered.
+   * The layouts the switcher offers, while it is on: every layout by default. The layout the card
+   * opens in is always offered, and the switcher is drawn only where two or more are.
    */
-  view_switcher?: boolean | EffectiveView[];
+  view_switcher_layouts?: EffectiveView[];
   /**
    * A button that brings the card back to its configuration on this device: the days it opens
    * with, `view`, every calendar shown and a compact card collapsed. At the end of the action

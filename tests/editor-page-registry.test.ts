@@ -220,6 +220,7 @@ const APPROVED_MAP: ReadonlyArray<
       'card:toolbar.refresh T',
       'card:toolbar.search T',
       'card:toolbar.navigation T',
+      'card:toolbar.view_switcher_layouts A',
       'card:toolbar.legend R',
     ],
   ],
@@ -648,15 +649,15 @@ const HEADINGS: ReadonlyArray<HeadingDef> = [
 describe('the page registry places every built field exactly once', () => {
   it('walks the whole corpus', () => {
     // The denominators, beside the verdicts below. A short walk shows here first: the approved
-    // map places 225 ids, Month's own four among them, and every one of them is built under some
+    // map places 226 ids, Month's own four and Layouts in Switcher among them, and every one of them is built under some
     // workspace and state.
     console.info(
       `Page registry: ${BUILT.size} ids built over ${STATES.length} corpus states in ` +
         `${WORKSPACES.length} workspaces; ${PLACED.length} placements.`,
     );
     expect(WORKSPACES).toHaveLength(5);
-    expect(BUILT.size).toBe(225);
-    expect(PLACED).toHaveLength(225);
+    expect(BUILT.size).toBe(226);
+    expect(PLACED).toHaveLength(226);
   });
 
   it('has no field built but unplaced', () => {
@@ -957,6 +958,7 @@ describe('the registry heads what the builders used to', () => {
       'card:toolbar.refresh',
       'card:toolbar.search',
       'card:toolbar.navigation',
+      'card:toolbar.view_switcher_layouts',
       'card:toolbar.legend',
     ]);
   });

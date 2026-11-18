@@ -15,6 +15,7 @@
  * DOM-free: `views/pick.ts` does the matching.
  */
 
+import type { FieldId } from './field-index';
 import type { PageId } from './pages';
 
 /** Where a part opens. */
@@ -25,6 +26,11 @@ export type PickTarget =
       readonly heading: string;
       /** The layout whose scope the heading lives in, which a pick switches to. */
       readonly scope?: 'column' | 'grid' | 'month';
+      /**
+       * The setting under the heading the part is, where one is, marked and opened in place of
+       * the first one drawn there; the first again where it is not drawn.
+       */
+      readonly field?: FieldId;
     }
   /** The page of the calendar a legend chip names, by its `data-calendar`. */
   | { readonly calendar: true };
@@ -38,6 +44,15 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
   ['.legend-chip', { calendar: true }],
   ['.custom-button', { page: 'card_header', heading: 'toolbar.buttons.heading' }],
   ['.card-header', { page: 'card_header', heading: 'heading.general' }],
+  // The switcher opens Layouts in Switcher, under the Controls that hold its on and off.
+  [
+    '.view-switcher',
+    {
+      page: 'card_header',
+      heading: 'heading_toolbar',
+      field: 'card:toolbar.view_switcher_layouts',
+    },
+  ],
   ['.card-toolbar', { page: 'card_header', heading: 'heading_toolbar' }],
   ['.today-indicator-container', { page: 'day_header', heading: 'today_indicator' }],
   [

@@ -92,9 +92,12 @@ device's choice, else `view`) and the effective view the width fit makes of it (
 - **No fetch.** The window's start is identical across views (`FETCH_TIME_KEYS`) and the load spans
   the longest of them (`loadedDaysToShow`), with Month's six weeks added where it is reachable
   (`ViewConfig.loadConfig`), so each view draws its range out of one load.
-- **Which layouts.** `toolbar → view_switcher` is `true` (all four), `false`, or a list;
-  `resolveToolbar` resolves it to `switcherViews`, and the switcher offers those and `view`. A
+- **Which layouts.** Two options: `toolbar → view_switcher` turns the switcher on or off, and
+  `toolbar → view_switcher_layouts` lists the layouts it offers, all four by default.
+  `resolveToolbar` reads them as `viewSwitcher` and `switcherViews`, and `switcherOffers` adds
+  `view` and answers none where that comes to fewer than two, as one layout draws no switcher. A
   layout left off the list leaves the load too, which is how a card avoids Month's six weeks.
+  Neither option ever writes the other: the list never turns the switcher off.
 - **Per configuration.** `utils/view-choice.ts` stores the choice under a fingerprint of the raw
   configuration, so any edit resets every device. Old entries are pruned past `MAX_VIEW_CHOICES`,
   never deleted on edit, since no card learns which configuration it replaced.

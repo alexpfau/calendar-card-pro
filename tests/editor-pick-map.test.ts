@@ -259,12 +259,9 @@ describe('Pick From Preview part map', () => {
       '.card-toolbar ⊃ span.toolbar-month-cap',
       '.card-toolbar ⊃ span.toolbar-month-name',
       '.card-toolbar ⊃ span.toolbar-range-text',
-      '.card-toolbar ⊃ span.view-switcher-probe',
-      '.card-toolbar ⊃ span.view-switcher-probe.view-switcher-page',
       '.card-toolbar ⊃ svg.toolbar-button-icon',
       '.card-toolbar ⊃ svg.toolbar-button-icon.date-navigation-direction',
       '.card-toolbar ⊃ svg.toolbar-month-icon',
-      '.card-toolbar ⊃ svg.view-switcher-icon',
       '.column-day-header ⊃ div.day',
       '.column-day-header ⊃ div.month',
       '.column-day-header ⊃ div.weekday',
@@ -303,6 +300,9 @@ describe('Pick From Preview part map', () => {
       '.time ⊃ span',
       '.time ⊃ span.time-end',
       '.today-indicator-container ⊃ ha-icon.today-indicator.dot',
+      '.view-switcher ⊃ span.view-switcher-probe',
+      '.view-switcher ⊃ span.view-switcher-probe.view-switcher-page',
+      '.view-switcher ⊃ svg.view-switcher-icon',
       '.weather ⊃ ha-icon',
       '.weather ⊃ span.weather-temp-high',
     ]);
@@ -320,7 +320,21 @@ describe('Pick From Preview part map', () => {
         ).toBe(true);
       }
       if (page!.onlyIn !== undefined) expect(target.scope, selector).toBe(page!.onlyIn);
+      // A setting it names sits under that heading.
+      if (target.field !== undefined) {
+        const heading = page!.headings.find((each) => each.key === target.heading)!;
+        expect(
+          heading.fields.map(([id]) => id),
+          `${selector} → ${target.field}`,
+        ).toContain(target.field);
+      }
     }
+    // The one part that names its setting: the switcher, Layouts in Switcher.
+    expect(
+      PICK_PARTS.flatMap(([selector, target]) =>
+        'field' in target && target.field !== undefined ? [`${selector} ${target.field}`] : [],
+      ),
+    ).toEqual(['.view-switcher card:toolbar.view_switcher_layouts']);
   });
 
   it('decides an element by its innermost part', async () => {

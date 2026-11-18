@@ -55,7 +55,7 @@ const BASE: Partial<Types.Config> = {
   toolbar: {
     show: true,
     navigation: true,
-    view_switcher: ['list', 'column', 'grid'],
+    view_switcher_layouts: ['list', 'column', 'grid'],
     add_event: false,
   },
 };

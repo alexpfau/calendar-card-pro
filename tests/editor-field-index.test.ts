@@ -246,8 +246,8 @@ describe('field ids', () => {
         `${EVERY_FIELD.size} ids in all.`,
     );
     // 221 before Month, which adds its own four: Height Per Week, Minimum Day Width, Week
-    // Scrolling and Minimum Card Width.
-    expect(EVERY_FIELD.size).toBe(225);
+    // Scrolling and Minimum Card Width, and Layouts in Switcher.
+    expect(EVERY_FIELD.size).toBe(226);
   });
 
   it('do not depend on the editor language', () => {

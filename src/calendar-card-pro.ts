@@ -7582,8 +7582,8 @@ class CalendarCardPro extends LitElement {
     }
     for (const member of Config.unknownSwitcherViews(this.config)) {
       Logger.warn(
-        `Layout left out of toolbar.view_switcher, as it names none: ${JSON.stringify(member)}. ` +
-          `Expected ${ViewConfig.VIEWS.map((view) => `"${view}"`).join(', ')}.`,
+        'Layout left out of toolbar.view_switcher_layouts, as it names none: ' +
+          `${JSON.stringify(member)}. Expected ${ViewConfig.VIEWS.map((view) => `"${view}"`).join(', ')}.`,
       );
     }
     for (const entry of this.config.entities) {
@@ -10337,22 +10337,20 @@ class CalendarCardPro extends LitElement {
   //-----------------------------------------------------------------------------
 
   /**
-   * Whether the configuration asks for the view switcher. Not whether it is drawn: that also
-   * takes at least two views that fit (`_viewSwitcher`).
+   * Whether the configuration asks for the view switcher, offering two layouts or more. Not
+   * whether it is drawn: that also takes at least two of them that fit (`_viewSwitcher`).
    */
   private get _wantsViewSwitcher(): boolean {
-    const toolbar = Config.resolveToolbar(this.config);
-    return toolbar.show && toolbar.viewSwitcher;
+    return this._switcherViews.length > 0;
   }
 
   /**
-   * The views the switcher offers, fitting or not: those `view_switcher` names and `view`, in
-   * `VIEWS` order. Empty without a switcher.
+   * The views the switcher offers, fitting or not: `view` and those `view_switcher_layouts`
+   * names, in `VIEWS` order (`Config.switcherOffers`). Empty without a switcher, and where that
+   * would offer one layout alone.
    */
   private get _switcherViews(): ReadonlyArray<Types.EffectiveView> {
-    if (!this._wantsViewSwitcher) return [];
-    const named = Config.resolveToolbar(this.config).switcherViews;
-    return ViewConfig.VIEWS.filter((view) => view === this.config.view || named.includes(view));
+    return Config.switcherOffers(this.config);
   }
 
   /**
@@ -10391,9 +10389,9 @@ class CalendarCardPro extends LitElement {
   /**
    * The view switcher, when the card asks for one and more than one view fits.
    *
-   * It offers the views `view_switcher` names and `view` (`_switcherViews`). While the card is
-   * being edited it marks `view`, the layout the dashboard opens with, and offers each of them;
-   * pressing one does nothing. Otherwise it marks the view on screen, which for a remembered
+   * It offers `view` and the views `view_switcher_layouts` names (`_switcherViews`). While the
+   * card is being edited it marks `view`, the layout the dashboard opens with, and offers each of
+   * them; pressing one does nothing. Otherwise it marks the view on screen, which for a remembered
    * view too wide for this card is the list it fell back to.
    *
    * @returns Switcher description for the wrapper, or undefined for none

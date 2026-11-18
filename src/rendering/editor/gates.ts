@@ -350,6 +350,12 @@ export const GATES: Readonly<Record<string, Gate>> = {
     requires: [on('card:toolbar.show')],
     kind: 'gate',
   },
+  // Which layouts the switcher offers, only while the toolbar draws one.
+  switcher_layouts: {
+    fields: ['card:toolbar.view_switcher_layouts'],
+    requires: [on('card:toolbar.show'), on('card:toolbar.view_switcher')],
+    kind: 'gate',
+  },
   forecast: {
     fields: [`${W}position`],
     requires: [HAS_WEATHER],

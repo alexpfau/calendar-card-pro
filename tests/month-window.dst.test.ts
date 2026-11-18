@@ -213,18 +213,46 @@ describe('the load where month is reachable', () => {
     expect(window(load('today+14'), MONDAY)).toEqual(['2026-03-30', '2026-05-10']);
   });
 
+  // The windows the union `view_switcher: true | false | [layouts]` loaded, unchanged now that the
+  // switch and the list are two options: each row is the same configuration written that way.
   it.each([
-    ['every layout', true, ['2026-02-23', '2026-04-05']],
-    ['a list with month', ['grid', 'month'], ['2026-02-23', '2026-04-05']],
-    ['a list without month, as before', ['list', 'grid'], ['2026-03-18', '2026-03-31']],
-    ['no layout', false, ['2026-03-18', '2026-03-31']],
-    ['an empty list, as no switcher', [], ['2026-03-18', '2026-03-31']],
-    ['a list whose only member names no layout', ['week'], ['2026-03-18', '2026-03-31']],
-    ['month and a member that names no layout', ['week', 'month'], ['2026-02-23', '2026-04-05']],
-  ])('follows a switcher offering %s', (_name, view_switcher, expected) => {
+    ['every layout', {}, ['2026-02-23', '2026-04-05']],
+    [
+      'a list with month',
+      { view_switcher_layouts: ['grid', 'month'] },
+      ['2026-02-23', '2026-04-05'],
+    ],
+    [
+      'a list without month, as before',
+      { view_switcher_layouts: ['list', 'grid'] },
+      ['2026-03-18', '2026-03-31'],
+    ],
+    ['no layout: the switcher off', { view_switcher: false }, ['2026-03-18', '2026-03-31']],
+    [
+      'no layout: the switcher off, keeping a list with month',
+      { view_switcher: false, view_switcher_layouts: ['month'] },
+      ['2026-03-18', '2026-03-31'],
+    ],
+    ['an empty list, as no switcher', { view_switcher_layouts: [] }, ['2026-03-18', '2026-03-31']],
+    [
+      'a list naming only the layout the card opens in, as no switcher',
+      { view_switcher_layouts: ['list'] },
+      ['2026-03-18', '2026-03-31'],
+    ],
+    [
+      'a list whose only member names no layout',
+      { view_switcher_layouts: ['week'] },
+      ['2026-03-18', '2026-03-31'],
+    ],
+    [
+      'month and a member that names no layout',
+      { view_switcher_layouts: ['week', 'month'] },
+      ['2026-02-23', '2026-04-05'],
+    ],
+  ])('follows a switcher offering %s', (_name, written, expected) => {
     const config = buildConfig({
       days_to_show: 14,
-      toolbar: { show: true, view_switcher } as Types.ToolbarConfig,
+      toolbar: { show: true, ...written } as Types.ToolbarConfig,
     });
     const load = ViewConfig.loadConfig(config, MONDAY, true, NOW);
     expect(window(load, MONDAY)).toEqual(expected);

@@ -421,6 +421,7 @@ describe('editor filter: section headings', () => {
       'search',
       'navigation',
       'legend',
+      'view_switcher_layouts',
       'title',
     ]);
   });

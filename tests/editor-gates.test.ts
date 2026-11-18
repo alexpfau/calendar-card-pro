@@ -269,6 +269,7 @@ const LEGAL: Readonly<Record<string, ReadonlyArray<unknown>>> = {
   allday_badge_color: ['accent', 'text', '#b5651d'],
   filter_duplicates: [true, false, 'ignore_location'],
   'toolbar.show': [true, false],
+  'toolbar.view_switcher': [true, false],
   'toolbar.legend': [false, 'menu', 'chips'],
   'weather.entity': [undefined, '', 'weather.home'],
   'weather.position': [undefined, 'none', 'date', 'event', 'both'],
@@ -808,12 +809,13 @@ describe('the universe', () => {
     }
     // All Layouts gained Multi-Day Banners on the card and on a calendar once Month read them
     // beside Grid; Month offers its own four and leaves out what it does not draw (`LACKS`).
+    // Every workspace gained Layouts in Switcher, a whole-card setting.
     expect(sizes).toEqual({
-      shared: { card: 151, calendar: 28 },
-      list: { card: 157, calendar: 28 },
-      column: { card: 156, calendar: 27 },
-      grid: { card: 155, calendar: 27 },
-      month: { card: 134, calendar: 27 },
+      shared: { card: 152, calendar: 28 },
+      list: { card: 158, calendar: 28 },
+      column: { card: 157, calendar: 27 },
+      grid: { card: 156, calendar: 27 },
+      month: { card: 135, calendar: 27 },
     });
   });
 
@@ -1073,6 +1075,11 @@ describe('the gate table', () => {
           'card:toolbar.navigation',
         ],
         requires: [p('card:toolbar.show', true, ON)],
+      },
+      switcher_layouts: {
+        kind: 'gate',
+        fields: ['card:toolbar.view_switcher_layouts'],
+        requires: [p('card:toolbar.show', true, ON), p('card:toolbar.view_switcher', true, ON)],
       },
       forecast: { kind: 'gate', fields: [`${W}position`], requires: [ENTITY] },
       forecast_by_day: {

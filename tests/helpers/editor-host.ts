@@ -701,7 +701,7 @@ function composedFieldOf(
 /**
  * A control the editor composes for one field, as a form standing for that field, as a color
  * control's stand-in does: its schema is the field's, its data the editor's own value for it, its
- * label and helper the field's. Four kinds are composed:
+ * label and helper the field's. Five kinds are composed:
  *
  * - `chips`, a radio group of the editor's own (Start Date's radio chips, Calendar Filter's Off,
  *   Menu and Chips): a change is made by choosing the option;
@@ -711,7 +711,10 @@ function composedFieldOf(
  * - `line`, the line Tapping an Event Opens It gives way to while another action is stored, which
  *   takes no change;
  * - `words`, a word list one term at a time: its value is the pattern the terms write, and a change
- *   to it is sent to its form as the terms that pattern reads as.
+ *   to it is sent to its form as the terms that pattern reads as;
+ * - `layouts`, Layouts in Switcher's chips, one per layout: its value is the layouts whose chips
+ *   are pressed, and a change is made by pressing each chip that shows the other state; a chip it
+ *   keeps pressed cannot be asked to change.
  *
  * @param editor - Editor element
  * @param control - The control's wrapper, `[data-composed]`
@@ -739,6 +742,12 @@ function composedForm(editor: EditorElement, control: Element): FormElement {
         if (kind === 'chips') {
           const checked = control.querySelector<HTMLInputElement>('input[type="radio"]:checked');
           return withValue({}, field.dataPath, name, checked?.value);
+        }
+        if (kind === 'layouts') {
+          const pressed = [
+            ...control.querySelectorAll<HTMLElement>('button.chip[aria-pressed="true"]'),
+          ].map((chip) => chip.getAttribute('data-value'));
+          return withValue({}, field.dataPath, name, pressed);
         }
         const drawn = wordsForm();
         if (drawn !== null) {
@@ -795,6 +804,33 @@ function composedForm(editor: EditorElement, control: Element): FormElement {
       if (!input) outOfStep(`'${id}' offers no ${String(value)}`);
       input.checked = true;
       return input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    if (kind === 'layouts') {
+      if (!Array.isArray(value)) {
+        outOfStep(`'${id}' is a chip per layout: ask it for the list of layouts pressed`);
+      }
+      // Each press writes the whole list from what is drawn, so the editor draws again, at once,
+      // before the next chip is read: Lit's `performUpdate`, as `driveColor` renders.
+      const element = editor as unknown as { requestUpdate(): void; performUpdate(): void };
+      const chips = (): HTMLButtonElement[] => [
+        ...(
+          editor.shadowRoot!.querySelector(`[data-composed="layouts"][data-field="${id}"]`) ??
+          control
+        ).querySelectorAll<HTMLButtonElement>('button.chip[data-value]'),
+      ];
+      for (const layout of chips().map((chip) => chip.getAttribute('data-value'))) {
+        const chip = chips().find((each) => each.getAttribute('data-value') === layout);
+        if (chip === undefined) outOfStep(`'${id}' draws no chip for ${String(layout)}`);
+        const wanted = value.includes(layout);
+        if ((chip.getAttribute('aria-pressed') === 'true') === wanted) continue;
+        if (chip.getAttribute('aria-disabled') === 'true') {
+          outOfStep(`'${id}' keeps ${String(layout)} as it is`);
+        }
+        chip.click();
+        element.requestUpdate();
+        element.performUpdate();
+      }
+      return true;
     }
     if (kind === 'toggle') {
       if (typeof value !== 'boolean') {

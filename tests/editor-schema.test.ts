@@ -2770,8 +2770,8 @@ describe('editor: the Card & Header panel', () => {
   /**
    * Pinned by value and in order. The toolbar's switches close the panel: the bar's own switch,
    * then the controls in the order the toolbar is read: the top row from start to end, the
-   * filter leading as its default button does, then the date navigation in the row under it.
-   * The heading over them is the registry's.
+   * filter leading as its default button does, then the date navigation in the row under it,
+   * then the layouts the switcher offers. The heading over them is the registry's.
    */
   it('closes the panel with the toolbar', () => {
     const head = ['title', 'title_font_size', 'title_color', 'background_color'];
@@ -2791,7 +2791,13 @@ describe('editor: the Card & Header panel', () => {
         'refresh',
         'search',
         'navigation',
+        'view_switcher_layouts',
       ]);
+      // Which layouts the switcher offers is offered only while it is on.
+      expect(
+        namesIn(buildConfig({ view, toolbar: { show: true, view_switcher: false } })),
+        `${view} view, toolbar on, switcher off`,
+      ).not.toContain('view_switcher_layouts');
     }
   });
 });

@@ -245,7 +245,7 @@ describe('cards that ask for the same window share one load', () => {
     const toolbar: Types.ToolbarConfig = {
       show: true,
       navigation: true,
-      view_switcher: ['list', 'column', 'grid'],
+      view_switcher_layouts: ['list', 'column', 'grid'],
     };
     const a = await mount({ toolbar, first_day_of_week: 'system' }, SUNDAY);
     const b = await mount({ toolbar, first_day_of_week: 'monday' }, SUNDAY);
