@@ -8,11 +8,13 @@
  * `<` to `<=` or `>=` to `>` at any of the three changed what the card rendered while
  * the whole suite stayed green, so none of them was pinned anywhere.
  *
- * The bounds are *half-open*: the lower bound includes its instant, the upper bound
- * excludes it. That asymmetry is the whole point, and it is why each test below pairs
- * the boundary instant with its neighbor on the other side -- an assertion that an
- * event is absent proves nothing on its own, because a card rendering nothing at all
- * would satisfy it.
+ * The window is *half-open*, from its first instant up to its last, and so is a timed
+ * event: it touches the window when it starts before the window's end and ends after its
+ * start. A shift ending at exactly the window's first instant is therefore over before the
+ * window opens and belongs to the day before. That is why each test below pairs the
+ * boundary instant with its neighbor on the other side -- an assertion that an event is
+ * absent proves nothing on its own, because a card rendering nothing at all would satisfy
+ * it.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -126,9 +128,12 @@ describe('event window boundaries', () => {
     ]);
   });
 
-  it('keeps an event that ends exactly at the start of the reference day', () => {
-    // A 22:00 -> 00:00 shift ends at exactly the lower bound. The bound is inclusive, so
-    // the shift still belongs to the card; treating it as strictly past deleted it.
+  it('drops a timed event that ends exactly at the start of the reference day', () => {
+    // A 22:00 -> 00:00 shift ends at exactly the lower bound. A timed end is exclusive, so
+    // the shift takes up no time on the reference day and belongs to the day before. Home
+    // Assistant never returns it for a window starting at that midnight, but a page draws a
+    // prefix of a wider load, as Month's union load is, and drawing it there put Friday
+    // night's shift on Saturday.
     const config = buildConfig({ show_past_events: true, days_to_show: 3 });
     const start = new Date(midnight(-1));
     start.setHours(22, 0, 0, 0);
@@ -143,21 +148,21 @@ describe('event window boundaries', () => {
 
     const days = EventUtils.groupEventsByDay(events, config, false, 'en', 'list');
 
-    expect(days.map((day) => day.events.map((event) => event.summary))).toEqual([
-      ['ends-at-midnight'],
-    ]);
+    expect(days.flatMap((day) => day.events.map((event) => event.summary))).not.toContain(
+      'ends-at-midnight',
+    );
   });
 
-  it('control: drops an event that ends one millisecond before the reference day', () => {
+  it('control: keeps an event that ends one millisecond into the reference day', () => {
     // The neighbor on the other side of the same bound. Without this the test above
-    // would pass just as happily against a card that had stopped filtering at all.
+    // would pass just as happily against a card that had stopped drawing such events at all.
     const config = buildConfig({ show_past_events: true, days_to_show: 3 });
     const start = new Date(midnight(-1));
     start.setHours(22, 0, 0, 0);
-    const end = new Date(midnight(0).getTime() - 1);
+    const end = new Date(midnight(0).getTime() + 1);
     const events = [
       {
-        summary: 'ends-just-before-midnight',
+        summary: 'ends-just-after-midnight',
         start: { dateTime: start.toISOString() },
         end: { dateTime: end.toISOString() },
         _entityId: ENTITY,
@@ -166,8 +171,9 @@ describe('event window boundaries', () => {
 
     const days = EventUtils.groupEventsByDay(events, config, false, 'en', 'list');
 
-    expect(days.flatMap((day) => day.events.map((event) => event.summary))).not.toContain(
-      'ends-just-before-midnight',
-    );
+    expect(days.map((day) => day.events.map((event) => event.summary))).toEqual([
+      ['ends-just-after-midnight'],
+    ]);
+    expect(dateKey(new Date(days[0].timestamp))).toBe(dateKey(midnight(0)));
   });
 });

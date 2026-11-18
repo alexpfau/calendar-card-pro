@@ -1612,18 +1612,20 @@ export function groupEventsByDay(
     // the same boundary, so it removes nothing that reached this far.
     if (startDate >= windowEnd) return false;
 
-    // Only the third term below decides anything for events this card can actually
-    // receive. An event starting inside the window, or after it, necessarily also ends
-    // at or after the window start, so `isOngoingEvent` is already true in both cases —
-    // removing the first two leaves the whole suite green. They diverge only for an
-    // event whose end precedes its start: `keepWellFormedEvents` checks that `start` and
-    // `end` are present but not that they are ordered, so a malformed feed can still
-    // produce one, while nothing built here can — every multi-day segment ends at least
-    // a millisecond after it starts. Left in place rather than folded into one condition
-    // because dropping them would silently stop rendering those malformed events.
+    // The first two terms keep events starting in the window or after it. They differ from
+    // the third for an event whose end precedes its start (`keepWellFormedEvents` checks that
+    // `start` and `end` are present but not that they are ordered, so a malformed feed can
+    // still produce one) and for a timed event of no length at the window's first moment,
+    // which ends where the window opens and is still an instant of its first day.
+    //
+    // 🚨 A timed end is exclusive, so an event ending exactly at the window's first moment
+    // is over before the window opens: it belongs to the day before. An all-day `endDate` is
+    // already the last day it covers, so it touches the window when it is that day. Home
+    // Assistant never returns an event ending where a request starts, but a page now draws a
+    // prefix of a wider load (Month's starts at its grid's first row), which holds one.
     const isEventOnOrAfterReference = startDate >= referenceStart && startDate <= referenceEnd;
     const isFutureEvent = startDate > referenceEnd;
-    const isOngoingEvent = endDate >= referenceStart;
+    const isOngoingEvent = isAllDayEvent ? endDate >= referenceStart : endDate > referenceStart;
 
     if (!(isEventOnOrAfterReference || isFutureEvent || isOngoingEvent)) {
       return false;
@@ -3171,8 +3173,8 @@ export function countsDays(event: Types.CalendarEventData): boolean {
  * window's first day for an event that began earlier. A row under a date the event takes up no
  * time on names no day, but is still a row of a counted event, so it draws no progress bar
  * either: the bar's rule, and the clock repaint's, is the event's, not the row's. Grouping draws
- * such a row in one case, an unsplit event ending at the first midnight of a window that starts
- * later, which counted from the event's start would read "Day 4 of 3".
+ * no such row, since an event ending at a window's first midnight belongs to the day before; the
+ * guard stays so a row never reads "Day 4 of 3", which counting from the start would give it.
  *
  * @param event A whole event or one day of one, as list and column split it
  * @param displayDate The date the row is drawn under
