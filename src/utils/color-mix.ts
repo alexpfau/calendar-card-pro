@@ -136,15 +136,92 @@ function alphaOf(token: string): number | undefined {
 }
 
 /**
+ * The color functions whose opacity their text settles: 1, or the alpha written after a slash or
+ * as a fourth argument. Any other function, light-dark() among them, decides its color where it
+ * is drawn.
+ */
+const COLOR_FUNCTIONS: ReadonlySet<string> = new Set([
+  'rgb',
+  'rgba',
+  'hsl',
+  'hsla',
+  'hwb',
+  'lab',
+  'lch',
+  'oklab',
+  'oklch',
+  'color',
+]);
+
+/**
+ * Keywords a color option can hold that are not colors of their own. currentColor is the number's
+ * own color, so a background mixed from it cannot shade it.
+ */
+const NOT_A_COLOR: ReadonlySet<string> = new Set([
+  'currentcolor',
+  'inherit',
+  'initial',
+  'unset',
+  'revert',
+  'revert-layer',
+  'none',
+]);
+
+/** One color of a color-mix() and the percentage written before or after it, if any. */
+function mixPart(part: string): { color: string; share: number | undefined } {
+  const after = /^([\s\S]*?)\s+(-?\d*\.?\d+)%$/.exec(part);
+  if (after) return { color: after[1].trim(), share: Number(after[2]) };
+  const before = /^(-?\d*\.?\d+)%\s+([\s\S]+)$/.exec(part);
+  if (before) return { color: before[2].trim(), share: Number(before[1]) };
+  return { color: part, share: undefined };
+}
+
+/**
+ * How opaque a color-mix() of a color with `transparent` is, as CSS Color 5 resolves its
+ * percentages: an omitted one is the rest of 100, both omitted are 50 each, and two that sum to
+ * less than 100 leave the rest transparent, where a sum over 100 is scaled down to it.
+ *
+ * @param body - The text inside the parentheses
+ * @returns Its opacity from 0 to 1, or `undefined` where the text does not settle it
+ */
+function mixOpacity(body: string): number | undefined {
+  const args = splitTopLevel(body, ',');
+  // The interpolation method may be left out, as in color-mix(red 20%, transparent).
+  const parts = (/^in\s/.test(args[0]) ? args.slice(1) : args).map(mixPart);
+  if (parts.length !== 2) return undefined;
+  if (!parts.some((part) => part.color === 'transparent')) return undefined;
+  const [a, b] = parts;
+  if ([a.share, b.share].some((share) => share !== undefined && (share < 0 || share > 100))) {
+    return undefined;
+  }
+  const shareA = a.share ?? (b.share === undefined ? 50 : 100 - b.share);
+  const shareB = b.share ?? 100 - shareA;
+  const total = shareA + shareB;
+  if (total <= 0) return undefined;
+  const alphas = parts.map((part) => {
+    if (part.color === 'transparent') return 0;
+    // A color named by a custom property is taken as opaque, as a theme's colors are.
+    if (/^var\(/.test(part.color)) return 1;
+    return opacityOf(part.color);
+  });
+  if (alphas.some((alpha) => alpha === undefined)) return undefined;
+  const [alphaA, alphaB] = alphas as number[];
+  return ((shareA * alphaA + shareB * alphaB) / total) * (Math.min(total, 100) / 100);
+}
+
+/**
  * How opaque a color is as written, where the text alone says: a hex color with an alpha digit, a
  * color function with an alpha, `transparent`, or a `color-mix()` with `transparent`, which is how
- * the card's own washes and Home Assistant's are written. A color that names a custom property, or
- * mixes one with something other than `transparent`, says nothing about its opacity here.
+ * the card's own washes and Home Assistant's are written. Each reads as Chromium and WebKit
+ * resolve it. A color that names a custom property or mixes one with something other than
+ * `transparent`, a relative color without an alpha of its own, which keeps its origin's, and
+ * light-dark() say nothing about their opacity here, nor does a value that is not text.
  *
  * @param value - A color as the user wrote it
  * @returns Its opacity from 0 to 1, or `undefined` where the text does not settle it
  */
-export function opacityOf(value: string): number | undefined {
+export function opacityOf(value: unknown): number | undefined {
+  if (typeof value !== 'string') return undefined;
   const color = value.trim().toLowerCase();
   if (color === 'transparent') return 0;
   const hex = /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/.exec(color);
@@ -155,35 +232,13 @@ export function opacityOf(value: string): number | undefined {
     return parseInt(alpha, 16) / 255;
   }
   const call = /^([a-z-]+)\(([\s\S]*)\)$/.exec(color);
-  if (!call) return /^[a-z]+$/.test(color) && color !== 'currentcolor' ? 1 : undefined;
+  if (!call) return /^[a-z]+$/.test(color) && !NOT_A_COLOR.has(color) ? 1 : undefined;
   const [, name, body] = call;
-  if (name === 'var') return undefined;
-  if (name === 'color-mix') {
-    const [, ...colors] = splitTopLevel(body, ',');
-    if (colors.length !== 2) return undefined;
-    const parts = colors.map((part) => {
-      const share = /\s(-?\d*\.?\d+)%$/.exec(part);
-      return {
-        color: share ? part.slice(0, share.index).trim() : part,
-        share: share ? Number(share[1]) : undefined,
-      };
-    });
-    const [a, b] = parts;
-    const shareA = a.share ?? (b.share !== undefined ? 100 - b.share : 50);
-    const shareB = b.share ?? 100 - shareA;
-    const total = shareA + shareB;
-    if (total <= 0) return undefined;
-    // currentColor is the number's own color, so a background mixed from it cannot shade it.
-    if (parts.some((part) => part.color === 'currentcolor')) return undefined;
-    // A color named by a custom property is taken as opaque, as a theme's colors are.
-    const alphas = parts.map((part) =>
-      part.color === 'transparent' ? 0 : (opacityOf(part.color) ?? 1),
-    );
-    if (!parts.some((part) => part.color === 'transparent')) return undefined;
-    return (shareA * alphas[0] + shareB * alphas[1]) / total;
-  }
+  if (name === 'color-mix') return mixOpacity(body);
+  if (!COLOR_FUNCTIONS.has(name)) return undefined;
   const slashed = splitTopLevel(body, '/');
   if (slashed.length === 2) return alphaOf(slashed[1]);
+  if (/^from\s/.test(body.trim())) return undefined;
   const args = splitTopLevel(body, ',');
   // rgba(r, g, b, a), or rgba(var(--rgb-primary-color), a), whose var() stands for three.
   if ((name === 'rgba' || name === 'rgb' || name === 'hsla' || name === 'hsl') && args.length > 1) {
@@ -202,7 +257,7 @@ export function opacityOf(value: string): number | undefined {
  * @param value - The background as the user wrote it
  * @returns `true` where the number is a shade of the background, `false` where it is the text color
  */
-export function isLightWash(value: string): boolean {
+export function isLightWash(value: unknown): boolean {
   const opacity = opacityOf(value);
   return opacity !== undefined && opacity > 0 && opacity <= LIGHT_WASH_MAX_OPACITY;
 }

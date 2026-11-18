@@ -286,15 +286,18 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
   // text color, and a light wash, by the tile's rule, a shade of itself where the browser can mix
   // one: the background is handed on as the source of that shade only then. Behind a stronger
   // background the shade fails as text, and the text color comes through exactly.
-  if (config.week_number_color) {
-    props['--calendar-card-week-number-color'] = config.week_number_color;
+  // A value that is not text is drawn as unset (Config.validateWeekMarkColor reports it).
+  const weekNumberColor = Config.weekMarkColor(config.week_number_color);
+  const weekNumberBackground = Config.weekMarkColor(config.week_number_background_color);
+  if (weekNumberColor) {
+    props['--calendar-card-week-number-color'] = weekNumberColor;
   }
-  if (config.week_number_background_color) {
-    props['--calendar-card-week-number-bg-color'] = config.week_number_background_color;
-    if (!config.week_number_color) {
+  if (weekNumberBackground) {
+    props['--calendar-card-week-number-bg-color'] = weekNumberBackground;
+    if (!weekNumberColor) {
       props['--calendar-card-week-number-ink-floor'] = 'var(--primary-text-color)';
-      if (ColorMix.isLightWash(config.week_number_background_color)) {
-        props['--calendar-card-week-number-fill-source'] = config.week_number_background_color;
+      if (ColorMix.isLightWash(weekNumberBackground)) {
+        props['--calendar-card-week-number-fill-source'] = weekNumberBackground;
       }
     }
   }

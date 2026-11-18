@@ -27,6 +27,8 @@ import * as Render from '../src/rendering/render';
 import { cardStyles, generateCustomPropertiesObject } from '../src/rendering/styles';
 import * as ColorMix from '../src/utils/color-mix';
 import * as EventUtils from '../src/utils/events';
+import * as Logger from '../src/utils/logger';
+import '../src/calendar-card-pro';
 
 const PILL_PROPERTIES = [
   '--calendar-card-week-number-color',
@@ -117,6 +119,10 @@ describe('the pill colors the card writes', () => {
 });
 
 describe('a light wash, which colors its own number', () => {
+  // Each opacity is what Chromium 151 and WebKit 27.2 compute for the same text as a
+  // background-color. Where a row reads nothing, the browser can tell and the text alone cannot:
+  // a relative color without an alpha of its own keeps its origin's, and light-dark() picks by
+  // the color scheme.
   it.each<[string, number | undefined]>([
     ['#e67c7350', 0x50 / 255],
     ['#03a9f455', 0x55 / 255],
@@ -135,6 +141,22 @@ describe('a light wash, which colors its own number', () => {
     ['color-mix(in srgb, transparent, red 20%)', 0.2],
     ['color-mix(in oklab, #ff000080 50%, transparent)', (0.5 * 0x80) / 255],
     ['color-mix(in srgb, red 50%, blue)', undefined],
+    // Percentages summing under 100 leave the rest transparent; over 100, they are scaled down.
+    ['color-mix(in srgb, var(--primary-color) 20%, transparent 20%)', 0.2],
+    ['color-mix(in srgb, transparent 20%, 20% red)', 0.2],
+    ['color-mix(in srgb, red 60%, transparent 60%)', 0.5],
+    // A percentage before its color, no percentage, and no interpolation method.
+    ['color-mix(in srgb, 20% var(--primary-color), transparent)', 0.2],
+    ['color-mix(in srgb, red, transparent)', 0.5],
+    ['color-mix(red 20%, transparent)', 0.2],
+    ['color-mix(in srgb, color-mix(in srgb, red 50%, transparent) 50%, transparent)', 0.25],
+    // Not a color at all, so not a wash.
+    ['color-mix(in srgb, red 120%, transparent)', undefined],
+    ['color-mix(in srgb, red 0%, transparent 0%)', undefined],
+    ['rgb(from var(--primary-color) r g b / 0.2)', 0.2],
+    ['oklch(from #e67c73 l c h / 25%)', 0.25],
+    ['rgb(from #ff000080 r g b)', undefined],
+    ['light-dark(#03a9f440, #03a9f440)', undefined],
     ['var(--accent-color)', undefined],
     ['currentColor', undefined],
     ['color-mix(in srgb, currentColor 25%, transparent)', undefined],
@@ -155,6 +177,116 @@ describe('a light wash, which colors its own number', () => {
     const not = ['#03a9f466', '#e67c73', 'transparent', 'var(--accent-color)', 'currentColor'];
     expect(light.map(ColorMix.isLightWash)).toEqual(light.map(() => true));
     expect(not.map(ColorMix.isLightWash)).toEqual(not.map(() => false));
+  });
+
+  it('reads nothing from a value that is not text', () => {
+    for (const value of [333333, true, null, undefined, { color: 'red' }]) {
+      expect(ColorMix.opacityOf(value as unknown as string), String(value)).toBeUndefined();
+      expect(ColorMix.isLightWash(value as unknown as string), String(value)).toBe(false);
+    }
+  });
+});
+
+interface CardUnderTest extends HTMLElement {
+  setConfig(config: Record<string, unknown>): void;
+  hass: unknown;
+  events: unknown[];
+  isInitialLoad: boolean;
+  updateComplete: Promise<boolean>;
+}
+
+const WEEK_MARK_OPTIONS = [
+  'week_number_color',
+  'week_number_background_color',
+  'week_separator_color',
+] as const;
+
+// Unquoted in YAML, `333333` arrives as a number and `true` as a boolean.
+const NOT_TEXT = WEEK_MARK_OPTIONS.flatMap((key) => [
+  [key, 333333],
+  [key, true],
+]) as [string, unknown][];
+
+describe('a week mark color written as something other than text', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FROZEN_NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    document.body.innerHTML = '';
+  });
+
+  /** Mounts a card through setConfig and returns its ha-card and the warnings it gave. */
+  async function mount(config: Record<string, unknown>): Promise<{
+    haCard: HTMLElement;
+    warnings: string[];
+  }> {
+    const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+    const card = document.createElement('calendar-card-pro-dev') as unknown as CardUnderTest;
+    card.setConfig({ entities: ['calendar.personal'], show_week_numbers: 'iso', ...config });
+    card.isInitialLoad = false;
+    document.body.appendChild(card);
+    card.hass = { states: {}, locale: { language: 'en' }, connection: {} };
+    card.events = [];
+    await card.updateComplete;
+    const haCard = card.shadowRoot?.querySelector('ha-card') as HTMLElement | null;
+    expect(haCard, 'rendered ha-card').not.toBeNull();
+    return { haCard: haCard!, warnings: warn.mock.calls.map(([message]) => String(message)) };
+  }
+
+  it.each(NOT_TEXT)(
+    'is reported once by setConfig and drawn as unset: %s %o',
+    async (key, value) => {
+      const { haCard, warnings } = await mount({ [key]: value });
+      for (const property of PILL_PROPERTIES) {
+        expect(haCard.style.getPropertyValue(property), property).toBe('');
+      }
+      const reports = warnings.filter((message) => message.includes(key));
+      expect(reports).toHaveLength(1);
+      expect(reports[0]).toContain(`${key} ${JSON.stringify(value)}`);
+    },
+  );
+
+  it('stays quiet for colors written as text', async () => {
+    const { warnings } = await mount({
+      week_number_color: '#123456',
+      week_number_background_color: '#e67c7350',
+      week_separator_color: 'red',
+    });
+    expect(
+      warnings.filter((message) => WEEK_MARK_OPTIONS.some((key) => message.includes(key))),
+    ).toEqual([]);
+  });
+
+  it('draws a week separator as unset where its color is not text', () => {
+    for (const value of [333333, true]) {
+      const config = buildConfig({
+        week_separator_color: value as unknown as string,
+      });
+      expect(Leaves.weekSeparatorColor(config)).toBe(Leaves.WEEK_MARK_COLOR);
+      expect(Leaves.weekSeparatorInk(config)).toBe(Leaves.WEEK_MARK_INK);
+    }
+  });
+
+  it('is reported in a view block under its path, and that view draws it as unset', () => {
+    const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+    const config = buildConfig({
+      show_week_numbers: 'iso',
+      column: { week_number_background_color: 333333 },
+    } as unknown as Partial<Types.Config>);
+    ViewConfig.validateColumnOverrides(config);
+    const reports = warn.mock.calls
+      .map(([message]) => String(message))
+      .filter((message) => message.includes('week_number_background_color'));
+    expect(reports).toHaveLength(1);
+    expect(reports[0]).toContain('column.week_number_background_color 333333');
+    const column = generateCustomPropertiesObject(
+      ViewConfig.resolveEffectiveConfig(config, 'column'),
+    );
+    expect(column['--calendar-card-week-number-bg-color']).toBeUndefined();
   });
 });
 
@@ -330,6 +462,19 @@ describe('the stylesheet', () => {
     expect(all.filter((d) => d.property === '--calendar-card-week-number-fill-ink')).toHaveLength(
       1,
     );
+  });
+
+  it("keeps the solid tile's ink on the tile, so a pill without color-mix() keeps the text color", () => {
+    // Declared on ha-card as well, the white ink meant for the solid tile would reach the pill,
+    // whose floor is gray, through WEEK_MARK_INK.
+    const floors = all.filter(
+      (d) =>
+        d.property === '--calendar-card-today-indicator-ink' &&
+        !d.at.some((at) => OKLAB.test(at) || RELATIVE.test(at)),
+    );
+    expect(floors.map((d) => [d.at, d.selectors, d.value])).toEqual([
+      [[], ['.day.today-tile'], 'var(--text-primary-color, #fff)'],
+    ]);
   });
 
   it("scales the marks' chroma in Oklab, which keeps the hue of a low-chroma mix", () => {

@@ -289,10 +289,10 @@ export const WEEK_MARK_INK =
  * The color to draw a week separator in.
  *
  * @param config Card configuration, already resolved for the view
- * @returns `week_separator_color`, or the pill's background where that is unset
+ * @returns `week_separator_color`, or the pill's background where that is unset or not text
  */
 export function weekSeparatorColor(config: Types.Config): string {
-  return config.week_separator_color || WEEK_MARK_COLOR;
+  return Config.weekMarkColor(config.week_separator_color) ?? WEEK_MARK_COLOR;
 }
 
 /**
@@ -302,7 +302,9 @@ export function weekSeparatorColor(config: Types.Config): string {
  * @returns {@link WEEK_MARK_INK} while `week_separator_color` is unset, otherwise `undefined`
  */
 export function weekSeparatorInk(config: Types.Config): string | undefined {
-  return config.week_separator_color ? undefined : WEEK_MARK_INK;
+  return Config.weekMarkColor(config.week_separator_color) === undefined
+    ? WEEK_MARK_INK
+    : undefined;
 }
 
 /**

@@ -338,6 +338,56 @@ export function validatePastEventOpacity(value: unknown, path = 'past_event_opac
   Logger.warn(`Ignoring "${path}": expected a finite percentage from 0 to 100.`);
 }
 
+/**
+ * The week-number pill's colors and the week separator's, unset by default so that they follow
+ * today's tile. Only text can be a color: unquoted in YAML, `333333` arrives as a number and
+ * `yes` as a boolean.
+ */
+export const WEEK_MARK_COLOR_OPTIONS = [
+  'week_number_color',
+  'week_number_background_color',
+  'week_separator_color',
+] as const;
+
+/**
+ * A week mark's color as it is drawn: the text written, or `undefined`, drawn as unset, where
+ * nothing is written or what is written is not text. {@link validateWeekMarkColor} reports the
+ * second.
+ *
+ * @param value - The option's value as written
+ * @returns The color, or `undefined`
+ */
+export function weekMarkColor(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() !== '' ? value : undefined;
+}
+
+/**
+ * Reports a week mark's color that is not text, which the card draws as unset.
+ *
+ * @param value - Raw value; missing and null values mean unset
+ * @param path - Option path used in the diagnostic, `column.week_separator_color` in a view block
+ */
+export function validateWeekMarkColor(value: unknown, path: string): void {
+  if (value === undefined || value === null || typeof value === 'string') {
+    return;
+  }
+  Logger.warn(
+    `Invalid ${path} ${JSON.stringify(value)}: expected a CSS color as text, such as ` +
+      '"#e67c7350"; in YAML, quote a hex color. Ignoring it.',
+  );
+}
+
+/**
+ * Reports every top-level week mark color that is not text.
+ *
+ * @param config - Merged configuration, as written
+ */
+export function validateWeekMarkColors(config: Types.Config): void {
+  for (const key of WEEK_MARK_COLOR_OPTIONS) {
+    validateWeekMarkColor(config[key], key);
+  }
+}
+
 // Also read by the editor's upgrade path.
 export const DEPRECATED_CONFIG_MAP: Readonly<Record<string, string>> = {
   max_events_to_show: 'compact_events_to_show',
