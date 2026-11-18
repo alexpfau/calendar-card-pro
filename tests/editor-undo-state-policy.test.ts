@@ -134,6 +134,7 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_undo',
     '_redo',
     '_ctxFor',
+    '_rowCtxFor',
     '_heldModes',
     '_formDataFor',
     '_mintEntryKey',

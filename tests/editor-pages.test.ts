@@ -263,6 +263,19 @@ describe('the Grid page’s row', () => {
     expect((editor as unknown as { _workspace: string })._workspace).toBe('grid');
   });
 
+  it('is summarized in Grid while another scope is chosen', async () => {
+    const summary = (editor: MountedEditor): string =>
+      ($(editor, '[data-focus="nav:grid"] .nav-summary')?.textContent ?? '').trim();
+    const editor = await mountEditor({ ...CARD, view: 'grid', time_grid: { start_time: '06:00' } });
+    const own = summary(editor);
+    expect(own).toBe('First Hour: 06:00 · Last Hour: 22:00 · Set: 1');
+
+    await goPage(editor, 'events');
+    await changeField(editor, 'workspace:editing_workspace', 'list');
+    await goOverview(editor);
+    expect(summary(editor)).toBe(own);
+  });
+
   it('is listed on a List card only once Grid is the scope', async () => {
     const editor = await mountEditor({ ...CARD, view: 'list' });
     expect($(editor, '[data-focus="nav:grid"]')).toBeNull();
@@ -334,6 +347,53 @@ describe('the Escape guard', () => {
 
     await escape(editor, $(editor, 'h2.page-title')!);
     expect($(editor, 'h2.page-title')).toBeNull();
+  });
+
+  // Settings For is drawn on a scope's pages only, so one left open is no disclosure elsewhere.
+  it.each([
+    [
+      'Back',
+      async (editor: MountedEditor) => {
+        await click(editor, '[data-focus="back-foot"]');
+      },
+    ],
+    [
+      'the scope it already has, then Back',
+      async (editor: MountedEditor) => {
+        await changeField(editor, 'workspace:editing_workspace', 'list');
+        await click(editor, '[data-focus="back-foot"]');
+      },
+    ],
+  ])('lets the key through on the overview after Change and %s', async (_, leave) => {
+    const editor = await mountEditor(CARD);
+    await goPage(editor, 'events');
+    await click(editor, '[data-focus="scope-change"]');
+    await leave(editor);
+    expect($(editor, 'h2.page-title')).toBeNull();
+
+    expect(await escape(editor, $(editor, '[data-focus="nav:card_header"]')!)).toEqual({
+      prevented: false,
+      reachedHost: true,
+    });
+    // Still full on the next page, as after Change for the rest of the session.
+    await goPage(editor, 'day_header');
+    expect(compact(editor)).toBe(false);
+  });
+
+  it('clears the query, then goes Back, after Change and Search Settings', async () => {
+    const editor = await mountEditor(CARD);
+    await goPage(editor, 'events');
+    await click(editor, '[data-focus="scope-change"]');
+    await click(editor, '.page-head [data-focus="search-open"]');
+    expect($(editor, 'h2.page-title')).toBeNull();
+    await changeField(editor, 'filter:search', 'color');
+    const search = $(editor, 'ha-form.filter-form')!;
+
+    expect(await escape(editor, search)).toEqual({ prevented: true, reachedHost: false });
+    expect($(editor, '[data-focus^="nav:"]')).not.toBeNull();
+
+    expect(await escape(editor, search)).toEqual({ prevented: true, reachedHost: false });
+    expect($(editor, '.page[data-page="events"]')).not.toBeNull();
   });
 
   it('contains a listbox’s Escape in a nested shadow root, and does nothing else', async () => {

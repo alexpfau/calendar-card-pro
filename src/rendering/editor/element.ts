@@ -55,6 +55,7 @@ import {
   entrySchema,
   fieldHelper,
   fieldLabel,
+  panelFieldIndex,
   parseFieldId,
   universeIndex,
 } from './field-index';
@@ -270,6 +271,37 @@ function provideCalendar(event: Event, entityId: string): void {
 
 /** The data of a form that draws no field, the one object every render hands it. */
 const NO_DATA: Readonly<Record<string, unknown>> = {};
+
+/**
+ * The schema context for a scope: what every schema builder reads.
+ *
+ * @param rawConfig - The configuration as stored
+ * @param workspace - The scope
+ * @param locale - Home Assistant's locale
+ * @param held - The mode choices held for the scope (`_heldModes`)
+ * @returns Schema context
+ */
+function scopeCtx(
+  rawConfig: Types.Config,
+  workspace: Workspace.EditorWorkspace,
+  locale: Types.Hass['locale'],
+  held: string,
+): SchemaCtx {
+  const config = Routing.workspaceConfig(rawConfig, workspace);
+  // Shared has no layout of its own, so its panels are built as list — the base every
+  // other view widens. `config.view` stays the card's real displayed view, because that
+  // is the value the Starting Layout control edits; see `baseViewForWorkspace`.
+  const view = Workspace.baseViewForWorkspace(workspace);
+
+  return {
+    view,
+    workspace,
+    config,
+    rawConfig,
+    language: LanguageCodes.getEffectiveLanguage(config.language, locale),
+    presentation: JSON.parse(held) as Record<string, string>,
+  };
+}
 
 /** Keeps an event from going any further than where it started. */
 const stopEvent = (event: Event): void => event.stopPropagation();
@@ -1964,29 +1996,13 @@ export class CalendarCardProEditor extends LitElement {
    * Assistant's locale moves, so a render that changed none of them hands every builder the same
    * context and reuses what it built (`field-index.ts` › `builtSchema`).
    */
-  private _ctxFor = Helpers.memoizeLast(
-    (
-      rawConfig: Types.Config,
-      workspace: Workspace.EditorWorkspace,
-      locale: Types.Hass['locale'],
-      held: string,
-    ): SchemaCtx => {
-      const config = Routing.workspaceConfig(rawConfig, workspace);
-      // Shared has no layout of its own, so its panels are built as list — the base every
-      // other view widens. `config.view` stays the card's real displayed view, because that
-      // is the value the Starting Layout control edits; see `baseViewForWorkspace`.
-      const view = Workspace.baseViewForWorkspace(workspace);
+  private _ctxFor = Helpers.memoizeLast(scopeCtx);
 
-      return {
-        view,
-        workspace,
-        config,
-        rawConfig,
-        language: LanguageCodes.getEffectiveLanguage(config.language, locale),
-        presentation: JSON.parse(held) as Record<string, string>,
-      };
-    },
-  );
+  /**
+   * `_ctxFor`'s twin for an overview row read in a scope other than the chosen one, kept apart so
+   * building it never displaces the chosen scope's context.
+   */
+  private _rowCtxFor = Helpers.memoizeLast(scopeCtx);
 
   /**
    * The `hass` a form is handed, and the feed it comes from (`hass-key.ts`).
@@ -4736,13 +4752,15 @@ export class CalendarCardProEditor extends LitElement {
     const wizard = this._quickSetup;
     // Quick Setup is a place of its own: Escape is its Back, or Cancel on its first step.
     const grab = this._grabbed();
+    // Settings For left open counts only where it is drawn.
+    const scopeOpen = this._scopeOpen && this._scopeDrawn();
     const action = escapeAction(event.composedPath(), this, {
       disclosure:
         wizard === undefined &&
         (this._drag !== undefined ||
           grab !== undefined ||
           this._colorOpenHere() ||
-          this._scopeOpen ||
+          scopeOpen ||
           this._auditEdit !== undefined ||
           this._openStrip !== undefined ||
           this._adding !== undefined ||
@@ -4781,7 +4799,7 @@ export class CalendarCardProEditor extends LitElement {
       this._openStrip === undefined &&
       this._adding === undefined &&
       this._auditEdit === undefined &&
-      !this._scopeOpen
+      !scopeOpen
     ) {
       // Escape cancels Split This Calendar from any of its steps, as Cancel does.
       this._cancelSplit(true);
@@ -4928,6 +4946,19 @@ export class CalendarCardProEditor extends LitElement {
     this._previewScope = !this._previewScope;
     this._focusSoon([Focus.byFocusKey('scope-preview')]);
   };
+
+  /**
+   * Whether the open place draws Settings For: a section page edited for a scope, as
+   * `_renderPage` draws it. `_scopeOpen` outlives the page, so elsewhere it opens nothing.
+   *
+   * @returns True on such a page
+   */
+  private _scopeDrawn(): boolean {
+    const route = this._nav.route;
+    if (route.kind !== 'page') return false;
+    const page = PAGES.find((each) => each.id === route.page);
+    return page !== undefined && page.onlyIn === undefined && !isWholeCard(page);
+  }
 
   /** Change: Settings For opens as the four choices. */
   private _openScope = (): void => {
@@ -5091,17 +5122,52 @@ export class CalendarCardProEditor extends LitElement {
     page: PageDef,
     ctx: SchemaCtx,
     present: ReadonlyMap<FieldId, IndexedField>,
+    data: Readonly<Record<string, unknown>> = this._formData(),
   ): string {
     const workspace = ctx.workspace ?? ctx.view;
     const stored = Summary.pageStoredCount(page, this._rawConfig, workspace);
     return Summary.summaryParts(
       page,
       { fields: present },
-      this._formData(),
+      data,
       stored,
       ctx.language,
       this._describe,
     ).join(Summary.SUMMARY_SEPARATOR);
+  }
+
+  /**
+   * An overview row's summary, read in the scope its page opens in: a layout's own page listed
+   * while another scope is chosen opens in its layout, so it is summarized there.
+   *
+   * @param page - The page
+   * @param ctx - Schema context
+   * @param present - The fields built here
+   * @returns The line
+   */
+  private _rowSummary(
+    page: PageDef,
+    ctx: SchemaCtx,
+    present: ReadonlyMap<FieldId, IndexedField>,
+  ): string {
+    const own = page.onlyIn;
+    if (own === undefined || own === this._workspace) return this._summary(page, ctx, present);
+    const rowCtx = this._rowCtxFor(
+      this._config!,
+      own,
+      this.hass?.locale,
+      this._heldModes(this._pending, own),
+    );
+    const fields = new Map<FieldId, IndexedField>();
+    for (const panel of new Set(page.summary.map((id) => parseFieldId(id).scope))) {
+      for (const [id, field] of panelFieldIndex(rowCtx, panel).fields) fields.set(id, field);
+    }
+    return this._summary(
+      page,
+      rowCtx,
+      fields,
+      Routing.workspaceFormData(this._config!, own, this._pending),
+    );
   }
 
   /**
@@ -5173,7 +5239,7 @@ export class CalendarCardProEditor extends LitElement {
           key: `nav:${page.id}`,
           iconPath: page.iconPath,
           title: this._pageTitle(page, ctx),
-          summary: this._summary(page, ctx, present),
+          summary: this._rowSummary(page, ctx, present),
         },
         () => {
           if (page.onlyIn !== undefined && page.onlyIn !== this._workspace) {
