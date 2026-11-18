@@ -797,6 +797,37 @@ describe('a search pick on a month', () => {
     expect(dialogs).toEqual([]);
   });
 
+  it('opens a compact day’s panel from its list’s "+N more" where the list hides the event', async () => {
+    const card = await mount({ event_tap_action: { action: 'details' } }, 375);
+    await pick(card, 'Gym');
+    // The 10th's list keeps room for four: three rows and "+2 more", with Gym behind it.
+    expect(text(root(card).querySelector('.month-day-list-date'))).toBe(
+      'Tuesday, November 10, 2026',
+    );
+    expect(ringed(root(card))).toEqual([]);
+    const more = root(card).querySelector<HTMLButtonElement>('.month-day-list-more')!;
+    expect(text(more)).toBe('+2 more');
+    expect(
+      dialogs.map(({ dialogTag, dialogParams }) => [
+        dialogTag,
+        (dialogParams as DayPanelParams).title,
+      ]),
+    ).toEqual([[DAY_PANEL_TAG, 'Tuesday, November 10, 2026']]);
+    expect(ringed(panel!.shadowRoot!)).toEqual([expect.stringContaining('Gym')]);
+    expect(deepActive()?.closest('.search-ring')).not.toBeNull();
+
+    // Closed, focus goes back to the "+N more" it opened from, a stop of its own.
+    panel!.closeDialog();
+    await settle(card);
+    vi.advanceTimersByTime(400);
+    for (let frame = 0; frame < 3; frame += 1) {
+      vi.advanceTimersToNextFrame();
+      vi.advanceTimersByTime(1);
+      await settle(card);
+    }
+    expect(deepActive()).toBe(more);
+  });
+
   it('selects and rings on another month’s page', async () => {
     const card = await mount({}, 375);
     await pick(card, 'Concert');

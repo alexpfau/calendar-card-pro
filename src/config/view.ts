@@ -301,10 +301,14 @@ export const MONTH_OVERRIDE_KEYS = [
   'multiday_banners',
 ] as const;
 
-/** Month-only options — a week row's height, the compact form's width and week scrolling. */
+/**
+ * Month-only options — a week row's height, the compact form's width and the events its day list
+ * keeps room for, and week scrolling.
+ */
 export const MONTH_ONLY_KEYS = [
   'row_height',
   'min_day_width',
+  'day_list_events',
   'week_scroll',
   'week_scroll_min_width',
 ] as const;
@@ -1082,13 +1086,16 @@ export function resolveTimeGridOption<K extends keyof typeof TIME_GRID_DEFAULTS>
  * sizes a wide day 64px across cuts every title to four or five letters and drops every time,
  * which reads worse than the compact form's list; from about 80px a title keeps a word or two,
  * so the compact form takes every card narrower than 594px, a phone's and a narrow column's,
- * and the wide one comes back from 622px (`UI.MONTH_COMPACT_HYSTERESIS`). Week scrolling takes
- * wheel and swipe gestures from the page, so it ships off, and `week_scroll_min_width: 0`
- * applies it at any card width once it is on.
+ * and the wide one comes back from 622px (`UI.MONTH_COMPACT_HYSTERESIS`). `day_list_events` is
+ * the events the compact form's day list keeps room for, the four a wide day holds under its
+ * date at the defaults, so the card is one height whichever day is chosen; `0` keeps no room
+ * and lists every event. Week scrolling takes wheel and swipe gestures from the page, so it
+ * ships off, and `week_scroll_min_width: 0` applies it at any card width once it is on.
  */
 export const MONTH_DEFAULTS = {
   row_height: '112px',
   min_day_width: 80,
+  day_list_events: 4,
   week_scroll: false,
   week_scroll_min_width: 0,
 } as const;
@@ -1108,8 +1115,9 @@ type MonthOptionValue<K extends keyof typeof MONTH_DEFAULTS> =
  *
  * These values never pass through `normalizeConfig`, so a malformed one is caught here. A
  * length accepts a bare number from YAML or the editor's text field and gains `px`, for the
- * reason {@link normalizeColumnValue} gives. `min_day_width` is a width above zero, and
- * `week_scroll_min_width` any width from zero, which means no limit.
+ * reason {@link normalizeColumnValue} gives. `min_day_width` is a width above zero,
+ * `week_scroll_min_width` any width from zero, which means no limit, and `day_list_events` a
+ * whole number of events from zero, which means every event, a fraction rounded down.
  *
  * @param key - Option being resolved
  * @param value - Raw configured value
@@ -1128,6 +1136,7 @@ export function normalizeMonthValue(
   if (typeof fallback === 'number') {
     const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value));
     if (!Number.isFinite(parsed)) return fallback;
+    if (key === 'day_list_events') return parsed >= 0 ? Math.floor(parsed) : fallback;
     return key === 'week_scroll_min_width'
       ? parsed >= 0
         ? parsed

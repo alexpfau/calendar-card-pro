@@ -746,8 +746,9 @@ function renderCard(view: (typeof VIEWS)[number], config: Types.Config): HTMLEle
 
 /**
  * A month in both its forms: wide, then compact with the list of a day that has events under
- * it, then the list of a day with none, so the compact form's and the day list's sizes are
- * reached in every pass a month draws.
+ * it, keeping room for fewer than that day holds so it ends in "+N more" beside its hidden probe,
+ * then the list of a day with none, so the compact form's and the day list's sizes are reached in
+ * every pass a month draws.
  */
 function monthForms(days: Types.EventsByDay[], rowsStart: Date, effective: Types.Config) {
   const dayLists = MonthDay.monthDayLists(
@@ -763,7 +764,13 @@ function monthForms(days: Types.EventsByDay[], rowsStart: Date, effective: Types
   );
   return html`${Render.renderMonthGroupedEvents(days, rowsStart, effective, 'en', 4, null)}
   ${Render.renderMonthGroupedEvents(days, rowsStart, effective, 'en', 4, null, false, {
-    compact: { selected: Paging.addDays(rowsStart, busiest), dayLists, weatherForecasts: WEATHER },
+    compact: {
+      selected: Paging.addDays(rowsStart, busiest),
+      dayLists,
+      weatherForecasts: WEATHER,
+      // Room for fewer than the busiest day holds, so its list ends in "+N more".
+      reserve: 2,
+    },
   })}
   ${MonthRender.renderMonthDayList(Paging.addDays(rowsStart, 41), [], effective, 'en', null)}`;
 }
@@ -1125,6 +1132,7 @@ describe('every piece of text is sized by its own option', () => {
       // event font, as the list's rows set their titles.
       'month-day-list-date in month-day-list-header': ['weekday_font_size'],
       'month-day-list-empty in month-day-list': ['event_font_size'],
+      'month-day-list-more in month-day-list-rows': ['time_font_size'],
       // A month line's title and its time, each in its own option, side by side as a list row's.
       'month-line-time in event': ['time_font_size'],
       'month-line-title in event': ['event_font_size'],

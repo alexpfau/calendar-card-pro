@@ -152,12 +152,45 @@ between the two.
 
 ### The Day's List
 
-The chosen day's events are listed under the weeks as the list layout draws them, with two
-differences. Each event's time sits at the end of its title's line, as a phone's day list puts it,
-whatever `time_position` says: a row is a line shorter that way, and the times line up at the
-row's end. And each event is a block of its own, with its own accent bar, 6px from the next:
-Month starts [`event_gap`](/features/layout-appearance#gaps-between-events) from `6px`, below.
-The panel "+2 more" opens lists a day the same way.
+The chosen day's events are listed under the weeks, and the list keeps room for four of them on
+every day, so the card stays one height as you tap from day to day and page from month to month.
+A day with more lists three and "+5 more", which opens the day in a panel. `day_list_events` sets
+how many the list keeps room for:
+
+```yaml
+view: month
+month:
+  day_list_events: 6 # room for six events before "+N more"
+```
+
+| Option                    | Type   | Default | Description                                                                                                                                                   |
+| ------------------------- | ------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `month → day_list_events` | number | `4`     | Events the compact month's list keeps room for on every day, past which it lists one fewer and "+N more"; `0` lists every event, and the card follows the day |
+
+- **Times sit beside the titles**, whatever `time_position` says, as a phone's day list puts them:
+  a row is a line shorter, and the times line up at its end.
+- **Each detail keeps to one line**: a title too long for the line beside its time ends in "…",
+  and the location, the description and the forecast take a line each. The panel shows them in
+  full.
+- **Each event is a block of its own**, with its own accent bar, 6px from the next: Month starts
+  [`event_gap`](/features/layout-appearance#gaps-between-events) from `6px`; see
+  [below](#options-that-start-from-a-different-default).
+- **"+N more" is a button** in the tab order, after the month. Closing the panel it opens brings
+  you back to it.
+- **With a fixed `height`**, the list's room counts toward the card's content, which scrolls as a
+  whole; nothing inside the list scrolls.
+- **`day_list_events: 0`** lists every event at its full height, its title wrapping beside its
+  time, and the card grows and shrinks with the day.
+
+The panel "+N more" opens, here or on a wide month, lists a day the same way, without the room or
+the one-line limit.
+
+::: details How Tall the Room Is
+Each row of the room is as tall as an event showing everything the card shows: a title with its
+time, a location, and a description or a progress bar where the card shows them, at the largest
+`text_scale` any calendar has. A day with fewer events leaves the rest of the room empty, and a
+day with none shows "No events" in it.
+:::
 
 ## ⌨️ Keyboard
 

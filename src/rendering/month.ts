@@ -35,6 +35,7 @@ import * as Activation from './activation';
 import { renderBanner } from './grid';
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
+import { generateCustomPropertiesObject } from './styles';
 import * as TextScale from './text-scale';
 import { stopCardGesture } from './toolbar';
 import { DEFAULT_CONFIG } from '../config/config';
@@ -98,7 +99,23 @@ export interface MonthCompact {
   readonly weatherForecasts?: Types.WeatherForecasts;
   /** The list's header as a button that adds on its day, while a tap on a day adds. */
   readonly dayAdd?: Activation.DayAddButtons;
+  /**
+   * The events the list keeps room for on every day (`month → day_list_events`), past which it
+   * lists one fewer and "+N more"; none kept, and every event listed, where 0 or absent.
+   */
+  readonly reserve?: number;
+  /** Opens the day's panel from the list's "+N more", given the day and the button. */
+  readonly more?: (day: Date, button: HTMLElement) => void;
 }
+
+/**
+ * The class of the hidden row a reserved day list is measured from (`MonthDay.monthListProbe`),
+ * drawn beside the list and outside it, so nothing that reads the list's rows finds it.
+ */
+export const MONTH_LIST_PROBE_CLASS = 'month-day-list-probe';
+
+/** The custom property the card writes the measured row's height to, on the list. */
+export const MONTH_LIST_ROW_PROPERTY = '--calendar-card-month-day-list-row';
 
 //-----------------------------------------------------------------------------
 // ROWS
@@ -1110,7 +1127,10 @@ function renderCompactMonth(
       eventsTappable,
       compact.weatherForecasts,
       compact.dayAdd,
+      compact.reserve,
+      compact.more,
     )}
+    ${(compact.reserve ?? 0) > 0 ? renderListProbe(config, language, hass) : nothing}
   `;
 }
 
@@ -1212,6 +1232,7 @@ function renderDayRow(
  * @param eventsTappable - Whether each row is a tap target of its own
  * @param weatherForecasts - Forecasts for the rows' weather, as a list row shows them
  * @param dayLabelId - The id of what names the day, which describes each row as a tap target
+ * @param reserved - Whether the list keeps room for its events, so each part keeps to a line
  * @returns The rows, or nothing
  */
 export function renderMonthDayRows(
@@ -1222,9 +1243,10 @@ export function renderMonthDayRows(
   eventsTappable = false,
   weatherForecasts?: Types.WeatherForecasts,
   dayLabelId?: string,
+  reserved = false,
 ): TemplateResult | typeof nothing {
   if (events.length === 0) return nothing;
-  const rows = MonthDay.monthRowsConfig(config);
+  const rows = MonthDay.monthRowsConfig(config, reserved);
   const repeated = Presentation.repeatedCountdowns([...events], rows, language);
   const gap = ViewConfig.hasEventGap(rows);
   return html`<table class=${gap ? 'month-day-table with-event-gap' : 'month-day-table'}>
@@ -1246,11 +1268,116 @@ export function renderMonthDayRows(
   </table>`;
 }
 
+/** What a reserved list's rows write on the list: the room and each part's one line. */
+const reservedStyles = new WeakMap<Types.Config, Readonly<Record<string, string>>>();
+
+/**
+ * The custom properties a reserved list writes on itself, over the card's: each the card writes
+ * differently for the reserved rows' configuration (`MonthDay.monthRowsConfig`), so every line
+ * limit the stylesheet reads takes one line there and nowhere else, as `text_scale` scales one
+ * event's sizes.
+ *
+ * @param config - Card configuration, resolved for month
+ * @returns The properties, by name
+ */
+function reservedListStyle(config: Types.Config): Readonly<Record<string, string>> {
+  const known = reservedStyles.get(config);
+  if (known) return known;
+  const card = generateCustomPropertiesObject(config);
+  const rows = generateCustomPropertiesObject(MonthDay.monthRowsConfig(config, true));
+  const style = Object.fromEntries(
+    Object.entries(rows).filter(([property, value]) => card[property] !== value),
+  );
+  reservedStyles.set(config, style);
+  return style;
+}
+
+/**
+ * The list's "+N more", in the last row its room keeps: the events past the ones it lists,
+ * counted, as a button in the Tab order named for its count and its day. It opens the day's
+ * panel beside itself, and focus comes back to it when the panel closes. Its press is its own,
+ * never the card's nor the day's beneath it.
+ *
+ * @param day - The day, at local midnight
+ * @param count - The events it stands for
+ * @param language - Card language
+ * @param hass - Home Assistant, which says which way the dashboard runs
+ * @param more - Opens the day's panel, if the card opens one
+ * @returns The button
+ */
+function renderListMore(
+  day: Date,
+  count: number,
+  language: string,
+  hass?: Types.Hass | null,
+  more?: MonthCompact['more'],
+): TemplateResult {
+  const text = TextDirection.inLanguageDirection(
+    Localize.getTranslations(language).moreEvents.replace('{count}', () => String(count)),
+    TextDirection.languageMark(language, hass),
+  );
+  return html`<button
+    class="month-day-list-more"
+    type="button"
+    aria-label=${`${text}, ${dayName(day, language)}`}
+    @pointerdown=${stopCardGesture}
+    @click=${(ev: MouseEvent) => {
+      stopCardGesture(ev);
+      more?.(day, ev.currentTarget as HTMLElement);
+    }}
+    .calendarCardDaySlot=${Activation.COVERED}
+  >
+    ${text}
+  </button>`;
+}
+
+/**
+ * The hidden row a reserved list is measured from (`MonthDay.monthListProbe`), beside the list,
+ * drawn as the list's rows are and out of sight, the tab order and assistive technology. It takes
+ * no room: the card reads its height and writes it on the list (`MONTH_LIST_ROW_PROPERTY`).
+ *
+ * @param config - Card configuration, resolved for month
+ * @param language - Card language
+ * @param hass - Home Assistant instance
+ * @returns The probe
+ */
+function renderListProbe(
+  config: Types.Config,
+  language: string,
+  hass?: Types.Hass | null,
+): TemplateResult {
+  return html`<div
+    class=${MONTH_LIST_PROBE_CLASS}
+    style=${styleMap(reservedListStyle(config))}
+    aria-hidden="true"
+    inert
+  >
+    ${renderMonthDayRows(
+      [MonthDay.monthListProbe(config)],
+      config,
+      language,
+      hass,
+      false,
+      undefined,
+      undefined,
+      true,
+    )}
+  </div>`;
+}
+
 /**
  * The selected day's list, under a compact month's weeks: the day named in full, then its rows,
  * or the card's "no events" where it has none. Its own space is the day's: a press there, on its
  * name or under its rows, runs `day_tap_action`, and where that adds an event its name is a
  * button that adds on the day, as List's dates are.
+ *
+ * With `reserve` events, the rows take as much room on every day, whatever the day holds, so the
+ * card is one height as a tap moves from day to day and month to month: `reserve` rows of the
+ * height the card measures off the hidden probe beside the list, and the gaps between them. A
+ * day with more lists one fewer and "+N more" in the last row, which opens the day's panel. Each
+ * part of a row keeps to one line (`MonthDay.monthRowsConfig`), and a row is cut at the room's
+ * height besides, so nothing a row holds can make it taller. Nothing scrolls: under a fixed card
+ * `height` the list scrolls with the month in the card's content.
  *
  * @param day - The day, at local midnight
  * @param events - Its events, as the day model lists them
@@ -1260,6 +1387,8 @@ export function renderMonthDayRows(
  * @param eventsTappable - Whether each row is a tap target of its own
  * @param weatherForecasts - Forecasts for the rows' weather
  * @param dayAdd - The name as a button that adds on the day, while a tap on a day adds
+ * @param reserve - The events it keeps room for, or 0 for none
+ * @param more - Opens the day's panel from "+N more"
  * @returns The list
  */
 export function renderMonthDayList(
@@ -1271,6 +1400,8 @@ export function renderMonthDayList(
   eventsTappable = false,
   weatherForecasts?: Types.WeatherForecasts,
   dayAdd?: Activation.DayAddButtons,
+  reserve = 0,
+  more?: MonthCompact['more'],
 ): TemplateResult {
   const timestamp = day.getTime();
   const labelId = eventsTappable || dayAdd ? Activation.dayLabelId(timestamp) : undefined;
@@ -1278,8 +1409,44 @@ export function renderMonthDayList(
   const name = html`<span class="month-day-list-date" id=${labelId ?? nothing}
     >${TextDirection.inLanguageDirection(monthDayTitle(day, language), mark)}</span
   >`;
+  const reserved = reserve > 0;
+  const shown = reserved && events.length > reserve ? reserve - 1 : events.length;
+  const rows =
+    events.length > 0
+      ? html`${
+          shown > 0
+            ? renderMonthDayRows(
+                events.slice(0, shown),
+                config,
+                language,
+                hass,
+                eventsTappable,
+                weatherForecasts,
+                labelId,
+                reserved,
+              )
+            : nothing
+        }${
+          shown < events.length
+            ? renderListMore(day, events.length - shown, language, hass, more)
+            : nothing
+        }`
+      : html`<div class="month-day-list-empty">
+          ${TextDirection.inLanguageDirection(Localize.getTranslations(language).noEvents, mark)}
+        </div>`;
 
-  return html`<div class="month-day-list" .calendarCardDaySlot=${Activation.daySlot(timestamp)}>
+  return html`<div
+    class=${reserved ? 'month-day-list month-day-list-reserved' : 'month-day-list'}
+    style=${
+      reserved
+        ? styleMap({
+            ...reservedListStyle(config),
+            '--calendar-card-month-day-list-events': String(reserve),
+          })
+        : nothing
+    }
+    .calendarCardDaySlot=${Activation.daySlot(timestamp)}
+  >
     ${
       dayAdd
         ? html`<div
@@ -1294,21 +1461,7 @@ export function renderMonthDayList(
           </div>`
         : html`<div class="month-day-list-header">${name}</div>`
     }
-    ${
-      events.length > 0
-        ? renderMonthDayRows(
-            events,
-            config,
-            language,
-            hass,
-            eventsTappable,
-            weatherForecasts,
-            labelId,
-          )
-        : html`<div class="month-day-list-empty">
-            ${TextDirection.inLanguageDirection(Localize.getTranslations(language).noEvents, mark)}
-          </div>`
-    }
+    ${reserved ? html`<div class="month-day-list-rows">${rows}</div>` : rows}
   </div>`;
 }
 

@@ -737,6 +737,12 @@ export interface MonthOverrides extends Omit<SharedViewOverrides, MonthIgnoredSh
   /** Day-cell width in pixels below which the month draws its compact form. */
   min_day_width?: number;
 
+  /**
+   * Events the compact form's day list keeps room for, whichever day is chosen, past which it
+   * lists one fewer and "+N more"; `0` keeps no room and lists every event.
+   */
+  day_list_events?: number;
+
   /** Whether a vertical swipe, the mouse wheel or a trackpad moves the rows by whole weeks. */
   week_scroll?: boolean;
 

@@ -1796,6 +1796,15 @@ class CalendarCardPro extends LitElement {
    */
   private _monthSelection: MonthDay.MonthSelection | null = null;
 
+  /** Watches the probe a compact month's reserved day list is measured from (`_syncMonthListRow`). */
+  private _monthListRowWatch: ResizeObserver | null = null;
+
+  /** The probe it watches, as last drawn. */
+  private _monthListProbe: HTMLElement | null = null;
+
+  /** Whether the day panel open was opened from a compact month, whose form it goes with. */
+  private _dayPanelCompact = false;
+
   /** The open day panel, while one is (`_openDayPanel`). */
   private _dayPanel: DayPanel.DayPanelHandle | null = null;
 
@@ -2207,7 +2216,7 @@ class CalendarCardPro extends LitElement {
    */
   private get _rowsConfig(): Types.Config {
     return this.effectiveView === 'month'
-      ? MonthDay.monthRowsConfig(this.effectiveConfig)
+      ? MonthDay.monthRowsConfig(this.effectiveConfig, this._monthListReserve > 0)
       : this.effectiveConfig;
   }
 
@@ -2741,6 +2750,7 @@ class CalendarCardPro extends LitElement {
     this._stopGridDisclosureObserver();
     this._stopTitleScrollObserver();
     this._stopTitleFits();
+    this._stopMonthListRow();
     Menu.closeMenus(this.renderRoot);
     this._search?.close();
     this._dayPanel?.close();
@@ -3594,6 +3604,62 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * Writes the height of a row of a compact month's reserved day list on the list
+   * (`MonthRender.MONTH_LIST_ROW_PROPERTY`), read off the hidden probe beside it, after every
+   * render and again whenever the probe changes size, as a font loading, a theme or a width that
+   * wraps it does. The list keeps room for `month → day_list_events` rows of that height.
+   *
+   * Written straight onto the list, where no render binds that property, and only when it
+   * changed, so it costs no render. Stable by construction: the probe takes no room and holds the
+   * same row whatever the day, so the room written cannot move what it was read from. A probe not
+   * laid out, in a hidden card, writes nothing, and the list keeps what it had, or the
+   * stylesheet's estimate before the first.
+   */
+  private _syncMonthListRow(): void {
+    const probe = this.isConnected
+      ? this.renderRoot.querySelector<HTMLElement>(
+          `.${MonthRender.MONTH_LIST_PROBE_CLASS} td.event`,
+        )
+      : null;
+    if (probe !== this._monthListProbe) {
+      this._stopMonthListRow();
+      this._monthListProbe = probe;
+      if (probe && typeof ResizeObserver !== 'undefined') {
+        this._monthListRowWatch = new ResizeObserver(() => this._writeMonthListRow());
+        this._monthListRowWatch.observe(probe);
+      }
+    }
+    this._writeMonthListRow();
+  }
+
+  /** Reads the probe's row and writes its height on the reserved list, if either is drawn. */
+  private _writeMonthListRow(): void {
+    const probe = this._monthListProbe;
+    const list = this.renderRoot.querySelector<HTMLElement>('.month-day-list-reserved');
+    if (!probe?.isConnected || !list) return;
+    const rect = probe.getBoundingClientRect();
+    if (!(rect.height > 0)) return;
+    // Boxes come in the page's pixels and the property in the card's own: a card an ancestor
+    // scales draws one at the other's scale. offsetWidth is whole pixels, so a box within a pixel
+    // of it is not scaled. Rounded up, so the room is never a fraction short of the row.
+    const scale =
+      probe.offsetWidth > 0 && Math.abs(rect.width - probe.offsetWidth) >= 1
+        ? rect.width / probe.offsetWidth
+        : 1;
+    const height = `${Math.ceil((rect.height / scale) * 100) / 100}px`;
+    if (list.style.getPropertyValue(MonthRender.MONTH_LIST_ROW_PROPERTY) !== height) {
+      list.style.setProperty(MonthRender.MONTH_LIST_ROW_PROPERTY, height);
+    }
+  }
+
+  /** Stops watching the reserved list's probe, leaving what it wrote. */
+  private _stopMonthListRow(): void {
+    this._monthListRowWatch?.disconnect();
+    this._monthListRowWatch = null;
+    this._monthListProbe = null;
+  }
+
+  /**
    * Decides the month's form at the card's width: compact below `month → min_day_width` a day,
    * wide again only once a day is `MONTH_COMPACT_HYSTERESIS` past it (`MonthDay.monthCompactAt`).
    * Its own state, apart from shedding columns and from List's fallback, neither of which a
@@ -3679,7 +3745,7 @@ class CalendarCardPro extends LitElement {
   private _monthCompactView(
     rowsStart: Date,
     ring: Search.RingTarget | null,
-  ): { compact: MonthRender.MonthCompact; ringed: boolean } | undefined {
+  ): { compact: MonthRender.MonthCompact; ringed: boolean; behindMore: boolean } | undefined {
     if (!this._drawsCompactMonth) return undefined;
     const selected = this._monthSelectedDay();
     const dayLists = MonthDay.monthDayLists(
@@ -3692,17 +3758,35 @@ class CalendarCardPro extends LitElement {
     );
     const index = FormatUtils.getCalendarDayDiff(rowsStart, selected);
     const listed = ring ? Search.ringRows(dayLists[index] ?? [], ring) : null;
+    const reserve = this._monthListReserve;
+    // A list that keeps room for `reserve` events lists one fewer where the day has more, and
+    // a pick past those is behind its "+N more", which opens the day's panel to ring it there.
+    const shown = listed && reserve > 0 && listed.rows.length > reserve ? reserve - 1 : Infinity;
+    const at = listed ? listed.rows.findIndex((event) => event._searchRing === true) : -1;
     return {
       compact: {
         selected,
         dayLists: listed
-          ? dayLists.map((list, at) => (at === index ? listed.rows : list))
+          ? dayLists.map((list, day) => (day === index ? listed.rows : list))
           : dayLists,
         weatherForecasts: this.weatherForecasts,
         dayAdd: this._dayAddButtons,
+        reserve,
+        more: (day, button) => this._openDayPanel(day, button, false, true),
       },
-      ringed: listed?.found ?? false,
+      ringed: (listed?.found ?? false) && at < shown,
+      behindMore: (listed?.found ?? false) && at >= shown,
     };
+  }
+
+  /**
+   * The events a compact month's day list keeps room for (`month → day_list_events`), or 0 where
+   * it keeps none, or the month draws no list.
+   */
+  private get _monthListReserve(): number {
+    return this._drawsCompactMonth
+      ? ViewConfig.resolveMonthOption(this.effectiveConfig, 'day_list_events')
+      : 0;
   }
 
   /**
@@ -3863,28 +3947,41 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Opens a wide month day's panel: the day's events as the day model lists them, through Home
-   * Assistant's dialog manager as the search panel is, beside what opened it, its "+N more" or
-   * its cell.
+   * Opens a month day's panel: the day's events as the day model lists them, through Home
+   * Assistant's dialog manager as the search panel is, beside what opened it, a wide day's
+   * "+N more" or its cell, or a compact month's list's "+N more".
    *
-   * The day's cell takes focus first, and becomes the month's tab stop, so focus comes back to
-   * it when the panel closes, as the search panel's magnifier does. A row pressed in the panel
-   * closes it and runs what a tap on the event runs on the card, once the panel has gone
-   * (`_activate`). A search's pick behind "+N more" rings its row there, and starts focus on it.
-   * Nothing opens while the card is being edited.
+   * Focus comes back to what took it as the panel opened, when it closes, as the search panel's
+   * magnifier does. From a wide month that is the day's cell, which becomes the month's tab stop:
+   * its "+N more" is out of the Tab order. From a compact month's list it is the list's
+   * "+N more" itself, a stop of its own (`returnToAnchor`). A row pressed in the panel closes it
+   * and runs what a tap on the event runs on the card, once the panel has gone (`_activate`). A
+   * search's pick behind "+N more" rings its row there, and starts focus on it. Nothing opens
+   * while the card is being edited.
    *
    * @param day - The day, at local midnight
    * @param anchor - What the panel opens beside: the day's "+N more" or its cell
    * @param focusRinged - Whether focus starts on the row a search rings, rather than on Close
+   * @param returnToAnchor - Whether focus comes back to `anchor` rather than to the day's cell
    */
-  private _openDayPanel(day: Date, anchor: HTMLElement, focusRinged = false): void {
+  private _openDayPanel(
+    day: Date,
+    anchor: HTMLElement,
+    focusRinged = false,
+    returnToAnchor = false,
+  ): void {
     if (this._isBeingEdited) {
       Logger.debug('Not opening a day panel while the card is being edited');
       return;
     }
     this._dayPanel?.close();
-    this._monthFocusDay = FormatUtils.getLocalDateKey(day);
-    (this._monthCellFor(day) ?? anchor).focus({ preventScroll: true });
+    this._dayPanelCompact = this._drawsCompactMonth;
+    if (returnToAnchor) {
+      anchor.focus({ preventScroll: true });
+    } else {
+      this._monthFocusDay = FormatUtils.getLocalDateKey(day);
+      (this._monthCellFor(day) ?? anchor).focus({ preventScroll: true });
+    }
     this.requestUpdate();
     const language = this.effectiveLanguage;
     const at = originOf(anchor);
@@ -4586,10 +4683,14 @@ class CalendarCardPro extends LitElement {
     }
     // A configuration change can move the month's form at the width it already has.
     this._syncMonthForm();
-    // The day panel belongs to a wide month's "+N more", and goes with it.
+    // The day panel belongs to the "+N more" it opened from, a wide day's or a compact list's,
+    // and goes with the form that drew it.
     if (
       this._dayPanel &&
-      (this._isBeingEdited || this.hidden || this.effectiveView !== 'month' || this._monthCompact)
+      (this._isBeingEdited ||
+        this.hidden ||
+        this.effectiveView !== 'month' ||
+        this._monthCompact !== this._dayPanelCompact)
     ) {
       this._dayPanel.close();
     }
@@ -4669,6 +4770,7 @@ class CalendarCardPro extends LitElement {
       this._syncOverflowStrip();
     }
     this._syncMonthCapacity();
+    this._syncMonthListRow();
     // An open day panel draws its rows from what this update drew from: the events, the
     // configuration and the time.
     this._dayPanel?.changed();
@@ -8495,6 +8597,7 @@ class CalendarCardPro extends LitElement {
       // as a bar or a line, else in its day's panel (`_syncSearchRing`).
       if (compactView) {
         this._searchRingDrawn = compactView.ringed;
+        if (compactView.behindMore && ring) this._searchRingBehindMore = Paging.pageStart(ring.day);
       } else if (rowsStart && ring && ringed.found) {
         this._searchRingDrawn = MonthRender.monthDrawsRing(days, rowsStart, this._monthCapacity);
         if (!this._searchRingDrawn) this._searchRingBehindMore = Paging.pageStart(ring.day);
@@ -9632,8 +9735,13 @@ class CalendarCardPro extends LitElement {
         this._startSearchRing(ring);
         const focus = ring.focus;
         ring.focus = false;
+        // A compact month's list opens it from its own "+N more", which focus comes back to.
+        const listMore = this._drawsCompactMonth
+          ? this.renderRoot.querySelector<HTMLElement>('.month-day-list-more')
+          : null;
         const cell = this._monthCellFor(behindMore);
-        if (cell) this._openDayPanel(behindMore, cell, focus);
+        if (listMore) this._openDayPanel(behindMore, listMore, focus, true);
+        else if (cell) this._openDayPanel(behindMore, cell, focus);
         Logger.debug('Search: the pick is behind "+N more"; ringing it in its day\'s panel');
         return;
       } else if (this._pageShown === ring.page && !this.isLoading && !this.isInitialLoad) {

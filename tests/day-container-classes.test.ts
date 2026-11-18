@@ -521,7 +521,8 @@ describe('theming.md card-mod selectors', () => {
       for (const [capacity, options] of [
         [4, { more: noop, weekScroll: { handleEvent: noop, passive: false } }],
         [1, { more: noop }],
-        [4, { compact: { selected: new Date(2026, 5, 17), dayLists } }],
+        // Room for one event, so a day with more lists none and "+N more" in it.
+        [4, { compact: { selected: new Date(2026, 5, 17), dayLists, reserve: 1 } }],
         [4, { compact: { selected: new Date(2026, 5, 2), dayLists } }],
       ] as const) {
         const container = document.createElement('div');

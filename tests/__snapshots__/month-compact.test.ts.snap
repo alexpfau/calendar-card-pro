@@ -178,19 +178,19 @@ exports[`a compact day > matches its snapshot 1`] = `
 </div>
 </div>
 </div>
-<div class="month-day-list">
+<div class="month-day-list month-day-list-reserved" style="--calendar-card-description-max-lines:1;--calendar-card-title-max-lines:1;--calendar-card-grid-title-lines-compact:1;--calendar-card-grid-title-lines-medium:1;--calendar-card-grid-title-lines-expanded:1;--calendar-card-time-max-lines:1;--calendar-card-location-max-lines:1;--calendar-card-title-display:-webkit-box;--calendar-card-time-display:-webkit-box;--calendar-card-title-overflow:hidden;--calendar-card-time-overflow:hidden;--calendar-card-location-overflow:hidden;--calendar-card-description-overflow:hidden;--calendar-card-title-ink-room:0.375em;--calendar-card-time-ink-room:0.375em;--calendar-card-title-inline-room:var(--calendar-card-inline-room);--calendar-card-time-inline-room:var(--calendar-card-inline-room);--calendar-card-summary-end-margin:0.2em;--calendar-card-title-end-margin:2px;--calendar-card-weather-event-max-lines:1;--calendar-card-weather-event-condition-display:-webkit-inline-box;--calendar-card-weather-condition-inline-room:var(--calendar-card-inline-room);--calendar-card-month-day-list-events:4;">
 <div class="month-day-list-header"><span class="month-day-list-date">Wednesday, November 18, 2026</span></div>
-<table class="month-day-table with-event-gap">
+<div class="month-day-list-rows"><table class="month-day-table with-event-gap">
 <tr>
 <td class=" event event-first " style="--calendar-card-event-accent-bar-color:#16a34a;">
 <span class="event-accent-bar"></span>
 <div class="event-content time-beside-title">
-<div class="summary-row title-wrap">
-<div class="summary"><span class="event-title " style="color: var(--primary-text-color)">
+<div class="summary-row">
+<div class="summary summary-scroll"><span class="event-title title-scrollable" style="color: var(--primary-text-color);" dir="ltr">
           Holiday
-        </span><span class="title-room"></span></div>
+        </span></div>
 <div class="title-aside">
-<span class="title-strut" aria-hidden="true">⁠</span><!--?--><div class="time"><div class="time-actual"><span>All day</span></div></div>
+<!--?--><div class="time"><div class="time-actual"><span>All day</span></div></div>
 </div>
 </div>
 <div class="time-location">
@@ -203,12 +203,12 @@ exports[`a compact day > matches its snapshot 1`] = `
 <td class=" event event-middle past-event " style="--calendar-card-event-accent-bar-color:#3b82f6;">
 <span class="event-accent-bar"></span>
 <div class="event-content time-beside-title">
-<div class="summary-row title-wrap">
-<div class="summary"><span class="event-title " style="color: var(--primary-text-color)">
+<div class="summary-row">
+<div class="summary summary-scroll"><span class="event-title title-scrollable" style="color: var(--primary-text-color);" dir="ltr">
           Swim
-        </span><span class="title-room"></span></div>
+        </span></div>
 <div class="title-aside">
-<span class="title-strut" aria-hidden="true">⁠</span><!--?--><div class="time"><div class="time-actual"><span>7:00 - 8:00</span></div></div>
+<!--?--><div class="time"><div class="time-actual"><span>7:00 - 8:00</span></div></div>
 </div>
 </div>
 <div class="time-location">
@@ -221,12 +221,12 @@ exports[`a compact day > matches its snapshot 1`] = `
 <td class=" event event-middle past-event " style="--calendar-card-event-accent-bar-color:#16a34a;">
 <span class="event-accent-bar"></span>
 <div class="event-content time-beside-title">
-<div class="summary-row title-wrap">
-<div class="summary"><span class="event-title " style="color: var(--primary-text-color)">
+<div class="summary-row">
+<div class="summary summary-scroll"><span class="event-title title-scrollable" style="color: var(--primary-text-color);" dir="ltr">
           Standup
-        </span><span class="title-room"></span></div>
+        </span></div>
 <div class="title-aside">
-<span class="title-strut" aria-hidden="true">⁠</span><!--?--><div class="time"><div class="time-actual"><span>9:00 - 9:15</span></div></div>
+<!--?--><div class="time"><div class="time-actual"><span>9:00 - 9:15</span></div></div>
 </div>
 </div>
 <div class="time-location">
@@ -239,12 +239,12 @@ exports[`a compact day > matches its snapshot 1`] = `
 <td class=" event event-last " style="--calendar-card-event-accent-bar-color:#3b82f6;">
 <span class="event-accent-bar"></span>
 <div class="event-content time-beside-title">
-<div class="summary-row title-wrap">
-<div class="summary"><span class="event-title " style="color: var(--primary-text-color)">
+<div class="summary-row">
+<div class="summary summary-scroll"><span class="event-title title-scrollable" style="color: var(--primary-text-color);" dir="ltr">
           Lunch
-        </span><span class="title-room"></span></div>
+        </span></div>
 <div class="title-aside">
-<span class="title-strut" aria-hidden="true">⁠</span><!--?--><div class="time"><div class="time-actual"><span>12:00 - 13:00</span></div></div>
+<!--?--><div class="time"><div class="time-actual"><span>12:00 - 13:00</span></div></div>
 </div>
 </div>
 <div class="time-location">
@@ -256,6 +256,6 @@ exports[`a compact day > matches its snapshot 1`] = `
 </div>
 </td>
 </tr><!--?-->
-</table>
+</table><!--?--></div>
 </div>"
 `;

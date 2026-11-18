@@ -352,9 +352,9 @@ function hass(): Types.Hass {
       const at = (point: { date?: string; dateTime?: string }) =>
         Date.parse(point.dateTime ?? `${point.date}T00:00:00Z`);
       return Promise.resolve(
-        EVENTS.filter(
-          (event) => event.calendar === id && at(event.start) < to && at(event.end) > from,
-        ).map(({ calendar: _calendar, ...event }) => ({ ...event })),
+        [...EVENTS, ...extraEvents]
+          .filter((event) => event.calendar === id && at(event.start) < to && at(event.end) > from)
+          .map(({ calendar: _calendar, ...event }) => ({ ...event })),
       );
     }),
     callService: vi.fn(),
@@ -373,6 +373,8 @@ const BASE = {
 
 /** Every dialog the card asked Home Assistant to open, by tag. */
 let dialogs: Array<{ dialogTag: string; dialogParams: unknown }> = [];
+/** Events a test adds to the fixture's, for the days it alone reads. */
+let extraEvents: RawEvent[] = [];
 /** The dialog manager's stand-in, while a test plays one (`playDialogManager`). */
 let manager: ((event: Event) => void) | null = null;
 let hassActions: Array<{ action: string; config: Record<string, unknown> }> = [];
@@ -485,6 +487,7 @@ beforeEach(() => {
   RecordingResizeObserver.instances = [];
   globalThis.ResizeObserver = RecordingResizeObserver as unknown as typeof ResizeObserver;
   dialogs = [];
+  extraEvents = [];
   hassActions = [];
   document.addEventListener('show-dialog', record);
 });
@@ -775,6 +778,200 @@ describe('the time beside the title', () => {
     ).toEqual(['All day', '7:00 - 8:00', '9:00 - 9:15', '12:00 - 13:00']);
     expect(root(below).querySelector('.month-day-list .time-location .time')).toBeNull();
     expect(listMarkup(below)).toBe(listMarkup(beside));
+  });
+});
+
+describe('the room a day’s list keeps', () => {
+  /** Nine on Saturday the 28th, five past the four the list keeps room for. */
+  const NINE = Array.from({ length: 9 }, (_, index) =>
+    timed(
+      index % 2 ? BEN : ANNA,
+      `Errand ${index + 1}`,
+      '2026-11-28',
+      `${String(8 + index).padStart(2, '0')}:00`,
+      `${String(8 + index).padStart(2, '0')}:30`,
+      '2026-11-28',
+      index === 0 ? 'A street name long enough to need a second line on a phone' : undefined,
+    ),
+  );
+  const list = (card: CardUnderTest) => root(card).querySelector<HTMLElement>('.month-day-list')!;
+  const rowsOf = (card: CardUnderTest) =>
+    [...list(card).querySelectorAll('td.event .event-title')].map((title) => text(title));
+  const moreOf = (card: CardUnderTest) =>
+    list(card).querySelector<HTMLButtonElement>('.month-day-list-more');
+  /** What decides the room's height: the list's class and style, and the room's own. */
+  const room = (card: CardUnderTest) => ({
+    list: `${list(card).className} | ${list(card).getAttribute('style')}`,
+    rows: list(card)
+      .querySelector('.month-day-list-rows')
+      ?.outerHTML.match(/^<[^>]*>/)?.[0],
+  });
+
+  it('is as tall on a day of 0, 1, 4 and 9 events, and on another month’s', async () => {
+    extraEvents = NINE;
+    const card = await mount({ toolbar: { show: true, navigation: true } }, 375);
+    const seen: Array<{
+      date: number;
+      events: number;
+      more: string;
+      room: ReturnType<typeof room>;
+    }> = [];
+    for (const date of [19, 13, 18, 28]) {
+      await tap(card, day(card, date));
+      seen.push({ date, events: rowsOf(card).length, more: text(moreOf(card)), room: room(card) });
+    }
+    expect(seen.map(({ date, events, more }) => [date, events, more])).toEqual([
+      [19, 0, ''],
+      [13, 1, ''],
+      [18, 4, ''],
+      [28, 3, '+6 more'],
+    ]);
+    // One room, whatever the day holds: four rows of the measured height and three gaps.
+    expect(new Set(seen.map(({ room }) => JSON.stringify(room))).size).toBe(1);
+    expect(seen[0].room.list).toContain('month-day-list month-day-list-reserved');
+    expect(seen[0].room.list).toContain('--calendar-card-month-day-list-events: 4');
+    expect(seen[0].room.rows).toBe('<div class="month-day-list-rows">');
+
+    root(card).querySelectorAll<HTMLButtonElement>('.date-navigation-segment')[2].click();
+    await vi.waitFor(() => expect(dayList(card).name).toBe('Tuesday, December 1, 2026'));
+    expect(JSON.stringify(room(card))).toBe(JSON.stringify(seen[0].room));
+  });
+
+  it('takes its height from the room alone, with nothing inside it to scroll', () => {
+    const rule = (selector: string) =>
+      declarations(cardStyles.cssText)
+        .filter((d) => d.at.length === 0 && d.selectors.length === 1 && d.selectors[0] === selector)
+        .map((d) => `${d.property}: ${d.value.replace(/\s+/g, ' ')}`);
+    expect(rule('.month-day-list-reserved > .month-day-list-rows')).toEqual([
+      'height: calc( var(--calendar-card-month-day-list-events) * var(--calendar-card-month-day-list-row-height) + (var(--calendar-card-month-day-list-events) - 1) * var(--calendar-card-event-gap, 0px) )',
+    ]);
+    expect(rule('.month-day-list-reserved')).toEqual([
+      '--calendar-card-month-day-list-row-height: var(--calendar-card-month-day-list-row, 47px)',
+    ]);
+    // A row is cut at that height, at its foot alone, inside its padding.
+    expect(rule('.month-day-list-reserved td.event .event-content')).toEqual([
+      'max-height: calc( var(--calendar-card-month-day-list-row-height) - 2 * var(--calendar-card-event-spacing) )',
+      'clip-path: inset(-1em -1em 0 -1em)',
+    ]);
+    // Nothing a month draws scrolls on its own, so the card's height scrolls the whole.
+    const scrolls = declarations(cardStyles.cssText).filter(
+      (d) =>
+        d.selectors.some((selector) => selector.includes('month-day-list')) &&
+        /^overflow/.test(d.property) &&
+        /auto|scroll/.test(d.value),
+    );
+    expect(scrolls).toEqual([]);
+  });
+
+  it('keeps every part of a row to one line, the title beside its time', async () => {
+    extraEvents = NINE;
+    const card = await mount({ title_max_lines: 3, month: { location_max_lines: 2 } }, 375);
+    await tap(card, day(card, 28));
+    const style = list(card).style;
+    expect(
+      [
+        '--calendar-card-title-max-lines',
+        '--calendar-card-location-max-lines',
+        '--calendar-card-description-max-lines',
+        '--calendar-card-time-max-lines',
+        '--calendar-card-weather-event-max-lines',
+      ].map((property) => style.getPropertyValue(property)),
+    ).toEqual(['1', '1', '1', '1', '1']);
+    // The title is on one line beside its time, which ends it in "…" where it is too long.
+    const first = list(card).querySelector('td.event .event-content')!;
+    expect(first.querySelector(':scope > .summary-row > .summary.summary-scroll')).not.toBeNull();
+    expect(first.querySelector(':scope > .summary-row > .title-aside .time')).not.toBeNull();
+    expect(text(first.querySelector('.location'))).toBe(
+      'A street name long enough to need a second line on a phone',
+    );
+    // Outside the list the card's own limit stands, and the panel, which reads the card's
+    // properties, lists the day with it.
+    expect(
+      root(card)
+        .querySelector<HTMLElement>('ha-card')!
+        .style.getPropertyValue('--calendar-card-title-max-lines'),
+    ).toBe('3');
+  });
+
+  it('is measured off a hidden row beside the list, which the card reads', async () => {
+    extraEvents = NINE;
+    const card = await mount({ show_description: true }, 375);
+    const probe = list(card).nextElementSibling as HTMLElement;
+    expect(probe.className).toBe('month-day-list-probe');
+    expect(probe.getAttribute('aria-hidden')).toBe('true');
+    expect(probe.hasAttribute('inert')).toBe(true);
+    const content = probe.querySelector('td.event .event-content')!;
+    expect(probe.querySelectorAll('td.event')).toHaveLength(1);
+    // A row whose every part fills a line: the time beside the title, a location, a
+    // description, and the "Now" of an event under way.
+    expect(content.querySelector('.title-aside .now-indicator')).not.toBeNull();
+    expect(content.querySelector('.location')).not.toBeNull();
+    expect(content.querySelector('.description')).not.toBeNull();
+    expect(probe.querySelector('[tabindex], [role="button"]')).toBeNull();
+
+    // Laid out, its height is written on the list, and only the list.
+    const td = probe.querySelector<HTMLElement>('td.event')!;
+    td.getBoundingClientRect = () => ({ height: 46.761, width: 300 }) as DOMRect;
+    (card as unknown as { requestUpdate(): void }).requestUpdate();
+    await settle(card);
+    expect(list(card).style.getPropertyValue('--calendar-card-month-day-list-row')).toBe('46.77px');
+  });
+
+  it('lists every event at its own height where month: keeps no room', async () => {
+    extraEvents = NINE;
+    const card = await mount({ month: { day_list_events: 0 } }, 375);
+    await tap(card, day(card, 28));
+    expect(rowsOf(card)).toHaveLength(9);
+    expect(moreOf(card)).toBeNull();
+    expect(list(card).className).toBe('month-day-list');
+    expect(list(card).getAttribute('style')).toBeNull();
+    expect(list(card).querySelector('.month-day-list-rows')).toBeNull();
+    expect(root(card).querySelector('.month-day-list-probe')).toBeNull();
+    // The title wraps beside its time, as in the panel.
+    expect(list(card).querySelector('.summary-row.title-wrap')).not.toBeNull();
+  });
+
+  it('gives "+N more" the last row: a button in the Tab order, for its day and count', async () => {
+    extraEvents = NINE;
+    const manager = playDialogManager();
+    const card = await mount({ month: { day_list_events: 6 } }, 375);
+    await tap(card, day(card, 28));
+    expect(rowsOf(card)).toEqual(['Errand 1', 'Errand 2', 'Errand 3', 'Errand 4', 'Errand 5']);
+    const more = moreOf(card)!;
+    expect(more.tagName).toBe('BUTTON');
+    expect(more.getAttribute('type')).toBe('button');
+    expect(more.hasAttribute('tabindex')).toBe(false);
+    expect(more.getAttribute('aria-label')).toBe('+4 more, Saturday, November 28');
+    expect(text(more)).toBe('+4 more');
+    // The compact grid is still one stop, and Enter there selects.
+    expect(
+      [...root(card).querySelectorAll('.month-compact .month-day')].filter(
+        (cell) => cell.getAttribute('tabindex') === '0',
+      ),
+    ).toHaveLength(1);
+
+    more.focus();
+    more.click();
+    await settle(card);
+    await manager.panel()?.updateComplete;
+    expect(
+      dialogs.map(({ dialogTag, dialogParams }) => [
+        dialogTag,
+        (dialogParams as DayPanelParams).title,
+      ]),
+    ).toEqual([[DAY_PANEL_TAG, 'Saturday, November 28, 2026']]);
+    const panel = manager.panel()!;
+    expect(panel.shadowRoot!.querySelectorAll('.day-panel-rows td.event')).toHaveLength(9);
+    // Its press is its own: no tap on the card, nor on the day beneath it.
+    expect(hassActions).toEqual([]);
+    // It stays open while the card draws again in the form it opened from.
+    card.requestUpdate();
+    await settle(card);
+    expect(panel.shadowRoot!.querySelector('dialog')!.open).toBe(true);
+
+    panel.closeDialog();
+    await afterClose(card);
+    expect(deepActive()).toBe(more);
   });
 });
 

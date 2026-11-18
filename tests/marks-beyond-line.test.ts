@@ -410,6 +410,7 @@ const CUTS_INLINE_AXIS: Record<string, string[] | string> = {
   '.month-line-title': ['.month-line-title'],
   '.month-more': 'a button, whose own padding is its room',
   '.month-compact-marks': 'a capsule of colored segments, which draws no text',
+  '.month-day-list-probe': 'the hidden row a reserved day list is measured from, never seen',
   '.grid-event-disclosure .summary-row': ['.grid-event-disclosure .summary-row'],
   '.grid-event-disclosure .event-title': ['.grid-event-disclosure .event-title'],
   '.grid-event-disclosure .title-word': ['.grid-event-disclosure .title-word'],

@@ -100,6 +100,11 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
     '.month-compact-marks, .month-compact .month-day',
     { page: 'size_spacing', heading: 'month.density', scope: 'month' },
   ],
+  // A compact month's list, its room and its "+N more" open what sizes the list.
+  [
+    '.month-day-list-more, .month-day-list-rows',
+    { page: 'size_spacing', heading: 'heading_card_size', scope: 'month' },
+  ],
   [
     '.month-more, .month-day, .month-container',
     { page: 'size_spacing', heading: 'heading_card_size', scope: 'month' },

@@ -27,8 +27,11 @@ import * as ViewConfig from '../config/view';
 // THE ROWS
 //-----------------------------------------------------------------------------
 
-/** The rows' configuration, made once per card configuration. */
-const rowsConfigs = new WeakMap<Types.Config, Types.Config>();
+/** The rows' configurations, made once per card configuration: a free list's, a reserved one's. */
+const rowsConfigs = [
+  new WeakMap<Types.Config, Types.Config>(),
+  new WeakMap<Types.Config, Types.Config>(),
+];
 
 /**
  * The configuration a month's day rows are drawn with, in the panel "+N more" opens and under a
@@ -36,19 +39,82 @@ const rowsConfigs = new WeakMap<Types.Config, Types.Config>();
  * `time_position` says, as a phone's day list sets it. A row is then a line shorter, so more of a
  * day fits where the list is short of room, and the times line up at the row's end.
  *
+ * A list that keeps room for a number of events (`month → day_list_events`) keeps every part of a
+ * row to one line besides: the title beside its time, ending in "…" where it is too long, the
+ * time, the location, the description and the forecast. So no row is taller than one whose every
+ * part fills a line, the row the room is measured from (`monthListProbe`), and the list is as
+ * tall on every day.
+ *
  * The same object for the same configuration, so what compares a configuration by identity sees
  * one.
  *
  * @param config - Card configuration, resolved for month
+ * @param reserved - Whether the list keeps room for a number of events
  * @returns The configuration the rows are drawn with
  */
-export function monthRowsConfig(config: Types.Config): Types.Config {
-  const known = rowsConfigs.get(config);
+export function monthRowsConfig(config: Types.Config, reserved = false): Types.Config {
+  const cache = rowsConfigs[reserved ? 1 : 0];
+  const known = cache.get(config);
   if (known) return known;
-  const rows: Types.Config = { ...config, time_position: 'title' };
-  rowsConfigs.set(config, rows);
-  rowsConfigs.set(rows, rows);
+  const rows: Types.Config = reserved
+    ? {
+        ...config,
+        time_position: 'title',
+        // Scrolling keeps a title to one line already, and wins over the limit.
+        title_max_lines: config.scroll_long_titles ? config.title_max_lines : 1,
+        time_max_lines: 1,
+        location_max_lines: 1,
+        description_max_lines: 1,
+        weather: {
+          ...config.weather,
+          event: { ...config.weather?.event, max_lines: 1 },
+        } as Types.Config['weather'],
+      }
+    : { ...config, time_position: 'title' };
+  cache.set(config, rows);
+  cache.set(rows, rows);
   return rows;
+}
+
+/** The calendar a list's measuring row is drawn for, which is none of the card's. */
+export const MONTH_LIST_PROBE_ENTITY = 'calendar.calendar_card_pro_probe';
+
+/**
+ * The row a reserved day list is measured from: an event under way now, so it shows the "Now"
+ * the time can carry and the progress bar where the card shows one, with a one-letter title, a
+ * location and a description wherever the card or any of its calendars shows them, at the
+ * largest `text_scale` any calendar has. Every part of a reserved list's row is one line, so no
+ * row the list draws is taller than this one; its height is the room a row is kept.
+ *
+ * @param config - Card configuration, resolved for month
+ * @param now - The current moment
+ * @returns The event to draw, hidden, and measure
+ */
+export function monthListProbe(
+  config: Types.Config,
+  now: Date = new Date(),
+): Types.CalendarEventData {
+  const entries = (config.entities ?? []).filter(
+    (entry): entry is Types.EntityConfig => typeof entry === 'object' && entry !== null,
+  );
+  const shows = (key: 'show_location' | 'show_description') =>
+    config[key] === true || entries.some((entry) => entry[key] === true);
+  const scales = entries
+    .map((entry) => entry.text_scale)
+    .filter((scale): scale is number => typeof scale === 'number' && scale > 0);
+  const hour = 60 * 60 * 1000;
+  return {
+    summary: 'M',
+    start: { dateTime: new Date(now.getTime() - hour / 2).toISOString() },
+    end: { dateTime: new Date(now.getTime() + hour / 2).toISOString() },
+    location: shows('show_location') ? 'M' : '',
+    description: shows('show_description') ? 'M' : '',
+    _entityId: MONTH_LIST_PROBE_ENTITY,
+    _matchedConfig: {
+      entity: MONTH_LIST_PROBE_ENTITY,
+      text_scale: Math.max(1, ...scales),
+    },
+  };
 }
 
 //-----------------------------------------------------------------------------

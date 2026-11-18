@@ -8081,6 +8081,84 @@ export const cardStyles = css`
     color: var(--secondary-text-color);
   }
 
+  /* A list that keeps room for month -> day_list_events events, so it is as tall on every day
+     and the card is one height whichever day is chosen: that many rows, each as tall as the
+     hidden probe beside the list, which the card measures and writes here
+     (--calendar-card-month-day-list-row), and the gaps between them. Until it has, a row is
+     reckoned at 47px, a full row at the default sizes, measured in Chromium at 46.77px. The
+     room is a plain box: nothing in it scrolls, since no row is taller than the room keeps for
+     it (below), and under a fixed card height it scrolls with the month in the card's content. */
+  .month-day-list-reserved {
+    --calendar-card-month-day-list-row-height: var(--calendar-card-month-day-list-row, 47px);
+  }
+
+  .month-day-list-reserved > .month-day-list-rows {
+    height: calc(
+      var(--calendar-card-month-day-list-events) * var(--calendar-card-month-day-list-row-height) +
+        (var(--calendar-card-month-day-list-events) - 1) * var(--calendar-card-event-gap, 0px)
+    );
+  }
+
+  /* No row taller than the probe: each part of it keeps to one line, and past that the row is cut
+     at the probe's height. At its foot alone, so a mark above its first line still shows; see
+     "Marks above and below the line". The cut is the row's content, inside the event's padding,
+     so its focus ring and its tap target are whole. */
+  .month-day-list-reserved td.event .event-content {
+    max-height: calc(
+      var(--calendar-card-month-day-list-row-height) - 2 * var(--calendar-card-event-spacing)
+    );
+    clip-path: inset(-1em -1em 0 -1em);
+  }
+
+  /* "+N more", in the last row the room keeps, after the gap the rows keep between them: plain
+     secondary text where the rows' titles start, a button the width of the list. */
+  .month-day-list-more {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0;
+    padding-block: 7px;
+    padding-inline: calc(12px + var(--calendar-card-line-width-vertical)) 12px;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    font: inherit;
+    font-size: var(--calendar-card-font-size-time);
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--secondary-text-color);
+    text-align: start;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .month-day-table + .month-day-list-more {
+    margin-top: var(--calendar-card-event-gap, 0px);
+  }
+
+  @media (hover: hover) {
+    .month-day-list-more:hover {
+      background-color: color-mix(in srgb, var(--ha-ripple-hover-color) 8%, transparent);
+    }
+  }
+
+  .month-day-list-more:focus {
+    outline: none;
+  }
+
+  .month-day-list-more:focus-visible {
+    outline: 2px solid var(--calendar-card-line-color-vertical);
+    outline-offset: -2px;
+  }
+
+  /* The row a reserved list is measured from: laid out as wide as the list, and taking no room,
+     out of sight. */
+  .month-day-list-probe {
+    height: 0;
+    overflow: hidden;
+    visibility: hidden;
+  }
+
   @media (hover: hover) {
     .month-day-list-header.day-add-button:hover {
       background-color: color-mix(in srgb, var(--ha-ripple-hover-color) 8%, transparent);
@@ -8093,7 +8171,8 @@ export const cardStyles = css`
 
   @supports not (color: color-mix(in srgb, red, blue)) {
     @media (hover: hover) {
-      .month-day-list-header.day-add-button:hover {
+      .month-day-list-header.day-add-button:hover,
+      .month-day-list-more:hover {
         background-color: rgba(128, 128, 128, 0.08);
       }
     }

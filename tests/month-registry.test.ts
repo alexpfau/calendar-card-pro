@@ -27,12 +27,14 @@ describe('the month block', () => {
     expect(ViewConfig.MONTH_ONLY_KEYS).toEqual([
       'row_height',
       'min_day_width',
+      'day_list_events',
       'week_scroll',
       'week_scroll_min_width',
     ]);
     expect(ViewConfig.MONTH_DEFAULTS).toEqual({
       row_height: '112px',
       min_day_width: 80,
+      day_list_events: 4,
       week_scroll: false,
       week_scroll_min_width: 0,
     });
@@ -212,6 +214,13 @@ describe('a month-only option', () => {
     ['week_scroll_min_width', 0, 0],
     ['week_scroll_min_width', '600', 600],
     ['week_scroll_min_width', -1, 0],
+    // A whole number of events from 0, which keeps no room; a fraction is rounded down.
+    ['day_list_events', 6, 6],
+    ['day_list_events', '3', 3],
+    ['day_list_events', 0, 0],
+    ['day_list_events', 2.7, 2],
+    ['day_list_events', -1, 4],
+    ['day_list_events', 'many', 4],
   ] as const)('reads %s: %j as %j', (key, value, expected) => {
     expect(ViewConfig.normalizeMonthValue(key, value)).toBe(expected);
     expect(

@@ -279,8 +279,14 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(237_000);
-    // The month view moved the ceiling last, from 232,000 to 237,000: the notes on why its rows
+    expect(saved).toBeLessThan(242_000);
+    // Month's day list moved the ceiling last, from 237,000 to 242,000: the notes on why a list
+    // that keeps room for its events takes its height from the room alone, what the hidden row it
+    // is measured from stands for, why a row is cut at its foot alone, and where the list's
+    // "+N more" starts. The reading went to 238,251, taken with stripComments after the last
+    // comment was written.
+    //
+    // The month view moved the ceiling before that, from 232,000 to 237,000: the notes on why its rows
     // are one height whatever they hold, why nothing in a month sets a font size for the text
     // inside it, what the probe the card measures the line capacity from stands for, and why a
     // day's date is an item of the row rather than of its cell. The reading went from 228,224 to
