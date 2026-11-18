@@ -199,8 +199,11 @@ function stripBlockDefaults(
 
     const held = unchangedFromAuthored(authored, key, value);
     // Forms generate synthetic field names; one the YAML itself holds is a misplaced line the
-    // user wrote, kept for the misplaced-option notice like any other (backlog item 192).
-    if (isSyntheticKey(key) && !held) continue;
+    // user wrote, kept for the misplaced-option notice like any other (backlog item 192). A key
+    // the block owns is never one, though it may share a synthetic field's name: Month's own
+    // `card_height` and the card's Height.
+    const owned = key in layout.defaults || overrideKeys.has(key);
+    if (isSyntheticKey(key) && !owned && !held) continue;
 
     const special = layout.special?.(config, key, value, held);
     if (special !== undefined) {

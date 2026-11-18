@@ -122,6 +122,9 @@ month:
 | `month → compact_card_height`     | string | `card_height`     | The same for the [compact month](#the-compact-month), which takes `card_height` until this is set; `auto` is `36rem` |
 | `month → compact_card_max_height` | string | `card_max_height` | The same cap for the compact month; with its height `auto`, the card grows with the day's list up to it              |
 
+In the visual editor these are **Month Card Height**, **Month Maximum Height**, **Compact Card
+Height** and **Compact Maximum Height** on Size & Spacing, while **Settings For** is Month.
+
 - **The whole card.** The heights include the title, the toolbar and any notice, which take their
   room from the weeks: at `44rem` a week holds four events without a header, three with the
   toolbar or a title.
@@ -307,6 +310,9 @@ month:
 | `month → weekend_background_color` | string | `color-mix(in srgb, var(--primary-text-color) 4%, transparent)` | Tint behind a weekend day; `transparent` turns it off                                                        |
 | `month → today_background_color`   | string | `transparent`                                                   | Tint behind today. Off by default; a color turns it on, and on a weekend day it replaces the weekend's shade |
 
+In the visual editor they are **Weekend Shading** and **Today Shading** on Days, while
+**Settings For** is Month.
+
 - **The whole day is shaded**, under its date and its events, and on a
   [compact month](#the-compact-month) its number and marks. Days of the months either side are
   shaded too; the weekday names, the day's list and the panel are not.
@@ -340,6 +346,9 @@ month:
 | `month → cell_time_font_size`  | string | `11px`  | A line's time, a bar's times and length, and a day's "+N more", in the wide month  |
 | `day_font_size`                | string | `14px`  | Each day's number, in both forms; Month's own default, which only `month:` changes |
 | `month_font_size`              | string | `12px`  | The month named beside the number on a 1st                                         |
+
+In the visual editor the two cell sizes are **Event Font Size in Days** and **Time Font Size in
+Days** on Event Appearance, while **Settings For** is Month, beside the sizes a day's list takes.
 
 - **The day's list and the panel** keep `event_font_size` and `time_font_size`, so their rows read
   as a list's; set those inside `month:` to change them for Month alone.

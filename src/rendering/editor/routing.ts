@@ -205,7 +205,9 @@ export function workspaceFormData(
     const parts = key.split('.');
     const name = parts[parts.length - 1];
     const path = parts.slice(0, -1);
-    if (Synthetic.isSyntheticKey(name)) continue;
+    // A synthetic field's text, which the derived data above took. Asked of the key, not the
+    // name alone: Month's own `card_height` shares its name with the card's Height.
+    if (Synthetic.isSyntheticKey(name) && key === pendingKey(name, workspace)) continue;
     const block = destination(name, workspace);
     if (path.length === 0 && block !== undefined) continue;
     const paths = [path];

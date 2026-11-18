@@ -158,11 +158,16 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
     '.month-compact-marks, .month-compact .month-day',
     { page: 'size_spacing', heading: 'month.density', scope: 'month' },
   ],
-  // A compact month's list, its room and its "+N more" open the card's size, which sizes the
-  // list: its events and its day's name keep the parts above.
+  // A compact month's list, its room and its "+N more" open Compact Card Height, whose room the
+  // list fits its rows to: its events and its day's name keep the parts above.
   [
     '.month-day-list-more, .month-day-list-rows, .month-day-list',
-    { page: 'size_spacing', heading: 'heading_card_size', scope: 'month' },
+    {
+      page: 'size_spacing',
+      heading: 'heading_card_size',
+      scope: 'month',
+      field: 'layout:month.compact_card_height',
+    },
   ],
   [
     '.month-more, .month-day, .month-container',

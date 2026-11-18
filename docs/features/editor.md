@@ -31,9 +31,9 @@ The settings rows open these pages:
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Which Events**     | Days to Show and Start Date, Grid's hours, Event Type, duplicates, event order, past events, all-day and multi-day events, empty days and Compact Mode |
 | **Card & Header**    | The title, the card's background and language, the toolbar and your own toolbar buttons                                                                |
-| **Days**             | How each day announces itself: its date, weeks and week numbers, today and its indicator, past days and weekends, and Grid's shading                   |
-| **Event Appearance** | What each event shows, the time format, Grid's now line and overlapping events, and how each part looks                                                |
-| **Size & Spacing**   | The card's height and spacing, Grid's hour height and hour labels, Month's week height, the density of Columns, Grid and Month, and the rules          |
+| **Days**             | How each day announces itself: its date, weeks and week numbers, today and its indicator, past days and weekends, and Grid's and Month's shading       |
+| **Event Appearance** | What each event shows, the time format, Grid's now line and overlapping events, and how each part looks, Month's day text included                     |
+| **Size & Spacing**   | The card's height and spacing, Grid's hour height and hour labels, Month's card heights, the density of Columns, Grid and Month, and the rules         |
 | **Weather**          | The weather entity, and the forecast in the day header and beside each event                                                                           |
 | **Taps & Refresh**   | What a tap or a hold on the card, a day or an event does, Month's week scrolling, and how often the card reads its calendars again                     |
 
@@ -171,8 +171,9 @@ section rows and search results show the values for the layout Settings For name
   view. No layout has a page of its own: a layout's own settings sit on the page of their topic,
   beside the settings of their kind, and show while Settings For names that layout. Grid's
   hours are on Which Events, its hour labels and hour height on Size & Spacing, its shading on
-  Days and its now line and overlapping events on Event Appearance, where Month's own settings
-  sit in Month.
+  Days and its now line and overlapping events on Event Appearance. Month's heights sit on Size &
+  Spacing, its shading on Days and the text sizes of its days on Event Appearance, beside the
+  sizes a day's list takes.
 - A layout with no value of its own uses its own default when it has one, otherwise the shared
   base. Editing All Layouts therefore changes only the layouts that inherit that option, never
   their explicit choices or built-in defaults ([YAML & View Defaults](#yaml-view-defaults)).
@@ -360,7 +361,7 @@ set a different top-level value. All fourteen are listed in
 [Grid Options That Start From a Different Default](/features/grid-view#options-that-start-from-a-different-default).
 Column's two substitutions are listed in
 [Column Options That Start From a Different Default](/features/column-view#options-that-start-from-a-different-default),
-and Month's one in
+and Month's three in
 [Month Options That Start From a Different Default](/features/month-view#options-that-start-from-a-different-default).
 
 ## 📅 Calendars

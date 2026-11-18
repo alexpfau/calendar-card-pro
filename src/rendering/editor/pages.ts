@@ -312,8 +312,9 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['day_header:today_weekday_color', A],
           ['day_header:today_day_color', A],
           ['day_header:today_month_color', A],
-          // Grid's today shading, beside the colors of today's date.
+          // Grid's and Month's today shading, beside the colors of today's date.
           ['layout:time_grid.today_background_color', A],
+          ['layout:month.today_background_color', A],
         ],
       },
       {
@@ -346,9 +347,10 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['day_header:weekend_weekday_color', member('weekend_colors')],
           ['day_header:weekend_day_color', member('weekend_colors')],
           ['day_header:weekend_month_color', member('weekend_colors')],
-          // Grid's weekend shading: a day's background rather than its date, so it is no member of
-          // the family the date's colors are.
+          // Grid's and Month's weekend shading: a day's background rather than its date, so neither
+          // is a member of the family the date's colors are.
           ['layout:time_grid.weekend_background_color', A],
+          ['layout:month.weekend_background_color', A],
         ],
       },
     ],
@@ -406,6 +408,8 @@ export const PAGES: ReadonlyArray<PageDef> = [
         key: 'heading_title',
         fields: [
           ['events:event_font_size', A],
+          // The size of the titles in the wide month's days, beside the one a day's list takes.
+          ['layout:month.cell_event_font_size', A],
           ['events:event_color', A],
           ['events:title_max_lines', A],
           ['events:scroll_long_titles', A],
@@ -429,6 +433,8 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['events:show_multiday_allday_time', A],
           ['events:time_two_digit_hours', A],
           ['events:time_font_size', A],
+          // The size of the times in the wide month's days, beside the one a day's list takes.
+          ['layout:month.cell_time_font_size', A],
           ['events:time_color', A],
           ['events:time_icon_size', A],
           ['events:time_max_lines', A],
@@ -485,6 +491,12 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['layout:card_max_height', withMode('layout:height_mode')],
           // Grid's height, set per hour, beside the Height a fixed one replaces.
           ['layout:time_grid.hour_height', A],
+          // Month's own, in the Height's place, which it does not read: the whole card, wide then
+          // compact, each height before its cap.
+          ['layout:month.card_height', A],
+          ['layout:month.card_max_height', A],
+          ['layout:month.compact_card_height', A],
+          ['layout:month.compact_card_max_height', A],
           ['layout:additional_card_spacing', A],
           ['layout:event_gap', A],
           ['layout:event_spacing', A],

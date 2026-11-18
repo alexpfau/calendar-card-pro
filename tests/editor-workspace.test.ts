@@ -68,6 +68,18 @@ function names(schema: ReadonlyArray<HaFormSchema>): string[] {
     .map(({ node }) => node.name);
 }
 
+/**
+ * The options a schema's fields write: a top-level field's, through its synthetic mapping, and a
+ * block field's own name, which may share a synthetic field's (Month's `card_height`).
+ */
+function optionKeys(schema: ReadonlyArray<HaFormSchema>): string[] {
+  return [...walkSchema(schema)]
+    .filter(({ node }) => 'selector' in node)
+    .flatMap(({ node, dataPath }) =>
+      dataPath.length === 0 ? configKeysForField(node.name) : [node.name],
+    );
+}
+
 /** Starting Layout and Settings For, wherever the open place draws them. */
 function viewControls(editor: EditorHost): Element[] {
   return [...editor.shadowRoot!.querySelectorAll('fieldset.displays, .scope-block')];
@@ -178,7 +190,7 @@ function enabled(view: Types.EffectiveView): Partial<Types.Config> {
 function assertWorkspaceFields(editor: EditorHost, current: EditorWorkspace): void {
   const namesInForms = formsOf(editor, CARD).flatMap((form) => names(form.schema));
   expect(namesInForms.length).toBeGreaterThan(50);
-  const main = namesInForms.flatMap((name) => configKeysForField(name));
+  const main = formsOf(editor, CARD).flatMap((form) => optionKeys(form.schema));
   for (const [key, scope] of Object.entries(VIEW_SCOPE)) {
     // Shared offers a key when more than one layout reads it; a view offers it when that
     // view reads it. Asking `scope.has('shared')` would be false for every scoped key.

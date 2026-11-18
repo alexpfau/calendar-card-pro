@@ -137,6 +137,14 @@ const GRID_AND_MONTH = ['content:multiday_banners', 'calendar:multiday_banners']
 
 /** Offered only in Month: its own block's options. */
 const MONTH_ONLY = [
+  'layout:month.card_height',
+  'layout:month.card_max_height',
+  'layout:month.compact_card_height',
+  'layout:month.compact_card_max_height',
+  'layout:month.weekend_background_color',
+  'layout:month.today_background_color',
+  'layout:month.cell_event_font_size',
+  'layout:month.cell_time_font_size',
   'layout:month.min_day_width',
   'layout:month.week_scroll',
   'layout:month.week_scroll_min_width',
@@ -828,14 +836,15 @@ describe('the universe', () => {
     // lost the card's Height, its two lengths and the multi-day all-day time row: it sizes the
     // whole card with its own heights, and its day list splits every multi-day event. All
     // Layouts keeps all four, which more than one other layout reads. Then Month gained the Day
-    // Number and Month font sizes, which its dates now take, and lost Height Per Week and Events
-    // in Day List, which nothing read.
+    // Number and Month font sizes, which its dates now take, lost Height Per Week and Events in
+    // Day List, which nothing read, and gained its own eight: its four card heights, its two
+    // shadings and the two font sizes of its days.
     expect(sizes).toEqual({
       shared: { card: 153, calendar: 28 },
       list: { card: 162, calendar: 28 },
       column: { card: 158, calendar: 27 },
       grid: { card: 157, calendar: 27 },
-      month: { card: 133, calendar: 27 },
+      month: { card: 141, calendar: 27 },
     });
   });
 

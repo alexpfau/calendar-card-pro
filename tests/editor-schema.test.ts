@@ -1345,10 +1345,21 @@ describe('editor: displayed view and the Layout panel', () => {
         .filter(({ node, dataPath }) => 'selector' in node && dataPath[0] === 'month')
         .map(({ node }) => node.name);
 
-    expect(own(buildConfig({ view: 'month' }))).toEqual(['min_day_width', 'week_scroll']);
-    expect(own(buildConfig({ view: 'month', month: { week_scroll: true } }))).toEqual([
+    const always = [
+      'card_height',
+      'card_max_height',
+      'compact_card_height',
+      'compact_card_max_height',
       'min_day_width',
+      'weekend_background_color',
+      'today_background_color',
+      'cell_event_font_size',
+      'cell_time_font_size',
       'week_scroll',
+    ];
+    expect(own(buildConfig({ view: 'month' }))).toEqual(always);
+    expect(own(buildConfig({ view: 'month', month: { week_scroll: true } }))).toEqual([
+      ...always,
       'week_scroll_min_width',
     ]);
     // Month's, and nobody else's: the block is read only where Month is the view.

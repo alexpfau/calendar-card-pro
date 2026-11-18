@@ -382,6 +382,7 @@ describe('Pick From Preview part map', () => {
       '.grid-weekend layout:time_grid.weekend_background_color',
       '.grid-today layout:time_grid.today_background_color',
       '.grid-day-body layout:time_grid.hour_height',
+      '.month-day-list-more, .month-day-list-rows, .month-day-list layout:month.compact_card_height',
     ]);
   });
 
