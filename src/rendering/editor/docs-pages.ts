@@ -21,7 +21,6 @@ export const PAGE_DOCS: Readonly<Record<DocsPage, string>> = {
   day_header: '/features/layout-appearance#date-column-customization',
   events: '/features/event-content',
   size_spacing: '/features/layout-appearance#spacing-alignment',
-  grid: '/features/grid-view',
   weather: '/features/weather',
   taps_refresh: '/features/actions',
   entry: '/features/core-settings#entity-configuration',

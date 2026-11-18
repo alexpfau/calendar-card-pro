@@ -1167,8 +1167,8 @@ export function resetAction(
 }
 
 /**
- * Whether a setting stays live whatever is stored, while it applies: an essential one, a chip,
- * Calendar Filter's radio group or a toolbar button's row.
+ * Whether a setting stays live whatever is stored, while it applies: an essential one, a chip, a
+ * chip's qualifier line, Start Date's radio group or a toolbar button's row.
  *
  * @param appearance - How its page shows it
  * @returns `true` when it does
@@ -1178,7 +1178,7 @@ export function keepsControl(appearance: Appearance): boolean {
     appearance === 'essential' ||
     appearance === 'button-rows' ||
     appearance === 'segmented' ||
-    (typeof appearance === 'object' && 'chips' in appearance)
+    (typeof appearance === 'object' && ('chips' in appearance || 'qualifies' in appearance))
   );
 }
 

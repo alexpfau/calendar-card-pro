@@ -14,7 +14,6 @@ import {
   mdiCardTextOutline,
   mdiGestureTapButton,
   mdiResize,
-  mdiTimelineClockOutline,
   mdiWeatherPartlyCloudy,
 } from '@mdi/js';
 
@@ -32,7 +31,6 @@ export type PageId =
   | 'day_header'
   | 'events'
   | 'size_spacing'
-  | 'grid'
   | 'weather'
   | 'taps_refresh';
 
@@ -48,8 +46,10 @@ export type FamilyId =
  *   so it names both, and either asks for it.
  * - `family`: shown, added and removed with its family.
  * - `chips`: drawn as a toggle chip (`chips.ts`), with the other chips of its kind on its page.
- * - `segmented`: drawn as a card-built radio group of its options with no head row: Calendar
- *   Filter's Off, Menu and Chips, and Start Date's chips.
+ * - `qualifies`: what a pressed toolbar control offers, drawn as its qualifier line under the
+ *   chips while that control is pressed, with no head row: Layouts in Switcher's checkboxes.
+ * - `segmented`: drawn as a card-built radio group of its options with no head row: Start Date's
+ *   chips.
  * - `button-rows`: one of the toolbar's own buttons' fields, drawn in each button's row.
  */
 export type Appearance =
@@ -58,6 +58,7 @@ export type Appearance =
   | { readonly with: FieldId | ReadonlyArray<FieldId> }
   | { readonly family: FamilyId }
   | { readonly chips: 'parts' | 'toolbar' }
+  | { readonly qualifies: FieldId }
   | 'segmented'
   | 'button-rows';
 
@@ -96,8 +97,6 @@ export interface PageDef {
   readonly id: PageId;
   readonly titleKey: string;
   readonly iconPath: string;
-  /** The Grid page, shown only while Grid is the scope. */
-  readonly onlyIn?: Types.EffectiveView;
   readonly noteKey?: string;
   readonly headings: ReadonlyArray<HeadingDef>;
   /**
@@ -159,6 +158,15 @@ export const PAGES: ReadonlyArray<PageDef> = [
         ],
       },
       {
+        // Grid's hours, after the days: an event outside them is not drawn, so they bound which
+        // events show as the dates do.
+        key: 'heading_hours',
+        fields: [
+          ['layout:time_grid.start_time', E],
+          ['layout:time_grid.end_time', E],
+        ],
+      },
+      {
         key: 'heading.selection_and_order',
         fields: [
           ['content:event_type', A],
@@ -181,10 +189,13 @@ export const PAGES: ReadonlyArray<PageDef> = [
         ],
       },
       {
-        key: 'heading_multiday',
+        // All-day and multi-day events together: how a long event is split or drawn as a banner,
+        // and how many rows Grid's all-day band gives them.
+        key: 'heading_allday_multiday',
         fields: [
           ['content:split_multiday_events', A],
           ['content:multiday_banners', A],
+          ['layout:time_grid.allday_band_max_rows', A],
         ],
       },
       {
@@ -229,13 +240,14 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['card:toolbar.show', E],
           ['card:toolbar.add_event', CONTROL],
           ['card:toolbar.view_switcher', CONTROL],
+          // A chip like the others; which form it takes is its qualifier line under the chips.
+          ['card:toolbar.legend', CONTROL],
           ['card:toolbar.reset', CONTROL],
           ['card:toolbar.refresh', CONTROL],
           ['card:toolbar.search', CONTROL],
           ['card:toolbar.navigation', CONTROL],
-          // Right after the controls: it qualifies one of them, and matters only while it is on.
-          ['card:toolbar.view_switcher_layouts', A],
-          ['card:toolbar.legend', 'segmented'],
+          // View Switcher's qualifier line, drawn under the chips while it is pressed.
+          ['card:toolbar.view_switcher_layouts', { qualifies: 'card:toolbar.view_switcher' }],
           ['card:toolbar.size', A],
         ],
       },
@@ -300,6 +312,8 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['day_header:today_weekday_color', A],
           ['day_header:today_day_color', A],
           ['day_header:today_month_color', A],
+          // Grid's today shading, beside the colors of today's date.
+          ['layout:time_grid.today_background_color', A],
         ],
       },
       {
@@ -332,6 +346,9 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['day_header:weekend_weekday_color', member('weekend_colors')],
           ['day_header:weekend_day_color', member('weekend_colors')],
           ['day_header:weekend_month_color', member('weekend_colors')],
+          // Grid's weekend shading: a day's background rather than its date, so it is no member of
+          // the family the date's colors are.
+          ['layout:time_grid.weekend_background_color', A],
         ],
       },
     ],
@@ -359,8 +376,21 @@ export const PAGES: ReadonlyArray<PageDef> = [
         ],
       },
       {
+        // Grid's now line beside the color the now marker takes in every layout.
         key: 'heading_event_state',
-        fields: [['events:now_color', A]],
+        fields: [
+          ['layout:time_grid.show_now_line', A],
+          ['events:now_color', A],
+        ],
+      },
+      {
+        // How Grid places events that share a time: how an event sits beside the others, before
+        // how its parts look.
+        key: 'heading_overlapping_events',
+        fields: [
+          ['layout:time_grid.overlap_layout', A],
+          ['layout:time_grid.max_simultaneous_events', A],
+        ],
       },
       {
         key: 'heading_accent',
@@ -453,6 +483,9 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['layout:height_mode', E],
           ['layout:card_height', withMode('layout:height_mode')],
           ['layout:card_max_height', withMode('layout:height_mode')],
+          // Grid's height, set per hour, where Month's per week follows: both beside the Height a
+          // fixed one replaces.
+          ['layout:time_grid.hour_height', A],
           // Month's own height, beside the Height it yields to: a fixed one replaces it. Then the
           // compact form's, which its day list's room sets, and which a fixed Height scrolls.
           ['layout:month.row_height', A],
@@ -460,6 +493,15 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['layout:additional_card_spacing', A],
           ['layout:event_gap', A],
           ['layout:event_spacing', A],
+        ],
+      },
+      {
+        // Grid's hour labels: the time axis beside the days, sized as the card is.
+        key: 'heading_hour_labels',
+        fields: [
+          ['layout:time_grid.axis_width', A],
+          ['layout:time_grid.show_axis_labels', A],
+          ['layout:time_grid.axis_label_minutes', A],
         ],
       },
       {
@@ -504,48 +546,12 @@ export const PAGES: ReadonlyArray<PageDef> = [
       {
         key: 'heading_across_the_grid',
         fields: [
+          // How often a line is drawn first, then how each looks.
+          ['layout:time_grid.slot_minutes', A],
           ['separators:time_grid.hour_line_width', A],
           ['separators:time_grid.hour_line_color', A],
           ['separators:time_grid.allday_band_line_width', A],
           ['separators:time_grid.allday_band_line_color', A],
-        ],
-      },
-    ],
-  },
-  {
-    id: 'grid',
-    // The scope's own option label, which already names Grid in every editor language.
-    titleKey: 'editing_workspace.option.grid.label',
-    iconPath: mdiTimelineClockOutline,
-    onlyIn: 'grid',
-    summary: ['layout:time_grid.start_time', 'layout:time_grid.end_time'],
-    headings: [
-      {
-        key: 'time_grid.axis',
-        fields: [
-          ['layout:time_grid.start_time', E],
-          ['layout:time_grid.end_time', E],
-          ['layout:time_grid.slot_minutes', A],
-          ['layout:time_grid.hour_height', A],
-        ],
-      },
-      {
-        key: 'heading_hour_labels',
-        fields: [
-          ['layout:time_grid.axis_width', A],
-          ['layout:time_grid.show_axis_labels', A],
-          ['layout:time_grid.axis_label_minutes', A],
-        ],
-      },
-      {
-        key: 'heading_on_the_grid',
-        fields: [
-          ['layout:time_grid.weekend_background_color', A],
-          ['layout:time_grid.today_background_color', A],
-          ['layout:time_grid.show_now_line', A],
-          ['layout:time_grid.allday_band_max_rows', A],
-          ['layout:time_grid.overlap_layout', A],
-          ['layout:time_grid.max_simultaneous_events', A],
         ],
       },
     ],

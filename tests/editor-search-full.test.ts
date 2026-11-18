@@ -580,6 +580,30 @@ describe('Edit Here', () => {
     expect(resultRows(editor)).toHaveLength(1);
   });
 
+  // One option, two controls: found, Calendar Filter is drawn as its page draws it, the chip and
+  // under it, while pressed, its form.
+  it('draws Calendar Filter as its chip and, while pressed, the line with its form', async () => {
+    const editor = await mount({ ...LIST, toolbar: { show: true, legend: 'chips' } });
+    await searchFor(editor, 'calendar filter');
+    await toggle(editor);
+    expect(controls(editor)).toEqual(['card:toolbar.legend']);
+    const form = (value: string) =>
+      $(
+        editor,
+        `.result--edit .qualifier input[type="radio"][value="${value}"]`,
+      ) as HTMLInputElement | null;
+    expect(form('chips')?.checked).toBe(true);
+    form('menu')!.checked = true;
+    form('menu')!.dispatchEvent(new Event('change', { bubbles: true }));
+    await editor.updateComplete;
+    expect(lastConfig(editor)).toMatchObject({ toolbar: { show: true } });
+    expect(lastConfig(editor)!.toolbar).not.toHaveProperty('legend');
+    $(editor, '.result--edit button.chip[data-field="card:toolbar.legend"]')!.click();
+    await editor.updateComplete;
+    expect(lastConfig(editor)!.toolbar).toEqual({ show: true, legend: false });
+    expect(form('menu')).toBeNull();
+  });
+
   it('writes from a control what its page writes', async () => {
     const editor = await mount(LIST);
     await searchFor(editor, 'refresh interval');

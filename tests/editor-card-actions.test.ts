@@ -473,6 +473,8 @@ describe('the event tap action in the editor', () => {
       refresh: true,
       search: true,
       legend: 'menu',
+      // View Switcher is on, so its qualifier line is drawn, offering every layout.
+      view_switcher_layouts: ['list', 'column', 'grid', 'month'],
     });
 
     // The one control off by default reads back on once it is switched on: one flip.

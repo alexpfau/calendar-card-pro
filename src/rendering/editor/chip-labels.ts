@@ -20,6 +20,7 @@ export const CHIP_LABELS: Readonly<Record<string, string>> = {
   'events:show_now_indicator': 'chip.now',
   'card:toolbar.add_event': 'toolbar.controls.add_event',
   'card:toolbar.view_switcher': 'toolbar.view_switcher',
+  'card:toolbar.legend': 'toolbar.legend',
   'card:toolbar.reset': 'toolbar.controls.reset',
   'card:toolbar.refresh': 'toolbar.controls.refresh',
   'card:toolbar.search': 'toolbar.controls.search',

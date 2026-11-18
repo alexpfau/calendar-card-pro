@@ -16,10 +16,11 @@ days_to_show: 3
 ```
 
 In the [visual editor](/features/editor#the-overview), **Starting Layout** on the overview
-chooses the layout the card opens with. Select **Grid** under **Settings For**, at the top of a
-page, to configure
-its time axis on the **Grid** page and its lines on **Size & Spacing**, under
-**Across the Grid**, without changing **Starting Layout**.
+chooses the layout the card opens with. Select **Grid** under **Settings For**, on the overview
+or at the top of a page, to configure Grid's own settings where their topics live, without
+changing **Starting Layout**: its hours under **Which Events → Hours**, its hour height, hour
+labels and lines on **Size & Spacing**, its weekend and today shading on **Days**, and its now
+line and overlapping events on **Event Appearance**.
 
 ::: tip Start With Three Days
 Seven columns need a wide card to stay readable. Three is a good default on a dashboard

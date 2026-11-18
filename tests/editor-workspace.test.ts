@@ -70,7 +70,7 @@ function names(schema: ReadonlyArray<HaFormSchema>): string[] {
 
 /** Starting Layout and Settings For, wherever the open place draws them. */
 function viewControls(editor: EditorHost): Element[] {
-  return [...editor.shadowRoot!.querySelectorAll('fieldset.displays, .scope')];
+  return [...editor.shadowRoot!.querySelectorAll('fieldset.displays, .scope-block')];
 }
 
 /**
@@ -87,8 +87,7 @@ function offered(editor: EditorHost, name: string): string[] {
 }
 
 /**
- * Opens Settings For as a user does: on a page, the overview having none, with Change where it is
- * its compact line.
+ * Opens Settings For as a user does, on a page, with Change.
  *
  * @param editor - Editor
  */
@@ -281,9 +280,9 @@ describe('the chassis draws exactly the forms subforms.ts declares', () => {
 });
 
 describe('displayed view and editing workspace are separate controls', () => {
-  it('draws Starting Layout on the overview and Settings For on a page, and declares both to the translation checker', async () => {
+  it('draws Starting Layout and Settings For on the overview, Settings For on a page, and declares both to the translation checker', async () => {
     const editor = await mount({ view: 'grid' });
-    expect(viewControls(editor)).toHaveLength(1);
+    expect(viewControls(editor)).toHaveLength(2);
     // Its frame's heading says its name once; the group keeps it as its accessible name.
     const legend = editor.shadowRoot!.querySelector('fieldset.displays legend')!;
     expect(legend.textContent!.trim()).toBe('Starting Layout');
@@ -296,15 +295,22 @@ describe('displayed view and editing workspace are separate controls', () => {
     // The overview, top to bottom: the filter bar, Calendars, and Starting Layout.
     const order = [
       ...editor.shadowRoot!.querySelectorAll(
-        '.overview > .filter-bar, .overview > .scope, .overview > [data-heading], .overview > [data-heading] > .displays',
+        '.overview > .filter-bar, .overview > [data-heading], .overview > [data-heading] > .displays, .overview > .row-group > .scope-block',
       ),
     ].map((element) => element.getAttribute('data-heading') ?? element.className.split(' ')[0]);
-    expect(order).toEqual(['filter-bar', 'calendars', 'starting_layout', 'displays']);
+    expect(order).toEqual([
+      'filter-bar',
+      'calendars',
+      'starting_layout',
+      'displays',
+      'scope-block',
+    ]);
     await openScope(editor);
     expect(viewControls(editor)).toHaveLength(1);
     expect(editor.shadowRoot!.querySelector('.scope legend')!.textContent!.trim()).toBe(
       'Settings For',
     );
+    expect(offered(editor, 'scope')).toEqual(EXPECTED_WORKSPACES);
     expect(chassisSubforms().flatMap((subform) => names(subform.schema))).toEqual([
       'view',
       WORKSPACE_FIELD,
@@ -319,7 +325,6 @@ describe('displayed view and editing workspace are separate controls', () => {
       'day_adds',
     ]);
     expect(formsOf(editor, CARD).flatMap((form) => names(form.schema))).not.toContain('view');
-    expect(offered(editor, 'scope')).toEqual(EXPECTED_WORKSPACES);
     expect(WORKSPACES).toEqual(EXPECTED_WORKSPACES);
   });
 

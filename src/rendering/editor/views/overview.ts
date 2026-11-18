@@ -31,18 +31,14 @@ export interface ScopeChoice {
 
 /** What Settings For shows. */
 export interface ScopeModel {
-  readonly compact: boolean;
+  /** Whether Change has opened the five choices under the line. */
+  readonly open: boolean;
   readonly workspace: EditorWorkspace;
   readonly choices: ReadonlyArray<ScopeChoice>;
-  /** The label of the layout the card displays, for the preview line. */
-  readonly displayedLabel: string;
-  /** Whether the scope is not the layout the card displays (All Layouts or another layout). */
-  readonly previewDiffers: boolean;
-  /**
-   * The preview switch, pressed or not, where the scope is a layout the preview can draw;
-   * `undefined` under All Layouts.
-   */
-  readonly previewSwitch?: boolean;
+  /** The line under the open choices: what the chosen scope means where it is drawn. */
+  readonly help: string;
+  /** The preview line, where the preview draws another layout than the card opens in. */
+  readonly preview?: string;
 }
 
 /**
@@ -58,30 +54,42 @@ function withBold(template: string, value: string): TemplateResult {
 }
 
 /**
- * Settings For: one compact line, "Settings for List · Change", or the five choices, All Layouts
- * on a row of its own over the four layouts, a line on what the chosen one means, and the preview
- * line where the card shows another layout, with the switch that draws the layout being edited in
- * the preview instead. One group of native radios in that order, so arrow keys move across both
- * rows and focus stays on the chosen one; choosing writes nothing, and nor does the switch.
+ * The preview line: "Preview shows Grid · The card opens in Month", led by an eye that is no part
+ * of its words. Drawn under Settings For, and alone where a place draws none.
+ *
+ * @param text - The sentence
+ * @returns The line
+ */
+export function previewLine(text: string): TemplateResult {
+  return html`<p class="hint scope-preview">
+    ${icon(mdiEyeOutline)}<span class="scope-preview-text">${text}</span>
+  </p>`;
+}
+
+/**
+ * Settings For: one compact line, "Settings for List · Change", where Change opens the five
+ * choices under it in place, All Layouts on a row of its own over the four layouts, with a line on
+ * what the chosen one means; then the preview line where the preview draws another layout than
+ * the card opens in. The choices are one group of native radios in that order, so arrow keys move
+ * across both rows and focus stays on the chosen one; choosing writes nothing and leaves them
+ * open, and Change or Escape closes them again.
  *
  * @param model - What it shows
  * @param t - The editor's strings
- * @param onChange - Change was pressed
+ * @param onToggle - Change was pressed
  * @param onPick - A scope was chosen
- * @param onPreview - The preview switch was pressed
  * @returns The control
  */
 export function scopeControl(
   model: ScopeModel,
   t: Translate,
-  onChange: () => void,
+  onToggle: () => void,
   onPick: (workspace: EditorWorkspace) => void,
-  onPreview?: () => void,
 ): TemplateResult {
   const current = model.choices.find((choice) => choice.value === model.workspace);
   const name = current?.label ?? '';
-  if (model.compact) {
-    return html`<div class="scope scope-compact">
+  return html`<div class="scope-block">
+    <div class="scope scope-compact">
       <span class="scope-lead"
         >${icon(mdiLayersOutline)}<span class="scope-line"
           >${withBold(t('settings_for.compact'), name)}</span
@@ -92,69 +100,46 @@ export function scopeControl(
         class="text-button"
         data-focus="scope-change"
         aria-label=${interpolate(t('settings_for.change_named'), { layout: name })}
-        @click=${onChange}
+        aria-expanded=${model.open ? 'true' : 'false'}
+        aria-controls=${model.open ? 'scope-choices' : nothing}
+        @click=${onToggle}
       >
         ${t('settings_for.change')}
       </button>
-    </div>`;
-  }
-  const help =
-    model.workspace === 'shared'
-      ? t('settings_for.help_shared')
-      : interpolate(t('settings_for.help_layout'), { layout: name });
-  return html`<fieldset class="scope">
-    <legend class="label">${t('settings_for.label')}</legend>
-    <div class="segmented-row">
-      <div class="segments">
-        ${model.choices.map(
-          (choice) =>
-            html`<label class="segment${choice.value === 'shared' ? ' segment-all' : ''}">
-              <input
-                type="radio"
-                name="scope"
-                value=${choice.value}
-                data-focus=${`scope:${choice.value}`}
-                .checked=${
-                  // Compared with the radio as it is, not as Lit last set it: after Duplicate and
-                  // Back, Home Assistant showed this group with nothing checked.
-                  live(choice.value === model.workspace)
-                }
-                @change=${() => onPick(choice.value)}
-              />
-              <span>${choice.label}</span>
-            </label>`,
-        )}
-      </div>
     </div>
-    <p class="hint">${help}</p>
     ${
-      model.previewDiffers
-        ? html`<p class="hint scope-preview">
-            ${icon(mdiEyeOutline)}<span class="scope-preview-text"
-              >${interpolate(
-                model.previewSwitch ? t('settings_for.previewing') : t('settings_for.preview'),
-                { layout: name, displayed: model.displayedLabel },
-              )}</span
-            >${
-              model.previewSwitch === undefined
-                ? nothing
-                : html`<button
-                    type="button"
-                    class="text-button scope-preview-switch"
-                    data-focus="scope-preview"
-                    aria-pressed=${model.previewSwitch ? 'true' : 'false'}
-                    @click=${onPreview}
-                  >
-                    ${model.previewSwitch ? icon(mdiCheck) : nothing}${interpolate(
-                      t('settings_for.preview_switch'),
-                      { layout: name },
-                    )}
-                  </button>`
-            }
-          </p>`
+      model.open
+        ? html`<fieldset class="scope" id="scope-choices">
+            <legend class="visually-hidden">${t('settings_for.label')}</legend>
+            <div class="segmented-row">
+              <div class="segments">
+                ${model.choices.map(
+                  (choice) =>
+                    html`<label class="segment${choice.value === 'shared' ? ' segment-all' : ''}">
+                      <input
+                        type="radio"
+                        name="scope"
+                        value=${choice.value}
+                        data-focus=${`scope:${choice.value}`}
+                        .checked=${
+                          // Compared with the radio as it is, not as Lit last set it: after
+                          // Duplicate and Back, Home Assistant showed this group with nothing
+                          // checked.
+                          live(choice.value === model.workspace)
+                        }
+                        @change=${() => onPick(choice.value)}
+                      />
+                      <span>${choice.label}</span>
+                    </label>`,
+                )}
+              </div>
+            </div>
+            <p class="hint">${model.help}</p>
+          </fieldset>`
         : nothing
     }
-  </fieldset>`;
+    ${model.preview === undefined ? nothing : previewLine(model.preview)}
+  </div>`;
 }
 
 /** One chip of a group of radio chips. */
@@ -323,11 +308,17 @@ export function navRow(row: NavRow, onOpen: () => void): TemplateResult {
  *
  * @param title - The heading
  * @param rows - Its rows
+ * @param lead - What comes before the rows: Settings For, under Settings
  * @returns The group
  */
-export function rowGroup(title: string, rows: ReadonlyArray<TemplateResult>): TemplateResult {
+export function rowGroup(
+  title: string,
+  rows: ReadonlyArray<TemplateResult>,
+  lead: TemplateResult | typeof nothing = nothing,
+): TemplateResult {
   return html`<section class="row-group">
     <h3 class="heading" tabindex="-1">${title}</h3>
+    ${lead}
     <div class="rows">${rows}</div>
   </section>`;
 }

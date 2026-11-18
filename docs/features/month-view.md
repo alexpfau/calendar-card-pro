@@ -285,8 +285,8 @@ toolbar:
   view_switcher_layouts: [list, grid]
 ```
 
-In the visual editor, that is Layouts in Switcher under Card & Header › Toolbar: press Month to
-take it out.
+In the visual editor, that is **View Switcher offers** under Card & Header › Toolbar: uncheck
+Month to take it out.
 
 `hide_when_empty` counts Month's events only from the card's `start_date` on, so past events
 in the month never keep an otherwise empty card on screen.
