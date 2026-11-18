@@ -152,7 +152,12 @@ function expectedFields(
           : undefined;
     if (owner === undefined) return true;
 
-    const keys = entity ? entityConfigKeys(node.name) : configKeysForField(node.name);
+    // A block's field is its own option, whatever its name: Month's `card_height` is no Height.
+    const keys = entity
+      ? entityConfigKeys(node.name)
+      : path.length === 0
+        ? configKeysForField(node.name)
+        : [node.name];
     return keys.some((key) => {
       const scopes = entity
         ? { ...ViewConfig.VIEW_SCOPE, ...ViewConfig.ENTITY_VIEW_SCOPE }

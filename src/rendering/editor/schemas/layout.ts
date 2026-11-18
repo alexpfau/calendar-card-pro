@@ -132,10 +132,16 @@ function timeAxisFields(blockKey: string, language: string): HaFormSchema[] {
 }
 
 /**
- * Everything the `month:` block owns that has no top-level counterpart: a week row's height, the
- * day width below which the compact form draws, the events its day list keeps room for, and week
- * scrolling, whose card-width limit is built only while it is on, since it limits nothing
- * otherwise.
+ * Everything the `month:` block owns that has no top-level counterpart: the whole card's height and
+ * its cap in each form, the day width below which the compact form draws, the weekend's and today's
+ * shading, the font sizes of the wide month's days, and week scrolling, whose card-width limit is
+ * built only while it is on, since it limits nothing otherwise.
+ *
+ * 🚨 Two of the names, `card_height` and `card_max_height`, are also the names of the card's
+ * synthetic Height fields, which write the shared `height` and `max_height`. The field ids differ
+ * (`layout:month.card_height` against `layout:card_height`), and so does every string key, since
+ * `blockScope` labels these under `month.`; what treats a name as synthetic has to ask about the
+ * top level (`value.ts` › `stripBlockDefaults`, `routing.ts` › `workspaceFormData`).
  *
  * @param blockKey - Config key holding this view's override block
  * @param weekScroll - Whether week scrolling is on
@@ -147,16 +153,18 @@ function monthFields(blockKey: string, weekScroll: boolean): HaFormSchema[] {
   // the runtime reads as no limit.
   return [
     blockScope(blockKey, [
-      text('row_height'),
+      text('card_height'),
+      text('card_max_height'),
+      text('compact_card_height'),
+      text('compact_card_max_height'),
       {
         name: 'min_day_width',
         selector: { number: { min: 1, step: 1, mode: 'box', unit_of_measurement: 'px' } },
       },
-      // From 0, which the runtime reads as no room and every event listed.
-      {
-        name: 'day_list_events',
-        selector: { number: { min: 0, step: 1, mode: 'box' } },
-      },
+      color('weekend_background_color'),
+      color('today_background_color'),
+      text('cell_event_font_size'),
+      text('cell_time_font_size'),
       bool('week_scroll'),
       ...(weekScroll
         ? [

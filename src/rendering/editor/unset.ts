@@ -66,6 +66,12 @@ export function unsetWord(
     case 'title_font_size':
     case 'title_color':
       return t('value.theme_default');
+    // Month's compact form follows its wide one: named by its own string, since the bare name
+    // is also the card's Height.
+    case 'compact_card_height':
+      return t('value.same_as', { label: t('month.card_height') });
+    case 'compact_card_max_height':
+      return t('value.same_as', { label: t('month.card_max_height') });
     case 'compact_events_to_show':
     case 'compact_days_to_show':
       return t('value.no_limit');

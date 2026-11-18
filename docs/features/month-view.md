@@ -122,6 +122,9 @@ month:
 | `month → compact_card_height`     | string | `card_height`     | The same for the [compact month](#the-compact-month), which takes `card_height` until this is set; `auto` is `36rem` |
 | `month → compact_card_max_height` | string | `card_max_height` | The same cap for the compact month; with its height `auto`, the card grows with the day's list up to it              |
 
+In the visual editor these are **Month Card Height**, **Month Maximum Height**, **Compact Card
+Height** and **Compact Maximum Height** on Month's Size & Spacing.
+
 - **The whole card.** The heights include the title, the toolbar and any notice, which take their
   room from the weeks: at `44rem` a week holds four events without a header, three with the
   toolbar or a title.
@@ -307,6 +310,8 @@ month:
 | `month → weekend_background_color` | string | `color-mix(in srgb, var(--primary-text-color) 4%, transparent)` | Tint behind a weekend day; `transparent` turns it off                                                        |
 | `month → today_background_color`   | string | `transparent`                                                   | Tint behind today. Off by default; a color turns it on, and on a weekend day it replaces the weekend's shade |
 
+In the visual editor they are **Weekend Shading** and **Today Shading** on Month's Days.
+
 - **The whole day is shaded**, under its date and its events, and on a
   [compact month](#the-compact-month) its number and marks. Days of the months either side are
   shaded too; the weekday names, the day's list and the panel are not.
@@ -319,6 +324,37 @@ month:
   its language where no country is set, as in [Grid](/features/grid-view#shading-the-weekend).
 - **Grid shades apart**: its own two options live in `time_grid:`, so each layout keeps its own
   colors.
+
+## 🔤 Text Sizes
+
+`cell_event_font_size` and `cell_time_font_size` set the text in the wide month's days, a step
+under a list's, so a day a seventh of the card wide keeps more of each title. A day's number takes
+`day_font_size` and the month named on a 1st `month_font_size`, as a list's dates do.
+
+```yaml
+view: month
+month:
+  cell_event_font_size: 14px
+  cell_time_font_size: 12px
+  day_font_size: 16px
+```
+
+| Option                         | Type   | Default | Description                                                                        |
+| ------------------------------ | ------ | ------- | ---------------------------------------------------------------------------------- |
+| `month → cell_event_font_size` | string | `13px`  | A line's title and calendar label, and a bar's title, in the wide month            |
+| `month → cell_time_font_size`  | string | `11px`  | A line's time, a bar's times and length, and a day's "+N more", in the wide month  |
+| `day_font_size`                | string | `14px`  | Each day's number, in both forms; Month's own default, which only `month:` changes |
+| `month_font_size`              | string | `12px`  | The month named beside the number on a 1st                                         |
+
+In the visual editor the two cell sizes are **Event Font Size in Days** and **Time Font Size in
+Days** on Month's Event Appearance, beside the sizes a day's list takes.
+
+- **The day's list and the panel** keep `event_font_size` and `time_font_size`, so their rows read
+  as a list's; set those inside `month:` to change them for Month alone.
+- **A taller size fits fewer lines** in a week, and the rest go under "+N more"; text never
+  shrinks to fit.
+- **`text_scale`** on a calendar multiplies the cell sizes in its days: at `1.5` its lines are
+  `19.5px` where the others are `13px`.
 
 ## 🧰 Month in the View Switcher
 
@@ -352,8 +388,11 @@ month:
   event_font_size: 12px
 ```
 
-Anything the block does not mention keeps its top-level value, except `show_past_events` and
-`event_gap`, below.
+There `event_font_size` sets the rows of [a day's list](#the-days-list) and the panel; the lines in
+the days take [their own sizes](#text-sizes).
+
+Anything the block does not mention keeps its top-level value, except `show_past_events`,
+`event_gap` and `day_font_size`, below.
 Options that decide which events the card loads, such as `start_date` and `entities`, and others
 that act on the card as a whole, such as the actions and the `toolbar`, are card-wide and ignored
 inside `month:`; see
@@ -361,12 +400,13 @@ inside `month:`; see
 
 ## 🔀 Options That Start From a Different Default
 
-Two shared options do not inherit their top-level value in month view:
+Three shared options do not inherit their top-level value in month view:
 
 | Option             | Type    | Default | Month Default |
 | ------------------ | ------- | ------- | ------------- |
 | `show_past_events` | boolean | `false` | `true`        |
 | `event_gap`        | string  | `0px`   | `6px`         |
+| `day_font_size`    | string  | `26px`  | `14px`        |
 
 A month shows its past days with their events, dimmed, rather than empty weeks behind today. Set
 `show_past_events: false` inside `month:` to hide them.
@@ -375,6 +415,9 @@ A [day's list](#the-days-list) holds one day under its name, so its events read 
 joined into one block beside a date, as the list layout keeps them. Set `event_gap: 0px` inside
 `month:` to join them; a top-level `event_gap` changes the list and column layouts alone.
 
+A day's number sits in its cell's corner over the lines, so it starts at the size of a list's
+titles rather than a list's 26px date. Set `day_font_size` inside `month:` to change it.
+
 ## 🚫 Options That Do Nothing in Month View
 
 These options have no effect while the card draws a month, and the visual editor leaves them out
@@ -382,15 +425,17 @@ of Month's pages. Stored values are kept for the layouts they apply to.
 
 | Options                                                                                                                                        | In Month View                                                                                                |
 | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `height`, `max_height`                                                                                                                         | Month sizes the whole card with its own heights; see [How Tall the Month Is](#how-tall-the-month-is)         |
 | `days_to_show`                                                                                                                                 | A month always shows six weeks                                                                               |
 | `show_empty_days`, `show_empty_today`, `empty_day_text`, `empty_day_color`                                                                     | Every day of the six weeks is drawn, events or not, so there is no empty day to hide or fill                 |
 | `split_multiday_events`                                                                                                                        | A long event is one [bar](#bars-lines) across its days, and the day's list shows it on every day it covers   |
+| `show_multiday_allday_time`                                                                                                                    | The day's list and the panel split every multi-day event, and a bar's length follows `show_duration`         |
 | `compact_events_to_show`, `compact_days_to_show`, `compact_events_complete_days`, `event_order`, `skip_first_events`                           | List-only: they shape a list card, and the [day's list](#more-than-fits) always shows the whole day in order |
 | `date_vertical_alignment`, `today_indicator_position`                                                                                          | List-only: they describe the list layout's date cell                                                         |
 | `day_spacing`                                                                                                                                  | Events sit on the week's lines, and hairlines divide the days                                                |
 | `day_separator_width`, `day_separator_color`, `week_separator_width`, `week_separator_color`, `month_separator_width`, `month_separator_color` | The month rules its days and weeks with hairlines of its own                                                 |
 | `month_separator_label`, `month_separator_label_color`, `month_separator_label_font_size`                                                      | List-only: they name a month on the list layout's month separator, which month view does not draw            |
-| `day_font_size`, `month_font_size`, `today_date_scale`, `past_date_scale`                                                                      | Dates are set in the event font, at one size on every day                                                    |
+| `today_date_scale`, `past_date_scale`                                                                                                          | Every day's date is set at one size, today's and past days' included                                         |
 | `today_indicator_size`, `today_weekday_color`                                                                                                  | Today is marked by its tile, and the weekday names stand once over their columns                             |
 | `week_number_background_color`                                                                                                                 | [Week numbers](#week-numbers) are plain text                                                                 |
 | `time_position`                                                                                                                                | [A day's list](#the-days-list) always puts each time beside its title                                        |

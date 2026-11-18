@@ -1058,17 +1058,33 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // --- The month's own block --------------------------------------------------
   //
   // Options stored in `month:`, labeled under its prefix (`schemas/common.ts` › `blockScope`).
-  // Height Per Week follows Grid's Height Per Hour, and Month Density the other two layouts'.
-  // Events in Day List is the room the compact form's list keeps, past which it shows "+N more".
-  'month.row_height': 'Height Per Week',
-  'month.row_height.helper': 'Ignored when a fixed Height is set: the six weeks share it.',
+  // Month Density follows the other two layouts'. The heights are named apart from the card's
+  // Height and Maximum Height, which share their option names, and which Month does not read.
+  'month.card_height': 'Month Card Height',
+  'month.card_height.helper':
+    'The whole card, title and toolbar included: auto is 44rem, and rows set in a Sections ' +
+    'dashboard’s Layout tab win over it.',
+  'month.card_max_height': 'Month Maximum Height',
+  'month.compact_card_height': 'Compact Card Height',
+  'month.compact_card_height.helper': 'auto is the compact month’s own 36rem.',
+  'month.compact_card_max_height': 'Compact Maximum Height',
+  'month.compact_card_max_height.helper':
+    'With Compact Card Height at auto, the card grows with the day’s list up to this.',
+  'month.weekend_background_color': 'Weekend Shading',
+  'month.weekend_background_color.helper':
+    'Any CSS color, or transparent for none; weekend days follow the country set in Home Assistant.',
+  'month.today_background_color': 'Today Shading',
+  'month.today_background_color.helper': 'On a weekend it replaces the weekend shading.',
+  'month.cell_event_font_size': 'Event Font Size in Days',
+  'month.cell_event_font_size.helper':
+    'Titles in the wide month’s days; Event Font Size sets a day’s list and the panel.',
+  'month.cell_time_font_size': 'Time Font Size in Days',
+  'month.cell_time_font_size.helper':
+    'Times and “+N more” in the wide month’s days; Time Font Size sets a day’s list and the panel.',
   'month.density': 'Month Density',
   'month.density.helper':
     'Narrower days show a dot per event instead, and list the tapped day’s events under the weeks.',
   'month.min_day_width': 'Minimum Day Width',
-  'month.day_list_events': 'Events in Day List',
-  'month.day_list_events.helper':
-    '0 lists every event, and the card then grows and shrinks with the day.',
   'month.week_scroll': 'Week Scrolling',
   'month.week_scroll.helper':
     'The wheel, a trackpad or a vertical swipe then moves the weeks rather than the dashboard, ' +
@@ -1098,6 +1114,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'view_default.month.event_gap':
     'Month layout keeps the events of a day’s list apart whatever this is set to, so that ' +
     'each reads as a block of its own. Change it in Month’s own settings.',
+  'view_default.month.day_font_size':
+    'Month layout sets its day numbers at 14px whatever this is set to, so that each fits ' +
+    'its day’s corner. Change it in Month’s own settings.',
 
   // --- Time Range & Content -------------------------------------------------
   days_to_show: 'Days To Show',

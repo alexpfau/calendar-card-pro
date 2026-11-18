@@ -137,9 +137,15 @@ const GRID_AND_MONTH = ['content:multiday_banners', 'calendar:multiday_banners']
 
 /** Offered only in Month: its own block's options. */
 const MONTH_ONLY = [
-  'layout:month.row_height',
+  'layout:month.card_height',
+  'layout:month.card_max_height',
+  'layout:month.compact_card_height',
+  'layout:month.compact_card_max_height',
+  'layout:month.weekend_background_color',
+  'layout:month.today_background_color',
+  'layout:month.cell_event_font_size',
+  'layout:month.cell_time_font_size',
   'layout:month.min_day_width',
-  'layout:month.day_list_events',
   'layout:month.week_scroll',
   'layout:month.week_scroll_min_width',
 ];
@@ -178,16 +184,20 @@ const NOT_IN_GRID = [
 ];
 
 /**
- * Offered everywhere but Month, which draws every day of six weeks, rules them itself and sets
- * its dates in the event font, unscaled.
+ * Offered everywhere but Month, which sizes its card with its own heights, draws every day of six
+ * weeks, rules them itself and sets its dates at one scale. The card's Height fields read the
+ * shared `height` and `max_height`; the multi-day all-day time row is one Month's day list never
+ * draws, since it splits every multi-day event.
  */
 const NOT_IN_MONTH = [
   ...NOT_IN_GRID_OR_MONTH,
+  'layout:height_mode',
+  'layout:card_height',
+  'layout:card_max_height',
+  'events:show_multiday_allday_time',
   'content:days_to_show',
   'content:show_empty_days',
   'content:show_empty_today',
-  'day_header:day_font_size',
-  'day_header:month_font_size',
   'day_header:week_number_background_color',
   'day_header:today_date_scale',
   'day_header:today_weekday_color',
@@ -818,17 +828,23 @@ describe('the universe', () => {
       );
     }
     // All Layouts gained Multi-Day Banners on the card and on a calendar once Month read them
-    // beside Grid; Month offers its own four and leaves out what it does not draw (`LACKS`).
+    // beside Grid; Month offers its own and leaves out what it does not draw (`LACKS`).
     // Every workspace gained Layouts in Switcher, a whole-card setting. Month lost Time Position,
     // since its day list puts every time beside its title, and gained Event Gap, which sets that
-    // list's events apart, and Events in Day List, the room that list keeps. List alone gained
-    // the three settings of the month's name on its month separator (`LIST_ONLY`).
+    // list's events apart. List alone gained
+    // the three settings of the month's name on its month separator (`LIST_ONLY`). Month then
+    // lost the card's Height, its two lengths and the multi-day all-day time row: it sizes the
+    // whole card with its own heights, and its day list splits every multi-day event. All
+    // Layouts keeps all four, which more than one other layout reads. Then Month gained the Day
+    // Number and Month font sizes, which its dates now take, lost Height Per Week and Events in
+    // Day List, which nothing read, and gained its own eight: its four card heights, its two
+    // shadings and the two font sizes of its days.
     expect(sizes).toEqual({
       shared: { card: 153, calendar: 28 },
       list: { card: 162, calendar: 28 },
       column: { card: 158, calendar: 27 },
       grid: { card: 157, calendar: 27 },
-      month: { card: 137, calendar: 27 },
+      month: { card: 141, calendar: 27 },
     });
   });
 

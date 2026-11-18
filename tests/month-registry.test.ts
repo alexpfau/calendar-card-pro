@@ -22,34 +22,35 @@ describe('the month block', () => {
       overrideKeys: ViewConfig.MONTH_OVERRIDE_KEYS,
       onlyKeys: ViewConfig.MONTH_ONLY_KEYS,
       onlyDefaults: ViewConfig.MONTH_DEFAULTS,
-      defaultOverrides: { event_gap: '6px', show_past_events: true },
+      defaultOverrides: { day_font_size: '14px', event_gap: '6px', show_past_events: true },
     });
     expect(ViewConfig.MONTH_ONLY_KEYS).toEqual([
       'card_height',
       'card_max_height',
       'compact_card_height',
       'compact_card_max_height',
-      'row_height',
       'min_day_width',
-      'day_list_events',
       'week_scroll',
       'week_scroll_min_width',
       'weekend_background_color',
       'today_background_color',
+      'cell_event_font_size',
+      'cell_time_font_size',
     ]);
     // The compact form's two heights have no default of their own: unset, each takes the wide
     // one (`resolveMonthCardSize`).
     expect(ViewConfig.MONTH_DEFAULTS).toEqual({
       card_height: 'auto',
       card_max_height: 'none',
-      row_height: '112px',
       min_day_width: 80,
-      day_list_events: 4,
       week_scroll: false,
       week_scroll_min_width: 0,
       // Grid's two tints, under Grid's defaults.
       weekend_background_color: 'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
       today_background_color: 'transparent',
+      // What the wide month draws in its days, a step under the list's 14px and 12px.
+      cell_event_font_size: '13px',
+      cell_time_font_size: '11px',
     });
     expect(ViewConfig.MONTH_DEFAULTS.weekend_background_color).toBe(
       ViewConfig.TIME_GRID_DEFAULTS.weekend_background_color,
@@ -59,14 +60,17 @@ describe('the month block', () => {
     );
   });
 
-  it('overrides column’s shared options but the twenty it draws nothing for, and the bars', () => {
+  it('overrides column’s shared options but the twenty-one it draws nothing for, and the bars', () => {
     const ignored = [
+      'height',
+      'max_height',
       'days_to_show',
       'show_empty_days',
       'show_empty_today',
       'empty_day_text',
       'empty_day_color',
       'split_multiday_events',
+      'show_multiday_allday_time',
       'day_spacing',
       'day_separator_width',
       'day_separator_color',
@@ -75,8 +79,6 @@ describe('the month block', () => {
       'month_separator_width',
       'month_separator_color',
       'week_number_background_color',
-      'day_font_size',
-      'month_font_size',
       'today_date_scale',
       'past_date_scale',
       'today_indicator_size',
@@ -117,7 +119,6 @@ describe('the options month reads', () => {
       'compact_events_complete_days',
       'compact_events_to_show',
       'date_vertical_alignment',
-      'day_font_size',
       'day_separator_color',
       'day_separator_width',
       'day_spacing',
@@ -125,7 +126,8 @@ describe('the options month reads', () => {
       'empty_day_color',
       'empty_day_text',
       'event_order',
-      'month_font_size',
+      'height',
+      'max_height',
       'month_separator_color',
       // List's month separator, which the Month layout does not draw, so it has no month's name
       // to set.
@@ -136,6 +138,7 @@ describe('the options month reads', () => {
       'past_date_scale',
       'show_empty_days',
       'show_empty_today',
+      'show_multiday_allday_time',
       'skip_first_events',
       'split_multiday_events',
       'time_position',
@@ -177,7 +180,6 @@ describe('the options month reads', () => {
       'show_countdown_allday',
       'show_description_allday',
       'show_location_allday',
-      'show_multiday_allday_time',
       'show_now_indicator',
       'show_single_allday_time',
       'time_max_lines',
@@ -206,6 +208,24 @@ describe('the options month reads', () => {
     expect(ViewConfig.appliesToView('event_gap', 'month')).toBe(true);
   });
 
+  it('sets its day numbers at 14px by default, which only its block changes', () => {
+    // A divergent default, as the gap is: a list's 26px date column stands alone, a month's day
+    // number sits in its cell's corner over the lines.
+    const day = (config: Partial<Types.Config>) =>
+      ViewConfig.resolveEffectiveConfig(buildConfig(config), 'month').day_font_size;
+    expect(day({})).toBe('14px');
+    expect(day({ day_font_size: '30px' })).toBe('14px');
+    expect(day({ month: { day_font_size: '1.1rem' } })).toBe('1.1rem');
+    expect(
+      ViewConfig.resolveEffectiveConfig(
+        buildConfig({ month: { month_font_size: '10px' } }),
+        'month',
+      ).month_font_size,
+    ).toBe('10px');
+    expect(ViewConfig.appliesToView('day_font_size', 'month')).toBe(true);
+    expect(ViewConfig.appliesToView('month_font_size', 'month')).toBe(true);
+  });
+
   it('shows past events by default, and a block or the card can still hide them', () => {
     expect(ViewConfig.resolveEffectiveConfig(buildConfig({}), 'month').show_past_events).toBe(true);
     expect(
@@ -220,15 +240,6 @@ describe('the options month reads', () => {
 
 describe('a month-only option', () => {
   it.each([
-    ['row_height', 120, '120px'],
-    ['row_height', '8em', '8em'],
-    ['row_height', '9 em', '9em'],
-    // Anything that would size a week by its events, or by a height the month does not have.
-    ['row_height', 'auto', '112px'],
-    ['row_height', '15%', '112px'],
-    ['row_height', 'fit-content', '112px'],
-    ['row_height', 'calc(50% + 10px)', '112px'],
-    ['row_height', '-20px', '112px'],
     ['min_day_width', '72', 72],
     ['min_day_width', 0, 80],
     ['min_day_width', -5, 80],
@@ -238,13 +249,6 @@ describe('a month-only option', () => {
     ['week_scroll_min_width', 0, 0],
     ['week_scroll_min_width', '600', 600],
     ['week_scroll_min_width', -1, 0],
-    // A whole number of events from 0, which keeps no room; a fraction is rounded down.
-    ['day_list_events', 6, 6],
-    ['day_list_events', '3', 3],
-    ['day_list_events', 0, 0],
-    ['day_list_events', 2.7, 2],
-    ['day_list_events', -1, 4],
-    ['day_list_events', 'many', 4],
     // Any string is a color, as Grid's tints take it; anything else is the default.
     ['weekend_background_color', 'rgb(1, 2, 3)', 'rgb(1, 2, 3)'],
     ['weekend_background_color', 'transparent', 'transparent'],
@@ -255,6 +259,13 @@ describe('a month-only option', () => {
     ],
     ['today_background_color', 'var(--primary-color)', 'var(--primary-color)'],
     ['today_background_color', 12, 'transparent'],
+    // Any font size the card's own take; anything else is the block's default.
+    ['cell_event_font_size', '15px', '15px'],
+    ['cell_event_font_size', '0.9 rem', '0.9rem'],
+    ['cell_event_font_size', 12, '12px'],
+    ['cell_event_font_size', 'big', '13px'],
+    ['cell_time_font_size', 'smaller', 'smaller'],
+    ['cell_time_font_size', '-2px', '11px'],
   ] as const)('reads %s: %j as %j', (key, value, expected) => {
     expect(ViewConfig.normalizeMonthValue(key, value)).toBe(expected);
     expect(
@@ -265,14 +276,39 @@ describe('a month-only option', () => {
     ).toBe(expected);
   });
 
-  it('says once that a row height it cannot draw falls back to its default', () => {
+  it('is not row_height or day_list_events, which Month never shipped: each is unrecognized', () => {
+    // Neither was in a release, so neither has a migration: written in `month:`, each is reported
+    // as any unknown key is, once, and read by nothing.
+    expect(
+      ViewConfig.findMisplacedOptions({ month: { row_height: '120px', day_list_events: 3 } }),
+    ).toEqual([
+      { kind: 'unknown', key: 'row_height', from: 'month', to: [] },
+      { kind: 'unknown', key: 'day_list_events', from: 'month', to: [] },
+    ]);
     const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
     try {
-      ViewConfig.validateColumnOverrides(buildConfig({ month: { row_height: 'auto' } }));
-      ViewConfig.validateColumnOverrides(buildConfig({ month: { row_height: '9em' } }));
+      ViewConfig.validateColumnOverrides(
+        buildConfig({ month: { row_height: 'auto', day_list_events: 0 } } as never),
+      );
       expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
-        'Invalid month.row_height "auto": expected a non-negative CSS length such as "112px" or ' +
-          '"8em", not a percentage or a keyword. Falling back to "112px".',
+        'Ignoring "month.row_height": not a recognized option.',
+        'Ignoring "month.day_list_events": not a recognized option.',
+      ]);
+    } finally {
+      warn.mockRestore();
+    }
+    expect(Object.keys(ViewConfig.MONTH_DEFAULTS)).not.toContain('row_height');
+    expect(Object.keys(ViewConfig.MONTH_DEFAULTS)).not.toContain('day_list_events');
+  });
+
+  it('says once that a cell size it cannot use falls back to the block’s default', () => {
+    const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+    try {
+      ViewConfig.validateColumnOverrides(buildConfig({ month: { cell_event_font_size: 'big' } }));
+      ViewConfig.validateColumnOverrides(buildConfig({ month: { cell_time_font_size: '1em' } }));
+      expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
+        'Invalid month.cell_event_font_size "big": expected a CSS font size such as "14px", ' +
+          '"1.2em", "120%" or "large". Falling back to "13px".',
       ]);
     } finally {
       warn.mockRestore();
@@ -291,9 +327,9 @@ describe('a month-only option', () => {
 
   it('is reported where it does nothing: at the top level, or in another view’s block', () => {
     expect(
-      ViewConfig.findMisplacedOptions({ row_height: '90px', column: { week_scroll: true } }),
+      ViewConfig.findMisplacedOptions({ card_height: '90px', column: { week_scroll: true } }),
     ).toEqual([
-      { kind: 'view-only', key: 'row_height', from: null, to: ['month'] },
+      { kind: 'view-only', key: 'card_height', from: null, to: ['month'] },
       { kind: 'wrong-view', key: 'week_scroll', from: 'column', to: ['month'] },
     ]);
     // A tint is Grid's and Month's, each in its own block, so a misplaced one names both.

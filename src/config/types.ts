@@ -702,19 +702,22 @@ export interface TimeGridOverrides extends SharedViewOverrides {
 
 /**
  * The shared options a month draws nothing for, in its grid, its compact form or its day list:
- * it always shows its six weeks whatever their events, never cuts a list short and splits every
- * multi-day event across its days; it rules its days itself and lists one day at a time, so it
- * has no space or rule between days, weeks or months; it sets its dates in the event font, with
- * today's indicator only as the tile, and its week numbers as plain text; and its day list puts
- * each row's time beside its title.
+ * it sizes its whole card with its own heights; it always shows its six weeks whatever their
+ * events, never cuts a list short and splits every multi-day event across its days; it rules its
+ * days itself and lists one day at a time, so it has no space or rule between days, weeks or
+ * months; it sets its dates at one scale on every day, with today's indicator only as the tile,
+ * and its week numbers as plain text; and its day list puts each row's time beside its title.
  */
 export type MonthIgnoredSharedKeys =
+  | 'height'
+  | 'max_height'
   | 'days_to_show'
   | 'show_empty_days'
   | 'show_empty_today'
   | 'empty_day_text'
   | 'empty_day_color'
   | 'split_multiday_events'
+  | 'show_multiday_allday_time'
   | 'day_spacing'
   | 'day_separator_width'
   | 'day_separator_color'
@@ -723,16 +726,14 @@ export type MonthIgnoredSharedKeys =
   | 'month_separator_width'
   | 'month_separator_color'
   | 'week_number_background_color'
-  | 'day_font_size'
-  | 'month_font_size'
   | 'today_date_scale'
   | 'past_date_scale'
   | 'today_indicator_size'
   | 'time_position';
 
 /**
- * The `month:` block — the shared options a month grid reads, plus its own height, row, width and
- * tint keys.
+ * The `month:` block — the shared options a month grid reads, plus its own height, width, tint
+ * and cell font size keys.
  *
  * The month-only keys below have no top-level counterpart and are read with
  * `resolveMonthOption`, not `resolveViewOption`.
@@ -763,20 +764,8 @@ export interface MonthOverrides extends Omit<SharedViewOverrides, MonthIgnoredSh
    */
   compact_card_max_height?: string;
 
-  /**
-   * A week row's natural height, as a CSS length. Under a fixed card `height` the six rows
-   * share the card's instead, and this does nothing.
-   */
-  row_height?: string;
-
   /** Day-cell width in pixels below which the month draws its compact form. */
   min_day_width?: number;
-
-  /**
-   * Read by nothing: the compact form's day list shows as many of the day's events as fit its
-   * room, and "+N more" for the rest. Declared until the editor field it backs is removed.
-   */
-  day_list_events?: number;
 
   /** Whether a vertical swipe, the mouse wheel or a trackpad moves the rows by whole weeks. */
   week_scroll?: boolean;
@@ -800,6 +789,18 @@ export interface MonthOverrides extends Omit<SharedViewOverrides, MonthIgnoredSh
    * day it replaces the weekend tint rather than stacking on it.
    */
   today_background_color?: string;
+
+  /**
+   * Font size of what the wide month draws in its days: a line's title and its calendar label, and
+   * a bar's title. A day's list and the panel take `event_font_size`.
+   */
+  cell_event_font_size?: string;
+
+  /**
+   * Font size of a line's time, a bar's times and length, and a day's "+N more" in the wide month.
+   * A day's list and the panel take `time_font_size`.
+   */
+  cell_time_font_size?: string;
 }
 
 /** Calendar entity configuration. */

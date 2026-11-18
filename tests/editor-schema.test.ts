@@ -912,6 +912,10 @@ describe('editor: applicability', () => {
       month_separator_label: ['list'],
       month_separator_label_color: ['list'],
       month_separator_label_font_size: ['list'],
+      // A month sizes its whole card with the heights in its own block, so the events area's
+      // shared height and cap have nothing to size there.
+      height: ['column', 'grid', 'list'],
+      max_height: ['column', 'grid', 'list'],
       // A month always draws its six weeks, every day of them: no day count, and no empty day
       // to hide or keep.
       days_to_show: ['column', 'grid', 'list'],
@@ -928,9 +932,7 @@ describe('editor: applicability', () => {
       month_separator_color: ['column', 'grid', 'list'],
       // A month's week numbers are plain text, with no background.
       week_number_background_color: ['column', 'grid', 'list'],
-      // A month sets its dates in the event font, unscaled.
-      day_font_size: ['column', 'grid', 'list'],
-      month_font_size: ['column', 'grid', 'list'],
+      // A month sets its dates at one scale on every day.
       today_date_scale: ['column', 'grid', 'list'],
       past_date_scale: ['column', 'grid', 'list'],
       // A month marks today with the tile and draws none of the indicators this sizes.
@@ -954,9 +956,10 @@ describe('editor: applicability', () => {
       // Grid's banner renderer emits the summary and drops every other content part, so
       // the five options deciding what an all-day row carries are computed and discarded.
       // Month's day list draws them, and so do the badge, the row's padding, its line clamp
-      // and its links below.
+      // and its links below; all but the multi-day time row, since that list splits every
+      // multi-day event across its days, and a bar's length follows show_duration alone.
       show_single_allday_time: ['column', 'list', 'month'],
-      show_multiday_allday_time: ['column', 'list', 'month'],
+      show_multiday_allday_time: ['column', 'list'],
       show_location_allday: ['column', 'list', 'month'],
       show_description_allday: ['column', 'list', 'month'],
       show_countdown_allday: ['column', 'list', 'month'],
@@ -1342,17 +1345,21 @@ describe('editor: displayed view and the Layout panel', () => {
         .filter(({ node, dataPath }) => 'selector' in node && dataPath[0] === 'month')
         .map(({ node }) => node.name);
 
-    expect(own(buildConfig({ view: 'month' }))).toEqual([
-      'row_height',
+    const always = [
+      'card_height',
+      'card_max_height',
+      'compact_card_height',
+      'compact_card_max_height',
       'min_day_width',
-      'day_list_events',
+      'weekend_background_color',
+      'today_background_color',
+      'cell_event_font_size',
+      'cell_time_font_size',
       'week_scroll',
-    ]);
+    ];
+    expect(own(buildConfig({ view: 'month' }))).toEqual(always);
     expect(own(buildConfig({ view: 'month', month: { week_scroll: true } }))).toEqual([
-      'row_height',
-      'min_day_width',
-      'day_list_events',
-      'week_scroll',
+      ...always,
       'week_scroll_min_width',
     ]);
     // Month's, and nobody else's: the block is read only where Month is the view.

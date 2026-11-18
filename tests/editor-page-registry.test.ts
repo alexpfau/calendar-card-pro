@@ -258,10 +258,10 @@ const APPROVED_MAP: ReadonlyArray<
       'day_header:date_vertical_alignment A L',
       'day_header:weekday_font_size A',
       'day_header:weekday_color A',
-      'day_header:day_font_size A SLCG',
+      'day_header:day_font_size A',
       'day_header:day_color A',
       'day_header:show_month E',
-      'day_header:month_font_size A SLCG',
+      'day_header:month_font_size A',
       'day_header:month_color A',
     ],
   ],
@@ -302,6 +302,7 @@ const APPROVED_MAP: ReadonlyArray<
       'day_header:today_day_color A',
       'day_header:today_month_color A',
       'layout:time_grid.today_background_color A G',
+      'layout:month.today_background_color A M',
     ],
   ],
   [
@@ -337,6 +338,7 @@ const APPROVED_MAP: ReadonlyArray<
       'day_header:weekend_month_color F',
       // A day's background, not its date's color, so no member of the family.
       'layout:time_grid.weekend_background_color A G',
+      'layout:month.weekend_background_color A M',
     ],
   ],
   [
@@ -386,6 +388,7 @@ const APPROVED_MAP: ReadonlyArray<
     '',
     [
       'events:event_font_size A',
+      'layout:month.cell_event_font_size A M',
       'events:event_color A',
       'events:title_max_lines A',
       'events:scroll_long_titles A',
@@ -409,9 +412,10 @@ const APPROVED_MAP: ReadonlyArray<
     '',
     [
       'events:show_single_allday_time A SLCM',
-      'events:show_multiday_allday_time A SLCM',
+      'events:show_multiday_allday_time A SLC',
       'events:time_two_digit_hours A',
       'events:time_font_size A',
+      'layout:month.cell_time_font_size A M',
       'events:time_color A',
       'events:time_icon_size A',
       'events:time_max_lines A SLCM',
@@ -462,14 +466,16 @@ const APPROVED_MAP: ReadonlyArray<
     'Card Size & Spacing',
     '',
     [
-      'layout:height_mode E',
-      'layout:card_height W',
-      'layout:card_max_height W',
-      // Grid's and Month's own heights, beside the Height they yield to.
+      'layout:height_mode E SLCG',
+      'layout:card_height W SLCG',
+      'layout:card_max_height W SLCG',
+      // Grid's own height, beside the Height it yields to.
       'layout:time_grid.hour_height A G',
-      'layout:month.row_height A M',
-      // The compact form's height beside the wide form's, both under the card's Height.
-      'layout:month.day_list_events A M',
+      // Month's own, in the Height's place: the whole card, wide then compact.
+      'layout:month.card_height A M',
+      'layout:month.card_max_height A M',
+      'layout:month.compact_card_height A M',
+      'layout:month.compact_card_max_height A M',
       'layout:additional_card_spacing A',
       'layout:event_gap A SLCM',
       'layout:event_spacing A SLCM',
@@ -659,7 +665,7 @@ const HEADINGS: ReadonlyArray<HeadingDef> = [
 describe('the page registry places every built field exactly once', () => {
   it('walks the whole corpus', () => {
     // The denominators, beside the verdicts below. A short walk shows here first: the approved
-    // map places 231 ids, Month's own five, Layouts in Switcher and the three of the month's name
+    // map places 237 ids, Month's own eleven, Layouts in Switcher and the three of the month's name
     // on List's month separator among them, and every one of them is built under some workspace
     // and state.
     console.info(
@@ -667,8 +673,8 @@ describe('the page registry places every built field exactly once', () => {
         `${WORKSPACES.length} workspaces; ${PLACED.length} placements.`,
     );
     expect(WORKSPACES).toHaveLength(5);
-    expect(BUILT.size).toBe(231);
-    expect(PLACED).toHaveLength(231);
+    expect(BUILT.size).toBe(237);
+    expect(PLACED).toHaveLength(237);
   });
 
   it('has no field built but unplaced', () => {
@@ -817,8 +823,8 @@ describe('the page registry is consistent with itself', () => {
       expect(heading?.key, id).toBe(FAMILIES[family].titleKey);
     }
     // Every family has members, and a family heading opens on them, all together. Only Weekend
-    // Colors holds a setting after them: Grid's weekend shading, a day's background rather than
-    // its date's color, which the family's Reset leaves alone.
+    // Colors holds two settings after them: Grid's and Month's weekend shading, a day's background
+    // rather than its date's color, which the family's Reset leaves alone.
     expect([...members.keys()].sort()).toEqual(Object.keys(FAMILIES).sort());
     const after: string[] = [];
     for (const heading of HEADINGS) {
@@ -837,7 +843,10 @@ describe('the page registry is consistent with itself', () => {
       ).toBe(true);
       after.push(...heading.fields.slice(count).map(([id]) => id));
     }
-    expect(after).toEqual(['layout:time_grid.weekend_background_color']);
+    expect(after).toEqual([
+      'layout:time_grid.weekend_background_color',
+      'layout:month.weekend_background_color',
+    ]);
     expect([...members.values()].reduce((sum, count) => sum + count, 0)).toBe(18);
   });
 
@@ -970,6 +979,7 @@ describe('the registry heads what the builders used to', () => {
     expect(at('heading_icon_and_badge')).toBeGreaterThan(at('heading_title'));
     expect(under('events', 'heading_title')).toEqual([
       'events:event_font_size',
+      'layout:month.cell_event_font_size',
       'events:event_color',
       'events:title_max_lines',
       'events:scroll_long_titles',
@@ -1011,9 +1021,6 @@ describe('the registry heads what the builders used to', () => {
     const size = under('size_spacing', 'heading_card_size');
     expect(size.indexOf('layout:time_grid.hour_height')).toBe(
       size.indexOf('layout:card_max_height') + 1,
-    );
-    expect(size.indexOf('layout:month.row_height')).toBe(
-      size.indexOf('layout:time_grid.hour_height') + 1,
     );
     expect(under('size_spacing', 'heading_hour_labels')).toEqual([
       'layout:time_grid.axis_width',

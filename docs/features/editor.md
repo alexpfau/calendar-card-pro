@@ -39,9 +39,9 @@ Each layout's page, and Layout Defaults, lists the same four topics:
 | Topic                | What it holds                                                                                                                                                                   |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Which Events**     | Days to Show and Start Date, Grid's hours, Month's wheel and swipe, Event Type, duplicates, event order, past events, all-day and multi-day events, empty days and Compact Mode |
-| **Days**             | How each day announces itself: its date, weeks and week numbers, today and its indicator, past days and weekends, and Grid's shading                                            |
-| **Event Appearance** | What each event shows, the time format, Grid's now line and overlapping events, and how each part looks                                                                         |
-| **Size & Spacing**   | The card's height and spacing, Grid's hour height and hour labels, Month's week height, the density of Columns, Grid and Month, and the rules                                   |
+| **Days**             | How each day announces itself: its date, weeks and week numbers, today and its indicator, past days and weekends, and Grid's and Month's shading                                |
+| **Event Appearance** | What each event shows, the time format, Grid's now line and overlapping events, and how each part looks, Month's day text included                                              |
+| **Size & Spacing**   | The card's height and spacing, Grid's hour height and hour labels, Month's card heights, the density of Columns, Grid and Month, and the rules                                  |
 
 **Which Events** opens with **Date Range**: Days to Show, and Start Date's choices, which write
 the existing `start_date` option. Tomorrow writes `today+1`, Start of Week writes
@@ -167,8 +167,10 @@ back to on a narrow screen. **Layouts**, on the overview, gives each layout a ro
   never changes the card. Its topics write to its own block, `list:`, `column:`, `time_grid:` or
   `month:`, and leave out the controls, per-calendar ones included, that cannot affect that
   layout. Grid's hours are on its Which Events, its hour labels and hour height on Size &
-  Spacing, its shading on Days and its now line and overlapping events on Event Appearance;
-  Month's wheel and swipe paging is on its Which Events, under **Wheel & Swipe**.
+  Spacing, its shading on Days and its now line and overlapping events on Event Appearance.
+  Month's heights sit on its Size & Spacing, its shading on Days, the text sizes of its days on
+  Event Appearance, beside the sizes a day's list takes, and its wheel and swipe paging on its
+  Which Events, under **Wheel & Swipe**.
 - **A topic page names its layout** under its title. **Also for: List · Columns · Month · Layout
   Defaults** opens the same topic in another layout, and **Continue with**, at its foot, opens the
   next topic, then the next layout's Which Events, through List, Columns, Grid and Month in turn.
@@ -362,7 +364,7 @@ set a different top-level value. All fourteen are listed in
 [Grid Options That Start From a Different Default](/features/grid-view#options-that-start-from-a-different-default).
 Column's two substitutions are listed in
 [Column Options That Start From a Different Default](/features/column-view#options-that-start-from-a-different-default),
-and Month's one in
+and Month's three in
 [Month Options That Start From a Different Default](/features/month-view#options-that-start-from-a-different-default).
 
 ## 📅 Calendars

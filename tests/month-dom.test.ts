@@ -537,16 +537,74 @@ describe('the line pitch and the date line the card measures', () => {
       'font-size': 'var(--calendar-card-font-size-event)',
       'line-height': '1.2',
     });
-    // The date: the tile's 1.2em with 4px above and 2px below, in the event font dates are set in.
+    // The date: the tile's 1.2em with 4px above and 2px below, in the day's size dates are set
+    // in. The line sets no size of its own; an empty strut in the day's size makes it 1.2em tall,
+    // and the number and the 1st's month each take their own option.
     expect(probe('date')).toEqual({
       height: 'calc(1.2em + 6px)',
-      'font-size': 'var(--calendar-card-font-size-event)',
+      'font-size': 'var(--calendar-card-font-size-day)',
     });
-    expect(rule('.month-date')).toMatchObject({
-      'font-size': 'var(--calendar-card-font-size-event)',
+    expect(rule('.month-date')).toMatchObject({ padding: '4px 6px 2px', 'line-height': '1' });
+    expect(rule('.month-date')).not.toHaveProperty('font-size');
+    expect(rule('.month-date')).not.toHaveProperty('height');
+    expect(rule('.month-date::before')).toEqual({
+      content: "''",
       height: '1.2em',
-      padding: '4px 6px 2px',
+      'font-size': 'var(--calendar-card-font-size-day)',
     });
+    expect(rule('.month-date > .day')['font-size']).toBe('var(--calendar-card-font-size-day)');
+    expect(rule('.month-date-month')['font-size']).toBe('var(--calendar-card-font-size-month)');
+  });
+});
+
+describe('the sizes a month’s text is set in', () => {
+  /** A custom property as an element's own style writes it, or undefined. */
+  const own = (element: Element, property: string): string | undefined =>
+    new RegExp(`(?:^|;)\\s*${property}:\\s*([^;]+)`)
+      .exec(element.getAttribute('style') ?? '')?.[1]
+      .trim();
+  const sizes = (element: Element) =>
+    [
+      '--calendar-card-font-size-event',
+      '--calendar-card-font-size-time',
+      '--calendar-card-font-size-day',
+      '--calendar-card-font-size-month',
+    ].map((property) => own(element, property));
+
+  it('sets its days’ lines in the cell sizes, and its dates and everything else in the card’s', async () => {
+    const card = await mount();
+    // The card writes the list's 14px and 12px, which a day's list and the panel read, the
+    // month's 14px day number and the 12px month on a 1st.
+    expect(sizes(card.shadowRoot!.querySelector('ha-card')!)).toEqual([
+      '14px',
+      '12px',
+      '14px',
+      '12px',
+    ]);
+    // The wide month writes its cells' 13px and 11px over them, for the lines, the bars and "+N
+    // more" inside it, and leaves the dates' sizes to the card.
+    expect(sizes(month(card))).toEqual(['13px', '11px', undefined, undefined]);
+    card.remove();
+  });
+
+  it('takes the cell sizes and the date sizes from the month block', async () => {
+    const card = await mount({
+      day_font_size: '30px',
+      month: {
+        cell_event_font_size: '1rem',
+        cell_time_font_size: '0.75rem',
+        day_font_size: '18px',
+        month_font_size: '0.8em',
+      },
+    });
+    expect(sizes(card.shadowRoot!.querySelector('ha-card')!)).toEqual([
+      '14px',
+      '12px',
+      '18px',
+      '0.8em',
+    ]);
+    expect(sizes(month(card))).toEqual(['1rem', '0.75rem', undefined, undefined]);
+    card.remove();
   });
 });
 
@@ -595,12 +653,8 @@ describe('the rows’ height', () => {
     });
   });
 
-  it('takes nothing from row_height, height or max_height', async () => {
-    const card = await mount({
-      height: '600px',
-      max_height: '300px',
-      month: { row_height: '9em' },
-    });
+  it('takes nothing from height or max_height', async () => {
+    const card = await mount({ height: '600px', max_height: '300px' });
     const style = month(card).style;
     expect([
       style.height,
