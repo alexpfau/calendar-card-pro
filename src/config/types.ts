@@ -731,8 +731,8 @@ export type MonthIgnoredSharedKeys =
   | 'time_position';
 
 /**
- * The `month:` block — the shared options a month grid reads, plus its own row, width and tint
- * keys.
+ * The `month:` block — the shared options a month grid reads, plus its own height, row, width and
+ * tint keys.
  *
  * The month-only keys below have no top-level counterpart and are read with
  * `resolveMonthOption`, not `resolveViewOption`.
@@ -740,6 +740,25 @@ export type MonthIgnoredSharedKeys =
 export interface MonthOverrides extends Omit<SharedViewOverrides, MonthIgnoredSharedKeys> {
   /** Whether a timed event a full day or longer is drawn as a bar, as Grid's banners are. */
   multiday_banners?: boolean;
+
+  /**
+   * The whole card's height in the wide form, as a CSS length: its border box, the title, the
+   * toolbar and any notice included. `auto` is the month's own default. A row count a Sections
+   * dashboard gives the card wins over it.
+   */
+  card_height?: string;
+
+  /** The tallest the wide card may be, as a CSS length, clamping `card_height`; `none` sets none. */
+  card_max_height?: string;
+
+  /**
+   * `card_height` for the compact form, which takes `card_height` while this is unset; `auto` is
+   * the compact form's own default.
+   */
+  compact_card_height?: string;
+
+  /** `card_max_height` for the compact form, which takes `card_max_height` while this is unset. */
+  compact_card_max_height?: string;
 
   /**
    * A week row's natural height, as a CSS length. Under a fixed card `height` the six rows

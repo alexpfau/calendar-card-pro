@@ -13,6 +13,8 @@ import {
   normalizeNumericOptions,
   switcherOffers,
   toFontWeightCss,
+  toValidCardHeight,
+  toValidCardMaxHeight,
   toValidNumber,
   toValidPercentage,
   validateFoldedLength,
@@ -305,10 +307,15 @@ export const MONTH_OVERRIDE_KEYS = [
 ] as const;
 
 /**
- * Month-only options — a week row's height, the compact form's width and the events its day list
- * keeps room for, week scrolling, and the weekend's and today's tints, which are Grid's.
+ * Month-only options: the whole card's height and its cap, wide and compact, a week row's
+ * height, the compact form's width and the events its day list keeps room for, week scrolling,
+ * and the weekend's and today's tints, which are Grid's.
  */
 export const MONTH_ONLY_KEYS = [
+  'card_height',
+  'card_max_height',
+  'compact_card_height',
+  'compact_card_max_height',
   'row_height',
   'min_day_width',
   'day_list_events',
@@ -1088,6 +1095,11 @@ export function resolveTimeGridOption<K extends keyof typeof TIME_GRID_DEFAULTS>
 /**
  * Defaults for month-only options.
  *
+ * `card_height` and `card_max_height` size the whole card in the wide form, its title, toolbar
+ * and notices included: `auto` is the month's own default height and `none` no cap. The compact
+ * form's two, `compact_card_height` and `compact_card_max_height`, have no default here: unset,
+ * each takes its wide counterpart (`resolveMonthCardSize`).
+ *
  * `row_height` is a week row's natural height, a CSS length so it can follow the font in `em`;
  * under a fixed card `height` the six rows share the card's instead. At the shipped 14px event
  * size it holds four lines under the date, as measured in Chromium: a 22.8px date line and four
@@ -1107,6 +1119,8 @@ export function resolveTimeGridOption<K extends keyof typeof TIME_GRID_DEFAULTS>
  * and lightens a dark one, and today's `transparent`, off.
  */
 export const MONTH_DEFAULTS = {
+  card_height: 'auto',
+  card_max_height: 'none',
   row_height: '112px',
   min_day_width: 80,
   day_list_events: 4,
@@ -1131,9 +1145,10 @@ type MonthOptionValue<K extends keyof typeof MONTH_DEFAULTS> =
  *
  * These values never pass through `normalizeConfig`, so a malformed one is caught here. A
  * length accepts a bare number from YAML or the editor's text field and gains `px`, for the
- * reason {@link normalizeColumnValue} gives. `min_day_width` is a width above zero,
- * `week_scroll_min_width` any width from zero, which means no limit, and `day_list_events` a
- * whole number of events from zero, which means every event, a fraction rounded down. The two
+ * reason {@link normalizeColumnValue} gives. The card's height and cap take `auto` and `none` as
+ * well, and fold anything else that is not a length to them. `min_day_width` is a width above
+ * zero, `week_scroll_min_width` any width from zero, which means no limit, and `day_list_events`
+ * a whole number of events from zero, which means every event, a fraction rounded down. The two
  * tints take any string, as Grid's do ({@link normalizeTimeGridValue}).
  *
  * @param key - Option being resolved
@@ -1169,6 +1184,11 @@ export function normalizeMonthValue(
     return typeof value === 'string' ? value : fallback;
   }
 
+  // Lengths or a keyword, whose default is the keyword, so the pixel coercion below would read
+  // them as strings and keep a blank value as written.
+  if (key === 'card_height') return toValidCardHeight(value) ?? fallback;
+  if (key === 'card_max_height') return toValidCardMaxHeight(value) ?? fallback;
+
   return String(coercePixelLengthAgainst(fallback, value, key));
 }
 
@@ -1196,6 +1216,55 @@ export function resolveMonthOption<K extends keyof typeof MONTH_DEFAULTS>(
   }
 
   return MONTH_DEFAULTS[key] as MonthOptionValue<K>;
+}
+
+/** The two forms a month draws: its weeks at full width, or the compact form with a day list. */
+export type MonthCardForm = 'wide' | 'compact';
+
+/**
+ * A month card's height and its cap in one form, as the configuration resolves them: `height` is
+ * `auto` or a CSS length, `max` is `none` or a CSS length.
+ */
+export interface MonthCardSize {
+  readonly height: string;
+  readonly max: string;
+}
+
+/**
+ * Resolves the height a month card is drawn at in one form, and its cap.
+ *
+ * The wide form reads `card_height` and `card_max_height`, each folded to `auto` or `none` where
+ * unusable. The compact form reads `compact_card_height` and `compact_card_max_height`, each of
+ * which counts as set by being written in the `month:` block, so an explicit `auto` or `none`
+ * keeps the wide value out; written as nothing or as something unusable, it is unset, and the
+ * compact form takes the wide value. `auto` is left for the renderer, which draws each form at
+ * its own default and lets a compact list grow under a cap. Pure: the card's layout, a Sections
+ * row count, is decided elsewhere and wins over both.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @param form - The form drawn
+ * @returns The height and the cap
+ */
+export function resolveMonthCardSize(config: Types.Config, form: MonthCardForm): MonthCardSize {
+  const wide: MonthCardSize = {
+    height: resolveMonthOption(config, 'card_height'),
+    max: resolveMonthOption(config, 'card_max_height'),
+  };
+  if (form === 'wide') return wide;
+
+  const overrides = blockValues(config, 'month');
+  const own = (
+    key: 'compact_card_height' | 'compact_card_max_height',
+    valid: (value: unknown) => string | undefined,
+  ): string | undefined =>
+    overrides && hasOverride(overrides, key as keyof Types.ColumnOverrides)
+      ? valid((overrides as Record<string, unknown>)[key])
+      : undefined;
+
+  return {
+    height: own('compact_card_height', toValidCardHeight) ?? wide.height,
+    max: own('compact_card_max_height', toValidCardMaxHeight) ?? wide.max,
+  };
 }
 
 /**

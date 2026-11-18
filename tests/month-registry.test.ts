@@ -25,6 +25,10 @@ describe('the month block', () => {
       defaultOverrides: { event_gap: '6px', show_past_events: true },
     });
     expect(ViewConfig.MONTH_ONLY_KEYS).toEqual([
+      'card_height',
+      'card_max_height',
+      'compact_card_height',
+      'compact_card_max_height',
       'row_height',
       'min_day_width',
       'day_list_events',
@@ -33,7 +37,11 @@ describe('the month block', () => {
       'weekend_background_color',
       'today_background_color',
     ]);
+    // The compact form's two heights have no default of their own: unset, each takes the wide
+    // one (`resolveMonthCardSize`).
     expect(ViewConfig.MONTH_DEFAULTS).toEqual({
+      card_height: 'auto',
+      card_max_height: 'none',
       row_height: '112px',
       min_day_width: 80,
       day_list_events: 4,
@@ -272,7 +280,9 @@ describe('a month-only option', () => {
   });
 
   it('falls back to its default with no block', () => {
-    for (const key of ViewConfig.MONTH_ONLY_KEYS) {
+    for (const key of Object.keys(ViewConfig.MONTH_DEFAULTS) as Array<
+      keyof typeof ViewConfig.MONTH_DEFAULTS
+    >) {
       expect(ViewConfig.resolveMonthOption(buildConfig({}), key)).toBe(
         ViewConfig.MONTH_DEFAULTS[key],
       );

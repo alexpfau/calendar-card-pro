@@ -857,21 +857,33 @@ export const BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new S
 ]);
 
 /**
- * Row heights whose unusable value is folded to the shipped default rather than passed through,
- * judged by {@link toValidRowHeight}.
+ * A month's heights, whose unusable value is folded rather than passed through: the whole card's
+ * height and its cap, in the wide form and the compact one, judged by {@link toValidCardHeight}
+ * and {@link toValidCardMaxHeight}, and the week row height, judged by {@link toValidRowHeight}.
  *
- * `month → row_height` sizes each of a month's six weeks, and the card measures how many lines
- * fit under a date from a week's height. A percentage, which resolves against a height the month
- * does not have, and a keyword such as `auto` or `fit-content` sized a week by its events instead.
- * An empty week then had room for no line, so the capacity read from it was 0, a month laid out
- * for 0 lines drew no event anywhere, and it stayed 0: measured in Chromium, a whole month drawn
- * empty.
+ * The card measures how many lines fit under a date from a week's height, so a week must never
+ * be sized by its events. A percentage resolves against a height the month does not have, and a
+ * keyword such as `fit-content` sizes the box by what is in it. With `month → row_height` an
+ * empty week then had room for no line, the capacity read from it was 0, a month laid out for 0
+ * lines drew no event anywhere, and it stayed 0: measured in Chromium, a whole month drawn empty.
+ * A card height takes `auto`, which is the month's own default rather than its content's, and a
+ * cap takes `none`; anything else that is not a length folds the same way.
+ *
+ * A wide key folds to the block's default, `auto` or `none`. A compact key has no default of its
+ * own: unusable, it counts as unset and the compact form takes the wide value. `row_height` stays
+ * until it is removed before Month ships.
  *
  * Its own table, for the reason the bar width has one, and its options live in a view block only,
  * so the top-level check skips them and the block's (`validateViewOverrides`) reports them, with
  * the block's default.
  */
-export const ROW_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set(['row_height']);
+export const CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set([
+  'card_height',
+  'card_max_height',
+  'compact_card_height',
+  'compact_card_max_height',
+  'row_height',
+]);
 
 /**
  * The keywords a border width takes, at the widths CSS defines for them, and `none`.
@@ -890,14 +902,14 @@ const BAR_WIDTH_KEYWORDS: Readonly<Record<string, string>> = {
 };
 
 /**
- * Every option that folds an unusable value: the icon sizes, the font sizes, the bar width, the
- * row height.
+ * Every option that folds an unusable value: the icon sizes, the font sizes, the bar width, a
+ * month's heights.
  */
 export const FOLDED_OPTIONS: ReadonlyArray<string> = [
   ...LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE,
   ...FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE,
   ...BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE,
-  ...ROW_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE,
+  ...CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE,
 ];
 
 /**
@@ -906,7 +918,8 @@ export const FOLDED_OPTIONS: ReadonlyArray<string> = [
  *
  * @param key - Option path
  * @returns {@link toValidSize}, {@link toValidFontSize}, {@link toValidBarWidth},
- *   {@link toValidRowHeight}, or `undefined`
+ *   {@link toValidRowHeight}, {@link toValidCardHeight}, {@link toValidCardMaxHeight}, or
+ *   `undefined`
  */
 function foldValidator(key: string): ((value: unknown) => string | undefined) | undefined {
   if (LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)) {
@@ -917,8 +930,9 @@ function foldValidator(key: string): ((value: unknown) => string | undefined) | 
     return toValidBarWidth;
   }
 
-  if (ROW_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)) {
-    return toValidRowHeight;
+  if (CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)) {
+    if (key === 'row_height') return toValidRowHeight;
+    return key.endsWith('_max_height') ? toValidCardMaxHeight : toValidCardHeight;
   }
 
   return FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key) ? toValidFontSize : undefined;
@@ -1106,6 +1120,45 @@ export function toValidRowHeight(value: unknown): string | undefined {
 }
 
 /**
+ * Whether a value is a keyword, in any case, around whitespace and a CSS declaration's trailing
+ * semicolons.
+ *
+ * @param value - Raw configured value
+ * @param keyword - The keyword, in lowercase
+ * @returns `true` when the value is that keyword
+ */
+function isKeyword(value: unknown, keyword: string): boolean {
+  return (
+    typeof value === 'string' && value.replace(DECLARATION_END, '').trim().toLowerCase() === keyword
+  );
+}
+
+/**
+ * A month card's height, tidied, or `undefined` when the value cannot be one: `auto`, which is
+ * the month's own default height rather than its content's, or a length a row can be drawn at by
+ * {@link toValidRowHeight}'s rule, a `calc()`, a `var()` and a viewport unit such as `dvh`
+ * included. A percentage and every other keyword are refused, since each would size the month by
+ * its events or by a height it does not have.
+ *
+ * @param value - Raw configured value
+ * @returns `auto`, the height to use, or `undefined` when the value cannot be one
+ */
+export function toValidCardHeight(value: unknown): string | undefined {
+  return isKeyword(value, 'auto') ? 'auto' : toValidRowHeight(value);
+}
+
+/**
+ * A month card's cap, tidied, or `undefined` when the value cannot be one: `none`, no cap, or a
+ * length by {@link toValidCardHeight}'s rule.
+ *
+ * @param value - Raw configured value
+ * @returns `none`, the cap to use, or `undefined` when the value cannot be one
+ */
+export function toValidCardMaxHeight(value: unknown): string | undefined {
+  return isKeyword(value, 'none') ? 'none' : toValidRowHeight(value);
+}
+
+/**
  * Removes what a CSS declaration adds around a value — trailing semicolons and an
  * `!important` flag — judges the value that remains, and puts the flag back.
  *
@@ -1229,9 +1282,15 @@ export function validateFoldedLength(
     ? 'a CSS font size such as "14px", "1.2em", "120%" or "large"'
     : BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)
       ? 'a non-negative CSS length such as "2px" or "0.2em", or "thin", "medium" or "thick"'
-      : ROW_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)
+      : key === 'row_height'
         ? 'a non-negative CSS length such as "112px" or "8em", not a percentage or a keyword'
-        : 'a non-negative CSS length such as "6px" or "0.5em"';
+        : CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)
+          ? key.endsWith('_max_height')
+            ? '"none" or a non-negative CSS length such as "40rem", "600px" or "90dvh", not a ' +
+              'percentage or another keyword'
+            : '"auto" or a non-negative CSS length such as "44rem", "600px" or "100dvh", not a ' +
+              'percentage or another keyword'
+          : 'a non-negative CSS length such as "6px" or "0.5em"';
   // `title_font_size` ships unset, so folding it means leaving the title at the size it
   // would have had without the option.
   const outcome =
@@ -1252,7 +1311,7 @@ export function validateFoldedLength(
  */
 export function validateFoldedLengths(config: Types.Config): void {
   for (const key of FOLDED_OPTIONS) {
-    if (ROW_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)) continue;
+    if (CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)) continue;
     validateFoldedLength(key, valueAtPath(config, key));
   }
 }

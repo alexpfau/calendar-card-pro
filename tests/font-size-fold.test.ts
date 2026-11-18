@@ -119,14 +119,14 @@ describe('the font-size table', () => {
     );
   });
 
-  it('keeps the font-size, icon-size, bar-width and row-height tables apart', () => {
+  it('keeps the font-size, icon-size, bar-width and card-height tables apart', () => {
     // The four accept different things, so an option in two would be judged twice and by
     // whichever rule happened to be asked first.
     const tables = [
       Config.LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE,
       Config.FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE,
       Config.BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE,
-      Config.ROW_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE,
+      Config.CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE,
     ];
     const all = tables.flatMap((table) => [...table]);
 
