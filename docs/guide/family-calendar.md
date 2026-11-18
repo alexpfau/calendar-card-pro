@@ -190,7 +190,7 @@ Where the calendar's [integration allows it](/features/actions#what-each-integra
 
 ### A Fixed Week on a Dedicated Wall
 
-A tablet that only ever shows the week can drop the toolbar and hold the calendar week, Monday to Sunday. Give it a card of its own: `start_date` is shared by all three layouts, so on the card above `start_of_week` would make a phone's List show Monday to Wednesday, even on a Friday.
+A tablet that only ever shows the week can drop the toolbar and hold the calendar week, Monday to Sunday. Give it a card of its own: `start_date` is shared by every layout, so on the card above `start_of_week` would make a phone's List show Monday to Wednesday, even on a Friday.
 
 Add these lines to the card, replace its `time_grid:` block with this one, and delete its `toolbar:`, `list:` and `column:` blocks:
 

@@ -102,7 +102,7 @@ src/
 │   │   ├── buttons.ts            # Write path for the toolbar's own buttons
 │   │   ├── exceptions.ts         # Removes stored view overrides for Reset controls
 │   │   ├── subforms.ts           # Reusable schema fragments
-│   │   ├── workspace.ts          # The Settings For scope: All Layouts, List, Columns or Grid
+│   │   ├── workspace.ts          # The Settings For scope: All Layouts or one of the four layouts
 │   │   ├── routing.ts            # Scope projections and scope-captured writes
 │   │   ├── write-frames.ts       # What each write belongs to, and the part of a change it writes
 │   │   ├── normalize.ts          # Comparable root and nested form values
