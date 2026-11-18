@@ -192,9 +192,9 @@ toolbar:
 ```
 
 The commands in the top row are icons, each named in its tooltip by Home Assistant's own word,
-and your own buttons by their `name`. The view switcher names its layouts in words, List, Columns
-and Grid, wherever the card is wide enough for them beside the commands, and shows a pictogram
-for each where it is not, with the name as its tooltip.
+and your own buttons by their `name`. The view switcher names its layouts in words, List, Columns,
+Grid and Month, wherever the card is wide enough for them beside the commands, and shows a
+pictogram for each where it is not, with the name as its tooltip.
 
 ::: details Narrow Cards & Languages
 
