@@ -1249,9 +1249,11 @@ export function renderBanner(
     ? bannerTimes(event, placement, presentation.contentParts, config, hass)
     : null;
   // The whole event's length, after the title, marked as such where the banner shows only part
-  // of it. It goes with the time, as on every row.
+  // of it. It goes with the time, as on every row. Only `show_duration` and the calendar's
+  // `show_time` decide it: the all-day time-row switches are List's and Column's, and a bar has
+  // no time row for them to hide.
   const lasts =
-    config.show_duration && presentation.contentParts.shouldShowTime
+    config.show_duration && presentation.showsTime
       ? FormatUtils.formatEventDuration(event, language, bannerShowsPart(event, placement))
       : null;
   const duration = lasts ? html`<span class="grid-banner-duration">${lasts}</span>` : nothing;
