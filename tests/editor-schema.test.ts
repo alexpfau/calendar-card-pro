@@ -912,6 +912,10 @@ describe('editor: applicability', () => {
       month_separator_label: ['list'],
       month_separator_label_color: ['list'],
       month_separator_label_font_size: ['list'],
+      // A month sizes its whole card with the heights in its own block, so the events area's
+      // shared height and cap have nothing to size there.
+      height: ['column', 'grid', 'list'],
+      max_height: ['column', 'grid', 'list'],
       // A month always draws its six weeks, every day of them: no day count, and no empty day
       // to hide or keep.
       days_to_show: ['column', 'grid', 'list'],
@@ -954,9 +958,10 @@ describe('editor: applicability', () => {
       // Grid's banner renderer emits the summary and drops every other content part, so
       // the five options deciding what an all-day row carries are computed and discarded.
       // Month's day list draws them, and so do the badge, the row's padding, its line clamp
-      // and its links below.
+      // and its links below; all but the multi-day time row, since that list splits every
+      // multi-day event across its days, and a bar's length follows show_duration alone.
       show_single_allday_time: ['column', 'list', 'month'],
-      show_multiday_allday_time: ['column', 'list', 'month'],
+      show_multiday_allday_time: ['column', 'list'],
       show_location_allday: ['column', 'list', 'month'],
       show_description_allday: ['column', 'list', 'month'],
       show_countdown_allday: ['column', 'list', 'month'],

@@ -59,14 +59,17 @@ describe('the month block', () => {
     );
   });
 
-  it('overrides column’s shared options but the twenty it draws nothing for, and the bars', () => {
+  it('overrides column’s shared options but the twenty-three it draws nothing for, and the bars', () => {
     const ignored = [
+      'height',
+      'max_height',
       'days_to_show',
       'show_empty_days',
       'show_empty_today',
       'empty_day_text',
       'empty_day_color',
       'split_multiday_events',
+      'show_multiday_allday_time',
       'day_spacing',
       'day_separator_width',
       'day_separator_color',
@@ -125,6 +128,8 @@ describe('the options month reads', () => {
       'empty_day_color',
       'empty_day_text',
       'event_order',
+      'height',
+      'max_height',
       'month_font_size',
       'month_separator_color',
       // List's month separator, which the Month layout does not draw, so it has no month's name
@@ -136,6 +141,7 @@ describe('the options month reads', () => {
       'past_date_scale',
       'show_empty_days',
       'show_empty_today',
+      'show_multiday_allday_time',
       'skip_first_events',
       'split_multiday_events',
       'time_position',
@@ -177,7 +183,6 @@ describe('the options month reads', () => {
       'show_countdown_allday',
       'show_description_allday',
       'show_location_allday',
-      'show_multiday_allday_time',
       'show_now_indicator',
       'show_single_allday_time',
       'time_max_lines',

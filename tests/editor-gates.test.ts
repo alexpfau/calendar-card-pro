@@ -178,11 +178,17 @@ const NOT_IN_GRID = [
 ];
 
 /**
- * Offered everywhere but Month, which draws every day of six weeks, rules them itself and sets
- * its dates in the event font, unscaled.
+ * Offered everywhere but Month, which sizes its card with its own heights, draws every day of six
+ * weeks, rules them itself and sets its dates in the event font, unscaled. The card's Height
+ * fields read the shared `height` and `max_height`; the multi-day all-day time row is one Month's
+ * day list never draws, since it splits every multi-day event.
  */
 const NOT_IN_MONTH = [
   ...NOT_IN_GRID_OR_MONTH,
+  'layout:height_mode',
+  'layout:card_height',
+  'layout:card_max_height',
+  'events:show_multiday_allday_time',
   'content:days_to_show',
   'content:show_empty_days',
   'content:show_empty_today',
@@ -822,13 +828,16 @@ describe('the universe', () => {
     // Every workspace gained Layouts in Switcher, a whole-card setting. Month lost Time Position,
     // since its day list puts every time beside its title, and gained Event Gap, which sets that
     // list's events apart, and Events in Day List, the room that list keeps. List alone gained
-    // the three settings of the month's name on its month separator (`LIST_ONLY`).
+    // the three settings of the month's name on its month separator (`LIST_ONLY`). Month then
+    // lost the card's Height, its two lengths and the multi-day all-day time row: it sizes the
+    // whole card with its own heights, and its day list splits every multi-day event. All
+    // Layouts keeps all four, which more than one other layout reads.
     expect(sizes).toEqual({
       shared: { card: 153, calendar: 28 },
       list: { card: 162, calendar: 28 },
       column: { card: 158, calendar: 27 },
       grid: { card: 157, calendar: 27 },
-      month: { card: 137, calendar: 27 },
+      month: { card: 133, calendar: 27 },
     });
   });
 

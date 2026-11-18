@@ -401,7 +401,7 @@ const APPROVED_MAP: ReadonlyArray<
     '',
     [
       'events:show_single_allday_time A SLCM',
-      'events:show_multiday_allday_time A SLCM',
+      'events:show_multiday_allday_time A SLC',
       'events:time_two_digit_hours A',
       'events:time_font_size A',
       'events:time_color A',
@@ -454,9 +454,9 @@ const APPROVED_MAP: ReadonlyArray<
     'Card Size & Spacing',
     '',
     [
-      'layout:height_mode E',
-      'layout:card_height W',
-      'layout:card_max_height W',
+      'layout:height_mode E SLCG',
+      'layout:card_height W SLCG',
+      'layout:card_max_height W SLCG',
       // Grid's and Month's own heights, beside the Height they yield to.
       'layout:time_grid.hour_height A G',
       'layout:month.row_height A M',
