@@ -101,3 +101,108 @@ export function floorColor(value: string): string {
 export function translucentGray(opacity: number): string {
   return `rgba(128, 128, 128, ${opacity / 100})`;
 }
+
+/**
+ * The most opaque a pill background can be and still color its own number: about a third. Behind
+ * a stronger one the shade the date tile's rule gives fails as text (a solid #03a9f4 read 1.69:1
+ * on a dark card, where the text color reads 2.63), so the number keeps the text color there.
+ */
+export const LIGHT_WASH_MAX_OPACITY = 0.34;
+
+/** A list split at its top-level commas, or at its top-level slash, so `var(a, b)` stays whole. */
+function splitTopLevel(text: string, separator: ',' | '/'): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    else if (ch === separator && depth === 0) {
+      parts.push(text.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+  parts.push(text.slice(start).trim());
+  return parts;
+}
+
+/** An alpha written as a number or a percentage, or `undefined` where it is not one. */
+function alphaOf(token: string): number | undefined {
+  const match = /^(-?\d*\.?\d+)(%?)$/.exec(token.trim());
+  if (!match) return undefined;
+  const value = Number(match[1]) / (match[2] ? 100 : 1);
+  return Math.min(1, Math.max(0, value));
+}
+
+/**
+ * How opaque a color is as written, where the text alone says: a hex color with an alpha digit, a
+ * color function with an alpha, `transparent`, or a `color-mix()` with `transparent`, which is how
+ * the card's own washes and Home Assistant's are written. A color that names a custom property, or
+ * mixes one with something other than `transparent`, says nothing about its opacity here.
+ *
+ * @param value - A color as the user wrote it
+ * @returns Its opacity from 0 to 1, or `undefined` where the text does not settle it
+ */
+export function opacityOf(value: string): number | undefined {
+  const color = value.trim().toLowerCase();
+  if (color === 'transparent') return 0;
+  const hex = /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/.exec(color);
+  if (hex) {
+    const digits = hex[1];
+    if (digits.length === 3 || digits.length === 6) return 1;
+    const alpha = digits.length === 4 ? digits[3] + digits[3] : digits.slice(6);
+    return parseInt(alpha, 16) / 255;
+  }
+  const call = /^([a-z-]+)\(([\s\S]*)\)$/.exec(color);
+  if (!call) return /^[a-z]+$/.test(color) && color !== 'currentcolor' ? 1 : undefined;
+  const [, name, body] = call;
+  if (name === 'var') return undefined;
+  if (name === 'color-mix') {
+    const [, ...colors] = splitTopLevel(body, ',');
+    if (colors.length !== 2) return undefined;
+    const parts = colors.map((part) => {
+      const share = /\s(-?\d*\.?\d+)%$/.exec(part);
+      return {
+        color: share ? part.slice(0, share.index).trim() : part,
+        share: share ? Number(share[1]) : undefined,
+      };
+    });
+    const [a, b] = parts;
+    const shareA = a.share ?? (b.share !== undefined ? 100 - b.share : 50);
+    const shareB = b.share ?? 100 - shareA;
+    const total = shareA + shareB;
+    if (total <= 0) return undefined;
+    // currentColor is the number's own color, so a background mixed from it cannot shade it.
+    if (parts.some((part) => part.color === 'currentcolor')) return undefined;
+    // A color named by a custom property is taken as opaque, as a theme's colors are.
+    const alphas = parts.map((part) =>
+      part.color === 'transparent' ? 0 : (opacityOf(part.color) ?? 1),
+    );
+    if (!parts.some((part) => part.color === 'transparent')) return undefined;
+    return (shareA * alphas[0] + shareB * alphas[1]) / total;
+  }
+  const slashed = splitTopLevel(body, '/');
+  if (slashed.length === 2) return alphaOf(slashed[1]);
+  const args = splitTopLevel(body, ',');
+  // rgba(r, g, b, a), or rgba(var(--rgb-primary-color), a), whose var() stands for three.
+  if ((name === 'rgba' || name === 'rgb' || name === 'hsla' || name === 'hsl') && args.length > 1) {
+    if (args.length === 4 || (args.length === 2 && args[0].startsWith('var('))) {
+      return alphaOf(args[args.length - 1]);
+    }
+    return args.length === 3 ? 1 : undefined;
+  }
+  return body.includes('var(') ? undefined : 1;
+}
+
+/**
+ * Whether a pill background is a light wash, which colors its own number by the date tile's rule:
+ * written with an opacity above 0 and at most {@link LIGHT_WASH_MAX_OPACITY}.
+ *
+ * @param value - The background as the user wrote it
+ * @returns `true` where the number is a shade of the background, `false` where it is the text color
+ */
+export function isLightWash(value: string): boolean {
+  const opacity = opacityOf(value);
+  return opacity !== undefined && opacity > 0 && opacity <= LIGHT_WASH_MAX_OPACITY;
+}

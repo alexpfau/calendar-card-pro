@@ -8,9 +8,10 @@
  * stronger.
  *
  * The colors themselves are resolved by the browser, which the test environment cannot do, so
- * this pins the two halves that have to agree: what the card writes for each combination of set
- * and unset colors, and which custom properties the stylesheet declares beside the tile and the
- * pill reads. A separator is pinned where each view draws it, on both of the list's paths.
+ * this pins the halves that have to agree: what the card writes for each combination of set and
+ * unset colors, which background counts as a light wash, and which custom properties the
+ * stylesheet declares beside the tile and the pill reads. A separator is pinned where each view
+ * draws it, on both of the list's paths.
  */
 
 import { render as litRender } from 'lit';
@@ -31,6 +32,7 @@ const PILL_PROPERTIES = [
   '--calendar-card-week-number-color',
   '--calendar-card-week-number-bg-color',
   '--calendar-card-week-number-ink-floor',
+  '--calendar-card-week-number-fill-source',
 ] as const;
 
 /** The pill's colors the card writes for a configuration, by property. */
@@ -42,51 +44,52 @@ function pillProperties(overrides: Partial<Types.Config>): Record<string, string
 /** The 31% mix the pill and the week separator shipped as their default until this change. */
 const RETIRED_DEFAULT = 'color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)';
 
+/** Nothing written, for each of the pill's properties a case leaves out. */
+const UNWRITTEN = Object.fromEntries(PILL_PROPERTIES.map((property) => [property, undefined]));
+
 describe('the pill colors the card writes', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     ColorMix.resetColorMixSupport();
   });
 
-  it.each<[string, Partial<Types.Config>, Record<string, string | undefined>]>([
+  it.each<[string, Partial<Types.Config>, Record<string, string>]>([
+    ['none while nothing is set, so the stylesheet draws the tile', {}, {}],
     [
-      'none while nothing is set, so the stylesheet draws the tile',
-      {},
+      'a light background, as the source of its number and with the text color as its floor',
+      { week_number_background_color: '#e67c7350' },
       {
-        '--calendar-card-week-number-color': undefined,
-        '--calendar-card-week-number-bg-color': undefined,
-        '--calendar-card-week-number-ink-floor': undefined,
+        '--calendar-card-week-number-bg-color': '#e67c7350',
+        '--calendar-card-week-number-ink-floor': 'var(--primary-text-color)',
+        '--calendar-card-week-number-fill-source': '#e67c7350',
       },
     ],
     [
-      'a set background, with the text color as the floor for its number',
-      { week_number_background_color: '#e67c7350' },
+      'a solid background with the text color for its number, and no source to shade',
+      { week_number_background_color: '#e67c73' },
       {
-        '--calendar-card-week-number-color': undefined,
-        '--calendar-card-week-number-bg-color': '#e67c7350',
+        '--calendar-card-week-number-bg-color': '#e67c73',
         '--calendar-card-week-number-ink-floor': 'var(--primary-text-color)',
       },
     ],
     [
       'a set number on the tile wash',
       { week_number_color: '#123456' },
-      {
-        '--calendar-card-week-number-color': '#123456',
-        '--calendar-card-week-number-bg-color': undefined,
-        '--calendar-card-week-number-ink-floor': undefined,
-      },
+      { '--calendar-card-week-number-color': '#123456' },
     ],
     [
-      'both as set, and no floor, which the set number would override anyway',
+      'both as set, and nothing for a number the set one overrides',
       { week_number_background_color: '#e67c7350', week_number_color: '#123456' },
       {
         '--calendar-card-week-number-color': '#123456',
         '--calendar-card-week-number-bg-color': '#e67c7350',
-        '--calendar-card-week-number-ink-floor': undefined,
       },
     ],
-  ])('writes %s', (_name, overrides, expected) => {
-    expect(pillProperties({ show_week_numbers: 'iso', ...overrides })).toEqual(expected);
+  ])('writes %s', (_name, overrides, written) => {
+    expect(pillProperties({ show_week_numbers: 'iso', ...overrides })).toEqual({
+      ...UNWRITTEN,
+      ...written,
+    });
   });
 
   it("writes a view block's own background in that view only", () => {
@@ -110,6 +113,48 @@ describe('the pill colors the card writes', () => {
         '--calendar-card-week-number-bg-color'
       ],
     ).toBe('rgba(128, 128, 128, 0.31)');
+  });
+});
+
+describe('a light wash, which colors its own number', () => {
+  it.each<[string, number | undefined]>([
+    ['#e67c7350', 0x50 / 255],
+    ['#03a9f455', 0x55 / 255],
+    ['#03a9f466', 0x66 / 255],
+    ['#fff3', 0x33 / 255],
+    ['#e67c73', 1],
+    ['red', 1],
+    ['transparent', 0],
+    ['rgba(230, 124, 115, 0.3)', 0.3],
+    ['rgb(230 124 115 / 30%)', 0.3],
+    ['rgba(var(--rgb-primary-color), 0.2)', 0.2],
+    ['hsl(0 50% 50% / 0.25)', 0.25],
+    ['oklch(0.7 0.1 30 / 0.2)', 0.2],
+    ['oklch(0.7 0.1 30)', 1],
+    [RETIRED_DEFAULT, 0.31],
+    ['color-mix(in srgb, transparent, red 20%)', 0.2],
+    ['color-mix(in oklab, #ff000080 50%, transparent)', (0.5 * 0x80) / 255],
+    ['color-mix(in srgb, red 50%, blue)', undefined],
+    ['var(--accent-color)', undefined],
+    ['currentColor', undefined],
+    ['color-mix(in srgb, currentColor 25%, transparent)', undefined],
+    ['rgb(var(--rgb-primary-color))', undefined],
+  ])('reads %s as %s opaque', (value, opacity) => {
+    const read = ColorMix.opacityOf(value);
+    if (opacity === undefined) expect(read).toBeUndefined();
+    else expect(read).toBeCloseTo(opacity, 6);
+  });
+
+  it('is one up to about a third opaque, and nothing transparent or unknown', () => {
+    const light = [
+      '#e67c7350',
+      '#03a9f455',
+      RETIRED_DEFAULT,
+      'rgba(var(--rgb-primary-color), 0.2)',
+    ];
+    const not = ['#03a9f466', '#e67c73', 'transparent', 'var(--accent-color)', 'currentColor'];
+    expect(light.map(ColorMix.isLightWash)).toEqual(light.map(() => true));
+    expect(not.map(ColorMix.isLightWash)).toEqual(not.map(() => false));
   });
 });
 
@@ -151,11 +196,14 @@ function draw(view: Types.EffectiveView, overrides: Partial<Types.Config>): HTML
   return container;
 }
 
-/** The week separator's color as each view writes it, on both of the list's paths. */
+/**
+ * The week separator's color and its own color property as each view writes them, on both of
+ * the list's paths: `color|own color` for every separator drawn.
+ */
 function separatorColors(overrides: Partial<Types.Config>): Record<string, string[]> {
   const read = (root: HTMLElement, selector: string, property: string): string[] =>
-    [...root.querySelectorAll<HTMLElement>(selector)].map((el) =>
-      el.style.getPropertyValue(property),
+    [...root.querySelectorAll<HTMLElement>(selector)].map(
+      (el) => `${el.style.getPropertyValue(property)}|${el.style.getPropertyValue('color')}`,
     );
   return {
     'list beside the pill': read(
@@ -183,23 +231,24 @@ describe('the week separator', () => {
     vi.useRealTimers();
   });
 
-  it("is the pill's background in every view while it is unset", () => {
-    const drawn = separatorColors({});
-    for (const [where, colors] of Object.entries(drawn)) {
+  it("is the pill's background in every view while it is unset, in the pill's own color", () => {
+    // The pill's number color as the separator's own, so currentColor in a background means the
+    // same color on both.
+    for (const [where, colors] of Object.entries(separatorColors({}))) {
       // Each place draws a separator at all, so an empty list cannot pass.
       expect(colors.length, where).toBeGreaterThan(0);
-      expect(new Set(colors), where).toEqual(new Set([Leaves.WEEK_MARK_COLOR]));
+      expect(new Set(colors), where).toEqual(
+        new Set([`${Leaves.WEEK_MARK_COLOR}|${Leaves.WEEK_MARK_INK}`]),
+      );
     }
   });
 
-  it('is its own color wherever it is set', () => {
-    const drawn = separatorColors({ week_separator_color: '#ff0000' });
-    for (const [where, colors] of Object.entries(drawn)) {
+  it('is its own color wherever it is set, and takes no color property', () => {
+    for (const [where, colors] of Object.entries(
+      separatorColors({ week_separator_color: 'red' }),
+    )) {
       expect(colors.length, where).toBeGreaterThan(0);
-      expect(
-        colors.map((color) => color.replace(/\s/g, '')),
-        where,
-      ).toEqual(colors.map(() => expect.stringMatching(/^(#ff0000|rgb\(255,0,0\))$/)));
+      expect(new Set(colors), where).toEqual(new Set(['red|']));
     }
   });
 
@@ -223,23 +272,23 @@ describe('the stylesheet', () => {
   const tier = (pattern: RegExp, property: string): Declaration[] =>
     all.filter((d) => d.property === property && d.at.length === 1 && pattern.test(d.at[0]));
 
-  const pill = (property: string): string =>
-    all.find(
-      (d) => d.at.length === 0 && d.selectors.includes('.week-number') && d.property === property,
-    )!.value;
+  /** A declaration outside every at-rule, on a rule whose selectors include `selector`. */
+  const base = (selector: string, property: string): string =>
+    all.find((d) => d.at.length === 0 && d.selectors.includes(selector) && d.property === property)!
+      .value;
 
   it("has the pill read today's tile's wash and ink, as the tile does", () => {
-    expect(pill('background-color')).toBe(
+    expect(base('.week-number', 'background-color')).toBe(
       'var(--calendar-card-week-number-bg-color, var(--calendar-card-today-indicator-wash, rgba(128, 128, 128, 0.31)))',
     );
-    expect(pill('color')).toContain(
+    // The separators repeat the pill's number color as their own; the two have to agree.
+    expect(base('.week-number', 'color')).toBe(Leaves.WEEK_MARK_INK);
+    expect(Leaves.WEEK_MARK_INK).toContain(
       'var(--calendar-card-today-indicator-ink, var(--primary-text-color))',
     );
-    const tile = all.find(
-      (d) =>
-        d.at.length === 0 && d.selectors.includes('.day.today-tile') && d.property === 'background',
-    )!;
-    expect(tile.value).toContain('var(--calendar-card-today-indicator-wash');
+    expect(base('.day.today-tile', 'background')).toBe(
+      'var(--calendar-card-today-indicator-wash, var(--calendar-card-today-indicator-color))',
+    );
   });
 
   it('declares the wash and the ink on the card and on the tile, in both mixing tiers', () => {
@@ -248,15 +297,14 @@ describe('the stylesheet', () => {
         '--calendar-card-today-indicator-wash',
         '--calendar-card-today-indicator-ink',
       ]) {
-        const found = tier(pattern, property);
         expect(
-          found.map((d) => d.selectors),
+          tier(pattern, property).map((d) => d.selectors),
           `${pattern} ${property}`,
         ).toEqual([['ha-card', '.day.today-tile']]);
       }
     }
-    // Nothing declares them for a browser without color-mix(): there the pill falls back to its
-    // gray and the text color, and the tile to its solid color.
+    // Nothing declares the wash for a browser without color-mix(): there the pill falls back to
+    // its gray and the text color, and the tile to its solid color.
     const unsupported = all.filter(
       (d) =>
         d.property === '--calendar-card-today-indicator-wash' &&
@@ -270,9 +318,10 @@ describe('the stylesheet', () => {
     expect(ink.value).toContain('oklab(from var(--calendar-card-today-indicator-color) l a b / 1)');
     const [fill] = tier(RELATIVE, '--calendar-card-week-number-fill-ink');
     expect(fill.selectors).toEqual(['ha-card']);
-    expect(fill.value).toContain('oklab(from var(--calendar-card-week-number-bg-color) l a b /');
-    // A third opaque, the cutoff the editor's words and the documentation name.
-    expect(fill.value).toContain('calc((0.34 - alpha) * 1000)');
+    // From the source the card writes only for a light wash, at full opacity as the tile's.
+    expect(fill.value).toContain(
+      'oklab(from var(--calendar-card-week-number-fill-source) l a b / 1)',
+    );
     // The same mix and chroma restoration as the tile's ink, so the two agree on a light wash.
     for (const value of [ink.value, fill.value]) {
       expect(value).toContain('45%, var(--primary-text-color)');

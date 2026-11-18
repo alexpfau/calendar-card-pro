@@ -54,7 +54,7 @@
   "value.from_yaml": "{value} (iš YAML)",
   "value.same_as": "Kaip „{label}“",
   "value.tile_ink": "Kaip šiandienos plytelė",
-  "value.shade_of": "„{label}“ atspalvis",
+  "value.depends_on": "Priklauso nuo „{label}“",
   "value.follow_card": "Kaip kortelėje",
   "value.end_of_day": "Dienos pabaigoje",
   "value.none": "Nėra",

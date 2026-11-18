@@ -95,7 +95,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // setting names it; any other names what applies.
   'value.same_as': 'Same as {label}',
   'value.tile_ink': "Matches Today's Tile",
-  'value.shade_of': 'Shade of {label}',
+  'value.depends_on': 'Depends on {label}',
   'value.follow_card': 'Follow the card',
   'value.end_of_day': 'End of Day',
   'value.none': 'None',

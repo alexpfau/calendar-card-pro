@@ -97,11 +97,11 @@ describe('folded rows', () => {
       'value.tile_ink',
     );
     expect(unsetWord('day_header:week_number_background_color', t, label, false)).toBe(
-      'value.shade_of{"label":"<today_indicator_color>"}',
+      'value.depends_on{"label":"<today_indicator_color>"}',
     );
     for (const tile of [true, false]) {
       expect(unsetWord('day_header:week_number_color', t, label, tile)).toBe(
-        'value.shade_of{"label":"<week_number_background_color>"}',
+        'value.depends_on{"label":"<week_number_background_color>"}',
       );
     }
     expect(unsetWord('separators:week_separator_color', t, label)).toBe(

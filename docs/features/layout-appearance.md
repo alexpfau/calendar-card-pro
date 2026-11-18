@@ -817,7 +817,7 @@ The separators are horizontal lines between days, weeks and months, each with it
 
 Left unset, the pill is drawn as the [date tile](#the-date-tile) is, from `today_indicator_color`: the same light wash, with the number in the same deeper shade, so a pill above today's tile matches it, and both follow a custom theme. An unset `week_separator_color` is the pill's background, so the line and the pill beside it are one color.
 
-A `week_number_background_color` you set is drawn as given. Its number then follows the tile's rule: while the background is a light wash, at most about a third opaque, the number is a deeper shade of it, so `'#e67c7350'` (31%) gets a deep red; behind a stronger or solid background it keeps the text color. `week_number_color` sets the number yourself, and the week separator follows a background you set too.
+A `week_number_background_color` you set is drawn as given. Its number then follows the tile's rule: while the background is a light wash, written with an opacity of at most about a third, the number is a deeper shade of it, so `'#e67c7350'` (31%) gets a deep red. That opacity can be written as an 8-digit hex color, `rgba()` or another color function with an alpha, or a `color-mix()` with `transparent`. Behind a stronger or solid background, or one given only as a theme variable, the number keeps the text color, as it does in browsers without relative colors (Safari before 18). `week_number_color` sets the number yourself, and the week separator follows a background you set too.
 
 ::: warning Changed In v6
 Before v6 the pill and the week separator were your theme's primary color at 31% opacity, with the number in the text color. To keep that look, add:

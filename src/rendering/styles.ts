@@ -282,9 +282,10 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
   }
 
   // The week-number pill's colors, only where set: unset, the stylesheet draws the pill as
-  // today's tile (`.week-number`). A background set without a number color colors its number
-  // from that background in the browsers that can, and leaves it the text color in the others,
-  // so the text color is written as the floor the stylesheet falls back to.
+  // today's tile (`.week-number`). A background set without a number color gives its number the
+  // text color, and a light wash, by the tile's rule, a shade of itself where the browser can mix
+  // one: the background is handed on as the source of that shade only then. Behind a stronger
+  // background the shade fails as text, and the text color comes through exactly.
   if (config.week_number_color) {
     props['--calendar-card-week-number-color'] = config.week_number_color;
   }
@@ -292,6 +293,9 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     props['--calendar-card-week-number-bg-color'] = config.week_number_background_color;
     if (!config.week_number_color) {
       props['--calendar-card-week-number-ink-floor'] = 'var(--primary-text-color)';
+      if (ColorMix.isLightWash(config.week_number_background_color)) {
+        props['--calendar-card-week-number-fill-source'] = config.week_number_background_color;
+      }
     }
   }
 
@@ -1734,10 +1738,11 @@ export const cardStyles = css`
 
      A background set without a number color gets the number the tile's rule gives a light wash:
      a shade of that background, --calendar-card-week-number-fill-ink, declared below the tile
-     where relative color can read the background's own opacity. Nothing declares it while no
-     background is set, and behind a strong or solid one it is the text color itself. Elsewhere
-     the number of a set background is the text color, which the card writes as
-     --calendar-card-week-number-ink-floor. */
+     in the relative-color tier, from the source the card writes only for a light wash. With no
+     such source it is invalid and falls through. Otherwise the number of a set background is the
+     text color, which the card writes as --calendar-card-week-number-ink-floor. The week
+     separators repeat this chain as their own color (WEEK_MARK_INK in leaves.ts), so a
+     background written with currentColor means the same color on a pill and a separator. */
   .week-number {
     width: 2.5em;
     height: 1.5em;
@@ -2065,22 +2070,16 @@ export const cardStyles = css`
     }
 
     /* The number of a set pill background, by the tile's rule: the background's own color at
-       full opacity, mixed as the tile's digits are, while the background is a light wash, at
-       most about a third opaque. On a stronger one that shade fails as text (solid #03a9f4
-       read 1.69:1 on a dark card where the text color reads 2.63), so there the background's
-       weight in the mix is 0: a premultiplied mix then returns the text color exactly. A
-       transparent background gets the text color the same way. Unset, the background is not
-       declared, so neither is this, and the pill takes the tile's ink. */
+       full opacity, mixed as the tile's digits are. The card writes the source only while the
+       background is a light wash, at most about a third opaque (ColorMix.isLightWash); behind a
+       stronger one the shade fails as text, so there this is invalid and the number is the text
+       color exactly, as it is with no background set, where the pill takes the tile's ink. */
     ha-card {
       --calendar-card-week-number-fill-ink: oklab(
         from
           color-mix(
             in oklab,
-            oklab(
-                from var(--calendar-card-week-number-bg-color) l a b /
-                  clamp(0, min(calc((0.34 - alpha) * 1000), calc(alpha * 1000)), 1)
-              )
-              45%,
+            oklab(from var(--calendar-card-week-number-fill-source) l a b / 1) 45%,
             var(--primary-text-color)
           )
           l calc(a * 2.2) calc(b * 2.2) / 1

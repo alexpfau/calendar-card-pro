@@ -54,7 +54,7 @@
   "value.from_yaml": "{value} (YAML-ist)",
   "value.same_as": "Sama mis {label}",
   "value.tile_ink": "Nagu tänase päeva paan",
-  "value.shade_of": "Toon: {label}",
+  "value.depends_on": "Oleneb: {label}",
   "value.follow_card": "Järgi kaarti",
   "value.end_of_day": "Päeva lõpus",
   "value.none": "Puudub",

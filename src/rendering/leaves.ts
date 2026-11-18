@@ -277,6 +277,15 @@ export const WEEK_MARK_COLOR =
   'var(--calendar-card-week-number-bg-color, var(--calendar-card-today-indicator-wash, rgba(128, 128, 128, 0.31)))';
 
 /**
+ * The week-number pill's number color, the chain `.week-number` reads in the stylesheet, given
+ * to a separator drawn in {@link WEEK_MARK_COLOR} as its own color. A background written with
+ * currentColor resolves it where it is drawn, so without this a separator would mix the text
+ * color where the pill beside it mixes its number's. A separator has no text of its own.
+ */
+export const WEEK_MARK_INK =
+  'var(--calendar-card-week-number-color, var(--calendar-card-week-number-fill-ink, var(--calendar-card-week-number-ink-floor, var(--calendar-card-today-indicator-ink, var(--primary-text-color)))))';
+
+/**
  * The color to draw a week separator in.
  *
  * @param config Card configuration, already resolved for the view
@@ -284,6 +293,16 @@ export const WEEK_MARK_COLOR =
  */
 export function weekSeparatorColor(config: Types.Config): string {
   return config.week_separator_color || WEEK_MARK_COLOR;
+}
+
+/**
+ * The color property a week separator takes, so that it resolves currentColor as the pill does.
+ *
+ * @param config Card configuration, already resolved for the view
+ * @returns {@link WEEK_MARK_INK} while `week_separator_color` is unset, otherwise `undefined`
+ */
+export function weekSeparatorInk(config: Types.Config): string | undefined {
+  return config.week_separator_color ? undefined : WEEK_MARK_INK;
 }
 
 /**

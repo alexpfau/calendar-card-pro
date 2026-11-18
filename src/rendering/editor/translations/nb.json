@@ -54,7 +54,7 @@
   "value.from_yaml": "{value} (fra YAML)",
   "value.same_as": "Samme som {label}",
   "value.tile_ink": "Som dagens flis",
-  "value.shade_of": "Nyanse av {label}",
+  "value.depends_on": "Avhenger av {label}",
   "value.follow_card": "Følg kortet",
   "value.end_of_day": "Slutten av dagen",
   "value.none": "Ingen",

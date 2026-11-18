@@ -285,7 +285,7 @@ describe('stripComments', () => {
     // tile's wash and ink from ha-card while the tile keeps its own, why the chroma is scaled as
     // Oklab's a and b (Chromium gives a low-chroma mix no hue, and scaling OKLCH's c then paints
     // it pink), and how a set pill background colors its number only while it is a light wash.
-    // The reading went from 230,708 to 232,995, taken with stripComments after the last comment
+    // The reading went from 230,708 to 232,989, taken with stripComments after the last comment
     // was written.
     //
     // The struts for today's and past days' own date scales moved the ceiling before that, from 227,000

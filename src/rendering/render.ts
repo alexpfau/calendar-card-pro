@@ -449,12 +449,14 @@ function renderHorizontalSeparator(
   config: Types.Config,
   isFirstWeek: boolean = false,
   separatorType: 'day' | 'week' | 'month' = 'day',
+  ink?: string,
 ): TemplateResult | typeof nothing {
   if (ViewConfig.isZeroLength(lineWidth) || isFirstWeek) {
     return nothing;
   }
 
   const separatorStyle = createSeparatorStyle(lineWidth, lineColor, config, separatorType);
+  if (ink) separatorStyle.color = ink;
 
   return html`<div class="${className}" style=${styleMap(separatorStyle)}></div>`;
 }
@@ -557,6 +559,7 @@ function renderWeekSeparator(
     config,
     isFirstWeek,
     'week',
+    Leaves.weekSeparatorInk(config),
   );
 }
 
@@ -606,6 +609,8 @@ function renderWeekRow(
       lineStyle['--separator-border-color'] = ColorMix.floorColor(
         Leaves.weekSeparatorColor(config),
       );
+      const ink = Leaves.weekSeparatorInk(config);
+      if (ink) lineStyle.color = ink;
       lineStyle['--separator-display'] = 'block';
     } else {
       lineStyle['--separator-display'] = 'none';
