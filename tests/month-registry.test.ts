@@ -29,9 +29,7 @@ describe('the month block', () => {
       'card_max_height',
       'compact_card_height',
       'compact_card_max_height',
-      'row_height',
       'min_day_width',
-      'day_list_events',
       'week_scroll',
       'week_scroll_min_width',
       'weekend_background_color',
@@ -44,9 +42,7 @@ describe('the month block', () => {
     expect(ViewConfig.MONTH_DEFAULTS).toEqual({
       card_height: 'auto',
       card_max_height: 'none',
-      row_height: '112px',
       min_day_width: 80,
-      day_list_events: 4,
       week_scroll: false,
       week_scroll_min_width: 0,
       // Grid's two tints, under Grid's defaults.
@@ -244,15 +240,6 @@ describe('the options month reads', () => {
 
 describe('a month-only option', () => {
   it.each([
-    ['row_height', 120, '120px'],
-    ['row_height', '8em', '8em'],
-    ['row_height', '9 em', '9em'],
-    // Anything that would size a week by its events, or by a height the month does not have.
-    ['row_height', 'auto', '112px'],
-    ['row_height', '15%', '112px'],
-    ['row_height', 'fit-content', '112px'],
-    ['row_height', 'calc(50% + 10px)', '112px'],
-    ['row_height', '-20px', '112px'],
     ['min_day_width', '72', 72],
     ['min_day_width', 0, 80],
     ['min_day_width', -5, 80],
@@ -262,13 +249,6 @@ describe('a month-only option', () => {
     ['week_scroll_min_width', 0, 0],
     ['week_scroll_min_width', '600', 600],
     ['week_scroll_min_width', -1, 0],
-    // A whole number of events from 0, which keeps no room; a fraction is rounded down.
-    ['day_list_events', 6, 6],
-    ['day_list_events', '3', 3],
-    ['day_list_events', 0, 0],
-    ['day_list_events', 2.7, 2],
-    ['day_list_events', -1, 4],
-    ['day_list_events', 'many', 4],
     // Any string is a color, as Grid's tints take it; anything else is the default.
     ['weekend_background_color', 'rgb(1, 2, 3)', 'rgb(1, 2, 3)'],
     ['weekend_background_color', 'transparent', 'transparent'],
@@ -296,18 +276,29 @@ describe('a month-only option', () => {
     ).toBe(expected);
   });
 
-  it('says once that a row height it cannot draw falls back to its default', () => {
+  it('is not row_height or day_list_events, which Month never shipped: each is unrecognized', () => {
+    // Neither was in a release, so neither has a migration: written in `month:`, each is reported
+    // as any unknown key is, once, and read by nothing.
+    expect(
+      ViewConfig.findMisplacedOptions({ month: { row_height: '120px', day_list_events: 3 } }),
+    ).toEqual([
+      { kind: 'unknown', key: 'row_height', from: 'month', to: [] },
+      { kind: 'unknown', key: 'day_list_events', from: 'month', to: [] },
+    ]);
     const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
     try {
-      ViewConfig.validateColumnOverrides(buildConfig({ month: { row_height: 'auto' } }));
-      ViewConfig.validateColumnOverrides(buildConfig({ month: { row_height: '9em' } }));
+      ViewConfig.validateColumnOverrides(
+        buildConfig({ month: { row_height: 'auto', day_list_events: 0 } } as never),
+      );
       expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
-        'Invalid month.row_height "auto": expected a non-negative CSS length such as "112px" or ' +
-          '"8em", not a percentage or a keyword. Falling back to "112px".',
+        'Ignoring "month.row_height": not a recognized option.',
+        'Ignoring "month.day_list_events": not a recognized option.',
       ]);
     } finally {
       warn.mockRestore();
     }
+    expect(Object.keys(ViewConfig.MONTH_DEFAULTS)).not.toContain('row_height');
+    expect(Object.keys(ViewConfig.MONTH_DEFAULTS)).not.toContain('day_list_events');
   });
 
   it('says once that a cell size it cannot use falls back to the block’s default', () => {
@@ -336,9 +327,9 @@ describe('a month-only option', () => {
 
   it('is reported where it does nothing: at the top level, or in another view’s block', () => {
     expect(
-      ViewConfig.findMisplacedOptions({ row_height: '90px', column: { week_scroll: true } }),
+      ViewConfig.findMisplacedOptions({ card_height: '90px', column: { week_scroll: true } }),
     ).toEqual([
-      { kind: 'view-only', key: 'row_height', from: null, to: ['month'] },
+      { kind: 'view-only', key: 'card_height', from: null, to: ['month'] },
       { kind: 'wrong-view', key: 'week_scroll', from: 'column', to: ['month'] },
     ]);
     // A tint is Grid's and Month's, each in its own block, so a misplaced one names both.

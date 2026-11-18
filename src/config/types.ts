@@ -732,8 +732,8 @@ export type MonthIgnoredSharedKeys =
   | 'time_position';
 
 /**
- * The `month:` block — the shared options a month grid reads, plus its own height, row, width and
- * tint keys.
+ * The `month:` block — the shared options a month grid reads, plus its own height, width, tint
+ * and cell font size keys.
  *
  * The month-only keys below have no top-level counterpart and are read with
  * `resolveMonthOption`, not `resolveViewOption`.
@@ -764,20 +764,8 @@ export interface MonthOverrides extends Omit<SharedViewOverrides, MonthIgnoredSh
    */
   compact_card_max_height?: string;
 
-  /**
-   * A week row's natural height, as a CSS length. Under a fixed card `height` the six rows
-   * share the card's instead, and this does nothing.
-   */
-  row_height?: string;
-
   /** Day-cell width in pixels below which the month draws its compact form. */
   min_day_width?: number;
-
-  /**
-   * Read by nothing: the compact form's day list shows as many of the day's events as fit its
-   * room, and "+N more" for the rest. Declared until the editor field it backs is removed.
-   */
-  day_list_events?: number;
 
   /** Whether a vertical swipe, the mouse wheel or a trackpad moves the rows by whole weeks. */
   week_scroll?: boolean;

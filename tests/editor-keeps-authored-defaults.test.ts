@@ -268,11 +268,11 @@ describe('the serializer’s authored baseline', () => {
 
     // Month's block by the same rule, and a bare length written fresh is stored as the card
     // reads it.
-    const month = merged({ month: { min_day_width: '80', row_height: 120 } });
-    expect(stripMonthDefaults(month)).toEqual({ row_height: '120px' });
+    const month = merged({ month: { min_day_width: '80', cell_event_font_size: 15 } });
+    expect(stripMonthDefaults(month)).toEqual({ cell_event_font_size: '15px' });
     expect(stripMonthDefaults(month, { min_day_width: '80' })).toEqual({
       min_day_width: '80',
-      row_height: '120px',
+      cell_event_font_size: '15px',
     });
   });
 

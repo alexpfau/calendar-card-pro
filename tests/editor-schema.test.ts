@@ -1345,16 +1345,9 @@ describe('editor: displayed view and the Layout panel', () => {
         .filter(({ node, dataPath }) => 'selector' in node && dataPath[0] === 'month')
         .map(({ node }) => node.name);
 
-    expect(own(buildConfig({ view: 'month' }))).toEqual([
-      'row_height',
-      'min_day_width',
-      'day_list_events',
-      'week_scroll',
-    ]);
+    expect(own(buildConfig({ view: 'month' }))).toEqual(['min_day_width', 'week_scroll']);
     expect(own(buildConfig({ view: 'month', month: { week_scroll: true } }))).toEqual([
-      'row_height',
       'min_day_width',
-      'day_list_events',
       'week_scroll',
       'week_scroll_min_width',
     ]);

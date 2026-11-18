@@ -155,13 +155,12 @@ describe('the card size a month resolves', () => {
 });
 
 describe('the four height keys', () => {
-  it('fold what they cannot use, in one table with the week row height', () => {
+  it('fold what they cannot use, in one table of their own', () => {
     expect([...Config.CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE]).toEqual([
       'card_height',
       'card_max_height',
       'compact_card_height',
       'compact_card_max_height',
-      'row_height',
     ]);
     expect(
       ['50%', 'fit-content', '-1px', 'none', '600px', 'auto', 7].map((value) =>
@@ -172,9 +171,6 @@ describe('the four height keys', () => {
       ['50%', 'auto', '40rem', 'none', 'None;'].map((value) => Config.toValidCardMaxHeight(value)),
     ).toEqual([undefined, undefined, '40rem', 'none', 'none']);
     expect(Config.toValidCardHeight('44rem !important')).toBe('44rem');
-    // The week row height keeps its own rule, and the month block its default, until it goes.
-    expect(Config.toValidRowHeight('auto')).toBeUndefined();
-    expect(ViewConfig.normalizeMonthValue('row_height', 'auto')).toBe('112px');
   });
 
   it.each([

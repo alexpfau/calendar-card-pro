@@ -457,11 +457,8 @@ const APPROVED_MAP: ReadonlyArray<
       'layout:height_mode E SLCG',
       'layout:card_height W SLCG',
       'layout:card_max_height W SLCG',
-      // Grid's and Month's own heights, beside the Height they yield to.
+      // Grid's own height, beside the Height it yields to.
       'layout:time_grid.hour_height A G',
-      'layout:month.row_height A M',
-      // The compact form's height beside the wide form's, both under the card's Height.
-      'layout:month.day_list_events A M',
       'layout:additional_card_spacing A',
       'layout:event_gap A SLCM',
       'layout:event_spacing A SLCM',
@@ -658,7 +655,7 @@ const HEADINGS: ReadonlyArray<HeadingDef> = [
 describe('the page registry places every built field exactly once', () => {
   it('walks the whole corpus', () => {
     // The denominators, beside the verdicts below. A short walk shows here first: the approved
-    // map places 231 ids, Month's own five, Layouts in Switcher and the three of the month's name
+    // map places 229 ids, Month's own three, Layouts in Switcher and the three of the month's name
     // on List's month separator among them, and every one of them is built under some workspace
     // and state.
     console.info(
@@ -666,8 +663,8 @@ describe('the page registry places every built field exactly once', () => {
         `${WORKSPACES.length} workspaces; ${PLACED.length} placements.`,
     );
     expect(WORKSPACES).toHaveLength(5);
-    expect(BUILT.size).toBe(231);
-    expect(PLACED).toHaveLength(231);
+    expect(BUILT.size).toBe(229);
+    expect(PLACED).toHaveLength(229);
   });
 
   it('has no field built but unplaced', () => {
@@ -1010,9 +1007,6 @@ describe('the registry heads what the builders used to', () => {
     const size = under('size_spacing', 'heading_card_size');
     expect(size.indexOf('layout:time_grid.hour_height')).toBe(
       size.indexOf('layout:card_max_height') + 1,
-    );
-    expect(size.indexOf('layout:month.row_height')).toBe(
-      size.indexOf('layout:time_grid.hour_height') + 1,
     );
     expect(under('size_spacing', 'heading_hour_labels')).toEqual([
       'layout:time_grid.axis_width',

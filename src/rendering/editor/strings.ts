@@ -1037,17 +1037,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // --- The month's own block --------------------------------------------------
   //
   // Options stored in `month:`, labeled under its prefix (`schemas/common.ts` › `blockScope`).
-  // Height Per Week follows Grid's Height Per Hour, and Month Density the other two layouts'.
-  // Events in Day List is the room the compact form's list keeps, past which it shows "+N more".
-  'month.row_height': 'Height Per Week',
-  'month.row_height.helper': 'Ignored when a fixed Height is set: the six weeks share it.',
+  // Month Density follows the other two layouts'.
   'month.density': 'Month Density',
   'month.density.helper':
     'Narrower days show a dot per event instead, and list the tapped day’s events under the weeks.',
   'month.min_day_width': 'Minimum Day Width',
-  'month.day_list_events': 'Events in Day List',
-  'month.day_list_events.helper':
-    '0 lists every event, and the card then grows and shrinks with the day.',
   'month.week_scroll': 'Week Scrolling',
   'month.week_scroll.helper':
     'The wheel, a trackpad or a vertical swipe then moves the weeks rather than the dashboard, ' +

@@ -311,18 +311,16 @@ export const MONTH_OVERRIDE_KEYS = [
 ] as const;
 
 /**
- * Month-only options: the whole card's height and its cap, wide and compact, a week row's
- * height, the compact form's width and the events its day list keeps room for, week scrolling,
- * and the weekend's and today's tints, which are Grid's.
+ * Month-only options: the whole card's height and its cap, wide and compact, the day width below
+ * which the compact form draws, week scrolling, the weekend's and today's tints, which are Grid's,
+ * and the font sizes of the wide month's days.
  */
 export const MONTH_ONLY_KEYS = [
   'card_height',
   'card_max_height',
   'compact_card_height',
   'compact_card_max_height',
-  'row_height',
   'min_day_width',
-  'day_list_events',
   'week_scroll',
   'week_scroll_min_width',
   'weekend_background_color',
@@ -1114,19 +1112,13 @@ export function resolveTimeGridOption<K extends keyof typeof TIME_GRID_DEFAULTS>
  * form's two, `compact_card_height` and `compact_card_max_height`, have no default here: unset,
  * each takes its wide counterpart (`resolveMonthCardSize`).
  *
- * `row_height` is a week row's natural height, a CSS length so it can follow the font in `em`;
- * under a fixed card `height` the six rows share the card's instead. At the shipped 14px event
- * size it holds four lines under the date, as measured in Chromium: a 22.8px date line and four
- * 20.8px lines take 106px of its 111 inside the rule above it, where a fifth would need 127px.
  * `min_day_width` is the day width below which the month draws its compact form. At the shipped
  * sizes a wide day 64px across cuts every title to four or five letters and drops every time,
  * which reads worse than the compact form's list; from about 80px a title keeps a word or two,
  * so the compact form takes every card narrower than 594px, a phone's and a narrow column's,
- * and the wide one comes back from 622px (`UI.MONTH_COMPACT_HYSTERESIS`). `day_list_events` is
- * read by nothing, since the compact form's day list fits the day's events to its room, and is
- * declared until the editor field it backs is removed. Week scrolling takes wheel and swipe
- * gestures from the page, so it ships off, and `week_scroll_min_width: 0` applies it at any card
- * width once it is on.
+ * and the wide one comes back from 622px (`UI.MONTH_COMPACT_HYSTERESIS`). Week scrolling takes
+ * wheel and swipe gestures from the page, so it ships off, and `week_scroll_min_width: 0` applies
+ * it at any card width once it is on.
  *
  * The two tints are Grid's, read from {@link TIME_GRID_DEFAULTS} so the two layouts cannot ship
  * different ones: the weekend's a faint mix of the theme's text color, which darkens a light theme
@@ -1140,9 +1132,7 @@ export function resolveTimeGridOption<K extends keyof typeof TIME_GRID_DEFAULTS>
 export const MONTH_DEFAULTS = {
   card_height: 'auto',
   card_max_height: 'none',
-  row_height: '112px',
   min_day_width: 80,
-  day_list_events: 4,
   week_scroll: false,
   week_scroll_min_width: 0,
   weekend_background_color: TIME_GRID_DEFAULTS.weekend_background_color,
@@ -1168,10 +1158,9 @@ type MonthOptionValue<K extends keyof typeof MONTH_DEFAULTS> =
  * length accepts a bare number from YAML or the editor's text field and gains `px`, for the
  * reason {@link normalizeColumnValue} gives. The card's height and cap take `auto` and `none` as
  * well, and fold anything else that is not a length to them. `min_day_width` is a width above
- * zero, `week_scroll_min_width` any width from zero, which means no limit, and `day_list_events`
- * a whole number of events from zero, which means every event, a fraction rounded down. The two
- * tints take any string, as Grid's do ({@link normalizeTimeGridValue}), and the two cell sizes any
- * font size the card's own take.
+ * zero, and `week_scroll_min_width` any width from zero, which means no limit. The two tints take
+ * any string, as Grid's do ({@link normalizeTimeGridValue}), and the two cell sizes any font size
+ * the card's own take.
  *
  * @param key - Option being resolved
  * @param value - Raw configured value
@@ -1190,7 +1179,6 @@ export function normalizeMonthValue(
   if (typeof fallback === 'number') {
     const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value));
     if (!Number.isFinite(parsed)) return fallback;
-    if (key === 'day_list_events') return parsed >= 0 ? Math.floor(parsed) : fallback;
     return key === 'week_scroll_min_width'
       ? parsed >= 0
         ? parsed

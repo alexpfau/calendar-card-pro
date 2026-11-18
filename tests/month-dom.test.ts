@@ -653,12 +653,8 @@ describe('the rows’ height', () => {
     });
   });
 
-  it('takes nothing from row_height, height or max_height', async () => {
-    const card = await mount({
-      height: '600px',
-      max_height: '300px',
-      month: { row_height: '9em' },
-    });
+  it('takes nothing from height or max_height', async () => {
+    const card = await mount({ height: '600px', max_height: '300px' });
     const style = month(card).style;
     expect([
       style.height,

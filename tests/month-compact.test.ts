@@ -1220,15 +1220,6 @@ describe('the list fitted to its room', () => {
     await afterClose(card);
     expect(deepActive()).toBe(more);
   });
-
-  it('reads no day_list_events', async () => {
-    extraEvents = NINE;
-    layOut({ room: 200 });
-    const card = await mount({ month: { day_list_events: 0 } }, 375);
-    await tap(card, day(card, 28));
-    expect(rowsOf(card)).toEqual(['Errand 1', 'Errand 2', 'Errand 3']);
-    expect(text(moreOf(card))).toBe('+6 more');
-  });
 });
 
 describe('the gap between a day’s events', () => {
