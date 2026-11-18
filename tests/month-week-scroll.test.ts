@@ -363,14 +363,14 @@ describe('where the weeks do not scroll', () => {
     const card = await mount({}, 375);
     expect(weeks(card).classList.contains('month-compact')).toBe(true);
     expect(await scrolls(card)).toEqual([false, false]);
-    const before = root(card).querySelector('.month-day-list-date')!.textContent;
+    const before = root(card).querySelector('.month-day-list-name')!.textContent;
     const target = root(card).querySelectorAll('.month-container [role="gridcell"]')[10];
     pointer(target, 'pointerdown', 200, 300);
     pointer(target, 'pointermove', 200, 100);
     pointer(target, 'pointerup', 200, 100);
     await settle(card);
     expect(firstDay(card)).toBe('Monday, October 26, 2026');
-    expect(root(card).querySelector('.month-day-list-date')!.textContent).toBe(before);
+    expect(root(card).querySelector('.month-day-list-name')!.textContent).toBe(before);
   });
 
   it('waits for week_scroll_min_width, and stops below it', async () => {

@@ -192,6 +192,7 @@ export function monthDrawsRing(
 const firstOfMonthFormats = intlCache<string, Intl.DateTimeFormat | null>();
 const dayNameFormats = intlCache<string, Intl.DateTimeFormat>();
 const fullDateFormats = intlCache<string, Intl.DateTimeFormat>();
+const shorterTitleFormats = intlCache<string, ReadonlyArray<Intl.DateTimeFormat>>();
 const pluralRules = intlCache<string, Intl.PluralRules | null>();
 const weekdayFormats = intlCache<string, Intl.DateTimeFormat | null>();
 
@@ -364,6 +365,45 @@ export function monthDayTitle(date: Date, language: string): string {
     fullDateFormats.set(language, format);
   }
   return format.format(date);
+}
+
+/**
+ * The shorter forms of a day's list title, longest first: the weekday shortened, then the month,
+ * then the year left out, which the month above names, then the weekday as well, and last the
+ * day's number alone. Every form keeps the number, and all but the last its month, so a day of a
+ * month beside the one shown is not mistaken for a day of it while there is room to say so.
+ */
+const SHORTER_DAY_TITLES: ReadonlyArray<Intl.DateTimeFormatOptions> = [
+  { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric' },
+  { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' },
+  { weekday: 'short', month: 'short', day: 'numeric' },
+  { month: 'short', day: 'numeric' },
+  { day: 'numeric' },
+];
+
+/**
+ * A day's list title in every form it can take on its line, longest first: in full
+ * (`monthDayTitle`), then each of `SHORTER_DAY_TITLES`, leaving out a form that reads as the one
+ * before it in the language.
+ *
+ * @param date - The day
+ * @param language - Card language
+ * @returns Its titles
+ */
+export function monthDayTitles(date: Date, language: string): string[] {
+  let formats = shorterTitleFormats.get(language);
+  if (!formats) {
+    formats = SHORTER_DAY_TITLES.map(
+      (options) => new Intl.DateTimeFormat(intlLocales(language), options),
+    );
+    shorterTitleFormats.set(language, formats);
+  }
+  const titles = [monthDayTitle(date, language)];
+  for (const format of formats) {
+    const title = format.format(date);
+    if (title !== titles[titles.length - 1]) titles.push(title);
+  }
+  return titles;
 }
 
 //-----------------------------------------------------------------------------
@@ -1366,10 +1406,37 @@ function renderListProbe(
 }
 
 /**
- * The selected day's list, under a compact month's weeks: the day named in full, then its rows,
- * or the card's "no events" where it has none. Its own space is the day's: a press there, on its
- * name or under its rows, runs `day_tap_action`, and where that adds an event its name is a
- * button that adds on the day, as List's dates are.
+ * What a box of a day's list title holds, the box being one line tall and wrapping: a box for
+ * the shorter forms, then the form. The form shows where it fits on the line beside that box, and
+ * wraps out of sight where it does not, which leaves the box the line to itself. Of two on a line,
+ * the form takes all the room the line has to spare (see the stylesheet), so the shorter forms
+ * show only where it has wrapped. The last form's box is empty, so no form is ever drawn wider
+ * than its box: where not even the last fits, the line is empty.
+ *
+ * @param titles - The title's forms, longest first, at least one
+ * @param mark - The card language's direction mark, if the page reads the other way
+ * @returns The box's contents
+ */
+function renderDayTitleFit(
+  titles: ReadonlyArray<string>,
+  mark: TextDirection.LanguageMark,
+): TemplateResult {
+  const [title, ...shorter] = titles;
+  return html`<span class="month-day-list-rest"
+      >${
+        shorter.length > 0
+          ? html`<span class="month-day-list-fit">${renderDayTitleFit(shorter, mark)}</span>`
+          : nothing
+      }</span
+    ><span class="month-day-list-form">${TextDirection.inLanguageDirection(title, mark)}</span>`;
+}
+
+/**
+ * The selected day's list, under a compact month's weeks: the day named on one line, in full
+ * where that fits and in a shorter form where it does not, then its rows, or the card's "no
+ * events" where it has none. Its own space is the day's: a press there, on its name or under its
+ * rows, runs `day_tap_action`, and where that adds an event its name is a button that adds on the
+ * day, as List's dates are.
  *
  * With `reserve` events, the rows take as much room on every day, whatever the day holds, so the
  * card is one height as a tap moves from day to day and month to month: `reserve` rows of the
@@ -1406,8 +1473,12 @@ export function renderMonthDayList(
   const timestamp = day.getTime();
   const labelId = eventsTappable || dayAdd ? Activation.dayLabelId(timestamp) : undefined;
   const mark = TextDirection.languageMark(language, hass);
+  const titles = monthDayTitles(day, language);
   const name = html`<span class="month-day-list-date" id=${labelId ?? nothing}
-    >${TextDirection.inLanguageDirection(monthDayTitle(day, language), mark)}</span
+    ><span class="month-day-list-name">${TextDirection.inLanguageDirection(titles[0], mark)}</span
+    ><span class="month-day-list-fit" aria-hidden="true"
+      >${renderDayTitleFit(titles, mark)}</span
+    ></span
   >`;
   const reserved = reserve > 0;
   const shown = reserved && events.length > reserve ? reserve - 1 : events.length;

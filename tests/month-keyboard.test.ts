@@ -630,18 +630,18 @@ describe('the keyboard on a month', () => {
     await press(card, 'ArrowLeft');
     await press(card, 'ArrowUp');
     // Moving selects nothing: the list still shows today.
-    expect(text(root(card).querySelector('.month-day-list-date'))).toBe(
+    expect(text(root(card).querySelector('.month-day-list-name'))).toBe(
       'Wednesday, November 18, 2026',
     );
     await press(card, 'Enter');
-    expect(text(root(card).querySelector('.month-day-list-date'))).toBe(
+    expect(text(root(card).querySelector('.month-day-list-name'))).toBe(
       'Tuesday, November 10, 2026',
     );
     expect(deepActive()?.getAttribute('aria-selected')).toBe('true');
     await press(card, 'ArrowRight');
     await press(card, 'ArrowRight');
     await press(card, ' ');
-    expect(text(root(card).querySelector('.month-day-list-date'))).toBe(
+    expect(text(root(card).querySelector('.month-day-list-name'))).toBe(
       'Thursday, November 12, 2026',
     );
     expect(dialogs).toEqual([]);
@@ -788,7 +788,7 @@ describe('a search pick on a month', () => {
   it('selects a compact month’s day, and rings the event in its list', async () => {
     const card = await mount({ event_tap_action: { action: 'details' } }, 375);
     await pick(card, 'Football');
-    expect(text(root(card).querySelector('.month-day-list-date'))).toBe(
+    expect(text(root(card).querySelector('.month-day-list-name'))).toBe(
       'Thursday, November 12, 2026',
     );
     expect(ringed(root(card))).toEqual([expect.stringContaining('Football')]);
@@ -801,7 +801,7 @@ describe('a search pick on a month', () => {
     const card = await mount({ event_tap_action: { action: 'details' } }, 375);
     await pick(card, 'Gym');
     // The 10th's list keeps room for four: three rows and "+2 more", with Gym behind it.
-    expect(text(root(card).querySelector('.month-day-list-date'))).toBe(
+    expect(text(root(card).querySelector('.month-day-list-name'))).toBe(
       'Tuesday, November 10, 2026',
     );
     expect(ringed(root(card))).toEqual([]);
@@ -832,7 +832,7 @@ describe('a search pick on a month', () => {
     const card = await mount({}, 375);
     await pick(card, 'Concert');
     expect(heading(card)).toBe('December 2026');
-    expect(text(root(card).querySelector('.month-day-list-date'))).toBe(
+    expect(text(root(card).querySelector('.month-day-list-name'))).toBe(
       'Wednesday, December 9, 2026',
     );
     expect(ringed(root(card))).toEqual([expect.stringContaining('Concert')]);

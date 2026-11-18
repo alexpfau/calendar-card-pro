@@ -432,7 +432,7 @@ const selected = (card: CardUnderTest) =>
 function dayList(card: CardUnderTest): { name: string; rows: string[] } {
   const list = root(card).querySelector('.month-day-list');
   return {
-    name: text(list?.querySelector('.month-day-list-date')),
+    name: text(list?.querySelector('.month-day-list-name')),
     rows: [...(list?.querySelectorAll('td.event .event-title') ?? [])].map((title) => text(title)),
   };
 }
@@ -835,6 +835,74 @@ describe('the room a day’s list keeps', () => {
     root(card).querySelectorAll<HTMLButtonElement>('.date-navigation-segment')[2].click();
     await vi.waitFor(() => expect(dayList(card).name).toBe('Tuesday, December 1, 2026'));
     expect(JSON.stringify(room(card))).toBe(JSON.stringify(seen[0].room));
+  });
+
+  it('names its day on one line, shortening the weekday before the date and keeping its number', async () => {
+    const card = await mount({}, 375);
+    await tap(card, day(card, 18));
+    const date = list(card).querySelector('.month-day-list-date')!;
+    // Read out in full; shown in the longest form that fits, which is not read out.
+    expect(text(date.querySelector(':scope > .month-day-list-name'))).toBe(
+      'Wednesday, November 18, 2026',
+    );
+    const fit = date.querySelector(':scope > .month-day-list-fit')!;
+    expect(fit.getAttribute('aria-hidden')).toBe('true');
+    // Each form in a box of its own, behind the box holding the shorter ones, the last one empty.
+    const forms: string[] = [];
+    for (
+      let box: Element | null = fit;
+      box;
+      box = box.querySelector(':scope > .month-day-list-rest > .month-day-list-fit')
+    ) {
+      expect([...box.children].map((child) => child.className)).toEqual([
+        'month-day-list-rest',
+        'month-day-list-form',
+      ]);
+      forms.push(text(box.querySelector(':scope > .month-day-list-form')));
+    }
+    expect(forms).toEqual([
+      'Wednesday, November 18, 2026',
+      'Wed, November 18, 2026',
+      'Wed, Nov 18, 2026',
+      'Wed, Nov 18',
+      'Nov 18',
+      '18',
+    ]);
+    expect(fit.querySelectorAll('.month-day-list-rest:empty')).toHaveLength(1);
+    // Every box one line tall, so a form that does not fit wraps out of sight rather than making
+    // the list taller; of two on a line, the form takes the room to spare. Room for marks above
+    // and below the line, given back, with the hidden lines past it.
+    const rule = (selector: string) =>
+      declarations(cardStyles.cssText)
+        .filter((d) => d.at.length === 0 && d.selectors.length === 1 && d.selectors[0] === selector)
+        .map((d) => `${d.property}: ${d.value}`);
+    expect(rule('.month-day-list-date')).toContain('line-height: 1.2');
+    expect(rule('.month-day-list-fit')).toEqual([
+      'display: flex',
+      'flex-wrap: wrap',
+      'align-content: flex-start',
+      'row-gap: 0.75em',
+      'height: 1.2em',
+      'padding-block: 0.375em',
+      'margin-block: -0.375em',
+      'overflow: hidden',
+    ]);
+    // The outermost on the header's line, as the name was, so a name that fits sits where it did.
+    expect(rule('.month-day-list-date > .month-day-list-fit')).toEqual([
+      'display: inline-flex',
+      'width: 100%',
+    ]);
+    expect(rule('.month-day-list-rest')).toEqual([
+      'flex: 1 0 0',
+      'min-width: 0',
+      'min-height: 1.2em',
+    ]);
+    // On its baseline, so the header's line places the form shown, not the box in front of it.
+    expect(rule('.month-day-list-form')).toEqual([
+      'flex: 1000000 0 auto',
+      'align-self: baseline',
+      'white-space: nowrap',
+    ]);
   });
 
   it('takes its height from the room alone, with nothing inside it to scroll', () => {

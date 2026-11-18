@@ -172,6 +172,10 @@ In the visual editor, that is Events in Day List under Size & Spacing › Card S
 
 - **Times sit beside the titles**, whatever `time_position` says, as a phone's day list puts them:
   a row is a line shorter, and the times line up at its end.
+- **The day's name keeps to one line** as well: where it does not fit in full, the weekday is
+  shortened first ("Wed, November 18, 2026"), then the month, then the year is left out, then the
+  weekday ("Nov 18"), and last the month ("18"), so the day's number shows on any card wide
+  enough for its weeks.
 - **Each detail keeps to one line**: a title too long for the line beside its time ends in "…",
   and the location, the description and the forecast take a line each. The panel shows them in
   full.

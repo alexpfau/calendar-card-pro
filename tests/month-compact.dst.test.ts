@@ -186,7 +186,7 @@ function selection(card: CardUnderTest): [string[], string] {
     (element?.textContent ?? '').replace(/\s+/g, ' ').trim();
   return [
     [...root.querySelectorAll('.month-compact .month-day.month-selected .month-date')].map(text),
-    text(root.querySelector('.month-day-list-date')),
+    text(root.querySelector('.month-day-list-name')),
   ];
 }
 

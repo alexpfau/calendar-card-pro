@@ -1138,9 +1138,11 @@ describe('every piece of text is sized by its own option', () => {
       'month in date-column': ['month_font_size'],
       // The month named on a month's first day, beside its number and in its size.
       'month-date-month in month-date': ['event_font_size'],
-      // A month day's list: the day named as the weekday names are, and its "no events" in the
-      // event font, as the list's rows set their titles.
-      'month-day-list-date in month-day-list-header': ['weekday_font_size'],
+      // A month day's list: the day named as the weekday names are, in the form shown and in
+      // the full name read out, and its "no events" in the event font, as the list's rows set
+      // their titles.
+      'month-day-list-form in month-day-list-fit': ['weekday_font_size'],
+      'month-day-list-name in month-day-list-date': ['weekday_font_size'],
       'month-day-list-empty in month-day-list': ['event_font_size'],
       'month-day-list-more in month-day-list-rows': ['time_font_size'],
       // A month line's title and its time, each in its own option, side by side as a list row's.

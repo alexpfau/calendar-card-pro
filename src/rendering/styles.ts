@@ -1370,12 +1370,14 @@ export const cardStyles = css`
     margin-block: -0.5em;
   }
 
-  /* The month, a chip's name and a day's weather in column and grid view cut their text at their
-     inline edges too, and keep the room event text keeps there, so a mark or a letter leaning past
-     the first or last letter is drawn whole; see "Marks above and below the line". */
+  /* The month, a chip's name, a day's weather in column and grid view, and a month day list's name
+     cut their text at their inline edges too, and keep the room event text keeps there, so a mark
+     or a letter leaning past the first or last letter is drawn whole; see "Marks above and below
+     the line". */
   .toolbar-month-text,
   .legend-chip-label,
-  .column-date-content .weather {
+  .column-date-content .weather,
+  .month-day-list-fit {
     padding-inline: var(--calendar-card-inline-room);
     margin-inline: calc(-1 * var(--calendar-card-inline-room));
   }
@@ -2676,10 +2678,10 @@ export const cardStyles = css`
      the room. Without round() (Chromium before 125) the room is 1px, and so it is in Safari
      before 17, which the gate leaves out as it does for overflow: clip: Safari 15.4 to 16.x know
      round() but compute a calc() over it wrongly, and the margin giving the room back came out as
-     33554428px, squeezing every summary to 4px. Text outside the event fields cut the same way keeps it too: the month, a legend chip's name, a
-     day's weather in column and grid view, and a clamped weather condition. The grid's time axis
-     needs none: its labels are digits and AM or PM, and its own padding holds them 4px and 8px
-     off its edges.
+     33554428px, squeezing every summary to 4px. Text outside the event fields cut the same way
+     keeps it too: the month, a legend chip's name, a day's weather in column and grid view, a
+     month day list's name, and a clamped weather condition. The grid's time axis needs none: its
+     labels are digits and AM or PM, and its own padding holds them 4px and 8px off its edges.
 
      Text outside the event fields was cut above and below its line too, and takes the same
      remedies. The month hides only a month too long for its row, so it cuts the inline axis
@@ -8158,6 +8160,65 @@ export const cardStyles = css`
     font-weight: 600;
     line-height: 1.2;
     color: var(--calendar-card-color-weekday);
+  }
+
+  /* The day named in full, read out rather than shown; what is shown is the form below that
+     fits, which assistive technology does not read. */
+  .month-day-list-name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* The day's name on one line whatever the width, so the list, which keeps room for its rows,
+     is as tall on every day. Each box is one line tall and wraps: its form shows where it fits
+     beside the empty-looking box in front of it, and wraps onto a hidden line below where it
+     does not, which leaves that box the line to itself. That box holds the shorter forms the
+     same way, so the longest form that fits is the one shown. Beside a form that fits, the box
+     in front gets a millionth of the spare room, too little to show anything; alone on its line
+     it gets all of it. No form is drawn wider than its box, so nothing is cut at a box's side.
+     Marks above and below the line keep the room a clamping box keeps above its first line,
+     0.375em, here below it too: padding inside the cut, given back by a negative margin, with
+     the hidden lines 0.75em further down, past that room and the marks reaching up from them.
+     See "Marks above and below the line". */
+  .month-day-list-fit {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    row-gap: 0.75em;
+    height: 1.2em;
+    padding-block: 0.375em;
+    margin-block: -0.375em;
+    overflow: hidden;
+  }
+
+  /* The outermost box sits on the header's line, as the name did when it was text alone, so the
+     header is as tall as it was and the name where it was, wherever the full name fits. */
+  .month-day-list-date > .month-day-list-fit {
+    display: inline-flex;
+    width: 100%;
+  }
+
+  /* A line tall even where it holds nothing, as the last one does, so the hidden lines below it
+     start past the room under the line rather than inside it. */
+  .month-day-list-rest {
+    flex: 1 0 0;
+    min-width: 0;
+    min-height: 1.2em;
+  }
+
+  /* On its baseline, so each box, and the outermost on the header's line, takes its baseline from
+     the form shown rather than from the box in front of it. */
+  .month-day-list-form {
+    flex: 1000000 0 auto;
+    align-self: baseline;
+    white-space: nowrap;
   }
 
   .month-day-table {
