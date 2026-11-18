@@ -15,6 +15,8 @@
   "viewGrid": "Rács",
   "viewMonth": "Hónap",
   "moreEvents": "+{count} további",
+  "eventCount": "{count} esemény",
+  "eventCountOne": "{count} esemény",
   "noEvents": "Nincs esemény",
   "loading": "Naptárbejegyzések betöltése...",
   "error": "Hiba: Naptár entitás nem található vagy nem megfelelően konfigutált",

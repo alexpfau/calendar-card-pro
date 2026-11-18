@@ -19,6 +19,8 @@
   "viewGrid": "Quadrícula",
   "viewMonth": "Mes",
   "moreEvents": "+{count} més",
+  "eventCount": "{count} esdeveniments",
+  "eventCountOne": "{count} esdeveniment",
   "endsToday": "acaba avui",
   "endsTomorrow": "acaba demà",
   "dayOfEvent": "Dia {day} de {days}",

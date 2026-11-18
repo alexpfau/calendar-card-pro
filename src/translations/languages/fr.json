@@ -11,6 +11,8 @@
   "viewGrid": "Grille",
   "viewMonth": "Mois",
   "moreEvents": "+{count} de plus",
+  "eventCount": "{count} événements",
+  "eventCountOne": "{count} événement",
   "endsToday": "finit aujourd'hui",
   "endsTomorrow": "finit demain",
   "dayOfEvent": "Jour {day} sur {days}",

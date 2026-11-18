@@ -19,6 +19,8 @@
   "viewGrid": "Grade",
   "viewMonth": "Mês",
   "moreEvents": "+{count} mais",
+  "eventCount": "{count} eventos",
+  "eventCountOne": "{count} evento",
   "endsToday": "termina hoje",
   "endsTomorrow": "termina amanhã",
   "dayOfEvent": "Dia {day} de {days}",

@@ -32,6 +32,8 @@
   "viewGrid": "ตาราง",
   "viewMonth": "เดือน",
   "moreEvents": "อีก {count} รายการ",
+  "eventCount": "{count} เหตุการณ์",
+  "eventCountOne": "{count} เหตุการณ์",
   "endsToday": "สิ้นสุดวันนี้",
   "endsTomorrow": "สิ้นสุดพรุ่งนี้",
   "dayOfEvent": "วันที่ {day} จาก {days}",

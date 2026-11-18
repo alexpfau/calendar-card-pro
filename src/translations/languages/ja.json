@@ -11,6 +11,8 @@
   "viewGrid": "グリッド",
   "viewMonth": "月",
   "moreEvents": "他{count}件",
+  "eventCount": "{count}件の予定",
+  "eventCountOne": "{count}件の予定",
   "endsToday": "今日 {at} 終了",
   "endsTomorrow": "明日 {at} 終了",
   "dayOfEvent": "{day}日目（全{days}日）",

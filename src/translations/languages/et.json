@@ -32,6 +32,8 @@
   "viewGrid": "Ajaraster",
   "viewMonth": "Kuu",
   "moreEvents": "+{count} veel",
+  "eventCount": "{count} sündmust",
+  "eventCountOne": "{count} sündmus",
   "endsToday": "lõpeb täna",
   "endsTomorrow": "lõpeb homme",
   "dayOfEvent": "Päev {day}/{days}",

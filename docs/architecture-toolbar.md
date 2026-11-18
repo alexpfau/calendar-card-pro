@@ -73,6 +73,11 @@ the configuration.
   on screen (`pageSpan`). The heading answers at once; the days stay those of `_pageShown`, dimmed,
   until the new page's events land, and the request generation discards the responses of pages
   passed by. Storage is under [What the Browser Stores](/architecture-data#what-the-browser-stores).
+- **A month's pages.** Arrows, swipes, the picker and Page Up and Page Down step whole months, from
+  the month the heading names. With `month → week_scroll` the wheel and a vertical finger step the
+  rows a week (`_scrollWeeks`), the heading following the month most of the days are in, and a
+  page then loads the month-sized piece its rows belong to (`ViewConfig.monthScrollPiece`), so a
+  scroll through a month's weeks asks once rather than once a week.
 - **Nothing remembers a page.** A reload, a configuration change and the start of editing bring the
   card home.
 - **Hiding leaves a way back.** `hide_when_empty` acts only at home and only while the legend hides

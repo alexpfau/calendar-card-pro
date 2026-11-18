@@ -72,6 +72,11 @@ export interface DayPanelParams {
   dark: boolean;
   /** The card's language, which its rows are written in. */
   language: string;
+  /**
+   * Opened for a search's pick hidden behind "+N more": focus starts on the row it rings, where
+   * that row is a button, rather than on Close.
+   */
+  focusRinged?: boolean;
   /** Called once the panel has closed, however it closed. Returns nothing. */
   closed?: () => undefined;
 }
@@ -176,6 +181,24 @@ export class DayPanel extends Shell.PopoverShell {
   private _close(): void {
     if (this._closing || !this._params) return;
     this._finish();
+  }
+
+  /**
+   * Puts focus where the panel starts: on Close, or on the row a search rang where it was opened
+   * for one and the row is a button, scrolled into the rows' view.
+   */
+  protected _focusStart(): void {
+    const ringed = this._params?.focusRinged
+      ? this.renderRoot.querySelector<HTMLElement>(
+          '.day-panel-rows .search-ring [role="button"][tabindex]',
+        )
+      : null;
+    if (!ringed || !this._dialog?.open) {
+      super._focusStart();
+      return;
+    }
+    ringed.focus({ preventScroll: true });
+    ringed.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
   }
 
   //---------------------------------------------------------------------------

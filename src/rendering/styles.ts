@@ -5860,13 +5860,15 @@ export const cardStyles = css`
   }
 
   /* The event runs past the window edge. Drawn as content rather than as a border so
-     it travels with the text direction. */
+     it travels with the text direction. The marks are read from custom properties, with these
+     marks as their fallbacks, so a month's bar can point them the way its event carries on
+     reading right to left (.month-bar). */
   .grid-banner.continues-before .grid-banner-title::before {
-    content: '\\25C2\\00A0';
+    content: var(--calendar-card-banner-carry-before, '\\25C2\\00A0');
   }
 
   .grid-banner.continues-after .grid-banner-title::after {
-    content: '\\00A0\\25B8';
+    content: var(--calendar-card-banner-carry-after, '\\00A0\\25B8');
   }
 
   /* A timed event drawn as a banner (multiday_banners): its start time, its title and its end
@@ -5974,7 +5976,7 @@ export const cardStyles = css`
   }
 
   .grid-banner-lasts.continues-after .grid-banner-duration::after {
-    content: '\\00A0\\25B8';
+    content: var(--calendar-card-banner-carry-after, '\\00A0\\25B8');
   }
 
   @container calendar-card-grid-banner (width < 10em) {
@@ -5983,7 +5985,7 @@ export const cardStyles = css`
     }
 
     .grid-banner-lasts.continues-after .grid-banner-title::after {
-      content: '\\00A0\\25B8';
+      content: var(--calendar-card-banner-carry-after, '\\00A0\\25B8');
     }
   }
 
@@ -5993,7 +5995,7 @@ export const cardStyles = css`
     }
 
     .grid-banner-timed.grid-banner-lasts.continues-after .grid-banner-title::after {
-      content: '\\00A0\\25B8';
+      content: var(--calendar-card-banner-carry-after, '\\00A0\\25B8');
     }
   }
 
@@ -6003,7 +6005,7 @@ export const cardStyles = css`
     }
 
     .grid-banner-lasts.continues-after .grid-banner-long-times .grid-banner-title::after {
-      content: '\\00A0\\25B8';
+      content: var(--calendar-card-banner-carry-after, '\\00A0\\25B8');
     }
   }
 
@@ -7654,11 +7656,43 @@ export const cardStyles = css`
   }
 
   /* The day's own box, behind its events, spanning every line of its column. Its empty space is
-     the day's target, for day_tap_action. The rule between two days is its start edge. */
+     the day's target, for day_tap_action. The rule between two days is its start edge.
+
+     Never positioned: a positioned box paints, and is hit, after every unpositioned sibling, so
+     the cell would cover the all-day bars and "+N more" drawn after it and take their presses. */
   .month-day {
     grid-row: 1 / -1;
     min-width: 0;
     border-inline-start: 1px solid var(--calendar-card-month-rule);
+  }
+
+  /* A day's cell with the keyboard's focus, in either form: ringed inside its edges, which the
+     bars, lines and "+N more" drawn over it keep clear of, so the ring shows on a busy day too.
+     A pointer's focus draws none. */
+  .month-day:focus {
+    outline: none;
+  }
+
+  .month-day:focus-visible {
+    outline: 2px solid var(--calendar-card-line-color-vertical);
+    outline-offset: -2px;
+  }
+
+  /* While month -> week_scroll applies, the weeks take a vertical finger from the page as well as
+     a sideways one, so it steps them a week at a time; pinch zoom stays. Where no swipe pages the
+     card, the page keeps its sideways pan. Declared on every element of the weeks, as the swipe's
+     own restriction is, which these outrank. The first declaration of each pair is the fallback
+     for a browser that does not know pinch-zoom. */
+  .month-container.week-scroll,
+  .month-container.week-scroll * {
+    touch-action: pan-x;
+    touch-action: pan-x pinch-zoom;
+  }
+
+  ha-card.swipe-paging .content-container .month-container.week-scroll,
+  ha-card.swipe-paging .content-container .month-container.week-scroll * {
+    touch-action: none;
+    touch-action: pinch-zoom;
   }
 
   .month-day:first-child {
@@ -7740,6 +7774,14 @@ export const cardStyles = css`
 
   .month-bar.continues-after {
     margin-inline-end: 0;
+  }
+
+  /* Reading right to left, a bar's event carries on to the left of the row it ends and comes in
+     from the right of the row it starts, so its marks point that way: the glyphs are no mirrored
+     characters, and the banner's would point back at its own title. */
+  .month-bar:dir(rtl) {
+    --calendar-card-banner-carry-before: '\\25B8\\00A0';
+    --calendar-card-banner-carry-after: '\\00A0\\25C2';
   }
 
   /* A timed event: Column's row trimmed to one line. Its accent bar, a short stripe with round

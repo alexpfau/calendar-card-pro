@@ -19,6 +19,8 @@
   "viewGrid": "Siatka czasu",
   "viewMonth": "Miesiąc",
   "moreEvents": "+{count} więcej",
+  "eventCount": "Wydarzenia: {count}",
+  "eventCountOne": "{count} wydarzenie",
   "endsToday": "kończy się dziś",
   "endsTomorrow": "kończy się jutro",
   "dayOfEvent": "Dzień {day} z {days}",

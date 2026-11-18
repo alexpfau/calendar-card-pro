@@ -543,6 +543,24 @@ export function findMonthPick(
 }
 
 /**
+ * A month's day cell, in either form: the grid cell the keyboard moves between. The property
+ * names its day, so a key on it is read without parsing its name.
+ */
+export interface MonthCellElement extends Element {
+  calendarCardMonthCell?: number;
+}
+
+/**
+ * The day a month's cell stands for, if a node is one.
+ *
+ * @param node - Any event target
+ * @returns The day's local midnight, or undefined
+ */
+export function monthCellOn(node: EventTarget | null | undefined): number | undefined {
+  return (node as MonthCellElement | null | undefined)?.calendarCardMonthCell;
+}
+
+/**
  * What a render needs to draw each day as a button that adds an event on it, or undefined
  * while a tap on a day adds nothing.
  */

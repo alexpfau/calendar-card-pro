@@ -32,6 +32,8 @@
   "viewGrid": "Ruudukko",
   "viewMonth": "Kuukausi",
   "moreEvents": "+{count} lisää",
+  "eventCount": "{count} tapahtumaa",
+  "eventCountOne": "{count} tapahtuma",
   "endsToday": "päättyy tänään",
   "endsTomorrow": "päättyy huomenna",
   "dayOfEvent": "Päivä {day}/{days}",

@@ -11,6 +11,8 @@
   "viewGrid": "Mřížka",
   "viewMonth": "Měsíc",
   "moreEvents": "+{count} další",
+  "eventCount": "Události: {count}",
+  "eventCountOne": "{count} událost",
   "endsToday": "končí dnes",
   "endsTomorrow": "končí zítra",
   "dayOfEvent": "Den {day} z {days}",

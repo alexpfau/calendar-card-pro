@@ -11,6 +11,8 @@
   "viewGrid": "Grilă",
   "viewMonth": "Lună",
   "moreEvents": "+{count} în plus",
+  "eventCount": "Evenimente: {count}",
+  "eventCountOne": "{count} eveniment",
   "endsToday": "se încheie astăzi",
   "endsTomorrow": "se încheie mâine",
   "dayOfEvent": "Ziua {day} din {days}",

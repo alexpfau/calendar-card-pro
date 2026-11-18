@@ -43,10 +43,23 @@ The recognizer lives in the card's pointer handlers (`_handlePointerDown`, `_han
   While a tap on a day adds, each day's date or header is a button named by Home Assistant's "Add
   event". In Home Assistant's `preview` and `editMode`, events are not tap targets and the
   functions that open the popover refuse.
+- **A month's grid.** `role="grid"`, a row of column headers, and six rows of seven
+  `role="gridcell"` days, each named for the day and its events' count (`monthCellName`), one of
+  them the tab stop (`_monthTabStop`: the day the keys or a tap last moved to, else the compact
+  selection, else today, else the header month's 1st). The arrows move a day or a week, mirrored
+  reading right to left, Home and End to the week's ends, Page Up and Page Down a month; a day off
+  the rows pages there where the card pages, and focus follows once the page is drawn
+  (`_syncMonthFocus`). Enter or Space opens a wide day's panel, or selects a compact day. A wide
+  day's bars, lines and "+N more" are out of the Tab order and owned by its cell (`aria-owns`),
+  since the panel lists them. Keys with a modifier, and keys off the cells, are Home Assistant's.
 
 ### Movement & Drags
 
-- **Pans.** Vertical pans are always the browser's. Sideways pans are the card's while it swipes,
+- **Pans.** Vertical pans are the browser's, except on a month's weeks while `month → week_scroll`
+  applies (`_weekScrollApplies`: the wide form, the card at least `week_scroll_min_width` wide, not
+  edited), which declare `touch-action: pinch-zoom` and step a week per row's height a finger moves
+  (`_followWeekScroll`), and take the wheel through a listener bound only then
+  (`_wheelWeeks`, a week per `WEEK_SCROLL_WHEEL_STEP`). Sideways pans are the card's while it swipes,
   declared by `touch-action: pan-y pinch-zoom` on the card and again on its body and everything in
   it, since a scroll container does not honor a restriction it only inherits. A crammed grid
   scrolls sideways itself. The swipe's motion runs through the Web Animations API, so the grid's
@@ -134,8 +147,8 @@ one. Any new asynchronous step in the popover needs the same check.
 :::
 
 `popover-shell.ts` (`PopoverShell`) holds what the popover, the search panel and the day panel share
-(`day-panel.ts`, a wide month's "+N more": a day's List rows, where pressing a row closes the panel
-and then runs what a tap on the event runs on the card), including a
+(`day-panel.ts`, a wide month's "+N more" or Enter on its day: a day's List rows, where pressing a
+row closes the panel and then runs what a tap on the event runs on the card), including a
 scroll guard on the window (`_guardScroll`), which Chromium needs because it scrolls the page under
 a modal's backdrop, and placement by inline position alone (`inset: auto`), which right-to-left
 pages need.
@@ -183,5 +196,8 @@ owned by the card's `SearchSession`.
 - **Rows** come from the card's own `processEvents` and `groupEventsByDay` for the view on screen
   (`searchGroupingConfig`), so filters, duplicates and replacements are the card's.
 - **A pick** pages through the date picker's path (`_pickDate`) and rings the event through a class
-  render binds (`_searchRing`), never an element added in `updated()`.
+  render binds (`_searchRing`), never an element added in `updated()`. A month decides where once
+  it knows what it discloses: a compact month selects the day and rings the row in its list, a wide
+  one rings the bar or line where it draws one (`monthDrawsRing`), and otherwise opens the day's
+  panel, once the search panel has gone, with the row rung and focused.
 - **Closing.** The panel closes before anything takes its magnifier away.

@@ -2851,6 +2851,30 @@ export function monthHomeRowsStart(start: Date, firstDayOfWeek: number): Date {
 }
 
 /**
+ * The weeks one load holds for a month page while `week_scroll` is on: every row whose last day
+ * falls in one month, and the five rows under the last of them. So a page scrolled to any of
+ * that month's rows draws from the same load, and a scroll through the weeks asks once a month,
+ * not once a week. A row belongs to the month its last day falls in, so the month's own home
+ * rows (`monthHomeRowsStart`) are its first.
+ *
+ * @param rows - A page's first row's first day
+ * @param firstDayOfWeek - First day of the week, 0 for Sunday
+ * @returns The first day loaded, and the day after the last
+ */
+export function monthScrollPiece(
+  rows: Date,
+  firstDayOfWeek: number,
+): { start: Date; end: Date; next: Date } {
+  const last = addDays(monthRowsStart(rows, firstDayOfWeek), 6);
+  const start = monthHomeRowsStart(last, firstDayOfWeek);
+  const next = monthHomeRowsStart(
+    new Date(last.getFullYear(), last.getMonth() + 1, 1),
+    firstDayOfWeek,
+  );
+  return { start, end: addDays(next, MONTH_DAYS - 7), next };
+}
+
+/**
  * Whether month is one of the views the card can show (`reachableViews`), which widens its
  * load to the month's weeks.
  *
@@ -2879,6 +2903,10 @@ export function reachesMonth(config: Types.Config): boolean {
  * exactly, and at home they move only when the month or the other views' end moves. All of it
  * is counted in local calendar days.
  *
+ * With `month → week_scroll` on, a page's load is the month-sized piece its rows belong to
+ * (`monthScrollPiece`), the other views' days from any of those rows included, so every page a
+ * scroll passes through in one month shares a load. Home's stays its own month's weeks.
+ *
  * Never draw from it: its top-level `start_date` and `days_to_show` are the load, not any
  * view's.
  *
@@ -2906,8 +2934,25 @@ export function loadConfig(
   const rows = home
     ? monthHomeRowsStart(window.start, firstDayOfWeek)
     : monthRowsStart(window.start, firstDayOfWeek);
-  const rowsEnd = addDays(rows, MONTH_DAYS);
   const others = views.some((view) => view !== 'month');
+
+  if (!home && resolveMonthOption(config, 'week_scroll')) {
+    // Any page whose rows belong to the piece starts on or after its first day, and any other
+    // view's days from one end at most `days` after the last day of the piece's last row.
+    const piece = monthScrollPiece(rows, firstDayOfWeek);
+    const othersEnd = addDays(piece.next, days - 1);
+    const until =
+      others && Number.isFinite(days) && calendarDayDiff(piece.end, othersEnd) > 0
+        ? othersEnd
+        : piece.end;
+    return {
+      ...config,
+      start_date: localDateKey(piece.start),
+      days_to_show: calendarDayDiff(piece.start, until),
+    };
+  }
+
+  const rowsEnd = addDays(rows, MONTH_DAYS);
   const from = others && calendarDayDiff(window.start, rows) > 0 ? window.start : rows;
   const until = others && calendarDayDiff(rowsEnd, window.end) > 0 ? window.end : rowsEnd;
 

@@ -19,6 +19,8 @@
   "viewGrid": "Rooster",
   "viewMonth": "Maand",
   "moreEvents": "+{count} meer",
+  "eventCount": "{count} afspraken",
+  "eventCountOne": "{count} afspraak",
   "endsToday": "eindigt vandaag",
   "endsTomorrow": "eindigt morgen",
   "dayOfEvent": "Dag {day} van {days}",

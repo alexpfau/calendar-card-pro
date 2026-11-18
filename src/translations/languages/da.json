@@ -11,6 +11,8 @@
   "viewGrid": "Gitter",
   "viewMonth": "Måned",
   "moreEvents": "+{count} mere",
+  "eventCount": "{count} begivenheder",
+  "eventCountOne": "{count} begivenhed",
   "endsToday": "slutter i dag",
   "endsTomorrow": "slutter i morgen",
   "dayOfEvent": "Dag {day} af {days}",

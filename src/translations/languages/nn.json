@@ -11,6 +11,8 @@
   "viewGrid": "Rutenett",
   "viewMonth": "Månad",
   "moreEvents": "+{count} til",
+  "eventCount": "{count} hendingar",
+  "eventCountOne": "{count} hending",
   "endsToday": "sluttar i dag",
   "endsTomorrow": "sluttar i morgon",
   "dayOfEvent": "Dag {day} av {days}",

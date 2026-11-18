@@ -11,6 +11,8 @@
   "viewGrid": "Сітка",
   "viewMonth": "Місяць",
   "moreEvents": "+{count} ще",
+  "eventCount": "Подій: {count}",
+  "eventCountOne": "{count} подія",
   "endsToday": "закінчується сьогодні",
   "endsTomorrow": "закінчується завтра",
   "dayOfEvent": "День {day} з {days}",

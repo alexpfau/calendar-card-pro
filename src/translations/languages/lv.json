@@ -19,6 +19,8 @@
   "viewGrid": "Laika režģis",
   "viewMonth": "Mēnesis",
   "moreEvents": "+{count} vēl",
+  "eventCount": "Notikumu skaits: {count}",
+  "eventCountOne": "{count} notikums",
   "endsToday": "beidzas šodien",
   "endsTomorrow": "beidzas rīt",
   "dayOfEvent": "Diena {day} no {days}",

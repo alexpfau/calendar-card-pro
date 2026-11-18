@@ -24,6 +24,8 @@
   "viewGrid": "Решетка",
   "viewMonth": "Месец",
   "moreEvents": "+{count} още",
+  "eventCount": "{count} събития",
+  "eventCountOne": "{count} събитие",
   "endsToday": "приключва днес",
   "endsTomorrow": "приключва утре",
   "dayOfEvent": "Ден {day} от {days}",

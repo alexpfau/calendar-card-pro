@@ -15,6 +15,8 @@
   "viewGrid": "רשת",
   "viewMonth": "חודש",
   "moreEvents": "+{count} נוספים",
+  "eventCount": "{count} אירועים",
+  "eventCountOne": "{count} אירוע",
   "noEvents": "אין אירועים",
   "loading": "טוען אירועי לוח שנה...",
   "error": "שגיאה: ישות לוח השנה לא נמצאה או לא מוגדרת כראוי",

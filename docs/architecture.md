@@ -385,12 +385,14 @@ both happen. It reads the target at pointer-down and runs the innermost target's
   a press that begins on a link in an event row arms nothing.
 - **Endings.** Every armed press ends in exactly one way at pointer-up (`_handlePointerUp`):
   **held** runs the hold, or in a grid draws or moves an event; **stayed** is a tap; **moved** is
-  neither, but swipes to page by touch or draws or moves in a grid by mouse; **canceled** does
-  nothing.
+  neither, but swipes to page by touch, steps a month's weeks while they scroll
+  (`month → week_scroll`), or draws or moves in a grid by mouse; **canceled** does nothing.
 - **Keys and editing.** Enter and Space activate the focused card, event or day. There is no key
   hold: an event with a hold and no tap of its own is still a button, and the keys run its hold
-  (`_activate`). While Home Assistant edits the card, nothing that writes to a calendar runs, and
-  no swipe.
+  (`_activate`). A month is one grid with one tab stop, which the arrows, Home, End and the page
+  keys move, paging where they leave its rows; Enter or Space opens a wide day's panel or selects a
+  compact day (`_handleMonthKeyDown`). While Home Assistant edits the card, nothing that writes to
+  a calendar runs, and no swipe.
 
 The full rules are in [Gesture Model in Detail](/architecture-interaction#gesture-model-in-detail).
 

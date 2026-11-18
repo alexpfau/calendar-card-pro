@@ -1617,11 +1617,13 @@ class CalendarCardPro extends LitElement {
   /**
    * The event a search pick rings: from the pick until its ring has shown for `SEARCH_RING`, or
    * the page asked for turned out not to draw it. `page` is the page the pick asked for, the only
-   * one the ring is drawn on; `until` is set once it is drawn; `focus` until focus has moved to it.
+   * one the ring is drawn on; `day` the result's own day; `until` is set once it is drawn; `focus`
+   * until focus has moved to it.
    */
   private _searchRing: {
     target: Search.RingTarget;
     page: string | null;
+    day: string;
     until?: number;
     focus: boolean;
   } | null = null;
@@ -1630,6 +1632,12 @@ class CalendarCardPro extends LitElement {
 
   /** Whether the render just made drew the event a pick rings (`Search.ringIn`). */
   private _searchRingDrawn = false;
+
+  /**
+   * The day a wide month holds the event a pick rings on but draws it only in its "+N more", in
+   * the render just made: that day's panel is where the ring is drawn (`_syncSearchRing`).
+   */
+  private _searchRingBehindMore: Date | null = null;
 
   /**
    * Whether no search panel is open or closing, and Home Assistant has had its moment to put
@@ -1790,6 +1798,39 @@ class CalendarCardPro extends LitElement {
 
   /** The open day panel, while one is (`_openDayPanel`). */
   private _dayPanel: DayPanel.DayPanelHandle | null = null;
+
+  /**
+   * The day, `YYYY-MM-DD`, whose cell is a month's one tab stop once the keyboard, a tap or a pick
+   * has put it there, while it is among the rows drawn; see `_monthTabStop`.
+   */
+  private _monthFocusDay: string | null = null;
+
+  /**
+   * Whether focus goes to the month's tab stop once the page holding it is drawn: a key moved it,
+   * maybe onto another page (`_moveMonthFocus`). Any other page asked for ends it.
+   */
+  private _monthFocusPending = false;
+
+  /**
+   * How far the wheel has scrolled since a month last stepped a week, in CSS pixels, and when it
+   * last moved; see `_wheelWeeks`.
+   */
+  private _wheelTravel = { delta: 0, at: 0 };
+
+  /**
+   * A touch or pen gesture on a month whose weeks scroll: how many weeks it has stepped so far,
+   * and how far the finger travels for each (`_followWeekScroll`). Null for any other gesture.
+   */
+  private _pointerWeekScroll: { stepped: number; pitch: number } | null = null;
+
+  /**
+   * The wheel's listener on a month's weeks while `week_scroll` applies: not passive, since it
+   * takes the wheel from the page, and bound only then.
+   */
+  private readonly _weekScrollWheel: EventListenerObject & AddEventListenerOptions = {
+    handleEvent: (ev: Event) => this._wheelWeeks(ev as WheelEvent),
+    passive: false,
+  };
 
   private _gridScaleRaf: number | null = null;
 
@@ -2778,7 +2819,15 @@ class CalendarCardPro extends LitElement {
           this._dayPanel?.close();
         }
         this._syncToolbarLabels(width);
-        if (this._syncMonthForm(width) && this.effectiveView === 'month') this.requestUpdate();
+        // A month's form, and whether its weeks scroll, are decided from the width alone.
+        const weekScrolled = this._weekScrollApplies;
+        const formChanged = this._syncMonthForm(width);
+        if (
+          this.effectiveView === 'month' &&
+          (formChanged || this._weekScrollApplies !== weekScrolled)
+        ) {
+          this.requestUpdate();
+        }
         this._scheduleLegendFit();
         this._scheduleWidthMeasurement(width);
       }
@@ -3034,13 +3083,16 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Whether the card draws a view that changes at event boundaries without a repaint of its
-   * own. List and column always do. Grid does when its now line is off: the line's minute
-   * tick is what otherwise repaints a finished event dim, or away under show_past_events off.
+   * own. List, column and month always do: month dims a line, a bar and a listed row as its event
+   * ends, and drops it under `show_past_events: false`. Grid does when its now line is off: the
+   * line's minute tick is what otherwise repaints a finished event dim, or away under
+   * show_past_events off.
    */
   private get _wantsNowBoundary(): boolean {
     return (
       this.effectiveView === 'list' ||
       this.effectiveView === 'column' ||
+      this.effectiveView === 'month' ||
       (this.effectiveView === 'grid' && !this._wantsNowLine)
     );
   }
@@ -3596,73 +3648,241 @@ class CalendarCardPro extends LitElement {
   private _selectMonthDay(timestamp: number): void {
     if (this._isBeingEdited) return;
     this._monthSelection = MonthDay.monthSelectionOf(new Date(timestamp), this._pageShown);
+    this._monthFocusDay = FormatUtils.getLocalDateKey(new Date(timestamp));
     Logger.debug(`Month: selected ${this._monthSelection.day}`);
     this.requestUpdate();
   }
 
   /**
    * What a compact month draws besides its weeks: the day selected, and every day's events as
-   * the day model lists them, which its capsules count and its list draws. Undefined for a wide
-   * month.
+   * the day model lists them, which its capsules count and its list draws. The selected day's
+   * list rings the event a search picked, where it holds it. Undefined for a wide month.
    *
    * @param rowsStart - The page's first row's first day
-   * @returns The compact form's options, or undefined
+   * @param ring - The event a pick rings on this page, or null
+   * @returns The compact form's options and whether its list rings the pick, or undefined
    */
-  private _monthCompactView(rowsStart: Date): MonthRender.MonthCompact | undefined {
+  private _monthCompactView(
+    rowsStart: Date,
+    ring: Search.RingTarget | null,
+  ): { compact: MonthRender.MonthCompact; ringed: boolean } | undefined {
     if (!this._drawsCompactMonth) return undefined;
+    const selected = this._monthSelectedDay();
+    const dayLists = MonthDay.monthDayLists(
+      this._shownEvents,
+      this.effectiveConfig,
+      rowsStart,
+      ViewConfig.MONTH_DAYS,
+      this.effectiveLanguage,
+      this.hass,
+    );
+    const index = FormatUtils.getCalendarDayDiff(rowsStart, selected);
+    const listed = ring ? Search.ringRows(dayLists[index] ?? [], ring) : null;
     return {
-      selected: this._monthSelectedDay(),
-      dayLists: MonthDay.monthDayLists(
-        this._shownEvents,
-        this.effectiveConfig,
-        rowsStart,
-        ViewConfig.MONTH_DAYS,
-        this.effectiveLanguage,
-        this.hass,
-      ),
-      weatherForecasts: this.weatherForecasts,
-      dayAdd: this._dayAddButtons,
+      compact: {
+        selected,
+        dayLists: listed
+          ? dayLists.map((list, at) => (at === index ? listed.rows : list))
+          : dayLists,
+        weatherForecasts: this.weatherForecasts,
+        dayAdd: this._dayAddButtons,
+      },
+      ringed: listed?.found ?? false,
     };
   }
 
   /**
-   * Opens a wide month day's panel from its "+N more": the day's events as the day model lists
-   * them, through Home Assistant's dialog manager as the search panel is, beside the button.
+   * The day whose cell is a month's one tab stop (`tabindex="0"`): the day the keyboard, a tap or
+   * a pick last put it on while that day is among the rows, else the compact form's selected
+   * day, else today where the rows show it, else the 1st of the month the header names.
    *
-   * The button takes focus first, so focus comes back to it when the panel closes, as the search
-   * panel's magnifier does. A row pressed in the panel closes it and runs what a tap on the event
-   * runs on the card, once the panel has gone (`_activate`). Nothing opens while the card is
-   * being edited.
+   * @param rowsStart - The page's first row's first day
+   * @param now - The current moment
+   * @returns The day, at local midnight
+   */
+  private _monthTabStop(rowsStart: Date, now: Date = new Date()): Date {
+    const range = { start: rowsStart, days: ViewConfig.MONTH_DAYS };
+    if (this._monthFocusDay !== null) {
+      const day = Paging.pageStart(this._monthFocusDay);
+      if (Paging.rangeContains(range, day)) return day;
+    }
+    if (this._drawsCompactMonth) return this._monthSelectedDay(now);
+    const today = Paging.startOfDay(now);
+    return Paging.rangeContains(range, today) ? today : Paging.majorityMonth(range);
+  }
+
+  /**
+   * A month day's cell, as drawn now, in either form.
+   *
+   * @param day - The day, any moment of it
+   * @returns Its cell, or null where the rows drawn do not hold it
+   */
+  private _monthCellFor(day: Date): HTMLElement | null {
+    const timestamp = Paging.startOfDay(day).getTime();
+    const cells = this.renderRoot.querySelectorAll<HTMLElement>('.month-container .month-day');
+    return Array.from(cells).find((cell) => Activation.monthCellOn(cell) === timestamp) ?? null;
+  }
+
+  /**
+   * Moves a month's keyboard focus to a day: its cell becomes the tab stop and takes focus once
+   * drawn (`_syncMonthFocus`). A day past the rows drawn pages to its month's weeks first, as the
+   * date navigation's arrows would, and only where the card pages: with the date navigation, and
+   * not while it is being edited. Elsewhere focus stays where it is.
    *
    * @param day - The day, at local midnight
-   * @param button - Its "+N more"
    */
-  private _openDayPanel(day: Date, button: HTMLElement): void {
+  private _moveMonthFocus(day: Date): void {
+    if (!Paging.rangeContains(this._pageRange(this._pageRequested), day)) {
+      if (!this._wantsNavigation || this._isBeingEdited) return;
+      this._goToPage(ViewConfig.monthHomeRowsStart(day, this._firstDayOfWeek));
+    }
+    this._monthFocusDay = FormatUtils.getLocalDateKey(day);
+    this._monthFocusPending = true;
+    this.requestUpdate();
+  }
+
+  /**
+   * Puts focus on a month's tab stop once a key has moved it there and the page holding it is
+   * drawn. Only while focus is still in the month: a key that paged leaves focus on a cell of the
+   * page it left until the new one arrives, and focus taken elsewhere meanwhile stays there.
+   * Called after every update.
+   */
+  private _syncMonthFocus(): void {
+    if (!this._monthFocusPending) return;
+    if (this.effectiveView !== 'month' || this._monthFocusDay === null) {
+      this._monthFocusPending = false;
+      return;
+    }
+    if (this._pageRequested !== this._pageShown || this.isInitialLoad) return;
+    const cell = this._monthCellFor(Paging.pageStart(this._monthFocusDay));
+    if (!cell) return;
+    this._monthFocusPending = false;
+    const active = this.shadowRoot?.activeElement ?? null;
+    if (active !== cell && !(active instanceof Element && active.closest('.month-container'))) {
+      return;
+    }
+    cell.focus();
+  }
+
+  /**
+   * The keys of a month's grid, on a focused day's cell: the arrows move a day or a week, mirrored
+   * reading right to left, Home and End to the ends of the cell's week, and Page Up and Page Down
+   * a month, to the same date where it has one, else its last day. A day past the rows drawn
+   * pages there (`_moveMonthFocus`). Enter opens a wide month day's panel and selects a compact
+   * one, on its keydown; Space does on its keyup, as a native button does, so a panel it opened
+   * never takes the keyup as a press on what it focused (`_handleKeyUp`). A key with a modifier,
+   * and any key on anything but a cell, is left alone, so Home Assistant's own shortcuts work
+   * everywhere else.
+   *
+   * @param ev - A keydown bubbling to `ha-card`
+   * @returns True when the key was the month's, and was consumed
+   */
+  private _handleMonthKeyDown(ev: KeyboardEvent): boolean {
+    if (this.effectiveView !== 'month' || ev.defaultPrevented) return false;
+    const timestamp = Activation.monthCellOn(ev.target);
+    if (timestamp === undefined) return false;
+    if (ev.altKey || ev.ctrlKey || ev.metaKey || ev.isComposing) return false;
+
+    const day = new Date(timestamp);
+    const rowStart = ViewConfig.monthRowsStart(day, this._firstDayOfWeek);
+    const across = this._cardRightToLeft ? -1 : 1;
+    const monthAway = (months: number): Date => {
+      const last = new Date(day.getFullYear(), day.getMonth() + months + 1, 0).getDate();
+      return new Date(day.getFullYear(), day.getMonth() + months, Math.min(day.getDate(), last));
+    };
+    const moves: Readonly<Record<string, () => Date>> = {
+      ArrowLeft: () => Paging.addDays(day, -across),
+      ArrowRight: () => Paging.addDays(day, across),
+      ArrowUp: () => Paging.addDays(day, -7),
+      ArrowDown: () => Paging.addDays(day, 7),
+      Home: () => rowStart,
+      End: () => Paging.addDays(rowStart, 6),
+      PageUp: () => monthAway(-1),
+      PageDown: () => monthAway(1),
+    };
+    const target = Object.prototype.hasOwnProperty.call(moves, ev.key) ? moves[ev.key]() : null;
+
+    if (target === null && ev.key !== 'Enter' && ev.key !== ' ') return false;
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (target !== null) {
+      this._moveMonthFocus(target);
+    } else if (!ev.repeat) {
+      if (ev.key === ' ') this._spaceArmedOn = ev.target;
+      else this._activateMonthCell(timestamp, ev.target as HTMLElement);
+    }
+    return true;
+  }
+
+  /**
+   * What Enter and Space, or assistive technology's click, do on a month day's cell: open a wide
+   * month's day in its panel, or select a compact month's day.
+   *
+   * @param timestamp - The day's local midnight
+   * @param cell - Its cell, which focus comes back to
+   */
+  private _activateMonthCell(timestamp: number, cell: HTMLElement): void {
+    if (this._drawsCompactMonth) {
+      this._selectMonthDay(timestamp);
+    } else {
+      this._openDayPanel(new Date(timestamp), cell);
+    }
+  }
+
+  /** Whether the card reads right to left: the direction its `:dir(rtl)` rules follow too. */
+  private get _cardRightToLeft(): boolean {
+    const card = this.renderRoot?.querySelector('ha-card');
+    return card instanceof Element && getComputedStyle(card).direction === 'rtl';
+  }
+
+  /**
+   * Opens a wide month day's panel: the day's events as the day model lists them, through Home
+   * Assistant's dialog manager as the search panel is, beside what opened it, its "+N more" or
+   * its cell.
+   *
+   * The day's cell takes focus first, and becomes the month's tab stop, so focus comes back to
+   * it when the panel closes, as the search panel's magnifier does. A row pressed in the panel
+   * closes it and runs what a tap on the event runs on the card, once the panel has gone
+   * (`_activate`). A search's pick behind "+N more" rings its row there, and starts focus on it.
+   * Nothing opens while the card is being edited.
+   *
+   * @param day - The day, at local midnight
+   * @param anchor - What the panel opens beside: the day's "+N more" or its cell
+   * @param focusRinged - Whether focus starts on the row a search rings, rather than on Close
+   */
+  private _openDayPanel(day: Date, anchor: HTMLElement, focusRinged = false): void {
     if (this._isBeingEdited) {
       Logger.debug('Not opening a day panel while the card is being edited');
       return;
     }
     this._dayPanel?.close();
-    button.focus({ preventScroll: true });
+    this._monthFocusDay = FormatUtils.getLocalDateKey(day);
+    (this._monthCellFor(day) ?? anchor).focus({ preventScroll: true });
+    this.requestUpdate();
     const language = this.effectiveLanguage;
-    const at = originOf(button);
+    const at = originOf(anchor);
     const params: DayPanel.DayPanelParams = {
       source: {
-        rows: () =>
-          MonthRender.renderMonthDayRows(
-            MonthDay.monthDayEvents(
-              this._shownEvents,
-              this.effectiveConfig,
-              day,
-              this.effectiveLanguage,
-              this.hass,
-            ),
+        rows: () => {
+          const ring = this._searchRing;
+          const events = MonthDay.monthDayEvents(
+            this._shownEvents,
+            this.effectiveConfig,
+            day,
+            this.effectiveLanguage,
+            this.hass,
+          );
+          return MonthRender.renderMonthDayRows(
+            ring && ring.page === this._pageShown
+              ? Search.ringRows(events, ring.target).rows
+              : events,
             this.effectiveConfig,
             this.effectiveLanguage,
             this.safeHass,
             this._eventsActivatable,
             this.weatherForecasts,
-          ),
+          );
+        },
         styles: () => this.getCustomStyles(),
         attach: (panel) => {
           this._dayPanel = panel;
@@ -3673,9 +3893,10 @@ class CalendarCardPro extends LitElement {
         activate: (target, origin) => this._activate({ event: target }, origin),
       },
       title: MonthRender.monthDayTitle(day, language),
-      anchor: at && { ...at, rect: at.rect ?? button.getBoundingClientRect() },
+      anchor: at && { ...at, rect: at.rect ?? anchor.getBoundingClientRect() },
       dark: this._panelsDark(),
       language,
+      focusRinged,
     };
     const showDialog = new Event('show-dialog', { bubbles: true, composed: true });
     (showDialog as Event & { detail?: unknown }).detail = {
@@ -4478,6 +4699,7 @@ class CalendarCardPro extends LitElement {
     this._handFocusToMenu();
     this._syncStartFoldFit();
     this._syncSearchRing();
+    this._syncMonthFocus();
     Legend.markShortenedChips(this.renderRoot);
     Menu.repositionMenus(this.renderRoot);
     Toolbar.paintSelectedView(this.renderRoot);
@@ -5381,6 +5603,7 @@ class CalendarCardPro extends LitElement {
       Boolean(onLink || tapTarget || dayHit || monthPick),
     );
     const swipeable = this._swipeStartsAt(ev);
+    const weekScroll = this._weekScrollStartsAt(ev, path);
     const draftFrom = this._draftAnchorFor(dayHit);
     const moveFrom = press?.lifts ? this._moveFrom(ev, tapTarget, press.path) : undefined;
     // A press where a new event may be drawn has a hold of its own, which draws one, and so does
@@ -5389,11 +5612,18 @@ class CalendarCardPro extends LitElement {
       !onLink &&
       (draftFrom !== undefined || moveFrom !== undefined || this._holdRunsFor(tapTarget));
     // A press arms only when it could end in something: the card's own tap or hold, the
-    // event's own, the day under it, or a swipe. Any other press is left wholly to the browser.
+    // event's own, the day under it, a swipe, or a month's weeks scrolled. Any other press is
+    // left wholly to the browser.
     if (
       onLink
-        ? !swipeable
-        : !this._hasTapAction && !holds && !tapTarget && !dayHit && !monthPick && !swipeable
+        ? !swipeable && !weekScroll
+        : !this._hasTapAction &&
+          !holds &&
+          !tapTarget &&
+          !dayHit &&
+          !monthPick &&
+          !swipeable &&
+          !weekScroll
     ) {
       return;
     }
@@ -5412,6 +5642,7 @@ class CalendarCardPro extends LitElement {
     this._pointerDayAdd = onLink ? null : (this._dayAddAt(ev, path)?.element ?? null);
     this._pointerHandedTo = press?.handedTo ?? null;
     this._pointerSwipeable = swipeable;
+    this._pointerWeekScroll = weekScroll ? { stepped: 0, pitch: this._weekScrollPitch() } : null;
     this._pointerOnLink = onLink;
     this._pointerDraftFrom = draftFrom ?? null;
     this._move = moveFrom ?? null;
@@ -6567,6 +6798,7 @@ class CalendarCardPro extends LitElement {
       }
     }
 
+    if (this._pointerWeekScroll) this._followWeekScroll(deltaX, deltaY);
     if (this._pointerSwipeable) this._nudgeSwipe(deltaX, deltaY);
   }
 
@@ -6670,7 +6902,8 @@ class CalendarCardPro extends LitElement {
         Actions.handleAction(this, this.config, 'tap', actions, this._shownEntries);
         ranOffEvents = true;
       }
-    } else if (this._pointerSwipeable) {
+    } else if (this._pointerSwipeable && !this._pointerWeekScroll?.stepped) {
+      // A gesture that stepped a month's weeks was a vertical one, and pages nothing sideways.
       const start = this._pointerStart;
       if (start) this._swipeEnded(ev.clientX - start.x, ev.clientY - start.y);
     }
@@ -6745,6 +6978,7 @@ class CalendarCardPro extends LitElement {
     this._pointerDayAdd = null;
     this._pointerHandedTo = null;
     this._pointerSwipeable = false;
+    this._pointerWeekScroll = null;
     this._pointerOnLink = false;
     this._pointerDraftFrom = null;
     this._liftingTouch = false;
@@ -6847,9 +7081,7 @@ class CalendarCardPro extends LitElement {
     if (across < Constants.UI.SWIPE_MIN_DISTANCE) return 0;
     if (across < Constants.UI.SWIPE_MIN_SLOPE_RATIO * Math.abs(deltaY)) return 0;
 
-    const card = this.renderRoot?.querySelector('ha-card');
-    const rightToLeft = card instanceof Element && getComputedStyle(card).direction === 'rtl';
-    return deltaX < 0 !== rightToLeft ? 1 : -1;
+    return deltaX < 0 !== this._cardRightToLeft ? 1 : -1;
   }
 
   /**
@@ -6946,6 +7178,123 @@ class CalendarCardPro extends LitElement {
     this._swipeMotion = motion;
   }
 
+  //-----------------------------------------------------------------------------
+  // WEEK SCROLL
+  //-----------------------------------------------------------------------------
+
+  /**
+   * Whether `month → week_scroll` steps a month's rows by whole weeks now: on the wide form only,
+   * never the compact one a phone draws, on a card at least `week_scroll_min_width` wide, and not
+   * while Home Assistant edits it. Only then does the card take the wheel and a vertical finger
+   * from the page.
+   */
+  private get _weekScrollApplies(): boolean {
+    if (this.effectiveView !== 'month' || this._monthCompact || this._isBeingEdited) return false;
+    if (!ViewConfig.resolveMonthOption(this.config, 'week_scroll')) return false;
+    const minWidth = ViewConfig.resolveMonthOption(this.config, 'week_scroll_min_width');
+    return minWidth <= 0 || (this._monthWidthPx !== null && this._monthWidthPx >= minWidth);
+  }
+
+  /**
+   * Steps a month's rows by whole weeks, from the page asked for, so steps taken while a page
+   * loads add up: through the date navigation's own path, which goes home where the rows land on
+   * home's, and loads the month-sized piece the rows belong to (`ViewConfig.monthScrollPiece`).
+   *
+   * @param weeks - Weeks forward, or back where negative
+   */
+  private _scrollWeeks(weeks: number): void {
+    if (weeks === 0) return;
+    const from = this._pageRange(this._pageRequested).start;
+    Logger.debug(`Week scroll: ${weeks > 0 ? '+' : ''}${weeks}`);
+    this._goToPage(Paging.addDays(from, weeks * 7));
+  }
+
+  /**
+   * The wheel on a month's weeks while `week_scroll` applies: a week for every
+   * `WEEK_SCROLL_WHEEL_STEP` of vertical scroll, added up across events, a wheel that reports
+   * lines counted at `WEEK_SCROLL_WHEEL_LINE` a line. What falls short of a week is let go after
+   * `WEEK_SCROLL_WHEEL_RESET` at rest or a turn of direction. The page keeps a wheel turned
+   * mostly sideways, one with Ctrl, which is a trackpad's pinch, and every wheel once the scroll
+   * no longer applies; only the wheel the card takes is kept from it.
+   *
+   * @param ev - A wheel event on the weeks
+   */
+  private _wheelWeeks(ev: WheelEvent): void {
+    if (!this._weekScrollApplies || ev.ctrlKey) return;
+    if (Math.abs(ev.deltaY) <= Math.abs(ev.deltaX)) return;
+    ev.preventDefault();
+
+    const step = Constants.UI.WEEK_SCROLL_WHEEL_STEP;
+    const unit =
+      ev.deltaMode === 1 ? Constants.UI.WEEK_SCROLL_WHEEL_LINE : ev.deltaMode === 2 ? step : 1;
+    const delta = ev.deltaY * unit;
+    const now = Date.now();
+    const travel = this._wheelTravel;
+    if (
+      now - travel.at > Constants.TIMING.WEEK_SCROLL_WHEEL_RESET ||
+      Math.sign(delta) !== Math.sign(travel.delta)
+    ) {
+      travel.delta = 0;
+    }
+    travel.at = now;
+    travel.delta += delta;
+    // A hair of give, so three lines of a third of a step each make a step.
+    const weeks = Math.trunc(travel.delta / step + Math.sign(travel.delta) * 1e-9);
+    if (weeks === 0) return;
+    travel.delta -= weeks * step;
+    this._scrollWeeks(weeks);
+  }
+
+  /**
+   * Whether a press may step a month's weeks as its finger moves up or down: a touch or a pen, on
+   * the weeks, while `week_scroll` applies. A mouse has the wheel.
+   *
+   * @param ev - The pointer-down
+   * @param path - The path the press is read from (`_pressPath`)
+   * @returns Whether the gesture it starts may scroll the weeks
+   */
+  private _weekScrollStartsAt(
+    ev: PointerEvent,
+    path: ReadonlyArray<EventTarget> | undefined,
+  ): boolean {
+    if (ev.pointerType !== 'touch' && ev.pointerType !== 'pen') return false;
+    if (!this._weekScrollApplies || !path) return false;
+    return path.some(
+      (node) => node instanceof Element && node.classList.contains('month-container'),
+    );
+  }
+
+  /** How far a finger travels for a month to step one week: a row's height, as drawn. */
+  private _weekScrollPitch(): number {
+    const row = this.renderRoot.querySelector<HTMLElement>('.month-container .month-week');
+    const height = row?.getBoundingClientRect().height ?? 0;
+    return height > 0 ? height : Constants.UI.WEEK_SCROLL_TOUCH_STEP;
+  }
+
+  /**
+   * Steps a month's weeks with a finger moving mostly up or down: a week once it has gone
+   * `SWIPE_MIN_DISTANCE`, and another for each row's height after that, later weeks for a finger
+   * moving up, as a page scrolls. Back where it turns back. Sideways travel steps nothing, and
+   * may still page a month at its end (`_swipeEnded`).
+   *
+   * @param deltaX - Horizontal travel from pointer-down, positive to the right
+   * @param deltaY - Vertical travel, positive downward
+   */
+  private _followWeekScroll(deltaX: number, deltaY: number): void {
+    const scroll = this._pointerWeekScroll;
+    if (!scroll || Math.abs(deltaY) <= Math.abs(deltaX)) return;
+    const travel = Math.abs(deltaY);
+    const steps =
+      travel < Constants.UI.SWIPE_MIN_DISTANCE
+        ? 0
+        : 1 + Math.floor((travel - Constants.UI.SWIPE_MIN_DISTANCE) / scroll.pitch);
+    const weeks = deltaY < 0 ? steps : -steps;
+    if (weeks === scroll.stepped) return;
+    const by = weeks - scroll.stepped;
+    scroll.stepped = weeks;
+    this._scrollWeeks(by);
+  }
+
   /**
    * Slides in the page a swipe asked for, from the side the finger came from, once its days
    * are drawn: at once for a page already loaded, after its events arrive for one that is not.
@@ -7001,6 +7350,7 @@ class CalendarCardPro extends LitElement {
    */
   private _handleKeyDown(ev: KeyboardEvent) {
     if (this._handleEventKeyDown(ev)) return;
+    if (this._handleMonthKeyDown(ev)) return;
     if (ev.currentTarget != null && ev.target !== ev.currentTarget) return;
 
     if (ev.key === 'Enter' || ev.key === ' ') {
@@ -7085,7 +7435,8 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Space's keyup on the event or day's add button its keydown armed activates it.
+   * Space's keyup on the event, day's add button or month day's cell its keydown armed activates
+   * it.
    *
    * @param ev - A keyup bubbling to `ha-card`
    */
@@ -7093,6 +7444,15 @@ class CalendarCardPro extends LitElement {
     if (ev.key !== ' ') return;
     const armed = this._spaceArmedOn;
     this._spaceArmedOn = null;
+
+    const cell = this.effectiveView === 'month' ? Activation.monthCellOn(ev.target) : undefined;
+    if (cell !== undefined) {
+      if (armed === null || armed !== ev.target) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      this._activateMonthCell(cell, ev.target as HTMLElement);
+      return;
+    }
 
     const target = this._keyTargetOn(ev.target);
     if (!target || armed === null || armed !== ev.target) return;
@@ -7119,10 +7479,16 @@ class CalendarCardPro extends LitElement {
     const eventHit = this._eventTapAt(ev);
     const dayHit = eventHit ? undefined : this._dayAddAt(ev);
     const pickHit = eventHit || dayHit ? undefined : this._monthPickAt(ev, this._pathOf(ev));
+    // A wide month day's cell, clicked by assistive technology alone, which says so with a click
+    // of no count: a pointer's press on its empty space is the day's (`day_tap_action`), decided
+    // at pointer-up, and never opens its panel.
+    const cellHit =
+      eventHit || dayHit || pickHit || ev.detail !== 0 ? undefined : this._wideMonthCellAt(ev);
     const owed = this._derivedClick;
     if (owed && Date.now() > owed.deadline) this._derivedClick = null;
 
-    const element = eventHit?.element ?? dayHit?.element ?? pickHit?.element ?? null;
+    const element =
+      eventHit?.element ?? dayHit?.element ?? pickHit?.element ?? cellHit?.element ?? null;
     if (this._derivedClick && (element === null || element === this._derivedClick.element)) {
       this._derivedClick = null;
       if (element) ev.stopPropagation();
@@ -7137,7 +7503,26 @@ class CalendarCardPro extends LitElement {
       this._activate({ day: dayHit.timestamp }, originOf(dayHit.element));
     } else if (pickHit) {
       this._selectMonthDay(pickHit.timestamp);
+    } else if (cellHit) {
+      this._activateMonthCell(cellHit.timestamp, cellHit.element);
     }
+  }
+
+  /**
+   * The wide month day's cell a click names itself, rather than anything drawn on it.
+   *
+   * @param ev - A click bubbling to `ha-card`
+   * @returns The cell and its day, or undefined
+   */
+  private _wideMonthCellAt(
+    ev: MouseEvent,
+  ): { element: HTMLElement; timestamp: number } | undefined {
+    if (this.effectiveView !== 'month' || this._monthCompact || this._isBeingEdited) return;
+    const target = ev.composedPath()[0];
+    const timestamp = Activation.monthCellOn(target);
+    return timestamp === undefined || !(target instanceof HTMLElement)
+      ? undefined
+      : { element: target, timestamp };
   }
 
   //-----------------------------------------------------------------------------
@@ -8005,9 +8390,10 @@ class CalendarCardPro extends LitElement {
       }
 
       if (this.effectiveView === 'month') {
+        const rowsStart = this._monthRowsStart(this._pageShown);
         return Render.renderMonthGroupedEvents(
           days,
-          this._monthRowsStart(this._pageShown),
+          rowsStart,
           this.effectiveConfig,
           this.effectiveLanguage,
           this._monthCapacity,
@@ -8016,6 +8402,8 @@ class CalendarCardPro extends LitElement {
           {
             more: (day, button) => this._openDayPanel(day, button),
             compact: monthCompact,
+            focusDay: this._monthTabStop(rowsStart),
+            weekScroll: this._weekScrollApplies ? this._weekScrollWheel : undefined,
           },
         );
       }
@@ -8056,29 +8444,32 @@ class CalendarCardPro extends LitElement {
       // an eventless card still fills from here — with empty day columns in column view
       // and a full empty time axis in grid.
       const ring = this._searchRing;
-      const ringed = Search.ringIn(
-        shownDays(this.groupedEvents),
-        ring && this._pageShown === ring.page ? ring.target : null,
-      );
+      const ringTarget = ring && this._pageShown === ring.page ? ring.target : null;
+      const ringed = Search.ringIn(shownDays(this.groupedEvents), ringTarget);
       this._searchRingDrawn = ringed.found;
+      this._searchRingBehindMore = null;
       const days = ringed.days;
       const month = this.effectiveView === 'month';
       const rowsStart = month ? this._monthRowsStart(this._pageShown) : undefined;
-      monthCompact = rowsStart && this._monthCompactView(rowsStart);
-      content = renderDays(days);
-      if (monthCompact) {
-        // A compact month's days are targets of their own, which a tap selects.
-        drawsEventTarget = true;
-      } else {
-        // A wide month draws no day's add button, and its "+N more" is a control of its own.
-        drawsEventTarget =
-          (dayAdd !== undefined && days.length > 0 && !month) ||
-          (this._eventsActivatable &&
-            Render.drawsEvent(this.effectiveView, days, this.effectiveConfig)) ||
-          Render.drawsLink(this.effectiveView, days, this.effectiveConfig) ||
-          (rowsStart !== undefined &&
-            MonthRender.monthDrawsMore(days, rowsStart, this._monthCapacity));
+      const compactView = rowsStart && this._monthCompactView(rowsStart, ringTarget);
+      monthCompact = compactView ? compactView.compact : undefined;
+      // A month decides where a pick's ring is drawn once it knows what it discloses: a compact
+      // month in the selected day's list alone, a wide one in its weeks where it draws the event
+      // as a bar or a line, else in its day's panel (`_syncSearchRing`).
+      if (compactView) {
+        this._searchRingDrawn = compactView.ringed;
+      } else if (rowsStart && ring && ringed.found) {
+        this._searchRingDrawn = MonthRender.monthDrawsRing(days, rowsStart, this._monthCapacity);
+        if (!this._searchRingDrawn) this._searchRingBehindMore = Paging.pageStart(ring.day);
       }
+      content = renderDays(days);
+      // A month's day cells are controls of their own, the grid's cells, in either form.
+      drawsEventTarget =
+        month ||
+        (dayAdd !== undefined && days.length > 0) ||
+        (this._eventsActivatable &&
+          Render.drawsEvent(this.effectiveView, days, this.effectiveConfig)) ||
+        Render.drawsLink(this.effectiveView, days, this.effectiveConfig);
     }
 
     const toolbar = this._headerToolbar();
@@ -8761,9 +9152,11 @@ class CalendarCardPro extends LitElement {
    */
   private _pressHome(): void {
     const away = this._pageRequested !== null;
-    // Home lists today on a compact month, whichever day was selected, on home's page or not.
-    if (this._monthSelection !== null && !this._isBeingEdited) {
+    // Home lists today on a compact month, whichever day was selected, on home's page or not,
+    // and puts a month's tab stop back on its own day.
+    if ((this._monthSelection !== null || this._monthFocusDay !== null) && !this._isBeingEdited) {
       this._monthSelection = null;
+      this._monthFocusDay = null;
       this.requestUpdate();
     }
     this._goToPage(null);
@@ -8865,8 +9258,12 @@ class CalendarCardPro extends LitElement {
    */
   private _requestPage(page: string | null): void {
     this._pageRequested = page;
-    // Another page lists its own day.
+    // Another page lists its own day, and keeps a month's tab stop on it. A key or a pick that
+    // moves a month's focus onto it says so once this returns (`_moveMonthFocus`,
+    // `_pickSearchResult`); a page asked for any other way does not.
     if (this._monthSelection && this._monthSelection.page !== page) this._monthSelection = null;
+    this._monthFocusDay = null;
+    this._monthFocusPending = false;
     // A page asked for any way at all ends the slide a swipe's page was waiting for. A swipe
     // asks through here as well, and records its arrival only once this returns.
     this._swipeArrival = null;
@@ -9127,12 +9524,29 @@ class CalendarCardPro extends LitElement {
    * with home's, in the view on screen, and rings the event once that page draws it. Home brings
    * the card back, as after any jump.
    *
+   * A month pages to the result's month, selects its day where it is compact, and puts its tab
+   * stop on the day either way; where its ring is drawn is decided once the page shows what it
+   * discloses (`render`, `_syncSearchRing`).
+   *
    * @param row - The result picked
    */
   private _pickSearchResult(row: Search.SearchRow): void {
     this._settleSearchRing();
     this._pickDate(row.day);
-    this._searchRing = { target: row.target, page: this._pageRequested, focus: true };
+    if (this.effectiveView === 'month' && !this._isBeingEdited) {
+      // After the page, which lets go of a selection made on another.
+      this._monthSelection = MonthDay.monthSelectionOf(
+        Paging.pageStart(row.day),
+        this._pageRequested,
+      );
+      this._monthFocusDay = row.day;
+    }
+    this._searchRing = {
+      target: row.target,
+      page: this._pageRequested,
+      day: row.day,
+      focus: true,
+    };
     Logger.debug(`Search: paging to ${row.day} to ring a result`);
     this.requestUpdate();
   }
@@ -9156,19 +9570,28 @@ class CalendarCardPro extends LitElement {
    * it once the panel has gone where it is a target; where the page cannot draw it, a compact
    * card's limit or a column the width sheds, the card was paged all the same and there is
    * nothing to ring, so focus stays on the magnifier. Called after every update.
+   *
+   * A wide month that draws the event only in a day's "+N more" opens that day's panel, ringing
+   * the event's row there and starting focus on it, once the search panel has gone and Home
+   * Assistant has put focus back where it was: opened sooner, that would take focus from it.
    */
   private _syncSearchRing(): void {
     const ring = this._searchRing;
     if (!ring) return;
 
     if (ring.until === undefined) {
+      const behindMore = this._searchRingBehindMore;
       if (this._searchRingDrawn) {
-        ring.until = Date.now() + Constants.TIMING.SEARCH_RING;
-        clearTimeout(this._searchRingTimer);
-        this._searchRingTimer = setTimeout(
-          () => this._settleSearchRing(),
-          Constants.TIMING.SEARCH_RING,
-        );
+        this._startSearchRing(ring);
+      } else if (behindMore) {
+        if (!this._searchPanelGone) return;
+        this._startSearchRing(ring);
+        const focus = ring.focus;
+        ring.focus = false;
+        const cell = this._monthCellFor(behindMore);
+        if (cell) this._openDayPanel(behindMore, cell, focus);
+        Logger.debug('Search: the pick is behind "+N more"; ringing it in its day\'s panel');
+        return;
       } else if (this._pageShown === ring.page && !this.isLoading && !this.isInitialLoad) {
         Logger.debug('Search: the page does not draw the result picked; nothing to ring');
         this._searchRing = null;
@@ -9178,6 +9601,11 @@ class CalendarCardPro extends LitElement {
 
     if (ring.focus && ring.until !== undefined && this._searchPanelGone) {
       ring.focus = false;
+      // A month's tab stop goes to the day as well, so the keyboard carries on from there.
+      if (this.effectiveView === 'month') {
+        this._monthFocusDay = ring.day;
+        this.requestUpdate();
+      }
       const ringed = this.renderRoot.querySelector<HTMLElement>('.search-ring');
       const target = ringed?.matches(FOCUSABLE_EVENT)
         ? ringed
@@ -9185,6 +9613,20 @@ class CalendarCardPro extends LitElement {
       target?.focus({ preventScroll: true });
       ringed?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
     }
+  }
+
+  /**
+   * Starts the ring's time: it shows for `SEARCH_RING` from now, then settles.
+   *
+   * @param ring - The ring
+   */
+  private _startSearchRing(ring: { until?: number }): void {
+    ring.until = Date.now() + Constants.TIMING.SEARCH_RING;
+    clearTimeout(this._searchRingTimer);
+    this._searchRingTimer = setTimeout(
+      () => this._settleSearchRing(),
+      Constants.TIMING.SEARCH_RING,
+    );
   }
 
   /** Ends a ring wherever it stands: at its end, at another pick, and on disconnect. */
@@ -10188,6 +10630,7 @@ class CalendarCardPro extends LitElement {
 
     this.isExpanded = false;
     this._monthSelection = null;
+    this._monthFocusDay = null;
     this._goToPage(null);
     // The check belongs to the button; a card reset by its action alone has none to show it.
     if (this._wantsReset) this._confirmReset();

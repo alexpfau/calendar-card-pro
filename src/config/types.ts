@@ -1640,6 +1640,15 @@ export interface Translations {
    * where their number goes: "+{count} more", "+2 more".
    */
   moreEvents: string;
+  /**
+   * How many events a month day holds, as its cell is named for assistive technology, with
+   * `{count}` where the number goes: `eventCountOne` for the numbers the language's plural rules
+   * call "one" ("{count} event"), `eventCount` for every other ("{count} events"). A language
+   * whose other numbers need more than one form writes one that reads for all of them, as Polish
+   * does with "Wydarzenia: {count}". A day without events reads `noEvents`.
+   */
+  eventCount: string;
+  eventCountOne: string;
   /** The calendar filter's menu: the buttons that show every calendar it lists, or hide them. */
   showAll: string;
   hideAll: string;

@@ -542,6 +542,28 @@ export function isRingTarget(event: Types.CalendarEventData, target: RingTarget)
 }
 
 /**
+ * A day's list with the picked event marked to be rung (`_searchRing`), on a copy of its row, and
+ * whether it holds it: for a month day's list, which is drawn from the day model rather than
+ * from a grouping. The list itself where it does not.
+ *
+ * @param events - The day's events
+ * @param target - The pick
+ * @returns The rows to draw, and whether the pick is among them
+ */
+export function ringRows(
+  events: ReadonlyArray<Types.CalendarEventData>,
+  target: RingTarget,
+): { rows: ReadonlyArray<Types.CalendarEventData>; found: boolean } {
+  if (!events.some((event) => isRingTarget(event, target))) return { rows: events, found: false };
+  return {
+    rows: events.map((event) =>
+      isRingTarget(event, target) ? { ...event, _searchRing: true } : event,
+    ),
+    found: true,
+  };
+}
+
+/**
  * A grouping with the picked event marked to be rung (`_searchRing`), on a copy of each of its
  * rows, and whether any was. The grouping itself where nothing is picked, so nothing about a
  * card no search touched changes.

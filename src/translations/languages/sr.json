@@ -11,6 +11,8 @@
   "viewGrid": "Мрежа",
   "viewMonth": "Месец",
   "moreEvents": "+{count} још",
+  "eventCount": "{count} догађаја",
+  "eventCountOne": "{count} догађај",
   "endsToday": "завршава се данас",
   "endsTomorrow": "завршава се сутра",
   "dayOfEvent": "Дан {day} од {days}",

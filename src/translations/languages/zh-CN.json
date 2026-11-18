@@ -24,6 +24,8 @@
   "viewGrid": "网格",
   "viewMonth": "月",
   "moreEvents": "还有 {count} 项",
+  "eventCount": "{count} 项活动",
+  "eventCountOne": "{count} 项活动",
   "endsToday": "今天 {at} 结束",
   "endsTomorrow": "明天 {at} 结束",
   "dayOfEvent": "第{day}天，共{days}天",

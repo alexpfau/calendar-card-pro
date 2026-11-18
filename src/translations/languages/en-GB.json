@@ -11,6 +11,8 @@
   "viewGrid": "Grid",
   "viewMonth": "Month",
   "moreEvents": "+{count} more",
+  "eventCount": "{count} events",
+  "eventCountOne": "{count} event",
   "endsToday": "ends today",
   "endsTomorrow": "ends tomorrow",
   "dayOfEvent": "Day {day} of {days}",

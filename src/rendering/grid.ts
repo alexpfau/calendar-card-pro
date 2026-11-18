@@ -1224,7 +1224,9 @@ function renderOverflow(
  *   which describes a tappable banner
  * @param layout - Where its columns start and the class it adds, for a view that draws the
  *   banner in a grid of its own: Grid's first day column is its second, after the hour axis,
- *   and Month's is its first, with `month-bar`
+ *   and Month's is its first, with `month-bar`. Month also gives it an id, which its day's cell
+ *   owns it by, and takes a tappable banner out of the Tab order (`tabIndex: '-1'`), since its
+ *   day's panel is the keyboard's way to it
  * @returns Rendered banner
  */
 export function renderBanner(
@@ -1236,7 +1238,9 @@ export function renderBanner(
   hass?: Types.Hass | null,
   eventsTappable = false,
   dayLabelId?: string,
-  layout: { firstColumn: number; className?: string } = { firstColumn: 2 },
+  layout: { firstColumn: number; className?: string; id?: string; tabIndex?: string } = {
+    firstColumn: 2,
+  },
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
@@ -1274,8 +1278,9 @@ export function renderBanner(
         ...presentation.accentTextProperties,
         ...presentation.textScaleProperties,
       })}
+      id=${layout.id ?? nothing}
       role=${tap ? 'button' : nothing}
-      tabindex=${tap ? '0' : nothing}
+      tabindex=${tap ? (layout.tabIndex ?? '0') : nothing}
       aria-describedby=${tap && dayLabelId ? dayLabelId : nothing}
       .calendarCardEventTap=${tap}
       .calendarCardDaySlot=${Activation.COVERED}

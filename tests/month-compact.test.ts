@@ -818,13 +818,18 @@ describe('the day panel', () => {
     expect(rows(panel)).toEqual(['Standup', 'Review', 'Lunch with Ben', 'Planning', 'Gym']);
   });
 
-  it('gives focus back to its "+N more" once it closes', async () => {
+  it('gives focus back to its day’s cell, the month’s tab stop, once it closes', async () => {
     const { card, panel } = await open();
-    const button = more(card);
+    // "+N more" is out of the Tab order, so focus comes back to the cell Enter opens it from.
+    const cell = root(card).querySelector<HTMLElement>(
+      '.month-day[aria-label^="Tuesday, November 10, 2026"]',
+    )!;
+    expect(more(card).getAttribute('tabindex')).toBe('-1');
     panel!.closeDialog();
     await afterClose(card);
     expect(isOpen(panel)).toBe(false);
-    expect(deepActive()).toBe(button);
+    expect(deepActive()).toBe(cell);
+    expect(cell.getAttribute('tabindex')).toBe('0');
   });
 
   it('closes on a row, and runs what a tap on the event runs on the card', async () => {

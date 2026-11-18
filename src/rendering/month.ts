@@ -66,12 +66,23 @@ export const MONTH_PROBE_CLASS = 'month-probe';
 /** What the card hands a month beyond its days, for what it opens and how narrow it is. */
 export interface MonthOptions {
   /**
-   * Opens a day's panel from its "+N more", given the day and the button, which focus goes back
-   * to once the panel closes.
+   * Opens a day's panel from its "+N more", given the day and the button it opens beside.
    */
   readonly more?: (day: Date, button: HTMLElement) => void;
   /** Draws the compact form, with the selected day's list under the weeks. */
   readonly compact?: MonthCompact;
+  /**
+   * The day whose cell is the month's one tab stop (`tabindex="0"`), every other cell `-1`: the
+   * keyboard's day, else the day selected, else today or the header month's 1st, as the card
+   * decides (`_monthTabStop`). The header month's 1st where none is handed.
+   */
+  readonly focusDay?: Date;
+  /**
+   * The wheel's listener while `week_scroll` applies, bound to the weeks, which are then marked
+   * `week-scroll` so they claim a vertical pan as well. Not passive, as it takes the wheel from
+   * the page; bound only then, so a month without it costs a scroll nothing.
+   */
+  readonly weekScroll?: EventListenerObject & AddEventListenerOptions;
 }
 
 /** What a compact month draws besides its weeks. */
@@ -133,21 +144,24 @@ export function monthWeeks(
 }
 
 /**
- * Whether a month page draws at least one "+N more": a control of its own, which the card
- * counts among those it hosts.
+ * Whether a wide month page draws an event a search rang (`_searchRing`) as a bar or a line of
+ * its own, rather than only counting it in a "+N more": what decides whether the ring is drawn
+ * in the weeks or in the day's panel.
  *
- * @param days - Grouped days
+ * @param days - Grouped days, the rung event's copies marked
  * @param rowsStart - The first row's first day
  * @param capacity - Lines that fit under a date
- * @returns True where a day has more events than room
+ * @returns True where a rung event is drawn
  */
-export function monthDrawsMore(
+export function monthDrawsRing(
   days: ReadonlyArray<Types.EventsByDay>,
   rowsStart: Date,
   capacity: number,
 ): boolean {
   return monthWeeks(days, rowsStart, capacity).some((week) =>
-    week.layout.days.some((day) => day.more),
+    week.layout.placements.some(
+      (placement) => placement.visible && placement.item.event._searchRing === true,
+    ),
   );
 }
 
@@ -158,6 +172,34 @@ export function monthDrawsMore(
 const firstOfMonthFormats = intlCache<string, Intl.DateTimeFormat | null>();
 const dayNameFormats = intlCache<string, Intl.DateTimeFormat>();
 const fullDateFormats = intlCache<string, Intl.DateTimeFormat>();
+const pluralRules = intlCache<string, Intl.PluralRules | null>();
+const weekdayFormats = intlCache<string, Intl.DateTimeFormat | null>();
+
+/**
+ * A weekday named in full, as a column's header is named for assistive technology: "Tuesday".
+ * From `Intl`, since the card's own full names are written for the middle of a sentence; its
+ * short name where the browser has no data for the language.
+ *
+ * @param date - A day of the column
+ * @param language - Card language
+ * @returns The name
+ */
+function weekdayName(date: Date, language: string): string {
+  let format = weekdayFormats.get(language);
+  if (format === undefined) {
+    try {
+      format = intlSpeaks(Intl.DateTimeFormat, language)
+        ? new Intl.DateTimeFormat(intlLocales(language), { weekday: 'long' })
+        : null;
+    } catch {
+      format = null;
+    }
+    weekdayFormats.set(language, format);
+  }
+  return format
+    ? format.format(date)
+    : Localize.getTranslations(language).daysOfWeek[date.getDay()];
+}
 
 /**
  * The parts of a month's first day as a cell names it, in the language's order: its number and
@@ -224,6 +266,66 @@ function dayName(date: Date, language: string): string {
 }
 
 /**
+ * How many events a day holds, in words: "5 events", "1 event", or the card's "No events".
+ *
+ * The language's own plural rules choose between the two forms, `eventCountOne` for the numbers
+ * its "one" covers (1 in English, also 21 in Russian) and `eventCount` for the rest, so a
+ * language whose other numbers need more forms than one writes a form that reads for all of
+ * them. Where the browser has no rules for the language, "one" is 1 alone.
+ *
+ * @param count - Events the day holds
+ * @param language - Card language
+ * @returns The words
+ */
+export function eventCountText(count: number, language: string): string {
+  const translations = Localize.getTranslations(language);
+  if (count === 0) return translations.noEvents;
+  let rules = pluralRules.get(language);
+  if (rules === undefined) {
+    try {
+      rules = intlSpeaks(Intl.PluralRules, language)
+        ? new Intl.PluralRules(intlLocales(language))
+        : null;
+    } catch {
+      rules = null;
+    }
+    pluralRules.set(language, rules);
+  }
+  const one = rules ? rules.select(count) === 'one' : count === 1;
+  return (one ? translations.eventCountOne : translations.eventCount).replace('{count}', () =>
+    String(count),
+  );
+}
+
+/**
+ * A month day's cell as assistive technology names it: the day in full and what it holds,
+ * "Tuesday, November 10, 2026, 5 events". Today is said by `aria-current`, and a compact form's
+ * selection by `aria-selected`, so neither is in the name.
+ *
+ * @param date - The day
+ * @param count - Events it holds
+ * @param language - Card language
+ * @returns The name
+ */
+export function monthCellName(date: Date, count: number, language: string): string {
+  return `${monthDayTitle(date, language)}${Localize.getTranslations(language).separator}${eventCountText(count, language)}`;
+}
+
+/**
+ * The id a wide month gives a bar, a line or a "+N more" drawn on a day, so the day's cell can
+ * own it (`aria-owns`): by the day it starts on and its line, which no two items of a row share,
+ * or `more` for the day's "+N more". Unique within the card's shadow root, where an `aria-owns`
+ * reference resolves.
+ *
+ * @param date - The day it starts on
+ * @param line - Its line under the date, from 0, or `more`
+ * @returns The id
+ */
+export function monthItemId(date: Date, line: number | 'more'): string {
+  return `month-item-${FormatUtils.getLocalDateKey(date)}-${line}`;
+}
+
+/**
  * A day named in full with its year, as a day's list is titled: "Wednesday, November 18, 2026".
  *
  * @param date - The day
@@ -257,11 +359,17 @@ export function monthDayTitle(date: Date, language: string): string {
  * runs `day_tap_action`; the date lets a press through to it, and the bars, lines and "+N" drawn
  * over it cover it.
  *
+ * The cell is also the month's grid cell for the keyboard and assistive technology: named for its
+ * day and how many events it holds, the month's tab stop where it is `focused`, and the owner of
+ * the bars, lines and "+N more" starting on it (`aria-owns`), which are drawn beside it rather
+ * than in it. The date it names is hidden, so the row holds cells alone.
+ *
  * @param date - The day's local midnight
  * @param column - Its column, from 0
  * @param headerMonth - The 1st of the month the header names; other months' days are dimmed
  * @param config - Card configuration, resolved for month
  * @param language - Card language
+ * @param cell - Its events counted, whether it is the tab stop, and the ids of what it owns
  * @param hass - Home Assistant, whose country or language decides the weekend
  * @param dayLabelId - The date's id, given while the day's events are tap targets
  * @returns The cell and the date
@@ -272,6 +380,7 @@ function renderDay(
   headerMonth: Date,
   config: Types.Config,
   language: string,
+  cell: { count: number; focused: boolean; owns: readonly string[] },
   hass?: Types.Hass | null,
   dayLabelId?: string,
 ): TemplateResult {
@@ -316,10 +425,20 @@ function renderDay(
         weekend: isWeekendDay,
       })}
       style=${styleMap({ gridColumn })}
+      role="gridcell"
+      tabindex=${cell.focused ? '0' : '-1'}
+      aria-label=${monthCellName(date, cell.count, language)}
+      aria-owns=${cell.owns.length > 0 ? cell.owns.join(' ') : nothing}
       aria-current=${isToday ? 'date' : nothing}
       .calendarCardDaySlot=${Activation.daySlot(date.getTime())}
+      .calendarCardMonthCell=${date.getTime()}
     ></div>
-    <div class="month-date" id=${dayLabelId ?? nothing} style=${styleMap({ gridColumn })}>
+    <div
+      class="month-date"
+      id=${dayLabelId ?? nothing}
+      style=${styleMap({ gridColumn })}
+      aria-hidden="true"
+    >
       ${parts}
     </div>
   `;
@@ -391,10 +510,15 @@ function lineTime(
  * One timed event on one day: Column's row trimmed to a line, its accent bar, its title cut to
  * the line, and its start time at the line's end in the time's size and color.
  *
+ * A tappable line is a button for a pointer and for assistive technology, which finds it in its
+ * day's cell, but no tab stop: the day's panel is the keyboard's way to it, so a busy month adds
+ * no stops of its own.
+ *
  * @param item - The line
  * @param line - The line it takes under the date, from 0
  * @param config - Card configuration, resolved for month
  * @param language - Card language
+ * @param id - Its id, which its day's cell owns it by
  * @param hass - Home Assistant instance
  * @param eventsTappable - Whether the line is a tap target of its own
  * @param dayLabelId - The id of its day's date, which describes a tappable line
@@ -405,6 +529,7 @@ function renderLine(
   line: number,
   config: Types.Config,
   language: string,
+  id: string,
   hass?: Types.Hass | null,
   eventsTappable = false,
   dayLabelId?: string,
@@ -444,8 +569,9 @@ function renderLine(
         ...presentation.accentTextProperties,
         ...presentation.textScaleProperties,
       })}
+      id=${id}
       role=${tap ? 'button' : nothing}
-      tabindex=${tap ? '0' : nothing}
+      tabindex=${tap ? '-1' : nothing}
       aria-describedby=${tap && dayLabelId ? dayLabelId : nothing}
       .calendarCardEventTap=${tap}
       .calendarCardDaySlot=${Activation.COVERED}
@@ -462,7 +588,8 @@ function renderLine(
  * A day's "+N more", on its last line: the events it has no room for, counted.
  *
  * A button named for its day and its count, which keeps its press from becoming a press on the
- * card or on the day beneath it, and opens the day's panel.
+ * card or on the day beneath it, and opens the day's panel. Out of the Tab order, as the lines
+ * are: Enter on its day's cell opens the same panel.
  *
  * @param column - The day's column, from 0
  * @param date - The day
@@ -489,6 +616,8 @@ function renderMore(
   return html`<button
     class="month-more"
     type="button"
+    id=${monthItemId(date, 'more')}
+    tabindex="-1"
     style=${styleMap({ gridColumn: String(column + 1), gridRow: String(capacity + 1) })}
     aria-label=${`${text}, ${dayName(date, language)}`}
     @pointerdown=${stopCardGesture}
@@ -518,6 +647,7 @@ function renderMore(
  * @param capacity - Lines under a date
  * @param hass - Home Assistant instance
  * @param eventsTappable - Whether events are tap targets of their own
+ * @param focusKey - The date of the month's tab stop, `YYYY-MM-DD`
  * @param more - Opens a day's panel from its "+N more"
  * @returns The row
  */
@@ -530,6 +660,7 @@ function renderWeek(
   capacity: number,
   hass?: Types.Hass | null,
   eventsTappable = false,
+  focusKey = '',
   more?: MonthOptions['more'],
 ): TemplateResult {
   const lines = Math.max(0, capacity);
@@ -538,43 +669,69 @@ function renderWeek(
   );
   const bars = barConfig(config);
   const weekNumber = monthWeekNumber(week.starts[0], index, config);
+  const visible = week.layout.placements.filter((placement) => placement.visible);
+  // What each day's cell owns: the bars and lines starting on it, then its "+N more".
+  const owns = week.starts.map((start, column) => [
+    ...visible
+      .filter(({ item }) => item.placement.columnIndex === column)
+      .map(({ line }) => monthItemId(start, line)),
+    ...(week.layout.days[column].more ? [monthItemId(start, 'more')] : []),
+  ]);
 
   return html`
     <div
       class="month-week"
+      role="row"
       style=${styleMap({
         gridTemplateRows: `auto${lines > 0 ? ` repeat(${lines}, auto)` : ''} minmax(0, 1fr)`,
       })}
     >
       ${week.starts.map((start, column) =>
-        renderDay(start, column, headerMonth, config, language, hass, dayLabelIds[column]),
+        renderDay(
+          start,
+          column,
+          headerMonth,
+          config,
+          language,
+          {
+            count: (week.days[column]?.events ?? []).filter((event) => !event._isEmptyDay).length,
+            focused: FormatUtils.getLocalDateKey(start) === focusKey,
+            owns: owns[column],
+          },
+          hass,
+          dayLabelIds[column],
+        ),
       )}
-      ${weekNumber === null ? nothing : html`<div class="month-week-number">${weekNumber}</div>`}
-      ${week.layout.placements
-        .filter((placement) => placement.visible)
-        .map(({ item, line }) =>
-          item.kind === 'bar'
-            ? renderBanner(
-                item.event,
-                item.placement,
-                line + 2,
-                bars,
-                language,
-                hass,
-                eventsTappable,
-                dayLabelIds[item.placement.columnIndex],
-                { firstColumn: 1, className: 'month-bar' },
-              )
-            : renderLine(
-                item,
-                line,
-                config,
-                language,
-                hass,
-                eventsTappable,
-                dayLabelIds[item.placement.columnIndex],
-              ),
-        )}
+      ${
+        weekNumber === null
+          ? nothing
+          : html`<div class="month-week-number" aria-hidden="true">${weekNumber}</div>`
+      }
+      ${visible.map(({ item, line }) => {
+        const id = monthItemId(week.starts[item.placement.columnIndex], line);
+        return item.kind === 'bar'
+          ? renderBanner(
+              item.event,
+              item.placement,
+              line + 2,
+              bars,
+              language,
+              hass,
+              eventsTappable,
+              dayLabelIds[item.placement.columnIndex],
+              { firstColumn: 1, className: 'month-bar', id, tabIndex: '-1' },
+            )
+          : renderLine(
+              item,
+              line,
+              config,
+              language,
+              id,
+              hass,
+              eventsTappable,
+              dayLabelIds[item.placement.columnIndex],
+            );
+      })}
       ${week.layout.days.map((day, column) =>
         day.more
           ? renderMore(column, week.starts[column], day.hidden.length, lines, language, hass, more)
@@ -614,7 +771,9 @@ function weekdayStyle(day: Date, config: Types.Config, hass?: Types.Hass | null)
 }
 
 /**
- * The compact form's weekday names, over a gutter where week numbers are drawn.
+ * The weekday names, the month grid's header row: each a column header named in full for
+ * assistive technology. In the compact form over a gutter where week numbers are drawn, which,
+ * as the numbers, is hidden from it, so every row holds seven cells.
  *
  * @param starts - The first row's days
  * @param config - Card configuration, resolved for month
@@ -632,8 +791,8 @@ function renderWeekdays(
 ): TemplateResult {
   const translations = Localize.getTranslations(language);
   const mark = TextDirection.languageMark(language, hass);
-  return html`<div class="month-weekdays">
-    ${gutter ? html`<div class="month-weekday-gutter"></div>` : nothing}
+  return html`<div class="month-weekdays" role="row">
+    ${gutter ? html`<div class="month-weekday-gutter" aria-hidden="true"></div>` : nothing}
     ${starts.map(
       (start) =>
         html`<div
@@ -642,6 +801,8 @@ function renderWeekdays(
             weekend: FormatUtils.isWeekendDate(start, hass),
           })}
           style=${weekdayStyle(start, config, hass)}
+          role="columnheader"
+          aria-label=${weekdayName(start, language)}
         >
           ${TextDirection.inLanguageDirection(translations.daysOfWeek[start.getDay()], mark)}
         </div>`,
@@ -660,7 +821,8 @@ function renderWeekdays(
  * @param capacity - Lines that fit under a date, as the card last measured them
  * @param hass - Home Assistant instance
  * @param eventsTappable - Whether each bar, line and row is a tap target of its own
- * @param options - What "+N more" opens, and the compact form's selected day and lists
+ * @param options - What "+N more" opens, the compact form's selected day and lists, the day the
+ *   keyboard's tab stop is on, and the wheel's listener while weeks scroll
  * @returns The month
  */
 export function renderMonthGroupedEvents(
@@ -673,19 +835,29 @@ export function renderMonthGroupedEvents(
   eventsTappable = false,
   options: MonthOptions = {},
 ): TemplateResult {
+  const headerMonth = Paging.majorityMonth({ start: rowsStart, days: ViewConfig.MONTH_DAYS });
+  const focusKey = FormatUtils.getLocalDateKey(options.focusDay ?? headerMonth);
   if (options.compact) {
-    return renderCompactMonth(rowsStart, config, language, options.compact, hass, eventsTappable);
+    return renderCompactMonth(
+      rowsStart,
+      config,
+      language,
+      options.compact,
+      focusKey,
+      hass,
+      eventsTappable,
+    );
   }
   const weeks = monthWeeks(days, rowsStart, capacity);
-  const headerMonth = Paging.majorityMonth({ start: rowsStart, days: ViewConfig.MONTH_DAYS });
-  const translations = Localize.getTranslations(language);
-  const mark = TextDirection.languageMark(language, hass);
   // A fixed card height is a real length; `height` defaults to the string `'auto'`.
   const fixedHeight = config.height != null && config.height !== '' && config.height !== 'auto';
 
   return html`
     <div
-      class="month-container"
+      class=${classMap({ 'month-container': true, 'week-scroll': options.weekScroll !== undefined })}
+      role="grid"
+      aria-label=${Paging.monthHeading(headerMonth, language)}
+      @wheel=${options.weekScroll ?? nothing}
       style=${styleMap({
         // Handed to CSS as written, so `8em` and `calc()` survive. Under a fixed card height
         // the rows share it instead, and `row_height` is not read.
@@ -695,20 +867,7 @@ export function renderMonthGroupedEvents(
         ...(fixedHeight ? { height: '100%' } : {}),
       })}
     >
-      <div class="month-weekdays">
-        ${weeks[0].starts.map(
-          (start) =>
-            html`<div
-              class=${classMap({
-                'month-weekday': true,
-                weekend: FormatUtils.isWeekendDate(start, hass),
-              })}
-              style=${weekdayStyle(start, config, hass)}
-            >
-              ${TextDirection.inLanguageDirection(translations.daysOfWeek[start.getDay()], mark)}
-            </div>`,
-        )}
-      </div>
+      ${renderWeekdays(weeks[0].starts, config, language, hass)}
       ${weeks.map((week, index) =>
         renderWeek(
           week,
@@ -719,6 +878,7 @@ export function renderMonthGroupedEvents(
           capacity,
           hass,
           eventsTappable,
+          focusKey,
           options.more,
         ),
       )}
@@ -785,11 +945,17 @@ function renderMarks(
  * (`calendarCardMonthPick`), and never adds on it or runs `day_tap_action`: adding is the
  * toolbar's add, dated on the selected day, and `day_tap_action` the list's.
  *
+ * The day is the month's grid cell for the keyboard and assistive technology too, named for its
+ * day and its events' count, the month's tab stop where it is `focused`, and selected or not
+ * (`aria-selected`), which Enter and Space change as a tap does.
+ *
  * @param date - The day's local midnight
  * @param headerMonth - The 1st of the month the header names; other months' days are dimmed
  * @param selected - Whether it is the day selected
+ * @param focused - Whether it is the month's tab stop
  * @param events - Its events, as the day model lists them
  * @param config - Card configuration, resolved for month
+ * @param language - Card language
  * @param hass - Home Assistant, whose country or language decides the weekend
  * @returns The day
  */
@@ -797,8 +963,10 @@ function renderCompactDay(
   date: Date,
   headerMonth: Date,
   selected: boolean,
+  focused: boolean,
   events: ReadonlyArray<Types.CalendarEventData>,
   config: Types.Config,
+  language: string,
   hass?: Types.Hass | null,
 ): TemplateResult {
   const { isToday, isTomorrow, isPast } = Leaves.classifyDay(date.getTime());
@@ -831,8 +999,13 @@ function renderCompactDay(
       weekend: isWeekendDay,
       'month-selected': selected,
     })}
+    role="gridcell"
+    tabindex=${focused ? '0' : '-1'}
+    aria-label=${monthCellName(date, events.length, language)}
+    aria-selected=${selected ? 'true' : 'false'}
     aria-current=${isToday ? 'date' : nothing}
     .calendarCardMonthPick=${date.getTime()}
+    .calendarCardMonthCell=${date.getTime()}
   >
     <span class="month-date"
       ><span
@@ -854,6 +1027,7 @@ function renderCompactDay(
  * @param config - Card configuration, resolved for month
  * @param language - Card language
  * @param compact - The selected day, every day's events and what the list draws with
+ * @param focusKey - The date of the month's tab stop, `YYYY-MM-DD`
  * @param hass - Home Assistant instance
  * @param eventsTappable - Whether each of the list's rows is a tap target of its own
  * @returns The month and its list
@@ -863,6 +1037,7 @@ function renderCompactMonth(
   config: Types.Config,
   language: string,
   compact: MonthCompact,
+  focusKey: string,
   hass?: Types.Hass | null,
   eventsTappable = false,
 ): TemplateResult {
@@ -882,15 +1057,20 @@ function renderCompactMonth(
         'month-compact': true,
         'with-week-numbers': weekNumbers,
       })}
+      role="grid"
+      aria-label=${Paging.monthHeading(headerMonth, language)}
     >
       ${renderWeekdays(weeks[0], config, language, hass, weekNumbers)}
       ${weeks.map((starts, row) => {
         const number = weekNumbers ? monthWeekNumber(starts[0], row, config) : null;
         const current = starts[0] <= today && today < Paging.addDays(starts[0], 7);
-        return html`<div class="month-week">
+        return html`<div class="month-week" role="row">
           ${
             weekNumbers
-              ? html`<div class=${classMap({ 'month-week-number': true, current })}>
+              ? html`<div
+                  class=${classMap({ 'month-week-number': true, current })}
+                  aria-hidden="true"
+                >
                   ${number ?? ''}
                 </div>`
               : nothing
@@ -900,8 +1080,10 @@ function renderCompactMonth(
               start,
               headerMonth,
               FormatUtils.getLocalDateKey(start) === selectedKey,
+              FormatUtils.getLocalDateKey(start) === focusKey,
               compact.dayLists[row * 7 + column] ?? [],
               config,
+              language,
               hass,
             ),
           )}
