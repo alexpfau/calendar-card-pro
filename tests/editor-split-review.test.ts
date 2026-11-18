@@ -24,7 +24,7 @@ import {
 import * as FormatUtils from '../src/utils/format';
 
 /**
- * Split This Calendar's review list (section 5.7): it reads the calendar over the card's own REST
+ * Split This Calendar's review list: it reads the calendar over the card's own REST
  * path, names the events the card shows for the entry in the layout displayed, and puts each in
  * the first part that keeps it.
  *

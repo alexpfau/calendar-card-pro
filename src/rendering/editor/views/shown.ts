@@ -7,6 +7,7 @@
 
 import {
   mdiAlertCircleOutline,
+  mdiArrowUp,
   mdiCalendarMultiple,
   mdiCardTextOutline,
   mdiChevronDown,
@@ -17,6 +18,7 @@ import {
   mdiRestore,
   mdiSubdirectoryArrowRight,
   mdiTimelineClockOutline,
+  mdiToggleSwitchOffOutline,
   mdiViewColumnOutline,
 } from '@mdi/js';
 import { type TemplateResult, html, nothing } from 'lit';
@@ -30,11 +32,20 @@ export interface LineButton {
   /** Its accessible name, where it is not its label. */
   readonly name?: string;
   readonly focus: string;
-  readonly kind?: 'reset' | 'remove';
+  /** Its glyph: Reset, Remove, Turn On a part, or go up to the control a heading waits on. */
+  readonly kind?: 'reset' | 'remove' | 'turn-on' | 'go-up';
   /** The options a Reset or Remove deletes here, space-separated. */
   readonly resetKeys?: string;
   readonly onPress: () => void;
 }
+
+/** Each kind of line button's glyph. */
+const GLYPHS: Readonly<Record<NonNullable<LineButton['kind']>, string>> = {
+  reset: mdiRestore,
+  remove: mdiClose,
+  'turn-on': mdiToggleSwitchOffOutline,
+  'go-up': mdiArrowUp,
+};
 
 /**
  * A button in a line.
@@ -43,8 +54,7 @@ export interface LineButton {
  * @returns The button
  */
 export function lineButton(button: LineButton): TemplateResult {
-  const glyph =
-    button.kind === 'reset' ? mdiRestore : button.kind === 'remove' ? mdiClose : undefined;
+  const glyph = button.kind === undefined ? undefined : GLYPHS[button.kind];
   return html`<button
     type="button"
     class="text-button line-button"

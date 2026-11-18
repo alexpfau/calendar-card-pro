@@ -4,8 +4,7 @@
  *
  * Built from configurations as the editor holds them, through the same present index and universe
  * the pages read, so every state is the builders' own answer rather than a restatement of it.
- * Section 5.1 of the redesign plan is the state table; section 5.3 holds the words and the Reset
- * outcomes, and every row of both is a case here.
+ * Each state a field can be in, and the words and Reset outcome of each, is a case here.
  */
 import { describe, expect, it } from 'vitest';
 
@@ -140,7 +139,7 @@ function writeState(ctx: PlanCtx): WriteState {
 
 const ANNA = 'calendar.anna';
 
-describe('the shown set: each state of section 5.1', () => {
+describe('the shown set: each state', () => {
   it('makes a field live for each reason, essential first', () => {
     expect(stateIn(cardCtx({}, 'shared'), 'events:show_time')).toEqual({
       kind: 'live',
@@ -760,7 +759,7 @@ describe('a calendar entry’s page', () => {
   });
 });
 
-/** Two findings of the plan's notion of "stored", fixed at the top of the stack (PR 17). */
+/** Two cases where what counts as "stored" is not the line's mere presence. */
 describe('what counts as stored, where a blank or a shared key carries the meaning', () => {
   it('keeps Country Names live once Countries To Remove is emptied, since a blank is Custom', () => {
     // An emptied word list writes an empty pattern: Custom with nothing in it, not Keep.

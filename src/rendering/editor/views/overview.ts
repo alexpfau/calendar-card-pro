@@ -1,6 +1,6 @@
 /**
- * The overview's own controls: Quick Setup's banner, Settings For, Card Displays, the section
- * rows and More. Templates only: each takes what it shows and what to call, holds no state and
+ * The overview's own controls and the pages': Quick Setup's banner, Settings For, Starting
+ * Layout, the section rows and More. Templates only: each takes what it shows and what to call, holds no state and
  * reaches nothing in the element (AGENTS.md, _Editor_: `views/` is where the editor's Lit
  * templates live outside `element.ts`).
  */
@@ -216,7 +216,7 @@ export function radioChips(
   </fieldset>`;
 }
 
-/** One illustrated choice of Card Displays. */
+/** One illustrated choice of Starting Layout. */
 export interface DisplayChoice {
   readonly value: string;
   readonly label: string;
@@ -225,8 +225,8 @@ export interface DisplayChoice {
 }
 
 /**
- * Card Displays: the three illustrated layouts as native radios, labels that wrap, and today's
- * helper line.
+ * Starting Layout: the three illustrated layouts as native radios, labels that wrap, and the
+ * helper line. Its frame's heading already says its name, so the legend is read and not seen.
  *
  * @param label - The group's name
  * @param helper - The line under it
@@ -243,7 +243,7 @@ export function displayControl(
   onPick: (view: string) => void,
 ): TemplateResult {
   return html`<fieldset class="displays">
-    <legend class="label">${label}</legend>
+    <legend class="visually-hidden">${label}</legend>
     <div class="display-choices">
       ${choices.map(
         (choice) =>
@@ -253,7 +253,10 @@ export function displayControl(
               name="view"
               value=${choice.value}
               data-focus=${`view:${choice.value}`}
-              .checked=${choice.value === value}
+              .checked=${
+                // Compared with the radio as it is, as Settings For's are (`scopeControl`).
+                live(choice.value === value)
+              }
               @change=${() => onPick(choice.value)}
             />
             <span class="display-text">

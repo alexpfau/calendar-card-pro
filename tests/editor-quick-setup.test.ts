@@ -404,7 +404,7 @@ describe('Quick Setup', () => {
 
     // Whole-card settings first, then those every layout shares, as What This Card Changes groups.
     expect(items).toEqual([
-      'Card Displays: Grid → Default',
+      'Starting Layout: Grid → Default',
       'Day Tap Action: Add Event → Default',
       'Show Empty Days: Off → Default',
       'Filter Duplicates: Same title, start, end and location → Default',

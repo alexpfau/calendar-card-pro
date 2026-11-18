@@ -1,6 +1,7 @@
 /**
- * The overview header's ⋯ menu, which holds the editor's preferences (Show Every Setting, Show YAML
- * Option Names): a menu button and, open, a menu of checkbox items. Templates and the keys a menu
+ * The overview header's ⋯ menu, which holds the editor's preferences (Show YAML Option Names): a
+ * menu button and, open, a menu of checkbox items, each drawn with a box that is checked or empty.
+ * The button opens and closes it. Templates and the keys a menu
  * answers, as `reorder.ts` holds its own: Down and Up move between the items and wrap, Home and End
  * reach the ends, Escape closes it with focus back on the button, and Tab closes it and lets focus
  * move on. Down or Up on the button opens it at the first or last item.
@@ -114,7 +115,18 @@ export function prefsMenu(menu: MenuModel): TemplateResult {
       aria-haspopup="menu"
       aria-expanded=${String(menu.open)}
       aria-controls=${MENU_ID}
-      @click=${() => menu.onOpen(!menu.open, 'first')}
+      @mousedown=${(event: MouseEvent) => {
+        // Focus stays in the open menu: a browser that does not focus a pressed button (Safari)
+        // would otherwise move it nowhere, the menu would close on that, and the click after it
+        // would open it again.
+        if (menu.open) event.preventDefault();
+      }}
+      @click=${(event: MouseEvent) => {
+        const open = !menu.open;
+        menu.onOpen(open, 'first');
+        // Closed by its button: focus goes back to the button, as Escape puts it.
+        if (!open) (event.currentTarget as HTMLElement).focus();
+      }}
       @keydown=${(event: KeyboardEvent) => {
         if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
         event.preventDefault();
@@ -146,7 +158,7 @@ export function prefsMenu(menu: MenuModel): TemplateResult {
                 aria-describedby=${item.note ? `${id}-note` : nothing}
                 @click=${item.onToggle}
               >
-                <span class="menu-check" aria-hidden="true"
+                <span class=${item.checked ? 'menu-check checked' : 'menu-check'} aria-hidden="true"
                   >${item.checked ? icon(mdiCheck) : nothing}</span
                 >
                 <span class="menu-text">

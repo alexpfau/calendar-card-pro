@@ -266,6 +266,9 @@ export async function readEditorSchemaKeys() {
   // Assistant's tabs on its name's key (`search.ts` › `HA_TAB_KEYS`), and no other heading's.
   for (const page of editor.PAGES) aliasKeys.add(page.titleKey);
   for (const key of editor.HA_TAB_KEYS) aliasKeys.add(key);
+  // And the Starting Layout block's on its field's own key (`search.ts` › `startingLayoutRow`),
+  // although that field is the chassis's.
+  aliasKeys.add(editor.STARTING_LAYOUT_BLOCK.titleKey);
 
   for (const ctx of probeContexts(editor, 'en')) {
     for (const panel of PANELS) {
@@ -1308,12 +1311,24 @@ const IDENTICAL_TO_ENGLISH_ANY_LANGUAGE = new Set([
  * Keyed `lang:key`. Each entry is a loanword the language genuinely uses, not a gap.
  */
 const IDENTICAL_TO_ENGLISH_OK = new Set([
+  // A search result's value under its layout's name, as "Grid: Off": the two placeholders and a
+  // colon, which every editor language writes the same way.
+  'de:search.value_in',
+  'et:search.value_in',
+  'it:search.value_in',
+  'ko:search.value_in',
+  'lt:search.value_in',
+  'lv:search.value_in',
+  'nb:search.value_in',
+  'pl:search.value_in',
+  'sk:search.value_in',
+  'sv:search.value_in',
+
   // Korean quotes typed words with the same curly double quotes as English.
   'ko:summary.quoted',
 
   // `Label` is a German loanword in Home Assistant's own UI.
   'de:entity.label',
-  'de:view',
 
   // `Countdown` is the glossary's German term, and the event-part chip is the term alone.
   'de:chip.countdown',
@@ -1321,13 +1336,6 @@ const IDENTICAL_TO_ENGLISH_OK = new Set([
   // `Name` is the ordinary German word for it, spelled as in English.
   'de:entity.name',
   'de:toolbar.buttons.name',
-
-  // `Layout` is the Italian term chosen by the glossary.
-  'it:view',
-
-  // `Layout` is the ordinary Swedish and Norwegian word.
-  'sv:view',
-  'nb:view',
 
   // Quick Setup's review row naming the layout: `Layout` is the word German, Italian, Swedish and
   // Norwegian use for it elsewhere in the editor ("Alle Layouts", "Tutti i layout", "Alla

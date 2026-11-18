@@ -173,7 +173,7 @@ export function stateText(state: StateWords | undefined, t: Translate): string |
 }
 
 /**
- * The words of the button under a field (section 5.3): Reset keeps the control and names the value
+ * The words of the button under a field: Reset keeps the control and names the value
  * it goes back to, "Reset (In the Day Header)", or "Reset (Empty)" where nothing comes back;
  * Remove takes the control back to its heading's Add row, "Remove Setting". Its accessible name
  * also names the setting: "Reset Show The Forecast to In the Day Header".

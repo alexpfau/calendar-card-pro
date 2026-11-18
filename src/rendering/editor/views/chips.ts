@@ -1,5 +1,5 @@
 /**
- * The composed controls of section 5.9 as templates: toggle chips (D08 A, D09 A), Calendar
+ * The composed controls as templates: toggle chips (D08 A, D09 A), Calendar
  * Filter's segmented radio group, and the toolbar's own buttons as rows that open in place
  * (D09 A). What each one shows and does is the element's; these only draw it. Every row that
  * moves carries `data-reorder`, as the calendar list's do, so `reorder.ts`'s pointer drag and
@@ -82,7 +82,7 @@ export function chipGroup(
 export interface SegmentedModel {
   readonly id: string;
   readonly label: string;
-  /** Its state words, which its name carries (section 5.3). */
+  /** Its state words, which its name carries. */
   readonly words?: string;
   readonly helper?: string;
   readonly value: string;

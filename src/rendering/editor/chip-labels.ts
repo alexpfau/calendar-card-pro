@@ -1,5 +1,5 @@
 /**
- * The label of each field the editor draws as a toggle chip (section 5.9), with no imports, so
+ * The label of each field the editor draws as a toggle chip, with no imports, so
  * `gates.ts` reads it for a gate line's clause ("Progress Bar is pressed") without joining an
  * import cycle. Which fields are chips is the page registry's; `tests/editor-chips.test.ts` holds
  * this table to it in both directions, and pins it by value.

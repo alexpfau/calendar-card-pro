@@ -201,16 +201,11 @@ describe('focus', () => {
     expect(document.activeElement).toBe(outside);
   });
 
-  it('keeps Settings For’s option checked after Duplicate and Back', async () => {
-    // A value stored for another layout keeps Settings For full rather than one line.
-    const editor = await mount({
-      entities: [ANNA, BEN],
-      view: 'grid',
-      list: { show_location: true },
-    });
+  it('keeps Starting Layout’s option checked after Duplicate and Back', async () => {
+    const editor = await mount({ entities: [ANNA, BEN], view: 'grid' });
     const [anna] = keysOf(editor, 'entry');
     const radios = (): HTMLInputElement[] => [
-      ...editor.shadowRoot!.querySelectorAll<HTMLInputElement>('input[name="scope"]'),
+      ...editor.shadowRoot!.querySelectorAll<HTMLInputElement>('input[name="view"]'),
     ];
     const checked = (): string | undefined => radios().find((input) => input.checked)?.value;
     expect(checked()).toBe('grid');

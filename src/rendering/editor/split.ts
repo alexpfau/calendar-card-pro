@@ -1,6 +1,6 @@
 /**
  * Split This Calendar as data: when a calendar entry can be split in two and when it cannot, and
- * the two entries a split writes in its place (section 5.7, decision D12).
+ * the two entries a split writes in its place.
  *
  * DOM-free. What it promises is tested where it can fail, through the card's own `processEvents`
  * and `groupEventsByDay` (`tests/split-membership.dst.test.ts`): every event the entry shows now

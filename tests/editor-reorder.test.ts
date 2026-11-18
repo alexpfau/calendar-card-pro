@@ -1,5 +1,5 @@
 /**
- * Reordering calendars (section 5.11): the order a grab or a drag means (`reorder.ts`), and, through
+ * Reordering calendars: the order a grab or a drag means (`reorder.ts`), and, through
  * the mounted editor, the keyboard grab on a calendar's handle, Alt+Arrow, and the pointer drag over
  * measured rows. What every move writes is `calendar-list.ts` › `moveCalendar`, pinned in
  * `editor-calendar-list.test.ts`; these pin when it is called, how often, and what the user is told.

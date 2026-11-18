@@ -14,7 +14,7 @@ import {
 } from './helpers/split-review-cases';
 
 /**
- * Split's review list against the card, in the four zones that change their clocks (section 5.7).
+ * Split's review list against the card, in the four zones that change their clocks.
  *
  * The same case table `editor-split-review.test.ts` runs under UTC: the card's `processEvents`
  * and `groupEventsByDay` beside the editor's mirror, naming the same events on the same first

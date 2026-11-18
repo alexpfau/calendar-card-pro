@@ -15,10 +15,11 @@ view: grid
 days_to_show: 3
 ```
 
-In the [visual editor](/features/editor#the-overview), **Card Displays** on the overview
-chooses the layout the card opens with. Select **Grid** under **Settings For** to configure
+In the [visual editor](/features/editor#the-overview), **Starting Layout** on the overview
+chooses the layout the card opens with. Select **Grid** under **Settings For**, at the top of a
+page, to configure
 its time axis on the **Grid** page and its lines on **Size & Spacing**, under
-**Across the Grid**, without changing **Card Displays**.
+**Across the Grid**, without changing **Starting Layout**.
 
 ::: tip Start With Three Days
 Seven columns need a wide card to stay readable. Three is a good default on a dashboard
@@ -836,7 +837,7 @@ time_grid:
 
 Anything the block does not mention keeps its top-level value, except for the fourteen
 options listed below. In the visual editor, choose Grid under **Settings For** to edit these
-values directly without changing **Card Displays**.
+values directly without changing **Starting Layout**.
 
 Options that decide which events the card loads, such as `start_date` and `entities`, are
 card-wide and ignored inside `time_grid:`, and so are others that act on the card as a whole,
@@ -963,7 +964,7 @@ them out while **Settings For** is Grid. Stored values are kept for the layouts 
 
 The editor also leaves out the per-calendar compact limit and multi-day splitting. To edit any
 of these, choose a layout they apply to under **Settings For**, without changing
-**Card Displays** (the all-day badge controls are in **All Layouts** too); see
+**Starting Layout** (the all-day badge controls are in **All Layouts** too); see
 [Options for the Selected View](/features/editor#options-for-the-selected-view).
 
 The other detail-row options still shape timed blocks but never reach the all-day band:
