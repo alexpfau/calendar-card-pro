@@ -7705,21 +7705,35 @@ export const cardStyles = css`
     border-block-end: 1px solid var(--calendar-card-month-rule);
   }
 
-  /* What the card measures the line capacity from (measureMonthCapacity), drawn nowhere: in the
-     event font the lines and dates are set in, its width is a line's height and its height the
-     date line's. A line is the title's line box, 1.2em, with 1px of padding and 1px of margin
-     above and below, which a bar takes as well (Grid's banner pads 1px); the date line is the
-     today tile's 1.2em with 4px above it and 2px below. tests/month-dom.test.ts pins the four
-     against each other. */
+  /* What the card measures the line capacity from (measureMonthCapacity), drawn nowhere: three
+     empty boxes, each as tall as what it stands for, in the font that is set in. The date line is
+     the today tile's 1.2em with 4px above it and 2px below, in the event font the dates are set
+     in. A line is its 1.2em line box with 1px of padding and 1px of margin above and below, which
+     a bar takes as well (Grid's banner pads 1px), and is as tall as the taller of its title and
+     its time, so one box is set in each one's font and the card takes the taller. Boxes rather
+     than layout heights, so a scale an ancestor applies reaches all of them and the week alike.
+     tests/month-dom.test.ts pins them against what they stand for. */
   .month-probe {
     position: absolute;
     top: 0;
     inset-inline-start: 0;
-    width: calc(1.2em + 4px);
-    height: calc(1.2em + 6px);
-    font-size: var(--calendar-card-font-size-event);
     visibility: hidden;
     pointer-events: none;
+  }
+
+  .month-probe[data-probe='date'] {
+    height: calc(1.2em + 6px);
+    font-size: var(--calendar-card-font-size-event);
+  }
+
+  .month-probe[data-probe='title'] {
+    height: calc(1.2em + 4px);
+    font-size: var(--calendar-card-font-size-event);
+  }
+
+  .month-probe[data-probe='time'] {
+    height: calc(1.2em + 4px);
+    font-size: var(--calendar-card-font-size-time);
   }
 
   .month-weekdays {

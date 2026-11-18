@@ -62,9 +62,9 @@ import * as TextDirection from '../utils/text-direction';
 export const MONTH_LINE_CAPACITY_DEFAULT = 4;
 
 /**
- * The class of the element the card reads the line pitch and the date line from: an empty box,
- * as wide as a line is tall and as tall as the date line, in the event font. See
- * `measureMonthCapacity`.
+ * The class of the three empty boxes the card reads the date line and the line pitch from, told
+ * apart by `data-probe`: `date`, as tall as the date line, and `title` and `time`, each as tall as
+ * a line set in its font. See `measureMonthCapacity`.
  */
 export const MONTH_PROBE_CLASS = 'month-probe';
 
@@ -974,7 +974,9 @@ export function renderMonthGroupedEvents(
           options.more,
         ),
       )}
-      <div class=${MONTH_PROBE_CLASS} aria-hidden="true"></div>
+      <div class=${MONTH_PROBE_CLASS} data-probe="date" aria-hidden="true"></div>
+      <div class=${MONTH_PROBE_CLASS} data-probe="title" aria-hidden="true"></div>
+      <div class=${MONTH_PROBE_CLASS} data-probe="time" aria-hidden="true"></div>
     </div>
   `;
 }
@@ -1564,24 +1566,40 @@ export function renderMonthDayList(
 /**
  * How many lines fit under a date in a rendered month, or null where it is not laid out.
  *
- * Read from the first week row's height, less its date line, in line pitches. The probe
- * (`MONTH_PROBE_CLASS`) carries both: its width is a line's height and its height the date
- * line's, set in the stylesheet in the event font the lines and dates are set in. A row's height
- * depends on `row_height` or the card's, never on what is in it (`renderMonthGroupedEvents`), so
- * a capacity read here holds for the render it causes, and an empty week reads the same as a
- * full one.
+ * Read from the first week row: the room under its rule, less its date line, in line pitches.
+ * The probes (`MONTH_PROBE_CLASS`) are each as tall as what they stand for, set in the stylesheet
+ * in its font: the date line, and a line set in the title's font and in the time's, the taller of
+ * which is the pitch, so a time set larger than its title still fits. The room runs from the top
+ * of the week's first cell, which starts under the rule, to the bottom of the week.
+ *
+ * Every box is read with `getBoundingClientRect`, so a scale an ancestor draws the card at, by a
+ * transform or a zoom, scales them all alike and cancels in the quotient. A layout height such as
+ * `clientHeight` would not scale, and beside scaled boxes it read the capacity high.
+ *
+ * A row's height depends on `row_height` or the card's, never on what is in it
+ * (`renderMonthGroupedEvents`), so a capacity read here holds for the render it causes, and an
+ * empty week reads the same as a full one.
  *
  * @param root - The card's render root
  * @returns The lines, from 0, or null
  */
 export function measureMonthCapacity(root: ParentNode): number | null {
   const week = root.querySelector<HTMLElement>('.month-week');
-  const probe = root.querySelector<HTMLElement>(`.${MONTH_PROBE_CLASS}`);
-  if (!week || !probe) return null;
-  const { width: pitch, height: dateLine } = probe.getBoundingClientRect();
-  const height = week.clientHeight;
-  if (!(pitch > 0) || !(height > 0)) return null;
+  const cell = week?.querySelector<HTMLElement>('.month-day');
+  const height = (probe: 'date' | 'title' | 'time') =>
+    root
+      .querySelector<HTMLElement>(`.${MONTH_PROBE_CLASS}[data-probe="${probe}"]`)
+      ?.getBoundingClientRect().height;
+  const dateLine = height('date');
+  const title = height('title');
+  const time = height('time');
+  if (!week || !cell || dateLine === undefined || title === undefined || time === undefined) {
+    return null;
+  }
+  const pitch = Math.max(title, time);
+  const room = week.getBoundingClientRect().bottom - cell.getBoundingClientRect().top;
+  if (!(pitch > 0) || !(room > 0)) return null;
   // A hundredth of a line of give, so a row sized for exactly four lines holds four whatever
   // the rounding of fractional pixels.
-  return Math.max(0, Math.floor((height - dateLine) / pitch + 0.01));
+  return Math.max(0, Math.floor((room - dateLine) / pitch + 0.01));
 }

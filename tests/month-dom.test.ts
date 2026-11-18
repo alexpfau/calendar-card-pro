@@ -17,6 +17,7 @@ import { declarations } from './helpers/css-declarations';
 import { memoryStorage } from './memory-storage';
 import '../src/calendar-card-pro';
 import type * as Types from '../src/config/types';
+import * as MonthRender from '../src/rendering/month';
 import { cardStyles } from '../src/rendering/styles';
 
 /** Wednesday, November 18, 2026; the unit project runs on UTC. */
@@ -153,6 +154,53 @@ function linesIn(week: Element, gridColumn: string): HTMLElement[] {
   return [...week.querySelectorAll<HTMLElement>('.month-line')].filter(
     (line) => line.style.gridColumn === gridColumn,
   );
+}
+
+/** The boxes a month is laid out in, in layout pixels, before any scale. */
+interface Layout {
+  /** The scale an ancestor draws the card at, by a transform or a zoom. */
+  readonly scale?: number;
+  /** The first week's height, its rule included. */
+  readonly week?: number;
+  /** The rule along the week's top. */
+  readonly rule?: number;
+  /** The date line, and a line's title and time, each as its probe stands for it. */
+  readonly date?: number;
+  readonly title?: number;
+  readonly time?: number;
+}
+
+/**
+ * Lays a mounted month out as a browser would at a scale an ancestor applies: every box
+ * `getBoundingClientRect` reports is scaled, and the week's own layout heights are not, as a
+ * browser reports them. The single probe the card measured from before the probes were split is
+ * answered too, its width the line pitch and its height the date line, so a measurement that
+ * mixes a layout height with scaled boxes reads differently at another scale.
+ */
+function layOut(card: CardUnderTest, layout: Layout = {}): void {
+  const { scale = 1, week = 64, rule = 1, date = 22, title = 20, time = 16 } = layout;
+  const box = (top: number, height: number, width = 0) =>
+    ({
+      top: top * scale,
+      bottom: (top + height) * scale,
+      height: height * scale,
+      width: width * scale,
+    }) as DOMRect;
+  const row = month(card).querySelector<HTMLElement>('.month-week')!;
+  // The week starts 40px down the month, its first cell under its rule.
+  row.getBoundingClientRect = () => box(40, week);
+  row.querySelector<HTMLElement>('.month-day')!.getBoundingClientRect = () =>
+    box(40 + rule, week - rule);
+  Object.defineProperty(row, 'clientHeight', {
+    configurable: true,
+    value: Math.round(week - rule),
+  });
+  Object.defineProperty(row, 'offsetHeight', { configurable: true, value: Math.round(week) });
+  for (const probe of month(card).querySelectorAll<HTMLElement>('.month-probe')) {
+    const kind = probe.getAttribute('data-probe');
+    const height = kind === 'title' ? title : kind === 'time' ? time : date;
+    probe.getBoundingClientRect = () => box(0, height, kind === null ? title : 0);
+  }
 }
 
 /** Sets the capacity the card would measure, and draws again. */
@@ -367,11 +415,8 @@ describe('events in the cells', () => {
 
   it('lays each row out for as many lines as it measures under a date', async () => {
     const card = await mount();
-    const probe = month(card).querySelector<HTMLElement>('.month-probe')!;
-    const firstWeek = month(card).querySelector<HTMLElement>('.month-week')!;
-    // A line pitch of 20px and a date line of 22px.
-    probe.getBoundingClientRect = () => ({ width: 20, height: 22 }) as DOMRect;
-    Object.defineProperty(firstWeek, 'clientHeight', { configurable: true, value: 63 });
+    // A week 64px tall under a 1px rule, a 22px date line and a line pitch of 20px.
+    layOut(card);
 
     card.requestUpdate();
     await card.updateComplete;
@@ -386,6 +431,58 @@ describe('events in the cells', () => {
   });
 });
 
+describe('the capacity the card measures', () => {
+  it('reads the same lines whatever scale an ancestor draws the card at', async () => {
+    const card = await mount();
+    const at = (scale: number) => {
+      layOut(card, { scale });
+      return MonthRender.measureMonthCapacity(card.shadowRoot!);
+    };
+    // (63 - 22) / 20 is two lines, at full size, at half and at four fifths: every box scales
+    // alike, so the scale cancels.
+    expect([at(1), at(0.5), at(0.8)]).toEqual([2, 2, 2]);
+  });
+
+  it('takes the line pitch from the time where it is set taller than the title', async () => {
+    const card = await mount();
+    layOut(card, { time: 24 });
+    // (63 - 22) / 24 is one line, where the title's 20px would have held two.
+    expect(MonthRender.measureMonthCapacity(card.shadowRoot!)).toBe(1);
+  });
+
+  it('leaves the week’s rule out of the room under the date', async () => {
+    const card = await mount();
+    // 62.5px tall with its rule, 61.5px under it: half a pixel short of a second line.
+    layOut(card, { week: 62.5 });
+    expect(MonthRender.measureMonthCapacity(card.shadowRoot!)).toBe(1);
+  });
+
+  it('reads nothing from a month that is not laid out', async () => {
+    const card = await mount();
+    // happy-dom's own boxes are empty, as a hidden card's are.
+    expect(MonthRender.measureMonthCapacity(card.shadowRoot!)).toBeNull();
+  });
+
+  it('measures three hidden boxes, each one class and no children, in a wide month only', async () => {
+    const card = await mount();
+    const probes = [...card.shadowRoot!.querySelectorAll('.month-probe')];
+    expect(
+      probes.map((probe) => [
+        probe.localName,
+        probe.getAttribute('class'),
+        probe.getAttribute('data-probe'),
+        probe.getAttribute('aria-hidden'),
+        probe.childNodes.length,
+        probe.parentElement === month(card),
+      ]),
+    ).toEqual([
+      ['div', 'month-probe', 'date', 'true', 0, true],
+      ['div', 'month-probe', 'title', 'true', 0, true],
+      ['div', 'month-probe', 'time', 'true', 0, true],
+    ]);
+  });
+});
+
 describe('the line pitch and the date line the card measures', () => {
   /** A rule's declarations, by property, for one exact selector. */
   const rule = (selector: string): Record<string, string> =>
@@ -395,17 +492,33 @@ describe('the line pitch and the date line the card measures', () => {
         .map((d) => [d.property, d.value]),
     );
 
-  it('are a line’s height and the date’s, in the font both are set in', () => {
-    const probe = rule('.month-probe');
-    expect(probe['font-size']).toBe('var(--calendar-card-font-size-event)');
-    // A line: the title's 1.2em line box, 1px of padding and 1px of margin above and below.
-    expect(probe.width).toBe('calc(1.2em + 4px)');
+  it('are a line’s title and time and the date, each in the font it is set in', () => {
+    const probe = (name: string) => rule(`.month-probe[data-probe='${name}']`);
+    // Hidden, taking no room and no press, each as tall as what it stands for.
+    expect(rule('.month-probe')).toEqual({
+      position: 'absolute',
+      top: '0',
+      'inset-inline-start': '0',
+      visibility: 'hidden',
+      'pointer-events': 'none',
+    });
+    // A line: its 1.2em line box, 1px of padding and 1px of margin above and below, as tall as
+    // the taller of its title and its time, each in its own font.
+    expect(probe('title')).toEqual({
+      height: 'calc(1.2em + 4px)',
+      'font-size': 'var(--calendar-card-font-size-event)',
+    });
+    expect(probe('time')).toEqual({
+      height: 'calc(1.2em + 4px)',
+      'font-size': 'var(--calendar-card-font-size-time)',
+    });
     expect(rule('.month-line')).toMatchObject({
       'line-height': '1.2',
       'padding-block': '1px',
       margin: '1px 3px',
     });
     expect(rule('.month-line-title')['font-size']).toBe('var(--calendar-card-font-size-event)');
+    expect(rule('.month-line-time')['font-size']).toBe('var(--calendar-card-font-size-time)');
     // A bar takes the same: Grid's banner pads 1px, its title's line box is 1.2em.
     expect(rule('.month-bar').margin).toBe('1px 3px');
     expect(rule('.grid-banner').padding).toBe('1px 6px');
@@ -413,8 +526,11 @@ describe('the line pitch and the date line the card measures', () => {
       'font-size': 'var(--calendar-card-font-size-event)',
       'line-height': '1.2',
     });
-    // The date: the tile's 1.2em with 4px above and 2px below.
-    expect(probe.height).toBe('calc(1.2em + 6px)');
+    // The date: the tile's 1.2em with 4px above and 2px below, in the event font dates are set in.
+    expect(probe('date')).toEqual({
+      height: 'calc(1.2em + 6px)',
+      'font-size': 'var(--calendar-card-font-size-event)',
+    });
     expect(rule('.month-date')).toMatchObject({
       'font-size': 'var(--calendar-card-font-size-event)',
       height: '1.2em',

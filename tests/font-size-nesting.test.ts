@@ -1112,8 +1112,8 @@ describe('every piece of text is sized by its own option', () => {
       'card-header in toolbar-identity': ['--ha-font-size-m'],
       'day in column-date-content': ['day_font_size'],
       'day in date-column': ['day_font_size'],
-      // A month cell's date is set in the event font, as its lines are, so the date line and a
-      // line are measured in one font (the probe the card reads them from).
+      // A month cell's date is set in the event font, as its lines' titles are, and so is the
+      // probe the card reads the date line from.
       'day in month-date': ['event_font_size'],
       'event-title in summary': ['event_font_size'],
       'event-title-scroll in event-title': ['event_font_size'],

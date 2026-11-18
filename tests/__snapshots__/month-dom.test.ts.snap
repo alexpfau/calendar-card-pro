@@ -247,6 +247,8 @@ exports[`a representative month > matches its snapshot 1`] = `
 </div>
 <div class="month-week-number" aria-hidden="true">49</div>
 </div>
-<div aria-hidden="true" class="month-probe"></div>
+<div data-probe="date" aria-hidden="true" class="month-probe"></div>
+<div data-probe="title" aria-hidden="true" class="month-probe"></div>
+<div data-probe="time" aria-hidden="true" class="month-probe"></div>
 </div>"
 `;

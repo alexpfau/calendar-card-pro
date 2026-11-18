@@ -3588,9 +3588,10 @@ class CalendarCardPro extends LitElement {
    * Re-reads how many lines fit under a month day's date and re-renders once if that moved.
    *
    * Stable by construction: a row's height is `row_height` or a share of the card's fixed
-   * `height`, and the line pitch and date line are lengths in the event font, so nothing the
-   * render this triggers draws can change what it reads. Nothing is read while the month
-   * is not on screen or not laid out, which keeps the last capacity rather than collapsing it.
+   * `height`, and the line pitch and date line are lengths in the event and time fonts, so
+   * nothing the render this triggers draws can change what it reads. Nothing is read while the
+   * month is not on screen or not laid out, which keeps the last capacity rather than collapsing
+   * it.
    */
   private _syncMonthCapacity(): void {
     if (!this.isConnected || this.effectiveView !== 'month') return;
