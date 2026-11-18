@@ -13,6 +13,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  changeField,
   fakeHass,
   goPage,
   lastConfig,
@@ -206,6 +207,27 @@ describe('Layouts in Switcher on Card & Header', () => {
     await press(editor, 'column');
     await press(editor, 'month');
     expect(writtenToolbar(editor)).toEqual({ show: true });
+  });
+
+  it('reads the card’s own starting layout whatever Settings For edits', async () => {
+    // Settings For keeps its layout from page to page, and the scope's projection draws that
+    // layout as the view; the switcher's chips must still be those of the card as it opens.
+    const editor = await mount({ view_switcher_layouts: ['list', 'grid'] }, { view: 'list' });
+    await changeField(editor, 'workspace:editing_workspace', 'month');
+    await goPage(editor, 'card_header');
+    await open(editor);
+
+    expect(read(editor)).toEqual([
+      'list on kept: List, Starting Layout',
+      'column off: Columns',
+      'grid on kept: Grid, Switcher Needs Two',
+      'month off: Month',
+    ]);
+    await press(editor, 'column');
+    expect(writtenToolbar(editor)).toEqual({
+      show: true,
+      view_switcher_layouts: ['list', 'column', 'grid'],
+    });
   });
 
   it('is one undo step per press', async () => {

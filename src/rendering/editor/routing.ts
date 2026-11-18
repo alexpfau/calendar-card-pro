@@ -184,7 +184,12 @@ export function workspaceFormData(
     ...projected,
     ...blocks,
     weather: Value.weatherFormBlock(projected),
-    toolbar: Value.toolbarFormBlock(projected),
+    // The card's own `view`, not the layout Settings For projects: the switcher always offers the
+    // layout the card opens in, whatever layout is being edited.
+    toolbar: Value.toolbarFormBlock({
+      ...projected,
+      view: config.view ?? Config.DEFAULT_CONFIG.view,
+    }),
     ...Synthetic.deriveSyntheticData(projected, held),
   };
   for (const [key, text] of Object.entries(pending)) {
