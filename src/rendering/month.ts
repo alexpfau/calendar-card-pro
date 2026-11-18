@@ -18,9 +18,10 @@
  *
  * Below `month → min_day_width` a day the card draws the compact form instead, as a phone's
  * calendar draws its month: each day its number and one capsule, a segment per event in its
- * calendar's color, and under the six weeks the selected day's events as List's rows, in as much
- * room on every day (`renderMonthDayList`). The same rows are what "+N more" opens, in a panel of
- * its own (`day-panel.ts`), so a day reads the same wherever it is listed.
+ * calendar's color, and under the six weeks the selected day's events as List's rows, as many as
+ * fit the room the card leaves the list, and "+N more" for the rest (`renderMonthDayList`). The
+ * same rows are what "+N more" opens, in a panel of its own (`day-panel.ts`), so a day reads the
+ * same wherever it is listed.
  *
  * @see renderGridGroupedEvents in `grid.ts`, whose banner the bars are
  * @see renderColumnGroupedEvents in `column.ts`, whose row the lines trim
@@ -52,6 +53,7 @@ import * as Grid from '../utils/grid';
 import * as Helpers from '../utils/helpers';
 import * as MonthDay from '../utils/month-day';
 import * as MonthLayout from '../utils/month-layout';
+import * as MonthListFit from '../utils/month-list-fit';
 import * as Paging from '../utils/paging';
 import * as TextDirection from '../utils/text-direction';
 
@@ -101,22 +103,29 @@ export interface MonthCompact {
   /** The list's header as a button that adds on its day, while a tap on a day adds. */
   readonly dayAdd?: Activation.DayAddButtons;
   /**
-   * The events the list keeps room for on every day (`month → day_list_events`), past which it
-   * lists one fewer and "+N more"; none kept, and every event listed, where 0 or absent.
+   * How many of the selected day's events the list draws, as the card fitted them to its room
+   * (`MonthListFit.fitMonthList`), "+N more" standing for the rest; every one at or past the
+   * day's count. Until the card has fitted this day, none, and "+N more" alone.
    */
-  readonly reserve?: number;
+  readonly shown?: number;
   /** Opens the day's panel from the list's "+N more", given the day and the button. */
   readonly more?: (day: Date, button: HTMLElement) => void;
 }
 
 /**
- * The class of the hidden row a reserved day list is measured from (`MonthDay.monthListProbe`),
- * drawn beside the list and outside it, so nothing that reads the list's rows finds it.
+ * The class of the hidden copy of the selected day's list the card fits the list from
+ * (`renderListStaging`), drawn beside the list and outside it, so nothing that reads the list's
+ * rows finds it.
  */
-export const MONTH_LIST_PROBE_CLASS = 'month-day-list-probe';
+export const MONTH_LIST_PROBE_CLASS = MonthListFit.MONTH_LIST_STAGING_CLASS;
 
-/** The custom property the card writes the measured row's height to, on the list. */
-export const MONTH_LIST_ROW_PROPERTY = '--calendar-card-month-day-list-row';
+/**
+ * The custom property the card writes on a compact month's list for the least it may be: its
+ * header, its padding, and the taller of "+N more" and "No events", in the card's own pixels
+ * (`MonthListFit.measureMonthListMin`). Below it the card's content scrolls the weeks and the list
+ * as one.
+ */
+export const MONTH_LIST_MIN_PROPERTY = '--calendar-card-month-list-min';
 
 //-----------------------------------------------------------------------------
 // ROWS
@@ -1128,6 +1137,7 @@ function renderCompactMonth(
     Array.from({ length: 7 }, (_, column) => Paging.addDays(rowsStart, row * 7 + column)),
   );
   const selectedIndex = FormatUtils.getCalendarDayDiff(rowsStart, compact.selected);
+  const selectedEvents = compact.dayLists[selectedIndex] ?? [];
 
   return html`
     <div
@@ -1172,17 +1182,21 @@ function renderCompactMonth(
     </div>
     ${renderMonthDayList(
       compact.selected,
-      compact.dayLists[selectedIndex] ?? [],
+      selectedEvents,
       config,
       language,
       hass,
       eventsTappable,
       compact.weatherForecasts,
       compact.dayAdd,
-      compact.reserve,
+      compact.shown,
       compact.more,
     )}
-    ${(compact.reserve ?? 0) > 0 ? renderListProbe(config, language, hass) : nothing}
+    ${
+      selectedEvents.length > 0
+        ? renderListStaging(selectedEvents, config, language, hass, compact.weatherForecasts)
+        : nothing
+    }
   `;
 }
 
@@ -1284,7 +1298,7 @@ function renderDayRow(
  * @param eventsTappable - Whether each row is a tap target of its own
  * @param weatherForecasts - Forecasts for the rows' weather, as a list row shows them
  * @param dayLabelId - The id of what names the day, which describes each row as a tap target
- * @param reserved - Whether the list keeps room for its events, so each part keeps to a line
+ * @param oneLine - Whether each part of a row keeps to a line, as under a compact month's weeks
  * @returns The rows, or nothing
  */
 export function renderMonthDayRows(
@@ -1295,10 +1309,10 @@ export function renderMonthDayRows(
   eventsTappable = false,
   weatherForecasts?: Types.WeatherForecasts,
   dayLabelId?: string,
-  reserved = false,
+  oneLine = false,
 ): TemplateResult | typeof nothing {
   if (events.length === 0) return nothing;
-  const rows = MonthDay.monthRowsConfig(config, reserved);
+  const rows = MonthDay.monthRowsConfig(config, oneLine);
   const repeated = Presentation.repeatedCountdowns([...events], rows, language);
   const gap = ViewConfig.hasEventGap(rows);
   return html`<table class=${gap ? 'month-day-table with-event-gap' : 'month-day-table'}>
@@ -1320,32 +1334,47 @@ export function renderMonthDayRows(
   </table>`;
 }
 
-/** What a reserved list's rows write on the list: the room and each part's one line. */
-const reservedStyles = new WeakMap<Types.Config, Readonly<Record<string, string>>>();
+/** What a compact month's list writes on itself for each part's one line, per configuration. */
+const oneLineStyles = new WeakMap<Types.Config, Readonly<Record<string, string>>>();
 
 /**
- * The custom properties a reserved list writes on itself, over the card's: each the card writes
- * differently for the reserved rows' configuration (`MonthDay.monthRowsConfig`), so every line
- * limit the stylesheet reads takes one line there and nowhere else, as `text_scale` scales one
- * event's sizes.
+ * The custom properties a compact month's list writes on itself, and its staged copy beside it,
+ * over the card's: each the card writes differently for the one-line rows' configuration
+ * (`MonthDay.monthRowsConfig`), so every line limit the stylesheet reads takes one line there and
+ * nowhere else, as `text_scale` scales one event's sizes.
  *
  * @param config - Card configuration, resolved for month
  * @returns The properties, by name
  */
-function reservedListStyle(config: Types.Config): Readonly<Record<string, string>> {
-  const known = reservedStyles.get(config);
+function oneLineListStyle(config: Types.Config): Readonly<Record<string, string>> {
+  const known = oneLineStyles.get(config);
   if (known) return known;
   const card = generateCustomPropertiesObject(config);
   const rows = generateCustomPropertiesObject(MonthDay.monthRowsConfig(config, true));
   const style = Object.fromEntries(
     Object.entries(rows).filter(([property, value]) => card[property] !== value),
   );
-  reservedStyles.set(config, style);
+  oneLineStyles.set(config, style);
   return style;
 }
 
 /**
- * The list's "+N more", in the last row its room keeps: the events past the ones it lists,
+ * The words of a list's "+N more" for a count, in the card's language and its direction.
+ *
+ * @param count - The events it stands for
+ * @param language - Card language
+ * @param hass - Home Assistant, which says which way the dashboard runs
+ * @returns The words
+ */
+function listMoreText(count: number, language: string, hass?: Types.Hass | null): string {
+  return TextDirection.inLanguageDirection(
+    Localize.getTranslations(language).moreEvents.replace('{count}', () => String(count)),
+    TextDirection.languageMark(language, hass),
+  );
+}
+
+/**
+ * The list's "+N more", after the rows that fit its room: the events past the ones it lists,
  * counted, as a button in the Tab order named for its count and its day. It opens the day's
  * panel beside itself, and focus comes back to it when the panel closes. Its press is its own,
  * never the card's nor the day's beneath it.
@@ -1364,10 +1393,7 @@ function renderListMore(
   hass?: Types.Hass | null,
   more?: MonthCompact['more'],
 ): TemplateResult {
-  const text = TextDirection.inLanguageDirection(
-    Localize.getTranslations(language).moreEvents.replace('{count}', () => String(count)),
-    TextDirection.languageMark(language, hass),
-  );
+  const text = listMoreText(count, language, hass);
   return html`<button
     class="month-day-list-more"
     type="button"
@@ -1384,36 +1410,49 @@ function renderListMore(
 }
 
 /**
- * The hidden row a reserved list is measured from (`MonthDay.monthListProbe`), beside the list,
- * drawn as the list's rows are and out of sight, the tab order and assistive technology. It takes
- * no room: the card reads its height and writes it on the list (`MONTH_LIST_ROW_PROPERTY`).
+ * The selected day's list as the card measures it, beside the list and out of sight, the tab order
+ * and assistive technology: every one of the day's rows, drawn as the list draws them and as wide,
+ * and its "+N more" at the day's count, the most digits it can show. It takes no room. The card
+ * reads where each row ends, the button's height and the gap before it, and fits the list to its
+ * room from them (`MonthListFit.measureMonthList`). No ids, no tab stops and nothing to press,
+ * and drawn only for a day with events, so nothing else that reads the card's rows finds an empty
+ * copy.
  *
+ * A row a search rings is staged without its ring, which draws over the row and moves nothing.
+ *
+ * @param events - The day's events, as the day model lists them, at least one
  * @param config - Card configuration, resolved for month
  * @param language - Card language
  * @param hass - Home Assistant instance
- * @returns The probe
+ * @param weatherForecasts - Forecasts for the rows' weather, as the list shows them
+ * @returns The staged copy
  */
-function renderListProbe(
+function renderListStaging(
+  events: ReadonlyArray<Types.CalendarEventData>,
   config: Types.Config,
   language: string,
-  hass?: Types.Hass | null,
+  hass: Types.Hass | null | undefined,
+  weatherForecasts: Types.WeatherForecasts | undefined,
 ): TemplateResult {
+  const table = renderMonthDayRows(
+    events.map((event) => (event._searchRing ? { ...event, _searchRing: undefined } : event)),
+    config,
+    language,
+    hass,
+    false,
+    weatherForecasts,
+    undefined,
+    true,
+  );
   return html`<div
     class=${MONTH_LIST_PROBE_CLASS}
-    style=${styleMap(reservedListStyle(config))}
+    style=${styleMap(oneLineListStyle(config))}
     aria-hidden="true"
     inert
   >
-    ${renderMonthDayRows(
-      [MonthDay.monthListProbe(config)],
-      config,
-      language,
-      hass,
-      false,
-      undefined,
-      undefined,
-      true,
-    )}
+    ${table}<button class="month-day-list-more" type="button">
+      ${listMoreText(events.length, language, hass)}
+    </button>
   </div>`;
 }
 
@@ -1450,13 +1489,14 @@ function renderDayTitleFit(
  * rows, runs `day_tap_action`, and where that adds an event its name is a button that adds on the
  * day, as List's dates are.
  *
- * With `reserve` events, the rows take as much room on every day, whatever the day holds, so the
- * card is one height as a tap moves from day to day and month to month: `reserve` rows of the
- * height the card measures off the hidden probe beside the list, and the gaps between them. A
- * day with more lists one fewer and "+N more" in the last row, which opens the day's panel. Each
- * part of a row keeps to one line (`MonthDay.monthRowsConfig`), and a row is cut at the room's
- * height besides, so nothing a row holds can make it taller. Nothing scrolls: under a fixed card
- * `height` the list scrolls with the month in the card's content.
+ * The rows sit in a box that takes the room the card leaves the list (`.month-day-list-rows`), on
+ * every day alike, so a tap from day to day never moves the card. The card fits the day's rows to
+ * that room from a copy staged beside the list (`renderListStaging`) and hands in how many fit,
+ * `shown`: the list draws those, in order, and "+N more" for the rest, which opens the day's panel.
+ * Until the card has fitted the day, as on its first render or while it is not on screen, the list
+ * draws "+N more" alone. Each part of a row keeps to one line (`MonthDay.monthRowsConfig`), so a
+ * row is as tall here as where it was measured. Nothing scrolls inside the list: a card too short
+ * for it scrolls the weeks and the list as one.
  *
  * @param day - The day, at local midnight
  * @param events - Its events, as the day model lists them
@@ -1466,7 +1506,7 @@ function renderDayTitleFit(
  * @param eventsTappable - Whether each row is a tap target of its own
  * @param weatherForecasts - Forecasts for the rows' weather
  * @param dayAdd - The name as a button that adds on the day, while a tap on a day adds
- * @param reserve - The events it keeps room for, or 0 for none
+ * @param shown - How many rows fit its room, as the card measured them, or undefined until it has
  * @param more - Opens the day's panel from "+N more"
  * @returns The list
  */
@@ -1479,7 +1519,7 @@ export function renderMonthDayList(
   eventsTappable = false,
   weatherForecasts?: Types.WeatherForecasts,
   dayAdd?: Activation.DayAddButtons,
-  reserve = 0,
+  shown?: number,
   more?: MonthCompact['more'],
 ): TemplateResult {
   const timestamp = day.getTime();
@@ -1492,26 +1532,25 @@ export function renderMonthDayList(
       >${renderDayTitleFit(titles, mark)}</span
     ></span
   >`;
-  const reserved = reserve > 0;
-  const shown = reserved && events.length > reserve ? reserve - 1 : events.length;
+  const listed = Math.min(Math.max(shown ?? 0, 0), events.length);
   const rows =
     events.length > 0
       ? html`${
-          shown > 0
+          listed > 0
             ? renderMonthDayRows(
-                events.slice(0, shown),
+                events.slice(0, listed),
                 config,
                 language,
                 hass,
                 eventsTappable,
                 weatherForecasts,
                 labelId,
-                reserved,
+                true,
               )
             : nothing
         }${
-          shown < events.length
-            ? renderListMore(day, events.length - shown, language, hass, more)
+          listed < events.length
+            ? renderListMore(day, events.length - listed, language, hass, more)
             : nothing
         }`
       : html`<div class="month-day-list-empty">
@@ -1519,15 +1558,8 @@ export function renderMonthDayList(
         </div>`;
 
   return html`<div
-    class=${reserved ? 'month-day-list month-day-list-reserved' : 'month-day-list'}
-    style=${
-      reserved
-        ? styleMap({
-            ...reservedListStyle(config),
-            '--calendar-card-month-day-list-events': String(reserve),
-          })
-        : nothing
-    }
+    class="month-day-list"
+    style=${styleMap(oneLineListStyle(config))}
     .calendarCardDaySlot=${Activation.daySlot(timestamp)}
   >
     ${
@@ -1544,7 +1576,7 @@ export function renderMonthDayList(
           </div>`
         : html`<div class="month-day-list-header">${name}</div>`
     }
-    ${reserved ? html`<div class="month-day-list-rows">${rows}</div>` : rows}
+    <div class="month-day-list-rows">${rows}</div>
   </div>`;
 }
 
@@ -1594,13 +1626,31 @@ export function measureMonthCapacity(root: ParentNode): number | null {
 //-----------------------------------------------------------------------------
 
 /**
+ * Whether a compact month's list grows with its day, up to a cap, rather than taking a fixed room:
+ * where the compact form's height is `auto` and a cap applies to it, through its own key or the
+ * wide one it follows (`ViewConfig.resolveMonthCardSize`). A Sections slot, which the card fills,
+ * is decided elsewhere and wins over this.
+ *
+ * @param config - Card configuration
+ * @returns `true` while the list grows under a cap
+ */
+export function monthCompactGrows(config: Types.Config): boolean {
+  const { height, max } = ViewConfig.resolveMonthCardSize(config, 'compact');
+  return height === 'auto' && max !== 'none';
+}
+
+/**
  * The height and the cap a month writes on its card where no Sections slot sizes it, from its
  * `month:` block in the form drawn (`ViewConfig.resolveMonthCardSize`). `auto` is the form's own
  * default (`UI.MONTH_CARD_HEIGHT`); a length is handed to CSS as written, so `rem`, `dvh` and a
  * `calc()` with a `var()` survive.
  *
  * The whole card's, its title, toolbar and notices included, so the weeks share what those leave
- * and never take their height from their events.
+ * and never take their height from their events. The one exception is a compact month whose
+ * height is `auto` under a cap (`monthCompactGrows`): its card is as tall as its weeks and the
+ * day's list, up to the cap, and the list lists as many rows as that leaves room for. The two
+ * properties written then let the content and the list take their own height rather than share a
+ * fixed one, which in a card of no fixed height would leave them none.
  *
  * @param config - Card configuration
  * @param form - The form drawn
@@ -1611,6 +1661,14 @@ export function monthCardStyle(
   form: ViewConfig.MonthCardForm,
 ): Record<string, string> {
   const { height, max } = ViewConfig.resolveMonthCardSize(config, form);
+  if (form === 'compact' && monthCompactGrows(config)) {
+    return {
+      height: 'auto',
+      'max-height': max,
+      '--calendar-card-month-content-flex': '0 1 auto',
+      '--calendar-card-month-list-flex': 'none',
+    };
+  }
   return {
     height: height === 'auto' ? Constants.UI.MONTH_CARD_HEIGHT[form] : height,
     'max-height': max,

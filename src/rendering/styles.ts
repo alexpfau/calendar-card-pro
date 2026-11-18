@@ -7688,10 +7688,15 @@ export const cardStyles = css`
      ha-card (monthCardStyle). The content area takes what the title, the toolbar and a notice
      leave of it, so the shared height and max_height, which size the content area in the other
      views, do nothing here. It scrolls only where the card is too short for the month's floors
-     below. */
+     below, or for a compact month's weeks and the least of its list.
+
+     The one card with no height of its own is a compact month whose list grows under a cap: the
+     card writes height: auto and the cap on ha-card, and 0 1 auto here, so the content is as tall
+     as what it holds, up to the cap, and scrolls past it. A basis of 0 would leave it no height at
+     all in a card that takes its height from its content. */
   .calendar-card-pro.month-view .content-container {
     display: flex;
-    flex: 1 1 0;
+    flex: var(--calendar-card-month-content-flex, 1 1 0);
     flex-direction: column;
     min-height: 0;
     height: auto;
@@ -8225,12 +8230,31 @@ export const cardStyles = css`
    * The selected day's events under a compact month's weeks: its name in full, then List's rows
    * without their date column, drawn as a list row is in every respect (td.event), or the card's
    * "no events". Its own space is the day's, for day_tap_action; where that adds, its name is a
-   * button. */
+   * button.
+   *
+   * The list takes what the weeks leave of the card, and its rows' box what the header leaves of
+   * the list, by flex with a basis of 0, so neither is ever sized by the day's events and a tap
+   * from day to day never moves the card. The card fits the day's rows to that box from a staged
+   * copy beside the list (.month-day-list-probe) and draws the ones that fit and "+N more"; the
+   * box cuts at its foot as a guard, never as the way rows are left out. The list is at least its
+   * header, its padding and the taller of "+N more" and "No events", which the card measures and
+   * writes here as --calendar-card-month-list-min, and below that the card's content scrolls the
+   * weeks and the list as one. Until it has, the least is reckoned in the card's em. The least is
+   * the whole list's, its padding included, as the card measures it.
+   *
+   * Under a cap with no height, the card writes none for --calendar-card-month-list-flex, and the
+   * list and its box are as tall as the rows the card fitted under the cap. */
   .month-day-list {
+    box-sizing: border-box;
+    display: flex;
+    flex: var(--calendar-card-month-list-flex, 1 1 0);
+    flex-direction: column;
+    min-height: var(--calendar-card-month-list-min, calc(2.4em + 40px));
     padding-block: 12px 4px;
   }
 
   .month-day-list-header {
+    flex: none;
     padding-block: 2px 8px;
     border-radius: 6px;
   }
@@ -8312,37 +8336,20 @@ export const cardStyles = css`
     color: var(--secondary-text-color);
   }
 
-  /* A list that keeps room for month -> day_list_events events, so it is as tall on every day
-     and the card is one height whichever day is chosen: that many rows, each as tall as the
-     hidden probe beside the list, which the card measures and writes here
-     (--calendar-card-month-day-list-row), and the gaps between them. Until it has, a row is
-     reckoned at 47px, a full row at the default sizes, measured in Chromium at 46.77px. The
-     room is a plain box: nothing in it scrolls, since no row is taller than the room keeps for
-     it (below), and under a fixed card height it scrolls with the month in the card's content. */
-  .month-day-list-reserved {
-    --calendar-card-month-day-list-row-height: var(--calendar-card-month-day-list-row, 47px);
-  }
-
-  .month-day-list-reserved > .month-day-list-rows {
-    height: calc(
-      var(--calendar-card-month-day-list-events) * var(--calendar-card-month-day-list-row-height) +
-        (var(--calendar-card-month-day-list-events) - 1) * var(--calendar-card-event-gap, 0px)
-    );
-  }
-
-  /* No row taller than the probe: each part of it keeps to one line, and past that the row is cut
-     at the probe's height. At its foot alone, so a mark above its first line still shows; see
-     "Marks above and below the line". The cut is the row's content, inside the event's padding,
-     so its focus ring and its tap target are whole. */
-  .month-day-list-reserved td.event .event-content {
-    max-height: calc(
-      var(--calendar-card-month-day-list-row-height) - 2 * var(--calendar-card-event-spacing)
-    );
+  /* The rows' box: what the header leaves of the list, whatever the day holds. The rows the card
+     fitted to it end inside it, so the cut cuts nothing it draws; it only keeps a row from
+     spilling over the card's foot for the moment between a change of size and the card's fit,
+     and nothing in it scrolls. At its foot alone, so a mark above the first row's line still
+     shows; see "Marks above and below the line". Each part of a row keeps to one line
+     (MonthDay.monthRowsConfig), so a row is as tall here as staged. */
+  .month-day-list-rows {
+    flex: var(--calendar-card-month-list-flex, 1 1 0);
+    min-height: 0;
     clip-path: inset(-1em -1em 0 -1em);
   }
 
-  /* "+N more", in the last row the room keeps, after the gap the rows keep between them: plain
-     secondary text where the rows' titles start, a button the width of the list. */
+  /* "+N more", after the rows that fit and the gap the rows keep between them: plain secondary
+     text where the rows' titles start, a button the width of the list. */
   .month-day-list-more {
     display: block;
     box-sizing: border-box;
@@ -8382,8 +8389,8 @@ export const cardStyles = css`
     outline-offset: -2px;
   }
 
-  /* The row a reserved list is measured from: laid out as wide as the list, and taking no room,
-     out of sight. */
+  /* The selected day's list, staged for the card to fit the list from: every row and "+N more",
+     laid out as wide as the list, and taking no room, out of sight. */
   .month-day-list-probe {
     height: 0;
     overflow: hidden;

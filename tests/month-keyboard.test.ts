@@ -17,6 +17,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { layOutMonthList } from './helpers/month-geometry';
 import { memoryStorage } from './memory-storage';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
@@ -706,6 +707,14 @@ describe('the keyboard on a month', () => {
 //-----------------------------------------------------------------------------
 
 describe('a search pick on a month', () => {
+  // A compact month's list laid out with room for four 40px rows, or three and "+N more", as
+  // nothing here lays one out.
+  let unlayOut: () => void = () => {};
+  beforeEach(() => {
+    unlayOut = layOutMonthList({ room: 200 });
+  });
+  afterEach(() => unlayOut());
+
   /** What the search hands the card for a result: its day, and how to find it again. */
   function row(summary: string): Pick<Search.SearchRow, 'day' | 'target'> {
     const event = EVENTS.find((candidate) => candidate.summary === summary)!;
@@ -800,7 +809,7 @@ describe('a search pick on a month', () => {
   it('opens a compact day’s panel from its list’s "+N more" where the list hides the event', async () => {
     const card = await mount({ event_tap_action: { action: 'details' } }, 375);
     await pick(card, 'Gym');
-    // The 10th's list keeps room for four: three rows and "+2 more", with Gym behind it.
+    // The 10th's five do not fit its list's room: three rows and "+2 more", with Gym behind it.
     expect(text(root(card).querySelector('.month-day-list-name'))).toBe(
       'Tuesday, November 10, 2026',
     );
@@ -826,6 +835,35 @@ describe('a search pick on a month', () => {
       await settle(card);
     }
     expect(deepActive()).toBe(more);
+  });
+
+  it('waits for a compact list to be fitted before it rings, and rings once it is', async () => {
+    unlayOut();
+    const card = await mount({ event_tap_action: { action: 'details' } }, 375);
+    const picking = card as unknown as Picking & { _searchRing: unknown };
+    await pick(card, 'Football');
+    // Not laid out, as a card not yet on screen: the list draws "+N more" alone, and the pick
+    // neither rings nor opens a panel, and waits.
+    expect(text(root(card).querySelector('.month-day-list-name'))).toBe(
+      'Thursday, November 12, 2026',
+    );
+    expect(text(root(card).querySelector('.month-day-list .month-day-list-more'))).toBe('+2 more');
+    expect(ringed(root(card))).toEqual([]);
+    expect(dialogs).toEqual([]);
+    expect(picking._searchRing).not.toBeNull();
+
+    // Fitted, the list draws the row and the ring is drawn on it, with focus.
+    unlayOut = layOutMonthList({ room: 200 });
+    card.requestUpdate();
+    await settle(card);
+    await vi.advanceTimersByTimeAsync(0);
+    await settle(card);
+    expect(ringed(root(card))).toEqual([expect.stringContaining('Football')]);
+    expect(root(card).querySelector('.month-day-list td.event.search-ring')).not.toBeNull();
+    expect(deepActive()?.closest('.search-ring')).not.toBeNull();
+    // The staged copy is never ringed.
+    expect(root(card).querySelector('.month-day-list-probe .search-ring')).toBeNull();
+    expect(dialogs).toEqual([]);
   });
 
   it('selects and rings on another month’s page', async () => {

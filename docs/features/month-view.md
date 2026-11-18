@@ -109,10 +109,10 @@ month:
 ```
 
 ```yaml
-# A phone: a taller compact month, for a longer day's list
+# A phone: the compact month grows with the day's list, up to 40rem
 view: month
 month:
-  compact_card_height: 40rem
+  compact_card_max_height: 40rem
 ```
 
 | Option                            | Type   | Default           | Description                                                                                                          |
@@ -120,7 +120,7 @@ month:
 | `month → card_height`             | string | `auto`            | The whole card's height in the wide month, its title, toolbar and notices included; `auto` is `44rem`                |
 | `month → card_max_height`         | string | `none`            | Tallest the wide month's card may be; it clamps `card_height`                                                        |
 | `month → compact_card_height`     | string | `card_height`     | The same for the [compact month](#the-compact-month), which takes `card_height` until this is set; `auto` is `36rem` |
-| `month → compact_card_max_height` | string | `card_max_height` | The same cap for the compact month, which takes `card_max_height` until this is set                                  |
+| `month → compact_card_max_height` | string | `card_max_height` | The same cap for the compact month; with its height `auto`, the card grows with the day's list up to it              |
 
 - **The whole card.** The heights include the title, the toolbar and any notice, which take their
   room from the weeks: at `44rem` a week holds four events without a header, three with the
@@ -131,6 +131,10 @@ month:
   switch it to another layout, which scrolls within them.
 - **The compact month follows the wide one** until its own two are set, and an explicit `auto` or
   `none` there gives it its own default back.
+- **A maximum lets the compact month grow.** With its height `auto` and a maximum from either
+  key, the card is as tall as its weeks and [the day's list](#the-days-list), up to the maximum,
+  so a quiet day takes less room and a busy one lists more before "+N more". A maximum alone caps
+  the wide month at it.
 - **Too short to fit**, each week keeps room for its date and one line, and the card's content
   scrolls rather than any text shrinking, so every day still shows its date and "+N more".
   [`week_scroll`](#scrolling-by-weeks) stands down while it does, so the wheel reaches the hidden
@@ -196,23 +200,19 @@ between the two.
 
 ### The Day's List
 
-The chosen day's events are listed under the weeks, and the list keeps room for four of them on
-every day, so the card stays one height as you tap from day to day and page from month to month.
-A day with more lists three and "+5 more", which opens the day in a panel. `day_list_events` sets
-how many the list keeps room for:
+The chosen day's events are listed under the weeks, in the room the weeks leave of the card. The
+list shows as many of the day's events as fit that room, in order, and "+N more" for the rest,
+which opens the day in a panel. The room is the same on every day, so the card stays one height as
+you tap from day to day and page from month to month. To let a busy day list more, give the
+compact month a maximum and no height, and it grows with the list up to that maximum:
 
 ```yaml
 view: month
 month:
-  day_list_events: 6 # room for six events before "+N more"
+  compact_card_max_height: 40rem
 ```
 
-| Option                    | Type   | Default | Description                                                                                                                                                   |
-| ------------------------- | ------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `month → day_list_events` | number | `4`     | Events the compact month's list keeps room for on every day, past which it lists one fewer and "+N more"; `0` lists every event, and the card follows the day |
-
-In the visual editor, that is Events in Day List under Size & Spacing › Card Size & Spacing, with
-**Settings For** on Month.
+See [How Tall the Month Is](#how-tall-the-month-is) for the heights and the maximum.
 
 - **Times sit beside the titles**, whatever `time_position` says, as a phone's day list puts them:
   a row is a line shorter, and the times line up at its end.
@@ -226,21 +226,25 @@ In the visual editor, that is Events in Day List under Size & Spacing › Card S
 - **Each event is a block of its own**, with its own accent bar, 6px from the next: Month starts
   [`event_gap`](/features/layout-appearance#gaps-between-events) from `6px`; see
   [below](#options-that-start-from-a-different-default).
+- **Only the list and the panel show an event's details.** The weeks draw an event as its title
+  and time at most, so `show_location`, `show_description`, `show_countdown`,
+  `show_progress_bar`, the event forecast and the all-day badge act on the list and the panel
+  alone.
 - **"+N more" is a button** in the tab order, after the month. Closing the panel it opens brings
   you back to it.
-- **Past the card's height**, the weeks and the list's room scroll as a whole inside the card;
-  nothing inside the list scrolls.
-- **`day_list_events: 0`** lists every event at its full height, its title wrapping beside its
-  time, and the card's content scrolls past its height.
+- **On a card too short** to show the weeks, the day's name and "+N more", the weeks and the
+  list scroll as one inside the card; nothing inside the list scrolls.
 
-The panel "+N more" opens, here or on a wide month, lists a day the same way, without the room or
-the one-line limit.
+The panel "+N more" opens, here or on a wide month, lists a day the same way, without the one-line
+limit.
 
-::: details How Tall the Room Is
-Each row of the room is as tall as an event showing everything the card shows: a title with its
-time, a location, and a description or a progress bar where the card shows them, at the largest
-`text_scale` any calendar has. A day with fewer events leaves the rest of the room empty, and a
-day with none shows "No events" in it.
+::: details How the List Decides What Fits
+The card measures the day's own events, drawn out of sight exactly as the list draws them, and
+lists the first ones that fit with "+N more" after them. It keeps their order, so a later, shorter
+event never jumps ahead of an earlier one that does not fit. It fits again whenever the room or the
+events change size, as when a font loads or the card is resized, before the change is drawn. Where
+not even one event fits beside "+N more", the list shows "+N more" alone, and a day with no events
+shows "No events".
 :::
 
 ## ⌨️ Keyboard

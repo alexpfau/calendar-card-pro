@@ -13,6 +13,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { layOutMonthList } from './helpers/month-geometry';
 import { memoryStorage } from './memory-storage';
 import '../src/calendar-card-pro';
 import type * as Types from '../src/config/types';
@@ -553,16 +554,28 @@ describe('reconciliation: the rule watches everything the card reads', () => {
   });
 
   it('compact month, every feature: its days and the selected day’s list', async () => {
-    const { card, keys, ids, hass } = await recordReads({ ...FEATURES, view: 'month' }, true, 375);
-    expect(card.shadowRoot!.querySelector('.month-compact')).not.toBeNull();
-    expect(card.shadowRoot!.querySelectorAll('.month-day-list td.event').length).toBeGreaterThan(0);
-    const watched = watchedEntityIds((card as unknown as { config: Types.Config }).config, hass);
+    // Laid out, so the list draws its rows, which nothing here would otherwise fit to its room.
+    const unlayOut = layOutMonthList({ room: 1000 });
+    try {
+      const { card, keys, ids, hass } = await recordReads(
+        { ...FEATURES, view: 'month' },
+        true,
+        375,
+      );
+      expect(card.shadowRoot!.querySelector('.month-compact')).not.toBeNull();
+      expect(card.shadowRoot!.querySelectorAll('.month-day-list td.event').length).toBeGreaterThan(
+        0,
+      );
+      const watched = watchedEntityIds((card as unknown as { config: Types.Config }).config, hass);
 
-    expect(keys.has('locale')).toBe(true);
-    expect(['calendar.anna', 'person.anna'].filter((id) => !ids.has(id))).toEqual([]);
-    expect(ids.has('*')).toBe(false);
-    expect([...ids].filter((id) => !watched.has(id))).toEqual([]);
-    expect([...keys].filter((key) => !Object.keys(hass).includes(key))).toEqual([]);
+      expect(keys.has('locale')).toBe(true);
+      expect(['calendar.anna', 'person.anna'].filter((id) => !ids.has(id))).toEqual([]);
+      expect(ids.has('*')).toBe(false);
+      expect([...ids].filter((id) => !watched.has(id))).toEqual([]);
+      expect([...keys].filter((key) => !Object.keys(hass).includes(key))).toEqual([]);
+    } finally {
+      unlayOut();
+    }
   });
 
   it('would notice a read the rule does not watch (self-test of the recorder)', async () => {

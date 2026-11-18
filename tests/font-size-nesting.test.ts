@@ -778,8 +778,8 @@ function monthForms(days: Types.EventsByDay[], rowsStart: Date, effective: Types
       selected: Paging.addDays(rowsStart, busiest),
       dayLists,
       weatherForecasts: WEATHER,
-      // Room for fewer than the busiest day holds, so its list ends in "+N more".
-      reserve: 2,
+      // Fewer fitted than the busiest day holds, so its list ends in "+N more".
+      shown: 1,
     },
   })}
   ${MonthRender.renderMonthDayList(Paging.addDays(rowsStart, 41), [], effective, 'en', null)}`;
@@ -1140,10 +1140,12 @@ describe('every piece of text is sized by its own option', () => {
       'month-date-month in month-date': ['event_font_size'],
       // A month day's list: the day named as the weekday names are, in the form shown and in
       // the full name read out, and its "no events" in the event font, as the list's rows set
-      // their titles.
+      // their titles, in the box its rows take. Its "+N more" in the time's size, listed and in
+      // the copy the card stages beside the list to fit it from.
       'month-day-list-form in month-day-list-fit': ['weekday_font_size'],
       'month-day-list-name in month-day-list-date': ['weekday_font_size'],
-      'month-day-list-empty in month-day-list': ['event_font_size'],
+      'month-day-list-empty in month-day-list-rows': ['event_font_size'],
+      'month-day-list-more in month-day-list-probe': ['time_font_size'],
       'month-day-list-more in month-day-list-rows': ['time_font_size'],
       // A month line's title and its time, each in its own option, side by side as a list row's.
       'month-line-time in event': ['time_font_size'],

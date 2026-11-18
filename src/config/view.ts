@@ -1109,10 +1109,10 @@ export function resolveTimeGridOption<K extends keyof typeof TIME_GRID_DEFAULTS>
  * which reads worse than the compact form's list; from about 80px a title keeps a word or two,
  * so the compact form takes every card narrower than 594px, a phone's and a narrow column's,
  * and the wide one comes back from 622px (`UI.MONTH_COMPACT_HYSTERESIS`). `day_list_events` is
- * the events the compact form's day list keeps room for, the four a wide day holds under its
- * date at the defaults, so the card is one height whichever day is chosen; `0` keeps no room
- * and lists every event. Week scrolling takes wheel and swipe gestures from the page, so it
- * ships off, and `week_scroll_min_width: 0` applies it at any card width once it is on.
+ * read by nothing, since the compact form's day list fits the day's events to its room, and is
+ * declared until the editor field it backs is removed. Week scrolling takes wheel and swipe
+ * gestures from the page, so it ships off, and `week_scroll_min_width: 0` applies it at any card
+ * width once it is on.
  *
  * The two tints are Grid's, read from {@link TIME_GRID_DEFAULTS} so the two layouts cannot ship
  * different ones: the weekend's a faint mix of the theme's text color, which darkens a light theme

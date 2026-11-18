@@ -6,8 +6,9 @@
  * the selected day are pure too, and pinned at their thresholds. Then the card itself, from a
  * fake Home Assistant: the form at the widths a resize observer reports, each day's capsule, the
  * selected day's list and every rule that moves it, adding on it, and the day panel through a
- * stand-in for Home Assistant's dialog manager. Zones that move the arithmetic are in
- * `month-compact.dst.test.ts`.
+ * stand-in for Home Assistant's dialog manager. happy-dom lays nothing out, so the list is laid out
+ * by `helpers/month-geometry.ts`, which a few tests change or take away. Zones that move the
+ * arithmetic are in `month-compact.dst.test.ts`.
  *
  * Wednesday, November 18, 2026, 10:00 UTC; Mondays first, so home's six weeks run from Monday,
  * October 26 to Sunday, December 6. Names are invented.
@@ -16,6 +17,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
 import { declarations } from './helpers/css-declarations';
+import { type MonthListBoxes, layOutMonthList } from './helpers/month-geometry';
 import { memoryStorage } from './memory-storage';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
@@ -313,12 +315,18 @@ interface PanelUnderTest extends HTMLElement {
 /** Answers the resize observer the card starts, with any width a test reports. */
 class RecordingResizeObserver {
   static instances: RecordingResizeObserver[] = [];
+  /** What it watches, until it is disconnected. */
+  readonly targets: Element[] = [];
   constructor(readonly callback: (entries: Array<{ contentRect: { width: number } }>) => void) {
     RecordingResizeObserver.instances.push(this);
   }
-  observe(): void {}
+  observe(target: Element): void {
+    this.targets.push(target);
+  }
   unobserve(): void {}
-  disconnect(): void {}
+  disconnect(): void {
+    this.targets.length = 0;
+  }
 }
 
 function hass(): Types.Hass {
@@ -461,6 +469,19 @@ async function tap(card: CardUnderTest, target: Element): Promise<void> {
 
 const originalResizeObserver = globalThis.ResizeObserver;
 
+/** Puts happy-dom's measuring back, from the list's layout this test runs with. */
+let unlayOut: () => void = () => {};
+
+/**
+ * Lays the list out at other boxes from now on.
+ *
+ * @param boxes - The room and the rows, or none to lay nothing out, as a card off screen
+ */
+function layOut(boxes?: MonthListBoxes): void {
+  unlayOut();
+  unlayOut = boxes ? layOutMonthList(boxes) : () => {};
+}
+
 /**
  * happy-dom's `ShadowRoot.activeElement` throws while focus is in another shadow tree, here the
  * panel's close button, where a browser answers null; the card and the panel both read it.
@@ -490,9 +511,12 @@ beforeEach(() => {
   extraEvents = [];
   hassActions = [];
   document.addEventListener('show-dialog', record);
+  // Room for eight rows, so a test that reads a day's rows reads them all.
+  layOut({ room: 400 });
 });
 
 afterEach(() => {
+  layOut();
   Object.defineProperty(ShadowRoot.prototype, 'activeElement', activeElement);
   document.removeEventListener('show-dialog', record);
   if (manager) document.removeEventListener('show-dialog', manager);
@@ -781,8 +805,8 @@ describe('the time beside the title', () => {
   });
 });
 
-describe('the room a day’s list keeps', () => {
-  /** Nine on Saturday the 28th, five past the four the list keeps room for. */
+describe('the list fitted to its room', () => {
+  /** Nine on Saturday the 28th, more than a room of 200px holds. */
   const NINE = Array.from({ length: 9 }, (_, index) =>
     timed(
       index % 2 ? BEN : ANNA,
@@ -799,42 +823,162 @@ describe('the room a day’s list keeps', () => {
     [...list(card).querySelectorAll('td.event .event-title')].map((title) => text(title));
   const moreOf = (card: CardUnderTest) =>
     list(card).querySelector<HTMLButtonElement>('.month-day-list-more');
-  /** What decides the room's height: the list's class and style, and the room's own. */
-  const room = (card: CardUnderTest) => ({
-    list: `${list(card).className} | ${list(card).getAttribute('style')}`,
+  const staging = (card: CardUnderTest) =>
+    root(card).querySelector<HTMLElement>('.month-day-list-probe');
+  /** What could make the card one height or another: the height it writes, and the list's box. */
+  const height = (card: CardUnderTest) => ({
+    card: root(card).querySelector<HTMLElement>('ha-card')!.style.height,
+    list: list(card).className,
     rows: list(card)
-      .querySelector('.month-day-list-rows')
+      .querySelector(':scope > .month-day-list-rows')
       ?.outerHTML.match(/^<[^>]*>/)?.[0],
   });
+  /** The list's resize observer: the one watching the staged rows. */
+  const listWatch = () =>
+    RecordingResizeObserver.instances.find((observer) =>
+      observer.targets.some((target) => target.matches('.month-day-list-probe > .month-day-table')),
+    );
 
-  it('is as tall on a day of 0, 1, 4 and 9 events, and on another month’s', async () => {
+  it('lists the rows that fit and "+N more" for the rest, and a tap never moves the card', async () => {
     extraEvents = NINE;
+    layOut({ room: 200 });
     const card = await mount({ toolbar: { show: true, navigation: true } }, 375);
-    const seen: Array<{
-      date: number;
-      events: number;
-      more: string;
-      room: ReturnType<typeof room>;
-    }> = [];
-    for (const date of [19, 13, 18, 28]) {
+    const seen: Array<{ date: number; rows: string[]; more: string }> = [];
+    const heights = new Set<string>();
+    // Day to day, fifty times: 0, 1, 4 and 9 events, twelve rounds and two more taps.
+    const dates = [19, 13, 18, 28];
+    for (let tapped = 0; tapped < 50; tapped += 1) {
+      const date = dates[tapped % dates.length];
       await tap(card, day(card, date));
-      seen.push({ date, events: rowsOf(card).length, more: text(moreOf(card)), room: room(card) });
+      if (tapped < dates.length) seen.push({ date, rows: rowsOf(card), more: text(moreOf(card)) });
+      heights.add(JSON.stringify(height(card)));
+      // Every event either listed or counted in "+N more", never both.
+      const total = { 19: 0, 13: 1, 18: 4, 28: 9 }[date]!;
+      const counted = Number(/^\+(\d+)/.exec(text(moreOf(card)))?.[1] ?? 0);
+      expect(rowsOf(card).length + counted).toBe(total);
     }
-    expect(seen.map(({ date, events, more }) => [date, events, more])).toEqual([
-      [19, 0, ''],
-      [13, 1, ''],
-      [18, 4, ''],
-      [28, 3, '+6 more'],
+    expect(seen).toEqual([
+      { date: 19, rows: [], more: '' },
+      { date: 13, rows: ['Late show'], more: '' },
+      { date: 18, rows: ['Holiday', 'Swim', 'Standup', 'Lunch'], more: '' },
+      { date: 28, rows: ['Errand 1', 'Errand 2', 'Errand 3'], more: '+6 more' },
     ]);
-    // One room, whatever the day holds: four rows of the measured height and three gaps.
-    expect(new Set(seen.map(({ room }) => JSON.stringify(room))).size).toBe(1);
-    expect(seen[0].room.list).toContain('month-day-list month-day-list-reserved');
-    expect(seen[0].room.list).toContain('--calendar-card-month-day-list-events: 4');
-    expect(seen[0].room.rows).toBe('<div class="month-day-list-rows">');
+    // One height, whatever the day holds: the card's, and a list whose rows take the room.
+    expect([...heights].map((each) => JSON.parse(each))).toEqual([
+      { card: '36rem', list: 'month-day-list', rows: '<div class="month-day-list-rows">' },
+    ]);
 
+    // Another month's day, fitted the same way.
     root(card).querySelectorAll<HTMLButtonElement>('.date-navigation-segment')[2].click();
     await vi.waitFor(() => expect(dayList(card).name).toBe('Tuesday, December 1, 2026'));
-    expect(JSON.stringify(room(card))).toBe(JSON.stringify(seen[0].room));
+    expect(JSON.stringify(height(card))).toBe([...heights][0]);
+  });
+
+  it('keeps its rows in order, a later shorter one never listed ahead of a taller one', async () => {
+    extraEvents = NINE;
+    // The second row is too tall to fit with "+N more" after it; the third would fit alone.
+    layOut({ room: 200, rows: [40, 140, 40] });
+    const card = await mount({}, 375);
+    await tap(card, day(card, 28));
+    expect(rowsOf(card)).toEqual(['Errand 1']);
+    expect(text(moreOf(card))).toBe('+8 more');
+    // The first row taller than the room: "+N more" alone.
+    layOut({ room: 200, rows: 300 });
+    card.requestUpdate();
+    await settle(card);
+    expect(rowsOf(card)).toEqual([]);
+    expect(text(moreOf(card))).toBe('+9 more');
+  });
+
+  it('lists "+N more" alone until it has measured the day, and keeps its last fit off screen', async () => {
+    extraEvents = NINE;
+    layOut();
+    const card = await mount({}, 375);
+    await tap(card, day(card, 28));
+    // Nothing laid out, as a card not yet on screen: the rows are staged, none is listed.
+    expect(rowsOf(card)).toEqual([]);
+    expect(text(moreOf(card))).toBe('+9 more');
+    expect(staging(card)!.querySelectorAll('td.event')).toHaveLength(9);
+
+    // Shown: its resize observer hears the staged rows take their size, and the list is fitted
+    // before the next frame, without a render of its own to start it.
+    layOut({ room: 200 });
+    listWatch()!.callback([]);
+    await settle(card);
+    expect(rowsOf(card)).toEqual(['Errand 1', 'Errand 2', 'Errand 3']);
+
+    // Hidden again, a render keeps the fit it had; a day it has not fitted waits for one.
+    layOut();
+    card.requestUpdate();
+    await settle(card);
+    expect(rowsOf(card)).toEqual(['Errand 1', 'Errand 2', 'Errand 3']);
+    await tap(card, day(card, 18));
+    expect(rowsOf(card)).toEqual([]);
+    expect(text(moreOf(card))).toBe('+4 more');
+  });
+
+  it('fits again when its room changes size, heard by its resize observer', async () => {
+    extraEvents = NINE;
+    const card = await mount({}, 375);
+    await tap(card, day(card, 28));
+    expect(rowsOf(card)).toHaveLength(8);
+    // The staged rows and the rows' box, so a font, a width or a card height reaches it.
+    expect(listWatch()!.targets.map((target) => target.className)).toEqual([
+      'month-day-table with-event-gap',
+      'month-day-list-rows',
+    ]);
+    layOut({ room: 120 });
+    listWatch()!.callback([]);
+    await settle(card);
+    expect(rowsOf(card)).toEqual(['Errand 1', 'Errand 2']);
+    expect(text(moreOf(card))).toBe('+7 more');
+  });
+
+  it('moves focus to "+N more" when a new fit takes the focused row, else to the day', async () => {
+    extraEvents = NINE;
+    const moves: Array<{ to: HTMLElement; options?: FocusOptions }> = [];
+    const focus = HTMLElement.prototype.focus;
+    HTMLElement.prototype.focus = function (this: HTMLElement, options?: FocusOptions) {
+      moves.push({ to: this, options });
+      focus.call(this, options);
+    };
+    try {
+      const card = await mount({ event_tap_action: { action: 'details' } }, 375);
+      await tap(card, day(card, 28));
+      const buttons = () => [...list(card).querySelectorAll<HTMLElement>('.event-button')];
+      expect(buttons()).toHaveLength(8);
+      buttons()[7].focus();
+      moves.length = 0;
+
+      layOut({ room: 200 });
+      card.requestUpdate();
+      await settle(card);
+      expect(rowsOf(card)).toHaveLength(3);
+      expect(deepActive()).toBe(moreOf(card));
+      expect(moves.map(({ to, options }) => [to.className, options])).toEqual([
+        ['month-day-list-more', { preventScroll: true }],
+      ]);
+
+      // All fit: "+N more" goes, and focus goes to the selected day.
+      moves.length = 0;
+      layOut({ room: 1000 });
+      card.requestUpdate();
+      await settle(card);
+      expect(moreOf(card)).toBeNull();
+      expect(deepActive()).toBe(day(card, 28));
+      expect(moves.map(({ options }) => options)).toEqual([{ preventScroll: true }]);
+
+      // A row the fit keeps keeps focus, and nothing else moves it.
+      buttons()[0].focus();
+      moves.length = 0;
+      layOut({ room: 200 });
+      card.requestUpdate();
+      await settle(card);
+      expect(deepActive()).toBe(buttons()[0]);
+      expect(moves).toEqual([]);
+    } finally {
+      HTMLElement.prototype.focus = focus;
+    }
   });
 
   it('names its day on one line, shortening the weekday before the date and keeping its number', async () => {
@@ -905,22 +1049,36 @@ describe('the room a day’s list keeps', () => {
     ]);
   });
 
-  it('takes its height from the room alone, with nothing inside it to scroll', () => {
+  it('takes what the weeks leave, its rows what its header leaves, with nothing to scroll', () => {
     const rule = (selector: string) =>
       declarations(cardStyles.cssText)
         .filter((d) => d.at.length === 0 && d.selectors.length === 1 && d.selectors[0] === selector)
         .map((d) => `${d.property}: ${d.value.replace(/\s+/g, ' ')}`);
-    expect(rule('.month-day-list-reserved > .month-day-list-rows')).toEqual([
-      'height: calc( var(--calendar-card-month-day-list-events) * var(--calendar-card-month-day-list-row-height) + (var(--calendar-card-month-day-list-events) - 1) * var(--calendar-card-event-gap, 0px) )',
+    // Flexible with a basis of 0, so no day's events size either; at least what the card measures.
+    expect(rule('.month-day-list')).toEqual([
+      'box-sizing: border-box',
+      'display: flex',
+      'flex: var(--calendar-card-month-list-flex, 1 1 0)',
+      'flex-direction: column',
+      'min-height: var(--calendar-card-month-list-min, calc(2.4em + 40px))',
+      'padding-block: 12px 4px',
     ]);
-    expect(rule('.month-day-list-reserved')).toEqual([
-      '--calendar-card-month-day-list-row-height: var(--calendar-card-month-day-list-row, 47px)',
+    expect(rule('.month-day-list-header')).toEqual([
+      'flex: none',
+      'padding-block: 2px 8px',
+      'border-radius: 6px',
     ]);
-    // A row is cut at that height, at its foot alone, inside its padding.
-    expect(rule('.month-day-list-reserved td.event .event-content')).toEqual([
-      'max-height: calc( var(--calendar-card-month-day-list-row-height) - 2 * var(--calendar-card-event-spacing) )',
+    // The rows' box cuts at its foot as a guard, on every day, so a mark above the first row's
+    // line still shows, and scrolls nothing.
+    expect(rule('.month-day-list-rows')).toEqual([
+      'flex: var(--calendar-card-month-list-flex, 1 1 0)',
+      'min-height: 0',
       'clip-path: inset(-1em -1em 0 -1em)',
     ]);
+    // The content shares the card's height, or takes its own under a cap with no height.
+    expect(rule('.calendar-card-pro.month-view .content-container')).toContain(
+      'flex: var(--calendar-card-month-content-flex, 1 1 0)',
+    );
     // Nothing a month draws scrolls on its own, so the card's height scrolls the whole.
     const scrolls = declarations(cardStyles.cssText).filter(
       (d) =>
@@ -929,6 +1087,27 @@ describe('the room a day’s list keeps', () => {
         /auto|scroll/.test(d.value),
     );
     expect(scrolls).toEqual([]);
+    // The old room and its row are gone.
+    expect(cardStyles.cssText).not.toContain('month-day-list-reserved');
+    expect(cardStyles.cssText).not.toContain('--calendar-card-month-day-list-row');
+  });
+
+  it('writes the least it may be: its header and the taller of "+N more" and "No events"', async () => {
+    extraEvents = NINE;
+    layOut({ room: 200, chrome: 44, more: 28, empty: 33 });
+    const card = await mount({}, 375);
+    const least = () => list(card).style.getPropertyValue('--calendar-card-month-list-min');
+    // Above the rows, 44; below them, the list's bottom padding as the stylesheet sets it.
+    const below = Number.parseFloat(getComputedStyle(list(card)).paddingBottom) || 0;
+    // Today's list stages "+N more".
+    expect(least()).toBe(`${44 + below + 28}px`);
+    // An empty day draws "No events", which is taller, and the least keeps the taller of the two,
+    // whatever the list's own height: a list held at its least adds nothing to the next reading.
+    await tap(card, day(card, 19));
+    expect(least()).toBe(`${44 + below + 33}px`);
+    await tap(card, day(card, 28));
+    await tap(card, day(card, 19));
+    expect(least()).toBe(`${44 + below + 33}px`);
   });
 
   it('keeps every part of a row to one line, the title beside its time', async () => {
@@ -961,56 +1140,56 @@ describe('the room a day’s list keeps', () => {
     ).toBe('3');
   });
 
-  it('is measured off a hidden row beside the list, which the card reads', async () => {
+  it('stages the day’s rows and "+N more" beside the list, out of sight and out of reach', async () => {
     extraEvents = NINE;
-    const card = await mount({ show_description: true }, 375);
-    const probe = list(card).nextElementSibling as HTMLElement;
-    expect(probe.className).toBe('month-day-list-probe');
-    expect(probe.getAttribute('aria-hidden')).toBe('true');
-    expect(probe.hasAttribute('inert')).toBe(true);
-    const content = probe.querySelector('td.event .event-content')!;
-    expect(probe.querySelectorAll('td.event')).toHaveLength(1);
-    // A row whose every part fills a line: the time beside the title, a location, a
-    // description, and the "Now" of an event under way.
-    expect(content.querySelector('.title-aside .now-indicator')).not.toBeNull();
-    expect(content.querySelector('.location')).not.toBeNull();
-    expect(content.querySelector('.description')).not.toBeNull();
-    expect(probe.querySelector('[tabindex], [role="button"]')).toBeNull();
-
-    // Laid out, its height is written on the list, and only the list.
-    const td = probe.querySelector<HTMLElement>('td.event')!;
-    td.getBoundingClientRect = () => ({ height: 46.761, width: 300 }) as DOMRect;
-    (card as unknown as { requestUpdate(): void }).requestUpdate();
-    await settle(card);
-    expect(list(card).style.getPropertyValue('--calendar-card-month-day-list-row')).toBe('46.77px');
-  });
-
-  it('lists every event at its own height where month: keeps no room', async () => {
-    extraEvents = NINE;
-    const card = await mount({ month: { day_list_events: 0 } }, 375);
+    const card = await mount(
+      { show_description: true, event_tap_action: { action: 'details' } },
+      375,
+    );
     await tap(card, day(card, 28));
-    expect(rowsOf(card)).toHaveLength(9);
-    expect(moreOf(card)).toBeNull();
-    expect(list(card).className).toBe('month-day-list');
-    expect(list(card).getAttribute('style')).toBeNull();
-    expect(list(card).querySelector('.month-day-list-rows')).toBeNull();
-    expect(root(card).querySelector('.month-day-list-probe')).toBeNull();
-    // The title wraps beside its time, as in the panel.
-    expect(list(card).querySelector('.summary-row.title-wrap')).not.toBeNull();
+    const staged = staging(card)!;
+    expect(list(card).nextElementSibling).toBe(staged);
+    expect(staged.getAttribute('aria-hidden')).toBe('true');
+    expect(staged.hasAttribute('inert')).toBe(true);
+    // Every one of the day's rows, as the list draws them, and "+N more" at the day's count.
+    expect(
+      [...staged.querySelectorAll('td.event .event-title')].map((title) => text(title)),
+    ).toEqual(NINE.map(({ summary }) => summary));
+    // Each part of a row on one line, as in the list, which also carries the least it may be.
+    const declared = (element: HTMLElement) =>
+      (element.getAttribute('style') ?? '')
+        .split(';')
+        .map((declaration) => declaration.replace(/\s+/g, ''))
+        .filter(
+          (declaration) => declaration && !declaration.startsWith('--calendar-card-month-list-min'),
+        );
+    expect(declared(staged)).toEqual(declared(list(card)));
+    expect(declared(staged)).toContain('--calendar-card-title-max-lines:1');
+    const button = staged.querySelector(':scope > .month-day-table + .month-day-list-more')!;
+    expect(text(button)).toBe('+9 more');
+    // No ids, no tab stops, nothing to press.
+    expect(
+      staged.querySelector('[id], [tabindex], [role="button"], [aria-describedby]'),
+    ).toBeNull();
+    expect(button.hasAttribute('aria-label')).toBe(false);
+    // An empty day stages nothing.
+    await tap(card, day(card, 19));
+    expect(staging(card)).toBeNull();
   });
 
   it('gives "+N more" the last row: a button in the Tab order, for its day and count', async () => {
     extraEvents = NINE;
+    layOut({ room: 200 });
     const manager = playDialogManager();
-    const card = await mount({ month: { day_list_events: 6 } }, 375);
+    const card = await mount({}, 375);
     await tap(card, day(card, 28));
-    expect(rowsOf(card)).toEqual(['Errand 1', 'Errand 2', 'Errand 3', 'Errand 4', 'Errand 5']);
+    expect(rowsOf(card)).toEqual(['Errand 1', 'Errand 2', 'Errand 3']);
     const more = moreOf(card)!;
     expect(more.tagName).toBe('BUTTON');
     expect(more.getAttribute('type')).toBe('button');
     expect(more.hasAttribute('tabindex')).toBe(false);
-    expect(more.getAttribute('aria-label')).toBe('+4 more, Saturday, November 28');
-    expect(text(more)).toBe('+4 more');
+    expect(more.getAttribute('aria-label')).toBe('+6 more, Saturday, November 28');
+    expect(text(more)).toBe('+6 more');
     // The compact grid is still one stop, and Enter there selects.
     expect(
       [...root(card).querySelectorAll('.month-compact .month-day')].filter(
@@ -1040,6 +1219,15 @@ describe('the room a day’s list keeps', () => {
     panel.closeDialog();
     await afterClose(card);
     expect(deepActive()).toBe(more);
+  });
+
+  it('reads no day_list_events', async () => {
+    extraEvents = NINE;
+    layOut({ room: 200 });
+    const card = await mount({ month: { day_list_events: 0 } }, 375);
+    await tap(card, day(card, 28));
+    expect(rowsOf(card)).toEqual(['Errand 1', 'Errand 2', 'Errand 3']);
+    expect(text(moreOf(card))).toBe('+6 more');
   });
 });
 

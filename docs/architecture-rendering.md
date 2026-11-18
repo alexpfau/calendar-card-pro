@@ -34,9 +34,12 @@ each renderer.
   display copies, so the capsules, the list and the panel agree. The rows are drawn with
   `MonthDay.monthRowsConfig`, which puts each time beside its title; the panel fits those titles
   itself, since the card's title fitting stops at its own shadow root. Under the weeks the list
-  keeps room for `month → day_list_events` rows, measured off a hidden row beside it
-  (`MonthDay.monthListProbe`) and written on the list by the card (`_syncMonthListRow`), with
-  every part of a row kept to one line there and "+N more" in its last row. A month is one height
+  takes the room the weeks leave, every part of a row kept to one line there. The card stages the
+  day's real rows and its "+N more" out of sight beside the list (`renderListStaging`), measures
+  them and the room (`MonthListFit.measureMonthList`), and draws as many rows as fit with "+N more" for the
+  rest (`utils/month-list-fit.ts`, `_syncMonthListFit`); until it has, the list draws "+N more"
+  alone. A compact month with no height under a cap grows with its list instead
+  (`monthCompactGrows`). A month is one height
   before anything is drawn: a Sections dashboard's slot, which it fills (`utils/sections.ts`), or
   the height its `month:` block resolves to (`ViewConfig.resolveMonthCardSize`), which the card
   writes on `ha-card` (`monthCardStyle`). The six wide weeks share what the header leaves, each at

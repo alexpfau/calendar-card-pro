@@ -446,7 +446,33 @@ describe('the height a month writes on its card', () => {
       375,
       ['30rem', 'none'],
     ],
-    ['compact, capped', { month: { compact_card_max_height: '30rem' } }, 375, ['36rem', '30rem']],
+    // With no height of its own under a cap, a compact month grows with its list up to the cap,
+    // its own or the wide one it follows; the wide month is capped at its own height.
+    [
+      'compact, growing under its cap',
+      { month: { compact_card_max_height: '30rem' } },
+      375,
+      ['auto', '30rem'],
+    ],
+    [
+      'compact, growing under the wide cap',
+      { month: { card_max_height: '40rem' } },
+      375,
+      ['auto', '40rem'],
+    ],
+    ['wide, capped', { month: { card_max_height: '40rem' } }, 900, ['44rem', '40rem']],
+    [
+      'compact, a height under a cap',
+      { month: { compact_card_height: '30rem', compact_card_max_height: '40rem' } },
+      375,
+      ['30rem', '40rem'],
+    ],
+    [
+      'compact, its cap taken off',
+      { month: { card_max_height: '40rem', compact_card_max_height: 'none' } },
+      375,
+      ['36rem', 'none'],
+    ],
     [
       'a panel’s height',
       { month: { card_height: 'calc(100dvh - var(--header-height, 56px))' } },
@@ -460,6 +486,29 @@ describe('the height a month writes on its card', () => {
   ])('%s', async (_name, config, width, expected) => {
     const card = await mount(config, { width });
     expect(written(card)).toEqual(expected);
+  });
+
+  it('lets the content and the list take their own height only while the list grows', async () => {
+    const flex = (card: CardUnderTest) => {
+      const style = card.shadowRoot!.querySelector<HTMLElement>('ha-card')!.style;
+      return [
+        style.getPropertyValue('--calendar-card-month-content-flex'),
+        style.getPropertyValue('--calendar-card-month-list-flex'),
+      ];
+    };
+    const capped = { month: { card_max_height: '40rem' } };
+    expect(flex(await mount(capped, { width: 375 }))).toEqual(['0 1 auto', 'none']);
+    // A fixed room: the defaults, a compact height, the wide form, and a slot it fills.
+    expect(flex(await mount({}, { width: 375 }))).toEqual(['', '']);
+    expect(
+      flex(
+        await mount({ month: { ...capped.month, compact_card_height: '30rem' } }, { width: 375 }),
+      ),
+    ).toEqual(['', '']);
+    expect(flex(await mount(capped))).toEqual(['', '']);
+    expect(
+      flex(await mount({ ...capped, grid_options: { rows: 8 } }, { layout: 'grid', width: 375 })),
+    ).toEqual(['', '']);
   });
 
   it('writes none in a Sections slot, which it fills, and asks for ten rows', async () => {

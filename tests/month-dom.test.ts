@@ -567,10 +567,11 @@ describe('the rows’ height', () => {
 
   it('shares the content area among six weeks, each at least its floor, none sized by events', () => {
     // The content area takes what the header leaves of the card, whatever height and max_height
-    // say, and scrolls only below the floors.
+    // say, and scrolls only below the floors. Only a compact month whose list grows under a cap
+    // writes the property, for a card of no height of its own (month-sizing.test.ts).
     expect(rule('.calendar-card-pro.month-view .content-container')).toEqual({
       display: 'flex',
-      flex: '1 1 0',
+      flex: 'var(--calendar-card-month-content-flex, 1 1 0)',
       'flex-direction': 'column',
       'min-height': '0',
       height: 'auto',

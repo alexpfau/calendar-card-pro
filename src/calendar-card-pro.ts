@@ -80,6 +80,7 @@ import * as Helpers from './utils/helpers';
 import * as LiveCalendars from './utils/live-calendars';
 import * as Logger from './utils/logger';
 import * as MonthDay from './utils/month-day';
+import * as MonthListFit from './utils/month-list-fit';
 import * as Paging from './utils/paging';
 import * as Search from './utils/search';
 import * as Sections from './utils/sections';
@@ -1649,6 +1650,13 @@ class CalendarCardPro extends LitElement {
   private _searchRingBehindMore: Date | null = null;
 
   /**
+   * Whether the render just made holds the event a pick rings in a compact month's list the card
+   * has not fitted yet, which may list it or leave it behind "+N more": the ring waits for the fit
+   * (`_syncSearchRing`).
+   */
+  private _searchRingPending = false;
+
+  /**
    * Whether no search panel is open or closing, and Home Assistant has had its moment to put
    * focus back on the magnifier: only then may a ringed event take focus, which that would move
    * back otherwise.
@@ -1805,11 +1813,43 @@ class CalendarCardPro extends LitElement {
    */
   private _monthSelection: MonthDay.MonthSelection | null = null;
 
-  /** Watches the probe a compact month's reserved day list is measured from (`_syncMonthListRow`). */
-  private _monthListRowWatch: ResizeObserver | null = null;
+  /**
+   * How many of the selected day's events a compact month's list draws, as last fitted to its room
+   * (`_syncMonthListFit`), and the day they were fitted for. The list draws them on that day alone;
+   * on any other it draws "+N more" alone until the card has fitted it.
+   */
+  private _monthListFit: { readonly day: string; readonly shown: number } | null = null;
 
-  /** The probe it watches, as last drawn. */
-  private _monthListProbe: HTMLElement | null = null;
+  /**
+   * The day a compact month's list was drawn for in the render just made, `YYYY-MM-DD`, and how
+   * many events it holds; null where no list is drawn. What `_syncMonthListFit` fits.
+   */
+  private _monthListDrawn: { readonly day: string; readonly count: number } | null = null;
+
+  /**
+   * Watches what a compact month's list is fitted from, the staged rows and the rows' box, for a
+   * change of size, as a font loading, a width that changes the rows or a card that changes height
+   * makes, and fits the list again from its callback (`_watchMonthList`).
+   */
+  private _monthListWatch: ResizeObserver | null = null;
+
+  /** What it watches, as last drawn. */
+  private _monthListWatched: ReadonlyArray<Element> = [];
+
+  /**
+   * The heights of a compact month's "+N more" and "No events" last read, in the card's own
+   * pixels, for the least the list may be (`MonthListFit.measureMonthListMin`).
+   */
+  private readonly _monthListParts: { more: number | null; empty: number | null } = {
+    more: null,
+    empty: null,
+  };
+
+  /**
+   * The row or "+N more" of a compact month's list that had focus as the update began, which a
+   * new fit can take away (`_keepMonthListFocus`).
+   */
+  private _monthListFocus: HTMLElement | null = null;
 
   /**
    * Watches a wide month's three probes, which change size when a font loads or a theme changes
@@ -2237,11 +2277,12 @@ class CalendarCardPro extends LitElement {
   /**
    * The configuration the card's event rows are drawn with, which the title fits and the title
    * scroll read: the view's own, and in month view its day list's (`MonthDay.monthRowsConfig`),
-   * whose times are beside their titles whatever `time_position` says.
+   * whose times are beside their titles whatever `time_position` says, and each part of a row on
+   * one line under a compact month's weeks.
    */
   private get _rowsConfig(): Types.Config {
     return this.effectiveView === 'month'
-      ? MonthDay.monthRowsConfig(this.effectiveConfig, this._monthListReserve > 0)
+      ? MonthDay.monthRowsConfig(this.effectiveConfig, this._drawsCompactMonth)
       : this.effectiveConfig;
   }
 
@@ -2775,7 +2816,7 @@ class CalendarCardPro extends LitElement {
     this._stopGridDisclosureObserver();
     this._stopTitleScrollObserver();
     this._stopTitleFits();
-    this._stopMonthListRow();
+    this._stopMonthList();
     this._stopMonthProbes();
     Menu.closeMenus(this.renderRoot);
     this._search?.close();
@@ -3640,7 +3681,7 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Writes a wide month's floors on it (`MonthRender.MONTH_FLOOR_PROPERTIES`), straight onto its
-   * style and only where they changed, as `_writeMonthListRow` writes the day list's row, so it
+   * style and only where they changed, as `_writeMonthListMin` writes the day list's least, so it
    * costs no render. A month not laid out writes nothing and keeps what it had, or the
    * stylesheet's estimate before the first.
    */
@@ -3694,59 +3735,131 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Writes the height of a row of a compact month's reserved day list on the list
-   * (`MonthRender.MONTH_LIST_ROW_PROPERTY`), read off the hidden probe beside it, after every
-   * render and again whenever the probe changes size, as a font loading, a theme or a width that
-   * wraps it does. The list keeps room for `month → day_list_events` rows of that height.
+   * Fits a compact month's list to its room: measures the day's rows, staged beside the list, and
+   * the room (`MonthListFit.measureMonthList`), decides how many fit (`MonthListFit.fitMonthList`),
+   * and re-renders once if that is another number or another day than the list draws. Called
+   * after every update, and from a resize observer on what the fit is read from
+   * (`_watchMonthList`), so a font that loads, a width that changes the rows or a card that changes
+   * height fits it again before the frame is painted.
    *
-   * Written straight onto the list, where no render binds that property, and only when it
-   * changed, so it costs no render. Stable by construction: the probe takes no room and holds the
-   * same row whatever the day, so the room written cannot move what it was read from. A probe not
-   * laid out, in a hidden card, writes nothing, and the list keeps what it had, or the
-   * stylesheet's estimate before the first.
+   * Stable by construction. The rows are staged whatever the list draws, and the room is the rows'
+   * box, which the list's flexible height sets whatever is in it; a list that grows under a cap
+   * takes the cap less everything else, which the rows it draws do not change either. So the
+   * render this triggers reads the same and fits the same. Nothing is read while the list is not
+   * on screen or not laid out: the list keeps its last fit, and a day it has not fitted draws
+   * "+N more" alone until it is shown.
    */
-  private _syncMonthListRow(): void {
-    const probe = this.isConnected
-      ? this.renderRoot.querySelector<HTMLElement>(
-          `.${MonthRender.MONTH_LIST_PROBE_CLASS} td.event`,
-        )
+  private _syncMonthListFit(): void {
+    const drawn = this.isConnected ? this._monthListDrawn : null;
+    this._watchMonthList();
+    if (!drawn) return;
+    this._writeMonthListMin();
+    if (drawn.count === 0) return;
+    const geometry = MonthListFit.measureMonthList(this.renderRoot, this._monthListGrows);
+    if (!geometry) return;
+    const shown = MonthListFit.fitMonthList(geometry);
+    const fit = this._monthListFit;
+    if (fit?.day === drawn.day && fit.shown === shown) return;
+    Logger.debug(`Month list ${drawn.day}: ${shown} of ${drawn.count} events fit`);
+    this._monthListFit = { day: drawn.day, shown };
+    this.requestUpdate();
+  }
+
+  /**
+   * Whether a compact month's list grows with its day under a cap, rather than taking a fixed room:
+   * never in a Sections slot, which the card fills (`MonthRender.monthCompactGrows`).
+   */
+  private get _monthListGrows(): boolean {
+    return (
+      this._drawsCompactMonth &&
+      !this._holdsSectionsSlot &&
+      MonthRender.monthCompactGrows(this.config)
+    );
+  }
+
+  /**
+   * Writes the least a compact month's list may be on it (`MonthRender.MONTH_LIST_MIN_PROPERTY`),
+   * straight onto its style and only when it changed, as `_writeMonthFloors` writes a wide
+   * month's floors, so it costs no render. A list not laid out writes nothing and keeps what it
+   * had, or the stylesheet's estimate before the first.
+   */
+  private _writeMonthListMin(): void {
+    const list = this.renderRoot.querySelector<HTMLElement>('.month-day-list');
+    const least = list
+      ? MonthListFit.measureMonthListMin(this.renderRoot, this._monthListParts)
       : null;
-    if (probe !== this._monthListProbe) {
-      this._stopMonthListRow();
-      this._monthListProbe = probe;
-      if (probe && typeof ResizeObserver !== 'undefined') {
-        this._monthListRowWatch = new ResizeObserver(() => this._writeMonthListRow());
-        this._monthListRowWatch.observe(probe);
-      }
-    }
-    this._writeMonthListRow();
-  }
-
-  /** Reads the probe's row and writes its height on the reserved list, if either is drawn. */
-  private _writeMonthListRow(): void {
-    const probe = this._monthListProbe;
-    const list = this.renderRoot.querySelector<HTMLElement>('.month-day-list-reserved');
-    if (!probe?.isConnected || !list) return;
-    const rect = probe.getBoundingClientRect();
-    if (!(rect.height > 0)) return;
-    // Boxes come in the page's pixels and the property in the card's own: a card an ancestor
-    // scales draws one at the other's scale. offsetWidth is whole pixels, so a box within a pixel
-    // of it is not scaled. Rounded up, so the room is never a fraction short of the row.
-    const scale =
-      probe.offsetWidth > 0 && Math.abs(rect.width - probe.offsetWidth) >= 1
-        ? rect.width / probe.offsetWidth
-        : 1;
-    const height = `${Math.ceil((rect.height / scale) * 100) / 100}px`;
-    if (list.style.getPropertyValue(MonthRender.MONTH_LIST_ROW_PROPERTY) !== height) {
-      list.style.setProperty(MonthRender.MONTH_LIST_ROW_PROPERTY, height);
+    if (!list || least === null) return;
+    const value = `${least}px`;
+    if (list.style.getPropertyValue(MonthRender.MONTH_LIST_MIN_PROPERTY) !== value) {
+      list.style.setProperty(MonthRender.MONTH_LIST_MIN_PROPERTY, value);
     }
   }
 
-  /** Stops watching the reserved list's probe, leaving what it wrote. */
-  private _stopMonthListRow(): void {
-    this._monthListRowWatch?.disconnect();
-    this._monthListRowWatch = null;
-    this._monthListProbe = null;
+  /**
+   * Watches what a compact month's list is fitted from for a change of size: the staged rows, and
+   * the rows' box where it is the room. A list that grows under a cap leaves its box out, as that
+   * changes with every fit and sets nothing. Re-aimed whenever those are other elements, as after a
+   * day without events or a switch of form; no list, no watch.
+   */
+  private _watchMonthList(): void {
+    const targets: Element[] = [];
+    if (this.isConnected && this._monthListDrawn) {
+      const staged = this.renderRoot.querySelector(
+        `.${MonthRender.MONTH_LIST_PROBE_CLASS} > .month-day-table`,
+      );
+      const box = this._monthListGrows
+        ? null
+        : this.renderRoot.querySelector('.month-day-list > .month-day-list-rows');
+      if (staged) targets.push(staged);
+      if (box) targets.push(box);
+    }
+    if (
+      targets.length === this._monthListWatched.length &&
+      targets.every((target, index) => target === this._monthListWatched[index])
+    ) {
+      return;
+    }
+    this._stopMonthList();
+    this._monthListWatched = targets;
+    if (targets.length === 0 || typeof ResizeObserver === 'undefined') return;
+    this._monthListWatch = new ResizeObserver(() => this._syncMonthListFit());
+    for (const target of targets) this._monthListWatch.observe(target);
+  }
+
+  /** Stops watching a compact month's list, leaving its fit. */
+  private _stopMonthList(): void {
+    this._monthListWatch?.disconnect();
+    this._monthListWatch = null;
+    this._monthListWatched = [];
+  }
+
+  /**
+   * The row or "+N more" of a compact month's list that has focus, or null: anything focused in
+   * its rows' box, which a new fit can take away.
+   */
+  private _focusedMonthListPart(): HTMLElement | null {
+    const active = this.shadowRoot?.activeElement;
+    return active instanceof HTMLElement && active.closest('.month-day-list > .month-day-list-rows')
+      ? active
+      : null;
+  }
+
+  /**
+   * Gives focus a place to go when the render just made took away the row or "+N more" that had it,
+   * as a new fit of a compact month's list can: the list's "+N more", which now stands for that
+   * row, else the selected day's cell, without scrolling. Nothing else moves focus, and focus left
+   * where it was is left alone.
+   */
+  private _keepMonthListFocus(): void {
+    const before = this._monthListFocus;
+    this._monthListFocus = null;
+    if (!before || before.isConnected || this.shadowRoot?.activeElement) return;
+    const more = this.renderRoot.querySelector<HTMLElement>(
+      '.month-day-list > .month-day-list-rows > .month-day-list-more',
+    );
+    const target =
+      more ?? (this._drawsCompactMonth ? this._monthCellFor(this._monthSelectedDay()) : null);
+    target?.focus({ preventScroll: true });
   }
 
   /**
@@ -3825,17 +3938,28 @@ class CalendarCardPro extends LitElement {
 
   /**
    * What a compact month draws besides its weeks: the day selected, and every day's events as
-   * the day model lists them, which its capsules count and its list draws. The selected day's
-   * list rings the event a search picked, where it holds it. Undefined for a wide month.
+   * the day model lists them, which its capsules count and its list draws, as many of the selected
+   * day's as the card last fitted to the list's room (`_monthListFit`). The selected day's list
+   * rings the event a search picked, where it holds it. Undefined for a wide month.
    *
    * @param rowsStart - The page's first row's first day
    * @param ring - The event a pick rings on this page, or null
-   * @returns The compact form's options and whether its list rings the pick, or undefined
+   * @returns The compact form's options; where the ring is drawn, in the list, behind its
+   *   "+N more", or not yet known while the list waits for its fit; and the day the list is drawn
+   *   for, with how many events it holds; or undefined
    */
   private _monthCompactView(
     rowsStart: Date,
     ring: Search.RingTarget | null,
-  ): { compact: MonthRender.MonthCompact; ringed: boolean; behindMore: boolean } | undefined {
+  ):
+    | {
+        compact: MonthRender.MonthCompact;
+        ringed: boolean;
+        behindMore: boolean;
+        ringPending: boolean;
+        list: { day: string; count: number };
+      }
+    | undefined {
     if (!this._drawsCompactMonth) return undefined;
     const selected = this._monthSelectedDay();
     const dayLists = MonthDay.monthDayLists(
@@ -3847,36 +3971,31 @@ class CalendarCardPro extends LitElement {
       this.hass,
     );
     const index = FormatUtils.getCalendarDayDiff(rowsStart, selected);
+    const day = FormatUtils.getLocalDateKey(selected);
+    const count = (dayLists[index] ?? []).length;
     const listed = ring ? Search.ringRows(dayLists[index] ?? [], ring) : null;
-    const reserve = this._monthListReserve;
-    // A list that keeps room for `reserve` events lists one fewer where the day has more, and
-    // a pick past those is behind its "+N more", which opens the day's panel to ring it there.
-    const shown = listed && reserve > 0 && listed.rows.length > reserve ? reserve - 1 : Infinity;
+    const found = listed?.found ?? false;
+    // The rows the card fitted to this day, else none until it has; a pick past them is behind
+    // "+N more", which opens the day's panel to ring it there.
+    const shown = this._monthListFit?.day === day ? this._monthListFit.shown : undefined;
+    const pending = shown === undefined && count > 0;
     const at = listed ? listed.rows.findIndex((event) => event._searchRing === true) : -1;
     return {
       compact: {
         selected,
         dayLists: listed
-          ? dayLists.map((list, day) => (day === index ? listed.rows : list))
+          ? dayLists.map((list, each) => (each === index ? listed.rows : list))
           : dayLists,
         weatherForecasts: this.weatherForecasts,
         dayAdd: this._dayAddButtons,
-        reserve,
-        more: (day, button) => this._openDayPanel(day, button, false, true),
+        shown,
+        more: (moreDay, button) => this._openDayPanel(moreDay, button, false, true),
       },
-      ringed: (listed?.found ?? false) && at < shown,
-      behindMore: (listed?.found ?? false) && at >= shown,
+      ringed: found && !pending && at < Math.min(shown ?? 0, count),
+      behindMore: found && !pending && at >= Math.min(shown ?? 0, count),
+      ringPending: found && pending,
+      list: { day, count },
     };
-  }
-
-  /**
-   * The events a compact month's day list keeps room for (`month → day_list_events`), or 0 where
-   * it keeps none, or the month draws no list.
-   */
-  private get _monthListReserve(): number {
-    return this._drawsCompactMonth
-      ? ViewConfig.resolveMonthOption(this.effectiveConfig, 'day_list_events')
-      : 0;
   }
 
   /**
@@ -4786,6 +4905,7 @@ class CalendarCardPro extends LitElement {
     }
     this._focusBeforeFold = this._focusedStartControl();
     this._tapFocusBefore = this._focusedTapTarget();
+    this._monthListFocus = this._focusedMonthListPart();
 
     if (
       changedProps.has('hass') ||
@@ -4861,7 +4981,8 @@ class CalendarCardPro extends LitElement {
     }
     this._syncMonthCapacity();
     this._watchMonthProbes();
-    this._syncMonthListRow();
+    this._keepMonthListFocus();
+    this._syncMonthListFit();
     // An open day panel draws its rows from what this update drew from: the events, the
     // configuration and the time.
     this._dayPanel?.changed();
@@ -8615,6 +8736,7 @@ class CalendarCardPro extends LitElement {
       this._daysOnScreen(days, this._pageShown);
     // A compact month's selected day and every day's list, decided once the events are in.
     let monthCompact: MonthRender.MonthCompact | undefined;
+    this._monthListDrawn = null;
 
     const renderDays = (days: Types.EventsByDay[]): TemplateResult => {
       if (this.effectiveView === 'grid') {
@@ -8692,16 +8814,20 @@ class CalendarCardPro extends LitElement {
       const ringed = Search.ringIn(shownDays(this.groupedEvents), ringTarget);
       this._searchRingDrawn = ringed.found;
       this._searchRingBehindMore = null;
+      this._searchRingPending = false;
       const days = ringed.days;
       const month = this.effectiveView === 'month';
       const rowsStart = month ? this._monthRowsStart(this._pageShown) : undefined;
       const compactView = rowsStart && this._monthCompactView(rowsStart, ringTarget);
       monthCompact = compactView ? compactView.compact : undefined;
+      this._monthListDrawn = compactView ? compactView.list : null;
       // A month decides where a pick's ring is drawn once it knows what it discloses: a compact
-      // month in the selected day's list alone, a wide one in its weeks where it draws the event
-      // as a bar or a line, else in its day's panel (`_syncSearchRing`).
+      // month in the selected day's list alone, once the card has fitted it, a wide one in its
+      // weeks where it draws the event as a bar or a line, else in its day's panel
+      // (`_syncSearchRing`).
       if (compactView) {
         this._searchRingDrawn = compactView.ringed;
+        this._searchRingPending = compactView.ringPending;
         if (compactView.behindMore && ring) this._searchRingBehindMore = Paging.pageStart(ring.day);
       } else if (rowsStart && ring && ringed.found) {
         this._searchRingDrawn = MonthRender.monthDrawsRing(days, rowsStart, this._monthCapacity);
@@ -9839,6 +9965,9 @@ class CalendarCardPro extends LitElement {
 
     if (ring.until === undefined) {
       const behindMore = this._searchRingBehindMore;
+      // A compact month's list not fitted yet may list the pick or leave it behind "+N more";
+      // the render the fit makes says which.
+      if (this._searchRingPending) return;
       if (this._searchRingDrawn) {
         this._startSearchRing(ring);
       } else if (behindMore) {
@@ -9848,7 +9977,7 @@ class CalendarCardPro extends LitElement {
         ring.focus = false;
         // A compact month's list opens it from its own "+N more", which focus comes back to.
         const listMore = this._drawsCompactMonth
-          ? this.renderRoot.querySelector<HTMLElement>('.month-day-list-more')
+          ? this.renderRoot.querySelector<HTMLElement>('.month-day-list .month-day-list-more')
           : null;
         const cell = this._monthCellFor(behindMore);
         if (listMore) this._openDayPanel(behindMore, listMore, focus, true);

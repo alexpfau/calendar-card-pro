@@ -413,7 +413,7 @@ const CUTS_INLINE_AXIS: Record<string, string[] | string> = {
   '.month-line-title': ['.month-line-title'],
   '.month-more': 'a button, whose own padding is its room',
   '.month-compact-marks': 'a capsule of colored segments, which draws no text',
-  '.month-day-list-probe': 'the hidden row a reserved day list is measured from, never seen',
+  '.month-day-list-probe': 'the day’s list staged for the card to fit from, never seen',
   '.month-day-list-name': 'the day named in full, read out, never drawn',
   '.month-day-list-fit': [OUTSIDE_TEXT],
   '.grid-event-disclosure .summary-row': ['.grid-event-disclosure .summary-row'],

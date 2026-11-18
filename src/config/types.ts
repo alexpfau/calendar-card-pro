@@ -757,7 +757,10 @@ export interface MonthOverrides extends Omit<SharedViewOverrides, MonthIgnoredSh
    */
   compact_card_height?: string;
 
-  /** `card_max_height` for the compact form, which takes `card_max_height` while this is unset. */
+  /**
+   * `card_max_height` for the compact form, which takes `card_max_height` while this is unset.
+   * Under it a compact card whose height is `auto` grows with the day's list.
+   */
   compact_card_max_height?: string;
 
   /**
@@ -770,8 +773,8 @@ export interface MonthOverrides extends Omit<SharedViewOverrides, MonthIgnoredSh
   min_day_width?: number;
 
   /**
-   * Events the compact form's day list keeps room for, whichever day is chosen, past which it
-   * lists one fewer and "+N more"; `0` keeps no room and lists every event.
+   * Read by nothing: the compact form's day list shows as many of the day's events as fit its
+   * room, and "+N more" for the rest. Declared until the editor field it backs is removed.
    */
   day_list_events?: number;
 

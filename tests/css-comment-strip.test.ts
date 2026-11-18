@@ -279,13 +279,19 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(245_000);
-    // Month's weekend and today tints moved the ceiling last, from 242,000 to 245,000: the notes
-    // on which cells the two tints shade in either form and why a neighboring month's day takes
-    // them, why the three rules mirror Grid's backdrops so an unset today paints what it painted
-    // before, and why a pressed day's wash is an image over the shade rather than a color. The
-    // reading went from 241,710 to 243,291, taken with stripComments after the last comment was
-    // written.
+    expect(saved).toBeLessThan(248_000);
+    // Month's compact list fit moved the ceiling last, from 245,000 to 248,000: the notes on why
+    // the list and its rows' box flex with a basis of 0, what the staged copy beside the list is
+    // for, why the rows' box cuts only at its foot and only as a guard, and why a list under a cap
+    // with no height takes its own height. The reading went from 244,527 to 245,566, taken with
+    // stripComments after the last comment was written.
+    //
+    // Month's weekend and today tints moved the ceiling before that, from 242,000 to 245,000: the
+    // notes on which cells the two tints shade in either form and why a neighboring month's day
+    // takes them, why the three rules mirror Grid's backdrops so an unset today paints what it
+    // painted before, and why a pressed day's wash is an image over the shade rather than a color.
+    // The reading went from 241,710 to 243,291, taken with stripComments after the last comment
+    // was written.
     //
     // Month's day list moved the ceiling before that, from 237,000 to 242,000: the notes on why a list
     // that keeps room for its events takes its height from the room alone, what the hidden row it
