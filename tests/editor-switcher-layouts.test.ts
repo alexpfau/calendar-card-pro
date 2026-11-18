@@ -291,7 +291,9 @@ describe('Layouts in Switcher waits on View Switcher', () => {
         .shadowRoot!.querySelector(`.setting-gated[data-field="${ID}"]`)
         ?.textContent?.replace(/\s+/g, ' ')
         .trim(),
-    ).toBe('Appears once Show Toolbar is on: Layouts in Switcher, Calendar Filter.');
+    ).toBe(
+      'Appears once Show Toolbar is on: Layouts in Switcher, Calendar Filter, Arrow & Chip Size.',
+    );
   });
 
   it('keeps its list while View Switcher is off, and the chip alone turns it off', async () => {
