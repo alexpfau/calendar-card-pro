@@ -134,7 +134,7 @@ export function colorSpecs(index: FieldIndex): ReadonlyMap<FieldId, ColorSpec> {
 }
 
 /**
- * One field's spec, by its name and where it is drawn (section 5.9's table).
+ * One field's spec, by its name and where it is drawn.
  *
  * @param value - The value field
  * @param name - Its name, the configuration key

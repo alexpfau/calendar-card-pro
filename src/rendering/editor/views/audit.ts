@@ -1,5 +1,5 @@
 /**
- * What This Card Changes, drawn (section 5.10): a group per place the YAML stores lines, and a
+ * What This Card Changes, drawn: a group per place the YAML stores lines, and a
  * row per line, which is one button: pressed, it opens a strip under it with Change Here, Open in
  * the setting's page and Reset or Remove, as a calendar row's ⋮ does. A line the editor keeps as
  * written is a row with nothing to press. Templates only, as `overview.ts`.

@@ -1,5 +1,5 @@
 /**
- * The case table Split's review list is checked against (section 5.7): the card's own
+ * The case table Split's review list is checked against: the card's own
  * `processEvents` and `groupEventsByDay` beside the editor's mirror (`split-review.ts`), naming
  * the same events on the same first day. `tests/editor-split-review.test.ts` runs it under the unit
  * project's UTC, and `tests/editor-split-review.dst.test.ts` in the four zones that change their
@@ -396,7 +396,7 @@ const firstKeeping: Assign = (event, pair, card) => (entryKeeps(event, pair[0], 
  * an event in another part than the review's rule puts it in: one line per difference. The rows
  * are the card's own, in the order it draws them, before and after the split.
  *
- * The review applies no card-wide limit (section 5.7), so this checks what it rests on rather
+ * The review applies no card-wide limit, so this checks what it rests on rather
  * than its lines: the limits keep the same events after a split, and each lands in the part
  * `entryKeeps` names first, the rule `reviewParts` assigns by.
  *

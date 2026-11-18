@@ -1,5 +1,5 @@
 /**
- * The composed controls of section 5.9 (PR 18): the event parts as toggle chips at the top of
+ * The composed controls: the event parts as toggle chips at the top of
  * Events (D08 A), and on Card & Header the toolbar's controls as chips and Calendar Filter as a
  * segmented radio group (D09 A).
  *

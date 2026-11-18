@@ -73,7 +73,7 @@ const labelOf = (id: FieldId): string => fieldLabel(FIELDS.get(id)!, 'en');
 describe('the gate lines’ clauses', () => {
   it('are pinned by value, each condition’s own, its gate’s or a switch’s', () => {
     expect(clauses(ALL)).toEqual({
-      // The event parts are drawn as chips (PR 18): "Time is pressed".
+      // The event parts are drawn as chips: "Time is pressed".
       'time events:show_time': 'gate.when.pressed',
       'location events:show_location': 'gate.when.pressed',
       'description events:show_description': 'gate.when.pressed',
@@ -144,7 +144,7 @@ describe('the gate lines’ clauses', () => {
     const switches = conditions.filter((where) => clauses(ALL)[where] === 'gate.when.on');
     // The denominators, so an empty answer below is a check that ran.
     expect(conditions.length).toBeGreaterThan(30);
-    // Three since the event parts became chips (PR 18): Show Month, Show Toolbar and Show
+    // Three since the event parts became chips: Show Month, Show Toolbar and Show
     // Conditions Beside Events.
     expect(switches.length).toBe(3);
     expect(unclaused(ALL)).toEqual([]);

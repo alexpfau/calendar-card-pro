@@ -165,7 +165,7 @@ describe('editor filter: what search matches', () => {
   /**
    * A field the current configuration does not call for has no control here, so the search
    * finds it as what it is: waiting on another setting, which its tag names and choosing it
-   * opens (section 5.8). Once that setting allows it, it is found as an ordinary setting.
+   * opens. Once that setting allows it, it is found as an ordinary setting.
    */
   it('finds a field gated off by another option as waiting on it', () => {
     const status = (config: Types.Config) =>

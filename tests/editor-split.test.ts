@@ -1,5 +1,5 @@
 /**
- * Split This Calendar (section 5.7, D12): when it refuses and why, what it writes, and the task on
+ * Split This Calendar: when it refuses and why, what it writes, and the task on
  * an entry's page that writes it.
  *
  * What it promises about the card, that every event lands in exactly one part, is proven through
@@ -17,6 +17,7 @@ import {
   fakeHass,
   goEntry,
   goOverview,
+  goPage,
   keysOf,
   lastConfig,
   mountEditor,
@@ -344,7 +345,7 @@ describe('Split This Calendar on an entry’s page', () => {
     }
   });
 
-  // Plan section 5.6: first the row, then the fields the entry stores under Which Events.
+  // First the row, then the fields the entry stores under Which Events.
   it('draws its row first under Which Events, above the fields stored there', async () => {
     const { editor } = await onBensPage({
       entity: 'calendar.ben',
@@ -535,6 +536,25 @@ describe('Split This Calendar on an entry’s page', () => {
       { entity: 'calendar.ben', accent_color: 'var(--blue-color)' },
       'calendar.anna',
     ]);
+    expect(root(editor).activeElement?.getAttribute('data-focus')).toBe('split-row');
+  });
+
+  it('takes the preview back on Escape after Settings For was left open on a page', async () => {
+    const { editor } = await onBensPage();
+    await goPage(editor, 'events');
+    await press(editor, 'scope-change');
+    await goEntry(editor, keysOf(editor, 'entry')[0]);
+    await press(editor, 'split-row');
+    await press(editor, 'split-next');
+
+    root(editor)
+      .querySelector('.split-title')!
+      .dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }),
+      );
+    await editor.updateComplete;
+
+    expect(task(editor)).toBeNull();
     expect(root(editor).activeElement?.getAttribute('data-focus')).toBe('split-row');
   });
 

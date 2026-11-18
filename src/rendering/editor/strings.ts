@@ -60,8 +60,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // holds them to. Counts are a label and a number ("Set: 3"), so no language inflects for one.
   'overview.settings': 'Settings',
   'overview.more': 'More',
-  // The frame around Card Displays.
-  'overview.starting_layout': 'Starting Layout',
   'more.example': 'Start From an Example',
   'more.example_note': 'Quick Setup: an example card and a few questions',
   'more.audit': 'What This Card Changes',
@@ -234,7 +232,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'status.applied': 'Applied {story}',
   // The jump list: its count line, the scope it shows values for, and what a row and a jump say.
   'search.results': 'Results for “{query}”: {count}',
-  'search.values_for': 'Values for {layout}',
+  // A result's value where layouts hold different ones: the layout its page opens in.
+  'search.value_in': '{layout}: {value}',
   'search.overview': 'Overview',
   'search.not_set': 'Not Set',
   'search.yaml': 'YAML: {path}',
@@ -322,6 +321,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // every other condition has a clause of its own, or its gate's (`gates.ts` › `whenText`).
   'gate.line': 'Appears once {when}: {names}.',
   'gate.line_bare': 'Appears once {when}.',
+  'gate.turn_on': 'Turn On',
+  'gate.turn_on_part': 'Turn On {part}',
+  'gate.no_entity': 'No Entity',
+  'gate.choose': 'Choose {label}',
+  'gate.choose_named': 'Choose {label} for {heading}',
   'gate.when.on': '{label} is on',
   'gate.when.pressed': '{part} is pressed',
   'gate.when.indicator_shown': 'a Style other than None is chosen',
@@ -354,17 +358,19 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'gate.needs.calendar_filter': 'a calendar filter in the toolbar',
 
   // --- View -----------------------------------------------------------------
-  view: 'Card Displays',
+  // The overview's frame heading as well, over a group with no visible label of its own.
+  view: 'Starting Layout',
+  // Its name before v6.
+  'view.aliases': 'card displays',
   'view.option.list.label': 'List',
   'view.option.list.description': 'Days stacked, one per row',
   'view.option.column.label': 'Columns',
   'view.option.column.description': 'Days side by side',
   'view.option.grid.label': 'Grid',
   'view.option.grid.description': 'Days side by side on an hour axis',
-  'view.helper':
-    'The card’s starting layout. Side-by-side layouts can fall back to List when space is tight.',
+  'view.helper': 'Side-by-side layouts can fall back to List when space is tight.',
   editing_workspace: 'Editing Settings For',
-  'editing_workspace.helper': 'Choose which layout to edit without changing Card Displays.',
+  'editing_workspace.helper': 'Choose which layout to edit without changing Starting Layout.',
   'editing_workspace.shared_note':
     'These are the shared starting values. A layout’s own settings or built-in defaults can take precedence.',
   'value_source.card': 'Applies to the whole card.',
@@ -586,7 +592,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // The keys beside a move in an entry page's menu.
   'strip.key_up': 'Alt ↑',
   'strip.key_down': 'Alt ↓',
-  // Reordering (section 5.11): a calendar's drag handle, and the keyboard grab's line under the
+  // Reordering: a calendar's drag handle, and the keyboard grab's line under the
   // list, which the announcement queue also speaks. In `reorder.keys` each `{…}` is drawn as a key
   // cap: `{up}` and `{down}` as arrows, `{space}` and `{esc}` as `reorder.space` and `reorder.esc`.
   'reorder.handle': 'Move {name}',
@@ -596,7 +602,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'reorder.space': 'Space',
   'reorder.esc': 'Esc',
   'reorder.put_back': 'Put {name} back at position {position} of {total}.',
-  // The event-part chips at the top of Events (section 5.9, D08). Time, Location and Description
+  // The event-part chips at the top of Events. Time, Location and Description
   // are their headings' words. The stored parts are grouped under the chips by their state words
   // (`state.*`): "Set for List · Countdown: On · End Time: Off".
   'chip.end_time': 'End Time',
@@ -632,7 +638,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   // --- Split This Calendar --------------------------------------------------
   //
-  // The task on an entry's page that turns it into two (section 5.7, D12). Every refusal is a
+  // The task on an entry's page that turns it into two. Every refusal is a
   // whole sentence naming the entry, and the event type's four are four sentences rather than one
   // with a clause added, so a translator writes each in its own word order. Counts are a label
   // and a number ("Days Ahead: 7 · Events: 1"), never an assembled plural.

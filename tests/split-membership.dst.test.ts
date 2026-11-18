@@ -7,7 +7,7 @@ import * as EventUtils from '../src/utils/events';
 import { getLocalDateKey } from '../src/utils/format';
 
 /**
- * Split This Calendar keeps what the card shows (section 5.7): every row the entry draws before a
+ * Split This Calendar keeps what the card shows: every row the entry draws before a
  * split is drawn after it by exactly one of the two parts, none twice and none missing.
  *
  * Proven through the card's own `processEvents` and `groupEventsByDay`, the display copy every

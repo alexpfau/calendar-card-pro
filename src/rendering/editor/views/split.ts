@@ -1,5 +1,5 @@
 /**
- * Split This Calendar's templates (section 5.7, D12): the row under Which Events, the task with
+ * Split This Calendar's templates: the row under Which Events, the task with
  * its stepper and three steps, a refusal, a part's card in Colors and in Review, and the panel a
  * split leaves. Templates only, as `calendars.ts`: each takes what it shows and what to call.
  *

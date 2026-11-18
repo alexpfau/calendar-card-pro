@@ -74,7 +74,7 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     // How the results are drawn: Edit Here, and the calendars' rows a folded result opened.
     '_editHere',
     '_openResults',
-    // What a page shows besides what is stored (section 5.1): the settings opened this session,
+    // What a page shows besides what is stored: the settings opened this session,
     // the helpers shown behind their ⓘ, and the preference,
     // which this browser remembers instead.
     '_added',
@@ -134,6 +134,7 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_undo',
     '_redo',
     '_ctxFor',
+    '_rowCtxFor',
     '_heldModes',
     '_formDataFor',
     '_mintEntryKey',
@@ -149,6 +150,7 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_cancelQuickSetup',
     '_applyQuickSetup',
     '_filterChanged',
+    '_clearSearch',
     '_compositionStart',
     '_compositionEnd',
     '_cardColors',

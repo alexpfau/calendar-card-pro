@@ -3,12 +3,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   CARD,
   CHASSIS,
+  type MountedEditor,
   changeField,
   changeFields,
   entry,
   formsOf,
   goEntry,
   goOverview,
+  goPage,
   keysOf,
   mountEditor,
   openPanels,
@@ -66,10 +68,9 @@ function names(schema: ReadonlyArray<HaFormSchema>): string[] {
     .map(({ node }) => node.name);
 }
 
-/** The forms directly inside the view controls, in order. */
-/** Card Displays and Settings For, the overview's own radio groups. */
+/** Starting Layout and Settings For, wherever the open place draws them. */
 function viewControls(editor: EditorHost): Element[] {
-  return [...editor.shadowRoot!.querySelectorAll('.overview fieldset.displays, .overview .scope')];
+  return [...editor.shadowRoot!.querySelectorAll('fieldset.displays, .scope')];
 }
 
 /**
@@ -86,11 +87,13 @@ function offered(editor: EditorHost, name: string): string[] {
 }
 
 /**
- * Opens Settings For as a user does, with Change, where it is its compact line.
+ * Opens Settings For as a user does: on a page, the overview having none, with Change where it is
+ * its compact line.
  *
  * @param editor - Editor
  */
 async function openScope(editor: EditorHost): Promise<void> {
+  await goPage(editor as unknown as MountedEditor, 'events');
   const change = editor.shadowRoot!.querySelector<HTMLElement>('[data-focus="scope-change"]');
   change?.click();
   await editor.updateComplete;
@@ -264,24 +267,30 @@ describe('the chassis draws exactly the forms subforms.ts declares', () => {
 });
 
 describe('displayed view and editing workspace are separate controls', () => {
-  it('draws both as the overview’s own radio groups and declares both to the translation checker', async () => {
+  it('draws Starting Layout on the overview and Settings For on a page, and declares both to the translation checker', async () => {
     const editor = await mount({ view: 'grid' });
-    expect(viewControls(editor)).toHaveLength(2);
-    expect(editor.shadowRoot!.querySelector('fieldset.displays legend')!.textContent!.trim()).toBe(
-      'Card Displays',
-    );
-    await openScope(editor);
-    expect(editor.shadowRoot!.querySelector('.scope legend')!.textContent!.trim()).toBe(
-      'Settings For',
-    );
-    // The overview, top to bottom: the filter bar, Settings For, Calendars, and Starting Layout
-    // around Card Displays.
+    expect(viewControls(editor)).toHaveLength(1);
+    // Its frame's heading says its name once; the group keeps it as its accessible name.
+    const legend = editor.shadowRoot!.querySelector('fieldset.displays legend')!;
+    expect(legend.textContent!.trim()).toBe('Starting Layout');
+    expect(legend.classList.contains('visually-hidden')).toBe(true);
+    expect(
+      editor
+        .shadowRoot!.querySelector('[data-heading="starting_layout"] > .heading')!
+        .textContent!.trim(),
+    ).toBe('Starting Layout');
+    // The overview, top to bottom: the filter bar, Calendars, and Starting Layout.
     const order = [
       ...editor.shadowRoot!.querySelectorAll(
         '.overview > .filter-bar, .overview > .scope, .overview > [data-heading], .overview > [data-heading] > .displays',
       ),
     ].map((element) => element.getAttribute('data-heading') ?? element.className.split(' ')[0]);
-    expect(order).toEqual(['filter-bar', 'scope', 'calendars', 'starting_layout', 'displays']);
+    expect(order).toEqual(['filter-bar', 'calendars', 'starting_layout', 'displays']);
+    await openScope(editor);
+    expect(viewControls(editor)).toHaveLength(1);
+    expect(editor.shadowRoot!.querySelector('.scope legend')!.textContent!.trim()).toBe(
+      'Settings For',
+    );
     expect(chassisSubforms().flatMap((subform) => names(subform.schema))).toEqual([
       'view',
       WORKSPACE_FIELD,
@@ -411,14 +420,14 @@ describe('workspace transitions do not configure the card', () => {
     expect(workspace(editor)).toBe('list');
   });
 
-  it('leaves the controls available when search empties the editor', async () => {
+  it('draws no Settings For above what search finds, which keeps the scope a page chose', async () => {
     const editor = await mount();
     const seen = reports(editor);
+    await choose(editor, 'grid');
     await changeFields(editor, { 'filter:search': 'zzznomatch' });
     expect(formsOf(editor, CARD)).toHaveLength(0);
-    // Settings For stays above what the search finds: the results write where it says.
-    expect(viewControls(editor)).toHaveLength(1);
-    await choose(editor, 'grid');
+    // The results are the overview's: no scope control, and the scope as a page left it.
+    expect(viewControls(editor)).toHaveLength(0);
     expect(workspace(editor)).toBe('grid');
     expect(seen).toEqual([]);
   });
