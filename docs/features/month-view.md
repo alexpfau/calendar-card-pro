@@ -128,10 +128,11 @@ Height** and **Compact Maximum Height** on Size & Spacing, while **Settings For*
 - **The whole card.** The heights include the title, the toolbar and any notice, which take their
   room from the weeks: at `44rem` a week holds four events without a header, three with the
   toolbar or a title.
-- **A Sections row count wins.** A month that sets none of the four asks a Sections dashboard for
-  ten rows. Once one is set the card sizes itself, and rows chosen in the dashboard's Layout tab
-  always win, the four then doing nothing. A card that opens as a month keeps its rows when you
-  switch it to another layout, which scrolls within them.
+- **A Sections row count wins.** While none of the four sets a height or a maximum, a month asks
+  a Sections dashboard for ten rows; `auto`, `none` and a value it cannot use set neither. Once
+  one does, the card sizes itself, and rows chosen in the dashboard's Layout tab always win, the
+  four then doing nothing. A card that opens as a month keeps its rows when you switch it to
+  another layout, which scrolls within them.
 - **The compact month follows the wide one** until its own two are set, and an explicit `auto` or
   `none` there gives it its own default back.
 - **A maximum lets the compact month grow.** With its height `auto` and a maximum from either

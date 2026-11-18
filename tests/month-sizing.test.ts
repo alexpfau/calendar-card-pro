@@ -4,7 +4,9 @@
  *
  * The wide keys stand alone, folded to `auto` and `none` where they are unusable. A compact key
  * counts as set by being written in the block, so an explicit `auto` or `none` stops it taking
- * the wide one, and an absent or unusable one takes the wide one. Every case is pinned by value.
+ * the wide one, and an absent or unusable one takes the wide one. A month asks a Sections
+ * dashboard for its own rows until a form resolves to a height or a maximum, so a key written at
+ * its default asks as one left out. Every case is pinned by value.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -257,11 +259,16 @@ describe('the rows a card asks a Sections dashboard for', () => {
     ['a month', { view: 'month' }, 10],
     ['a month with an empty block', { view: 'month', month: {} }, 10],
     ['a month with other options', { view: 'month', month: { week_scroll: true } }, 10],
+    // A key sizes the card only where it sets a height or a maximum, in either form.
     ['a month with card_height', { view: 'month', month: { card_height: '50rem' } }, 'auto'],
-    ['a month with card_max_height', { view: 'month', month: { card_max_height: 'none' } }, 'auto'],
+    [
+      'a month with card_max_height',
+      { view: 'month', month: { card_max_height: '40rem' } },
+      'auto',
+    ],
     [
       'a month with compact_card_height',
-      { view: 'month', month: { compact_card_height: 'auto' } },
+      { view: 'month', month: { compact_card_height: '30rem' } },
       'auto',
     ],
     [
@@ -269,8 +276,57 @@ describe('the rows a card asks a Sections dashboard for', () => {
       { view: 'month', month: { compact_card_max_height: '40rem' } },
       'auto',
     ],
-    // Written is written, even as something the card cannot use.
-    ['a month with an unusable height', { view: 'month', month: { card_height: '50%' } }, 'auto'],
+    [
+      'a month whose compact form takes its own default under a wide height',
+      { view: 'month', month: { card_height: '50rem', compact_card_height: 'auto' } },
+      'auto',
+    ],
+    // Each key at its default sets nothing, written or not, so saving one back to it from the
+    // visual editor, which leaves the line out, keeps the rows.
+    [
+      'a month with every key at its default',
+      {
+        view: 'month',
+        month: {
+          card_height: 'auto',
+          card_max_height: 'none',
+          compact_card_height: 'auto',
+          compact_card_max_height: 'none',
+        },
+      },
+      10,
+    ],
+    ['a month with card_height auto', { view: 'month', month: { card_height: 'auto' } }, 10],
+    [
+      'a month with card_max_height none',
+      { view: 'month', month: { card_max_height: 'none' } },
+      10,
+    ],
+    [
+      'a month with compact_card_height auto',
+      { view: 'month', month: { compact_card_height: 'auto' } },
+      10,
+    ],
+    [
+      'a month with compact_card_max_height none',
+      { view: 'month', month: { compact_card_max_height: 'none' } },
+      10,
+    ],
+    // Unusable values fold to the default, so they set nothing either.
+    ['a month with an unusable height', { view: 'month', month: { card_height: '50%' } }, 10],
+    [
+      'a month with unusable values in every key',
+      {
+        view: 'month',
+        month: {
+          card_height: 'fit-content',
+          card_max_height: 'auto',
+          compact_card_height: 'big',
+          compact_card_max_height: '-4px',
+        },
+      },
+      10,
+    ],
     ['a list', { view: 'list' }, 'auto'],
     ['a grid with a month block', { view: 'grid', month: {} }, 'auto'],
     ['a column', { view: 'column' }, 'auto'],
@@ -286,6 +342,7 @@ describe('a Sections slot the card fills', () => {
     ['a month in a masonry view', undefined, MONTH, false],
     ['a month in a panel view', 'panel', MONTH, false],
     ['a month that sets its height', 'grid', { ...MONTH, month: { card_height: '50rem' } }, false],
+    ['a month whose height is auto', 'grid', { ...MONTH, month: { card_height: 'auto' } }, true],
     // The dashboard's row count wins over the card's, key by key.
     [
       'a row count over a set height',

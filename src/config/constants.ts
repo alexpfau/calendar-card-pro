@@ -370,8 +370,9 @@ export const UI = {
   MONTH_CARD_HEIGHT: { wide: '44rem', compact: '36rem' },
 
   /**
-   * The rows a month asks a Sections dashboard for while none of its four height keys is set
-   * (`Sections.cardGridOptions`): 632px at Home Assistant's default 56px row and 8px gap.
+   * The rows a month asks a Sections dashboard for while none of its four height keys sets a
+   * height or a maximum (`Sections.cardGridOptions`): 632px at Home Assistant's default 56px row
+   * and 8px gap.
    */
   MONTH_SECTIONS_ROWS: 10,
 
