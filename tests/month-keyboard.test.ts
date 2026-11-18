@@ -928,10 +928,12 @@ describe('a month read right to left', () => {
     ).toEqual([]);
   });
 
-  it('points a bar’s marks the way its event carries on, leaving Grid’s banner as it was', () => {
+  it('points a bar’s marks the way its event carries on, as Grid’s banner, which it is', () => {
     const declared = (selector: string) =>
       RULES.filter((rule) => rule.selector === selector).flatMap((rule) => rule.declarations);
-    expect(declared('.month-bar:dir(rtl)')).toEqual([
+    // One rule for both: a bar carries the banner's class, so it needs none of its own.
+    expect(declared('.month-bar:dir(rtl)')).toEqual([]);
+    expect(declared('.grid-banner:dir(rtl)')).toEqual([
       "--calendar-card-banner-carry-before: '\\25B8\\00A0'",
       "--calendar-card-banner-carry-after: '\\00A0\\25C2'",
     ]);

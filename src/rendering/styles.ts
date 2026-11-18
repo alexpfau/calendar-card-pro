@@ -5861,14 +5861,22 @@ export const cardStyles = css`
 
   /* The event runs past the window edge. Drawn as content rather than as a border so
      it travels with the text direction. The marks are read from custom properties, with these
-     marks as their fallbacks, so a month's bar can point them the way its event carries on
-     reading right to left (.month-bar). */
+     marks as their fallbacks, so a right-to-left banner can point them the other way. */
   .grid-banner.continues-before .grid-banner-title::before {
     content: var(--calendar-card-banner-carry-before, '\\25C2\\00A0');
   }
 
   .grid-banner.continues-after .grid-banner-title::after {
     content: var(--calendar-card-banner-carry-after, '\\00A0\\25B8');
+  }
+
+  /* Reading right to left, an event carries on to the left of the window and comes in from its
+     right, so the marks point that way: the glyphs are no mirrored characters, and the
+     left-to-right ones would point back at the banner's own title. A grid's banner and a
+     month's bar alike, since the bar is the banner. */
+  .grid-banner:dir(rtl) {
+    --calendar-card-banner-carry-before: '\\25B8\\00A0';
+    --calendar-card-banner-carry-after: '\\00A0\\25C2';
   }
 
   /* A timed event drawn as a banner (multiday_banners): its start time, its title and its end
@@ -7774,14 +7782,6 @@ export const cardStyles = css`
 
   .month-bar.continues-after {
     margin-inline-end: 0;
-  }
-
-  /* Reading right to left, a bar's event carries on to the left of the row it ends and comes in
-     from the right of the row it starts, so its marks point that way: the glyphs are no mirrored
-     characters, and the banner's would point back at its own title. */
-  .month-bar:dir(rtl) {
-    --calendar-card-banner-carry-before: '\\25B8\\00A0';
-    --calendar-card-banner-carry-after: '\\00A0\\25C2';
   }
 
   /* A timed event: Column's row trimmed to one line. Its accent bar, a short stripe with round
