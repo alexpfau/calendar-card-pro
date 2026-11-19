@@ -272,12 +272,13 @@ export function defaultMonthDay(rowsStart: Date, now: Date = new Date()): Date {
 
 /**
  * The day a compact month shows the list of: the one selected on this page while it is one of
- * the page's days, else the page's own (`defaultMonthDay`).
+ * the page's days, else the page's own, `defaultMonthDay` unless the card names another.
  *
  * @param selection - The day selected, if any
  * @param page - The page shown, or null for home
  * @param rowsStart - Its first row's first day
  * @param now - The current moment
+ * @param own - The page's own day, as the card has it: home's under a fixed start date is that date
  * @returns The day, at local midnight
  */
 export function selectedMonthDay(
@@ -285,6 +286,7 @@ export function selectedMonthDay(
   page: string | null,
   rowsStart: Date,
   now: Date = new Date(),
+  own: Date = defaultMonthDay(rowsStart, now),
 ): Date {
   if (selection && selection.page === page) {
     const day =
@@ -292,7 +294,7 @@ export function selectedMonthDay(
     const index = FormatUtils.getCalendarDayDiff(rowsStart, day);
     if (index >= 0 && index < ViewConfig.MONTH_DAYS) return day;
   }
-  return defaultMonthDay(rowsStart, now);
+  return own;
 }
 
 /**
