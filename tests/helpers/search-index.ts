@@ -7,7 +7,7 @@ import * as Config from '../../src/config/config';
 import type * as Types from '../../src/config/types';
 import {
   buildFieldIndex,
-  entrySchema,
+  entrySchemaAcross,
   schemaCtx,
   universeIndex,
 } from '../../src/rendering/editor/field-index';
@@ -63,7 +63,7 @@ export function searchIndex(
     key: index,
     schema: options.entrySchemas?.[index]
       ? withholdInertFields(options.entrySchemas[index], workspace, 'entity')
-      : entrySchema(entry, ctx),
+      : entrySchemaAcross(entry, ctx).schema,
   }));
   return buildSearchIndex({
     ...ctx,

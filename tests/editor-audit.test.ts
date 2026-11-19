@@ -865,6 +865,27 @@ describe('Stored Settings, the review’s findings', () => {
     expect($(editor, '.page')!.dataset.page).toBe('audit');
   });
 
+  it('judges a calendar’s line as the calendar’s page does, not as Layout Defaults would', async () => {
+    // Grid alone hides locations by its own default, which the top level does not reach, so
+    // Anna's icon waits on Show Location there, as her page says.
+    const editor = await mountEditor({
+      config_version: VERSION,
+      view: 'grid',
+      time_grid: { min_days_fallback: 'cramp' },
+      entities: [{ entity: 'calendar.anna', location_icon: 'mdi:pin' }],
+    });
+    await openAudit(editor);
+    expect(rows(editor)['entities[0].location_icon'].meta).toMatch(/^Not in Use until /);
+    // On a List card, which shows locations, it is in use.
+    const list = await mountEditor({
+      config_version: VERSION,
+      view: 'list',
+      entities: [{ entity: 'calendar.anna', location_icon: 'mdi:pin' }],
+    });
+    await openAudit(list);
+    expect(rows(list)['entities[0].location_icon'].meta).not.toMatch(/Not in Use/);
+  });
+
   it('goes to a calendar’s setting in a scope that offers it', async () => {
     const editor = await mountEditor({
       config_version: VERSION,

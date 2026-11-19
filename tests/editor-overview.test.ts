@@ -220,7 +220,8 @@ describe('Layouts and the preview', () => {
     await chooseResult(list, inactive.key);
     expect(text($(list, '.page-sub'))).toBe('List');
     expect($(list, '.also-for')).not.toBeNull();
-    // A calendar option only List offers, on a Grid card: the calendar's page, in List.
+    // A calendar option only List offers, on a Grid card, which falls back to List on a narrow
+    // screen: the calendar's page, which draws it.
     const grid = await mountEditor({
       config_version: CURRENT_CONFIG_VERSION,
       entities: ['calendar.anna'],
@@ -239,12 +240,14 @@ describe('Layouts and the preview', () => {
   });
 
   it('goes back to the layout the card opens in once a calendar opened in another is left', async () => {
-    // A result opens Anna's page in List, for an option only List offers. Left, the overview and
-    // Anna's own row edit in Grid again, and the preview no longer draws List.
+    // A result opens Anna's page with List added, for an option only List offers on a card that
+    // never shows List: Grid alone, with no narrow fallback. Left, the overview and Anna's own
+    // row are Grid's again, and the preview no longer draws List.
     const grid = await mountEditor({
       config_version: CURRENT_CONFIG_VERSION,
       entities: ['calendar.anna'],
       view: 'grid',
+      time_grid: { min_days_fallback: 'cramp' },
     });
     const compact = '[data-field="calendar:compact_events_to_show"]';
     await searchFor(grid, 'compact');

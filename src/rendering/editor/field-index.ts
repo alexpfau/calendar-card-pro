@@ -38,7 +38,13 @@ import * as Synthetic from './synthetic';
 import * as Workspace from './workspace';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
-import { appliesToView, entityScopeFor, showsEventWeatherIn } from '../../config/view';
+import {
+  VIEWS,
+  appliesToView,
+  entityScopeFor,
+  reachableViews,
+  showsEventWeatherIn,
+} from '../../config/view';
 import * as Helpers from '../../utils/helpers';
 
 /**
@@ -440,6 +446,21 @@ export function schemaCtx(
 }
 
 /**
+ * The calendar entries' schema as the Calendars panel declares its sub-form (`schemas/calendars.ts`
+ * › `calendarsSubforms`): read from the panel, the one place every builder of an entry's fields
+ * takes it from.
+ *
+ * @param ctx - Schema context
+ * @returns The declared fields
+ */
+function declaredEntitySchema(ctx: SchemaCtx): ReadonlyArray<HaFormSchema> {
+  const subform = PANELS.find((panel) => panel.id === 'calendars')
+    ?.subforms?.(ctx)
+    .find((candidate) => candidate.path.join('.') === ENTITY_PATH.join('.'));
+  return subform?.schema ?? buildEntitySchema(ctx);
+}
+
+/**
  * One calendar entry's schema, as `element.ts` › `_renderEntities` builds it with no filter
  * typed: the declaration narrowed to the entry's label, accent and the card's state, then the
  * fields the workspace's layout ignores withheld.
@@ -454,7 +475,7 @@ export function entrySchema(entry: string | Types.EntityConfig, ctx: SchemaCtx):
   const destination =
     ctx.workspace === undefined ? ctx.view : Workspace.viewForWorkspace(ctx.workspace);
   const declared = entitySchemaFor(
-    buildEntitySchema(ctx),
+    declaredEntitySchema(ctx),
     Entities.labelTypeOf(entry),
     accentColorModeOf(own.accent_color),
     labelIconSourceOf(own.label),
@@ -464,6 +485,74 @@ export function entrySchema(entry: string | Types.EntityConfig, ctx: SchemaCtx):
     showsEventWeatherIn(ctx.config, destination),
   );
   return Filter.withholdInertFields(declared, ctx.workspace ?? ctx.view, 'entity');
+}
+
+/**
+ * The layouts a calendar entry's page is built for: every layout the card can show
+ * (`view.ts` › `reachableViews`), plus the one being edited where it is not among them, as a
+ * search result for an option only that layout applies opens the page. In the card's order.
+ *
+ * @param config - Merged configuration
+ * @param workspace - The workspace the page is open in
+ * @returns The layouts
+ */
+export function entryViews(
+  config: Types.Config,
+  workspace: Workspace.EditorWorkspace,
+): Types.EffectiveView[] {
+  // Read as the editor reads the layout the card opens in, so a missing or unknown `view` is List.
+  const starting = Routing.startingView(config);
+  const reachable = reachableViews(
+    config.view === starting ? config : { ...config, view: starting },
+  );
+  const editing = Workspace.viewForWorkspace(workspace);
+  return VIEWS.filter((view) => reachable.includes(view) || view === editing);
+}
+
+/** A calendar entry's fields across the layouts its page is built for. */
+export interface EntryAcross {
+  /** Every field some layout builds, in the declared order. */
+  readonly schema: HaFormSchema[];
+  /** The layouts the page is built for (`entryViews`). */
+  readonly views: ReadonlyArray<Types.EffectiveView>;
+  /** By field name, the layouts that build it. */
+  readonly layoutsOf: ReadonlyMap<string, ReadonlyArray<Types.EffectiveView>>;
+}
+
+/**
+ * One calendar entry's schema across the layouts its page is built for: a field is drawn where
+ * some layout applies it, and `layoutsOf` says which do. A calendar's options are stored once and
+ * apply wherever a layout reads them, so the page is not one layout's.
+ *
+ * @param entry - Entry as stored
+ * @param ctx - Schema context of the workspace the page is open in
+ * @returns The merged schema, its layouts and each field's
+ */
+export function entrySchemaAcross(entry: string | Types.EntityConfig, ctx: SchemaCtx): EntryAcross {
+  const config = ctx.rawConfig ?? ctx.config;
+  const views = entryViews(config, ctx.workspace ?? ctx.view);
+  const layoutsOf = new Map<string, Types.EffectiveView[]>();
+  const schema: HaFormSchema[] = [];
+  for (const view of views) {
+    const built = entrySchema(entry, schemaCtx(config, view, ctx.language));
+    built.forEach((node, at) => {
+      const known = layoutsOf.get(node.name);
+      if (known) {
+        known.push(view);
+        return;
+      }
+      layoutsOf.set(node.name, [view]);
+      // Every layout's schema keeps the declared order, so a field another layout adds goes in
+      // after the nearest field before it that is already here.
+      const before = built
+        .slice(0, at)
+        .reverse()
+        .find((each) => schema.some((placed) => placed.name === each.name));
+      const after = before === undefined ? -1 : schema.findIndex((n) => n.name === before.name);
+      schema.splice(after + 1, 0, node);
+    });
+  }
+  return { schema, views, layoutsOf };
 }
 
 /** Universes already built, by language and workspace. */
