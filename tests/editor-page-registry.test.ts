@@ -160,14 +160,6 @@ const APPROVED_MAP: ReadonlyArray<
     '',
     ['layout:time_grid.start_time E G', 'layout:time_grid.end_time E G'],
   ],
-  // Month's paging by wheel and swipe, beside the range it pages: Month's own, so on Month's Which
-  // Events rather than on Taps & Refresh, which is the whole card's.
-  [
-    'Which Events',
-    'Wheel & Swipe',
-    '',
-    ['layout:month.week_scroll A M', 'layout:month.week_scroll_min_width A M'],
-  ],
   [
     'Which Events',
     'Selection & Order',
@@ -680,7 +672,7 @@ const HEADINGS: ReadonlyArray<HeadingDef> = [
 describe('the page registry places every built field exactly once', () => {
   it('walks the whole corpus', () => {
     // The denominators, beside the verdicts below. A short walk shows here first: the approved
-    // map places 237 ids, Month's own eleven, Layouts in Switcher and the three of the month's name
+    // map places 235 ids, Month's own nine, Layouts in Switcher and the three of the month's name
     // on List's month separator among them, and every one of them is built under some workspace
     // and state.
     console.info(
@@ -688,8 +680,8 @@ describe('the page registry places every built field exactly once', () => {
         `${WORKSPACES.length} workspaces; ${PLACED.length} placements.`,
     );
     expect(WORKSPACES).toHaveLength(5);
-    expect(BUILT.size).toBe(237);
-    expect(PLACED).toHaveLength(237);
+    expect(BUILT.size).toBe(235);
+    expect(PLACED).toHaveLength(235);
   });
 
   it('has no field built but unplaced', () => {

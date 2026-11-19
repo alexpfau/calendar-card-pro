@@ -219,8 +219,10 @@ the foot of the window ends against it.
 
 ### Grid Lines
 
-A grid draws four kinds of line, each with its own options. All four start in the same light
-gray, `var(--divider-color)` at half strength; a color you set is drawn exactly as written.
+A grid draws four kinds of line, each with its own options. Three start in a light gray,
+`var(--divider-color)` at 75%. The one under the date row, like Month's under its weekday names,
+is drawn stronger, in the theme's text color at 18%. A color you set is drawn exactly as
+written.
 
 | Rule                                                  | Option                                                      | Default |
 | ----------------------------------------------------- | ----------------------------------------------------------- | ------- |
@@ -887,22 +889,22 @@ switch.
 Fourteen shared options do not inherit their top-level value in grid view. **Default** is
 the top-level default, and **Grid Default** is what grid view uses instead:
 
-| Option                     | Type    | Default                       | Grid Default                         |
-| -------------------------- | ------- | ----------------------------- | ------------------------------------ |
-| `event_background_opacity` | number  | `0`                           | `20`                                 |
-| `show_empty_days`          | boolean | `false`                       | `true`                               |
-| `show_location`            | boolean | `true`                        | `false`                              |
-| `show_past_events`         | boolean | `false`                       | `true`                               |
-| `day_separator_width`      | string  | `0px`                         | `1px`                                |
-| `day_separator_color`      | string  | `var(--secondary-text-color)` | Half-strength `var(--divider-color)` |
-| `day_spacing`              | string  | `10px`                        | `1px`                                |
-| `event_font_size`          | string  | `14px`                        | `12px`                               |
-| `event_color`              | string  | `var(--primary-text-color)`   | `accent`                             |
-| `time_color`               | string  | `var(--secondary-text-color)` | `accent`                             |
-| `location_color`           | string  | `var(--secondary-text-color)` | `accent`                             |
-| `description_color`        | string  | `var(--secondary-text-color)` | `accent`                             |
-| `progress_bar_color`       | string  | `var(--secondary-text-color)` | `accent`                             |
-| `progress_bar_width`       | string  | _per placement_               | `100%`                               |
+| Option                     | Type    | Default                       | Grid Default                  |
+| -------------------------- | ------- | ----------------------------- | ----------------------------- |
+| `event_background_opacity` | number  | `0`                           | `20`                          |
+| `show_empty_days`          | boolean | `false`                       | `true`                        |
+| `show_location`            | boolean | `true`                        | `false`                       |
+| `show_past_events`         | boolean | `false`                       | `true`                        |
+| `day_separator_width`      | string  | `0px`                         | `1px`                         |
+| `day_separator_color`      | string  | `var(--secondary-text-color)` | `var(--divider-color)` at 75% |
+| `day_spacing`              | string  | `10px`                        | `1px`                         |
+| `event_font_size`          | string  | `14px`                        | `12px`                        |
+| `event_color`              | string  | `var(--primary-text-color)`   | `accent`                      |
+| `time_color`               | string  | `var(--secondary-text-color)` | `accent`                      |
+| `location_color`           | string  | `var(--secondary-text-color)` | `accent`                      |
+| `description_color`        | string  | `var(--secondary-text-color)` | `accent`                      |
+| `progress_bar_color`       | string  | `var(--secondary-text-color)` | `accent`                      |
+| `progress_bar_width`       | string  | _per placement_               | `100%`                        |
 
 These defaults take precedence even when you explicitly set a different top-level value.
 For example, `event_background_opacity: 5` at the top level does not change Grid's tint,

@@ -353,8 +353,8 @@ describe('the stylesheet', () => {
     // an event, or a geometry that forgets the bar's room, fails here rather than in a
     // screenshot. The list text starts 12px past the bar's room, as it did past the border,
     // and so does the "+N more" of a month's day list, under its rows' titles; the grid text 6px
-    // past it, the bar's 3px inset and 3px clear of it, and a month line's and its "+N more"
-    // the same, from one property on the month.
+    // past it, the bar's 3px inset and 3px clear of it; and a month line's and its "+N more"
+    // 5px past it, the bar's 0.5px inset and 4.5px clear of it, from one property on the month.
     const readers = innermost.flatMap((rule) =>
       rule.declarations
         .filter(([, value]) => value.includes('--calendar-card-line-width-vertical'))
@@ -365,7 +365,7 @@ describe('the stylesheet', () => {
       '.event { padding-inline-start: calc(12px + var(--calendar-card-line-width-vertical)) }',
       '.event-accent-bar { border-inline-start: var(--calendar-card-line-width-vertical) solid var(--calendar-card-event-accent-bar-color) }',
       '.grid-event, .grid-event-backdrop { --calendar-card-grid-text-start: calc(6px + var(--calendar-card-line-width-vertical)) }',
-      '.month-container { --calendar-card-month-text-start: calc(6px + var(--calendar-card-line-width-vertical)) }',
+      '.month-container { --calendar-card-month-text-start: calc(5px + var(--calendar-card-line-width-vertical)) }',
       '.month-day-list-more { padding-inline: calc(12px + var(--calendar-card-line-width-vertical)) 12px }',
     ]);
   });

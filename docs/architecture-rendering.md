@@ -42,7 +42,10 @@ each renderer.
   (`monthCompactGrows`). A month is one height
   before anything is drawn: a Sections dashboard's slot, which it fills (`utils/sections.ts`), or
   the height its `month:` block resolves to (`ViewConfig.resolveMonthCardSize`), which the card
-  writes on `ha-card` (`monthCardStyle`). The six wide weeks share what the header leaves, each at
+  writes on `ha-card` (`monthCardStyle`). Unset, both are the same pair, taller where the
+  configuration asks for a toolbar (`Config.asksForToolbar`), read from the configuration alone
+  because Home Assistant asks for the rows again only when it changes. The six wide weeks share
+  what the header leaves, each at
   least a date and one line, floors the card measures from the probes and writes on the month
   (`measureMonthFloors`); below them the content scrolls.
 - **`leaves.ts`** holds the axis-agnostic pieces: the date block, the event body, weather badges,

@@ -5814,7 +5814,7 @@ export const cardStyles = css`
      element opacity dims only one of the two. They carry the same ink at the shipped
      defaults, and each family now has its own option to say so: hour_line_color arrives
      here as --calendar-card-grid-rule-color, day_separator_color paints the verticals, and
-     both ship var(--divider-color) at half strength. Dimming belongs in those defaults,
+     both ship var(--divider-color) at 75%. Dimming belongs in those defaults,
      where a user who supplies a color still gets exactly what they asked for -- an
      opacity here would halve theirs too, and it would halve only one of the two families.
 
@@ -7799,35 +7799,52 @@ export const cardStyles = css`
      lines, bars and "+N more" read the cells' sizes while a day's list and the panel, outside
      it, read the card's.
 
-     The text of a line and of "+N more" starts 6px past the accent stripe's width, the stripe's
-     3px inset and 3px clear of it, as a grid block's does; both read it from here. */
+     The rules are the theme's divider at 75%, as Grid's are, between parts of one whole: weeks,
+     days and the compact form's weeks and list. The one under the weekday names is the card's
+     stronger header rule, the theme's text color at 18%, as Grid's under its date row is.
+     Without color-mix() both take the theme's divider as it is (below).
+
+     The text of a line and of "+N more" starts 5px past the accent stripe's width: the stripe
+     sits 0.5px into its line, whose 3px margin keeps it, the hover wash and the focus ring off the
+     day's rule, and the text clears it by 4.5px, which reads as about 0.45 of the 12px title once
+     the first letter's own side bearing is counted. Both read it from here. */
   .month-container {
     display: grid;
     flex: 1 1 0;
-    min-height: var(--calendar-card-month-min, calc(6 * (2.4em + 11px) + 1.2em + 5px));
+    min-height: var(--calendar-card-month-min, calc(6 * (2.4em + 11px) + 1.2em + 7px));
     grid-template-rows: auto repeat(
         6,
         minmax(var(--calendar-card-month-week-min, calc(2.4em + 11px)), 1fr)
       );
     position: relative;
     box-sizing: border-box;
-    --calendar-card-month-rule: var(--divider-color, rgba(127, 127, 127, 0.25));
-    --calendar-card-month-text-start: calc(6px + var(--calendar-card-line-width-vertical));
-    border-block-end: 1px solid var(--calendar-card-month-rule);
+    --calendar-card-month-rule: color-mix(
+      in srgb,
+      var(--divider-color, rgba(127, 127, 127, 0.25)) 75%,
+      transparent
+    );
+    --calendar-card-month-header-rule: color-mix(
+      in srgb,
+      var(--primary-text-color) 18%,
+      transparent
+    );
+    --calendar-card-month-text-start: calc(5px + var(--calendar-card-line-width-vertical));
   }
 
   /* What the card measures the line capacity from (measureMonthCapacity), drawn nowhere: three
      empty boxes, each as tall as what it stands for, in the font that is set in. The date line is
-     laid out as a 1st's is, its month beside its number: 4px above and 2px below the taller of
+     laid out as a 1st's is, its month beside its number: 5px above and 3px below the taller of
      the today tile's 1.2em in the day's size and the month's 1em line box in its own, two struts
      centered across it as the parts are. Every week is counted as holding a month, so one
      capacity holds for all six, and a large month_font_size costs every week the room it costs
      the 1st's; where show_month is off no 1st draws its month, so the probe drops that strut
      (data-month none) and the month's size costs nothing. Each strut sets its own size, as the
      part it stands for does, and the box none, so a keyword or a percentage resolves as the date
-     line's does. A line is its 1.2em line box with 1px of padding and 1px of margin above and
-     below, which a bar takes as well (Grid's banner pads 1px), and is as tall as the taller of
-     its title and its time, so one box is set in each one's font and the card takes the taller.
+     line's does. A line is its 1.2em line box with 0.25px of padding and 0.75px of margin above
+     and below, which a bar takes as well, so at the default 12px title lines sit 16.4px apart,
+     about 1.37 times the title, and two stacked bars keep 1.5px between them. A line is as tall as the
+     taller of its title and its time, so one box is set in each one's font and the card takes the
+     taller.
      Boxes rather than layout heights, so a scale an ancestor applies reaches all of them and the
      week alike. tests/month-dom.test.ts pins them against what they stand for. */
   .month-probe {
@@ -7841,7 +7858,7 @@ export const cardStyles = css`
   .month-probe[data-probe='date'] {
     display: flex;
     align-items: center;
-    padding-block: 4px 2px;
+    padding-block: 5px 3px;
   }
 
   .month-probe[data-probe='date']::before {
@@ -7861,26 +7878,33 @@ export const cardStyles = css`
   }
 
   .month-probe[data-probe='title'] {
-    height: calc(1.2em + 4px);
+    height: calc(1.2em + 2px);
     font-size: var(--calendar-card-font-size-event);
   }
 
   .month-probe[data-probe='time'] {
-    height: calc(1.2em + 4px);
+    height: calc(1.2em + 2px);
     font-size: var(--calendar-card-font-size-time);
+  }
+
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .month-container {
+      --calendar-card-month-rule: var(--divider-color, rgba(127, 127, 127, 0.25));
+      --calendar-card-month-header-rule: var(--divider-color, rgba(127, 127, 127, 0.25));
+    }
   }
 
   .month-weekdays {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    padding-block-end: 4px;
+    padding-block-end: 7px;
   }
 
-  /* Over its column's date, at the inline end, as macOS Calendar sets them. Its own padding is
-     the room for marks leaning past its ends. */
+  /* Over its column's date, at the inline end, set in a little less far than the date. Its own
+     padding is also the room for marks leaning past its ends. */
   .month-weekday {
     min-width: 0;
-    padding-inline: 6px;
+    padding-inline: 9.5px;
     overflow: hidden;
     font-size: var(--calendar-card-font-size-weekday);
     line-height: 1.2;
@@ -7901,6 +7925,11 @@ export const cardStyles = css`
     min-height: 0;
     overflow: hidden;
     border-block-start: 1px solid var(--calendar-card-month-rule);
+  }
+
+  /* The first week's rule is the one under the weekday names, in either form. */
+  .month-weekdays + .month-week {
+    border-block-start-color: var(--calendar-card-month-header-rule);
   }
 
   /* The day's own box, behind its events, spanning every line of its column. Its empty space is
@@ -7959,23 +7988,6 @@ export const cardStyles = css`
     );
   }
 
-  /* While month -> week_scroll applies, the weeks take a vertical finger from the page as well as
-     a sideways one, so it steps them a week at a time; pinch zoom stays. Where no swipe pages the
-     card, the page keeps its sideways pan. Declared on every element of the weeks, as the swipe's
-     own restriction is, which these outrank. The first declaration of each pair is the fallback
-     for a browser that does not know pinch-zoom. */
-  .month-container.week-scroll,
-  .month-container.week-scroll * {
-    touch-action: pan-x;
-    touch-action: pan-x pinch-zoom;
-  }
-
-  ha-card.swipe-paging .content-container .month-container.week-scroll,
-  ha-card.swipe-paging .content-container .month-container.week-scroll * {
-    touch-action: none;
-    touch-action: pinch-zoom;
-  }
-
   .month-day:first-child {
     border-inline-start: none;
   }
@@ -7994,7 +8006,7 @@ export const cardStyles = css`
     align-items: center;
     justify-content: flex-end;
     min-width: 0;
-    padding: 4px 6px 2px;
+    padding: 5px 11.5px 3px;
     line-height: 1;
     white-space: nowrap;
     pointer-events: none;
@@ -8043,7 +8055,7 @@ export const cardStyles = css`
     grid-row: 1;
     align-self: start;
     justify-self: start;
-    padding: 4px 6px 0;
+    padding: 5px 8.5px 0;
     font-size: var(--calendar-card-week-number-font-size);
     line-height: 1.2;
     color: var(--calendar-card-week-number-color);
@@ -8051,11 +8063,13 @@ export const cardStyles = css`
     pointer-events: none;
   }
 
-  /* A bar is Grid's banner, set on a line: 1px clear of the line above and below, and 3px of the
-     day's rules at an end where its event starts or ends. Where it carries on into the next row
-     or came from the one before, it runs to the cell's edge, so the two pieces line up. */
+  /* A bar is Grid's banner, set on a line: a line's padding and margin, so it is as tall as a line
+     and two stacked bars keep 1.5px between them, and 3px of the day's rules at an end
+     where its event starts or ends. Where it carries on into the next row or came from the one
+     before, it runs to the cell's edge, so the two pieces line up. */
   .month-bar {
-    margin: 1px 3px;
+    margin: 0.75px 3px;
+    padding-block: 0.25px;
   }
 
   .month-bar.continues-before {
@@ -8094,9 +8108,9 @@ export const cardStyles = css`
     display: flex;
     align-items: center;
     min-width: 0;
-    margin: 1px 3px;
-    padding-block: 1px;
-    padding-inline: var(--calendar-card-month-text-start) 3px;
+    margin: 0.75px 3px;
+    padding-block: 0.25px;
+    padding-inline: var(--calendar-card-month-text-start) 5px;
     border-radius: 4px;
     overflow: hidden;
     line-height: 1.2;
@@ -8104,9 +8118,12 @@ export const cardStyles = css`
     container: calendar-card-month-line / inline-size;
   }
 
+  /* The stripe about as tall as the default 12px title, set 0.125px above the line box's middle,
+     so it stands level with the text's capitals and reaches a little past them at both ends,
+     rather than standing level with the box. */
   .month-line > .event-accent-bar {
-    inset-block: 3px;
-    inset-inline-start: 3px;
+    inset-block: 1.25px 1.5px;
+    inset-inline-start: 0.5px;
     border-radius: 999px;
   }
 
@@ -8149,7 +8166,7 @@ export const cardStyles = css`
   /* The time gives way before the title, so a narrow day still names its events: below about
      a dozen letters of room, measured in the line's own width. Without container queries,
      before Safari 16, the time always shows. */
-  @container calendar-card-month-line (width < 7.5em) {
+  @container calendar-card-month-line (width < 7em) {
     .month-line-time {
       display: none;
     }
@@ -8160,8 +8177,8 @@ export const cardStyles = css`
     opacity: var(--calendar-card-past-event-opacity, 0.6);
   }
 
-  /* "+N more", on a day's last line: plain secondary text, starting where the lines' titles do.
-     A button, whose own padding is its room. */
+  /* "+N more", on a day's last line: plain secondary text in the titles' size, starting where
+     the lines' titles do, so it reads as one more line. A button, whose own padding is its room. */
   .month-more {
     align-self: center;
     justify-self: start;
@@ -8175,7 +8192,7 @@ export const cardStyles = css`
     border-radius: 4px;
     background: none;
     font: inherit;
-    font-size: var(--calendar-card-font-size-time);
+    font-size: var(--calendar-card-font-size-event);
     line-height: 1.2;
     color: var(--secondary-text-color);
     text-align: start;
@@ -8248,16 +8265,24 @@ export const cardStyles = css`
    * here. Week numbers sit in a narrow gutter before the first day, UI.MONTH_WEEK_GUTTER wide,
    * which the card counts when it decides the form. The day selected is listed under the weeks
    * (.month-day-list). */
+  /* The compact form closes its weeks with a rule, which sets them off from the day's list under
+     them. The wide form draws none: its last week ends at the card's own edge, a few pixels below,
+     where a second line would only double it. */
   .month-container.month-compact {
     flex: none;
     min-height: 0;
     grid-template-rows: auto repeat(6, auto);
     --calendar-card-month-week-gutter: 22px;
+    border-block-end: 1px solid var(--calendar-card-month-rule);
   }
 
   .month-compact.with-week-numbers > .month-weekdays,
   .month-compact.with-week-numbers > .month-week {
     grid-template-columns: var(--calendar-card-month-week-gutter) repeat(7, minmax(0, 1fr));
+  }
+
+  .month-compact > .month-weekdays {
+    padding-block-end: 4px;
   }
 
   .month-compact .month-weekday {
@@ -8304,8 +8329,8 @@ export const cardStyles = css`
      where the browser can, so only the other numbers are made flex boxes here. */
   .month-compact .month-date > .day {
     box-sizing: border-box;
-    width: 2em;
-    height: 2em;
+    width: 1.75em;
+    height: 1.75em;
     margin: 0;
     border-radius: 0.6em;
   }

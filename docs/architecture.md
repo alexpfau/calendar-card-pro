@@ -400,8 +400,8 @@ both happen. It reads the target at pointer-down and runs the innermost target's
   a press that begins on a link in an event row arms nothing.
 - **Endings.** Every armed press ends in exactly one way at pointer-up (`_handlePointerUp`):
   **held** runs the hold, or in a grid draws or moves an event; **stayed** is a tap; **moved** is
-  neither, but swipes to page by touch, steps a month's weeks while they scroll
-  (`month → week_scroll`), or draws or moves in a grid by mouse; **canceled** does nothing.
+  neither, but swipes to page by touch, or draws or moves in a grid by mouse; **canceled** does
+  nothing.
 - **Keys and editing.** Enter and Space activate the focused card, event or day. There is no key
   hold: an event with a hold and no tap of its own is still a button, and the keys run its hold
   (`_activate`). A month is one grid with one tab stop, which the arrows, Home, End and the page

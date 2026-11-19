@@ -461,6 +461,13 @@ function pruneDeprecatedKeys(draft: Record<string, unknown>): void {
 const TARGET_BLOCK = ViewConfig.VIEW_BLOCKS.list;
 
 /**
+ * Layouts added after the v5 format. A configuration without `config_version` was written before
+ * they existed, so a default of theirs says nothing about what its root values were meant for, and
+ * counting it would move a root value that a layout of that time still reads out of its reach.
+ */
+const LATER_BLOCKS: ReadonlySet<unknown> = new Set([ViewConfig.VIEW_BLOCKS.month]);
+
+/**
  * Keys a v5 save moves out of the top level and into `list:`.
  *
  * Derived, never written out. Two groups, for two different reasons:
@@ -495,7 +502,7 @@ export function listRelocationKeys(): {
     // Identity against the registry entry, never a comparison on the view's name. The
     // target is *the block the migration writes into*, so a fourth view needs no edit
     // here — and `tests/editor-schema.test.ts` forbids naming a view in this directory.
-    if (!block || block === TARGET_BLOCK) continue;
+    if (!block || block === TARGET_BLOCK || LATER_BLOCKS.has(block)) continue;
     for (const key of Object.keys(block.defaultOverrides)) divergent.add(key);
   }
 

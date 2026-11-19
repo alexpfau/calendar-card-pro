@@ -197,15 +197,6 @@ export const PAGES: ReadonlyArray<PageDef> = [
         ],
       },
       {
-        // Month's own paging by wheel and swipe, beside the range it pages: Month's alone, so it
-        // sits on Month's Which Events rather than on Taps & Refresh, which is the whole card's.
-        key: 'heading.wheel_and_swipe',
-        fields: [
-          ['layout:month.week_scroll', A],
-          ['layout:month.week_scroll_min_width', A],
-        ],
-      },
-      {
         key: 'heading.selection_and_order',
         fields: [
           ['content:event_type', 'reference'],

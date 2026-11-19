@@ -628,7 +628,7 @@ describe('editor: the column block as the form shows it', () => {
     expect(block).toEqual({
       day_header_gap: '8px',
       day_header_separator_width: '0px',
-      day_header_separator_color: 'var(--divider-color)',
+      day_header_separator_color: 'color-mix(in srgb, var(--primary-text-color) 18%, transparent)',
       min_day_width: 140,
       min_days_fallback: 'list',
       min_days_to_show: 3,
@@ -684,11 +684,11 @@ describe('editor: the grid block as the form shows it', () => {
       // rule between the date row and the all-day band in grid — a rule the grid has
       // always drawn, and which used to come out of `day_separator_*`.
       day_header_separator_width: '1px',
-      day_header_separator_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+      day_header_separator_color: 'color-mix(in srgb, var(--primary-text-color) 18%, transparent)',
       hour_line_width: '1px',
-      hour_line_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+      hour_line_color: 'color-mix(in srgb, var(--divider-color) 75%, transparent)',
       allday_band_line_width: '2px',
-      allday_band_line_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+      allday_band_line_color: 'color-mix(in srgb, var(--divider-color) 75%, transparent)',
     });
   });
 
@@ -1345,7 +1345,7 @@ describe('editor: displayed view and the Layout panel', () => {
     expect(names(buildConfig({ view: 'list' }))).not.toContain('min_day_width');
   });
 
-  it('builds Month’s own options in its block, its scroll limit only while it scrolls', () => {
+  it('builds Month’s own options in its block', () => {
     const own = (config: Types.Config) =>
       [...walkSchema(buildLayoutSchema(ctx(config)))]
         .filter(({ node, dataPath }) => 'selector' in node && dataPath[0] === 'month')
@@ -1361,15 +1361,10 @@ describe('editor: displayed view and the Layout panel', () => {
       'today_background_color',
       'cell_event_font_size',
       'cell_time_font_size',
-      'week_scroll',
     ];
     expect(own(buildConfig({ view: 'month' }))).toEqual(always);
-    expect(own(buildConfig({ view: 'month', month: { week_scroll: true } }))).toEqual([
-      ...always,
-      'week_scroll_min_width',
-    ]);
     // Month's, and nobody else's: the block is read only where Month is the view.
-    expect(own(buildConfig({ view: 'grid', month: { week_scroll: true } }))).toEqual([]);
+    expect(own(buildConfig({ view: 'grid', month: { min_day_width: 90 } }))).toEqual([]);
   });
 
   it('nests the density options under the block they are stored in', () => {

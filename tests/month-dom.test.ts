@@ -172,6 +172,8 @@ interface Layout {
   readonly height?: number;
   /** The rule along the week's top. */
   readonly rule?: number;
+  /** A border under the month, which the wide form draws none of; a theme may add one. */
+  readonly closing?: number;
   /** The date line, and a line's title and time, each as its probe stands for it. */
   readonly date?: number;
   readonly title?: number;
@@ -210,11 +212,11 @@ function answerUsedHeights(): void {
  * `getComputedStyle` gives to the fraction. The single probe the card measured from before the
  * probes were split is answered too, its width the line pitch and its height the date line, so a
  * measurement that mixes a layout height with scaled boxes reads differently at another scale.
- * The month is 700px wide, its weekday names take the 40px above the first week, and its closing
- * rule is 1px.
+ * The month is 700px wide, its weekday names take the 40px above the first week, and it draws no
+ * closing rule unless the layout names one.
  */
 function layOut(card: CardUnderTest, layout: Layout = {}): void {
-  const { scale = 1, week = 64, rule = 1, date = 22, title = 20, time = 16 } = layout;
+  const { scale = 1, week = 64, rule = 1, closing = 0, date = 22, title = 20, time = 16 } = layout;
   const { scaleX = scale, scaleY = scale } = layout;
   const box = (top: number, height: number, width = 0) =>
     ({
@@ -224,14 +226,14 @@ function layOut(card: CardUnderTest, layout: Layout = {}): void {
       width: width * scaleX,
     }) as DOMRect;
   const container = month(card);
-  const height = layout.height ?? 40 + 6 * week + 1;
+  const height = layout.height ?? 40 + 6 * week + closing;
   container.getBoundingClientRect = () => box(0, height, 700);
   usedHeights.set(container, height);
   answerUsedHeights();
   for (const [name, value] of [
     ['offsetWidth', 700],
     ['offsetHeight', Math.round(height)],
-    ['clientHeight', Math.round(height) - 1],
+    ['clientHeight', Math.round(height) - closing],
   ] as const) {
     Object.defineProperty(container, name, { configurable: true, value });
   }
@@ -582,38 +584,38 @@ describe('the line pitch and the date line the card measures', () => {
       visibility: 'hidden',
       'pointer-events': 'none',
     });
-    // A line: its 1.2em line box, 1px of padding and 1px of margin above and below, as tall as
-    // the taller of its title and its time, each in its own font.
+    // A line: its 1.2em line box, 0.25px of padding and 0.75px of margin above and below, as
+    // tall as the taller of its title and its time, each in its own font. A bar takes the same.
     expect(probe('title')).toEqual({
-      height: 'calc(1.2em + 4px)',
+      height: 'calc(1.2em + 2px)',
       'font-size': 'var(--calendar-card-font-size-event)',
     });
     expect(probe('time')).toEqual({
-      height: 'calc(1.2em + 4px)',
+      height: 'calc(1.2em + 2px)',
       'font-size': 'var(--calendar-card-font-size-time)',
     });
     expect(rule('.month-line')).toMatchObject({
       'line-height': '1.2',
-      'padding-block': '1px',
-      margin: '1px 3px',
+      'padding-block': '0.25px',
+      margin: '0.75px 3px',
     });
     expect(rule('.month-line-title')['font-size']).toBe('var(--calendar-card-font-size-event)');
     expect(rule('.month-line-time')['font-size']).toBe('var(--calendar-card-font-size-time)');
-    // A bar takes the same: Grid's banner pads 1px, its title's line box is 1.2em.
-    expect(rule('.month-bar').margin).toBe('1px 3px');
+    // A bar takes the same, over the 1px Grid's banner pads, and its title's line box is 1.2em.
+    expect(rule('.month-bar')).toEqual({ margin: '0.75px 3px', 'padding-block': '0.25px' });
     expect(rule('.grid-banner').padding).toBe('1px 6px');
     expect(rule('.grid-banner-title')).toMatchObject({
       'font-size': 'var(--calendar-card-font-size-event)',
       'line-height': '1.2',
     });
-    // The date: the tile's 1.2em with 4px above and 2px below, in the day's size dates are set
+    // The date: the tile's 1.2em with 5px above and 3px below, in the day's size dates are set
     // in. The line sets no size of its own; an empty strut in the day's size makes it 1.2em tall,
     // and the number and the 1st's month each take their own option, the month's line box 1em
     // tall in its size, which a large month makes the taller of the two.
     expect(rule('.month-date')).toMatchObject({
       display: 'flex',
       'align-items': 'center',
-      padding: '4px 6px 2px',
+      padding: '5px 11.5px 3px',
       'line-height': '1',
     });
     expect(rule('.month-date')).not.toHaveProperty('font-size');
@@ -633,7 +635,7 @@ describe('the line pitch and the date line the card measures', () => {
     expect(probe('date')).toEqual({
       display: 'flex',
       'align-items': 'center',
-      'padding-block': '4px 2px',
+      'padding-block': '5px 3px',
     });
     expect(rule(".month-probe[data-probe='date']::before")).toEqual(rule('.month-date::before'));
     expect(rule(".month-probe[data-probe='date']::after")).toEqual({
@@ -666,16 +668,16 @@ describe('the sizes a month’s text is set in', () => {
   it('sets its days’ lines in the cell sizes, and its dates and everything else in the card’s', async () => {
     const card = await mount();
     // The card writes the list's 14px and 12px, which a day's list and the panel read, the
-    // month's 14px day number and the 12px month on a 1st.
+    // month's 16px day number and the 16px month on a 1st.
     expect(sizes(card.shadowRoot!.querySelector('ha-card')!)).toEqual([
       '14px',
       '12px',
-      '14px',
-      '12px',
+      '16px',
+      '16px',
     ]);
-    // The wide month writes its cells' 13px and 11px over them, for the lines, the bars and "+N
+    // The wide month writes its cells' 12px and 10px over them, for the lines, the bars and "+N
     // more" inside it, and leaves the dates' sizes to the card.
-    expect(sizes(month(card))).toEqual(['13px', '11px', undefined, undefined]);
+    expect(sizes(month(card))).toEqual(['12px', '10px', undefined, undefined]);
     card.remove();
   });
 
@@ -729,19 +731,57 @@ describe('the rows’ height', () => {
     });
     // Never a bare 1fr, and never a basis from the content: either would let a week's lines size
     // the week the capacity is read from. Until the card has measured, the floors are reckoned in
-    // em: a 1.2em date line and 6px, a 1.2em line and 4px, the 1px rule.
+    // em: a 1.2em date line and 8px, a 1.2em line and 2px, the 1px rule over each week, and
+    // under the names a 1.2em line and their 7px.
     expect(rule('.month-container')).toMatchObject({
       display: 'grid',
       flex: '1 1 0',
-      'min-height': 'var(--calendar-card-month-min, calc(6 * (2.4em + 11px) + 1.2em + 5px))',
+      'min-height': 'var(--calendar-card-month-min, calc(6 * (2.4em + 11px) + 1.2em + 7px))',
       'grid-template-rows':
         'auto repeat(6, minmax(var(--calendar-card-month-week-min, calc(2.4em + 11px)), 1fr))',
     });
-    // The compact form's weeks are as tall as their days.
+    // The wide month's last week ends at the card's edge with no rule of its own.
+    expect(rule('.month-container')['border-block-end']).toBeUndefined();
+    // The compact form's weeks are as tall as their days, and a rule sets them off from the
+    // day's list.
     expect(rule('.month-container.month-compact')).toMatchObject({
       flex: 'none',
       'min-height': '0',
       'grid-template-rows': 'auto repeat(6, auto)',
+      'border-block-end': '1px solid var(--calendar-card-month-rule)',
+    });
+  });
+
+  it('rules its weeks and days at 75% of the theme divider, and under the names more strongly', () => {
+    // The card's rule in every layout, and its stronger one under a header (Grid's under its
+    // date row), so a theme's divider still sets both.
+    expect(rule('.month-container')).toMatchObject({
+      '--calendar-card-month-rule':
+        'color-mix(in srgb, var(--divider-color, rgba(127, 127, 127, 0.25)) 75%, transparent)',
+      '--calendar-card-month-header-rule':
+        'color-mix(in srgb, var(--primary-text-color) 18%, transparent)',
+    });
+    expect(rule('.month-week')['border-block-start']).toBe(
+      '1px solid var(--calendar-card-month-rule)',
+    );
+    expect(rule('.month-weekdays + .month-week')).toEqual({
+      'border-block-start-color': 'var(--calendar-card-month-header-rule)',
+    });
+    // Without color-mix() both are the theme's divider as it is, never an invalid mix that
+    // would draw each rule in the text color.
+    const fallback = Object.fromEntries(
+      declarations(cardStyles.cssText)
+        .filter(
+          (d) =>
+            d.at.join(' ') === '@supports not (color: color-mix(in srgb, red, blue))' &&
+            d.selectors.length === 1 &&
+            d.selectors[0] === '.month-container',
+        )
+        .map((d) => [d.property, d.value]),
+    );
+    expect(fallback).toEqual({
+      '--calendar-card-month-rule': 'var(--divider-color, rgba(127, 127, 127, 0.25))',
+      '--calendar-card-month-header-rule': 'var(--divider-color, rgba(127, 127, 127, 0.25))',
     });
   });
 
@@ -755,7 +795,7 @@ describe('the rows’ height', () => {
       style.getPropertyValue('--calendar-card-month-row-height'),
     ]).toEqual(['', '', '', '']);
     // The card is the month's own default height instead (month-sizing.test.ts).
-    expect(card.shadowRoot!.querySelector<HTMLElement>('ha-card')!.style.height).toBe('44rem');
+    expect(card.shadowRoot!.querySelector<HTMLElement>('ha-card')!.style.height).toBe('632px');
   });
 
   it('floors a week at its date and one line, and the month at six, at any scale', async () => {
@@ -769,18 +809,19 @@ describe('the rows’ height', () => {
       await card.updateComplete;
       return floors(card);
     };
-    // A 22px date line, a 20px line and the 1px rule make a 43px week; the 40px of weekday names,
-    // six such weeks and the 1px closing rule a 299px month. Every box scales alike, so the scale
-    // cancels.
-    expect(await at({ scale: 1 })).toEqual(['43px', '299px']);
-    expect(await at({ scale: 0.5 })).toEqual(['43px', '299px']);
-    expect(await at({ scale: 0.8 })).toEqual(['43px', '299px']);
+    // A 22px date line, a 20px line and the 1px rule make a 43px week; the 40px of weekday names
+    // and six such weeks a 298px month. Every box scales alike, so the scale cancels.
+    expect(await at({ scale: 1 })).toEqual(['43px', '298px']);
+    expect(await at({ scale: 0.5 })).toEqual(['43px', '298px']);
+    expect(await at({ scale: 0.8 })).toEqual(['43px', '298px']);
     // A transform that scales one way alone: the heights are read against the month's height.
-    expect(await at({ scaleX: 1, scaleY: 0.75 })).toEqual(['43px', '299px']);
-    expect(await at({ scaleX: 0.75, scaleY: 1 })).toEqual(['43px', '299px']);
-    expect(await at({ scaleX: 1, scaleY: 1.5 })).toEqual(['43px', '299px']);
+    expect(await at({ scaleX: 1, scaleY: 0.75 })).toEqual(['43px', '298px']);
+    expect(await at({ scaleX: 0.75, scaleY: 1 })).toEqual(['43px', '298px']);
+    expect(await at({ scaleX: 1, scaleY: 1.5 })).toEqual(['43px', '298px']);
     // A time set taller than the title is the line, as the capacity takes it.
-    expect(await at({ time: 24 })).toEqual(['47px', '323px']);
+    expect(await at({ time: 24 })).toEqual(['47px', '322px']);
+    // A border a theme draws under the month is counted in the month's floor.
+    expect(await at({ closing: 1 })).toEqual(['43px', '299px']);
   });
 
   it('reads the same floors whatever fraction of a pixel the month is tall', async () => {
@@ -793,18 +834,18 @@ describe('the rows’ height', () => {
     };
     // A card that leaves the month 303.6px, which offsetHeight rounds to 304px: the month is that
     // tall or as tall as its floor, whichever is taller. Read against 304px the scale was 0.749,
-    // which wrote a 44px week and a 306px month; at 306px it read 0.75 and wrote 43px and 299px,
-    // which let the month back to 303.6px, and so on for good.
+    // which wrote a 44px week and a taller month; read against that height it was 0.75 again and
+    // wrote 43px and 298px, which let the month back to 303.6px, and so on for good.
     let height = 303.6;
     const passes: string[][] = [];
     for (let pass = 0; pass < 4; pass += 1) {
       passes.push(await at(height));
       height = Math.max(303.6, Number.parseFloat(passes[pass][1]));
     }
-    expect(passes).toEqual(Array.from({ length: 4 }, () => ['43px', '299px']));
+    expect(passes).toEqual(Array.from({ length: 4 }, () => ['43px', '298px']));
     // Either side of a half pixel and a whole one, the same.
     for (const fraction of [303.4, 303.5, 303.6, 304, 306, 310.7]) {
-      expect(await at(fraction)).toEqual(['43px', '299px']);
+      expect(await at(fraction)).toEqual(['43px', '298px']);
     }
   });
 
@@ -820,7 +861,7 @@ describe('the rows’ height', () => {
     const names: ReadonlyArray<string> = Object.values(MonthRender.MONTH_FLOOR_PROPERTIES);
     const floorWrites = write.mock.calls.filter(([property]) => names.includes(property));
     expect(floorWrites).toEqual([]);
-    expect(floors(card)).toEqual(['43px', '299px']);
+    expect(floors(card)).toEqual(['43px', '298px']);
   });
 });
 
