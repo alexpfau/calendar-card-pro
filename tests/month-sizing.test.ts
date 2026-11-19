@@ -47,7 +47,6 @@ const ONE_CONTROL: ReadonlyArray<readonly [string, Types.ToolbarConfig]> = [
   ['add', { add_event: true }],
   ['reset', { reset: true }],
   ['refresh', { refresh: true }],
-  ['search', { search: true }],
   ['the filter', { legend: 'chips' }],
   ['a button of its own', { buttons: [{ icon: 'mdi:home' }] }],
   ['a switcher of two layouts', { view_switcher: true, view_switcher_layouts: ['list'] }],
@@ -363,6 +362,17 @@ describe('the rows a card asks a Sections dashboard for', () => {
       { view: 'month', toolbar: { show: true, ...NO_CONTROLS, ...on } },
       12,
     ]),
+    // Search is drawn only beside the date navigation, which it opens a match's day with.
+    [
+      'a month with a toolbar of search alone',
+      { view: 'month', toolbar: { show: true, ...NO_CONTROLS, search: true } },
+      10,
+    ],
+    [
+      'a month with a toolbar of search and navigation',
+      { view: 'month', toolbar: { show: true, ...NO_CONTROLS, search: true, navigation: true } },
+      12,
+    ],
     [
       'a month whose switcher offers only itself',
       {

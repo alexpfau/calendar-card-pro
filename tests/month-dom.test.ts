@@ -172,6 +172,8 @@ interface Layout {
   readonly height?: number;
   /** The rule along the week's top. */
   readonly rule?: number;
+  /** A border under the month, which the wide form draws none of; a theme may add one. */
+  readonly closing?: number;
   /** The date line, and a line's title and time, each as its probe stands for it. */
   readonly date?: number;
   readonly title?: number;
@@ -210,11 +212,11 @@ function answerUsedHeights(): void {
  * `getComputedStyle` gives to the fraction. The single probe the card measured from before the
  * probes were split is answered too, its width the line pitch and its height the date line, so a
  * measurement that mixes a layout height with scaled boxes reads differently at another scale.
- * The month is 700px wide, its weekday names take the 40px above the first week, and its closing
- * rule is 1px.
+ * The month is 700px wide, its weekday names take the 40px above the first week, and it draws no
+ * closing rule unless the layout names one.
  */
 function layOut(card: CardUnderTest, layout: Layout = {}): void {
-  const { scale = 1, week = 64, rule = 1, date = 22, title = 20, time = 16 } = layout;
+  const { scale = 1, week = 64, rule = 1, closing = 0, date = 22, title = 20, time = 16 } = layout;
   const { scaleX = scale, scaleY = scale } = layout;
   const box = (top: number, height: number, width = 0) =>
     ({
@@ -224,14 +226,14 @@ function layOut(card: CardUnderTest, layout: Layout = {}): void {
       width: width * scaleX,
     }) as DOMRect;
   const container = month(card);
-  const height = layout.height ?? 40 + 6 * week + 1;
+  const height = layout.height ?? 40 + 6 * week + closing;
   container.getBoundingClientRect = () => box(0, height, 700);
   usedHeights.set(container, height);
   answerUsedHeights();
   for (const [name, value] of [
     ['offsetWidth', 700],
     ['offsetHeight', Math.round(height)],
-    ['clientHeight', Math.round(height) - 1],
+    ['clientHeight', Math.round(height) - closing],
   ] as const) {
     Object.defineProperty(container, name, { configurable: true, value });
   }
@@ -773,18 +775,19 @@ describe('the rows’ height', () => {
       await card.updateComplete;
       return floors(card);
     };
-    // A 22px date line, a 20px line and the 1px rule make a 43px week; the 40px of weekday names,
-    // six such weeks and the 1px closing rule a 299px month. Every box scales alike, so the scale
-    // cancels.
-    expect(await at({ scale: 1 })).toEqual(['43px', '299px']);
-    expect(await at({ scale: 0.5 })).toEqual(['43px', '299px']);
-    expect(await at({ scale: 0.8 })).toEqual(['43px', '299px']);
+    // A 22px date line, a 20px line and the 1px rule make a 43px week; the 40px of weekday names
+    // and six such weeks a 298px month. Every box scales alike, so the scale cancels.
+    expect(await at({ scale: 1 })).toEqual(['43px', '298px']);
+    expect(await at({ scale: 0.5 })).toEqual(['43px', '298px']);
+    expect(await at({ scale: 0.8 })).toEqual(['43px', '298px']);
     // A transform that scales one way alone: the heights are read against the month's height.
-    expect(await at({ scaleX: 1, scaleY: 0.75 })).toEqual(['43px', '299px']);
-    expect(await at({ scaleX: 0.75, scaleY: 1 })).toEqual(['43px', '299px']);
-    expect(await at({ scaleX: 1, scaleY: 1.5 })).toEqual(['43px', '299px']);
+    expect(await at({ scaleX: 1, scaleY: 0.75 })).toEqual(['43px', '298px']);
+    expect(await at({ scaleX: 0.75, scaleY: 1 })).toEqual(['43px', '298px']);
+    expect(await at({ scaleX: 1, scaleY: 1.5 })).toEqual(['43px', '298px']);
     // A time set taller than the title is the line, as the capacity takes it.
-    expect(await at({ time: 24 })).toEqual(['47px', '323px']);
+    expect(await at({ time: 24 })).toEqual(['47px', '322px']);
+    // A border a theme draws under the month is counted in the month's floor.
+    expect(await at({ closing: 1 })).toEqual(['43px', '299px']);
   });
 
   it('reads the same floors whatever fraction of a pixel the month is tall', async () => {
@@ -797,18 +800,18 @@ describe('the rows’ height', () => {
     };
     // A card that leaves the month 303.6px, which offsetHeight rounds to 304px: the month is that
     // tall or as tall as its floor, whichever is taller. Read against 304px the scale was 0.749,
-    // which wrote a 44px week and a 306px month; at 306px it read 0.75 and wrote 43px and 299px,
-    // which let the month back to 303.6px, and so on for good.
+    // which wrote a 44px week and a taller month; read against that height it was 0.75 again and
+    // wrote 43px and 298px, which let the month back to 303.6px, and so on for good.
     let height = 303.6;
     const passes: string[][] = [];
     for (let pass = 0; pass < 4; pass += 1) {
       passes.push(await at(height));
       height = Math.max(303.6, Number.parseFloat(passes[pass][1]));
     }
-    expect(passes).toEqual(Array.from({ length: 4 }, () => ['43px', '299px']));
+    expect(passes).toEqual(Array.from({ length: 4 }, () => ['43px', '298px']));
     // Either side of a half pixel and a whole one, the same.
     for (const fraction of [303.4, 303.5, 303.6, 304, 306, 310.7]) {
-      expect(await at(fraction)).toEqual(['43px', '299px']);
+      expect(await at(fraction)).toEqual(['43px', '298px']);
     }
   });
 
@@ -824,7 +827,7 @@ describe('the rows’ height', () => {
     const names: ReadonlyArray<string> = Object.values(MonthRender.MONTH_FLOOR_PROPERTIES);
     const floorWrites = write.mock.calls.filter(([property]) => names.includes(property));
     expect(floorWrites).toEqual([]);
-    expect(floors(card)).toEqual(['43px', '299px']);
+    expect(floors(card)).toEqual(['43px', '298px']);
   });
 });
 

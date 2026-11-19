@@ -129,7 +129,8 @@ Height** and **Compact Maximum Height** on Month's Size & Spacing.
 - **The whole card.** The heights include the title, the toolbar and any notice, which take their
   room from the weeks. The default makes room for the toolbar, so a day keeps its five lines with
   it; a title costs a card without a toolbar one line.
-- **With the toolbar** means `toolbar → show` with at least one of its controls on. The room is
+- **With the toolbar** means `toolbar → show` with at least one of its controls on; search counts
+  only with the date navigation, beside which it is drawn. The room is
   kept where a control is not drawn on one screen, such as add where no calendar can be written
   to, so the card's height never changes with it.
 - **A Sections row count wins.** While none of the four sets a height or a maximum, a month asks

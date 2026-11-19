@@ -582,9 +582,10 @@ export function switcherOffers(
 
 /**
  * Whether the configuration asks for a toolbar that holds a control: `show` on, with any control
- * on, a switcher that offers two layouts, or a button of its own. The month's default height
- * makes room for the toolbar where this holds (`Sections.cardGridOptions`,
- * `MonthRender.monthCardStyle`).
+ * on, a switcher that offers two layouts, or a button of its own. Search is not counted: the card
+ * draws it only beside the date navigation, which it opens a match's day with, so it never makes
+ * a toolbar of its own. The month's default height makes room for the toolbar where this holds
+ * (`Sections.cardGridOptions`, `MonthRender.monthCardStyle`).
  *
  * Read from the configuration alone, so a Sections dashboard, which asks again only when the
  * configuration changes, gets the same answer as the card. What one device then draws can be
@@ -603,7 +604,6 @@ export function asksForToolbar(config: Readonly<Pick<Types.Config, 'toolbar' | '
     toolbar.addEvent ||
     toolbar.reset ||
     toolbar.refresh ||
-    toolbar.search ||
     toolbar.legend !== false ||
     toolbar.buttons.length > 0 ||
     switcherOffers(config).length > 0
