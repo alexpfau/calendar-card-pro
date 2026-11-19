@@ -2063,6 +2063,19 @@ can arrive before it returns. Quick Setup still rebuilds the list a calendar at 
 the keys through `write-frames.ts` › `carryEntryKeys`, which relies on the same rule: each
 calendar's entries keep their order, so the n-th entry of a calendar keeps the n-th key it had.
 
+**A calendar's page belongs to no layout.** Its options are stored once and apply wherever a
+layout reads them, so its fields are built for every layout the card can show, plus the one a
+search result adds (`field-index.ts` › `entryViews`), and an option only some of them apply carries
+"Only in List" (`plan.ts` › `stateOf`). `entrySchemaAcross` is the one builder: the page, search,
+the warm-up forms, Stored Settings and the plan all read an entry's fields through it, and one
+built by `entrySchema` in a single workspace disagrees with the page the moment the card shows two
+layouts. Every one of them builds in the calendar page's own workspace (`element.ts` ›
+`_entryWorkspace`: the layout a result added, else the starting one), never in the scope a search
+runs in, or a search begun on Layout Defaults drops an option none of the card's layouts applies,
+and one begun on another layout's page adds that layout. A calendar option left to follow the card
+takes each layout's value, so its Reset names one only where those agree (`resetOutcome`'s
+`differs`). `tests/editor-entry-layouts.test.ts` and `tests/editor-search-jump.test.ts` pin it.
+
 **Two options belong to the calendar, not the entry**: `name` and `show_in_legend`
 (`entities.ts` › `CALENDAR_OPTIONS`), which the card reads from a calendar's first entry. So
 Remove leaves them on the entries that remain, Copy Settings does not carry them, and a re-pointed

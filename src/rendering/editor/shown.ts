@@ -80,6 +80,7 @@ export interface Fact {
  * @param layout - Names a layout
  * @param word - Words a value
  * @param siblings - For a calendar option its entries share, the other entries' positions
+ * @param list - Joins layout names as the language lists them: "List and Month"
  * @returns The facts
  */
 export function stateFacts(
@@ -88,6 +89,7 @@ export function stateFacts(
   layout: LayoutName,
   word: WordValue,
   siblings: ReadonlyArray<number> = [],
+  list: (names: ReadonlyArray<string>) => string = (names) => names.join(', '),
 ): Fact[] {
   const facts: Fact[] = [];
   const words = state?.words;
@@ -137,6 +139,15 @@ export function stateFacts(
     facts.push({
       kind: 'scope',
       text: interpolate(t('state.not_in'), { layouts: state.notIn.map(layout).join(', ') }),
+    });
+  }
+  // A calendar's option only some of the card's layouts apply, after the first one's icon: the
+  // words search tags it with.
+  if (state?.onlyIn !== undefined && state.onlyIn.length > 0) {
+    facts.push({
+      kind: 'layout',
+      view: state.onlyIn[0],
+      text: interpolate(t('search.only_in'), { layouts: list(state.onlyIn.map(layout)) }),
     });
   }
   if (state?.dayList) facts.push({ kind: 'layout', view: 'month', text: t('state.day_list') });
@@ -205,7 +216,13 @@ export function resetText(
     value === null ||
     value === '' ||
     (Array.isArray(value) && value.length === 0);
-  const worded = outcome === undefined || empty ? '' : word(value).trim();
+  // A calendar that goes back to following the card, whose layouts hold different values.
+  const worded =
+    outcome?.kind === 'card' && outcome.differs === true
+      ? t('value.follow_card')
+      : outcome === undefined || empty
+        ? ''
+        : word(value).trim();
   if (action === 'remove') {
     return {
       label: t('reset.remove_setting'),

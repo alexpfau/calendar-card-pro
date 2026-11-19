@@ -53,7 +53,7 @@ import {
   builtSchema,
   buttonFieldIndex,
   entityFieldIndex,
-  entrySchema,
+  entrySchemaAcross,
   fieldHelper,
   fieldLabel,
   parseFieldId,
@@ -91,17 +91,8 @@ import * as QuickSetup from './quick-setup';
 import * as Reorder from './reorder';
 import * as Reset from './reset';
 import * as Routing from './routing';
-import { ENTITY_PATH } from './schemas/calendars';
 import { TOOLBAR_BUTTON_PATH, buildToolbarButtonSchema } from './schemas/card';
-import {
-  ENTITY_TRISTATE_STORED,
-  VISIBILITY,
-  accentColorModeOf,
-  buildEntitySchema,
-  entitySchemaFor,
-  labelIconSourceOf,
-  labelImageSourceOf,
-} from './schemas/entity';
+import { ENTITY_TRISTATE_STORED, VISIBILITY, buildEntitySchema } from './schemas/entity';
 import {
   QUICK_SETUP_CALENDARS_SCHEMA,
   QUICK_SETUP_PATH,
@@ -1179,21 +1170,40 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * A calendar entry's page, opened for one of its fields: in the layout that offers the field,
-   * else in the one being edited, which a search opened from a layout's page makes that layout's.
-   * The route carries the layout only where it is not the one a calendar's page edits anyway, so
-   * the overview and the calendar's row keep the card's.
+   * A calendar entry's page, opened for one of its fields. The page is built for the card's
+   * layouts whatever page the editor was on, so a route names a layout only where a result adds
+   * one none of them is: for an option only that layout applies.
    *
    * @param key - The entry's key
-   * @param scope - The layout that offers the field, where it is not the one being edited
+   * @param scope - The layout the result adds, where it does
    * @returns The entry's route
    */
-  private _entryRoute(
-    key: number,
-    scope: Workspace.EditorWorkspace = this._workspace,
-  ): Navigation.Route {
-    const unscoped = this._selectedWorkspace ?? this._viewForConfig(this._config!);
-    return scope === unscoped ? { kind: 'entry', key } : { kind: 'entry', key, scope };
+  private _entryRoute(key: number, scope?: Workspace.EditorWorkspace): Navigation.Route {
+    return scope === undefined || scope === this._entryBase()
+      ? { kind: 'entry', key }
+      : { kind: 'entry', key, scope };
+  }
+
+  /**
+   * The workspace a calendar's page is built in: the layout a result added on its route, else
+   * `_entryBase`, whatever page a search began on.
+   *
+   * @returns The workspace
+   */
+  private _entryWorkspace(): Workspace.EditorWorkspace {
+    const route = this._nav.route;
+    return route.kind === 'entry' && route.scope !== undefined ? route.scope : this._entryBase();
+  }
+
+  /**
+   * The workspace a calendar's page is built in with no layout added: the layout the card opens
+   * in. A test's chosen layout counts as added (`_selectedWorkspace`), which nothing in the editor
+   * sets.
+   *
+   * @returns The workspace
+   */
+  private _entryBase(): Workspace.EditorWorkspace {
+    return this._selectedWorkspace ?? this._viewForConfig(this._config!);
   }
 
   /**
@@ -3236,9 +3246,7 @@ export class CalendarCardProEditor extends LitElement {
       // Still the entry's, and still drawn on its page: another of its fields can gate it off,
       // and Essentials Only or Customized Only can take it away.
       const ctx = this._ctx;
-      const drawn = this._entrySchemas(this._entrySubform(ctx), ctx).find(
-        ({ key }) => key === target.key,
-      );
+      const drawn = this._entrySchemas(ctx).find(({ key }) => key === target.key);
       return drawn !== undefined && entityFieldIndex(drawn.schema).fields.has(target.id);
     }
     if (target.kind === 'button-field') return this._buttonKeys.includes(target.key);
@@ -3403,7 +3411,9 @@ export class CalendarCardProEditor extends LitElement {
     const word = this._wordOf(field, ctx);
     const state = Plan.stateOf(field, pctx);
     const label = fieldLabel(field, ctx.language);
-    const facts = Shown.stateFacts(state, t, layout, word, this._siblingEntries(owner));
+    const facts = Shown.stateFacts(state, t, layout, word, this._siblingEntries(owner), (names) =>
+      EditorLocalize.formatList(ctx.language, names, 'conjunction'),
+    );
     const calendars =
       state?.calendars === undefined
         ? undefined
@@ -5640,6 +5650,7 @@ export class CalendarCardProEditor extends LitElement {
       this._pending,
       this._added,
       ctx.workspace ?? ctx.view,
+      this._entryWorkspace(),
       ctx.language,
       this._entryKeys.join(),
       this._buttonKeys.join(),
@@ -5657,7 +5668,8 @@ export class CalendarCardProEditor extends LitElement {
       present,
       plan: this._planCtx(ctx),
       data: this._formData(),
-      entries: owners(this._entrySchemas(this._entrySubform(ctx), ctx)),
+      entries: owners(this._entrySchemas(ctx)),
+      entryWorkspace: this._entryWorkspace(),
       buttons: Config.resolveToolbar(ctx.config).show
         ? owners(this._buttonSchemas(this._buttonSubform(ctx)))
         : [],
@@ -5993,11 +6005,22 @@ export class CalendarCardProEditor extends LitElement {
                 id: by,
                 page: page === 'overview' || page === 'entry' ? undefined : page,
               };
-        this._openResult({ target: gateTarget, label: labelOf(by) }, focusKey, true, () =>
-          this._string(ctx, 'search.needs_said', {
-            label: entry.label,
-            needs: entry.needs ?? '',
-          }),
+        // A calendar's option waiting on a card setting reads it in the calendar page's own
+        // workspace, so the setting opens there, whatever layout the search began in.
+        const prereqScope =
+          target.kind === 'entry-field' && gateTarget.kind === 'field'
+            ? this._entryWorkspace()
+            : undefined;
+        this._openResult(
+          { target: gateTarget, label: labelOf(by) },
+          focusKey,
+          true,
+          () =>
+            this._string(ctx, 'search.needs_said', {
+              label: entry.label,
+              needs: entry.needs ?? '',
+            }),
+          prereqScope,
         );
         return;
       }
@@ -6739,38 +6762,60 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Each calendar entry's form: what is declared for it, with what its layout ignores withheld.
+   * Each calendar entry's form, across the layouts its page is built for (`field-index.ts` ›
+   * `entrySchemaAcross`): a field some layout of the card applies is drawn, wherever the editor is.
+   * Kept while the configuration, the page's workspace and the language are the same, as every
+   * render asks for it several times.
    *
-   * @param subform - The entries' sub-form
-   * @param ctx - Schema context
+   * @param ctx - Schema context, for its language
    * @returns Every entry, with its key and its schema
    */
-  private _entrySchemas(
-    subform: { path: ReadonlyArray<string>; schema: ReadonlyArray<HaFormSchema> },
-    ctx: SchemaCtx,
-  ) {
-    const toolbar = Config.resolveToolbar(ctx.config);
-    const hasLegend = toolbar.show && toolbar.legend !== false;
+  private _entrySchemas(ctx: SchemaCtx) {
     const entries = this._config?.entities ?? [];
     const keys = this._entryKeysFor(entries.length);
-    return entries.map((entry, index) => {
-      const declared = entitySchemaFor(
-        subform.schema as HaFormSchema[],
-        Entities.labelTypeOf(entry),
-        accentColorModeOf(Entities.asEntityConfig(entry).accent_color),
-        labelIconSourceOf(Entities.asEntityConfig(entry).label),
-        Entities.showsLocation(entry, ctx.config, this._destinationView(ctx)),
-        labelImageSourceOf(Entities.asEntityConfig(entry).label),
-        hasLegend,
-        ViewConfig.showsEventWeatherIn(
-          ctx.config,
-          ctx.workspace === undefined ? ctx.view : Workspace.viewForWorkspace(ctx.workspace),
-        ),
-      );
-      const schema = Filter.withholdInertFields(declared, ctx.workspace ?? ctx.view, 'entity');
-      return { entry, index, key: keys[index], schema };
-    });
+    // The calendar page's own context, not the place's: a search begun on Layout Defaults or on
+    // another layout's page judges a calendar's fields as its page draws them.
+    const workspace = this._entryWorkspace();
+    const held = this._entriesAcross;
+    if (
+      held !== undefined &&
+      held.config === this._config &&
+      held.workspace === workspace &&
+      held.language === ctx.language &&
+      held.keys.length === keys.length &&
+      held.keys.every((key, at) => key === keys[at])
+    ) {
+      return held.entries;
+    }
+    const built = entries.map((entry, index) => ({
+      entry,
+      index,
+      key: keys[index],
+      schema: entrySchemaAcross(entry, this._ctxIn(workspace)).schema,
+    }));
+    this._entriesAcross = {
+      config: this._config,
+      workspace,
+      language: ctx.language,
+      keys: [...keys],
+      entries: built,
+    };
+    return built;
   }
+
+  /** The entries' forms `_entrySchemas` built last, and what they were built for. */
+  private _entriesAcross?: {
+    readonly config: Types.Config | undefined;
+    readonly workspace: Workspace.EditorWorkspace | undefined;
+    readonly language: string;
+    readonly keys: ReadonlyArray<number>;
+    readonly entries: ReadonlyArray<{
+      readonly entry: string | Types.EntityConfig;
+      readonly index: number;
+      readonly key: number;
+      readonly schema: HaFormSchema[];
+    }>;
+  };
 
   /**
    * Each toolbar button's form.
@@ -6792,16 +6837,6 @@ export class CalendarCardProEditor extends LitElement {
       schema: fields,
       data: Buttons.toButtonFormData(entry),
     }));
-  }
-
-  /**
-   * The entries' sub-form: the schema every calendar entry's page draws.
-   *
-   * @param ctx - Schema context
-   * @returns The sub-form
-   */
-  private _entrySubform(ctx: SchemaCtx): SubformDef {
-    return this._subform('calendars', ENTITY_PATH, ctx);
   }
 
   /**
@@ -9068,9 +9103,7 @@ export class CalendarCardProEditor extends LitElement {
     const sub =
       occurrence === undefined ? entityId : `${occurrence}${Summary.SUMMARY_SEPARATOR}${entityId}`;
     const notice = this._entryNotice?.key === key ? this._entryNotice : undefined;
-    const declared = this._entrySchemas(this._entrySubform(ctx), ctx).find(
-      (each) => each.key === key,
-    )!;
+    const declared = this._entrySchemas(ctx).find((each) => each.key === key)!;
     const present = entityFieldIndex(declared.schema).fields;
     const data = this._intern(`entry.${key}`, Entities.toEntityFormData(entry, state.entities));
     const chassis = Subforms.chassisSchemas(ctx.language);
@@ -9573,23 +9606,6 @@ export class CalendarCardProEditor extends LitElement {
   };
 
   /**
-   * The view whose layer this context writes into, or `undefined` for the shared base.
-   *
-   * 🚨 Not `ctx.view`, and the difference only appears under the shared workspace. Panels
-   * there are built as a view — see {@link Workspace.baseViewForWorkspace} — so `ctx.view`
-   * answers *what this looks like*, which is the wrong question for anything that resolves
-   * a value or writes one. Both callers below reach a block by view name, and a name sends
-   * them into that block; the shared base has none. `ctx.workspace` is absent for callers
-   * that build a context by hand, where the two questions still coincide.
-   *
-   * @param ctx - Editing context
-   * @returns The view being written, or `undefined` when the shared base is
-   */
-  private _destinationView(ctx: SchemaCtx): Types.EffectiveView | undefined {
-    return ctx.workspace === undefined ? ctx.view : Workspace.viewForWorkspace(ctx.workspace);
-  }
-
-  /**
    * Resolves a string the chassis renders itself, rather than through a schema.
    *
    * @param ctx - Schema context
@@ -9656,7 +9672,7 @@ export class CalendarCardProEditor extends LitElement {
     // holds the conditions instead.
     const all = this._config!.entities ?? [];
     const conditionsEditor = conditionsEditorDefined();
-    for (const { entry, key, schema } of this._entrySchemas(this._entrySubform(ctx), ctx)) {
+    for (const { entry, key, schema } of this._entrySchemas(ctx)) {
       if (!Filter.hasFields(schema)) continue;
       const entityId = Synthetic.entityIdOf(entry);
       const conditions = conditionsEditor
@@ -10730,7 +10746,9 @@ export class CalendarCardProEditor extends LitElement {
     const wctx = entry === undefined ? this._ctxIn(group.workspace) : ctx;
     const stored = entry === undefined ? undefined : this._entryOf(entry);
     const present =
-      stored === undefined ? buildFieldIndex(wctx) : entityFieldIndex(entrySchema(stored, wctx));
+      stored === undefined
+        ? buildFieldIndex(wctx)
+        : entityFieldIndex(entrySchemaAcross(stored, wctx).schema);
     const field = present.fields.get(line.field) ?? Audit.anyField(line.field, ctx.language);
     if (field === undefined) return kept();
     const pctx: Plan.PlanCtx = {
@@ -10803,12 +10821,15 @@ export class CalendarCardProEditor extends LitElement {
       this._focusSoon([`[data-audit="${CSS.escape(line.text)}"] [data-field]`]);
     };
     const go = (): void => {
-      // A calendar's field opens where its page draws it: the scope, else the first that does.
+      // A calendar's field opens where its page draws it: as the page is, across the card's
+      // layouts, else with the first layout that applies it added.
       const scope =
         entry === undefined
           ? group.workspace
-          : [this._workspace, ...Workspace.WORKSPACES].find((each) =>
-              entityFieldIndex(entrySchema(stored!, this._ctxIn(each))).fields.has(field.id),
+          : [this._workspace, ...ViewConfig.VIEWS].find((each) =>
+              entityFieldIndex(entrySchemaAcross(stored!, this._ctxIn(each)).schema).fields.has(
+                field.id,
+              ),
             );
       this._openStrip = undefined;
       this._openResult(

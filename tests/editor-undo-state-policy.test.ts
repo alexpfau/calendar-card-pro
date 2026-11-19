@@ -108,6 +108,8 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_actions',
     // Stored Settings' groups, made again once what they read moves.
     '_audit',
+    // Each calendar's forms across its layouts, made again once the configuration moves.
+    '_entriesAcross',
   ],
   // Derived from what is snapshotted, or from the render in progress.
   derived: [

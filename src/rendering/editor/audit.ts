@@ -16,7 +16,7 @@ import {
   type IndexedField,
   buildFieldIndex,
   entityFieldIndex,
-  entrySchema,
+  entrySchemaAcross,
   parseFieldId,
   schemaCtx,
   universeIndex,
@@ -25,7 +25,7 @@ import type { Gate, Prereq } from './gates';
 import type { SelectOption, SelectorSchema } from './ha-form';
 import type { PageId } from './pages';
 import { type PlanCtx, appearanceOf, fieldState, hasLayoutCopy } from './plan';
-import { destination } from './routing';
+import { destination, startingView } from './routing';
 import { isSet as holdsValue, isSyntheticKey } from './synthetic';
 import { type EditorWorkspace, WORKSPACES, storedPath } from './workspace';
 import * as Config from '../../config/config';
@@ -308,17 +308,20 @@ export function auditGroups(ctx: AuditCtx): AuditGroup[] {
 
   const entities = Array.isArray(raw.entities) ? raw.entities : [];
   const byOption = ownersIn('calendar');
-  let shared: PlanCtx | undefined;
+  // A calendar's lines are judged as its page judges them: in the layout the card opens in, across
+  // the card's layouts (`element.ts` › `_entryBase`).
+  const onPage = startingView(ctx.config as Types.Config);
+  let base: PlanCtx | undefined;
   entities.forEach((entry: unknown, at) => {
     if (!isConfigBlock(entry)) return;
-    shared ??= planCtx(ctx, 'shared');
+    base ??= planCtx(ctx, onPage);
     const pctx: PlanCtx = {
-      ...shared,
+      ...base,
       present: entityFieldIndex(
-        entrySchema(
+        entrySchemaAcross(
           entry as unknown as Types.EntityConfig,
-          schemaCtx(ctx.config as Types.Config, 'shared', 'en'),
-        ),
+          schemaCtx(ctx.config as Types.Config, onPage, 'en'),
+        ).schema,
       ),
       entry: ctx.entryKeys[at],
     };
@@ -331,7 +334,7 @@ export function auditGroups(ctx: AuditCtx): AuditGroup[] {
       const ids = byOption.get(key);
       return [ids ? ownedLine(path, text, value, ids, pctx) : { path, text, value }];
     });
-    groups.push({ kind: 'entry', workspace: 'shared', key: ctx.entryKeys[at], lines });
+    groups.push({ kind: 'entry', workspace: onPage, key: ctx.entryKeys[at], lines });
   });
   groups.push({ kind: 'kept', workspace: 'shared', lines: kept });
   return groups.filter((group) => group.lines.length > 0);

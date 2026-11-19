@@ -19,12 +19,14 @@
 
 import * as Entities from './entities';
 import {
+  type EntryAcross,
   type FieldId,
   type FieldIndex,
   type IndexedField,
   buildFieldIndex,
   entityFieldIndex,
-  entrySchema,
+  entrySchemaAcross,
+  entryViews,
   parseFieldId,
   schemaCtx,
   universeIndex,
@@ -189,6 +191,11 @@ export interface StateWords {
    * read it.
    */
   readonly notIn?: ReadonlyArray<Types.EffectiveView>;
+  /**
+   * For a calendar's option, the card's layouts it applies in, where that is not all of them:
+   * "Only in List".
+   */
+  readonly onlyIn?: ReadonlyArray<Types.EffectiveView>;
   /** On Month's pages, a setting Month reads in a day's list and its panel alone. */
   readonly dayList?: true;
 }
@@ -264,7 +271,8 @@ export type ResetOutcome =
     }
   | { readonly kind: 'all-layouts'; readonly value: unknown }
   | { readonly kind: 'default'; readonly value: unknown }
-  | { readonly kind: 'card'; readonly value: unknown };
+  /** `differs`: the card's layouts hold different values, so the calendar follows each one's. */
+  | { readonly kind: 'card'; readonly value: unknown; readonly differs?: boolean };
 
 const LIVE_ESSENTIAL: FieldState = { kind: 'live', why: 'essential' };
 const NONE: FieldState = { kind: 'none' };
@@ -656,11 +664,11 @@ function inheritedDifferent(field: IndexedField, ctx: PlanCtx): boolean {
   if (isEntryField(field.id)) {
     const { name } = parseFieldId(field.id);
     if (!(name in CARD_COUNTERPART) || entryStored(field, ctx)) return false;
-    const value = cardCounterpart(name, ctx.config, cardScope(ctx));
-    return (
-      CARD_COUNTERPART[name] !== undefined &&
-      !deepEqual(value, cardCounterpart(name, defaultConfig(), cardScope(ctx)))
-    );
+    if (CARD_COUNTERPART[name] === undefined) return false;
+    // In any of the card's layouts the option applies in, the card's value is not its default.
+    const values = cardValuesBehind(field, name, ctx.config, ctx);
+    const defaults = cardValuesBehind(field, name, defaultConfig(), ctx);
+    return values.some((value, at) => !deepEqual(value, defaults[at]));
   }
 
   if (viewForWorkspace(ctx.workspace) === undefined || field.dataPath.length > 0) return false;
@@ -824,10 +832,19 @@ function writtenIn(universe: FieldIndex): ReadonlySet<string> {
  * @returns The layouts, in order; empty when none, or when this workspace writes the option
  */
 function otherLayouts(id: FieldId, ctx: PlanCtx): Types.EffectiveView[] {
+  // A calendar's page is built for the card's layouts already, so only another one can offer more.
+  const built =
+    ctx.entry !== undefined && isEntryField(id)
+      ? entryViews(ctx.config as Types.Config, ctx.workspace)
+      : [];
   const views = ViewConfig.VIEWS.filter(
-    (view) => view !== ctx.workspace && universeIndex('en', view).fields.has(id),
+    (view) =>
+      view !== ctx.workspace && !built.includes(view) && universeIndex('en', view).fields.has(id),
   );
   if (views.length === 0) return [];
+  // A calendar's option has one id in every layout, so a card field writing the same option here
+  // says nothing about it.
+  if (built.length > 0) return views;
   const field = universeIndex('en', views[0]).fields.get(id)!;
   const here = writtenIn(ctx.universe);
   return writes(field).some((option) => here.has(option)) ? [] : views;
@@ -1001,8 +1018,76 @@ export function planPage(page: PageDef, ctx: PlanCtx): { headings: HeadingPlan[]
  * @returns The entry's context
  */
 function entryCtx(entry: string | Types.EntityConfig, key: number, ctx: PlanCtx): PlanCtx {
-  const schema = entrySchema(entry, schemaCtx(ctx.config as Types.Config, ctx.workspace, 'en'));
+  const { schema } = acrossFor(entry, ctx);
   return { ...ctx, present: entityFieldIndex(schema), entry: key };
+}
+
+/** Each configuration's entries across their layouts, by workspace and entry. */
+const acrossCache = new WeakMap<object, Map<string, EntryAcross>>();
+
+/**
+ * A calendar entry's fields across the layouts its page is built for, kept per configuration.
+ *
+ * @param entry - The entry as stored
+ * @param ctx - Plan context
+ * @returns Its fields and the layouts that build each
+ */
+function acrossFor(entry: string | Types.EntityConfig, ctx: PlanCtx): EntryAcross {
+  let byEntry = acrossCache.get(ctx.config);
+  if (byEntry === undefined) acrossCache.set(ctx.config, (byEntry = new Map()));
+  const cacheKey = `${ctx.workspace}\u0000${JSON.stringify(entry)}`;
+  let across = byEntry.get(cacheKey);
+  if (across === undefined) {
+    across = entrySchemaAcross(entry, schemaCtx(ctx.config as Types.Config, ctx.workspace, 'en'));
+    byEntry.set(cacheKey, across);
+  }
+  return across;
+}
+
+/**
+ * The layouts a calendar entry's field applies in, among those its page is built for, and those.
+ *
+ * @param field - A calendar entry's field
+ * @param ctx - Plan context naming the entry
+ * @returns The field's layouts and the page's, or `undefined` with no entry named
+ */
+function entryLayouts(
+  field: IndexedField,
+  ctx: PlanCtx,
+):
+  | {
+      readonly of: ReadonlyArray<Types.EffectiveView>;
+      readonly all: ReadonlyArray<Types.EffectiveView>;
+    }
+  | undefined {
+  const place = entryPlace(ctx);
+  if (place === undefined) return undefined;
+  const across = acrossFor(place.entities[place.index], ctx);
+  return { of: across.layoutsOf.get(field.node.name) ?? across.views, all: across.views };
+}
+
+/**
+ * The card's value behind a calendar option in each layout the option applies in, and whether
+ * they differ: what Follow the Card takes, layout by layout.
+ *
+ * @param field - A calendar entry's field
+ * @param name - Its option
+ * @param config - The configuration to read
+ * @param ctx - Plan context naming the entry
+ * @returns The values, one per layout; the starting layout's alone with no entry named
+ */
+function cardValuesBehind(
+  field: IndexedField,
+  name: string,
+  config: Readonly<Types.Config>,
+  ctx: PlanCtx,
+): unknown[] {
+  const views = entryLayouts(field, ctx)?.of ?? [cardScope(ctx)];
+  return views.map((view) =>
+    name in CARD_COUNTERPART
+      ? cardCounterpart(name, config, view)
+      : normalizeRootValue(name, Routing.workspaceConfig(config, view)[name as keyof Types.Config]),
+  );
 }
 
 /**
@@ -1088,22 +1173,29 @@ export function stateOf(field: IndexedField, ctx: PlanCtx): StateWords | undefin
       ? ({ dayList: true } as const)
       : {};
   if (isEntryField(field.id)) {
+    // A calendar's option some of the card's layouts do not apply says where it does.
+    const layouts = entryLayouts(field, ctx);
+    const onlyIn =
+      layouts !== undefined && layouts.all.length > 1 && layouts.of.length < layouts.all.length
+        ? { onlyIn: layouts.of }
+        : {};
     if (entryStored(field, ctx)) {
       const place = entryPlace(ctx)!;
       const id = entityIdOf(place.entities[place.index]);
       const shared =
         field.configKeys.some(Entities.isCalendarOption) &&
         place.entities.filter((entry) => entityIdOf(entry) === id).length > 1;
-      return { words: { kind: 'set-entry', shared }, ...dayList };
+      return { words: { kind: 'set-entry', shared }, ...onlyIn, ...dayList };
     }
     if (inheritedDifferent(field, ctx)) {
       const { name } = parseFieldId(field.id);
       return {
-        words: { kind: 'follows-card', value: cardCounterpart(name, ctx.config, cardScope(ctx)) },
+        words: { kind: 'follows-card', value: cardValuesBehind(field, name, ctx.config, ctx)[0] },
+        ...onlyIn,
         ...dayList,
       };
     }
-    return 'dayList' in dayList ? dayList : undefined;
+    return 'onlyIn' in onlyIn || 'dayList' in dayList ? { ...onlyIn, ...dayList } : undefined;
   }
 
   const view = viewForWorkspace(ctx.workspace);
@@ -1227,14 +1319,14 @@ export function resetOutcome(field: IndexedField, ctx: PlanCtx): ResetOutcome | 
 
   if (isEntryField(field.id)) {
     const { name } = parseFieldId(field.id);
-    if (name in CARD_COUNTERPART) {
-      return CARD_COUNTERPART[name] === undefined
-        ? undefined
-        : { kind: 'card', value: cardCounterpart(name, ctx.config, cardScope(ctx)) };
-    }
-    if (!hasOwn(Config.DEFAULT_CONFIG, name)) return undefined;
-    const effective = Routing.workspaceConfig(ctx.config, cardScope(ctx));
-    return { kind: 'card', value: normalizeRootValue(name, effective[name as keyof Types.Config]) };
+    if (name in CARD_COUNTERPART && CARD_COUNTERPART[name] === undefined) return undefined;
+    if (!(name in CARD_COUNTERPART) && !hasOwn(Config.DEFAULT_CONFIG, name)) return undefined;
+    // The card's value in each layout the option applies in: one where they agree, else the
+    // calendar goes back to following each layout's.
+    const values = cardValuesBehind(field, name, ctx.config, ctx);
+    return values.every((value) => deepEqual(value, values[0]))
+      ? { kind: 'card', value: values[0] }
+      : { kind: 'card', value: values[0], differs: true };
   }
 
   const after = Reset.reset(impliedState(ctx), { kind: 'field', field, workspace: ctx.workspace });

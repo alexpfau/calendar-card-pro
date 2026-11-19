@@ -744,24 +744,47 @@ describe('the review’s findings', () => {
   });
 
   it('finds a calendar’s setting only other layouts offer, tagged with them', () => {
-    const one = (view: string, workspace: 'grid' | 'list', query: string) => {
+    const one = (
+      view: string,
+      workspace: 'grid' | 'list',
+      query: string,
+      extra: Record<string, unknown> = {},
+    ) => {
       const config = {
         ...Config.DEFAULT_CONFIG,
         view,
         entities: ['calendar.anna'],
+        ...extra,
       } as unknown as Types.Config;
       return search(searchIndex(config, { workspace }), query)
         .filter(({ entry: e }) => e.target.kind === 'entry-field')
-        .map(({ entry: e }) => [('id' in e.target && e.target.id) || '', e.tag]);
+        .map(({ entry: e }) => [
+          ('id' in e.target && e.target.id) || '',
+          e.tag,
+          // Drawn on the calendar's page, folded or not, or another layout's.
+          e.status.kind === 'live' || e.status.kind === 'add' ? 'drawn' : e.status.kind,
+        ]);
     };
-    expect(one('grid', 'grid', 'split multi')).toContainEqual([
+    // Grid alone, with no narrow fallback: List and Columns are other layouts.
+    expect(
+      one('grid', 'grid', 'split multi', { time_grid: { min_days_fallback: 'cramp' } }),
+    ).toContainEqual([
       'calendar:split_multiday_events',
       'Only in List and Columns',
+      'other-layout',
+    ]);
+    // A Grid card falls back to List on a narrow screen, so its calendars' page draws List's
+    // option, tagged with the one of the card's layouts that applies it.
+    expect(one('grid', 'grid', 'split multi')).toContainEqual([
+      'calendar:split_multiday_events',
+      'Only in List',
+      'drawn',
     ]);
     // Month draws a long timed event as a bar, as Grid does.
     expect(one('list', 'list', 'banners')).toContainEqual([
       'calendar:multiday_banners',
       'Only in Grid and Month',
+      'other-layout',
     ]);
   });
 
