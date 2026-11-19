@@ -341,8 +341,8 @@ describe('Layouts and the preview', () => {
     expect(
       editor.shadowRoot!.activeElement?.closest('[data-setting]')?.getAttribute('data-setting'),
     ).toBe('content:first_day_of_week');
-    // Back returns to the row on Grid's Days.
-    await press(editor, 'back-top');
+    // The line under the header returns to the row on Grid's Days; Back goes up from either.
+    await press(editor, 'return');
     expect(text($(editor, '.page-sub'))).toBe('Grid');
     expect(editor.shadowRoot!.activeElement?.getAttribute('data-focus')).toBe(
       'reference:content:first_day_of_week',

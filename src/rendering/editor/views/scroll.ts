@@ -6,6 +6,11 @@
  * `spike/ha-probe.md` §6), and which of them scrolls can change with the width and with Home
  * Assistant's version. So the editor walks up the flat tree from itself, through shadow roots
  * and slots, and takes the first ancestor that scrolls now; it asks again on every move.
+ *
+ * Where nothing scrolls now, because the page fits, it takes the nearest ancestor that can, and
+ * reaches the document only where none can. In Home Assistant the document is the dashboard
+ * behind the dialog: taken for a page that fits, every move to such a page scrolled the dashboard
+ * by the page header's offset, and the position Back saved for that page was the dashboard's.
  */
 
 /**
@@ -23,28 +28,38 @@ function flatParent(node: Element): Element | null {
 }
 
 /**
+ * Whether an element scrolls its content vertically, by its style.
+ *
+ * @param element - An element
+ * @returns `true` for `overflow-y: auto` or `scroll`
+ */
+function canScroll(element: Element): boolean {
+  const overflow = getComputedStyle(element).overflowY;
+  return overflow === 'auto' || overflow === 'scroll';
+}
+
+/**
  * Whether an element scrolls its content now.
  *
  * @param element - An element
  * @returns `true` when it scrolls vertically and has more to show than it fits
  */
 function scrolls(element: Element): boolean {
-  const overflow = getComputedStyle(element).overflowY;
-  return (
-    (overflow === 'auto' || overflow === 'scroll') && element.scrollHeight > element.clientHeight
-  );
+  return canScroll(element) && element.scrollHeight > element.clientHeight;
 }
 
 /**
- * The element that scrolls the editor: its nearest flat-tree ancestor that scrolls now, else
- * the document's scrolling element.
+ * The element that scrolls the editor: its nearest flat-tree ancestor that scrolls now, else the
+ * nearest that can scroll, else the document's scrolling element.
  *
  * @param editor - The editor element
  * @returns The scroll container, or `undefined` where nothing scrolls
  */
 export function scrollContainer(editor: Element): Element | undefined {
+  let able: Element | undefined;
   for (let at = flatParent(editor); at !== null; at = flatParent(at)) {
     if (scrolls(at)) return at;
+    if (able === undefined && canScroll(at)) able = at;
   }
-  return editor.ownerDocument.scrollingElement ?? undefined;
+  return able ?? editor.ownerDocument.scrollingElement ?? undefined;
 }

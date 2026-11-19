@@ -320,7 +320,7 @@ describe('focus and announcements', () => {
     expect(lastConfig(editor)?.entities).toEqual([BEN, ANNA]);
   });
 
-  it('opens the copy’s page on Duplicate, warns that both show the same events, and Back returns to the original’s row', async () => {
+  it('opens the copy’s page on Duplicate, warns that both show the same events, and Back lands on the copy’s row', async () => {
     const editor = await mount([{ entity: ANNA, label: 'A' }, BEN]);
     const [anna] = keysOf(editor, 'entry');
     await press(editor, `more:entry:${anna}`);
@@ -341,8 +341,9 @@ describe('focus and announcements', () => {
     expect(page.querySelector('.page-title')?.textContent).toBe('Anna');
     expect(page.querySelector('.page-sub')?.textContent).toBe(`Entry 2 of 2 · ${ANNA}`);
 
+    // Back goes up to the overview, onto the row of the page it leaves: the copy's.
     await press(editor, 'back-top');
-    expect(focused(editor)).toBe(`row:${anna}`);
+    expect(focused(editor)).toBe(`row:${copy}`);
   });
 
   it('opens the overview on Remove at a page’s foot, the line where the row was and its Undo focused', async () => {
