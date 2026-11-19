@@ -3934,7 +3934,24 @@ class CalendarCardPro extends LitElement {
       this._pageShown,
       this._monthRowsStart(this._pageShown, now),
       now,
+      this._monthOwnDay(this._pageShown, now),
     );
+  }
+
+  /**
+   * The day a month page lists by itself on a compact month, with nothing selected: at home,
+   * Month's home day (`_monthHomeDay`), which is today or a fixed `start_date`, so the card opens,
+   * and Home returns, on the day it is configured to start; on any other page, today where it falls
+   * in the month the heading names, else that month's 1st (`MonthDay.defaultMonthDay`).
+   *
+   * @param page - First day of the page, or null for home
+   * @param now - The current moment
+   * @returns The day, at local midnight
+   */
+  private _monthOwnDay(page: string | null, now: Date): Date {
+    return page === null
+      ? this._monthHomeDay(now)
+      : MonthDay.defaultMonthDay(this._monthRowsStart(page, now), now);
   }
 
   /**
@@ -3944,7 +3961,7 @@ class CalendarCardPro extends LitElement {
   private get _monthSelectionAway(): boolean {
     if (!this._drawsCompactMonth || this._monthSelection === null) return false;
     const now = new Date();
-    const own = MonthDay.defaultMonthDay(this._monthRowsStart(this._pageShown, now), now);
+    const own = this._monthOwnDay(this._pageShown, now);
     return this._monthSelectedDay(now).getTime() !== own.getTime();
   }
 
@@ -9090,9 +9107,9 @@ class CalendarCardPro extends LitElement {
    * so a view that draws fewer days, or a narrow card that sheds some, never suggests a day
    * outside it. Within the page, rows are not consulted: a collapsed compact card, or an empty
    * day the card leaves out, still suggests today, the day an event is most often added for.
-   * A month suggests the day its compact form selects by itself (`defaultMonthDay`): today where
-   * it falls in the month the heading names, else that month's 1st, never a dimmed day of the
-   * month before that its first row opens on.
+   * A month suggests the day its compact form selects by itself (`_monthOwnDay`): at home, today
+   * or a fixed start date; elsewhere today where it falls in the month the heading names, else that
+   * month's 1st, never a dimmed day of the month before that its first row opens on.
    *
    * @returns The dialog's `selectedDate`
    */
@@ -9100,7 +9117,7 @@ class CalendarCardPro extends LitElement {
     const range = this._pageRange(this._pageShown);
     if (this.effectiveView === 'month') {
       const now = new Date();
-      return AddEvent.newEventDate(MonthDay.defaultMonthDay(range.start, now), 1, now);
+      return AddEvent.newEventDate(this._monthOwnDay(this._pageShown, now), 1, now);
     }
     return AddEvent.newEventDate(range.start, range.days);
   }

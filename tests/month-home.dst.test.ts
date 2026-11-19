@@ -34,6 +34,7 @@ interface CardUnderTest extends HTMLElement {
   hass: Types.Hass;
   readonly updateComplete: Promise<boolean>;
   updateEvents(force?: boolean): Promise<void>;
+  _newEventDate(): Date;
 }
 
 /** Answers the resize observer the card starts, with any width a test reports. */
@@ -320,6 +321,85 @@ describe('the month Month opens on', () => {
     expect(root(card).querySelector('.month-compact')).not.toBeNull();
     expect(text(root(card).querySelector('.month-day-list-name'))).toContain('December 3');
   });
+});
+
+describe('the day a compact month selects at home', () => {
+  /** The day the compact form lists under its weeks, as its list names it. */
+  const listed = (card: CardUnderTest) => text(root(card).querySelector('.month-day-list-name'));
+
+  /** Taps a day of the compact form, by its date, as a user selects it. */
+  async function select(card: CardUnderTest, date: string): Promise<void> {
+    const cell = [...root(card).querySelectorAll<HTMLElement>('.month-compact .month-day')].find(
+      (each) =>
+        key(
+          new Date((each as unknown as { calendarCardMonthCell: number }).calendarCardMonthCell),
+        ) === date,
+    )!;
+    cell.click();
+    await settle(card);
+  }
+
+  it('is what Reset brings back for a fixed date, and counts as something to reset', async () => {
+    vi.setSystemTime(new Date(2026, 10, 18, 10));
+    const card = await mount(
+      { start_date: '2027-01-15', toolbar: { ...NAVIGATION, reset: true } },
+      360,
+    );
+    const reset = () => root(card).querySelector<HTMLButtonElement>('.reset-button')!;
+    expect(reset().getAttribute('aria-disabled')).toBe('true');
+    await select(card, '2027-01-01');
+    expect(listed(card)).toContain('January 1, 2027');
+    expect(reset().getAttribute('aria-disabled')).toBeNull();
+    reset().click();
+    await settle(card);
+    expect(listed(card)).toContain('January 15, 2027');
+    expect(reset().getAttribute('aria-disabled')).toBe('true');
+    // Selecting the fixed date is no change from what the card shows by itself.
+    await select(card, '2027-01-15');
+    expect(reset().getAttribute('aria-disabled')).toBe('true');
+  });
+
+  it.each([
+    // A fixed date in another month: that day, not the month's 1st.
+    ['a fixed date in a later month', new Date(2026, 10, 18, 10), '2027-01-15', 'January 15, 2027'],
+    // A fixed date in today's month: that day, not today.
+    ['a fixed date in this month', new Date(2026, 10, 18, 10), '2026-11-25', 'November 25, 2026'],
+    // Every start date that follows today: today, whatever day it names.
+    ['no start date', new Date(2026, 10, 18, 10), undefined, 'November 18, 2026'],
+    ['Tomorrow on a month’s last day', new Date(2026, 10, 30, 10), 'today+1', 'November 30, 2026'],
+    ['Start of Week', new Date(2026, 11, 3, 10), 'start_of_week', 'December 3, 2026'],
+    ['29 days back', new Date(2026, 10, 18, 10), 'today-29', 'November 18, 2026'],
+  ] as const)(
+    'is the home day for %s, on opening and from Home, and the day the add button suggests',
+    async (_name, now, start_date, day) => {
+      vi.setSystemTime(now);
+      const card = await mount(start_date === undefined ? {} : { start_date }, 360);
+      expect(root(card).querySelector('.month-compact')).not.toBeNull();
+      expect(listed(card)).toContain(day);
+      // The wide form shows no selection, and its add button suggests the same day.
+      const wide = await mount(start_date === undefined ? {} : { start_date });
+      expect(root(wide).querySelector('.month-compact')).toBeNull();
+      expect(new Date(wide._newEventDate()).toDateString()).toBe(
+        new Date(`${day} 12:00`).toDateString(),
+      );
+
+      // Another day selected at home, the 1st of the month it opens, then Home: the home day again.
+      const opened =
+        start_date !== undefined && /^\d{4}-\d{2}-\d{2}$/.test(start_date)
+          ? new Date(Number(start_date.slice(0, 4)), Number(start_date.slice(5, 7)) - 1, 1)
+          : new Date(now.getFullYear(), now.getMonth(), 1);
+      await select(card, key(opened));
+      expect(listed(card)).not.toContain(day);
+      await press(card, 'home');
+      expect(listed(card)).toContain(day);
+
+      // A month away, then Home: the home day again.
+      await press(card, 'next');
+      expect(listed(card)).not.toContain(day);
+      await press(card, 'home');
+      expect(listed(card)).toContain(day);
+    },
+  );
 });
 
 describe('the two homes of a card that switches between List and Month', () => {
