@@ -900,6 +900,12 @@ export class CalendarCardProEditor extends LitElement {
   /** The settings whose helper is shown behind its ⓘ, by added-set key. */
   @state() private _helpOpen: ReadonlySet<string> = new Set();
 
+  /**
+   * A layout the overview and an unscoped calendar's page edit in instead of the card's own. No
+   * control sets it: a deep link scopes only the page it opens (`Navigation.routeScope`), so
+   * leaving that page returns to the layout the card opens in. Only an undo step restores a
+   * recorded one, and the test helper still sets it directly.
+   */
   @state() private _selectedWorkspace?: Workspace.EditorWorkspace;
 
   @state() private _gridReconciliation: ReadonlyArray<string> = [];
@@ -4847,9 +4853,13 @@ export class CalendarCardProEditor extends LitElement {
       target.kind === 'button-field' ? 'card_header' : target.kind === 'field' && target.page;
     this._closeDisclosures();
     if (target.kind === 'entry-field') {
-      // A calendar entry's field opens on the entry's own page, in the layout that offers it.
-      if (scope !== undefined) this._selectedWorkspace = scope;
-      this._nav = Navigation.go(this._nav, { kind: 'entry', key: target.key }, from);
+      // A calendar entry's field opens on the entry's own page, in the layout that offers it; the
+      // route carries that layout, so the overview and the calendar's row keep the card's.
+      const route: Navigation.Route =
+        scope === undefined
+          ? { kind: 'entry', key: target.key }
+          : { kind: 'entry', key: target.key, scope };
+      this._nav = Navigation.go(this._nav, route, from);
     } else if (page) {
       this._nav = Navigation.go(this._nav, this._scoped({ kind: 'page', page }, scope), from);
     } else if (search) {
@@ -10747,10 +10757,6 @@ export class CalendarCardProEditor extends LitElement {
           : [this._workspace, ...Workspace.WORKSPACES].find((each) =>
               entityFieldIndex(entrySchema(stored!, this._ctxIn(each))).fields.has(field.id),
             );
-      // A calendar's page edits in the layout chosen; a card field's page carries its layout.
-      if (entry !== undefined && scope !== undefined && scope !== this._workspace) {
-        this._selectedWorkspace = scope;
-      }
       this._openStrip = undefined;
       this._openResult(
         {
@@ -10767,7 +10773,8 @@ export class CalendarCardProEditor extends LitElement {
         `more:${stripKey}`,
         false,
         undefined,
-        entry === undefined ? scope : undefined,
+        // A card field's page carries its layout; a calendar's page one only where it differs.
+        entry === undefined || scope !== this._workspace ? scope : undefined,
       );
     };
     return AuditView.auditRow({

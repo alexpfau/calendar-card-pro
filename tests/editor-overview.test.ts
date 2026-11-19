@@ -226,6 +226,29 @@ describe('Layouts and the preview', () => {
     ).not.toBeNull();
   });
 
+  it('goes back to the layout the card opens in once a calendar opened in another is left', async () => {
+    // A result opens Anna's page in List, for an option only List offers. Left, the overview and
+    // Anna's own row edit in Grid again, and the preview no longer draws List.
+    const grid = await mountEditor({
+      config_version: CURRENT_CONFIG_VERSION,
+      entities: ['calendar.anna'],
+      view: 'grid',
+    });
+    const compact = '[data-field="calendar:compact_events_to_show"]';
+    await searchFor(grid, 'compact');
+    const other = resultRows(grid).find((row) => row.id === 'calendar:compact_events_to_show')!;
+    await chooseResult(grid, other.key);
+    expect($(grid, compact)).not.toBeNull();
+    await goOverview(grid);
+    await searchFor(grid, '');
+    expect($(grid, '[data-focus^="row:"]')).not.toBeNull();
+    expect(previewed(grid)).toBeUndefined();
+    await goEntry(grid, keysOf(grid, 'entry')[0]);
+    expect($(grid, '.entry-page')).not.toBeNull();
+    expect($(grid, '.scope-preview')).toBeNull();
+    expect($(grid, compact)).toBeNull();
+  });
+
   it('gathers the whole-card settings of the topics on Shared Across Layouts, composed ones too', async () => {
     const editor = await mountEditor(THREE);
     await press(editor, 'nav:shared');
