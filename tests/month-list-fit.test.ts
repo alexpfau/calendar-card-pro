@@ -103,13 +103,18 @@ interface Scale {
   readonly y: number;
 }
 
+/** The used heights `laidOutCard` gives its boxes, to the fraction, as a browser computes them. */
+const usedHeights = new WeakMap<Element, number>();
+
 /**
  * A compact month's card laid out by hand, in layout pixels before the scale: a 343px card 600px
  * tall under a 640px cap, its list's 44px header over a rows' box 100px tall, and nine staged rows
  * 40px tall and 6px apart with a 28px "+N more" 6px under them. Every box is scaled as a browser
- * reports it; `offsetWidth` and `offsetHeight` are not.
+ * reports it; `offsetWidth` and `offsetHeight` are not, and round, and a box's used height is
+ * neither (`usedHeights`). A rows' box of another height makes the list and the card as much
+ * taller.
  */
-function laidOutCard({ x, y }: Scale): HTMLElement {
+function laidOutCard({ x, y }: Scale, rows = 100): HTMLElement {
   const root = document.createElement('div');
   const cells = '<tr><td class="event"></td></tr>'.repeat(9);
   root.innerHTML =
@@ -133,12 +138,13 @@ function laidOutCard({ x, y }: Scale): HTMLElement {
       configurable: true,
       value: Math.round(height),
     });
+    usedHeights.set(element, height);
   };
-  place('ha-card', 0, 600);
-  place('.content-container', 0, 600);
+  place('ha-card', 0, 500 + rows);
+  place('.content-container', 0, 500 + rows);
   place('.weeks', 0, 400);
-  place('.month-day-list', 400, 200);
-  place('.month-day-list-rows', 444, 100);
+  place('.month-day-list', 400, 100 + rows);
+  place('.month-day-list-rows', 444, rows);
   place('.month-day-table', 1000, 9 * 40 + 8 * 6);
   root.querySelectorAll<HTMLElement>('td.event').forEach((cell, index) => {
     const top = 1000 + index * 46;
@@ -156,14 +162,20 @@ describe('the list measured at a scale an ancestor draws the card at', () => {
     vi.restoreAllMocks();
   });
 
-  /** The card's cap as a browser computes it, in its own pixels; every other style as declared. */
+  /**
+   * The card's cap as a browser computes it, in its own pixels, and each placed box's used height,
+   * its border box; every other style as declared.
+   */
   const capAt = (cap: string) =>
     vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
       const declared = computed.call(window, element, pseudo);
-      if (element.localName !== 'ha-card') return declared;
+      const height = usedHeights.get(element);
+      if (height === undefined) return declared;
       return new Proxy(declared, {
         get: (target, key) => {
-          if (key === 'maxHeight') return cap;
+          if (key === 'maxHeight' && element.localName === 'ha-card') return cap;
+          if (key === 'height') return `${height}px`;
+          if (key === 'boxSizing') return 'border-box';
           const value = Reflect.get(target, key) as unknown;
           return typeof value === 'function' ? value.bind(target) : value;
         },
@@ -171,8 +183,8 @@ describe('the list measured at a scale an ancestor draws the card at', () => {
     });
 
   /** What the list fits under the cap, and the least it writes, at a scale. */
-  const measured = (scale: Scale) => {
-    const root = laidOutCard(scale);
+  const measured = (scale: Scale, rows?: number) => {
+    const root = laidOutCard(scale, rows);
     const geometry = measureMonthList(root, true)!;
     return {
       shown: fitMonthList(geometry),
@@ -192,5 +204,19 @@ describe('the list measured at a scale an ancestor draws the card at', () => {
     expect(measured({ x: 0.75, y: 1 })).toEqual(unscaled);
     expect(measured({ x: 0.75, y: 0.75 })).toEqual(unscaled);
     expect(measured({ x: 1, y: 1.5 })).toEqual(unscaled);
+  });
+
+  it('reads the same room and least whatever fraction of a pixel the card and the list are', () => {
+    capAt('640px');
+    // The rows' box and with it the card and the list a fraction of a pixel either side of a half,
+    // as a list held at its least or a card that grows with its list are. offsetHeight rounds those
+    // heights, and a scale read against it moved the room by about half a pixel either way, and the
+    // least by a whole one, 72 to 73 from 100.5, which a list held at its least then moved back.
+    const heights = [100, 100.4, 100.5, 100.6, 101];
+    const at = (scale: Scale) => heights.map((rows) => measured(scale, rows));
+    const same = heights.map(() => ({ shown: 2, room: 140, least: 72 }));
+    expect(at({ x: 1, y: 1 })).toEqual(same);
+    expect(at({ x: 1, y: 0.75 })).toEqual(same);
+    expect(at({ x: 0.75, y: 0.75 })).toEqual(same);
   });
 });

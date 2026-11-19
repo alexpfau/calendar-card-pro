@@ -1753,10 +1753,12 @@ export interface MonthFloors {
  * and the rules. Never from a week's height, so writing them cannot move what they were read
  * from. Boxes come in the page's pixels and the floors are written in the card's own, so each box
  * is divided by the scale an ancestor draws the card at down the page, the month's box against
- * its layout height, since a transform may scale one way alone and every length here is a height;
- * the closing rule is read in the card's own pixels already. Rounded up to whole pixels,
- * so a week at its floor is never a fraction short of its line, except for the hundredth of a
- * pixel a scale's division leaves over a whole one, which would otherwise cost a pixel more.
+ * its used height to the fraction (`MonthListFit.verticalScale`), since a transform may scale one
+ * way alone and every length here is a height. The month's height follows its floors, and that
+ * quotient does not; one against a height rounded to a whole pixel did. The closing rule is read
+ * in the card's own pixels already. Rounded up to whole pixels, so a week at its floor is never a
+ * fraction short of its line, except for the hundredth of a pixel a scale's division leaves over a
+ * whole one, which would otherwise cost a pixel more.
  *
  * @param container - The wide month (`.month-container`)
  * @returns The floors, or null
@@ -1776,11 +1778,7 @@ export function measureMonthFloors(container: HTMLElement): MonthFloors | null {
   const box = container.getBoundingClientRect();
   const pitch = Math.max(title, time);
   if (!(box.width > 0) || !(date > 0) || !(pitch > 0)) return null;
-  // A pixel of give, as offsetHeight rounds the layout height to a whole one.
-  const scale =
-    container.offsetHeight > 0 && Math.abs(box.height - container.offsetHeight) >= 1
-      ? box.height / container.offsetHeight
-      : 1;
+  const scale = MonthListFit.verticalScale(container, box);
   const first = weeks[0].getBoundingClientRect();
   const rule = Math.max(0, cell.getBoundingClientRect().top - first.top);
   const names = Math.max(0, first.top - box.top);
