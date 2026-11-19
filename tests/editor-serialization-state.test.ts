@@ -27,13 +27,17 @@ describe.each(['list', 'column', 'grid', 'month'] as const)(
       'follows the saved override ownership before another edit (echo=%s)',
       async (echo) => {
         const block = view === 'grid' ? 'time_grid' : view;
+        // Month draws no description (`MONTH_PINNED`), so its turn is the duration's, another
+        // shared switch that starts off and that Month reads.
+        const option = view === 'month' ? 'show_duration' : 'show_description';
+        const id = `events:${option}` as const;
         const { editor, reports } = await mount({
           view,
-          [block]: { show_description: true },
+          [block]: { [option]: true },
         });
-        await changeField(editor, 'events:show_description', false);
+        await changeField(editor, id, false);
         const saved = reports.slice(-1)[0]!;
-        if (view === 'list') expect(saved).toHaveProperty('list.show_description', false);
+        if (view === 'list') expect(saved).toHaveProperty(`list.${option}`, false);
         else expect(saved).not.toHaveProperty(block);
 
         if (echo) {
@@ -41,19 +45,17 @@ describe.each(['list', 'column', 'grid', 'month'] as const)(
           await editor.updateComplete;
         }
         await changeField(editor, 'workspace:editing_workspace', 'shared');
-        await changeField(editor, 'events:show_description', true);
+        await changeField(editor, id, true);
         await changeField(editor, 'workspace:editing_workspace', view);
 
         const stored = reports.slice(-1)[0]!;
-        expect(stored).toHaveProperty('show_description', true);
-        if (view === 'list') expect(stored).toHaveProperty('list.show_description', false);
+        expect(stored).toHaveProperty(option, true);
+        if (view === 'list') expect(stored).toHaveProperty(`list.${option}`, false);
         else expect(stored).not.toHaveProperty(block);
-        expect(valueOf(editor, 'events:show_description')).toBe(view !== 'list');
+        expect(valueOf(editor, id)).toBe(view !== 'list');
 
         const reopened = await mount(stored);
-        expect(valueOf(reopened.editor, 'events:show_description')).toBe(
-          valueOf(editor, 'events:show_description'),
-        );
+        expect(valueOf(reopened.editor, id)).toBe(valueOf(editor, id));
         // Over a second in a full local run; the limit is set for CI's slower runner under load
         // rather than for a hang.
       },

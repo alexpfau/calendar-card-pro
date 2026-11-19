@@ -1064,6 +1064,8 @@ describe('the matcher', () => {
         unknown
       >;
       for (const [path, sentinel] of SENTINELS) {
+        // Month keeps the description's size at its shipped value, and draws no description.
+        if (!ViewConfig.appliesToView(path, view)) continue;
         const value = path
           .split('.')
           .reduce<unknown>(

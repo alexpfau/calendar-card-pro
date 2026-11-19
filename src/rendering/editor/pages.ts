@@ -132,6 +132,8 @@ export interface PageDef {
   readonly titleKey: string;
   readonly iconPath: string;
   readonly noteKey?: string;
+  /** A line one layout's page draws under its head, as Month's Event Appearance does. */
+  readonly noteKeyByView?: Partial<Record<Types.EffectiveView, string>>;
   readonly headings: ReadonlyArray<HeadingDef>;
   /**
    * The line under the page's row: what to expect on the page, the same whatever the card holds.
@@ -435,6 +437,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
     id: 'events',
     titleKey: 'panel.events',
     iconPath: mdiCalendarText,
+    noteKeyByView: { month: 'page.month_rows.note' },
     descriptionKey: 'panel.events.description',
     headings: [
       {
@@ -646,6 +649,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
     id: 'weather',
     titleKey: 'panel.weather',
     iconPath: mdiWeatherPartlyCloudy,
+    noteKeyByView: { month: 'page.month_rows.note' },
     descriptionKey: 'panel.weather.description',
     headings: [
       {

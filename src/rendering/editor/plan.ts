@@ -183,8 +183,74 @@ export interface StateWords {
   }>;
   /** "Set on Calendars: Ben, Bin Day": the keys of the entries storing their own. */
   readonly calendars?: ReadonlyArray<number>;
-  /** For a whole-card setting, the layouts it does nothing in: "Not in Grid". */
+  /**
+   * The layouts a setting does nothing in: "Not in Grid". For a whole-card setting on every page,
+   * and on Layout Defaults for a per-layout one, whose value there reaches only the layouts that
+   * read it.
+   */
   readonly notIn?: ReadonlyArray<Types.EffectiveView>;
+  /** On Month's pages, a setting Month reads in a day's list and its panel alone. */
+  readonly dayList?: true;
+}
+
+/**
+ * The options Month reads only in a day's list and the panel "+N more" opens, never in its weeks,
+ * whose lines draw a title and a start time at their own sizes (`cell_event_font_size`,
+ * `cell_time_font_size`) and whose bars draw a title and a length. Card options by their path, a
+ * calendar's by name. Measured by rendering each against Month's own value in both forms, and
+ * pinned in `tests/editor-month-day-list.test.ts`, which reconciles it with what Month's pages
+ * offer.
+ */
+export const MONTH_DAY_LIST_OPTIONS: ReadonlySet<string> = new Set([
+  'event_font_size',
+  'time_font_size',
+  'scroll_long_titles',
+  'show_single_allday_time',
+  'event_gap',
+  'event_spacing',
+  'show_location',
+  'show_location_allday',
+  'remove_location_country',
+  'location_font_size',
+  'location_color',
+  'location_icon_size',
+  // The forecast: Month draws it beside events alone.
+  'weather_entity',
+  'weather.position',
+  'weather.event.show_conditions',
+  'weather.event.show_temp',
+  'weather.event.show_uv_index',
+  'weather.event.uv_index_threshold',
+  'weather.event.daily_forecast_fallback',
+  'weather.event.icon_size',
+  'weather.event.font_size',
+  'weather.event.color',
+]);
+
+/** A calendar's options Month reads only in a day's list and the panel ({@link MONTH_DAY_LIST_OPTIONS}). */
+export const MONTH_DAY_LIST_ENTRY_OPTIONS: ReadonlySet<string> = new Set([
+  'show_location',
+  'location_icon',
+  'show_weather',
+]);
+
+/**
+ * Whether a field acts on Month's day list and panel alone: every option it writes is one Month
+ * reads nowhere else.
+ *
+ * @param field - The field
+ * @returns `true` for a day-list setting
+ */
+export function readsInMonthDayListOnly(
+  field: Pick<IndexedField, 'id' | 'dataPath' | 'configKeys'>,
+): boolean {
+  if (field.configKeys.length === 0) return false;
+  if (isEntryField(field.id)) {
+    return field.configKeys.every((key) => MONTH_DAY_LIST_ENTRY_OPTIONS.has(key));
+  }
+  return field.configKeys.every((key) =>
+    MONTH_DAY_LIST_OPTIONS.has([...field.dataPath, key].join('.')),
+  );
 }
 
 /** What applies once Reset deletes the line. */
@@ -609,7 +675,11 @@ function inheritedDifferent(field: IndexedField, ctx: PlanCtx): boolean {
     const top = { ...Config.DEFAULT_CONFIG } as Record<string, unknown>;
     for (const key of stored) top[key] = ctx.raw[key];
     const { derive } = SYNTHETIC_FIELDS[name];
-    return !deepEqual(derive(top as unknown as Types.Config), derive(Config.DEFAULT_CONFIG));
+    const view = viewForWorkspace(ctx.workspace);
+    return !deepEqual(
+      derive(top as unknown as Types.Config, view),
+      derive(Config.DEFAULT_CONFIG, view),
+    );
   }
   return field.configKeys.some(
     (key) =>
@@ -984,6 +1054,10 @@ function overridingEntries(field: IndexedField, ctx: PlanCtx): number[] {
  * @returns The words, or `undefined` while nothing is stored and nothing else applies
  */
 export function stateOf(field: IndexedField, ctx: PlanCtx): StateWords | undefined {
+  const dayList =
+    viewForWorkspace(ctx.workspace) === 'month' && readsInMonthDayListOnly(field)
+      ? ({ dayList: true } as const)
+      : {};
   if (isEntryField(field.id)) {
     if (entryStored(field, ctx)) {
       const place = entryPlace(ctx)!;
@@ -991,15 +1065,16 @@ export function stateOf(field: IndexedField, ctx: PlanCtx): StateWords | undefin
       const shared =
         field.configKeys.some(Entities.isCalendarOption) &&
         place.entities.filter((entry) => entityIdOf(entry) === id).length > 1;
-      return { words: { kind: 'set-entry', shared } };
+      return { words: { kind: 'set-entry', shared }, ...dayList };
     }
     if (inheritedDifferent(field, ctx)) {
       const { name } = parseFieldId(field.id);
       return {
         words: { kind: 'follows-card', value: cardCounterpart(name, ctx.config, cardScope(ctx)) },
+        ...dayList,
       };
     }
-    return undefined;
+    return 'dayList' in dayList ? dayList : undefined;
   }
 
   const view = viewForWorkspace(ctx.workspace);
@@ -1017,6 +1092,9 @@ export function stateOf(field: IndexedField, ctx: PlanCtx): StateWords | undefin
     if (ignoring.length > 0) notIn = ignoring;
   } else if (view === undefined) {
     if (here) words = { kind: 'set-all-layouts' };
+    // Layout Defaults' value reaches only the layouts that read the option.
+    const ignoring = layoutsIgnoring(field);
+    if (ignoring.length > 0) notIn = ignoring;
     // Each layout that stores its own, and each that offers the field and defaults it otherwise:
     // the All Layouts value does not reach either.
     const top = shownValue(ctx.config, 'shared', field);
@@ -1057,7 +1135,8 @@ export function stateOf(field: IndexedField, ctx: PlanCtx): StateWords | undefin
     words === undefined &&
     layoutsOwn === undefined &&
     calendars.length === 0 &&
-    notIn === undefined
+    notIn === undefined &&
+    !('dayList' in dayList)
   ) {
     return undefined;
   }
@@ -1066,6 +1145,7 @@ export function stateOf(field: IndexedField, ctx: PlanCtx): StateWords | undefin
     ...(layoutsOwn ? { layoutsOwn } : {}),
     ...(calendars.length > 0 ? { calendars } : {}),
     ...(notIn ? { notIn } : {}),
+    ...dayList,
   };
 }
 

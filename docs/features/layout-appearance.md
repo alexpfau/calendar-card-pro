@@ -692,7 +692,8 @@ A search finds only what the card would show on some page, in the words it would
 - **`filter_duplicates` lists an event two calendars share once,** as the card draws it.
 - **A title is searched as `replace_pattern` rewrites it,** and a location without the country
   `remove_location_country` takes away. A location or a description the card does not show, with
-  `show_location` or `show_description` off, is not searched.
+  `show_location` or `show_description` off, is not searched, nor is a description in
+  [Month](/features/month-view#options-that-do-nothing-in-month-view), which draws none.
 - **The layout on screen decides what is drawn,** since a pick turns the card to a day in that
   layout. In the [grid](/features/grid-view#choosing-the-hours-the-card-shows) a timed event
   outside the hours from `start_time` to `end_time` is not found, and the grid draws no location
@@ -1135,6 +1136,12 @@ tile rather than filling it. The digits take their shade from the tile, unless y
 for them with `today_day_color` or, on a weekend, `weekend_day_color`. A see-through color
 such as `'#e67c7380'` makes a fainter tile, while its digits keep the color's full shade. The
 [week number pills](#week-numbers-visual-separators) take the tile's colors unless you set theirs.
+
+A wide [month](/features/month-view#the-six-weeks) fills the tile instead, so today stands out
+among the colored events: `today_indicator_color` itself, with the digits in your theme's text
+color for the primary color, `--text-primary-color`, white by default. A compact month draws
+today the same way while it is the selected day. A color you name for the digits still wins, and
+a see-through `today_indicator_color` makes white digits harder to read there.
 
 In column and grid view every day's number keeps the tile's height, so the dates stay on one
 line across the columns and each column's first event starts at the same height.

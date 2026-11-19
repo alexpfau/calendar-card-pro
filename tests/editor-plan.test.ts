@@ -820,7 +820,10 @@ describe('what counts as stored, where a blank or a shared key carries the meani
     for (const workspace of ['shared', 'list', 'column'] as const) {
       const on = cardCtx({ show_countdown: true }, workspace);
       expect(stateIn(on, ID), workspace).toEqual({ kind: 'add' });
-      expect(stateOf(fieldIn(on, ID), on), workspace).toBeUndefined();
+      // Nothing stored or inherited; Layout Defaults says only that Month draws no countdown.
+      expect(stateOf(fieldIn(on, ID), on), workspace).toEqual(
+        workspace === 'shared' ? { notIn: ['month'] } : undefined,
+      );
       expect(storedAt(on.raw, fieldIn(on, ID), workspace), workspace).toBe(false);
     }
     // Control: `once_per_day` turns it on, stored at the top level and inherited by a layout.
@@ -835,7 +838,7 @@ describe('what counts as stored, where a blank or a shared key carries the meani
         fieldIn(cardCtx({ show_countdown: true }, 'shared'), 'events:show_countdown'),
         cardCtx({ show_countdown: true }, 'shared'),
       ),
-    ).toEqual({ words: { kind: 'set-all-layouts' } });
+    ).toEqual({ words: { kind: 'set-all-layouts' }, notIn: ['month'] });
   });
 
   it('resets Leave Out Repeated Countdowns to off without taking the countdowns with it', () => {

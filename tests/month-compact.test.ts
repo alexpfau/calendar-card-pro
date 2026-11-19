@@ -1222,13 +1222,13 @@ describe('the list fitted to its room', () => {
     expect(text(first.querySelector('.location'))).toBe(
       'A street name long enough to need a second line on a phone',
     );
-    // Outside the list the card's own limit stands, and the panel, which reads the card's
-    // properties, lists the day with it.
+    // Outside the list a month keeps no line limit at all, whatever the card or its block says
+    // (`MONTH_PINNED`), so the panel, which reads the card's properties, lists the day in full.
     expect(
       root(card)
         .querySelector<HTMLElement>('ha-card')!
         .style.getPropertyValue('--calendar-card-title-max-lines'),
-    ).toBe('3');
+    ).toBe('none');
   });
 
   it('stages the day’s rows and "+N more" beside the list, out of sight and out of reach', async () => {
@@ -1629,6 +1629,50 @@ describe('the day panel', () => {
     }
   });
 
+  it('draws a title, a time and a location, and leaves the rest to the event’s details', async () => {
+    // Every part Month leaves out turned on at the top level, in its block and on a calendar:
+    // `MONTH_PINNED` keeps each at its shipped value, and a calendar's own description too.
+    const on = {
+      show_description: true,
+      show_countdown: true,
+      show_progress_bar: true,
+      allday_badge: 'title',
+    };
+    extraEvents = [
+      {
+        ...timed(ANNA, 'Dentist', '2026-11-10', '20:00', '21:00', '2026-11-10', 'Market Street 5'),
+        description: 'Bring the card',
+      } as RawEvent,
+      allDay(BEN, 'Fair', '2026-11-10', '2026-11-11'),
+    ];
+    const { panel } = await open({
+      ...on,
+      month: on,
+      entities: [
+        { entity: ANNA, accent_color: BLUE, show_description: true },
+        { entity: BEN, accent_color: GREEN },
+      ],
+    });
+    const rows = panel!.shadowRoot!.querySelector('.day-panel-rows')!;
+    expect(rows.querySelectorAll('td.event').length).toBeGreaterThan(5);
+    for (const part of ['.description', '.time-countdown', '.progress-bar', '.allday-badge']) {
+      expect([part, rows.querySelectorAll(part).length]).toEqual([part, 0]);
+    }
+    // The control: the location is drawn, as Show Location's default says.
+    expect(text(rows.querySelector('.location'))).toBe('Market Street 5');
+  });
+
+  const titleColor = (panel: PanelUnderTest | null) =>
+    panel!.shadowRoot!.querySelector<HTMLElement>('.day-panel-title')!.style.color;
+
+  it('writes its title in the weekday color the card sets, as the day list does', async () => {
+    expect(titleColor((await open({ weekday_color: 'rgb(1, 2, 3)' })).panel)).toBe('rgb(1, 2, 3)');
+  });
+
+  it('writes its title in its own text color while the card sets no weekday color', async () => {
+    expect(titleColor((await open()).panel)).toBe('');
+  });
+
   it('sets its rows apart as the card’s day list does', async () => {
     const { panel } = await open();
     const rows = [...panel!.shadowRoot!.querySelectorAll('.day-panel-rows table tr')];
@@ -1649,5 +1693,88 @@ describe('the day panel', () => {
     await afterClose(card);
     expect(isOpen(panel)).toBe(true);
     expect(dialogs.map(({ dialogTag }) => dialogTag)).toEqual([DAY_PANEL_TAG]);
+  });
+});
+
+describe('the weeks’ lines and bars', () => {
+  it('write a line’s title in its calendar’s own color, as a row’s is', async () => {
+    const card = await mount({
+      entities: [
+        { entity: ANNA, accent_color: BLUE, color: 'rgb(1, 2, 3)' },
+        { entity: BEN, accent_color: GREEN },
+      ],
+    });
+    const titles = [...root(card).querySelectorAll<HTMLElement>('.month-line')].map((line) => [
+      text(line.querySelector('.month-line-title')),
+      line.querySelector<HTMLElement>('.month-line-title')!.style.color,
+    ]);
+    expect(titles).toContainEqual(['Standup', 'rgb(1, 2, 3)']);
+    // The control: Ben sets none, so the card's event color reaches his titles through the
+    // stylesheet.
+    expect(titles).toContainEqual(['Review', '']);
+  });
+
+  it('write a bar’s times and length in the time color, as a line’s time is', () => {
+    const rule = (selector: string) =>
+      declarations(cardStyles.cssText)
+        .filter((d) => d.at.length === 0 && d.selectors.includes(selector))
+        .map((d) => [d.property, d.value]);
+    for (const selector of ['.month-bar .grid-banner-time', '.month-bar .grid-banner-duration']) {
+      expect(rule(selector), selector).toContainEqual(['color', 'var(--calendar-card-color-time)']);
+    }
+    expect(rule('.month-line-time')).toContainEqual(['color', 'var(--calendar-card-color-time)']);
+  });
+});
+
+describe('today’s tile in the wide month', () => {
+  const WIDE_TILE = '.month-container:not(.month-compact) .month-date > .day.today-tile';
+  const SELECTED_TODAY = '.month-compact .month-day.month-selected.today .month-date > .day';
+
+  /** A rule's declarations outside any at-rule, by property. */
+  const rule = (selector: string) =>
+    Object.fromEntries(
+      declarations(cardStyles.cssText)
+        .filter((d) => d.at.length === 0 && d.selectors.includes(selector))
+        .map((d) => [d.property, d.value]),
+    );
+
+  it('is filled in the indicator color with the light ink, as the compact form’s selected today', () => {
+    const wide = rule(WIDE_TILE);
+    const selected = rule(SELECTED_TODAY);
+    expect({
+      background: wide.background,
+      ink: wide['--calendar-card-today-indicator-ink'],
+      weight: wide['font-weight'],
+    }).toEqual({
+      background: 'var(--calendar-card-today-indicator-color)',
+      ink: 'var(--text-primary-color, #fff)',
+      weight: '600',
+    });
+    // Drawn as the compact form draws today while it is the selected day.
+    expect([
+      wide.background,
+      wide['--calendar-card-today-indicator-ink'],
+      wide['font-weight'],
+    ]).toEqual([selected.background, selected.color, selected['font-weight']]);
+  });
+
+  it('reaches the wide month’s tile alone, whose digits take the ink it redefines', async () => {
+    const card = await mount();
+    const tile = root(card).querySelector<HTMLElement>('.month-container .day.today-tile')!;
+    expect(tile.matches(WIDE_TILE)).toBe(true);
+    // The digits read the ink inline, so the ink set on the tile is what colors them.
+    expect(tile.style.color).toBe('var(--calendar-card-today-indicator-ink)');
+    // A color named for them still wins, as on every tile.
+    const named = await mount({ today_day_color: 'rgb(1, 2, 3)' });
+    expect(root(named).querySelector<HTMLElement>('.day.today-tile')!.style.color).toBe(
+      'rgb(1, 2, 3)',
+    );
+    // The control: the compact form's tile and List's are not reached.
+    const narrow = await mount({}, 375);
+    expect(day(narrow, 18).querySelector('.day.today-tile')!.matches(WIDE_TILE)).toBe(false);
+    const list = await mount({ view: 'list' });
+    const listTile = root(list).querySelector('.day.today-tile');
+    expect(listTile).not.toBeNull();
+    expect(listTile!.matches(WIDE_TILE)).toBe(false);
   });
 });

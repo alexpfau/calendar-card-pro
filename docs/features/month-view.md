@@ -36,8 +36,11 @@ month, unless `start_date` is a fixed date such as `2027-01-15`, which opens its
   exact dates the six weeks span.
 - **Days of the months around it** are dimmed and keep their events, and the 1st of each month
   carries its month's name, such as "1 Dec".
-- **Today** sits on the [date tile](/features/layout-appearance#the-date-tile), or is written in
-  today's colors under another indicator style, and past days are dimmed. Past events are shown
+- **Today** sits on the [date tile](/features/layout-appearance#the-date-tile), filled with
+  `today_indicator_color` and its number in white by default, so it stands out among the events,
+  as a [compact month](#the-compact-month) draws it while today is the selected day.
+  `today_indicator: false` turns it off; Month draws no other indicator, so its editor offers the
+  tile and none. Past days are dimmed. Past events are shown
   by default in month view; see
   [Options That Start From a Different Default](#options-that-start-from-a-different-default).
 
@@ -73,7 +76,7 @@ across them, as Grid's all-day band draws it.
 ### Long Timed Events
 
 A timed event a full day or longer, such as an on-call week, is a bar too, with its start time
-after its title and its end at the bar's far end, as in
+before its title and its end at the bar's far end, as in
 [Grid View](/features/grid-view#long-timed-events-as-banners). `multiday_banners` turns this
 off, giving it a line on each day instead:
 
@@ -234,15 +237,18 @@ See [How Tall the Month Is](#how-tall-the-month-is) for the heights and the maxi
   weekday ("Nov 18"), and last the month ("18"), so the day's number shows on any card wide
   enough for its weeks.
 - **Each detail keeps to one line**: a title too long for the line beside its time ends in "…",
-  and the location, the description and the forecast take a line each. The panel shows them in
-  full.
+  the forecast sits on the title's line, before the time, and the location takes a line of its
+  own. The panel shows them in full.
 - **Each event is a block of its own**, with its own accent bar, 6px from the next: Month starts
   [`event_gap`](/features/layout-appearance#gaps-between-events) from `6px`; see
   [below](#options-that-start-from-a-different-default).
-- **Only the list and the panel show an event's details.** The weeks draw an event as its title
-  and time at most, so `show_location`, `show_description`, `show_countdown`,
-  `show_progress_bar`, the event forecast and the all-day badge act on the list and the panel
-  alone.
+- **A row holds a title, a time, a location and a forecast.** The weeks draw an event as its
+  title and start time, and a bar as its title and length, so `show_location`, its styling and
+  the [event forecast](/features/weather#weather-per-layout) act on the list and the panel alone;
+  the editor marks those settings **Day List & Panel** on Month's pages. The description, the
+  countdown, the progress bar and the all-day badge are left to the
+  [event details](/features/actions#event-details) a tap on an event opens, whatever the card
+  says; see [below](#options-that-do-nothing-in-month-view).
 - **"+N more" is a button** in the tab order, after the month. Closing the panel it opens brings
   you back to it.
 - **On a card too short** to show the weeks, the day's name and "+N more", the weeks and the
@@ -435,14 +441,23 @@ of Month's pages. Stored values are kept for the layouts they apply to.
 | `today_indicator_size`, `today_weekday_color`                                                                                                  | Today is marked by its tile, and the weekday names stand once over their columns                             |
 | `week_number_background_color`                                                                                                                 | [Week numbers](#week-numbers) are plain text                                                                 |
 | `time_position`                                                                                                                                | [A day's list](#the-days-list) always puts each time beside its title                                        |
+| `time_icon_size`                                                                                                                               | No clock is drawn beside a time                                                                              |
+| `show_description`, `show_description_allday`, `description_font_size`, `description_color`, `description_icon_size`, `description_max_lines`  | A day's list and the panel leave descriptions to the [event details](/features/actions#event-details)        |
+| `show_countdown`, `show_countdown_allday`, `countdown_max_days`, `countdown_exact_days`                                                        | A row shows no countdown: the day's name heads the list                                                      |
+| `show_progress_bar`, `progress_bar_color`, `progress_bar_height`, `progress_bar_width`                                                         | A row shows no progress bar and no "Day 2 of 3"                                                              |
+| `allday_badge`, `allday_badge_style`, `allday_badge_color`                                                                                     | An all-day event says "All day" in its time and comes first, so it carries no badge                          |
+| `title_max_lines`, `time_max_lines`, `location_max_lines`, `event_icon_vertical_alignment`                                                     | Each part keeps to one line in [the day's list](#the-days-list) and runs in full in the panel                |
 
-The editor also leaves out the per-calendar compact limit and multi-day splitting. To edit any of
+The editor also leaves out the per-calendar compact limit, multi-day splitting and Show
+Description. A calendar's `show_description: false` still keeps its descriptions out of the
+event details. To edit any of
 these, open a layout they apply to under **Layouts**, which leaves the card's layout as it is; see
 [Options for the Selected View](/features/editor#options-for-the-selected-view).
 
 Month's weather is its own, set in `month → weather`, and shows only beside events, in the day's
 list and the panel: `position: event` or `both` shows it there, and the `date` options do
-nothing, since a month has no day header for them. See
+nothing, since a month has no day header for them. Nor does `event → max_lines`: a row shows the
+forecast as an icon, a temperature and a UV index beside its title, never in words. See
 [Weather Per Layout](/features/weather#weather-per-layout).
 
 **→ [Options With No Effect in Month View](/reference/configuration#options-with-no-effect-in-month-view)** — the same options in the configuration reference.
