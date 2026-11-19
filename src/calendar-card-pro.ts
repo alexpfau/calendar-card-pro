@@ -852,6 +852,11 @@ class CalendarCardPro extends LitElement {
   private _move: {
     /** The block pressed, and the event and color it carries. */
     readonly element: Element;
+    /**
+     * What a browser aims the click it derives from the press at: the event a touch was handed
+     * to, where the press is read from under the finger (`_pressPath`), else the block.
+     */
+    readonly clickOwner: EventTarget;
     readonly target: Activation.EventTapTarget;
     /** The event as stored, and its span. */
     readonly entry: EventDetails.DetailEntry;
@@ -6043,7 +6048,9 @@ class CalendarCardPro extends LitElement {
     );
     const swipeable = this._swipeStartsAt(ev);
     const draftFrom = this._draftAnchorFor(dayHit);
-    const moveFrom = press?.lifts ? this._moveFrom(ev, tapTarget, press.path) : undefined;
+    const moveFrom = press?.lifts
+      ? this._moveFrom(ev, tapTarget, press.path, press.handedTo)
+      : undefined;
     // A press where a new event may be drawn has a hold of its own, which draws one, and so does
     // a press on an event a drag may move, which lifts it.
     const holds =
@@ -6114,7 +6121,8 @@ class CalendarCardPro extends LitElement {
           }
 
           // An event's that a drag may move: it lifts, under the finger. Lifted and let go where
-          // it was, the hold runs what it always ran (`_handlePointerUp`).
+          // it was, it runs what the press would on an event that cannot move: the hold where
+          // one runs, else the tap (`_handlePointerUp`).
           if (this._move) {
             this._startMove();
             return;
@@ -6766,12 +6774,14 @@ class CalendarCardPro extends LitElement {
    * @param ev - A pointer-down on `ha-card`
    * @param hit - The event it landed on, if any
    * @param path - The path the press is read from (`_pressPath`)
+   * @param handedTo - The event the browser handed a touch to, where that is not `hit`
    * @returns The move it arms, not yet started, or undefined
    */
   private _moveFrom(
     ev: PointerEvent,
     hit: Activation.EventTapHit | undefined,
     path: ReadonlyArray<EventTarget>,
+    handedTo?: EventTarget,
   ): NonNullable<CalendarCardPro['_move']> | undefined {
     if (!hit || !this._movesEvents) return undefined;
     const element = hit.element;
@@ -6791,6 +6801,7 @@ class CalendarCardPro extends LitElement {
     if (!body || slot?.kind !== 'time') return undefined;
     return {
       element,
+      clickOwner: handedTo ?? element,
       target: hit.target,
       entry,
       times,
@@ -6983,9 +6994,10 @@ class CalendarCardPro extends LitElement {
     if (!move.started) return;
     // However it ended, the click a browser derives from the press is not a tap on the event:
     // thrown away by Escape or a second contact before the pointer lifted, it would otherwise
-    // open the event the press set out to move. Pointer-up guards the same element already.
+    // open the event the press set out to move. Pointer-up guards the same element already,
+    // which for a touch handed to an event beside the finger is that event, not the block.
     this._derivedClick = {
-      element: move.element,
+      element: move.clickOwner,
       deadline: Date.now() + Constants.TIMING.DERIVED_CLICK_WINDOW,
     };
     if (!this._draft) {
@@ -7258,14 +7270,15 @@ class CalendarCardPro extends LitElement {
     // Every press ends in exactly one of four ways (the gesture model in docs/architecture.md).
     // Held: in a grid, a hold on a slot draws a new event, which the release opens in the
     // popover, and a hold on an event a drag may move lifts it, which the release drops where it
-    // is let go; one that never left its place runs the event's hold instead. Otherwise the
-    // event's own hold where it has one, else the card's, wherever it landed. Stayed: a tap, run
-    // by the innermost target that has one: the event's, else a compact month day's selection,
-    // else the day's where the press was on a day and not on an event, else the card's. Moved:
-    // never a tap or a hold on anything; a mouse in a grid draws or moves at once, and otherwise
-    // it is a swipe when it can be one. Canceled: `_handlePointerCancel` ends it and runs
-    // nothing. A hold cannot fire once the pointer has moved, and movement after it fired only
-    // carries what it drew or lifted, so the four never overlap.
+    // is let go; one that never left its place runs the event's hold instead, or its tap where
+    // no hold runs, since the hold only lifted it. Otherwise the event's own hold where it has
+    // one, else the card's, wherever it landed. Stayed: a tap, run by the innermost target that
+    // has one: the event's, else a compact month day's selection, else the day's where the
+    // press was on a day and not on an event, else the card's. Moved: never a tap or a hold on
+    // anything; a mouse in a grid draws or moves at once, and otherwise it is a swipe when it can
+    // be one. Canceled: `_handlePointerCancel` ends it and runs nothing. A hold cannot fire once
+    // the pointer has moved, and movement after it fired only carries what it drew or lifted, so
+    // the four never overlap.
     const tapTarget = this._pointerTapTarget;
     const dayHit = this._pointerDayHit;
     // Where the press went down: a pointer that moved after a hold fired still acts on what it
@@ -7284,6 +7297,10 @@ class CalendarCardPro extends LitElement {
     const moved = move ? this._newShown : null;
     const draft = this._draftStillShown() ? this._draft : null;
     const drawn = draft ? this._newShown : null;
+    // Lifted by the hold and let go where it was, on an event whose hold runs nothing: the hold
+    // was only there to lift it, so the press ends as a tap, as the same press does in every
+    // other layout and on an event a drag may not move.
+    const liftedForNothing = move !== null && !move.left && !this._holdRunsFor(tapTarget);
     if (move && moved && move.left) {
       // Let go where it was taken from, it stays; anywhere else it is moved there.
       if (!GridDraft.sameSpan(moved.times, move.times)) {
@@ -7302,7 +7319,7 @@ class CalendarCardPro extends LitElement {
         true,
       );
       ranOffEvents = true;
-    } else if (this._holdTriggered) {
+    } else if (this._holdTriggered && !liftedForNothing) {
       if (tapTarget && this._eventHoldRuns) {
         this._releasePressFocus();
         this._runEventAction(tapTarget.target, 'hold', origin);
