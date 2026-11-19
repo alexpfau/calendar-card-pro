@@ -651,14 +651,10 @@ describe('rendered form frames preserve edit intent', () => {
     const { editor, seen } = await mount();
     await openPageOf(editor, 'events:event_font_size');
     const root = editor.shadowRoot!;
-    // Settings For, opened from its compact line where the page draws that.
-    root.querySelector<HTMLButtonElement>('[data-focus="scope-change"]')?.click();
-    await editor.updateComplete;
     const old = formOf(editor, 'events:event_font_size')!;
-    const column = root.querySelector<HTMLInputElement>('input[name="scope"][value="column"]')!;
-    // The scope moves, and the form drawn for Grid reports its edit before the page redraws.
-    column.checked = true;
-    column.dispatchEvent(new Event('change', { bubbles: true }));
+    // The page moves to the same topic in Columns, and the form drawn for Grid reports its edit
+    // before the page redraws.
+    root.querySelector<HTMLButtonElement>('[data-focus="also:column"]')!.click();
     emitChange(old, { 'events:event_font_size': '24px' });
     await editor.updateComplete;
     expect(seen).toHaveLength(1);

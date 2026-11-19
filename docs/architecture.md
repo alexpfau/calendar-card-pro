@@ -102,7 +102,7 @@ src/
 │   │   ├── buttons.ts            # Write path for the toolbar's own buttons
 │   │   ├── exceptions.ts         # Removes stored view overrides for Reset controls
 │   │   ├── subforms.ts           # Reusable schema fragments
-│   │   ├── workspace.ts          # The Settings For scope: All Layouts or one of the four layouts
+│   │   ├── workspace.ts          # The editing scope: Layout Defaults (`shared`) or one of the four layouts
 │   │   ├── routing.ts            # Scope projections and scope-captured writes
 │   │   ├── write-frames.ts       # What each write belongs to, and the part of a change it writes
 │   │   ├── normalize.ts          # Comparable root and nested form values
@@ -209,8 +209,7 @@ back: below `month → min_day_width` a day, it draws its compact form, with a h
 Switching layouts never fetches, because the load spans every view the card can show: the longest
 `days_to_show` from the shared start, and Month's six weeks where it is reachable, which can start
 before it (`ViewConfig.loadConfig`; see [View Switcher](/architecture-toolbar#view-switcher)). The editor's
-**Settings For** scope is separate again: choosing List there exposes its controls without changing
-the layout.
+scope is separate again: opening List's page exposes its controls without changing the layout.
 
 ## 🧱 Configuration Layers & Editor Adoption
 
@@ -226,9 +225,13 @@ the legacy List-only options.
 renders through the second. A change to the rule changes both.
 :::
 
-- **Scopes.** Under **Settings For**, **All Layouts** writes roots; **List**, **Columns**,
-  **Grid** and **Month** write their blocks (`workspace.ts`). `routing.ts` captures the destination with each
-  rendered form, so a delayed event cannot write into another scope.
+- **Scopes.** The scope is the place, not a setting: a layout's page and its topic pages carry
+  the layout in their route (`navigation.ts` › `Route`, `routeScope`), and `_workspace` derives
+  from the route. **Layout Defaults** (`shared`) writes roots; **List**, **Columns**, **Grid** and
+  **Month** write their blocks (`workspace.ts`). Whole Card's pages (`pages.ts` ›
+  `WHOLE_CARD_PAGES`) and Shared Across Layouts edit in the shared scope, and a place with no
+  layout, such as a calendar's page, edits in the layout the card opens in. `routing.ts` captures
+  the destination with each rendered form, so a delayed event cannot write into another scope.
 - **Format marker.** `config_version: 5` records editor adoption, not renderer precedence.
   `configVersionState` reads a missing marker or an older nonnegative integer as legacy, accepts
   the current version, and blocks visual-editor writes for a future version or any other value,
@@ -251,9 +254,9 @@ renders through the second. A change to the rule changes both.
   in the editor only, never when YAML loads.
 
 ::: warning Shared Is Not List
-All Layouts builds its fields as List (`baseViewForWorkspace`), but its conditional controls must
-read the shared value through `resolveWorkspaceOption`, never a `list:` override. Resolving them as
-List shows the wrong controls on the shared surface.
+Layout Defaults builds its fields as List (`baseViewForWorkspace`), but its conditional controls
+must read the shared value through `resolveWorkspaceOption`, never a `list:` override. Resolving
+them as List shows the wrong controls on the shared surface.
 :::
 
 ::: warning One Authorship Model

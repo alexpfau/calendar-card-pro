@@ -1,6 +1,6 @@
 /**
  * Where the editor is, and the way back: the overview, a section page, a calendar entry's page,
- * What This Card Changes or the notices page, and the trail of at most two places a Back
+ * What This Card Changes or the notices page, and the trail of at most three places a Back
  * returns to. Data only; the element saves scroll and focus into the trail as it leaves a place
  * and restores them as Back returns there.
  *
@@ -10,12 +10,20 @@
  */
 
 import type { PageId } from './pages';
+import type { EditorWorkspace } from './workspace';
 
-/** A place in the editor. */
+/**
+ * A place in the editor. A layout's page lists its topics, and a topic page under a layout carries
+ * that layout as its `scope`; Layout Defaults is the `shared` layout. A Whole Card page has none.
+ * A calendar's page carries one only where a deep link opened it for an option another layout
+ * offers; opened from its row, it edits in the layout the card opens in.
+ */
 export type Route =
   | { readonly kind: 'overview' }
-  | { readonly kind: 'page'; readonly page: PageId }
-  | { readonly kind: 'entry'; readonly key: number }
+  | { readonly kind: 'page'; readonly page: PageId; readonly scope?: EditorWorkspace }
+  | { readonly kind: 'layout'; readonly layout: EditorWorkspace }
+  | { readonly kind: 'shared' }
+  | { readonly kind: 'entry'; readonly key: number; readonly scope?: EditorWorkspace }
   | { readonly kind: 'audit'; readonly group?: string }
   | { readonly kind: 'notices' };
 
@@ -33,14 +41,17 @@ export interface TrailEntry {
 /** Where the editor is, and where Back goes. */
 export interface NavState {
   readonly route: Route;
-  /** Places Back returns to, nearest last; at most two. */
+  /** Places Back returns to, nearest last; at most three. */
   readonly trail: ReadonlyArray<TrailEntry>;
   /** Whether the open place was reached from search results (Return to Results). */
   readonly fromResults: boolean;
 }
 
-/** The most places the trail holds. */
-export const TRAIL_LIMIT = 2;
+/**
+ * The most places the trail holds: the overview, a layout's page and one of its topics, so a
+ * cross-link from a topic still returns to it.
+ */
+export const TRAIL_LIMIT = 3;
 
 /** The editor as it opens. */
 export const OVERVIEW: NavState = { route: { kind: 'overview' }, trail: [], fromResults: false };
@@ -54,14 +65,29 @@ export const OVERVIEW: NavState = { route: { kind: 'overview' }, trail: [], from
 export function routeKey(route: Route): string {
   switch (route.kind) {
     case 'page':
-      return `page:${route.page}`;
+      return route.scope === undefined ? `page:${route.page}` : `page:${route.page}@${route.scope}`;
+    case 'layout':
+      return `layout:${route.layout}`;
     case 'entry':
-      return `entry:${route.key}`;
+      return route.scope === undefined ? `entry:${route.key}` : `entry:${route.key}@${route.scope}`;
     case 'audit':
       return route.group === undefined ? 'audit' : `audit:${route.group}`;
     default:
       return route.kind;
   }
+}
+
+/**
+ * The layout a place edits: a layout's own page, a topic page under it, or a calendar's page a
+ * deep link opened in another layout.
+ *
+ * @param route - The place
+ * @returns The layout, `shared` for Layout Defaults, or `undefined` for a place of no layout
+ */
+export function routeScope(route: Route): EditorWorkspace | undefined {
+  if (route.kind === 'layout') return route.layout;
+  if (route.kind === 'page' || route.kind === 'entry') return route.scope;
+  return undefined;
 }
 
 /**
@@ -80,8 +106,8 @@ export function sameRoute(a: Route, b: Route): boolean {
  *
  * - `push` keeps the place left on the trail, so Back returns to it.
  * - `replace` swaps the open place and keeps the trail, as Previous and Next Calendar do.
- * - `cross-link` pushes, unless the open place was itself reached by a cross-link, which it
- *   then replaces, so the trail never grows past two.
+ * - `cross-link` pushes, unless the trail is full, when it replaces the open place, so the trail
+ *   never grows past `TRAIL_LIMIT`.
  *
  * Going to the overview clears the trail: nothing lies behind it.
  *

@@ -290,10 +290,7 @@ describe('Pick From Preview', () => {
     fire(card.shadowRoot!.querySelector('.grid-axis-label')!, 'click');
     await settle(editor, card);
     expect($(editor, '.page[data-page="size_spacing"]')).not.toBeNull();
-    expect(said).toEqual([
-      'Now editing settings for Grid.',
-      'Showing Size & Spacing › Hour Labels.',
-    ]);
+    expect(said).toEqual(['Showing Size & Spacing › Hour Labels.']);
   });
 
   it('outlines on the first tap of a touch screen and opens on a second on the same part', async () => {
@@ -335,8 +332,16 @@ describe('Pick From Preview', () => {
 // The preview follows Settings For through the card Home Assistant's dialog previews, found as
 // Pick From Preview finds it, and configured through its own `setConfig` (`views/scope-preview.ts`).
 describe('the preview in Home Assistant’s dialog', () => {
-  it('draws the layout Settings For names, and the card as it opens under All Layouts', async () => {
-    const month = { ...CONFIG, view: 'month' };
+  it('draws the layout being edited, the card as it opens elsewhere, and no switcher the card never offers', async () => {
+    const month = {
+      ...CONFIG,
+      view: 'month',
+      toolbar: {
+        show: true,
+        view_switcher: true,
+        view_switcher_layouts: ['list', 'grid', 'month'],
+      },
+    };
     const { editor, card } = await dialog({ card: month, editor: month });
     // What the preview's card is configured with, recorded rather than drawn: the card's own
     // rendering is the card's tests' business, and happy-dom trips over focus in a redraw here.
@@ -346,27 +351,33 @@ describe('the preview in Home Assistant’s dialog', () => {
     });
     const last = () => given[given.length - 1];
     const shown = () => last()?.view ?? 'month';
-    const pick = async (scope: string) => {
-      (editor as unknown as { _pickScope(scope: string): void })._pickScope(scope);
+    const press = async (key: string) => {
+      editor.shadowRoot!.querySelector<HTMLElement>(`[data-focus="${key}"]`)!.click();
       await settle(editor, card);
     };
     expect(given).toEqual([]);
 
-    await pick('grid');
-    expect(shown()).toBe('grid');
-    // The configuration as written, `view` alone laid over it.
+    // A layout's page draws that layout: the configuration as written, `view` alone laid over it,
+    // since the switcher offers Grid.
+    await press('layout:grid');
     expect(last()).toEqual({ ...month, view: 'grid' });
-    // On a page too, where Settings For is the page's.
-    editor.shadowRoot!.querySelector<HTMLElement>('[data-focus="nav:size_spacing"]')!.click();
-    await settle(editor, card);
+    // Its topics too.
+    await press('nav:size_spacing');
     expect(shown()).toBe('grid');
-
-    // All Layouts: the card as it opens, handed back as written.
-    await pick('shared');
+    // Back on the overview, the card as it opens, handed back as written.
+    await press('back-top');
+    await press('back-top');
     expect(last()).toEqual(month);
-    await pick('column');
-    expect(shown()).toBe('column');
-    await pick('month');
+    // Layout Defaults is no layout of its own: the card as it opens.
+    await press('layout:shared');
     expect(last()).toEqual(month);
+    await press('back-top');
+    // Columns, which the switcher does not offer, is drawn without the switcher.
+    await press('layout:column');
+    expect(last()).toEqual({
+      ...month,
+      view: 'column',
+      toolbar: { ...month.toolbar, view_switcher: false },
+    });
   });
 });

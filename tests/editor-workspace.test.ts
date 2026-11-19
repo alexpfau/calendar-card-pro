@@ -3,14 +3,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   CARD,
   CHASSIS,
-  type MountedEditor,
   changeField,
   changeFields,
   entry,
   formsOf,
   goEntry,
   goOverview,
-  goPage,
   keysOf,
   mountEditor,
   openPanels,
@@ -19,7 +17,9 @@ import {
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { VIEWS, VIEW_SCOPE } from '../src/config/view';
+import { parseFieldId } from '../src/rendering/editor/field-index';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
+import { PAGES, WHOLE_CARD_PAGES } from '../src/rendering/editor/pages';
 import { walkSchema } from '../src/rendering/editor/panels';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import {
@@ -96,18 +96,6 @@ function offered(editor: EditorHost, name: string): string[] {
   return [...editor.shadowRoot!.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`)].map(
     (input) => input.value,
   );
-}
-
-/**
- * Opens Settings For as a user does, on a page, with Change.
- *
- * @param editor - Editor
- */
-async function openScope(editor: EditorHost): Promise<void> {
-  await goPage(editor as unknown as MountedEditor, 'events');
-  const change = editor.shadowRoot!.querySelector<HTMLElement>('[data-focus="scope-change"]');
-  change?.click();
-  await editor.updateComplete;
 }
 
 async function mount(overrides: Partial<Types.Config> = {}): Promise<EditorHost> {
@@ -187,14 +175,25 @@ function enabled(view: Types.EffectiveView): Partial<Types.Config> {
   };
 }
 
+/** The scoped keys Whole Card's pages hold, drawn whatever the workspace: Open Links. */
+const WHOLE_CARD_KEYS: ReadonlySet<string> = new Set(
+  PAGES.filter((page) => WHOLE_CARD_PAGES.has(page.id)).flatMap((page) =>
+    page.headings.flatMap((heading) =>
+      heading.fields.flatMap(([id]) => configKeysForField(parseFieldId(id).name)),
+    ),
+  ),
+);
+
 function assertWorkspaceFields(editor: EditorHost, current: EditorWorkspace): void {
   const namesInForms = formsOf(editor, CARD).flatMap((form) => names(form.schema));
   expect(namesInForms.length).toBeGreaterThan(50);
   const main = formsOf(editor, CARD).flatMap((form) => optionKeys(form.schema));
   for (const [key, scope] of Object.entries(VIEW_SCOPE)) {
     // Shared offers a key when more than one layout reads it; a view offers it when that
-    // view reads it. Asking `scope.has('shared')` would be false for every scoped key.
-    const expected = current === 'shared' ? scope.size > 1 : scope.has(current);
+    // view reads it. Asking `scope.has('shared')` would be false for every scoped key. A Whole
+    // Card page draws its keys in every workspace, saying where they do not apply instead.
+    const expected =
+      WHOLE_CARD_KEYS.has(key) || (current === 'shared' ? scope.size > 1 : scope.has(current));
     expect(main.includes(key), `${current}: ${key}`).toBe(expected);
   }
   expect(main.includes('hour_height')).toBe(current === 'grid');
@@ -284,62 +283,21 @@ describe('the chassis draws exactly the forms subforms.ts declares', () => {
         );
       };
       expect(offered(editor, 'view'), view).toEqual(values(display));
-      await openScope(editor);
-      expect(offered(editor, 'scope'), view).toEqual(values(scope));
+      // The layout being edited is the place's own: each layout has a page, Layout Defaults too,
+      // and Settings For draws nowhere.
+      expect(
+        [...editor.shadowRoot!.querySelectorAll('[data-focus^="layout:"]')].map((row) =>
+          row.getAttribute('data-focus')!.slice('layout:'.length),
+        ),
+        view,
+      ).toEqual([...values(scope).filter((each) => each !== 'shared'), 'shared']);
+      expect(editor.shadowRoot!.querySelector('input[name="scope"]'), view).toBeNull();
       editor.remove();
     }
   });
 });
 
 describe('displayed view and editing workspace are separate controls', () => {
-  it('draws Starting Layout and Settings For on the overview, Settings For on a page, and declares both to the translation checker', async () => {
-    const editor = await mount({ view: 'grid' });
-    expect(viewControls(editor)).toHaveLength(2);
-    // Its frame's heading says its name once; the group keeps it as its accessible name.
-    const legend = editor.shadowRoot!.querySelector('fieldset.displays legend')!;
-    expect(legend.textContent!.trim()).toBe('Starting Layout');
-    expect(legend.classList.contains('visually-hidden')).toBe(true);
-    expect(
-      editor
-        .shadowRoot!.querySelector('[data-heading="starting_layout"] > .heading')!
-        .textContent!.trim(),
-    ).toBe('Starting Layout');
-    // The overview, top to bottom: the filter bar, Calendars, and Starting Layout.
-    const order = [
-      ...editor.shadowRoot!.querySelectorAll(
-        '.overview > .filter-bar, .overview > [data-heading], .overview > [data-heading] > .displays, .overview > .row-group > .scope-block',
-      ),
-    ].map((element) => element.getAttribute('data-heading') ?? element.className.split(' ')[0]);
-    expect(order).toEqual([
-      'filter-bar',
-      'calendars',
-      'starting_layout',
-      'displays',
-      'scope-block',
-    ]);
-    await openScope(editor);
-    expect(viewControls(editor)).toHaveLength(1);
-    expect(editor.shadowRoot!.querySelector('.scope legend')!.textContent!.trim()).toBe(
-      'Settings For',
-    );
-    expect(offered(editor, 'scope')).toEqual(EXPECTED_WORKSPACES);
-    expect(chassisSubforms().flatMap((subform) => names(subform.schema))).toEqual([
-      'view',
-      WORKSPACE_FIELD,
-      'search',
-      'pick',
-      'calendar',
-      'card_title',
-      'card_calendars',
-      'weather_entity',
-      'show_toolbar',
-      'event_details',
-      'day_adds',
-    ]);
-    expect(formsOf(editor, CARD).flatMap((form) => names(form.schema))).not.toContain('view');
-    expect(WORKSPACES).toEqual(EXPECTED_WORKSPACES);
-  });
-
   it.each(VIEWS)(
     'opens on the displayed %s view without emitting a config change',
     async (view) => {
@@ -444,13 +402,6 @@ describe('workspace transitions do not configure the card', () => {
     expect(seen).toEqual([]);
   });
 
-  it('offers only the four scopes, so no other can be chosen', async () => {
-    const editor = await mount();
-    await openScope(editor);
-    expect(offered(editor, 'scope')).toEqual(EXPECTED_WORKSPACES);
-    expect(workspace(editor)).toBe('list');
-  });
-
   it('draws no Settings For above what search finds, which keeps the scope a page chose', async () => {
     const editor = await mount();
     const seen = reports(editor);
@@ -481,6 +432,9 @@ describe('workspace state survives echoes and pending edits', () => {
       view: 'list',
     });
     await editor.updateComplete;
+    // Card & Header, where the title was changed, edits the whole card; the overview follows the
+    // layout the card opens in.
+    await goOverview(editor);
     expect(workspace(editor)).toBe('list');
     await display(editor, 'column');
     expect(workspace(editor)).toBe('column');

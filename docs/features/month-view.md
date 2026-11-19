@@ -14,10 +14,10 @@ entities:
 view: month
 ```
 
-In the [visual editor](/features/editor#the-overview), **Starting Layout** on the overview
-chooses the layout the card opens with. Select **Month** under **Settings For**, at the top of a
-page, to change how the month looks, such as week scrolling under **Taps & Refresh**. Its height
-is set in YAML, under [How Tall the Month Is](#how-tall-the-month-is).
+In the [visual editor](/features/editor#options-for-the-selected-view), the circle on a layout's
+row under **Layouts** chooses the layout the card opens with. Select the **Month** row itself to
+change how the month looks, such as week scrolling under **Which Events → Wheel & Swipe**. Its
+height is set in YAML, under [How Tall the Month Is](#how-tall-the-month-is).
 
 ## 📅 The Six Weeks
 
@@ -123,7 +123,7 @@ month:
 | `month → compact_card_max_height` | string | `card_max_height` | The same cap for the compact month; with its height `auto`, the card grows with the day's list up to it              |
 
 In the visual editor these are **Month Card Height**, **Month Maximum Height**, **Compact Card
-Height** and **Compact Maximum Height** on Size & Spacing, while **Settings For** is Month.
+Height** and **Compact Maximum Height** on Month's Size & Spacing.
 
 - **The whole card.** The heights include the title, the toolbar and any notice, which take their
   room from the weeks: at `44rem` a week holds four events without a header, three with the
@@ -311,8 +311,7 @@ month:
 | `month → weekend_background_color` | string | `color-mix(in srgb, var(--primary-text-color) 4%, transparent)` | Tint behind a weekend day; `transparent` turns it off                                                        |
 | `month → today_background_color`   | string | `transparent`                                                   | Tint behind today. Off by default; a color turns it on, and on a weekend day it replaces the weekend's shade |
 
-In the visual editor they are **Weekend Shading** and **Today Shading** on Days, while
-**Settings For** is Month.
+In the visual editor they are **Weekend Shading** and **Today Shading** on Month's Days.
 
 - **The whole day is shaded**, under its date and its events, and on a
   [compact month](#the-compact-month) its number and marks. Days of the months either side are
@@ -349,7 +348,7 @@ month:
 | `month_font_size`              | string | `12px`  | The month named beside the number on a 1st                                         |
 
 In the visual editor the two cell sizes are **Event Font Size in Days** and **Time Font Size in
-Days** on Event Appearance, while **Settings For** is Month, beside the sizes a day's list takes.
+Days** on Month's Event Appearance, beside the sizes a day's list takes.
 
 - **The day's list and the panel** keep `event_font_size` and `time_font_size`, so their rows read
   as a list's; set those inside `month:` to change them for Month alone.
@@ -423,7 +422,7 @@ titles rather than a list's 26px date. Set `day_font_size` inside `month:` to ch
 ## 🚫 Options That Do Nothing in Month View
 
 These options have no effect while the card draws a month, and the visual editor leaves them out
-while **Settings For** is Month. Stored values are kept for the layouts they apply to.
+of Month's pages. Stored values are kept for the layouts they apply to.
 
 | Options                                                                                                                                        | In Month View                                                                                                |
 | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
@@ -443,8 +442,8 @@ while **Settings For** is Month. Stored values are kept for the layouts they app
 | `time_position`                                                                                                                                | [A day's list](#the-days-list) always puts each time beside its title                                        |
 
 The editor also leaves out the per-calendar compact limit and multi-day splitting. To edit any of
-these, choose a layout they apply to under **Settings For**, without changing
-**Starting Layout**; see [Options for the Selected View](/features/editor#options-for-the-selected-view).
+these, open a layout they apply to under **Layouts**, which leaves the card's layout as it is; see
+[Options for the Selected View](/features/editor#options-for-the-selected-view).
 
 **→ [Options With No Effect in Month View](/reference/configuration#options-with-no-effect-in-month-view)** — the same options in the configuration reference.
 **→ [Month-Only Options in the configuration reference](/reference/configuration#month-only-options)** — full option table.

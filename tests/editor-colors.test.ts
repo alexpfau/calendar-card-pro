@@ -598,7 +598,9 @@ describe('a change that arrives late, or a word typed', () => {
       new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }),
     );
     await editor.updateComplete;
-    expect(editor.shadowRoot!.querySelector('.page')).toBeNull();
+    // Back from a layout's topic is that layout's page.
+    expect(editor.shadowRoot!.querySelector('.page[data-page="events"]')).toBeNull();
+    expect(editor.shadowRoot!.querySelector('.page[data-layout]')).not.toBeNull();
   });
 });
 

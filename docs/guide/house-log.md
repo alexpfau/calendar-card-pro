@@ -42,12 +42,12 @@ Each entry reads its title, then how long ago it was at the end of the title's l
 
 | Editor                  | YAML                                                                                                 | What it adds                                                                                         |
 | ----------------------- | ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Overview · Which Events | `start_date: today-29`, `days_to_show: 30`, `show_past_events`, `list` › `event_order: latest_first` | The last 30 days up to today, entries that have ended included, the newest at the top                |
+| List › Which Events     | `start_date: today-29`, `days_to_show: 30`, `show_past_events`, `list` › `event_order: latest_first` | The last 30 days up to today, entries that have ended included, the newest at the top                |
 | Events · Which Events   | `show_countdown`, `show_time: false`, `time_position: title`, `past_event_opacity: 100`              | How long ago each entry was, beside its title rather than a clock time; every entry at full strength |
 | Calendars › Name & Look | `accent_color`                                                                                       | The log's own color                                                                                  |
 | Overview                | `event_tap_action: details`                                                                          | The entry on tap                                                                                     |
 
-The visual editor offers `event_order` on the **Which Events** page while **Settings For** is List.
+The visual editor offers `event_order` on List's **Which Events** page.
 
 ## ✍️ Writing an Entry
 

@@ -303,7 +303,7 @@ describe('teardown', () => {
   });
 
   it('abandons a hold in progress when the card is removed', () => {
-    const card = mount({ hold_action: { action: 'expand' } });
+    const card = mount({ hold_action: { action: 'more-info' } });
 
     card._handlePointerDown(
       new PointerEvent('pointerdown', {
@@ -328,7 +328,7 @@ describe('teardown', () => {
   it('completes a hold that matures while the card is still connected', () => {
     // Control: the assertions above only mean something because an untouched
     // hold does mature on this timeline.
-    const card = mount({ hold_action: { action: 'expand' } });
+    const card = mount({ hold_action: { action: 'more-info' } });
 
     card._handlePointerDown(
       new PointerEvent('pointerdown', {

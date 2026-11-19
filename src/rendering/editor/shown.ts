@@ -133,6 +133,12 @@ export function stateFacts(
     case undefined:
       break;
   }
+  if (state?.notIn !== undefined && state.notIn.length > 0) {
+    facts.push({
+      kind: 'scope',
+      text: interpolate(t('state.not_in'), { layouts: state.notIn.map(layout).join(', ') }),
+    });
+  }
   for (const own of state?.layoutsOwn ?? []) {
     const text = own.stored ? t('state.layout_own') : t('state.layout_default');
     facts.push({

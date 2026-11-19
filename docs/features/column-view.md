@@ -16,10 +16,9 @@ view: column
 days_to_show: 5
 ```
 
-In the [visual editor](/features/editor#options-for-the-selected-view), **Starting Layout** on
-the overview chooses the layout the card opens with. Select **Columns** under **Settings For**,
-at the top of a page, to edit column view's own values, including its column-only options, without changing
-**Starting Layout**.
+In the [visual editor](/features/editor#options-for-the-selected-view), the circle on a layout's
+row under **Layouts** chooses the layout the card opens with. Select the **Columns** row itself to
+edit column view's own values, including its column-only options, without changing the card.
 
 Column view is responsive by design: a card too narrow to give every configured day a readable
 column falls back to the list layout. **A card configured `view: column` therefore renders as a
@@ -244,10 +243,10 @@ column has no such band: each day of the event is a row in its column, as
 `split_multiday_events` decides. It does nothing in list view either.
 
 ::: tip Hidden When Editing Column View
-The editor omits these controls while **Settings For** is Columns, including the per-calendar
-compact limit and grid banner setting. Stored values are preserved and still apply where they
-are read: in List, which the card falls back to, and the banner setting in Grid. To change them,
-select that layout under **Settings For**; **Starting Layout** stays unchanged.
+The editor omits these controls on Columns' pages, including the per-calendar compact limit and
+grid banner setting. Stored values are preserved and still apply where they are read: in List,
+which the card falls back to, and the banner setting in Grid. To change them, open that layout
+under **Layouts**; the card keeps opening in its own layout.
 See [Options for the Selected View](/features/editor#options-for-the-selected-view).
 :::
 
