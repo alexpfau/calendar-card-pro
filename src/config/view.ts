@@ -265,7 +265,9 @@ export const LIST_ONLY_KEYS = [] as const;
  *   the rules between days, weeks and months have nothing to separate.
  * - It sets its dates at one scale on every day, with today's indicator drawn only as the tile,
  *   and its week numbers as plain text without a background.
- * - Its day list always puts each row's time beside its title (`MonthDay.monthRowsConfig`).
+ * - Its day list always puts each row's time beside its title (`MonthDay.monthRowsConfig`), and
+ *   draws no clock beside a time.
+ * - It keeps the rest at their shipped values ({@link MONTH_PINNED}), whatever is written.
  */
 export const MONTH_IGNORED_SHARED_KEYS = [
   'height',
@@ -289,7 +291,71 @@ export const MONTH_IGNORED_SHARED_KEYS = [
   'past_date_scale',
   'today_indicator_size',
   'time_position',
+  'time_icon_size',
+  // Pinned (`MONTH_PINNED`): the description, the countdown, the progress bar, the all-day
+  // badge, the line limits and the icons' alignment.
+  'show_description',
+  'show_description_allday',
+  'description_font_size',
+  'description_color',
+  'description_icon_size',
+  'description_max_lines',
+  'show_countdown',
+  'show_countdown_allday',
+  'countdown_max_days',
+  'countdown_exact_days',
+  'show_progress_bar',
+  'progress_bar_color',
+  'progress_bar_height',
+  'progress_bar_width',
+  'allday_badge',
+  'allday_badge_style',
+  'allday_badge_color',
+  'title_max_lines',
+  'time_max_lines',
+  'location_max_lines',
+  'event_icon_vertical_alignment',
 ] as const satisfies ReadonlyArray<Types.MonthIgnoredSharedKeys>;
+
+/**
+ * What a month draws in place of the options it keeps at their shipped values, whatever the card,
+ * its `month:` block or a calendar says (`Types.MonthPinnedKeys`). A day's list and the panel
+ * "+N more" opens draw an event's title, time, location and forecast; its description, countdown,
+ * progress bar and all-day badge are the event details' to show. Every part takes one line under
+ * a compact month's weeks (`MonthDay.monthRowsConfig`) and runs in full in the panel, so no line
+ * limit and no alignment of the icons beside several lines is left to set.
+ *
+ * Applied last by both resolvers (`resolveEffectiveConfig`, `resolveViewOption`), so the month's
+ * grouping, its rows and the custom properties its stylesheet reads all see these values. A
+ * calendar's own `show_description: true` is set aside in the day's list as well
+ * (`MonthDay.monthDayLists`); its `false` still keeps the description out of the event's details.
+ * Each is `DEFAULT_CONFIG`'s value, which `tests/month-registry.test.ts` pins.
+ */
+export const MONTH_PINNED: {
+  readonly [K in Types.MonthPinnedKeys]-?: Types.Config[K] | undefined;
+} = {
+  show_description: false,
+  show_description_allday: true,
+  description_font_size: '12px',
+  description_color: 'var(--secondary-text-color)',
+  description_icon_size: '14px',
+  description_max_lines: 0,
+  show_countdown: false,
+  show_countdown_allday: true,
+  countdown_max_days: undefined,
+  countdown_exact_days: false,
+  show_progress_bar: false,
+  progress_bar_color: 'var(--secondary-text-color)',
+  progress_bar_height: '0.75em',
+  progress_bar_width: undefined,
+  allday_badge: 'off',
+  allday_badge_style: 'subtle',
+  allday_badge_color: 'accent',
+  title_max_lines: 0,
+  time_max_lines: 0,
+  location_max_lines: 0,
+  event_icon_vertical_alignment: 'top',
+};
 
 /**
  * A key list without some of its keys, typed as exactly what it keeps.
@@ -466,13 +532,16 @@ export const VIEWS_WITH_WIDTH_FALLBACK: ReadonlySet<Types.EffectiveView> =
  * inert somewhere. Compact limits apply only to list view for the same reason as
  * `viewAppliesCompactLimits`.
  *
- * Month draws its cells from its own rows and lines, and every event's details in its day list,
- * which is List's rows with Month's options, in the panel "+N more" opens and under a compact
- * month's weeks. So an option a List row reads reaches Month too, unless it shapes the list as a
- * whole, and the scopes below say so wherever they name List and not Month. What Month draws
- * around its events reads fewer: it sizes its card with its own heights, rules its days itself,
- * lists one day at a time and sets its dates at one scale on every day, so the shared heights,
- * the spacing, the rules and the date scales below leave it out.
+ * Month draws its cells from its own rows and lines, and an event's title, time, location and
+ * forecast in its day list, which is List's rows with Month's options, in the panel "+N more"
+ * opens and under a compact month's weeks. So an option a List row reads for those parts reaches
+ * Month too, unless it shapes the list as a whole, and the scopes below say so wherever they name
+ * List and not Month. What Month draws around its events reads fewer: it sizes its card with its
+ * own heights, rules its days itself, lists one day at a time and sets its dates at one scale on
+ * every day, so the shared heights, the spacing, the rules and the date scales below leave it
+ * out. And it keeps the description, the countdown, the progress bar, the all-day badge, the line
+ * limits and the icons' alignment at their shipped values (`MONTH_PINNED`), so those leave it out
+ * as well.
  */
 export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView>>> = {
   date_vertical_alignment: new Set<Types.EffectiveView>(['list']),
@@ -565,13 +634,41 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   // follows show_duration alone.
   show_multiday_allday_time: new Set<Types.EffectiveView>(['list', 'column']),
   show_location_allday: new Set<Types.EffectiveView>(['list', 'column', 'month']),
-  show_description_allday: new Set<Types.EffectiveView>(['list', 'column', 'month']),
-  show_countdown_allday: new Set<Types.EffectiveView>(['list', 'column', 'month']),
+  // Month keeps these two at their shipped values (`MONTH_PINNED`): its rows draw no
+  // description and no countdown.
+  show_description_allday: new Set<Types.EffectiveView>(['list', 'column']),
+  show_countdown_allday: new Set<Types.EffectiveView>(['list', 'column']),
 
-  // Grid banners are title-only; its timed blocks never qualify for an all-day badge.
-  allday_badge: new Set<Types.EffectiveView>(['list', 'column', 'month']),
-  allday_badge_style: new Set<Types.EffectiveView>(['list', 'column', 'month']),
-  allday_badge_color: new Set<Types.EffectiveView>(['list', 'column', 'month']),
+  // Grid banners are title-only; its timed blocks never qualify for an all-day badge. A month
+  // says "All day" in a row's time and keeps its all-day events first, so it draws no badge
+  // (`MONTH_PINNED`).
+  allday_badge: new Set<Types.EffectiveView>(['list', 'column']),
+  allday_badge_style: new Set<Types.EffectiveView>(['list', 'column']),
+  allday_badge_color: new Set<Types.EffectiveView>(['list', 'column']),
+
+  // What a month keeps at its shipped value (`MONTH_PINNED`): its rows draw an event's title,
+  // time, location and forecast, each on one line under a compact month's weeks and in full in
+  // the panel, and leave the description, the countdown and the progress bar to the event's
+  // details.
+  show_description: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  description_font_size: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  description_color: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  description_icon_size: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  description_max_lines: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  show_countdown: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  countdown_max_days: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  countdown_exact_days: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  show_progress_bar: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  progress_bar_color: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  progress_bar_height: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  progress_bar_width: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  title_max_lines: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  location_max_lines: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  event_icon_vertical_alignment: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+
+  // A month draws no clock beside a time: its lines show the time alone, and its day list's
+  // rows put the time beside the title, whose template has none (`renderTimeBesideTitle`).
+  time_icon_size: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
 
   // A grid block lays out its own rows and fits its time itself, so it has no title row for
   // the time to join: `renderTimedEvent` never passes the placement down, and the leaf never
@@ -601,8 +698,9 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   // Grid neutralizes both of the option's clamp paths: the plain time span is blockified,
   // and `.grid-event-disclosure` resets the two properties the folded-countdown span reads
   // to what an unset option writes. Before that reset a clamp on the folded span hid the
-  // whole time row. tests/view-scope-inert.test.ts pins both.
-  time_max_lines: new Set<Types.EffectiveView>(['list', 'column', 'month']),
+  // whole time row. tests/view-scope-inert.test.ts pins both. A month keeps it at its shipped
+  // value (`MONTH_PINNED`): one line under its weeks, in full in the panel.
+  time_max_lines: new Set<Types.EffectiveView>(['list', 'column']),
 
   // A grid block draws its words for the eye only, behind an accessible name of its own
   // (`.grid-event-disclosure` is aria-hidden), and reveals or withdraws its rows as it grows
@@ -1978,6 +2076,9 @@ interface ViewBlock {
 
   /** Options whose shipped default differs in this view. */
   readonly defaultOverrides: Readonly<Record<string, unknown>>;
+
+  /** Options the view keeps at these values whatever is written ({@link MONTH_PINNED}). */
+  readonly pinned?: Readonly<Record<string, unknown>>;
 }
 
 export const VIEW_BLOCKS: Readonly<Partial<Record<Types.EffectiveView, ViewBlock>>> = {
@@ -2011,8 +2112,22 @@ export const VIEW_BLOCKS: Readonly<Partial<Record<Types.EffectiveView, ViewBlock
     onlyKeys: MONTH_ONLY_KEYS,
     onlyDefaults: MONTH_DEFAULTS,
     defaultOverrides: MONTH_DEFAULT_OVERRIDES,
+    pinned: MONTH_PINNED,
   },
 };
+
+/**
+ * Whether a view keeps an option at a fixed value whatever is written, at the top level, in its
+ * block or on a calendar ({@link MONTH_PINNED}).
+ *
+ * @param view - The view drawn
+ * @param key - The option
+ * @returns True where the view pins it
+ */
+export function isPinned(view: Types.EffectiveView, key: string): boolean {
+  const pinned = VIEW_BLOCKS[view]?.pinned;
+  return !!pinned && Object.prototype.hasOwnProperty.call(pinned, key);
+}
 
 /**
  * The block a view reads its overrides from, or `undefined` when it has none.
@@ -2215,6 +2330,10 @@ export function resolveViewOption<K extends keyof Types.ColumnOverrides & keyof 
     return config[key];
   }
 
+  if (block.pinned && Object.prototype.hasOwnProperty.call(block.pinned, key)) {
+    return block.pinned[key] as Types.Config[K];
+  }
+
   const overrides = blockValues(config, effectiveView);
 
   if (overrides && hasOverride(overrides, key)) {
@@ -2275,6 +2394,9 @@ export function resolveEffectiveConfig(
   // Only where it differs, so a card whose weather every view reads alike keeps its identity.
   const weather = resolveViewWeather(config, effectiveView);
   if (weather !== config.weather) applied.weather = weather;
+
+  // Last, so neither the top level nor the block can move what the view keeps fixed.
+  if (block.pinned) Object.assign(applied, block.pinned);
 
   // Identity on the no-op path. List's block has no divergent defaults, so an unpopulated
   // `list:` leaves nothing to apply — and the card memoizes on configuration identity and

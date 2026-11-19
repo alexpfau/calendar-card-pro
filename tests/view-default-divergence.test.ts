@@ -190,8 +190,8 @@ const CROSS_VIEW_ACKNOWLEDGEMENTS: Readonly<
       why: 'The month grid sets its cells edge to edge, ruled, as macOS Calendar does, and its day list, one day long, has no gap between days to take, so VIEW_SCOPE keeps it out. Grid narrows it to 1px so its tinted blocks meet their rule.',
     },
     description_color: {
-      verdict: 'inherits',
-      why: 'A description is drawn only in the day list, whose rows are list rows on the card background, so card-wide ink stays legible there.',
+      verdict: 'ignores',
+      why: 'A month draws no description: its day list and panel leave descriptions to the event details and keep the option at its shipped value (MONTH_PINNED), so VIEW_SCOPE keeps it out.',
     },
     event_background_opacity: {
       verdict: 'inherits',
@@ -210,12 +210,12 @@ const CROSS_VIEW_ACKNOWLEDGEMENTS: Readonly<
       why: 'A location is drawn only in the day list, on the card background, so the card-wide secondary hue keeps its contrast there.',
     },
     progress_bar_color: {
-      verdict: 'inherits',
-      why: 'The progress bar is drawn only in the day list, against the card background, where the card-wide hue reads as it does in list.',
+      verdict: 'ignores',
+      why: 'A month draws no progress bar: its day list and panel keep the progress options at their shipped values (MONTH_PINNED), so VIEW_SCOPE keeps them out.',
     },
     progress_bar_width: {
-      verdict: 'inherits',
-      why: 'The progress bar is drawn only in the day list, whose rows are list rows, so the unset sentinel resolves there as it does in list. Grid needs 100% because a block is a box with an edge.',
+      verdict: 'ignores',
+      why: 'As progress_bar_color: a month draws no progress bar. Grid needs 100% because a block is a box with an edge.',
     },
     show_empty_days: {
       verdict: 'ignores',

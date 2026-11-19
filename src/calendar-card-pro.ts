@@ -4241,7 +4241,11 @@ class CalendarCardPro extends LitElement {
             oneLine: Helpers.titlesOnOneLine(rows, 'month'),
           };
         },
-        styles: () => this.getCustomStyles(),
+        styles: () => this._customProperties(),
+        titleColor: () => {
+          const color = this.effectiveConfig.weekday_color;
+          return color === Config.DEFAULT_CONFIG.weekday_color ? undefined : color;
+        },
         attach: (panel) => {
           this._dayPanel = panel;
           return () => {
@@ -5556,12 +5560,20 @@ class CalendarCardPro extends LitElement {
    * in a Sections slot, which it fills (`_holdsSectionsSlot`).
    */
   private getCustomStyles(): Record<string, string> {
-    const styles = Styles.generateCustomPropertiesObject(this.effectiveConfig);
+    const styles = this._customProperties();
     if (this.effectiveView !== 'month' || this._holdsSectionsSlot) return styles;
     return {
       ...styles,
       ...MonthRender.monthCardStyle(this.config, this._monthCompact ? 'compact' : 'wide'),
     };
+  }
+
+  /**
+   * The custom properties the card's configuration writes, without the card's own size: what the
+   * day panel's rows read, which size to their day rather than to the card.
+   */
+  private _customProperties(): Record<string, string> {
+    return Styles.generateCustomPropertiesObject(this.effectiveConfig);
   }
 
   /** Whether a Sections dashboard gives the card a slot of its own to fill (`Sections.holdsSlot`). */

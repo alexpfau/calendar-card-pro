@@ -16,7 +16,7 @@ import {
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
-import { VIEWS, VIEW_SCOPE } from '../src/config/view';
+import { VIEWS, VIEW_SCOPE, appliesToView } from '../src/config/view';
 import { entryViews, parseFieldId } from '../src/rendering/editor/field-index';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { PAGES, WHOLE_CARD_PAGES } from '../src/rendering/editor/pages';
@@ -72,12 +72,18 @@ function names(schema: ReadonlyArray<HaFormSchema>): string[] {
  * The options a schema's fields write: a top-level field's, through its synthetic mapping, and a
  * block field's own name, which may share a synthetic field's (Month's `card_height`).
  */
-function optionKeys(schema: ReadonlyArray<HaFormSchema>): string[] {
+function optionKeys(schema: ReadonlyArray<HaFormSchema>, workspace: EditorWorkspace): string[] {
+  const view = workspace === 'shared' ? undefined : workspace;
   return [...walkSchema(schema)]
     .filter(({ node }) => 'selector' in node)
-    .flatMap(({ node, dataPath }) =>
-      dataPath.length === 0 ? configKeysForField(node.name) : [node.name],
-    );
+    .flatMap(({ node, dataPath }) => {
+      if (dataPath.length > 0) return [node.name];
+      // A field writing several options writes, on a layout's page, those the layout reads:
+      // Accent Text on Month's governs no description or progress bar color.
+      const keys = configKeysForField(node.name);
+      const read = view === undefined ? keys : keys.filter((key) => appliesToView(key, view));
+      return read.length === 0 ? keys : read;
+    });
 }
 
 /** Starting Layout and Settings For, wherever the open place draws them. */
@@ -160,6 +166,8 @@ function enabled(view: Types.EffectiveView): Partial<Types.Config> {
     show_location: true,
     show_description: true,
     show_countdown: true,
+    // And the progress bar's own three, which are built only while it is on.
+    show_progress_bar: true,
     allday_badge: 'title',
     allday_badge_color: '#b5651d',
     compact_days_to_show: 2,
@@ -174,7 +182,7 @@ function enabled(view: Types.EffectiveView): Partial<Types.Config> {
     // where by default a tap on one opens it.
     event_tap_action: { action: 'none' },
     column: { event_font_size: '19px', show_location: true, show_empty_days: false },
-    time_grid: { event_font_size: '23px', show_empty_days: false },
+    time_grid: { event_font_size: '23px', show_empty_days: false, show_location: true },
   };
 }
 
@@ -190,7 +198,7 @@ const WHOLE_CARD_KEYS: ReadonlySet<string> = new Set(
 function assertWorkspaceFields(editor: EditorHost, current: EditorWorkspace): void {
   const namesInForms = formsOf(editor, CARD).flatMap((form) => names(form.schema));
   expect(namesInForms.length).toBeGreaterThan(50);
-  const main = formsOf(editor, CARD).flatMap((form) => optionKeys(form.schema));
+  const main = formsOf(editor, CARD).flatMap((form) => optionKeys(form.schema, current));
   for (const [key, scope] of Object.entries(VIEW_SCOPE)) {
     // Shared offers a key when more than one layout reads it; a view offers it when that
     // view reads it. Asking `scope.has('shared')` would be false for every scoped key. A Whole

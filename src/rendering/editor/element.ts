@@ -6274,6 +6274,16 @@ export class CalendarCardProEditor extends LitElement {
     }
     const absent = placed.map(([id]) => id).filter((id) => !Chips.inScope(id, workspace));
     const view = Workspace.viewForWorkspace(workspace);
+    // Month's parts that act on its day list and panel alone, which its weeks never draw.
+    const dayList =
+      view === 'month'
+        ? chips
+            .map(({ id }) => id)
+            .filter((id) => {
+              const field = present.get(id);
+              return field !== undefined && Plan.readsInMonthDayListOnly(field);
+            })
+        : [];
     // In the order a setting's facts take: stored here, then where the rest come from.
     const order = ['set', 'source', 'layout'] as const;
     const facts: Shown.Fact[] = order
@@ -6337,6 +6347,13 @@ export class CalendarCardProEditor extends LitElement {
                 layout: layout(view),
                 names: absent.map(label).join(', '),
               })}
+            </p>`
+          : nothing
+      }
+      ${
+        dayList.length > 0
+          ? html`<p class="hint">
+              ${t('chip.day_list', { names: dayList.map(label).join(', ') })}
             </p>`
           : nothing
       }
@@ -6589,6 +6606,25 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * The line a page draws for the layout it edits, where it has one (`PageDef.noteKeyByView`):
+   * Month's Event Appearance and Weather say what its weeks draw.
+   *
+   * @param page - The page
+   * @param scope - The layout it edits, if any
+   * @param ctx - Schema context
+   * @returns The line, or nothing
+   */
+  private _renderLayoutNote(
+    page: PageDef,
+    scope: Workspace.EditorWorkspace | undefined,
+    ctx: SchemaCtx,
+  ): TemplateResult | typeof nothing {
+    const view = scope === undefined ? undefined : Workspace.viewForWorkspace(scope);
+    const key = view === undefined ? undefined : page.noteKeyByView?.[view];
+    return key === undefined ? nothing : PageView.pageLine(this._string(ctx, key));
+  }
+
+  /**
    * A section page: its header, named for the layout it edits or for the whole card, the line
    * that jumps to the same topic in another layout, its note, its headings, the row walking on to
    * the next topic, and Back at its foot.
@@ -6618,7 +6654,7 @@ export class CalendarCardProEditor extends LitElement {
       ${this._renderPickBanner(ctx)} ${this._jumpDrawn() ? nothing : this._renderReturn(ctx)}
       ${lead} ${this._renderPreviewLine(ctx)}
       ${page.noteKey ? PageView.pageLine(this._string(ctx, page.noteKey)) : nothing}
-      ${this._renderPageBody(page, ctx)}
+      ${this._renderLayoutNote(page, scope, ctx)} ${this._renderPageBody(page, ctx)}
       ${
         next === undefined
           ? nothing

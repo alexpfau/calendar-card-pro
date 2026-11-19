@@ -212,7 +212,7 @@ export function workspaceFormData(
     // The card's own `view`, not the layout Settings For projects: the switcher always offers the
     // layout the card opens in, whatever layout is being edited.
     toolbar: Value.toolbarFormBlock({ ...projected, view: startingView(config) }),
-    ...Synthetic.deriveSyntheticData(projected, held),
+    ...Synthetic.deriveSyntheticData(projected, held, viewForWorkspace(workspace)),
   };
   for (const [key, text] of Object.entries(pending)) {
     const parts = key.split('.');
@@ -410,7 +410,12 @@ export function applyWorkspaceChange(
 
     const projection = workspaceConfig(draft, frame.workspace);
     const applied = synthetic
-      ? Synthetic.applySyntheticChange(node.name, next, projection)
+      ? Synthetic.applySyntheticChange(
+          node.name,
+          next,
+          projection,
+          viewForWorkspace(frame.workspace),
+        )
       : { changes: { [node.name]: next } };
     for (const [key, raw] of Object.entries(applied.changes)) {
       const block = destination(key, frame.workspace);

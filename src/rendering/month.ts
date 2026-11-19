@@ -612,6 +612,11 @@ function renderLine(
     event._matchedConfig?.label_type,
     parts.entityLabelAlt,
   );
+  // A calendar's own title color, as a row's title takes it (`Leaves.renderEventTitle`); the
+  // card's reaches the title through its custom property.
+  const ownColor = event._matchedConfig?.color;
+  const titleColor =
+    ownColor && !EntityColors.isAccentTextSentinel(ownColor) ? { color: ownColor } : undefined;
 
   return html`
     <div
@@ -643,7 +648,9 @@ function renderLine(
     >
       ${Leaves.renderAccentBar()}
       ${label === nothing ? nothing : html`<span class="month-line-label">${label}</span>`}
-      <span class="month-line-title">${event.summary ?? ''}</span>
+      <span class="month-line-title" style=${titleColor ? styleMap(titleColor) : nothing}
+        >${event.summary ?? ''}</span
+      >
       ${time === null ? nothing : html`<span class="month-line-time">${time}</span>`}
     </div>
   `;

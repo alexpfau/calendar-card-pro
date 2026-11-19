@@ -494,6 +494,12 @@ describe('the stylesheet', () => {
     );
     expect(floors.map((d) => [d.at, d.selectors, d.value])).toEqual([
       [[], ['.day.today-tile'], 'var(--text-primary-color, #fff)'],
+      // The wide month's filled tile, declared on the tile as well and never on ha-card.
+      [
+        [],
+        ['.month-container:not(.month-compact) .month-date > .day.today-tile'],
+        'var(--text-primary-color, #fff)',
+      ],
     ]);
   });
 

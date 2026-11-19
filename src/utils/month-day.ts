@@ -110,17 +110,30 @@ export function dayListConfig(config: Types.Config, start: Date, days: number): 
 
 /**
  * An event as the day list groups it: split across its days whatever its calendar says
- * (`split_multiday_events` on an entry wins over the card's in List's splitter). Only an event
- * whose entry turns splitting off is copied.
+ * (`split_multiday_events` on an entry wins over the card's in List's splitter), and without its
+ * description whatever its calendar says, since a month leaves descriptions to the event's details
+ * (`ViewConfig.MONTH_PINNED`). The list groups as List does, which pins nothing, so the month's
+ * rule is applied here, as `groupEventsByDay` applies it for Month's own grouping
+ * (`ViewConfig.isPinned`). A calendar's own `show_description: false` stays, so the details
+ * keep that calendar's descriptions private. Only an event whose entry says otherwise is copied.
  *
  * @param event - A source event, matched to its entry
- * @returns The event, or a copy whose entry splits it
+ * @returns The event, or a copy whose entry splits it and draws no description
  */
-function splitAcrossDays(event: Types.CalendarEventData): Types.CalendarEventData {
+function asMonthListsIt(event: Types.CalendarEventData): Types.CalendarEventData {
   const entry = event._matchedConfig;
-  return entry?.split_multiday_events === false
-    ? { ...event, _matchedConfig: { ...entry, split_multiday_events: true } }
-    : event;
+  if (!entry || (entry.split_multiday_events !== false && entry.show_description !== true)) {
+    return event;
+  }
+  const { show_description: description, ...rest } = entry;
+  return {
+    ...event,
+    _matchedConfig: {
+      ...rest,
+      split_multiday_events: true,
+      ...(description === false ? { show_description: false } : {}),
+    },
+  };
 }
 
 /**
@@ -148,7 +161,7 @@ export function monthDayLists(
 ): Types.CalendarEventData[][] {
   if (days <= 0) return [];
   const grouped = EventUtils.groupEventsByDay(
-    events.map(splitAcrossDays),
+    events.map(asMonthListsIt),
     dayListConfig(config, start, days),
     // Expanded, so no compact limit applies whatever a calendar entry sets.
     true,
