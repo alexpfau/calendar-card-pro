@@ -829,10 +829,16 @@ export default css`
     cursor: default;
   }
 
-  .display-choice.layout-choice:hover {
+  /* Each half draws its own fill under the pointer, so the row draws none; the chosen row keeps
+     its tint. */
+  .display-choice.layout-choice:not(:has(input:checked)):hover {
     background: none;
   }
 
+  /* Each half rounds the corners it shares with the row, to the row's 12px less its 1px border, so
+     its fill follows the frame rather than squaring off across it. The frame does not clip, so the
+     row's focus ring is never cut. Logical corners, so a right-to-left editor needs no rule of its
+     own. */
   .layout-pick {
     flex: none;
     display: flex;
@@ -841,6 +847,8 @@ export default css`
     width: 52px;
     min-height: 48px;
     border-inline-end: 1px solid var(--divider-color);
+    border-start-start-radius: 11px;
+    border-end-start-radius: 11px;
     cursor: pointer;
   }
 
@@ -853,16 +861,14 @@ export default css`
     min-height: 48px;
     padding: 8px 4px 8px 12px;
     border: none;
-    border-radius: 0 11px 11px 0;
+    border-radius: 0;
+    border-start-end-radius: 11px;
+    border-end-end-radius: 11px;
     background: none;
     color: var(--primary-text-color);
     cursor: pointer;
     font: inherit;
     text-align: start;
-  }
-
-  .layout-open:dir(rtl) {
-    border-radius: 11px 0 0 11px;
   }
 
   .layout-pick:hover,
@@ -888,6 +894,14 @@ export default css`
     margin-inline: 0;
   }
 
+  /* Layout Defaults ends the Layouts block 12px above its edge, so it rounds its bottom corners as
+     a list's last row does: the frame's radius less its border and those 12px, which at the
+     default radius is nothing. */
+  .layout-block > .layout-defaults:last-child > .nav-row:last-child {
+    border-bottom-left-radius: calc(var(--ha-card-border-radius, 12px) - 13px);
+    border-bottom-right-radius: calc(var(--ha-card-border-radius, 12px) - 13px);
+  }
+
   .layouts-help {
     display: flex;
     flex-direction: column;
@@ -909,6 +923,24 @@ export default css`
     border: 1px solid var(--divider-color);
     border-radius: var(--ha-card-border-radius, 12px);
     padding: 4px 0;
+  }
+
+  /* A row at the frame's top or bottom rounds the two corners it shares with it: the frame's
+     radius less its 1px border and the 4px between it and the rows. That puts the fill's curve
+     inside the frame's, touching it at the sides, where a square corner would cross it. A theme
+     radius taller than the heading above a list's first row would reach that row too, which this
+     leaves square. The frame does not clip, so a focused row's ring is never cut. */
+  .row-group > .rows:first-child > .nav-row:first-child,
+  .row-group > .result:first-child > .nav-row {
+    border-top-left-radius: calc(var(--ha-card-border-radius, 12px) - 5px);
+    border-top-right-radius: calc(var(--ha-card-border-radius, 12px) - 5px);
+  }
+
+  .row-group > .rows:last-child > .nav-row:last-child,
+  .row-group > .result:last-child > .nav-row,
+  .row-group > .nav-row:last-child {
+    border-bottom-left-radius: calc(var(--ha-card-border-radius, 12px) - 5px);
+    border-bottom-right-radius: calc(var(--ha-card-border-radius, 12px) - 5px);
   }
 
   .row-group > .heading {
@@ -1084,6 +1116,18 @@ export default css`
   .menu-item:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: -2px;
+  }
+
+  /* The first and last items round the corners they share with the menu: its 8px less its 1px
+     border and 4px padding. */
+  .menu-item:first-child {
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+  }
+
+  .menu-item:last-child {
+    border-bottom-left-radius: 3px;
+    border-bottom-right-radius: 3px;
   }
 
   /* A checkbox's box, empty or checked, so an item reads as off as plainly as it reads as on. */
